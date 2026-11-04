@@ -1,5 +1,7 @@
 """Stroke width, perimeter, counter width, moments, signed gap, strip coverage and stroke-targeted offsets over quadratic outlines."""
 
+# mypy: disable-error-code="no-untyped-call"
+
 lazy from itertools import pairwise
 lazy import math
 
@@ -7,15 +9,18 @@ import msgspec
 lazy from fontTools.misc.bezierTools import segmentPointAtT
 lazy from fontTools.pens.perimeterPen import PerimeterPen
 lazy from fontTools.pens.statisticsPen import StatisticsPen
+lazy from pathops import Path, PathOp
+lazy from scipy.optimize import minimize_scalar
+lazy from shapely import build_area, maximum_inscribed_circle, MultiLineString
 
 lazy from typography.faces.glyphs import Outline
-lazy from typography.outlines.paths import area, Axis, Box, combined, draw, offset, Operation, pieces, segments, transformed
+lazy from typography.outlines.paths import area, Axis, bounds, Box, combined, draw, offset, pieces, segments, transformed, union
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class Moments(msgspec.Struct, frozen=True, kw_only=True):
-    """Ink center of mass and principal axis direction in degrees within (-90, 90]."""
+    """Ink center of mass and principal axis direction in degrees within [-90, 90]."""
 
     centre: tuple[float, float]
     angle: float
@@ -35,25 +40,34 @@ def perimeter(outline: Outline, /) -> float:
 
 def stroke(outline: Outline, /) -> float:
     """Returns the mean stroke width as twice the area over the perimeter, 0 for the empty outline."""
-    edge = perimeter(outline)
-    return 2 * area(outline) / edge if edge else 0.0
-
-
-def _reach(outline: Outline, pen: float, /) -> float:
-    """Offset where mean stroke `2A/P` reaches a pen width, the root of Steiner's `2(A + P d + pi d^2) = pen (P + 2 pi d)` nearest zero, exact for discs and stroked segments, 0 for an empty outline."""
-    held, edge = area(outline), perimeter(outline)
-    linear, constant = 2 * edge - 2 * math.pi * pen, 2 * held - pen * edge
-    return (-linear + math.sqrt(max(linear * linear - 8 * math.pi * constant, 0.0))) / (4 * math.pi) if edge else 0.0
+    path, pen = Path(), PerimeterPen()
+    draw(path.getPen(), outline)
+    path.draw(pen)
+    return 2 * path.area / pen.value if pen.value else 0.0  # ty: ignore[unsound-return-statement]
 
 
 def restroked(outline: Outline, pen: float, /) -> Outline:
-    """Returns the outline offset until its mean stroke reaches a pen width."""
-    return offset(outline, _reach(outline, pen))
+    """Returns a geometric offset locally fitting the requested mean stroke, empty ink kept empty.
+
+    Fits squared stroke error between the ink's erosion radius and outward growth by the target pen. Topology changes can leave the closest local fit short of the target.
+    """
+    match bounds(outline):
+        case None:
+            return ()
+        case _:
+            fit = minimize_scalar(lambda distance: (stroke(offset(outline, distance)) - pen) ** 2, bounds=(-inradius(outline), pen))
+            return offset(outline, float(fit.x))
+
+
+def counters(outline: Outline, /) -> tuple[Outline, ...]:
+    """Returns bounded empty regions, retaining ink islands and nested holes with their original curves."""
+    holes = union(*((hole,) for _, *holes in pieces(outline) for hole in holes))
+    return pieces(combined(holes, outline, PathOp.DIFFERENCE))
 
 
 def counter(outline: Outline, /) -> float:
-    """Returns the narrowest counter width as twice the inward offset at which each hole's mean stroke reaches zero, 0 for an outline without holes."""
-    return min((-2 * _reach((hole,), 0.0) for _, *holes in pieces(outline) for hole in holes), default=0.0)
+    """Returns the smallest counter's largest inscribed diameter, 0 for an outline without holes."""
+    return min((2 * inradius(void) for void in counters(outline)), default=0.0)
 
 
 def moments(outline: Outline, /) -> Moments:
@@ -73,20 +87,19 @@ def _flattened(outline: Outline, /) -> tuple[tuple[tuple[float, float], ...], tu
         for segment in segments(outline)
         for steps in (max(1, math.ceil(math.sqrt(math.hypot(*(a - 2 * b + c for a, b, c in zip(*segment, strict=True)))))) if len(segment) == 3 else 1,)
     )
-    return (tuple(*run for run in runs), tuple(*pairwise(run) for run in runs))
+    return (tuple(*run for run in runs), tuple(*pairwise(run) for run in runs))  # ty: ignore[unsound-return-statement]
 
 
-def _apart(axis: Axis | None, point: tuple[float, float], start: tuple[float, float], end: tuple[float, float], /) -> float:
-    """Distance from a point to a segment, nearest in any direction, or vertical under an axis where the segment spans the point's abscissa, else infinite, callers swapping an `x` axis onto `y` first."""
+def inradius(outline: Outline, /) -> float:
+    """Returns the largest inscribed circle's radius, 0 for empty ink, retaining holes and islands."""
+    _, edges = _flattened(outline)
+    return float(maximum_inscribed_circle(build_area(MultiLineString(edges)), tolerance=0.25).length) if edges else 0.0  # type: ignore[call-overload]  # ty: ignore[no-matching-overload]
+
+
+def _apart(point: tuple[float, float], start: tuple[float, float], end: tuple[float, float], /) -> float:
+    """Vertical separation where a segment spans a point's abscissa, infinite elsewhere."""
     (px, py), (sx, sy), (dx, dy) = point, start, (end[0] - start[0], end[1] - start[1])
-    match axis:
-        case None:
-            along = min(max(((px - sx) * dx + (py - sy) * dy) / (dx * dx + dy * dy), 0.0), 1.0) if dx or dy else 0.0
-            return math.dist(point, (sx + along * dx, sy + along * dy))
-        case _ if dx and min(sx, end[0]) <= px <= max(sx, end[0]):
-            return abs(py - sy - (px - sx) * dy / dx)
-        case _:
-            return math.inf
+    return abs(py - sy - (px - sx) * dy / dx) if dx and min(sx, end[0]) <= px <= max(sx, end[0]) else math.inf
 
 
 def gap(a: Outline, b: Outline, /, axis: Axis | None = None) -> float:
@@ -98,14 +111,18 @@ def gap(a: Outline, b: Outline, /, axis: Axis | None = None) -> float:
         axis: Axis the distance runs along, `None` for the nearest separation in any direction.
 
     Returns:
-        The separation for disjoint outlines, else the offset at which the deepest intersection piece's mean stroke reaches zero.
+        The separation for disjoint outlines, else the negative radius of the largest circle inside their intersection.
     """
-    match pieces(combined(a, b, Operation.INTERSECTION)):
+    match combined(a, b, PathOp.INTERSECTION):
         case ():
             (points, lines), (others, edges) = (_flattened(transformed(outline, (0.0, 1.0, 1.0, 0.0, 0.0, 0.0)) if axis == "x" else outline) for outline in (a, b))
-            return min((_apart(axis, vertex, *edge) for vertices, spans in ((points, edges), (others, lines)) for vertex in vertices for edge in spans), default=math.inf)
+            return (
+                (float(MultiLineString(lines).distance(MultiLineString(edges))) if lines and edges else math.inf)
+                if axis is None
+                else min((_apart(vertex, *edge) for vertices, spans in ((points, edges), (others, lines)) for vertex in vertices for edge in spans), default=math.inf)
+            )
         case overlaps:
-            return min(_reach(piece, 0.0) for piece in overlaps)
+            return -inradius(overlaps)
 
 
 # --- [COVERAGE]
@@ -113,9 +130,9 @@ def gap(a: Outline, b: Outline, /, axis: Axis | None = None) -> float:
 
 def column_ink(outline: Outline, box: Box, columns: int, /, axis: Axis = "x") -> tuple[float, ...]:
     """Returns the inked fraction of each of `columns` equal strips laid across a box along an axis, left to right or bottom to top."""
-    return tuple(area(combined(outline, (strip.contour,), Operation.INTERSECTION)) / (strip.width * strip.height) for strip in box.strips(columns, axis))
+    return tuple(area(combined(outline, (strip.contour,), PathOp.INTERSECTION)) / (strip.width * strip.height) for strip in box.strips(columns, axis))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Moments", "column_ink", "counter", "gap", "moments", "perimeter", "restroked", "stroke"]
+__all__ = ["Moments", "column_ink", "counter", "counters", "gap", "inradius", "moments", "perimeter", "restroked", "stroke"]

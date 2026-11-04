@@ -39,7 +39,7 @@ public static class HatchPatterns {
     public static IO<int> FromDefaults(RhinoDoc doc, string name) =>
         Rows.Find(doc.HatchPatterns, name)
             .Map(static live => live.Index)
-            .Catch(static error => error.Filter<RhinoFault>().Head is RhinoFault fault && fault.Reason == RhinoReason.Missing, error =>
+            | @catch(static error => error.Filter<RhinoFault>().Head is RhinoFault fault && fault.Reason == RhinoReason.Missing, error =>
                 (from defaults in Products.Many(HatchPattern.GetDefaultHatchPatterns)
                  from held in IO.lift(() => defaults.Find(row => Rows.Names<HatchPattern>().Equals(row.Name, name)).ToFin(error))
                  from index in IO.lift(() => Conversions.Required(Conversions.Present(TableKinds.HatchPatterns.Add(doc, held))))

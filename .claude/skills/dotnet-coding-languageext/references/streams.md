@@ -11,12 +11,7 @@ internal sealed class Replay<A>(Seq<A> items) : IObservable<A> {
     public IDisposable Subscribe(IObserver<A> observer) {
         _ = items.Iter(observer.OnNext);
         observer.OnCompleted();
-        return new Subscription();
-    }
-
-    private sealed class Subscription : IDisposable {
-        public void Dispose() {
-        }
+        return Thinktecture.Empty.Disposable();
     }
 }
 

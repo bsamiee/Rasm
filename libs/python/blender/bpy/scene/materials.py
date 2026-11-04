@@ -10,7 +10,7 @@ from types import MappingProxyType
 from typing import ClassVar, Final, get_args, Literal
 
 import bpy
-from expression import Nothing, Ok, Option, Some
+from expression import Option, Some
 from expression.extra.result import catch
 import msgspec
 import PyOpenColorIO
@@ -32,7 +32,7 @@ from blender.bpy.nodes.graphs import Expr, Term, vector, xyz
 from blender.bpy.nodes.trees import emptied, tree_of
 from blender.bpy.scene.objects import fanned, ObjectState
 from blender.bpy.settings.attachments import Stored
-from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
+from blender.records.faults import accumulated, Fault, Nothing, Ok, Outcome, paired, Reason
 from blender.records.fields import Case, Finite, NonNegative, Unit
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -79,10 +79,10 @@ class DataPass(IntEnum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_ACTIVE: Final = Descriptor.declared(bpy.types.ViewLayer, ("objects", "active"), bpy.types.PointerProperty)
-_ACTIVE_MATERIAL: Final = Descriptor.declared(bpy.types.Object, ("active_material",), bpy.types.PointerProperty)
-_DISPLACEMENT_METHOD: Final = Descriptor.declared(bpy.types.Material, ("displacement_method",), bpy.types.EnumProperty)
-_IMAGES: Final[tuple[str, ...]] = tuple(sorted(bpy.path.extensions_image))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+_ACTIVE: Final = Descriptor[bpy.types.PointerProperty](root=bpy.types.ViewLayer, owner=("objects",), prop=bpy.types.LayerObjects.bl_rna.properties["active"])  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+_ACTIVE_MATERIAL: Final = Descriptor(root=bpy.types.Object, prop=bpy.types.Object.bl_rna.properties["active_material"])
+_DISPLACEMENT_METHOD: Final = Descriptor[bpy.types.EnumProperty](root=bpy.types.Material, prop=bpy.types.Material.bl_rna.properties["displacement_method"])  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+_IMAGES: Final[tuple[str, ...]] = tuple(sorted(bpy.path.extensions_image))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute, unsound-assignment]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -141,9 +141,10 @@ class Materials(msgspec.Struct, frozen=True, kw_only=True):
     """Setup ownerships, color matrix group, and texture set operator."""
 
     @staticmethod
-    def acquisitions(_identity: Identity, /) -> Outcome[Acquisitions]:
+    def acquisitions(_identity: Identity, /) -> Acquisitions:
         """Returns the ownership of each setup case, matrix group, and texture set operator."""
-        return Ok((*(case.ownership for case in get_args(ShadingSetup.__value__)), color_matrix.group, texture_setup))
+        cases: tuple[type[ShadingSetup], ...] = get_args(ShadingSetup.__value__)  # ty: ignore[unsound-assignment]
+        return (*(case.ownership for case in cases), color_matrix.group, texture_setup)
 
 
 # --- [TABLES] ---------------------------------------------------------------------------
@@ -187,9 +188,12 @@ def map_kind(path: str) -> Option[MapKind]:
 
 def classified(paths: tuple[str, ...]) -> Outcome[dict[MapKind, str]]:
     """Classifies files by map kind, accumulating each later file of a kind as a collision with its first."""
-    found = tuple((member, path) for path in paths for member in map_kind(path).to_list())
-    first = dict(reversed(found))
-    return accumulated(Ok(pair).filter_with(lambda held: first[held[0]] == held[1], lambda held: Fault.of(Reason.TAKEN, held[1], member=first[held[0]])) for pair in found).map(dict)
+    first: dict[MapKind, str] = {}
+    return accumulated(
+        Ok((member, path)).filter_with(lambda pair: first.setdefault(*pair) == pair[1], lambda pair: Fault.of(Reason.TAKEN, pair[1], member=first[pair[0]]))
+        for path in paths
+        for member in map_kind(path).to_list()
+    ).map(dict)
 
 
 # --- [GRAPH]
@@ -282,14 +286,10 @@ def material(setup: ShadingSetup, identity: Identity, scope: Option[ExitStack] =
     def built() -> Outcome[bpy.types.Material]:
         return kept(catch(bpy.data.materials.new, exception=RuntimeError)(bpy.path.display_name(setup.ownership.key)).map_error(partial(Fault.of, Reason.REFUSED, setup.ownership.key)), emptied)
 
-    return stored(identity).bind(
-        lambda shading: setup.ownership.made(
-            identity, built, filled=lambda held: tree_of(held).bind(lambda tree: shading.write(tree, setup)).bind(lambda _: shaded(held, setup, identity)), scope=scope
-        )
-    )
+    return setup.ownership.made(identity, built, filled=lambda held: tree_of(held).bind(lambda tree: stored(identity).write(tree, setup)).bind(lambda _: shaded(held, setup, identity)), scope=scope)
 
 
-def stored(identity: Identity) -> Outcome[Stored[ShadingSetup]]:
+def stored(identity: Identity) -> Stored[ShadingSetup]:
     """Returns the store of the shading setup an owned material tree holds."""
     return Stored.keyed(identity, "shading", msgspec.msgpack.Decoder(ShadingSetup))
 
@@ -325,7 +325,8 @@ def texture_setup(call: Call[Empty]) -> Outcome[Answer]:
         )
 
     def published(maps: dict[MapKind, str]) -> Done:
-        return Done(notes=tuple(("INFO", f"{PurePath(path).name} matches no map kind") for path in paths if path not in frozenset(maps.values())))
+        matched = frozenset(maps.values())
+        return Done(notes=tuple(("INFO", f"{PurePath(path).name} matches no map kind") for path in paths if path not in matched))
 
     with ExitStack() as rollback:
         return retained(classified(paths).bind(lambda maps: assigned(maps, rollback).map(published) if maps else answer), rollback)

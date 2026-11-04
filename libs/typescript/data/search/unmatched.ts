@@ -22,8 +22,10 @@ class Unmatched extends Schema.TaggedError<Unmatched, { readonly brand: unique s
         (args) => !Predicate.isString(args[0]),
         <A>(candidates: Iterable<A>, subject: string, query: Option.Option<string>, names: (candidate: A) => Array.NonEmptyReadonlyArray<string>) => {
             const all = Array.fromIterable(candidates);
-            const matched = Option.map(query, (wanted) => all.filter((candidate) => Array.containsWith(Unmatched.named)(names(candidate), wanted)));
-            return Option.exists(matched, Array.isReadonlyArrayEmpty) ? Effect.fail(Unmatched.make({ subject, query, candidates: Unmatched.#shown(all, names) })) : Effect.succeed(Option.getOrElse(matched, () => all));
+            return Option.match(query, {
+                onNone: () => Effect.succeed(all),
+                onSome: (wanted) => Effect.succeed(all.filter((candidate) => Array.containsWith(Unmatched.named)(names(candidate), wanted))).pipe(Effect.filterOrFail(Array.isReadonlyArrayNonEmpty, () => Unmatched.make({ subject, query, candidates: Unmatched.#shown(all, names) }))),
+            });
         },
     );
     static readonly single: {
@@ -49,7 +51,8 @@ class Unmatched extends Schema.TaggedError<Unmatched, { readonly brand: unique s
             Array.take(listed),
         );
         const rest = this.candidates.length - shown.length;
-        return Array.isReadonlyArrayEmpty(this.candidates) ? refused : `${refused}, candidates: ${LISTING.format(rest === 0 ? shown : [...shown, `${rest} more`])}`;
+        const candidates = rest === 0 ? shown : [...shown, `${rest} more`];
+        return Array.isReadonlyArrayEmpty(this.candidates) ? refused : `${refused}, candidates: ${LISTING.format(candidates)}`;
     }
 }
 

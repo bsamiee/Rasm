@@ -1,34 +1,34 @@
 """Soft points in depth layers covering the frame or emitting light, integrated over pixels, the iris, and the scene shutter with ordered occlusion."""
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable
+from functools import cache, partial
 from math import cos, exp2, floor, pi, sin, tau
-from typing import Annotated, Final
+from typing import Annotated, Final, override
 
 import bpy
-from expression import Ok, Option, Some
+from expression import Option, Result, Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
 import OpenImageIO
 from scipy.spatial import cKDTree
 
-from blender.bpy.data.rna.descriptors import Value
-from blender.bpy.extension.identity import Identity, Key
+from blender.bpy.extension.identity import Identity
 from blender.bpy.nodes import textures
 from blender.bpy.nodes.desired import item_key
 from blender.bpy.nodes.functions import POSITION, sampled, W
 from blender.bpy.nodes.interfaces import decoded, fielded, Interface, InterfacePanel
 from blender.bpy.render.compositor import lenses, motion
-from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect, precise, Prepared, Stage
-from blender.bpy.render.compositor.inputs import passed, toggled
+from blender.bpy.render.compositor.effects import CompositorEffect, CompositorRecord, Mix, precise, Prepared, Stage
+from blender.bpy.render.compositor.inputs import toggled
 from blender.bpy.render.compositor.motion import Clock, Shutter
 from blender.imaging.files import buffers
 from blender.imaging.geometry.frames import Region
 from blender.imaging.geometry.lenses import Aperture, fringed
 from blender.imaging.sampling import tiles
 from blender.imaging.sampling.integration import Estimate, Population, Precision, transmitted
-from blender.records.faults import accumulated, Outcome, paired
-from blender.records.fields import AtLeastOne, Case, Finite, NonNegative, Positive, Seed, Unit
+from blender.records.faults import accumulated, Error, Fault, Ok, Outcome, paired, Reason
+from blender.records.fields import AtLeastOne, Finite, NonNegative, Positive, Seed, Unit
 
 from . import bases, emission
 from .bases import Basis, density_range, evaluated, Perlin
@@ -42,15 +42,17 @@ type _Drawn = tuple[npt.NDArray[np.int64], _Floats, _Floats, _Floats, _Floats, _
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Particles(Case, frozen=True, kw_only=True):
+class Particles(CompositorRecord, frozen=True, kw_only=True):
     """Soft points in depth layers covering frame or emitting light: rain, snow, sparks, dust, and stars, every field an entry input the CPU render decodes, the wind basis and coverage ramp holding their node settings."""
+
+    # --- [SETTINGS]
 
     incandescence: Annotated[Unit, msgspec.Meta(description="Blackbody share of emitted color")] = 0.0
     direction: Annotated[Finite, bpy.types.NodeSocketFloatAngle, msgspec.Meta(description="Particle travel direction")] = -pi / 2.0
     turbulence: Annotated[NonNegative, msgspec.Meta(description="Nearest layer sway over greater frame side")] = 0.0
     evolution: Annotated[Finite, msgspec.Meta(description="Signed wind field evolution per second")] = 0.0
     motion_blur: Annotated[bool, msgspec.Meta(description="Streaks each particle across scene shutter")] = True
-    layers: Annotated[int, msgspec.Meta(ge=1, description="Depth layers drawn from far to near")] = 3
+    layers: Annotated[int, msgspec.Meta(ge=1, description="Depth layers ordered near to far")] = 3
     depth: Annotated[AtLeastOne, msgspec.Meta(description="Farthest layer distance over nearest")] = 4.0
     depth_variation: Annotated[Unit, msgspec.Meta(description="Random depth within each layer interval")] = 0.0
     focus: Annotated[Unit, msgspec.Meta(description="Focused depth between nearest and farthest layers")] = 1.0
@@ -69,6 +71,13 @@ class Particles(Case, frozen=True, kw_only=True):
     iris: Aperture = Aperture()
     scintillation: Clock = Clock(speed=0.0)
 
+    # --- [POPULATION]
+
+    @property
+    def shown(self) -> bool:
+        """Whether the population can cover or light the frame through the iris."""
+        return self.population.density > 0.0 and self.iris.obstruction < 1.0 and (self.coverage is not None or self.emission is not None)
+
     @property
     def heading(self) -> _Floats:
         """Unit travel direction."""
@@ -80,35 +89,40 @@ class Particles(Case, frozen=True, kw_only=True):
         return float(self.depth ** (-self.focus))
 
     def layered(self, bounds: Region, held: float, shutter: tuple[float, float], reach: float, rate: float) -> _Drawn:
-        """Draws every layer's occupied cells able to reach the bounds across the shutter, sorted far to near by depth then lattice key, the clock at `rate` scene frames per second.
+        """Draws occupied cells that can reach bounds across shutter, ordered near to far by depth then lattice key.
 
         Returns:
             Lattice keys, depth scales, centers, radii, gains, and tones of the occupied cells.
         """
-        shown = self.population.density > 0.0 and self.iris.obstruction < 1.0 and (self.coverage is not None or self.emission is not None)
+        if not self.shown:
+            empty = np.empty(0, dtype=np.float64)
+            return np.empty((0, 3), dtype=np.int64), empty, np.empty((0, 2), dtype=np.float64), empty, empty, empty
+        velocity, focal = self.heading * (self.clock.speed / rate), self.focal
 
         def layer(index: int) -> tuple[npt.NDArray[np.int64] | _Floats, ...]:
             midpoint = (index + 0.5) / self.layers
             near, far = (self.depth ** (-(midpoint + side * self.depth_variation / (2.0 * self.layers))) for side in (-1.0, 1.0))
             spacing = self.population.spacing * self.depth ** (-midpoint)
-            extent = self.population.spacing * near * self.population.size / 2.0 + self.defocus * max(abs(near - self.focal), abs(far - self.focal))
+            extent = self.population.spacing * near * self.population.size / 2.0 + self.defocus * max(abs(near - focal), abs(far - focal))
             support = np.array((extent / self.squeeze, extent))
-            travel = np.array([self.heading * self.clock.speed / rate * scale * time for scale in (near, far) for time in (held + shutter[0], held + shutter[1])])
+            travel = np.outer((near, far), held + np.asarray(shutter)).reshape(-1, 1) * velocity
             low, high = travel.min(axis=0) - self.turbulence * near * reach - support, travel.max(axis=0) + self.turbulence * near * reach + support
-            columns = np.arange(floor((bounds.left - high[0]) / spacing) - 1, floor((bounds.right - low[0]) / spacing) + 1)
-            rows = np.arange(floor((bounds.bottom - high[1]) / spacing) - 1, floor((bounds.top - low[1]) / spacing) + 1)
+            columns = np.arange(floor((bounds.left - high[0]) / spacing) - 1, floor((bounds.right - low[0]) / spacing) + 1, dtype=np.int64)
+            rows = np.arange(floor((bounds.bottom - high[1]) / spacing) - 1, floor((bounds.top - low[1]) / spacing) + 1, dtype=np.int64)
             cells = np.stack(np.meshgrid(columns, rows), axis=-1).reshape(-1, 2)
             keys = np.column_stack((cells, np.full(len(cells), index)))
             draws = tiles.uniforms(keys, tiles.stream(Particles), 7, seed=self.seed)
-            kept = (draws[:, 0] < self.population.density) & shown
+            kept = draws[:, 0] < self.population.density
             depths = midpoint + self.depth_variation * (draws[kept, 6] - 0.5) / self.layers
             scales = self.depth ** (-depths)
-            x, y, radii, gains = self.population.placed((cells[kept, 0], cells[kept, 1]), tuple(draws[kept, :6].T), np, spacing=spacing, scale=scales)
-            return keys[kept], depths, scales, np.column_stack((x, y)), radii, gains, draws[kept, 3]
+            x, y, radii, gains = self.population.placed((cells[kept, 0], cells[kept, 1]), tuple(draws[kept, :6].T), np.exp2, spacing=spacing, scale=scales)
+            return keys[kept], depths, scales, np.column_stack((x, y)), radii, gains, draws[kept, 3]  # ty: ignore[invalid-return-type]
 
         keys, depths, scales, centers, radii, gains, tones = (np.concatenate(columns) for columns in zip(*map(layer, range(self.layers))))
         order = np.lexsort((keys[:, 0], keys[:, 1], keys[:, 2], depths))
         return keys[order], scales[order], centers[order], radii[order], gains[order], tones[order]
+
+    # --- [INTEGRATION]
 
     def applied(
         self,
@@ -135,26 +149,44 @@ class Particles(Case, frozen=True, kw_only=True):
             linear_rgb: Scene-linear RGB of a spectrum at tones.
 
         Returns:
-            Estimated plane with replicate error, or image, color, and node evaluation faults.
+            Estimated plane with replicate error, or image, color, and node evaluation faults. The image aliases the unchanged input when the population cannot contribute.
         """
+        if not self.shown:
+            return buffers.pixels(plane).map(lambda values: Estimate.of(np.broadcast_to(values.astype(np.float64), (precision.replicates, *values.shape)), precision).holding(plane))
         held = self.clock.held(frame)
         opening, closing = shutter if self.motion_blur else (0.0, 0.0)
-        low, high = density_range(self.wind)
-        reach = max(abs(2.0 * low - 1.0), abs(2.0 * high - 1.0))
-        channel = np.array(fringed(np.asarray(self.fringe), np))
-        keys, scales, centers, radii, gains, tones = self.layered(bounds, held, (opening, closing), reach, rate)
+        match Ok(0.0) if self.turbulence == 0.0 else density_range(self.wind).map(lambda span: max(abs(2.0 * value - 1.0) for value in span)):
+            case Result(tag="ok", ok=reach):
+                channel = np.array(fringed(np.asarray(self.fringe), np))
+            case Result(error=faults):
+                return Error(faults)
+        keys, scales, rest_centers, radii, gains, tones = self.layered(bounds, held, (opening, closing), reach, rate)
         count = len(keys)
         optical = radii + self.defocus * np.abs(scales - self.focal)
-        extent = optical * channel.max() * max(1.0, 1.0 / self.squeeze) + scales * (self.clock.speed / rate * max(abs(held + opening), abs(held + closing)) + self.turbulence * reach)
-        tree = cKDTree(centers) if count else None
+        speed, heading = self.clock.speed / rate, self.heading
+        centers = rest_centers + held * heading * speed * scales[:, None]
+        sway = self.turbulence * scales * reach
+        extent = optical * max(1.0, 1.0 / self.squeeze) + scales * (speed * max(abs(opening), abs(closing))) + 2.0**0.5 * sway
+        tree = cKDTree(centers)
+        largest_extent = extent.max(initial=0.0)
+
+        @cache
+        def neighbors(index: np.intp) -> npt.NDArray[np.intp]:
+            near = np.asarray(tree.query_ball_point(centers[index], extent[index] + largest_extent, return_sorted=True), dtype=np.intp)
+            return near[(near < index) & (np.linalg.norm(centers[near] - centers[index], axis=-1) <= extent[near] + extent[index])]  # type: ignore[no-any-return]
 
         def moved(selected: npt.NDArray[np.intp], times: _Floats) -> Outcome[_Floats]:
-            rest: _Floats = centers[selected] + times[:, None] * self.heading * (self.clock.speed / rate) * scales[selected, None]
+            rest: _Floats = rest_centers[selected] + times[:, None] * heading * speed * scales[selected, None]
             if self.turbulence == 0.0 or len(selected) == 0:
                 return Ok(rest - (bounds.left, bounds.bottom))
             points, evolved = rest / scales[selected, None], self.evolution * times / rate
-            sway = accumulated(evaluated(identity, self.wind, points, evolved, seed=self.seed, stream=tiles.stream(Particles.wind, axis)) for axis in range(2))
-            return sway.map(lambda axes: rest - (bounds.left, bounds.bottom) + self.turbulence * scales[selected, None] * (2.0 * np.stack([held_axis[:, 0] for held_axis in axes], axis=-1) - 1.0))
+            wind = evaluated(identity, self.wind, points, evolved, seed=self.seed, streams=tuple(tiles.stream(Particles.wind, axis) for axis in range(2)), outputs=lambda density, _tone: (density,))
+            return (
+                wind
+                .map(lambda fields: np.stack(fields, axis=-1, dtype=np.float64))
+                .filter_with(lambda fields: bool(np.isfinite(fields).all()), partial(Fault.of, Reason.OUTSIDE, item_key(type(self), Particles.wind), member="finite density"))
+                .map(lambda fields: rest - (bounds.left, bounds.bottom) + self.turbulence * scales[selected, None] * (2.0 * fields - 1.0))
+            )
 
         def profiles(selected: npt.NDArray[np.intp], offsets: _Floats) -> _Floats:
             scaled = (offsets * (self.squeeze, 1.0))[..., None, :] / (optical[selected, None, None, None] * np.where(channel > 0.0, channel, 1.0)[:, None])
@@ -162,14 +194,11 @@ class Particles(Case, frozen=True, kw_only=True):
             return np.where(channel > 0.0, profile, 0.0)
 
         def modulated(selected: npt.NDArray[np.intp], times: _Floats) -> Outcome[_Floats]:
-            if not (self.emission is not None and self.twinkle > 0.0) or len(selected) == 0:
+            if not (self.emission is not None and self.twinkle > 0.0):
                 return Ok(np.ones(len(times), dtype=np.float64))
             moments = self.scintillation.clock(frame, rate) + self.scintillation.speed / rate * (times - held)
             twinkle = textures.Noise(noise_dimensions="4D", scale=1.0, detail=0.0).node(POSITION, W)
             return sampled(identity, {"position": keys[selected].astype(np.float64), "w": moments}, twinkle).map(lambda fields: 1.0 - self.twinkle * fields[0].astype(np.float64))
-
-        def split(values: _Floats, sizes: list[int]) -> list[_Floats]:
-            return np.split(values, np.cumsum(sizes)[:-1]) if sizes else []
 
         def rendered(source: _Floats, coating: _Floats, light: _Floats, thermal: _Floats) -> Outcome[Estimate[OpenImageIO.ImageBuf]]:
             height, width = source.shape[:2]
@@ -190,32 +219,19 @@ class Particles(Case, frozen=True, kw_only=True):
                     positions = rest.reshape(count, samples, 2) + offsets
                     inside = (positions[..., 0] >= 0.0) & (positions[..., 0] < width * dx) & (positions[..., 1] >= 0.0) & (positions[..., 1] < height * dy)
                     active = np.flatnonzero(inside.any(axis=1))
+                    if len(active) == 0:
+                        return Ok(None)
                     kept = [times[index][inside[index]] for index in active]
-                    found = tree.query_ball_point(centers[active], extent[active] + extent.max(), return_sorted=True) if tree is not None and len(active) else []
-                    nearer = [
-                        held_near[np.linalg.norm(centers[held_near] - centers[index], axis=-1) <= extent[held_near] + extent[index]]
-                        for index, near in zip(active, found, strict=True)
-                        for held_near in (np.asarray([candidate for candidate in near if candidate < index], dtype=np.intp),)
-                    ]
-                    pairs = [len(near) * len(held_times) for near, held_times in zip(nearer, kept, strict=True)]
-                    occluding = moved(
-                        np.concatenate([np.repeat(near, len(held_times)) for near, held_times in zip(nearer, kept, strict=True)] or [np.zeros(0, dtype=np.intp)]),
-                        np.concatenate([np.tile(held_times, len(near)) for near, held_times in zip(nearer, kept, strict=True)] or [np.zeros(0)]),
-                    )
-                    flickering = modulated(np.repeat(active, [len(held_times) for held_times in kept]), np.concatenate(kept or [np.zeros(0)]))
-                    return paired(occluding, flickering).map(
-                        lambda parts: added(positions, inside, active, kept, nearer, split(parts[0], pairs), split(parts[1], [len(held_times) for held_times in kept]))
-                    )
-
-                def added(
-                    positions: _Floats,
-                    inside: npt.NDArray[np.bool_],
-                    active: npt.NDArray[np.intp],
-                    kept: list[_Floats],
-                    nearer: list[npt.NDArray[np.intp]],
-                    occluders: list[_Floats],
-                    twinkles: list[_Floats],
-                ) -> None:
+                    sizes = [len(held_times) for held_times in kept]
+                    nearer = [neighbors(index) for index in active]
+                    pairs = [len(near) * size for near, size in zip(nearer, sizes)]
+                    occluding = moved(np.concatenate(list(map(np.repeat, nearer, sizes))), np.concatenate([np.tile(held_times, len(near)) for near, held_times in zip(nearer, kept)]))
+                    flickering = modulated(np.repeat(active, sizes), np.concatenate(kept))
+                    match paired(occluding, flickering):
+                        case Result(tag="ok", ok=(blocked, flicker)):
+                            occluders, twinkles = np.split(blocked, np.cumsum(pairs)[:-1]), np.split(flicker, np.cumsum(sizes)[:-1])
+                        case Result(error=faults):
+                            return Error(faults)
                     for slot, index in enumerate(active):
                         selected, arrived, near = inside[index], positions[index][inside[index]], nearer[slot]
                         columns = np.floor(arrived[:, 0] / dx).astype(np.intp)
@@ -236,16 +252,16 @@ class Particles(Case, frozen=True, kw_only=True):
                             peak = np.divide(energy * illuminant[index], area, out=np.zeros(3, dtype=np.float64), where=channel > 0.0)
                             contribution[:, :3] += profile * peak * twinkles[slot][:, None]
                         np.add.at(observation, (rows, columns), contribution * (weight[index] / samples * temporal * transmittance)[:, None])
+                    return Ok(None)
 
                 return moved(np.repeat(np.arange(count), samples), times.reshape(-1)).bind(placed)
 
             observations = np.broadcast_to(source, (precision.replicates, *source.shape)).copy()
-
-            def estimated(_: tuple[None, ...]) -> Outcome[Estimate[OpenImageIO.ImageBuf]]:
-                estimate = Estimate.of(observations, precision)
-                return buffers.located(estimate.value.astype(np.float32), plane).map(estimate.holding)
-
-            return accumulated(deposited(observations[replicate], replicate) for replicate in range(precision.replicates)).bind(estimated)
+            return (
+                accumulated(deposited(observations[replicate], replicate) for replicate in range(precision.replicates))
+                .map(lambda _: Estimate.of(observations, precision))
+                .bind(lambda estimate: buffers.located(estimate.value.astype(np.float32), plane).map(estimate.holding))
+            )
 
         zeros, ones = np.zeros((count, 3), dtype=np.float64), np.ones((count, 3), dtype=np.float64)
         return accumulated((
@@ -254,6 +270,40 @@ class Particles(Case, frozen=True, kw_only=True):
             linear_rgb(self.emission.spectrum, tones) if self.emission is not None else Ok(zeros),
             linear_rgb(self.temperature, tones) if self.emission is not None and self.incandescence > 0.0 else Ok(ones),
         )).bind(lambda parts: rendered(*parts))
+
+    # --- [RENDERING]
+
+    requested = staticmethod(precise)
+
+    @property
+    @override
+    def prepared(self) -> Callable[[Stage], Outcome[Option[Prepared]]]:
+        """Integrates particle light over the captured window and the scene shutter."""
+
+        def prepared(stage: Stage) -> Outcome[Option[Prepared]]:
+            timing = Shutter.of(stage.scene)
+            covered = toggled(stage.values, lambda: colored(stage.values, self.coverage or Tint(), _COVERAGE), _COVERAGE)
+            lit = toggled(stage.values, lambda: emission.selected(_EMISSION, self.emission or Emission(), stage.values), _EMISSION)
+            wind = bases.selected(_WIND, self.wind, stage.values)
+            return (
+                paired(decoded(self, stage.values), covered, lit, wind)
+                .map(lambda parts: msgspec.structs.replace(parts[0], coverage=parts[1].to_optional(), emission=parts[2].to_optional(), wind=parts[3]))
+                .bind(
+                    lambda particles: particles.applied(
+                        stage.identity,
+                        stage.image,
+                        stage.rasters[0].bounds,
+                        frame=stage.scene.frame_current_final,
+                        rate=motion.rate(stage.scene),
+                        shutter=(timing.opening * timing.length, (timing.opening + 1.0) * timing.length),
+                        precision=stage.precision,
+                        linear_rgb=partial(spectrum, stage.identity, config=stage.config),
+                    )
+                )
+                .map(Some)
+            )
+
+        return prepared
 
 
 # --- [INTERFACES] -----------------------------------------------------------------------
@@ -276,41 +326,9 @@ _INTERFACE: Final = Interface(
     ),
 )
 
-# --- [OPERATIONS] -----------------------------------------------------------------------
-
-
-def _held(record: Particles, values: Mapping[Key, Value]) -> Outcome[Particles]:
-    """Particles the entry inputs hold, coverage and emission absent while their panels are off, the wind basis and coverage ramp keeping the record's node settings."""
-    covered = toggled(values, lambda: colored(values, record.coverage or Tint(), _COVERAGE), _COVERAGE)
-    lit = toggled(values, lambda: emission.selected(_EMISSION, record.emission or Emission(), values), _EMISSION)
-    wind = bases.selected(_WIND, record.wind, values)
-    return paired(decoded(record, values), covered, lit, wind).map(lambda parts: msgspec.structs.replace(parts[0], coverage=parts[1].to_optional(), emission=parts[2].to_optional(), wind=parts[3]))
-
-
-def _drawn(stage: Stage[Particles]) -> Outcome[Option[Prepared]]:
-    """Integrates particle light over the captured window and the scene shutter."""
-    timing = Shutter.of(stage.scene)
-    return (
-        _held(stage.record, stage.values)
-        .bind(
-            lambda particles: particles.applied(
-                stage.identity,
-                stage.image,
-                stage.frame.window(stage.image.spec())[0],
-                frame=stage.scene.frame_current_final,
-                rate=motion.rate(stage.scene),
-                shutter=(timing.opening * timing.length, (timing.opening + 1.0) * timing.length),
-                precision=stage.precision,
-                linear_rgb=lambda request, tones: spectrum(stage.identity, request, tones, stage.config),
-            )
-        )
-        .map(Some)
-    )
-
-
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-particles: Final = CompositorEffect(passed, record=Particles, interface=_INTERFACE, mix=Blended(alpha=Alpha.RESULT), prepared=Some(_drawn), request=Some(precise))
+particles: Final = CompositorEffect(record=Particles, interface=_INTERFACE, mix=Mix.RESULT)
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

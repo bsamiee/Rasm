@@ -7,6 +7,7 @@ using Rhino.DocObjects;
 using Rhino.Render;
 using Rhino.Render.PostEffects;
 using Rhino.UI;
+using static Rhino.Render.RenderWindow;
 
 namespace Rasm.Rhino.Render.Sessions;
 
@@ -83,7 +84,7 @@ internal sealed class BatchPipeline : RenderPipeline {
             Session.PlugIn,
             start.Switch(doc, full: static (held, _) => RenderSize(held, fromRenderSources: true), region: static (_, region) => region.Rectangle.Size),
             engine.Caption.Local,
-            engine.Channels,
+            engine.Channels.Fold(StandardChannels.None, static (channels, channel) => channels | channel),
             reuseRenderWindow: false,
             clearLastRendering: false,
             ref handed) =>
@@ -114,7 +115,7 @@ internal sealed class BatchPipeline : RenderPipeline {
 
     private bool Begin(Option<Size> quiet, [CallerMemberName] string member = "") =>
         Session.Run(
-            from window in IO.lift(() => Conversions.Required(global::Rhino.Render.RenderWindow.FromSessionId(RenderSessionId)))
+            from window in IO.lift(() => Conversions.Required(FromSessionId(RenderSessionId)))
             from started in context.Start(
                 window,
                 from view in start.Switch(

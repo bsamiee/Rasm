@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-telemetry-composed-by-hand
-language: rust
+language: rustlang
 severity: error
 ignores: ['libs/rust/services/telemetry/**']
 utils:
@@ -58,4 +58,4 @@ rule:
             - matches: {rust-imported-name: {source: {regex: '\b(tracing|global|panic)\b'}, name: {regex: '^(set_global_default|set_default|with_default|set_(tracer_provider|meter_provider|text_map_propagator)|set_hook|take_hook)$'}}}
         - not: {matches: rust-test-scope}
 message: '`$SITE` installs a subscriber, `LogTracer`, provider, or propagator outside `rasm-telemetry`, or a panic hook dropping the one before it'
-note: 'Run process entry through `rasm_command::run`, and chain a hook held for process lifetime onto the previous hook through `panic::update_hook` calling its first parameter'
+note: 'Start through `rasm_command::run`; keep panic hooks for process lifetime and call their predecessor through `panic::update_hook`'

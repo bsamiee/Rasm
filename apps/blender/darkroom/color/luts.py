@@ -1,22 +1,23 @@
 """Darkroom LUTs: the chain's render-enabled pointwise entries sampled through the compositor into a LUT file, a tone entry sampled into an installed view, and strip modifier bakes."""
 
+# ruff: file-ignore[relative-imports]
 from contextlib import nullcontext
 from functools import partial
-from typing import Any, Final
+from typing import Final
 
 from bl_ui.space_topbar import TOPBAR_MT_file_export
 import bpy
-from expression import Nothing, Ok, Option, Some
+from expression import Option, Some
 import numpy as np
 import numpy.typing as npt
 import PyOpenColorIO
 
 from blender.bpy.commands.invocations import Popup, Save
-from blender.bpy.commands.operators import Answer, Call, Done, Empty, Notes, NoUndo, Operator
+from blender.bpy.commands.operators import Answer, Call, Done, Empty, Notes, Operator
 from blender.bpy.data.ids.ownership import Mark
 from blender.bpy.data.rna import conditions
 from blender.bpy.data.rna.paths import rooted, Struct
-from blender.bpy.data.rna.properties import Callbacks, held_choices, IconedItem
+from blender.bpy.data.rna.properties import Callbacks, choices, IconedItem
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.render.color.luts import Baking, extension, lattice_of, LatticeFields, LutExport, output
 from blender.bpy.render.color.spaces import ConfigInstall, ConfigView, viewed
@@ -25,7 +26,8 @@ from blender.bpy.render.previews.scenes import PreviewScene
 from blender.bpy.settings.attachments import Attachment
 from blender.bpy.ui.elements.menus import Append
 from blender.bpy.ui.layout.rows import OperatorButton
-from blender.records.faults import Fault, Outcome, paired
+from blender.imaging.color.processors import DisplayView
+from blender.records.faults import Fault, Nothing, Ok, Outcome, paired
 
 from ..catalog import chain, tones
 from ..effects.formation.display import formation
@@ -52,23 +54,27 @@ def selected(identity: Identity, scene: bpy.types.Scene, kinds: Option[frozenset
 
     def wanted(entry: bpy.types.SceneCompositorEffect) -> bool:
         unpinned = Option.of_optional(entry.node_group).bind(lambda group: Mark.read(identity, group)).filter(lambda mark: mark.key in pinned).is_none()
-        return unpinned and kinds.map(lambda held: chain.row(identity, entry).filter(lambda row: row.kind in held).is_some()).default_value(True)
+        return unpinned and kinds.map(lambda held: chain.row(identity, entry).filter(lambda row: row.kind in held).is_some()).default_value(value=True)
 
     checked = tuple((entry, chain.pointwise(identity, entry)) for entry in scene.compositor_effects if entry.enable_for_render and wanted(entry))
     return tuple(entry for entry, read in checked if read.is_ok()), tuple(fault for _, read in checked for faults in read.swap().to_option().to_list() for fault in faults)
 
 
+def closing(identity: Identity, scene: bpy.types.Scene, entries: tuple[bpy.types.SceneCompositorEffect, ...]) -> Option[DisplayView]:
+    """Returns the scene view closing entries that contain no formation."""
+    return Nothing if any(chain.row(identity, entry).filter(lambda row: row.kind == formation.kind).is_some() for entry in entries) else Some(viewed(scene))
+
+
 def formed(identity: Identity, scene: bpy.types.Scene, entries: tuple[bpy.types.SceneCompositorEffect, ...], plane: npt.NDArray[np.float32]) -> Outcome[npt.NDArray[np.float32]]:
-    """Samples a plane through the entries in the compositor, closed through the scene view while no formation entry forms it."""
-    sampled = PreviewScene().sampled(identity, scene, entries, plane)
-    closed = any(chain.row(identity, entry).filter(lambda row: row.kind == formation.kind).is_some() for entry in entries)
-    return sampled if closed else sampled.bind(lambda values: viewed(scene).form(PyOpenColorIO.GetCurrentConfig(), values))
+    """Samples entries through their closing view, if present."""
+    view = closing(identity, scene, entries)
+    return PreviewScene().sampled(identity, scene, entries, plane).bind(lambda values: view.map(lambda held: held.form(PyOpenColorIO.GetCurrentConfig(), values)).default_value(Ok(values)))
 
 
 # --- [COMMANDS]
 
 
-@Operator.of(Baking, condition=Some(conditions.Job(kind="RENDER")), invoke=Some(Save[Baking](extensions=extension)), undo=NoUndo())
+@Operator.of(Baking, condition=Some(conditions.Job(kind="RENDER")), invoke=Some(Save[Baking](extensions=extension)), options=frozenset())
 def bake_chain(call: Call[Baking]) -> Outcome[Answer]:
     """Bake the render-enabled pointwise chain entries into a LUT sampled through the compositor."""
     lattice = lattice_of(call.properties)
@@ -87,24 +93,26 @@ def bake_chain(call: Call[Baking]) -> Outcome[Answer]:
     return rooted(bpy.types.Scene, call.context).bind(baked)
 
 
-def tone_entries(identity: Identity, scene: bpy.types.Scene) -> tuple[Owned[Any], ...]:
+def tone_entries(identity: Identity, scene: bpy.types.Scene) -> tuple[Owned, ...]:
     """Returns the scene's tone entries in stack order."""
-    members = frozenset(row.kind for row in tones.members)
+    members = frozenset(row.kind for row in tones)
     return tuple(held for held in chain.owned(identity, scene) if held.row.kind in members)
 
 
 def offered(identity: Identity, _owner: Struct, context: bpy.types.Context | None) -> tuple[IconedItem, ...]:
     """Item rows of the context scene's tone entries, each titled by its effect, the first the default."""
     scenes = Option.of_optional(context).bind(lambda held: rooted(bpy.types.Scene, held).to_option()).to_list()
-    return held_choices(tuple((held.entry.name, held.entry.name, held.row.title, 0, index) for scene in scenes for index, held in enumerate(tone_entries(identity, scene))))
+    return choices(tuple((held.entry.name, held.entry.name, held.row.title, 0, index) for scene in scenes for index, held in enumerate(tone_entries(identity, scene))))
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-TONE_VIEW: Final = Attachment(key="tone_view", form=ToneView, owner=bpy.types.WindowManager, callbacks=Some(lambda identity: nullcontext({"entry": Callbacks(items=partial(offered, identity))})))
+TONE_VIEW: Final = Attachment(
+    key="tone_view", form=ToneView, owner=bpy.types.WindowManager, callbacks=Some(lambda identity: nullcontext({"entry": Callbacks[ToneView](items=partial(offered, identity))}))
+)
 
 
-@Operator.of(Empty, condition=Some(conditions.Job(kind="RENDER")), invoke=Some(Popup(partial(bpy.types.WindowManager.invoke_props_dialog))), draw=Some(TONE_VIEW.fields), undo=NoUndo())
+@Operator.of(Empty, condition=Some(conditions.Job(kind="RENDER")), invoke=Some(Popup(partial(bpy.types.WindowManager.invoke_props_dialog))), draw=Some(TONE_VIEW.fields), options=frozenset())
 def install_tone_view(call: Call[Empty]) -> Outcome[Answer]:
     """Install a sampled tone entry as a view read on restart."""
 
@@ -115,7 +123,7 @@ def install_tone_view(call: Call[Empty]) -> Outcome[Answer]:
             .found(call.identity, scene, settings.entry)
             .bind(lambda held: chain.pointwise(call.identity, held.entry).map(lambda _: held.entry))
             .bind(lambda entry: lattice.samples().bind(lambda plane: PreviewScene().sampled(call.identity, scene, (entry,), plane)))
-            .bind(lambda values: ConfigInstall(views=(ConfigView(name=settings.view, description=settings.description, transform=lambda _base: Ok(lattice.transform(values))),)).written())
+            .bind(lambda values: ConfigInstall(views=(ConfigView(name=settings.view, description=settings.description, transform=lambda: Ok(lattice.transform(values))),)).written())
             .map(lambda path: Done(notes=(("INFO", f"Installed view {settings.view} into {path}, restart Blender to read it"),)))
         )
 
@@ -128,4 +136,4 @@ rows: Final = (luts, TONE_VIEW, Append(target=TOPBAR_MT_file_export, rows=(Opera
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["TONE_VIEW", "ToneView", "bake_chain", "formed", "install_tone_view", "luts", "offered", "rows", "selected", "tone_entries"]
+__all__ = ["TONE_VIEW", "ToneView", "bake_chain", "closing", "formed", "install_tone_view", "luts", "offered", "rows", "selected", "tone_entries"]

@@ -7,10 +7,7 @@ rule:
     pattern: $PARSE
     all:
         - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Try)?Parse(Exact)?$'}}
-        - matches: {csharp-owned-parse: {owner: {pattern: $OWNER}, argument: {pattern: $ARGUMENT}}}
-transform:
-    WRAPPED: {replace: {source: $ARGUMENT, replace: '^((?s).*)$', by: '($1)'}}
-fix: $OWNER$WRAPPED
+        - matches: {csharp-owned-parse: {owner: {pattern: $OWNER}, argument: {pattern: $_}}}
 labels:
     PARSE: {style: primary, message: Inlined parse}
     OWNER: {style: secondary, message: Method whose body is the parse}

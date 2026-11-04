@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-eval
-language: bash
+language: bashlang
 severity: error
 utils:
     expanded-word:
@@ -27,7 +27,18 @@ rule:
                     - has: {kind: herestring_redirect, has: {matches: expanded-word}}
                     - not: {has: {kind: 'word, string, raw_string, concatenation, simple_expansion, expansion', not: {regex: '^(-[a-zA-Z]+|/dev/stdin)$'}}}
         - all:
+            - has: {field: name, pattern: $NAME, matches: shell}
+            - not: {has: {field: argument, not: {regex: '^(-[a-zA-Z]+|/dev/stdin)$'}}}
+            - inside:
+                kind: redirected_statement
+                has:
+                    field: redirect
+                    kind: file_redirect
+                    all:
+                        - has: {regex: '^<$'}
+                        - has: {field: destination, kind: process_substitution}
+        - all:
             - has: {field: name, pattern: $NAME, regex: '^trap$'}
             - has: {matches: expanded-word, not: {kind: string}, nthChild: 2}
-message: '`$NAME` parses expanded data as shell code'
-note: 'Run `"${<command>[@]}"`, pass values after `bash -c ''<script>'' _`, and single-quote trap handlers (`trap ''<command> "$<value>"'' <signal>`)'
+message: '`$NAME` parses text as shell code'
+note: Pass data through arguments or stdin and keep evaluated shell text constant

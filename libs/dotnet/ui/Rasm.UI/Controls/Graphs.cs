@@ -47,8 +47,8 @@ public sealed record Graph<TNode>(Seq<TNode> Nodes, Func<TNode, Key> Key, Func<T
     where TNode : notnull {
     // --- [STATE]
     private static readonly Seq<View> Gridlines = toSeq(PhysicalAxis.Items).Bind(static along => Seq<View>(
-        new View.Mark(new Figure.Grid(along) { Major = false }) { Role = Role.GridFine },
-        new View.Mark(new Figure.Grid(along)) { Role = Role.Grid }));
+        new View.Mark(new Figure.Grid(along) { Major = false }) { Role = Roles.GridFine },
+        new View.Mark(new Figure.Grid(along)) { Role = Roles.Grid }));
 
     public Option<Func<TNode, Vector2>> Position { get; init; }
     public Func<TNode, Seq<Port>> Inputs { get; init; } = static _ => [];
@@ -70,17 +70,20 @@ public sealed record Graph<TNode>(Seq<TNode> Nodes, Func<TNode, Key> Key, Func<T
     public bool Snaps { get; init; }
     public bool Minimap { get; init; }
     public Option<Interpolation> Curve { get; init; }
-    public Role Role { get; init; } = Role.Well;
+    public Key Role { get; init; } = Roles.Well;
 
     // --- [DRAW]
     public View Drawn {
         get {
-            Seq<Key> keys = Nodes.Map(Key).Strict();
-            HashMap<Key, Vector2> positions = Position.Match(Some: at => toHashMap(Nodes.Map(node => (Key(node), at(node)))), None: () => Layered(keys));
-            HashMap<Key, SKRect> boxes = toHashMap(Nodes.Choose(node => positions.Find(Key(node)).Map(at => (Key(node), Boxed(node, at)))));
-            HashMap<Socket, Slot> slots = toHashMap(from node in Nodes from box in boxes.Find(Key(node)).ToSeq() from slot in Slots(node, box) select (slot.Socket, slot));
-            HashMap<Key, View.Pin> faces = toHashMap(Nodes.Choose(node => boxes.Find(Key(node)).Map(box => (Key(node), Faced(node, box, slots, keys)))));
-            Part.Viewport navigation = Navigation with { Rest = Fitted(toSeq(boxes.Values) + Groups.Choose(group => group.Framed(boxes, Row.Y))).IfNone(Navigation.Rest) };
+            Seq<Node> nodes = Nodes.Map(node => new Node(node, Key(node), Title(node), Inputs(node), Outputs(node))).Strict();
+            Seq<Key> keys = nodes.Map(static node => node.Key);
+            HashMap<Key, Vector2> positions = Position.Match(Some: at => toHashMap(nodes.Map(node => (node.Key, at(node.Item)))), None: () => Layered(nodes, keys));
+            HashMap<Key, SKRect> boxes = toHashMap(nodes.Map(node => (node.Key, SKRect.Create(positions[node.Key], new SKSize(Size(node))))));
+            HashMap<Key, Seq<Slot>> ports = toHashMap(nodes.Map(node => (node.Key, Slots(node, boxes[node.Key]).Strict())));
+            HashMap<Socket, Slot> slots = toHashMap(toSeq(ports.Values).Flatten().Map(static slot => (slot.Socket, slot)));
+            HashMap<Key, View.Pin> faces = toHashMap(nodes.Map(node => (node.Key, Faced(node, boxes[node.Key], ports[node.Key], slots, keys))));
+            Seq<(Group Group, SKRect Box)> groups = Groups.Choose(group => group.Framed(boxes, Row.Y).Map(box => (group, box))).Strict();
+            Part.Viewport navigation = Navigation with { Rest = Fitted(toSeq(boxes.Values) + groups.Map(static group => group.Box)).IfNone(Navigation.Rest) };
             View canvas = new View.Plot(View, [
                 new Handles<HashMap<Key, Vector2>>(positions, Positions(keys), Moved.IfNone(static _ => unitIO)) {
                     Selection = Selection,
@@ -88,7 +91,7 @@ public sealed record Graph<TNode>(Seq<TNode> Nodes, Func<TNode, Key> Key, Func<T
                     Marquee = Marquee,
                     Snaps = Snaps,
                     Handle = (key, at) => faces[key] with { At = at },
-                }.Drawn(View, Gridlines + Groups.Choose(group => Framed(group, boxes)) + Wires.Choose(wire => Connection(wire, slots))) with {
+                }.Drawn(View, Gridlines + groups.Map<View>(static group => Framed(group.Group, group.Box)) + Wires.Choose(wire => Connection(wire, slots))) with {
                     Drop = Wired.Map(wired => new Drop((transfer, _, _) => Detached(transfer, slots, wired))),
                 },
             ]) {
@@ -103,52 +106,49 @@ public sealed record Graph<TNode>(Seq<TNode> Nodes, Func<TNode, Key> Key, Func<T
     private View.Flex Mapped(Part.Viewport navigation, HashMap<Key, SKRect> boxes, Seq<Key> keys) =>
         new(PhysicalAxis.Horizontal, [
             navigation.Overview(View, keys.Choose(key => boxes.Find(key).Bind(static box => Figure.Region.Spanning(box.Left, box.Right, box.Top, box.Bottom))
-                .Map(region => (View)new View.Mark(region) { Role = Role.Card, Conditions = Selection.Holds(key) ? [Condition.Selected] : [] }))),
+                .Map(region => (View)new View.Mark(region) { Role = Roles.Card, Conditions = Selection.Holds(key) ? [Condition.Selected] : [] }))),
         ]) {
-            Role = Role.Hud,
+            Role = Roles.Hud,
             Accessible = new Accessible { Role = AccessRole.Group },
             Align = new UnitPoint(Fraction.MaxValue, Fraction.MaxValue),
         };
 
-    private Option<View> Framed(Group group, HashMap<Key, SKRect> boxes) =>
-        group.Framed(boxes, Row.Y).Map(box => (View)new View.Pin(new Vector2(box.Left, box.Top),
-            new View.Flex(PhysicalAxis.Vertical, [new View.Text([group.Title]) { Role = Role.Caption, MaxLines = 1 }]) {
-                Role = Role.Group,
+    private static View.Pin Framed(Group group, SKRect box) =>
+        new(new Vector2(box.Left, box.Top),
+            new View.Flex(PhysicalAxis.Vertical, [new View.Text([group.Title]) { Role = Roles.Caption, MaxLines = 1 }]) {
+                Role = Roles.Group,
                 Accessible = new Accessible { Role = AccessRole.Group, Label = group.Title },
             }) {
             Key = group.Key,
             Span = new Vector2(box.Width, box.Height),
-        });
+        };
 
     // --- [FACES]
-    private View.Pin Faced(TNode node, SKRect box, HashMap<Socket, Slot> slots, Seq<Key> keys) {
-        HashSet<Condition> marks = Conditions(node);
-        Seq<View> ports = Slots(node, box).Map(slot => (View)Ported(slot, slots, keys));
-        Seq<View> full = Fraction.Validated(1f / Rows(node)).ToOption()
-            .Map(share => (View)new View.Overlay(Face.Map(face => face(node)).IfNone(() => Labeled(node, marks, new Sizing.Percent(share))), ports)).ToSeq();
-        return new View.Pin(box.Location, new View.Choice(PhysicalAxis.Vertical, full + Seq<View>(
+    private View.Pin Faced(Node node, SKRect box, Seq<Slot> members, HashMap<Socket, Slot> slots, Seq<Key> keys) {
+        HashSet<Condition> marks = Conditions(node.Item);
+        Seq<View> ports = members.Map(slot => (View)Ported(slot, slots, keys));
+        return new View.Pin(box.Location, new View.Choice(PhysicalAxis.Vertical, [
+            new View.Overlay(Face.Map(face => face(node.Item)).IfNone(() => Labeled(node, marks, new Sizing.Percent(new Fraction(1f / Rows(node))))), ports),
             new View.Overlay(new View.Flex(PhysicalAxis.Vertical, [Header(node, marks) with { Height = Sizing.Grow.Unit }]), ports),
-            new View.Box()))) {
+            new View.Box()])) {
             Span = Size(node),
-            Role = Role.Card,
-            Conditions = Selection.Holds(Key(node)) ? marks.TryAdd(Condition.Selected) : marks,
-            Accessible = new Accessible { Label = Title(node) },
+            Role = Roles.Card,
+            Conditions = Selection.Holds(node.Key) ? marks.TryAdd(Condition.Selected) : marks,
+            Accessible = new Accessible { Label = node.Title },
         };
     }
 
-    private View.Flex Labeled(TNode node, HashSet<Condition> marks, Sizing share) =>
-        (Inputs: Inputs(node), Outputs: Outputs(node)) switch {
-            var held => new(PhysicalAxis.Vertical, Seq<View>(Header(node, marks) with { Height = share }) + toSeq(Range(0, Rows(node) - 1)).Map(index => (View)new View.Flex(PhysicalAxis.Horizontal, [
-                PortLabel(held.Inputs.At(index), TextAlignment.Left),
-                PortLabel(held.Outputs.At(index), TextAlignment.Right),
+    private View.Flex Labeled(Node node, HashSet<Condition> marks, Sizing share) =>
+        new(PhysicalAxis.Vertical, Seq<View>(Header(node, marks) with { Height = share }) + toSeq(Range(0, Rows(node) - 1)).Map(index => (View)new View.Flex(PhysicalAxis.Horizontal, [
+                PortLabel(node.Inputs.At(index), TextAlignment.Left),
+                PortLabel(node.Outputs.At(index), TextAlignment.Right),
             ]) {
-                Role = Role.ListRow,
-                Height = share,
-            })),
-        };
+            Role = Roles.ListRow,
+            Height = share,
+        }));
 
-    private View.Flex Header(TNode node, HashSet<Condition> marks) =>
-        Panel.Header(Panel.Icon(Glyph.Map(glyph => glyph(node))), Title(node), None, Panel.StatusGlyph(marks).ToSeq());
+    private View.Flex Header(Node node, HashSet<Condition> marks) =>
+        Panel.Header(Panel.Icon(Glyph.Map(glyph => glyph(node.Item))), node.Title, None, Panel.StatusGlyph(marks).ToSeq());
 
     private static View PortLabel(Option<Port> port, TextAlignment alignment) =>
         port.Bind(static held => held.Label)
@@ -160,7 +160,7 @@ public sealed record Graph<TNode>(Seq<TNode> Nodes, Func<TNode, Key> Key, Func<T
             Hover = hovered => Hover.Map(report => report(hovered.Map(_ => slot.Socket))),
         }.Drawn(
             _ => new View.Box {
-                Role = Role.Port,
+                Role = Roles.Port,
                 Series = slot.Port.Type,
                 Conditions = Hovered == Some(slot.Socket) ? [Condition.Highlighted] : [],
                 Accessible = new Accessible { Label = slot.Port.Label },
@@ -187,7 +187,7 @@ public sealed record Graph<TNode>(Seq<TNode> Nodes, Func<TNode, Key> Key, Func<T
 
     private View.Mark Line(Vector2 start, Vector2 end, DataSeries type, HashSet<Condition> marks) =>
         new(new Figure.Path([start, end]) { Interpolation = Curve.IfNone(() => Flow.Map(horizontal: Interpolation.BumpX, vertical: Interpolation.BumpY)) }) {
-            Role = Role.Wire,
+            Role = Roles.Wire,
             Series = type,
             Conditions = marks,
         };
@@ -203,7 +203,7 @@ public sealed record Graph<TNode>(Seq<TNode> Nodes, Func<TNode, Key> Key, Func<T
     private Option<Seq<Wire>> Rewired(Socket source, Socket target, HashMap<Socket, Slot> slots) {
         Seq<Wire> attached = Attached(source, slots);
         return from wire in attached.Head.Filter(_ => slots.Find(target).Exists(static slot => !slot.Output)).Map(held => new Wire(held.From, target))
-                   | Some(slots.Find(source).Exists(static slot => slot.Output) ? new Wire(source, target) : new Wire(target, source))
+                   || Some(slots.Find(source).Exists(static slot => slot.Output) ? new Wire(source, target) : new Wire(target, source))
                from output in slots.Find(wire.From).Filter(static slot => slot.Output)
                from input in slots.Find(wire.To).Filter(static slot => !slot.Output)
                where Accepts(output.Port, input.Port) && !Wires.Exists(held => held == wire)
@@ -226,14 +226,13 @@ public sealed record Graph<TNode>(Seq<TNode> Nodes, Func<TNode, Key> Key, Func<T
     // --- [LAYOUT]
     private Points<HashMap<Key, Vector2>> Positions(Seq<Key> keys) =>
         new(positions => keys.Choose(key => positions.Find(key).Map(at => new HandlePoint(key, at))),
-            (positions, targets, _) => new Dragged<HashMap<Key, Vector2>>(
+            (positions, targets, _) => (
                 Moved.IsSome ? targets.Fold(positions, static (held, target) => held.AddOrUpdate(target.Key, target.At)) : positions,
-                targets.Map(static target => target.Key)));
+                []));
 
-    private HashMap<Key, Vector2> Layered(Seq<Key> keys) {
+    private HashMap<Key, Vector2> Layered(Seq<Node> nodes, Seq<Key> keys) {
         HashMap<Key, int> ranks = Ranks(keys);
-        HashMap<Key, Vector2> sizes = toHashMap(Nodes.Map(node => (Key(node), Size(node))));
-        return keys.Map(key => (Key: key, Rank: ranks[key], Size: sizes[key])).Fold((Ends: HashMap<int, float>(), At: HashMap<Key, Vector2>()), (held, placed) =>
+        return nodes.Map(node => (node.Key, Rank: ranks[node.Key], Size: Size(node))).Fold((Ends: HashMap<int, float>(), At: HashMap<Key, Vector2>()), (held, placed) =>
             held.Ends.Find(placed.Rank).IfNone(0f) switch {
                 var start => (
                     held.Ends.AddOrUpdate(placed.Rank, start + Flow.Cross.Of(placed.Size) + Row.Y),
@@ -245,29 +244,25 @@ public sealed record Graph<TNode>(Seq<TNode> Nodes, Func<TNode, Key> Key, Func<T
 
     private HashMap<Key, int> Ranks(Seq<Key> keys) {
         HashSet<Key> known = toHashSet(keys);
-        Seq<Wire> inner = Wires.Filter(wire => known.Contains(wire.From.Node) && known.Contains(wire.To.Node)).Strict();
-        return Arrangements.Ranked(keys.ToBidirectionalGraph(key => inner.Filter(wire => wire.From.Node == key).Map(wire => new SEquatableEdge<Key>(key, wire.To.Node)), allowParallelEdges: false)
+        ILookup<Key, Wire> outgoing = Wires.Filter(wire => known.Contains(wire.From.Node) && known.Contains(wire.To.Node)).ToLookup(static wire => wire.From.Node);
+        return Arrangements.Ranked(keys.ToBidirectionalGraph(key => outgoing[key].Select(wire => new SEquatableEdge<Key>(key, wire.To.Node)), allowParallelEdges: false)
                 .CondensateStronglyConnected<Key, SEquatableEdge<Key>, AdjacencyGraph<Key, SEquatableEdge<Key>>>())
             .AsIterable()
             .Fold(HashMap<Key, int>(), static (ranks, entry) => toSeq(entry.Key.Vertices).Fold(ranks, (all, vertex) => all.Add(vertex, entry.Value)));
     }
 
-    private Seq<Slot> Slots(TNode node, SKRect box) =>
-        (Node: Key(node), Inputs: Inputs(node), Outputs: Outputs(node), Rows: Rows(node)) switch {
-            var held => held.Inputs.Map((port, index) => Slotted(held.Node, box, port, output: false, index, held.Inputs.Count, held.Rows))
-                + held.Outputs.Map((port, index) => Slotted(held.Node, box, port, output: true, index, held.Outputs.Count, held.Rows)),
-        };
+    private Seq<Slot> Slots(Node node, SKRect box) =>
+        node.Inputs.Map((port, index) => Slotted(node.Key, box, port, output: false, index, node.Inputs.Count, Rows(node)))
+        + node.Outputs.Map((port, index) => Slotted(node.Key, box, port, output: true, index, node.Outputs.Count, Rows(node)));
 
     private Slot Slotted(Key node, SKRect box, Port port, bool output, int index, int count, int rows) {
         Vector2 placed = Flow.Cross.With(Flow.With(Vector2.Zero, output ? 1f : 0f), Flow == PhysicalAxis.Horizontal ? (index + 1.5f) / rows : (index + 0.5f) / count);
         return new Slot(new Socket(node, port.Key), port, output, placed, new Vector2(Along(PhysicalAxis.Horizontal, box.Left, box.Right, placed.X), Along(PhysicalAxis.Vertical, box.Top, box.Bottom, 1f - placed.Y)));
     }
 
-    private int Rows(TNode node) => Flow == PhysicalAxis.Horizontal ? 1 + int.Max(Inputs(node).Count, Outputs(node).Count) : 1;
+    private int Rows(Node node) => Flow == PhysicalAxis.Horizontal ? 1 + int.Max(node.Inputs.Count, node.Outputs.Count) : 1;
 
-    private Vector2 Size(TNode node) => Row with { Y = Row.Y * Rows(node) };
-
-    private SKRect Boxed(TNode node, Vector2 at) => Size(node) switch { var size => SKRect.Create(at.X, at.Y, size.X, size.Y) };
+    private Vector2 Size(Node node) => Row with { Y = Row.Y * Rows(node) };
 
     private Option<PlotPlane> Fitted(Seq<SKRect> boxes) =>
         from content in Group.Enclosing(boxes, Row.Y)
@@ -289,6 +284,8 @@ public sealed record Graph<TNode>(Seq<TNode> Nodes, Func<TNode, Key> Key, Func<T
     private float Directed(PhysicalAxis along, float start, float extent) => Rising(along) == (along == PhysicalAxis.Horizontal) ? start : -(start + extent);
 
     private bool Rising(PhysicalAxis along) => View.Dimension(along).Exists(static axis => axis.Domain.Span > 0f);
+
+    private sealed record Node(TNode Item, Key Key, string Title, Seq<Port> Inputs, Seq<Port> Outputs);
 
     private sealed record Slot(Socket Socket, Port Port, bool Output, Vector2 Unit, Vector2 Anchor);
 }

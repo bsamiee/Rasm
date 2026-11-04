@@ -12,7 +12,10 @@ public sealed class ZBuffer {
     private ZBuffer(ZBufferCapture capture, Rectangle frame) => (this.capture, this.frame) = (capture, frame);
 
     public IO<Option<(int Hits, float Near, float Far)>> Range =>
-        IO.lift(() => Conversions.Present(capture.HitCount() > 0, (Hits: capture.HitCount(), Near: capture.MinZ(), Far: capture.MaxZ())));
+        IO.lift(() => capture.HitCount() switch {
+            > 0 and var hits => Some((Hits: hits, Near: capture.MinZ(), Far: capture.MaxZ())),
+            _ => None,
+        });
 
     public IO<Bitmap> Grayscale => Products.Of(capture.GrayscaleDib);
 

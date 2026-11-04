@@ -16,16 +16,14 @@ public sealed record Row<TItem>(TItem Item, Key Key, int Depth, Option<bool> Ope
     public Seq<View> Lead(Option<IO<Unit>> toggle) => LanguageExt.Seq.repeat(Disclosure.Chevron(None, None), Depth).Add(Disclosure.Chevron(Open, toggle));
 
     public static Seq<Row<TItem>> Flatten(Seq<TItem> roots, Func<TItem, Seq<TItem>> children, Func<TItem, Key> key, Func<TItem, bool> open, Func<TItem, bool> keep) {
-        return Rows(roots.Filter(Holds), 0);
+        return roots.Filter(Holds).Bind(root => toSeq(SuperEnumerable.TraverseDepthFirst(Laid(root, 0), node => node.Opened
+                ? node.Members.Map(item => Laid(item, node.Depth + 1))
+                : [])))
+            .Map(node => new Row<TItem>(node.Item, key(node.Item), node.Depth, node.Members.IsEmpty ? None : Some(node.Opened)));
 
-        bool Holds(TItem item) => keep(item) || children(item).Exists(Holds);
+        bool Holds(TItem item) => SuperEnumerable.TraverseDepthFirst(item, node => children(node)).Any(keep);
 
-        Seq<Row<TItem>> Rows(Seq<TItem> items, int depth) =>
-            items.Bind(item => {
-                bool opened = open(item);
-                Seq<TItem> below = children(item).Filter(Holds);
-                return new Row<TItem>(item, key(item), depth, below.IsEmpty ? None : Some(opened)).Cons(opened ? Rows(below, depth + 1) : []);
-            });
+        (TItem Item, int Depth, Seq<TItem> Members, bool Opened) Laid(TItem item, int depth) => (item, depth, children(item).Filter(Holds), open(item));
     }
 
     public static View Drawn(Seq<Row<TItem>> rows, Func<Seq<Key>, Part.Choice> choice, Func<Row<TItem>, View> drawn, HashSet<Key> realized, bool wraps = false) {
@@ -40,12 +38,12 @@ public sealed record Row<TItem>(TItem Item, Key Key, int Depth, Option<bool> Ope
     }
 }
 
-public sealed record Search(string Pattern) {
+public sealed record Search(Seq<string> Terms) {
     private const CompareOptions Folded = CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace;
 
     public static Search Everything { get; } = new("");
 
-    public Seq<string> Terms => toSeq(Pattern.Split('*', StringSplitOptions.RemoveEmptyEntries));
+    public Search(string pattern) : this(toSeq(pattern.Split('*', StringSplitOptions.RemoveEmptyEntries))) { }
 
     internal static Search Of(Option<TextField> field) => field.Map(static held => held.Search).IfNone(Everything);
 
@@ -53,7 +51,7 @@ public sealed record Search(string Pattern) {
 
     public Seq<Span> Marked(string text, CultureInfo culture) =>
         Hits(text, culture).Match(
-            Some: hits => hits.Fold((At: 0, Spans: Seq<Span>()), (held, hit) => (hit.End.Value, held.Spans + Plain(text[held.At..hit.Start.Value]).Add(new Span(text[hit]) { Role = Role.Mark })))
+            Some: hits => hits.Fold((At: 0, Spans: Seq<Span>()), (held, hit) => (hit.End.Value, held.Spans + Plain(text[held.At..hit.Start.Value]).Add(new Span(text[hit]) { Role = Roles.Mark })))
                 switch { var held => held.Spans + Plain(text[held.At..]), },
             None: () => [text]);
 
@@ -71,7 +69,7 @@ public sealed record TextField(string Text, Func<Edit<string>, IO<Unit>> Edited)
     private static readonly Key Entry = new Key.Named("entry");
 
     public Option<string> Placeholder { get; init; }
-    public Option<Role> Glyph { get; init; }
+    public Option<Key> Glyph { get; init; }
     public bool Clears { get; init; }
     public Option<int> MaxLines { get; init; } = Some(1);
 
@@ -89,7 +87,7 @@ public sealed record TextField(string Text, Func<Edit<string>, IO<Unit>> Edited)
                 Accessible = new Accessible { Role = AccessRole.TextBox, Label = Placeholder },
             })
             + (Clears && Text.Length > 0 ? Seq(Part.Press.Dismiss(Edited(Edit.Of(EditPhase.Commit, "")))) : [])) {
-            Role = Role.Field,
+            Role = Roles.Field,
             Width = Sizing.Grow.Unit,
         };
 }
@@ -107,24 +105,25 @@ public sealed record ValueTree<TItem>(Seq<TItem> Roots, Func<TItem, Key> Keyed, 
         toHashSet(Row<TItem>.Flatten(Roots, Children, Keyed, static _ => true, static _ => true).Filter(row => row.Depth < depth && row.Open.IsSome).Map(static row => row.Key));
 
     public View Drawn(CultureInfo culture) {
-        Seq<Row<TItem>> rows = Row<TItem>.Flatten(Roots, Children, Keyed, item => !Find.Terms.IsEmpty || Open.Contains(Keyed(item)), item => Find.Matches(Name(item), culture) || Find.Matches(Value(item), culture));
+        Seq<Row<TItem>> rows = Row<TItem>.Flatten(Roots, Children, Keyed, item => !Find.Terms.IsEmpty || Open.Contains(Keyed(item)), item => Find.Terms.IsEmpty || Find.Matches(Name(item), culture) || Find.Matches(Value(item), culture));
         HashMap<Key, Seq<TItem>> chains = toHashMap(rows.Zip(rows.Scan(Seq<TItem>(), static (chain, row) => chain.Take(row.Depth).Add(row.Item)).Tail).Map(static held => (held.First.Key, held.Second)));
         return new View.Scroll(PhysicalAxis.Vertical, Row<TItem>.Drawn(rows, Choice, row => Face(row, culture), Realized) with {
-            Lift = Lift.Text(key => chains.Find(key).Bind(chain => Path.Map(path => path(chain)) | chain.Last.Map(Value))),
+            Lift = Lift.Text(key => chains.Find(key).Bind(chain => Path.Map(path => path(chain)) || chain.Last.Map(Value))),
             Accessible = new Accessible { Role = AccessRole.Tree },
         }).Grown;
     }
 
     private View.Flex Face(Row<TItem> row, CultureInfo culture) {
         Seq<TItem> below = Children(row.Item);
+        string name = Name(row.Item);
         return new View.Flex(PhysicalAxis.Horizontal,
             row.Lead(Some(Toggled(Edit.Of(EditPhase.Commit, Open.SymmetricExcept([row.Key])))))
             + Seq<View>(
-                new View.Text(Find.Marked(Name(row.Item), culture)) { MaxLines = 1 },
-                new View.Text(Find.Marked(Value(row.Item), culture)) { Role = Role.Code, MaxLines = 1, Width = Sizing.Grow.Unit })
-            + Kind(row.Item).Map(static kind => (View)new View.Text([kind]) { Role = Role.Caption }).ToSeq()
-            + (below.IsEmpty ? [] : Seq<View>(new View.Text([below.Count.ToString(culture)]) { Role = Role.Badge }))) {
-            Accessible = new Accessible { Role = AccessRole.TreeItem, Label = Name(row.Item), Expanded = row.Open },
+                new View.Text(Find.Marked(name, culture)) { MaxLines = 1 },
+                new View.Text(Find.Marked(Value(row.Item), culture)) { Role = Roles.Code, MaxLines = 1, Width = Sizing.Grow.Unit })
+            + Kind(row.Item).Map(static kind => (View)new View.Text([kind]) { Role = Roles.Caption }).ToSeq()
+            + (below.IsEmpty ? [] : Seq<View>(new View.Text([below.Count.ToString(culture)]) { Role = Roles.Badge }))) {
+            Accessible = new Accessible { Role = AccessRole.TreeItem, Label = name, Expanded = row.Open },
         };
     }
 }
@@ -158,7 +157,7 @@ public sealed record Log<TEntry>(Seq<TEntry> Entries, Func<TEntry, Key> Keyed, F
         };
         Seq<View> bar = Levels.Map(levels => Leveled(levels, culture)).IfNone([]) + Filter.Map(static field => field.Drawn).ToSeq();
         return new View.Flex(PhysicalAxis.Vertical,
-            (bar.IsEmpty ? [] : Seq<View>(new View.Flex(PhysicalAxis.Horizontal, bar) { Role = Role.Toolbar, Width = Sizing.Grow.Unit, Accessible = new Accessible { Role = AccessRole.Toolbar } }))
+            (bar.IsEmpty ? [] : Seq<View>(new View.Flex(PhysicalAxis.Horizontal, bar) { Role = Roles.Toolbar, Width = Sizing.Grow.Unit, Accessible = new Accessible { Role = AccessRole.Toolbar } }))
             .Add(new View.Scroll(PhysicalAxis.Vertical, listed) { KeepsEnd = Follows }.Grown)).Grown;
     }
 
@@ -167,22 +166,22 @@ public sealed record Log<TEntry>(Seq<TEntry> Entries, Func<TEntry, Key> Keyed, F
             edit => levels.Edited(edit.Map(shown => shown ? levels.Shown.TryAdd(group.Key) : levels.Shown.Remove(group.Key)).As())) {
             Kind = ToggleKind.Button,
             Content = [
-                new View.Box { Role = Role.Status, Conditions = Signal(group.Key) },
+                new View.Box { Role = Roles.Status, Conditions = Signal(group.Key) },
                 new View.Text([levels.Named(group.Key)]),
-                new View.Text([group.Count().ToString(culture)]) { Role = Role.Caption },
+                new View.Text([group.Count().ToString(culture)]) { Role = Roles.Caption },
             ],
         }.Drawn);
 
     private View.Flex Line(TEntry entry, int count, Search query, CultureInfo culture) {
         HashSet<Condition> signal = Signal(Level(entry));
         return new View.Flex(PhysicalAxis.Horizontal,
-            Stamp.Map(pattern => (View)new View.Text([Stamped(pattern, entry, culture)]) { Role = Role.Code }).ToSeq()
-            + Seq<View>(new View.Box { Role = Role.Status, Conditions = signal, Opacity = signal.IsEmpty ? Fraction.MinValue : Fraction.MaxValue })
-            + Source(entry).Map(source => (View)new View.Text(query.Marked(source, culture)) { Role = Role.Caption, MaxLines = 1 }).ToSeq()
+            Stamp.Map(pattern => (View)new View.Text([Stamped(pattern, entry, culture)]) { Role = Roles.Code }).ToSeq()
+            + Seq<View>(new View.Box { Role = Roles.Status, Conditions = signal, Opacity = signal.IsEmpty ? Fraction.MinValue : Fraction.MaxValue })
+            + Source(entry).Map(source => (View)new View.Text(query.Marked(source, culture)) { Role = Roles.Caption, MaxLines = 1 }).ToSeq()
             + Seq<View>(new View.Text(query.Marked(Message(entry), culture)) { MaxLines = Wrap ? None : Some(1), Width = Sizing.Grow.Unit })
-            + Fields(entry).ToSeq().Map(static field => (View)new View.Flex(PhysicalAxis.Horizontal, [new View.Text([field.Key]) { Role = Role.Caption }, new View.Text([field.Value]) { Role = Role.Code }]) { Role = Role.Chip })
-            + (count > 1 ? Seq<View>(new View.Text([count.ToString(culture)]) { Role = Role.Badge }) : [])) {
-            Role = Role.ListRow,
+            + Fields(entry).ToSeq().Map(static field => (View)new View.Flex(PhysicalAxis.Horizontal, [new View.Text([field.Key]) { Role = Roles.Caption }, new View.Text([field.Value]) { Role = Roles.Code }]) { Role = Roles.Chip })
+            + (count > 1 ? Seq<View>(new View.Text([count.ToString(culture)]) { Role = Roles.Badge }) : [])) {
+            Role = Roles.ListRow,
             Width = Sizing.Grow.Unit,
             Conditions = signal,
         };

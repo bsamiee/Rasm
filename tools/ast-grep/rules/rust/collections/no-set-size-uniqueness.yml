@@ -1,44 +1,114 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-set-size-uniqueness
-language: rust
+language: rustlang
 severity: error
+utils:
+    set-path:
+        regex: '^(::)?(std::collections::HashSet|indexmap::IndexSet|rustc_hash::FxHashSet)$'
+    grouped-set-export:
+        kind: identifier
+        any:
+            - regex: '^HashSet$'
+              inside: {kind: use_list, stopBy: {kind: use_list}, inside: {kind: scoped_use_list, has: {field: path, regex: '^(::)?std::collections$'}}}
+            - regex: '^IndexSet$'
+              inside: {kind: use_list, stopBy: {kind: use_list}, inside: {kind: scoped_use_list, has: {field: path, regex: '^(::)?indexmap$'}}}
+            - regex: '^FxHashSet$'
+              inside: {kind: use_list, stopBy: {kind: use_list}, inside: {kind: scoped_use_list, has: {field: path, regex: '^(::)?rustc_hash$'}}}
+    imported-set:
+        any:
+            - kind: scoped_identifier
+              all: [{matches: set-path}, {has: {field: name, pattern: $SET}}]
+              not: {inside: {kind: use_as_clause}}
+            - kind: use_as_clause
+              all: [{has: {field: alias, pattern: $SET}}, {has: {field: path, any: [{matches: set-path}, {matches: grouped-set-export}]}}]
+            - kind: identifier
+              pattern: $SET
+              matches: grouped-set-export
+              not: {inside: {kind: use_as_clause}}
+    set-shadow:
+        inside:
+            kind: 'source_file, declaration_list, block'
+            stopBy: end
+            has: {kind: 'struct_item, enum_item, union_item, type_item', has: {field: name, pattern: $SET}}
+    vec-shadow:
+        inside:
+            kind: 'source_file, declaration_list, block'
+            stopBy: end
+            has:
+                any:
+                    - kind: 'struct_item, enum_item, union_item, type_item'
+                      has: {field: name, regex: '^Vec$'}
+                    - kind: use_declaration
+                      has: {stopBy: end, any: [{kind: use_wildcard}, {kind: identifier, regex: '^Vec$'}]}
+    sequence-type:
+        any:
+            - kind: array_type
+            - kind: reference_type
+              has: {field: type, matches: sequence-type}
+            - kind: generic_type
+              has:
+                field: type
+                any:
+                    - regex: '^(::)?(std|alloc)::vec::Vec$'
+                    - regex: '^Vec$'
+                      not: {matches: vec-shadow}
+    source-declaration:
+        kind: 'parameter, let_declaration'
+        all:
+            - has: {field: pattern, kind: identifier, pattern: $SOURCE}
+            - has: {field: type, matches: sequence-type}
+    counted-iterator:
+        kind: call_expression
+        any:
+            - all:
+                - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(iter|into_iter)$'}}, {has: {field: value, kind: identifier, pattern: $SOURCE}}]}
+                - has: {field: arguments, not: {has: {pattern: $_}}}
+            - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(map|copied|cloned|inspect)$'}}, {has: {field: value, matches: counted-iterator}}]}
 rule:
-    any:
-        - kind: binary_expression
-          any:
-            - pattern: $I.collect::<$SET<$_>>().len() == $N
-            - pattern: $N == $I.collect::<$SET<$_>>().len()
-            - pattern: $I.collect::<$SET<$_>>().len() != $N
-            - pattern: $N != $I.collect::<$SET<$_>>().len()
-            - pattern: $I.collect::<$SET<$_>>().len() < $N
-            - pattern: $N > $I.collect::<$SET<$_>>().len()
-        - kind: call_expression
-          all:
-            - has: {field: function, has: {field: field, regex: '^is_(some|ok)_and$'}}
-            - has:
-                field: function
-                has:
-                    field: value
-                    any:
-                        - pattern: $I.try_collect::<$SET<$_>>()
-                        - pattern: $I.collect::<Option<$SET<$_>>>()
-                        - pattern: $I.collect::<Result<$SET<$_>, $_>>()
-            - has:
-                field: arguments
-                has:
-                    kind: closure_expression
-                    all:
-                        - has: {field: parameters, has: {kind: identifier, pattern: $K}}
-                        - has:
-                            field: body
-                            kind: binary_expression
-                            all:
-                                - has: {field: operator, regex: '^(==|!=)$'}
-                                - any:
-                                    - all: [{has: {field: left, pattern: $K.len()}}, {has: {field: right, pattern: $N}}]
-                                    - all: [{has: {field: right, pattern: $K.len()}}, {has: {field: left, pattern: $N}}]
-constraints:
-    SET: {regex: '^(Fx|Unord)?(Hash|BTree|Index)Set$'}
-    N: {kind: call_expression, regex: '\.(len|count)\(\)$'}
+    all:
+        - any:
+            - kind: binary_expression
+              any:
+                  - pattern: $I.collect::<$SET<$$$_>>().len() == $N
+                  - pattern: $N == $I.collect::<$SET<$$$_>>().len()
+                  - pattern: $I.collect::<$SET<$$$_>>().len() != $N
+                  - pattern: $N != $I.collect::<$SET<$$$_>>().len()
+                  - pattern: $I.collect::<$SET<$$$_>>().len() < $N
+                  - pattern: $N > $I.collect::<$SET<$$$_>>().len()
+            - kind: call_expression
+              all:
+                  - has: {field: function, has: {field: field, regex: '^is_(some|ok)_and$'}}
+                  - has:
+                      field: function
+                      has:
+                          field: value
+                          any:
+                              - pattern: $I.try_collect::<$SET<$$$_>>()
+                              - pattern: $I.collect::<Option<$SET<$$$_>>>()
+                              - pattern: $I.collect::<Result<$SET<$$$_>, $_>>()
+                  - has:
+                      field: arguments
+                      has:
+                          kind: closure_expression
+                          all:
+                              - has: {field: parameters, has: {kind: identifier, pattern: $K}}
+                              - has:
+                                  field: body
+                                  kind: binary_expression
+                                  all:
+                                      - has: {field: operator, regex: '^(==|!=)$'}
+                                      - any:
+                                          - all: [{has: {field: left, pattern: $K.len()}}, {has: {field: right, pattern: $N}}]
+                                          - all: [{has: {field: right, pattern: $K.len()}}, {has: {field: left, pattern: $N}}]
+        - has: {stopBy: end, all: [{pattern: $I}, {matches: counted-iterator}]}
+        - has: {stopBy: end, all: [{pattern: $N}, {pattern: $SOURCE.len()}]}
+        - any:
+            - inside: {kind: function_item, stopBy: {kind: 'function_item, closure_expression'}, has: {field: parameters, has: {matches: source-declaration}}}
+            - inside: {kind: block, stopBy: {kind: 'function_item, closure_expression'}, has: {matches: source-declaration}}
+        - any:
+            - has: {stopBy: end, all: [{pattern: $SET}, {matches: set-path}]}
+            - all:
+                - inside: {kind: 'source_file, declaration_list, block', stopBy: end, has: {kind: use_declaration, has: {stopBy: end, matches: imported-set}}}
+                - not: {matches: set-shadow}
 message: '`$I` collects into a `$SET` only to compare its size with `$N`'
-note: 'Call `<iterator>.all_unique()` (`use itertools::Itertools as _;`), negated where the comparison tests for a duplicate, over `Iterator::try_collect::<Vec<_>>(&mut <iterator>)` for fallible items'
+note: 'Call `Itertools::all_unique` or `all_unique_with_hasher`, negated for duplicates, after `try_collect::<Vec<_>>()` for fallible items'

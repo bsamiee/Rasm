@@ -1,5 +1,4 @@
-import { CustomProperties } from '@rasm/ui/custom-properties';
-import { ModalOverlay } from '@rasm/ui/dialog/overlay';
+import { Backdrop, CustomProperties } from '@rasm/ui';
 import { Expand, X } from 'lucide-react';
 import { motion } from 'motion/react';
 import { type ComponentProps, lazy, Suspense, useId, useRef } from 'react';
@@ -53,7 +52,7 @@ const MediaFigure = ({ placement, active, presentation, priority, renderMedia }:
                                         <Button aria-label={`Expand ${placementTitle(viewer)}`} className="text-foreground hover:text-accent-text col-start-2 row-start-1 grid size-11 place-items-center">
                                             <Expand className="size-4.5" />
                                         </Button>
-                                        <ModalOverlay className="bg-foreground/70 motion-safe:entering:animate-fade motion-safe:exiting:animate-fade-out fixed inset-0 z-50" isDismissable={true}>
+                                        <Backdrop className="bg-foreground/70 motion-safe:entering:animate-fade motion-safe:exiting:animate-fade-out fixed inset-0 z-50" isDismissable={true}>
                                             <Modal>
                                                 <AnimatedDialog className="viewer-dialog" layoutRoot={true}>
                                                     <div className="landscape-short:contents flex shrink-0 items-start justify-between gap-4">
@@ -77,7 +76,7 @@ const MediaFigure = ({ placement, active, presentation, priority, renderMedia }:
                                                     {viewer.kind === 'image' && description}
                                                 </AnimatedDialog>
                                             </Modal>
-                                        </ModalOverlay>
+                                        </Backdrop>
                                     </DialogTrigger>
                                 )}
                             </figcaption>

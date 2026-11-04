@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.Input;
 using Eto.Forms;
 using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.UI.Styling;
@@ -131,16 +132,16 @@ public static class CommandRows {
         Command<Invoke>.Run run, Option<RowRule> gate, TCommand command, Func<TCommand, IO<Unit>> marking, RowScope scope)
         where TCommand : Command =>
         from applied in Applied(run.Face, command, run.Invoke.Shortcut.IfNone(Keys.None))
-        from busy in atomIO(value: false)
-        let refresh =
+        from allowed in atomIO(value: true)
+        let updated =
             from holds in Holds(gate, scope)
-            from running in busy.ValueIO
-            from enabled in IO.lift(() => { command.Enabled = holds && !running; })
+            from enabled in writeIO(allowed, holds)
             from marked in marking(command)
-            select unit
+            select holds
         from deliver in Delivered(run, scope)
-        from executed in Subscriptions.On<EventArgs>(h => command.Executed += h, h => command.Executed -= h).Attach(_ =>
-            busy.SwapIO(static _ => true).Bind(_ => refresh).Bind(_ => deliver).Finally(busy.SwapIO(static _ => false).Bind(_ => refresh).OnUiThread()))
+        from execute in IO.lift(() => new AsyncRelayCommand(async () => _ = await Session.StartAsync(updated.Bind(holds => when(holds, deliver).As()).Finally(updated.Map(unit).OnUiThread())).ConfigureAwait(true), () => allowed.Value))
+        from delegated in use(IO.lift(() => { command.DelegatedCommand = execute; return command; }), static held => IO.lift(() => { held.DelegatedCommand = null; }))
+        let refresh = updated.Map(unit) >> IO.lift(execute.NotifyCanExecuteChanged)
         from first in refresh
         select (command, refresh);
 

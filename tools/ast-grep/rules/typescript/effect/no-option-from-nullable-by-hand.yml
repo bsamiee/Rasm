@@ -1,16 +1,32 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-option-from-nullable-by-hand
-language: tsx
+language: tsxlang
 severity: error
 utils:
     nullable-schema:
         kind: call_expression
-        has: {field: function, matches: {effect-module-member: {module: {regex: '\bSchema$'}, member: {regex: '^(NullOr|UndefinedOr|NullishOr)$'}}}}
+        has:
+            field: function
+            matches: {effect-module-member: {module: {regex: '\bSchema$'}, member: {regex: '^(NullOr|UndefinedOr|NullishOr)$'}}}
+            has: {field: property, pattern: $WRAP}
     nullable-decode:
         kind: call_expression
+        has:
+            field: function
+            kind: call_expression
+            all:
+                - has: {field: function, matches: decoder}
+                - has: {field: arguments, has: {nthChild: 1, matches: nullable-schema}}
+    decoder:
         any:
-            - has: {field: arguments, has: {matches: nullable-schema}}
-            - has: {field: function, kind: call_expression, has: {field: arguments, has: {matches: nullable-schema}}}
+            - matches: {effect-module-member: {module: {regex: '\bSchema$'}, member: {regex: '^decode(Unknown)?(Sync|Exit|Result|Option|Effect|Promise)$'}}}
+            - kind: identifier
+              matches: {typescript-import-reference: {source: {regex: '^effect/Schema$'}, exported: {regex: '^decode(Unknown)?(Sync|Exit|Result|Option|Effect|Promise)$'}}}
+    synchronous-decoder:
+        any:
+            - matches: {effect-module-member: {module: {regex: '\bSchema$'}, member: {regex: '^decode(Unknown)?Sync$'}}}
+            - kind: identifier
+              matches: {typescript-import-reference: {source: {regex: '^effect/Schema$'}, exported: {regex: '^decode(Unknown)?Sync$'}}}
     lift:
         kind: member_expression
         pattern: $OPTION.$FROM
@@ -52,7 +68,24 @@ rule:
             - has: {field: function, matches: effect-pipe-function}
         - all:
             - has: {field: function, matches: lift}
-            - has: {field: arguments, has: {nthChild: 1, any: [{matches: nullable-decode}, {kind: yield_expression, has: {matches: nullable-decode}}]}}
+            - has:
+                field: arguments
+                has:
+                    nthChild: 1
+                    any:
+                        - matches: nullable-decode
+                          has: {field: function, has: {field: function, matches: synchronous-decoder}}
+                        - kind: yield_expression, await_expression
+                          has: {matches: nullable-decode}
+constraints:
+    FROM:
+        any:
+            - regex: '^fromNullOr$'
+              inside: {pattern: $HAND, stopBy: end, has: {stopBy: end, pattern: $WRAP, regex: '^NullOr$'}}
+            - regex: '^fromUndefinedOr$'
+              inside: {pattern: $HAND, stopBy: end, has: {stopBy: end, pattern: $WRAP, regex: '^UndefinedOr$'}}
+            - regex: '^fromNullishOr$'
+              inside: {pattern: $HAND, stopBy: end, has: {stopBy: end, pattern: $WRAP, regex: '^NullishOr$'}}
 transform:
     CODEC: {replace: {source: $FROM, replace: '^from', by: OptionFrom}}
 message: '`$OPTION.$FROM` over a decoded nullable schema restates `Schema.$CODEC`'

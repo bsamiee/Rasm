@@ -1,16 +1,17 @@
 """Installs and enables extension archive in matching Blender GUI session, else through extension CLI."""
 
+lazy from functools import partial
 lazy from itertools import takewhile
 lazy import os
+lazy import subprocess
 lazy import sys
-lazy import traceback
 lazy from typing import Annotated
 
 import msgspec
 lazy import anyio
 lazy from cyclopts import Parameter
 lazy from cyclopts.types import ResolvedExistingFile
-lazy from expression import Error, Ok, Result
+lazy from expression import Result
 lazy from expression.extra.result import catch
 lazy import httpx2
 lazy from mcp import Client, MCPError
@@ -18,8 +19,8 @@ lazy from mcp.types import TextContent
 lazy import psutil
 lazy from pydantic import ValidationError
 
-lazy from blender.records.faults import Fault, Outcome, Reason
-lazy from eng.python.blender.assembly import BACKGROUND, Blender, ran
+lazy from blender.records.faults import Error, Fault, Ok, Outcome, Reason
+lazy from eng.python.blender.assembly import BACKGROUND, Blender
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -53,18 +54,33 @@ async def install(archive: ResolvedExistingFile, /, *, endpoint: Annotated[str, 
         Zero, or fault of a failed install, transport, decode, or remote execution.
     """
     repository = "user_default"
-    pids = await anyio.to_thread.run_sync(
-        lambda: [
-            process.pid
-            for process in psutil.process_iter(("exe", "cmdline", "environ"))
-            if None not in (info := process.info).values()
-            and catch(blender.samefile, exception=OSError)(info["exe"]).default_value(value=False)
-            and BACKGROUND.isdisjoint(takewhile(lambda argument: argument != "--", info["cmdline"]))
-            and not any(name.startswith("BLENDER_USER_") for name, _ in os.environ.items() ^ info["environ"].items())
-        ]
-    )
+    prefix = "BLENDER_USER_"
+    profile = frozendict({name: value for name, value in os.environ.items() if name.startswith(prefix)})
+    try:
+        pids = await anyio.to_thread.run_sync(
+            lambda: [
+                process.pid
+                for process in psutil.process_iter(("exe", "cmdline", "environ"))
+                if None not in (info := process.info).values()
+                and catch(blender.samefile, exception=FileNotFoundError)(info["exe"]).default_value(value=False)
+                and BACKGROUND.isdisjoint(takewhile(lambda argument: argument != "--", info["cmdline"]))
+                and {name: value for name, value in info["environ"].items() if name.startswith(prefix)} == profile
+            ]
+        )
+    except OSError as error:
+        return Error(Fault.of(Reason.FAILED, str(blender), error))
     if not pids:
-        return (await anyio.to_thread.run_sync(ran, blender, "--command", "extension", "install-file", "--repo", repository, "--enable", archive)).map(lambda _: 0)
+        try:
+            done = await anyio.run_process((blender, "--command", "extension", "install-file", "--repo", repository, "--enable", archive), stderr=None)
+        except (OSError, subprocess.CalledProcessError) as error:
+            return Error(Fault.of(Reason.FAILED, str(blender), error))
+        sys.stdout.buffer.write(done.stdout)
+        faults = tuple(*Fault.of(Reason.ANSWERED, str(archive), member=line.decode()) for line in done.stdout.splitlines() if line.startswith((b"ERROR ", b"FATAL_ERROR ")))
+        match faults:
+            case (head, *rest):
+                return Error((head, *rest))
+            case _:
+                return Ok(0)
     code = (
         f"import os\nimport bpy\nif os.getpid() not in {pids!r}:\n    raise ProcessLookupError(os.getpid())\n"
         f"bpy.ops.extensions.package_install_files(filepath={str(archive)!r}, repo={repository!r})\n"
@@ -74,17 +90,17 @@ async def install(archive: ResolvedExistingFile, /, *, endpoint: Annotated[str, 
         async with Client(endpoint) as client:
             called = await client.call_tool("execute_blender_code", {"code": code})
     except* (OSError, httpx2.HTTPError, MCPError, ValidationError) as errors:
-        failed = Fault.of(Reason.FAILED, endpoint, "".join(traceback.format_exception_only(errors, show_group=True)).rstrip())
+        failed = Fault.of(Reason.FAILED, endpoint, errors)
     else:
         if called.is_error:
             return Error(Fault.of(Reason.ANSWERED, endpoint, member="\n".join(block.text for block in called.content if isinstance(block, TextContent))))
-        match catch(msgspec.convert, exception=msgspec.ValidationError)(called.structured_content, type=_Done | _Failed):
+        match catch(lambda: msgspec.convert(called.structured_content, type=_Done | _Failed), exception=msgspec.ValidationError)().map_error(partial(Fault.of, Reason.INVALID, endpoint)):
             case Result(tag="ok", ok=answer):
                 sys.stdout.write(answer.stdout)
                 sys.stderr.write(answer.stderr)
                 return Error(Fault.of(Reason.ANSWERED, endpoint, member=answer.message)) if isinstance(answer, _Failed) else Ok(0)
-            case Result(error=error):
-                return Error(Fault.of(Reason.INVALID, endpoint, error))
+            case Result(error=failed):
+                return Error(failed)
     return Error(failed)
 
 

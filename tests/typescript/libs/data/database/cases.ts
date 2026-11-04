@@ -1,9 +1,6 @@
 import { D1Client } from '@effect/sql-d1';
-import { assert, type Vitest } from '@effect/vitest';
-import { atomic } from '@rasm/database/atomic';
-import { Catalog } from '@rasm/database/catalog';
-import { Column } from '@rasm/database/column';
-import { Relation } from '@rasm/database/relation';
+import { assert, type TestContext, type Vitest } from '@effect/vitest';
+import { atomic, Catalog, Column, Relation } from '@rasm/database';
 import { Array, BigDecimal, DateTime, Effect, Equal, Exit, Fiber, type Layer, Option, Order, Predicate, Schema, type Scope, String, Struct } from 'effect';
 import { SecureRandom } from 'effect/crypto';
 import { SqlClient, SqlError } from 'effect/sql';
@@ -43,6 +40,7 @@ const values = Relation.make('values', {
     code: Schema.String.check(Schema.isBetweenCodePoints(1, 2)),
     note: Schema.OptionFromNullOr(Schema.String),
 });
+const ValueRows = Schema.Array(values.schema);
 const blobs = Relation.make('blobs', { digest: Column.Bytes, size: Schema.Int }, { key: ['digest'] });
 const events = Relation.make('events', { id: Schema.String, tenant: Schema.Int, at: Schema.DateTimeUtcFromString, kind: Schema.Literals(['view', 'buy']) }, { indexes: [{ columns: ['tenant', 'at'] }] });
 const accounts = Relation.make(
@@ -100,11 +98,10 @@ const cases = <R, F, W>(it: Vitest.MethodsNonLive<R>, client: Client<F, NoInfer<
                 Effect.flatMap(Catalog.plan(catalog, runtime), (planned) => record(title, planned)),
                 Catalog.reconcile(catalog, runtime),
             );
-    const isolated = <Eff extends Effect.Effect<unknown, unknown, Layer.Success<ReturnType<typeof Catalog.client<never, F, R>>> | SecureRandom.SecureRandom | Scope.Scope | R>, A>(title: string, body: (reconcile: ReturnType<typeof reconciling>, sql: SqlClient.SqlClient) => Generator<Eff, A, never>) =>
-        Effect.provide(
-            Effect.flatMap(SqlClient.SqlClient, (sql) => Effect.fnUntraced(body)(reconciling(title), sql)),
-            [Catalog.client(client), SecureRandom.layerWebCrypto],
-        );
+    const isolated = <Eff extends Effect.Effect<unknown, unknown, Layer.Success<ReturnType<typeof Catalog.client<never, F, R>>> | SecureRandom.SecureRandom | Scope.Scope | R>, A>(body: (reconcile: ReturnType<typeof reconciling>, sql: SqlClient.SqlClient) => Generator<Eff, A, never>) => {
+        const execute = Effect.fnUntraced(body);
+        return ({ task }: TestContext) => SqlClient.SqlClient.use((sql) => execute(reconciling(task.name), sql)).pipe(Effect.provide([Catalog.client(client), SecureRandom.layerWebCrypto]));
+    };
     const seeded = Effect.fn('seeded')(function* (reconcile: ReturnType<typeof reconciling>) {
         const sql = yield* SqlClient.SqlClient;
         yield* reconcile(declared([parents, children]));
@@ -116,17 +113,22 @@ const cases = <R, F, W>(it: Vitest.MethodsNonLive<R>, client: Client<F, NoInfer<
             ])}`,
         ]);
     });
-    it.effect('maps camelCase fields to snake_case columns in every statement form', () =>
-        Effect.gen(function* () {
-            const sql = yield* SqlClient.SqlClient;
-            yield* atomic([sql`INSERT INTO parents ${sql.insert({ id: 'p', label: 'Parent', state: 'open' })}`, sql`INSERT INTO children ${sql.insert({ id: 'a', parentId: 'p', rank: 1 })}`]);
-            yield* sql`UPDATE children SET ${sql.update({ parentId: 'p', rank: 2 })} WHERE ${sql('parentId')} = ${'p'}`;
-            assert.deepStrictEqual(yield* Relation.select(children, { parentId: ['p'] }), [{ id: 'a', parentId: 'p', rank: 2 }]);
-            assert.deepStrictEqual(yield* sql.withoutTransforms()`SELECT parent_id FROM children`, [{ parent_id: 'p' }]);
-        }).pipe(Effect.provide(Catalog.layer(declared([parents, children]), client))),
+    it.effect(
+        'maps camelCase fields to snake_case columns in every statement form',
+        Effect.fnUntraced(
+            function* () {
+                const sql = yield* SqlClient.SqlClient;
+                yield* atomic([sql`INSERT INTO parents ${sql.insert({ id: 'p', label: 'Parent', state: 'open' })}`, sql`INSERT INTO children ${sql.insert({ id: 'a', parentId: 'p', rank: 1 })}`]);
+                yield* sql`UPDATE children SET ${sql.update({ parentId: 'p', rank: 2 })} WHERE ${sql('parentId')} = ${'p'}`;
+                assert.deepStrictEqual(yield* Relation.select(children, { parentId: ['p'] }), [{ id: 'a', parentId: 'p', rank: 2 }]);
+                assert.deepStrictEqual(yield* sql.withoutTransforms()`SELECT parent_id FROM children`, [{ parent_id: 'p' }]);
+            },
+            Effect.provide(Catalog.layer(declared([parents, children]), client)),
+        ),
     );
-    it.effect('creates declared tables with enforced references and decoded rows', ({ task }) =>
-        isolated(task.name, function* (reconcile, sql) {
+    it.effect(
+        'creates declared tables with enforced references and decoded rows',
+        isolated(function* (reconcile, sql) {
             yield* seeded(reconcile);
             assert.deepStrictEqual(yield* tables, [{ name: 'children' }, { name: 'parents' }]);
             assert.deepStrictEqual(yield* Relation.select(children, { parentId: ['p'] }), [
@@ -138,8 +140,9 @@ const cases = <R, F, W>(it: Vitest.MethodsNonLive<R>, client: Client<F, NoInfer<
             assert.deepStrictEqual(yield* rows('children'), []);
         }),
     );
-    it.effect('renames declared tables and columns keeping rows', ({ task }) =>
-        isolated(task.name, function* (reconcile) {
+    it.effect(
+        'renames declared tables and columns keeping rows',
+        isolated(function* (reconcile) {
             yield* seeded(reconcile);
             assert.deepStrictEqual(yield* reconcile(declared([renamed, kids])), { tables: [], columns: [], indexes: [], references: [] });
             assert.deepStrictEqual(yield* rows('parents'), [{ id: 'p', title: 'Parent', state: 'open' }]);
@@ -147,8 +150,9 @@ const cases = <R, F, W>(it: Vitest.MethodsNonLive<R>, client: Client<F, NoInfer<
             assert.deepStrictEqual(yield* tables, [{ name: 'kids' }, { name: 'parents' }]);
         }),
     );
-    it.effect('renames back keeping rows when older catalog runs after rename', ({ task }) =>
-        isolated(task.name, function* (reconcile, sql) {
+    it.effect(
+        'renames back keeping rows when older catalog runs after rename',
+        isolated(function* (reconcile, sql) {
             yield* seeded(reconcile);
             yield* reconcile(declared([renamed, kids]));
             yield* sql`INSERT INTO parents ${sql.insert({ id: 'q', title: 'Second', state: 'closed' })}`;
@@ -159,15 +163,13 @@ const cases = <R, F, W>(it: Vitest.MethodsNonLive<R>, client: Client<F, NoInfer<
             ]);
             assert.lengthOf(yield* rows('children'), 2);
             yield* reconcile(declared([renamed, kids]));
-            assert.deepStrictEqual(
-                (yield* rows('parents')).map(({ title }) => title),
-                ['Parent', 'Second'],
-            );
+            assert.deepStrictEqual((yield* rows('parents')).map(Struct.get('title')), ['Parent', 'Second']);
             assert.deepStrictEqual(yield* tables, [{ name: 'kids' }, { name: 'parents' }]);
         }),
     );
-    it.effect('keeps newer column and data when older catalog reconciles', ({ task }) =>
-        isolated(task.name, function* (reconcile, sql) {
+    it.effect(
+        'keeps newer column and data when older catalog reconciles',
+        isolated(function* (reconcile, sql) {
             yield* seeded(reconcile);
             yield* reconcile(declared([extended, kids]));
             yield* sql`UPDATE parents SET ${sql.update({ extra: 'kept' })} WHERE id = 'p'`;
@@ -180,22 +182,21 @@ const cases = <R, F, W>(it: Vitest.MethodsNonLive<R>, client: Client<F, NoInfer<
             ]);
         }),
     );
-    it.effect('drops retired column and table and retypes column keeping rows', ({ task }) =>
-        isolated(task.name, function* (reconcile) {
+    it.effect(
+        'drops retired column and table and retypes column keeping rows',
+        isolated(function* (reconcile) {
             yield* seeded(reconcile);
             yield* reconcile(declared([extended, kids]));
             yield* reconcile(declared([retired, retyped]));
             assert.deepStrictEqual(yield* rows('parents'), [{ id: 'p', title: 'Parent', state: 'open' }]);
-            assert.deepStrictEqual(
-                (yield* rows('kids')).map(({ rank }) => rank),
-                [1, 2],
-            );
+            assert.deepStrictEqual((yield* rows('kids')).map(Struct.get('rank')), [1, 2]);
             yield* reconcile(declared([retired], ['kids']));
             assert.deepStrictEqual(yield* tables, [{ name: 'parents' }]);
         }),
     );
-    it.effect('keeps re-added column with retired name when retiring catalog runs again', ({ task }) =>
-        isolated(task.name, function* (reconcile, sql) {
+    it.effect(
+        'keeps re-added column with retired name when retiring catalog runs again',
+        isolated(function* (reconcile, sql) {
             yield* seeded(reconcile);
             yield* reconcile(declared([extended, kids]));
             yield* sql`UPDATE parents SET ${sql.update({ extra: 'old' })} WHERE id = 'p'`;
@@ -207,8 +208,9 @@ const cases = <R, F, W>(it: Vitest.MethodsNonLive<R>, client: Client<F, NoInfer<
             assert.deepStrictEqual(yield* rows('parents'), [{ id: 'p', title: 'Parent', state: 'open', extra: 7 }]);
         }),
     );
-    it.effect('plans nothing when store matches catalog', ({ task }) =>
-        isolated(task.name, function* (reconcile) {
+    it.effect(
+        'plans nothing when store matches catalog',
+        isolated(function* (reconcile) {
             const full = declared([extended, kids, accounts, events, notes, values, blobs]);
             yield* seeded(reconcile);
             yield* reconcile(full);
@@ -222,8 +224,9 @@ const cases = <R, F, W>(it: Vitest.MethodsNonLive<R>, client: Client<F, NoInfer<
             assert.deepStrictEqual(yield* shape, before);
         }),
     );
-    it.effect('finishes concurrent reconciles of one catalog after an interrupted one', ({ task }) =>
-        isolated(task.name, function* () {
+    it.effect(
+        'finishes concurrent reconciles of one catalog after an interrupted one',
+        isolated(function* () {
             const catalog = declared([parents, children]);
             const interrupted = yield* Effect.forkChild(Catalog.reconcile(catalog));
             yield* Effect.yieldNow;
@@ -233,8 +236,9 @@ const cases = <R, F, W>(it: Vitest.MethodsNonLive<R>, client: Client<F, NoInfer<
             assert.deepStrictEqual(yield* rows('children'), []);
         }),
     );
-    it.effect('keeps rows and columns when concurrent catalogs rebuild and extend one table', ({ task }) =>
-        isolated(task.name, function* (reconcile) {
+    it.effect(
+        'keeps rows and columns when concurrent catalogs rebuild and extend one table',
+        isolated(function* (reconcile) {
             yield* seeded(reconcile);
             const [extension, rebuild] = yield* Effect.all([Effect.exit(Catalog.reconcile(declared([annotated, children]))), Effect.exit(Catalog.reconcile(declared([reopened, children])))], { concurrency: 'unbounded' });
             assert.isTrue(Exit.isSuccess(rebuild) || Exit.isSuccess(extension));
@@ -242,8 +246,9 @@ const cases = <R, F, W>(it: Vitest.MethodsNonLive<R>, client: Client<F, NoInfer<
             assert.lengthOf(yield* rows('children'), 2);
         }),
     );
-    it.effect('refuses undeclared retypes, reserved and projected keys and required columns without default, filling existing rows from a declared default', ({ task }) =>
-        isolated(task.name, function* (reconcile, sql) {
+    it.effect(
+        'refuses undeclared retypes, reserved and projected keys and required columns without default, filling existing rows from a declared default',
+        isolated(function* (reconcile, sql) {
             yield* seeded(reconcile);
             assert.deepStrictEqual(yield* Effect.all([findings(declared([required, children])), findings(declared([relabeled, children])), findings(declared([reserved, slugs])), findings(declared([textNotes]))]), [
                 [{ table: 'parents', columns: ['owner'], reason: { _tag: 'Required' } }],
@@ -255,8 +260,9 @@ const cases = <R, F, W>(it: Vitest.MethodsNonLive<R>, client: Client<F, NoInfer<
             assert.deepStrictEqual(yield* rows('parents'), [{ id: 'p', label: 'Parent', state: 'open', owner: 'nobody' }]);
         }),
     );
-    it.effect('stores 64-bit integers, exact decimals, JSON keys, bytes, instants, booleans, options, and bounded values', ({ task }) =>
-        isolated(task.name, function* (reconcile, sql) {
+    it.effect(
+        'stores 64-bit integers, exact decimals, JSON keys, bytes, instants, booleans, options, and bounded values',
+        isolated(function* (reconcile, sql) {
             const int64 = 9_223_372_036_854_775_808n;
             const byteMaximum = 255;
             const [first, second] = yield* Effect.all([uuid, uuid]);
@@ -266,7 +272,7 @@ const cases = <R, F, W>(it: Vitest.MethodsNonLive<R>, client: Client<F, NoInfer<
             );
             const digests = Array.make({ digest: Uint8Array.of(byteMaximum, 0), size: 1 }, { digest: new Uint8Array(), size: 0 });
             yield* reconcile(declared([values, blobs]));
-            const stored = Schema.encodeEffect(Schema.Array(values.schema));
+            const stored = Schema.encodeEffect(ValueRows);
             assert.deepStrictEqual(
                 yield* Effect.all([Effect.flatMap(Relation.insert(values, written), stored), Effect.flatMap(Relation.select(values, { id: [first] }), stored), Effect.flatMap(Relation.select(values, { count: [-int64] }), stored)]),
                 yield* Effect.all([stored(written), stored([Array.headNonEmpty(written)]), stored([Array.lastNonEmpty(written)])]),
@@ -279,13 +285,15 @@ const cases = <R, F, W>(it: Vitest.MethodsNonLive<R>, client: Client<F, NoInfer<
             yield* refused(sql`UPDATE ${sql('values')} SET ${sql.update({ code: '😀😀😀' })}`, 'ConstraintError');
         }),
     );
-    it.effect('writes and reads collections as one parameter with upsert, ensure, remove, and newest rows per group', ({ task }) =>
-        isolated(task.name, function* (reconcile) {
+    it.effect(
+        'writes and reads collections as one parameter with upsert, ensure, remove, and newest rows per group',
+        isolated(function* (reconcile) {
             const volume = 3000;
             const tenants = [2, 0, 1] as const;
             const newest = 2;
             yield* reconcile(declared([events]));
-            const written = Array.makeBy(volume, (index) => ({ id: `e${index}`, tenant: index % tenants.length, at: DateTime.add(DateTime.makeUnsafe('2026-01-01T00:00:00.000Z'), { seconds: index }), kind: 'view' as const }));
+            const at = DateTime.makeUnsafe('2026-01-01T00:00:00.000Z');
+            const written = Array.makeBy(volume, (index) => ({ id: `e${index}`, tenant: index % tenants.length, at: DateTime.add(at, { seconds: index }), kind: 'view' as const }));
             const [head, last] = [Array.headNonEmpty(written), Array.lastNonEmpty(written)];
             const descending = (kept: Predicate.Predicate<number>) => Array.reverse(written.filter(({ tenant }) => kept(tenant))).map(Struct.get('id'));
             assert.deepStrictEqual(Array.sortWith(yield* Relation.insert(events, written), Struct.get('id'), String.Order), Array.sortWith(written, Struct.get('id'), String.Order));
@@ -301,8 +309,9 @@ const cases = <R, F, W>(it: Vitest.MethodsNonLive<R>, client: Client<F, NoInfer<
             assert.deepStrictEqual(yield* Relation.ensure(events, [head, { ...last, kind: 'buy' }]), [head, last]);
         }),
     );
-    it.effect('enforces partial case-insensitive unique keys and reads virtual columns from JSON and predicates', ({ task }) =>
-        isolated(task.name, function* (reconcile) {
+    it.effect(
+        'enforces partial case-insensitive unique keys and reads virtual columns from JSON and predicates',
+        isolated(function* (reconcile) {
             yield* reconcile(declared([accounts]));
             const account = (id: string, email: string, deleted: boolean) => ({ id, email, deletedAt: deleted ? DateTime.makeUnsafe('2026-10-17T00:00:00.000Z') : null, profile: { plan: 'pro' } });
             yield* Relation.insert(accounts, [account(yield* uuid, 'A@example.com', true), account(yield* uuid, 'a@example.com', false)]);
@@ -313,8 +322,9 @@ const cases = <R, F, W>(it: Vitest.MethodsNonLive<R>, client: Client<F, NoInfer<
             ]);
         }),
     );
-    it.effect('searches declared text columns by word and trigram across updates and escapes query syntax', ({ task }) =>
-        isolated(task.name, function* (reconcile, sql) {
+    it.effect(
+        'searches declared text columns by word and trigram across updates and escapes query syntax',
+        isolated(function* (reconcile, sql) {
             yield* reconcile(declared([notes, fragments]));
             const written = Array.make({ id: 1, title: 'Concrete shell', body: 'Thin vaults' }, { id: 2, title: 'Timber frame', body: 'Glulam beams' }, { id: 3, title: 'Café crème', body: 'Voûte mince' });
             const titles = Effect.map((found: readonly { readonly row: { readonly title: string } }[]) => found.map(Struct.get('row')).map(Struct.get('title')));
@@ -334,26 +344,70 @@ const cases = <R, F, W>(it: Vitest.MethodsNonLive<R>, client: Client<F, NoInfer<
             assert.deepStrictEqual(yield* Effect.forEach(['vaults', 'steel'], (text) => titles(Relation.search(notes, text, written.length))), [[], ['Concrete shell']]);
         }),
     );
-    it.effect('scopes tenant rows through row-level security on PostgreSQL and refuses tenant tables elsewhere', ({ task }) =>
-        isolated(task.name, function* (reconcile, sql) {
+    it.effect(
+        'scopes tenant rows through row-level security on PostgreSQL and refuses tenant tables elsewhere',
+        isolated(function* (reconcile, sql) {
             return yield* sql.onDialectOrElse({
-                pg: () =>
-                    Effect.gen(function* () {
-                        const [first, second] = yield* Effect.all([uuid, uuid]);
-                        const scoped = <A, E, Q>(id: string, effect: Effect.Effect<A, E, Q>) => Relation.withTenant(ledgers, id, Effect.andThen(sql`SET LOCAL ROLE rasm_runtime`, effect));
-                        yield* sql`DO $$ BEGIN CREATE ROLE rasm_runtime NOLOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END $$`;
-                        yield* reconcile(declared([ledgers]), Option.some('rasm_runtime'));
-                        yield* scoped(first, Relation.insert(ledgers, [{ id: yield* uuid, tenant: first, amount: 1 }]));
-                        yield* scoped(second, Relation.insert(ledgers, [{ id: yield* uuid, tenant: second, amount: 2 }]));
-                        assert.deepStrictEqual(yield* scoped(first, sql`SELECT amount FROM ledgers`), [{ amount: 1 }]);
-                        yield* refused(scoped(first, Relation.insert(ledgers, [{ id: yield* uuid, tenant: second, amount: 1 }])), 'AuthorizationError');
-                    }),
+                pg: Effect.fnUntraced(function* () {
+                    const [first, second] = yield* Effect.all([uuid, uuid]);
+                    const scoped = <A, E, Q>(id: string, effect: Effect.Effect<A, E, Q>) => Relation.withTenant(ledgers, id, Effect.andThen(sql`SET LOCAL ROLE rasm_runtime`, effect));
+                    yield* sql`DO $$ BEGIN CREATE ROLE rasm_runtime NOLOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END $$`;
+                    yield* reconcile(declared([ledgers]), Option.some('rasm_runtime'));
+                    yield* scoped(first, Relation.insert(ledgers, [{ id: yield* uuid, tenant: first, amount: 1 }]));
+                    yield* scoped(second, Relation.insert(ledgers, [{ id: yield* uuid, tenant: second, amount: 2 }]));
+                    assert.deepStrictEqual(yield* scoped(first, sql`SELECT amount FROM ledgers`), [{ amount: 1 }]);
+                    yield* refused(scoped(first, Relation.insert(ledgers, [{ id: yield* uuid, tenant: second, amount: 1 }])), 'AuthorizationError');
+                }),
                 orElse: () => Effect.map(findings(declared([ledgers])), (found) => assert.deepStrictEqual(found, [{ table: 'ledgers', columns: ['tenant'], reason: { _tag: 'Unsupported', refusal: 'tenant' } }])),
             });
         }),
     );
-    it.effect('retypes declared columns of an existing table to their stored types keeping rows', ({ task }) =>
-        isolated(task.name, function* (reconcile, sql) {
+    it.effect(
+        'renames legacy PostgreSQL columns without changing literal, function, or type names in their checks',
+        isolated(function* (reconcile, sql) {
+            return yield* sql.onDialectOrElse({
+                pg: Effect.fnUntraced(function* () {
+                    yield* Effect.all(
+                        [
+                            sql`CREATE TABLE legacy_function (id text NOT NULL PRIMARY KEY, lower text NOT NULL CHECK (lower(lower) = lower), CHECK (lower(legacy_function.lower) = legacy_function.lower))`,
+                            sql`CREATE TABLE legacy_type (id text NOT NULL PRIMARY KEY, text text NOT NULL CHECK (text IN ('text'::text)))`,
+                            sql`CREATE TABLE legacy_quoted (id text NOT NULL PRIMARY KEY, "with""quote" text NOT NULL CHECK ("with""quote" = 'with"quote'))`,
+                        ],
+                        { discard: true },
+                    );
+                    yield* reconcile(
+                        declared([
+                            Relation.make('legacy_function', { id: Schema.String, value: Schema.String.check(Schema.isLowercased()) }, { renamed: { value: 'lower' } }),
+                            Relation.make('legacy_type', { id: Schema.String, value: Schema.Literal('text') }, { renamed: { value: 'text' } }),
+                            Relation.make('legacy_quoted', { id: Schema.String, value: Schema.Literal('with"quote') }, { renamed: { value: 'with"quote' } }),
+                        ]),
+                    );
+                    assert.deepStrictEqual(yield* sql`SELECT table_name AS name, column_name AS field FROM information_schema.columns WHERE table_schema = current_schema() AND column_name <> 'id' ORDER BY table_name`, [
+                        { name: 'legacy_function', field: 'value' },
+                        { name: 'legacy_quoted', field: 'value' },
+                        { name: 'legacy_type', field: 'value' },
+                    ]);
+                }),
+                orElse: () => Effect.void,
+            });
+        }),
+    );
+    it.effect(
+        'refuses a changed PostgreSQL check literal that matches each column name',
+        isolated(function* (_, sql) {
+            return yield* sql.onDialectOrElse({
+                pg: Effect.fnUntraced(function* () {
+                    yield* sql`CREATE TABLE legacy_literal (id text NOT NULL PRIMARY KEY, old text NOT NULL CHECK (old = 'old'))`;
+                    const changed = Relation.make('legacy_literal', { id: Schema.String, value: Schema.Literal('value') }, { renamed: { value: 'old' } });
+                    assert.deepStrictEqual(yield* findings(declared([changed])), [{ table: 'legacy_literal', columns: ['value'], reason: { _tag: 'Retype' } }]);
+                }),
+                orElse: () => Effect.void,
+            });
+        }),
+    );
+    it.effect(
+        'retypes declared columns of an existing table to their stored types keeping rows',
+        isolated(function* (reconcile, sql) {
             yield* sql.onDialectOrElse({
                 pg: () => sql`CREATE TABLE ${sql('legacy')} (id text NOT NULL PRIMARY KEY, count integer NOT NULL, body text NOT NULL CHECK (body IS JSON))`,
                 orElse: () => sql`CREATE TABLE ${sql('legacy')} (id TEXT NOT NULL PRIMARY KEY, count, body)`,

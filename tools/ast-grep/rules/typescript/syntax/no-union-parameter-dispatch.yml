@@ -1,8 +1,12 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-union-parameter-dispatch
-language: tsx
+language: tsxlang
 severity: error
 utils:
+    parameter-reference:
+        kind: identifier, undefined
+        pattern: $PARAMETER
+        matches: {typescript-local-binding: {owner: {pattern: $OWNER}}}
     declared-union:
         any:
             - kind: union_type
@@ -32,14 +36,14 @@ utils:
             - kind: binary_expression
               all:
                 - has: {field: operator, regex: '^[!=]==?$'}
-                - has: {kind: unary_expression, all: [{has: {field: operator, regex: '^typeof$'}}, {has: {field: argument, kind: identifier, pattern: $PARAMETER}}]}
+                - has: {kind: unary_expression, all: [{has: {field: operator, regex: '^typeof$'}}, {has: {field: argument, matches: parameter-reference}}]}
                 - has: {kind: string}
             - kind: switch_statement
-              has: {field: value, has: {kind: unary_expression, all: [{has: {field: operator, regex: '^typeof$'}}, {has: {field: argument, kind: identifier, pattern: $PARAMETER}}]}}
+              has: {field: value, has: {kind: unary_expression, all: [{has: {field: operator, regex: '^typeof$'}}, {has: {field: argument, matches: parameter-reference}}]}}
             - kind: call_expression
               all:
                 - has: {field: function, kind: member_expression, has: {field: property, regex: '^isArray$'}}
-                - has: {field: arguments, all: [{has: {nthChild: 1, kind: identifier, pattern: $PARAMETER}}, {not: {has: {nthChild: 2}}}]}
+                - has: {field: arguments, all: [{has: {nthChild: 1, matches: parameter-reference}}, {not: {has: {nthChild: 2}}}]}
                 - has:
                     field: function
                     any:
@@ -48,11 +52,8 @@ utils:
             - kind: call_expression
               all:
                 - has: {field: function, kind: member_expression, has: {field: property, regex: '^is(String|Number|Boolean|BigInt|Symbol)$'}}
-                - has: {field: arguments, all: [{has: {nthChild: 1, kind: identifier, pattern: $PARAMETER}}, {not: {has: {nthChild: 2}}}]}
+                - has: {field: arguments, all: [{has: {nthChild: 1, matches: parameter-reference}}, {not: {has: {nthChild: 2}}}]}
                 - has: {field: function, matches: {effect-module-member: {module: {regex: '\bPredicate$'}, member: {regex: '^is(String|Number|Boolean|BigInt|Symbol)$'}}}}
-    parameter-owner:
-        matches: typescript-function-boundary
-        has: {field: parameters, has: {kind: 'required_parameter, optional_parameter', has: {field: pattern, pattern: $PARAMETER}}}
 rule:
     any:
         - kind: function_signature
@@ -63,8 +64,9 @@ rule:
           inside: {kind: class_body}
         - matches: shape-test
           inside:
-            matches: parameter-owner
-            stopBy: {matches: parameter-owner}
+            matches: typescript-function-boundary
+            stopBy: end
+            pattern: $OWNER
             all:
                 - has:
                     field: parameters

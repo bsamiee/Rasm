@@ -1,127 +1,22 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-inline-codec
-language: python
+language: pythonlang
 severity: error
-utils:
-    msgspec-codec:
-        kind: call
-        has:
-            field: function
-            any:
-                - kind: attribute
-                  all:
-                    - has: {field: object, matches: {python-submodule: {parent: {regex: '^msgspec$'}, child: {regex: '^(json|msgpack)$'}}}}
-                    - has: {field: attribute, regex: '^(Encoder|Decoder)$'}
-                - kind: identifier
-                  pattern: $CLASS
-                  matches: {python-imported-name: {module: {regex: '^msgspec\.(json|msgpack)$'}, name: {regex: '^(Encoder|Decoder)$'}}}
-    pydantic-adapter:
-        kind: call
-        has: {field: function, matches: {python-member-use: {module: {regex: '^pydantic(\.type_adapter)?$'}, name: {regex: '^TypeAdapter$'}}}}
-    codec-call:
-        kind: call
-        all:
-            - has: {field: function, kind: attribute, has: {field: object, kind: call}}
-            - inside: {kind: module, stopBy: end, regex: '\b(Encoder|Decoder|TypeAdapter)\b'}
-            - pattern: $CALL
-            - has:
-                field: function
-                all:
-                    - has: {field: attribute, pattern: $METHOD}
-                    - any:
-                        - has: {field: object, matches: msgspec-codec}
-                        - all:
-                            - has: {field: attribute, regex: '^(validate_(python|json|strings)|dump_(python|json)|json_schema|get_default_value)$'}
-                            - has: {field: object, matches: pydantic-adapter}
-    mappable:
-        kind: call
-        not:
-            any:
-                - has: {field: arguments, has: {kind: 'list_splat, dictionary_splat'}}
-                - has: {field: arguments, has: {kind: keyword_argument, has: {field: name, regex: '^(decimal_format|uuid_format|float_hook)$'}}}
-    class-import:
-        kind: import_from_statement
-        all:
-            - has: {field: module_name, pattern: $SOURCE, regex: '^msgspec\.(json|msgpack)$'}
-            - has:
-                any:
-                    - kind: dotted_name
-                      pattern: $CLASS
-                    - kind: aliased_import
-                      has: {field: alias, pattern: $CLASS}
-    function-import:
-        kind: import_from_statement
-        all:
-            - has: {field: module_name, pattern: $SOURCE}
-            - has:
-                any:
-                    - kind: dotted_name
-                      not: {has: {nthChild: 2}}
-                      has: {kind: identifier, all: [{pattern: $METHOD}, {pattern: $FUNCTION}]}
-                    - kind: aliased_import
-                      all:
-                        - has: {field: name, not: {has: {nthChild: 2}}, has: {kind: identifier, pattern: $METHOD}}
-                        - has: {field: alias, pattern: $FUNCTION}
-    function-shadowed:
-        inside:
-            kind: module, function_definition, lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression
-            stopBy: end
-            has:
-                stopBy: {kind: 'function_definition, class_definition, lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression'}
-                matches: {python-binding: {name: {pattern: $FUNCTION}}}
-    fixed:
-        all:
-            - matches: codec-call
-            - has: {field: function, has: {field: attribute, regex: '^(encode|decode)$'}}
-            - has: {field: function, has: {field: object, matches: msgspec-codec}}
-            - has: {field: arguments, has: {nthChild: 1, pattern: $VALUE, not: {kind: 'keyword_argument, list_splat, dictionary_splat'}}, not: {has: {nthChild: 2}}}
-            - not: {has: {kind: comment, stopBy: end}}
-            - not: {matches: python-multiline-string}
-            - any:
-                - all:
-                    - has: {field: function, has: {field: object, matches: mappable, has: {field: function, kind: attribute, has: {field: object, pattern: $MODULE}}}}
-                    - pattern: $MODULE_FORM
-                - all:
-                    - has: {field: function, has: {field: object, matches: mappable, has: {field: function, kind: identifier, pattern: $CLASS}}}
-                    - inside:
-                        kind: module, function_definition
-                        stopBy: end
-                        all:
-                            - has: {stopBy: {kind: 'function_definition, class_definition, lambda'}, matches: class-import}
-                            - has: {stopBy: {kind: 'function_definition, class_definition, lambda'}, matches: function-import}
-                    - not: {matches: function-shadowed}
-                    - pattern: $IMPORTED_FORM
 rule:
-    any:
-        - matches: fixed
-        - kind: identifier
-          pattern: $UNFIXED
-          inside:
+    all:
+        - has:
+            field: function
             kind: attribute
-            field: attribute
-            inside: {kind: call, field: function, all: [{matches: codec-call}, {not: {matches: fixed}}]}
-rewriters:
-    - id: kept-keyword
-      rule: {kind: keyword_argument, pattern: $KEYWORD}
-      fix: $KEYWORD
-    - id: decoded-type
-      rule: {pattern: $TYPE, inside: {kind: argument_list}, not: {kind: 'keyword_argument, comment'}}
-      fix: 'type=$TYPE'
-    - id: module-call
-      rule: {kind: call, has: {field: function, has: {field: object, has: {field: arguments, pattern: $CONSTRUCTOR_ARGUMENTS}}}}
-      transform:
-        OPTIONS: rewrite($CONSTRUCTOR_ARGUMENTS, rewriters=[kept-keyword, decoded-type], joinBy=', ')
-        TAIL: {replace: {source: $OPTIONS, replace: '(?s)^(.+)$', by: ', $1'}}
-      fix: $MODULE.$METHOD($VALUE$TAIL)
-    - id: imported-call
-      rule: {kind: call, has: {field: function, has: {field: object, has: {field: arguments, pattern: $CONSTRUCTOR_ARGUMENTS}}}}
-      transform:
-        OPTIONS: rewrite($CONSTRUCTOR_ARGUMENTS, rewriters=[kept-keyword, decoded-type], joinBy=', ')
-        TAIL: {replace: {source: $OPTIONS, replace: '(?s)^(.+)$', by: ', $1'}}
-      fix: $FUNCTION($VALUE$TAIL)
-transform:
-    MODULE_OUT: rewrite($MODULE_FORM, rewriters=[module-call])
-    IMPORTED_OUT: rewrite($IMPORTED_FORM, rewriters=[imported-call])
-fix: $MODULE_OUT$IMPORTED_OUT$UNFIXED
-message: '`$CALL` builds a codec for one call'
-note: 'Call `msgspec.<format>.encode` or `.decode(<value>, type=<type>)`, or hold one module-level codec for options those functions lack'
+            has: {field: attribute, regex: '^(en|de)code$'}
+        - pattern: $CODEC().$METHOD($$$)
+constraints:
+    CODEC:
+        any:
+            - kind: attribute
+              all:
+                - has: {field: attribute, regex: '^(Encoder|Decoder)$'}
+                - has: {field: object, matches: {python-submodule: {parent: {regex: '^msgspec$'}, child: {regex: '^(json|msgpack)$'}}}}
+            - kind: identifier
+              matches: {python-imported-name: {module: {regex: '^msgspec\.(json|msgpack)$'}, name: {regex: '^(Encoder|Decoder)$'}}}
+message: '`$CODEC()` constructs a default codec for one `$METHOD` call'
+note: 'Call module-level `encode` or `decode` directly'

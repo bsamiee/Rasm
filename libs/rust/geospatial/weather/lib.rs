@@ -1,9 +1,15 @@
 #![feature(array_try_map, default_field_values, float_conversions, once_cell_try)]
 
-use core::{fmt, iter, marker::PhantomData, num::ParseIntError, range::Range};
+use core::{
+    fmt, iter,
+    marker::PhantomData,
+    num::{FpCategory, ParseIntError},
+    range::Range,
+};
 
+use dashu::{base::ConversionError, rational::RBig};
 use grib::GribError;
-use itertools::Itertools as _;
+use itertools::{Either, Itertools as _};
 use jiff::{SignedDuration, Span, Timestamp, civil, tz::TimeZone};
 use nalgebra::Vector2;
 use ndarray_interp::BuilderError;
@@ -13,6 +19,7 @@ use rasm_site::Place;
 use rasm_solar::{SolarError, Sun};
 use solar_positioning::{PreparedPositions, SolarPosition};
 use thermalcomfort::{Humidity, Temperature, constants::STEFAN_BOLTZMANN, environment::ScaleWindSpeedLogError};
+use twofloat::TwoFloat;
 use uom::{
     ConstZero as _,
     si::{
@@ -33,6 +40,7 @@ use validated::Validated;
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Measure<D> = Quantity<D, SI<f64>, f64>;
+type Totals = Either<(TwoFloat, TwoFloat), (RBig, RBig)>;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -217,6 +225,8 @@ pub enum WeatherError {
     Solar(#[from] SolarError),
     #[error(transparent)]
     Time(#[from] jiff::Error),
+    #[error(transparent)]
+    Conversion(#[from] ConversionError),
     #[error("GRIB decode: {}", .0.iter().format("; "))]
     Decode(NEVec<GribError>),
     #[error("root search: {}", .0.iter().format("; "))]
@@ -235,112 +245,165 @@ impl From<NEVec<(Record, Malformed)>> for WeatherError {
 
 // --- [RESAMPLING]
 pub fn resampled(hours: &Hours, step: SignedDuration, gap: SignedDuration) -> Result<Hours, WeatherError> {
-    fn received<D>(run: &[Hour], interval: Range<Timestamp>, gap: SignedDuration, field: impl Fn(&Hour) -> Option<Measure<D>>) -> Option<Measure<D>>
+    fn received<D>(run: &[Hour], gap: SignedDuration, field: impl Fn(&Hour) -> Option<Measure<D>> + Copy) -> impl FnMut(Range<Timestamp>) -> Result<Option<Measure<D>>, ConversionError>
     where D: si::Dimension + ?Sized {
-        if run.get(run.partition_point(|hour| hour.interval.end <= interval.start)).is_some_and(|hour| length(interval) < length(hour.interval)) {
-            instant(run, |hour| seconds(hour.interval.start).midpoint(seconds(hour.interval.end)), seconds(interval.start).midpoint(seconds(interval.end)), gap, field)
-        } else {
-            mean(run, interval, gap, field)
+        let mut midpoint = instant(run, |hour| hour.interval.start.as_nanosecond().strict_add(hour.interval.end.as_nanosecond()), gap, field);
+        move |interval| {
+            if length(interval) < length(run[run.partition_point(|hour| hour.interval.end <= interval.start)].interval) {
+                midpoint(interval.start.as_nanosecond().strict_add(interval.end.as_nanosecond()))
+            } else {
+                averaged(run, interval, |hour| hour.interval, gap, |hour| field(hour).map(|quantity| (quantity.value, 1.0)))?.map(|totals| reduced(totals, 1.0).map(measure)).transpose()
+            }
         }
     }
 
-    let ending = |hour: &Hour| seconds(hour.interval.end);
-    let resample = |run: &[Hour], interval: Range<Timestamp>| -> Hour {
-        let to = seconds(interval.end);
-        let span = Time::new::<second>(length(interval).as_secs_f64());
-        let holding = run.get(run.partition_point(|hour| hour.interval.end < interval.end));
-        let toward = |component: fn(Vector2<f64>) -> f64| instant(run, ending, to, gap, |hour| hour.wind_direction.map(|direction| Ratio::new::<ratio>(component(heading(direction)))));
-        let precipitation = mean(run, interval, gap, |hour| hour.precipitation.map(|depth| depth / Time::new::<second>(length(hour.interval).as_secs_f64()))).map(|rate| rate * span);
-        Hour {
-            interval,
-            flags: holding.and_then(|hour| hour.flags.clone()),
-            dry_bulb: instant(run, ending, to, gap, |hour| hour.dry_bulb),
-            dew_point: instant(run, ending, to, gap, |hour| hour.dew_point),
-            relative_humidity: instant(run, ending, to, gap, |hour| hour.relative_humidity),
-            pressure: instant(run, ending, to, gap, |hour| hour.pressure),
-            infrared: received(run, interval, gap, |hour| hour.infrared),
-            global_irradiance: received(run, interval, gap, |hour| hour.global_irradiance),
-            direct_irradiance: received(run, interval, gap, |hour| hour.direct_irradiance),
-            diffuse_irradiance: received(run, interval, gap, |hour| hour.diffuse_irradiance),
-            global_illuminance: received(run, interval, gap, |hour| hour.global_illuminance),
-            direct_illuminance: received(run, interval, gap, |hour| hour.direct_illuminance),
-            diffuse_illuminance: received(run, interval, gap, |hour| hour.diffuse_illuminance),
-            zenith_luminance: received(run, interval, gap, |hour| hour.zenith_luminance),
-            wind_direction: toward(|vector| vector.x).zip(toward(|vector| vector.y)).map(|(east, north)| bearing(Vector2::new(east.get::<ratio>(), north.get::<ratio>()))),
-            wind_speed: instant(run, ending, to, gap, |hour| hour.wind_speed),
-            total_sky_cover: instant(run, ending, to, gap, |hour| hour.total_sky_cover),
-            opaque_sky_cover: instant(run, ending, to, gap, |hour| hour.opaque_sky_cover),
-            visibility: instant(run, ending, to, gap, |hour| hour.visibility),
-            ceiling: holding.and_then(|hour| hour.ceiling),
-            present_weather: holding.and_then(|hour| hour.present_weather),
-            precipitable_water: instant(run, ending, to, gap, |hour| hour.precipitable_water),
-            aerosol_optical_depth: instant(run, ending, to, gap, |hour| hour.aerosol_optical_depth),
-            snow_depth: instant(run, ending, to, gap, |hour| hour.snow_depth),
-            since_snowfall: instant(run, ending, to, gap, |hour| hour.since_snowfall),
-            albedo: instant(run, ending, to, gap, |hour| hour.albedo),
-            precipitation,
-            precipitation_period: precipitation.map(|_| span),
-        }
-    };
+    macro_rules! resample {
+        ($run:ident, $intervals:expr; $($point:ident),*; $($flux:ident),*) => {{
+            let ending = |hour: &Hour| hour.interval.end.as_nanosecond().strict_mul(2);
+            $(let mut $point = instant($run, ending, gap, |hour| hour.$point);)*
+            $(let mut $flux = received($run, gap, |hour| hour.$flux);)*
+            let toward = |component: fn(Vector2<f64>) -> f64| instant($run, ending, gap, move |hour| hour.wind_direction.map(|direction| Ratio::new::<ratio>(component(heading(direction)))));
+            let (mut east, mut north) = (toward(|vector| vector.x), toward(|vector| vector.y));
+            $intervals.map(|(start, end)| {
+                let interval = Range { start, end };
+                let to = end.as_nanosecond().strict_mul(2);
+                let span = Time::new::<second>(length(interval).as_secs_f64());
+                let holding = &$run[$run.partition_point(|hour| hour.interval.end < end)];
+                let precipitation = averaged($run, interval, |hour| hour.interval, gap, |hour| hour.precipitation.map(|depth| (depth.value, length(hour.interval).as_secs_f64())))?
+                    .map(|totals| reduced(totals, span.value).map(Length::new::<meter>)).transpose()?;
+                Ok(Hour {
+                    interval,
+                    flags: holding.flags.clone(),
+                    $($point: $point(to)?,)*
+                    $($flux: $flux(interval)?,)*
+                    wind_direction: east(to)?.zip(north(to)?).map(|(east, north)| bearing(Vector2::new(east.get::<ratio>(), north.get::<ratio>()))),
+                    ceiling: holding.ceiling,
+                    present_weather: holding.present_weather,
+                    precipitation,
+                    precipitation_period: precipitation.map(|_| span),
+                })
+            }).collect::<Result<Vec<_>, ConversionError>>()
+        }};
+    }
     let period = Span::try_from(step)?;
     let runs = runs(&hours.records)
         .map(|(run, interval)| {
-            (step.is_positive() && aligned(length(interval), step))
-                .ok_or(Refusal::Resolution { start: interval.start, step })
-                .map(|()| interval.start.series(period).take_while(|at| *at <= interval.end).tuple_windows().map(|(from, to)| resample(run, Range { start: from, end: to })).collect_vec())
+            (step.is_positive() && aligned(length(interval), step)).ok_or(Refusal::Resolution { start: interval.start, step }).map(|()| {
+                resample!(run, interval.start.series(period).take_while(|at| *at < interval.end).chain(iter::once(interval.end)).tuple_windows();
+                    dry_bulb, dew_point, relative_humidity, pressure, wind_speed, total_sky_cover, opaque_sky_cover, visibility,
+                    precipitable_water, aerosol_optical_depth, snow_depth, since_snowfall, albedo;
+                    infrared, global_irradiance, direct_irradiance, diffuse_irradiance, global_illuminance, direct_illuminance, diffuse_illuminance, zenith_luminance
+                )
+            })
         })
         .collect::<Validated<Vec<_>, _>>()
-        .ok()?;
+        .ok()?
+        .into_iter()
+        .collect::<Result<Vec<_>, _>>()?;
     Ok(Hours { sun: hours.sun.clone(), records: runs.into_iter().flatten().collect() })
 }
 
-fn instant<D>(run: &[Hour], node: impl Fn(&Hour) -> f64, at: f64, gap: SignedDuration, field: impl Fn(&Hour) -> Option<Measure<D>>) -> Option<Measure<D>>
+fn instant<D>(run: &[Hour], node: impl Fn(&Hour) -> i128, gap: SignedDuration, field: impl Fn(&Hour) -> Option<Measure<D>>) -> impl FnMut(i128) -> Result<Option<Measure<D>>, ConversionError>
 where D: si::Dimension + ?Sized {
-    let following = run.partition_point(|hour| node(hour) < at);
-    let present = |index: usize| run.get(index).and_then(|hour| field(hour).map(|quantity| (index, node(hour), quantity)));
-    let near = |time: f64| (time - at).abs() <= gap.as_secs_f64();
-    match ((0..following).rev().find_map(present), (following..run.len()).find_map(present)) {
-        (None, None) => None,
-        (_, Some((_, time, later))) if time <= at => Some(later),
-        (Some((before, earlier_time, earlier)), Some((after, later_time, later))) => (after == before.strict_add(1) || later_time - earlier_time <= gap.as_secs_f64())
-            .then(|| measure((later.value - earlier.value).mul_add((at - earlier_time) / (later_time - earlier_time), earlier.value))),
-        (Some((index, time, value)), None) => (index.strict_add(1) == run.len() || near(time)).then_some(value),
-        (None, Some((index, time, value))) => (index == 0 || near(time)).then_some(value),
+    #[expect(clippy::arithmetic_side_effects, reason = "Dashu interpolation is exact and bracketing timestamp durations are positive")]
+    let interpolated = |earlier: f64, later: f64, elapsed: i128, duration: i128| {
+        if ordinary(earlier) && ordinary(later) {
+            Ok(f64::from((TwoFloat::from_f64(later) - earlier) * (TwoFloat::from(elapsed) / TwoFloat::from(duration)) + earlier))
+        } else {
+            let earlier = RBig::try_from(earlier)?;
+            Ok((&earlier + (RBig::try_from(later)? - &earlier) * RBig::from(elapsed) / RBig::from(duration)).to_f64().value())
+        }
+    };
+    let mut following = run.iter().enumerate().filter_map(move |(index, hour)| field(hour).map(|quantity| (index, node(hour), quantity))).peekable();
+    let mut earlier = None;
+    let gap = gap.as_nanos().strict_mul(2);
+    move |at| {
+        earlier = following.peeking_take_while(|&(_, time, _)| time < at).last().or(earlier);
+        let near = |time: i128| time.strict_sub(at).strict_abs() <= gap;
+        match (earlier, following.peek().copied()) {
+            (None, None) => Ok(None),
+            (_, Some((_, time, later))) if time <= at => Ok(Some(later)),
+            (Some((before, earlier_time, earlier)), Some((after, later_time, later))) => (after == before.strict_add(1) || later_time.strict_sub(earlier_time) <= gap)
+                .then(|| interpolated(earlier.value, later.value, at.strict_sub(earlier_time), later_time.strict_sub(earlier_time)).map(measure))
+                .transpose(),
+            (Some((index, time, value)), None) => Ok((index.strict_add(1) == run.len() || near(time)).then_some(value)),
+            (None, Some((index, time, value))) => Ok((index == 0 || near(time)).then_some(value)),
+        }
     }
 }
 
-fn mean<D>(run: &[Hour], interval: Range<Timestamp>, gap: SignedDuration, field: impl Fn(&Hour) -> Option<Measure<D>>) -> Option<Measure<D>>
-where D: si::Dimension + ?Sized {
-    averaged(run, interval, |hour| hour.interval, gap, |hour| field(hour).map(|quantity| quantity.value)).map(measure)
-}
-
-fn averaged<T>(items: &[T], interval: Range<Timestamp>, span: impl Fn(&T) -> Range<Timestamp>, gap: SignedDuration, value: impl Fn(&T) -> Option<f64>) -> Option<f64> {
-    let mut covered = 0.0;
+fn averaged<T>(
+    items: &[T],
+    interval: Range<Timestamp>,
+    span: impl Fn(&T) -> Range<Timestamp>,
+    gap: SignedDuration,
+    value: impl Fn(&T) -> Option<(f64, f64)>,
+) -> Result<Option<Totals>, ConversionError> {
     let first = items.partition_point(|item| span(item).end <= interval.start);
     let overlapping = items.iter().skip(first).map_while(|item| {
         let part = span(item);
         (part.start < interval.end).then(|| (item, Range { start: part.start.max(interval.start), end: part.end.min(interval.end) }))
     });
-    let mean = weighted(overlapping.filter_map(|(item, part)| value(item).map(|stated| (stated, length(part).as_secs_f64()))).inspect(|&(_, weight)| covered += weight));
-    mean.filter(|_| length(interval).as_secs_f64() - covered <= gap.as_secs_f64())
+    overlapping
+        .filter_map(|(item, part)| value(item).map(|(value, divisor)| (value, length(part).as_secs_f64(), divisor)))
+        .try_fold(None, |totals, (value, weight, divisor)| {
+            let mut totals = totals.unwrap_or_else(|| Either::Left(Default::default()));
+            accumulated(&mut totals, (value, weight), divisor).map(|()| Some(totals))
+        })
+        .map(|totals| {
+            totals.filter(|totals| {
+                let covered = totals.as_ref().either(|(_, total)| f64::from(*total), |(_, total)| total.to_f64().value());
+                length(interval).as_secs_f64() - covered <= gap.as_secs_f64()
+            })
+        })
 }
 
-fn weighted(readings: impl IntoIterator<Item = (f64, f64)>) -> Option<f64> {
-    let (sum, total) = readings.into_iter().fold((0.0, 0.0), |(sum, total), (value, weight)| (value.mul_add(weight, sum), total + weight));
-    (total > 0.0).then(|| sum / total)
+fn weighted(readings: impl IntoIterator<Item = (f64, f64)>) -> Result<Option<f64>, ConversionError> {
+    readings
+        .into_iter()
+        .try_fold(None, |totals, reading| {
+            let mut totals = totals.unwrap_or_else(|| Either::Left(Default::default()));
+            accumulated(&mut totals, reading, 1.0).map(|()| Some(totals))
+        })?
+        .map(|totals| reduced(totals, 1.0))
+        .transpose()
+}
+
+fn ordinary(value: f64) -> bool { value.classify() == FpCategory::Zero || (f64::MIN_POSITIVE.sqrt()..=f64::MAX.sqrt()).contains(&value.abs()) }
+
+#[expect(clippy::arithmetic_side_effects, reason = "Dashu arithmetic is exact and divisors are positive source durations or one")]
+fn accumulated(totals: &mut Totals, (value, weight): (f64, f64), divisor: f64) -> Result<(), ConversionError> {
+    if let Either::Left((sum, total)) = totals
+        && !ordinary(value)
+    {
+        *totals = Either::Right((RBig::try_from(sum.hi())? + RBig::try_from(sum.lo())?, RBig::try_from(total.hi())? + RBig::try_from(total.lo())?));
+    }
+    match totals {
+        Either::Left((sum, total)) => {
+            *sum += TwoFloat::new_div(weight, divisor) * value;
+            *total += weight;
+        }
+        Either::Right((sum, total)) => {
+            let weight = RBig::try_from(weight)?;
+            *sum += RBig::try_from(value)? * &weight / RBig::try_from(divisor)?;
+            *total += weight;
+        }
+    }
+    Ok(())
+}
+
+#[expect(clippy::arithmetic_side_effects, reason = "Dashu arithmetic is exact and coverage sums positive interval durations or unit weights")]
+fn reduced(totals: Totals, multiplier: f64) -> Result<f64, ConversionError> {
+    totals.either(|(sum, total)| Ok(f64::from(sum / total * multiplier)), |(sum, total)| Ok((sum / total * RBig::try_from(multiplier)?).to_f64().value()))
 }
 
 fn runs(records: &[Hour]) -> impl Iterator<Item = (&[Hour], Range<Timestamp>)> {
-    records
-        .chunk_by(|earlier, later| earlier.interval.end == later.interval.start)
-        .filter_map(|run| run.first().zip(run.last()).map(|(first, last)| (run, Range { start: first.interval.start, end: last.interval.end })))
+    records.chunk_by(|earlier, later| earlier.interval.end == later.interval.start).map(|run| (run, Range { start: run[0].interval.start, end: run[run.len().strict_sub(1)].interval.end }))
 }
 
 fn aligned(duration: SignedDuration, step: SignedDuration) -> bool { duration.as_nanos().checked_rem_euclid(step.as_nanos()) == Some(0) }
 
 fn length(interval: Range<Timestamp>) -> SignedDuration { interval.end.duration_since(interval.start) }
-
-fn seconds(at: Timestamp) -> f64 { at.as_duration().as_secs_f64() }
 
 // --- [CALENDAR]
 fn zone(hours: &Hours) -> &TimeZone { &AsRef::<Place>::as_ref(&hours.sun).zone }

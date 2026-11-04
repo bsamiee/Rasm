@@ -1,9 +1,9 @@
-import { Requests } from '@rasm/automation/requests';
-import { ExtensionManifest } from '@rasm/cep/manifest';
+import { Requests } from '@rasm/automation';
+import { ExtensionManifest } from '@rasm/cep';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const Illustrator = { identifier: 'com.adobe.illustrator', Contract: Requests, host: { app: 'ILST', minVersion: '30.0' }, script: '@rasm/illustrator/host', target: ExtensionManifest.target } as const;
+const Illustrator = { identifier: 'com.adobe.illustrator', Contract: Requests, host: { app: 'ILST', minVersion: '30.0' }, script: '@rasm/illustrator/extendscript', target: ExtensionManifest.target } as const;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

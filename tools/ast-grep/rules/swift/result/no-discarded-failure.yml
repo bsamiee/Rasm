@@ -5,7 +5,7 @@ severity: error
 rule:
     kind: call_expression
     all:
-        - has: {kind: navigation_expression, has: {field: suffix, regex: '^\.?(mapError|flatMapError)$', pattern: $M}}
+        - has: {nthChild: 1, kind: navigation_expression, all: [{has: {field: suffix, regex: '^\.?(mapError|flatMapError)$', pattern: $M}}, {has: {field: target, matches: swift-result-value}}]}
         - has:
             kind: call_suffix
             has:

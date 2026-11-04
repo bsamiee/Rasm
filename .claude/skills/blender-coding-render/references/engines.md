@@ -13,14 +13,7 @@ Engine classes subclass `bpy.types.RenderEngine`, and code selects one through `
 
 Final renders construct the class twice per frame and keep one instance across that frame's view layers, `render.use_persistent_data` or `bl_use_gpu_context` keeping it across frames. `__init__(self, *args, **kwargs)` calls `super().__init__(*args, **kwargs)` and acquires nothing, and `update` acquires render state and holds it on `self`.
 
-Built-in property panels poll `context.engine in cls.COMPAT_ENGINES`, and engines show a built-in engine's panels by joining their sets in `register` and leaving them with `apply=set.discard` in `unregister`:
-
-```python
-def joined(engine: str, /, *, like: str, apply: Callable[[set[str], str], None] = set.add) -> None:
-    for panel in bpy.types.Panel.__subclasses__():
-        if isinstance(engines := getattr(panel, "COMPAT_ENGINES", None), set) and like in engines:
-            apply(engines, engine)
-```
+Built-in property panels poll `context.engine in cls.COMPAT_ENGINES`. `COMPAT_ENGINES` is optional class metadata; missing attributes raise `AttributeError`. Registration adds engine names to sets holding a reference engine; cleanup discards added names from the held sets.
 
 `bpy.types.HydraRenderEngine` syncs, renders, and draws the viewport itself, and engines over a USD Hydra render delegate subclass it:
 - `bl_delegate_id` names an `HdRendererPlugin` type, Blender holding `HdStormRendererPlugin` alone
@@ -116,8 +109,8 @@ Stereo border renders write both eyes of each layer inside the border, `Coverage
 `view_update(context, depsgraph)` and `view_draw(context, depsgraph)` run on the main thread for a 3D viewport in Rendered shading, one instance per viewport:
 - `view_update` runs before `view_draw` on each depsgraph change, its first call holding empty `depsgraph.updates`
 - Engines holding no scene state sync every object before applying `updates`
-- `view_draw` draws scene-linear pixels between `bind_display_space_shader(scene)` and `unbind_display_space_shader()`, other draws reaching no pixel
-- Viewports apply scene display, view, and exposure to drawn pixels
+- `view_draw` supplies scene-linear pixels; viewport applies display/view/look and full scene settings with scene lights or world enabled
+- `bind_display_space_shader(scene)` binds the built-in image shader; its scene argument applies no color transform
 - Region-filling draws upload `gpu.types.GPUTexture((width, height), format="RGBA16F", data=gpu.types.Buffer("FLOAT", width * height * 4, pixels))`
 - `gpu_extras.presets.draw_texture_2d(texture, (0, 0), width, height)` draws the texture at `context.region` size
 - `tag_redraw()` requests the next `view_draw` and `tag_update()` the next `view_update`, a timer refining an image progressively calling them

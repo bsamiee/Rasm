@@ -82,7 +82,7 @@ internal static partial class Packages {
                from latest in IO.liftAsync(async env =>
                    await published.Flatten()
                        .Where(release => !row.Exact || (release.Metadata.Identity.Version.Major, release.Metadata.Identity.Version.Minor) == (row.Version.Major, row.Version.Minor))
-                       .OrderByDescending(static release => release.Metadata, Comparer<IPackageSearchMetadata>.Create(Rank))
+                       .OrderByDescending(static release => release.Metadata.Identity.Version, VersionComparer.VersionRelease)
                        .ToAsyncEnumerable()
                        .Where(SupportedAsync)
                        .Select(static release => Some(release.Metadata.Identity.Version))
@@ -92,22 +92,12 @@ internal static partial class Packages {
                    .Filter(version => !VersionComparer.Default.Equals(version, row.Version))
                    .Map(version => new Move(row, version));
 
-        static int Rank(IPackageSearchMetadata left, IPackageSearchMetadata right) =>
-            (VersionComparer.Version.Compare(left.Identity.Version, right.Identity.Version), left.Identity.Version.ReleaseLabels.Zip(right.Identity.Version.ReleaseLabels).FirstOrDefault(static labels => !string.Equals(labels.First, labels.Second, StringComparison.OrdinalIgnoreCase))) switch {
-                (not 0 and var bases, _) => bases,
-                (_, (string first, string second)) when !(first.All(char.IsAsciiDigit) && second.All(char.IsAsciiDigit)) && Nullable.Compare(left.Published, right.Published) is not 0 and var published => published,
-                _ => VersionComparer.Default.Compare(left.Identity.Version, right.Identity.Version),
-            };
-
-        ValueTask<bool> SupportedAsync((IPackageSearchMetadata Metadata, FindPackageByIdResource Downloads) release, CancellationToken token) =>
-            toSeq(release.Metadata.DependencySets) is { IsEmpty: false } groups && groups.ForAll(static group => group.TargetFramework.IsSpecificFramework)
-                ? ValueTask.FromResult(NuGetFrameworkUtility.GetNearest(groups, framework, static group => group.TargetFramework) is not null)
-                : InspectedAsync(release.Metadata.Identity, release.Downloads, token);
-
-        async ValueTask<bool> InspectedAsync(PackageIdentity listed, FindPackageByIdResource downloads, CancellationToken token) {
-            FileStream nupkg = File.Create(Path.GetTempFileName(), 4096, FileOptions.DeleteOnClose);
+        async ValueTask<bool> SupportedAsync((IPackageSearchMetadata Metadata, FindPackageByIdResource Downloads) release, CancellationToken token) {
+            FileStream nupkg = new(Path.Combine(Path.GetTempPath(), Path.GetRandomFileName()),
+                new FileStreamOptions { Mode = FileMode.CreateNew, Access = FileAccess.ReadWrite, Options = FileOptions.Asynchronous | FileOptions.DeleteOnClose });
             await using ConfiguredAsyncDisposable disposal = nupkg.ConfigureAwait(false);
-            if (!await downloads.CopyNupkgToStreamAsync(listed.Id, listed.Version, nupkg, cache, NullLogger.Instance, token).ConfigureAwait(false))
+            PackageIdentity listed = release.Metadata.Identity;
+            if (!await release.Downloads.CopyNupkgToStreamAsync(listed.Id, listed.Version, nupkg, cache, NullLogger.Instance, token).ConfigureAwait(false))
                 return false;
             using PackageArchiveReader package = new(nupkg, leaveStreamOpen: true);
             return Compatible(listed.Id, toSeq(await package.GetFilesAsync(token).ConfigureAwait(false)), package.NuspecReader);
@@ -173,8 +163,6 @@ internal static partial class Packages {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 internal static class Program {
-    private const int ConcurrentRows = 256;
-
     public static async Task<int> Main(string[] args) =>
         (await Upgrade(args).RunSafeAsync().ConfigureAwait(false)).Match(
             Succ: Report,
@@ -189,10 +177,7 @@ internal static class Program {
         let settings = Settings.LoadDefaultSettings(Path.GetDirectoryName(path))
         let mapping = PackageSourceMapping.GetPackageSourceMapping(settings)
         from feeds in Packages.Feeds(toSeq(SettingsUtility.GetEnabledSources(settings)).Map(static source => Repository.Factory.GetCoreV3(source)))
-        from moves in toSeq(rows.Chunk(ConcurrentRows))
-            .TraverseM(chunk => Packages.Collect(toSeq(chunk).Map(row => Packages.Newest(framework, cache, mapping, feeds, row))))
-            .As()
-            .Map(static chunks => chunks.Flatten().Somes())
+        from moves in Packages.Collect(rows.Map(row => Packages.Newest(framework, cache, mapping, feeds, row))).Map(static releases => releases.Somes())
         from written in when(!moves.IsEmpty, IO.liftAsync(env => File.WriteAllTextAsync(path, Packages.Rewrite(text, moves), env.Token).ToUnit())).As()
         select moves;
 

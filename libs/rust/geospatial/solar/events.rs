@@ -40,18 +40,17 @@ pub fn windows(sun: &Sun, interval: Range<Timestamp>, elevation: Angle) -> Resul
         (if rising { SolarPositions::next_elevation_rise_from_julian } else { SolarPositions::next_elevation_set_from_julian })(&positions, date, end, sun.location, start.delta_t(), target)
             .map(|next| next.map(|next| (next, !rising)))
     };
-    let crossings = iter::successors(Some(step((start.julian_date(), !lit))), |previous| previous.as_ref().ok().copied().flatten().map(step))
+    iter::successors(Some(step((start.julian_date(), !lit))), |previous| previous.as_ref().ok().copied().flatten().map(step))
         .map_while(Result::transpose)
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(searched)?;
-    let lit_at_end = lit == crossings.len().is_multiple_of(2);
-    let inner = crossings.into_iter().map(|(date, _)| instant(interval, start, date)).collect::<Result<Vec<_>, _>>()?;
-    Ok(iter::chain(lit.then_some(interval.start), inner)
-        .chain(lit_at_end.then_some(interval.end))
-        .array_chunks::<2>()
-        .map(|[rise, set]| Range { start: rise, end: set })
-        .filter(|window| window.start < window.end)
-        .collect())
+        .map(|crossing| crossing.map_err(searched).and_then(|(date, _)| instant(interval, start, date).map_err(SolarError::Time)))
+        .process_results(|crossings| {
+            iter::chain(lit.then_some(interval.start), crossings)
+                .chain([interval.end])
+                .array_chunks::<2>()
+                .map(|[rise, set]| Range { start: rise, end: set })
+                .filter(|window| window.start < window.end)
+                .collect()
+        })
 }
 
 pub fn sampled<I>(sun: &Sun, cells: I, rule: &GaussLegendre) -> Result<Vec<(usize, PreparedPositions, SolarPosition, Time)>, SolarError>

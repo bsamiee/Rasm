@@ -4,19 +4,19 @@ from collections.abc import Callable, Mapping
 from functools import partial
 from pathlib import Path
 from types import MappingProxyType
-from typing import Annotated
+from typing import Annotated, overload
 
 from atomicwrites import move_atomic
 from bl_operators.presets import AddPresetBase
 import bpy
-from expression import Nothing, Ok, Option
+from expression import Option
 from expression.extra.result import catch
 import msgspec
 from typing_extensions import TypeForm
 
-from blender.bpy.data.rna.properties import EnumItem, held_choices
+from blender.bpy.data.rna.properties import choices, EnumItem, IconedItem
 from blender.bpy.extension.identity import Identity, Key
-from blender.records.faults import Fault, Outcome, Reason
+from blender.records.faults import Error, Fault, Nothing, Ok, Outcome, Reason
 from blender.records.stores import RecordFile
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -47,17 +47,22 @@ class Preset[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
         added = sorted(users.keys() - self.stock.keys(), key=lambda stem: (stem.casefold(), stem))
         return {**{stem: users.get(stem, value) for stem, value in self.stock.items()}, **{stem: users[stem] for stem in added}}
 
-    def entries(self, identity: Identity, *_: object) -> tuple[EnumItem, ...]:
-        """Returns enum items with a value fixed per stem, kept referenced for Blender's string reads.
+    @staticmethod
+    @overload
+    def entries(sources: Mapping[str, msgspec.Struct | Path]) -> tuple[EnumItem, ...]: ...
+    @staticmethod
+    @overload
+    def entries(sources: Mapping[str, msgspec.Struct | Path], *, prefix: tuple[EnumItem | IconedItem, ...]) -> tuple[EnumItem | IconedItem, ...]: ...
+    @staticmethod
+    def entries(sources: Mapping[str, msgspec.Struct | Path], *, prefix: tuple[EnumItem | IconedItem, ...] = ()) -> tuple[EnumItem | IconedItem, ...]:
+        """Returns enum items with a value fixed per stem after supplied native prefix items.
 
         Stock stems read title-cased, user files keep their typed name and take their path as tooltip.
         """
-        return held_choices(
-            tuple(
-                (stem, bpy.path.display_name(stem, title_case=False), str(value)) if isinstance(value, Path) else (stem, bpy.path.display_name(stem), "")
-                for stem, value in self.listed(identity).items()
-            )
-        )
+        return choices((
+            *prefix,
+            *((stem, bpy.path.display_name(stem, title_case=False), str(value)) if isinstance(value, Path) else (stem, bpy.path.display_name(stem), "") for stem, value in sources.items()),
+        ))
 
     def found(self, identity: Identity, stem: str) -> Outcome[T | Path]:
         """Returns stock preset or user path of stem."""
@@ -110,7 +115,11 @@ class Preset[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
 
 def _named(name: str) -> Outcome[PresetName]:
     """Returns name validated as a preset name, invalid fault naming the bound it misses."""
-    return catch(msgspec.convert, exception=msgspec.ValidationError)(name, PresetName).map_error(partial(Fault.of, Reason.INVALID, name))
+    try:
+        valid: PresetName = msgspec.convert(name, PresetName)  # ty: ignore[unsound-assignment]
+        return Ok(valid)
+    except msgspec.ValidationError as error:
+        return Error(Fault.of(Reason.INVALID, name, error))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

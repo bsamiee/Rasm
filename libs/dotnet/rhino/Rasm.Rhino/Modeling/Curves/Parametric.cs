@@ -1,4 +1,3 @@
-using System.Globalization;
 using Rasm.Rhino.Document.Units;
 using Rasm.Spatial;
 using SuperLinq;
@@ -21,7 +20,7 @@ public abstract partial record ParametricCurve {
             (Seq(domain.T0) + breaks + Seq(domain.T1)) switch {
                 var joins => Products.Each(toSeq(joins.Window(2, static pair => (Before: pair[0], After: pair[1]))), static (pair, index) => pair.Before < pair.After
                         ? Fin.Succ(unit)
-                        : new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"break {pair.After} after {pair.Before}"), RhinoReason.Outside, index))
+                        : new RhinoFault(pair, RhinoReason.Outside, index))
                     .Map(_ => new Function(map, joins)),
             };
     }
@@ -68,10 +67,10 @@ public static class CurveLowerings {
 
     extension(HermiteSpline spline) {
         public IO<NurbsCurve> ToNurbs(Plane frame) =>
-            from pieces in spline.Spans.TraverseM(span =>
+            from pieces in Products.Each(spline.Spans.Map(span =>
                 from bezier in Products.Of(() => new BezierCurve([span.Start.ToPoint3d(frame), span.StartControl.ToPoint3d(frame), span.EndControl.ToPoint3d(frame), span.End.ToPoint3d(frame)]))
                 from nurbs in Products.Of(() => bezier.ToNurbsCurve())
-                select nurbs).As()
+                select nurbs))
             from joined in Appended(pieces)
             select joined;
     }
@@ -85,10 +84,10 @@ public static class CurveLowerings {
 
     // --- [TRACING]
     internal static IO<NurbsCurve> Traced(Func<double, Point3d> point, Seq<double> joins, Tolerances tolerances) =>
-        from pieces in toSeq(joins.Window(2, static span => new Line(span[0], 0d, 0d, span[1], 0d, 0d))).TraverseM(span =>
+        from pieces in Products.Each(toSeq(joins.Window(2, static span => new Line(span[0], 0d, 0d, span[1], 0d, 0d))).Map(span =>
             from line in Products.Of(() => NurbsCurve.CreateFromLine(span))
             from morphed in Morphs.Morph(tolerances, Seq(line), new MorphKind.Point(at => point(at.X)), preserveStructure: false, quickPreview: false)
-            select morphed[0]).As()
+            select morphed[0]))
         from joined in Appended(pieces)
         select joined;
 

@@ -1,23 +1,30 @@
 import { CreateBucketCommand, S3Client, type S3ClientConfig } from '@aws-sdk/client-s3';
 import { layer } from '@effect/vitest';
-import { ObjectStorage } from '@rasm/hosting/storage';
+import { ObjectStorage } from '@rasm/hosting/server';
 import { Context, Effect, Layer } from 'effect';
 import { GenericContainer, PullPolicy, Wait } from 'testcontainers';
 import { cases } from '#/tests/typescript/libs/web/hosting/cases';
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Bucket extends Context.Service<Bucket, { readonly name: string; readonly client: S3ClientConfig }>()('rasm/tests/typescript/libs/web/hosting/s3.test/Bucket') {}
+class Bucket extends Context.Service<Bucket, { readonly name: string; readonly client: S3ClientConfig }>()('rasm/tests/typescript/libs/web/hosting/s3.test/Bucket') {
+    static create({ name, client }: Context.Service.Shape<typeof Bucket>) {
+        return Effect.acquireUseRelease(
+            Effect.sync(() => new S3Client(client)),
+            (opened) => Effect.promise((signal) => opened.send(new CreateBucketCommand({ Bucket: name }), { abortSignal: signal })),
+            (opened) => Effect.sync(() => opened.destroy()),
+        );
+    }
+}
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
-
-const rustfs = { port: 9000, credentials: { accessKeyId: 'rasm-hosting-test', secretAccessKey: 'rasm-hosting-test-secret' } };
 
 layer(
     Layer.effect(
         Bucket,
         Effect.gen(function* () {
-            const started = yield* Effect.acquireRelease(
+            const rustfs = { port: 9000, credentials: { accessKeyId: 'rasm-hosting-test', secretAccessKey: 'rasm-hosting-test-secret' } };
+            const started = yield* Effect.acquireDisposable(
                 Effect.promise(() =>
                     new GenericContainer('rustfs/rustfs:latest')
                         .withPullPolicy(PullPolicy.alwaysPull())
@@ -26,14 +33,9 @@ layer(
                         .withWaitStrategy(Wait.forHttp('/health/ready', rustfs.port))
                         .start(),
                 ),
-                (container) => Effect.promise(() => container.stop()),
             );
             const bucket = { name: 'media', client: { endpoint: `http://${started.getHost()}:${started.getMappedPort(rustfs.port)}`, region: 'us-east-1', credentials: rustfs.credentials, forcePathStyle: true } };
-            yield* Effect.acquireUseRelease(
-                Effect.sync(() => new S3Client(bucket.client)),
-                (client) => Effect.promise((signal) => client.send(new CreateBucketCommand({ Bucket: bucket.name }), { abortSignal: signal })),
-                (client) => Effect.sync(() => client.destroy()),
-            );
+            yield* Bucket.create(bucket);
             return bucket;
         }),
     ),

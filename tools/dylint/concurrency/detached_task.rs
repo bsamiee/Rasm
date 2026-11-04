@@ -1,14 +1,12 @@
-use core::iter;
+use core::{iter, mem};
 
 use clippy_utils::{
-    diagnostics::span_lint_hir_and_then,
-    expr_or_init, fn_def_id, get_enclosing_block, is_expr_temporary_value, local_is_initialized,
+    diagnostics::span_lint_hir,
+    expr_or_init, fn_def_id, is_expr_temporary_value,
     paths::PathNS,
     res::{MaybeDef as _, MaybeResPath as _},
-    source::snippet,
-    visitors::is_local_used,
 };
-use rustc_data_structures::fx::{FxHashMap, FxHashSet};
+use rustc_data_structures::fx::{FxHashMap, FxHashSet, FxIndexMap};
 use rustc_hir::{Expr, ExprKind, HirId, LetStmt, PatKind, Stmt, StmtKind, def_id::DefId};
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty::{
@@ -17,81 +15,65 @@ use rustc_middle::ty::{
 };
 use rustc_span::{Span, sym};
 
-use super::{AsyncContext, in_drop_impl};
-use crate::{expanded_externally, impl_owner, path, paths, resolve};
-
-// --- [TYPES] ---------------------------------------------------------------------------
-
-#[derive(Clone, Copy)]
-enum Spawned {
-    Task,
-    Thread,
-}
+use crate::{expanded_externally, impl_owner, paths, resolve, signature};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-#[derive(Clone, Copy)]
-enum Detachment {
-    Dropped,
-    Replaced(Span),
-    Every,
+struct Unread {
+    span: Span,
+    handle: DefId,
+    work: &'static str,
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
 pub(crate) struct Pass {
-    handles: FxHashMap<DefId, Spawned>,
+    handles: FxHashMap<DefId, &'static str>,
     trackers: FxHashSet<DefId>,
-    detach_all: Option<DefId>,
-    async_context: AsyncContext,
+    tracked: FxHashSet<DefId>,
+    spawns: FxHashSet<DefId>,
+    detach_all: FxHashSet<DefId>,
+    unread: FxIndexMap<HirId, Option<Unread>>,
 }
 
-lint!(Pass; DETACHED_TASK: "task and thread handles dropped with no owner joining them, and `JoinSet::detach_all` calls");
+lint!(Pass; DETACHED_TASK: "task and thread handle drops that detach work, and `JoinSet::detach_all` calls");
 
 impl Pass {
     pub(crate) fn new(tcx: TyCtxt<'_>) -> Self {
+        let tracking = paths(tcx, PathNS::Value, &["tokio_util::task::TaskTracker::track_future"]);
         Self {
-            handles: resolve(tcx, PathNS::Type, &[("tokio::task::JoinHandle", Spawned::Task), ("std::thread::JoinHandle", Spawned::Thread)]),
-            trackers: paths(tcx, PathNS::Type, &["tokio_util::task::TaskTracker", "tokio_util::task::task_tracker::TrackedFuture"]),
-            detach_all: path(tcx, PathNS::Value, "tokio::task::JoinSet::detach_all"),
-            async_context: AsyncContext::new(tcx),
+            handles: resolve(tcx, PathNS::Type, &[("tokio::task::JoinHandle", "task"), ("std::thread::JoinHandle", "thread")]),
+            trackers: tracking.iter().filter_map(|&method| impl_owner(tcx, method).opt_def_id()).collect(),
+            tracked: tracking.iter().filter_map(|&method| signature(tcx, method).output().opt_def_id()).collect(),
+            spawns: paths(
+                tcx,
+                PathNS::Value,
+                &["tokio::task::spawn", "tokio::task::spawn_local", "tokio::runtime::Runtime::spawn", "tokio::runtime::Handle::spawn", "tokio::task::LocalSet::spawn_local"],
+            ),
+            detach_all: paths(tcx, PathNS::Value, &["tokio::task::JoinSet::detach_all"]),
+            unread: FxIndexMap::default(),
         }
     }
 
-    fn detached(&self, cx: &LateContext<'_>, handle: &Expr<'_>) -> Option<(DefId, Spawned)> {
+    fn detached(&self, cx: &LateContext<'_>, handle: &Expr<'_>) -> Option<(DefId, &'static str)> {
         let typeck = cx.typeck_results();
         let dropped = typeck.expr_ty(handle).opt_def_id()?;
-        let &spawned = self.handles.get(&dropped)?;
-        let owned = matches!(expr_or_init(cx, handle).kind, ExprKind::MethodCall(_, receiver, arguments, _) | ExprKind::Call(receiver, arguments)
-            if iter::chain([receiver], arguments).any(|operand| typeck.expr_ty_adjusted(operand).peel_refs().opt_def_id().is_some_and(|adt| self.trackers.contains(&adt))));
-        (!owned).then_some((dropped, spawned))
+        let &work = self.handles.get(&dropped)?;
+        let origin = expr_or_init(cx, handle);
+        let producer = fn_def_id(cx, origin);
+        let owned = producer.and_then(|method| impl_owner(cx.tcx, method).opt_def_id()).is_some_and(|owner| self.trackers.contains(&owner))
+            || producer.is_some_and(|producer| self.spawns.contains(&producer))
+                && matches!(origin.kind, ExprKind::MethodCall(_, receiver, arguments, _) | ExprKind::Call(receiver, arguments)
+                    if iter::chain([receiver], arguments).any(|operand| typeck.expr_ty_adjusted(operand).opt_def_id().is_some_and(|adt| self.tracked.contains(&adt))));
+        (!owned).then_some((dropped, work))
     }
 
-    fn report(&self, cx: &LateContext<'_>, (dropped, spawned): (DefId, Spawned), node: HirId, span: Span, detachment: Detachment) {
-        let name = cx.tcx.def_path_str(dropped);
-        let work = match spawned {
-            Spawned::Task => "task",
-            Spawned::Thread => "thread",
-        };
-        let message = match detachment {
-            Detachment::Dropped => format!("dropping `{name}` detaches its {work}"),
-            Detachment::Replaced(_) => format!("reassigning `{name}` detaches its previous {work}"),
-            Detachment::Every => format!("`{name}::detach_all` detaches every task in the set"),
-        };
-        let help = match (detachment, spawned, in_drop_impl(cx, node), self.async_context.is_async(cx, cx.tcx.hir_enclosing_body_owner(node))) {
-            (Detachment::Every, ..) => format!("await `{name}::join_all` in place of the call"),
-            (Detachment::Replaced(place), Spawned::Task, ..) => format!("store `{}` as `tokio_util::task::AbortOnDropHandle`", snippet(cx, place, "..")),
-            (Detachment::Replaced(place), Spawned::Thread, ..) => format!("join `{}` before the assignment", snippet(cx, place, "..")),
-            (Detachment::Dropped, Spawned::Task, false, _) => String::from("spawn through `tokio_util::task::TaskTracker::spawn`, then `close` the tracker and await `wait` at shutdown"),
-            (Detachment::Dropped, Spawned::Task, true, _) => String::from("spawn through `tokio_util::task::TaskTracker::spawn_on` with `Handle` captured at construction"),
-            (Detachment::Dropped, Spawned::Thread, false, true) => String::from("await the work through `tokio::task::spawn_blocking`"),
-            (Detachment::Dropped, Spawned::Thread, ..) => String::from("spawn the thread in `std::thread::scope`"),
-        };
-        span_lint_hir_and_then(cx, DETACHED_TASK, node, span, message, |diag| {
-            diag.help(help);
-        });
+    fn report(cx: &LateContext<'_>, (dropped, work): (DefId, &'static str), node: HirId, span: Span) {
+        span_lint_hir(cx, DETACHED_TASK, node, span, format!("dropping `{}` detaches its {work}", cx.tcx.def_path_str(dropped)));
     }
 }
+
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
 impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_stmt(&mut self, cx: &LateContext<'tcx>, statement: &'tcx Stmt<'tcx>) {
@@ -99,22 +81,31 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             && !expanded_externally(cx, statement.span)
             && let Some(handle) = self.detached(cx, expr)
         {
-            self.report(cx, handle, expr.hir_id, expr.span.source_callsite(), Detachment::Dropped);
+            Self::report(cx, handle, expr.hir_id, expr.span.source_callsite());
         }
     }
 
     fn check_local(&mut self, cx: &LateContext<'tcx>, local: &'tcx LetStmt<'tcx>) {
-        if let PatKind::Binding(_, binding, _, None) = local.pat.kind
-            && let Some(init) = local.init
+        if let Some(init) = local.init
             && !expanded_externally(cx, local.span)
-            && let Some(handle) = self.detached(cx, init)
-            && get_enclosing_block(cx, local.hir_id).is_some_and(|block| !is_local_used(cx, block, binding))
+            && let Some((handle, work)) = self.detached(cx, init)
         {
-            self.report(cx, handle, local.hir_id, local.span, Detachment::Dropped);
+            match local.pat.kind {
+                PatKind::Binding(_, binding, _, None) => {
+                    self.unread.insert(binding, Some(Unread { span: local.span, handle, work }));
+                }
+                PatKind::Wild => Self::report(cx, (handle, work), local.hir_id, local.span),
+                _ => {}
+            }
         }
     }
 
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
+        if let Some(binding) = expr.res_local_id()
+            && let Some(unread) = self.unread.get_mut(&binding)
+        {
+            *unread = None;
+        }
         if expanded_externally(cx, expr.span) {
             return;
         }
@@ -122,26 +113,26 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             && fn_def_id(cx, expr).is_diag_item(cx, sym::mem_drop)
             && let Some(handle) = self.detached(cx, argument)
         {
-            self.report(cx, handle, expr.hir_id, expr.span, Detachment::Dropped);
+            Self::report(cx, handle, expr.hir_id, expr.span);
         }
         if let ExprKind::MethodCall(_, receiver, ..) = expr.kind
             && matches!(cx.typeck_results().expr_adjustments(receiver), [.., Adjustment { kind: Adjust::Borrow(_), .. }])
             && let Some(handle) = self.detached(cx, receiver)
             && is_expr_temporary_value(cx, receiver)
         {
-            self.report(cx, handle, receiver.hir_id, receiver.span.source_callsite(), Detachment::Dropped);
-        }
-        if let ExprKind::Assign(place, ..) = expr.kind
-            && let Some(handle) = self.detached(cx, place)
-            && place.res_local_id().is_none_or(|local| local_is_initialized(cx, local))
-        {
-            self.report(cx, handle, expr.hir_id, expr.span, Detachment::Replaced(place.span));
+            Self::report(cx, handle, receiver.hir_id, receiver.span.source_callsite());
         }
         if let ExprKind::MethodCall(segment, ..) = expr.kind
-            && let Some(called) = fn_def_id(cx, expr).filter(|&called| Some(called) == self.detach_all)
+            && let Some(called) = fn_def_id(cx, expr).filter(|called| self.detach_all.contains(called))
             && let Some(set) = impl_owner(cx.tcx, called).opt_def_id()
         {
-            self.report(cx, (set, Spawned::Task), expr.hir_id, segment.ident.span.to(expr.span.shrink_to_hi()), Detachment::Every);
+            span_lint_hir(cx, DETACHED_TASK, expr.hir_id, segment.ident.span.to(expr.span.shrink_to_hi()), format!("`{}::detach_all` detaches every task in the set", cx.tcx.def_path_str(set)));
+        }
+    }
+
+    fn check_crate_post(&mut self, cx: &LateContext<'tcx>) {
+        for (binding, Unread { span, handle, work }) in mem::take(&mut self.unread).into_iter().filter_map(|(binding, unread)| Some((binding, unread?))) {
+            Self::report(cx, (handle, work), binding, span);
         }
     }
 }

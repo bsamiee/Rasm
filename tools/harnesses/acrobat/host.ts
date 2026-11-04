@@ -1,17 +1,17 @@
 import { createHash } from 'node:crypto';
 import { homedir } from 'node:os';
-import type { AppleEventValue, Terms } from '@rasm/automation/apple-events';
-import { Automation } from '@rasm/automation/automation';
+import type { AppleEventValue, Terms } from '@rasm/automation';
+import { Automation } from '@rasm/automation/node';
 import { transformSync } from '@swc/core';
-import { Array, Effect, FileSystem, flow, Option, Path, Record, Result, Schema, SchemaGetter, Stream, Struct, String as Text } from 'effect';
+import { Array, Effect, FileSystem, flow, Option, Path, Record, Result, Schema, SchemaGetter, Stream, String, Struct } from 'effect';
 import jsesc from 'jsesc';
-import { Answered, BOXES, Engine, HostCase, HostOutcome, Lockdown, Recorded, Request, type Staged, Survey, Surveyed } from '#/acrobat/contract';
+import { Answered, BOXES, Engine, EngineRequest, HostCase, HostOutcome, Lockdown, Recorded, type Staged, Survey, Surveyed } from '#/acrobat/contract';
 import { engine } from '#/acrobat/engine';
 import { precondition } from '#/acrobat/precondition';
-import { HarnessError } from '#/error';
+import { HarnessError } from '#/harness-error';
 import { Launched, printed } from '#/instance';
 import { copied } from '#/precondition';
-import { type Batch, type Decoding, filesIn, type Host as Harness, inside, installation, type Live } from '#/session';
+import { type Batch, type Decoding, filesIn, Harness, inside, installation, type Live } from '#/session';
 import { JsonObject } from '#/values';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -22,7 +22,7 @@ const ELLIPSIS = /(?:…|\.\.\.)$/u;
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Items = Schema.Array(Schema.Struct({ seld: Schema.String }).annotate({ description: 'Menu item specifier, its name as the selector' }));
-const Modals = Schema.Array(Schema.NullOr(Schema.String.pipe(Schema.decodeTo(Schema.Boolean, { decode: SchemaGetter.transform(flow(Text.match(ELLIPSIS), Option.isSome)), encode: SchemaGetter.forbiddenEncoding })).annotate({ description: 'Menu item title ending in an ellipsis, the item opening a dialog' })));
+const Modals = Schema.Array(Schema.NullOr(Schema.String.pipe(Schema.decodeTo(Schema.Boolean, { decode: SchemaGetter.transform(flow(String.match(ELLIPSIS), Option.isSome)), encode: SchemaGetter.forbiddenEncoding })).annotate({ description: 'Menu item title ending in an ellipsis, the item opening a dialog' })));
 const Objects = Schema.fromJsonString(Schema.Struct({ qpdf: Schema.Tuple([Schema.Unknown, Schema.Record(Schema.String, Schema.Json)]) })).annotate({ description: 'qpdf JSON v2 object table' });
 const Linked = Schema.Struct({ value: Schema.Struct({ '/Info': Schema.optionalKey(Schema.String), '/Root': Schema.optionalKey(Schema.String), '/Metadata': Schema.optionalKey(Schema.String) }) }).annotate({ description: 'Indirect references a dictionary holds' });
 const Dictionary = Schema.Struct({ value: JsonObject });
@@ -125,16 +125,16 @@ const menu = Effect.fn('menu')(function* (pid: number, index: number) {
     );
 });
 const modalIn = (pid: number) => Effect.map(Stream.runCollect(Stream.paginate(1, (index) => Effect.map(menu(pid, index), (names) => [Option.toArray(names).flat(), Option.as(names, index + 1)] as const))), (pages) => pages.flat());
-const answered = Effect.fn('answered')(function* <A>(pid: number, Reply: Decoding<Result.Result<A, { readonly reason: string }>>, request: typeof Request.Type) {
+const answered = Effect.fn('answered')(function* <A>(pid: number, Reply: Decoding<Result.Result<A, { readonly reason: string }>>, request: typeof EngineRequest.Type) {
     const [automation, code] = yield* Effect.all([Automation, lowered]);
-    const program = `(function (request) {\n${code}\nreturn engine.call(this, request);\n}).call(this, ${jsesc(yield* Schema.encodeEffect(Request)(request), { json: true })});`;
+    const program = `(function (request) {\n${code}\nreturn engine.call(this, request);\n}).call(this, ${jsesc(yield* Schema.encodeEffect(EngineRequest)(request), { json: true })});`;
     const direct = `try { eval(${jsesc(program, { json: true })}); } catch (error) { encodeURIComponent(JSON.stringify({ _tag: 'Failure', failure: { reason: String(error && error.name) + ': ' + String(error && error.message) + ' at line ' + String(error && error.lineNumber) } })); }`;
     const { reply } = yield* automation.script({ pid, direct });
-    return yield* Effect.mapError(Schema.decodeEffect(Reply)(reply), (error) => HarnessError.make({ reason: { _tag: 'Unavailable', because: `reply ${typeof reply} ${String(reply)}` }, subject: `process ${pid}`, cause: error }));
+    return yield* Effect.mapError(Schema.decodeEffect(Reply)(reply), (error) => HarnessError.make({ reason: { _tag: 'Unavailable', because: `reply ${typeof reply} ${globalThis.String(reply)}` }, subject: `process ${pid}`, cause: error }));
 });
 const surveyed = Effect.fn('surveyed')(function* (pid: number, opened: Option.Option<Schema.Json>) {
     const modal = yield* modalIn(pid);
-    const held = yield* answered(pid, Surveyed, Request.cases.Survey.make({ ...based(), modal }));
+    const held = yield* answered(pid, Surveyed, EngineRequest.cases.Survey.make({ ...based(), modal }));
     const { viewer, model } = yield* Effect.mapError(Effect.fromResult(held), ({ reason }) => HarnessError.unavailable(`process ${pid}`)(reason));
     const host = yield* Effect.orDie(Schema.decodeUnknownEffect(Lockdown)(Option.getOrUndefined(opened)));
     return { model: { ...model, modal }, viewer, host } satisfies typeof Survey.Type;
@@ -145,7 +145,7 @@ const cased = (pid: number, records: string, survey: typeof Survey.Type) =>
         const line = (entry: typeof Recorded.Type) => Effect.flatMap(Schema.encodeEffect(Recorded)(entry), (encoded) => fs.writeFileString(records, `${encoded}\n`, { flag: 'a' }));
         yield* line({ _tag: 'Started', index });
         const { hosted: held, inputs } = yield* staged(hosted);
-        const answer = yield* answered(pid, Answered, Request.cases.Case.make({ ...based(), modal: survey.model.modal, signatures: survey.model.signatures, case: held }));
+        const answer = yield* answered(pid, Answered, EngineRequest.cases.Case.make({ ...based(), modal: survey.model.modal, signatures: survey.model.signatures, case: held }));
         yield* collected(hosted, [...inputs, ...Result.match(answer, { onSuccess: ({ kept }) => kept, onFailure: () => [] })]);
         yield* line({ _tag: 'Finished', outcome: Result.match(answer, { onSuccess: ({ outcome }) => outcome, onFailure: ({ reason }) => HostOutcome.make({ name: hosted.name, completion: { _tag: 'Failed', reason } }) }) });
     });
@@ -159,7 +159,7 @@ const send = Effect.fn('send')(function* (live: Live, batch: Batch<typeof Survey
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const Host = {
+const acrobat = Harness({
     Engine,
     survey: { question: 'Member names per object kind, signatures of answered members, dialog menu items, viewer, and FeatureLockDown digest the installation declares', Schema: Survey },
     Case: HostCase,
@@ -174,8 +174,8 @@ const Host = {
     send,
     quit: (live) => Effect.flatMap(Automation, (automation) => Effect.asVoid(automation.execute({ pid: live.pid, command: CODES.quit, arguments: { saving: { _tag: 'enumerator', name: 'no' } } }))),
     canonical: (file, bytes) => (file.endsWith('.pdf') ? Effect.map(normalized(file), (text) => [text]) : Effect.succeed([bytes])),
-} as const satisfies Harness<typeof Survey.Type, typeof HostCase.Type, typeof Engine.Type, typeof Staged.Type>;
+});
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Host };
+export { acrobat };

@@ -6,21 +6,20 @@ import math
 from typing import ClassVar
 
 import colour
-from expression import Nothing, Option, Some
+from expression import Option, Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
 import PyOpenColorIO
 from scipy.cluster.vq import kmeans, vq
 from scipy.spatial.distance import cdist
-from scipy.stats import binned_statistic
 
 from blender.imaging.analysis.metering import Samples
 from blender.imaging.color.colorimetry import WhitePoint
 from blender.imaging.color.processors import basis
 from blender.imaging.files.buffers import fitted
 from blender.imaging.geometry.frames import Region
-from blender.records.faults import Outcome, paired
+from blender.records.faults import Nothing, Outcome, paired
 from blender.records.fields import AtLeastOne, Count, Frozen, NonNegative, Percent, Positive, Unit
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -136,8 +135,8 @@ class Lighting(msgspec.Struct, frozen=True, kw_only=True):
             levels = np.where(covered, np.maximum(samples.luminance, Samples.floor), np.nan)
             found = levels[subject]
             colors, raw = samples.color[subject].astype(np.float64), samples.luminance[subject]
-            rows, columns = np.indices(covered.shape, dtype=np.float64)
-            points = np.stack(((columns + 0.5) / width, 1.0 - (rows + 0.5) / height), axis=-1)[subject]
+            rows, columns = np.nonzero(subject)
+            points = np.column_stack(((columns + 0.5) / width, 1.0 - (rows + 0.5) / height))
             coordinates = 2.0 * points - 1.0
             ordered = np.argsort(found, stable=True)
 
@@ -146,7 +145,7 @@ class Lighting(msgspec.Struct, frozen=True, kw_only=True):
                 return ordered[start : max(math.ceil(found.size * share[1]), start + 1)]
 
             asymmetry = tuple(
-                float((positive.mean() - negative.mean()) / (positive.mean() + negative.mean())) if positive.size and negative.size else 0.0
+                float(((positive_mean := positive.mean()) - (negative_mean := negative.mean())) / (positive_mean + negative_mean)) if positive.size and negative.size else 0.0
                 for positive, negative in ((found[coordinates[:, axis] > 0.0], found[coordinates[:, axis] < 0.0]) for axis in (0, 1))
             )
             weighted = band(self.weighted_band)
@@ -166,10 +165,10 @@ class Lighting(msgspec.Struct, frozen=True, kw_only=True):
             centers, _ = kmeans(colors, np.stack(tuple(colors[band((index / count, (index + 1) / count))].mean(axis=0) for index in range(count))), thresh=0.0, check_finite=False)
             labels, _ = vq(colors, centers, check_finite=False)
             counts = np.bincount(labels, minlength=centers.shape[0])
-            means = np.asarray(binned_statistic(labels, np.column_stack((colors, points)).T, statistic="mean", bins=np.arange(centers.shape[0] + 1) - 0.5).statistic.T, dtype=np.float64)
             clusters = np.argsort(-counts, stable=True)
             clusters = clusters[counts[clusters] > 0]
-            tristimulus = means[clusters, :3] @ matrix.T
+            means = np.stack(tuple(np.bincount(labels, weights=channel, minlength=counts.size)[clusters] for channel in (*colors.T, *points.T)), axis=-1) / counts[clusters, None]
+            tristimulus = means[:, :3] @ matrix.T
             lab = colour.XYZ_to_Oklab(tristimulus / np.maximum(tristimulus[:, 1:2], Samples.floor))
             distances = cdist(lab, lab)
 
@@ -191,9 +190,9 @@ class Lighting(msgspec.Struct, frozen=True, kw_only=True):
                 .filter(lambda held: held.size > 0)
                 .map(lambda held: samples.color[border & (levels >= np.percentile(held, self.rim_percentile, method="inverted_cdf"))].mean(axis=0, dtype=np.float64))
             )
-            backlit = border_mean.map2(lambda outside, inner: outside > self.border_ratio * inner and inner <= self.center_ratio * frame_mean, center_mean).default_value(False) or ring_mean.map(
+            backlit = border_mean.map2(lambda outside, inner: outside > self.border_ratio * inner and inner <= self.center_ratio * frame_mean, center_mean).default_value(value=False) or ring_mean.map(
                 lambda ring: ring > self.ring_ratio * subject_mean and subject_mean < self.subject_ratio * frame_mean
-            ).default_value(False)
+            ).default_value(value=False)
 
             lit, filled = band(self.key_band), band(self.fill_band)
             key, fill, ambient = (colors[held].mean(axis=0, dtype=np.float64) for held in (lit, filled, band(self.ambient_band)))
@@ -219,7 +218,7 @@ class Lighting(msgspec.Struct, frozen=True, kw_only=True):
                     hardness=derivative / variation if variation > 0.0 else 0.0,
                     key_white=WhitePoint.of(matrix @ key),
                     palette=tuple(
-                        PaletteEntry(color=means[clusters[index], :3], position=(float(means[clusters[index], 3]), float(means[clusters[index], 4])), share=float(shares[index]))
+                        PaletteEntry(color=means[index, :3], position=(float(means[index, 3]), float(means[index, 4])), share=float(shares[index]))
                         for index in sorted(kept, key=lambda index: float(shares[index]), reverse=True)
                     ),
                 )

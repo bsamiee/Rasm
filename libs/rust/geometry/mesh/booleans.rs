@@ -1,4 +1,4 @@
-use manifold_rust::{cancel::CancelToken, csg_tree::CsgNode, linalg::Mat3x4, manifold::Manifold, progress::ProgressReporter, types::OpType};
+use manifold_rust::{cancel::CancelToken, csg_tree::CsgNode, manifold::Manifold, progress::ProgressReporter, types::OpType};
 use nalgebra::Affine3;
 
 use crate::{MeshError, Operation, Solid};
@@ -24,15 +24,17 @@ impl Csg {
     pub fn op(op: OpType, children: impl IntoIterator<Item = Self>) -> Self { Self(CsgNode::op_n(op, children.into_iter().map(|child| child.0).collect())) }
 
     #[must_use]
-    pub fn transform(self, placement: &Affine3<f64>) -> Self {
-        fn placed(node: CsgNode, placement: Mat3x4) -> CsgNode {
+    pub fn transform(mut self, placement: &Affine3<f64>) -> Self {
+        let placement = crate::columns(placement.matrix());
+        let (mut next, mut pending) = (Some(&mut self.0), Vec::new());
+        while let Some(node) = next {
             match node {
-                CsgNode::Leaf(leaf) => CsgNode::Leaf(leaf.apply_transform(placement)),
-                CsgNode::Op { op, children, transform } =>
-                    CsgNode::Op { op, children: children.into_iter().map(|child| placed(placed(child, transform), placement)).collect(), transform: Mat3x4::identity() },
+                CsgNode::Leaf(leaf) => *leaf = leaf.apply_transform(placement),
+                CsgNode::Op { children, .. } => pending.extend(children),
             }
+            next = pending.pop();
         }
-        Self(placed(self.0, crate::columns(placement.matrix())))
+        self
     }
 }
 

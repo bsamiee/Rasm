@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-ansi-escape-literal
-language: rust
+language: rustlang
 severity: error
 utils:
     escape-code:

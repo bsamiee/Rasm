@@ -2,30 +2,32 @@
 
 ## [01]-[PACKAGE_MEMBERS]
 
-Select the member by the fact a pass computes:
+Select members by each pass's operation and input domain:
 
 | [INDEX] | [FACT]                                      | [MEMBER]                                                                                 |
 | :-----: | :------------------------------------------ | :--------------------------------------------------------------------------------------- |
-|  [01]   | Root or minimum per array element           | `elementwise.bracket_root` then `find_root`, `bracket_minimum` then `find_minimum`       |
-|  [02]   | Derivative of a callable                    | `sp.differentiate.derivative` per element, `jacobian`, `hessian`                         |
-|  [03]   | Derivative of samples at any order          | `findiff.Diff(axis, spacing) ** order`                                                   |
-|  [04]   | Integral or series per array element        | `sp.integrate.tanhsinh`, `sp.integrate.nsum`                                             |
-|  [05]   | Vector or multivariate integral             | `sp.integrate.quad_vec`, `sp.integrate.cubature`                                         |
-|  [06]   | Running area under samples                  | `sp.integrate.cumulative_trapezoid`                                                      |
-|  [07]   | Interpolating spline                        | `sp.interpolate.make_interp_spline`                                                      |
-|  [08]   | Smoothing spline with no tuned penalty      | `sp.interpolate.make_smoothing_spline`                                                   |
-|  [09]   | Polynomial fit, antiderivative              | `np.polynomial.Polynomial.fit`, `Polynomial.integ`                                       |
-|  [10]   | Recurrence `y[i] = a * x[i] + b * y[i - 1]` | `sp.signal.lfilter([a], [1, -b], x)`                                                     |
-|  [11]   | Recurrence with any other step              | `jax.lax.scan(step, carry, xs)` under `jax.jit`                                          |
-|  [12]   | Sum over any span, running extreme          | `np.cumulative_sum(include_initial=True)` differenced at span bounds, `ufunc.accumulate` |
-|  [13]   | Grouped sum or count                        | `np.bincount(keys, weights=..., minlength=n)`, keys from `np.unique_inverse(labels)`     |
-|  [14]   | Grouped extreme                             | `np.maximum.at(<filled buffer>, keys, values)`                                           |
-|  [15]   | Window statistic                            | Named `sp.ndimage` filter or `sp.ndimage.vectorized_filter(values, <reduction>, size=n)` |
-|  [16]   | Row-wise dot, stacked matrix-vector product | `np.vecdot`, `np.matvec`                                                                 |
-|  [17]   | Range or precision of a dtype               | `np.iinfo(<dtype>).max`, `np.finfo(<dtype>).eps`                                         |
-|  [18]   | Orientation per polygon of `(n, k, 2)`      | `shapely.is_ccw(shapely.linearrings(<coords>))`                                          |
+|  [01]   | Scalar residual zero                        | `sp.optimize.root_scalar(residual, bracket=interval)`                                    |
+|  [02]   | Scalar fit within bounds                    | `sp.optimize.minimize_scalar(loss, bounds=interval)`                                     |
+|  [03]   | Root or minimum per array element           | `elementwise.bracket_root` then `find_root`, `bracket_minimum` then `find_minimum`       |
+|  [04]   | Derivative of a callable                    | `sp.differentiate.derivative` per element, `jacobian`, `hessian`                         |
+|  [05]   | Derivative of samples at any order          | `findiff.Diff(axis, spacing) ** order`                                                   |
+|  [06]   | Integral or series per array element        | `sp.integrate.tanhsinh`, `sp.integrate.nsum`                                             |
+|  [07]   | Vector or multivariate integral             | `sp.integrate.quad_vec`, `sp.integrate.cubature`                                         |
+|  [08]   | Running area under samples                  | `sp.integrate.cumulative_trapezoid`                                                      |
+|  [09]   | Interpolating spline                        | `sp.interpolate.make_interp_spline`                                                      |
+|  [10]   | Smoothing spline with no tuned penalty      | `sp.interpolate.make_smoothing_spline`                                                   |
+|  [11]   | Polynomial fit, antiderivative              | `np.polynomial.Polynomial.fit`, `Polynomial.integ`                                       |
+|  [12]   | Recurrence `y[i] = a * x[i] + b * y[i - 1]` | `sp.signal.lfilter([a], [1, -b], x)`                                                     |
+|  [13]   | Recurrence with any other step              | `jax.lax.scan(step, carry, xs)` under `jax.jit`                                          |
+|  [14]   | Sum over any span, running extreme          | `np.cumulative_sum(include_initial=True)` differenced at span bounds, `ufunc.accumulate` |
+|  [15]   | Grouped sum or count                        | `np.bincount(keys, weights=..., minlength=n)`, keys from `np.unique_inverse(labels)`     |
+|  [16]   | Grouped extreme                             | `np.maximum.at(<filled buffer>, keys, values)`                                           |
+|  [17]   | Window statistic                            | Named `sp.ndimage` filter or `sp.ndimage.vectorized_filter(values, <reduction>, size=n)` |
+|  [18]   | Row-wise dot, stacked matrix-vector product | `np.vecdot`, `np.matvec`                                                                 |
+|  [19]   | Range or precision of a dtype               | `np.iinfo(<dtype>).max`, `np.finfo(<dtype>).eps`                                         |
+|  [20]   | Orientation per polygon of `(n, k, 2)`      | `shapely.is_ccw(shapely.linearrings(<coords>))`                                          |
 
-Loops that converge, bisect, step, or sum a series are calls to the member for their fact. `roots` expands a bracket from each guess and refines every element, one call each:
+Bracketed residuals are continuous and change sign across endpoints, fitting intervals stay within the model's admissible domain. `roots` expands brackets for monotonic elementwise functions and refines them, one call each:
 
 ```python
 type Samples = npt.NDArray[np.float64]
@@ -36,9 +38,9 @@ def roots[*Ts](curve: Callable[[Samples, *Ts], Samples], guess: Samples, /, *arg
     return Ok(found).filter_with(lambda result: bool(result.success.all()), partial(Fault.of, Reason.ABSENT, "curve", member="root")).map(lambda result: np.asarray(result.x))
 ```
 
-`roots(lambda x, level: np.cos(x) - level, np.zeros(3), levels)` solves `cos(x) = level` for every level at once, and a level past 1 fails the pass:
+`roots(lambda x, level: x - level, np.zeros(3), levels)` solves each broadcast residual through a monotonic elementwise function:
 - Per-element parameters enter through `args`, broadcast against the guesses
-- Results hold per-element `success` and `status`, a failed element reads `nan` beside its solved siblings
+- Results hold per-element `success` and `status`, a failed element can retain a finite root estimate
 - Refused results stay the fault's cause
 - `elementwise` imports as `from scipy.optimize import elementwise`, every other member reads through `import scipy as sp`
 - `jit`, `grad`, or `vmap` code takes `optimistix.root_find`, `quadax.quadgk`, `diffrax.diffeqsolve`, `lineax.linear_solve`, and `jax.ops.segment_sum`
@@ -80,7 +82,9 @@ def kernel(offsets: Samples, width: float, /) -> Samples:
 
 ## [04]-[FLOATING_POINT]
 
-Floating-point failures warn by default and return `inf` or `nan`. Scopes nest per call, and a helper ignoring one condition keeps ignoring it inside a caller raising every other one:
+Global bounds cover declared input domains under execution dtype, conversions, operation order, rounding, subnormal modes, overflow, and finite sentinels. Ideal formulas and sampled extrema alone establish no enclosure. Unproved bounds return an `Error`, and domains requiring finite samples reject nonfinite values at their consuming boundary.
+
+NumPy defaults warn on division by zero, overflow, and invalid operations and ignore underflow. Scopes nest per call, and a helper ignoring one condition keeps ignoring it inside a caller raising every other one:
 
 ```python
 @np.errstate(under="ignore")
@@ -115,11 +119,11 @@ def stream(key: bytes, /, *path: int) -> np.random.Generator:
 
 ## [06]-[TABLES]
 
-Tables lock with `setflags(write=False)` once built, and a tier table holds one row per tier a pass indexes with a whole array of keys. `np.digitize` returns each reading's tier from the floor column, and `weighted` reads its weight from column 1:
+Tables take read-only access through `setflags(write=False)` once built, and a tier table holds one row per tier a pass indexes with an array of keys. `np.digitize` returns each reading's tier from the floor column, and `weighted` reads its weight from column 1:
 
 ```python
-def locked(*columns: Samples) -> Samples:
-    table = np.column_stack(columns)
+def readonly(*columns: Samples) -> Samples:
+    table: Samples = np.column_stack(columns)
     table.setflags(write=False)
     return table
 
@@ -128,8 +132,8 @@ def weighted(tiers: Samples, volts: Samples, /) -> Samples:
     return tiers[:, 1][np.digitize(volts, tiers[:, 0]) - 1]
 ```
 
-`weighted(locked(floors, weights), volts)` maps each reading to its tier weight from the caller's table in one pass, and a value on a floor falls in that floor's tier:
+`weighted(readonly(floors, weights), volts)` maps each reading to its tier weight from the caller's table in one pass, and a value on a floor falls in that floor's tier:
 - Floors open at `-np.inf`, a reading below the first floor indexes row `-1` and reads the top tier's weight
 - `NaN` readings sort past every floor and read the top tier's weight
-- Writes into a locked table or its views raise `ValueError` from item assignment, `out=`, `fill`, and `setflags(write=True)` alike
+- Read-only flags block writes through an array, existing writable aliases retain access and owning arrays can restore write access
 - `weighted` returns a writable copy its caller owns

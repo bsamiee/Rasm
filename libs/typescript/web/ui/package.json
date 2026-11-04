@@ -8,15 +8,7 @@
         "#/*": "./*.tsx"
     },
     "exports": {
-        "./collection/menu-button": "./collection/menu-button.tsx",
-        "./collection/reorderable-list": "./collection/reorderable-list.tsx",
-        "./custom-properties": "./custom-properties.tsx",
-        "./dialog/overlay": "./dialog/overlay.tsx",
-        "./focus": "./focus.ts",
-        "./form/choice": "./form/choice.tsx",
-        "./form/field": "./form/field.tsx",
-        "./form/issues": "./form/issues.tsx",
-        "./format": "./format.ts"
+        ".": "./index.ts"
     },
     "dependencies": {
         "@effect/atom-react": "catalog:",
@@ -33,6 +25,7 @@
         "@vitest/browser-playwright": "catalog:",
         "react-dom": "catalog:",
         "storybook": "catalog:",
+        "typescript": "catalog:docgen",
         "vite": "catalog:",
         "vitest": "catalog:",
         "vitest-browser-react": "catalog:"

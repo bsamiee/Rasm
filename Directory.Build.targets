@@ -26,7 +26,9 @@
         <Using Include="Grasshopper2.Types.Numeric" Condition="@(PackageReference->AnyHaveMetadataValue('Identity', 'Grasshopper2'))" />
     </ItemGroup>
 
-    <ItemGroup Label="Analyzer Severity">
+    <ItemGroup Label="Analyzer Configuration">
+        <CompilerVisibleProperty Include="ProjectRole" Condition="'$(ProjectRole)' != ''" />
+        <CompilerVisibleProperty Include="TargetExt" />
         <EditorConfigFiles Include="$(MSBuildThisFileDirectory).config/analyzers.globalconfig" />
     </ItemGroup>
 
@@ -37,7 +39,7 @@
 
     <ItemGroup Label="Analyzer References" Condition="'$(ProjectRole)' != 'analyzers'">
         <_RoslynComponent Include="$(MSBuildThisFileDirectory)tools/roslyn/*/*.csproj" />
-        <ProjectReference Include="@(_RoslynComponent)" Exclude="@(ProjectReference)" ReferenceOutputAssembly="false" />
+        <ProjectReference Include="@(_RoslynComponent)" Exclude="@(ProjectReference)" ReferenceOutputAssembly="false" PrivateAssets="all" />
         <ProjectReference Update="@(_RoslynComponent)" OutputItemType="Analyzer" UndefineProperties="RhinoPlugIn;ArtifactsPivots" />
     </ItemGroup>
 
@@ -138,7 +140,7 @@
         <None Update="Documentation/**" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     </ItemGroup>
 
-    <Target Name="ExcludeRhinoHostAssemblies" AfterTargets="ResolvePackageAssets" Condition="'$(TargetExt)' == '.rhp'">
+    <Target Name="ExcludeRhinoHostAssemblies" AfterTargets="ResolvePackageAssets" Condition="'$(TargetExt)' == '.rhp' or ('$(RhinoHost)' != '' and '$(EnableDynamicLoading)' == 'true')">
         <ItemGroup>
             <_RhinoHostPackage Include="@(PackageVersion->WithMetadataValue('HostSupplied', 'true'))" NuGetPackageId="%(PackageVersion.Identity)" />
             <RuntimeCopyLocalItems Remove="@(_RhinoHostPackage)" MatchOnMetadata="NuGetPackageId" />

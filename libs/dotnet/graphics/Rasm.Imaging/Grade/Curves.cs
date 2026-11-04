@@ -40,8 +40,10 @@ public sealed record GradingRgbCurve(PointCurve Red, PointCurve Green, PointCurv
     public static GradingRgbCurve Neutral(GradingStyle style) => HueCurveKind.LumLum.Neutral(style) switch { var diagonal => new(diagonal, diagonal, diagonal, diagonal) };
 
     public Option<Action<Span<Vector4>>> Graded(GradingStyle style, float preserveHue) {
+        if (this == Neutral(style))
+            return None;
         (Func<float, float> red, Func<float, float> green, Func<float, float> blue, Func<float, float> master) = (Red.Fit(), Green.Fit(), Blue.Fit(), Master.Fit());
-        return this == Neutral(style) ? None : Some(ToneCurve.Graded(Curved));
+        return Some(ToneCurve.Graded(Curved));
 
         Vector3 Curved(Vector3 color) {
             Vector3 curved = style.Encode(color) switch { var encoded => new Vector3(red(encoded.X), green(encoded.Y), blue(encoded.Z)) };
@@ -82,11 +84,13 @@ public sealed partial class GradingHueCurve {
     public GradingHueCurve With(HueCurveKind kind, PointCurve curve) => new(Curves.SetItem(kind, curve));
 
     public Option<Action<Span<Vector4>>> Graded(GradingStyle style, Gamut working) {
+        if (this == Neutral(style))
+            return None;
         Func<float, float> Fit(HueCurveKind kind) => kind.Fit(Curves[kind]);
         (Func<float, float> hueHue, Func<float, float> hueSat, Func<float, float> hueLum, Func<float, float> lumSat) = (Fit(HueCurveKind.HueHue), Fit(HueCurveKind.HueSat), Fit(HueCurveKind.HueLum), Fit(HueCurveKind.LumSat));
         (Func<float, float> satSat, Func<float, float> lumLum, Func<float, float> satLum, Func<float, float> hueFx) = (Fit(HueCurveKind.SatSat), Fit(HueCurveKind.LumLum), Fit(HueCurveKind.SatLum), Fit(HueCurveKind.HueFx));
         (bool additive, Vector3 weights) = (style == GradingStyle.Log, working.Luminance);
-        return this == Neutral(style) ? None : Some(ToneCurve.Graded(color => style.FromHsy(Curved(style.ToHsy(color, weights)), weights)));
+        return Some(ToneCurve.Graded(color => style.FromHsy(Curved(style.ToHsy(color, weights)), weights)));
 
         Vector3 Curved(Vector3 hsy) {
             float level = style.Encode(new Vector3(hsy.Z)).X;

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-rebuilt-filter
-language: python
+language: pythonlang
 severity: error
 utils:
     ok-constructor:
@@ -84,4 +84,4 @@ rule:
                 - all: [{has: {nthChild: 1, matches: nothing-value}}, {has: {nthChild: 3, matches: some-value}}]
             - has: {nthChild: 2, matches: value-test}
 message: 'Conditional on `$TEST` rebuilds `Ok`, `Error`, `Some`, or `Nothing` around one value'
-note: 'Replace with `.filter_with(<predicate>, <fault>)`, `.filter(<predicate>)`, or `Option.of_optional(try_downcast(<type>, <value>))` with `.to_result_with(<fault>)`'
+note: 'Call `.filter_with` or `.filter`, or `Option.of_optional(try_downcast(<type>, <value>))` with `.to_result_with`'

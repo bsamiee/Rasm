@@ -1,4 +1,4 @@
-import { Issues } from '@rasm/ui/form/issues';
+import { Issues } from '@rasm/ui';
 import { Match } from 'effect';
 import type { Atom } from 'effect/reactivity';
 import { Button } from 'react-aria-components';

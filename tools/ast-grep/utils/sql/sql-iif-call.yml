@@ -3,4 +3,4 @@ id: sql-iif-call
 language: sql
 rule:
     kind: function_call
-    has: {field: name, regex: '(?i)^i?if$'}
+    has: {field: name, regex: '(?i-u)^["`\[]?i?if["`\]]?$'}

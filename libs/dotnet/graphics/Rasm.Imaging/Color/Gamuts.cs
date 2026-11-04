@@ -1,6 +1,8 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Drawing;
 using System.Globalization;
 using System.Numerics;
+using Rasm.Imaging.Pixels;
 using SixLabors.ImageSharp.Metadata.Profiles.Cicp;
 using Wacton.Unicolour;
 
@@ -100,6 +102,11 @@ public sealed partial record Gamut : IConvertible<string> {
     public Fin<Wacton.Unicolour.Temperature> Temperature(Vector3 rgb) =>
         new Unicolour(Configuration, ColourSpace.RgbLinear, rgb.X, rgb.Y, rgb.Z).Temperature switch {
             var correlated => ImagingFault.Unless(Vector3.Dot(Luminance, rgb) > 0f && correlated.IsValid, ImagingReason.Range, (rgb, correlated)).Map(_ => correlated),
+        };
+
+    public Fin<Wacton.Unicolour.Temperature> Temperature(PixelFrame frame, Option<Rectangle> region = default) =>
+        region.IfNone(frame.Window) switch {
+            var window => frame.Mean(window).ToFin(ImagingFault.Of(ImagingReason.Empty, window)).Bind(mean => Temperature(mean.AsVector3())),
         };
 
     public Gamut Inset(Vector3 inset, Vector3 rotation) {

@@ -5,6 +5,7 @@ using Rasm.Rhino.UI.Styling;
 using Rhino;
 using Rhino.Runtime.Notifications;
 using Rhino.UI;
+using static Rhino.Runtime.Notifications.NotificationCenter;
 
 namespace Rasm.Rhino.UI;
 
@@ -19,7 +20,7 @@ public sealed partial class Progress {
     public (int Value, int MaxValue) Positions =>
         Total <= int.MaxValue ? ((int)Done, (int)Total) : ((int)((decimal)Done * int.MaxValue / Total), int.MaxValue);
 
-    public static Option<Progress> Of(long done, long total) => Conversions.Present(total > 0 && done >= 0 && done <= total, new Progress(done, total));
+    public static Option<Progress> Of(long done, long total) => total > 0 && done >= 0 && done <= total ? Some(new Progress(done, total)) : None;
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -47,9 +48,10 @@ public static class Notices {
     // --- [PROGRESS]
     public static IO<T> Paced<T>(RhinoDoc doc, string label, int total, Func<WorkProgress<T>, IO<T>> work) where T : notnull =>
         (from reading in atomIO<Loading<T>>(new Loading<T>.Pending(None))
-         from forked in use(work(new WorkProgress<T>(reading, total)).Fork(), static fork => fork.Cancel)
          from metered in Metered(doc, label, total, reading).OnUiThread()
-         from taskbar in Subscriptions.Changed(reading).Attach(Taskbar).OnUiThread()
+         from taskbar in use(reading.ValueIO.Bind(Taskbar), static _ => IO.lift(static () => Eto.Forms.Taskbar.SetProgress(Eto.Forms.TaskbarProgressState.None, 0f)).OnUiThread())
+         from progress in Subscriptions.Changed(reading).Attach(Taskbar).OnUiThread()
+         from forked in use(work(new WorkProgress<T>(reading, total)).Fork(), static fork => fork.Cancel)
          from escaped in Subscriptions.On<EventHandler, EventArgs>(static h => RhinoApp.EscapeKeyPressed += h, static h => RhinoApp.EscapeKeyPressed -= h, static handler => handler.Invoke).Attach(_ => forked.Cancel).OnUiThread()
          from value in forked.Await
          select value).Bracket();
@@ -104,10 +106,10 @@ public static class Notices {
             IO.lift(() => Notification.ExecuteAssemblyProtectedCode(() => {
                 Notification created = new([typeof(Notices).Assembly]);
                 write(created);
-                global::Rhino.Runtime.Notifications.NotificationCenter.Notifications.Add(created);
+                Notifications.Add(created);
                 return created;
             })),
-            static held => IO.lift(() => Notification.ExecuteAssemblyProtectedCode(() => global::Rhino.Runtime.Notifications.NotificationCenter.Notifications.Remove(held))).Map(unit))
+            static held => IO.lift(() => Notification.ExecuteAssemblyProtectedCode(() => Notifications.Remove(held))).Map(unit))
         from banner in IO.lift(static () => Eto.Forms.Application.Instance.IsActive).Bind(active => unless(active, Banner(raised, icon, reveal)).As())
         select raised;
 

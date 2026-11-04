@@ -1,6 +1,7 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: rust-variant-name-match
-language: rust
+language: rustlang
+arguments: [type, method]
 utils:
     literal-text:
         any:
@@ -33,10 +34,15 @@ utils:
     naming-impl:
         kind: impl_item
         all:
-            - has: {field: type, kind: type_identifier, pattern: $T}
+            - has: {field: type, kind: type_identifier, pattern: $T, matches: type}
             - any:
                 - not: {has: {field: trait, pattern: $_}}
                 - has: {field: trait, regex: '^(((std|core)::)?fmt::)?Display$|^(((std|core)::)?convert::)?AsRef\s*<\s*str\s*>$'}
+            - inside:
+                kind: 'source_file, declaration_list, block'
+                all:
+                    - has: {kind: enum_item, has: {field: name, pattern: $T}}
+                    - not: {has: {matches: error-type}}
     naming-method:
         kind: function_item
         any:
@@ -59,28 +65,6 @@ rule:
             kind: function_item
             stopBy: {kind: 'function_item, closure_expression'}
             all:
-                - has: {field: name, pattern: $METHOD}
+                - has: {field: name, pattern: $METHOD, matches: method}
                 - matches: naming-method
-                - not:
-                    all:
-                        - has: {kind: function_modifiers, regex: '\bconst\b'}
-                        - inside:
-                            kind: source_file
-                            stopBy: end
-                            has:
-                                stopBy: end
-                                kind: call_expression
-                                matches: rust-const-context
-                                has:
-                                    field: function
-                                    any:
-                                        - pattern: $METHOD
-                                        - {kind: scoped_identifier, has: {field: name, pattern: $METHOD}}
-                                        - {kind: field_expression, has: {field: field, pattern: $METHOD}}
                 - inside: {kind: declaration_list, inside: {matches: naming-impl}}
-        - inside:
-            kind: source_file
-            stopBy: end
-            all:
-                - has: {stopBy: end, kind: enum_item, has: {field: name, pattern: $T}}
-                - not: {has: {stopBy: end, matches: error-type}}

@@ -8,7 +8,7 @@ use nonempty_collections::{NESlice, NEVec};
 use validated::Validated;
 
 use crate::{
-    AnalysisError, Input, Observations, Placement, determined, finite, joined, refused_sites, refused_weights,
+    AnalysisError, Input, Observations, Placement, SearchHooks, determined, finite, joined, refused_sites, refused_weights,
     roots::{minimum, real},
 };
 
@@ -51,7 +51,7 @@ pub struct GridAxis<'data> {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct SplineAxis {
-    pub breaks: Array1<f64>,
+    pub breaks: Box<[f64]>,
     pub span: RangeInclusive<f64>,
     pub period: Option<f64>,
     pub smooth: Option<f64>,
@@ -69,7 +69,7 @@ pub struct Spline {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [FIT]
-pub fn grid<D>(axes: NESlice<'_, GridAxis<'_>>, values: ArrayView<'_, f64, D>) -> Result<Spline, NEVec<AnalysisError>>
+pub fn grid<D>(axes: NESlice<'_, GridAxis<'_>>, values: ArrayView<'_, f64, D>, hooks: SearchHooks<'_>) -> Result<Spline, NEVec<AnalysisError>>
 where D: Dimension {
     let smoothed = |sites: ArrayView1<'_, f64>, weights: Option<ArrayView1<'_, f64>>, lanes: ArrayView2<'_, f64>, smooth: Option<f64>| -> Result<(Array2<f64>, Option<f64>), AnalysisError> {
         let fitted = CubicSmoothingSpline::new(sites, lanes).with_optional_weights(weights).with_optional_smooth(smooth).make()?;
@@ -95,12 +95,14 @@ where D: Dimension {
         let slopes = match (widths.first_chunk().zip(secants.first_chunk()), widths.last_chunk().zip(secants.last_chunk())) {
             (Some((&[width, next], &[near, far])), Some((&[last_next, last_width], &[last_far, last_near]))) =>
                 iter::once(edge(near, far, width, next)).chain(interior).chain(iter::once(edge(last_near, last_far, last_width, last_next))).collect::<Vec<_>>(),
-            _ => secants.first().map_or_default(|&secant| vec![secant; 2]),
+            _ => vec![secants[0]; 2],
         };
         let rows = izip!(&widths, &secants, slopes.iter().tuple_windows(), lane.iter())
-            .map(|(&width, &secant, (&start, &last), &value)| [2.0_f64.mul_add(-secant, start + last) / (width * width), 3.0_f64.mul_add(secant, -(2.0_f64.mul_add(start, last))) / width, start, value])
+            .map(|(&width, &secant, (&start, &last), &value)| {
+                [2.0_f64.mul_add(-secant, start + last) / (width * width), 3.0_f64.mul_add(secant, -(2.0_f64.mul_add(start, last))) / width, start, value]
+            })
             .collect::<Vec<_>>();
-        (0..4).flat_map(|block| rows.iter().filter_map(move |row| row.get(block).copied())).collect()
+        (0..4).flat_map(|block| rows.iter().map(move |row| row[block])).collect()
     };
     let cross_validated = |sites: ArrayView1<'_, f64>, weights: Option<ArrayView1<'_, f64>>, lanes: ArrayView2<'_, f64>| -> Result<(Array2<f64>, Option<f64>, f64), AnalysisError> {
         let points = convert::<usize, f64>(sites.len());
@@ -110,11 +112,12 @@ where D: Dimension {
         };
         let scores = |smooth: f64| -> Result<(f64, f64), AnalysisError> {
             let trace = readings(unit.view(), smooth)?.diag().sum();
-            let squares = Zip::from(lanes).and(&readings(lanes, smooth)?).map_collect(|observed, fitted| (observed - fitted).powi(2));
-            let lack = weights.map_or_else(|| squares.sum(), |weights| squares.dot(&weights).sum());
+            let lack = Zip::indexed(lanes)
+                .and(&readings(lanes, smooth)?)
+                .fold(0.0, |sum, (_, point), observed, fitted| (observed - fitted).powi(2).mul_add(weights.map_or(1.0, |weights| weights[point]), sum));
             Ok((points * lack / (points - trace).powi(2), trace))
         };
-        let (smooth, _) = minimum(|smooth| scores(smooth).map(|(score, _)| score), 0.0, 1.0, f64::from(almost::F32_TOLERANCE))?;
+        let (smooth, _) = minimum(|smooth| scores(smooth).map(|(score, _)| score), 0.0, 1.0, f64::from(almost::F32_TOLERANCE), hooks)?;
         let (_, freedom) = scores(smooth)?;
         smoothed(sites, weights, lanes, Some(smooth)).map(|(coefficients, chosen)| (coefficients, chosen, freedom))
     };
@@ -150,11 +153,11 @@ where D: Dimension {
     let fitted = axes.into_iter().enumerate().rev().try_fold((values.to_owned(), Vec::new()), |(current, mut fitted), (dimension, axis)| -> Result<_, AnalysisError> {
         let (sites, weights, current) = match axis.period {
             Some(period) => (
-                [-period, 0.0, period].into_iter().flat_map(|offset| axis.sites.iter().map(move |site| site + offset)).collect::<Array1<_>>(),
+                [-period, 0.0, period].into_iter().flat_map(|offset| axis.sites.iter().map(move |site| site + offset)).collect::<Box<[_]>>(),
                 axis.weights.map(|weights| iter::repeat_n(weights, 3).flatten().copied().collect::<Array1<_>>()),
                 concatenate(Axis(dimension), &[current.view(), current.view(), current.view()])?,
             ),
-            None => (axis.sites.to_owned(), axis.weights.map(|weights| weights.to_owned()), current),
+            None => (axis.sites.iter().copied().collect::<Box<[_]>>(), axis.weights.map(|weights| weights.to_owned()), current),
         };
         let order = (0..=last).filter(|&index| index != dimension).chain(iter::once(dimension)).collect::<Vec<_>>();
         let moved = current.view().permuted_axes(IxDyn(&order));
@@ -162,13 +165,14 @@ where D: Dimension {
         let lanes = moved.to_shape((outer.iter().product::<usize>(), sites.len()))?;
         let (coefficients, smooth, freedom) = match axis.method {
             Method::Smoothing(smooth) =>
-                smoothed(sites.view(), weights.as_deref().map(ArrayRef1::view), lanes.view(), smooth.map(Smooth::into_inner)).map(|(coefficients, smooth)| (coefficients, smooth, None))?,
-            Method::Gcv => cross_validated(sites.view(), weights.as_deref().map(ArrayRef1::view), lanes.view()).map(|(coefficients, smooth, freedom)| (coefficients, smooth, Some(freedom)))?,
-            Method::Monotone => {
-                let rows = lanes.rows().into_iter().map(|lane| monotone(sites.view(), lane)).collect::<Vec<_>>();
-                let width = rows.first().map_or_default(Vec::len);
-                (Array2::from_shape_vec((rows.len(), width), rows.concat())?, None, None)
-            }
+                smoothed(ArrayView1::from(&*sites), weights.as_deref().map(ArrayRef1::view), lanes.view(), smooth.map(Smooth::into_inner)).map(|(coefficients, smooth)| (coefficients, smooth, None))?,
+            Method::Gcv =>
+                cross_validated(ArrayView1::from(&*sites), weights.as_deref().map(ArrayRef1::view), lanes.view()).map(|(coefficients, smooth, freedom)| (coefficients, smooth, Some(freedom)))?,
+            Method::Monotone => (
+                Array2::from_shape_vec((lanes.nrows(), 4_usize.strict_mul(sites.len().strict_sub(1))), lanes.rows().into_iter().flat_map(|lane| monotone(ArrayView1::from(&*sites), lane)).collect())?,
+                None,
+                None,
+            ),
         };
         let shape = outer.iter().copied().chain(iter::once(coefficients.ncols())).collect::<Vec<_>>();
         let restored = (0..=last)
@@ -179,10 +183,10 @@ where D: Dimension {
             })
             .collect::<Vec<_>>();
         let reshaped = coefficients.as_standard_layout().into_owned().into_shape_with_order(IxDyn(&shape))?.permuted_axes(IxDyn(&restored));
-        let start = axis.sites.first().copied().unwrap_or_default();
+        let start = axis.sites[0];
         fitted.push(SplineAxis {
             breaks: sites,
-            span: RangeInclusive { start, last: axis.period.map_or_else(|| axis.sites.last().copied().unwrap_or(start), |period| start + period) },
+            span: RangeInclusive { start, last: axis.period.map_or_else(|| axis.sites[axis.sites.len().strict_sub(1)], |period| start + period) },
             period: axis.period,
             smooth,
             freedom,
@@ -192,7 +196,7 @@ where D: Dimension {
     fitted.map(|(coefficients, fitted)| Spline { axes: fitted.into_iter().rev().collect(), coefficients }).map_err(NEVec::new)
 }
 
-pub fn curve(observations: &Observations, method: Method, period: Option<f64>) -> Result<Spline, NEVec<AnalysisError>> {
+pub fn curve(observations: &Observations, method: Method, period: Option<f64>, hooks: SearchHooks<'_>) -> Result<Spline, NEVec<AnalysisError>> {
     let Observations { sites, values, weights } = observations;
     [
         (sites.nrows() == 1).ok_or(AnalysisError::Shape { input: Input::Sites, expected: 1, found: sites.nrows() }),
@@ -202,32 +206,25 @@ pub fn curve(observations: &Observations, method: Method, period: Option<f64>) -
     .collect::<Validated<(), _>>()
     .ok()?;
     let axes = NEVec::new(GridAxis { sites: ArrayView1::from(sites.as_slice()), weights: Some(ArrayView1::from(weights.as_slice())), method, period });
-    grid(axes.as_nonempty_slice(), ArrayView1::from(values.as_slice()))
+    grid(axes.as_nonempty_slice(), ArrayView1::from(values.as_slice()), hooks)
 }
 
 // --- [READINGS]
-fn falling(exponent: usize, times: usize) -> f64 { (exponent.saturating_sub(times).strict_add(1)..=exponent).map(convert::<usize, f64>).product() }
+fn falling(exponent: usize, times: usize) -> f64 { (exponent.strict_sub(times).strict_add(1)..=exponent).map(convert::<usize, f64>).product() }
 
 pub fn evaluate(spline: &Spline, sites: DMatrixView<'_, f64>, readings: &[Reading], extrapolation: Extrapolation) -> Result<DVector<f64>, NEVec<AnalysisError>> {
     let dimensions = spline.axes.len();
-    let functional = |breaks: ArrayView1<'_, f64>, width: usize, reading: &Reading, at: f64| -> Vec<(usize, f64)> {
-        let pieces = breaks.len().saturating_sub(1).max(1);
-        let order = width.checked_div(pieces).unwrap_or_default();
-        let raised = |base: f64, exponent: usize| base.powi(i32::try_from(exponent).unwrap_or(i32::MAX));
+    let functional = |breaks: &[f64], width: usize, reading: &Reading, at: f64| -> Vec<(usize, f64)> {
+        let pieces = breaks.len().strict_sub(1);
+        #[expect(clippy::arithmetic_side_effects, reason = "Clippy cannot infer the nonzero coefficient partition guaranteed by spline construction")]
+        let order = width / pieces;
+        let raised = |base: f64, exponent: usize| base.powi(convert::<usize, i32>(exponent));
         let local = |power: usize| {
-            breaks
-                .iter()
-                .take(pieces)
-                .enumerate()
-                .take_while(|&(piece, &start)| piece == 0 || start <= at)
-                .last()
-                .into_iter()
-                .flat_map(|(piece, &start)| {
-                    (0..order)
-                        .map(|block| (block, order.strict_sub(1).strict_sub(block)))
-                        .filter(|&(_, exponent)| exponent >= power)
-                        .map(move |(block, exponent)| (block.strict_mul(pieces).strict_add(piece), falling(exponent, power) * raised(at - start, exponent.strict_sub(power))))
-                })
+            let piece = breaks[..pieces].partition_point(|&start| start <= at).saturating_sub(1);
+            (0..order)
+                .map(|block| (block, order.strict_sub(1).strict_sub(block)))
+                .filter(|&(_, exponent)| exponent >= power)
+                .map(move |(block, exponent)| (block.strict_mul(pieces).strict_add(piece), falling(exponent, power) * raised(at - breaks[piece], exponent.strict_sub(power))))
                 .collect()
         };
         match reading {
@@ -248,8 +245,8 @@ pub fn evaluate(spline: &Spline, sites: DMatrixView<'_, f64>, readings: &[Readin
         }
     };
     let functionals = |dimension: usize, axis: &SplineAxis, reading: &Reading, at: f64| -> Result<Vec<(usize, f64)>, AnalysisError> {
-        let (breaks, span) = (axis.breaks.view(), axis.span);
-        let width = spline.coefficients.shape().get(dimension).copied().unwrap_or_default();
+        let (breaks, span) = (axis.breaks.as_ref(), axis.span);
+        let width = spline.coefficients.shape()[dimension];
         let at = axis.period.map_or(at, |period| span.start + (at - span.start).rem_euclid(period));
         let edge = at.clamp(span.start, span.last);
         match (reading, extrapolation, span.contains(&at)) {
@@ -285,14 +282,13 @@ pub fn evaluate(spline: &Spline, sites: DMatrixView<'_, f64>, readings: &[Readin
                 .map(|((dimension, axis), (reading, &at))| functionals(dimension, axis, reading, at))
                 .collect::<Validated<Vec<_>, _>>()
                 .map(|terms| {
+                    let mut index = vec![0; dimensions];
                     terms
                         .into_iter()
                         .multi_cartesian_product()
-                        .filter_map(|term| {
-                            spline
-                                .coefficients
-                                .get(term.iter().map(|&(index, _)| index).collect::<Vec<_>>().as_slice())
-                                .map(|coefficient| coefficient * term.iter().map(|&(_, factor)| factor).product::<f64>())
+                        .map(|term| {
+                            iter::zip(&mut index, &term).for_each(|(index, &(entry, _))| *index = entry);
+                            spline.coefficients[index.as_slice()] * term.iter().map(|&(_, factor)| factor).product::<f64>()
                         })
                         .sum::<f64>()
                 })
@@ -306,16 +302,14 @@ pub fn crossings(spline: &Spline, level: f64, derivative: u8) -> Result<Vec<f64>
     let [axis] = &spline.axes else {
         return Err(NEVec::new(AnalysisError::Shape { input: Input::Axes, expected: 1, found: spline.axes.len() }));
     };
-    let pieces = axis.breaks.len().saturating_sub(1).max(1);
-    let order = spline.coefficients.len().checked_div(pieces).unwrap_or_default();
+    let pieces = axis.breaks.len().strict_sub(1);
+    #[expect(clippy::arithmetic_side_effects, reason = "Clippy cannot infer the nonzero coefficient partition guaranteed by spline construction")]
+    let order = spline.coefficients.len() / pieces;
     let times = usize::from(derivative);
     let found = axis.breaks.iter().tuple_windows().enumerate().map(|(piece, (&start, &last))| {
         let shifted = (times..order)
-            .filter_map(|exponent| {
-                spline
-                    .coefficients
-                    .get([order.strict_sub(1).strict_sub(exponent).strict_mul(pieces).strict_add(piece)].as_slice())
-                    .map(|coefficient| coefficient.mul_add(falling(exponent, times), -level * f64::from(exponent == times)))
+            .map(|exponent| {
+                spline.coefficients[[order.strict_sub(1).strict_sub(exponent).strict_mul(pieces).strict_add(piece)]].mul_add(falling(exponent, times), -level * f64::from(exponent == times))
             })
             .collect::<Vec<_>>();
         match real(&shifted, RangeInclusive { start: 0.0, last: last - start }) {

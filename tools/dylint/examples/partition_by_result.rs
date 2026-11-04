@@ -2,6 +2,9 @@ use core::{
     hint::black_box,
     num::{ParseIntError, TryFromIntError},
 };
+use std::rc::Rc;
+
+use itertools::Itertools as _;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -33,6 +36,12 @@ fn negated(results: Vec<Parsed>) -> (Vec<Parsed>, Vec<Parsed>) { results.into_it
 
 fn called(results: Vec<Parsed>) -> (Vec<Parsed>, Vec<Parsed>) { results.into_iter().partition(|result| Result::is_ok(result)) }
 
+fn qualified(results: Vec<Parsed>) -> (Vec<Parsed>, Vec<Parsed>) { Iterator::partition(results.into_iter(), Result::is_ok) }
+
+fn borrowed(results: &[Parsed]) -> (Vec<&Parsed>, Vec<&Parsed>) { results.iter().partition(|result| result.is_ok()) }
+
+fn borrowed_values(results: &[Parsed]) -> (Vec<&u8>, Vec<&ParseIntError>) { results.iter().map(Result::as_ref).partition_result() }
+
 fn matched(results: Vec<Parsed>) -> (Vec<Parsed>, Vec<Parsed>) { results.into_iter().partition(|result| matches!(result, Ok(_))) }
 
 fn dereferenced(results: Vec<Parsed>) -> (Vec<Parsed>, Vec<Parsed>) { results.into_iter().partition(|result| (*result).is_err()) }
@@ -61,11 +70,20 @@ fn sized(values: Vec<u8>) -> (Vec<u8>, Vec<u8>) { values.into_iter().partition(l
 
 fn compared(values: Vec<u8>) -> (Vec<u8>, Vec<u8>) { values.into_iter().partition(|value| *value > 1) }
 
+fn shared(results: Vec<Rc<Parsed>>) -> (Vec<Rc<Parsed>>, Vec<Rc<Parsed>>) { results.into_iter().partition(|result| result.is_ok()) }
+
+fn same_answer(results: Vec<Parsed>) -> (Vec<Parsed>, Vec<Parsed>) {
+    results.into_iter().partition(|result| match result {
+        Ok(_) => true,
+        Err(_) => true,
+    })
+}
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 fn main() {
     let parsed = || vec!["1".parse()];
     black_box(&(named(parsed()), pathed(parsed()), closed(parsed()), negated(parsed()), called(parsed()), matched(parsed()), dereferenced(parsed())));
-    black_box(&(copied(vec![u8::try_from(1_u16)]), armed(parsed())));
-    black_box(&(ranked(parsed()), flagged(parsed(), true), guarded(parsed()), sized(vec![1]), compared(vec![2])));
+    black_box(&(copied(vec![u8::try_from(1_u16)]), armed(parsed()), qualified(parsed()), borrowed(&parsed()), borrowed_values(&parsed())));
+    black_box(&(ranked(parsed()), flagged(parsed(), true), guarded(parsed()), sized(vec![1]), compared(vec![2]), shared(vec![Rc::new("1".parse())]), same_answer(parsed())));
 }

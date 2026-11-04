@@ -10,28 +10,29 @@ from types import MappingProxyType
 from typing import ClassVar, Final
 
 import bpy
-from expression import Error, Nothing, Ok, Some
+from expression import Some
 from expression.extra.result import catch
 import msgspec
 import numpy as np
 import PyOpenColorIO
 
 from blender.bpy.commands.invocations import Save
-from blender.bpy.commands.operators import Call, called, Done, NoUndo, Operator
+from blender.bpy.commands.operators import Call, called, Done, Operator
 from blender.bpy.data.ids.ownership import Ownership, Saved
 from blender.bpy.data.rna.conditions import Count, Job
 from blender.bpy.data.rna.descriptors import Descriptor, Value
 from blender.bpy.data.rna.paths import rna, RnaPath
 from blender.bpy.data.rna.properties import case_choices, choices
 from blender.bpy.data.rna.snapshots import assigned, Snapshot
-from blender.bpy.extension.identity import Identity, Resource
-from blender.bpy.extension.registration import Acquisitions
+from blender.bpy.extension.identity import Identity
+from blender.bpy.extension.registration import Acquisitions, Resource
 from blender.bpy.nodes.desired import member_paths
 from blender.bpy.render.outputs.formats import OutputFormat
+from blender.bpy.render.outputs.results import intermediate, INTERMEDIATES
 from blender.imaging.color.luts import Lattice, LATTICE_SIZES, LutFormat, LutOutput, Spacing
 from blender.imaging.color.processors import converted
 from blender.imaging.files.images import ImageFile, read_file, Storage
-from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
+from blender.records.faults import accumulated, Error, Fault, Nothing, Outcome, paired, Reason
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -57,15 +58,17 @@ class Baking(LatticeFields):
 class Writing(bpy.types.PropertyGroup):
     """Exact transform output in a native matrix-capable format."""
 
-    format: bpy.props.EnumProperty(name="Format", items=choices((row.name, f"{row.name} (.{row.extension})", "") for row in LutFormat.writable() if row in LutFormat.bakeable()))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    format: bpy.props.EnumProperty(name="Format", items=choices((row.name, f"{row.name} (.{row.extension})", "") for row in LutFormat.writable()))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
 class LutExport(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     """Strip LUT outputs baked from the active strip's modifiers in its sequencer space."""
 
     lattices: ClassVar[Ownership[bpy.types.Scene]] = Ownership(kind=bpy.types.Scene, key="lattice", saved=Saved.NEVER, single=False)
-    modifiers: ClassVar[Descriptor[bpy.types.CollectionProperty]] = Descriptor.declared(
-        bpy.types.WorkSpace, ("sequencer_scene", "sequence_editor", "active_strip", "modifiers"), bpy.types.CollectionProperty
+    modifiers: ClassVar[Descriptor[bpy.types.CollectionProperty]] = Descriptor[bpy.types.CollectionProperty](
+        root=bpy.types.WorkSpace,
+        owner=("sequencer_scene", "sequence_editor", "active_strip"),
+        prop=bpy.types.Strip.bl_rna.properties["modifiers"],  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
     )
 
     # --- [COMMANDS]
@@ -73,7 +76,7 @@ class LutExport(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     @cached_property
     def strip_baking(self) -> Operator[Baking]:
         """Command baking the active strip's modifiers."""
-        return Operator(form=Baking, run=self.bake_strip, condition=Some(Count(collection=self.modifiers) & Job(kind="RENDER")), invoke=Some(Save[Baking](extensions=extension)), undo=NoUndo())
+        return Operator(form=Baking, run=self.bake_strip, condition=Some(Count(collection=self.modifiers) & Job(kind="RENDER")), invoke=Some(Save[Baking](extensions=extension)), options=frozenset())
 
     # --- [BAKES]
 
@@ -84,6 +87,7 @@ class LutExport(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         with ExitStack() as scope:
             for scene in made.to_option().to_list():
                 scope.callback(bpy.data.scenes.remove, scene)
+                scope.enter_context(intermediate(identity, scene))
             yield made
 
     def sequenced(self, call: Call[Baking], active: bpy.types.Strip, space: str) -> Outcome[Done]:
@@ -145,9 +149,9 @@ class LutExport(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             case _:
                 return Error(Fault.of(Reason.ABSENT, repr(self.modifiers.root), member=rna(self.modifiers.owner)))
 
-    def acquisitions(self, _identity: Identity) -> Outcome[Acquisitions]:
+    def acquisitions(self, _identity: Identity) -> Acquisitions:
         """Returns lattice ownership, read stamps, and the strip bake command."""
-        return Ok((self.lattices, STAMPS, self.strip_baking))
+        return self.lattices, STAMPS, INTERMEDIATES, self.strip_baking
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -162,10 +166,10 @@ def lattice_of(fields: LatticeFields) -> Lattice:
     return Lattice(size=fields.size, spacing=msgspec.convert({"kind": fields.spacing}, Spacing.__value__))
 
 
-def output(properties: Baking) -> LutOutput:
+def output(properties: Baking | Writing) -> LutOutput:
     """Returns exact writer for a writable format, else a lattice bake."""
     row = FORMATS[properties.format]
-    return LutOutput(format=row, lattice=Nothing if row in LutFormat.writable() else Some(lattice_of(properties)))
+    return LutOutput(format=row, lattice=Some(lattice_of(properties)) if isinstance(properties, Baking) and row not in LutFormat.writable() else Nothing)
 
 
 def extension(properties: Baking | Writing) -> tuple[str]:
@@ -175,7 +179,7 @@ def extension(properties: Baking | Writing) -> tuple[str]:
 
 def reloaded(identity: Identity, path: str, config: PyOpenColorIO.Config) -> Outcome[str]:
     """Returns the resolved path, clearing OCIO's process-wide caches when the file's modification time or size differs from the extension's last read."""
-    resolved, stamps = Path(bpy.path.abspath(path)).resolve(), identity.resources[STAMPS]
+    resolved, stamps = Path(bpy.path.abspath(path)).resolve(), STAMPS[identity]
 
     def held(status: os.stat_result) -> str:
         if stamps.get(str(resolved)) != (stamp := (status.st_mtime_ns, status.st_size)):

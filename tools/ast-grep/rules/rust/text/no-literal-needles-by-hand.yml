@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-literal-needles-by-hand
-language: rust
+language: rustlang
 severity: error
 utils:
     text-type:
@@ -117,4 +117,4 @@ constraints:
     B: {kind: string_literal}
     C: {kind: string_literal}
 message: '`$SCAN` passes over the text once per literal needle'
-note: 'Build one `aho_corasick::AhoCorasick` over the needles and call `is_match`, `find`, or `replace_all` when no replacement holds a later needle'
+note: 'Use `AhoCorasick` with overlapping `PatternID`s for `all` and `find` by pattern order; keep replacements that feed later patterns'

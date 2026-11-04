@@ -6,5 +6,12 @@ rule:
     has:
         nthChild: 1
         any:
-            - {kind: prefix_expression, regex: '^\.success$'}
-            - {kind: navigation_expression, regex: '^(Swift\.)?Result(<[\s\S]*>)?\.success$'}
+            - kind: prefix_expression
+              regex: '^\.success$'
+              inside: {kind: call_expression, matches: swift-result-context}
+            - kind: navigation_expression
+              any:
+                - regex: '^Swift\.Result\.success$'
+                - all:
+                    - has: {field: suffix, regex: '^\.success$'}
+                    - has: {field: target, matches: swift-result-type}

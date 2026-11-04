@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-identity-and-then
-language: rust
+language: rustlang
 severity: error
 rule:
     kind: call_expression
@@ -10,6 +10,5 @@ rule:
             - pattern: $O.and_then($IDENTITY)
 constraints:
     IDENTITY: {regex: '^((::)?(std|core)::)?(convert::)?identity$'}
-fix: $O.flatten()
 message: '`$O.and_then` returns the inner value unchanged'
 note: 'Call `<value>.flatten()` on the nested `Option` or `Result`'

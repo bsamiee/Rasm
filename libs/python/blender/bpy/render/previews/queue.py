@@ -1,23 +1,23 @@
-"""Preview jobs under one timer budget the user sets: the feeds producers register, the requests and failures they hold, the demand each slot keeps, and the latest request a single feed renders."""
+"""Preview feeds and jobs under one timer budget, held demands, and source request generations with native invalidation."""
 
 from collections.abc import Callable, Generator, Hashable, Iterable
 from contextlib import contextmanager, ExitStack, nullcontext
 from enum import auto, Enum, IntEnum
 from functools import partial
+from operator import eq
 import time
 from typing import ClassVar, Final
 
 import bpy
-from expression import Nothing, Ok, Option, Result, Some
-from expression.collections import Block
+from expression import Option, Result, Some
 import msgspec
 
-from blender.bpy.extension.events import Handler, Timer
-from blender.bpy.extension.identity import Identity, Resource
-from blender.bpy.extension.registration import Acquisitions, Declaration
-from blender.bpy.render.outputs.results import built
+from blender.bpy.extension.events import updated
+from blender.bpy.extension.identity import Identity
+from blender.bpy.extension.registration import Acquisitions, Declaration, Handler, Resource, Timer
+from blender.bpy.render.outputs.results import built, INTERMEDIATES
 from blender.bpy.ui.elements.panels import Preference
-from blender.records.faults import accumulated, Outcome
+from blender.records.faults import accumulated, Nothing, Ok, Outcome
 from blender.records.stores import ContentHash
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -59,18 +59,6 @@ class Job(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     rank: Rank
     run: Callable[[], Outcome[None]]
     playback: bool = False
-
-
-class Demand[B](msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Held render request over what it renders and the content hash keying its output, the demand itself keying output with no content hash."""
-
-    basis: B
-    content: Option[ContentHash]
-
-    @property
-    def key(self) -> Hashable:
-        """Content hash, else the demand itself."""
-        return self.content.default_value(self)
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -116,8 +104,8 @@ class Backlog:
 
     def pending(self, *, playing: bool) -> Option[Request]:
         """Earliest pending request of the lowest rank, playback requests alone while playing."""
-        return (
-            Block.of_seq(request for request in self.requests.values() if request.state is Phase.PENDING and (request.job.playback or not playing)).sort_with(lambda queued: queued.job.rank).try_head()
+        return Option.of_optional(
+            min((request for request in self.requests.values() if request.state is Phase.PENDING and (request.job.playback or not playing)), key=lambda queued: queued.job.rank, default=None)  # ty: ignore[unresolved-attribute]
         )
 
     def merged(self, reads: tuple[tuple[Feed, tuple[Job, ...]], ...]) -> None:
@@ -139,62 +127,107 @@ class Backlog:
 BACKLOG: Final = Resource[Backlog](made=lambda _identity: nullcontext(Backlog()), renewed=Some(lambda held: Backlog(feeds=held.feeds)))
 
 
-class Demands[K: Hashable, B]:
-    """Demand per slot, kept while its basis stays equal."""
+class Demands[K: Hashable]:
+    """Current content hash or opaque uncacheable request key per slot."""
 
     __slots__ = ("held",)
 
     def __init__(self) -> None:
         """Holds no demand."""
-        self.held: dict[K, Demand[B]] = {}
+        self.held: dict[K, Hashable] = {}
 
-    def demanded(self, slot: K, basis: B, content: Callable[[], Outcome[Option[ContentHash]]]) -> Outcome[Demand[B]]:
-        """Returns the slot's held demand over an equal basis, else holds a demand over the basis and the content read, the read skipped while the held one stands."""
+    def demanded(self, slot: K, content: Option[ContentHash]) -> Hashable:
+        """Holds current content's hash or a fresh opaque request key."""
+        self.held[slot] = key = content.default_with(object)
+        return key  # ty: ignore[unsound-return-statement]
 
-        def holding(read: Option[ContentHash]) -> Demand[B]:
-            self.held[slot] = demand = Demand(basis=basis, content=read)
-            return demand
+    def holds(self, slot: K, key: Hashable) -> bool:
+        """Whether the slot still requests this content or opaque generation."""
+        return (slot, key) in self.held.items()
 
-        return Option.of_optional(self.held.get(slot)).filter(lambda prior: prior.basis == basis).map(Ok).default_with(lambda: content().map(holding))
-
-    def holds(self, slot: K, demand: Demand[B]) -> bool:
-        """Whether the slot holds a demand keying the same output, a demand dropped and read again over unchanged content included."""
-        return Option.of_optional(self.held.get(slot)).filter(lambda held: held.key == demand.key).is_some()
-
-    def forgotten(self) -> tuple[K, ...]:
-        """Drops every held demand, returning the slots dropped."""
-        dropped = tuple(self.held)
-        self.held.clear()
+    def forgotten(self) -> dict[K, Hashable]:
+        """Releases the held demand map and starts with no demand."""
+        dropped, self.held = self.held, {}
         return dropped
 
 
-class Latest[R, V]:
-    """Latest-request-wins cell of one feed: the wanted request, an equal one keeping it and its value, and the value published while its request stays wanted."""
+class Latest[K: Hashable, R, V]:
+    """Current request generation and optional published value per source slot."""
 
-    __slots__ = ("value", "wanted")
+    __slots__ = ("held",)
 
     def __init__(self) -> None:
         """Holds no request or value."""
-        self.wanted: Option[R] = Nothing
-        self.value: Option[V] = Nothing
+        self.held: dict[K, tuple[R, object, Option[V]]] = {}
 
-    def wanting(self, request: R) -> bool:
-        """Holds the request as wanted, dropping the value published for another, returning whether the wanted request changed."""
-        if changed := self.wanted.filter(lambda held: held == request).is_none():
-            self.wanted, self.value = Some(request), Nothing
-        return changed
+    def wanting(self, slot: K, request: R, *, same: Callable[[R, R], bool] = eq) -> tuple[bool, object, Option[V]]:
+        """Sets a source request and returns its change flag, publication token, and held value."""
+        match self.held.get(slot):
+            case (prior, token, value) if same(prior, request):
+                return False, token, value
+            case _:
+                self.held[slot] = request, (token := object()), Nothing
+                return True, token, Nothing
 
-    def published(self, request: R, value: V) -> bool:
-        """Holds the value while its request stays wanted, returning whether it held it."""
-        if wanted := self.wanted.filter(lambda held: held == request).is_some():
-            self.value = Some(value)
-        return wanted
+    def value(self, slot: K, request: R) -> Option[V]:
+        """Returns a published value for the current matching request."""
+        match self.held.get(slot):
+            case (prior, _token, value) if prior == request:
+                return value
+            case _:
+                return Nothing
 
-    def cleared(self) -> bool:
-        """Drops the wanted request and its value, returning whether either was held."""
-        changed = self.wanted.is_some() or self.value.is_some()
-        self.wanted, self.value = Nothing, Nothing
-        return changed
+    def shown(self, slot: K) -> Option[tuple[R, V]]:
+        """Returns a source request with its published value."""
+        match self.held.get(slot):
+            case (request, _token, Option(tag="some", some=value)):
+                return Some((request, value))
+            case _:
+                return Nothing
+
+    def published(self, slot: K, token: object, value: V) -> bool:
+        """Publishes a value only while its request generation remains current."""
+        match self.held.get(slot):
+            case (request, prior, _) if prior is token:
+                self.held[slot] = request, token, Some(value)
+                return True
+            case _:
+                return False
+
+    def cleared(self, stale: Callable[[R], bool] = lambda _request: True) -> bool:
+        """Removes matching requests and values, returning whether any source changed."""
+        dropped = tuple(slot for slot, (request, _token, _value) in self.held.items() if stale(request))
+        for slot in dropped:
+            del self.held[slot]
+        return bool(dropped)
+
+    @staticmethod
+    @contextmanager
+    def invalidating(
+        identity: Identity,
+        resource: Resource["Latest[K, R, V]"],
+        stale: Callable[[R, bpy.types.Scene], bool],
+        notify: Callable[[], Outcome[None]],
+        *,
+        ids: tuple[type[bpy.types.ID], ...] = (bpy.types.ID,),
+    ) -> Generator[Acquisitions]:
+        """Scopes dependency invalidation and file, undo, and redo resets, queueing notices outside preview renders."""
+        with identity.reports.deferred(lambda: notify().map(lambda _: Nothing)) as later:
+
+            def cleared(predicate: Callable[[R], bool]) -> Outcome[None]:
+                if resource[identity].cleared(predicate):
+                    later()
+                return Ok(None)
+
+            yield (
+                resource,
+                INTERMEDIATES,
+                *(Handler(handlers=handlers, body=lambda: cleared(lambda _request: True)) for handlers in (bpy.app.handlers.load_post, bpy.app.handlers.undo_post, bpy.app.handlers.redo_post)),
+                Handler(
+                    handlers=bpy.app.handlers.depsgraph_update_post,
+                    body=partial(updated, ids, lambda scene, _updates: Ok(None) if INTERMEDIATES[identity] else cleared(lambda request: stale(request, scene))),
+                ),
+            )
 
 
 class PreviewQueue(msgspec.Struct, frozen=True, kw_only=True):
@@ -217,7 +250,7 @@ class PreviewQueue(msgspec.Struct, frozen=True, kw_only=True):
         Returns:
             Render result, `Ok(None)` for a failed key.
         """
-        backlog, place = identity.resources[BACKLOG], (feed, job.place)
+        backlog, place = BACKLOG[identity], (feed, job.place)
         match backlog.requests.get(place):
             case Request(job=Job(key=key), state=Result(tag="error")) if key == job.key:
                 return Ok(None)
@@ -233,11 +266,11 @@ class PreviewQueue(msgspec.Struct, frozen=True, kw_only=True):
             identity: Extension holding the failures.
             places: Places a producer refresh names.
         """
-        backlog, dropped = identity.resources[BACKLOG], frozenset(places)
+        backlog, dropped = BACKLOG[identity], frozenset(places)
         backlog.requests = {(owner, spot): request for (owner, spot), request in backlog.requests.items() if spot not in dropped or request.state is Phase.PENDING}
 
     def ticked(self, identity: Identity) -> Outcome[Option[float]]:
-        """Merges feed requests and runs pending ones within the budget, holding faults in reports.
+        """Replaces each read feed's requests, cancels them on read failure, and runs pending jobs while reporting every fault.
 
         Args:
             identity: Extension with reports holding budget, feed, and render faults.
@@ -245,12 +278,12 @@ class PreviewQueue(msgspec.Struct, frozen=True, kw_only=True):
         Returns:
             `Ok` of next interval on every tick.
         """
-        context, backlog = bpy.context, identity.resources[BACKLOG]
+        context, backlog = bpy.context, BACKLOG[identity]
 
         def stepped(manager: bpy.types.WindowManager) -> Outcome[None]:
             budget = self.preference.read(identity)
             reads = tuple((feed, feed(identity, context)) for feed in tuple(backlog.feeds))
-            backlog.merged(tuple((feed, jobs) for feed, read in reads if feed in backlog.feeds for jobs in read.to_option().to_list()))
+            backlog.merged(tuple((feed, read.default_value(())) for feed, read in reads if feed in backlog.feeds))
             playing = any(window.screen.is_animation_playing for window in manager.windows)
             start = time.perf_counter()
             return accumulated((
@@ -267,7 +300,7 @@ class PreviewQueue(msgspec.Struct, frozen=True, kw_only=True):
 
         match context.window_manager:
             case bpy.types.WindowManager(is_interface_locked=False) as manager:
-                shifted = backlog.slot.map(lambda slot: built("RENDER_RESULT").map(lambda image: image.render_slots.active_index != slot)).default_value(Ok(False))
+                shifted = backlog.slot.map(lambda slot: built("RENDER_RESULT").map(lambda image: image.render_slots.active_index != slot)).default_value(Ok(value=False))
                 return Ok(shifted.bind(lambda held: Ok(None) if held else stepped(manager)).map_error(identity.reports.hold).map(lambda _: Some(self.interval)).default_value(Some(self.interval)))
             case _:
                 return Ok(Some(self.interval))
@@ -275,22 +308,22 @@ class PreviewQueue(msgspec.Struct, frozen=True, kw_only=True):
     # --- [LIFECYCLE]
 
     @contextmanager
-    def acquisitions(self, identity: Identity) -> Generator[Outcome[Acquisitions]]:
+    def acquisitions(self, identity: Identity) -> Generator[Acquisitions]:
         """Builds the backlog cell, budget preference, timer, and the deferred record of each finished user render's shown slot.
 
         Args:
             identity: Extension with reports running deferred main-thread writes.
 
         Yields:
-            `Ok` of state cell, preference, and event rows.
+            State cell, preference, and event rows.
         """
 
         def remembered(image: bpy.types.Image) -> Option[str]:
-            identity.resources[BACKLOG].slot = Option.of_optional(image.render_slots.active_index)
+            BACKLOG[identity].slot = Option.of_optional(image.render_slots.active_index)
             return Nothing
 
         with identity.reports.deferred(lambda: built("RENDER_RESULT").map(remembered)) as remember:
-            yield Ok((BACKLOG, self.preference, Timer(body=partial(self.ticked, identity)), Handler(handlers=bpy.app.handlers.render_complete, body=lambda: Ok(remember()))))
+            yield (BACKLOG, self.preference, Timer(body=partial(self.ticked, identity)), Handler(handlers=bpy.app.handlers.render_complete, body=lambda: Ok(remember())))
 
 
 class PreviewFeed(msgspec.Struct, frozen=True, kw_only=True):
@@ -304,28 +337,28 @@ class PreviewFeed(msgspec.Struct, frozen=True, kw_only=True):
         return (PreviewQueue(),)
 
     @contextmanager
-    def acquisitions(self, identity: Identity) -> Generator[Outcome[Acquisitions]]:
+    def acquisitions(self, identity: Identity) -> Generator[Acquisitions]:
         """Registers the feed for the row's scope.
 
         Args:
             identity: Extension with the queue reading the feed.
 
         Yields:
-            `Ok` of no further rows while the queue reads the feed.
+            No further rows while the queue reads the feed.
         """
 
         def unfed() -> None:
             """Drops feed and its requests from the backlog held at release, which a file load may have renewed."""
-            backlog = identity.resources[BACKLOG]
+            backlog = BACKLOG[identity]
             backlog.feeds.remove(self.feed)
             backlog.requests = {(owner, spot): request for (owner, spot), request in backlog.requests.items() if owner != Some(self.feed)}
 
         with ExitStack() as stack:
-            identity.resources[BACKLOG].feeds.append(self.feed)
+            BACKLOG[identity].feeds.append(self.feed)
             stack.callback(unfed)
-            yield Ok(())
+            yield ()
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["BACKLOG", "Backlog", "Budget", "Demand", "Demands", "Feed", "Job", "Latest", "Phase", "PreviewFeed", "PreviewQueue", "Rank", "Request"]
+__all__ = ["BACKLOG", "Backlog", "Budget", "Demands", "Feed", "Job", "Latest", "Phase", "PreviewFeed", "PreviewQueue", "Rank", "Request"]

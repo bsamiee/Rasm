@@ -1,24 +1,24 @@
 """Layer stack composition over the effects an extension offers: presets, the operator of every stack command, menus, the editor section with its layer list, the preset popover, the scene look pick tiling the presets, and the layered document of formed color and raw mask coverage with its export."""
 
-from collections.abc import Callable, Generator, Mapping
+from collections.abc import Callable, Generator, Iterable, Mapping
 from contextlib import contextmanager, nullcontext
 from functools import cached_property, partial
 from types import GenericAlias, MappingProxyType
 from typing import Final
 
 import bpy
-from expression import Nothing, Ok, Option, Some
+from expression import Option, Some
 from expression.collections import Block
 import msgspec
+import PyOpenColorIO
 
 from blender.bpy.commands.invocations import Open, Popup
 from blender.bpy.commands.operators import Answer, BoundBody, Call, Command, Done, Empty, Invoke, Operator, Placement, PopupKind, PopupTarget, Unchanged
 from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.paths import id_data, root_in, rooted, Struct
-from blender.bpy.data.rna.properties import Callbacks, Changed, choices, EnumItem, held_choices, IconedItem, rebound, titled
-from blender.bpy.extension.events import Handler, Subscription
-from blender.bpy.extension.identity import Identity, Key, Resource
-from blender.bpy.extension.registration import Acquisitions, Declaration
+from blender.bpy.data.rna.properties import Callbacks, Changed, choices, EnumItem, IconedItem, rebound, titled
+from blender.bpy.extension.identity import Identity, Key
+from blender.bpy.extension.registration import Acquisitions, Declaration, Handler, Resource, Subscription
 from blender.bpy.extension.reports import alerted
 from blender.bpy.nodes.addressing import InterfaceKeys, owned
 from blender.bpy.nodes.desired import item_key
@@ -28,7 +28,7 @@ from blender.bpy.render.compositor import stack_commands
 from blender.bpy.render.compositor.documents import layered
 from blender.bpy.render.compositor.editors import node_editors
 from blender.bpy.render.compositor.effects import CompositorEffect, Entry
-from blender.bpy.render.compositor.inputs import captured, entry_input, FRAMING
+from blender.bpy.render.compositor.inputs import captured, FRAMING, interface_input
 from blender.bpy.render.compositor.layers import (
     Copied,
     Edit,
@@ -72,17 +72,16 @@ from blender.bpy.ui.layout.sections import Section
 from blender.bpy.ui.layout.templates import Gallery
 from blender.bpy.ui.layout.values import Listing
 from blender.bpy.ui.resources.icons import Icons
-from blender.imaging.color.processors import DisplayView
+from blender.imaging.color.processors import called, DisplayView
 from blender.imaging.files.buffers import Depth
 from blender.imaging.files.documents import Document
 from blender.imaging.files.multilayer import Multilayer
-from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
-from blender.records.fields import Case
+from blender.records.faults import accumulated, Fault, Nothing, Ok, Outcome, paired, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Operators = Mapping[Callable[..., object], Command]
-type _Listed[M: Case] = Listing[Valued[LayerStack[M]]] | Listing[Valued[StackLayer[M]]] | Listing[Valued[Entry[M]]]
+type Operators = Mapping[object, Command]
+type _Listed = Listing[Valued[LayerStack]] | Listing[Valued[StackLayer]] | Listing[Valued[Entry]]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -116,9 +115,7 @@ _LAYER_SOURCES: Final = (
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _presets_drawn[M: Case](
-    stacking: LayerStackService[M], creating: Command, listings: tuple[tuple[_Listed[M], RowDraw], ...], layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context
-) -> None:
+def _presets_drawn(stacking: LayerStackService, creating: Command, listings: tuple[tuple[_Listed, RowDraw], ...], layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
     """Draws the preset listing of each held stack, layer, or effect, the New Stack button while no stack exists."""
     if rooted(bpy.types.Scene, context).bind(stacking.head).is_error():
         alerted(layout, operator_button(layout, stacking.identity, Placement(creating), {"text": creating.title}))
@@ -130,18 +127,18 @@ def _presets_drawn[M: Case](
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
-class LayerStackExtension[M: Case](msgspec.Struct, frozen=True, kw_only=True, dict=True):
+class LayerStackExtension(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     """Layer stacks over the effects an extension offers: layers take the effects ranked before `before`, every effect while unset, with stock looks, the term filter, the document view, and the preview icon of each look's tile.
 
     `tile` returns a stack preset's preview icon by its stem, the stock icon while it has none.
     """
 
-    rows: OfferedEffects[M]
-    before: Option[CompositorEffect[M]] = Nothing
-    looks: Mapping[str, Valued[LayerStack[M]]] = MappingProxyType({})
-    filtering: Option[TermFiltering[M]] = Nothing
+    rows: OfferedEffects
+    before: Option[CompositorEffect] = Nothing
+    looks: Mapping[str, Valued[LayerStack]] = MappingProxyType({})
+    filtering: Option[TermFiltering] = Nothing
     view: Callable[[Identity, bpy.types.Scene], Outcome[Option[DisplayView]]] = lambda _identity, _scene: Ok(Nothing)
-    tile: Option[Callable[[Identity, str, Valued[LayerStack[M]]], Option[int]]] = Nothing
+    tile: Option[Callable[[Identity, bpy.types.Scene, str, Valued[LayerStack]], Option[int]]] = Nothing
 
     # --- [DECLARATIONS]
 
@@ -150,9 +147,9 @@ class LayerStackExtension[M: Case](msgspec.Struct, frozen=True, kw_only=True, di
         return Preset(key=key, form=GenericAlias(Valued, (GenericAlias(structure, (self.rows.form,)),)), stock=stock)  # type: ignore[arg-type]  # ty: ignore[invalid-type-form]
 
     @cached_property
-    def accepted(self) -> tuple[CompositorEffect[M], ...]:
+    def accepted(self) -> tuple[CompositorEffect, ...]:
         """Effects a layer accepts in rank order."""
-        return tuple(row for row in self.rows.rows if self.before.map(lambda before: self.rows.rank(row) < self.rows.rank(before)).default_value(True))
+        return tuple(row for row in self.rows.rows if self.before.map(lambda before: self.rows.rank(row) < self.rows.rank(before)).default_value(value=True))
 
     @cached_property
     def refresh(self) -> Resource[Callable[[], None]]:
@@ -167,22 +164,20 @@ class LayerStackExtension[M: Case](msgspec.Struct, frozen=True, kw_only=True, di
     @cached_property
     def layered(self) -> Attachment[LayerRows]:
         """Layer rows on the stack group owning each layer's name, flags, and order, a row edit queueing the stack refresh."""
-        return Attachment(
-            key=f"{OWNERSHIP.key}_layers", form=LayerRows, owner=bpy.types.NodeTree, changed=Some(lambda identity: nullcontext(lambda _owner, _context: identity.resources[self.refresh]()))
-        )
+        return Attachment(key=f"{OWNERSHIP.key}_layers", form=LayerRows, owner=bpy.types.NodeTree, changed=Some(lambda identity: nullcontext(lambda _owner, _context: self.refresh[identity]())))
 
     @cached_property
-    def preset(self) -> Preset[Valued[LayerStack[M]]]:
+    def preset(self) -> Preset[Valued[LayerStack]]:
         """Stack presets with their input values over the stock looks."""
         return self._preset(OWNERSHIP.key, LayerStack, self.looks)
 
     @cached_property
-    def layer_preset(self) -> Preset[Valued[StackLayer[M]]]:
+    def layer_preset(self) -> Preset[Valued[StackLayer]]:
         """Presets of one layer with its input values."""
         return self._preset(f"{OWNERSHIP.key}_layer", StackLayer)
 
     @cached_property
-    def entry_preset(self) -> Preset[Valued[Entry[M]]]:
+    def entry_preset(self) -> Preset[Valued[Entry]]:
         """Presets of one effect with its blend and input values."""
         return self._preset(f"{OWNERSHIP.key}_entry", Entry)
 
@@ -209,23 +204,27 @@ class LayerStackExtension[M: Case](msgspec.Struct, frozen=True, kw_only=True, di
         """Gallery of the stack presets the scene pick takes, then its strength slider."""
         return Layout(rows=(Gallery(target=Member(root=self.looking, path=("look",))), Property(target=Member(root=self.looking, path=("strength",)), keywords={"slider": True})))
 
-    def offered(self, identity: Identity, _owner: Struct, _context: bpy.types.Context | None) -> tuple[IconedItem, ...]:
+    def offered(self, identity: Identity, owner: StackLook, _context: bpy.types.Context | None) -> tuple[IconedItem, ...]:
         """Item rows of the unpicked state under the clear icon at the value an unset pick holds, then the stack presets, each under its tile's preview icon."""
         preset = self.preset
+        sources = preset.listed(identity)
+        scene = id_data(bpy.types.Scene, owner)
 
         def icon(stem: str) -> int:
-            return self.tile.bind(lambda tile: preset.loaded(identity, stem).to_option().bind(partial(tile, identity, stem))).default_value(0)
+            return self.tile.bind(lambda tile: scene.bind(lambda held: preset.read(sources[stem]).to_option().bind(partial(tile, identity, held, stem)))).default_value(0)
 
-        return held_choices((
-            (_UNPICKED, "None", "Head stack as it stands, no preset written over it", Icons.value(identity, "X").default_value(0), 0),
-            *((stem, name, description, icon(stem), number) for stem, name, description, _, number in preset.entries(identity)),
-        ))
+        return tuple(
+            (stem, name, description, held if isinstance(held, int) else icon(stem), number)
+            for stem, name, description, held, number in preset.entries(
+                sources, prefix=((_UNPICKED, "None", "Head stack as it stands, no preset written over it", Icons.value(identity, "X").default_value(0), 0),)
+            )
+        )
 
     @contextmanager
     def picking(self, identity: Identity) -> Generator[Changed]:
         """Holds the deferred preset write a pick or strength change queues."""
 
-        def applied(scene: bpy.types.Scene, pick: StackLook, stacking: LayerStackService[M]) -> Outcome[Option[str]]:
+        def applied(scene: bpy.types.Scene, pick: StackLook, stacking: LayerStackService) -> Outcome[Option[str]]:
             return (
                 Ok(Nothing)
                 if pick.look == _UNPICKED
@@ -243,9 +242,7 @@ class LayerStackExtension[M: Case](msgspec.Struct, frozen=True, kw_only=True, di
 
     # --- [COMMANDS]
 
-    def command[T: bpy.types.PropertyGroup](
-        self, body: Callable[[LayerStackService[M], Call[T]], Outcome[Answer]], form: type[T], invoke: Option[Invoke[T]] = Nothing
-    ) -> tuple[Callable[..., object], Command]:
+    def command[T: bpy.types.PropertyGroup](self, body: Callable[[LayerStackService, Call[T]], Outcome[Answer]], form: type[T], invoke: Option[Invoke[T]] = Nothing) -> tuple[object, Command]:
         """Returns a stack command body with the operator running it over the calling extension's stacking, keyed and described by the body."""
         return body, Operator[T](form=form, run=BoundBody(self.bound, body), invoke=invoke)
 
@@ -253,13 +250,16 @@ class LayerStackExtension[M: Case](msgspec.Struct, frozen=True, kw_only=True, di
         """Builds the operator of every stack command once for an extension, its stack pickers listing the extension's stacks and the chosen stack's layer rows, its effect choice the accepted effects."""
 
         def stacks(_owner: Struct, _context: bpy.types.Context | None) -> tuple[EnumItem, ...]:
-            return held_choices(tuple((tree.name, tree.name, "") for tree, _ in OWNERSHIP.held(identity)))
+            return choices((tree.name, tree.name, "") for tree, _ in OWNERSHIP.held(identity))
 
         def layers(owner: Copied, _context: bpy.types.Context | None) -> tuple[EnumItem, ...]:
-            rows = self.layered.bound(identity).map(
-                lambda attached: tuple((row.key, row.name, "") for tree, _ in OWNERSHIP.held(identity) if tree.name == owner.stack for row in attached.struct(tree).layers)
-            )
-            return held_choices(rows.default_value(()))
+            rows: list[tuple[str, str, str]] = []
+            for attached in self.layered.bound(identity).to_option().to_list():
+                for tree, _ in OWNERSHIP.held(identity):
+                    if tree.name == owner.stack:
+                        layers: Iterable[LayerRow] = attached.struct(tree).layers  # ty: ignore[unsound-assignment]
+                        rows.extend((row.key, row.name, "") for row in layers)
+            return choices(rows)
 
         switched, copied = rebound(Switched, stack=Callbacks(items=stacks)), rebound(Copied, stack=Callbacks(items=stacks), layer=Callbacks[Copied](items=layers))
         chosen = rebound(Choice, kind=Callbacks(items=choices((row.kind, row.title, row.description) for row in self.accepted)))
@@ -306,18 +306,20 @@ class LayerStackExtension[M: Case](msgspec.Struct, frozen=True, kw_only=True, di
         """Stack refresh and operators, view attachment, layer rows with the frame size binding stacks read, and the arranger placing owned stack nodes."""
         return self.refresh, self.operating, VIEW, self.layered, FrameSize.attachment, Arranger()
 
-    def bound(self, identity: Identity) -> Outcome[LayerStackService[M]]:
+    def bound(self, identity: Identity) -> Outcome[LayerStackService]:
         """Binds the store of each layer's structure, the layer rows and view attachments, and pass flags of an extension."""
         stored = Stored.keyed(identity, OWNERSHIP.key, msgspec.msgpack.Decoder(GenericAlias(dict, (Key, GenericAlias(StoredLayer, (self.rows.form,))))))
-        return paired(stored, self.layered.bound(identity), VIEW.bound(identity)).map(
-            lambda parts: LayerStackService(identity=identity, rows=self.rows, filtering=self.filtering, store=parts[0], layer_rows=parts[1], view=parts[2], flags=PassFlags.of())
+        return paired(self.layered.bound(identity), VIEW.bound(identity)).map(
+            lambda parts: LayerStackService(identity=identity, rows=self.rows, filtering=self.filtering, store=stored, layer_rows=parts[0], view=parts[1], flags=PassFlags.of())
         )
 
     # --- [DOCUMENTS]
 
     def document(self, identity: Identity, scene: bpy.types.Scene, frame: Multilayer, depth: Depth) -> Outcome[Document]:
         """Layered document of the scene's head stack at a saved frame, formed through the stack view, else the scene's."""
-        return paired(self.bound(identity), self.view(identity, scene)).bind(lambda parts: layered(parts[0], parts[1].default_with(lambda: viewed(scene)), scene, frame, depth))
+        return paired(self.bound(identity), self.view(identity, scene), called(PyOpenColorIO.GetCurrentConfig, str(frame.path))).bind(
+            lambda parts: layered(parts[0], parts[2], parts[1].default_with(lambda: viewed(scene)), scene, frame, depth)
+        )
 
     # --- [SECTIONS]
 
@@ -331,15 +333,15 @@ class LayerStackExtension[M: Case](msgspec.Struct, frozen=True, kw_only=True, di
         return Section(
             key=f"{OWNERSHIP.key}_presets",
             description=f"Apply, add, or import {TITLE.lower()}, layer, and effect presets",
-            rows=(Layout(rows=lambda identity: self.presets_drawn(identity).map(lambda draw: (draw,)), prerequisites=(self,)),),
+            rows=(Layout(builder=Some(lambda identity: self.presets_drawn(identity).map(lambda draw: (draw,))), prerequisites=(self,)),),
         )
 
     def presets_drawn(self, identity: Identity) -> Outcome[RowDraw]:
         """Returns the preset listing draws of each held stack, layer, or effect, the New Stack button while no stack exists."""
 
-        def listed(stacking: LayerStackService[M]) -> Outcome[RowDraw]:
+        def listed(stacking: LayerStackService) -> Outcome[RowDraw]:
             listings = self._preset_listings(stacking)
-            creating = identity.resources[self.operating][stack_commands.new_stack]
+            creating = self.operating[identity][stack_commands.new_stack]
             return accumulated(listing.drawn(identity) for listing in listings).map(lambda draws: partial(_presets_drawn, stacking, creating, tuple(zip(listings, draws))))
 
         return self.bound(identity).bind(listed)
@@ -354,13 +356,13 @@ class LayerStackExtension[M: Case](msgspec.Struct, frozen=True, kw_only=True, di
 
     def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
         """Returns the extension's stack operators and menus over them, listings, the preset popover the section header opens, and the handlers and subscriptions queueing the stack refresh."""
-        operators = identity.resources[self.operating]
+        operators = self.operating[identity]
 
         def updated_scenes() -> Outcome[None]:
-            identity.resources[self.refresh]()
+            self.refresh[identity]()
             return Ok(None)
 
-        def rows(stacking: LayerStackService[M]) -> Acquisitions:
+        def rows(stacking: LayerStackService) -> Acquisitions:
             handlers: tuple[Declaration, ...] = (
                 Handler(handlers=bpy.app.handlers.load_post, body=updated_scenes),
                 *(Subscription(owner=owner, setting=prop, body=updated_scenes) for owner, prop in (*FRAMING.reads, *_WATCHED)),
@@ -371,31 +373,31 @@ class LayerStackExtension[M: Case](msgspec.Struct, frozen=True, kw_only=True, di
 
     # --- [LISTINGS]
 
-    def _preset_listings(self, stacking: LayerStackService[M]) -> tuple[Listing[Valued[LayerStack[M]]], Listing[Valued[StackLayer[M]]], Listing[Valued[Entry[M]]]]:
+    def _preset_listings(self, stacking: LayerStackService) -> tuple[Listing[Valued[LayerStack]], Listing[Valued[StackLayer]], Listing[Valued[Entry]]]:
         """Stack, active layer, and last effect preset listings, each preset holding the input values at its item keys."""
 
-        def applied(context: bpy.types.Context, value: Valued[LayerStack[M]] | Valued[StackLayer[M]] | Valued[Entry[M]]) -> Outcome[Answer]:
+        def applied(context: bpy.types.Context, value: Valued[LayerStack] | Valued[StackLayer] | Valued[Entry]) -> Outcome[Answer]:
             return stacking.applied(context, value).map(lambda wrote: Done() if wrote else Unchanged(reason="Stack matches preset"))
 
         def matched[T](read: Callable[[bpy.types.Context], Outcome[Valued[T]]], context: bpy.types.Context, values: tuple[Valued[T], ...]) -> Outcome[tuple[bool, ...]]:
             def equal(held: Valued[T], value: Valued[T]) -> bool:
-                return held.structure == value.structure and value.rebased(held.prefix).map(lambda values: values == held.values).default_value(True)
+                return held.structure == value.structure and value.rebased(held.prefix).map(lambda values: values == held.values).default_value(value=True)
 
             return read(context).map(lambda held: tuple(equal(held, value) for value in values))
 
-        def valued[T](pick: Callable[[Selection[M]], Outcome[tuple[T, Key]]], context: bpy.types.Context) -> Outcome[Valued[T]]:
+        def valued[T](pick: Callable[[Selection], Outcome[tuple[T, Key]]], context: bpy.types.Context) -> Outcome[Valued[T]]:
             return stacking.selected(context).bind(
                 lambda held: pick(held).bind(lambda found: captured(stacking.identity, held.entry, found[1]).map(lambda values: Valued(structure=found[0], values=values, prefix=found[1])))
             )
 
-        def last(held: Selection[M]) -> Outcome[tuple[Entry[M], Key]]:
+        def last(held: Selection) -> Outcome[tuple[Entry, Key]]:
             return held.layer.bind(
-                lambda found: Block.of_seq(tuple(zip(found.effects, found.places, strict=True))[-1:]).try_head().to_result_with(partial(Fault.of, Reason.ABSENT, found.name, member=item_key(EFFECTS)))
+                lambda found: Block.of_seq(tuple(zip(found.effects, found.places))[-1:]).try_head().to_result_with(partial(Fault.of, Reason.ABSENT, found.name, member=item_key(EFFECTS)))
             )
 
-        stack: Callable[[bpy.types.Context], Outcome[Valued[LayerStack[M]]]] = partial(valued, lambda held: Ok((held.record, "")))
-        layer: Callable[[bpy.types.Context], Outcome[Valued[StackLayer[M]]]] = partial(valued, lambda held: held.layer.map(lambda found: (found, found.key)))
-        effect: Callable[[bpy.types.Context], Outcome[Valued[Entry[M]]]] = partial(valued, last)
+        stack = partial(valued, lambda held: Ok((held.record, "")))
+        layer = partial(valued, lambda held: held.layer.map(lambda found: (found, found.key)))
+        effect = partial(valued, last)
         return (
             Listing(preset=self.preset, current=stack, matches=partial(matched, stack), applied=applied),
             Listing(preset=self.layer_preset, current=layer, matches=partial(matched, layer), applied=applied),
@@ -404,7 +406,7 @@ class LayerStackExtension[M: Case](msgspec.Struct, frozen=True, kw_only=True, di
 
     # --- [EDITOR]
 
-    def _layer_list(self, stacking: LayerStackService[M]) -> ItemList[bpy.types.PropertyGroup, LayerRow]:
+    def _layer_list(self, stacking: LayerStackService) -> ItemList[bpy.types.PropertyGroup, LayerRow]:
         """Layer list top first with visibility, solo, and matte columns and edit side buttons, dragged to reorder."""
 
         def pressing(edit: Edit, layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
@@ -415,7 +417,6 @@ class LayerStackExtension[M: Case](msgspec.Struct, frozen=True, kw_only=True, di
 
         return ItemList(
             key=f"{OWNERSHIP.key}_layers",
-            item=LayerRow,
             collection=Member(
                 root=bpy.types.NodeTree,
                 path=(stacking.layer_rows.name, "layers"),
@@ -433,20 +434,18 @@ class LayerStackExtension[M: Case](msgspec.Struct, frozen=True, kw_only=True, di
                 spaced,
                 *(partial(pressing, edit) for edit in (Edit.DUPLICATE, Edit.UP, Edit.DOWN, Edit.RESET)),
             ),
-            absent=(OperatorButton(target=stacking.identity.resources[self.operating][stack_commands.new_stack]),),
+            absent=(OperatorButton(target=self.operating[stacking.identity][stack_commands.new_stack]),),
             move=Some(stacking.moved),
         )
 
     def _edited(self, layout: bpy.types.UILayout, identity: Identity, edit: Edit, target: Target) -> Outcome[None]:
         """Draws the icon button of one edit over a target."""
-        return operator_button(
-            layout, identity, Placement(identity.resources[self.operating][stack_commands.edit_layer], {**msgspec.to_builtins(target), "action": edit.name}), {"text": "", "icon": edit.value}
-        )
+        return operator_button(layout, identity, Placement(self.operating[identity][stack_commands.edit_layer], {**msgspec.to_builtins(target), "action": edit.name}), {"text": "", "icon": edit.value})
 
-    def _editor_drawn(self, stacking: LayerStackService[M], listing: RowDraw, adding: RowDraw, layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
+    def _editor_drawn(self, stacking: LayerStackService, listing: RowDraw, adding: RowDraw, layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
         """Draws the layer list top first, then the selected layer's source, inputs, and node editors, and one panel per layer effect."""
         identity = stacking.identity
-        operators = identity.resources[self.operating]
+        operators = self.operating[identity]
 
         def edits_row(layout: bpy.types.UILayout, target: Target) -> None:
             line = layout.row(align=True)
@@ -457,27 +456,27 @@ class LayerStackExtension[M: Case](msgspec.Struct, frozen=True, kw_only=True, di
             masking = operators[stack_commands.add_mask]
             alerted(layout, operator_button(layout, identity, Placement(masking, msgspec.to_builtins(target)), {"text": masking.title, "icon": "MOD_MASK"}))
 
-        def widgets(layout: bpy.types.UILayout, held: Selection[M], prefix: Key, inner: tuple[Key, ...]) -> None:
-            def mine(key: Key) -> bool:
-                return key.startswith(f"{prefix}_") and not any(key.startswith(f"{nested}_") for nested in inner)
+        def detail(held: Selection, layer: StackLayer) -> None:
+            nodes, sockets, places = owned(held.tree, identity), InterfaceKeys.of(held.tree, identity).sockets, layer.places
 
-            node_editors(layout, (node for key, node in owned(held.tree, identity).items() if mine(key)))
-            for key in (key for keys in InterfaceKeys.of(held.tree, identity).map(lambda live: live.sockets).to_option().to_list() for key in keys if mine(key)):
-                alerted(layout, entry_input(identity, held.entry, key).map(lambda owner: layout.prop(owner, "value")))
+            def widgets(layout: bpy.types.UILayout, prefix: Key, inner: tuple[Key, ...]) -> None:
+                keys = frozenset(key for key in (*nodes, *sockets) if key.startswith(f"{prefix}_") and not any(key.startswith(f"{nested}_") for nested in inner))
+                node_editors(layout, (node for key, node in nodes.items() if key in keys))
+                for identifier in (identifier for key, identifier in sockets.items() if key in keys):
+                    alerted(layout, interface_input(held.entry, identifier).map(lambda owner: layout.prop(owner, "value")))
 
-        def effected(layout: bpy.types.UILayout, held: Selection[M], at: EffectAt, place: Key, entry: Entry[M]) -> None:
-            header, body = layout.panel(f"{place}_{held.tree.session_uid}", default_closed=False)
-            header.label(text=titled(type(entry.record)))
-            edits_row(header, at)
-            for inner in Option.of_optional(body).to_list():
-                widgets(inner, held, place, ())
-                mask(inner, at)
-                for index in range(entry.blend.masks):
-                    edits_row(inner, EffectMaskAt(layer=at.layer, entry=at.entry, mask=index))
+            def effected(layout: bpy.types.UILayout, at: EffectAt, place: Key, entry: Entry) -> None:
+                header, body = layout.panel(f"{place}_{held.tree.session_uid}", default_closed=False)
+                header.label(text=titled(type(entry.record)))
+                edits_row(header, at)
+                for inner in Option.of_optional(body).to_list():
+                    widgets(inner, place, ())
+                    mask(inner, at)
+                    for index in range(entry.blend.masks):
+                        edits_row(inner, EffectMaskAt(layer=at.layer, entry=at.entry, mask=index))
 
-        def detail(held: Selection[M], layer: StackLayer[M]) -> None:
             at = LayerAt(layer=held.active)
-            for source in Option.of_optional(owned(held.tree, identity).get(layer.node)).to_list():
+            for source in Option.of_optional(nodes.get(layer.node)).to_list():
                 source.draw_buttons_ext(context, layout)
                 layout.template_node_inputs(source)
                 outputs = layout.row(align=True)
@@ -486,14 +485,14 @@ class LayerStackExtension[M: Case](msgspec.Struct, frozen=True, kw_only=True, di
                         outputs,
                         operator_button(outputs, identity, Placement(operators[stack_commands.select_output], {"layer": at.layer, "output": output.name}), {"text": output.name, "translate": False}),
                     )
-            widgets(layout, held, layer.key, layer.places)
+            widgets(layout, layer.key, places)
             buttons = layout.row(align=True)
             mask(buttons, at)
             alerted(buttons, self._edited(buttons, identity, Edit.RESET, at))
             for index in range(layer.blend.masks):
                 edits_row(layout, LayerMaskAt(layer=at.layer, mask=index))
-            for index, entry in enumerate(layer.effects):
-                effected(layout, held, EffectAt(layer=at.layer, entry=index), layer.places[index], entry)
+            for index, (place, entry) in enumerate(zip(places, layer.effects)):
+                effected(layout, EffectAt(layer=at.layer, entry=index), place, entry)
 
         listing(layout, holder, context)
         for held in stacking.selected(context).to_option().to_list():

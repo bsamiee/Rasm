@@ -1,21 +1,50 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-zipped-equality-by-hand
-language: rust
+language: rustlang
 severity: error
 utils:
+    left-source:
+        any:
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(iter|into_iter)$'}}, {has: {field: value, pattern: $A}}]}
+                - has: {field: arguments, not: {has: {pattern: $_}}}
+            - kind: reference_expression
+              has: {field: value, pattern: $A}
+            - pattern: $A
+    right-source:
+        any:
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(iter|into_iter)$'}}, {has: {field: value, pattern: $B}}]}
+                - has: {field: arguments, not: {has: {pattern: $_}}}
+            - kind: reference_expression
+              has: {field: value, pattern: $B}
+            - pattern: $B
+    zipped:
+        kind: call_expression
+        any:
+            - all:
+                - has: {field: function, regex: '^((::)?(std|core)::)?iter::zip$'}
+                - has: {field: arguments, all: [{has: {nthChild: 1, matches: left-source}}, {has: {nthChild: 2, matches: right-source}}]}
+            - all:
+                - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^zip$'}}, {has: {field: value, matches: left-source}}]}
+                - has: {field: arguments, has: {nthChild: 1, matches: right-source}}
     lengths:
         kind: binary_expression
-        pattern: $LA.len() == $LB.len()
+        any:
+            - pattern: $A.len() == $B.len()
+            - pattern: $B.len() == $A.len()
 rule:
     kind: binary_expression
     all:
         - has: {field: operator, regex: '^&&$'}
         - has:
             field: right
-            any:
-                - pattern: 'iter::zip($A, $B).all(|($X, $Y)| $L == $R)'
-                - pattern: '$A.iter().zip($B).all(|($X, $Y)| $L == $R)'
-                - pattern: '$A.into_iter().zip($B).all(|($X, $Y)| $L == $R)'
+            kind: call_expression
+            all:
+                - has: {field: arguments, has: {nthChild: 1, pattern: '|($X, $Y)| $X == $Y'}}
+                - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^all$'}}, {has: {field: value, matches: zipped}}]}
         - has:
             field: left
             any:

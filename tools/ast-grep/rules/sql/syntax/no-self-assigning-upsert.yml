@@ -4,22 +4,24 @@ language: sql
 severity: error
 rule:
     kind: upsert_clause
-    pattern: _UPSERT
     all:
-        - matches: {sql-update-upsert: {row: {pattern: _TABLE}}}
+        - has: {field: assignment, kind: set_assignment}
+        - inside:
+            kind: insert_statement
+            any:
+                - has: {field: alias, pattern: $TABLE}
+                - all: [{not: {has: {field: alias, pattern: $_}}}, {has: {field: target, has: {field: name, pattern: $TABLE}}}]
         - not:
             has:
                 kind: set_assignment
                 not:
                     all:
-                        - has: {field: column, pattern: _COLUMN}
+                        - has: {field: column, pattern: $COLUMN}
                         - has:
                             field: value
                             kind: column_reference
                             all:
-                                - has: {field: name, pattern: _COLUMN}
-                                - any: [{not: {has: {field: table, regex: '.'}}}, {has: {field: table, pattern: _TABLE}}]
-transform:
-    HEAD: {replace: {source: $UPSERT, replace: '(?is)^(.*?\bupdate\b).*$', by: '$1'}}
-message: '`$HEAD` rewrites each conflicting row with its own values'
-note: 'Write `on conflict (<key>) do nothing returning <columns>` and select existing rows in one transaction (PostgreSQL `union all`, SQLite batch)'
+                                - has: {field: name, pattern: $COLUMN}
+                                - any: [{not: {has: {field: table, pattern: $_}}}, {has: {field: table, pattern: $TABLE}}]
+message: 'Upsert rewrites each conflicting row with current values'
+note: 'Use `on conflict (<key>) do nothing returning <columns>` and select existing rows in one transaction'

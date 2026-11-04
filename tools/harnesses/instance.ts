@@ -1,8 +1,8 @@
 import { constants } from 'node:os';
-import { State } from '@rasm/automation/applications';
-import { Array, ByteSize, Data, DateTime, Duration, Effect, Equivalence, FileSystem, identity, Match, Option, Path, PubSub, Record, Result, Schema, Sink, Stream, Struct } from 'effect';
-import { ChildProcess } from 'effect/process';
-import { HarnessError } from '#/error';
+import { State } from '@rasm/automation';
+import { Array, ByteSize, Data, DateTime, Duration, Effect, Equivalence, FileSystem, identity, Match, Option, Path, type PlatformError, PubSub, Queue, Record, Result, Schema, Sink, Stream, Struct } from 'effect';
+import { ChildProcess, type ChildProcessSpawner } from 'effect/process';
+import { HarnessError } from '#/harness-error';
 import type { Halted } from '#/results';
 import type { Installed } from '#/session';
 
@@ -11,6 +11,7 @@ import type { Installed } from '#/session';
 type Next = (typeof State.Type)['next'];
 type Answer = Extract<NonNullable<Next>, { readonly answer: unknown }>['answer'];
 type Chosen = Pick<Installed, 'identifier' | 'name' | 'app' | 'helpers'>;
+type Releasing = (release: Effect.Effect<void, Error, ChildProcessSpawner.ChildProcessSpawner>) => Effect.Effect<void>;
 interface Asked {
     readonly answer: Answer;
     readonly dialog: typeof Halted.cases.Dialog.Type;
@@ -74,7 +75,11 @@ const stalled = Effect.fn('stalled')(function* (sample: string) {
 });
 
 // --- [FILES]
-const watched = (path: string) => Stream.unwrap(Effect.map(FileSystem.FileSystem, (fs) => Stream.prepend(Stream.as(fs.watch(path), undefined), [undefined])));
+const watched = (path: string) =>
+    Stream.callback<void, PlatformError.PlatformError, FileSystem.FileSystem>((queue) => {
+        const onReady = () => Queue.offerUnsafe(queue, undefined);
+        return FileSystem.FileSystem.use((fs) => Stream.runIntoQueue(Stream.as(fs.watch(path, { onReady }), undefined), queue));
+    });
 const appeared = Effect.fn('appeared')(function* (file: string) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     yield* Stream.runHead(
@@ -114,7 +119,7 @@ const drained = (command: readonly string[]) => Effect.scoped(Effect.flatMap(lin
 
 // --- [INSTANCES] -----------------------------------------------------------------------
 
-const Row = Object.assign(Schema.Struct({ identifier: Schema.String, pid: Schema.Int, state: State, at: Schema.DateTimeUtc.annotate({ description: 'Instant the line holding the state arrived' }) }), {
+const Observation = Object.assign(Schema.Struct({ identifier: Schema.String, pid: Schema.Int, state: State, at: Schema.DateTimeUtc.annotate({ description: 'Instant the line holding the state arrived' }) }), {
     perform: (id: string) => drained(['perform', id, 'AXPress']),
     settled: (state: typeof State.Type): state is typeof State.cases.Exited.Type => State.isAnyOf(['Exited'])(state) && (state.status !== undefined || state.report !== undefined || state.reportFailure !== undefined || (state.signal !== undefined && !REPORTING.includes(state.signal))),
     described: (state: typeof State.Type): string =>
@@ -128,18 +133,20 @@ const Row = Object.assign(Schema.Struct({ identifier: Schema.String, pid: Schema
         }),
     shown: (dialog: Pick<typeof Halted.cases.Dialog.Type, 'title' | 'text' | 'buttons'>, pid: number): string => `instance ${pid} shows ${dialog.title ?? 'a dialog'}${dialog.text.length === 0 ? '' : ` "${dialog.text.join(' ')}"`}${dialog.buttons.length === 0 ? '' : ` with ${dialog.buttons.join(', ')}`}, left running`,
 });
-class Progress extends Data.Class<{ readonly title: string; readonly buttons: readonly string[] }> {
+class Progress extends Data.Class<{ readonly title: string; readonly buttons: readonly string[]; readonly enabled?: boolean }> {
     static readonly asked = (passing: readonly Progress[], state: typeof State.Type): Option.Option<Asked> => {
         const answer = answerOf(state.next);
         const id = Option.map(answer, Struct.get('id'));
         const element = Array.findFirst(State.isAnyOf(['Responding'])(state) ? state.elements : [], (held) => Option.contains(id, held.id));
         const title = Option.flatMap(element, (held) => Option.fromUndefinedOr(held.title));
         const text = Option.match(element, { onNone: () => [], onSome: ({ detail }) => detail?.text ?? [] });
-        const buttons = Option.match(answer, { onNone: () => [], onSome: (held) => held.buttons.map(Struct.get('label')) });
-        const progressing = passing.some((named) => [...Option.toArray(title), ...text].includes(named.title) && LABELLED(named.buttons, buttons));
+        const controls = new Map(Option.match(element, { onNone: () => [], onSome: ({ detail }) => detail?.controls ?? [] }).map((control) => [control.id, control.enabled]));
+        const buttons = Option.match(answer, { onNone: () => [], onSome: Struct.get('buttons') });
+        const labels = Array.map(buttons, Struct.get('label'));
+        const progressing = passing.some((named) => [...Option.toArray(title), ...text].includes(named.title) && LABELLED(named.buttons, labels) && (named.enabled === undefined || buttons.every((button) => controls.get(button.id) === named.enabled)));
         return Option.map(
             Option.filter(answer, () => !progressing),
-            (held) => ({ answer: held, dialog: { _tag: 'Dialog', ...Record.getSomes({ title }), text, buttons } }),
+            (held) => ({ answer: held, dialog: { _tag: 'Dialog', ...Record.getSomes({ title }), text, buttons: labels } }),
         );
     };
     static readonly pressed = (answer: Answer, press: string) =>
@@ -154,9 +161,9 @@ class Progress extends Data.Class<{ readonly title: string; readonly buttons: re
             ),
             (id) => ({ press, id }),
         );
-    static readonly shown = (passing: readonly Progress[], row: typeof Row.Type) => Option.map(Progress.asked(passing, row.state), ({ dialog }) => Row.shown(dialog, row.pid));
+    static readonly shown = (passing: readonly Progress[], row: typeof Observation.Type) => Option.map(Progress.asked(passing, row.state), ({ dialog }) => Observation.shown(dialog, row.pid));
 }
-const launching = Effect.fn('launching')(function* (spec: Launched, chosen: Chosen, passing: readonly Progress[]) {
+const launching = Effect.fn('launching')(function* (spec: Launched, chosen: Chosen, passing: readonly Progress[], releasing: Releasing) {
     const refused = HarnessError.unavailable(chosen.name);
     const rowsOf = <E, R>(held: Stream.Stream<typeof Instances.Type, E, R>) => Stream.flattenIterable(Stream.mapEffect(held, stamped));
     const watch = yield* lines(['watch', chosen.app, ...chosen.helpers]);
@@ -171,15 +178,11 @@ const launching = Effect.fn('launching')(function* (spec: Launched, chosen: Chos
         ...Record.collect(spec.environment ?? {}, (name, value) => `--environment=${name}=${value}`),
     ];
     const subscribed = yield* PubSub.subscribe(yield* Stream.toPubSubTake(rowsOf(rest), { capacity: 'unbounded' }));
-    const launched = yield* Effect.scoped(Effect.flatMap(lines(['launch', chosen.app, ...flags]), ({ lines: held }) => Stream.runCollect(rowsOf(held))));
+    const retain = ({ identifier, pid, state }: typeof Observation.Type) => (identifier === chosen.identifier && State.isAnyOf(['Launching', 'Responding', 'Unresponsive'])(state) && state.created === true ? releasing(drained(['quit', '--pid', `${pid}`])) : Effect.void);
+    const launched = yield* Effect.scoped(Effect.flatMap(lines(['launch', chosen.app, ...flags]), ({ lines: held }) => Stream.runCollect(Stream.tap(rowsOf(held), retain))));
     const last = Array.last(launched);
-    const created = Array.findLast(launched, ({ identifier, state }) => identifier === chosen.identifier && State.isAnyOf(['Launching', 'Responding', 'Unresponsive'])(state) && state.created === true);
-    const quitting = Option.match(created, { onNone: () => Effect.void, onSome: ({ pid }) => Effect.orDie(drained(['quit', '--pid', `${pid}`])) });
     const ended = Option.filter(last, ({ identifier, state }) => identifier === chosen.identifier && !State.isAnyOf(['Launching'])(state));
-    const settled = yield* Effect.onError(
-        Effect.fromOption(ended, () => refused(`launch ended ${Option.match(last, { onNone: () => 'with no state', onSome: ({ identifier, pid, state }) => `at ${identifier} ${pid} ${Row.described(state)}` })}${Option.match(created, { onNone: () => '', onSome: ({ pid }) => `, created instance ${pid} quit` })}`)),
-        () => quitting,
-    );
+    const settled = yield* Effect.fromOption(ended, () => refused(`launch ended ${Option.match(last, { onNone: () => 'with no state', onSome: ({ identifier, pid, state }) => `at ${identifier} ${pid} ${Observation.described(state)}` })}`));
     return {
         ...settled,
         shared: running.filter(({ pid, state }) => pid !== settled.pid && !State.isAnyOf(['Exited'])(state)).map(({ pid }) => pid),
@@ -187,8 +190,9 @@ const launching = Effect.fn('launching')(function* (spec: Launched, chosen: Chos
         rows: Stream.filter(Stream.flattenTake(Stream.fromSubscription(subscribed)), (row) => row.identifier !== chosen.identifier || (row.pid === settled.pid && DateTime.isGreaterThan(row.at, settled.at))),
     };
 });
-const spawning = Effect.fn('spawning')(function* (spec: Spawned, chosen: Chosen) {
+const spawning = Effect.fn('spawning')(function* (spec: Spawned, chosen: Chosen, releasing: Releasing) {
     const handle = yield* ChildProcess.make(spec.command, spec.arguments, { stdin: 'ignore', stdout: 'ignore', stderr: 'inherit', env: spec.environment, extendEnv: true });
+    yield* releasing(handle.kill());
     const exited = Effect.map(
         Effect.result(handle.exitCode),
         Result.match({
@@ -209,12 +213,12 @@ class Launched extends Data.TaggedClass('Launched')<{
     readonly defaults?: Record.ReadonlyRecord<string, string>;
     readonly environment?: Record.ReadonlyRecord<string, string>;
 }> {
-    readonly start = (chosen: Chosen, passing: readonly Progress[]) => launching(this, chosen, passing);
+    readonly start = (chosen: Chosen, passing: readonly Progress[], releasing: Releasing) => launching(this, chosen, passing, releasing);
 }
 class Spawned extends Data.TaggedClass('Spawned')<{ readonly command: string; readonly arguments: readonly string[]; readonly environment: Record.ReadonlyRecord<string, string> }> {
-    readonly start = (chosen: Chosen) => spawning(this, chosen);
+    readonly start = (chosen: Chosen, _: readonly Progress[], releasing: Releasing) => spawning(this, chosen, releasing);
 }
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { type Asked, appeared, checked, Launched, output, Progress, plist, printed, Row, Spawned, System, sampled, stalled, starts, watched };
+export { type Asked, appeared, checked, Launched, Observation, output, Progress, plist, printed, Spawned, System, sampled, stalled, starts, watched };

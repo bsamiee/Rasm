@@ -1,46 +1,20 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-array-ensure-by-hand
-language: tsx
+language: tsxlang
 severity: error
 ignores: ['.claude/workflows/*.js', 'plugins/function-hooks/**']
-utils:
-    ensured:
-        any:
-            - kind: call_expression
-              any: [{pattern: '[$X].flat()'}, {pattern: '[$X].flat(1)'}, {pattern: '[].concat($X)'}]
-            - kind: ternary_expression
-              any: [{pattern: 'Array.isArray($X) ? $X : [$X]'}, {pattern: '!Array.isArray($X) ? [$X] : $X'}]
 rule:
+    kind: ternary_expression
     pattern: $CALL
     any:
-        - kind: call_expression
-          all:
-            - has: {field: function, matches: {effect-module-member: {module: {regex: '\bSchema$'}, member: {regex: '^Union$'}}}}
-            - any:
-                - pattern: $S.Union([$X, $S.Array($X)])
-                - pattern: $S.Union([$S.Array($X), $X])
-        - matches: ensured
-rewriters:
-    - id: schema
-      rule:
+        - pattern: '$ARRAY.isArray($X) ? $X : [$X]'
+        - pattern: '!$ARRAY.isArray($X) ? [$X] : $X'
+constraints:
+    X: {kind: 'identifier, undefined, this, number, string, true, false, null'}
+    ARRAY:
         any:
-            - pattern: $S.Union([$X, $S.Array($X)])
-            - pattern: $S.Union([$S.Array($X), $X])
-      fix: $S.ArrayEnsure($X)
-    - id: value
-      rule:
-        matches: ensured
-        inside:
-            kind: program
-            stopBy: end
-            has:
-                kind: import_statement
-                all:
-                    - has: {field: source, regex: '^[''"]effect[''"]$'}
-                    - has: {kind: import_clause, has: {kind: named_imports, has: {kind: import_specifier, regex: '^Array$'}}}
-      fix: Array.ensure($X)
-transform:
-    ENSURED: rewrite($CALL, rewriters=[schema, value])
-fix: $ENSURED
+            - regex: '^((globalThis|window|self)\.)?Array$'
+              matches: typescript-global-reference
+            - matches: {effect-module: {name: {regex: '\bArray$'}}}
 message: '`$CALL` normalizes one `$X` or an array of `$X` into an array by hand'
-note: 'Call `Schema.ArrayEnsure(<schema>)` to decode, `Array.ensure(<value>)` from `effect` for a value'
+note: 'Call `Array.ensure(<value>)` from `effect`'

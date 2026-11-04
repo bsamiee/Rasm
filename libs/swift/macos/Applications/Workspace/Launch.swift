@@ -41,9 +41,10 @@ extension NSWorkspace {
         configuration.promptsUserIfNeeded = false
         configuration.allowsRunningApplicationSubstitution = false
         configuration.createsNewApplicationInstance = newInstance
+        let hostArguments: ArraySlice<String> = arguments.prefix { $0 != "--" }
         configuration.arguments =
-            arguments
-            + appSwitches.filter { prefix, switched in installation.identifier.hasPrefix(prefix) && switched.unless.union([switched.added]).isDisjoint(with: arguments) }.map(\.value.added)
+            appSwitches.filter { prefix, switched in installation.identifier.hasPrefix(prefix) && switched.unless.union([switched.added]).isDisjoint(with: hostArguments) }.map(\.value.added)
+            + arguments
         configuration.environment = environment
         if documents.isEmpty {
             configuration.appleEvent = NSAppleEventDescriptor(

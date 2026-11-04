@@ -3,6 +3,9 @@
     "private": true,
     "description": "UXPScript engine running harness cases inside InDesign",
     "type": "module",
+    "imports": {
+        "#/*": "./*.ts"
+    },
     "dependencies": {
         "@rasm/harnesses": "workspace:*",
         "effect": "catalog:"

@@ -59,6 +59,27 @@ internal static class DisposedFont {
     internal static void Retained(Action<IDisposable> retain) => retain({|#10:SystemFonts.ToolTip()|});
 
     internal static IO<Unit> Deferred() => IO.lift({|#11:SystemFonts.TitleBar()|}.Dispose);
+
+    internal static void Casted() => ((IDisposable){|#12:SystemFonts.Label()|}).Dispose();
+
+    internal static void Conditional() => {|#13:SystemFonts.Message()|}?.Dispose();
+
+    internal static void Tuple() {
+        (Font Item, int Count) held = ({|#14:SystemFonts.Label()|}, 1);
+        held.Item.Dispose();
+    }
+
+    internal static void Deconstructed() {
+        Font font;
+        int count;
+        (font, count) = ({|#15:SystemFonts.Message()|}, 1);
+        font.Dispose();
+    }
+
+    internal static void Other() {
+        (Font First, Font Second) held = (SystemFonts.Label(), {|#16:SystemFonts.Bold()|});
+        held.Second.Dispose();
+    }
 }
 
 internal static class ReadFont {
@@ -75,4 +96,14 @@ internal static class ReadFont {
     internal static IO<float> Owned() =>
         from owned in Products.Of(static () => new Font(SystemFont.Label))
         select owned.Size;
+
+    internal static void Converted() {
+        using CopiedFont font = SystemFonts.Label();
+    }
+}
+
+internal sealed class CopiedFont(Font font) : IDisposable {
+    public static implicit operator CopiedFont(Font shared) => new(new Font(SystemFont.Label));
+
+    public void Dispose() => font.Dispose();
 }

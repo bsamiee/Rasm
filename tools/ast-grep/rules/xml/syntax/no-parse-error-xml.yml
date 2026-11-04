@@ -10,8 +10,13 @@ rule:
         - kind: ERROR
           not: {matches: unreported}
         - kind: document
-          has: {stopBy: end, pattern: __MISSING, regex: '^$', not: {matches: unreported}}
+          has:
+              stopBy: end
+              all:
+                  - regex: '^$'
+                  - pattern: $$MISSING
+                  - not: {matches: unreported}
 labels:
     MISSING: {style: primary, message: Token the grammar inserted to recover}
 message: Grammar failed to parse the span
-note: Write a form tree-sitter-xml parses
+note: Fix malformed XML, or extend tree-sitter-xml for accepted syntax

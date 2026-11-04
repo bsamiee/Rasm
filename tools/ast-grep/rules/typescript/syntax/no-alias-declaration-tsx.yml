@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-alias-declaration-tsx
-language: tsx
+language: tsxlang
 severity: error
 utils:
     binding-target:
@@ -21,12 +21,6 @@ utils:
             kind: program
             stopBy: end
             has: {kind: import_statement, has: {stopBy: end, kind: import_specifier, has: {field: alias, pattern: $IMPORTED}}}
-    exported-target:
-        kind: export_statement
-        any:
-            - has: {kind: lexical_declaration, has: {kind: variable_declarator, has: {field: name, pattern: $TARGET}}}
-            - has: {kind: 'function_declaration, class_declaration, type_alias_declaration, interface_declaration, enum_declaration', has: {field: name, pattern: $TARGET}}
-            - has: {kind: export_clause, has: {kind: export_specifier, has: {field: name, pattern: $TARGET}, not: {has: {field: alias, pattern: $_}}}}
 rule:
     any:
         - kind: variable_declarator
@@ -90,25 +84,6 @@ rule:
                                 - not: {pattern: $DECLARATION}
                                 - not: {pattern: $USER}
                                 - has: {stopBy: end, kind: type_identifier, pattern: $ALIAS}
-        - kind: export_specifier
-          all:
-            - has: {field: alias, kind: identifier, pattern: $ALIAS}
-            - has: {field: name, kind: identifier, pattern: $TARGET}
-            - inside: {kind: export_clause, inside: {kind: export_statement, not: {has: {field: source, kind: string}}}}
-            - inside: {kind: program, stopBy: end, has: {matches: exported-target}}
-        - kind: import_specifier
-          all:
-            - has: {field: name, kind: identifier, pattern: $TARGET}
-            - has: {field: alias, kind: identifier, pattern: $ALIAS}
-            - inside:
-                kind: program
-                stopBy: end
-                not:
-                    has:
-                        stopBy: end
-                        kind: identifier, type_identifier, shorthand_property_identifier, shorthand_property_identifier_pattern
-                        pattern: $TARGET
-                        not: {inside: {kind: import_specifier, has: {field: alias, pattern: $ALIAS}}}
 constraints:
     ALIAS: {not: {regex: '^default$'}}
     TARGET: {not: {regex: '^default$'}}

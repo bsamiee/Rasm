@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-outlives-capture-bound
-language: rust
+language: rustlang
 severity: error
 utils:
     own-lifetime:

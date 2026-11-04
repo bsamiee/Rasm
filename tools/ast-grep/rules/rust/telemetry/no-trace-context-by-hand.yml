@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-trace-context-by-hand
-language: rust
+language: rustlang
 severity: error
 utils:
     constructed:
@@ -47,4 +47,4 @@ rule:
         - matches: local-propagator
         - matches: header-name
 message: '`$SITE` injects, extracts, or spells W3C trace context outside the global propagator'
-note: 'Inject or extract through `global::get_text_map_propagator` over the carrier: `opentelemetry_http::HeaderInjector` or `HeaderExtractor`, an `Injector` or `Extractor` impl over a JSON object, a clap row named by its field'
+note: 'Use `global::get_text_map_propagator` with HTTP header adapters or `Injector`/`Extractor` over JSON keys and clap fields'

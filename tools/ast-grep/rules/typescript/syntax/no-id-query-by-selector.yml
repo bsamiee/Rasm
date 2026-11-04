@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-id-query-by-selector
-language: tsx
+language: tsxlang
 severity: error
 rule:
     kind: call_expression
@@ -14,11 +14,7 @@ rule:
                 - has: {field: property, regex: '^querySelector$'}
                 - has:
                     field: object
-                    pattern: $DOCUMENT
-                    any:
-                        - all: [{regex: '^((globalThis|window|self)\.)?document$'}, {matches: typescript-global-reference}]
-                        - kind: member_expression
-                          has: {field: property, regex: '^ownerDocument$'}
+                    all: [{regex: '^((globalThis|window|self)\.)?document$'}, {matches: typescript-global-reference}]
         - has:
             field: arguments
             all:
@@ -26,12 +22,14 @@ rule:
                 - has:
                     nthChild: 1
                     any:
-                        - pattern: '`#${CSS.escape($ID)}`'
-                        - pattern: "'#' + CSS.escape($ID)"
-                        - pattern: '"#" + CSS.escape($ID)'
-                        - pattern: '`#${$ID}`'
-                        - pattern: "'#' + $ID"
-                        - pattern: '"#" + $ID'
-fix: $DOCUMENT.getElementById($ID)
+                        - pattern: '`#${$CSS.escape($ID)}`'
+                        - pattern: "'#' + $CSS.escape($ID)"
+                        - pattern: '"#" + $CSS.escape($ID)'
+constraints:
+    CSS: {regex: '^((globalThis|window|self)\.)?CSS$', matches: typescript-global-reference}
+    ID:
+        kind: string, template_string
+        has: {kind: string_fragment, regex: '^[^\x00]+$'}
+        not: {has: {kind: 'escape_sequence, template_substitution'}}
 message: '`$CALL` finds one element through a selector built from an id'
 note: 'Call `getElementById(<id>)` on the same document with the id unescaped'

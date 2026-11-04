@@ -16,6 +16,8 @@ internal static class Optics {
         static scene => scene.Site.Place.Latitude,
         static latitude => scene => scene with { Site = scene.Site with { Place = scene.Site.Place with { Latitude = latitude } } })|};
 
+    internal static readonly Lens<Scene, double> Reordered = {|#3:Lens<Scene, double>.New(Set: static altitude => scene => scene with { Altitude = altitude }, Get: static scene => scene.Altitude)|};
+
     internal static readonly Lens<Vector3, float> Red = Lens<Vector3, float>.New(static rgb => rgb.X, static x => rgb => rgb with { X = x });
 
     internal static readonly Lens<Scene, Scene> Whole = Lens<Scene, Scene>.New(static scene => scene, static next => _ => next);

@@ -1,22 +1,25 @@
 """Marks on one pen and glyphs set from the face's own text: recipe marks from its letters and nuqta, small letter marks as miniatures, word signs stacked into a block, and tanwin before the iqlab meem composed to its vowel."""
 
+lazy from collections.abc import Collection
+lazy from itertools import accumulate
 lazy import math
 lazy import unicodedata
 
 import msgspec
 lazy from expression.extra.result import catch
 lazy from fontTools.misc.transform import Offset, Transform
+lazy import pathops
+lazy from scipy.special import cosdg, sindg
 
 from typography.faces.declaration import Em, Ratio, Recipe, Script
 from typography.rules.measures import Rule
 lazy from typography.faces.faults import Outcome
-lazy from typography.faces.glyphs import Glyph, Mark, Outline, Point, Side, Source
-lazy from typography.faces.layout import Context, Contextual
+lazy from typography.faces.glyphs import Glyph, Mark, Outline, Side, Source, traced
+lazy from typography.faces.layout import Chain, Contextual
 lazy from typography.faces.names import Form, GlyphName
 lazy from typography.outlines.measure import moments, restroked, stroke
-lazy from typography.outlines.nib import monoline
 lazy from typography.outlines.paths import bounds, Box, transformed, union
-lazy from typography.rules.measures import inked, key, made, nuqta, placement, text_ink
+lazy from typography.rules.measures import inked, made, nuqta, placement, text_ink
 lazy from typography.shaping.runs import Binary
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -55,6 +58,29 @@ class WordSigns(Rule, frozen=True, kw_only=True):
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+# --- [TARGETS]
+
+
+def _targets(source: Source, codes: Collection[int], /) -> tuple[tuple[Glyph | None, int], ...]:
+    """Requested native glyphs once, preferring their canonical code over the lowest requested alias."""
+    targets: dict[str, tuple[Glyph | None, int]] = {}
+    for code in sorted(codes):
+        if (name := source.key(code)) not in targets:
+            glyph = source.named.get(name)
+            selected = next((part for part in glyph.name.codes if part in glyph.codes and part in codes), code) if glyph is not None else code
+            targets[name] = (glyph, selected)
+    return tuple(targets.values())
+
+
+def _with_ink(glyph: Glyph | None, code: int, advance: float, contours: Outline, /) -> Glyph:
+    """Writes generated ink, preserving an existing native glyph's identity and every cmap mapping."""
+    return (
+        msgspec.structs.replace(glyph, codes=glyph.codes | {code}, advance=advance, contours=contours, components=())
+        if glyph is not None
+        else made(GlyphName(stem=(code,)), advance, contours=contours)
+    )
+
+
 # --- [SHAPES]
 
 
@@ -68,41 +94,50 @@ def _fit(contours: Outline, box: Box, /, *, width: float | None = None, height: 
             return transformed(contours, Transform().translate(box.middle[0] - factor * own.middle[0], box.ymin - factor * own.ymin).scale(factor))
 
 
-def _ring(box: Box, pen: float, /) -> Outline:
-    """Round ring inside a box on a monoline pen, eight quadratic arcs on a circle about the box middle."""
-    radius, (x, y) = (min(box.width, box.height) - pen) / 2, box.middle
-    reach = tuple(radius / (math.cos(math.pi / 8) if step % 2 else 1.0) for step in range(8))
-    points = tuple(Point(x=x + reach[step] * math.cos(math.pi * step / 4), y=y + reach[step] * math.sin(math.pi * step / 4), on=not step % 2) for step in range(8))
-    return monoline(((*points, points[0]),), pen)
-
-
 def _rebuilt(recipe: Recipe, box: Box, models: tuple[Outline, Outline, Outline, Outline], /, *, pen: float, angle: float, stack: float) -> Outline:
     """Draws one mark by recipe from the face's own stem, head, teeth, and nuqta inside the box the original mark held."""
     stem, head, teeth, dot = models
-    axis = moments(stem).angle if stem else 90.0
-    bar = restroked(
-        transformed(_fit(stem, box, height=math.hypot(box.width, box.height) - pen), Transform().translate(*box.middle).rotate(math.radians(angle - axis)).translate(-box.middle[0], -box.middle[1])),
-        pen,
-    )
-    damma = restroked(_fit(head, box), pen)
     match recipe:
-        case Recipe.BAR:
-            return bar
-        case Recipe.DOUBLED:
-            return union(bar, transformed(bar, Offset(0.0, (pen + stack) / max(math.cos(math.radians(angle)), 0.1))))
-        case Recipe.HEAD:
-            return damma
-        case Recipe.HEADS:
-            return union(damma, transformed(damma, Transform().translate(box.xmin - stack, box.ymin + 0.35 * box.height).scale(0.75).translate(-box.xmax, -box.ymin)))
+        case Recipe.BAR | Recipe.DOUBLED:
+            degrees = math.remainder(angle, 360.0)
+            bar = restroked(
+                transformed(
+                    _fit(stem, box, height=math.hypot(box.width, box.height) - pen),
+                    Transform().translate(*box.middle).rotate(math.radians(degrees - moments(stem).angle)).translate(-box.middle[0], -box.middle[1]),
+                ),
+                pen,
+            )
+            return bar if recipe is Recipe.BAR else union(bar, transformed(bar, Offset(-(pen + stack) * sindg(degrees), (pen + stack) * cosdg(degrees))))  # ty: ignore[no-matching-overload]
+        case Recipe.HEAD | Recipe.HEADS:
+            damma = restroked(_fit(head, box), pen)
+            return (
+                damma if recipe is Recipe.HEAD else union(damma, transformed(damma, Transform().translate(box.xmin - stack, box.ymin + 0.35 * box.height).scale(0.75).translate(-box.xmax, -box.ymin)))
+            )
         case Recipe.TEETH:
             return restroked(_fit(teeth, box, width=box.width), pen)
         case Recipe.RING:
-            return _ring(box, pen)
+            radius, (x, y), path = (min(box.width, box.height) - pen) / 2, box.middle, pathops.Path()
+            path.moveTo(x + radius, y)
+            path.arcTo(radius, radius, 0, pathops.ArcSize.SMALL, pathops.Direction.CCW, x - radius, y)
+            path.arcTo(radius, radius, 0, pathops.ArcSize.SMALL, pathops.Direction.CCW, x + radius, y)
+            path.close()
+            path.stroke(pen, pathops.LineCap.ROUND_CAP, pathops.LineJoin.ROUND_JOIN, 1.0)
+            path.convertConicsToQuads()
+            return union(traced(path.draw))
         case Recipe.STEM:
             return restroked(_fit(stem, box), pen)
         case Recipe.DOTS:
-            unit = (bounds(dot) or box).width + stack
-            return union(*(transformed(dot, Offset(*shift)) for shift in ((box.middle[0] - unit / 2, box.ymin), (box.middle[0] + unit / 2, box.ymin), (box.middle[0], box.ymin + unit))))
+            match bounds(dot):
+                case None:
+                    return ()
+                case own:
+                    unit = own.width + stack
+                    return union(
+                        *(
+                            transformed(dot, Offset(x - own.middle[0], y - own.ymin))
+                            for x, y in ((box.middle[0] - unit / 2, box.ymin), (box.middle[0] + unit / 2, box.ymin), (box.middle[0], box.ymin + unit))
+                        )
+                    )
 
 
 def penned(source: Source, rule: Marks, /) -> Outcome[Source]:
@@ -117,29 +152,30 @@ def penned(source: Source, rule: Marks, /) -> Outcome[Source]:
 def _marked(source: Source, rule: Marks, width: float, height: Box, /) -> Source:
     """Offsets or draws each recipe mark at the pen the stem stroke, the band, the stated ratio, and the floor give."""
     script, (low, high) = rule.script, rule.band
-    model = source.named.get(key(script.vowels[0]))
+    model = source.drawn(name) if (name := source.key(script.vowels[0])) in source.named else None
     held = stroke(model.contours) / width if model and model.contours else low
     pen = min(max((rule.ratio or min(max(held, low), high)) * width, (rule.floor or 0.0) * height.height), max(high, rule.ratio or 0.0) * width)
     slant = rule.angle if rule.angle is not None else moments(model.contours).angle if model and model.contours else 0.0
     span = rule.length * source.upm if rule.length is not None else 0.3 * height.height
-    stem, head, teeth = (source.named[name].contours if name in source.named else () for name in (key(script.stem), key(script.head), key(script.teeth, Form.MEDI)))
+    stem, head, teeth = (source.drawn(name).contours if name in source.named else () for name in (source.key(script.stem), source.key(script.head), source.key(script.teeth, Form.MEDI)))
     models = (stem, head, teeth, nuqta(source, script.dotted))
-    lacking = tuple(made(GlyphName(codes=(code,)), 0.0) for code in script.recipes if key(code) not in source.named)
-    return source.replaced(
-        *(
-            msgspec.structs.replace(glyph, advance=0.0, contours=contours)
-            for glyph in (*source.by_role(Mark), *lacking)
-            for recipe in (script.recipes.get(glyph.codes[0]) if glyph.codes else None,)
-            for small in (rule.small if glyph.codes and " SMALL " in unicodedata.name(chr(glyph.codes[0]), "") else 1.0,)
-            for contours in (
-                glyph.contours
-                if recipe is None or rule.drawn or (glyph.contours and abs(stroke(glyph.contours) / pen - 1) <= rule.tolerance)
-                else restroked(glyph.contours, pen)
-                if glyph.contours
-                else _rebuilt(recipe, Box(xmin=-small * span / 2, ymin=0.0, xmax=small * span / 2, ymax=small * span / 2), models, pen=pen, angle=slant, stack=rule.stack * source.upm),
-            )
-        )
-    )
+    targets = _targets(source, script.recipes)
+    recipes = {glyph.name.text: (code, script.recipes[code]) for glyph, code in targets if glyph is not None}
+
+    def rebuilt(code: int, recipe: Recipe, /) -> Outline:
+        small = rule.small if " SMALL " in unicodedata.name(chr(code)) else 1.0
+        return _rebuilt(recipe, Box(xmin=-small * span / 2, ymin=0.0, xmax=small * span / 2, ymax=small * span / 2), models, pen=pen, angle=slant, stack=rule.stack * source.upm)
+
+    def changed(glyph: Glyph, /) -> Glyph:
+        match recipes.get(glyph.name.text):
+            case None:
+                return msgspec.structs.replace(glyph, advance=0.0)
+            case code, recipe:
+                if (contours := source.drawn(glyph.name.text).contours) and (rule.drawn or abs(stroke(contours) / pen - 1) <= rule.tolerance):
+                    return msgspec.structs.replace(glyph, codes=glyph.codes | {code}, advance=0.0)
+                return _with_ink(glyph, code, 0.0, restroked(contours, pen) if contours else rebuilt(code, recipe))
+
+    return source.replaced(*(changed(glyph) for glyph in source.by_role(Mark)), *(_with_ink(None, code, 0.0, rebuilt(code, script.recipes[code])) for glyph, code in targets if glyph is None))
 
 
 # --- [MINIATURES]
@@ -157,10 +193,11 @@ def _text(code: int, /) -> str:
         case ["HIGH" | "LOW", "LIGATURE", *words]:
             spelled = tuple(_letter(script, letter) for letter in " ".join(words).split(" WITH "))
             return "\N{ZERO WIDTH JOINER}".join(spelled) if all(spelled) else ""
-        case ["HIGH" | "LOW", first, second] if all(pair := (_letter(script, first), _letter(script, second))) and not _letter(script, f"{first} {second}"):
-            return "".join(pair)
+        case ["HIGH" | "LOW", first, second]:
+            return combined if (combined := _letter(script, f"{first} {second}")) else "".join(pair) if all(pair := (_letter(script, first), _letter(script, second))) else ""
         case ["HIGH" | "LOW", *words, "INITIAL" | "ISOLATED" as form, "FORM"]:
-            return _letter(script, " ".join(words)) + ("\N{ZERO WIDTH JOINER}" if form == "INITIAL" and _letter(script, " ".join(words)) else "")
+            letter = _letter(script, " ".join(words))
+            return letter + ("\N{ZERO WIDTH JOINER}" if form == "INITIAL" and letter else "")
         case ["HIGH" | "LOW", *words]:
             return _letter(script, " ".join(words))
         case _:
@@ -173,40 +210,46 @@ def quranic(source: Source, rule: QuranicMarks, /, *, original: Binary) -> Outco
     Returns:
         Ok(source with its miniatures), `ABSENT` for a face without an inked stem.
     """
-    return placement(source, original, rule.script.stem).map(lambda move: _miniatures(source, rule, original, move))
+    return placement(source, original, rule.script.stem).map(lambda held: _miniatures(source, rule, original, held[2], held[1]))
 
 
-def _miniatures(source: Source, rule: QuranicMarks, original: Binary, move: Transform, /) -> Source:
+def _miniatures(source: Source, rule: QuranicMarks, original: Binary, move: Transform, tall: Box, /) -> Source:
     """Shapes each spelled mark on the original, maps it into the source, holds it to the mark box at the vowel pen, and adds the iqlab composition."""
-    tall, model = bounds(source.named[key(rule.script.stem)].contours), source.named.get(key(rule.script.vowels[0]))
+    model = source.drawn(name) if (name := source.key(rule.script.vowels[0])) in source.named else None
     pen = stroke(model.contours) if model and model.contours else 0.0
-    drawn = {code: transformed(text_ink(original, text), move) for code in sorted(rule.codes) if tall and pen and not ((own := source.named.get(key(code))) and own.contours) and (text := _text(code))}
+    drawn = tuple(
+        (glyph, code, transformed(text_ink(original, text), move))
+        for glyph, code in _targets(source, rule.codes)
+        if pen and (glyph is None or not source.drawn(glyph.name.text).contours) and (text := _text(code))
+    )
     glyphs = tuple(
-        made(GlyphName(codes=(code,)), 0.0, contours=restroked(transformed(contours, (factor, 0, 0, factor, -factor * box.middle[0], -factor * foot)), pen))
-        for code, contours in drawn.items()
-        if (box := bounds(contours)) and tall
+        _with_ink(glyph, code, 0.0, restroked(transformed(contours, (factor, 0, 0, factor, -factor * box.middle[0], -factor * foot)), pen))
+        for glyph, code, contours in drawn
+        if (box := bounds(contours))
         for foot in ((box.ymin if Side.of(code) is Side.ABOVE else box.ymax),)
         for factor in (min(rule.width * source.upm / box.width, rule.height * tall.height / box.height),)
     )
     thin = tuple(
-        msgspec.structs.replace(glyph, contours=restroked(glyph.contours, pen))
-        for code in sorted(rule.script.hairlines)
-        if (glyph := source.named.get(key(code))) and glyph.contours and stroke(glyph.contours) < 0.85 * pen
+        _with_ink(glyph, code, glyph.advance, restroked(contours, pen))
+        for glyph, code in _targets(source, rule.script.hairlines)
+        if glyph is not None and (contours := source.drawn(glyph.name.text).contours) and stroke(contours) < 0.85 * pen
     )
     tanwin = {
         code: vowel
-        for code in source.encoded
-        if unicodedata.category(chr(code)) == "Mn"
+        for glyph in source.by_role(Mark)
+        for code in glyph.name.codes[:1]
+        if code in glyph.codes
+        and unicodedata.category(chr(code)) == "Mn"
         and (name := unicodedata.name(chr(code), "")).endswith("TAN")
         and (vowel := catch(unicodedata.lookup, exception=KeyError)(name.removesuffix("TAN")).default_value(""))
     }
     rules = tuple(
-        Context(input=((key(code),),), lookahead=((key(meem),),), replacement=(key(ord(vowel)),))
+        Chain(input=(((source.key(code),), source.key(ord(vowel))),), lookahead=((source.key(meem),),))
         for code, vowel in sorted(tanwin.items())
         for meem in rule.script.iqlab
-        if Side.of(meem) is Side.of(code) and key(meem) in source.named and key(ord(vowel)) in source.named
+        if Side.of(meem) is Side.of(code) and meem in source.encoded and ord(vowel) in source.encoded
     )
-    return msgspec.structs.replace(source.replaced(*glyphs, *thin), lookups=(*source.lookups, *((Contextual(feature="ccmp", order=-2, rules=rules),) if rules else ())))
+    return msgspec.structs.replace(source.replaced(*glyphs, *thin), lookups=(*source.lookups, *((Contextual(features=frozendict(ccmp=frozendict()), order=-2, rules=rules),) if rules else ())))
 
 
 # --- [SIGNS]
@@ -215,8 +258,8 @@ def _miniatures(source: Source, rule: QuranicMarks, original: Binary, move: Tran
 def _stacked(rows: tuple[Outline, ...], gap: float, /) -> Outline:
     """Stacks row inks top to bottom, each centered on the first, the gap between their ink."""
     boxes = tuple(bounds(row) or Box(xmin=0, ymin=0, xmax=0, ymax=0) for row in rows)
-    tops = tuple(-sum(box.height + gap for box in boxes[:index]) for index in range(len(boxes)))
-    return union(*(transformed(row, (1.0, 0.0, 0.0, 1.0, boxes[0].middle[0] - box.middle[0], top + boxes[0].ymax - box.ymax)) for row, box, top in zip(rows, boxes, tops, strict=True)))
+    tops = accumulate((box.height + gap for box in boxes), initial=0.0)
+    return union(*(transformed(row, (1.0, 0.0, 0.0, 1.0, boxes[0].middle[0] - box.middle[0], boxes[0].ymax - top - box.ymax)) for row, box, top in zip(rows, boxes, tops, strict=False)))
 
 
 def signed(source: Source, rule: WordSigns, /, *, original: Binary) -> Outcome[Source]:
@@ -225,7 +268,7 @@ def signed(source: Source, rule: WordSigns, /, *, original: Binary) -> Outcome[S
     Returns:
         Ok(source with its word signs), `ABSENT` for a face without an inked stem.
     """
-    return inked(source, rule.script.stem).bind(lambda held: placement(source, original, rule.script.stem).map(lambda move: source.replaced(*_signs(source, rule, original, move, held))))
+    return placement(source, original, rule.script.stem).map(lambda held: source.replaced(*_signs(source, rule, original, held[2], (held[0], held[1]))))
 
 
 def _signs(source: Source, rule: WordSigns, original: Binary, move: Transform, held: tuple[Glyph, Box], /) -> tuple[Glyph, ...]:
@@ -233,13 +276,15 @@ def _signs(source: Source, rule: WordSigns, original: Binary, move: Transform, h
     (glyph, stem), (wide, tall) = held, rule.block
     bearing = (glyph.advance - stem.width) / 2
     return tuple(
-        made(
-            GlyphName(codes=(code,)),
+        _with_ink(
+            own,
+            code,
             factor * extent.width + 2 * bearing,
-            contours=transformed(drawn, (factor, 0.0, 0.0, factor, bearing - factor * extent.xmin, stem.middle[1] - factor * extent.middle[1] if factor != 1.0 else 0.0)),
+            transformed(drawn, (factor, 0.0, 0.0, factor, bearing - factor * extent.xmin, stem.middle[1] - factor * extent.middle[1] if factor != 1.0 else 0.0)),
         )
-        for code, rows in sorted(rule.script.signs.items())
-        if not (own := source.named.get(key(code))) or not own.contours
+        for own, code in _targets(source, rule.script.signs)
+        if own is None or not source.drawn(own.name.text).contours
+        for rows in (rule.script.signs[code],)
         for drawn in (_stacked(tuple(transformed(text_ink(original, row), move) for row in rows), rule.stack * source.upm),)
         if (extent := bounds(drawn))
         for factor in ((min(1.0, wide * stem.height / extent.width, tall * stem.height / extent.height) if len(rows) > 1 else 1.0),)

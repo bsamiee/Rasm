@@ -1,4 +1,4 @@
-import { Format } from '@rasm/ui/format';
+import { Format } from '@rasm/ui';
 import { Array, Option, String } from 'effect';
 import type { Sheet } from '#/model/asset.ts';
 import type { Composition, Placement } from '#/model/placement.ts';

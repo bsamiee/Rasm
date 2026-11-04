@@ -12,8 +12,9 @@ use linesweeper::{
     Error, FillRule,
     topology::{Contour, ContourIdx, Topology, WindingNumber},
 };
-use nonempty_collections::{NEVec, NonEmptyIterator as _};
+use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
 use parlance::{FontFamily, FontFeature, FontVariation};
+use stacksafe::StackSafe;
 use validated::Validated;
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -220,10 +221,9 @@ pub struct Pattern {
 pub struct Region(Arc<[Contour]>);
 
 impl Region {
-    pub fn new(shape: &impl Shape, fill_rule: FillRule, tolerance: Tolerance) -> Result<Self, LineworkError> {
+    pub fn new(shape: impl Shape, fill_rule: FillRule, tolerance: Tolerance) -> Result<Self, LineworkError> {
         let closed = shape
-            .path_elements(tolerance.into_inner())
-            .collect::<BezPath>()
+            .into_path(tolerance.into_inner())
             .subpaths()
             .flat_map(|elements| iter::chain(elements.iter().copied(), (!matches!(elements.last(), Some(PathEl::ClosePath))).then_some(PathEl::ClosePath)))
             .collect::<BezPath>();
@@ -257,6 +257,22 @@ impl Shape for Region {
     fn winding(&self, pt: Point) -> i32 { self.iter().map(|contour| contour.path.winding(pt)).sum() }
 
     fn bounding_box(&self) -> Rect { self.iter().map(|contour| contour.path.bounding_box()).reduce(|left, right| left.union(right)).unwrap_or_default() }
+
+    fn as_rect(&self) -> Option<Rect> {
+        match self.0.as_ref() {
+            [Contour { path, .. }] => {
+                let bounds = path.bounding_box();
+                path.segments()
+                    .all(|segment| match segment {
+                        #[expect(clippy::float_cmp, reason = "Shape::as_rect requires exact axis alignment with native signed-zero equality")]
+                        PathSeg::Line(kurbo::Line { p0, p1 }) => (p0.x == p1.x && [bounds.x0, bounds.x1].contains(&p0.x)) || (p0.y == p1.y && [bounds.y0, bounds.y1].contains(&p0.y)),
+                        PathSeg::Quad(_) | PathSeg::Cubic(_) => false,
+                    })
+                    .then_some(bounds)
+            }
+            [] | [_, _, ..] => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, enum_map::Enum)]
@@ -333,7 +349,7 @@ pub enum Element {
     Text { text: Text, color: Color, opacity: Opacity = Opacity::OPAQUE },
     Glyphs { run: GlyphRun, color: Color, opacity: Opacity = Opacity::OPAQUE },
     Placed { content: Content, placement: Placement, opacity: Opacity = Opacity::OPAQUE },
-    Clip { region: Region, keep: Side, elements: Vec<Self> },
+    Clip { region: Region, keep: Side, elements: StackSafe<Vec<Self>> },
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -349,13 +365,14 @@ pub enum LineworkError {
     #[error("hatch family {family} places its rows {spacing} apart on paper, under the tolerance")]
     Spacing { family: usize, spacing: f64 },
     #[error("element {index}: {}", errors.iter().format("; "))]
-    Element { index: usize, errors: NEVec<Self> },
+    Element { index: usize, errors: NEVec<StackSafe<Self>> },
     #[error("layer {name}: {}", errors.iter().format("; "))]
-    Layer { name: Arc<str>, errors: NEVec<Self> },
+    Layer { name: Arc<str>, errors: NEVec<StackSafe<Self>> },
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+#[stacksafe::stacksafe]
 pub fn transform(elements: Vec<Element>, affine: Placement) -> Result<Vec<Element>, NEVec<LineworkError>> {
     let scale = affine.determinant().abs().sqrt();
     let placed = |placement: Placement, target: Target| {
@@ -364,16 +381,9 @@ pub fn transform(elements: Vec<Element>, affine: Placement) -> Result<Vec<Elemen
             Target::Drafting => *affine * *placement * Affine::scale(scale.recip()),
         }))
     };
-    let lengthened = |Linetype { dashes, alignment, target }: Linetype| {
-        let shifted = |aligned: Alignment| match aligned {
-            Alignment::Start { dash_offset } => DashOffset::try_new(dash_offset.into_inner() * scale).map(|dash_offset| Alignment::Start { dash_offset }),
-            Alignment::Center | Alignment::Corners { angle: _ } => Ok(aligned),
-        };
-        match target {
-            Target::Drafting => Validated::Good(Linetype { dashes, alignment, target }),
-            Target::Model => Validated::from(Dashes::try_new(dashes.nonempty_iter().map(|dash| dash * scale).collect()).map_err(|DashesError::PredicateViolated| LineworkError::Scaled(Dash::Array)))
-                .map2(Validated::from(shifted(alignment).map_err(|DashOffsetError::FiniteViolated| LineworkError::Scaled(Dash::Offset))), |dashes, alignment| Linetype { dashes, alignment, target }),
-        }
+    let lengthened = |linetype: Linetype| match linetype.target {
+        Target::Drafting => Validated::Good(linetype),
+        Target::Model => scaled(linetype, scale),
     };
     let moved = |region: &Region| Validated::from(region.transform(affine));
     elements
@@ -381,21 +391,73 @@ pub fn transform(elements: Vec<Element>, affine: Placement) -> Result<Vec<Elemen
         .enumerate()
         .map(|(index, element)| {
             match element {
-                Element::Stroke { path, pen, linetype } => Validated::from(Path::try_new(*affine * path.into_inner()).map_err(LineworkError::from))
-                    .map2(linetype.map_or(Validated::Good(None), |linetype| lengthened(linetype).map(Some)), |path, linetype| Element::Stroke { path, pen, linetype }),
+                Element::Stroke { path, pen, linetype } => Validated::from({
+                    let mut path = path.into_inner();
+                    path.apply_affine(*affine);
+                    Path::try_new(path).map_err(LineworkError::from)
+                })
+                .map2(linetype.map_or(Validated::Good(None), |linetype| lengthened(linetype).map(Some)), |path, linetype| Element::Stroke { path, pen, linetype }),
                 Element::Fill { region, color, opacity } => moved(&region).map(|region| Element::Fill { region, color, opacity }),
                 Element::Hatch { region, pattern, placement, pen } => moved(&region).map2(placed(placement, pattern.target), |region, placement| Element::Hatch { region, pattern, placement, pen }),
                 Element::Text { text, color, opacity } => placed(text.placement, text.target).map(|placement| Element::Text { text: Text { placement, ..text }, color, opacity }),
                 Element::Glyphs { run, color, opacity } => placed(run.placement, run.target).map(|placement| Element::Glyphs { run: GlyphRun { placement, ..run }, color, opacity }),
                 Element::Placed { content, placement, opacity } => placed(placement, Target::Model).map(|placement| Element::Placed { content, placement, opacity }),
                 Element::Clip { region, keep, elements: grouped } =>
-                    moved(&region).map2(transform(grouped, affine).map_or_else(Validated::Fail, Validated::Good), |region, inner| Element::Clip { region, keep, elements: inner }),
+                    moved(&region).map2(transform(grouped.into_inner(), affine).map_or_else(Validated::Fail, Validated::Good), |region, inner| Element::Clip { region, keep, elements: inner.into() }),
             }
             .ok()
-            .map_err(|errors| LineworkError::Element { index, errors })
+            .map_err(|errors| LineworkError::Element { index, errors: errors.into_nonempty_iter().map(StackSafe::new).collect() })
         })
         .collect::<Validated<Vec<_>, _>>()
         .ok()
+}
+
+#[stacksafe::stacksafe]
+pub fn rebase(elements: Vec<Element>, viewport: Placement) -> Result<Vec<Element>, NEVec<LineworkError>> {
+    let scale = viewport.determinant().abs().sqrt().recip();
+    let placed = |placement: Placement, target: Target| match target {
+        Target::Model => Ok(placement),
+        Target::Drafting => Placement::try_new(*placement * Affine::scale(scale)),
+    };
+    elements
+        .into_iter()
+        .enumerate()
+        .map(|(index, element)| {
+            match element {
+                Element::Stroke { path, pen, linetype } => match linetype {
+                    None => Validated::Good(None),
+                    Some(linetype @ Linetype { dashes: _, alignment: _, target: Target::Model }) => Validated::Good(Some(linetype)),
+                    Some(linetype @ Linetype { dashes: _, alignment: _, target: Target::Drafting }) => scaled(Linetype { target: Target::Model, ..linetype }, scale).map(Some),
+                }
+                .map(|linetype| Element::Stroke { path, pen, linetype }),
+                Element::Text { text, color, opacity } =>
+                    Validated::from(placed(text.placement, text.target)).map(|placement| Element::Text { text: Text { placement, target: Target::Model, ..text }, color, opacity }),
+                Element::Glyphs { run, color, opacity } =>
+                    Validated::from(placed(run.placement, run.target)).map(|placement| Element::Glyphs { run: GlyphRun { placement, target: Target::Model, ..run }, color, opacity }),
+                Element::Hatch { region, pattern, placement, pen } =>
+                    Validated::from(placed(placement, pattern.target)).map(|placement| Element::Hatch { region, pattern: Pattern { target: Target::Model, ..pattern }, placement, pen }),
+                Element::Clip { region, keep, elements: grouped } =>
+                    rebase(grouped.into_inner(), viewport).map_or_else(Validated::Fail, Validated::Good).map(|grouped| Element::Clip { region, keep, elements: grouped.into() }),
+                element @ (Element::Fill { .. } | Element::Placed { .. }) => Validated::Good(element),
+            }
+            .ok()
+            .map_err(|errors| LineworkError::Element { index, errors: errors.into_nonempty_iter().map(StackSafe::new).collect() })
+        })
+        .collect::<Validated<Vec<_>, _>>()
+        .ok()
+}
+
+fn scaled(Linetype { dashes, alignment, target }: Linetype, scale: f64) -> Validated<Linetype, LineworkError> {
+    Validated::from(Dashes::try_new(dashes.nonempty_iter().map(|dash| dash * scale).collect()).map_err(|DashesError::PredicateViolated| LineworkError::Scaled(Dash::Array))).map2(
+        Validated::from(
+            match alignment {
+                Alignment::Start { dash_offset } => DashOffset::try_new(dash_offset.into_inner() * scale).map(|dash_offset| Alignment::Start { dash_offset }),
+                Alignment::Center | Alignment::Corners { angle: _ } => Ok(alignment),
+            }
+            .map_err(|DashOffsetError::FiniteViolated| LineworkError::Scaled(Dash::Offset)),
+        ),
+        |dashes, alignment| Linetype { dashes, alignment, target },
+    )
 }
 
 fn invertible(affine: &Affine) -> Result<(), LineworkError> { (affine.is_finite() && affine.determinant().is_normal()).ok_or(LineworkError::Placement(*affine)) }
@@ -409,10 +471,10 @@ where W: WindingNumber {
 }
 
 fn finite(path: &BezPath) -> Result<(), Error> {
-    match (path.is_nan(), path.is_finite()) {
-        (true, _) => Err(Error::NaN),
-        (false, false) => Err(Error::Infinity),
-        (false, true) => Ok(()),
+    match path {
+        path if path.is_finite() => Ok(()),
+        path if path.is_nan() => Err(Error::NaN),
+        _ => Err(Error::Infinity),
     }
 }
 

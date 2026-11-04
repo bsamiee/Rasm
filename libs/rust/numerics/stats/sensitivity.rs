@@ -1,4 +1,4 @@
-use core::{iter, num::NonZero};
+use core::{iter, num::NonZero, ptr};
 use std::collections::BTreeSet;
 
 use average::{Covariance, Variance};
@@ -104,7 +104,7 @@ pub struct Levels(u16);
 
 #[derive(Debug, Clone, Copy)]
 struct Step {
-    dimension: usize,
+    position: usize,
     delta: f64,
 }
 
@@ -141,7 +141,7 @@ impl<'space, K> Morris<'space, K> {
                     dimensions.strict_add(1),
                     moves.iter().flat_map(|&(rank, start, delta)| (0..=dimensions).map(move |point| if rank < point { start + delta } else { start })),
                 ),
-                moves.iter().enumerate().sorted_unstable_by_key(|&(_, &(rank, _, _))| rank).map(|(dimension, &(_, _, delta))| Step { dimension, delta }).collect::<Vec<_>>(),
+                moves.iter().map(|&(position, _, delta)| Step { position, delta }).collect::<Vec<_>>(),
             )
         })
         .take(NonZero::<usize>::from(trajectories).get().strict_add(surplus.map_or_default(|surplus| NonZero::<usize>::from(surplus).get())))
@@ -149,8 +149,7 @@ impl<'space, K> Morris<'space, K> {
         let chosen = if surplus.is_some() {
             let distance =
                 |left: &DMatrix<f64>, right: &DMatrix<f64>| left.column_iter().cartesian_product(right.column_iter()).map(|(point, other)| point.metric_distance(&other)).sum::<f64>().powi(2);
-            let mut squared = symmetric(&candidates, |(left, _), (right, _)| distance(left, right));
-            squared.fill_diagonal(0.0_f64);
+            let squared = symmetric(&candidates, |(left, _), (right, _)| if ptr::eq(left, right) { 0.0_f64 } else { distance(left, right) });
             let spread = |score: &mut DVector<f64>, pick: usize| {
                 score.axpy(1.0_f64, &squared.column(pick), 1.0_f64);
                 score.row_mut(pick).fill(f64::NEG_INFINITY);
@@ -184,13 +183,10 @@ impl<'space, K> Morris<'space, K> {
                 dimensions,
                 runs.ncols(),
                 runs.column_iter().zip(steps).flat_map(|(group, steps)| {
-                    group
-                        .as_slice()
-                        .array_windows::<2>()
-                        .zip(*steps)
-                        .map(|(&[before, after], step)| (step.dimension, (after - before) / step.delta))
-                        .sorted_unstable_by_key(|&(dimension, _)| dimension)
-                        .map(|(_, effect)| effect)
+                    steps.iter().map(move |step| {
+                        let change = group.fixed_rows::<2>(step.position);
+                        (change.y - change.x) / step.delta
+                    })
                 }),
             );
             Ok(self
@@ -220,12 +216,12 @@ where
         .map(|output| {
             let row = outputs.row(output);
             let runs = |group: usize| row.columns(group.strict_mul(width), width);
-            let (kept, failed): (Vec<_>, Vec<_>) = (0..groups).zip(partners.clone()).partition(|&(group, _)| runs(group).iter().all(|run| run.is_finite()));
-            (!kept.is_empty()).ok_or(StatsError::Degenerate { found: failed.len(), sample: Sample::Groups })?;
-            let (columns, paired): (Vec<_>, Vec<_>) = kept.into_iter().unzip();
+            let (columns, paired): (Vec<_>, Vec<_>) = (0..groups).zip(partners.clone()).filter(|&(group, _)| runs(group).iter().all(|run| run.is_finite())).unzip();
+            let failed = groups.strict_sub(columns.len());
+            (!columns.is_empty()).ok_or(StatsError::Degenerate { found: failed, sample: Sample::Groups })?;
             Ok(Sensitivity {
                 dimensions: estimate(&DMatrix::from_iterator(width, columns.len(), columns.iter().flat_map(|&group| runs(group).into_iter().copied())), &paired)?,
-                non_finite: nalgebra::convert::<usize, u64>(failed.len()),
+                non_finite: nalgebra::convert::<usize, u64>(failed),
             })
         })
         .collect())

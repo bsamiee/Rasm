@@ -1,10 +1,11 @@
-#![feature(deref_patterns, float_conversions, iterator_try_collect, type_changing_struct_update)]
+#![feature(float_conversions)]
 
-use core::{fmt, iter};
+use core::fmt;
 use std::{path::PathBuf, sync::LazyLock};
 
-use geo::{Bearing as _, Distance as _, Geodesic, GeodesicArea as _, LinesIter as _, Validation as _, validation::InvalidMultiPolygon};
-use geo_types::{Line, MultiPolygon, Point};
+use geo::{BoundingRect as _, GeodesicArea as _, LinesIter as _, Validation as _, validation::InvalidMultiPolygon};
+use geo_types::{Line, MultiPolygon, Point, Rect};
+use geographiclib_rs::{Geodesic, InverseGeodesic as _};
 use jiff::tz::{self, TimeZone};
 use nalgebra::Point3;
 use nonempty_collections::{IntoIteratorExt as _, NEVec, NonEmptyIterator, nev};
@@ -17,6 +18,7 @@ use uom::si::{
     f64::{Angle, Area, Length},
     length::meter,
 };
+use validated::Validated;
 
 use crate::{crs::Crs, frame::Scale};
 
@@ -78,8 +80,50 @@ pub struct Place {
     pub zone: TimeZone,
 }
 
-#[nutype::nutype(validate(with = enclosure, error = SiteError), derive(Debug, Clone, PartialEq, Deref, Serialize, Deserialize))]
-pub struct Boundary(MultiPolygon<f64>);
+#[derive(Debug, Clone, PartialEq, derive_more::Deref, Deserialize)]
+#[serde(try_from = "MultiPolygon<f64>")]
+pub struct Boundary {
+    #[deref]
+    geometry: MultiPolygon<f64>,
+    extent: Rect<f64>,
+}
+
+impl TryFrom<MultiPolygon<f64>> for Boundary {
+    type Error = SiteError;
+
+    fn try_from(value: MultiPolygon<f64>) -> Result<Self, SiteError> {
+        let polygons = value.iter().enumerate().flat_map(|(polygon, member)| {
+            [
+                member.lines_iter().any(|line| (line.end.x - line.start.x).abs() > half_turn()).then_some(Defect::Antimeridian(polygon)),
+                (member.geodesic_area_signed() == 0.0).then_some(Defect::Degenerate(polygon)),
+            ]
+            .into_iter()
+            .flatten()
+        });
+        let valid = value
+            .lines_iter()
+            .map(|line| Point(line.start))
+            .filter(|point| located(*point).is_none())
+            .map(Defect::Geographic)
+            .chain(value.validation_errors().into_iter().map(Defect::Geometry))
+            .chain(polygons)
+            .try_into_nonempty_iter()
+            .map(NonEmptyIterator::collect::<NEVec<_>>)
+            .map_or(Validated::Good(()), Validated::Fail);
+        Validated::from(value.bounding_rect().ok_or(Defect::Empty)).map2(valid, |extent, ()| Self { geometry: value, extent }).ok().map_err(SiteError::from)
+    }
+}
+
+impl From<Boundary> for MultiPolygon<f64> {
+    fn from(Boundary { geometry, extent: _ }: Boundary) -> Self { geometry }
+}
+
+impl Serialize for Boundary {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where S: serde::Serializer {
+        self.geometry.serialize(serializer)
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, derive_more::AsRef)]
 pub struct Survey {
@@ -99,7 +143,7 @@ pub enum Defect {
     Geographic(Point<f64>),
     #[display("{_0}")]
     Geometry(InvalidMultiPolygon),
-    #[display("holds no polygon")]
+    #[display("holds no exterior coordinate")]
     Empty,
     #[display("polygon {_0} spans over 180° of longitude, split it at the antimeridian")]
     Antimeridian(usize),
@@ -115,9 +159,9 @@ pub enum SiteError {
     Uncovered { position: Position },
     #[error("jiff's time zone database lacks {name}, update it")]
     Zone { name: &'static str, source: jiff::Error },
-    #[error("PROJ refused the {operation}")]
+    #[error("PROJ refused {operation}")]
     Create { operation: Operation, source: ProjCreateError },
-    #[error("PROJ failed on the {operation}")]
+    #[error("PROJ failed on {operation}")]
     Proj { operation: Operation, source: ProjError },
     #[error("PROJJSON of {crs} does not convert")]
     Projjson { crs: Crs, source: serde_path_to_error::Error<serde_json::Error> },
@@ -144,10 +188,14 @@ pub fn zone(position: Position) -> Result<TimeZone, SiteError> {
 #[must_use]
 pub fn measure(boundary: &Boundary) -> Survey {
     let half = half_turn();
+    let geodesic = Geodesic::wgs84();
     let courses = boundary
         .lines_iter()
         .filter(|line| line.start.x.total_cmp(&line.end.x).is_ne() || line.start.x.abs().total_cmp(&half).is_ne())
-        .map(|line| (line, Angle::new::<degree>(Geodesic.bearing(line.start_point(), line.end_point())), Length::new::<meter>(Geodesic.distance(line.start_point(), line.end_point()))))
+        .map(|line| {
+            let (distance, bearing, _, _): (f64, f64, f64, f64) = geodesic.inverse(line.start.y, line.start.x, line.end.y, line.end.x);
+            (line, Angle::new::<degree>(bearing.rem_euclid(Angle::FULL_TURN.get::<degree>())), Length::new::<meter>(distance))
+        })
         .collect::<Vec<_>>();
     let perimeter = courses.iter().map(|&(_, _, length)| length).sum();
     Survey { courses, perimeter, area: Area::new::<square_meter>(boundary.iter().map(|polygon| polygon.geodesic_area_signed().abs()).sum()) }
@@ -156,23 +204,6 @@ pub fn measure(boundary: &Boundary) -> Survey {
 fn half_turn() -> f64 { Angle::HALF_TURN.get::<degree>() }
 
 fn located(point: Point<f64>) -> Option<Position> { (point.x().abs() <= half_turn() && point.y().abs() <= half_turn() / 2.0).then_some(Position(point)) }
-
-fn enclosure(boundary: &MultiPolygon<f64>) -> Result<(), SiteError> {
-    let polygons = boundary.iter().enumerate().flat_map(|(polygon, member)| {
-        [
-            member.lines_iter().any(|line| (line.end.x - line.start.x).abs() > half_turn()).then_some(Defect::Antimeridian(polygon)),
-            (member.geodesic_area_signed() == 0.0).then_some(Defect::Degenerate(polygon)),
-        ]
-        .into_iter()
-        .flatten()
-    });
-    iter::chain(boundary.0.is_empty().then_some(Defect::Empty), boundary.lines_iter().map(|line| Point(line.start)).filter(|point| located(*point).is_none()).map(Defect::Geographic))
-        .chain(boundary.validation_errors().into_iter().map(Defect::Geometry))
-        .chain(polygons)
-        .try_into_nonempty_iter()
-        .map(NonEmptyIterator::collect::<NEVec<_>>)
-        .map_or(Ok(()), |defects| Err(defects.into()))
-}
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

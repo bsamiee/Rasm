@@ -123,7 +123,7 @@ internal static class SettingOverloads<T> where T : notnull {
             .Map(static method => method.CreateDelegate<SettingDefault<T>>());
 
     // --- [VALUES]
-    internal static Fin<Unit> Supported => RhinoFault.Unless(typeof(T).IsEnum || Typed.IsSome, RhinoReason.Unsupported, typeof(T).Name);
+    internal static Fin<Unit> Supported => RhinoFault.Unless(typeof(T).IsEnum || Typed.IsSome, RhinoReason.Unsupported, typeof(T));
 
     internal static Option<T> Read(PersistentSettings settings, string key, Seq<string> legacy) =>
         typeof(T).IsEnum ? SettingOverloads<int>.Stored(settings, key, legacy).Map(Enumerated) : Stored(settings, key, legacy);

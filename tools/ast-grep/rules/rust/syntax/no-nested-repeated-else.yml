@@ -1,18 +1,14 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-nested-repeated-else
-language: rust
+language: rustlang
 severity: error
 rule:
     kind: if_expression
     matches:
         rust-repeated-else:
-            outer: {any: [{kind: binary_expression, has: {field: operator, regex: '^\|\|$'}, pattern: $AOR}, {pattern: $A}]}
-            inner: {any: [{kind: binary_expression, has: {field: operator, regex: '^\|\|$'}, pattern: $BOR}, {pattern: $B}]}
-            then: {pattern: $X}
-            fallback: {pattern: $E}
-transform:
-    AW: {replace: {source: $AOR, replace: '^([\s\S]+)$', by: '($1)'}}
-    BW: {replace: {source: $BOR, replace: '^([\s\S]+)$', by: '($1)'}}
-fix: 'if $A$AW && $B$BW $X else $E'
-message: 'Nested `if $B$BOR` repeats the outer `else` block'
+            outer: {pattern: $_}
+            inner: {pattern: $B}
+            then: {pattern: $_}
+            fallback: {pattern: $_}
+message: 'Nested `if $B` repeats the outer `else` block'
 note: 'Join the conditions in one chain, `if <outer> && <inner> { <body> } else { <fallback> }`'

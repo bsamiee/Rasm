@@ -85,5 +85,5 @@ where S: IntoIterator<Item: Borrow<Standard>> {
 pub fn convert(document: &Document, level: PdfALevel, config: ConversionConfig) -> Result<(Document, ConversionResult), PdfError> {
     let mut engine = engine(document)?;
     let result = PdfAConverter::new(level).with_config(config).convert(&mut engine)?;
-    Document::new(engine.source_bytes, None).map(|converted| (converted, result))
+    Document::from_plain_bytes(engine.source_bytes).map(|converted| (converted, result))
 }

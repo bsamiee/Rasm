@@ -1,134 +1,123 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-derivable-impl-by-hand
-language: rust
+language: rustlang
 severity: error
 utils:
-    self-field:
+    field-read:
         kind: field_expression
         has: {field: value, kind: self}
-    other-field:
-        kind: field_expression
-        has: {field: value, kind: identifier, pattern: $O}
-    single-body:
+    copied-field:
+        kind: field_initializer
         all:
-            - has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, pattern: $EXPR}
-            - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}
-    field-equality:
+            - has: {field: field, pattern: $COPY_FIELD}
+            - has: {field: value, pattern: self.$COPY_FIELD}
+    equality:
         any:
-            - kind: binary_expression
-              all:
-                - has: {field: operator, regex: '^&&$'}
-                - has: {field: left, matches: field-equality}
-                - has: {field: right, matches: field-equality}
             - kind: binary_expression
               all:
                 - has: {field: operator, regex: '^==$'}
-                - any:
-                    - all: [{has: {field: left, matches: self-field}}, {has: {field: right, matches: other-field}}]
-                    - all:
-                        - has: {field: left, kind: tuple_expression, not: {has: {pattern: $_, not: {matches: self-field}}}}
-                        - has: {field: right, kind: tuple_expression, not: {has: {pattern: $_, not: {matches: other-field}}}}
-            - kind: call_expression
+                - has: {field: left, matches: field-read}
+                - has: {field: right, kind: field_expression, has: {field: value, pattern: $OTHER}}
+                - not: {not: {pattern: self.$EQUAL_FIELD == $OTHER.$EQUAL_FIELD}}
+            - kind: binary_expression
               all:
-                - has: {field: function, kind: field_expression, all: [{has: {field: value, matches: self-field}}, {has: {field: field, regex: '^eq$'}}]}
-                - has: {field: arguments, all: [{has: {nthChild: 1, kind: reference_expression, has: {field: value, matches: other-field}}}, {not: {has: {nthChild: 2}}}]}
+                - has: {field: operator, regex: '^&&$'}
+                - has: {field: left, matches: equality}
+                - has: {field: right, matches: equality}
             - kind: parenthesized_expression
-              has: {nthChild: 1, matches: field-equality}
-    field-copy:
-        any:
-            - matches: self-field
-            - kind: call_expression
-              all:
-                - has: {field: function, kind: field_expression, all: [{has: {field: value, matches: self-field}}, {has: {field: field, regex: '^clone$'}}]}
-                - has: {field: arguments, not: {has: {pattern: $_}}}
-            - kind: call_expression
-              all:
-                - has: {field: function, kind: scoped_identifier, regex: '^((::)?(std|core|alloc)::)?(clone::Clone|Clone|(sync::)?Arc|(rc::)?Rc)::clone$'}
-                - has: {field: arguments, all: [{has: {nthChild: 1, kind: reference_expression, has: {field: value, matches: self-field}}}, {not: {has: {nthChild: 2}}}]}
-    field-clone:
-        any:
-            - kind: struct_expression
-              all:
-                - has: {field: name, regex: '^Self$|^\w+$'}
-                - has: {field: body, all: [{has: {kind: field_initializer}}, {not: {has: {kind: base_field_initializer}}}, {not: {has: {pattern: $_, not: {kind: field_initializer, has: {field: value, matches: field-copy}}}}}]}
-            - kind: call_expression
-              all:
-                - has: {field: function, kind: identifier}
-                - has: {field: arguments, all: [{has: {pattern: $_}}, {not: {has: {pattern: $_, not: {matches: field-copy}}}}]}
-    debug-chain:
-        kind: call_expression
-        any:
-            - all:
-                - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^field$'}}, {has: {field: value, matches: debug-chain}}]}
-                - has: {field: arguments, all: [{has: {nthChild: 1, kind: string_literal}}, {has: {nthChild: 2, any: [{matches: self-field}, {kind: reference_expression, has: {field: value, matches: self-field}}]}}, {not: {has: {nthChild: 3}}}]}
-            - all:
-                - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^debug_struct$'}}, {has: {field: value, kind: identifier}}]}
-                - has: {field: arguments, all: [{has: {nthChild: 1, kind: string_literal}}, {not: {has: {nthChild: 2}}}]}
-    debug-body:
-        kind: call_expression
-        all:
-            - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^finish$'}}, {has: {field: value, matches: debug-chain}}]}
-            - has: {field: arguments, not: {has: {pattern: $_}}}
-    hash-statement:
-        kind: expression_statement
-        has:
-            nthChild: 1
-            kind: call_expression
-            any:
-                - all:
-                    - has: {field: function, kind: field_expression, all: [{has: {field: value, matches: self-field}}, {has: {field: field, regex: '^hash$'}}]}
-                    - has: {field: arguments, all: [{has: {nthChild: 1, kind: identifier}}, {not: {has: {nthChild: 2}}}]}
-                - all:
-                    - has: {field: function, kind: scoped_identifier, regex: '^((::)?(std|core)::)?(hash::)?Hash::hash$'}
-                    - has: {field: arguments, all: [{has: {nthChild: 1, kind: reference_expression, has: {field: value, matches: self-field}}}, {has: {nthChild: 2, kind: identifier}}, {not: {has: {nthChild: 3}}}]}
-    derivable-method:
-        kind: function_item
-        any:
-            - all:
-                - has: {field: name, regex: '^eq$'}
-                - has: {field: parameters, has: {kind: parameter, has: {field: pattern, kind: identifier, pattern: $O}}}
-                - has: {field: body, matches: single-body, has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, matches: field-equality}}
-            - all:
-                - has: {field: name, regex: '^clone$'}
-                - has: {field: body, matches: single-body, has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, matches: field-clone}}
-            - all:
-                - has: {field: name, regex: '^fmt$'}
-                - has: {field: body, matches: single-body, has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, matches: debug-body}}
-            - all:
-                - has: {field: name, regex: '^hash$'}
-                - has: {field: body, all: [{has: {matches: hash-statement}}, {not: {has: {pattern: $_, matches: rust-statement, not: {matches: hash-statement}}}}]}
-    uncovered-field:
+              has: {matches: equality}
+    covered-field:
         kind: field_declaration
         all:
-            - has: {field: name, pattern: $F}
-            - not:
+            - has: {field: name, pattern: $COVERED_FIELD}
+            - inside:
+                kind: field_declaration_list
                 inside:
-                    kind: source_file
-                    stopBy: end
-                    has:
-                        stopBy: end
-                        kind: impl_item
-                        all:
-                            - has: {field: trait, pattern: $TRAIT}
-                            - has: {field: type, any: [{kind: generic_type, has: {field: type, pattern: $T}}, {pattern: $T}]}
-                            - has: {field: body, has: {stopBy: end, kind: field_expression, all: [{has: {field: value, kind: self}}, {has: {field: field, pattern: $F}}]}}
+                    kind: struct_item
+                    inside:
+                        kind: 'source_file, declaration_list, block'
+                        has: {kind: impl_item, has: {field: body, has: {kind: function_item, pattern: $METHOD, has: {field: body, has: {stopBy: end, pattern: self.$COVERED_FIELD}}}}}
+    singleton:
+        inside:
+            kind: 'source_file, declaration_list, block'
+            has:
+                kind: struct_item
+                all:
+                    - has: {field: name, pattern: $T}
+                    - has: {field: body, all: [{has: {kind: field_declaration, has: {field: name, pattern: $FIELD}}}, {not: {has: {nthChild: {position: 2, ofRule: {kind: field_declaration}}}}}]}
+    prelude-shadow:
+        inside:
+            kind: 'source_file, declaration_list, block'
+            stopBy: end
+            has:
+                any:
+                    - kind: 'trait_item, type_item'
+                      has: {field: name, regex: '^(Clone|PartialEq)$'}
+                    - kind: use_declaration
+                      has: {stopBy: end, any: [{kind: use_wildcard}, {kind: identifier, regex: '^(Clone|PartialEq)$'}]}
 rule:
     kind: impl_item
     all:
-        - has: {field: trait, regex: '^((::)?(std|core)::)?(cmp::|clone::|fmt::|hash::)?(PartialEq|Clone|Debug|Hash)$', pattern: $TRAIT}
-        - has: {field: type, any: [{kind: generic_type, has: {field: type, pattern: $T}}, {kind: type_identifier, pattern: $T}]}
-        - has: {field: body, all: [{has: {matches: derivable-method, pattern: $METHOD}}, {not: {has: {kind: function_item, nthChild: {position: 2, ofRule: {kind: function_item}}}}}]}
-        - inside: {kind: source_file, stopBy: end, has: {stopBy: end, kind: struct_item, all: [{has: {field: name, pattern: $T}}, {not: {has: {field: body, has: {matches: uncovered-field}}}}]}}
-        - not: {has: {field: body, has: {stopBy: end, kind: call_expression, all: [{has: {field: function, kind: field_expression, has: {field: field, regex: '^debug_struct$'}}}, {not: {has: {field: arguments, has: {nthChild: 1, pattern: '"$T"'}}}}]}}}
-        - not: {has: {field: body, has: {stopBy: end, kind: call_expression, all: [{pattern: '$_.field("$L", $_V)'}, {not: {has: {field: arguments, has: {nthChild: 2, any: [{pattern: 'self.$L'}, {pattern: '&self.$L'}]}}}}]}}}
+        - has:
+            field: trait
+            pattern: $TRAIT
+            any:
+                - regex: '^(::)?(std|core)::(clone::Clone|cmp::PartialEq|fmt::Debug|hash::Hash)$'
+                - kind: type_identifier
+                  regex: '^(Clone|PartialEq)$'
+                  not: {matches: prelude-shadow}
+        - has: {field: type, any: [{kind: type_identifier, pattern: $T}, {kind: generic_type, has: {field: type, kind: type_identifier, pattern: $T}}]}
+        - inside:
+            kind: 'source_file, declaration_list, block'
+            has:
+                kind: struct_item
+                all:
+                    - has: {field: name, pattern: $T}
+                    - has: {field: body, kind: field_declaration_list, all: [{has: {kind: field_declaration}}, {not: {has: {kind: field_declaration, not: {has: {field: type, kind: primitive_type}}}}}]}
+        - has:
+            field: body
+            all:
+                - has:
+                    kind: function_item
+                    pattern: $METHOD
+                    any:
+                        - all:
+                            - has: {field: name, regex: '^clone$'}
+                            - has:
+                                field: body
+                                matches:
+                                    rust-single-statement:
+                                        first:
+                                            kind: struct_expression
+                                            all:
+                                                - has: {field: name, any: [{regex: '^Self$'}, {pattern: $T}]}
+                                                - has: {field: body, all: [{has: {kind: field_initializer}}, {not: {has: {pattern: $_, not: {matches: copied-field}}}}]}
+                        - all:
+                            - has: {field: name, regex: '^eq$'}
+                            - has: {field: parameters, has: {kind: parameter, has: {field: pattern, pattern: $OTHER}}}
+                            - has: {field: body, matches: {rust-single-statement: {first: {matches: equality}}}}
+                        - all:
+                            - has: {field: name, regex: '^fmt$'}
+                            - has: {field: parameters, has: {kind: parameter, has: {field: pattern, pattern: $FORMATTER}}}
+                            - has: {field: body, matches: {rust-single-statement: {first: {pattern: '$FORMATTER.debug_struct("$T").field("$FIELD", &self.$FIELD).finish()'}}}}
+                            - inside: {kind: declaration_list, inside: {matches: singleton}}
+                        - all:
+                            - has: {field: name, regex: '^hash$'}
+                            - has: {field: parameters, has: {kind: parameter, has: {field: pattern, pattern: $STATE}}}
+                            - has: {field: body, matches: {rust-single-statement: {first: {kind: expression_statement, any: [{pattern: 'std::hash::Hash::hash(&self.$FIELD, $STATE);'}, {pattern: 'core::hash::Hash::hash(&self.$FIELD, $STATE);'}]}}}}
+                            - inside: {kind: declaration_list, inside: {matches: singleton}}
+                - not: {has: {kind: function_item, nthChild: {position: 2, ofRule: {kind: function_item}}}}
+        - inside:
+            kind: 'source_file, declaration_list, block'
+            has: {kind: struct_item, all: [{has: {field: name, pattern: $T}}, {not: {has: {field: body, has: {kind: field_declaration, not: {matches: covered-field}}}}}]}
         - not:
             all:
                 - has: {field: trait, regex: '(^|::)Clone$'}
-                - inside: {kind: source_file, stopBy: end, has: {stopBy: end, kind: struct_item, all: [{has: {field: name, pattern: $T}}, {matches: {rust-attributed: {attribute: {matches: {rust-derive: {trait: {regex: '^Copy$'}}}}}}}]}}
+                - inside: {kind: 'source_file, declaration_list, block', has: {kind: struct_item, all: [{has: {field: name, pattern: $T}}, {matches: {rust-attributed: {attribute: {matches: {rust-derive: {trait: {regex: '^Copy$'}}}}}}}]}}
 labels:
     TRAIT: {style: primary, message: 'Implemented by hand'}
-    METHOD: {style: secondary, message: 'Reads every field of the type unchanged'}
+    METHOD: {style: secondary, message: 'Copies or compares corresponding primitive fields'}
 transform:
     DERIVE: replace($TRAIT, replace='^.*::', by='')
-message: '`$DERIVE` for `$T` restates the derive over every field'
-note: 'Delete the impl and derive its trait, through `#[derive_where::derive_where(<trait>)]` where a type parameter lacks its bound'
+message: '`$DERIVE` for `$T` restates its derive over primitive fields'
+note: 'Delete the impl and derive its trait'

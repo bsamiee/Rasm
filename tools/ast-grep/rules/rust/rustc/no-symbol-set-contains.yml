@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-symbol-set-contains
-language: rust
+language: rustlang
 severity: error
 files: [tools/dylint/**]
 rule:
@@ -10,17 +10,5 @@ constraints:
     SET:
         kind: array_expression
         regex: '^\[\s*((sym|kw)::\w+\s*,\s*)+(sym|kw)::\w+\s*,?\s*\]$'
-transform:
-    INNER:
-        replace:
-            source: $SET
-            replace: '^\[\s*|\s*,?\s*\]$'
-            by: ''
-    ARMS:
-        replace:
-            source: $INNER
-            replace: '\s*,\s*'
-            by: ' | '
-fix: matches!($N, $ARMS)
 message: '`contains` tests `$N` against an array of `Symbol` constants'
 note: 'Write `matches!(<value>, sym::A | sym::B)`, or match the or-pattern in a `match` arm or let-chain binding'

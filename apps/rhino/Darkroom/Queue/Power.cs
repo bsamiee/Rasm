@@ -58,34 +58,39 @@ public static class MachinePower {
     public static IO<T> HeldAwake<T>(IO<T> run) =>
         OperatingSystem.IsWindows()
             ? HeldAwakeOnWindows(run)
-            : (from caffeinate in Started("caffeinate", ["-i", "-w", Environment.ProcessId.ToString(CultureInfo.InvariantCulture)])
-               from value in run.Finally(IO.lift(caffeinate.Kill))
+            : (from caffeinate in use(Started("caffeinate", ["-i", "-w", Environment.ProcessId.ToString(CultureInfo.InvariantCulture)]), static process => {
+                using (process) process.Kill();
+            })
+               from value in run
                select value).Bracket();
 
     [SupportedOSPlatform("windows")]
     private static IO<T> HeldAwakeOnWindows<T>(IO<T> run) =>
-        IO.lift(static () => SafeNativeMethods.SetThreadExecutionState(ExecutionState.Continuous | ExecutionState.SystemRequired | ExecutionState.DisplayRequired) switch {
-            var prior => DarkroomFault.Unless(prior is not ExecutionState.None, DarkroomReason.Failed, prior).Map(_ => prior),
-        }).OnUiThread().Bind(prior => run.Finally(IO.lift(() => SafeNativeMethods.SetThreadExecutionState(prior) switch {
-            var restored => DarkroomFault.Unless(restored is not ExecutionState.None, DarkroomReason.Failed, restored),
-        }).OnUiThread()));
+        (from prior in IO.lift(static () => SafeNativeMethods.SetThreadExecutionState(ExecutionState.Continuous | ExecutionState.SystemRequired | ExecutionState.DisplayRequired) switch {
+            var previous => DarkroomFault.Unless(previous is not ExecutionState.None, DarkroomReason.Failed, previous).Map(_ => previous),
+        }).OnUiThread()
+         from released in Products.Released(IO.lift(() => SafeNativeMethods.SetThreadExecutionState(prior) switch {
+             var restored => DarkroomFault.Unless(restored is not ExecutionState.None, DarkroomReason.Failed, restored),
+         }).OnUiThread())
+         from value in run
+         select value).Bracket();
 
     // --- [SHUTDOWN]
     public static IO<Unit> ShutDown =>
         OperatingSystem.IsWindows()
-            ? (from shutdown in Started("shutdown", ["/s", "/t", "60"])
+            ? (from shutdown in use(Started("shutdown", ["/s", "/t", "60"]))
                from exited in IO.liftAsync(environment => shutdown.WaitForExitAsync(environment.Token).ToUnit())
                from code in IO.lift(() => DarkroomFault.Unless(shutdown.ExitCode is 0, DarkroomReason.Failed, shutdown.ExitCode))
                select unit).Bracket()
-            : Started("osascript", ["-e", "delay 60", "-e", """tell application "System Events" to shut down"""]).Map(static _ => unit).Bracket();
+            : use(Started("osascript", ["-e", "delay 60", "-e", """tell application "System Events" to shut down"""])).Map(static _ => unit).Bracket();
 
     // --- [PROCESSES]
     private static IO<Process> Started(string program, Seq<string> arguments) =>
-        Products.Of(() => Process.Start(new ProcessStartInfo(program, arguments) { UseShellExecute = false, CreateNoWindow = true }));
+        IO.lift(() => Conversions.Required(Process.Start(new ProcessStartInfo(program, arguments) { UseShellExecute = false, CreateNoWindow = true })));
 
     internal static IO<Unit> Exited(int processId) =>
         (from process in Products.Of(() => Process.GetProcessById(processId))
          from waited in IO.liftAsync(environment => process.WaitForExitAsync(environment.Token).ToUnit())
          select waited).Bracket()
-            .Catch(static error => error.HasException<ArgumentException>(), static _ => IO.pure(unit));
+            | @catch(static error => error.HasException<ArgumentException>(), static _ => IO.pure(unit));
 }

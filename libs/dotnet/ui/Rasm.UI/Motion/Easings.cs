@@ -23,9 +23,13 @@ public sealed partial class Easing {
 
     public Option<(double Progress, double Slope)> At(Fraction time) =>
         Brent.TryFindRoot(at => Bezier(at, X1, X2) - (float)time, 0d, 1d, Accuracy, maxIterations: 64, out double s)
-            ? (Tangent(s, X1, X2), Tangent(s, Y1, Y2)) switch {
-                var (across, up) => Some((Bezier(s, Y1, Y2), across is 0d && up is 0d ? Acceleration(s, Y1, Y2) / Acceleration(s, X1, X2) : up / across)),
-            }
+            ? Some((Bezier(s, Y1, Y2), (Tangent(s, X1, X2), Tangent(s, Y1, Y2)) switch {
+                (0d, 0d) => (Acceleration(s, X1, X2), Acceleration(s, Y1, Y2)) switch {
+                    (0d, 0d) => (1d - (3d * Y2) + (3d * Y1)) / (1d - (3d * X2) + (3d * X1)),
+                    var (across, up) => up / across,
+                },
+                var (across, up) => up / across,
+            }))
             : None;
 
     private static double Bezier(double s, double first, double second) => (3d * (1d - s) * (1d - s) * s * first) + (3d * (1d - s) * s * s * second) + (s * s * s);
@@ -81,7 +85,9 @@ public abstract partial record TimingCurve {
     }
 
     public sealed record Decay(Duration TimeConstant, Factor Rest) : TimingCurve {
-        public double Initial { get; init; } = 1d / TimeConstant.TotalSeconds;
+        private readonly Option<double> initial;
+
+        public double Initial { get => initial.IfNone(1d / TimeConstant.TotalSeconds); init => initial = value; }
 
         internal override Option<(double Progress, double Rate)> At(Duration elapsed) =>
             Oscillated(1d, elapsed / TimeConstant, Initial * TimeConstant.TotalSeconds, Rest).Map(moved => (moved.Progress, moved.Rate / TimeConstant.TotalSeconds));

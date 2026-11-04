@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-schema-getter-by-hand
-language: tsx
+language: tsxlang
 severity: error
 utils:
     conversion:
@@ -47,7 +47,7 @@ rule:
               pattern: $MODULE.$NAME
               all: [{has: {field: object, matches: string-module}}, {has: {field: property, matches: string-member}}]
             - {matches: identity, pattern: $IDENTITY}
-            - matches: {typescript-unary-function: {parameter: {pattern: $P}, result: {kind: identifier, pattern: $IDENTITY}}}
+            - matches: {typescript-unary-function: {parameter: {pattern: $P}, result: {kind: identifier, all: [{pattern: $P}, {pattern: $IDENTITY}]}}}
             - matches:
                 typescript-unary-function:
                     parameter: {pattern: $P}

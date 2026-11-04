@@ -75,22 +75,32 @@ public sealed record Metering(float Low, float High, float Center, Vector2 Start
     public Fin<float> Metered(PixelFrame frame, Gamut gamut) {
         Rectangle window = Window(frame);
         double[] plane = LuminanceSamples.Plane(frame, window, gamut.Luminance);
-        Rectangle center = Rectangle.Inflate(new Rectangle(0, 0, window.Width, window.Height), -window.Width / 4, -window.Height / 4);
-        return LuminanceSamples.Of(plane, window).Bind(samples => {
-            ReadOnlySpan2D<double> levels = new(plane, window.Height, window.Width);
-            (double low, double high, double border) = (samples.At(Low), samples.At(High), 1d - Center);
-            ((double Sum, double Count) all, (double Sum, double Count) inner) = (Logged(levels, low, high), Logged(levels.Slice(center.Top, center.Left, center.Height, center.Width), low, high));
-            double weight = inner.Count + (border * (all.Count - inner.Count));
-            return weight > 0d
-                ? Fin.Succ((float)(double.Log2(MiddleGray) - ((inner.Sum + (border * (all.Sum - inner.Sum))) / weight)))
-                : ImagingFault.Of(ImagingReason.Empty, (window, Center));
-        });
+        return LuminanceSamples.Of(plane, window).Bind(samples => Metered(plane, window, samples));
     }
 
-    private static (double Sum, double Count) Logged(ReadOnlySpan2D<double> levels, double low, double high) {
-        (double sum, double count) = (0d, 0d);
-        foreach (double level in levels)
-            (sum, count) = level >= low && level <= high ? (sum + double.Log2(double.Max(level, LuminanceSamples.Floor)), count + 1d) : (sum, count);
-        return (sum, count);
+    internal Fin<float> Metered(double[] plane, Rectangle window, LuminanceSamples samples) {
+        Rectangle center = Rectangle.Inflate(new Rectangle(0, 0, window.Width, window.Height), -window.Width / 4, -window.Height / 4);
+        ReadOnlySpan2D<double> levels = new(plane, window.Height, window.Width);
+        (double low, double high, double border) = (samples.At(Low), samples.At(High), 1d - Center);
+        ((double Sum, double Count) all, (double Sum, double Count) inner) = Logged(levels, center, low, high);
+        double weight = inner.Count + (border * (all.Count - inner.Count));
+        return weight > 0d
+            ? (float)(double.Log2(MiddleGray) - ((inner.Sum + (border * (all.Sum - inner.Sum))) / weight))
+            : ImagingFault.Of(ImagingReason.Empty, (window, Center));
+    }
+
+    private static ((double Sum, double Count) All, (double Sum, double Count) Inner) Logged(ReadOnlySpan2D<double> levels, Rectangle center, double low, double high) {
+        ((double Sum, double Count) all, (double Sum, double Count) inner) = ((0d, 0d), (0d, 0d));
+        for (int y = 0; y < levels.Height; y++) {
+            ReadOnlySpan<double> row = levels.GetRowSpan(y);
+            for (int x = 0; x < row.Length; x++) {
+                if (!(row[x] >= low && row[x] <= high))
+                    continue;
+                double logged = double.Log2(double.Max(row[x], LuminanceSamples.Floor));
+                all = (all.Sum + logged, all.Count + 1d);
+                inner = center.Contains(x, y) ? (inner.Sum + logged, inner.Count + 1d) : inner;
+            }
+        }
+        return (all, inner);
     }
 }

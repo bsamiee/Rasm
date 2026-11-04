@@ -14,7 +14,11 @@ public sealed record CameraMove(ViewportSet Viewports, CameraPose To, Duration S
         };
 }
 
-internal sealed record ViewportMotion(ViewportRef Row, CameraPose From, CameraPose Shown, uint Written);
+internal sealed record ViewportMotion(ViewportRef Row, CameraPose Opening) {
+    public CameraPose From { get; init; } = Opening;
+    public CameraPose Shown { get; init; } = Opening;
+    public uint Written { get; init; } = Row.Viewport.ChangeCounter;
+}
 
 [Union]
 internal abstract partial record Phase {
@@ -57,7 +61,7 @@ internal sealed record Motion(RhinoDoc Document, CameraMove Move, Func<Sink<Dura
             var details => Products.Each(Seq(
                 Ticks.Complete(),
                 when(!details.IsEmpty,
-                    Uncommitted(Products.Each(details.Map(static motion => Written(motion.Row, motion.From)))).Map(static _ => unit)
+                    Uncommitted(Products.Each(details.Map(static motion => Written(motion.Row, motion.Opening)))).Map(static _ => unit)
                     >> Commits.Commit(Document, nameof(CameraMove), Move.Redraw, Products.Each(details.Map(static motion => Written(motion.Row, motion.Shown)))).Map(unit)).As()))
                 .Map(unit),
         };
@@ -148,7 +152,7 @@ public static class Motions {
     // --- [DRIVE]
     public static IO<MotionHandle> Drive(RhinoDoc document, CameraMove move, Func<Sink<Duration>, IO<Unit>> frames) =>
         from rows in Viewports.Resolve(document, move.Viewports)
-        from motions in rows.TraverseM(static row => Cameras.Read(row.Viewport).Map(pose => new ViewportMotion(row, pose, pose, row.Viewport.ChangeCounter))).As()
+        from motions in rows.TraverseM(static row => Cameras.Read(row.Viewport).Map(pose => new ViewportMotion(row, pose))).As()
         from pushed in IO.lift(() => rows.Filter(static row => row.Pending.IsNone).Iter(static row => row.Viewport.PushViewProjection()))
         from ticks in use(IO.lift(static () => Conduit.make(Buffer<Duration>.New)), static open => open.Complete())
         from motion in use(IO.lift(() => new Motion(

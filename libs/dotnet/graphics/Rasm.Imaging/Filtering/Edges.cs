@@ -286,9 +286,9 @@ public static class Contours {
         labels.CopyTo(label);
         ReadOnlySpan<byte> marks = mask.GetSpan<byte>();
         ReadOnlySpan<float> depths = contour.GetSpan<float>();
-        for (int pixel = 0, next = 1; pixel < marks.Length; pixel++) {
+        for (int pixel = 0; pixel < marks.Length; pixel++) {
             if (marks[pixel] is 0)
-                widths[next++] = width(depths[pixel]);
+                widths[label[pixel]] = width(depths[pixel]);
         }
         return (distance, label, widths);
     }

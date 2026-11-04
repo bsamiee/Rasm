@@ -9,12 +9,12 @@ from pathlib import Path
 from typing import ClassVar, Final, TYPE_CHECKING
 
 import bpy
-from expression import Nothing, Ok, Option, Result, Some
+from expression import Option, Some
 import msgspec
 import PyOpenColorIO
 
 from blender.bpy.commands.invocations import Save
-from blender.bpy.commands.operators import Answer, Call, Done, Empty, NoUndo, Operator
+from blender.bpy.commands.operators import Answer, Call, Done, Empty, Operator
 from blender.bpy.data.rna.conditions import AllOf, Setting
 from blender.bpy.data.rna.descriptors import Descriptor
 from blender.bpy.data.rna.paths import rooted
@@ -35,7 +35,7 @@ from blender.bpy.ui.layout.values import Store
 from blender.bpy.ui.screens.areas import NodeEditing
 from blender.imaging.color.calibration import Calibration, Colors
 from blender.imaging.color.luts import LutOutput
-from blender.records.faults import Fault, Faults, Outcome, paired
+from blender.records.faults import Fault, Nothing, Ok, Outcome, paired
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -53,7 +53,6 @@ class Aim(Enum):
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _KEY: Final = "chart_calibration"
-_SPACES: Final = choices(Descriptor.declared(bpy.types.ColorManagedInputColorspaceSettings, ("name",), bpy.types.EnumProperty).prop.enum_items)
 _DIRECTIONS: Final = (PyOpenColorIO.TRANSFORM_DIR_FORWARD, PyOpenColorIO.TRANSFORM_DIR_INVERSE)
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -65,7 +64,13 @@ class Calibrating(bpy.types.PropertyGroup):
     source: bpy.props.PointerProperty(type=bpy.types.Image, name="Source", description="Sampled source image")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     target: bpy.props.EnumProperty(name="Target", description="Colors samples map onto", items=enum_choices(Aim))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     space: bpy.props.EnumProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-        name="Space", description="Reference value colorspace", items=_SPACES, default=PyOpenColorIO.GetCurrentConfig().getColorSpace(PyOpenColorIO.ROLE_SCENE_LINEAR).getName()
+        name="Space",
+        description="Reference value colorspace",
+        items=lambda _owner, _context: choices(
+            (space.getName(), space.getName(), space.getDescription())
+            for space in PyOpenColorIO.GetCurrentConfig().getColorSpaces(PyOpenColorIO.SEARCH_REFERENCE_SPACE_ALL, PyOpenColorIO.COLORSPACE_ALL)
+        ),
+        get_transform=lambda _owner, value, is_set: value if is_set else choices(((PyOpenColorIO.GetCurrentConfig().getCanonicalName(PyOpenColorIO.ROLE_SCENE_LINEAR), "", ""),))[0][4],
     )
     image: bpy.props.PointerProperty(type=bpy.types.Image, name="Image", description="Image source samples map onto")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     direction: bpy.props.EnumProperty(  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
@@ -96,9 +101,9 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     actions: tuple[RowContent, ...] = ()
     ceiling: float = 1e4
     seed: Option[Callable[[Identity], Outcome[Snapshot]]] = Nothing
-    shader: ClassVar[AllOf] = Setting(descriptor=Descriptor.declared(bpy.types.SpaceNodeEditor, ("tree_type",), bpy.types.EnumProperty), accepted=(bpy.types.ShaderNodeTree.__name__,)) & Setting(
-        descriptor=Descriptor.declared(bpy.types.SpaceNodeEditor, ("edit_tree", "is_editable"), bpy.types.BoolProperty)
-    )
+    shader: ClassVar[AllOf] = Setting(
+        descriptor=Descriptor(root=bpy.types.SpaceNodeEditor, prop=bpy.types.SpaceNodeEditor.bl_rna.properties["tree_type"]), accepted=(bpy.types.ShaderNodeTree.__name__,)
+    ) & Setting(descriptor=Descriptor(root=bpy.types.SpaceNodeEditor, owner=("edit_tree",), prop=bpy.types.ID.bl_rna.properties["is_editable"]))
 
     @cached_property
     def calibrations(self) -> Attachment[Calibrating]:
@@ -108,7 +113,7 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             form=Calibrating,
             owner=bpy.types.Scene,
             seed=self.seed,
-            callbacks=Some(lambda identity: nullcontext({name: Callbacks(poll=partial(self.charts.charting.sampled, identity)) for name in ("source", "image")})),
+            callbacks=Some(lambda identity: nullcontext({name: Callbacks[Calibrating](poll=partial(self.charts.charting.sampled, identity)) for name in ("source", "image")})),
         )
 
     # --- [FITS]
@@ -126,7 +131,7 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             return Option.of_optional(image).to_result_with(lambda: Fault.of(Need.CHOSEN, role)).bind(lambda found: self.charts.charting.record(identity, found).map(lambda record: (found, record)))
 
         def samples(pair: tuple[bpy.types.Image, PlacedChart]) -> Outcome[Colors]:
-            return pair[1].sampled.to_result_with(lambda: Fault.of(Need.SAMPLED, pair[0].name))
+            return pair[1].sampled(config).bind(lambda found: found.to_result_with(lambda: Fault.of(Need.SAMPLED, pair[0].name)))
 
         def aimed(source: PlacedChart) -> Outcome[Colors]:
             match target:
@@ -149,13 +154,9 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True, dict=True):
                 calibration, first, last, source_space, target_space = (
                     (fit, source[neutral], goal[neutral], linear, aimed_space) if forward else (fit.inverted, goal[neutral], source[neutral], aimed_space, linear)
                 )
-                normalized = (
-                    calibration.normalized(first, last, config, source_space=source_space, target_space=target_space)
-                    if chosen.normalized
-                    else Result[Option[Calibration], Faults].Ok(Some(calibration))
-                )
+                normalized = calibration.normalized(first, last, config, source_space=source_space, target_space=target_space) if chosen.normalized else Ok(Some(calibration))
                 return normalized.bind(lambda found: found.to_result_with(lambda: Fault.of(Need.LIT, image.name))).map(
-                    lambda kept: kept if chosen.gain else msgspec.convert({"color_matrix": kept.matrix.tolist()}, type(kept))
+                    lambda kept: kept if chosen.gain else msgspec.structs.replace(kept, color_matrix=tuple(map(tuple, kept.matrix.tolist())), exposure=0.0)
                 )
 
             return Calibration.fit(tuple(zip(source, goal, strict=True))).bind(lambda fit: selected(fit).map(lambda calibration: Calibrated(chosen=chosen, calibration=calibration, fit=fit)))
@@ -216,12 +217,12 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     @cached_property
     def baking(self) -> Operator[Baking]:
         """Command baking the forward and inverse calibration LUTs."""
-        return Operator.of(Baking, invoke=Some(Save[Baking](extensions=extension, destinations=Some(self.sided))), undo=NoUndo())(self.bake_calibration_lut)
+        return Operator.of(Baking, invoke=Some(Save[Baking](extensions=extension, destinations=Some(self.sided))), options=frozenset())(self.bake_calibration_lut)
 
     @cached_property
     def writing(self) -> Operator[Writing]:
         """Command writing the forward and inverse calibration transform files."""
-        return Operator.of(Writing, invoke=Some(Save[Writing](extensions=extension, destinations=Some(self.sided))), undo=NoUndo())(self.write_calibration)
+        return Operator.of(Writing, invoke=Some(Save[Writing](extensions=extension, destinations=Some(self.sided))), options=frozenset())(self.write_calibration)
 
     # --- [SECTIONS]
 
@@ -249,9 +250,9 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         """Charts the calibration reads."""
         return (self.charts,)
 
-    def acquisitions(self, _identity: Identity) -> Outcome[Acquisitions]:
+    def acquisitions(self, _identity: Identity) -> Acquisitions:
         """Returns the scene calibration, the matrix group, and the calibration commands."""
-        return Ok((self.calibrations, color_matrix.group, self.inserting, self.baking, self.writing))
+        return (self.calibrations, color_matrix.group, self.inserting, self.baking, self.writing)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

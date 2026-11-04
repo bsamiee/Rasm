@@ -44,6 +44,7 @@ const HostCase = hostCase({
     precondition: Placed,
     folder: Schema.String.annotate({ description: 'Case folder holding the document copy and every file the case writes' }),
     keywords: Schema.optionalKey(Keywords),
+    until: Schema.optionalKey(Expression),
     confirms: Schema.optionalKey(Schema.Array(Schema.Boolean).annotate({ description: 'Return or Escape posted to the window for each popup in order' })),
     files: answers.files,
 });

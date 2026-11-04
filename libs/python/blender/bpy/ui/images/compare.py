@@ -1,19 +1,18 @@
 """Before and after compare in the image editor."""
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 from enum import auto, Enum
-from functools import cache, cached_property
+from functools import cache, cached_property, partial
 from typing import ClassVar, Final, Self
 
 import bpy
-from expression import Nothing, Ok, Option, Some
+from expression import Option, Result, Some
 import gpu
+from gpu_extras.batch import batch_for_shader
 from mathutils import Matrix
 import msgspec
-import numpy as np
-import numpy.typing as npt
 
-from blender.bpy.commands.operators import Answer, Call, Done, Empty, NoUndo, Operator
+from blender.bpy.commands.operators import Answer, Call, Done, Empty, Operator
 from blender.bpy.data.rna.conditions import Setting
 from blender.bpy.data.rna.descriptors import Value, written
 from blender.bpy.data.rna.paths import RnaPath, root_in, rooted
@@ -22,16 +21,16 @@ from blender.bpy.data.rna.snapshots import assigned
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Declaration
 from blender.bpy.settings.attachments import Attached, Attachment
-from blender.bpy.ui.drawing.canvas import Align, Canvas, DECODED, DrawType, FontStyle, programs, QUAD, Rect, Shadow
+from blender.bpy.ui.drawing.canvas import Align, Canvas, configured, DECODED, draw_batch, DrawType, FontStyle, programs, QUAD, Rect, Shadow, UNCLIPPED
 from blender.bpy.ui.drawing.handlers import Refresh
 from blender.bpy.ui.elements.gizmos import Gizmo, GizmoGroup, TargetHandler
 from blender.bpy.ui.images.views import framed, HANDLE, image_type, overlaid
 from blender.bpy.ui.layout.members import Member
 from blender.bpy.ui.layout.rows import Layout, Property, Separator
 from blender.bpy.ui.resources.icons import Icon
-from blender.bpy.ui.resources.previews import uploaded
+from blender.bpy.ui.resources.previews import Texture
 from blender.bpy.ui.resources.theme import color, Metrics
-from blender.records.faults import Outcome
+from blender.records.faults import Nothing, Ok, Outcome, paired
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -45,12 +44,13 @@ class Mode(Enum):
     SIDE_BY_SIDE = auto()
 
 
+type _Wipe = tuple[Compare, Rect, tuple[float, float]]
+
+
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _MODES: Final = enum_choices(Mode)
 _CHANNELS: Final = ("RED", "GREEN", "BLUE", "ALPHA")
-_DIAGONAL: Final = np.array(((0.0, 0.0), (1.0, 1.0)), np.float32)
-_DIAGONAL.setflags(write=False)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -69,14 +69,6 @@ class Showing(bpy.types.PropertyGroup):
     mode: bpy.props.EnumProperty(name="Compare", description="Layout to show, hiding the before frame while it shows in this layout", items=_MODES)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
-class Before(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Before frame: its top-first associated RGBA plane in display colors, its caption, and the caption of the frame it draws over."""
-
-    plane: npt.NDArray[np.float32]
-    name: str
-    shown: str
-
-
 class CompareLayout(msgspec.Struct, frozen=True, kw_only=True):
     """Compare layout in region pixels: the before plate, the clip it draws in, the split rule as the rectangle its diagonal spans, and the captions."""
 
@@ -86,19 +78,19 @@ class CompareLayout(msgspec.Struct, frozen=True, kw_only=True):
     captions: tuple[tuple[str, float, float, Align], ...]
 
     @classmethod
-    def of(cls, compare: Compare, frame: Rect, bounds: Rect, size: tuple[float, float], before: Before, metrics: Metrics, text: float) -> Self:
-        """Lays out the plate over a frame inside visible bounds, captioned by the before and shown names on either side of the split."""
+    def of(cls, compare: Compare, frame: Rect, bounds: Rect, size: tuple[float, float], names: tuple[str, str], metrics: Metrics, text: float) -> Self:
+        """Lays out the plate inside visible bounds with the before and shown captions on either side of the split."""
         (width, height), right, top = size, bounds.x + bounds.width, bounds.y + bounds.height
         gap, inset = metrics.line(1.0), metrics.margin
         plate = Rect(x=frame.x + (frame.width - width) / 2, y=frame.y + (frame.height - height) / 2, width=width, height=height)
         low, high, left = max(frame.y, bounds.y), min(frame.y + frame.height, top), max(frame.x, bounds.x)
-        first, last = (before.shown, before.name) if compare.swapped else (before.name, before.shown)
+        first, last = reversed(names) if compare.swapped else names
         match Mode[compare.mode]:
             case Mode.SIDE_BY_SIDE:
                 beside = msgspec.structs.replace(plate, x=frame.x + frame.width + gap if compare.swapped else frame.x - gap - width)
                 outer = (beside.x + inset, Align.START) if compare.swapped else (beside.x + width - inset, Align.END)
                 inner = (frame.x + frame.width - inset, Align.END) if compare.swapped else (frame.x + inset, Align.START)
-                captions = ((before.name, outer[0], high - inset - text, outer[1]), (before.shown, inner[0], high - inset - text, inner[1]))
+                captions = ((names[0], outer[0], high - inset - text, outer[1]), (names[1], inner[0], high - inset - text, inner[1]))
                 return cls(plate=beside, clip=beside, rule=Nothing, captions=captions)
             case Mode.VERTICAL_WIPE:
                 at = frame.x + compare.split * frame.width
@@ -118,16 +110,12 @@ class CompareOverlay(msgspec.Struct, frozen=True, kw_only=True):
     """Part drawing the before frame in the editor's display channels under the screen's compare, with its split rule and captions."""
 
     draw_type: ClassVar[DrawType] = "POST_PIXEL"
-    source: Callable[[Metrics], Outcome[Option[Before]]]
+    read: Callable[[Metrics], Outcome[Option[Texture[tuple[str, str]]]]]
     compare: Callable[[bpy.types.Context], Option[Compare]]
 
-    def read(self, metrics: Metrics) -> Outcome[Option[tuple[gpu.types.GPUTexture, Before]]]:
-        """Uploads the before frame plane."""
-        return self.source(metrics).bind(lambda found: found.map(lambda before: uploaded(before.plane).map(lambda texture: Some((texture, before)))).default_value(Ok(Nothing)))
-
-    def drawn(self, canvas: Canvas, state: tuple[gpu.types.GPUTexture, Before]) -> None:
+    def drawn(self, state: Texture[tuple[str, str]], canvas: Canvas) -> None:
         """Draws the plate in the editor's display channels, then the rule and captions over it."""
-        (texture, before), metrics = state, canvas.metrics
+        (texture, names), metrics = state, canvas.metrics
         style, tint = metrics.preferences.ui_styles[0].widget, color(metrics.preferences.themes[0].image_editor.metadatatext)
         strokes = (*((shadow.color, shadow.offset) for shadow in Shadow.of(style).to_list()), (tint, (0.0, 0.0)))
 
@@ -141,28 +129,25 @@ class CompareOverlay(msgspec.Struct, frozen=True, kw_only=True):
                     Canvas.picture(texture, plate, blend="ALPHA_PREMULT")
                 case channel if channel in _CHANNELS:
                     shader, quad = _channeled()
-                    shader.bind()
-                    shader.uniform_sampler("image", texture)
-                    shader.uniform_int("shown", _CHANNELS.index(channel))
                     with Canvas.mapped(plate):
-                        quad.draw(shader)
+                        draw_batch(quad, configured((shader, UNCLIPPED), partial(shader.uniform_sampler, "image", texture), partial(shader.uniform_int, "shown", _CHANNELS.index(channel))))
                 case _:
                     pass
 
         def ruled(rule: Rect) -> None:
             """Draws the rule once per stroke color at its offset, the shadow under the line."""
-            with canvas.lines(1.0) as lines:
-                for shade, (dx, dy) in strokes:
-                    lines.uniform_float("color", shade)
-                    with Canvas.mapped(msgspec.structs.replace(rule, x=rule.x + dx, y=rule.y + dy)):
-                        _diagonal().draw(lines)
+            lines = canvas.lines(1.0)
+            for shade, (dx, dy) in strokes:
+                with Canvas.mapped(msgspec.structs.replace(rule, x=rule.x + dx, y=rule.y + dy)):
+                    draw_batch(_diagonal(), configured(lines, partial(lines[0].uniform_float, "color", shade)))
 
         match canvas.space:
-            case bpy.types.SpaceImageEditor(zoom=zoom, display_channels=channels):
-                across, up = np.asarray(zoom)
+            case bpy.types.SpaceImageEditor(display_channels=channels) as space:
+                zoom: Iterable[float] = space.zoom  # type: ignore[assignment]  # ty: ignore[unsound-assignment]
+                across, up = zoom
                 for compare in self.compare(bpy.context).to_list():
-                    laid = CompareLayout.of(compare, framed(canvas.region), canvas.extent, (texture.width * float(across), texture.height * float(up)), before, metrics, metrics.font(style))
-                    texture.filter_mode(bool(across < 1.0))
+                    laid = CompareLayout.of(compare, framed(canvas.region), canvas.extent, (texture.width * across, texture.height * up), names, metrics, metrics.font(style))
+                    texture.filter_mode(min(across, up) < 1.0)
                     with canvas.clipped(laid.clip):
                         pictured(laid.plate, channels)
                     for rule in laid.rule.to_list():
@@ -181,9 +166,9 @@ class CompareView(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     key: Key
     icon: Icon
-    read: Callable[[Identity, Metrics], Outcome[Option[Before]]]
+    read: Callable[[Identity, Metrics], Outcome[Option[Texture[tuple[str, str]]]]]
     kinds: tuple[str, ...] = ("RENDER_RESULT",)
-    refreshes: Callable[[Identity], Outcome[tuple[Refresh, ...]]] = lambda _identity: Ok(())
+    refreshes: Callable[[Identity], tuple[Refresh, ...] | Outcome[tuple[Refresh, ...]]] = lambda _identity: ()
 
     # --- [STATE]
 
@@ -224,17 +209,17 @@ class CompareView(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     @cached_property
     def showing(self) -> Operator[Showing]:
         """Command toggling a layout, keyed `show_<key>`."""
-        return Operator.of(Showing, condition=Some(self.shown), undo=NoUndo(), named=Some(f"show_{self.key}"))(self.show_compare)
+        return Operator.of(Showing, condition=Some(self.shown), options=frozenset(), named=Some(f"show_{self.key}"))(self.show_compare)
 
     @cached_property
     def mirroring(self) -> Operator[Empty]:
         """Command mirroring the split, keyed `mirror_<key>`."""
-        return Operator.of(Empty, condition=Some(self.shown), undo=NoUndo(), icon=Some("MOD_MIRROR"), named=Some(f"mirror_{self.key}"))(self.mirror_split)
+        return Operator.of(Empty, condition=Some(self.shown), options=frozenset(), icon=Some("MOD_MIRROR"), named=Some(f"mirror_{self.key}"))(self.mirror_split)
 
     @cached_property
     def swapping(self) -> Operator[Empty]:
         """Command swapping the sides, keyed `swap_<key>`."""
-        return Operator.of(Empty, condition=Some(self.shown), undo=NoUndo(), icon=Some("ARROW_LEFTRIGHT"), named=Some(f"swap_{self.key}"))(self.swap_sides)
+        return Operator.of(Empty, condition=Some(self.shown), options=frozenset(), icon=Some("ARROW_LEFTRIGHT"), named=Some(f"swap_{self.key}"))(self.swap_sides)
 
     # --- [HANDLE]
 
@@ -243,7 +228,7 @@ class CompareView(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         """Returns the context screen's compare while it shows the before frame."""
         return root_in(bpy.types.Screen, context).map(attached.struct).filter(lambda held: Mode[held.mode] is not Mode.OFF)
 
-    def wiped(self, attached: Attached[Compare], context: bpy.types.Context) -> Option[tuple[Compare, Rect, tuple[float, float]]]:
+    def wiped(self, attached: Attached[Compare], context: bpy.types.Context) -> Option[_Wipe]:
         """Returns a shown wipe with the frame and the visible frame middle from the frame origin, Nothing beside or hidden."""
 
         def measured(held: Compare, region: bpy.types.Region, frame: Rect) -> tuple[Compare, Rect, tuple[float, float]]:
@@ -256,17 +241,18 @@ class CompareView(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             .bind(lambda held: root_in(bpy.types.Region, context).map(lambda region: measured(held, region, framed(region))))
         )
 
-    def handle(self, attached: Attached[Compare], context: bpy.types.Context) -> Outcome[Option[Matrix]]:
-        """Places the split handle at the frame origin while a wipe shows."""
-        return Ok(self.wiped(attached, context).starmap(lambda _held, frame, _middle: Matrix.Translation((frame.x, frame.y, 0.0))))
+    @staticmethod
+    def handle(state: _Wipe) -> Outcome[Option[Matrix]]:
+        """Places the split handle at the frame origin."""
+        _, frame, _ = state
+        return Ok(Some(Matrix.Translation((frame.x, frame.y, 0.0))))
 
-    def offset(self, attached: Attached[Compare], context: bpy.types.Context) -> tuple[float, ...]:
-        """Returns the split handle's offset from the frame origin, on the split at the visible frame middle, zero while no wipe shows."""
-
-        def placed(held: Compare, frame: Rect, middle: tuple[float, float]) -> tuple[float, ...]:
-            return (held.split * frame.width, middle[1], 0.0) if Mode[held.mode] is Mode.VERTICAL_WIPE else (middle[0], (1.0 - held.split) * frame.height, 0.0)
-
-        return self.wiped(attached, context).starmap(placed).default_value((0.0, 0.0, 0.0))
+    @staticmethod
+    def offset(state: _Wipe) -> tuple[float, ...]:
+        """Returns the split offset at the visible frame middle."""
+        held, frame, middle = state
+        split: float = held.split  # ty: ignore[unsound-assignment]
+        return (split * frame.width, middle[1], 0.0) if Mode[held.mode] is Mode.VERTICAL_WIPE else (middle[0], (1.0 - split) * frame.height, 0.0)
 
     def moved(self, attached: Attached[Compare], context: bpy.types.Context, values: tuple[float, ...]) -> Outcome[None]:
         """Writes the split the handle's offset along the wipe axis gives, the property bounds keeping it on the frame."""
@@ -298,18 +284,19 @@ class CompareView(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         """Returns the compare, its commands, the split handle, the before frame overlay, and its shader release."""
 
         def rows(attached: Attached[Compare], refreshes: tuple[Refresh, ...]) -> Acquisitions:
-            bind = TargetHandler[tuple[float, ...]](get=lambda context: self.offset(attached, context), set=lambda context, values: self.moved(attached, context, values))
-            handle = Gizmo(kind="GIZMO_GT_move_3d", place=lambda context: self.handle(attached, context), bind=bind, properties={"scale_basis": HANDLE, "draw_style": "RING_2D"})
+            bind = TargetHandler[tuple[float, ...], _Wipe](get=self.offset, set=partial(self.moved, attached))
+            handle = Gizmo(kind="GIZMO_GT_move_3d", place=self.handle, bind=bind, properties={"scale_basis": HANDLE, "draw_style": "RING_2D"})
             return (
                 self.showing,
                 self.mirroring,
                 self.swapping,
-                GizmoGroup(key=self.key, space="IMAGE_EDITOR", gizmos=(handle,), condition=Some(self.shown)),
-                overlaid(CompareOverlay(source=lambda metrics: self.read(identity, metrics), compare=lambda context: self.compared(attached, context)), self.shown, refreshes),
+                GizmoGroup(key=self.key, space="IMAGE_EDITOR", gizmos=(handle,), read=lambda context: Ok(self.wiped(attached, context)), condition=Some(self.shown)),
+                overlaid(CompareOverlay(read=partial(self.read, identity), compare=partial(self.compared, attached)), self.shown, refreshes),
                 _PROGRAMS,
             )
 
-        return self.state.bound(identity).bind(lambda attached: self.refreshes(identity).map(lambda refreshes: rows(attached, refreshes)))
+        refreshes = self.refreshes(identity)
+        return paired(self.state.bound(identity), refreshes if isinstance(refreshes, Result) else Ok(refreshes)).map(lambda found: rows(*found))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -331,13 +318,13 @@ def _channeled() -> tuple[gpu.types.GPUShader, gpu.types.GPUBatch]:
     info.vertex_source("void main() { uv = pos; gl_Position = ModelViewProjectionMatrix * vec4(pos, 0.0, 1.0); }")
     info.fragment_source(DECODED + "void main() { fragColor = vec4(targeted(vec3(texture(image, uv)[shown])), 1.0); }")
     shader = gpu.shader.create_from_info(info)
-    return shader, Canvas.batched(shader, "TRI_STRIP", {"pos": QUAD})
+    return shader, batch_for_shader(shader, "TRI_STRIP", {"pos": QUAD})  # type: ignore[dict-item]  # ty: ignore[invalid-argument-type]
 
 
 @cache
 def _diagonal() -> gpu.types.GPUBatch:
     """Batches the unit diagonal a rule rectangle maps onto its line."""
-    return Canvas.batched("POLYLINE_UNIFORM_COLOR", "LINES", {"pos": _DIAGONAL})
+    return batch_for_shader(gpu.shader.from_builtin("POLYLINE_UNIFORM_COLOR"), "LINES", {"pos": QUAD[[0, -1]]})  # type: ignore[dict-item]  # ty: ignore[invalid-argument-type]
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
@@ -346,4 +333,4 @@ _PROGRAMS: Final = programs(_channeled.cache_clear, _diagonal.cache_clear)
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Before", "Compare", "CompareLayout", "CompareOverlay", "CompareView", "Mode", "Showing"]
+__all__ = ["Compare", "CompareLayout", "CompareOverlay", "CompareView", "Mode", "Showing"]

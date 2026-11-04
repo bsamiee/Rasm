@@ -33,7 +33,7 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 
 ## [03]-[WORKER]
 
-[HANDLERS]: Worker is one Effect `Layer` graph, `@rasm/hosting/cloudflare` `worker` builds its handler once per isolate on its first request:
+[HANDLERS]: Worker is one Effect `Layer` graph, `@rasm/hosting/cloudflare` `serveWorker` builds its handler once per isolate on its first request:
 - Operations are `Effect.fn` spans, `Effect.catchTag` turns SQL, schema, and platform failures into a logged `ServiceUnavailable`
 - `SqlClient` stores complete encoded documents and assets as JSON, object storage holds media bytes
 - Store reads decode joined JSON documents and asset collections through `PortfolioData` at store boundaries
@@ -43,7 +43,7 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 - `Revision` encodes draft revisions as strong ETags, a stale `If-Match` answers the stored revision, as success when the draft holds the body, else in `PreconditionFailed`
 - Draft saves, their publish, and the stored revision read share one `atomic` batch, as do each release sweep and its object list
 - Drafts placing a missing, mistyped, or out-of-range file fail with `PlacementConflict` naming each placement path
-- `@rasm/hosting/storage` `ObjectStorage.serve` evaluates HTTP preconditions and ranges for media reads, inline with `nosniff`, an original under its asset name
+- `@rasm/hosting/server` `ObjectStorage.serve` evaluates HTTP preconditions and ranges for media reads, inline with `nosniff`, an original under its asset name
 - Upload bodies send the asset field, then each rendition named by its width in asset order, then the original, each typed with its media type
 - Uploads are idempotent per asset id, a repeat with equal metadata succeeds and differing metadata conflicts
 - Asset JSON holds upload attempts and object keys, interrupted uploads and removals remain available for owner cleanup
@@ -51,7 +51,7 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 
 ## [04]-[PAGE]
 
-[RENDER]: Worker and Node entry render `Site` into built `index.html` through `@rasm/hosting/page/render` `Page.render`, browsers hydrate the same `Site` through `@rasm/hosting/page/hydrate` `hydrate`:
+[RENDER]: Worker and Node entry render `Site` into built `index.html` through `@rasm/hosting/server` `Template.render`, browsers hydrate the same `Site` through `@rasm/hosting/browser` `hydrate`:
 - Served markup holds published document and session alone, drafts reach a browser through owner endpoints
 - Fragments name active project and selected composition, user selection pushes history and scrolling replaces it
 - `popstate` and `hashchange` restore selection and scroll position from the fragment
@@ -81,8 +81,8 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 - `react-error-boundary` fallbacks catch chunk and render failures
 - `react-zoom-pan-pinch` owns image zoom
 - PDF.js (`pdfjs-dist`) owns PDF inspection, rendering, and sheet viewer
-- `@rasm/media/pdf/document` `PdfDocument.family` shares one PDF.js document across every sheet of a PDF, opened for range requests (`disableStream`, `disableAutoFetch`)
-- `@rasm/media/pdf/viewer` `PdfViewer.useViewer` renders the sheet preview and the sheet viewer, its `AsyncResult` failure renders the original-file link
+- `@rasm/media/pdf` `PdfDocument` shares one PDF.js document across every sheet of a PDF, opened for range requests (`disableStream`, `disableAutoFetch`)
+- `@rasm/media/pdf` `PdfViewer.useViewer` renders the sheet preview and the sheet viewer, its `AsyncResult` failure renders the original-file link
 - Sheet previews draw annotations without a text layer, the sheet viewer writes page and scale through `PdfViewer.assign`, rotation through `PdfViewer.rotate`, and restores find highlights when Find reopens
 - Videos take no text track, owners burn captions in and write transcripts as descriptions
 
@@ -99,8 +99,8 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 - ALWAYS state in owner copy each consequence code cannot enforce (whole PDF public, captions burned in, tab open during uploads)
 
 [UPLOADS]: Uppy owns the upload queue from one instance in an `Atom.keepAlive` atom with a finalizer:
-- Preprocessing measures each file and renders image renditions through `@rasm/media/inspection` `Inspection.read`, then decodes an `Asset` before upload
-- `Uploads.preprocess` runs in a `SecureRandom` runtime atom the uploads view mounts, its scope removes the preprocessor
+- Preprocessing measures each file and renders image renditions through `@rasm/media` `Inspection`, then decodes an `Asset` before upload
+- `@rasm/media` `preprocessUploads` runs in a `SecureRandom` runtime atom the uploads view mounts, its scope removes the preprocessor
 - Preprocessing failures name their remedy: an unlocked export for a protected PDF, a new export for a refused file, a retry for a failed load
 - Each file's destination stays editable until its processing starts, PDF sheets are chosen after upload
 - Success places compositions at their destination in queue order under concurrent uploads
@@ -113,16 +113,16 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 [SITES]: OpenAI Sites runs the built Worker with D1 and R2 bindings `.openai/hosting.json` names:
 - `cloudflare.config.ts` declares the Worker, its asset routing, and its bindings through `cf/config` builders
 - Worker binding types are the global `Env` that `cf workers types` generates from `cloudflare.config.ts`
-- `server/worker.ts` and `server/node.ts` pass `cloudflare.config.ts` and an `env` callback to a host providing `Page` from the assets binding
+- `server/worker.ts` and `server/main.ts` pass `cloudflare.config.ts` and an `env` callback to a host providing `Template` from the assets binding
 - `server/app.ts` composes routes over passed services, D1 and `ObjectStorage.r2` from the Worker, SQLite and path-style `ObjectStorage.s3` from Node
 - `nx run @rasm/portfolio:hosting -- <cloudflare|docker> <operation>` deploys the same build to a Cloudflare account or a Docker host
-- Sites, `@rasm/hosting/cloudflare/access` `Access.middleware`, or Docker proxy send user id and email as `model/sites.ts` `sites` headers
+- Sites, `@rasm/hosting` `CloudflareAccess.middleware`, or Docker proxy send user id and email as `model/sites.ts` `sites` headers
 - Requests without a user id are signed-out visitors
 - First sign-in with an email equal to `OWNER_EMAIL` ignoring case enrolls its user id, later owner checks read and compare user ids alone
 - Hosted configuration supplies `OWNER_EMAIL` secret, every mode other than `production` binds it to `sites()` local sign-in email
 - `sites()` copies `.openai/hosting.json` into project-local `dist` and exposes no relocation setting
 
-[STORAGE]: `server/store/catalog.ts` declares document, asset, and owner tables as `Relation` values, with statements over them beside their handlers in `server/<aggregate>.ts`:
+[STORAGE]: `server/catalog.ts` declares document, asset, and owner tables as `Relation` values, with statements over them beside their handlers in `server/<aggregate>.ts`:
 - `@rasm/database` `Catalog.layer` builds each entry's client with snake-case identifiers and reconciles tables once per isolate or process start
 - Queries name a multi-word column through `sql('objectKey')` or a `Relation` static
 - With older and newer builds on one database, queries name every column and new required columns carry a default

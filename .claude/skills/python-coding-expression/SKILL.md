@@ -5,7 +5,7 @@ description: "Use when calling an expression member, covering results, options, 
 
 # [PYTHON_CODING_EXPRESSION]
 
-`Block`, `Map`, and `Seq` import from `expression.collections`, and `pipeline` from `expression.extra.result`.
+`Block`, `Map`, and `Seq` import from `expression.collections`, `pipeline` from `expression.extra.result`, and `Ok`, `Error`, and `Nothing` from the module defining `Outcome`.
 
 ## [01]-[RESULTS]
 
@@ -19,16 +19,17 @@ description: "Use when calling an expression member, covering results, options, 
 
 ## [02]-[OPTIONS]
 
-`try_downcast` narrows an `object` through `isinstance` to `T | None`, and `held` turns a wrong-class value into a fault naming both classes:
+`held` narrows an `object` through `isinstance`, preserving `None` when `kind` accepts it:
 
 ```python
 def held[T](kind: type[T], subject: str, value: object, /) -> Outcome[T]:
-    return Option.of_optional(try_downcast(kind, value)).to_result_with(lambda: Fault.of(Reason.OUTSIDE, subject, type(value).__name__, member=kind.__name__))
+    return Ok(value) if isinstance(value, kind) else Error(Fault.of(Reason.OUTSIDE, subject, type(value), member=kind.__name__))
 ```
 
-`held(int, "count", "3")` fails with `count accepts int, not str`:
+`held(int, "count", "3")` keeps `str` as its fault cause:
+- `try_downcast` returns `T | None`, matching `None` and a failed match both return `None`
 - `try_downcast` tests the origin class alone, and `try_downcast(list[int], ["x"])` returns `["x"]`
-- `Option` chains narrow through `bind(lambda found: Option.of_optional(try_downcast(kind, found)))`, an `isinstance` filter keeps the wide type
+- `Option` narrows through `bind(lambda found: Some(found) if isinstance(found, kind) else Nothing)`, an `isinstance` filter keeps the wide type
 - `Option.of_optional` maps `None` alone to `Nothing`, and `Some(None)` is a `Some`
 - `Option.Nothing()`, `copy`, `deepcopy`, and `pickle` build an equal `Nothing` failing `is Nothing`, test `is_none()` or `Option(tag="none")`
 - `starmap(f)` unpacks a tuple value into parameters of `f` with each element typed
@@ -47,7 +48,7 @@ def patched[K, N](lookup: Callable[[K], Outcome[N]], current: Option[N], edit: O
     return edit.map(lambda wanted: wanted.map(lambda key: lookup(key).map(Some)).default_value(Ok(Nothing))).default_value(Ok(current))
 ```
 
-`Nothing` keeps `current`, `Some(Nothing)` clears it, and `Some(Some(key))` sets the node `lookup` finds or fails with its fault. Inner `map(...).default_value(Ok(Nothing))` turns `Option[Outcome[N]]` into `Outcome[Option[N]]`.
+`Nothing` keeps `current`, `Some(Nothing)` clears it, and `Some(Some(key))` sets the node `lookup` finds or fails with its fault. Inner `map(...).default_value(Ok(Nothing))` turns `Option[Outcome[Option[N]]]` into `Outcome[Option[N]]`.
 
 ## [04]-[COLLECTIONS]
 
@@ -61,7 +62,7 @@ Select the collection by when its items exist:
 
 ### [04.1]-[BLOCK]
 
-`Block.unfold` grows a block from a state until a step returns `Nothing`. `ancestors` emits each parent of a key up to its root:
+`Block(source)` converts truthy iterables to a tuple and reuses exact tuples; falsy sources produce an empty block. `of_seq` unpacks its source before construction. `Block.unfold` grows a block from a state until a step returns `Nothing`. `ancestors` emits each parent of a key up to its root:
 
 ```python
 def ancestors[K: SupportsLessThanAndHash](parents: Map[K, K], key: K, /) -> Block[K]:
@@ -86,8 +87,8 @@ def versions[K: SupportsLessThanAndHash, V](start: Map[K, V], edits: Iterable[tu
 ```
 
 `versions(Map.of(a=1), (("a", lambda count: count.map(lambda value: value + 1)), ("a", lambda _: Nothing)))` returns `a=1`, `a=2`, and an empty map:
-- `Map ==` reads left keys alone (`Map.of(a=1) == Map.of(a=1, b=2)` holds) and equals no `dict`, full equality is `left.items() == right.items()`
-- `Map` is a `Mapping` iterating in key order, `of_seq` keeps a repeated key's last value, and mixed key types raise `TypeError` at insertion
+- `Map.__eq__` returns `False` for other types and compares left items to a right `Map` prefix; full equality is `left.items() == right.items()`
+- `Map` is a `Mapping` iterating in key order, `of_seq` keeps a repeated key's last value, and incomparable keys raise `TypeError` at insertion
 - `map`, `filter`, and `try_pick` take key and value as separate parameters, and `fold` takes its state and one `(key, value)` tuple
 
 ### [04.3]-[SEQ]
@@ -96,7 +97,7 @@ def versions[K: SupportsLessThanAndHash, V](start: Map[K, V], edits: Iterable[tu
 - `map`, `choose`, `collect`, `take`, `take_while`, `skip`, `pairwise`, and `append` re-read their source, `filter` and `scan` read any source once
 - `zip` and `unfold` return a plain `zip` or generator typed `Iterable`, and `Seq.of_iterable` wraps one to continue a chain
 - `Seq` over a generator reads it once, and a second pass resumes where the first stopped
-- Values a pipeline reads twice enter as `Block.of_seq(source)`, and an unbounded source reads through `Seq.of_iterable(source).take_while(predicate)`
+- Values a pipeline reads twice enter as `Block(source)`, and an unbounded source reads through `Seq.of_iterable(source).take_while(predicate)`
 - `scan` emits its seed first
 
 ## [05]-[COMPOSITION]
@@ -115,13 +116,13 @@ def counts(texts: Iterable[str], /, *, limit: int) -> Outcome[tuple[int, ...]]:
 
 `counts(("3", "x", "500"), limit=100)` fails with the `INVALID` fault for `"x"` and the `OUTSIDE` fault for `500`:
 - `pipeline(f, g)(x)` is `f(x).bind(g)`, overloads type up to six steps, and `expression.extra.option.pipeline` composes option steps
-- `traverse(f, block)` and `sequence` call `f` on every item from last to first and return the first item's fault in input order
+- `traverse(f, block)` calls `f` from last to first and returns the first fault in input order, `sequence(block)` traverses with `identity`
 - `pipeable(f, *rest)` binds `rest` after the subject, and `compose(str.strip, pipeable(textwrap.shorten, width))` types each step at any `width`
 - `catch` keeps a wrapped function's `Result` flat while checkers type it `Result[Result[T, F], E]`, and result steps catch their raising call inside
 
 ## [06]-[BOUNDARIES]
 
-Codecs read expression types as dataclasses, and records crossing them hold `T | None` and `tuple` fields:
+Records crossing codec boundaries hold `T | None` and `tuple` fields:
 - Encoders in msgspec write `Option` and `Result` as their case's tag object (`{"tag":"none","none":null}`) and call no `enc_hook` on them
 - `Decoder`, `convert`, and `inspect` over a type holding `Option[...]` raise `TypeError: 'Option' is not a generic type` at type analysis
 - `Result` decodes in msgspec as a record requiring every case field, and msgspec encodes no `Block` or `Map` without an `enc_hook`

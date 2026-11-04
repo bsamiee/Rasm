@@ -17,9 +17,8 @@ public sealed record GeometryPair(GeometryBase Geometry, Option<ObjectAttributes
         attributes.Match(Some: body, None: () => use(defaults).Bind(body).Bracket());
 
     public static IO<T> WithAttributes<T>(Func<ObjectAttributes> defaults, Seq<GeometryPair> members, Func<Seq<GeometryBase>, Seq<ObjectAttributes>, IO<T>> body) =>
-        members.FoldBack(
-            (Seq<ObjectAttributes> rows) => body(members.Map(static member => member.Geometry), rows),
-            (next, member) => rows => WithAttributes(defaults, member.Attributes, value => next(rows.Add(value))))(Seq<ObjectAttributes>());
+        members.TraverseM(member => member.Attributes.Match(Some: IO.pure, None: () => use(defaults))).As()
+            .Bind(rows => body(members.Map(static member => member.Geometry), rows)).Bracket();
 }
 
 public sealed record PickCapture(

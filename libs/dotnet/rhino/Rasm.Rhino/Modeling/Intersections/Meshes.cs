@@ -9,13 +9,12 @@ namespace Rasm.Rhino.Modeling.Intersections;
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record Sets<T> {
-    private Sets(IEnumerable<T> first, IEnumerable<T>? second) => Operands = (first, second);
+    public (IEnumerable<T> First, IEnumerable<T>? Second) Operands => Switch<(IEnumerable<T>, IEnumerable<T>?)>(
+        within: static set => (set.Items, null), between: static set => (set.A, set.B));
 
-    public (IEnumerable<T> First, IEnumerable<T>? Second) Operands { get; }
+    public sealed record Within(Seq<T> Items) : Sets<T>;
 
-    public sealed record Within(Seq<T> Items) : Sets<T>(Items, second: null);
-
-    public sealed record Between(Seq<T> A, Seq<T> B) : Sets<T>(A, B);
+    public sealed record Between(Seq<T> A, Seq<T> B) : Sets<T>;
 }
 
 public sealed record MeshCrossings(Seq<Polyline> Polylines, Seq<Polyline> Overlaps, Option<Mesh> OverlapMesh, Option<string> Log);
@@ -63,6 +62,5 @@ public static class MeshIntersections {
         IO.lift(call).Bind(answered => IO.lift(() =>
             from points in Optional(answered.Points).ToFin(new RhinoFault(member, RhinoReason.Missing))
             from indices in Optional(answered.Indices).ToFin(new RhinoFault(member, RhinoReason.Missing))
-            from paired in RhinoFault.Unless(points.Length == indices.Length, RhinoReason.Mismatched, (points.Length, indices.Length))
             select toSeq(points).Zip(toSeq(indices), static (point, index) => (Point: point, Index: index)).Strict()));
 }

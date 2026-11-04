@@ -26,15 +26,16 @@ public sealed class ArchesPlugIn : DefinedPlugIn<ArchesPlugIn>, IDefined<PlugInD
             var assembly => new RuiFile(
                 [new ToolbarRow(
                     new CommandFace(nameof(Arches), nameof(Arches)) { Icon = Icons.PlugInImage(assembly) },
-                    toSeq(ArchFamily.Items).Map(family => toSeq(family.Choices).Map(choice =>
-                        (Face: new CommandFace(choice.Option, choice.Caption) { Help = choice.Help, Icon = new IconResource(assembly, $"{family.Command}_{choice.Option}.svg") },
-                            Macro: new Macro(family.Command, [new ScriptStep.Assign(ArchPrompts.Type, choice.Option)])) switch {
-                            var press => (Command<Macro>)new Command<Macro>.Run(press.Face, press.Macro) {
+                    from family in toSeq(ArchFamily.Items)
+                    select (from choice in toSeq(family.Choices)
+                            let option = choice.Option
+                            let face = new CommandFace(option, choice.Caption) { Help = choice.Help, Icon = new IconResource(assembly, $"{family.Command}_{option}.svg") }
+                            let macro = new Macro(family.Command, [new ScriptStep.Assign(ArchPrompts.Type, option)])
+                            select (Command<Macro>)new Command<Macro>.Run(face, macro) {
                                 Alternate = (
-                                    press.Face with { Help = $"{choice.Help}, both sides from the middle" },
-                                    press.Macro with { Steps = press.Macro.Steps.Add(new ScriptStep.Assign(ArchPrompts.BothSides, LabelPair.NoYes.On)) }),
-                            },
-                        })))],
+                                    face with { Help = $"{choice.Help}, both sides from the middle" },
+                                    macro with { Steps = macro.Steps.Add(new ScriptStep.Assign(ArchPrompts.BothSides, LabelPair.NoYes.On)) }),
+                            }))],
                 []),
         };
 }

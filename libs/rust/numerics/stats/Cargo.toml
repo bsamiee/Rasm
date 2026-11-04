@@ -19,30 +19,39 @@ test    = false
 doctest = false
 bench   = false
 
+# --- [TEST]
+[[test]]
+name = "operations"
+path = "../../../../tests/rust/numerics/stats/operations.rs"
+
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
 # --- [RUNTIME]
 [dependencies]
-rayon                              = { workspace = true }
-anyhow                             = { workspace = true }
-nonempty-collections               = { workspace = true }
-thiserror                          = { workspace = true }
-validated                          = { workspace = true }
-derive_more                        = { workspace = true }
-datasketches                       = { workspace = true }
-itertools                          = { workspace = true }
-serde                              = { workspace = true }
-serde_with                         = { workspace = true }
-nutype                             = { workspace = true }
-opentelemetry-semantic-conventions = { workspace = true }
-tracing                            = { workspace = true }
-average                            = { workspace = true }
-nalgebra                           = { workspace = true }
-num-dual                           = { workspace = true }
-rand                               = { workspace = true }
-sobol_burley                       = { workspace = true }
-statrs                             = { workspace = true }
-nuts-rs                            = { workspace = true }
+anyhow               = { workspace = true }
+average              = { workspace = true }
+datasketches         = { workspace = true }
+derive_more          = { workspace = true }
+itertools            = { workspace = true }
+nalgebra             = { workspace = true }
+nonempty-collections = { workspace = true }
+num-complex          = { workspace = true }
+num-dual             = { workspace = true }
+nuts-rs              = { workspace = true }
+nutype               = { workspace = true }
+rand                 = { workspace = true }
+rayon                = { workspace = true }
+rustfft              = { workspace = true }
+serde                = { workspace = true }
+serde_with           = { workspace = true }
+sobol_burley         = { workspace = true }
+statrs               = { workspace = true }
+thiserror            = { workspace = true }
+validated            = { workspace = true }
+
+# --- [TEST]
+[dev-dependencies]
+approx = { workspace = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

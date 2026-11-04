@@ -37,5 +37,5 @@ rule:
             all:
                 - has: {field: name, regex: '^As(ReadOnly)?(Span|Memory)2D$'}
                 - has: {field: expression, matches: continuous-span}
-message: '`$VIEW` views a `Mat` by hand length or without `Step` as pitch'
+message: '`$VIEW` constructs a `Mat` view without its row stride'
 note: 'Read `GetSpan<T>()` sized by the `Mat`, `new Span2D<T>(pointer, Rows, Cols, pitch)` with `Step` for two dimensions'

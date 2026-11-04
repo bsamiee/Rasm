@@ -1,16 +1,19 @@
-import { Array, Cause, Effect, FiberSet, Match, Option, pipe, Record, String, Struct } from 'effect';
+import { Array, Cause, Effect, FiberSet, Match, Option, Record, String, Struct } from 'effect';
 import { Atom } from 'effect/reactivity';
 import { getDocument, InvalidPDFException, PasswordException, PDFDataRangeTransport, PDFWorker, ResponseException } from 'pdfjs-dist';
-import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import type { DocumentInitParameters } from 'pdfjs-dist/types/src/display/api.d.ts';
-import { MediaError } from '#/error';
-import { assets } from '#/pdf/assets';
+import { assets } from '#/internal/assets';
+import { MediaError } from '#/media-error';
+
+// --- [TYPES] ---------------------------------------------------------------------------
+
+type Source = DocumentInitParameters & { readonly base: string };
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
 const worker = Atom.make(
     Effect.acquireRelease(
-        Effect.sync(() => PDFWorker.create({ port: new Worker(workerUrl, { type: 'module' }) })),
+        Effect.sync(() => PDFWorker.create({ port: new Worker(new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url), { type: 'module' }) })),
         (created) =>
             Effect.sync(() => {
                 created.port.terminate();
@@ -21,11 +24,12 @@ const worker = Atom.make(
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const open = Effect.fn('open')(function* (source: DocumentInitParameters, subject: string) {
+const open = Effect.fn('open')(function* ({ base, ...source }: Source, subject: string) {
     const shared = yield* Atom.getResult(worker);
+    const directories = Record.map(assets.directories, (directory) => `${base}${assets.path}/${directory}/`);
     const task = yield* Effect.acquireRelease(
-        Effect.sync(() => getDocument({ ...Record.map(assets.directories, (directory) => `${import.meta.env.BASE_URL}${assets.path}/${directory}/`), ...source, worker: shared })),
-        (loading) => Effect.promise(() => loading.destroy()),
+        Effect.sync(() => getDocument({ ...directories, ...source, worker: shared })),
+        (loading) => Effect.promise(loading.destroy.bind(loading)),
     );
     return yield* Effect.tryPromise({
         try: () => task.promise,
@@ -37,30 +41,27 @@ const open = Effect.fn('open')(function* (source: DocumentInitParameters, subjec
         ),
     });
 });
-const pages = Effect.fn('pages')(function* (file: File, { concurrency }: { readonly concurrency: number }) {
+const pages = Effect.fn('pages')(function* (file: File, { concurrency, base }: { readonly concurrency: number; readonly base: string }) {
     const fetches = yield* FiberSet.make<void, Cause.UnknownError>();
     const fetchRange = yield* FiberSet.runtime(fetches)();
     const range: PDFDataRangeTransport = Object.assign(new PDFDataRangeTransport(file.size, null), {
         requestDataRange: (begin: number, end: number) => fetchRange(Effect.tryPromise(() => file.slice(begin, end).bytes()).pipe(Effect.map((chunk) => range.onDataRange(begin, chunk)))),
     });
     const failed = Effect.andThen(FiberSet.join(fetches), Effect.interrupt);
-    const document = yield* Effect.raceFirst(open({ range, disableAutoFetch: true, disableStream: true }, file.name), failed);
-    const [labels, proxies] = yield* Effect.raceFirst(Effect.all([Effect.tryPromise(() => document.getPageLabels()), Effect.forEach(Array.range(1, document.numPages), (number) => Effect.tryPromise(() => document.getPage(number)), { concurrency })], { concurrency: 'unbounded' }), failed);
+    const document = yield* Effect.raceFirst(open({ base, range, disableAutoFetch: true, disableStream: true }, file.name), failed);
+    const [labels, proxies] = yield* Effect.raceFirst(Effect.all([Effect.tryPromise(() => document.getPageLabels()), Effect.forEach(Array.range(1, document.numPages), (number) => Effect.tryPromise(document.getPage.bind(document, number)), { concurrency })], { concurrency: 'unbounded' }), failed);
     return Array.map(proxies, (page, index) => ({
         ...Struct.pick(page.getViewport({ scale: 1 }), ['width', 'height']),
-        ...pipe(
-            Array.get(labels ?? [], index),
-            Option.filter(String.isNonEmpty),
-            Option.map((label) => ({ label })),
-            Option.getOrUndefined,
-        ),
+        ...Record.getSomes({ label: Option.filter(Array.get(labels ?? [], index), String.isNonEmpty) }),
     }));
 }, Effect.scoped);
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const family = Atom.family((source: DocumentInitParameters & { readonly url: string | URL }) => Atom.make(open(source, `${source.url}`)));
-const PdfDocument = { family, pages };
+const PdfDocument = Object.assign(
+    Atom.family((source: Source & { readonly url: string | URL }) => Atom.make(open(source, `${source.url}`))),
+    { pages },
+);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

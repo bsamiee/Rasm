@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: bash-loop-control
+language: bashlang
+arguments: [command]
+rule:
+    kind: command
+    all:
+        - has: {field: name, matches: command}
+        - not: {has: {nthChild: {position: 3, ofRule: {not: {kind: comment}}}}}
+        - not: {has: {field: argument, not: {kind: 'number, word, string, raw_string', regex: '^["'']?\+?[1-9][0-9]*["'']?$'}}}
+        - inside:
+            kind: for_statement, c_style_for_statement, while_statement
+            stopBy: {kind: 'function_definition, subshell, command_substitution, process_substitution'}

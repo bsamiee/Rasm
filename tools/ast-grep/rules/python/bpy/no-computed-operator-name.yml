@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-computed-operator-name
-language: python
+language: pythonlang
 severity: error
 files:
     - libs/python/blender/**
@@ -18,8 +18,8 @@ rule:
     kind: call
     pattern: $ACCESS
     all:
-        - matches: {builtins-getattr-call: {object: {matches: operators}}}
         - has: {field: arguments, has: {nthChild: 2, not: {matches: python-plain-string}}}
+        - matches: {builtins-getattr-call: {object: {matches: operators}}}
         - not: {inside: {kind: argument_list, inside: {kind: call, has: {field: function, regex: '^getattr$'}}}}
         - not: {inside: {kind: argument_list, inside: {kind: call, has: {field: function, matches: {python-builtin-name: {name: {regex: '^dir$'}}}}}}}
         - not:
@@ -39,4 +39,4 @@ rule:
                                     - has: {field: right, kind: call, has: {field: function, kind: attribute, has: {field: attribute, regex: '^partition$'}}}
                 - inside: {kind: expression_statement, stopBy: end, precedes: {kind: expression_statement, has: {kind: call, has: {field: function, regex: 'rna_type$'}}}}
 message: '`$ACCESS` reaches an operator by a computed name'
-note: 'Call `bpy.ops.<module>.<name>` or a held operator, listing a submodule with `dir(getattr(bpy.ops, <module>))`, an idname split by `partition` resolving only with its RNA type read on the next statement'
+note: 'Call operators directly, `dir(getattr(bpy.ops, <module>))` lists, `partition` resolves idnames before an RNA type read on next statement'

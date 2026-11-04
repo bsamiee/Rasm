@@ -64,7 +64,7 @@ pub(crate) fn visible(frame: &Frame, scene: &Scene, lines: &Lines, tolerance: To
         .filter(|piece| piece.visibility == Visibility::Visible)
         .map(|&Piece { ends, depths: _, kind: _, visibility: _ }| ends)
         .chain((first..first.strict_add(corners.len())).circular_tuple_windows::<(usize, usize)>().map(<[usize; 2]>::from))
-        .filter_map(|[from, to]| Some([*handles.get(from)?, *handles.get(to)?]))
+        .map(|[from, to]| [handles[from], handles[to]])
         .filter(|[from, to]| from != to)
         .collect::<Vec<_>>();
     while let Some([from, to]) = pending.pop() {
@@ -102,8 +102,8 @@ pub(crate) fn visible(frame: &Frame, scene: &Scene, lines: &Lines, tolerance: To
         .unzip();
     let crossed = rays::crossings(&scene.assembly, casts).map_err(|source| NEVec::new(ViewsError::from(source)))?;
     let owner = |hit: &Hit| {
-        let Prepared { body, mesh: _, sources, surface: _ } = scene.bodies.get(hit.element)?;
-        sources.get(hit.subshape as usize).copied().flatten().map(|source| (*body, source))
+        let Prepared { body, mesh: _, sources, surface: _ } = &scene.bodies[hit.element];
+        sources[hit.subshape as usize].map(|source| (*body, source))
     };
     let front = |hits: &[Hit]| {
         let nearest = hits.first()?.time_of_impact;
@@ -137,7 +137,7 @@ pub(crate) fn visible(frame: &Frame, scene: &Scene, lines: &Lines, tolerance: To
         .collect::<Vec<_>>()
         .into_par_iter()
         .filter_map(|((body, source), ((point, normal), outline))| {
-            Region::new(&outline, FillRule::NonZero, tolerance)
+            Region::new(outline, FillRule::NonZero, tolerance)
                 .map(|region| (!region.is_empty()).then_some((Face { body, source, normal, region }, point)))
                 .map_err(|refusal| ViewsError::Linework { operation: Operation::Region(body), source: refusal })
                 .transpose()

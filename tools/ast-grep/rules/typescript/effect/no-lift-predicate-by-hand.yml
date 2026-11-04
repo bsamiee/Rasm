@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-lift-predicate-by-hand
-language: tsx
+language: tsxlang
 severity: error
 utils:
     option-module:
@@ -16,7 +16,7 @@ utils:
     option-lifted:
         kind: call_expression
         all:
-            - has: {field: function, kind: member_expression, all: [{has: {field: object, matches: option-module}}, {has: {field: property, regex: '^some$'}}]}
+            - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^some$'}}, {has: {field: object, matches: option-module}}]}
             - matches: one-argument
     option-empty:
         kind: call_expression
@@ -26,7 +26,7 @@ utils:
     result-lifted:
         kind: call_expression
         all:
-            - has: {field: function, kind: member_expression, all: [{has: {field: object, matches: result-module}}, {has: {field: property, regex: '^succeed$'}}]}
+            - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^succeed$'}}, {has: {field: object, matches: result-module}}]}
             - matches: one-argument
     result-empty:
         kind: call_expression
@@ -36,7 +36,7 @@ utils:
     case-lifted:
         kind: call_expression
         all:
-            - has: {field: function, kind: member_expression, all: [{has: {field: object, any: [{matches: option-module}, {matches: result-module}]}}, {has: {field: property, regex: '^(some|succeed)$'}}]}
+            - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^(some|succeed)$'}}, {has: {field: object, any: [{matches: option-module}, {matches: result-module}]}}]}
             - matches: one-argument
             - has: {field: arguments, has: {nthChild: 1, has: {stopBy: end, pattern: $ROOT}}}
     tested:
@@ -144,9 +144,7 @@ utils:
 rule:
     any:
         - matches: lifted-then-filtered
-          pattern: $CALL
         - kind: ternary_expression
-          pattern: $KEPT
           all:
             - any:
                 - all: [{has: {field: consequence, matches: option-lifted}}, {has: {field: alternative, matches: option-empty}}]
@@ -155,7 +153,6 @@ rule:
                 - all: [{has: {field: alternative, matches: result-lifted}}, {has: {field: consequence, matches: result-empty}}]
             - has: {field: condition, matches: tested}
         - kind: ternary_expression
-          pattern: $KEPT
           all:
             - has: {field: condition, any: [{pattern: '$ROOT._tag === $TAG'}, {pattern: '$ROOT._tag !== $TAG'}], has: {field: right, kind: string}}
             - any:
@@ -174,7 +171,6 @@ rule:
                     - has: {field: consequence, matches: failing-arm}
                     - not: {has: {field: alternative, matches: terminal-arm}}
         - kind: call_expression
-          pattern: $MATCHED
           all:
             - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^match$'}}, {has: {field: object, matches: {effect-module: {name: {regex: '\bArray$'}}}}}]}
             - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $V}}, {not: {has: {nthChild: 3}}}]}
@@ -182,45 +178,5 @@ rule:
             - has: {field: arguments, has: {nthChild: 2, kind: object, has: {kind: pair, all: [{has: {field: key, regex: '^onEmpty$'}}, {has: {field: value, matches: refused-arm}}]}}}
 constraints:
     PIPE: {matches: effect-pipe-function}
-rewriters:
-    - id: direct
-      rule: {pattern: '$M.$FILTER($M.$LIFT($VALUE), $$$ARGS)'}
-      fix: $M.liftPredicate($VALUE, $$$ARGS)
-    - id: pipe
-      rule:
-        any:
-            - pattern: $M.$LIFT($VALUE).pipe($M.$FILTER($$$ARGS))
-            - pattern: '$PIPE($M.$LIFT($VALUE), $M.$FILTER($$$ARGS))'
-              has: {field: function, kind: identifier}
-      fix: $M.liftPredicate($VALUE, $$$ARGS)
-    - id: pipe-function-steps
-      rule:
-        pattern: '$PIPE($M.$LIFT($VALUE), $M.$FILTER($$$ARGS), $$$REST)'
-        has: {field: function, kind: identifier}
-      fix: $PIPE($VALUE, $M.liftPredicate($$$ARGS), $$$REST)
-    - id: pipe-method-steps
-      rule:
-        pattern: '$M.$LIFT($VALUE).pipe($M.$FILTER($$$ARGS), $$$REST)'
-      fix: $M.liftPredicate($VALUE, $$$ARGS).pipe($$$REST)
-    - id: option-test
-      rule:
-        kind: ternary_expression
-        has: {field: condition, has: {stopBy: end, kind: arguments, has: {nthChild: 1, kind: 'identifier, member_expression, this'}}}
-        any:
-            - all: [{has: {field: condition, pattern: $P($V)}}, {has: {field: consequence, matches: option-lifted}}, {has: {field: alternative, matches: option-empty}}]
-            - all: [{has: {field: condition, pattern: '!$P($V)'}}, {has: {field: alternative, matches: option-lifted}}, {has: {field: consequence, matches: option-empty}}]
-      fix: $M.liftPredicate($V, $P)
-    - id: result-test
-      rule:
-        kind: ternary_expression
-        has: {field: condition, has: {stopBy: end, kind: arguments, has: {nthChild: 1, kind: 'identifier, member_expression, this'}}}
-        any:
-            - all: [{has: {field: condition, pattern: $P($V)}}, {has: {field: consequence, matches: result-lifted}}, {has: {field: alternative, pattern: $_.fail($E)}}]
-            - all: [{has: {field: condition, pattern: '!$P($V)'}}, {has: {field: alternative, matches: result-lifted}}, {has: {field: consequence, pattern: $_.fail($E)}}]
-      fix: $M.liftPredicate($V, $P, () => $E)
-transform:
-    LIFTED: rewrite($CALL, rewriters=[direct, pipe, pipe-function-steps, pipe-method-steps])
-    TESTED: rewrite($KEPT, rewriters=[option-test, result-test])
-fix: $LIFTED$TESTED$TERNARY$MATCHED
 message: '`$V` enters `$M` through a predicate branch written by hand'
-note: 'Call `<module>.liftPredicate(<value>, <predicate>)` with `<orFailWith>` for `Result` and `Array.isReadonlyArrayNonEmpty` for a list, `Effect.filterOrFail` on an effect, or `<module>.map` over `<module>.filter(<option>, <enum>.$is(<tag>))`'
+note: 'Call `<module>.liftPredicate` (`Result` takes `orFailWith`), `Effect.filterOrFail`, or `map` after `filter` for a tagged case'

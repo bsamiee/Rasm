@@ -1,4 +1,6 @@
 using System.Numerics;
+using System.Runtime.InteropServices;
+using CommunityToolkit.HighPerformance.Buffers;
 using TinyEXR;
 using UnitsNet;
 using Wacton.Unicolour;
@@ -35,17 +37,22 @@ public static class ToneCurve {
         return value => float.MaxNumber(value, 0f) switch { var x => scale * float.LogP1(x) / (normalizer * float.Log(2f + (8f * float.Pow(x * inverseWhite, power)))) };
     }
 
-    public static Func<float, float> Operator(ToneMapOperator operation, ToneMapParameters parameters) =>
-        value => {
-            float mapped = value;
-            ImageProcessing.ToneMap(new ReadOnlySpan<float>(in value), new Span<float>(ref mapped), 1, operation, parameters);
-            return mapped;
-        };
+    public static Action<Span<Vector4>> Operator(ToneMapOperator operation, ToneMapParameters parameters) =>
+        row => ImageProcessing.ToneMap(MemoryMarshal.Cast<Vector4, float>(row), MemoryMarshal.Cast<Vector4, float>(row), 4, operation, parameters);
 
     public static Action<Span<Vector4>> Graded(Func<Vector3, Vector3> curve, float preserveHue = 0f) =>
         row => {
             foreach (ref Vector4 pixel in row)
                 pixel = new Vector4(preserveHue is 0f ? curve(pixel.AsVector3()) : PreserveHue(pixel.AsVector3(), curve(pixel.AsVector3()), preserveHue), pixel.W);
+        };
+
+    public static Action<Span<Vector4>> Graded(Action<Span<Vector4>> curve, float preserveHue) =>
+        preserveHue is 0f ? curve : row => {
+            using SpanOwner<Vector4> original = SpanOwner<Vector4>.Allocate(row.Length);
+            row.CopyTo(original.Span);
+            curve(row);
+            for (int index = 0; index < row.Length; index++)
+                row[index] = new Vector4(PreserveHue(original.Span[index].AsVector3(), row[index].AsVector3(), preserveHue), row[index].W);
         };
 
     public static Vector3 PreserveHue(Vector3 input, Vector3 mapped, float preserve) {

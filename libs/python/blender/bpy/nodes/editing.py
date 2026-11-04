@@ -7,7 +7,7 @@ from types import MappingProxyType
 from typing import Final
 
 import bpy
-from expression import Nothing, Ok, Option
+from expression import Option
 from expression.collections import Block
 import msgspec
 
@@ -21,7 +21,7 @@ from blender.bpy.nodes.changes import made, valued
 from blender.bpy.nodes.interfaces import NodeGroup
 from blender.bpy.nodes.trees import created, endpoints, group_set, linked, links_of, native, ordered, tree_of
 from blender.bpy.ui.drawing.handlers import draw_handler
-from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
+from blender.records.faults import accumulated, Fault, Nothing, Ok, Outcome, paired, Reason
 from blender.records.trees import Gaps
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -30,7 +30,7 @@ type Incoming = bpy.types.NodeLink | tuple[bpy.types.NodeSocket, bool]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-LOCATION: Final = Descriptor.declared(bpy.types.Node, ("location_absolute",), bpy.types.FloatProperty)
+LOCATION: Final = Descriptor(root=bpy.types.Node, prop=bpy.types.Node.bl_rna.properties["location_absolute"])
 _GAPS: Final = Gaps()
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -62,7 +62,7 @@ class Arranger(msgspec.Struct, frozen=True, kw_only=True):
         placed = self.gaps.arranged(sizes, links, bands, origin) if all(width > 0.0 and height > 0.0 for width, height in sizes.values()) else {}
         return tuple((name, at) for name, at in placed.items() if not LOCATION.equal(LOCATION.read(marked[name]), at))
 
-    def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
+    def acquisitions(self, identity: Identity) -> Acquisitions:
         """Registers the node editor draw hook queueing owned node positions."""
 
         def moved(held: Handle[bpy.types.ID], places: tuple[tuple[str, tuple[float, float]], ...]) -> Outcome[Option[str]]:
@@ -90,7 +90,7 @@ class Arranger(msgspec.Struct, frozen=True, kw_only=True):
                 with draw_handler(bpy.types.SpaceNodeEditor, drew, "WINDOW", "POST_VIEW") as added:
                     yield added
 
-        return Ok(((Tier.DRAW_HANDLERS, drawn()),))
+        return ((Tier.DRAW_HANDLERS, drawn()),)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -203,9 +203,7 @@ def inserted(
             return node
 
         return (
-            InterfaceKeys
-            .of(owned, identity)
-            .bind(lambda live: valued(node.inputs, inputs, live.sockets))
+            valued(node.inputs, inputs, InterfaceKeys.of(owned, identity).sockets)
             .bind(lambda _: accumulated(linked(source) for source in sources))
             .bind(lambda _: written(node, ("location_absolute",), at))
             .bind(lambda _: accumulated(written(each, ("select",), each == node) for each in tree.nodes))

@@ -59,6 +59,67 @@ async fn optional() -> Option<u32> {
     Some(left?.strict_add(right?))
 }
 
+async fn buffered_collected(ids: Vec<u32>) -> Result<Vec<u32>, io::Error> { stream::iter(ids).map(fetch).buffered(4).collect::<Vec<_>>().await.into_iter().collect() }
+
+async fn set_joined(set: tokio::task::JoinSet<Result<u32, io::Error>>) -> Result<Vec<u32>, io::Error> { set.join_all().await.into_iter().collect() }
+
+async fn separate_callbacks() -> (Result<u32, u8>, Result<u32, u8>) {
+    let (left, right) = future::join(future::ready(Ok::<_, u8>(1_u32)), future::ready(Ok::<_, u8>(2_u32))).await;
+    ((|| Ok(left?))(), (|| Ok(right?))())
+}
+
+async fn repeated_result() -> Result<u32, u8> {
+    let (left, right) = future::join(future::ready(Ok::<_, u8>(1_u32)), future::ready(Ok::<_, u8>(2_u32))).await;
+    black_box(right);
+    Ok(left?.strict_add(left?))
+}
+
+async fn exclusive(flag: bool) -> Result<u32, u8> {
+    let (left, right) = future::join(future::ready(Ok::<_, u8>(1_u32)), future::ready(Ok::<_, u8>(2_u32))).await;
+    Ok(if flag { left? } else { right? })
+}
+
+async fn nested_exclusive(outer: bool, inner: bool) -> Result<u32, u8> {
+    let (left, right) = future::join(future::ready(Ok::<_, u8>(1_u32)), future::ready(Ok::<_, u8>(2_u32))).await;
+    Ok(if outer { if inner { left? } else { right? } } else { 0 })
+}
+
+async fn complementary(flag: bool) -> Result<(), u8> {
+    let (left, right) = future::join(future::ready(Ok::<_, u8>(1_u32)), future::ready(Ok::<_, u8>(2_u32))).await;
+    if flag {
+        black_box(left?);
+    }
+    if !flag {
+        black_box(right?);
+    }
+    Ok(())
+}
+
+async fn grouped() -> Result<u32, u8> {
+    let (first, second, handled) = future::join3(future::ready(Ok::<_, u8>(1_u32)), future::ready(Ok::<_, u8>(2_u32)), future::ready(Ok::<_, u8>(3_u32))).await;
+    black_box(&handled);
+    Ok(first?.strict_add(second?))
+}
+
+async fn infinite_buffered() -> Result<Vec<u32>, u8> { stream::repeat_with(|| future::ready(Err::<u32, u8>(1))).buffered(4).try_collect().await }
+
+async fn cycling() -> Result<Vec<u32>, u8> { future::join_all([future::ready(Err::<u32, u8>(1))]).await.into_iter().cycle().collect() }
+
+async fn optional_collect() -> Option<Vec<u32>> { future::join_all([future::ready(Some(1_u32))]).await.into_iter().try_collect() }
+
+async fn dependent_continuation() -> Result<u32, u8> {
+    let (left, right) = future::join(future::ready(Ok::<_, u8>(0_u32)), future::ready(Err::<u32, u8>(1))).await;
+    if left? == 0 {
+        return Ok(0);
+    }
+    Ok(right?)
+}
+
+async fn selected_operand() -> Result<bool, u8> {
+    let (left, right) = future::join(future::ready(Ok::<_, u8>(0_u32)), future::ready(Err::<u32, u8>(1))).await;
+    Ok(left? > 0 && right? > 0)
+}
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 #[tokio::main]
@@ -81,7 +142,3 @@ async fn main() {
         set_joined(tokio::task::JoinSet::new()).await,
     ));
 }
-
-async fn buffered_collected(ids: Vec<u32>) -> Result<Vec<u32>, io::Error> { stream::iter(ids).map(fetch).buffered(4).collect::<Vec<_>>().await.into_iter().collect() }
-
-async fn set_joined(set: tokio::task::JoinSet<Result<u32, io::Error>>) -> Result<Vec<u32>, io::Error> { set.join_all().await.into_iter().collect() }

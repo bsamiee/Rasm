@@ -6,7 +6,7 @@ files: ['**/rhino/**']
 utils:
     location:
         kind: invocation_expression
-        has: {field: function, kind: member_access_expression, has: {field: name, regex: '^SetCameraLocations?$'}}
+        has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^SetCameraLocations?$'}}, {has: {field: expression, pattern: $CAMERA}}]}
     located:
         any:
             - matches: location

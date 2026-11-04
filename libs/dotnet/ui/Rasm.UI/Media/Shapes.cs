@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Rasm.UI.Styling;
 using SkiaSharp;
 
@@ -11,20 +12,27 @@ public abstract partial record Shape {
     public sealed record Capsule : Shape;
 
     public sealed record Outlined : Shape {
-        private Outlined(string pathData) => PathData = pathData;
+        private Outlined(SKPath path) => (Path, PathData) = (path, path.ToSvgPathData());
 
         public string PathData { get; }
 
+        public bool Equals([NotNullWhen(true)] Outlined? other) => other is not null && string.Equals(PathData, other.PathData, StringComparison.Ordinal);
+
+        public override int GetHashCode() => StringComparer.Ordinal.GetHashCode(PathData);
+
         public static Fin<Outlined> Validated(string pathData) {
-            using SKPath? parsed = SKPath.ParseSvgPathData(pathData);
-            return Optional(parsed).Filter(static path => !path.Bounds.IsEmpty).Map(static path => new Outlined(path.ToSvgPathData())).ToFin(new UIFault(pathData, UIReason.Unreadable));
+            SKPath? parsed = SKPath.ParseSvgPathData(pathData);
+            if (parsed is null) return new UIFault(pathData, UIReason.Unreadable);
+            if (!parsed.Bounds.IsEmpty) return new Outlined(parsed);
+            parsed.Dispose();
+            return new UIFault(pathData, UIReason.Unreadable);
         }
 
-        internal SKPath Path() => SKPath.ParseSvgPathData(PathData);
+        internal SKPath Path { get; }
     }
 
     public sealed record Icon(IconSet Set, Outlined Outline) : Shape {
-        public View Drawn => new View.Box { Role = Role.Icon, Sheet = new StyleSheet(HashMap((Role.Icon, new Look { Shape = this }))) };
+        public View Drawn => new View.Box { Role = Roles.Icon, Sheet = new StyleSheet(HashMap((Roles.Icon, new Look { Shape = this }))) };
     }
 
     public sealed record Placed(Shape Inner, SKRect Unit) : Shape;

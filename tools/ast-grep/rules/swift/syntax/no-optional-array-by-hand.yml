@@ -42,7 +42,7 @@ rule:
                     - {matches: mapped, has: {kind: call_suffix, has: {matches: shorthand-identity}}}
                     - pattern: '$X.map { $V in [$V] }'
                     - pattern: '$X.flatMap { $V in [$V] }'
-                    - {matches: mapped, has: {kind: call_suffix, has: {kind: lambda_literal, pattern: $LAMBDA, matches: one-element}}}
+                    - {matches: mapped, has: {kind: call_suffix, has: {kind: lambda_literal, matches: one-element}}}
         - kind: switch_statement
           all:
             - matches: value-position
@@ -64,19 +64,7 @@ rule:
             - any:
                 - pattern: 'if let $V = $X { [$V] } else { [] }'
                 - pattern: 'if let $X { [$X] } else { [] }'
-                - all: [{pattern: 'if let $_ = $X { [$_] } else { [] }'}, {pattern: $IF}]
-                - all: [{pattern: 'if let $X { [$_] } else { [] }'}, {pattern: $IF}]
-transform:
-    MAP:
-        replace:
-            source: $LAMBDA
-            replace: '^\{(\s*[^\[]*?)\[([\s\S]*)\](\s*)\}$'
-            by: '.map {$1$2$3}'
-    IFMAP:
-        replace:
-            source: $IF
-            replace: '^if\s+let\s+(\w+)(?:\s*=[\s\S]*?)?\s*\{\s*\[([\s\S]*)\]\s*\}\s*else\s*\{\s*\[\s*\]\s*\}$'
-            by: '.map { $1 in $2 }'
-fix: '[$X$MAP$IFMAP].compactMap(\.self)'
+                - pattern: 'if let $_ = $X { [$_] } else { [] }'
+                - pattern: 'if let $X { [$_] } else { [] }'
 message: '`$X` becomes an array through a closure or branch with an empty default'
 note: 'Write `[<optional>].compactMap(\.self)`, or `[<optional>.map { <transform> }].compactMap(\.self)` for a transform'

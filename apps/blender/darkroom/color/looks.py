@@ -1,5 +1,7 @@
 """Darkroom looks: flim's default, nostalgia, and silver film stocks installed as view transforms, the OCIO looks the formation's view offers tiled over the render proxy, and the layer stack looks, gathered in the Image Formation panel."""
 
+# ruff: file-ignore[relative-imports]
+
 from collections.abc import Generator, Mapping
 from contextlib import contextmanager
 from functools import partial
@@ -7,13 +9,13 @@ from typing import Final
 
 from bl_ui.properties_render import RENDER_PT_color_management
 import bpy
-from expression import Nothing, Option, Some
+from expression import Option, Some
 import msgspec
 import PyOpenColorIO
 
 from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.paths import id_data, Struct
-from blender.bpy.data.rna.properties import Callbacks, held_choices, IconedItem
+from blender.bpy.data.rna.properties import Callbacks, choices, IconedItem
 from blender.bpy.extension.identity import Identity
 from blender.bpy.nodes.desired import item_key
 from blender.bpy.render.color.spaces import ConfigInstall, ConfigView, NO_LOOK, viewed
@@ -27,7 +29,7 @@ from blender.bpy.ui.layout.sections import Section
 from blender.bpy.ui.layout.templates import Gallery
 from blender.imaging.color.film import Film
 from blender.imaging.color.processors import DisplayView
-from blender.records.faults import Outcome
+from blender.records.faults import Nothing, Outcome
 
 from ..catalog import stacks, tiles
 from ..effects.formation.display import displays, Formation, looked
@@ -43,16 +45,6 @@ class FormationLook(bpy.types.PropertyGroup):
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
-
-# --- [STOCKS]
-
-
-def developed(film: Film, _base: PyOpenColorIO.Config, /) -> Outcome[PyOpenColorIO.Transform]:
-    """Returns the transform developing a film stock in its process space."""
-    return film.transform()
-
-
-# --- [PICK]
 
 
 def _looks(config: PyOpenColorIO.Config) -> tuple[str, ...]:
@@ -71,19 +63,17 @@ def offered(identity: Identity, owner: Struct, _context: bpy.types.Context | Non
     """Item rows of the looks Blender offers the holder's view, labeled by the host, each under its tile through the formation."""
     config = PyOpenColorIO.GetCurrentConfig()
 
-    def tile(view: DisplayView, name: str) -> int:
+    def tile(scene: bpy.types.Scene, view: DisplayView, name: str) -> int:
         record = Formation(display_view=msgspec.structs.replace(view, looks_override=name, looks_override_enabled=name != NO_LOOK))
-        return tiles.icon(identity, item_key(LOOKS.key, name), Valued(structure=Entry(record=record))).default_value(0)
+        return tiles.icon(identity, scene, item_key(LOOKS.key, name), Valued(structure=Entry(record=record))).default_value(0)
 
-    return held_choices(
-        tuple(
-            (name, label, Option.of_optional(config.getLook(name)).map(PyOpenColorIO.Look.getDescription).default_value(""), tile(view, name), index)
-            for scene in id_data(bpy.types.Scene, owner).to_list()
-            for settings, view in (_viewing(identity, scene),)
-            for index, name in enumerate(_looks(config))
-            for label in (bpy.types.UILayout.enum_item_name(settings, "look", name),)
-            if label
-        )
+    return choices(
+        (name, label, Option.of_optional(config.getLook(name)).map(PyOpenColorIO.Look.getDescription).default_value(""), tile(scene, view, name), index)
+        for scene in id_data(bpy.types.Scene, owner).to_list()
+        for settings, view in (_viewing(identity, scene),)
+        for index, name in enumerate(_looks(config))
+        for label in (bpy.types.UILayout.enum_item_name(settings, "look", name),)
+        if label
     )
 
 
@@ -91,11 +81,11 @@ def current(identity: Identity, owner: Struct) -> int:
     """Returns the position of the look the holder's view applies."""
     looks = _looks(PyOpenColorIO.GetCurrentConfig())
     look = id_data(bpy.types.Scene, owner).map(lambda scene: _viewing(identity, scene)[0].look).default_value(NO_LOOK)
-    return looks.index(look) if look in looks else 0
+    return looks.index(look)
 
 
 @contextmanager
-def looking(identity: Identity) -> Generator[Mapping[str, Callbacks]]:
+def looking(identity: Identity) -> Generator[Mapping[str, Callbacks[FormationLook]]]:
     """Binds the pick's items and live read, and defers each picked look's write into the formation."""
 
     def write(handle: Handle[bpy.types.Scene], look: str) -> Outcome[Option[str]]:
@@ -105,9 +95,9 @@ def looking(identity: Identity) -> Generator[Mapping[str, Callbacks]]:
 
         def pick(owner: Struct, value: int) -> None:
             for scene in id_data(bpy.types.Scene, owner).to_list():
-                deferred(Handle.of(scene), dict(enumerate(_looks(PyOpenColorIO.GetCurrentConfig()))).get(value, NO_LOOK))
+                deferred(Handle.of(scene), _looks(PyOpenColorIO.GetCurrentConfig())[value])
 
-        yield {"look": Callbacks(items=partial(offered, identity), get=partial(current, identity), set=pick)}
+        yield {"look": Callbacks[FormationLook](items=partial(offered, identity), get=partial(current, identity), set=pick)}
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
@@ -147,7 +137,7 @@ stocks: Final = (
         ),
     ),
 )
-install: Final = ConfigInstall(views=tuple(ConfigView(name=name, description=description, transform=partial(developed, stock), space=Film.space) for name, description, stock in stocks))
+install: Final = ConfigInstall(views=tuple(ConfigView(name=name, description=description, transform=stock.transform, space=Film.space) for name, description, stock in stocks))
 LOOKS: Final = Attachment(key="looks", form=FormationLook, owner=bpy.types.Scene, callbacks=Some(looking))
 rows: Final = (
     Panel(
@@ -165,4 +155,4 @@ rows: Final = (
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["LOOKS", "FormationLook", "current", "developed", "install", "looking", "offered", "rows", "stocks"]
+__all__ = ["LOOKS", "FormationLook", "current", "install", "looking", "offered", "rows", "stocks"]

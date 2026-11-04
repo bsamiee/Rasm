@@ -172,6 +172,11 @@ class Radial[V: Elementwise](msgspec.Struct, frozen=True, kw_only=True):
     scale: V | float
     aspect: Positive
 
+    @classmethod
+    def fitted[B](cls, distortion: V, fit: V | float, smaller: V | float, ns: Namespace[V, B], *, aspect: Positive) -> "Radial[V]":
+        """Returns distortion keeping the frame edge fixed, or a barrel's corner through `fit`, `smaller` the shorter frame side over the greater."""
+        return cls(distortion=distortion, scale=1.0 / (distortion * (ns.where(ns.greater(distortion, 0.0), fit * smaller * smaller, 0.0) + 1.0) + 1.0), aspect=aspect)
+
     def to_rectilinear[B](self, point: ImagePoint[V], ns: Namespace[V, B]) -> ImagePoint[V]:
         """Maps lens positions to rectilinear samples, covering the real branch alone."""
         s, t, coverage = point
@@ -192,7 +197,7 @@ class Radial[V: Elementwise](msgspec.Struct, frozen=True, kw_only=True):
         radius = ns.hypot(across * strength * width, up * strength * height)
         barrel = ns.greater_equal(self.distortion, 0.0)
         covered = ns.logical_or(ns.less(radius, 1.0), ns.logical_and(barrel, ns.less_equal(radius, 1.0)))
-        grow = ns.where(covered, 1.0 / ((radius * radius * ns.where(barrel, 1.0, -1.0) + 1.0) * self.scale), 0.0)
+        grow = ns.where(covered, 1.0 / ns.where(covered, (radius * radius * ns.where(barrel, 1.0, -1.0) + 1.0) * self.scale, 1.0), 0.0)
         return across * grow + 0.5, up * grow + 0.5, ns.where(covered, coverage, 0.0)
 
 

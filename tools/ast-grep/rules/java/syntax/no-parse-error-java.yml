@@ -1,24 +1,13 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-parse-error-java
-language: java
+language: javalang
 severity: error
-utils:
-    multi-pattern-case-label:
-        kind: ERROR
-        regex: ',$'
-        inside: {kind: switch_label}
-        precedes: {kind: pattern}
-        not: {has: {not: {any: [{kind: pattern, precedes: {regex: '^,$'}}, {regex: '^,$', follows: {kind: pattern}}]}}}
-    unreported:
-        any:
-            - inside: {kind: ERROR, stopBy: end}
-            - matches: multi-pattern-case-label
 rule:
     any:
         - kind: ERROR
-          not: {matches: unreported}
+          not: &nested {inside: {kind: ERROR, stopBy: end}}
         - kind: program
-          has: {stopBy: end, pattern: $$MISSING, regex: '^$', not: {matches: unreported}}
+          has: {stopBy: end, all: [{regex: '^$'}, {pattern: $$MISSING}, {not: *nested}]}
 labels:
     MISSING: {style: primary, message: Token the grammar inserted to recover}
 message: Grammar failed to parse the span

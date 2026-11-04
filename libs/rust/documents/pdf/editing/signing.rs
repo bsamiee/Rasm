@@ -1,18 +1,19 @@
 use core::{iter, num::TryFromIntError};
 use std::{collections::HashSet, io};
 
-use lopdf::{IncrementalDocument, Object, ObjectId, decode_text_string, dictionary, text_string};
+use lopdf::{IncrementalDocument, Object, ObjectId, decode_text_string, dictionary, text_string, xref::XrefType};
 use pdf_oxide::{
     crypto::{self, HashAlgorithm},
-    signatures::{DigestAlgorithm, PadesLevel, RevocationMaterial, SignOptions, SignatureSubFilter, SigningCredentials, Timestamp, sign_pdf_bytes_pades},
+    signatures::{DigestAlgorithm, PadesLevel, RevocationMaterial, SignOptions, SignatureSubFilter, SigningCredentials, sign_pdf_bytes_pades},
+};
+use rasn::{der, types::Oid};
+use rasn_cms::{
+    AlgorithmIdentifier, SignedData,
+    tsp::{MessageImprint, PkiStatus, TST_INFO, TimeStampReq, TimeStampResp, TstInfo},
 };
 use reqwest::{Url, blocking::Client, header::CONTENT_TYPE};
 
 use crate::{Document, PdfError, entry, resolved};
-
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const LONG_FORM: u8 = 0x80;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -39,28 +40,24 @@ pub fn sign(document: &Document, credentials: &SigningCredentials, options: Sign
         const SIGNATURES_EXIST_APPEND_ONLY: i64 = 3;
         const PRINT_LOCKED: i64 = 132;
         fn appended(update: &mut IncrementalDocument, holder: ObjectId, key: &str, items: Vec<Object>) -> Result<(), lopdf::Error> {
-            let holding = if update.new_document.has_object(holder) { &update.new_document } else { update.get_prev_documents() }.get_dictionary(holder)?;
-            match holding.has(key.as_bytes()).then(|| holding.get(key.as_bytes()).cloned()).transpose()? {
-                Some(Object::Reference(list)) => {
-                    update.opt_clone_object_to_new_document(list)?;
-                    update.new_document.get_object_mut(list)?.as_array_mut().map(|listed| listed.extend(items))
-                }
-                Some(Object::Array(listed)) => {
-                    update.opt_clone_object_to_new_document(holder)?;
-                    update.new_document.get_dictionary_mut(holder).map(|dictionary| dictionary.set(key, [listed, items].concat()))
-                }
-                Some(_) | None => {
-                    update.opt_clone_object_to_new_document(holder)?;
-                    update.new_document.get_dictionary_mut(holder).map(|dictionary| dictionary.set(key, items))
-                }
+            let extend = |target: &mut Object| target.as_array_mut().map(|array| array.extend(items));
+            update.opt_clone_object_to_new_document(holder)?;
+            let listed = update.new_document.get_dictionary_mut(holder)?.as_hashmap_mut().entry(key.as_bytes().to_vec()).or_insert_with(|| Object::Array(Vec::new()));
+            if let Object::Reference(list) = listed {
+                let list = *list;
+                update.opt_clone_object_to_new_document(list)?;
+                extend(update.new_document.get_object_mut(list)?)
+            } else {
+                extend(listed)
             }
         }
         let bytes = document.data().as_ref().to_vec();
-        let prior = lopdf::Document::load_mem(&bytes)?;
+        let mut prior = lopdf::Document::load_mem(&bytes)?;
+        prior.reference_table.cross_reference_type = XrefType::CrossReferenceTable;
         let root = prior.trailer.get(b"Root")?.as_reference()?;
         let page = prior.page_iter().next().ok_or(PdfError::Page { index: 0, count: 0 })?;
         let catalog = prior.get_dictionary(root)?;
-        let form = catalog.has(ACROFORM.as_bytes()).then(|| catalog.get(ACROFORM.as_bytes()).cloned()).transpose()?;
+        let form = catalog.as_hashmap().get(ACROFORM.as_bytes()).cloned();
         let roots = match form.as_ref().map(|form| resolved(&prior, form)).transpose()? {
             Some(Object::Dictionary(held)) => entry(&prior, held, FIELDS)?.map(Object::as_array).transpose()?.cloned().unwrap_or_default(),
             Some(_) | None => Vec::new(),
@@ -73,10 +70,11 @@ pub fn sign(document: &Document, credentials: &SigningCredentials, options: Sign
             .flatten()
             .collect::<HashSet<_>>();
         let mut update = IncrementalDocument::create_from(bytes, prior);
+        let archival = level == PadesLevel::BLta;
         let widgets = (1_usize..)
             .map(|ordinal| format!("Signature{ordinal}"))
             .filter(|name| !taken.contains(name))
-            .take(if level == PadesLevel::BLta { 2 } else { 1 })
+            .take(if archival { 2 } else { 1 })
             .map(|name| {
                 update.new_document.try_add_object(
                     dictionary! { "Type" => "Annot", "Subtype" => "Widget", "FT" => "Sig", "T" => text_string(&name), "F" => PRINT_LOCKED, "Rect" => vec![Object::from(0); 4], "P" => page },
@@ -97,61 +95,56 @@ pub fn sign(document: &Document, credentials: &SigningCredentials, options: Sign
         appended(&mut update, page, "Annots", listed)?;
         update.opt_clone_object_to_new_document(holder)?;
         update.new_document.get_dictionary_mut(holder)?.set("SigFlags", SIGNATURES_EXIST_APPEND_ONLY);
-        let signature = update.new_document.max_id.strict_add(1);
-        let items = [&material.certificates, &material.crls, &material.ocsp_responses].into_iter().map(Vec::len).fold(0_usize, usize::strict_add);
-        let stamp = signature.checked_add(2).and_then(|after| after.checked_add(u32::try_from(items).unwrap_or(u32::MAX))).ok_or(lopdf::Error::ObjectIdOverflow)?;
-        iter::zip(&widgets, [signature, stamp]).try_for_each(|(&widget, value)| update.new_document.get_dictionary_mut(widget).map(|field| field.set("V", Object::Reference((value, 0)))))?;
+        let signature = update.new_document.max_id.checked_add(1).ok_or(lopdf::Error::ObjectIdOverflow)?;
+        let values = iter::once(Ok(signature)).chain(archival.then(|| {
+            [&material.certificates, &material.crls, &material.ocsp_responses].into_iter().try_fold(signature.checked_add(2).ok_or(lopdf::Error::ObjectIdOverflow)?, |next, items| {
+                let count = u32::try_from(items.len()).map_err(|TryFromIntError { .. }| lopdf::Error::ObjectIdOverflow)?;
+                next.checked_add(count).ok_or(lopdf::Error::ObjectIdOverflow)
+            })
+        }));
+        iter::zip(&widgets, values).try_for_each(|(&widget, value)| {
+            let value = value?;
+            update.new_document.get_dictionary_mut(widget).map(|field| field.set("V", Object::Reference((value, 0))))
+        })?;
         let mut fielded = Vec::new();
         update.save_to(&mut fielded).map_err(lopdf::Error::from)?;
         Ok(fielded)
     }
     fn token(authority: &Authority, algorithm: DigestAlgorithm, message: &[u8]) -> Result<Vec<u8>, PdfError> {
-        fn tagged(tag: u8, content: &[u8]) -> Vec<u8> {
-            let header = match u8::try_from(content.len()) {
-                Ok(short) if short < LONG_FORM => vec![tag, short],
-                Ok(_) | Err(TryFromIntError { .. }) => {
-                    let significant = content.len().to_be_bytes().into_iter().skip_while(|byte| *byte == 0).collect::<Vec<_>>();
-                    iter::chain([tag, iter::zip(1_u8.., &significant).last().map_or(LONG_FORM, |(count, _)| LONG_FORM | count)], significant).collect()
-                }
-            };
-            [header.as_slice(), content].concat()
-        }
-        fn element(der: &[u8]) -> Option<(&[u8], &[u8], &[u8])> {
-            let [_, first, tail @ ..] = der else {
-                return None;
-            };
-            let extra = if *first < LONG_FORM { 0 } else { usize::from(first & !LONG_FORM) };
-            let size = if *first < LONG_FORM { usize::from(*first) } else { tail.get(..extra)?.iter().try_fold(0_usize, |size, byte| size.checked_mul(256)?.checked_add(usize::from(*byte)))? };
-            let header = extra.checked_add(2)?;
-            let end = header.checked_add(size)?;
-            Some((der.get(..end)?, der.get(header..end)?, der.get(end..)?))
-        }
-        const BOOLEAN: u8 = 0x01;
-        const INTEGER: u8 = 0x02;
-        const OCTET_STRING: u8 = 0x04;
-        const OBJECT_IDENTIFIER: u8 = 0x06;
-        const SEQUENCE: u8 = 0x30;
-        let imprint = {
-            let mut hasher = crypto::active()
-                .hasher(match algorithm {
-                    DigestAlgorithm::Sha1 => HashAlgorithm::Sha1,
-                    DigestAlgorithm::Sha256 => HashAlgorithm::Sha256,
-                    DigestAlgorithm::Sha384 => HashAlgorithm::Sha384,
-                    DigestAlgorithm::Sha512 => HashAlgorithm::Sha512,
-                })
-                .map_err(|source| pdf_oxide::Error::from(io::Error::other(source)))?;
-            hasher.update(message);
-            hasher.finalize()
+        let (hash, oid) = match algorithm {
+            DigestAlgorithm::Sha1 => (HashAlgorithm::Sha1, Oid::ISO_IDENTIFIED_ORGANISATION_OIW_SECSIG_ALGORITHM_SHA1),
+            DigestAlgorithm::Sha256 => (HashAlgorithm::Sha256, Oid::JOINT_ISO_ITU_T_COUNTRY_US_ORGANIZATION_GOV_CSOR_NIST_ALGORITHMS_HASH_SHA256),
+            DigestAlgorithm::Sha384 => (HashAlgorithm::Sha384, Oid::JOINT_ISO_ITU_T_COUNTRY_US_ORGANIZATION_GOV_CSOR_NIST_ALGORITHMS_HASH_SHA384),
+            DigestAlgorithm::Sha512 => (HashAlgorithm::Sha512, Oid::JOINT_ISO_ITU_T_COUNTRY_US_ORGANIZATION_GOV_CSOR_NIST_ALGORITHMS_HASH_SHA512),
         };
-        let identifier = tagged(SEQUENCE, &tagged(OBJECT_IDENTIFIER, algorithm.oid()));
-        let request = tagged(SEQUENCE, &[tagged(INTEGER, &[1]), tagged(SEQUENCE, &[identifier, tagged(OCTET_STRING, &imprint)].concat()), tagged(BOOLEAN, &[0xFF])].concat());
-        let response = authority.client.post(authority.url.clone()).header(CONTENT_TYPE, "application/timestamp-query").body(request).send()?.error_for_status()?.bytes()?;
-        let stamp = match element(&response).and_then(|(_, body, _)| element(body)).and_then(|(_, information, rest)| element(information).map(|(_, status, _)| (status, rest))) {
-            Some(([0 | 1], rest)) => element(rest).map(|(whole, _, _)| whole).ok_or(PdfError::Timestamp(None)),
-            Some(([status], _)) => Err(PdfError::Timestamp(Some(*status))),
-            Some(_) | None => Err(PdfError::Timestamp(None)),
+        let request = TimeStampReq {
+            version: 1,
+            message_imprint: MessageImprint {
+                hash_algorithm: AlgorithmIdentifier { algorithm: oid.into(), parameters: None },
+                hashed_message: {
+                    let mut hasher = crypto::active().hasher(hash).map_err(|source| pdf_oxide::Error::from(io::Error::other(source)))?;
+                    hasher.update(message);
+                    hasher.finalize().into()
+                },
+            },
+            req_policy: None,
+            nonce: None,
+            cert_req: true,
+            extensions: None,
+        };
+        let response = authority.client.post(authority.url.clone()).header(CONTENT_TYPE, "application/timestamp-query").body(der::encode(&request)?).send()?.error_for_status()?.bytes()?;
+        let response: TimeStampResp = der::decode(&response)?;
+        let stamp = match response.status.status {
+            PkiStatus::Granted | PkiStatus::GrantedWithMods => response.time_stamp_token.ok_or(PdfError::Timestamp(None)),
+            status @ (PkiStatus::Rejection | PkiStatus::Waiting | PkiStatus::RevocationWarning | PkiStatus::RevocationNotification) => Err(PdfError::Timestamp(Some(status))),
         }?;
-        (Timestamp::from_der(stamp)?.message_imprint_ref() == imprint).ok_or(PdfError::Imprint).map(|()| stamp.to_vec())
+        (stamp.content_type == rasn_cms::CONTENT_SIGNED_DATA).ok_or(PdfError::Timestamp(None))?;
+        let signed: SignedData = der::decode(stamp.content.as_bytes())?;
+        (signed.encap_content_info.content_type == TST_INFO).ok_or(PdfError::Timestamp(None))?;
+        let info: TstInfo = der::decode(signed.encap_content_info.content.as_deref().ok_or(PdfError::Timestamp(None))?)?;
+        (info.message_imprint.hash_algorithm.algorithm == request.message_imprint.hash_algorithm.algorithm && info.message_imprint.hashed_message == request.message_imprint.hashed_message)
+            .ok_or(PdfError::Imprint)?;
+        Ok(der::encode(&stamp)?)
     }
     let unvalidated = RevocationMaterial::default();
     let (pades, authority, material) = match level {
@@ -174,5 +167,5 @@ pub fn sign(document: &Document, credentials: &SigningCredentials, options: Sign
         pdf_oxide::Error::Io(carried) => carried.downcast::<PdfError>().unwrap_or_else(|other| PdfError::Engine(other.into())),
         other => PdfError::Engine(other),
     })?;
-    Document::new(signed, None)
+    Document::from_plain_bytes(signed)
 }

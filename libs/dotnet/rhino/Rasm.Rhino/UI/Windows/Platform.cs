@@ -31,9 +31,6 @@ internal sealed class WpfPlatform : IHostPlatform {
             .Iter(static native => System.Windows.Documents.Typography.SetNumeralAlignment(native, System.Windows.FontNumeralAlignment.Tabular)));
 
     // --- [FRAMES]
-    private static readonly Action<EventHandler> Attach = static handler => CompositionTarget.Rendering += handler;
-    private static readonly Action<EventHandler> Detach = static handler => CompositionTarget.Rendering -= handler;
-
     public IO<Func<bool, IO<Unit>>> FrameLink(Control view, Func<Duration, bool> tick) =>
         from link in IO.lift(() => {
             bool running = false;
@@ -43,7 +40,8 @@ internal sealed class WpfPlatform : IHostPlatform {
             Unit Run(bool next) {
                 if (next == running) return unit;
                 running = next;
-                (next ? Attach : Detach)(Rendered);
+                if (next) CompositionTarget.Rendering += Rendered;
+                else CompositionTarget.Rendering -= Rendered;
                 return unit;
             }
             return (Func<bool, Unit>)Run;

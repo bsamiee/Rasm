@@ -1,6 +1,14 @@
 use core::hint::black_box;
 use std::collections::VecDeque;
 
+// --- [MODELS] --------------------------------------------------------------------------
+
+struct Token(usize);
+
+impl FromIterator<Token> for Vec<bool> {
+    fn from_iter<I: IntoIterator<Item = Token>>(values: I) -> Self { values.into_iter().map(|Token(index)| index == 0).collect() }
+}
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 fn squares(count: usize) -> Vec<usize> { (0..count).map(|index| index.strict_mul(index)).collect::<Vec<_>>() }
@@ -15,6 +23,14 @@ fn narrow(count: u32) -> Vec<u32> { (0..count).map(|index| index.strict_mul(2)).
 
 fn queued(count: usize) -> VecDeque<usize> { (0..count).map(|index| index.strict_mul(2)).collect() }
 
+fn custom(count: usize) -> Vec<bool> { (0..count).map(Token).collect() }
+
+fn shadowed(count: usize) -> std::vec::Vec<usize> {
+    struct Vec;
+    black_box(Vec);
+    (0..count).map(|index| index.strict_mul(2)).collect()
+}
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-fn main() { black_box(&(squares(3), labels(2), offset(3), zeroes(2), narrow(2), queued(2))); }
+fn main() { black_box(&(squares(3), labels(2), offset(3), zeroes(2), narrow(2), queued(2), custom(2), shadowed(2))); }

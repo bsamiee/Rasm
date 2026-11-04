@@ -31,8 +31,9 @@ public sealed class DarkroomEffect : DefinedEffect<DarkroomEffect, ChainState>, 
         from size in IO.lift(PixelExtent.Validated(frame.Rect.Width, frame.Rect.Height))
         from doc in IO.lift(static () => Conversions.Required(RhinoDoc.ActiveDoc))
         from scene in ChainScene.Sourced(doc, extent, None)
+        from integration in DarkroomPlugIn.Integration
         from guides in IO.lift(state.Needs.Map(needs => needs.Choose(channel => Guide(frame, channel, size, extent, scene.Meters))))
-        from chain in IO.lift(state.Passes(scene.Context(extent, toHashMap(guides), Derived, None) with { Rendering = frame.Rendering }))
+        from chain in IO.lift(state.Passes(scene.Context(extent, toHashMap(guides), Derived, None, integration) with { Rendering = frame.Rendering }))
         from gamma in chain.Context.Formed
             ? Lights.PostProcessGamma(doc).Bind(static exponent => IO.lift(exponent.Traverse(static held => Transfer.Gamma.Of(held)).As()))
             : IO.pure(Option<Transfer.Gamma>.None)

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-guard-on-decoded-union
-language: tsx
+language: tsxlang
 severity: error
 rule:
     kind: call_expression
@@ -28,6 +28,5 @@ rule:
                             all:
                                 - has: {field: pattern, pattern: $VALUE}
                                 - has: {field: type, has: {kind: type_query, has: {kind: member_expression, all: [{has: {field: object, pattern: $UNION}}, {has: {field: property, regex: '^Type$'}}]}}}
-fix: $UNION.isAnyOf(['$CASE'])($VALUE)
 message: '`$UNION.guards.$CASE` validates `$VALUE` in full, a value already decoded as `$UNION`'
 note: 'Test the tag of a decoded value with `<union>.isAnyOf([''<case>''])`, `guards` stays for unknown input'

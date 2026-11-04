@@ -153,51 +153,84 @@ public sealed record SnapshotDefinition<TDocument, TObject>(Guid Client, string 
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
-internal sealed class SnapshotBody<TDocument, TObject>(SnapshotDefinition<TDocument, TObject> definition) where TDocument : notnull where TObject : notnull {
+internal sealed class DefinedSnapshotClient<TDocument, TObject>(SnapshotDefinition<TDocument, TObject> definition) : SnapShotsClient where TDocument : notnull where TObject : notnull {
     // --- [STATE]
     private readonly Atom<Option<SnapshotFrames<RhinoDoc>>> documentFrames = Atom(Option<SnapshotFrames<RhinoDoc>>.None);
     private readonly AtomHashMap<Guid, SnapshotFrames<SnapshotObject>> objectFrames = AtomHashMap<Guid, SnapshotFrames<SnapshotObject>>();
 
+    // --- [IDENTITY]
+    public override Guid PlugInId() => Session.PlugIn.Id;
+
+    public override Guid ClientId() => definition.Client;
+
+    public override string Category() => definition.Category();
+
+    public override string Name() => definition.Name;
+
     // --- [DOCUMENT]
-    internal bool SaveDocument(RhinoDoc doc, BinaryArchiveWriter archive) => Succeeded(definition.Document.Map(state => state.Save(doc, archive)));
+    public override bool SupportsDocument() => definition.Document.IsSome;
 
-    internal bool RestoreDocument(RhinoDoc doc, BinaryArchiveReader archive) => Succeeded(definition.Document.Map(state => state.Restore(doc, archive)));
+    public override bool SaveDocument(RhinoDoc doc, BinaryArchiveWriter archive) => Succeeded(definition.Document.Map(state => state.Save(doc, archive)));
 
-    internal Unit Restored(RhinoDoc doc) => Session.Run(definition.Restored.Map(restored => IO.lift(() => restored(doc)).Flatten()).IfNone(IO.pure(unit)));
+    public override bool RestoreDocument(RhinoDoc doc, BinaryArchiveReader archive) => Succeeded(definition.Document.Map(state => state.Restore(doc, archive)));
 
-    internal bool Current(BinaryArchiveReader archive, SimpleArrayBinaryArchiveReader stored) =>
-        Session.Run(definition.Document.Map(state => state.InAny(archive, Stored(stored))).IfNone(IO.pure(value: true)), failed: false);
+    public override void SnapshotRestored(RhinoDoc doc) => _ = Session.Run(definition.Restored.Map(restored => IO.lift(() => restored(doc)).Flatten()).IfNone(IO.pure(unit)));
+
+    public override bool IsCurrentModelStateInAnySnapshot(RhinoDoc doc, BinaryArchiveReader archive, SimpleArrayBinaryArchiveReader archive_array, TextLog? text_log = null) =>
+        Session.Run(definition.Document.Map(state => state.InAny(archive, Stored(archive_array))).IfNone(IO.pure(value: true)), failed: false);
 
     // --- [OBJECTS]
-    internal bool SupportsObject(RhinoObject target) =>
-        Session.Run(definition.Objects.Map(objects => IO.lift(() => objects.Supports(target))).IfNone(IO.pure(value: false)), failed: false);
+    public override bool SupportsObjects() => definition.Objects.IsSome;
 
-    internal bool SaveObject(SnapshotObject subject, BinaryArchiveWriter archive) => Succeeded(definition.Objects.Map(objects => objects.Record.Save(subject, archive)));
+    public override bool SupportsObject(RhinoObject doc_object) =>
+        Session.Run(definition.Objects.Map(objects => IO.lift(() => objects.Supports(doc_object))).IfNone(IO.pure(value: false)), failed: false);
 
-    internal bool RestoreObject(SnapshotObject subject, BinaryArchiveReader archive) => Succeeded(definition.Objects.Map(objects => objects.Record.Restore(subject, archive)));
+    public override bool SaveObject(RhinoDoc doc, RhinoObject doc_object, ref Transform transform, BinaryArchiveWriter archive) {
+        SnapshotObject subject = new(doc, doc_object, transform);
+        return Succeeded(definition.Objects.Map(objects => objects.Record.Save(subject, archive)));
+    }
 
-    internal bool Current(BinaryArchiveReader archive, SimpleArrayBinaryArchiveReader stored, RhinoObject _) =>
-        Session.Run(definition.Objects.Map(objects => objects.Record.InAny(archive, Stored(stored))).IfNone(IO.pure(value: true)), failed: false);
+    public override bool RestoreObject(RhinoDoc doc, RhinoObject doc_object, ref Transform transform, BinaryArchiveReader archive) {
+        SnapshotObject subject = new(doc, doc_object, transform);
+        return Succeeded(definition.Objects.Map(objects => objects.Record.Restore(subject, archive)));
+    }
+
+    public override bool ObjectTransformNotification(RhinoDoc doc, RhinoObject doc_object, ref Transform transform, BinaryArchiveReader archive) => SupportsObject(doc_object);
+
+    public override bool IsCurrentModelStateInAnySnapshot(RhinoDoc doc, RhinoObject doc_object, BinaryArchiveReader archive, SimpleArrayBinaryArchiveReader archive_array, TextLog? text_log = null) =>
+        Session.Run(definition.Objects.Map(objects => objects.Record.InAny(archive, Stored(archive_array))).IfNone(IO.pure(value: true)), failed: false);
 
     // --- [ANIMATION]
-    internal bool SupportsAnimation =>
+    public override bool SupportsAnimation() =>
         definition.Document.Exists(static state => state.Tween.IsSome) || definition.Objects.Exists(static objects => objects.Record.Tween.IsSome);
 
-    internal bool PrepareDocument(RhinoDoc doc, BinaryArchiveReader start, BinaryArchiveReader stop) =>
-        Succeeded(definition.Document.Map(state => state.Prepare(doc, start, stop).Bind(frames => writeIO(documentFrames, frames))));
+    public override void AnimationStart(RhinoDoc doc, int iFrames) { }
 
-    internal BoundingBox DocumentExtent(BoundingBox box) => Extended(box, documentFrames.Value.Bind(static frames => frames.Extent));
+    public override bool PrepareForDocumentAnimation(RhinoDoc doc, BinaryArchiveReader archive_start, BinaryArchiveReader archive_stop) =>
+        Succeeded(definition.Document.Map(state => state.Prepare(doc, archive_start, archive_stop).Bind(frames => writeIO(documentFrames, frames))));
 
-    internal bool AnimateDocument(RhinoDoc doc, double position) => Succeeded(documentFrames.Value.Map(frames => frames.Animate(doc, position)));
+    public override void ExtendBoundingBoxForDocumentAnimation(RhinoDoc doc, BinaryArchiveReader archive_start, BinaryArchiveReader archive_stop, ref BoundingBox bbox) =>
+        bbox = Extended(bbox, documentFrames.Value.Bind(static frames => frames.Extent));
 
-    internal bool PrepareObject(SnapshotObject subject, BinaryArchiveReader start, BinaryArchiveReader stop) =>
-        Succeeded(definition.Objects.Map(objects => objects.Record.Prepare(subject, start, stop).Bind(frames => IO.lift(() => objectFrames.SwapKey(subject.Object.Id, _ => frames)))));
+    public override bool AnimateDocument(RhinoDoc doc, double dPos, BinaryArchiveReader archive_start, BinaryArchiveReader archive_stop) =>
+        Succeeded(documentFrames.Value.Map(frames => frames.Animate(doc, dPos)));
 
-    internal BoundingBox ObjectExtent(RhinoObject target, BoundingBox box) => Extended(box, objectFrames.Find(target.Id).Bind(static frames => frames.Extent));
+    public override bool PrepareForObjectAnimation(RhinoDoc doc, RhinoObject doc_object, ref Transform transform, BinaryArchiveReader archive_start, BinaryArchiveReader archive_stop) {
+        SnapshotObject subject = new(doc, doc_object, transform);
+        return Succeeded(definition.Objects.Map(objects => objects.Record.Prepare(subject, archive_start, archive_stop)
+            .Bind(frames => IO.lift(() => objectFrames.SwapKey(doc_object.Id, _ => frames)))));
+    }
 
-    internal bool AnimateObject(SnapshotObject subject, double position) => Succeeded(objectFrames.Find(subject.Object.Id).Map(frames => frames.Animate(subject, position)));
+    public override void ExtendBoundingBoxForObjectAnimation(
+        RhinoDoc doc, RhinoObject doc_object, ref Transform transform, BinaryArchiveReader archive_start, BinaryArchiveReader archive_stop, ref BoundingBox bbox) =>
+        bbox = Extended(bbox, objectFrames.Find(doc_object.Id).Bind(static frames => frames.Extent));
 
-    internal bool Stopped =>
+    public override bool AnimateObject(RhinoDoc doc, RhinoObject doc_object, ref Transform transform, double dPos, BinaryArchiveReader archive_start, BinaryArchiveReader archive_stop) {
+        SnapshotObject subject = new(doc, doc_object, transform);
+        return Succeeded(objectFrames.Find(doc_object.Id).Map(frames => frames.Animate(subject, dPos)));
+    }
+
+    public override bool AnimationStop(RhinoDoc doc) =>
         Session.Run(
             from document in writeIO(documentFrames, None)
             from objects in IO.lift(objectFrames.Clear)
@@ -212,68 +245,6 @@ internal sealed class SnapshotBody<TDocument, TObject>(SnapshotDefinition<TDocum
 
     private static Seq<BinaryArchiveReader> Stored(SimpleArrayBinaryArchiveReader stored) =>
         toSeq(Range(0, stored.Count)).Map(stored.Get).Strict();
-}
-
-internal sealed class DefinedSnapshotClient<TDocument, TObject>(SnapshotDefinition<TDocument, TObject> definition) : SnapShotsClient where TDocument : notnull where TObject : notnull {
-    private readonly SnapshotBody<TDocument, TObject> body = new(definition);
-
-    public override Guid PlugInId() => Session.PlugIn.Id;
-
-    public override Guid ClientId() => definition.Client;
-
-    public override string Category() => definition.Category();
-
-    public override string Name() => definition.Name;
-
-    public override bool SupportsDocument() => definition.Document.IsSome;
-
-    public override bool SaveDocument(RhinoDoc doc, BinaryArchiveWriter archive) => body.SaveDocument(doc, archive);
-
-    public override bool RestoreDocument(RhinoDoc doc, BinaryArchiveReader archive) => body.RestoreDocument(doc, archive);
-
-    public override void SnapshotRestored(RhinoDoc doc) => _ = body.Restored(doc);
-
-    public override bool IsCurrentModelStateInAnySnapshot(RhinoDoc doc, BinaryArchiveReader archive, SimpleArrayBinaryArchiveReader archive_array, TextLog? text_log = null) =>
-        body.Current(archive, archive_array);
-
-    public override bool SupportsObjects() => definition.Objects.IsSome;
-
-    public override bool SupportsObject(RhinoObject doc_object) => body.SupportsObject(doc_object);
-
-    public override bool SaveObject(RhinoDoc doc, RhinoObject doc_object, ref Transform transform, BinaryArchiveWriter archive) =>
-        body.SaveObject(new SnapshotObject(doc, doc_object, transform), archive);
-
-    public override bool RestoreObject(RhinoDoc doc, RhinoObject doc_object, ref Transform transform, BinaryArchiveReader archive) =>
-        body.RestoreObject(new SnapshotObject(doc, doc_object, transform), archive);
-
-    public override bool ObjectTransformNotification(RhinoDoc doc, RhinoObject doc_object, ref Transform transform, BinaryArchiveReader archive) => body.SupportsObject(doc_object);
-
-    public override bool IsCurrentModelStateInAnySnapshot(RhinoDoc doc, RhinoObject doc_object, BinaryArchiveReader archive, SimpleArrayBinaryArchiveReader archive_array, TextLog? text_log = null) =>
-        body.Current(archive, archive_array, doc_object);
-
-    public override bool SupportsAnimation() => body.SupportsAnimation;
-
-    public override void AnimationStart(RhinoDoc doc, int iFrames) { }
-
-    public override bool PrepareForDocumentAnimation(RhinoDoc doc, BinaryArchiveReader archive_start, BinaryArchiveReader archive_stop) =>
-        body.PrepareDocument(doc, archive_start, archive_stop);
-
-    public override void ExtendBoundingBoxForDocumentAnimation(RhinoDoc doc, BinaryArchiveReader archive_start, BinaryArchiveReader archive_stop, ref BoundingBox bbox) =>
-        bbox = body.DocumentExtent(bbox);
-
-    public override bool AnimateDocument(RhinoDoc doc, double dPos, BinaryArchiveReader archive_start, BinaryArchiveReader archive_stop) => body.AnimateDocument(doc, dPos);
-
-    public override bool PrepareForObjectAnimation(RhinoDoc doc, RhinoObject doc_object, ref Transform transform, BinaryArchiveReader archive_start, BinaryArchiveReader archive_stop) =>
-        body.PrepareObject(new SnapshotObject(doc, doc_object, transform), archive_start, archive_stop);
-
-    public override void ExtendBoundingBoxForObjectAnimation(
-        RhinoDoc doc, RhinoObject doc_object, ref Transform transform, BinaryArchiveReader archive_start, BinaryArchiveReader archive_stop, ref BoundingBox bbox) =>
-        bbox = body.ObjectExtent(doc_object, bbox);
-
-    public override bool AnimateObject(RhinoDoc doc, RhinoObject doc_object, ref Transform transform, double dPos, BinaryArchiveReader archive_start, BinaryArchiveReader archive_stop) =>
-        body.AnimateObject(new SnapshotObject(doc, doc_object, transform), dPos);
-
-    public override bool AnimationStop(RhinoDoc doc) => body.Stopped;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

@@ -1,73 +1,123 @@
+id: python-import
+language: pythonlang
+role: item
+symbolType: module
+rule:
+    kind: import_statement
+    pattern: $DECLARATION
+rewriters:
+    - id: module
+      rule: {kind: 'dotted_name, aliased_import', pattern: $MODULE, inside: {kind: import_statement}}
+      fix: $MODULE
+transform:
+    NAME: {rewrite: {source: $DECLARATION, rewriters: [module], joinBy: ', '}}
+name: $NAME
+signature: $DECLARATION
+isImport: true
+isExported: false
+---
+id: python-import-from
+language: pythonlang
+role: item
+symbolType: module
+rule:
+    kind: 'import_from_statement, future_import_statement'
+    pattern: $DECLARATION
+    any:
+        - has: {field: module_name, pattern: $NAME}
+        - has: {pattern: $$NAME, regex: '^__future__$'}
+name: $NAME
+signature: $DECLARATION
+isImport: true
+isExported: false
+---
 id: python-type-alias
-language: python
+language: pythonlang
 role: item
 symbolType: struct
 rule:
     kind: type_alias_statement
     pattern: $DECLARATION
-    not: {inside: {kind: 'function_definition, class_definition', stopBy: end}}
     has:
         field: left
         any:
             - has: {kind: identifier, pattern: $NAME}
             - has: {kind: generic_type, has: {kind: identifier, pattern: $NAME}}
-transform:
-    SIGNATURE: {replace: {source: $DECLARATION, replace: '\s*\n\s*', by: ' '}}
 name: $NAME
-signature: $SIGNATURE
+signature: $DECLARATION
+isExported:
+    not:
+        any:
+            - {has: {field: left, any: [{has: {kind: identifier, regex: '^_'}}, {has: {kind: generic_type, has: {kind: identifier, regex: '^_'}}}]}}
+            - {inside: {kind: 'class_definition, function_definition, lambda', stopBy: end}}
 ---
-id: python-decorated-class
-language: python
+id: python-class
+language: pythonlang
 role: item
 symbolType: class
 rule:
-    kind: decorated_definition
+    kind: 'class_definition, decorated_definition'
     pattern: $DECLARATION
-    not: {inside: {kind: 'function_definition, class_definition', stopBy: end}}
-    has: {field: definition, kind: class_definition, has: {field: name, pattern: $NAME}}
-utils:
-    body: {kind: block, inside: {kind: 'function_definition, class_definition', field: body}}
+    any:
+        - has: {field: name, pattern: $NAME}
+        - has: {field: definition, kind: class_definition, has: {field: name, pattern: $NAME}}
 rewriters:
-    - id: header
-      rule: {matches: body}
+    - id: body
+      rule:
+          any:
+              - {kind: block, inside: {kind: class_definition, field: body}}
+              - kind: comment
+                inside: {kind: class_definition}
+                follows: {regex: '^:$', stopBy: {not: {kind: comment}}}
       fix: ''
 transform:
-    HEADER: rewrite($DECLARATION, rewriters=[header])
-    UNTRAILED: {replace: {source: $HEADER, replace: ',(\s*\n\s*[)\]])', by: '$1'}}
-    OPENED: {replace: {source: $UNTRAILED, replace: '([(\[])\s*\n\s*', by: '$1'}}
-    CLOSED: {replace: {source: $OPENED, replace: '\s*\n\s*([)\]])', by: '$1'}}
-    JOINED: {replace: {source: $CLOSED, replace: '\s*\n\s*', by: ' '}}
-    SIGNATURE: {replace: {source: $JOINED, replace: '\s+$', by: ''}}
+    HEADER: rewrite($DECLARATION, rewriters=[body])
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s+$', by: ''}}
 name: $NAME
 signature: $SIGNATURE
+isExported:
+    all:
+        - not:
+              any:
+                  - has: {field: name, regex: '^_'}
+                  - has: {field: definition, has: {field: name, regex: '^_'}}
+        - not: {inside: {kind: 'class_definition, function_definition, lambda', stopBy: end}}
 ---
-id: python-decorated-function
-language: python
+id: python-function
+language: pythonlang
 role: item
 symbolType: function
 rule:
-    kind: decorated_definition
+    kind: 'function_definition, decorated_definition'
     pattern: $DECLARATION
-    not: {inside: {kind: 'function_definition, class_definition', stopBy: end}}
-    has: {field: definition, kind: function_definition, has: {field: name, pattern: $NAME}}
-utils:
-    body: {kind: block, inside: {kind: 'function_definition, class_definition', field: body}}
+    any:
+        - has: {field: name, pattern: $NAME}
+        - has: {field: definition, kind: function_definition, has: {field: name, pattern: $NAME}}
+    not: {inside: {kind: class_definition, stopBy: {kind: 'class_definition, function_definition, lambda'}}}
 rewriters:
-    - id: header
-      rule: {matches: body}
+    - id: body
+      rule:
+          any:
+              - {kind: block, inside: {kind: function_definition, field: body}}
+              - kind: comment
+                inside: {kind: function_definition}
+                follows: {regex: '^:$', stopBy: {not: {kind: comment}}}
       fix: ''
 transform:
-    HEADER: rewrite($DECLARATION, rewriters=[header])
-    UNTRAILED: {replace: {source: $HEADER, replace: ',(\s*\n\s*[)\]])', by: '$1'}}
-    OPENED: {replace: {source: $UNTRAILED, replace: '([(\[])\s*\n\s*', by: '$1'}}
-    CLOSED: {replace: {source: $OPENED, replace: '\s*\n\s*([)\]])', by: '$1'}}
-    JOINED: {replace: {source: $CLOSED, replace: '\s*\n\s*', by: ' '}}
-    SIGNATURE: {replace: {source: $JOINED, replace: '\s+$', by: ''}}
+    HEADER: rewrite($DECLARATION, rewriters=[body])
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s+$', by: ''}}
 name: $NAME
 signature: $SIGNATURE
+isExported:
+    all:
+        - not:
+              any:
+                  - has: {field: name, regex: '^_'}
+                  - has: {field: definition, has: {field: name, regex: '^_'}}
+        - not: {inside: {kind: 'class_definition, function_definition, lambda', stopBy: end}}
 ---
 id: python-export-list
-language: python
+language: pythonlang
 role: item
 symbolType: variable
 rule:
@@ -75,83 +125,183 @@ rule:
     pattern: $DECLARATION
     inside: {kind: module}
     has: {kind: assignment, has: {field: left, regex: '^__all__$', pattern: $NAME}}
-transform:
-    UNTRAILED: {replace: {source: $DECLARATION, replace: ',(\s*\n\s*[)\]])', by: '$1'}}
-    OPENED: {replace: {source: $UNTRAILED, replace: '([(\[])\s*\n\s*', by: '$1'}}
-    CLOSED: {replace: {source: $OPENED, replace: '\s*\n\s*([)\]])', by: '$1'}}
-    SIGNATURE: {replace: {source: $CLOSED, replace: '\s*\n\s*', by: ' '}}
 name: $NAME
-signature: $SIGNATURE
+signature: $DECLARATION
+isExported: false
 ---
-id: python-unpacked-variable
-language: python
+id: python-constant
+language: pythonlang
+role: item
+symbolType: constant
+rule:
+    kind: identifier
+    pattern: $NAME
+    regex: '^[A-Z_][A-Z0-9_]*$'
+    not: {inside: {kind: class_definition, stopBy: {kind: 'class_definition, function_definition, lambda'}}}
+    any:
+        - inside:
+              kind: assignment
+              field: left
+              any:
+                  - has: {field: type, pattern: $TYPE}
+                  - pattern: $_
+        - not: {regex: '^_$'}
+          inside:
+              kind: 'pattern_list, tuple_pattern, list_pattern, list_splat_pattern'
+              stopBy: {not: {kind: 'pattern_list, tuple_pattern, list_pattern, list_splat_pattern'}}
+              inside: {kind: assignment, field: left}
+transform:
+    ANNOTATION: {replace: {source: $TYPE, replace: '(?s)^.+$', by: ': $0'}}
+name: $NAME
+signature: $NAME$ANNOTATION
+isExported:
+    all:
+        - not: {regex: '^_'}
+        - not: {inside: {kind: 'class_definition, function_definition, lambda', stopBy: end}}
+---
+id: python-variable
+language: pythonlang
 role: item
 symbolType: variable
 rule:
     kind: identifier
     pattern: $NAME
-    not: {regex: '^_$'}
-    inside:
-        kind: 'pattern_list, tuple_pattern, list_pattern'
-        inside: {kind: assignment, field: left, inside: {kind: expression_statement, inside: {kind: module}}}
+    not:
+        any:
+            - regex: '^[A-Z_][A-Z0-9_]*$'
+            - {inside: {kind: class_definition, stopBy: {kind: 'class_definition, function_definition, lambda'}}}
+    any:
+        - inside:
+              kind: assignment
+              field: left
+              any:
+                  - has: {field: type, pattern: $TYPE}
+                  - pattern: $_
+        - inside:
+              kind: 'pattern_list, tuple_pattern, list_pattern, list_splat_pattern'
+              stopBy: {not: {kind: 'pattern_list, tuple_pattern, list_pattern, list_splat_pattern'}}
+              inside: {kind: assignment, field: left}
+transform:
+    ANNOTATION: {replace: {source: $TYPE, replace: '(?s)^.+$', by: ': $0'}}
 name: $NAME
+signature: $NAME$ANNOTATION
+isExported:
+    all:
+        - not: {regex: '^_'}
+        - not: {inside: {kind: 'class_definition, function_definition, lambda', stopBy: end}}
 ---
-id: python-decorated-class-field
-language: python
+id: python-class-field
+language: pythonlang
 role: member
 symbolType: field
-parentRuleIds: [python-decorated-class]
+parentRuleIds: [python-class]
 rule:
-    kind: assignment
-    has: {field: left, kind: identifier, pattern: $NAME}
-    inside: {kind: expression_statement, inside: {kind: block, inside: {kind: class_definition, field: body}}}
+    kind: identifier
+    pattern: $NAME
+    any:
+        - inside:
+              kind: assignment
+              field: left
+              any:
+                  - has: {field: type, pattern: $TYPE}
+                  - pattern: $_
+        - not: {regex: '^_$'}
+          inside:
+              kind: 'pattern_list, tuple_pattern, list_pattern, list_splat_pattern'
+              stopBy: {not: {kind: 'pattern_list, tuple_pattern, list_pattern, list_splat_pattern'}}
+              inside: {kind: assignment, field: left}
+transform:
+    ANNOTATION: {replace: {source: $TYPE, replace: '(?s)^.+$', by: ': $0'}}
 name: $NAME
+signature: $NAME$ANNOTATION
+isPublic: {any: [{not: {regex: '^_'}}, {regex: '^__.*__$'}]}
 ---
-id: python-decorated-class-nested-class
-language: python
+id: python-nested-class
+language: pythonlang
 role: member
 symbolType: class
-parentRuleIds: [python-decorated-class]
+parentRuleIds: [python-class, python-function]
 rule:
-    kind: class_definition
-    has: {field: name, pattern: $NAME}
-    inside: {kind: block, stopBy: {not: {kind: decorated_definition}}, inside: {kind: class_definition, field: body}}
+    kind: 'class_definition, decorated_definition'
+    pattern: $DECLARATION
+    any:
+        - has: {field: name, pattern: $NAME}
+        - has: {field: definition, kind: class_definition, has: {field: name, pattern: $NAME}}
+    not: {inside: {kind: decorated_definition}}
+rewriters:
+    - id: body
+      rule:
+          any:
+              - {kind: block, inside: {kind: class_definition, field: body}}
+              - kind: comment
+                inside: {kind: class_definition}
+                follows: {regex: '^:$', stopBy: {not: {kind: comment}}}
+      fix: ''
+transform:
+    HEADER: rewrite($DECLARATION, rewriters=[body])
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s+$', by: ''}}
 name: $NAME
+signature: $SIGNATURE
+isPublic:
+    not:
+        any:
+            - has: {field: name, regex: '^_', not: {regex: '^__.*__$'}}
+            - has: {field: definition, has: {field: name, regex: '^_', not: {regex: '^__.*__$'}}}
 ---
-id: python-method-header
-language: python
+id: python-member-type-alias
+language: pythonlang
+role: member
+symbolType: struct
+parentRuleIds: [python-class, python-function]
+rule:
+    kind: type_alias_statement
+    pattern: $DECLARATION
+    has:
+        field: left
+        any:
+            - has: {kind: identifier, pattern: $NAME}
+            - has: {kind: generic_type, has: {kind: identifier, pattern: $NAME}}
+name: $NAME
+signature: $DECLARATION
+isPublic:
+    not: {has: {field: left, any: [{has: {kind: identifier, regex: '^_', not: {regex: '^__.*__$'}}}, {has: {kind: generic_type, has: {kind: identifier, regex: '^_', not: {regex: '^__.*__$'}}}}]}}
+---
+id: python-method
+language: pythonlang
 role: member
 symbolType: method
-parentRuleIds: [python-class, python-decorated-class]
+parentRuleIds: [python-class]
 rule:
     kind: 'function_definition, decorated_definition'
     pattern: $DECLARATION
     any:
         - has: {field: name, pattern: $NAME}
         - has: {field: definition, kind: function_definition, has: {field: name, pattern: $NAME}}
-    not: {inside: {kind: decorated_definition}}
-    inside: {kind: block, inside: {kind: class_definition, field: body}}
-utils:
-    body: {kind: block, inside: {kind: 'function_definition, class_definition', field: body}}
 rewriters:
-    - id: header
-      rule: {matches: body}
+    - id: body
+      rule:
+          any:
+              - {kind: block, inside: {kind: function_definition, field: body}}
+              - kind: comment
+                inside: {kind: function_definition}
+                follows: {regex: '^:$', stopBy: {not: {kind: comment}}}
       fix: ''
 transform:
-    HEADER: rewrite($DECLARATION, rewriters=[header])
-    UNTRAILED: {replace: {source: $HEADER, replace: ',(\s*\n\s*[)\]])', by: '$1'}}
-    OPENED: {replace: {source: $UNTRAILED, replace: '([(\[])\s*\n\s*', by: '$1'}}
-    CLOSED: {replace: {source: $OPENED, replace: '\s*\n\s*([)\]])', by: '$1'}}
-    JOINED: {replace: {source: $CLOSED, replace: '\s*\n\s*', by: ' '}}
-    SIGNATURE: {replace: {source: $JOINED, replace: '\s+$', by: ''}}
+    HEADER: rewrite($DECLARATION, rewriters=[body])
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s+$', by: ''}}
 name: $NAME
 signature: $SIGNATURE
+isPublic:
+    not:
+        any:
+            - has: {field: name, regex: '^_', not: {regex: '^__.*__$'}}
+            - has: {field: definition, has: {field: name, regex: '^_', not: {regex: '^__.*__$'}}}
 ---
 id: python-nested-function
-language: python
+language: pythonlang
 role: member
 symbolType: function
-parentRuleIds: [python-function, python-async-function, python-decorated-function]
+parentRuleIds: [python-function]
 rule:
     kind: 'function_definition, decorated_definition'
     pattern: $DECLARATION
@@ -159,19 +309,22 @@ rule:
         - has: {field: name, pattern: $NAME}
         - has: {field: definition, kind: function_definition, has: {field: name, pattern: $NAME}}
     not: {inside: {kind: decorated_definition}}
-    inside: {kind: function_definition, stopBy: end}
-utils:
-    body: {kind: block, inside: {kind: 'function_definition, class_definition', field: body}}
 rewriters:
-    - id: header
-      rule: {matches: body}
+    - id: body
+      rule:
+          any:
+              - {kind: block, inside: {kind: function_definition, field: body}}
+              - kind: comment
+                inside: {kind: function_definition}
+                follows: {regex: '^:$', stopBy: {not: {kind: comment}}}
       fix: ''
 transform:
-    HEADER: rewrite($DECLARATION, rewriters=[header])
-    UNTRAILED: {replace: {source: $HEADER, replace: ',(\s*\n\s*[)\]])', by: '$1'}}
-    OPENED: {replace: {source: $UNTRAILED, replace: '([(\[])\s*\n\s*', by: '$1'}}
-    CLOSED: {replace: {source: $OPENED, replace: '\s*\n\s*([)\]])', by: '$1'}}
-    JOINED: {replace: {source: $CLOSED, replace: '\s*\n\s*', by: ' '}}
-    SIGNATURE: {replace: {source: $JOINED, replace: '\s+$', by: ''}}
+    HEADER: rewrite($DECLARATION, rewriters=[body])
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s+$', by: ''}}
 name: $NAME
 signature: $SIGNATURE
+isPublic:
+    not:
+        any:
+            - has: {field: name, regex: '^_', not: {regex: '^__.*__$'}}
+            - has: {field: definition, has: {field: name, regex: '^_', not: {regex: '^__.*__$'}}}

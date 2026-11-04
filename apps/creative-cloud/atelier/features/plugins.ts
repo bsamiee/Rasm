@@ -1,19 +1,15 @@
 import { SourceMap } from 'node:module';
-import { AfterEffects } from '@rasm/aftereffects/contract';
-import { type Installation, Launched } from '@rasm/automation/applications';
-import { Automation } from '@rasm/automation/automation';
-import { ExecuteScript, HostError, ObjectModel, Reference, Render } from '@rasm/automation/requests';
-import { answered, Reply } from '@rasm/cep/contract';
-import { ExtensionManifest } from '@rasm/cep/manifest';
-import { runtime } from '@rasm/extendscript/runtime';
-import { Illustrator } from '@rasm/illustrator/contract';
-import { InDesign } from '@rasm/indesign/contract';
-import { Route } from '@rasm/mcp/route';
-import { registerRpcGroup } from '@rasm/mcp/rpc';
-import { Server } from '@rasm/mcp/server';
-import { Photoshop } from '@rasm/photoshop/contract';
-import { Unmatched } from '@rasm/search/unmatched';
-import { Link } from '@rasm/uxp/link';
+import { AfterEffects } from '@rasm/aftereffects';
+import { ExecuteScript, HostError, type Installation, Launched, ObjectModel, Reference, Render } from '@rasm/automation';
+import { Automation } from '@rasm/automation/node';
+import { Completion, ExtensionManifest } from '@rasm/cep';
+import { runtime } from '@rasm/extendscript';
+import { Illustrator } from '@rasm/illustrator';
+import { InDesign } from '@rasm/indesign';
+import { Route, registerRpcGroup, Server } from '@rasm/mcp';
+import { Photoshop } from '@rasm/photoshop';
+import { Unmatched } from '@rasm/search';
+import { Peer } from '@rasm/uxp/peer';
 import { type JscTarget, transformSync } from '@swc/core';
 import { Array, Context, Duration, Effect, flow, Layer, Option, Path, Schema, Stream, Struct, Tuple } from 'effect';
 import { Tool } from 'effect/ai';
@@ -42,7 +38,7 @@ const Mapping = Schema.fromJsonString(
 );
 const Entry = Schema.Struct({ originalLine: Schema.Int });
 const Diagnostic = Schema.Struct({ message: Schema.TemplateLiteralParser(['  x ', Schema.String, '\n   ,-[', Schema.Int, ':', Schema.Int, ']', Schema.String]) });
-const Scripted = Schema.StringFromUriComponent.pipe(Schema.decodeTo(Schema.fromJsonString(Reply)));
+const Scripted = Schema.StringFromUriComponent.pipe(Schema.decodeTo(Schema.fromJsonString(Completion)));
 const Result = Schema.toCodecJson(ExecuteScript.Result);
 const Body = Schema.Struct({ code: ExecuteScript.fields.code.annotate({ description: 'Function body, return gives result. Scope holds host classes, enumerations, and resolve(specifier), object_model lists members' }) });
 const Opening = Schema.Struct({ file: AbsolutePath.annotate({ description: 'Document path' }) });
@@ -77,12 +73,12 @@ const opener = Effect.fnUntraced(function* (links: Effect.Success<typeof listeni
     );
     const first = yield* Effect.fromOption(Array.head(candidates), () => Unmatched.make({ subject: 'linked application opening file', query: Option.some(file.href), candidates: Array.map(rows, Struct.get('name')) }));
     const [installation, launch] = yield* Option.match(
-        Array.findFirst(candidates, (row) => peers.some(Link.serves(row.url))),
+        Array.findFirst(candidates, (row) => peers.some(Peer.serves(row.url))),
         {
             onSome: (linked) => Effect.succeed([linked, Option.none()] as const),
             onNone: () =>
                 automation.launch({ url: first.url }).pipe(
-                    Effect.tap(() => Stream.runHead(Stream.filter(links.changes, Array.some(Link.serves(first.url))))),
+                    Effect.tap(() => Stream.runHead(Stream.filter(links.changes, Array.some(Peer.serves(first.url))))),
                     Effect.timeoutOrElse({ duration: LINK_WAIT, orElse: () => Effect.fail(HostError.refused(`link from ${first.name} within ${Duration.format(LINK_WAIT)}`)()) }),
                     Effect.map((instance) => [first, Option.some(instance)] as const),
                 ),
@@ -93,11 +89,11 @@ const opener = Effect.fnUntraced(function* (links: Effect.Success<typeof listeni
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const listening = Link.listen(Libraries, { path: link.path, middleware: Layer.empty });
+const listening = Peer.listen(Libraries, { path: link.path, middleware: Layer.empty });
 const plugins = Effect.fnUntraced(function* ({ serving, script }: Effect.Success<ReturnType<typeof routes>>, links: Effect.Success<typeof listening>) {
     const [automation, path] = yield* Effect.all([Automation, Path.Path]);
     const [opened, rendered] = [serving('open'), serving('render')];
-    const rendering = (client: Effect.Success<ReturnType<typeof links.call>>, payload: typeof Rendering.Type) => (file: URL) => client(rendered.tag, { ...payload, file });
+    const rendering = (client: Effect.Success<ReturnType<typeof links.call>>) => (request: typeof Rendering.Type & { readonly file: URL }) => client(rendered.tag, request);
     const linkedScript = Effect.fnUntraced(function* (code: string, { library: { target, Contract }, client }: { readonly library: Option.Option.Value<ReturnType<typeof library>>; readonly client: Effect.Success<ReturnType<typeof links.call>> }) {
         const { source, relined } = yield* lowered(code, target, Context.get(Contract.annotations, ExecuteScript.Awaits));
         return yield* Effect.catchTag(client(script.tag, { code: source }), 'HostError', relined);
@@ -109,9 +105,9 @@ const plugins = Effect.fnUntraced(function* ({ serving, script }: Effect.Success
             pid,
             direct: `(function (self) { var body = ${source}\n${replying}\nreturn encodeURIComponent(runtime().reply(function () { return { result: body.call(self) }; }));\n})(this)`,
         });
-        return yield* Schema.decodeUnknownEffect(Scripted)(reply).pipe(Effect.flatMap(answered(Result, ExecuteScript.make({ code: source }).label)), Effect.catchTag('HostError', relined));
+        return yield* Schema.decodeUnknownEffect(Scripted)(reply).pipe(Effect.flatMap(Completion.answered(Result, ExecuteScript.make({ code: source }).label)), Effect.catchTag('HostError', relined));
     });
-    yield* Route.register(script)(
+    yield* Route(script)(
         Tool.make(script.tag, {
             description: 'Runs TypeScript function body in application, returns its result as JSON, failures name body line',
             parameters: Body,
@@ -131,7 +127,7 @@ const plugins = Effect.fnUntraced(function* ({ serving, script }: Effect.Success
                 onSome: (linked) => linkedScript(code, linked),
             }),
     );
-    yield* Route.register(opened.optional('linked application Launch Services picks for file'))(
+    yield* Route(opened.optional('linked application Launch Services picks for file'))(
         Tool.make(opened.tag, {
             description: 'Opens document without dialogs and returns its reference, without window where application allows, launching the picked application when none runs and waiting for its link. After Effects replaces its open project',
             parameters: Opening,
@@ -143,13 +139,13 @@ const plugins = Effect.fnUntraced(function* ({ serving, script }: Effect.Success
             return { ...(yield* opening.client(opened.tag, { file: url })), launched: opening.launched };
         }),
     );
-    yield* Route.register(rendered)(
+    yield* Route(rendered)(
         Tool.make(rendered.tag, {
             description: 'Renders document target as PNG, an InDesign page item or Photoshop layer without the rest of its page, spread, or document. Use screenshot for panels, dialogs, and pasteboard',
             parameters: Rendering,
             success: Capture,
         }).annotate(Tool.Readonly, true),
-        (payload, { client }) => Effect.map(Capture.written(rendering(client, payload)), Tuple.get(0)),
+        (payload, { client }) => Effect.map(Capture.written(payload, rendering(client)), Tuple.get(0)),
     );
     yield* registerRpcGroup(Libraries, {
         tools: {

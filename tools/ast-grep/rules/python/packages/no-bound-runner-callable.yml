@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-bound-runner-callable
-language: python
+language: pythonlang
 severity: error
 utils:
     runner-function:
@@ -82,10 +82,6 @@ utils:
                 - has: {field: function, matches: partial-callee}
                 - has:
                     field: arguments
-                    any:
-                        - pattern: $TRAILING_ARGS
-                          has: {regex: '^,$', not: {precedes: {pattern: $_, not: {kind: comment}, stopBy: end}}}
-                        - pattern: $ARGS
                     all:
                         - has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, not: {kind: 'list_splat, parenthesized_list_splat'}}
                         - not: {has: {kind: 'keyword_argument, dictionary_splat'}}
@@ -103,11 +99,6 @@ rule:
             - inside: {kind: argument_list, not: {has: {kind: list_splat}}}
     nthChild: {position: 1, ofRule: {not: {kind: comment}}}
     inside: {kind: argument_list, inside: {matches: runner}}
-transform:
-    CONTENT: substring($ARGS, startChar=1, endChar=-1)
-    TRAILING: substring($TRAILING_ARGS, startChar=1, endChar=-1)
-    ARGUMENTS:
-        replace: {source: $TRAILING, replace: ',(\s*(?:#[^\n]*(?:\n|$)\s*)*)$', by: '$1'}
-fix: $CONTENT$ARGUMENTS
-message: '`partial` around `$CONTENT$ARGUMENTS` binds arguments the AnyIO runner takes directly'
+    pattern: $BOUND
+message: '`$BOUND` binds arguments the AnyIO runner takes directly'
 note: 'Pass `<callable>, <arguments>` to the runner in place of `partial`'

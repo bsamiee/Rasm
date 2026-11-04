@@ -28,10 +28,6 @@ struct Executed: Encodable, Sendable {
     }
 }
 
-struct Captured: Encodable, Sendable {
-    let windows: [CGWindowID]
-}
-
 struct Launched: Encodable, Sendable {
     let pid: pid_t
     let created: Bool
@@ -130,14 +126,14 @@ enum Request: Decodable, Sendable {
                 do {
                     return try await .value(Executed(reply: AppleEventValue(event.sent(), in: dictionary), reading: artifacts))
                 } catch  where error.status == OSStatus(errAETimeout) {
-                    throw try await UnansweredEvent(failure: error, pid: pid, state: running(pid).instance.state(walking: \.requiresAnswer))
+                    throw try await UnansweredEvent(subject: error.subject, pid: pid, state: running(pid).instance.state(walking: \.requiresAnswer))
                 }
             case .screenshot(let pid, let window, let longestSide, let file):
                 let configuration: SCScreenshotConfiguration = SCScreenshotConfiguration()
                 configuration.showsCursor = false
                 let captured: (output: SCScreenshotOutput, windows: [CGWindowID]) = try await running(pid).instance.screenshot(of: window, longestSide: longestSide, configuration: configuration)
                 try captured.output.write(to: file)
-                return .value(Captured(windows: captured.windows))
+                return .value(["windows": captured.windows])
             case .faces:
                 return .value(FontFace.available())
             case .face(let name):
@@ -148,23 +144,10 @@ enum Request: Decodable, Sendable {
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-struct UnansweredEvent: LocalizedError, TaggedError {
-    private enum CodingKeys: CodingKey {
-        case subject, pid, state
-    }
-
+struct UnansweredEvent: TaggedError {
     static let tag: String = "UnansweredEvent"
 
-    let failure: AppleEventFailure
+    let subject: String
     let pid: pid_t
     let state: InstanceState
-
-    var errorDescription: String? { failure.errorDescription }
-
-    func encode(to encoder: any Encoder) throws {
-        var fields: KeyedEncodingContainer<CodingKeys> = encoder.container(keyedBy: CodingKeys.self)
-        try fields.encode(failure.subject, forKey: .subject)
-        try fields.encode(pid, forKey: .pid)
-        try fields.encode(state, forKey: .state)
-    }
 }

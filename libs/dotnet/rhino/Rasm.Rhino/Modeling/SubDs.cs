@@ -39,16 +39,15 @@ public static class SubDs {
         toSeq(SubDEdgeChain.SortEdgesIntoEdgeChains(subd, toSeq(subd.Edges).Filter(static edge => edge.FaceCount is 1))).Map(Free).Strict();
 
     private static (Seq<SubDEdge> Edges, bool Closed) Free(SubDEdge[] links) =>
-        toSeq(links).Map(static edge => edge.RelativeFaceLeft is null ? edge : (SubDEdge)edge.ReverseComponentDirection()).Strict() switch {
-            var free when free.Count > 1 && free[0].RelativeVertexTo.Id != free[1].RelativeVertexFrom.Id => Closure(free.Rev()),
-            var free => Closure(free),
-        };
+        Closure(links[0].RelativeFaceLeft is null
+            ? toSeq(links)
+            : toSeq(links).Rev().Map(static edge => (SubDEdge)edge.ReverseComponentDirection()).Strict());
 
     private static (Seq<SubDEdge> Edges, bool Closed) Closure(Seq<SubDEdge> edges) =>
         (Edges: edges, Closed: edges.Count > 2 && edges[0].RelativeVertexFrom.Id == edges[^1].RelativeVertexTo.Id);
 
     private static Fin<(Seq<SubDEdge> Edges, bool Closed)> Boundary(Seq<(Seq<SubDEdge> Edges, bool Closed)> boundaries, uint edge) =>
-        boundaries.Filter(boundary => boundary.Edges.Exists(link => link.Id == edge)).Head.ToFin(new RhinoFault(nameof(ComponentIndexType.SubdEdge), RhinoReason.Missing, (int)edge));
+        boundaries.Find(boundary => boundary.Edges.Exists(link => link.Id == edge)).ToFin(new RhinoFault(ComponentIndexType.SubdEdge, RhinoReason.Missing, (int)edge));
 
     private static Seq<SubDEdge> Rotated((Seq<SubDEdge> Edges, bool Closed) boundary, uint edge) =>
         (boundary.Closed ? boundary.Edges.TakeWhile(link => link.Id != edge).Count : 0) switch {
@@ -72,8 +71,8 @@ public static class SubDs {
         seed.Switch(
             subd,
             sorted: static (at, of) => IO.lift(() => Held(at, ComponentIndexType.SubdEdge, of.Edges))
-                .Bind(_ => toSeq(SubDEdgeChain.SortEdgesIntoEdgeChains(at, of.Edges.Map(edge => at.Edges.Find(edge))))
-                    .TraverseM(links => Products.Of(() => Linked(at, links)).Bind(static chain => Read(chain))).As()),
+                .Bind(_ => Products.Each(toSeq(SubDEdgeChain.SortEdgesIntoEdgeChains(at, of.Edges.Map(edge => at.Edges.Find(edge))))
+                    .Map(links => Products.Of(() => Linked(at, links)).Bind(Read)))),
             grown: static (at, of) => IO.lift(() => Held(at, ComponentIndexType.SubdEdge, [of.Edge]))
                 .Bind(_ =>
                     from chain in Products.Of(() => new SubDEdgeChain(at, at.Edges.Find(of.Edge)))

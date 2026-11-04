@@ -1,44 +1,27 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-single-reader-tsx
-language: tsx
+language: tsxlang
 severity: error
 utils:
     literal:
         any:
-            - kind: string, number, true, false, null, undefined, identifier
-            - kind: arrow_function
-              not: {has: {field: body, kind: statement_block, has: {nthChild: 3}}}
-            - kind: member_expression
-              not: {has: {stopBy: end, kind: call_expression}}
+            - kind: string, number, true, false, null
+            - kind: undefined
+              matches: typescript-global-reference
             - kind: template_string
               not: {has: {kind: template_substitution}}
             - kind: unary_expression, binary_expression
               not: {has: {pattern: $_, not: {matches: literal}}}
             - kind: as_expression, satisfies_expression, parenthesized_expression
               has: {nthChild: 1, matches: literal}
-            - kind: array
-              not: {has: {pattern: $_, not: {matches: literal}}}
-            - kind: object
-              not:
-                has:
-                    pattern: $_
-                    not:
-                        kind: pair
-                        all:
-                            - has: {field: key, any: [{kind: 'property_identifier, string, number'}, {kind: computed_property_name, has: {kind: string}}]}
-                            - has: {field: value, matches: literal}
-            - kind: new_expression
-              all:
-                - has: {field: constructor, regex: '^(Set|Map)$', matches: typescript-global-reference}
-                - not: {has: {field: arguments, has: {pattern: $_, not: {matches: literal}}}}
-            - kind: call_expression
-              all:
-                - has: {field: function, regex: '^Object\.freeze$', matches: typescript-global-reference}
-                - not: {has: {field: arguments, has: {pattern: $_, not: {matches: literal}}}}
     reference:
         kind: identifier, shorthand_property_identifier
         pattern: $NAME
-        not: {inside: {kind: 'variable_declarator, function_declaration', field: name}}
+        not:
+            any:
+                - inside: {kind: 'variable_declarator, function_declaration', field: name}
+                - inside: {kind: import_statement, stopBy: end}
+        matches: {typescript-local-binding: {owner: {kind: program}}}
     holds-reference:
         any: [{matches: reference}, {has: {stopBy: end, matches: reference}}]
     entry:
@@ -69,48 +52,23 @@ utils:
               inside: {matches: typescript-module-constant}
             - kind: public_field_definition
               not: {inside: {stopBy: end, matches: typescript-function-boundary}}
-    component:
-        kind: arrow_function, function_declaration
-        has: {stopBy: end, kind: 'jsx_element, jsx_self_closing_element'}
     level:
         any: [{matches: typescript-control-flow}, {matches: typescript-function-boundary}]
-    nested:
-        any: [{has: {field: value, has: {stopBy: end, matches: level}}}, {has: {field: body, has: {stopBy: end, matches: level}}}]
-    nests-twice:
-        any:
-            - {kind: function_declaration, has: {field: body, has: {stopBy: end, matches: level, has: {stopBy: end, matches: level}}}}
-            - {kind: variable_declarator, has: {field: value, has: {stopBy: end, matches: level, has: {stopBy: end, matches: level}}}}
-    nests-thrice:
-        any:
-            - {kind: function_declaration, has: {field: body, has: {stopBy: end, matches: level, has: {stopBy: end, matches: level, has: {stopBy: end, matches: level}}}}}
-            - {kind: variable_declarator, has: {field: value, has: {stopBy: end, matches: level, has: {stopBy: end, matches: level, has: {stopBy: end, matches: level}}}}}
 rule:
     all:
+        - kind: variable_declarator
+          all:
+            - has: {field: name, kind: identifier, pattern: $NAME}
+            - has: {field: value, matches: literal}
+            - inside: {kind: lexical_declaration, all: [{has: {field: kind, regex: '^const$'}}, {inside: {kind: program}}]}
         - any:
-            - kind: variable_declarator
-              all:
-                - has: {field: name, kind: identifier, pattern: $NAME}
-                - has: {field: value, matches: literal, not: {matches: component}}
-                - not: {all: [{has: {field: type, kind: type_annotation}}, {has: {field: value, kind: 'identifier, member_expression'}}]}
-                - inside: {kind: lexical_declaration, all: [{has: {field: kind, regex: '^const$'}}, {inside: {kind: program}}]}
-            - kind: function_declaration
-              all:
-                - has: {field: name, pattern: $NAME}
-                - not: {matches: component}
-                - not: {has: {field: body, kind: statement_block, has: {nthChild: 3}}}
-                - inside: {kind: program}
-        - any:
+            - inside:
+                kind: program
+                stopBy: end
+                all:
+                    - has: {stopBy: end, matches: reference, inside: {stopBy: end, matches: reader}}
+                    - not: {has: {stopBy: end, all: [{matches: reference}, {any: [{matches: outside-reader}, {inside: {stopBy: &body {kind: statement_block, inside: {matches: typescript-function-boundary}}, matches: level, inside: {stopBy: *body, matches: level}}}]}]}}
             - all:
-                - not: {matches: nests-twice}
-                - inside:
-                    kind: program
-                    stopBy: end
-                    all:
-                        - has: {stopBy: end, matches: reference, inside: {stopBy: end, matches: reader}}
-                        - not: {has: {stopBy: end, all: [{matches: reference}, {any: [{matches: outside-reader}, {inside: {stopBy: &body {kind: statement_block, inside: {matches: typescript-function-boundary}}, matches: level, inside: {stopBy: *body, matches: level}}}]}]}}
-                - not: {all: [{matches: nested}, {inside: {kind: program, stopBy: end, has: {stopBy: end, matches: reference, inside: {stopBy: *body, matches: level}}}}]}
-            - all:
-                - not: {matches: nests-thrice}
                 - not: {has: {field: value, any: [{kind: number}, {has: {stopBy: end, kind: number}}]}}
                 - inside:
                     kind: program
@@ -120,7 +78,7 @@ rule:
                         - not: {has: {stopBy: end, all: [{matches: reference}, {not: {inside: {stopBy: end, matches: holder}}}]}}
                         - not: {has: {stopBy: end, matches: holder, has: {stopBy: end, matches: holds-reference, precedes: {stopBy: end, matches: holds-reference}}}}
 message: '`$NAME` has one reader'
-note: 'Move the declaration into its only reader as a local, inlined where the reader is a field initializer or the value is another name'
+note: 'Move the literal into its consuming function or field initializer'
 labels:
     READER: {style: secondary, message: Only reader}
     HOLDER: {style: secondary, message: Only reader}

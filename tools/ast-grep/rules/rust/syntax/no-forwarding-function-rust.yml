@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-forwarding-function-rust
-language: rust
+language: rustlang
 severity: error
 utils:
     named-callee:
@@ -18,7 +18,7 @@ utils:
         kind: call_expression
         all:
             - has: {field: function, matches: named-callee, pattern: $F}
-            - has: {field: arguments, pattern: $ARGS}
+            - has: {field: arguments, pattern: $ARGS, not: {has: {pattern: $_, matches: unforwarded-argument}}}
     forwarding-statement:
         any:
             - matches: forwarded-call
@@ -64,11 +64,10 @@ rule:
             - not: {has: {kind: function_modifiers, regex: '\basync\b'}}
             - has: {field: body, has: {stopBy: end, kind: await_expression}}
         - not: {has: {field: parameters, has: {kind: parameter, has: {field: pattern, pattern: $F}}}}
-        - not: {has: {field: body, has: {stopBy: end, pattern: $ARGS, has: {pattern: $_, matches: unforwarded-argument}}}}
         - not: {has: {field: parameters, has: {pattern: $_, matches: unforwarded-parameter}}}
         - not: {inside: {kind: impl_item, stopBy: end, has: {field: type, any: [{pattern: $F}, {has: {field: type, pattern: $F}}]}}}
         - not: {inside: {kind: declaration_list, inside: {kind: trait_item}}}
-        - not: {matches: rust-trait-or-extern-function}
+        - not: {matches: rust-trait-impl-or-extern-function}
         - not: {matches: {rust-attributed: {attribute: {not: {matches: plain-attribute}}}}}
 message: '`$NAME` forwards its parameters unchanged to `$F`'
-note: 'Widen `<callee>` to `<function>` visibility, call it at each call site, and delete `<function>`'
+note: 'Expose `<callee>` at `<function>` visibility, replace every `<function>` call, and delete the forwarder'

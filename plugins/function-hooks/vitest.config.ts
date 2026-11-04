@@ -1,5 +1,5 @@
-import { project } from '../../vitest.config.ts';
+import { vitestProject } from '../../vitest.config.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-export default project(import.meta.dirname);
+export default vitestProject(import.meta.dirname);

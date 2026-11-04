@@ -59,10 +59,10 @@ utils:
         any:
             - kind: binary_expression
               any:
-                - all: [{has: {field: left, matches: search, pattern: $SEARCH}}, {has: {field: operator, regex: '^<$', pattern: $$ABSENT}}, {has: {field: right, matches: zero}}]
-                - all: [{has: {field: left, matches: search, pattern: $SEARCH}}, {has: {field: operator, regex: '^(==|<=)$', pattern: $$ABSENT}}, {has: {field: right, matches: minus-one}}]
-                - all: [{has: {field: left, matches: zero}}, {has: {field: operator, regex: '^>$', pattern: $$ABSENT}}, {has: {field: right, matches: search, pattern: $SEARCH}}]
-                - all: [{has: {field: left, matches: minus-one}}, {has: {field: operator, regex: '^(==|>=)$', pattern: $$ABSENT}}, {has: {field: right, matches: search, pattern: $SEARCH}}]
+                - all: [{has: {field: left, matches: search, pattern: $SEARCH}}, {has: {field: operator, regex: '^<$'}}, {has: {field: right, matches: zero}}]
+                - all: [{has: {field: left, matches: search, pattern: $SEARCH}}, {has: {field: operator, regex: '^(==|<=)$'}}, {has: {field: right, matches: minus-one}}]
+                - all: [{has: {field: left, matches: zero}}, {has: {field: operator, regex: '^>$'}}, {has: {field: right, matches: search, pattern: $SEARCH}}]
+                - all: [{has: {field: left, matches: minus-one}}, {has: {field: operator, regex: '^(==|>=)$'}}, {has: {field: right, matches: search, pattern: $SEARCH}}]
                 - all: [{has: {field: left, matches: search, pattern: $SEARCH}}, {has: {field: operator, regex: '^>=$'}}, {has: {field: right, matches: zero}}]
                 - all: [{has: {field: left, matches: search, pattern: $SEARCH}}, {has: {field: operator, regex: '^(!=|>)$'}}, {has: {field: right, matches: minus-one}}]
                 - all: [{has: {field: left, matches: zero}}, {has: {field: operator, regex: '^<=$'}}, {has: {field: right, matches: search, pattern: $SEARCH}}]
@@ -73,49 +73,17 @@ utils:
                 - has:
                     field: pattern
                     any:
-                        - {kind: relational_pattern, regex: '^(<\s*0|<=\s*-\s*1)$', pattern: $ABSENT}
-                        - {kind: constant_pattern, regex: '^-\s*1$', pattern: $ABSENT}
+                        - {kind: relational_pattern, regex: '^(<\s*0|<=\s*-\s*1)$'}
+                        - {kind: constant_pattern, regex: '^-\s*1$'}
                         - {kind: relational_pattern, regex: '^(>=\s*0|>\s*-\s*1)$'}
                         - {kind: negated_pattern, regex: '^not\s+-\s*1$'}
-    access:
-        kind: 'member_access_expression, conditional_access_expression, element_access_expression'
 rule:
     any:
         - kind: parenthesized_expression
           all:
             - has: {matches: comparison}
-            - not: {inside: {matches: access}}
+            - not: {inside: {kind: &access 'member_access_expression, conditional_access_expression, element_access_expression'}}
         - matches: comparison
-          not: {inside: {kind: parenthesized_expression, not: {inside: {matches: access}}}}
-rewriters:
-    - id: instance-presence
-      rule:
-        matches: instance-search
-        all:
-            - has: {field: function, all: [{has: {field: expression, pattern: $RECEIVER}}, {has: {field: name, pattern: $NAME}}]}
-            - has: {field: arguments, pattern: $ARGUMENTS}
-      transform:
-        ANY: {replace: {source: $NAME, replace: '^(Last)?IndexOfAny', by: ContainsAny}}
-        ELEMENT: {replace: {source: $ANY, replace: '^(Last)?IndexOf$', by: Contains}}
-        PRESENCE: {replace: {source: $ELEMENT, replace: '^Find(Last)?Index$', by: Exists}}
-      fix: $RECEIVER.$PRESENCE$ARGUMENTS
-    - id: array-presence
-      rule:
-        matches: array-search
-        all:
-            - has: {field: function, all: [{has: {field: expression, pattern: $OWNER}}, {has: {field: name, regex: 'Index$'}}]}
-            - has: {field: arguments, pattern: $ARGUMENTS}
-      fix: $OWNER.Exists$ARGUMENTS
-    - id: array-contains
-      rule:
-        matches: array-search
-        all:
-            - has: {field: function, has: {field: name, regex: 'IndexOf$'}}
-            - has: {field: arguments, all: [{has: {kind: argument, nthChild: 1, pattern: $ARRAY}}, {has: {kind: argument, nthChild: 2, pattern: $VALUE}}]}
-      fix: $ARRAY.Contains($VALUE)
-transform:
-    PRESENT: {rewrite: {source: $SEARCH, rewriters: [instance-presence, array-presence, array-contains]}}
-    NOT: {replace: {source: $ABSENT, replace: '(?s).+', by: '!'}}
-fix: $NOT$PRESENT
+          not: {inside: {kind: parenthesized_expression, not: {inside: {kind: *access}}}}
 message: 'Presence test compares `$SEARCH` against the not-found index sentinel'
-note: 'Call `Contains`, `ContainsAny`, or `Exists`, negated with `!` for an absence test'
+note: 'Use `Contains`, `ContainsAny`, or `Exists` with the same comparison; string-needle searches use `CurrentCulture` by default'

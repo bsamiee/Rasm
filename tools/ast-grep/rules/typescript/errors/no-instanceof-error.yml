@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-instanceof-error
-language: tsx
+language: tsxlang
 severity: error
 ignores:
     - apps/web/portfolio/**
@@ -18,6 +18,5 @@ rule:
 constraints:
     ERROR: {regex: '^((globalThis|window|self)\.)?Error$', matches: typescript-global-reference}
     OBJECT: {regex: '^((globalThis|window|self)\.)?Object$', matches: typescript-global-reference}
-fix: $ERROR.isError($VALUE)
 message: 'Error test on `$VALUE` walks the `$ERROR.prototype` chain of the running realm alone'
 note: 'Call `Error.isError(<value>)`'

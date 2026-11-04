@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-overwriting-send-modify
-language: rust
+language: rustlang
 severity: error
 utils:
     overwrite:
@@ -9,7 +9,6 @@ utils:
             - has: {field: left, kind: unary_expression, regex: '^\*', has: {kind: identifier, pattern: $VALUE}}
             - has:
                 field: right
-                pattern: $NEW
                 not:
                     any:
                         - pattern: $VALUE
@@ -63,6 +62,5 @@ rule:
                                 - has: {nthChild: 1, matches: statement}
                                 - has: {nthChild: 2, kind: boolean_literal, regex: '^true$'}
                                 - not: {has: {nthChild: 3}}
-fix: $SENDER.send_replace($NEW)
 message: '`$SENDER.$METHOD` overwrites the whole watched value through a closure'
 note: 'Call `<sender>.send_replace(<value>)`'

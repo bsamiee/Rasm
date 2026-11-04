@@ -16,8 +16,8 @@ rule:
           not: {has: {pattern: $_, not: {matches: swift-fixed-value}}}
         - kind: navigation_expression
           all:
-            - has: {field: target, matches: swift-fixed-value}
             - not: {has: {regex: '^[?!]$'}}
+            - has: {field: target, matches: swift-fixed-value}
         - kind: value_argument
           has: {field: value, regex: '^nil$'}
         - kind: call_expression

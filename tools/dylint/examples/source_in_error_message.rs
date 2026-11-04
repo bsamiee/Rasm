@@ -30,6 +30,10 @@ enum Failure {
     Seek { path: String, offset: u64, source: io::Error },
     #[error("cannot close {}", .source.kind())]
     Close { source: io::Error },
+    #[error(r"cannot receive: {source}")]
+    Receive { source: io::Error },
+    #[error("cannot accept: \u{7b}source\u{7d}")]
+    Accept { source: io::Error },
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -55,6 +59,8 @@ fn main() {
             Failure::Flush(missing()),
             Failure::Seek { path: String::from("d"), offset: 1, source: missing() },
             Failure::Close { source: missing() },
+            Failure::Receive { source: missing() },
+            Failure::Accept { source: missing() },
         ],
         LoadError { source: missing() },
     ));

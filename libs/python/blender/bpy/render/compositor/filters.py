@@ -43,16 +43,14 @@ def ranked(source: Expr, offsets: tuple[tuple[float, float], ...], rank: int) ->
         uv = grid.at((dx, dy, 0.0), grid.inverse)
         return uv_mapped(source, uv, interpolation="Nearest", socket_type=bpy.types.NodeSocketFloat), (uv["X"] > 0.0) * (uv["X"] < 1.0) * ((uv["Y"] > 0.0) * (uv["Y"] < 1.0))
 
-    def exchanged(wires: tuple[tuple[Expr, Expr], ...], pair: tuple[int, int]) -> tuple[tuple[Expr, Expr], ...]:
-        low, high = pair
+    taps = tuple(starmap(tap, offsets))
+    wires = list(taps)
+    for low, high in pairs:
         (left, left_valid), (right, right_valid) = wires[low], wires[high]
         choose = (left_valid > right_valid) + math("COMPARE", left_valid, right_valid, 0.0) * (left > right)
-        moved = {low: (where(choose, right, left), math("MINIMUM", left_valid, right_valid)), high: (where(choose, left, right), math("MAXIMUM", left_valid, right_valid))}
-        return tuple(starmap(moved.get, enumerate(wires)))
+        wires[low], wires[high] = (where(choose, right, left), math("MINIMUM", left_valid, right_valid)), (where(choose, left, right), math("MAXIMUM", left_valid, right_valid))
 
-    taps = tuple(starmap(tap, offsets))
-    value, _ = reduce(exchanged, pairs, taps)[count - rank]
-    return value, sum((valid for _, valid in taps[1:]), taps[0][1])
+    return wires[count - rank][0], sum((valid for _, valid in taps[1:]), taps[0][1])
 
 
 def bilateral(value: Expr, guide: Expr, coverage: Expr, frame: FrameSpace, fallback: Scalar, *, bounds: tuple[float, float], pairs: int, radius: float) -> Expr:

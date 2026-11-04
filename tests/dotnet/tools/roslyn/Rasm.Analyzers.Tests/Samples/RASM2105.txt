@@ -15,6 +15,12 @@ internal static class WrittenSettings {
         select unit;
 
     internal static void Assigned(RhinoDoc doc, RenderSettings staged) => {|#1:doc.RenderSettings = staged|};
+
+    internal static int Deconstructed(RhinoDoc doc, RenderSettings staged) {
+        int count;
+        {|#2:(doc.RenderSettings, count) = (staged, 1)|};
+        return count;
+    }
 }
 
 internal static class ReadSettings {

@@ -1,8 +1,6 @@
-import { Execute, Terms } from '@rasm/automation/apple-events';
-import { Automation } from '@rasm/automation/automation';
-import { Content } from '@rasm/mcp/content';
-import { Resource } from '@rasm/mcp/resource';
-import { Route } from '@rasm/mcp/route';
+import { Execute, Terms } from '@rasm/automation';
+import { Automation } from '@rasm/automation/node';
+import { Content, Resource, Route } from '@rasm/mcp';
 import { Array, Effect, Schema, SchemaAST, Struct, SubscriptionRef } from 'effect';
 import { McpSchema, Tool } from 'effect/ai';
 import type { routes } from '#/routes';
@@ -10,6 +8,7 @@ import type { routes } from '#/routes';
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Application = McpSchema.param('application', Schema.String);
+const CommandResult = Execute.Result.pipe(Schema.fieldsAssign({ artifacts: Schema.Array(Schema.Result(Content.attachment(Execute.Artifact), Schema.ErrorInstance())).annotate({ description: SchemaAST.resolveDescription(Execute.Result.fields.artifacts.ast) }) }));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -44,11 +43,11 @@ const dictionaries = Effect.fnUntraced(function* ({ dictionary }: Effect.Success
 });
 const command = ({ dictionary }: Effect.Success<ReturnType<typeof routes>>) =>
     Automation.use((automation) =>
-        Route.register(dictionary)(
+        Route(dictionary)(
             Tool.make('command', {
                 description: 'Sends scripting dictionary command, refused while a dialog requires an answer',
                 parameters: Execute,
-                success: Execute.Result.pipe(Schema.fieldsAssign({ artifacts: Schema.Array(Schema.Result(Content.attachment(Execute.Artifact), Schema.ErrorInstance())).annotate({ description: SchemaAST.resolveDescription(Execute.Result.fields.artifacts.ast) }) })),
+                success: CommandResult,
             }),
             (given, { pid }) => automation.execute({ ...given, pid }),
         ),

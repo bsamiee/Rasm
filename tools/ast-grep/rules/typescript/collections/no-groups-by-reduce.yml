@@ -1,8 +1,16 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-groups-by-reduce
-language: tsx
+language: tsxlang
 severity: error
 utils:
+    accumulator-reference:
+        kind: identifier
+        pattern: $ACC
+        matches: {typescript-local-binding: {owner: {pattern: $REDUCER}}}
+    element-reference:
+        kind: identifier
+        pattern: $X
+        matches: {typescript-local-binding: {owner: {pattern: $REDUCER}}}
     effect-iterable:
         matches: {effect-module: {name: {regex: '\b(Array|Chunk|Iterable)$'}}}
     effect-record:
@@ -13,13 +21,14 @@ utils:
               regex: '^\{\s*\}$'
             - kind: call_expression
               pattern: Object.create(null)
+              has: {field: function, matches: typescript-global-reference}
             - kind: call_expression
               all:
-                - has: {field: function, kind: member_expression, all: [{has: {field: object, matches: effect-record}}, {has: {field: property, regex: '^empty$'}}]}
+                - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^empty$'}}, {has: {field: object, matches: effect-record}}]}
                 - has: {field: arguments, regex: '^\(\s*\)$'}
             - kind: new_expression
               all:
-                - has: {field: constructor, regex: '^Map$'}
+                - has: {field: constructor, regex: '^Map$', matches: typescript-global-reference}
                 - not: {has: {field: arguments, not: {regex: '^\(\s*\)$'}}}
             - kind: parenthesized_expression, as_expression, satisfies_expression
               has: {nthChild: 1, matches: empty}
@@ -27,39 +36,44 @@ utils:
         any:
             - kind: subscript_expression
               all:
-                - has: {field: object, kind: identifier, pattern: $ACC}
+                - has: {field: object, matches: accumulator-reference}
                 - has: {field: index, pattern: $K}
             - kind: call_expression
               all:
-                - has: {field: function, kind: member_expression, all: [{has: {field: object, kind: identifier, pattern: $ACC}}, {has: {field: property, regex: '^(get|getOrInsert|getOrInsertComputed)$'}}]}
+                - has: {field: function, kind: member_expression, all: [{has: {field: object, matches: accumulator-reference}}, {has: {field: property, regex: '^(get|getOrInsert|getOrInsertComputed)$'}}]}
                 - has: {field: arguments, has: {nthChild: 1, pattern: $K}}
     alias:
         kind: identifier
         pattern: $ALIAS
-        inside:
-            kind: statement_block
-            stopBy: end
-            has:
-                kind: lexical_declaration
-                has: {kind: variable_declarator, all: [{has: {field: name, pattern: $ALIAS}}, {has: {field: value, matches: receiver}}]}
-    receiver:
+        all:
+            - matches: {typescript-local-binding: {owner: {pattern: $ALIAS_OWNER}}}
+            - inside:
+                pattern: $ALIAS_OWNER
+                stopBy: end
+                has:
+                    kind: lexical_declaration
+                    all:
+                        - has: {field: kind, regex: '^const$'}
+                        - has: {kind: variable_declarator, all: [{has: {field: name, pattern: $ALIAS}}, {has: {field: value, matches: bucket-receiver}}]}
+    bucket-receiver:
         any:
             - matches: bucket
             - kind: parenthesized_expression, non_null_expression
-              has: {nthChild: 1, matches: receiver}
+              has: {nthChild: 1, matches: bucket-receiver}
             - kind: assignment_expression, augmented_assignment_expression
               has: {field: left, matches: bucket}
             - kind: binary_expression
               all:
                 - has: {field: operator, regex: '^(\?\?|\|\|)$'}
                 - has: {field: left, matches: bucket}
-                - has: {field: right, matches: receiver, not: {matches: bucket}}
-            - matches: alias
+                - has: {field: right, matches: bucket-receiver, not: {matches: bucket}}
+    receiver:
+        any: [{matches: bucket-receiver}, {matches: alias}]
     extended:
         all:
             - any:
                 - kind: array
-                  all: [{has: {kind: spread_element}}, {has: {kind: identifier, pattern: $X}}]
+                  all: [{has: {kind: spread_element}}, {has: {matches: element-reference}}]
                 - kind: call_expression
                   all:
                     - has:
@@ -67,24 +81,24 @@ utils:
                         kind: member_expression
                         any:
                             - has: {field: property, regex: '^concat$'}
-                            - all: [{has: {field: object, matches: effect-iterable}}, {has: {field: property, regex: '^append$'}}]
-                    - has: {field: arguments, has: {any: [{kind: identifier, pattern: $X}, {kind: array, has: {kind: identifier, pattern: $X}}]}}
+                            - all: [{has: {field: property, regex: '^append$'}}, {has: {field: object, matches: effect-iterable}}]
+                    - has: {field: arguments, has: {any: [{matches: element-reference}, {kind: array, has: {matches: element-reference}}]}}
             - has: {stopBy: end, matches: bucket}
     append:
         any:
             - kind: call_expression
               all:
                 - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^push$'}}, {has: {field: object, matches: receiver}}]}
-                - has: {field: arguments, all: [{has: {nthChild: 1, kind: identifier, pattern: $X}}, {not: {has: {nthChild: 2}}}]}
+                - has: {field: arguments, all: [{has: {nthChild: 1, matches: element-reference}}, {not: {has: {nthChild: 2}}}]}
             - kind: assignment_expression
               all: [{has: {field: left, matches: bucket}}, {has: {field: right, matches: extended}}]
             - kind: call_expression
               all:
-                - has: {field: function, kind: member_expression, all: [{has: {field: object, kind: identifier, pattern: $ACC}}, {has: {field: property, regex: '^set$'}}]}
+                - has: {field: function, kind: member_expression, all: [{has: {field: object, matches: accumulator-reference}}, {has: {field: property, regex: '^set$'}}]}
                 - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $K}}, {has: {nthChild: 2, matches: extended}}]}
             - kind: call_expression
               all:
-                - has: {field: function, kind: member_expression, all: [{has: {field: object, matches: effect-record}}, {has: {field: property, regex: '^set$'}}]}
+                - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^set$'}}, {has: {field: object, matches: effect-record}}]}
                 - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $ACC}}, {has: {nthChild: 2, pattern: $K}}, {has: {nthChild: 3, matches: extended}}]}
             - kind: pair
               all: [{has: {field: key, kind: computed_property_name, has: {pattern: $K}}}, {has: {field: value, matches: extended}}]
@@ -93,19 +107,22 @@ utils:
                 - has: {nthChild: 1, pattern: $K}
                 - has: {nthChild: 2, matches: extended}
                 - not: {has: {nthChild: 3}}
-                - inside: {kind: array, has: {kind: spread_element, has: {kind: identifier, pattern: $ACC}}}
+                - inside: {kind: array, has: {kind: spread_element, has: {matches: accumulator-reference}}}
     tested:
         any:
-            - kind: identifier
-              pattern: $ACC
+            - matches: accumulator-reference
             - kind: identifier
               pattern: $TESTED
-              inside:
-                kind: statement_block
-                stopBy: end
-                has:
-                    kind: lexical_declaration
-                    has: {kind: variable_declarator, all: [{has: {field: name, pattern: $TESTED}}, {has: {field: value, has: {stopBy: end, kind: identifier, pattern: $ACC}}}]}
+              all:
+                - matches: {typescript-local-binding: {owner: {pattern: $TESTED_OWNER}}}
+                - inside:
+                    pattern: $TESTED_OWNER
+                    stopBy: end
+                    has:
+                        kind: lexical_declaration
+                        all:
+                            - has: {field: kind, regex: '^const$'}
+                            - has: {kind: variable_declarator, all: [{has: {field: name, pattern: $TESTED}}, {has: {field: value, has: {stopBy: end, matches: accumulator-reference}}}]}
     bucket-test:
         any:
             - matches: tested
@@ -128,18 +145,19 @@ utils:
               has: {nthChild: {position: 1, reverse: true}, matches: accumulator}
             - kind: call_expression
               any:
-                - has: {field: function, kind: member_expression, all: [{has: {field: object, kind: identifier, pattern: $ACC}}, {has: {field: property, regex: '^set$'}}]}
+                - has: {field: function, kind: member_expression, all: [{has: {field: object, matches: accumulator-reference}}, {has: {field: property, regex: '^set$'}}]}
                 - all:
-                    - has: {field: function, any: [{pattern: Object.assign}, {kind: member_expression, all: [{has: {field: object, matches: effect-record}}, {has: {field: property, regex: '^set$'}}]}]}
-                    - has: {field: arguments, has: {nthChild: 1, kind: identifier, pattern: $ACC}}
+                    - has: {field: function, any: [{pattern: Object.assign, matches: typescript-global-reference}, {kind: member_expression, all: [{has: {field: property, regex: '^set$'}}, {has: {field: object, matches: effect-record}}]}]}
+                    - has: {field: arguments, has: {nthChild: 1, matches: accumulator-reference}}
             - kind: object
-              has: {kind: spread_element, has: {kind: identifier, pattern: $ACC}}
+              has: {kind: spread_element, has: {matches: accumulator-reference}}
             - kind: new_expression
               all:
-                - has: {field: constructor, regex: '^Map$'}
-                - has: {field: arguments, has: {nthChild: 1, kind: array, has: {nthChild: 1, kind: spread_element, has: {kind: identifier, pattern: $ACC}}}}
+                - has: {field: constructor, regex: '^Map$', matches: typescript-global-reference}
+                - has: {field: arguments, has: {nthChild: 1, kind: array, has: {nthChild: 1, kind: spread_element, has: {matches: accumulator-reference}}}}
     bucketing:
         kind: arrow_function, function_expression
+        pattern: $REDUCER
         all:
             - not: {regex: '^async\b'}
             - has:
@@ -182,5 +200,5 @@ rule:
                         - all: [{has: {nthChild: 1, matches: empty}}, {has: {nthChild: 2, matches: bucketing}}, {not: {has: {nthChild: 3}}}]
 constraints:
     K: {not: {any: [{kind: identifier, pattern: $ACC}, {has: {stopBy: end, kind: identifier, pattern: $ACC}}]}}
-message: '`reduce` collects each `$X` into a bucket of `$ACC` under a computed key by hand'
+message: '`$ACC` groups `$X` by a computed key through `reduce`'
 note: 'Call `Object.groupBy(<list>, <key>)` for a record, `Map.groupBy` for a `Map`, or `Array.groupBy` in place of an `effect` `reduce` or `append`'

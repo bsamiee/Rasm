@@ -1,6 +1,27 @@
-use core::{hint::black_box, num::ParseIntError};
+use core::{cell::Cell, hint::black_box, num::ParseIntError};
 
 use futures::executor::block_on;
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+#[derive(Clone)]
+struct Lease(String);
+
+impl Drop for Lease {
+    fn drop(&mut self) { black_box(&self.0); }
+}
+
+struct ObservedClone<'a> {
+    value: u32,
+    copies: &'a Cell<u32>,
+}
+
+impl Clone for ObservedClone<'_> {
+    fn clone(&self) -> Self {
+        self.copies.set(self.copies.get().strict_add(1));
+        Self { ..*self }
+    }
+}
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
@@ -10,13 +31,6 @@ struct ReadError {
     path: String,
     #[source]
     source: ParseIntError,
-}
-
-#[derive(Clone)]
-struct Lease(String);
-
-impl Drop for Lease {
-    fn drop(&mut self) { black_box(&self.0); }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -37,9 +51,17 @@ fn copied(port: u16, given: Option<u16>) -> Option<u16> { given.or_else(|| Some(
 
 fn leased(lease: Lease, given: Option<Lease>) -> Lease { given.unwrap_or_else(|| lease.clone()) }
 
+fn observed<'a>(value: ObservedClone<'a>, given: Option<ObservedClone<'a>>) -> ObservedClone<'a> { given.unwrap_or_else(|| value.clone()) }
+
 fn reused(path: String, text: &str) -> (Result<u16, ReadError>, usize) {
     let parsed = text.parse().map_err(|source| ReadError { path: path.clone(), source });
     (parsed, path.len())
+}
+
+fn aliased(name: String, given: Option<String>) -> (Option<String>, usize) {
+    let alias = name.as_str();
+    let result = given.or_else(|| Some(name.clone()));
+    (result, alias.len())
 }
 
 fn repeated(name: &str, items: &[u8]) -> Vec<String> {
@@ -73,9 +95,12 @@ fn main() {
         copied(80, None),
         leased(Lease(String::from("lease")), None).0.len(),
         reused(path.clone(), "81"),
+        aliased(String::from("alias"), None),
         repeated("item", &[1, 2]),
         moved(path.clone(), "82"),
         borrowed(&path, "83"),
         looped(String::from("each"), vec![None, None]),
     ));
+    let copies = Cell::new(0);
+    black_box((observed(ObservedClone { value: 1, copies: &copies }, None).value, copies.get()));
 }

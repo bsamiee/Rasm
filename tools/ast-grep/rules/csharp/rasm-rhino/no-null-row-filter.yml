@@ -4,8 +4,6 @@ language: csharplang
 severity: error
 files: ['**/rhino/**']
 utils:
-    member:
-        kind: method_declaration, local_function_statement, lambda_expression, constructor_declaration, accessor_declaration, operator_declaration
     element:
         any:
             - kind: predefined_type
@@ -47,7 +45,7 @@ utils:
     out-array:
         inside:
             stopBy: end
-            matches: member
+            kind: &member 'method_declaration, local_function_statement, lambda_expression, constructor_declaration, accessor_declaration, operator_declaration'
             has: {stopBy: end, kind: argument, regex: '^(\w+\s*:\s*)?out\s', has: {nthChild: {position: 1, reverse: true}, any: [{kind: declaration_expression, has: {field: name, pattern: $DECLARED}}, {kind: identifier, pattern: $DECLARED}]}}
     reference-items:
         any:
@@ -56,7 +54,7 @@ utils:
               not: {matches: out-array}
               inside:
                 stopBy: end
-                kind: method_declaration, local_function_statement, lambda_expression, constructor_declaration, accessor_declaration, operator_declaration
+                kind: *member
                 has: {stopBy: end, matches: declaration}
             - kind: parenthesized_expression
               has: {matches: reference-items}
@@ -68,7 +66,7 @@ utils:
               pattern: $OPTION
               inside:
                 stopBy: end
-                kind: method_declaration, local_function_statement, lambda_expression, constructor_declaration, accessor_declaration, operator_declaration
+                kind: *member
                 has:
                     stopBy: end
                     any:
@@ -81,7 +79,7 @@ utils:
     empty:
         any:
             - kind: collection_expression
-              not: {has: {kind: expression_element}}
+              not: {has: {kind: collection_element}}
             - kind: invocation_expression
               all:
                 - matches: {csharp-owner-call: {type: {regex: '^(Enumerable|Array)$'}, member: {regex: '^Empty$'}}}
@@ -191,12 +189,10 @@ rule:
             - all:
                 - matches: slot-read
                 - not: {inside: {kind: member_access_expression, field: expression, has: {field: name, regex: '^Strict$'}, inside: {kind: invocation_expression, field: function, matches: csharp-argumentless-call}}}
-        - not: {has: {stopBy: end, kind: comment}}
+        - not: {has: {stopBy: end, kind: 'comment, ERROR'}}
         - not: {inside: {stopBy: end, kind: ERROR}}
-        - not: {has: {stopBy: end, kind: ERROR}}
         - not: {matches: {csharp-owner-body: {type: {regex: '^Conversions$'}, member: {regex: '^Rows$'}}}}
 constraints:
     ITEMS: {matches: reference-items}
-fix: Conversions.Rows($ITEMS)
-message: '`$ITEMS` drops null rows'
-note: 'Call `Conversions.Rows(<items>)`'
+message: '`$READ` filters `$ITEMS` through a null test'
+note: 'Use `Conversions.Rows(<items>)` when the predicate uses built-in null comparison or an `is` pattern'

@@ -160,6 +160,10 @@ where E: From<Utf8Error> {
     Ok(text)
 }
 
+fn selected(bytes: &[u8]) -> Result<&str, PortError> { Ok(generic(bytes).map_err(<PortError as From<Utf8Error>>::from)?) }
+
+fn selected_block(bytes: &[u8]) -> Result<&str, PortError> { try { generic(bytes).map_err(<PortError as From<Utf8Error>>::from)? } }
+
 fn collected(lines: &[&str]) -> Result<Vec<u16>, PortError> {
     let ports = lines.iter().map(|line| line.parse()).collect::<Result<Vec<_>, _>>().map_err(PortError::Parse)?;
     Ok(ports)
@@ -212,6 +216,8 @@ fn main() {
         located(b"8084").map_or(Ok(0), inferred)?;
         expanded(b"8085")?;
         generic::<PortError>(b"8086")?;
+        selected(b"8086")?;
+        selected_block(b"8086")?;
         collected(&["8087"])?;
         manual("8088").map_err(|error| PortError::Parse(error.0))?;
         scale("1.5").map_err(PortError::Scale)?;

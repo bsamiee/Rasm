@@ -2,61 +2,13 @@
 id: no-parse-error-swift
 language: swiftlang
 severity: error
-utils:
-    awaited-closure:
-        any:
-            - kind: await_expression
-              has:
-                field: expr
-                all:
-                    - has: {stopBy: end, kind: call_suffix, has: {kind: lambda_literal}}
-                    - not: {has: {nthChild: 1, kind: prefix_expression, has: {field: operation, regex: '^!$'}}}
-            - {kind: lambda_literal, follows: {follows: {regex: '^await$'}}}
-    awaited-condition:
-        kind: 'if_statement, ERROR'
-        all:
-            - has: {regex: '^if$'}
-            - has:
-                stopBy: end
-                matches: awaited-closure
-                not: {inside: {kind: statements, stopBy: {kind: 'if_statement, ERROR'}}}
-    awaited-condition-recovery:
-        any:
-            - {kind: ERROR, matches: awaited-condition}
-            - {kind: ERROR, has: {matches: awaited-condition}}
-            - {kind: ERROR, follows: {stopBy: end, matches: awaited-condition}}
-            - inside: {stopBy: end, matches: awaited-condition}
-            - {regex: '^$', inside: {kind: 'class_body, function_body', has: {stopBy: end, matches: awaited-condition}}}
-    empty-tuple:
-        regex: '^$'
-        inside: {stopBy: end, kind: tuple_expression, regex: '^\(\s*\)$'}
-    linked-modifiers:
-        kind: modifiers
-        has: {kind: attribute, regex: '^@_silgen_name\('}
-    linked-declaration:
-        kind: ERROR
-        regex: '^(?:[^={}/]|//[^\n]*)*$'
-        any:
-            - has: {matches: linked-modifiers}
-            - inside: {kind: function_declaration, stopBy: {not: {kind: function_type}}, has: {matches: linked-modifiers}}
-    associatedtype-inheritance-list:
-        kind: ERROR
-        regex: '^,'
-        inside: {kind: associatedtype_declaration}
-    unreported:
-        any:
-            - inside: {kind: ERROR, stopBy: end}
-            - matches: associatedtype-inheritance-list
-            - matches: awaited-condition-recovery
-            - matches: empty-tuple
-            - matches: linked-declaration
 rule:
     any:
         - kind: ERROR
-          not: {matches: unreported}
+          not: &nested {inside: {kind: ERROR, stopBy: end}}
         - kind: source_file
-          has: {stopBy: end, pattern: $$MISSING, regex: '^$', not: {matches: unreported}}
+          has: {stopBy: end, all: [{regex: '^$'}, {pattern: $$MISSING}, {not: *nested}]}
 labels:
     MISSING: {style: primary, message: Token the grammar inserted to recover}
 message: Grammar failed to parse the span
-note: 'Write a form tree-sitter-swift parses'
+note: Fix invalid syntax or update ast-grep

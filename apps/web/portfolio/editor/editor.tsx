@@ -1,8 +1,6 @@
 import { useAtom, useAtomRefresh, useAtomSet, useAtomSubscribe, useAtomValue } from '@effect/atom-react';
-import { ModalOverlay } from '@rasm/ui/dialog/overlay';
-import { focus } from '@rasm/ui/focus';
-import { Issues } from '@rasm/ui/form/issues';
-import { Array, Match, Option, Predicate, Struct } from 'effect';
+import { Backdrop, focusElement, Issues } from '@rasm/ui';
+import { Array, Function, Match, Option, Predicate, Struct } from 'effect';
 import { SecureRandom } from 'effect/crypto';
 import { AsyncResult, type Atom } from 'effect/reactivity';
 import { ArrowLeft, X } from 'lucide-react';
@@ -27,7 +25,7 @@ import { Entry, EntryId, type Portfolio, type PortfolioData } from '#/model/port
 
 const Uploads = lazy(() => import('#/editor/uploads.tsx').then((module) => ({ default: module.Uploads })));
 const EditorDialog = ({ description, busy, children }: { description?: string; busy: boolean; children?: ReactNode }) => (
-    <ModalOverlay className="bg-foreground/55 fixed inset-0 z-50" isDismissable={!busy} isKeyboardDismissDisabled={busy}>
+    <Backdrop className="bg-foreground/55 fixed inset-0 z-50" isDismissable={!busy} isKeyboardDismissDisabled={busy}>
         <Modal>
             <Dialog className="bg-background shadow-panel fixed top-0 right-0 h-(--visual-viewport-height) w-full max-w-250 overflow-y-auto outline-none">
                 <div className="relative px-9 pt-5 pr-18 pb-2 max-sm:px-5 max-sm:pr-15">
@@ -46,7 +44,7 @@ const EditorDialog = ({ description, busy, children }: { description?: string; b
                 {children}
             </Dialog>
         </Modal>
-    </ModalOverlay>
+    </Backdrop>
 );
 const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof draft> & { published: typeof Portfolio.Type; onPreview: (data: typeof PortfolioData.Type) => void }) => {
     const idPrefix = useId();
@@ -76,7 +74,7 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
         setTarget(Destination.Entry({ id }));
         setWorkspace(view);
         show('entries');
-        focus(target);
+        focusElement(target);
     };
     const place = (entryId: typeof EntryId.Type, placed: typeof AssetId.Type) => {
         setAssetId(Option.some(placed));
@@ -92,8 +90,12 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
         const failing = part === 'compositions' && Predicate.isNumber(compositionIndex) ? Option.flatMap(entry, ({ compositions }) => Array.get(compositions, compositionIndex)) : Option.none();
         const target = Option.match(failing, { onNone: () => `${idPrefix}${part === 'title' ? 'title' : 'entry'}`, onSome: Struct.get('id') });
         show(head === 'entries' ? 'entries' : 'identity');
-        Option.match(entry, { onNone: () => (head === 'entries' ? setWorkspace('entries') : focus(`${idPrefix}${String(head)}`)), onSome: ({ id }) => open(id, 'entry', target) });
-        Option.map(failing, ({ id }) => setComposition(id));
+        Match.value({ head, entry }).pipe(
+            Match.when({ entry: Option.isSome }, ({ entry: found }) => open(found.value.id, 'entry', target)),
+            Match.when({ head: 'entries' }, () => setWorkspace('entries')),
+            Match.orElse(() => focusElement(`${idPrefix}${String(head)}`)),
+        );
+        Option.match(failing, { onNone: Function.constVoid, onSome: ({ id }) => setComposition(id) });
     };
     const status = Match.value({ reloading: reloading.waiting, saving: operation.waiting, changed: state.portfolio !== state.saved, saved: AsyncResult.value(operation) }).pipe(
         Match.when({ reloading: true }, () => 'Loading latest draft…'),
@@ -221,7 +223,7 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
                                             New study
                                         </button>
                                     </div>
-                                    <EntryList entries={state.portfolio.entries} onRemove={() => focus(`${idPrefix}new`)} onSelect={({ id }) => open(id)} selected={selected} />
+                                    <EntryList entries={state.portfolio.entries} onRemove={() => focusElement(`${idPrefix}new`)} onSelect={({ id }) => open(id)} selected={selected} />
                                     {state.portfolio.entries.length === 0 && <p className="hint py-8">Create a project or study to add files</p>}
                                 </>
                             )),
@@ -241,7 +243,7 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
                             onInvalidCapture={(event) => {
                                 event.preventDefault();
                                 show('identity');
-                                Option.map(Option.fromNullishOr(event.currentTarget.querySelector(':invalid')), ({ id }) => focus(id));
+                                Option.match(Option.fromNullishOr(event.currentTarget.querySelector(':invalid')), { onNone: Function.constVoid, onSome: ({ id }) => focusElement(id) });
                             }}
                             onSubmit={(event) => {
                                 event.preventDefault();

@@ -66,7 +66,6 @@ Daemon operations:
 
 - `mise prune --yes` alone deletes old mise installations
 - Orphan removal runs outside Nx, a running Nx process loads modules from the version an upgrade orphans
-- Root `upgrade` runs its prerequisites, then fails on each package a resolver moved below the version Git's index records for its lock
 - `upgrade:docker` runs mise task `docker:update`, its VM restart on macOS starts the upgraded engine past systemd's `docker.service` start limit
 - Generic cleanup keeps Pixi prefixes and `PULUMI_HOME` and installs no browser or tool
 - Cleanup removes each target in place, an interrupted removal leaves the target at its listed path for next run

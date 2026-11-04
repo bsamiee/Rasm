@@ -118,7 +118,7 @@ where Ty: EdgeType {
             ("curve", 1.0),
             ("icurve", 1.0),
         ];
-        let shapes = iter::successors(Some((name, ("", 0.0))), |&(rest, _)| {
+        iter::successors(Some((name, ("", 0.0))), |&(rest, _)| {
             let unmodified = iter::successors(Some(rest), |rest| ARROW_MODIFIERS.into_iter().find_map(|modifier| rest.strip_prefix(modifier))).last()?;
             ARROW_SHAPES
                 .into_iter()
@@ -127,15 +127,13 @@ where Ty: EdgeType {
         })
         .skip(1)
         .take(4)
-        .collect::<Vec<_>>();
-        shapes
-            .iter()
-            .enumerate()
-            .map(|(position, &(_, (shape, factor)))| match (shape == ARROW_GAP.0, position, shapes.len()) {
-                (true, 3, _) | (true, 0, 1) => 0.0,
-                _ => factor,
-            })
-            .sum()
+        .with_position()
+        .enumerate()
+        .map(|(position, (Position { is_first: _, is_last }, (_, (shape, factor))))| match (shape == ARROW_GAP.0, position, is_last) {
+            (true, 3, _) | (true, 0, true) => 0.0,
+            _ => factor,
+        })
+        .sum()
     }
     let directed = drawing.graph.is_directed();
     let (points, inches) = (unit.get::<point_computer>(), unit.get::<inch>());
@@ -165,14 +163,12 @@ where Ty: EdgeType {
             along if along >= length => 1.0,
             along => segment.inv_arclen(along, DEFAULT_ACCURACY),
         };
-        let cubics = iter::zip(segments.iter(), lengths.iter().scan(0.0, |start: &mut f64, &length| Some((mem::replace(start, *start + length), length))))
-            .filter_map(|(segment, (start, length))| {
-                let (low, high) = (from.max(start), to.min(start + length));
-                (low <= high).then(|| segment.subsegment(parameter(segment, low - start, length)..parameter(segment, high - start, length)).to_cubic())
-            })
-            .collect::<Vec<_>>();
+        let cubics = iter::zip(segments.iter(), lengths.iter().scan(0.0, |start: &mut f64, &length| Some((mem::replace(start, *start + length), length)))).filter_map(|(segment, (start, length))| {
+            let (low, high) = (from.max(start), to.min(start + length));
+            (low <= high).then(|| segment.subsegment(parameter(segment, low - start, length)..parameter(segment, high - start, length)).to_cubic())
+        });
         iter::chain(tail.map(|_| format!("s,{}", coordinates(segments.first().start()))), head.map(|_| format!("e,{}", coordinates(segments.last().end()))))
-            .chain(iter::chain(cubics.first().map(|cubic| cubic.p0), cubics.iter().flat_map(|&CubicBez { p0: _, p1, p2, p3 }| [p1, p2, p3])).map(coordinates))
+            .chain(cubics.with_position().flat_map(|(Position { is_first, is_last: _ }, CubicBez { p0, p1, p2, p3 })| iter::chain(is_first.then_some(p0), [p1, p2, p3])).map(coordinates))
             .join(" ")
     };
     let depth = move |placed: &Placed<N>| iter::successors(placed.parent, |&parent| drawing.graph.node_weight(parent).and_then(|cluster| cluster.parent)).count();
@@ -212,6 +208,6 @@ where Ty: EdgeType {
         edges.iter().try_for_each(|(reference, attributes)| {
             writeln!(formatter, "    {} {} {} [{}]", reference.source().index(), if directed { "->" } else { "--" }, reference.target().index(), listed(attributes))
         })?;
-        writeln!(formatter, "}}")
+        formatter.write_str("}\n")
     }))
 }

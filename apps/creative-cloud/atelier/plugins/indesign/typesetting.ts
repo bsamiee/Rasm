@@ -1,11 +1,7 @@
-import type { Text } from 'adobe:indesign';
-import { Adjust, Typeset } from '@rasm/automation/typesetting';
-import type { host } from '@rasm/indesign/host';
-import { Model } from '@rasm/indesign/model';
-import { requests } from '@rasm/indesign/requests';
-import { HostSettings } from '@rasm/indesign/settings';
-import { Settings } from '@rasm/typography/settings';
-import { Array, Cause, Effect, Number, Option, Record, Schema, Struct } from 'effect';
+import { Adjust, Typeset } from '@rasm/automation';
+import { HostSettings, InDesignModel, inDesignHandlers, type linkInDesign } from '@rasm/indesign/uxp';
+import { Settings } from '@rasm/typography';
+import { Array, Cause, Effect, Function, Number, Option, Record, Schema, Struct } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -34,20 +30,20 @@ const picker = <A>(options: readonly (readonly [string, A])[]) => {
 
 // --- [REQUESTS]
 
-const typesetSelection = (settings: Option.Option<typeof Settings.Partial.Type>) => Effect.flatMap(Model.selection, (item) => requests.typeset(Typeset.make({ target: item.toSpecifier(), settings })));
+const typesetSelection = (settings: Option.Option<typeof Settings.Partial.Type>) => Effect.flatMap(InDesignModel.selection, (item) => inDesignHandlers.typeset(Typeset.make({ target: item.toSpecifier(), settings })));
 const nudged = Effect.fnUntraced(function* (deltas: Option.Option<(steps: typeof Steps.Type) => Adjust['deltas']>, multiple: number) {
-    const [{ app, owning }, item, delta] = yield* Effect.all([Model, Model.selection, Effect.fromOption(deltas)]);
-    const styled = yield* Effect.fromOption(Option.liftPredicate(item, owning<Pick<Text, 'textStyleRanges'>>('textStyleRanges')), () => new Cause.NoSuchElementError(`text style range in selection ${item.toSpecifier()}`));
-    const steps = yield* Model.read(Steps, 'text preferences', () => ({ kerning: multiple * app.textPreferences.kerningKeyIncrement, baselineShift: (multiple * app.textPreferences.baselineShiftKeyIncrement) / styled.textStyleRanges.firstItem().pointSize }));
-    yield* requests.adjust(Adjust.make({ target: item.toSpecifier(), deltas: delta(steps) }));
+    const [{ app, owning }, item, delta] = yield* Effect.all([InDesignModel, InDesignModel.selection, Effect.fromOption(deltas)]);
+    const styled = yield* Effect.fromOption(Option.liftPredicate(item, owning('textStyleRanges')), () => new Cause.NoSuchElementError(`text style range in selection ${item.toSpecifier()}`));
+    const steps = yield* InDesignModel.read(Steps, 'text preferences', () => ({ kerning: multiple * app.textPreferences.kerningKeyIncrement, baselineShift: (multiple * app.textPreferences.baselineShiftKeyIncrement) / styled.textStyleRanges.firstItem().pointSize }));
+    yield* inDesignHandlers.adjust(Adjust.make({ target: item.toSpecifier(), deltas: delta(steps) }));
     return Option.none();
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const typesetting = (scripted: ReturnType<typeof host>['scripted']) =>
+const typesetting = (scripted: ReturnType<typeof linkInDesign>['scripted']) =>
     Effect.fnUntraced(function* (root: HTMLElement, fork: (work: Effect.Effect<unknown, unknown>) => void) {
-        const { app } = yield* Model;
+        const { app } = yield* InDesignModel;
         const mode = picker(
             Record.toEntries({
                 Marks: { horizontal: ({ kerning }) => ({ marks: { x: kerning, y: 0 } }), vertical: ({ kerning }) => ({ marks: { x: 0, y: kerning } }) },
@@ -74,21 +70,29 @@ const typesetting = (scripted: ReturnType<typeof host>['scripted']) =>
                 if (elongating(kashida)) {
                     width.show(kashida.lower);
                 }
-                sets.forEach(([tag, box]) => Object.assign(box, { checked: Option.exists(Record.get(features, tag), Number.isGreaterThan(0)) }));
+                for (const [tag, box] of sets) {
+                    box.checked = Option.exists(Record.get(features, tag), Number.isGreaterThan(0));
+                }
             });
-        const acted = <E>(change: Effect.Effect<Option.Option<typeof Settings.Partial.Type>, E, Model>) => fork(scripted(Effect.flatMap(change, typesetSelection)).pipe(Effect.matchCauseEffect({ onFailure: failed, onSuccess: displayed })));
+        const acted = <E>(change: Effect.Effect<Option.Option<typeof Settings.Partial.Type>, E, InDesignModel>) => fork(scripted(Effect.flatMap(change, typesetSelection)).pipe(Effect.matchCauseEffect({ onFailure: failed, onSuccess: displayed })));
         const changed = () => acted(Effect.succeedNone);
         const elongated = ({ kashida }: Settings) => Option.map(Option.all([elongation.read(), width.read()]), ([_tag, lower]) => ({ kashida: _tag === 'None' ? { _tag } : { _tag, lower, upper: lower, fractional: elongating(kashida) && kashida.fractional } }));
-        [elongation, width].forEach(({ element }) => element.addEventListener('change', () => acted(Effect.map(typesetSelection(Option.none()), elongated))));
-        sets.forEach(([tag, box]) => box.addEventListener('change', () => acted(Effect.succeedSome({ features: { [tag]: box.checked ? 1 : null } }))));
-        buttons.forEach(([{ axis, sign }, button]) => button.addEventListener('click', ({ metaKey, ctrlKey }) => acted(nudged(Option.map(mode.read(), Struct.get(axis)), sign * (metaKey || ctrlKey ? SHORTCUT_MULTIPLE : 1)))));
+        for (const { element } of [elongation, width]) {
+            element.addEventListener('change', () => acted(Effect.map(typesetSelection(Option.none()), elongated)));
+        }
+        for (const [tag, box] of sets) {
+            box.addEventListener('change', () => acted(Effect.succeedSome({ features: { [tag]: box.checked ? 1 : null } })));
+        }
+        for (const [{ axis, sign }, button] of buttons) {
+            button.addEventListener('click', ({ metaKey, ctrlKey }) => acted(nudged(Option.map(mode.read(), Struct.get(axis)), sign * (metaKey || ctrlKey ? SHORTCUT_MULTIPLE : 1))));
+        }
         Object.assign(root, { textContent: '' }).style.color = 'var(--uxp-host-text-color)';
         [status, controls].forEach((child) => root.appendChild(child));
         const events = ['afterSelectionChanged', 'afterSelectionAttributeChanged', 'afterContextChanged'] as const;
         const listened = (event: (typeof events)[number]) =>
             Effect.acquireRelease(
                 Effect.sync(() => app.addEventListener(event, changed)),
-                () => Effect.sync(() => app.removeEventListener(event, changed)),
+                Function.constant(Effect.sync(() => app.removeEventListener(event, changed))),
             );
         yield* Effect.forEach(events, listened, { discard: true });
         yield* Effect.sync(changed);

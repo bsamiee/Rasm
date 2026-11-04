@@ -1,6 +1,6 @@
-import { Illustrator } from '@rasm/illustrator/contract';
+import { link } from '@rasm/atelier';
+import { Illustrator } from '@rasm/illustrator';
 import { cep } from '../../../../../vite.shared.ts';
-import { link } from '../../link.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

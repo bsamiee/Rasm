@@ -1,13 +1,13 @@
 """Rows drawn through `UILayout` templates over located data."""
 
-from collections.abc import Callable, Generator, Mapping
+from collections.abc import Callable, Generator, Hashable, Mapping
 from contextlib import contextmanager
 from functools import cached_property, partial
 from types import MappingProxyType
 from typing import override
 
 import bpy
-from expression import Nothing, Ok, Option, Some, try_downcast
+from expression import Option, Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -15,19 +15,19 @@ import numpy.typing as npt
 from blender.bpy.commands import operators
 from blender.bpy.commands.keymaps import Keymap
 from blender.bpy.data.rna.paths import id_data, Struct
-from blender.bpy.data.rna.properties import Callbacks, held_choices, IconedItem, offered
-from blender.bpy.extension.identity import Identity, Key
+from blender.bpy.data.rna.properties import Callbacks, choices, IconedItem, offered
+from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions, Tier
 from blender.bpy.extension.reports import alerted, redrawn
 from blender.bpy.settings.attachments import Attachment
 from blender.bpy.ui.drawing.canvas import Canvas, Offscreen, PROGRAMS
 from blender.bpy.ui.drawing.handlers import Part, Refresh, refreshing
 from blender.bpy.ui.layout.members import LocatedMembers, Member
-from blender.bpy.ui.layout.rows import accepted, ConditionalRow, FUNCTIONS, gridded, Keywords, Layout, layout_call, Property, RowDraw
+from blender.bpy.ui.layout.rows import ConditionalRow, FUNCTIONS, gridded, Keywords, Layout, Property, RowDraw
 from blender.bpy.ui.layout.values import Listing, StoreCommand
 from blender.bpy.ui.resources.previews import PREVIEWS
 from blender.bpy.ui.resources.theme import Metrics
-from blender.records.faults import Outcome, paired
+from blender.records.faults import Nothing, Ok, Outcome
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -42,11 +42,6 @@ class Preview(Property, frozen=True, kw_only=True):
     plain: Keywords = MappingProxyType({})
 
     @override
-    def drawn(self, identity: Identity, /) -> Outcome[RowDraw]:
-        """Binds the pointer as a `template_preview` row and checks the icon parameters, accumulating both refusals."""
-        return paired(accepted(FUNCTIONS["template_icon"], self.plain), super().drawn(identity)).map(lambda parts: parts[1])
-
-    @override
     def shown(self, function: bpy.types.Function, keywords: Keywords, held: LocatedMembers, layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
         """Draws the located data-block's shaded preview or icon."""
         match getattr(*held[0][1]):
@@ -54,7 +49,7 @@ class Preview(Property, frozen=True, kw_only=True):
                 super().shown(function, keywords, held, layout, _holder, context)
             case bpy.types.ID() as data:
                 for preview in Option.of_optional(data.preview_ensure()).to_list():
-                    layout_call(layout, FUNCTIONS["template_icon"], preview.icon_id, **self.plain)
+                    getattr(layout, FUNCTIONS["template_icon"].identifier)(preview.icon_id, **self.plain)
             case _:
                 pass
 
@@ -68,7 +63,7 @@ class ImageFormat(Property, frozen=True, kw_only=True):
     def shown(self, function: bpy.types.Function, keywords: Keywords, held: LocatedMembers, layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
         """Draws the located settings and their views under a multiview owner scene."""
         super().shown(function, keywords, held, layout, _holder, context)
-        settings: bpy.types.ImageFormatSettings = getattr(*held[0][1])
+        settings: bpy.types.ImageFormatSettings = getattr(*held[0][1])  # ty: ignore[unsound-assignment]
         if id_data(bpy.types.Scene, settings).filter(lambda scene: scene.render.use_multiview).is_some():
             layout.template_image_views(settings)
 
@@ -82,7 +77,7 @@ class Gallery(Property, frozen=True, kw_only=True):
     @override
     def shown(self, function: bpy.types.Function, keywords: Keywords, held: LocatedMembers, layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
         """Draws the located enum's icons in the value cell under its name in the label cell."""
-        super().shown(function, keywords, held, gridded(held[0][0].descriptor.prop.name, layout), _holder, context)
+        super().shown(function, keywords, held, gridded(held[0][0].prop.name, layout), _holder, context)
 
 
 class _Pick(bpy.types.PropertyGroup):
@@ -114,38 +109,39 @@ class PresetGallery[T: msgspec.Struct](ConditionalRow, frozen=True, kw_only=True
     def presets(self, identity: Identity, context: bpy.types.Context | None) -> tuple[IconedItem, ...]:
         """Item rows of the presets that load, each under its preview icon over the context."""
         preset = self.listing.preset
-        return held_choices(
+        sources = preset.listed(identity)
+        return choices(
             tuple(
                 (stem, name, description, self.tile(identity, context, value).default_value(0), number)
-                for stem, name, description, _, number in preset.entries(identity)
-                for value in preset.loaded(identity, stem).to_option().to_list()
+                for stem, name, description, _, number in preset.entries(sources)
+                for value in preset.read(sources[stem]).to_option().to_list()
             )
         )
 
-    def pick(self, identity: Identity, owner: Struct) -> int:
+    def pick(self, identity: Identity, owner: _Pick) -> int:
         """Returns the gallery value of the picked preset, the first row's while the pick names none of them."""
-        rows, picked = offered(self.presets(identity, None)), Option.of_optional(try_downcast(_Pick, owner)).map(lambda pick: pick.picked)
-        return next((number for stem, *_, number in rows if picked == Some(stem)), rows[0][4])
+        rows = offered(self.presets(identity, None))
+        return next((number for stem, *_, number in rows if owner.picked == stem), rows[0][4])
 
     @contextmanager
-    def picking(self, identity: Identity) -> Generator[Mapping[str, Callbacks]]:
+    def picking(self, identity: Identity) -> Generator[Mapping[str, Callbacks[_Pick]]]:
         """Yields the pick's item, read, and write callbacks while the deferred apply each pick queues stands."""
         title = self.listing.commands[StoreCommand.APPLY].title
 
         def applied(stem: str) -> Outcome[Option[str]]:
             return self.listing.preset.loaded(identity, stem).bind(partial(self.listing.applied, bpy.context)).map(lambda answer: Some(title) if isinstance(answer, operators.Done) else Nothing)
 
-        def picked(owner: Struct, value: int) -> None:
-            for pick, stem in ((pick, stem) for pick in Option.of_optional(try_downcast(_Pick, owner)).to_list() for stem, *_, number in self.presets(identity, None) if number == value):
-                pick.picked = stem
+        def picked(owner: _Pick, value: int) -> None:
+            for stem in (stem for stem, *_, number in self.presets(identity, None) if number == value):
+                owner.picked = stem
                 deferred(stem)
 
         with identity.reports.deferred(applied) as deferred:
             yield {"preset": Callbacks(items=lambda _owner, context: offered(self.presets(identity, context)), get=partial(self.pick, identity), set=picked)}
 
-    def acquisitions(self, _identity: Identity, /) -> Outcome[Acquisitions]:
+    def acquisitions(self, _identity: Identity, /) -> Acquisitions:
         """Acquires the pick."""
-        return Ok((self.attachment,))
+        return (self.attachment,)
 
     def drawn(self, identity: Identity, /) -> Outcome[RowDraw]:
         """Realizes the gallery over the pick."""
@@ -155,19 +151,19 @@ class PresetGallery[T: msgspec.Struct](ConditionalRow, frozen=True, kw_only=True
 class Picture[S](ConditionalRow, frozen=True, kw_only=True):
     """Part drawn offscreen at its size into a generated preview, shown as an icon and drawn again after each refresh or interface scale change."""
 
-    slot: Key
+    slot: Hashable
     part: Part[S]
     size: Callable[[Metrics], tuple[int, int]]
     scale: float
     refreshes: tuple[Refresh, ...] = ()
 
-    def acquisitions(self, identity: Identity, /) -> Outcome[Acquisitions]:
+    def acquisitions(self, identity: Identity, /) -> Acquisitions:
         """Owns the preview collection, draw programs, and refresh sources, each refresh dropping the finished picture and redrawing."""
 
         def refreshed() -> Outcome[None]:
-            return identity.resources[PREVIEWS].dropped(self.slot).bind(lambda _: redrawn()).map(lambda _: None)
+            return PREVIEWS[identity].dropped(self.slot).bind(lambda _: redrawn()).map(lambda _: None)
 
-        return Ok((PREVIEWS, PROGRAMS, (Tier.DRAW_HANDLERS, refreshing(identity, self.refreshes, refreshed))))
+        return (PREVIEWS, PROGRAMS, (Tier.DRAW_HANDLERS, refreshing(identity, self.refreshes, refreshed)))
 
     def drawn(self, identity: Identity, /) -> Outcome[RowDraw]:
         """Returns the draw rendering the part once per refresh and interface scale."""
@@ -177,15 +173,20 @@ class Picture[S](ConditionalRow, frozen=True, kw_only=True):
         """Renders the part's current state at its size in the canvas's metrics and theme, Nothing while the part holds no state."""
         width, height = self.size(canvas.metrics)
         return self.part.read(canvas.metrics).bind(
-            lambda found: found.map(lambda state: Offscreen(width=width, height=height).drawn(canvas, lambda pixels: self.part.drawn(pixels, state)).map(Some)).default_value(Ok(Nothing))
+            lambda found: found.map(lambda state: Offscreen(width=width, height=height).drawn(canvas, lambda pixels: self.part.drawn(state, pixels)).map(Some)).default_value(Ok(Nothing))
         )
 
     def shown(self, identity: Identity, layout: bpy.types.UILayout, _holder: Struct, context: bpy.types.Context) -> None:
         """Draws the finished picture, rendering it first while the slot misses this interface scale."""
         for area, region in ((area, region) for area in Option.of_optional(context.area).to_list() for region in Option.of_optional(context.region).to_list()):
-            canvas, previews = Canvas.of(area, region), identity.resources[PREVIEWS]
+            canvas, previews = Canvas.of(area, region), PREVIEWS[identity]
             key = (canvas.metrics.scale, canvas.metrics.pixel_size)
-            pictured = Ok(previews.icon_id(self.slot)) if previews.current(self.slot, key) else self.rendered(canvas).bind(partial(previews.written, self.slot, key))
+            pictured = (
+                previews
+                .read(self.slot, key)
+                .map(lambda native: Ok(native.map(lambda preview: preview.icon_id)))
+                .default_with(lambda: self.rendered(canvas).bind(partial(previews.written, self.slot, key)))
+            )
             alerted(layout, pictured)
             for value in pictured.to_option().bind(lambda icon: icon).to_list():
                 layout.template_icon(icon_value=value, scale=self.scale)

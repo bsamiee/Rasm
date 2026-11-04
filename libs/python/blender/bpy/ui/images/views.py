@@ -1,42 +1,48 @@
 """Image editor views of the displayed frame."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from functools import partial, wraps
 import math
 from typing import ClassVar, Final, Literal, TYPE_CHECKING
 
 import bpy
-from expression import Nothing, Ok, Option, Some, try_downcast
+from expression import Option, Some
+from expression.extra.result import catch
 import gpu
+from gpu_extras.batch import batch_for_shader
 from mathutils import Matrix, Vector
 import msgspec
 import numpy as np
 import numpy.typing as npt
 
 from blender.bpy.commands.invocations import Pick
-from blender.bpy.commands.operators import Answer, Call, called, Done, Empty, NoUndo, Operator
+from blender.bpy.commands.operators import Answer, Call, called, Done, Empty, Operator
 from blender.bpy.data.rna.conditions import Setting
 from blender.bpy.data.rna.descriptors import Descriptor
-from blender.bpy.data.rna.paths import root_in, rooted
+from blender.bpy.data.rna.paths import definition, root_in, rooted
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.ui.drawing.canvas import Canvas, DrawType, Rect
+from blender.bpy.ui.drawing.canvas import Canvas, configured, draw_batch, DrawType, Rect
 from blender.bpy.ui.drawing.handlers import Drawing, Overlay, Part, Refresh
 from blender.bpy.ui.elements.gizmos import Gizmo, GizmoGroup, TargetHandler
 from blender.bpy.ui.elements.panels import Beside, Sidebar
-from blender.bpy.ui.resources.previews import uploaded
+from blender.bpy.ui.resources.previews import Texture, uploaded
 from blender.bpy.ui.resources.theme import Color, color, Metrics, Shade
-from blender.bpy.ui.screens.areas import AreaQuery, Arrangement, EditorState, Located, visibility
+from blender.bpy.ui.screens.areas import AreaQuery, Arrangement, EditorState, Located, region_in, visibility
 from blender.imaging.geometry.frames import Quad, Region
-from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
+from blender.records.faults import Fault, Nothing, Ok, Outcome, paired, Reason
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
 
+# --- [TYPES] ----------------------------------------------------------------------------
+
+type _Frame = tuple[Quad, Rect]
+
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 HANDLE: Final = 0.2
-_WINDOW: Final = Setting(descriptor=Descriptor.declared(bpy.types.Context, ("region", "type"), bpy.types.EnumProperty), accepted=("WINDOW",))
+_WINDOW: Final = Setting(descriptor=Descriptor(root=bpy.types.Context, owner=("region",), prop=definition(bpy.types.Region).properties["type"]), accepted=("WINDOW",))
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -51,25 +57,26 @@ class RenderView(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def command(self) -> Operator[Empty]:
         """Command revealing the view at the placement's tab."""
-        return Operator(undo=NoUndo(), form=Empty, run=self.show_render_view)
+        return Operator(options=frozenset(), form=Empty, run=self.show_render_view)
 
     def show_render_view(self, call: Call[Empty]) -> Outcome[Answer]:
         """Shows the render view with its Sidebar open at the placement's tab."""
-        tabbed = (
-            Option
-            .of_optional(try_downcast(str, self.at.members(call.identity).get("bl_category")))
-            .map(lambda tab: EditorState.of(bpy.types.Region, {("active_panel_category",): tab}, Some("UI")).map(lambda state: (state,)))
-            .default_value(Ok(()))
-        )
+        match self.at:
+            case Sidebar(category=tab):
+                category = Some(tab)
+            case Beside(panel=panel):
+                declared: type[bpy.types.Panel] = panel  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+                category = catch(lambda: declared.bl_category, exception=AttributeError)().to_option()
+        tabbed = category.map(lambda tab: EditorState.of(bpy.types.Region, {("active_panel_category",): tab}, Some("UI")).map(lambda state: (state,))).default_value(Ok(()))
 
         def queued(at: Located, sidebar: EditorState, tab: tuple[EditorState, ...]) -> Outcome[None]:
             return call.identity.reports.queued(Arrangement(at=at, steps=(sidebar, *tab)))
 
         return paired(revealed(call.context), visibility(bpy.types.SpaceImageEditor, "UI", visible=True), tabbed).bind(lambda found: queued(*found)).map(lambda _: Done())
 
-    def acquisitions(self, _identity: Identity) -> Outcome[Acquisitions]:
+    def acquisitions(self, _identity: Identity) -> Acquisitions:
         """Returns the command revealing the view."""
-        return Ok((self.command,))
+        return (self.command,)
 
 
 class Picked(bpy.types.PropertyGroup):
@@ -83,39 +90,21 @@ class Picked(bpy.types.PropertyGroup):
 # --- [OVERLAYS]
 
 
-class Tint(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Top-first frame coverage plane with its tint color."""
-
-    plane: npt.NDArray[np.float32]
-    color: Color
-
-
 class Masks(msgspec.Struct, frozen=True, kw_only=True):
-    """Part uploading each tint's coverage once per refresh and drawing it over the frame in its color."""
+    """Part reading uploaded tints and drawing them over the frame."""
 
     draw_type: ClassVar[DrawType] = "POST_VIEW"
-    source: Callable[[Metrics], Outcome[Option[tuple[Tint, ...]]]]
-
-    def read(self, metrics: Metrics) -> Outcome[Option[tuple[tuple[gpu.types.GPUTexture, Tint], ...]]]:
-        """Uploads each coverage as associated white of that alpha, paired with its tint."""
-        return self.source(metrics).bind(
-            lambda found: found.map(
-                lambda tints: accumulated(uploaded(np.repeat(tint.plane[..., None], 4, axis=-1)) for tint in tints).map(lambda textures: Some(tuple(zip(textures, tints, strict=True))))
-            ).default_value(Ok(Nothing))
-        )
+    read: Callable[[Metrics], Outcome[Option[tuple[Texture[Color], ...]]]]
 
     @staticmethod
-    def drawn(canvas: Canvas, state: tuple[tuple[gpu.types.GPUTexture, Tint], ...], /) -> None:
+    def drawn(state: tuple[Texture[Color], ...], canvas: Canvas, /) -> None:
         """Draws each coverage over the unit frame in its tint associated with its alpha, nearest filtering past full zoom."""
-        match canvas.space:
-            case bpy.types.SpaceImageEditor(zoom=zoom):
-                across, _ = np.asarray(zoom)
-                for texture, tint in state:
-                    red, green, blue, alpha = tint.color
-                    texture.filter_mode(bool(across < 1.0))
-                    canvas.picture(texture, Rect(x=0.0, y=0.0, width=1.0, height=1.0), blend="ALPHA_PREMULT", color=(red * alpha, green * alpha, blue * alpha, alpha))
-            case _:
-                pass
+        if isinstance(space := canvas.space, bpy.types.SpaceImageEditor):
+            zoom: Iterable[float] = space.zoom  # type: ignore[assignment]  # ty: ignore[unsound-assignment]
+            filtered = min(zoom) < 1.0
+            for texture, (red, green, blue, alpha) in state:
+                texture.filter_mode(filtered)
+                canvas.picture(texture, Rect(x=0.0, y=0.0, width=1.0, height=1.0), blend="ALPHA_PREMULT", color=(red * alpha, green * alpha, blue * alpha, alpha))
 
 
 class Edges(msgspec.Struct, frozen=True, kw_only=True):
@@ -128,14 +117,15 @@ class Edges(msgspec.Struct, frozen=True, kw_only=True):
     def read(self, _metrics: Metrics, /) -> Outcome[Option[gpu.types.GPUBatch]]:
         """Batches the quad as a closed corner strip in frame fractions."""
         return self.quad(bpy.context).map(
-            lambda found: found.map(lambda held: Canvas.batched("POLYLINE_UNIFORM_COLOR", "LINE_STRIP", {"pos": np.ascontiguousarray(held.samples[(0, 1, 2, 3, 0), :2], np.float32)}))
+            lambda found: found.map(
+                lambda held: batch_for_shader(gpu.shader.from_builtin("POLYLINE_UNIFORM_COLOR"), "LINE_STRIP", {"pos": np.array((*held.corners, held.corners[0]), np.float32)})  # type: ignore[dict-item]  # ty: ignore[invalid-argument-type]
+            )
         )
 
-    def drawn(self, canvas: Canvas, state: gpu.types.GPUBatch, /) -> None:
+    def drawn(self, state: gpu.types.GPUBatch, canvas: Canvas, /) -> None:
         """Draws the strip in the role's theme color."""
-        with canvas.lines(1.0) as lines:
-            lines.uniform_float("color", color(self.role(canvas.metrics.preferences.themes[0].user_interface)))
-            state.draw(lines)
+        lines = canvas.lines(1.0)
+        draw_batch(state, configured(lines, partial(lines[0].uniform_float, "color", color(self.role(canvas.metrics.preferences.themes[0].user_interface)))))
 
 
 # --- [CAGES]
@@ -157,53 +147,65 @@ class FrameRegion(msgspec.Struct, frozen=True, kw_only=True):
     shown: Setting = msgspec.field(default_factory=lambda: RESULT)
     refreshes: tuple[Refresh, ...] = ()
 
-    def acquisitions(self, _identity: Identity) -> Outcome[Acquisitions]:
+    def acquisitions(self, _identity: Identity) -> Acquisitions:
         """Returns the handle group, then the quad outline when corners are edited."""
         cage = Gizmo(
-            kind="GIZMO_GT_cage_2d", place=self.origin, bind=TargetHandler[tuple[float, ...]](get=self.caging, set=self.caged), properties={"transform": self.transform, "draw_options": frozenset()}
+            kind="GIZMO_GT_cage_2d",
+            place=self.origin,
+            bind=TargetHandler[tuple[float, ...], _Frame](get=self.caging, set=self.caged),
+            properties={"transform": self.transform, "draw_options": frozenset()},
         )
         corners = tuple(
             Gizmo(
                 kind="GIZMO_GT_move_3d",
                 place=self.origin,
-                bind=TargetHandler[tuple[float, ...]](get=partial(self.corner, index), set=partial(self.cornered, index)),
+                bind=TargetHandler[tuple[float, ...], _Frame](get=partial(self.corner, index), set=partial(self.cornered, index)),
                 properties={"scale_basis": HANDLE, "draw_style": "CROSS_2D"},
             )
             for index in range(len(Quad().corners) if self.corners else 0)
         )
-        group = GizmoGroup(key=self.key, space="IMAGE_EDITOR", gizmos=(*corners, cage), condition=Some(self.shown))
-        outline = overlaid(Edges(quad=self.read, role=lambda ui: ui.gizmo_primary), self.shown, self.refreshes)
-        return Ok((group, *((outline,) if self.corners else ())))
+        group = GizmoGroup(key=self.key, space="IMAGE_EDITOR", gizmos=(*corners, cage), read=self.held, condition=Some(self.shown))
+        return (group, *((overlaid(Edges(quad=self.read, role=lambda ui: ui.gizmo_primary), self.shown, self.refreshes),) if self.corners else ()))
 
     # --- [READING]
 
-    def held(self, context: bpy.types.Context) -> Outcome[Option[tuple[Quad, Rect]]]:
+    def held(self, context: bpy.types.Context) -> Outcome[Option[_Frame]]:
         """Reads the quad with the frame of the region drawing it."""
         return self.read(context).map(lambda found: found.bind(lambda quad: root_in(bpy.types.Region, context).map(lambda region: (quad, framed(region)))))
 
-    def origin(self, context: bpy.types.Context) -> Outcome[Option[Matrix]]:
-        """Places a handle at the frame origin while the owner holds a quad."""
-        return self.held(context).map(lambda found: found.map(lambda pair: Matrix.Translation((pair[1].x, pair[1].y, 0.0))))
+    @staticmethod
+    def origin(state: _Frame) -> Outcome[Option[Matrix]]:
+        """Places a handle at the frame origin."""
+        return Ok(Some(Matrix.Translation((state[1].x, state[1].y, 0.0))))
 
-    def caging(self, context: bpy.types.Context) -> tuple[float, ...]:
-        """Returns the cage's frame of the quad in column order, identity while the handle is unplaced."""
-        frame = self.held(context).to_option().bind(lambda found: found).map(lambda pair: _frame(_pixels(*pair))).default_with(lambda: Matrix.Identity(4))
-        return tuple(np.asarray(frame).ravel(order="F").tolist())
+    @staticmethod
+    def caging(state: _Frame) -> tuple[float, ...]:
+        """Returns the cage frame in the native target's column order."""
+        columns: Iterable[Vector] = _frame(_pixels(*state)).col  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        return tuple(value for column in columns for value in column)  # type: ignore[attr-defined]
 
-    def corner(self, index: int, context: bpy.types.Context) -> tuple[float, ...]:
-        """Returns the corner's offset from the frame origin in region pixels, zero while the handle is unplaced."""
-        return self.held(context).to_option().bind(lambda found: found).map(lambda pair: (*_pixels(*pair)[index], 0.0)).default_value((0.0, 0.0, 0.0))
+    @staticmethod
+    def corner(index: int, state: _Frame) -> tuple[float, ...]:
+        """Returns the corner offset from the frame origin in region pixels."""
+        quad, frame = state
+        x, y = quad.corners[index]
+        return x * frame.width, y * frame.height, 0.0
 
     # --- [WRITING]
 
     def caged(self, context: bpy.types.Context, values: tuple[float, ...]) -> Outcome[None]:
-        """Writes the quad the cage's change of frame moves, a pure move shifting it whole inside the bounds."""
+        """Writes the cage's transformed quad inside its bounds, refusing a singular source frame."""
 
         def rewritten(quad: Quad, frame: Rect) -> Outcome[None]:
             pixels = _pixels(quad, frame)
-            change = Matrix(np.reshape(values, (4, 4)).tolist()).transposed() @ _frame(pixels).inverted_safe()
-            moved = np.asarray([(change @ Vector((x, y, 0.0))).to_2d() for x, y in pixels]) / (frame.width, frame.height)
-            return self.write(context, Quad.of(self.bounded(moved, shifted=np.allclose(np.asarray(change.to_2x2()), np.eye(2)))))
+            original, target = _frame(pixels), Matrix(np.reshape(values, (4, 4)).tolist()).transposed()
+            shifted = np.array_equal(np.asarray(target.to_2x2()), np.asarray(original.to_2x2()))
+            return (
+                catch(original.inverted, exception=ValueError)()
+                .map_error(partial(Fault.of, Reason.REFUSED, "mathutils.Matrix.inverted"))
+                .map(lambda inverse: np.asarray(target @ inverse))
+                .bind(lambda change: self.write(context, Quad.of(self.bounded((pixels @ change[:2, :2].T + change[:2, 3]) / (frame.width, frame.height), shifted=shifted))))
+            )
 
         return self.pressed(context).bind(lambda pair: rewritten(*pair))
 
@@ -211,13 +213,13 @@ class FrameRegion(msgspec.Struct, frozen=True, kw_only=True):
         """Writes the quad with one corner at the handle's offset."""
 
         def rewritten(quad: Quad, frame: Rect) -> Outcome[None]:
-            fractions = quad.samples[:, :2].copy()
-            fractions[index] = np.asarray(values[:2]) / (frame.width, frame.height)
+            fractions = np.array(quad.corners)
+            fractions[index] = values[0] / frame.width, values[1] / frame.height
             return self.write(context, Quad.of(self.bounded(fractions, shifted=False)))
 
         return self.pressed(context).bind(lambda pair: rewritten(*pair))
 
-    def pressed(self, context: bpy.types.Context) -> Outcome[tuple[Quad, Rect]]:
+    def pressed(self, context: bpy.types.Context) -> Outcome[_Frame]:
         """Reads the quad and frame under a handle, absent fault while the owner holds none."""
         return self.held(context).bind(lambda found: found.to_result_with(partial(Fault.of, Reason.ABSENT, repr(context.area), member=self.key)))
 
@@ -233,6 +235,14 @@ class FrameRegion(msgspec.Struct, frozen=True, kw_only=True):
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
+# --- [UPLOADS]
+
+
+def coverage(plane: npt.NDArray[np.float32]) -> Outcome[gpu.types.GPUTexture]:
+    """Uploads top-first scalar coverage as an associated white RGBA texture."""
+    return uploaded(np.broadcast_to(plane[..., None], (*plane.shape, 4)))
+
+
 # --- [EDITORS]
 
 
@@ -245,7 +255,7 @@ def image_type(kinds: tuple[str, ...]) -> Setting:
     Returns:
         Condition over the image editor space.
     """
-    return Setting(descriptor=Descriptor.declared(bpy.types.SpaceImageEditor, ("image", "type"), bpy.types.EnumProperty), accepted=kinds)
+    return Setting(descriptor=Descriptor(root=bpy.types.SpaceImageEditor, owner=("image",), prop=definition(bpy.types.Image).properties["type"]), accepted=kinds)
 
 
 def _editor(shown: Setting) -> AreaQuery:
@@ -263,9 +273,29 @@ def framed(region: bpy.types.Region) -> Rect:
         Frame rectangle in region pixels.
     """
     view = region.view2d
-    (left, bottom), (right, top) = np.asarray(view.region_to_view(0.0, 0.0)), np.asarray(view.region_to_view(1.0, 1.0))
-    across, up = float(right - left), float(top - bottom)
-    return Rect(x=float(-left) / across, y=float(-bottom) / up, width=1.0 / across, height=1.0 / up)
+    origin: tuple[float, float] = view.region_to_view(0.0, 0.0)  # type: ignore[assignment]  # ty: ignore[unsound-assignment]
+    unit: tuple[float, float] = view.region_to_view(1.0, 1.0)  # type: ignore[assignment]  # ty: ignore[unsound-assignment]
+    left, bottom = origin[0], origin[1]
+    across, up = unit[0] - left, unit[1] - bottom
+    return Rect(x=-left / across, y=-bottom / up, width=1.0 / across, height=1.0 / up)
+
+
+def displayed_aspect(context: bpy.types.Context) -> Outcome[float]:
+    """Returns the shown image's aspect from its editor's main-region frame.
+
+    Args:
+        context: Context within the image editor, including its Sidebar.
+
+    Returns:
+        Displayed width divided by height, or an absent fault outside an editor showing an image.
+    """
+    return (
+        rooted(bpy.types.SpaceImageEditor, context)
+        .bind(lambda space: Option.of_optional(space.image).to_result_with(partial(Fault.of, Reason.ABSENT, repr(space), member="image")))
+        .bind(lambda _: rooted(bpy.types.Area, context).bind(region_in))
+        .map(framed)
+        .map(lambda frame: frame.width / frame.height)
+    )
 
 
 def viewing(context: bpy.types.Context) -> Outcome[Located]:
@@ -307,7 +337,7 @@ def overlaid[S](part: Part[S], shown: Setting, refreshes: tuple[Refresh, ...]) -
     Args:
         part: Part drawn over the editor.
         shown: Condition over the image editor space.
-        refreshes: Sources invalidating the part's read.
+        refreshes: Sources requesting redraw.
 
     Returns:
         Overlay drawing over the image editor's main region.
@@ -349,10 +379,12 @@ def picking[P: Picked](cursor: "rna_enums.WindowCursorItems", form: type[P], tak
 def _regioned(record: Picked, located: tuple[bpy.types.SpaceImageEditor, bpy.types.Region]) -> Outcome[Region]:
     """Returns the frame region of the square around the picked image pixel, absent fault for a pick outside the image."""
     space, region = located
-    frame, (zoom_x, zoom_y) = framed(region), np.asarray(space.zoom)
+    zoom: Iterable[float] = space.zoom  # type: ignore[assignment]  # ty: ignore[unsound-assignment]
+    zoom_x, zoom_y = zoom
+    frame = framed(region)
     width, height = round(frame.width / zoom_x), round(frame.height / zoom_y)
-    across, up = np.asarray(region.view2d.region_to_view(record.x, record.y))
-    column, row = math.floor(across * width), math.floor(up * height)
+    point: tuple[float, float] = region.view2d.region_to_view(record.x, record.y)  # type: ignore[assignment]  # ty: ignore[unsound-assignment]
+    column, row = math.floor(point[0] * width), math.floor(point[1] * height)
     reach = np.array(((-record.radius, -record.radius), (record.radius + 1, record.radius + 1)))
     return (
         Some((column, row))
@@ -367,7 +399,7 @@ def _regioned(record: Picked, located: tuple[bpy.types.SpaceImageEditor, bpy.typ
 
 def _pixels(quad: Quad, frame: Rect) -> npt.NDArray[np.float64]:
     """Returns quad corners in pixels from the frame origin."""
-    return quad.samples[:, :2] * (frame.width, frame.height)
+    return np.asarray(quad.corners) * (frame.width, frame.height)
 
 
 def _frame(pixels: npt.NDArray[np.float64]) -> Matrix:
@@ -385,4 +417,21 @@ RENDERED: Final = _editor(RESULT)
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["HANDLE", "RENDERED", "RESULT", "Edges", "FrameRegion", "Masks", "Picked", "RenderView", "Tint", "framed", "image_type", "overlaid", "picking", "revealed", "viewing"]
+__all__ = [
+    "HANDLE",
+    "RENDERED",
+    "RESULT",
+    "Edges",
+    "FrameRegion",
+    "Masks",
+    "Picked",
+    "RenderView",
+    "coverage",
+    "displayed_aspect",
+    "framed",
+    "image_type",
+    "overlaid",
+    "picking",
+    "revealed",
+    "viewing",
+]

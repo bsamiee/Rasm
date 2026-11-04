@@ -90,7 +90,7 @@ public static class Layouts {
                 grouping.Members.Traverse(name => Find(doc, name).ToFin(new RhinoFault(name, RhinoReason.Missing))).As())
             .Apply(static (_, pages) => pages).As())
         from row in Rows.Find(doc.PageViewGroups, new ComponentRef<PageViewGroup>.ByName(grouping.Name))
-            .Catch(static error => error.Filter<RhinoFault>().Head is RhinoFault fault && fault.Reason == RhinoReason.Missing, _ => Add(doc, grouping.Name))
+            | @catch(static error => error.Filter<RhinoFault>().Head is RhinoFault fault && fault.Reason == RhinoReason.Missing, _ => Add(doc, grouping.Name))
         from described in IO.lift(() => grouping.Description.Iter(text => Update(row.Description, text, value => row.Description = value)))
         from left in IO.lift(() => toSeq(row.GetMembers().Except(members)).Iter(member => member.RemoveFromPageViewGroup(row.Index)))
         from placed in IO.lift(() => members.Iter((position, page) => Update(page.PageViewGroupSortIndex(row.Index), position, index => page.SetPageViewGroupSortIndex(row.Index, index))))
@@ -152,7 +152,7 @@ public static class Layouts {
         from layer in Rows.Find(doc.Layers, style.Layer)
         from lettering in Rows.Find(doc.DimStyles, style.Lettering)
         let marks = Marks(doc, style, lettering, sheet)
-        let name = $"{FrameKey} {ContentKey.Of<FrameStyle>(stream => marks.Fold(stream.Integer(layer.Index), static (held, mark) => mark.Fields(held))).Id:N}"
+        let name = $"{FrameKey} {ContentKeys.Of<FrameStyle>(stream => marks.Fold(stream.Integer(layer.Index), static (held, mark) => mark.Fields(held))).Id:N}"
         from definition in Defined(doc, name, layer.Index, marks)
         from present in new ObjectTarget.Lookup(objects => objects.FindByUserString(FrameKey, "*", caseSensitive: true, searchGeometry: false, searchAttributes: true,
                 new ObjectEnumeratorSettings { SpaceFilter = ActiveSpace.PageSpace, ViewportFilter = page.MainViewport, HiddenObjects = true, LockedObjects = true }))

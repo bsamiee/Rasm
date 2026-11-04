@@ -48,6 +48,7 @@
         "@vitest/browser-playwright": "catalog:",
         "cf": "catalog:",
         "storybook": "catalog:",
+        "typescript": "catalog:docgen",
         "vite": "catalog:"
     }
 }

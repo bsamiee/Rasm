@@ -42,7 +42,7 @@ public sealed record EntryRow(Option<string> Value, EntryForm Form, Func<Edit<st
         let shown = latest.Bind(row => show(row.Value))
         from escaped in Subscriptions.Inline<KeyEventArgs>(h => entry.Field.KeyDown += h, h => entry.Field.KeyDown -= h).Attach(args =>
             when(args.KeyData is Keys.Escape, IO.lift(() => { args.Handled = true; }) >> latest.Bind(static row => row.Edited(new Edit<string>.Cancel())) >> shown).As())
-        from picked in first.Browse.Traverse(browse => Entries.Browsed(label, browse, first.Types, entry.Field, typed => latest.Bind(row => row.Edited(EditPhase.Commit.Of(typed))), scope)).As()
+        from picked in first.Browse.Traverse(browse => Entries.Browsed(label, browse, first.Types, entry.Field, typed => latest.Bind(row => row.Edited(new Edit<string>.Changed(Applies: true, typed))), scope)).As()
         select new RowCells(entry.Shown, shown) { Pick = picked };
 }
 
@@ -84,7 +84,7 @@ internal static class Entries {
             new Command<Invoke>.Run(new CommandFace("text-browse", "Browse") { Icon = Some(new IconResource(Assets.Rhino.Assembly, ResourceIds.OpenSvg)) },
                 new Invoke.Effect(held =>
                     from current in IO.lift(() => box.Text)
-                    from path in browse.Asked(title, current, types, held).Catch(Session.Cancellation, static _ => IO.pure(Option<string>.None))
+                    from path in browse.Asked(title, current, types, held) | @catch(Session.Cancellation, static _ => IO.pure(Option<string>.None))
                     from committed in path.Match(Some: commit, None: static () => IO.pure(unit))
                     select committed)),
             IconSlot.Small, scope)

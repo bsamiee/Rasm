@@ -1,4 +1,4 @@
-import { ModalOverlay } from '@rasm/ui/dialog/overlay';
+import { Backdrop } from '@rasm/ui';
 import { Button, Dialog, DialogTrigger, Heading, Modal, Text } from 'react-aria-components';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -8,7 +8,7 @@ const ConfirmDialog = ({ label, onConfirm, description = 'Source files stay in l
         <Button className="button button-ghost" isDisabled={disabled}>
             {label}
         </Button>
-        <ModalOverlay className="bg-foreground/55 fixed inset-0 z-60 flex items-center justify-center p-4">
+        <Backdrop className="bg-foreground/55 fixed inset-0 z-60 flex items-center justify-center p-4">
             <Modal className="bg-background max-h-full w-full max-w-120 overflow-auto">
                 <Dialog className="p-7 outline-none" role="alertdialog">
                     <Heading className="text-heading tracking-display" slot="title">
@@ -27,7 +27,7 @@ const ConfirmDialog = ({ label, onConfirm, description = 'Source files stay in l
                     </div>
                 </Dialog>
             </Modal>
-        </ModalOverlay>
+        </Backdrop>
     </DialogTrigger>
 );
 

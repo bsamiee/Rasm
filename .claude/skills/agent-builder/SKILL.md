@@ -102,7 +102,6 @@ Steps name tools in the form the harness runs:
 [CLI_TOOLS]:
 - Commands take the documented form with flags `--help` prints
 - Steps hold no prefix or flag for a default a configuration file or the target owns
-- Files the run edits or judges line by line read whole, with no outline beside the read
 
 ## [04]-[EXCLUSIONS]
 

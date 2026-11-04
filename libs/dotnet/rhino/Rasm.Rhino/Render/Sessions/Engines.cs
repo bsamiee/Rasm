@@ -17,7 +17,7 @@ public sealed record RenderWork(IO<Unit> Render) {
 
 public sealed record RenderEngine(
     LocalizeStringPair Caption,
-    RenderWindow.StandardChannels Channels,
+    Seq<RenderWindow.StandardChannels> Channels,
     Func<RenderStart, Option<Size>, RenderWindow, DefinedChangeFeed, IO<RenderWork>> Open) {
     // --- [ROWS]
     public bool HostWireframe { get; init; }
@@ -35,11 +35,7 @@ public sealed record RenderEngine(
 
     // --- [CHANNELS]
     internal Seq<Guid> SupportedChannels =>
-        toSeq(Enum.GetValues<RenderWindow.StandardChannels>())
-            .Filter(channel => int.IsPow2((int)channel)
-                && (Channels & ~(RenderWindow.StandardChannels.RGB | RenderWindow.StandardChannels.NormalXYZ | RenderWindow.StandardChannels.AlbedoRGB)).HasFlag(channel))
-            .Choose(static channel => Conversions.Present(RenderWindow.ChannelId(channel)))
-            .Concat(toSeq(CustomChannels.Keys));
+        Channels.Bind(Effects.Channels.Components).Map(RenderWindow.ChannelId).Concat(toSeq(CustomChannels.Keys)).Distinct();
 
     internal string CustomChannelName(Guid id) => Conversions.Unset(CustomChannels.Find(id).Map(static english => LocalText.Of(english).Local));
 

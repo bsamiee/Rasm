@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-partial-class-attribute
-language: python
+language: pythonlang
 severity: error
 metadata: {python-below: '3.14'}
 utils:

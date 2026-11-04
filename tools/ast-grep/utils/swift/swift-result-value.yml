@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: swift-result-value
+language: swiftlang
+rule:
+    any:
+        - kind: call_expression
+          has:
+            nthChild: 1
+            kind: navigation_expression
+            any:
+                - regex: '^Swift\.Result(\.(init|success|failure))?$'
+                - all:
+                    - has: {field: suffix, regex: '^\.(init|success|failure)$'}
+                    - has: {field: target, matches: swift-result-type}
+        - kind: constructor_expression
+          has: {field: constructed_type, matches: swift-result-type}
+        - kind: 'await_expression, unsafe_expression, consume_expression'
+          has: {field: expr, matches: swift-result-value}
+        - kind: try_expression
+          all:
+            - not: {has: {kind: try_operator, regex: '^try\?$'}}
+            - has: {field: expr, matches: swift-result-value}
+        - kind: tuple_expression
+          not: {has: {nthChild: 2}}
+          has: {field: value, matches: swift-result-value}
+        - all:
+            - kind: simple_identifier
+            - matches: {swift-parameter-use: {type: {matches: swift-result-type}}}

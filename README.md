@@ -42,7 +42,7 @@ Rasm/
 ├── vitest.config.ts          # Test and coverage options every project config imports
 ├── vite.shared.ts            # Bundling options every project config imports
 ├── biome.json                # TypeScript and JSON formatting and lint
-├── pyproject.toml            # Python wheel project, dependency groups, and tool tables
+├── pyproject.toml            # Python environment, dependency groups, and checker settings
 ├── global.json               # .NET SDK versions
 ├── Workspace.slnx            # .NET solution
 ├── Directory.Packages.props  # .NET central package versions
@@ -93,9 +93,12 @@ flowchart LR
 
 Targets run tools with their arguments on the command, a pipeline or command list joins tools for work no single tool does.
 
+Before starting Claude Code or Codex, run `mise install`, `pnpm install`, and `nx run rasm:grammar:bash` to prepare the shell hook's parser and configuration.
+
 - `nx run rasm:check` runs every root checker and type checker, `nx run rasm:lint:<tool>` runs one checker
 - `nx run <project>:check` runs project checks and tests `rasm:check` leaves to each project
 - `nx run <project>:<target> -- <arguments>` appends to the command, paths in place of a root tool's default file set, switches to `dotnet build`
+- `nx:run-commands` targets use `--args='<shell fragment>'` for literal shell characters; the value replaces configured argument defaults
 - `nx run rasm:format` runs `dotnet format` over the solution and file-based apps, then every other writer
 - `nx run rasm:format:files -- <paths>` runs non-.NET writers over named Git files
 - `nx run <project>:test:integration` runs cases `test` leaves out: Vitest and Rust `#[ignore]` after `rasm:docker`, Swift `<Module>IntegrationTests`

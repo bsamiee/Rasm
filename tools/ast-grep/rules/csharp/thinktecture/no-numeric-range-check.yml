@@ -77,7 +77,7 @@ utils:
                 all:
                     - has: {kind: modifier, regex: '^const$'}
                     - has: {kind: variable_declaration, all: [{has: {field: type, matches: numeric-type}}, {has: {kind: variable_declarator, has: {field: name, pattern: $BOUND}}}]}
-    limit-bound:
+    constant-bound:
         any:
             - matches: const-name
             - kind: member_access_expression
@@ -86,8 +86,11 @@ utils:
               all:
                 - has: {field: name, regex: '^(MinValue|MaxValue)$'}
                 - not: {matches: type-limit}
+    limit-bound:
+        any:
+            - matches: constant-bound
             - kind: parenthesized_expression
-              has: {stopBy: end, matches: limit-bound}
+              has: {stopBy: end, matches: constant-bound}
     limit-leading:
         any:
             - matches: limit-bound
@@ -124,7 +127,7 @@ utils:
         any:
             - matches: error-value
             - kind: 'object_creation_expression, implicit_object_creation_expression'
-              matches: {languageext-result-target: {type: {matches: {csharp-type-name: {name: {regex: '^(Fin|Validation)$'}}}}}}
+              matches: result-target
     failing:
         any:
             - kind: invocation_expression
@@ -275,6 +278,28 @@ utils:
         inside:
             stopBy: {not: {matches: condition-chain}}
             has: {stopBy: end, kind: invocation_expression, has: {field: function, kind: member_access_expression, has: {field: name, regex: '^TryParse$'}}}
+    typed-result-owner:
+        any:
+            - kind: method_declaration
+              has: {field: returns, matches: &result-type {csharp-type-name: {name: {regex: '^(Fin|Validation)$'}}}}
+            - kind: 'local_function_statement, property_declaration, lambda_expression'
+              has: {field: type, matches: *result-type}
+    result-target:
+        not:
+            not:
+                inside:
+                    stopBy: {not: {kind: 'conditional_expression, switch_expression_arm, switch_expression, parenthesized_expression'}}
+                    any:
+                        - kind: arrow_expression_clause
+                          inside: {matches: typed-result-owner}
+                        - kind: lambda_expression
+                          matches: typed-result-owner
+                        - kind: return_statement
+                          inside:
+                            stopBy: {kind: 'method_declaration, local_function_statement, lambda_expression, anonymous_method_expression, accessor_declaration'}
+                            matches: typed-result-owner
+                        - kind: variable_declarator
+                          inside: {kind: variable_declaration, has: {field: type, matches: *result-type}}
 rule:
     any:
         - kind: binary_expression

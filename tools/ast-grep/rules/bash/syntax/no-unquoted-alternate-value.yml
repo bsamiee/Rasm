@@ -1,29 +1,17 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-unquoted-alternate-value
-language: bash
+language: bashlang
 severity: error
 utils:
     alternate:
         kind: expansion
-        all:
-            - has: {kind: variable_name, pattern: $CONDITION}
-            - has: {field: operator, regex: '^:?\+$'}
+        has: {field: operator, regex: '^:?\+$'}
         inside: {kind: 'command, array', stopBy: {not: {kind: concatenation}}}
 rule:
     kind: simple_expansion, expansion, command_substitution
-    pattern: $VALUE
     matches: bash-string-expansion
-    not: {has: {field: operator, regex: '^:?[-+=?]$'}}
     any:
-        - all:
-            - inside: {matches: alternate}
-            - has: {kind: variable_name, pattern: $CONDITION}
-        - all:
-            - inside: {kind: concatenation, inside: {matches: alternate}}
-            - any:
-                - has: {kind: variable_name, pattern: $CONDITION}
-                - precedes: {kind: word, regex: '^\S'}
-                - follows: {kind: word, regex: '\S$'}
-fix: '"$VALUE"'
-message: 'Unquoted `$VALUE` word-splits and glob-expands inside the alternate value of `$CONDITION`'
-note: 'Quote the value, `${<condition>:+--option="$<value>"}`'
+        - inside: {matches: alternate}
+        - inside: {kind: concatenation, inside: {matches: alternate}}
+message: Unquoted alternate data can split words and expand globs
+note: Quote expanded data while preserving existing literal quoting

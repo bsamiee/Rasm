@@ -1,58 +1,23 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-mutated-copy
-language: tsx
+language: tsxlang
 severity: error
-utils:
-    mutating-method:
-        has: {field: property, regex: '^(reverse|sort)$', pattern: $MUTATE}
 rule:
     kind: call_expression
-    has: {field: arguments, pattern: $ARGUMENTS}
     not: {all: [{has: {field: function, has: {field: property, regex: '^sort$'}}}, {matches: typescript-extremum-read}]}
-    any:
-        - pattern: $CALL
-          has:
-            field: function
-            kind: member_expression
-            all:
-                - matches: mutating-method
-                - has:
-                    field: object
-                    kind: call_expression
-                    any:
-                        - all:
-                            - has: {field: function, kind: member_expression, not: {has: {kind: optional_chain}}, all: [{has: {field: property, regex: '^slice$'}}, {has: {field: object, pattern: $LIST}}]}
-                            - has: {field: arguments, regex: '^\(\s*(0\s*)?\)$'}
-                        - all:
-                            - has: {field: function, kind: member_expression, not: {has: {kind: optional_chain}}, all: [{has: {field: property, regex: '^concat$'}}, {has: {field: object, pattern: $LIST}}]}
-                            - has: {field: arguments, regex: '^\(\s*\)$'}
-                        - all:
-                            - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $LIST}}, {not: {has: {nthChild: 2}}}]}
-                            - has: {field: function, matches: {effect-module-member: {module: {regex: '\bArray$'}, member: {regex: '^copy$'}}}}
-        - pattern: $KEPT
-          has:
-            field: function
-            kind: member_expression
-            all:
-                - matches: mutating-method
-                - has:
-                    field: object
-                    any:
-                        - kind: array
-                          all: [{has: {nthChild: 1, kind: spread_element, has: {pattern: $LIST}}}, {not: {has: {nthChild: 2}}}]
-                        - kind: call_expression
-                          all:
-                            - has: {field: function, regex: '^((globalThis|window|self)\.)?Array\.from$', matches: typescript-global-reference}
-                            - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $LIST}}, {not: {has: {nthChild: 2}}}]}
-rewriters:
-    - id: copying-method
-      rule: {kind: call_expression, has: {field: function, kind: member_expression, has: {field: property, pattern: $NAME}}}
-      transform:
-        REVERSED: {replace: {source: $NAME, replace: '^reverse$', by: toReversed}}
-        COPYING: {replace: {source: $REVERSED, replace: '^sort$', by: toSorted}}
-      fix: $LIST.$COPYING$ARGUMENTS
-transform:
-    FIXED: rewrite($CALL, rewriters=[copying-method])
-fix: $FIXED$KEPT
+    has:
+        field: function
+        kind: member_expression
+        all:
+            - has: {field: property, regex: '^(reverse|sort)$', pattern: $MUTATE}
+            - has:
+                field: object
+                any:
+                    - kind: array
+                      all: [{has: {nthChild: 1, kind: spread_element, has: {pattern: $LIST}}}, {not: {has: {nthChild: 2}}}]
+                    - kind: call_expression
+                      all:
+                        - has: {field: function, regex: '^((globalThis|window|self)\.)?Array\.from$', matches: typescript-global-reference}
+                        - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $LIST}}, {not: {has: {nthChild: 2}}}]}
 message: '`$MUTATE` reorders a copy of `$LIST` in place'
-note: 'Call `<list>.toReversed()` or `<list>.toSorted(<compare>)` on an array, or `Array.reverse` or `Array.sort` from `effect` on another iterable'
+note: 'Call `<list>.toReversed()` or `<list>.toSorted(<compare>)` on an array, `Array.reverse` or `Array.sort` from `effect` on an iterable'

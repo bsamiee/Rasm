@@ -11,6 +11,7 @@ using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.Render;
 using Rhino.UI;
+using SuperLinq;
 
 namespace Rasm.Rhino.UI;
 
@@ -30,15 +31,6 @@ public sealed partial class HelpTopic {
         (value, validationError) = value.TrimOrNullify() is { } trimmed
             ? (trimmed, default(RhinoFault))
             : (value, new RhinoFault($"value = '{value}'", RhinoReason.Invalid));
-}
-
-[SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-public sealed partial class WindowKind {
-    public static readonly WindowKind Standard = new(static () => Eto.Platform.Instance.Create<Form.IHandler>());
-    public static readonly WindowKind Floating = new(static () => Eto.Platform.Instance.Create<FloatingForm.IHandler>());
-
-    [UseDelegateFromConstructor]
-    public partial Form.IHandler Handler();
 }
 
 [SmartEnum<OptionsDialogPage.PageType>(SkipIComparable = true, SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -87,7 +79,7 @@ public abstract partial record View {
     public Seq<Child> Children { get; init; }
 
     public sealed record Window : View {
-        public required WindowKind Kind { get; init; }
+        public Func<Form.IHandler> Handler { get; init; } = static () => Eto.Platform.Instance.Create<Form.IHandler>();
         public Option<Eto.Drawing.Size> ClientSize { get; init; }
     }
 
@@ -152,16 +144,13 @@ public sealed partial class Child {
         Switch(control: static row => row.Fill, holder: static _ => true, container: static row => row.Fill);
 
     public Seq<ControlRows> Controls =>
-        Switch(
-            control: static rows => Seq(rows),
-            holder: static _ => Seq<ControlRows>(),
-            container: static row => row.Children.Bind(static child => child.Controls));
+        Descendants.Choose(static child => child.IsControl ? Some(child.AsControl) : None);
 
     public Seq<View.Section> Sections =>
-        Switch(
-            control: static _ => Seq<View.Section>(),
-            holder: static row => row.Sections,
-            container: static row => row.Children.Bind(static child => child.Sections));
+        Descendants.Bind(static child => child.IsHolder ? child.AsHolder.Sections : []);
+
+    private Seq<Child> Descendants =>
+        toSeq(SuperEnumerable.TraverseDepthFirst(this, static child => child.IsContainer ? child.AsContainer.Children : []));
 }
 
 public sealed record ViewCatalog(PlugInDefinition Definition, Seq<View> Rows) {
@@ -184,5 +173,5 @@ public sealed record ViewCatalog(PlugInDefinition Definition, Seq<View> Rows) {
         Rows.Choose(static view => Optional(view as TCase));
 
     public static Seq<View> Tree(View view) =>
-        view.Cons(view.Children.Bind(static child => child.Sections).Bind(static section => Tree(section)));
+        toSeq(SuperEnumerable.TraverseDepthFirst(view, static held => held.Children.Bind(static child => child.Sections)));
 }

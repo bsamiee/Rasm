@@ -103,7 +103,7 @@ public sealed record CurveRow(IterableNE<CurveChannel> Channels) : IRow<CurveRow
     public static IO<RowCells> Realize(IO<CurveRow> latest, LocalizeStringPair label, RowScope scope) =>
         from first in latest
         from view in Surfaces.Of(new CurvePlot(first.Channels.Head), static (graphics, bounds, plot, zone) => plot.Paint(graphics, bounds, zone))
-        from sized in IO.lift(() => { view.Height = RhinoLayout.FixedWidth(RhinoLayout.WidthControlType.Numeric) * 2; })
+        from sized in IO.lift(() => { (view.Height, view.CanFocus) = (RhinoLayout.FixedWidth(RhinoLayout.WidthControlType.Numeric) * 2, true); })
         let active = latest.Map(row => row.Channel(view.State.Channel.Name))
         from across in Axis(view, active, CurveChannel.X, static channel => channel.Across)
         from along in Axis(view, active, CurveChannel.Y, static channel => channel.Along)
@@ -121,15 +121,22 @@ public sealed record CurveRow(IterableNE<CurveChannel> Channels) : IRow<CurveRow
             select unit
         from pressed in Subscriptions.On<MouseEventArgs>(h => view.MouseDown += h, h => view.MouseDown -= h).Attach(args =>
             from focused in IO.lift(view.Focus)
-            let picked = view.State.Nearest(args.Location, view.Size)
+            from captured in IO.lift(() => { if (args.Buttons is MouseButtons.Primary) _ = view.CaptureMouse(); })
+            let picked = args.Buttons is MouseButtons.Primary || !view.IsMouseCaptured ? view.State.Nearest(args.Location, view.Size) : view.State.Picked
             from chosen in view.Show(view.State with { Picked = picked })
             from added in when(picked.IsNone && args.Buttons is MouseButtons.Primary, Inserted(active, view, [view.State.Plotted(args.Location, view.Size).X])).As()
             from redrawn in shown
             select unit)
         from dragged in Subscriptions.On<MouseEventArgs>(h => view.MouseMove += h, h => view.MouseMove -= h).Attach(args =>
-            when(args.Buttons is MouseButtons.Primary, Dragged(active, view, EditPhase.Preview.Of(view.State.Plotted(args.Location, view.Size))).Bind(_ => shown)).As())
+            IO.lift(() => view.IsMouseCaptured && Mouse.IsAnyButtonPressed(MouseButtons.Primary))
+                .Bind(captured => when(captured, Dragged(active, view, new Edit<Vector2>.Changed(Applies: false, view.State.Plotted(args.Location, view.Size))).Bind(_ => shown)).As()))
         from released in Subscriptions.On<MouseEventArgs>(h => view.MouseUp += h, h => view.MouseUp -= h).Attach(args =>
-            when(args.Buttons is MouseButtons.Primary, Dragged(active, view, EditPhase.Commit.Of(view.State.Plotted(args.Location, view.Size))).Bind(_ => shown)).As())
+            IO.lift(() => view.IsMouseCaptured).Bind(captured => when(captured,
+                IO.lift(view.ReleaseMouseCapture)
+                >> IO.lift<Edit<Vector2>>(() => Mouse.IsAnyButtonPressed(MouseButtons.Primary)
+                    ? new Edit<Vector2>.Cancel()
+                    : new Edit<Vector2>.Changed(Applies: true, view.State.Plotted(args.Location, view.Size)))
+                    .Bind(edit => Dragged(active, view, edit)).Bind(_ => shown)).As()))
         from keys in Subscriptions.Inline<KeyEventArgs>(h => view.KeyDown += h, h => view.KeyDown -= h).Attach(args =>
             when(args.Key is Keys.Delete or Keys.Backspace, Removed(active, view).Bind(_ => IO.lift(() => { args.Handled = true; })).Bind(_ => shown)).As())
         from chooser in toSeq(first.Channels).Count is 1
@@ -183,7 +190,7 @@ public sealed record CurveRow(IterableNE<CurveChannel> Channels) : IRow<CurveRow
         new Command<Invoke>.Run(new CommandFace("curve-reset", "Reset Curve"),
             new Invoke.Effect(_ =>
                 from channel in active
-                from reset in channel.Rest.Traverse(rest => channel.Edited(EditPhase.Commit.Of(rest))).As()
+                from reset in channel.Rest.Traverse(rest => channel.Edited(new Edit<Seq<Vector2>>.Changed(Applies: true, rest))).As()
                 from cleared in view.Show(view.State with { Picked = None })
                 from redrawn in shown
                 select unit)) {
@@ -207,7 +214,7 @@ public sealed record CurveRow(IterableNE<CurveChannel> Channels) : IRow<CurveRow
         let placed = xs.Fold((channel.Points, At: Option<int>.None), (inserted, x) =>
             (channel with { Points = inserted.Points }).Placed(x).Match(Some: static next => (next.Points, Some(next.At)), None: () => inserted))
         from written in placed.At.Traverse(at =>
-            from taken in channel.Edited(EditPhase.Commit.Of(placed.Points))
+            from taken in channel.Edited(new Edit<Seq<Vector2>>.Changed(Applies: true, placed.Points))
             from chosen in view.Show(view.State with { Picked = Some(at) })
             select unit).As()
         select unit;
@@ -215,7 +222,7 @@ public sealed record CurveRow(IterableNE<CurveChannel> Channels) : IRow<CurveRow
     private static IO<Unit> Removed(IO<CurveChannel> active, Surface<CurvePlot> view) =>
         from channel in active
         from removed in view.State.Picked.Bind(channel.Removed).Traverse(points =>
-            from taken in channel.Edited(EditPhase.Commit.Of(points))
+            from taken in channel.Edited(new Edit<Seq<Vector2>>.Changed(Applies: true, points))
             from cleared in view.Show(view.State with { Picked = None })
             select unit).As()
         select unit;

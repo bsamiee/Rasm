@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-extend-from-within-by-hand
-language: rust
+language: rustlang
 severity: error
 utils:
     own-copy:
@@ -21,11 +21,7 @@ rule:
                 - has: {field: body, matches: {rust-single-statement: {first: {any: [{pattern: $V.push($ITEM)}, {kind: expression_statement, has: {pattern: $V.push($ITEM)}}]}}}}
         - kind: call_expression
           all:
-            - any: [{pattern: $V.extend($OWN)}, {pattern: $V.extend_from_slice($OWN)}, {pattern: $V.push_str($OWN)}, {pattern: $V.append(&mut $OWN)}]
+            - any: [{pattern: $V.extend($_)}, {pattern: $V.extend_from_slice($_)}, {pattern: $V.push_str($_)}, {pattern: $V.append(&mut $_)}]
             - has: {field: arguments, has: {nthChild: 1, any: [{matches: own-copy}, {kind: reference_expression, has: {matches: own-copy}}]}}
-transform:
-    END:
-        replace: {source: $ITEM, replace: '^[\s\S]+$', by: ';'}
-fix: $V.extend_from_within(..)$END
 message: '`$V` copies itself to append its own elements'
 note: 'Call `<buffer>.extend_from_within(..)` on a `Vec` or `String`, with a range for part of the buffer'

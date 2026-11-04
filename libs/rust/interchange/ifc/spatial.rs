@@ -127,11 +127,7 @@ pub fn classifications(node: &Composed) -> Result<IndexMap<&str, Class>, NEVec<I
 }
 
 pub fn classified<'model>(model: &'model Model, code: &str) -> Result<Vec<&'model Composed>, NEVec<IfcError>> {
-    model
-        .holding(Class::ID)
-        .filter_map(|node| attribute::<Class>(node).map(|class| class.is_some_and(|class| &*class.code == code).then_some(node)).transpose())
-        .collect::<Validated<Vec<_>, _>>()
-        .ok()
+    model.holding(Class::ID).filter_map(|node| attribute::<Class>(node).map(|class| class.is_some_and(|class| &*class.code == code).then_some(node)).transpose()).collect::<Validated<Vec<_>, _>>().ok()
 }
 
 // --- [RELATIONS]
@@ -197,20 +193,12 @@ pub fn network<'model>(model: &'model Model) -> Result<DiGraphMap<&'model Path, 
     model
         .holding(Link::ConnectsTo.into())
         .map(|port| {
-            record::<Vec<Target>>(port, Link::ConnectsTo.into())
-                .map(Option::unwrap_or_default)
-                .map_or_else(Validated::fail, |targets| targets.into_iter().map(|Target { reference }| model.get(&reference).and_then(|target| oriented(port, target))).collect::<Validated<Vec<_>, _>>())
+            record::<Vec<Target>>(port, Link::ConnectsTo.into()).map_or_else(Validated::fail, |targets| {
+                targets.into_iter().flatten().map(|Target { reference }| model.get(&reference).and_then(|target| oriented(port, target))).collect::<Validated<Vec<_>, _>>()
+            })
         })
         .collect::<Validated<Vec<_>, _>>()
-        .map(|ports| {
-            ports
-                .into_iter()
-                .flatten()
-                .flatten()
-                .flatten()
-                .flat_map(|(from, to)| owners(from).into_iter().cartesian_product(owners(to)))
-                .collect()
-        })
+        .map(|ports| ports.into_iter().flatten().flatten().flatten().flat_map(|(from, to)| owners(from).into_iter().cartesian_product(owners(to))).collect())
         .ok()
 }
 

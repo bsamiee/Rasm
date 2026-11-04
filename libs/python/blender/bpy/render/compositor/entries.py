@@ -1,21 +1,28 @@
 """Scene compositor entries as stack items: the enable flags an evaluation reads, entries created over a group at a stack index, moves to an index, the entries extension marks own, groups pinned at a stack end, and the scenes a render executes."""
 
-from contextlib import ExitStack, nullcontext
+from collections.abc import Generator, Iterator
+from contextlib import contextmanager, ExitStack, nullcontext
 from enum import auto, Enum, StrEnum
 from functools import partial
 from typing import Final
 
 import bpy
-from expression import Nothing, Ok, Option, Some
+from expression import Option, Some
 from expression.extra.result import catch
 import msgspec
 
 from blender.bpy.commands.operators import called
-from blender.bpy.data.ids.ownership import Mark, Ownership, tracked
-from blender.bpy.data.rna.conditions import Condition
+from blender.bpy.data.ids.ownership import Mark, Ownership, Saved, tracked
+from blender.bpy.data.rna.conditions import Condition, Setting
 from blender.bpy.data.rna.descriptors import Descriptor, written
-from blender.bpy.extension.identity import Identity, Resource
-from blender.records.faults import accumulated, Fault, Outcome, Reason
+from blender.bpy.extension.identity import Identity
+from blender.bpy.extension.registration import Resource
+from blender.bpy.nodes import functions
+from blender.bpy.nodes.changes import made
+from blender.bpy.nodes.graphs import Expr, group_input
+from blender.bpy.nodes.interfaces import Interface
+from blender.bpy.render.compositor.colors import COLOR_INPUT, COLOR_RESULT
+from blender.records.faults import accumulated, Fault, Nothing, Ok, Outcome, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -27,9 +34,9 @@ class Enabled(StrEnum):
     PREVIEW = "enable_for_preview"
 
     @property
-    def descriptor(self) -> Descriptor[bpy.types.BoolProperty]:
+    def descriptor(self) -> Descriptor:
         """Owning RNA property for reads and writes."""
-        return Descriptor.declared(bpy.types.SceneCompositorEffect, (self.value,), bpy.types.BoolProperty)
+        return Descriptor(root=bpy.types.SceneCompositorEffect, prop=bpy.types.SceneCompositorEffect.bl_rna.properties[self.value])
 
 
 class StackEnd(Enum):
@@ -42,6 +49,7 @@ class StackEnd(Enum):
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 EXECUTING: Final = Resource[set[int]](made=lambda _identity: nullcontext(set()))
+composites: Final = Setting(descriptor=Descriptor(root=bpy.types.Scene, owner=("render",), prop=bpy.types.RenderSettings.bl_rna.properties["use_compositing"]))
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -82,7 +90,7 @@ def added_entry(
     return tracked(scope, scene.compositor_effects.remove, created).bind(
         lambda entry: (
             accumulated((written(entry, ("node_group",), group), *(enabled.descriptor.write(entry, enabled in enables) for enabled in Enabled)))
-            .bind(lambda _: at.map(lambda index: relocated(scene, entry, index)).default_value(Ok(False)))
+            .bind(lambda _: at.map(lambda index: relocated(scene, entry, index)).default_value(Ok(value=False)))
             .map(lambda _: entry)
         )
     )
@@ -91,17 +99,46 @@ def added_entry(
 def relocated(scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, index: int) -> Outcome[bool]:
     """Moves entry to stack index unless it sits there, answering whether it moved."""
     return (
-        Ok(False)
+        Ok(value=False)
         if scene.compositor_effects.find(entry.name) == index
         else called(bpy.ops.scene.move_compositor_effect_to_index, {"name": entry.name, "index": index}, override=Some(bpy.context.temp_override(scene=scene))).map(lambda _: True)
     )
 
 
-def marked(identity: Identity, scene: bpy.types.Scene) -> tuple[tuple[bpy.types.SceneCompositorEffect, Mark], ...]:
+def marked(identity: Identity, scene: bpy.types.Scene) -> Iterator[tuple[bpy.types.SceneCompositorEffect, Mark]]:
     """Returns the scene entries whose groups hold an extension ownership mark, with that mark, in stack order."""
-    return tuple((entry, mark) for entry in scene.compositor_effects for group in Option.of_optional(entry.node_group).to_list() for mark in Mark.read(identity, group).to_list())
+    return ((entry, mark) for entry in scene.compositor_effects for group in Option.of_optional(entry.node_group).to_list() for mark in Mark.read(identity, group).to_list())
+
+
+@contextmanager
+def capturing(
+    identity: Identity, scene: bpy.types.Scene, before: bpy.types.SceneCompositorEffect, output: tuple[Expr, ...], *, stop: bool = False
+) -> Generator[Outcome[bpy.types.SceneCompositorEffect]]:
+    """Places scoped pass-through outputs before an entry and restores enabled and active entries on exit."""
+    at = tuple(scene.compositor_effects).index(before)
+    interface = Interface(inputs=(COLOR_INPUT,), outputs=(COLOR_RESULT,))
+    with ExitStack() as scope:
+        for active in Option.of_optional(scene.compositor_effects.active).to_list():
+            scope.callback(setattr, active, "is_active", True)  # ruff: ignore[boolean-positional-value-in-call]
+        suffix = tuple(scene.compositor_effects)[at:] if stop else ()
+        for entry in suffix:
+            scope.callback(setattr, entry, "enable_for_render", entry.enable_for_render)
+
+        def placed(tree: bpy.types.NodeTree) -> Outcome[bpy.types.SceneCompositorEffect]:
+            scope.callback(bpy.data.node_groups.remove, tree)
+            return added_entry(scope, scene, tree, at=Some(at))
+
+        yield (
+            composites
+            .check(bpy.context, Some(scene))
+            .bind(lambda _: accumulated(written(entry, ("enable_for_render",), value=False) for entry in suffix))
+            .bind(lambda _: functions.built("input_capture", interface, {COLOR_RESULT.key: group_input(COLOR_INPUT.key, bpy.types.NodeSocketColor).keeping(*output)}, bpy.types.CompositorNodeTree))
+            .map(lambda group: msgspec.structs.replace(group, single=False, saved=Saved.NEVER))
+            .bind(lambda group: made(group, identity, of=Some(scene)))
+            .bind(placed)
+        )
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["EXECUTING", "Enabled", "Pinned", "StackEnd", "added_entry", "marked", "relocated"]
+__all__ = ["EXECUTING", "Enabled", "Pinned", "StackEnd", "added_entry", "capturing", "composites", "marked", "relocated"]

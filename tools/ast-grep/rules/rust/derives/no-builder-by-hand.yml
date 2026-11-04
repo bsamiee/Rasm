@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-builder-by-hand
-language: rust
+language: rustlang
 severity: error
 utils:
     stored-value:
@@ -29,7 +29,7 @@ rule:
     all:
         - not: {has: {field: trait, pattern: $_}}
         - has: {field: type, any: [{kind: generic_type, has: {field: type, pattern: $B}}, {pattern: $B}]}
-        - has: {field: body, has: {matches: setter, nthChild: {position: 3, ofRule: {matches: setter}}}}
+        - has: {field: body, has: {nthChild: {position: 3, ofRule: {matches: setter}}}}
         - any:
             - has: {field: body, has: {kind: function_item, has: {field: name, regex: '^(build|finish)$', pattern: $BUILD}}}
             - all:

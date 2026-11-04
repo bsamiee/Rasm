@@ -6,55 +6,69 @@ namespace Rasm.Rhino.Display;
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record Overlay(BoundingBox Bounds, Action<DisplayPipeline> Draw);
 
-public sealed record RenderState(Func<DisplayPipeline, Action> Enter) {
+public sealed record RenderState(Action<DisplayPipeline, Action<DisplayPipeline>> Draw) {
     // --- [STATES]
-    public static RenderState DepthTest(bool enabled) => new(pipeline => Pushed(() => pipeline.PushDepthTesting(enabled), pipeline.PopDepthTesting));
+    public static RenderState DepthTest(bool enabled) => Pushed(pipeline => pipeline.PushDepthTesting(enabled), static pipeline => pipeline.PopDepthTesting());
 
-    public static RenderState DepthWrite(bool enabled) => new(pipeline => Pushed(() => pipeline.PushDepthWriting(enabled), pipeline.PopDepthWriting));
+    public static RenderState DepthWrite(bool enabled) => Pushed(pipeline => pipeline.PushDepthWriting(enabled), static pipeline => pipeline.PopDepthWriting());
 
-    public static RenderState Cull(CullFaceMode mode) => new(pipeline => Pushed(() => pipeline.PushCullFaceMode(mode), pipeline.PopCullFaceMode));
+    public static RenderState Cull(CullFaceMode mode) => Pushed(pipeline => pipeline.PushCullFaceMode(mode), static pipeline => pipeline.PopCullFaceMode());
 
-    public static RenderState Model(Transform xform) => new(pipeline => Pushed(() => pipeline.PushModelTransform(xform), pipeline.PopModelTransform));
+    public static RenderState Model(Transform xform) => Pushed(pipeline => pipeline.PushModelTransform(xform), static pipeline => pipeline.PopModelTransform());
 
-    public static RenderState Projection2d { get; } = new(static pipeline => Pushed(pipeline.Push2dProjection, pipeline.PopProjection));
+    public static RenderState Projection2d { get; } = Pushed(static pipeline => pipeline.Push2dProjection(), static pipeline => pipeline.PopProjection());
 
-    public static RenderState Depth(DepthMode mode) => new(pipeline => Replaced(() => pipeline.DepthMode, held => pipeline.DepthMode = held, mode));
+    public static RenderState Depth(DepthMode mode) => Replaced(static pipeline => pipeline.DepthMode, static (pipeline, held) => pipeline.DepthMode = held, mode);
 
-    public static RenderState Bias(ZBiasMode mode) => new(pipeline => Replaced(() => pipeline.ZBiasMode, held => pipeline.ZBiasMode = held, mode));
+    public static RenderState Bias(ZBiasMode mode) => Replaced(static pipeline => pipeline.ZBiasMode, static (pipeline, held) => pipeline.ZBiasMode = held, mode);
 
-    public static RenderState Clipped(Plane plane) => new(pipeline => pipeline.AddClippingPlane(plane.Origin, plane.Normal) switch {
-        var index => () => pipeline.RemoveClippingPlane(index),
+    public static RenderState Clipped(Plane plane) => new((pipeline, draw) => {
+        int index = pipeline.AddClippingPlane(plane.Origin, plane.Normal);
+        try {
+            draw(pipeline);
+        } finally {
+            pipeline.RemoveClippingPlane(index);
+        }
     });
 
     public static RenderState Attributes(Action<DisplayPipelineAttributes> edit) =>
-        new(pipeline => PipelineAttributes.Copy(pipeline.DisplayPipelineAttributes) switch {
-            var held => Pushed(() => edit(pipeline.DisplayPipelineAttributes), () => {
-                PipelineAttributes.CopyContents(pipeline.DisplayPipelineAttributes, held);
-                held.Dispose();
-            }),
+        new((pipeline, draw) => {
+            DisplayPipelineAttributes attributes = pipeline.DisplayPipelineAttributes;
+            using DisplayPipelineAttributes held = PipelineAttributes.Copy(attributes);
+            try {
+                edit(attributes);
+                draw(pipeline);
+            } finally {
+                PipelineAttributes.CopyContents(attributes, held);
+            }
         });
 
     // --- [DRAW]
-    public Action<DisplayPipeline> Around(Action<DisplayPipeline> draw) =>
-        pipeline => {
-            Action pop = Enter(pipeline);
-            Fin<Unit> drawn = Try.lift(fun(() => draw(pipeline))).Run();
-            pop();
-            _ = drawn.ThrowIfFail();
-        };
+    public Action<DisplayPipeline> Around(Action<DisplayPipeline> draw) => pipeline => Draw(pipeline, draw);
 
     public static Action<DisplayPipeline> Around(Seq<RenderState> states, Action<DisplayPipeline> draw) =>
         states.FoldBack(draw, static (inner, state) => state.Around(inner));
 
-    private static Action Pushed(Action push, Action pop) {
-        push();
-        return pop;
-    }
+    private static RenderState Pushed(Action<DisplayPipeline> push, Action<DisplayPipeline> pop) =>
+        new((pipeline, draw) => {
+            push(pipeline);
+            try {
+                draw(pipeline);
+            } finally {
+                pop(pipeline);
+            }
+        });
 
-    private static Action Replaced<T>(Func<T> read, Action<T> write, T value) =>
-        read() switch {
-            var prior => Pushed(() => write(value), () => write(prior)),
-        };
+    private static RenderState Replaced<T>(Func<DisplayPipeline, T> read, Action<DisplayPipeline, T> write, T value) =>
+        new((pipeline, draw) => {
+            T prior = read(pipeline);
+            try {
+                write(pipeline, value);
+                draw(pipeline);
+            } finally {
+                write(pipeline, prior);
+            }
+        });
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-add-record
-language: tsx
+language: tsxlang
 severity: error
 utils:
     record:
@@ -36,4 +36,4 @@ rule:
 transform:
     HEAD: {replace: {source: $CALL, replace: '(?s)^([^(]+)\(.*$', by: '$1'}}
 message: '`$HEAD` sets keys from a record with no error naming a refused key'
-note: 'Call `add` with its required arguments alone, then set each key through `Object.assign(<target>, { [<key>]: <value> })` under `Effect.validate`'
+note: 'Pass required `add` arguments, then apply one-key `Object.assign` calls through `Effect.validate`'

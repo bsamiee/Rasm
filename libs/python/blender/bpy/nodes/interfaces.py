@@ -1,16 +1,16 @@
 """Group interfaces declared directly, from records, or from stock node inputs, and owned groups of a graph and an interface."""
 
-from collections.abc import Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from contextlib import ExitStack
 from enum import Enum
 import functools
 import inspect
+from itertools import chain, starmap
 from types import MappingProxyType
-from typing import Final, Literal, override, Protocol, runtime_checkable, Self
+from typing import Final, Literal, Protocol, runtime_checkable, Self, TypeGuard
 
 import bpy
-from expression import Nothing, Ok, Option, Result, Some, try_downcast
-from expression.collections import Block
+from expression import Option, Result, Some, try_downcast
 from expression.extra.result import catch
 import msgspec
 import msgspec.inspect
@@ -20,12 +20,12 @@ from typing_inspection.introspection import AnnotationSource, inspect_annotation
 
 from blender.bpy.data.ids.ownership import Ownership, Saved
 from blender.bpy.data.rna.descriptors import Descriptor, Value
-from blender.bpy.data.rna.paths import RnaPath
+from blender.bpy.data.rna.paths import definition, RnaPath
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.nodes.desired import Content, Graph, item_key, MenuItem, MenuItems
 from blender.bpy.nodes.trees import base_socket, interface_of, new_group, socket_at
-from blender.records.faults import accumulated, Fault, Outcome, Reason
+from blender.records.faults import accumulated, Error, Fault, Nothing, Ok, Outcome, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -78,7 +78,7 @@ class Socket(msgspec.Struct, frozen=True, kw_only=True):
     max_value: float | None = None
     default_value: Value = None
     hide_in_modifier: bool | None = None
-    items: Option[MenuItems] = Nothing
+    items: tuple[MenuItem, ...] = ()
 
     @property
     def title(self) -> str:
@@ -112,14 +112,18 @@ class Socket(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def members(self) -> dict[RnaPath, Value]:
         """Interface members by path in write order: subtype and dimensions of a refined class, then bounds, the class's own finite bounds where none is stated, then the default."""
-        held, kind = self.declared, self.refined
+        held = self.declared
+        kind = held.refined
+        base = base_socket(kind)
         properties = kind.bl_rna.properties
-        match properties["default_value"] if kind is not self.base and "default_value" in properties else None:
+        match properties["default_value"] if kind is not base and "default_value" in properties else None:
             case bpy.types.FloatProperty() | bpy.types.IntProperty() as prop:
                 finite = abs(prop.hard_max) < _SINGLE
                 subtype = None if prop.subtype == "NONE" else prop.subtype
-                dimensions = prop.array_length if self.base is bpy.types.NodeSocketVector else None
+                dimensions = prop.array_length if prop.is_array else None
                 low, high = (prop.hard_min, prop.hard_max) if finite else (None, None)
+            case bpy.types.StringProperty(subtype=value):
+                subtype, dimensions, low, high = None if value == "NONE" else value, None, None, None
             case _:
                 subtype, dimensions, low, high = None, None, None, None
         return {
@@ -162,36 +166,35 @@ class Socket(msgspec.Struct, frozen=True, kw_only=True):
                 described = stated
             case msgspec.inspect.Metadata(type=info) | info:
                 described = ""
-        made = functools.partial(cls, key=key, description=described, default_value=value)
         metadata = inspect_annotation(annotation, annotation_source=AnnotationSource.ANY, unpack_type_aliases="eager").metadata
+        low, high = None, None
+        items: tuple[MenuItem, ...] = ()
         match next((held for held in metadata if isinstance(held, StockInput) or (isinstance(held, type) and issubclass(held, bpy.types.NodeSocket))), None), info:
-            case None, _:
+            case (StockInput() | type()) as kind, msgspec.inspect.FloatType(ge=ge, gt=gt, le=le, lt=lt) | msgspec.inspect.IntType(ge=ge, gt=gt, le=le, lt=lt):
+                low, high = bound(ge, gt), bound(le, lt)
+            case (StockInput() | type()) as kind, _:
                 pass
-            case form, msgspec.inspect.FloatType(ge=ge, gt=gt, le=le, lt=lt) | msgspec.inspect.IntType(ge=ge, gt=gt, le=le, lt=lt):
-                return Some(made(kind=form, min_value=bound(ge, gt), max_value=bound(le, lt)))
-            case form, _:
-                return Some(made(kind=form))
-        match info:
-            case msgspec.inspect.BoolType():
-                return Some(made(kind=bpy.types.NodeSocketBool))
-            case msgspec.inspect.IntType(ge=ge, gt=gt, le=le, lt=lt):
-                return Some(made(kind=bpy.types.NodeSocketInt, min_value=bound(ge, gt), max_value=bound(le, lt)))
-            case msgspec.inspect.FloatType(ge=0.0, le=1.0):
-                return Some(made(kind=bpy.types.NodeSocketFloatFactor))
-            case msgspec.inspect.FloatType(ge=ge, gt=gt, le=le, lt=lt):
-                return Some(made(kind=bpy.types.NodeSocketFloat, min_value=bound(ge, gt), max_value=bound(le, lt)))
-            case msgspec.inspect.StrType():
-                return Some(made(kind=bpy.types.NodeSocketString))
-            case msgspec.inspect.TupleType(item_types=(msgspec.inspect.FloatType(), msgspec.inspect.FloatType())):
-                return Some(made(kind=bpy.types.NodeSocketVector2D))
-            case msgspec.inspect.TupleType(item_types=(msgspec.inspect.FloatType(), msgspec.inspect.FloatType(), msgspec.inspect.FloatType())):
-                return Some(made(kind=bpy.types.NodeSocketVector))
-            case msgspec.inspect.EnumType(cls=kind):
-                return Some(made(kind=bpy.types.NodeSocketMenu, items=Some(MenuItems.of(kind))))
-            case msgspec.inspect.LiteralType(values=values) if all(isinstance(held, str) for held in values):
-                return Some(made(kind=bpy.types.NodeSocketMenu, items=Some(MenuItems(items=tuple(MenuItem(name=str(held)) for held in values)))))
+            case None, msgspec.inspect.BoolType():
+                kind = bpy.types.NodeSocketBool
+            case None, msgspec.inspect.IntType(ge=ge, gt=gt, le=le, lt=lt):
+                kind, low, high = bpy.types.NodeSocketInt, bound(ge, gt), bound(le, lt)
+            case None, msgspec.inspect.FloatType(ge=0.0, le=1.0):
+                kind = bpy.types.NodeSocketFloatFactor
+            case None, msgspec.inspect.FloatType(ge=ge, gt=gt, le=le, lt=lt):
+                kind, low, high = bpy.types.NodeSocketFloat, bound(ge, gt), bound(le, lt)
+            case None, msgspec.inspect.StrType():
+                kind = bpy.types.NodeSocketString
+            case None, msgspec.inspect.TupleType(item_types=(msgspec.inspect.FloatType(), msgspec.inspect.FloatType())):
+                kind = bpy.types.NodeSocketVector2D
+            case None, msgspec.inspect.TupleType(item_types=(msgspec.inspect.FloatType(), msgspec.inspect.FloatType(), msgspec.inspect.FloatType())):
+                kind = bpy.types.NodeSocketVector
+            case None, msgspec.inspect.EnumType(cls=enum):
+                kind, items = bpy.types.NodeSocketMenu, MenuItems.of(enum).items
+            case None, msgspec.inspect.LiteralType(values=values) if all(isinstance(held, str) for held in values):
+                kind, items = bpy.types.NodeSocketMenu, tuple(MenuItem(name=str(held)) for held in values)
             case _:
                 return Nothing
+        return Some(cls(key=key, kind=kind, description=described, default_value=value, min_value=low, max_value=high, items=items))
 
 
 class Interface(msgspec.Struct, frozen=True, kw_only=True):
@@ -200,11 +203,6 @@ class Interface(msgspec.Struct, frozen=True, kw_only=True):
     outputs: tuple[Socket, ...] = ()
     inputs: tuple[Socket, ...] = ()
     panels: tuple["InterfacePanel", ...] = ()
-
-    @property
-    def first(self) -> int:
-        """Position of first item."""
-        return 0
 
     @property
     def menu(self) -> MenuItems:
@@ -220,22 +218,26 @@ class Interface(msgspec.Struct, frozen=True, kw_only=True):
         Yields:
             Item key, socket with side or panel, parent key, and position after the toggle socket a toggled panel holds first.
         """
-        items: tuple[DesiredItem, ...] = (*((socket, "OUTPUT") for socket in self.outputs), *((socket, "INPUT") for socket in self.inputs), *self.panels)
-        for position, item in enumerate(items, self.first):
-            match item:
-                case InterfacePanel(key=key):
-                    yield key, item, parent, position
-                    yield from item.walked(Some(key))
-                case (socket, _):
-                    yield socket.key, item, parent, position
+
+        def entries(held: Interface, parent: Option[Key]) -> Iterator[tuple[Key, DesiredItem, Option[Key], int]]:
+            items: tuple[DesiredItem, ...] = (*((socket, "OUTPUT") for socket in held.outputs), *((socket, "INPUT") for socket in held.inputs), *held.panels)
+            first = int(held.toggle.is_some()) if isinstance(held, InterfacePanel) else 0
+            return ((item.key if isinstance(item, InterfacePanel) else item[0].key, item, parent, position) for position, item in enumerate(items, first))
+
+        pending = [entries(self, parent)]
+        while pending:
+            match next(pending[-1], None):
+                case (key, InterfacePanel() as panel, parent, position):
+                    yield key, panel, parent, position
+                    pending.append(entries(panel, Some(key)))
+                case tuple(entry):
+                    yield entry
+                case None:
+                    pending.pop()
 
     def defaulted(self, values: Mapping[Key, Value], /) -> Self:
         """Returns the interface with the default of each socket at any depth `values` keys replaced."""
-
-        def socket(held: Socket) -> Socket:
-            return msgspec.structs.replace(held, default_value=values[held.key]) if held.key in values else held
-
-        return msgspec.structs.replace(self, outputs=tuple(map(socket, self.outputs)), inputs=tuple(map(socket, self.inputs)), panels=tuple(panel.defaulted(values) for panel in self.panels))
+        return _mapped(self, lambda held: msgspec.structs.replace(held, default_value=values[held.key]) if held.key in values else held, lambda held: held)
 
 
 class InterfacePanel(Interface, frozen=True, kw_only=True):
@@ -246,12 +248,6 @@ class InterfacePanel(Interface, frozen=True, kw_only=True):
     description: str = ""
     closed: bool = False
     toggle: Option[bool] = Nothing
-
-    @property
-    @override
-    def first(self) -> int:
-        """Position of the first item, after the toggle a toggled panel holds."""
-        return int(self.toggle.is_some())
 
     @property
     def title(self) -> str:
@@ -303,7 +299,11 @@ class InterfacePanel(Interface, frozen=True, kw_only=True):
             Panel of the prefixed items.
         """
         held, stated = (source, "") if isinstance(source, Interface) else (fielded(source), Option.of_optional(type(source).__doc__).map(inspect.cleandoc).default_value(""))
-        prefixed = _under(key, held)
+        prefixed = _mapped(
+            held,
+            lambda socket: msgspec.structs.replace(socket, key=item_key(key, socket.key), name=socket.title),
+            lambda panel: msgspec.structs.replace(panel, key=item_key(key, panel.key), name=panel.title),
+        )
         return cls(
             key=key, name=name, description=stated if description is None else description, closed=closed, toggle=toggle, outputs=prefixed.outputs, inputs=prefixed.inputs, panels=prefixed.panels
         )
@@ -324,9 +324,9 @@ class NodeGroup(msgspec.Struct, frozen=True, kw_only=True):
         """Group tree ownership row."""
         return Ownership(kind=self.graph.kind, key=self.key, saved=self.saved, single=self.single)
 
-    def acquisitions(self, _identity: Identity) -> Outcome[Acquisitions]:
+    def acquisitions(self, _identity: Identity) -> Acquisitions:
         """Returns group ownership row, then every nested group's row."""
-        return Ok((self.ownership, *self.graph.groups))
+        return (self.ownership, *self.graph.groups)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -334,15 +334,23 @@ class NodeGroup(msgspec.Struct, frozen=True, kw_only=True):
 
 def fielded(record: msgspec.Struct, /) -> Interface:
     """Builds the interface of a record's fields keyed by field name: a `Socketed` record's stated sockets, else a socket at its value for each field `Socket.of` takes and a panel of its fields for each field holding a record other than node content."""
-    match record:
-        case Socketed():
-            return Interface(inputs=record.sockets)
-        case _:
-            fields = tuple((field.name, field.type, getattr(record, field.name)) for field in msgspec.structs.fields(record))
-            return Interface(
-                inputs=tuple(socket for field, kind, value in fields for socket in Socket.of(field, kind, value).to_list()),
-                panels=tuple(InterfacePanel.of(field, value) for field, _, value in fields if _nested(value)),
-            )
+    interfaces: dict[tuple[str, ...], Interface] = {}
+    for owner, path, fields in _records(record, lambda held: not isinstance(held, Socketed)):
+        sockets = owner.sockets if isinstance(owner, Socketed) else tuple(socket for field, value in fields for socket in Socket.of(field.name, field.type, value).to_list())  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+        interfaces[path] = Interface(
+            inputs=tuple(msgspec.structs.replace(socket, key=item_key(*path, socket.key), name=socket.title) for socket in sockets) if path else sockets,
+            panels=tuple(
+                InterfacePanel(
+                    key=item_key(*path, field.name),
+                    name=bpy.path.display_name(field.name) if path else None,
+                    description=inspect.cleandoc(type(value).__doc__ or ""),
+                    **msgspec.structs.asdict(interfaces.pop((*path, field.name))),
+                )
+                for field, value in fields
+                if _nested(value)
+            ),
+        )
+    return interfaces[()]
 
 
 def decoded[T: msgspec.Struct](record: T, values: Mapping[Key, Value], /, *path: object) -> Outcome[T]:
@@ -354,48 +362,85 @@ def decoded[T: msgspec.Struct](record: T, values: Mapping[Key, Value], /, *path:
         *path: Key path of the panel holding the record's sockets, empty for sockets `fielded` keys at the interface root.
 
     Returns:
-        `Ok` of record of the held values. `Error` of `invalid` for a value outside its field's bounds.
+        `Ok` of record of the held values. `Error` of every `invalid` value by field key, or a refused record construction.
     """
+    if not values:
+        return Ok(record)
 
     def held(info: msgspec.inspect.Type, value: Value) -> object:
+        while isinstance(info, msgspec.inspect.Metadata):
+            info = info.type
         match info, value:
-            case msgspec.inspect.Metadata(type=inner), _:
-                return held(inner, value)
             case msgspec.inspect.EnumType(cls=kind), str(name):
                 return MenuItem.member(kind, name).map(lambda member: member.value).default_value(value)
             case _:
                 return value
 
-    def nested(field: msgspec.structs.FieldInfo) -> Outcome[tuple[str, object]]:
-        return decoded(getattr(record, field.name), values, *path, field.name).map(lambda found: (field.encode_name, msgspec.to_builtins(found)))
+    def rebuilt[S: msgspec.Struct](owner: S, changes: Mapping[str, object]) -> Outcome[S]:
+        if not changes:
+            return Ok(owner)
+        try:
+            return Ok(msgspec.structs.replace(owner, **changes))
+        except (TypeError, ValueError) as error:
+            return Error(Fault.of(Reason.INVALID, type(owner).__name__, error))
 
-    fields = msgspec.structs.fields(record)
-    changes = {
-        field.encode_name: held(msgspec.inspect.type_info(field.type), values[at])
-        for field in fields
-        for at in (item_key(*path, field.name),)
-        if at in values and Socket.of(field.name, field.type).is_some()
-    }
-    return accumulated(nested(field) for field in fields if _nested(getattr(record, field.name))).bind(
-        lambda inner: _converted({**msgspec.to_builtins(record), **changes, **dict(inner)}, type(record)).map_error(functools.partial(Fault.of, Reason.INVALID, type(record).__name__))
-    )
+    changes: dict[tuple[str, ...], Outcome[dict[str, object]]] = {}
+
+    def changed(owner: msgspec.Struct, names: tuple[str, ...], field: msgspec.structs.FieldInfo, value: object) -> Outcome[tuple[tuple[str, object], ...]]:
+        at = item_key(*path, *names, field.name)
+        match value:
+            case _ if _nested(value):
+                return changes.pop((*names, field.name)).bind(lambda updates: rebuilt(value, updates).map(lambda found: ((field.name, found),)) if updates else Ok(()))
+            case _ if at in values and Socket.of(field.name, field.type).is_some():
+                return (
+                    catch(msgspec.convert, exception=msgspec.ValidationError)(held(msgspec.inspect.type_info(field.type), values[at]), field.type)
+                    .map_error(functools.partial(Fault.of, Reason.INVALID, type(owner).__name__, member=at))
+                    .map(lambda found: ((field.name, found),))
+                )
+            case _:
+                return Ok(())
+
+    for owner, names, fields in _records(record, lambda _: True):
+        changes[names] = accumulated(starmap(functools.partial(changed, owner, names), fields)).map(lambda rows: dict(chain.from_iterable(rows)))
+    return changes[()].bind(functools.partial(rebuilt, record))
 
 
-@catch(exception=msgspec.ValidationError)
-def _converted[T: msgspec.Struct](builtins: Mapping[str, object], kind: type[T], /) -> T:
-    """Record of builtin values, validated against every bound."""
-    converted: T = msgspec.convert(builtins, kind)
-    return converted
+def _records(record: msgspec.Struct, descend: Callable[[msgspec.Struct], bool], /) -> Iterator[tuple[msgspec.Struct, tuple[str, ...], tuple[tuple[msgspec.structs.FieldInfo, object], ...]]]:
+    """Reads actual record occurrences bottom up, snapshotting each field and value once."""
+
+    def entered(owner: msgspec.Struct, path: tuple[str, ...]) -> tuple[msgspec.Struct, tuple[str, ...], tuple[tuple[msgspec.structs.FieldInfo, object], ...], Iterator[tuple[str, msgspec.Struct]]]:
+        fields = tuple((field, getattr(owner, field.name)) for field in msgspec.structs.fields(owner)) if descend(owner) else ()
+        return owner, path, fields, iter((field.name, value) for field, value in fields if _nested(value))
+
+    pending = [entered(record, ())]
+    while pending:
+        owner, path, fields, children = pending[-1]
+        match next(children, None):
+            case (name, child):
+                pending.append(entered(child, (*path, name)))
+            case None:
+                pending.pop()
+                yield owner, path, fields
 
 
-def _under[I: Interface](prefix: Key, interface: I) -> I:
-    """Interface with every key at any depth prefixed through `item_key` and every title kept."""
-    return msgspec.structs.replace(
-        interface,
-        outputs=tuple(msgspec.structs.replace(socket, key=item_key(prefix, socket.key), name=socket.title) for socket in interface.outputs),
-        inputs=tuple(msgspec.structs.replace(socket, key=item_key(prefix, socket.key), name=socket.title) for socket in interface.inputs),
-        panels=tuple(msgspec.structs.replace(_under(prefix, panel), key=item_key(prefix, panel.key), name=panel.title) for panel in interface.panels),
-    )
+def _mapped[I: Interface](interface: I, socket: Callable[[Socket], Socket], panel: Callable[[InterfacePanel], InterfacePanel], /) -> I:
+    """Transforms sockets and panels bottom up, preserving root type and every other field."""
+
+    def rebuilt[S: Interface](owner: S, children: list[InterfacePanel]) -> S:
+        return msgspec.structs.replace(owner, outputs=tuple(map(socket, owner.outputs)), inputs=tuple(map(socket, owner.inputs)), panels=tuple(children))
+
+    panels: list[InterfacePanel] = []
+    pending: list[tuple[Option[InterfacePanel], Iterator[InterfacePanel], list[InterfacePanel]]] = [(Nothing, iter(interface.panels), panels)]
+    while pending:
+        parent, children, ready = pending[-1]
+        match next(children, None):
+            case InterfacePanel() as child:
+                pending.append((Some(child), iter(child.panels), []))
+            case None:
+                pending.pop()
+                for child in parent.to_list():
+                    pending[-1][2].append(panel(rebuilt(child, ready)))
+    return rebuilt(interface, panels)
 
 
 @functools.cache
@@ -414,7 +459,7 @@ def _declared(socket: Socket, stock: StockInput, /) -> Socket:
 
         def linked(tree: bpy.types.NodeTree) -> Outcome[bpy.types.NodeTree]:
             scratch.callback(bpy.data.node_groups.remove, tree)
-            entered, node = tree.nodes.new(bpy.types.NodeGroupInput.__name__), tree.nodes.new(stock.node.__name__)
+            entered, node = tree.nodes.new(definition(bpy.types.NodeGroupInput).identifier), tree.nodes.new(definition(stock.node).identifier)
             return socket_at(node.inputs, stock.input).map(lambda target: tree.links.new(entered.outputs[-1], target, handle_dynamic_sockets=True)).map(lambda _: tree)
 
         match new_group(kinds[0], ".stock").bind(linked):
@@ -424,7 +469,7 @@ def _declared(socket: Socket, stock: StockInput, /) -> Socket:
                 raise LookupError(stock, faults)
         match items:
             case (item,):
-                refined: type[bpy.types.NodeSocket] = getattr(bpy.types, item.bl_socket_idname)
+                refined: type[bpy.types.NodeSocket] = getattr(bpy.types, item.bl_socket_idname)  # ty: ignore[unsound-assignment]
 
                 def read(name: str) -> Value:
                     return Descriptor.resolve(item, (name,), bpy.types.Property).map(lambda descriptor: descriptor.read(item)).default_value(None)
@@ -444,10 +489,10 @@ def _declared(socket: Socket, stock: StockInput, /) -> Socket:
 
 def _found(panel: InterfacePanel, key: Key, /) -> Option[DesiredItem]:
     """Item the panel holds at `key` at any depth."""
-    return Block.of_seq(item for held, item, _, _ in panel.walked() if held == key).try_head()
+    return Option.of_optional(next((item for held, item, _, _ in panel.walked() if held == key), None))
 
 
-def _nested(value: object, /) -> bool:
+def _nested(value: object, /) -> TypeGuard[msgspec.Struct]:
     """Whether a record field's value is a record whose fields a nested panel holds, node content a node holds in place of sockets excluded."""
     return isinstance(value, msgspec.Struct) and not isinstance(value, Content)
 

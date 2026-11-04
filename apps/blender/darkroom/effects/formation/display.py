@@ -3,10 +3,10 @@
 from collections.abc import Callable
 from functools import partial
 from itertools import starmap
-from typing import Final
+from typing import Final, override
 
 import bpy
-from expression import Ok, Option, Some, try_downcast
+from expression import Option, Some, try_downcast
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -16,25 +16,23 @@ from blender.bpy.commands.operators import Answer, Call, Done, Operator, Unchang
 from blender.bpy.data.rna.descriptors import written
 from blender.bpy.data.rna.paths import rooted
 from blender.bpy.data.rna.snapshots import assigned, Snapshot
-from blender.bpy.extension.events import Subscription
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.extension.registration import Acquisitions
+from blender.bpy.extension.registration import Acquisitions, Subscription
 from blender.bpy.nodes.addressing import owned
 from blender.bpy.nodes.graphs import Expr
 from blender.bpy.nodes.interfaces import Interface, Socket
 from blender.bpy.render.color.spaces import ColorManagement, followed, HdrWindow, NO_LOOK, viewed
 from blender.bpy.render.compositor import grades
-from blender.bpy.render.compositor.effects import CompositorEffect, Named, Replaced, Seeded
+from blender.bpy.render.compositor.effects import CompositorEffect, CompositorRecord, Mix, Named, Seeded
 from blender.bpy.render.compositor.inputs import entered, GraphInputs, Holds
 from blender.bpy.render.compositor.viewers import READ
 from blender.bpy.ui.layout.rows import Label
 from blender.imaging.analysis.metering import Samples
 from blender.imaging.color.processors import converted, DisplayView
 from blender.imaging.files.images import ImageFile
-from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
-from blender.records.fields import Case
+from blender.records.faults import accumulated, Fault, Ok, Outcome, paired, Reason
 
-from ..grade.exposure import exposed
+from ..grade.exposure import exposed  # ruff: ignore[relative-imports]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -47,14 +45,30 @@ _KNEE_OFFSET: Final = Socket(key="knee_offset", kind=bpy.types.NodeSocketFloat, 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Formation(Case, frozen=True, kw_only=True):
+class Formation(CompositorRecord, frozen=True, kw_only=True):
     """Scene-linear color formed through a display view, its display, view, look, exposure, and gamma the members of one Convert to Display node."""
 
     display_view: DisplayView
 
+    @override
+    def graph(self, shell: GraphInputs) -> Outcome[Expr]:
+        """Builds the Convert to Display node keyed `display` between the view's exposure ahead and its display gamma after, the node holding the display, view, and look Blender lets it set."""
+        view, viewing = self.display_view, ColorManagement.of(self.display_view)
+        members = msgspec.structs.replace(viewing, view_settings=msgspec.structs.replace(viewing.view_settings, exposure=msgspec.UNSET, gamma=msgspec.UNSET)).members()
+        entering = exposed(shell.color, view.exposure) if view.exposure else shell.color
+        formed = Expr(kind=bpy.types.CompositorNodeConvertToDisplay, inputs=(("Image", entering),), members=members, socket="Image", socket_type=bpy.types.NodeSocketColor).keyed(_DISPLAY)
+        return Ok(
+            Expr(kind=bpy.types.CompositorNodeGamma, inputs=(("Image", formed), ("Gamma", view.inverse_gamma)), socket="Image", socket_type=bpy.types.NodeSocketColor) if view.gamma != 1.0 else formed
+        )
 
-class PeakMapping(Case, frozen=True, kw_only=True):
+
+class PeakMapping(CompositorRecord, frozen=True, kw_only=True):
     """Per-channel PQ peak compression with Hermite roll-off and black lift."""
+
+    @override
+    def graph(self, shell: GraphInputs) -> Outcome[Expr]:
+        """Maps formed PQ codes through the BT.2390 EETF over live peak, black, and knee inputs."""
+        return Ok(grades.eetf(shell.color, source=shell.input(_SOURCE_PEAK), target=shell.input(_TARGET_PEAK), black=shell.input(_DISPLAY_BLACK), knee=shell.input(_KNEE_OFFSET)))
 
 
 class DisplayFollowing(msgspec.Struct, frozen=True, kw_only=True):
@@ -73,6 +87,7 @@ class DisplayFollowing(msgspec.Struct, frozen=True, kw_only=True):
                     scene,
                     held[node],
                     lambda record: Ok(msgspec.structs.replace(record, display_view=msgspec.structs.replace(view, exposure=record.display_view.exposure, gamma=record.display_view.gamma))),
+                    form=Formation,
                 )
 
             return followed(scene, held).bind(lambda matched: accumulated(starmap(stored, matched))).map(lambda _: None)
@@ -83,18 +98,7 @@ class DisplayFollowing(msgspec.Struct, frozen=True, kw_only=True):
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
-# --- [GRAPH]
-
-
-def _formation(shell: GraphInputs[Formation]) -> Outcome[Expr]:
-    """Builds the Convert to Display node keyed `display` between the view's exposure ahead and its display gamma after, the node holding the display, view, and look Blender lets it set."""
-    view, viewing = shell.record.display_view, ColorManagement.of(shell.record.display_view)
-    members = msgspec.structs.replace(viewing, view_settings=msgspec.structs.replace(viewing.view_settings, exposure=msgspec.UNSET, gamma=msgspec.UNSET)).members()
-    entering = exposed(shell.color, view.exposure) if view.exposure else shell.color
-    formed = Expr(kind=bpy.types.CompositorNodeConvertToDisplay, inputs=(("Image", entering),), members=members, socket="Image", socket_type=bpy.types.NodeSocketColor).keyed(_DISPLAY)
-    return Ok(
-        Expr(kind=bpy.types.CompositorNodeGamma, inputs=(("Image", formed), ("Gamma", view.inverse_gamma)), socket="Image", socket_type=bpy.types.NodeSocketColor) if view.gamma != 1.0 else formed
-    )
+# --- [VIEWS]
 
 
 def _unformed(scene: bpy.types.Scene) -> Outcome[Snapshot]:
@@ -120,14 +124,6 @@ def _unformed(scene: bpy.types.Scene) -> Outcome[Snapshot]:
     )
 
 
-def _peak_mapping(shell: GraphInputs[PeakMapping]) -> Outcome[Expr]:
-    """Maps formed PQ codes through the BT.2390 EETF over live peak, black, and knee inputs."""
-    return Ok(grades.eetf(shell.color, source=shell.input(_SOURCE_PEAK), target=shell.input(_TARGET_PEAK), black=shell.input(_DISPLAY_BLACK), knee=shell.input(_KNEE_OFFSET)))
-
-
-# --- [VIEWS]
-
-
 def displays(identity: Identity, scene: bpy.types.Scene) -> tuple[tuple[bpy.types.SceneCompositorEffect, bpy.types.CompositorNodeConvertToDisplay], ...]:
     """Returns the scene's formation entries in stack order, each with the Convert to Display node its group owns."""
     return tuple(
@@ -140,7 +136,7 @@ def displays(identity: Identity, scene: bpy.types.Scene) -> tuple[tuple[bpy.type
 
 def formed_view(identity: Identity, scene: bpy.types.Scene) -> Outcome[Option[DisplayView]]:
     """Returns the earliest formation entry's view, Nothing without one."""
-    return formation.current(identity, scene).map(lambda found: found.map(lambda record: record.display_view))
+    return formation.current(identity, scene, form=Formation).map(lambda found: found.map(lambda record: record.display_view))
 
 
 def current_view(identity: Identity, scene: bpy.types.Scene) -> Outcome[DisplayView]:
@@ -174,7 +170,7 @@ def _reformed(identity: Identity, scene: bpy.types.Scene, change: Callable[[Disp
     return (
         formation
         .earliest(identity, scene)
-        .map(lambda entry: formation.revised(identity, scene, entry, lambda record: Ok(msgspec.structs.replace(record, display_view=change(record.display_view)))))
+        .map(lambda entry: formation.revised(identity, scene, entry, lambda record: Ok(msgspec.structs.replace(record, display_view=change(record.display_view))), form=Formation))
         .default_with(unformed)
     )
 
@@ -198,7 +194,7 @@ def measure_peak(identity: Identity, _scene: bpy.types.Scene, entry: bpy.types.S
         Samples
         .of(PyOpenColorIO.GetCurrentConfig(), file.pixels)
         .map(Samples.peak)
-        .bind(lambda peak: peak.map(lambda value: entered(identity, entry, {_SOURCE_PEAK.key: value})).default_value(Ok(False)))
+        .bind(lambda peak: peak.map(lambda value: entered(identity, entry, {_SOURCE_PEAK.key: value})).default_value(Ok(value=False)))
     )
 
 
@@ -216,9 +212,8 @@ def encode_formation(call: Call[Named]) -> Outcome[Answer]:
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 formation: Final = CompositorEffect(
-    _formation,
     record=Formation,
-    mix=Replaced(),
+    mix=Mix.REPLACE,
     pointwise=True,
     source=Seeded(seed=lambda scene: Formation(display_view=viewed(scene))),
     holds=Holds(scene=_unformed),
@@ -226,7 +221,6 @@ formation: Final = CompositorEffect(
     registers=(Operator(form=Named, run=encode_formation), DisplayFollowing()),
 )
 peak_mapping: Final = CompositorEffect(
-    _peak_mapping,
     record=PeakMapping,
     interface=Interface(inputs=(_SOURCE_PEAK, _TARGET_PEAK, _DISPLAY_BLACK, _KNEE_OFFSET)),
     pointwise=True,

@@ -25,7 +25,7 @@ public sealed partial class PhysicalAxis {
     internal float End(SKRect rect) => Of(new SKPoint(rect.Right, rect.Bottom));
 }
 
-[ValueObject<float>(SkipFactoryMethods = true)]
+[ValueObject<float>(SkipFactoryMethods = true, ConstructorAccessModifier = AccessModifier.Internal)]
 public sealed partial class Fraction : IInterpolated<Fraction> {
     public static Fraction MinValue { get; } = new(0f);
     public static Fraction Half { get; } = new(0.5f);
@@ -42,7 +42,7 @@ public sealed partial class Fraction : IInterpolated<Fraction> {
     public static Fin<Fraction> Validated(float value) => UIFault.Unless(value is >= 0f and <= 1f, UIReason.Range, value).Map(_ => new Fraction(value));
 }
 
-[ValueObject<float>(SkipFactoryMethods = true)]
+[ValueObject<float>(SkipFactoryMethods = true, ConstructorAccessModifier = AccessModifier.Internal)]
 public sealed partial class Factor {
     public static Factor Unit { get; } = new(1f);
 
@@ -83,10 +83,17 @@ public sealed partial class UIReason {
     public string Message { get; }
 }
 
-public sealed record UIFault(string Subject, UIReason Reason, Option<int> Index = default, Option<Error> Inner = default)
-    : Expected(Index.Match(at => string.Create(CultureInfo.InvariantCulture, $"{Reason.Message}: {Subject} at index {at}"), () => $"{Reason.Message}: {Subject}"), 0, Inner) {
+public sealed record UIFault(object? Subject, UIReason Reason, Option<int> Index = default, Option<Error> Inner = default)
+    : Expected(Reason.Message, 0, Inner) {
+    public object? Subject { get; } = Subject;
+    public UIReason Reason { get; } = Reason;
+
+    public override string Message => Index.Match(
+        at => string.Create(CultureInfo.InvariantCulture, $"{Reason.Message}: {Subject} at index {at}"),
+        () => string.Create(CultureInfo.InvariantCulture, $"{Reason.Message}: {Subject}"));
+
     public static Fin<Unit> Unless<T>(bool flag, UIReason reason, T rejected, Option<int> index = default, [CallerArgumentExpression(nameof(rejected))] string names = "") =>
-        flag ? unit : new UIFault(string.Create(CultureInfo.InvariantCulture, $"{names} = {rejected}"), reason, index);
+        flag ? unit : new UIFault((names, rejected), reason, index);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

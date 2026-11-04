@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-boolean-flag-pair
-language: rust
+language: rustlang
 severity: error
 utils:
     plain-type:
@@ -42,7 +42,7 @@ rule:
           all:
             - has: {field: name, pattern: $NAME}
             - any: [{has: {field: parameters, matches: flag-pair}}, {has: {field: return_type, any: [{kind: tuple_type, matches: packed-type}, {has: {stopBy: end, kind: tuple_type, matches: packed-type}}], pattern: $FIRST}}]
-            - not: {matches: rust-trait-or-extern-function}
+            - not: {matches: rust-trait-impl-or-extern-function}
         - kind: struct_item
           all:
             - has: {field: name, pattern: $NAME}

@@ -1,6 +1,11 @@
-import { Array, Effect, FileSystem, flow, Option, Schema, String } from 'effect';
+import { Array, Effect, FileSystem, flow, Option, Path, Schema, String, Struct } from 'effect';
 import { Answer, deciding, Halted, Outcome } from '#/results';
 import type { Any } from '#/session';
+
+// --- [TYPES] ---------------------------------------------------------------------------
+
+type Fact = ReturnType<typeof facts>['Fact']['Type'];
+type Asking<T> = Pick<Fact, 'identifier' | 'version' | 'environment'> & { readonly engine: T };
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -24,20 +29,26 @@ const facts = (engine: Any) => {
         answer: Answer,
         asked: Schema.String.annotate({ description: 'ISO 8601 instant of the host call' }),
     });
-    type Key = Pick<typeof Fact.Type, 'question' | 'identifier' | 'version' | 'engine'> & Partial<Pick<typeof Fact.Type, 'host' | 'expression' | 'args' | 'precondition'>>;
+    type Key = Pick<typeof Fact.Type, 'question' | 'identifier' | 'version' | 'engine' | 'environment'> & Partial<Pick<typeof Fact.Type, 'host' | 'expression' | 'args' | 'precondition'>>;
     const same = Schema.toEquivalence(Schema.UndefinedOr(Schema.Json));
     const Index = Schema.fromJsonString(Schema.Struct({ facts: Schema.Array(Fact) }), { space: 2 });
     const load = Effect.fn('load')(function* (file: string) {
         const fs = yield* FileSystem.FileSystem;
-        return (yield* fs.exists(file)) ? (yield* Schema.decodeEffect(Index)(yield* fs.readFileString(file))).facts : [];
+        return yield* fs.readFileString(file).pipe(
+            Effect.flatMap(Schema.decodeEffect(Index)),
+            Effect.map(({ facts: rows }) => rows),
+            Effect.catchReason('PlatformError', 'NotFound', () => Effect.succeed([])),
+        );
     });
-    const matches = (row: Key, key: Key) => row.question === key.question && row.identifier === key.identifier && row.version === key.version && row.engine === key.engine && (['host', 'expression', 'args', 'precondition'] as const).every((field) => key[field] === undefined || same(row[field], key[field]));
+    const matches = (row: Key, key: Key) =>
+        row.question === key.question && row.identifier === key.identifier && row.version === key.version && row.engine === key.engine && same(row.environment, key.environment) && (['host', 'expression', 'args', 'precondition'] as const).every((field) => key[field] === undefined || same(row[field], key[field]));
     const known = (rows: readonly (typeof Fact.Type)[], key: Key) => Array.findFirst(rows, (row) => matches(row, key));
     const faulted = (rows: readonly (typeof Fact.Type)[], key: Omit<Key, 'question'>) => Array.findFirst(rows, (row) => 'thrown' in row.answer && Schema.is(Interrupted)(row.answer.thrown) && matches(row, { ...key, question: row.question }));
     const record = Effect.fn('record')(function* (file: string, made: readonly (typeof Fact.Type)[]) {
-        const fs = yield* FileSystem.FileSystem;
+        const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
         const rows = yield* load(file);
-        const replaced = (row: Key) => made.some((next) => matches(row, { question: next.question, identifier: next.identifier, version: next.version, engine: next.engine }) && same(row.host, next.host));
+        const replaced = (row: Key) => made.some((next) => matches(row, Struct.pick(next, ['question', 'identifier', 'version', 'engine', 'environment'])) && same(row.host, next.host));
+        yield* fs.makeDirectory(path.dirname(file), { recursive: true });
         yield* fs.writeFileString(file, `${yield* Schema.encodeEffect(Index)({ facts: [...rows.filter((row) => !replaced(row)), ...made] })}\n`);
     });
     return { Fact, load, known, faulted, record };
@@ -69,4 +80,4 @@ const answerOf = (row: typeof Outcome.Type): Option.Option<typeof Answer.Type> =
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { answerOf, facts };
+export { type Asking, answerOf, type Fact, facts };

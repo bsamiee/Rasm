@@ -1,28 +1,27 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-thunked-effect-step
-language: tsx
+language: tsxlang
 severity: error
 rule:
-    kind: arrow_function
-    all:
-        - has: {field: parameters, not: {has: {nthChild: 1}}}
-        - has:
-            field: body
-            pattern: $STEP
-            any:
-                - kind: identifier
-                - kind: member_expression
-                  not: {has: {stopBy: end, kind: call_expression}}
-                - kind: call_expression
-                  has: {field: function, matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^(try|tryPromise|sync|promise|suspend|gen)$'}}}}
-        - inside:
-            kind: arguments
-            inside: {kind: call_expression, has: {field: function, pattern: $COMBINATOR, matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^(tap|andThen)$'}}}}}
-        - not:
-            inside:
-                stopBy: end
-                kind: variable_declarator
-                has: {field: name, pattern: $STEP}
-fix: $STEP
+    kind: type_parameters, formal_parameters
+    nthChild: {position: 1, ofRule: {kind: 'type_parameters, formal_parameters'}}
+    inside:
+        kind: arrow_function
+        all:
+            - not: {has: {regex: '^async$', not: {kind: identifier}}}
+            - has: {field: parameters, not: {has: {nthChild: 1}}}
+            - has:
+                field: body
+                pattern: $STEP
+                any:
+                    - matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^(void|never)$'}}}
+                    - kind: identifier
+                      matches: {typescript-import-reference: {source: {regex: '^effect/Effect$'}, exported: {regex: '^(void|never)$'}}}
+            - inside:
+                kind: arguments
+                inside: {kind: call_expression, has: {field: function, pattern: $COMBINATOR, matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^(tap|andThen)$'}}}}}
+fix:
+    template: ''
+    expandEnd: {regex: '^=>$', stopBy: end}
 message: '`$COMBINATOR` wraps `$STEP` in a thunk that takes no input'
 note: 'Pass the effect to `Effect.tap` or `Effect.andThen` directly'

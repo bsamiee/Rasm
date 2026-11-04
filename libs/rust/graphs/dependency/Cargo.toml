@@ -19,17 +19,29 @@ test    = false
 doctest = false
 bench   = false
 
+# --- [TEST]
+[[test]]
+name = "connections"
+path = "../../../../tests/rust/graphs/dependency/connections.rs"
+
+[[test]]
+name = "critical"
+path = "../../../../tests/rust/graphs/dependency/critical.rs"
+
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
 # --- [RUNTIME]
 [dependencies]
-thiserror            = { workspace = true }
+derive-where         = { workspace = true }
 derive_more          = { workspace = true }
 enum-map             = { workspace = true }
 itertools            = { workspace = true }
 nonempty-collections = { workspace = true }
+num-traits           = { workspace = true }
 petgraph             = { workspace = true }
 rustworkx-core       = { workspace = true }
+thiserror            = { workspace = true }
+validated            = { workspace = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

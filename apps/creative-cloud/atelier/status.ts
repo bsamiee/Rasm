@@ -1,7 +1,7 @@
-import { Pid, State } from '@rasm/automation/applications';
-import { Automation } from '@rasm/automation/automation';
-import { Resource } from '@rasm/mcp/resource';
-import { Unmatched } from '@rasm/search/unmatched';
+import { Pid, State } from '@rasm/automation';
+import { Automation } from '@rasm/automation/node';
+import { Resource } from '@rasm/mcp';
+import { Unmatched } from '@rasm/search';
 import { Array, Effect, Option, Predicate, Struct, SubscriptionRef } from 'effect';
 import { McpSchema } from 'effect/ai';
 

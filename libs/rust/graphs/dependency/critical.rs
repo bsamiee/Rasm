@@ -1,16 +1,17 @@
-use core::ops::{Neg, Sub};
+use core::cmp::Ordering;
 use std::collections::BTreeMap;
 
 use enum_map::EnumMap;
-use nonempty_collections::NEBTreeSet;
+use nonempty_collections::{IntoNonEmptyIterator as _, NEBTreeSet, NEVec, NonEmptyIterator as _};
+use num_traits::Zero;
 use petgraph::{
     Direction,
-    algo::Measure,
     stable_graph::{EdgeIndex, NodeIndex},
     visit::{EdgeRef as _, IntoEdgeReferences as _},
 };
+use validated::Validated;
 
-use crate::{DependencyError, Evaluation, Refusal, at, pass};
+use crate::{DependencyError, Evaluation, Refusal, at, entries, pass};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -35,7 +36,8 @@ pub struct Precedence<T> {
     pub lag: T,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive_where::derive_where(Default)]
 pub struct Constraint<T> {
     pub earliest: Option<T>,
     pub latest: Option<T>,
@@ -62,23 +64,21 @@ pub fn schedule<N, E, T>(
     duration: impl Fn(&N) -> T,
     constraint: impl Fn(&N) -> EnumMap<Event, Constraint<T>>,
     precedence: impl Fn(&E) -> Precedence<T>,
+    (sum, difference): (impl Fn(T, T) -> Option<T>, impl Fn(T, T) -> Option<T>),
     start: T,
     deadline: Option<T>,
 ) -> Result<Schedule<T>, DependencyError>
 where
-    T: Measure + Copy + Ord + Sub<Output = T> + Neg<Output = T>,
+    T: Copy + Ord + Zero,
 {
-    if let Some(nodes) = NEBTreeSet::try_from_set(evaluation.node_indices().filter(|&node| duration(&evaluation[node]) < T::default()).collect()) {
+    if let Some(nodes) = NEBTreeSet::try_from_set(evaluation.node_indices().filter(|&node| duration(&evaluation[node]) < T::zero()).collect()) {
         return Err(DependencyError::Refused { reason: Refusal::Duration, nodes });
     }
-    let bound = |(near, date): (Event, T), length: T| match near {
-        Event::Start => date.add(length),
-        Event::Finish => date,
-    };
+    let refused = |nodes: NEVec<NodeIndex>| DependencyError::Refused { reason: Refusal::Date, nodes: nodes.into_nonempty_iter().collect() };
     let dated = |direction: Direction, origin: (Event, T)| {
-        let extreme: fn(T, T) -> T = match direction {
-            Direction::Outgoing => Ord::max,
-            Direction::Incoming => Ord::min,
+        let tighter = match direction {
+            Direction::Outgoing => Ordering::Greater,
+            Direction::Incoming => Ordering::Less,
         };
         let limit = |Constraint { earliest, latest }: Constraint<T>| match direction {
             Direction::Outgoing => earliest,
@@ -86,50 +86,93 @@ where
         };
         pass(evaluation, direction, |node, dates| {
             let (length, bounds) = (duration(&evaluation[node]), constraint(&evaluation[node]));
-            let finish = evaluation
+            let bound = |(near, date)| {
+                EnumMap::try_from_fn(|event| {
+                    match (near, event) {
+                        (Event::Start, Event::Finish) => sum(date, length),
+                        (Event::Finish, Event::Start) => difference(date, length),
+                        (Event::Start, Event::Start) | (Event::Finish, Event::Finish) => Some(date),
+                    }
+                    .ok_or(node)
+                })
+            };
+            evaluation
                 .edges_directed(node, direction.opposite())
                 .filter_map(|edge| {
                     let Precedence { predecessor, successor, lag } = precedence(edge.weight());
-                    let (neighbor, near, far, lag) = match direction {
-                        Direction::Outgoing => (edge.source(), successor, predecessor, lag),
-                        Direction::Incoming => (edge.target(), predecessor, successor, lag.neg()),
+                    let (neighbor, near, far) = match direction {
+                        Direction::Outgoing => (edge.source(), successor, predecessor),
+                        Direction::Incoming => (edge.target(), predecessor, successor),
                     };
-                    at(dates, neighbor).map(|known: EnumMap<Event, T>| (near, known[far].add(lag)))
+                    at(dates, neighbor).map(|known: Result<EnumMap<Event, T>, NodeIndex>| {
+                        let known = known?;
+                        match direction {
+                            Direction::Outgoing => sum(known[far], lag),
+                            Direction::Incoming => difference(known[far], lag),
+                        }
+                        .map(|date| (near, date))
+                        .ok_or(node)
+                    })
                 })
-                .chain(bounds.into_iter().filter_map(|(event, bounds)| limit(bounds).map(|date| (event, date))))
-                .fold(bound(origin, length), |finish, candidate| extreme(finish, bound(candidate, length)));
-            EnumMap::from_fn(|event| match event {
-                Event::Start => finish.sub(length),
-                Event::Finish => finish,
-            })
+                .chain(bounds.into_iter().filter_map(|(event, bounds)| limit(bounds).map(|date| Ok((event, date)))))
+                .try_fold(bound(origin)?, |dates, candidate| {
+                    let (near, date) = candidate?;
+                    if date.cmp(&dates[near]) == tighter { bound((near, date)) } else { Ok(dates) }
+                })
         })
+        .into_iter()
+        .map(Option::transpose)
+        .collect::<Validated<Vec<_>, _>>()
     };
-    let early = dated(Direction::Outgoing, (Event::Start, start));
-    let completion = early.iter().flatten().map(|dates| dates[Event::Finish]).max().unwrap_or(start);
-    let close = deadline.unwrap_or(completion);
-    let late = dated(Direction::Incoming, (Event::Finish, close));
+    let early = dated(Direction::Outgoing, (Event::Start, start)).ok().map_err(refused)?;
+    let completion = entries(&early).map(|(node, dates)| (node, dates[Event::Finish])).max_by_key(|&(_, date)| date);
+    let close = deadline.unwrap_or_else(|| completion.map_or(start, |(_, date)| date));
+    let makespan = completion.map_or_else(|| Ok(T::zero()), |(node, date)| difference(date, start).ok_or(node));
+    let (late, makespan) = dated(Direction::Incoming, (Event::Finish, close)).map2(Validated::from(makespan), |late, makespan| (late, makespan)).ok().map_err(refused)?;
     let relationships = evaluation
         .edge_references()
         .filter_map(|edge| {
             let Precedence { predecessor, successor, lag } = precedence(edge.weight());
-            let opened = at(&early, edge.source())?[predecessor].add(lag);
-            let (soonest, latest) = (at(&early, edge.target())?[successor], at(&late, edge.target())?[successor]);
-            Some((edge.id(), EnumMap::from_fn(|float| match float {
-                Float::Total => latest.sub(opened),
-                Float::Free => soonest.sub(opened),
-            })))
+            let (source, target) = (edge.source(), edge.target());
+            let before = at(&early, source)?[predecessor];
+            let (soonest, latest) = (at(&early, target)?[successor], at(&late, target)?[successor]);
+            Some(sum(before, lag).ok_or(source).and_then(|opened| {
+                EnumMap::try_from_fn(|float| {
+                    difference(
+                        match float {
+                            Float::Total => latest,
+                            Float::Free => soonest,
+                        },
+                        opened,
+                    )
+                    .ok_or(target)
+                })
+                .map(|float| (edge.id(), float))
+            }))
         })
-        .collect::<BTreeMap<_, _>>();
+        .collect::<Validated<BTreeMap<_, _>, _>>()
+        .ok()
+        .map_err(refused)?;
     let activities = evaluation
         .node_indices()
         .filter_map(|node| {
             let (early, late) = (at(&early, node)?, at(&late, node)?);
-            let free = evaluation.edges_directed(node, Direction::Outgoing).filter_map(|edge| relationships.get(&edge.id()).map(|float| float[Float::Free])).min().unwrap_or_else(|| close.sub(early[Event::Finish]));
-            Some((node, Activity { early, late, float: EnumMap::from_fn(|float| match float {
-                Float::Total => late[Event::Finish].sub(early[Event::Finish]),
-                Float::Free => free,
-            }) }))
+            let free = evaluation
+                .edges_directed(node, Direction::Outgoing)
+                .filter_map(|edge| relationships.get(&edge.id()).map(|float| float[Float::Free]))
+                .min()
+                .map_or_else(|| difference(close, early[Event::Finish]), Some)
+                .ok_or(node);
+            Some(free.and_then(|free| {
+                EnumMap::try_from_fn(|float| match float {
+                    Float::Total => difference(late[Event::Finish], early[Event::Finish]).ok_or(node),
+                    Float::Free => Ok(free),
+                })
+                .map(|float| (node, Activity { early, late, float }))
+            }))
         })
-        .collect();
-    Ok(Schedule { activities, relationships, makespan: completion.sub(start) })
+        .collect::<Validated<_, _>>()
+        .ok()
+        .map_err(refused)?;
+    Ok(Schedule { activities, relationships, makespan })
 }

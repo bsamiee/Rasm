@@ -39,7 +39,7 @@ Function signatures are contracts, parameter types state every value a function 
 - Members and local `macro_rules!` differing only in a number, type, flag, or applied function are one function taking it as a parameter or generic
 - Defaults sit on one options struct under `default_field_values`, each stated by its owner (a standard, a dependency constant, absence)
 - Caller choices are required fields, optional inputs `Option` fields unless their type's default means absent
-- Defaults no const context builds (a fidget `CancelToken`) or tree-sitter-rust cannot parse (a struct literal) are `Option` fields resolved by `unwrap_or_default`
+- Runtime defaults use native `Default` or supplied factories; `Option` fields represent API-defined caller deferral
 - Values and types differing per platform or build (`panic = "abort"`) are one `cfg_select!` around the differing part (`SelectAll<cfg_select! { unix => A, windows => B }>`)
 - Elements, variants, and arms one platform alone holds take `#[cfg]` on themselves
 - Shares, locks, imports, and nightly features one configuration reads sit under its `cfg` or `cfg_attr`, the plain owned value standing elsewhere
@@ -71,7 +71,7 @@ Functions are total when each declared input produces a declared output, and a p
 
 ### [01.2]-[PURITY]
 
-Mutation of a local that never escapes is no side effect, and a refusal leaves a `&mut` subject unchanged, every input tested before the first write. Expose each varying dependency as an argument, a clock reading as a `Timestamp` and a tolerance as a `SignedDuration`:
+Mutation of a local that never escapes is no side effect. Refused domain transitions leave their borrowed subject unchanged; fallible external writes can finish in unpublished staging before commit. Expose each varying dependency as an argument, a clock reading as a `Timestamp` and a tolerance as a `SignedDuration`:
 
 ```rust
 #[must_use]
@@ -147,10 +147,12 @@ Rust guarantees no tail-call elimination, the depth bound and the shape of the w
 
 | [INDEX] | [APPROACH]                    | [USE_WHEN]                                          | [COST]                         |
 | :-----: | :---------------------------- | :-------------------------------------------------- | :----------------------------- |
-|  [01]   | Direct recursion              | Depth bounded by a small known value or tree height | Each level holds a stack frame |
+|  [01]   | Direct recursion              | Small proven depth, including bounded tree height   | Each level holds a stack frame |
 |  [02]   | `iter::successors`            | Unbounded depth, intermediate states are meaningful | Holds one state per step       |
 |  [03]   | `try_fold` over a state range | Unbounded depth, only the final state or failure    | Intermediate states are lost   |
 |  [04]   | Arena with typed keys         | Shared or cyclic successors                         | Graph built before the walk    |
+
+Stack bounds include native callees and implicit `Drop`, `Clone`, or equality traversal. Unbounded inputs require stack safety along every executed path; an iterator return type establishes no implementation depth bound.
 
 ## [03]-[TYPES]
 
@@ -193,17 +195,18 @@ Rules the domain owns become types whose constructor enforces them, and the inne
 - `NonZero<T>` holds a nonzero integer, `bounded_integer` a range of integers, `NotNan<f64>` a stored float key, and `f64::total_cmp` orders a key nothing stores
 - Constants build in a const context, `const { .. }` around one in a runtime body, and an invalid value fails the build
 - `NonZero` constants are `NonZero::new(<value>).unwrap()`, and `try_new(<value>).ok().unwrap()` builds one over a `Result` constructor (nutype `const_fn`)
-- Default field values write `NonZero::<T>::saturating_add(NonZero::<T>::MIN, <value - 1>)` by path, tree-sitter-rust parsing no method call there
+- Default fields retain native const constructors; parser limitations are fixed through supported parser APIs or releases
 - Methods on a package constant read as `<value>` inside `const { .. }` under `const_result_trait_fn` and `const_trait_impl`
 - `TypedUuid<Kind>` names the entity an identifier refers to, each entity with its own identifier type
-- `Decimal` holds money and exact values, `Timestamp`, `Zoned`, `Span`, and `SignedDuration` hold time
+- `Decimal` holds money and other representable decimal values; nonrepresentable results use the domain's rounding policy
+- `Timestamp`, `Zoned`, `Span`, and `SignedDuration` hold time
 - `uom` quantities hold physical values with dimensions the compiler checks
 - Rules across fields take `nutype` over a standard type of that shape, else over a declared record
 - Intervals are `core::range` values (`RangeInclusive<f64>`, `Copy` with public ends), a `core::ops` range staying where serde reads it
 - Integer windows reaching their type's maximum (a Sobol index through `u16::MAX`) are a nutype over `RangeInclusive<u16>` refusing `start > last`, never a half-open range or a count
 - Public fields hold values no rule across fields constrains, each field's own type validating it
 - Constructors test each quantity the invariant states (an unsigned volume tests extent, not orientation), never a diagnostic agreeing on some inputs
-- Package results enter a constrained type through its constructor checks, never on the package's documented behavior
+- Added domain constraints use their constructor; native and package values retain their typed guarantees
 - Invariants consumers read (a finite path) are a type each operation takes and returns, never a per-entry check, emptying guard, or predicate walk
 - Tokens a value issues hold an invariant `'id` brand its scoped constructor binds, and another issuer's token fails to compile
 
@@ -211,7 +214,8 @@ Rules the domain owns become types whose constructor enforces them, and the inne
 
 Ownership states who decides a value's lifetime:
 - Functions storing an argument or moving it into a by-value callee take it by value, the caller deciding whether to clone, and readers borrow it
-- Collections a function reads arrive as `IntoIterator<Item: Borrow<T>>` (`IntoIter: Clone` when walked twice), a borrowed package collection passing uncopied
+- Single-pass readers take `IntoIterator<Item: Borrow<T>>`; repeated iterable walks can bound `IntoIter: Clone`
+- Indexed or splittable kernels retain slices or native views with those access capabilities
 - `&mut self` callbacks a hot loop calls (a sampler's density) own scratch buffers sized at construction and cleared per call, never allocating per call
 - Buffers kept across calls (a held log tail, a batch) are bounded by the depth or batch their reader takes
 - Values tasks share for reading are `Arc<str>` and `Arc<[T]>`, or the handle a dependency states for the concept (linebender_resource_handle `FontData`)
@@ -306,7 +310,7 @@ pub fn transfer(accounts: &HashMap<AccountId, Account, impl BuildHasher>, from: 
 
 ### [04.2]-[ERRORS]
 
-Expected failures are data in return types, and a panic is a defect: a violated invariant the types cannot express. Each crate declares one error enum named for it, with one variant per source (a domain refusal, each foreign error type) holding its typed subject. Reasons and operations sharing a source are an enum field on its variant, fieldless but for an operation's own subject (`Export(Utf8PathBuf)` under `#[display("export into {_0}")]`), its `Display` derived from variant names, and a variant whose words differ from its name (`Shutdown` as `shut down`) takes its own `#[display(..)]`:
+Expected failures are data in return types, and a panic is a defect: a violated invariant the types cannot express. Foreign errors remain direct when they describe the whole failure. Domain refusals or added context use a crate error enum named for it, with typed subjects and sources. Reasons and operations sharing a source are an enum field on its variant, fieldless but for an operation's own subject (`Export(Utf8PathBuf)` under `#[display("export into {_0}")]`), its `Display` derived from variant names, and a variant whose words differ from its name (`Shutdown` as `shut down`) takes its own `#[display(..)]`:
 
 ```rust
 #[derive(Debug, Clone, Copy, PartialEq, Eq, derive_more::Display)]
@@ -338,7 +342,7 @@ pub enum LedgerError {
 - Boundaries `map_err` a foreign error into its variant beside an operation field and the subject it omits (a path or key, never a callee value)
 - Foreign errors omitting no subject reach their variant through `From` and `?`, as does the crate error a foreign call returns from a crate callback
 - Calls differing in operation alone share one curried mapper (`|operation| move |source| ..`)
-- Foreign signatures fixing `anyhow::Error` downcast to a concrete source, a report with none recording as a `tracing` event beside a variant naming the operation
+- Foreign signatures fixing `anyhow::Error` retain that typed report; downcast when a consumer needs a concrete cause
 - Sibling calls of one operation pass the same mapping, an unmapped `?` on one dropping the subject the others name
 - `fs_err` file calls name operation and path in `io::Error`, other `io::Error`s (runtime start, socket bind) take a variant naming the operation
 - Layers generic over a consumer error `X` hold it in one `#[error(transparent)]` variant through `map_err`, a `#[from]` on `X` overlaps every other `From`
@@ -382,7 +386,10 @@ Traits state a capability a consumer needs. Associated types state an output the
 |  [04]   | Implementations chosen at run time or mixed in one collection | `Box<dyn Trait>`, `Arc<dyn Trait>`     |
 |  [05]   | Async capability chosen at run time                           | `dynosaur` dynamic type over the trait |
 
-- Public traits state `Send` on each async method as `-> impl Future<Output = T> + Send`, implementors writing `async fn` or `ready(..)` for a body awaiting nothing
+Static dispatch can duplicate code across instantiations; dynamic dispatch supports runtime selection. Native planners returning `Arc<dyn Fft<T>>` can select SIMD implementations that a replacement scalar implementation loses.
+
+- Async capabilities reaching `Send`-required tasks declare `-> impl Future<Output = T> + Send`; other bounds follow consumers
+- Implementors use `async fn`, or `ready(..)` when the body awaits no work
 - `#[auto_impl(&, Arc)]` implements a capability for its references and shared handles from one implementation
 - Associated types set to `impl Trait` name an implementor's iterator or future, a boxed `dyn Future` stays for a `dyn` consumer
 - Bounds repeated across signatures or crates are one trait alias over the traits each body reads or its totality needs
@@ -426,13 +433,15 @@ Implementations a derive generates are derived, and a hand-written `impl` states
 |  [10]   | Wire encode and decode                  | `serde`, field conversions through `serde_with`                           |
 |  [11]   | Field mapping between domain and wire   | `o2o`                                                                     |
 
-Records holding field defaults under `default_field_values` derive `Debug` through `derive_where` with `skip` on each foreign field lacking it, derive_more 2.1 parsing no field default.
+Records with field defaults use a compatible derive for `Debug`; `derive_where` supports omitting foreign fields lacking it. Omitted fields remain outside the intended trait contract.
+
+Existing `Display` and selective sources can use `derive_more::Error` with `#[error(ignore)]` and explicit `#[error(source, not(backtrace))]`. Choose a derive only when generated behavior and bounds preserve the implementation's contract.
 
 ## [06]-[EFFECTS]
 
 Pure functions hold the domain, async functions hold I/O, and the binary's `main` starts the runtime and runs the composed effect once:
 - Libraries return futures and streams, start no runtime, and every task they spawn has an owner that joins it
-- Blocking calls in a future raced against cancellation (a prompt) run as an awaited `spawn_blocking` task, the cancelling owner restoring held state (raw mode)
+- Blocking calls use `spawn_blocking`; cancellation awaits started work before restoring host state (a prompt's raw mode)
 - Tasks spawn inside a scope that awaits them: `JoinQueue` in spawn order, `JoinSet` in completion order, `TaskTracker`, or `AbortOnDropHandle`
 - `CancellationToken` stops a scope, `run_until_cancelled` races a future against it, and `timeout` bounds one future
 - Cancellation tokens and progress reporters a package call takes are parameters of each public operation reaching it, never a crate's own `None`
@@ -446,7 +455,7 @@ Pure functions hold the domain, async functions hold I/O, and the binary's `main
 - Blocking releases run concurrently through `Builder::spawn_scoped` under `thread::scope`, every handle collected before any `join`, a refused spawn adding one `Validated` failure
 - Operations at a boundary open a span with `#[instrument]`, and events record typed fields
 
-Dependency structure and concurrency bound select the combinator:
+Domain contracts establish effect independence; shared borrows and `Send` or `Sync` do not prove it. Ordered results can still overlap effects. Dependency structure and concurrency bound select the combinator:
 
 | [INDEX] | [SCENARIO]                        | [FORM]                                          | [BEHAVIOR]                                  |
 | :-----: | :-------------------------------- | :---------------------------------------------- | :------------------------------------------ |
@@ -488,13 +497,16 @@ Libraries return their own error, and the application composes each failure poli
 Numeric facts come from the type or package that states them:
 - Integer and `Decimal` arithmetic is `checked_*` returning `Option`, `strict_*` where overflow is a defect no caller input reaches, `saturating_*` where clamping rules
 - Dependency bounds stated as `< 2^n` are the full `u<n>` range of indices, never a `u<n>` count falling one short
-- Division and remainder take a `NonZero` divisor, `rem_euclid` states the sign of a remainder, `is_multiple_of` tests divisibility
+- Unsigned division and remainder take `NonZero` divisors; signed checked operations also refuse `MIN / -1` overflow
+- `rem_euclid` states remainder sign, and `is_multiple_of` tests divisibility
 - Tolerances and bounds are values a caller passes and floats compare within, a bound the callee derives (a makespan) reachable as `None`
 - Tolerances on a measure in the caller's units are relative to it (a residual change against the previous residual)
 - Absent bounds stay `None` at each read, a stand-in (a type's `MAX`, `pending()`) appearing only as a foreign parameter's plain limit (a `find_best` cost)
 - Encodings name their byte order (`to_le_bytes`, `from_be_bytes`)
 - Quantities cross a signature as `uom` values in the frame of what they meet, a coordinate pair one validated type, the `f64` kernel converting by it
-- Generic arithmetic bounds `CheckedAdd` and `CheckedSub` to refuse overflow, never an `Add::add` call hiding `+` from `arithmetic_side_effects`, and arithmetic generic over `uom` quantities bounds `Quantity<D, SI<f64>, f64>` with `D::Kind: marker::Add` or `marker::Sub`
+- Checked integer generics use `CheckedAdd` or `CheckedSub`; other promised families can take `Fn(T, T) -> Option<T>` policies
+- Generic `uom` arithmetic bounds `Quantity<D, SI<f64>, f64>` with `D::Kind: marker::Add` or `marker::Sub`
+- Native operators retain their meaning; equivalent method calls leave arithmetic diagnostic causes unresolved
 - Operators state float, dual, complex, and matrix arithmetic, clippy `arithmetic-side-effects-allowed` listing each operand type in place of `.sum()` over a pair
 - Durations convert units through their constructors (`SignedDuration::from_mins`)
 - Counts enter float arithmetic through `nalgebra::convert::<usize, f64>`, and `cmp::minmax_by(a, b, f64::total_cmp)` orders a float pair, `cmp::minmax(a, b)` keying an unordered pair

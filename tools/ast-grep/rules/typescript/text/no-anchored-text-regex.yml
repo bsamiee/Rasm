@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-anchored-text-regex
-language: tsx
+language: tsxlang
 severity: error
 utils:
     affix:
@@ -26,7 +26,7 @@ utils:
                 stopBy: end
                 has: {any: [{matches: relay}, {kind: export_statement, has: {matches: relay}}]}
     access:
-        pattern: $$ACCESS
+        pattern: $$_ACCESS
         regex: '^\??\.$'
     condition:
         any:
@@ -87,14 +87,5 @@ rule:
                     - has: {field: right, regex: '^0$'}
                     - inside: {kind: program, stopBy: end, has: {stopBy: end, kind: regex_pattern, pattern: $PATTERN, regex: '^\^'}}
     not: {inside: {kind: program, stopBy: end, matches: extendscript-file}}
-transform:
-    STRIPPED: {replace: {source: $PATTERN, replace: '^\^(.*)$|^(.*)\$$', by: '${1}${2}'}}
-    UNESCAPED: {replace: {source: $STRIPPED, replace: '\\([\^$.*+?()\[\]{}|/])', by: '$1'}}
-    TEXT: {replace: {source: $UNESCAPED, replace: "'", by: "\\'"}}
-    START: {replace: {source: $PATTERN, replace: '^\^.*$', by: startsWith}}
-    METHOD: {replace: {source: $START, replace: '^.*\$$', by: endsWith}}
-    NEGATED: {replace: {source: $NODE, replace: '(?s)^.*\s(?:===?\s*(?:-\s*1|null)|!==?\s*0|<\s*0)$', by: '!'}}
-    NEGATION: {replace: {source: $NEGATED, replace: '(?s)^(?:[^!].*|!.+)$', by: ''}}
-fix: $NEGATION$RECEIVER$ACCESS$METHOD('$TEXT')
 message: '`$NODE` tests a fixed prefix or suffix through a regular expression'
 note: 'Call `<text>.startsWith(<string>)` or `<text>.endsWith(<string>)`'

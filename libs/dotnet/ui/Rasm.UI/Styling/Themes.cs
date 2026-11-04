@@ -10,19 +10,19 @@ using Wacton.Unicolour.Datasets;
 namespace Rasm.UI.Styling;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record Token(Role Role, Channel Channel) {
-    public static readonly Token Canvas = new(Role.Window, Channel.Fill);
-    public static readonly Token CanvasText = new(Role.Window, Channel.Text);
-    public static readonly Token AccentColor = new(Role.Accent, Channel.Fill);
-    public static readonly Token AccentColorText = new(Role.Accent, Channel.Text);
-    public static readonly Token Highlight = new(Role.Selection, Channel.Fill);
-    public static readonly Token HighlightText = new(Role.Selection, Channel.Text);
-    public static readonly Token ButtonFace = new(Role.Button, Channel.Fill);
-    public static readonly Token ButtonText = new(Role.Button, Channel.Text);
-    public static readonly Token ButtonBorder = new(Role.Button, Channel.Stroke);
-    public static readonly Token Field = new(Role.Field, Channel.Fill);
-    public static readonly Token FieldText = new(Role.Field, Channel.Text);
-    internal static readonly Token GrayText = new(Role.Window, Channel.Text) { Condition = Styling.Condition.Disabled };
+public sealed record Token(Key Role, Channel Channel) {
+    public static readonly Token Canvas = new(Roles.Window, Channel.Fill);
+    public static readonly Token CanvasText = new(Roles.Window, Channel.Text);
+    public static readonly Token AccentColor = new(Roles.Accent, Channel.Fill);
+    public static readonly Token AccentColorText = new(Roles.Accent, Channel.Text);
+    public static readonly Token Highlight = new(Roles.Selection, Channel.Fill);
+    public static readonly Token HighlightText = new(Roles.Selection, Channel.Text);
+    public static readonly Token ButtonFace = new(Roles.Button, Channel.Fill);
+    public static readonly Token ButtonText = new(Roles.Button, Channel.Text);
+    public static readonly Token ButtonBorder = new(Roles.Button, Channel.Stroke);
+    public static readonly Token Field = new(Roles.Field, Channel.Fill);
+    public static readonly Token FieldText = new(Roles.Field, Channel.Text);
+    internal static readonly Token GrayText = new(Roles.Window, Channel.Text) { Condition = Styling.Condition.Disabled };
 
     internal static readonly HashMap<string, Token> SystemColors = HashMap(
         (nameof(Canvas), Canvas), ("Window", Canvas), (nameof(CanvasText), CanvasText), ("WindowText", CanvasText), (nameof(GrayText), GrayText),
@@ -32,6 +32,18 @@ public sealed record Token(Role Role, Channel Channel) {
 
     public Option<Condition> Condition { get; init; }
     public Option<Interaction> Interaction { get; init; }
+}
+
+internal sealed record StatePalette(SKColorF Source, Seq<SKColorF> Targets, Configuration Gamut) {
+    internal const int Divisions = 16;
+
+    internal Func<Seq<int>, SKColorF> Samples =>
+        Targets.Fold(fun((Seq<int> _) => Source), (prior, target) => {
+            Func<Seq<int>, Seq<SKColorF>> ramped = memoUnsafe<Seq<int>, Seq<SKColorF>>(prefix => prior(prefix) switch {
+                var start => start.Cons(toSeq(start.ToUnicolour().Palette(target.ToUnicolour(), ColourSpace.Oklab, Divisions + 1)).Skip(1).Map(color => color.Mapped(Gamut))).Strict(),
+            });
+            return positions => ramped(positions.Init)[positions[^1]];
+        });
 }
 
 public sealed record Seeds(Unicolour Background, Unicolour Foreground) {
@@ -101,29 +113,29 @@ public sealed partial class Theme {
     // --- [THEME]
     private static readonly HashMap<Token, Tone> Painted = toHashMap(Seq<(Tone Tone, Seq<Token> Tokens)>(
         (Tone.Ground, [Token.Canvas]),
-        (Tone.Raised, Token.Field.Cons(Rows(Channel.Fill, [Role.Card, Role.Dialog, Role.Sheet, Role.Popover, Role.Menu, Role.Tooltip, Role.Hud, Role.Toggle]))),
-        (Tone.Subtle, Rows(Channel.Fill, [Role.Panel, Role.Toolbar, Role.Header, Role.StatusBar, Role.Gutter, Role.TabList])),
-        (Tone.Element, Token.ButtonFace.Cons(Rows(Channel.Fill, [Role.Section, Role.Segment, Role.Group, Role.Keycap, Role.Chip]))
-            + Rows(Channel.Fill, [Role.Tab, Role.ListRow, Role.Cell, Role.Lane], interactions: [Interaction.Hover])
-            + Rows(Channel.Fill, [Role.Button], [Condition.Borderless], [Interaction.Hover]) + Rows(Channel.Fill, [Role.Line], [Condition.Selected])),
-        (Tone.Hover, Rows(Channel.Fill, [Role.Chip, Role.Button], interactions: [Interaction.Hover]) + Rows(Channel.Fill, [Role.ListRow], interactions: [Interaction.Pressed])
-            + Rows(Channel.Fill, [Role.Button], [Condition.Borderless], [Interaction.Pressed]) + Rows(Channel.Fill, [Role.Lane], [Condition.Selected])),
-        (Tone.Active, Rows(Channel.Fill, [Role.Track]) + Rows(Channel.Stroke, [Role.GridFine]) + Rows(Channel.Fill, [Role.Button], interactions: [Interaction.Pressed])),
-        (Tone.Chosen, Rows(Channel.Fill, [Role.Tab, Role.Button], [Condition.Selected])),
-        (Tone.Separator, Token.ButtonBorder.Cons(Rows(Channel.Stroke, [Role.Group, Role.Card, Role.Field, Role.Grid, Role.Panel, Role.Toolbar])) + Rows(Channel.Fill, [Role.Divider])),
-        (Tone.Border, Rows(Channel.Fill, [Role.Switch, Role.Scrollbar]) + Rows(Channel.Stroke, [Role.Toggle, Role.Track])),
-        (Tone.Secondary, Rows(Channel.Text, [Role.StatusBar, Role.Gutter, Role.Tab]) + Rows(Channel.Fill, [Role.Scrollbar], interactions: [Interaction.Hover])),
-        (Tone.Text, [Token.CanvasText, Token.FieldText, Token.ButtonText, Token.HighlightText, .. Rows(Channel.Text, [Role.Panel]), .. Rows(Channel.Text, [Role.Tab], [Condition.Selected])]),
-        (Tone.Solid, Token.AccentColor.Cons(Rows(Channel.Fill, [Role.Indicator]) + Rows(Channel.Stroke, [Role.FocusRing]) + Rows(Channel.Fill, [Role.Button], [Condition.Default])
-            + Rows(Channel.Fill, [Role.Toggle, Role.Switch], [Condition.Selected]) + Rows(Channel.Fill, [Role.Toggle], [Condition.Mixed]))),
-        (Tone.SolidHover, Rows(Channel.Fill, [Role.Button], [Condition.Default], [Interaction.Hover, Interaction.Pressed]) + Rows(Channel.Fill, [Role.Accent], interactions: [Interaction.Hover])),
-        (Tone.Tint, Token.Highlight.Cons(Rows(Channel.Fill, [Role.Chip, Role.ListRow, Role.Cell], [Condition.Selected])) + Rows(Channel.Fill, [Role.ListRow], [Condition.Selected], [Interaction.Hover])),
-        (Tone.OnSolid, Token.AccentColorText.Cons(Rows(Channel.Text, [Role.Button], [Condition.Default]) + Rows(Channel.Text, [Role.Toggle], [Condition.Selected, Condition.Mixed]))),
-        (Tone.Clear, Rows(Channel.Fill, [Role.Tab, Role.ListRow, Role.Cell, Role.Lane, Role.Line]) + Rows(Channel.Fill, [Role.Button], [Condition.Borderless])),
+        (Tone.Raised, Token.Field.Cons(Rows(Channel.Fill, [Roles.Card, Roles.Dialog, Roles.Sheet, Roles.Popover, Roles.Menu, Roles.Tooltip, Roles.Hud, Roles.Toggle]))),
+        (Tone.Subtle, Rows(Channel.Fill, [Roles.Panel, Roles.Toolbar, Roles.Header, Roles.StatusBar, Roles.Gutter, Roles.TabList])),
+        (Tone.Element, Token.ButtonFace.Cons(Rows(Channel.Fill, [Roles.Section, Roles.Segment, Roles.Group, Roles.Keycap, Roles.Chip]))
+            + Rows(Channel.Fill, [Roles.Tab, Roles.ListRow, Roles.Cell, Roles.Lane], interactions: [Interaction.Hover])
+            + Rows(Channel.Fill, [Roles.Button], [Condition.Borderless], [Interaction.Hover]) + Rows(Channel.Fill, [Roles.Line], [Condition.Selected])),
+        (Tone.Hover, Rows(Channel.Fill, [Roles.Chip, Roles.Button], interactions: [Interaction.Hover]) + Rows(Channel.Fill, [Roles.ListRow], interactions: [Interaction.Pressed])
+            + Rows(Channel.Fill, [Roles.Button], [Condition.Borderless], [Interaction.Pressed]) + Rows(Channel.Fill, [Roles.Lane], [Condition.Selected])),
+        (Tone.Active, Rows(Channel.Fill, [Roles.Track]) + Rows(Channel.Stroke, [Roles.GridFine]) + Rows(Channel.Fill, [Roles.Button], interactions: [Interaction.Pressed])),
+        (Tone.Chosen, Rows(Channel.Fill, [Roles.Tab, Roles.Button], [Condition.Selected])),
+        (Tone.Separator, Token.ButtonBorder.Cons(Rows(Channel.Stroke, [Roles.Group, Roles.Card, Roles.Field, Roles.Grid, Roles.Panel, Roles.Toolbar])) + Rows(Channel.Fill, [Roles.Divider])),
+        (Tone.Border, Rows(Channel.Fill, [Roles.Switch, Roles.Scrollbar]) + Rows(Channel.Stroke, [Roles.Toggle, Roles.Track])),
+        (Tone.Secondary, Rows(Channel.Text, [Roles.StatusBar, Roles.Gutter, Roles.Tab]) + Rows(Channel.Fill, [Roles.Scrollbar], interactions: [Interaction.Hover])),
+        (Tone.Text, [Token.CanvasText, Token.FieldText, Token.ButtonText, Token.HighlightText, .. Rows(Channel.Text, [Roles.Panel]), .. Rows(Channel.Text, [Roles.Tab], [Condition.Selected])]),
+        (Tone.Solid, Token.AccentColor.Cons(Rows(Channel.Fill, [Roles.Indicator]) + Rows(Channel.Stroke, [Roles.FocusRing]) + Rows(Channel.Fill, [Roles.Button], [Condition.Default])
+            + Rows(Channel.Fill, [Roles.Toggle, Roles.Switch], [Condition.Selected]) + Rows(Channel.Fill, [Roles.Toggle], [Condition.Mixed]))),
+        (Tone.SolidHover, Rows(Channel.Fill, [Roles.Button], [Condition.Default], [Interaction.Hover, Interaction.Pressed]) + Rows(Channel.Fill, [Roles.Accent], interactions: [Interaction.Hover])),
+        (Tone.Tint, Token.Highlight.Cons(Rows(Channel.Fill, [Roles.Chip, Roles.ListRow, Roles.Cell], [Condition.Selected])) + Rows(Channel.Fill, [Roles.ListRow], [Condition.Selected], [Interaction.Hover])),
+        (Tone.OnSolid, Token.AccentColorText.Cons(Rows(Channel.Text, [Roles.Button], [Condition.Default]) + Rows(Channel.Text, [Roles.Toggle], [Condition.Selected, Condition.Mixed]))),
+        (Tone.Clear, Rows(Channel.Fill, [Roles.Tab, Roles.ListRow, Roles.Cell, Roles.Lane, Roles.Line]) + Rows(Channel.Fill, [Roles.Button], [Condition.Borderless])),
         (Tone.Muted, [Token.GrayText]),
-        (Tone.Success, Rows(Channel.Text, [Role.Window], [Condition.Success])),
-        (Tone.Warning, Rows(Channel.Text, [Role.Window], [Condition.Warning])),
-        (Tone.Faulted, Rows(Channel.Text, [Role.Window], [Condition.Faulted])))
+        (Tone.Success, Rows(Channel.Text, [Roles.Window], [Condition.Success])),
+        (Tone.Warning, Rows(Channel.Text, [Roles.Window], [Condition.Warning])),
+        (Tone.Faulted, Rows(Channel.Text, [Roles.Window], [Condition.Faulted])))
         .SelectMany(static row => row.Tokens, static (row, token) => (token, row.Tone)));
 
     public HashMap<Token, SKColorF> Chrome { get; }
@@ -168,7 +180,7 @@ public sealed partial class Theme {
         return Painted.Map(tone => ramp[tone]);
     }
 
-    private static Seq<Token> Rows(Channel channel, Seq<Role> roles, Seq<Option<Condition>> conditions = default, Seq<Option<Interaction>> interactions = default) =>
+    private static Seq<Token> Rows(Channel channel, Seq<Key> roles, Seq<Option<Condition>> conditions = default, Seq<Option<Interaction>> interactions = default) =>
         toSeq(from role in roles
               from condition in conditions.DefaultIfEmpty()
               from interaction in interactions.DefaultIfEmpty()
@@ -197,7 +209,7 @@ public sealed partial class Theme {
                 @fixed: static (held, @fixed) => Some(Gamuted((@fixed.Color, held.Theme.Configuration))),
                 host: static (held, host) => held.Theme.Chrome.Find(host.Token),
                 current: static (held, current) => held.Theme.RoleColor(current, held.Style, current.Interaction)
-                    | (current.Channel.Inherited ? held.Style.Enclosing.Bind(enclosing => held.Theme.Color(enclosing.Text, enclosing, held.Series)) : None),
+                    || (current.Channel.Inherited ? held.Style.Enclosing.Bind(enclosing => held.Theme.Color(enclosing.Text, enclosing, held.Series)) : None),
                 data: static (held, _) => held.Series.Bind(series => held.Theme.SeriesColor(series, held.Style)),
                 mixed: static (held, mixed) =>
                     from start in held.Theme.Color(mixed.From, held.Style, held.Series)
@@ -206,7 +218,7 @@ public sealed partial class Theme {
                 contrasting: static (held, contrasting) => held.Theme.Color(contrasting.Over, held.Style, held.Series).Bind(over =>
                     toSeq(contrasting.Candidates.Choose(candidate => held.Theme.Color(candidate, held.Style, held.Series)).MaxItemsBy(color => color.Contrast(over))).Head),
                 relative: static (held, relative) => held.Theme.Color(relative.From, held.Style, held.Series).Map(origin => relative.Shifted(origin).Mapped(held.Theme.Configuration)))
-            | value.Fallback.Bind(fallback => Color(fallback, style, series)))
+            || value.Fallback.Bind(fallback => Color(fallback, style, series)))
         .Map(color => Faded(color, value.Alpha));
 
     private Option<SKColorF> RoleColor(ColorValue.Current current, RoleStyle style, Option<Interaction> interaction) =>
@@ -218,16 +230,15 @@ public sealed partial class Theme {
     private static SKColorF Faded(SKColorF color, Fraction alpha) => color.WithAlpha(color.Alpha * (float)alpha);
 
     // --- [STATE_LAYERS]
-    private const int StateLayerSteps = 16;
-
-    private static readonly Func<(SKColorF From, SKColorF To, Configuration Gamut), Seq<SKColorF>> Ramped = memo<(SKColorF From, SKColorF To, Configuration Gamut), Seq<SKColorF>>(static ramp =>
-        toSeq(ramp.From.ToUnicolour().Palette(ramp.To.ToUnicolour(), ColourSpace.Oklab, StateLayerSteps + 1)).Map(colour => colour.Mapped(ramp.Gamut)).Strict());
-
-    internal Option<SKColorF> WithStateLayers(ColorValue value, RoleStyle style, HashMap<Interaction, float> layers, HashMap<Interaction, ColorValue> targets = default, Option<DataSeries> series = default) =>
-        toSeq(Interaction.Items).Choose(interaction => layers.Find(interaction).Map(weight => (Interaction: interaction, Weight: weight))).Fold(Color(value, style, series), (rest, layer) =>
-            from start in rest
-            select (InteractionColor(value, style, layer.Interaction) | targets.Find(layer.Interaction).Bind(target => Color(target, style, series)))
-                .Map(end => Ramped((start, end, Configuration))[(int)MathF.Round(layer.Weight * StateLayerSteps, MidpointRounding.ToEven)]).IfNone(start));
+    internal Option<SKColorF> WithStateLayers(ColorValue value, RoleStyle style, HashMap<Interaction, float> layers,
+        Func<StatePalette, Func<Seq<int>, SKColorF>> palettes, HashMap<Interaction, ColorValue> targets = default, Option<DataSeries> series = default) =>
+        Color(value, style, series).Map(source => toSeq(Interaction.Items).Choose(interaction =>
+            from weight in layers.Find(interaction)
+            from color in InteractionColor(value, style, interaction) || targets.Find(interaction).Bind(target => Color(target, style, series))
+            select (Color: color, Position: (int)MathF.Round(weight * StatePalette.Divisions, MidpointRounding.ToEven))).Strict() switch {
+                { IsEmpty: true } => source,
+                var resolved => palettes(new StatePalette(source, resolved.Map(static held => held.Color), Configuration))(resolved.Map(static held => held.Position)),
+            });
 
     private Option<SKColorF> InteractionColor(ColorValue value, RoleStyle style, Interaction interaction) =>
         value is ColorValue.Current { Interaction.IsNone: true } current ? RoleColor(current, style, interaction).Map(color => Faded(color, current.Alpha)) : None;
@@ -236,13 +247,13 @@ public sealed partial class Theme {
     private static readonly Seq<Unicolour> Categorical = Seq("#0072B2", "#E69F00", "#009E73", "#CC79A7", "#56B4E9", "#D55E00", "#F0E442", "#999999").Map(static hex => new Unicolour(hex)).Strict();
 
     private Option<SKColorF> SeriesColor(DataSeries series, RoleStyle style) =>
-        series.Color.Bind(color => Color(color, style)) | series.Value.Match(
-            Some: value => double.IsFinite(value) ? style.Look.Scale.Bind(scale => scale.Valued(value)).Bind(color => Color(color, style)) | Ordinal(series, style) : None,
+        series.Color.Bind(color => Color(color, style)) || series.Value.Match(
+            Some: value => double.IsFinite(value) ? style.Look.Scale.Bind(scale => scale.Valued(value)).Bind(color => Color(color, style)) || Ordinal(series, style) : None,
             None: () => Ordinal(series, style));
 
     private Option<SKColorF> Ordinal(DataSeries series, RoleStyle style) =>
         style.Look.Palette.Filter(static palette => !palette.IsEmpty).Bind(palette => Color(palette[(int)(series.Ordinal % (uint)palette.Count)], style))
-        | Gamuted((Categorical[(int)(series.Ordinal % (uint)Categorical.Count)], Configuration));
+        || Some(Gamuted((Categorical[(int)(series.Ordinal % (uint)Categorical.Count)], Configuration)));
 
     // --- [LEGIBILITY]
     private const double Accuracy = 1e-6;

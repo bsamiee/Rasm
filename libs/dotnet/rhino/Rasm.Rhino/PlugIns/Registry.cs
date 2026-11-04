@@ -13,7 +13,7 @@ public static class PlugInRegistry {
     public static IO<Guid> LoadPlugIn(InputPath path) =>
         IO.lift(Fin<Guid> () => PlugIn.LoadPlugIn(path, out Guid loaded) switch {
             LoadPlugInResult.Success or LoadPlugInResult.SuccessAlreadyLoaded => loaded,
-            var result => new RhinoFault(path, RhinoReason.Unreadable, Inner: Error.New(result.ToString())),
+            var result => new RhinoFault((path, result), RhinoReason.Unreadable),
         });
 
     public static IO<Unit> LoadPlugIns(Seq<Guid> ids) => Products.Each(ids.Map(LoadInstalled)).Map(unit);

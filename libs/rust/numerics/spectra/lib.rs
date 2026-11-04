@@ -1,4 +1,4 @@
-#![feature(control_flow_into_value, default_field_values, deref_patterns, float_conversions, iterator_try_collect)]
+#![feature(array_try_map, control_flow_into_value, default_field_values, deref_patterns, float_conversions)]
 
 use core::{fmt, num::NonZero, range::RangeInclusive};
 
@@ -53,6 +53,8 @@ pub struct Band(RangeInclusive<Frequency>);
 
 #[derive(Debug, thiserror::Error)]
 pub enum SpectraError {
+    #[error(transparent)]
+    Fft(#[from] realfft::FftError),
     #[error("series holds no sample")]
     Empty,
     #[error("sample {index} is not finite")]
@@ -91,12 +93,6 @@ pub enum SpectraError {
     Filter { stage: usize, f0: Frequency, rate: Rate, refusal: Errors },
     #[error("stage {stage} designs a section at {} whose coefficients are not finite", f0.into_format_args(hertz, Abbreviation))]
     Section { stage: usize, f0: Frequency },
-    #[error(
-        "stage {stage}: weighting at a {} sample rate deviates {deviation:.1} dB at {}, outside the IEC 61672-1 class 1 limits",
-        rate.into_format_args(hertz, Abbreviation),
-        frequency.into_format_args(hertz, Abbreviation)
-    )]
-    Weighting { stage: usize, frequency: Frequency, deviation: f64, rate: Rate },
     #[error("series holds no energy")]
     Silent,
     #[error("noise truncation {} is not positive and finite", fmt::from_fn(|formatter| {

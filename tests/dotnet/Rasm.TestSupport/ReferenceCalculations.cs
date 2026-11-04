@@ -1,90 +1,87 @@
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Numerics;
+using MathNet.Numerics;
+using MathNet.Numerics.LinearAlgebra;
+using BigInteger = System.Numerics.BigInteger;
 
 namespace Rasm.TestSupport;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ReferenceCalculations {
     // --- [SCALAR_OPERATIONS]
-    public static double Dot(int count, Func<int, double> left, Func<int, double> right) => Enumerable.Range(0, count).Sum(i => left(i) * right(i));
-    public static Complex DotComplex(int count, Func<int, Complex> left, Func<int, Complex> right) =>
-        Enumerable.Range(0, count).Aggregate(Complex.Zero, (sum, i) => sum + (Complex.Conjugate(left(i)) * right(i)));
-    public static Option<double> ConvergenceOrder(double coarseError, double fineError, double stepRatio = 2.0) {
-        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(stepRatio, 1.0);
-        return coarseError > 0.0 && fineError > 0.0 ? Some(Math.Log(coarseError / fineError) / Math.Log(stepRatio)) : None;
+    public static Option<double> ConvergenceOrder(double coarseError, double fineError, double stepRatio = 2d) {
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(stepRatio, 1d);
+        if (!(coarseError > 0d && fineError > 0d)) return None;
+        if (double.IsPositiveInfinity(coarseError) || double.IsPositiveInfinity(fineError))
+            return Some(Math.Log(coarseError / fineError) / Math.Log(stepRatio));
+        int coarseExponent = double.ILogB(coarseError);
+        int fineExponent = double.ILogB(fineError);
+        int difference = coarseExponent - fineExponent;
+        int direction = Math.Sign(difference);
+        double coarse = double.ScaleB(coarseError, direction - coarseExponent);
+        double fine = double.ScaleB(fineError, -fineExponent);
+        double logarithm = Math.FusedMultiplyAdd(difference - direction, Constants.Ln2, SpecialFunctions.Log1p((coarse - fine) / fine));
+        return Some(logarithm / Math.Log(stepRatio));
     }
 
     // --- [POINT_MOMENTS]
-    public static double[] Centroid(double[][] points, Option<double[]> weights = default) {
-        int dim = points is [var first, ..] ? first.Length : throw new ArgumentOutOfRangeException(nameof(points));
-        double[] mass = Mass(points.Length, weights);
+    public static Vector<double> Centroid(Matrix<double> points, Option<Vector<double>> weights = default) {
+        Vector<double> mass = Mass(points.RowCount, weights);
         double total = mass.Sum();
-        Require(mass.Length == points.Length, "one weight per point", nameof(weights));
-        Require(Math.Abs(total) > 0.0, "weights sum to zero", nameof(weights));
-        Require(points.All(point => point.Length == dim), "points differ in dimension", nameof(points));
-        return [.. Enumerable.Range(0, dim).Select(axis => Enumerable.Range(0, points.Length).Sum(i => points[i][axis] * mass[i]) / total)];
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(double.Abs(total), 0d, nameof(weights));
+        return points.TransposeThisAndMultiply(mass) / total;
     }
-    public static double[] ScatterMatrixUpperTriangle(double[][] points, Option<double[]> weights = default) {
-        double[] mass = Mass(points.Length, weights);
-        double[] mean = Centroid(points, mass);
-        int dim = mean.Length;
-        return [.. from row in Enumerable.Range(0, dim)
-                   from col in Enumerable.Range(row, dim - row)
-                   select Enumerable.Range(0, points.Length).Sum(i => mass[i] * (points[i][row] - mean[row]) * (points[i][col] - mean[col]))];
+
+    public static Matrix<double> Scatter(Matrix<double> points, Option<Vector<double>> weights = default) {
+        Vector<double> mass = Mass(points.RowCount, weights);
+        Vector<double> mean = Centroid(points, mass);
+        Matrix<double> centered = points.MapIndexed((_, axis, value) => value - mean[axis]);
+        return centered.TransposeThisAndMultiply(Matrix<double>.Build.DiagonalOfDiagonalVector(mass) * centered);
     }
-    public static double ArcLength(double[][] points) => points.Zip(points.Skip(1), Distance).Sum();
-    public static (double Min, double Mean, double Max) PairwiseDistances(double[][] points) {
-        ArgumentOutOfRangeException.ThrowIfLessThan(points.Length, 2, nameof(points));
-        double[] distances = [.. from i in Enumerable.Range(0, points.Length)
-                                 from j in Enumerable.Range(i + 1, points.Length - i - 1)
-                                 select Distance(points[i], points[j])];
-        return (Min: distances.Min(), Mean: distances.Average(), Max: distances.Max());
+
+    public static double ArcLength(Matrix<double> points) =>
+        points.EnumerateRows().Zip(points.EnumerateRows().Skip(1), static (a, b) => (b - a).L2Norm()).Sum();
+
+    public static (double Min, double Mean, double Max) PairwiseDistances(Matrix<double> points) {
+        ArgumentOutOfRangeException.ThrowIfLessThan(points.RowCount, 2, nameof(points));
+        double[] distances = [.. from i in Enumerable.Range(0, points.RowCount)
+                                 from j in Enumerable.Range(i + 1, points.RowCount - i - 1)
+                                 select (points.Row(i) - points.Row(j)).L2Norm()];
+        return (distances.Min(), distances.Average(), distances.Max());
     }
-    public static double Distance(double[] left, double[] right) {
-        Require(left.Length == right.Length, "points differ in dimension", nameof(right));
-        return Math.Sqrt(Enumerable.Range(0, left.Length).Sum(i => (left[i] - right[i]) * (left[i] - right[i])));
-    }
-    private static double[] Mass(int count, Option<double[]> weights) => weights.IfNone(() => [.. Enumerable.Repeat(1.0, count)]);
+
+    private static Vector<double> Mass(int count, Option<Vector<double>> weights) =>
+        weights.IfNone(() => Vector<double>.Build.Dense(count, 1d));
 
     // --- [GEOMETRY_CALCULATIONS]
-    public static double SignedShoelaceArea(double[][] ring) {
-        Require(ring.All(static point => point.Length >= 2), "every ring point needs two coordinates", nameof(ring));
-        return 0.5 * Enumerable.Range(0, ring.Length).Sum(i => {
-            (double[] a, double[] b) = (ring[i], ring[(i + 1) % ring.Length]);
-            return (a[0] * b[1]) - (b[0] * a[1]);
+    public static double SignedShoelaceArea(Matrix<double> ring) =>
+        0.5d * Enumerable.Range(0, ring.RowCount).Sum(i => {
+            int next = (i + 1) % ring.RowCount;
+            return (ring[i, 0] * ring[next, 1]) - (ring[next, 0] * ring[i, 1]);
         });
-    }
-    public static double SignedVolume(double[][] vertices, int[][] faces) {
-        Require(vertices.All(static vertex => vertex.Length >= 3), "every vertex needs three coordinates", nameof(vertices));
-        Require(faces.All(face => face.Length >= 3 && face.All(index => index >= 0 && index < vertices.Length)), "every face needs three valid vertex indices", nameof(faces));
-        return faces.Sum(face => Enumerable.Range(1, face.Length - 2).Sum(k => SignedTetraVolume(vertices[face[0]], vertices[face[k]], vertices[face[k + 1]])));
-    }
-    public static double SignedTetraVolume(double[] a, double[] b, double[] c) =>
-        (a, b, c) switch {
-            ([var ax, var ay, var az, ..], [var bx, var by, var bz, ..], [var cx, var cy, var cz, ..]) =>
-                ((ax * ((by * cz) - (bz * cy))) - (ay * ((bx * cz) - (bz * cx))) + (az * ((bx * cy) - (by * cx)))) / 6.0,
-            _ => throw new ArgumentException("every vertex needs three coordinates", nameof(a)),
-        };
-    public static int OrientationSign(double[][] simplex) {
-        int dim = simplex.Length - 1;
-        bool valid = simplex.Length is 3 or 4 && simplex.All(point => point.Length >= dim && point.Take(dim).All(double.IsFinite));
-        Require(valid, "OrientationSign needs 3 finite 2D points or 4 finite 3D points", nameof(simplex));
-        (BigInteger Mantissa, int Exponent)[][] parts = [.. simplex.Select(point => ((BigInteger Mantissa, int Exponent)[])[.. point.Take(dim).Select(Decompose)])];
+
+    public static double SignedVolume(Matrix<double> vertices, IReadOnlyList<IReadOnlyList<int>> faces) =>
+        faces.Sum(face => face.Count >= 3
+            ? Enumerable.Range(1, face.Count - 2).Sum(k => SignedTetraVolume(vertices.Row(face[0]), vertices.Row(face[k]), vertices.Row(face[k + 1])))
+            : throw new ArgumentException("every face needs three vertex indices", nameof(faces)));
+
+    public static double SignedTetraVolume(Vector<double> a, Vector<double> b, Vector<double> c) =>
+        Matrix<double>.Build.DenseOfRowVectors(new[] { a, b, c }.Select(static point => point.SubVector(0, 3))).Determinant() / 6d;
+
+    public static int OrientationSign(Matrix<double> simplex) {
+        int dimension = simplex.RowCount - 1;
+        if (simplex.RowCount is not (3 or 4) || simplex.ColumnCount < dimension || !simplex.EnumerateRows().All(point => point.Take(dimension).All(double.IsFinite)))
+            throw new ArgumentException("orientation needs three finite 2D points or four finite 3D points", nameof(simplex));
+        (BigInteger Mantissa, int Exponent)[][] parts = [.. simplex.EnumerateRows().Select(point => ((BigInteger Mantissa, int Exponent)[])[.. point.Take(dimension).Select(Decompose)])];
         int floor = parts.SelectMany(static point => point).Min(static part => part.Exponent);
         BigInteger[][] scaled = [.. parts.Select(point => (BigInteger[])[.. point.Select(part => part.Mantissa << (part.Exponent - floor))])];
-        BigInteger[][] edges = scaled switch {
-            [BigInteger[] origin, .. BigInteger[][] rest] => [.. rest.Select(point => (BigInteger[])[.. point.Select((value, axis) => value - origin[axis])])],
-            _ => throw new UnreachableException(),
-        };
-        BigInteger determinant = edges switch {
-            [[var a0, var a1], [var b0, var b1]] => (a0 * b1) - (a1 * b0),
-            [[var a0, var a1, var a2], [var b0, var b1, var b2], [var c0, var c1, var c2]] =>
-                (a0 * ((b1 * c2) - (b2 * c1))) - (a1 * ((b0 * c2) - (b2 * c0))) + (a2 * ((b0 * c1) - (b1 * c0))),
-            _ => throw new UnreachableException(),
-        };
-        return determinant.Sign;
+        BigInteger[][] edges = [.. scaled.Skip(1).Select(point => (BigInteger[])[.. point.Select((value, axis) => value - scaled[0][axis])])];
+        return (dimension is 2
+            ? (edges[0][0] * edges[1][1]) - (edges[0][1] * edges[1][0])
+            : (edges[0][0] * ((edges[1][1] * edges[2][2]) - (edges[1][2] * edges[2][1])))
+                - (edges[0][1] * ((edges[1][0] * edges[2][2]) - (edges[1][2] * edges[2][0])))
+                + (edges[0][2] * ((edges[1][0] * edges[2][1]) - (edges[1][1] * edges[2][0])))).Sign;
     }
+
     private static (BigInteger Mantissa, int Exponent) Decompose(double value) {
         long bits = BitConverter.DoubleToInt64Bits(value);
         int exponentBits = (int)((bits >> 52) & 0x7FF);
@@ -94,66 +91,34 @@ public static class ReferenceCalculations {
     }
 
     // --- [MATRIX_CALCULATIONS]
-    public static IEnumerable<(int Row, int Col)> MatrixIndices(int rows, int cols) =>
-        from row in Enumerable.Range(0, rows) from col in Enumerable.Range(0, cols) select (Row: row, Col: col);
-    public static double MatrixProductEntry(int width, Func<int, int, double> left, Func<int, int, double> right, int row, int column) =>
-        Dot(width, index => left(row, index), index => right(index, column));
-    public static double Determinant(int n, Func<int, int, double> at) =>
-        n switch {
-            0 => 1.0,
-            1 => at(0, 0),
-            2 => (at(0, 0) * at(1, 1)) - (at(0, 1) * at(1, 0)),
-            _ => Enumerable.Range(0, n).Sum(col => ((col & 1) is 0 ? 1.0 : -1.0) * at(0, col) * Determinant(n - 1, (row, minorCol) => at(row + 1, Enumerable.Range(0, n).Where(kept => kept != col).ElementAt(minorCol)))),
-        };
-    public static double EntrywiseResidual(int rows, int cols, Func<int, int, double> expected, Func<int, int, double> actual) =>
-        MatrixNorm.MaxAbsoluteEntry.Evaluate(rows, cols, (row, col) => actual(row, col) - expected(row, col));
-    public static double SymmetryResidual(int dimension, Func<int, int, double> at) =>
-        EntrywiseResidual(dimension, dimension, (row, col) => at(col, row), at);
-    public static double ProductResidual(int rows, int width, int cols, Func<int, int, double> left, Func<int, int, double> right, Func<int, int, double> actual) =>
-        EntrywiseResidual(rows, cols, (row, col) => MatrixProductEntry(width, left, right, row, col), actual);
-    public static double SolveResidual(int rows, int cols, Func<int, int, double> at, double[] x, double[] b) {
-        Require(x.Length == cols, "one unknown per column", nameof(x));
-        Require(b.Length == rows, "one right-hand value per row", nameof(b));
-        return Enumerable.Range(0, rows).Max(row => Math.Abs(Dot(cols, col => at(row, col), col => x[col]) - b[row]));
-    }
-    public static double EigenpairResidual(int n, Func<int, int, double> at, double eigenvalue, double[] eigenvector) =>
-        SolveResidual(n, n, at, eigenvector, [.. eigenvector.Select(entry => eigenvalue * entry)]);
-    public static double FrobeniusDistance(int rows, int cols, Func<int, int, double> left, Func<int, int, double> right) =>
-        MatrixNorm.Frobenius.Evaluate(rows, cols, (row, col) => left(row, col) - right(row, col));
-    public static double OrthogonalityResidual(int rows, int cols, Func<int, int, double> at) =>
-        FrobeniusDistance(cols, cols,
-            (row, col) => Dot(rows, k => at(k, row), k => at(k, col)),
-            static (row, col) => row == col ? 1.0 : 0.0);
+    public static double EntrywiseResidual(Matrix<double> expected, Matrix<double> actual) =>
+        (actual - expected).Enumerate().Max(static value => Math.Abs(value));
+
+    public static double SymmetryResidual(Matrix<double> matrix) => EntrywiseResidual(matrix.Transpose(), matrix);
+
+    public static double ProductResidual(Matrix<double> left, Matrix<double> right, Matrix<double> actual) =>
+        EntrywiseResidual(left * right, actual);
+
+    public static double SolveResidual(Matrix<double> matrix, Vector<double> x, Vector<double> b) => ((matrix * x) - b).InfinityNorm();
+
+    public static double EigenpairResidual(Matrix<double> matrix, double eigenvalue, Vector<double> eigenvector) =>
+        ((matrix * eigenvector) - (eigenvalue * eigenvector)).InfinityNorm();
+
+    public static double FrobeniusDistance(Matrix<double> left, Matrix<double> right) => (left - right).FrobeniusNorm();
+
+    public static double OrthogonalityResidual(Matrix<double> matrix) =>
+        (matrix.TransposeThisAndMultiply(matrix) - Matrix<double>.Build.DenseIdentity(matrix.ColumnCount)).FrobeniusNorm();
 
     // --- [SPECTRAL_CALCULATIONS]
-    public static double[][] PathGraphLaplacian(int n) {
-        ArgumentOutOfRangeException.ThrowIfLessThan(n, 2);
-        return [.. Enumerable.Range(0, n).Select(row => (double[])[.. Enumerable.Range(0, n).Select(col => (row, col) switch {
-            (int i, int j) when i == j && (i is 0 || i == n - 1) => 1.0,
-            (int i, int j) when i == j => 2.0,
-            (int i, int j) when Math.Abs(i - j) is 1 => -1.0,
-            _ => 0.0,
-        })])];
+    public static Matrix<double> PathGraphLaplacian(int count) {
+        ArgumentOutOfRangeException.ThrowIfLessThan(count, 2);
+        return Matrix<double>.Build.SparseOfIndexed(count, count,
+            from row in Enumerable.Range(0, count)
+            from column in Enumerable.Range(row - 1, 3)
+            where column >= 0 && column < count
+            select (row, column, row == column ? row is 0 || row == count - 1 ? 1d : 2d : -1d));
     }
-    public static double HeatKernel(double[] eigenvalues, Func<int, int, double> eigenvectors, double t, int x, int y) =>
-        Enumerable.Range(0, eigenvalues.Length).Sum(i => Math.Exp(-eigenvalues[i] * t) * eigenvectors(i, x) * eigenvectors(i, y));
 
-    // --- [PRECONDITIONS]
-    private static void Require(bool valid, string message, string paramName) {
-        if (!valid) throw new ArgumentException(message, paramName);
-    }
-}
-
-// --- [NORMS] ---------------------------------------------------------------------------
-[SmartEnum]
-public sealed partial class MatrixNorm {
-    public static readonly MatrixNorm MaxAbsoluteEntry = new(static (rows, columns, at) => ReferenceCalculations.MatrixIndices(rows, columns).Max(index => Math.Abs(at(index.Row, index.Col))));
-    public static readonly MatrixNorm L1 = new(static (rows, columns, at) => Enumerable.Range(0, columns).Max(column => AbsoluteSum(rows, row => at(row, column))));
-    public static readonly MatrixNorm LInfinity = new(static (rows, columns, at) => Enumerable.Range(0, rows).Max(row => AbsoluteSum(columns, column => at(row, column))));
-    public static readonly MatrixNorm Frobenius = new(static (rows, columns, at) => Math.Sqrt(ReferenceCalculations.MatrixIndices(rows, columns).Sum(index => at(index.Row, index.Col) * at(index.Row, index.Col))));
-
-    [UseDelegateFromConstructor]
-    public partial double Evaluate(int rows, int columns, Func<int, int, double> at);
-
-    private static double AbsoluteSum(int count, Func<int, double> at) => Enumerable.Range(0, count).Sum(index => Math.Abs(at(index)));
+    public static double HeatKernel(Vector<double> eigenvalues, Matrix<double> eigenvectors, double time, int x, int y) =>
+        eigenvectors.Row(x).PointwiseMultiply(eigenvectors.Row(y)).DotProduct(eigenvalues.Map(value => Math.Exp(-value * time)));
 }

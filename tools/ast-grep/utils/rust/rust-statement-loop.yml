@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: rust-statement-loop
-language: rust
+language: rustlang
 utils:
     state-write:
         any:
@@ -37,7 +37,7 @@ utils:
         kind: block
         all:
             - has: {matches: write-statement}
-            - not: {has: {pattern: $_, matches: rust-statement, not: {any: [{matches: write-statement}, {matches: exit-statement}, {matches: effect-free-let}, {kind: expression_statement, has: {nthChild: 1, matches: index-step}}]}}}
+            - not: {has: {matches: rust-statement, not: {any: [{matches: write-statement}, {matches: exit-statement}, {matches: effect-free-let}, {kind: expression_statement, has: {nthChild: 1, matches: index-step}}]}}}
     guarded-write:
         kind: expression_statement
         has:
@@ -70,13 +70,13 @@ utils:
                 - matches: write-block
                 - all:
                     - has: {matches: guarded-write}
-                    - not: {has: {pattern: $_, matches: rust-statement, not: {any: [{matches: guarded-write}, {matches: effect-free-let}]}}}
+                    - not: {has: {matches: rust-statement, not: {any: [{matches: guarded-write}, {matches: effect-free-let}]}}}
     searching-body:
         kind: block
         all:
             - not: {has: {stopBy: end, kind: await_expression}}
             - has: {matches: guarded-return}
-            - not: {has: {pattern: $_, matches: rust-statement, not: {any: [{matches: guarded-return}, {matches: effect-free-let}]}}}
+            - not: {has: {matches: rust-statement, not: {any: [{matches: guarded-return}, {matches: effect-free-let}]}}}
     plain-next:
         kind: call_expression
         all:

@@ -1,18 +1,14 @@
 using System.Drawing;
 using System.Globalization;
+using System.Text.RegularExpressions;
+using IniParser.Model;
+using IniParser.Model.Configuration;
+using IniParser.Parser;
 using Rasm.Rhino.Document.Files;
 
 namespace Rasm.Rhino.Display;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-internal sealed partial class ModeFlag {
-    public static readonly ModeFlag Yes = new("y", value: true);
-    public static readonly ModeFlag No = new("n", value: false);
-
-    public bool Value { get; }
-}
-
 [SmartEnum]
 public sealed partial class TechnicalLine {
     public static readonly TechnicalLine Hidden = new("TH", 1);
@@ -35,7 +31,9 @@ public abstract partial record ModeValue {
 
     public sealed record Real(float Value) : ModeValue;
 
-    public sealed record Colour(Color Value) : ModeValue;
+    public sealed record Colour(Color Value) : ModeValue {
+        public Color Value { get; } = Value.IsEmpty ? Color.Empty : Color.FromArgb(Value.R, Value.G, Value.B);
+    }
 
     public sealed record Id(Guid Value) : ModeValue;
 
@@ -46,10 +44,13 @@ public abstract partial record ModeValue {
     public sealed record Packaged(string Path) : ModeValue;
 
     // --- [CODEC]
+    private const string Yes = "y";
+    private const string No = "n";
+
     internal Fin<string> Formatted(Option<FolderPath> package) =>
         Switch(
             package,
-            flag: static (_, flag) => (flag.Value ? ModeFlag.Yes : ModeFlag.No).Key,
+            flag: static (_, flag) => flag.Value ? Yes : No,
             whole: static (_, whole) => whole.Value.ToString(CultureInfo.InvariantCulture),
             real: static (_, real) => real.Value.ToString(CultureInfo.InvariantCulture),
             colour: static (_, colour) => colour.Value.IsEmpty ? "-1" : $"{colour.Value.R},{colour.Value.G},{colour.Value.B}",
@@ -59,12 +60,16 @@ public abstract partial record ModeValue {
             packaged: static (folder, packaged) => InputPath.Of(folder.Match(Some: held => Path.GetFullPath(packaged.Path, held), None: () => packaged.Path)).Map(static path => (string)path));
 
     internal bool Holds(string host, Option<FolderPath> package) =>
-        Formatted(package).ToOption().Bind(Parsed) is { IsSome: true } declared && declared == Parsed(host);
+        this is Packaged packaged
+            ? InputPath.Of(package.Match(Some: folder => Path.GetFullPath(packaged.Path, folder), None: () => packaged.Path))
+                .Exists(path => string.Equals(host, path, StringComparison.Ordinal))
+            : Parsed(host).Exists(value => value == this);
 
     private Option<ModeValue> Parsed(string host) =>
         Switch(
             host,
-            flag: static (text, _) => Conversions.Present(ModeFlag.TryGet(text, out ModeFlag? flag), flag!).Map(static held => (ModeValue)new Flag(held.Value)),
+            flag: static (text, _) => string.Equals(text, Yes, StringComparison.OrdinalIgnoreCase) ? new Flag(Value: true)
+                : string.Equals(text, No, StringComparison.OrdinalIgnoreCase) ? new Flag(Value: false) : None,
             whole: static (text, _) => Ini.Integral(text).Map(static value => (ModeValue)new Whole(value)),
             real: static (text, _) => Ini.Number(text).Map(static value => (ModeValue)new Real((float)value)),
             colour: static (text, _) => text is "-1"
@@ -89,27 +94,42 @@ public sealed record ModeKey(string Section, string Key, ModeValue Value) {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-internal static class Ini {
+internal static partial class Ini {
     // --- [TEXT]
-    internal const string Lines = "\r\n";
+    private static readonly IniParserConfiguration Configuration = new() {
+        AllowDuplicateKeys = true,
+        AllowDuplicateSections = true,
+        OverrideDuplicateKeys = true,
+        AssigmentSpacer = "",
+        NewLineStr = "\r\n",
+        SectionRegex = Sections,
+    };
 
-    internal static string Header(Guid id, string section) => section.Length is 0 ? $@"[DisplayMode\{id:D}]" : $@"[DisplayMode\{id:D}\{section}]";
+    [GeneratedRegex(@"^\[.*\]$")]
+    private static partial Regex Sections { get; }
 
-    internal static HashMap<(string Section, string Key), string> Table(string text) =>
-        toSeq(text.ReplaceLineEndings("\n").Split('\n')).Fold(
-            (Section: "", Rows: HashMap<(string Section, string Key), string>()),
-            static (state, line) => line switch {
-                ['[', ..] and [_, .. var header, ']'] => (header.Split('\\', 3) is [_, _, var relative] ? relative : "", state.Rows),
-                _ when line.IndexOf('=', StringComparison.Ordinal) is > 0 and var at => (state.Section, state.Rows.AddOrUpdate((state.Section, line[..at]), line[(at + 1)..])),
-                _ => state,
-            }).Rows;
+    internal static HashMap<(string Section, string Key), string> Table(string text) {
+        IniData data = new IniDataParser(Configuration).Parse(text);
+        return HashMap<(string Section, string Key), string>().AddOrUpdateRange(
+            data.Global.Select(static key => (("", key.KeyName), key.Value))
+                .Concat(from section in data.Sections
+                        let relative = section.SectionName.Split('\\', 3) is [_, _, var name] ? name : ""
+                        from key in section.Keys
+                        select ((relative, key.KeyName), key.Value)));
+    }
 
     internal static Seq<ModeKey> Merged(Seq<ModeKey> keys) =>
         toSeq(HashMap<(string Section, string Key), ModeKey>().AddOrUpdateRange(keys.Map(static key => ((key.Section, key.Key), key))).Values).Strict();
 
-    internal static string Rendered(Guid id, HashMap<(string Section, string Key), string> table) =>
-        string.Join(Lines, toSeq(table.AsIterable()).GroupBy(static row => row.Key.Section, StringComparer.Ordinal).OrderBy(static section => section.Key, StringComparer.Ordinal)
-            .SelectMany(section => Seq(Header(id, section.Key)) + toSeq(section).Map(static row => $"{row.Key.Key}={row.Value}")));
+    internal static string Rendered(Guid id, HashMap<(string Section, string Key), string> table) {
+        IniData data = new() { Configuration = Configuration };
+        foreach (IGrouping<string, ((string Section, string Key) Key, string Value)> section in Enumerable.GroupBy(table.AsIterable(), static row => row.Key.Section, StringComparer.Ordinal).OrderBy(static section => section.Key, StringComparer.Ordinal)) {
+            KeyDataCollection keys = data[section.Key.Length is 0 ? $@"DisplayMode\{id:D}" : $@"DisplayMode\{id:D}\{section.Key}"];
+            foreach (((string _, string key), string value) in section)
+                keys[key] = value;
+        }
+        return data.ToString();
+    }
 
     // --- [NUMBERS]
     internal static Option<int> Integral(string text) =>

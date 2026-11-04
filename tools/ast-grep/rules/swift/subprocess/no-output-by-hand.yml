@@ -5,7 +5,7 @@ severity: error
 utils:
     run-body:
         kind: lambda_literal
-        inside: {kind: call_expression, stopBy: {kind: call_expression}, has: {nthChild: 1, regex: '^(Subprocess\.)?run$'}}
+        inside: {kind: call_expression, stopBy: {kind: call_expression}, has: {nthChild: 1, regex: '^Subprocess\.run$'}}
     byte-copy:
         kind: call_expression
         all:
@@ -41,7 +41,7 @@ rule:
                             stopBy: {kind: lambda_literal}
                             kind: call_expression
                             all:
-                                - has: {nthChild: 1, regex: '^Result$'}
+                                - has: {nthChild: 1, regex: '^Swift\.Result$'}
                                 - has: {kind: call_suffix, has: {kind: lambda_literal, has: {matches: sole, has: {matches: subprocess-output-discarding-loop}}}}
         - matches: collect
           inside: {matches: run-body, stopBy: end}

@@ -29,16 +29,16 @@ public static class Solutions {
          select finished).Bracket();
 
     public static IO<A> Paused<A>(Seq<Document> documents, IO<A> body) =>
-        from prior in IO.lift(static () => SolutionServer.EnableSolutions)
-        from paused in IO.lift(() => {
-            SolutionServer.EnableSolutions = false;
-            _ = documents.Iter(static document => document.Solution.Stop());
-        })
-        from value in body.Finally(IO.lift(() => {
+        (from prior in use(static () => SolutionServer.EnableSolutions, prior => {
             SolutionServer.EnableSolutions = prior;
             if (prior) _ = documents.Iter(static document => _ = document.Solution.Start());
-        }))
-        select value;
+        })
+         from paused in IO.lift(() => {
+             SolutionServer.EnableSolutions = false;
+             _ = documents.Iter(static document => document.Solution.Stop());
+         })
+         from value in body
+         select value).Bracket();
 
     private static Fin<Solution> Finished(Document document, Solution solution, Option<Error> fault, CancellationToken token) =>
         (solution.Phase, Messages: fault.ToSeq()
@@ -66,8 +66,8 @@ public static class Documents {
          })
          from document in IO.lift(() => (opened | held.Value).ToFin(new GrasshopperFault(path, GrasshopperReason.Unreadable)))
          select document)
-        .Catch(static error => error.HasException<FileNotFoundException>() || error.HasException<DirectoryNotFoundException>(), error => IO.fail<Document>(new GrasshopperFault(path, GrasshopperReason.Missing, Inner: error)))
-        .Catch(
+        | @catch(static error => error.HasException<FileNotFoundException>() || error.HasException<DirectoryNotFoundException>(), error => IO.fail<Document>(new GrasshopperFault(path, GrasshopperReason.Missing, Inner: error)))
+        | @catch(
             static error => error.HasException<UnauthorizedAccessException>() || error.HasException<SecurityException>() || error.HasException<IOException>() || error.HasException<InvalidDataException>(),
             error => IO.fail<Document>(new GrasshopperFault(path, GrasshopperReason.Unreadable, Inner: error)));
 
@@ -92,8 +92,7 @@ public static class Documents {
                     && File.GetLastWriteTimeUtc(entry.OriginalPath) > entry.OriginalLastWriteUtc.AddSeconds(1))
                 from loaded in changed
                     ? Load(entry.OriginalPath, trackFiles: true, blocking: roots)
-                    : from saved in IO.lift(() => GrasshopperFault.Unless(File.Exists(entry.AutoSavePath), GrasshopperReason.Missing, entry.AutoSavePath))
-                      from recovered in Load(entry.AutoSavePath, blocking: roots)
+                    : from recovered in Load(entry.AutoSavePath, blocking: roots)
                       from restored in IO.lift(() => {
                           recovered.File.Path = entry.Kind is SessionEntryKind.Named ? entry.OriginalPath : null;
                           recovered.File.FileOverwriteWarning = null;

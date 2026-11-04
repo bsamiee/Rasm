@@ -11,7 +11,7 @@ use csv::{ReaderBuilder, StringRecord, WriterBuilder};
 use gauss_quad::GaussLegendre;
 use itertools::{Either, Itertools as _};
 use jiff::{
-    SignedDuration, Timestamp, civil,
+    SignedDuration, civil,
     fmt::strtime::{self, BrokenDownTime},
     tz::{Offset, TimeZone},
 };
@@ -19,7 +19,7 @@ use rasm_site::{Elevation, Place, Position};
 use rasm_solar::{Refraction, Sun, events};
 use serde::{
     Deserialize, Deserializer, Serialize, Serializer,
-    de::{DeserializeOwned, IgnoredAny},
+    de::{DeserializeOwned, IgnoredAny, value},
     ser::Error as _,
 };
 use serde_with::{DeserializeAs, DeserializeFromStr, SerializeAs, serde_as};
@@ -132,8 +132,7 @@ impl FromStr for Day {
     type Err = Malformed;
 
     fn from_str(s: &str) -> Result<Self, Malformed> {
-        let spaced = s.replace(['/', ':', '-'], " ");
-        let tokens = spaced.split_whitespace().filter(|token| !(token.eq_ignore_ascii_case("in") || token.eq_ignore_ascii_case("of"))).collect_vec();
+        let tokens = s.split(['/', ':', '-']).flat_map(str::split_whitespace).filter(|token| !(token.eq_ignore_ascii_case("in") || token.eq_ignore_ascii_case("of"))).collect_vec();
         let month_named = |token: &str| named("%b", token, BrokenDownTime::month, Term::Month);
         let weekday_named = |token: &str| named("%a", token, BrokenDownTime::weekday, Term::Weekday);
         let unnamed = || Malformed::Day { text: s.to_owned(), term: Term::Day };
@@ -348,7 +347,7 @@ where C: Column
 {
     fn serialize_as<S>(source: &Option<C::Quantity>, serializer: S) -> Result<S::Ok, S::Error>
     where S: Serializer {
-        serializer.serialize_f64(source.map_or(C::MISSING, |quantity| written(C::value(quantity))))
+        serializer.serialize_f64(source.map_or(C::MISSING, C::value))
     }
 }
 
@@ -366,7 +365,7 @@ where C: Column
 {
     fn serialize_as<S>(source: &C::Quantity, serializer: S) -> Result<S::Ok, S::Error>
     where S: Serializer {
-        serializer.serialize_f64(written(C::value(*source)))
+        serializer.serialize_f64(C::value(*source))
     }
 }
 
@@ -382,7 +381,7 @@ impl SerializeAs<Option<Ceiling>> for Ceilings {
     fn serialize_as<S>(source: &Option<Ceiling>, serializer: S) -> Result<S::Ok, S::Error>
     where S: Serializer {
         match *source {
-            Some(Ceiling::Height(height)) => serializer.serialize_f64(written(height.get::<meter>())),
+            Some(Ceiling::Height(height)) => serializer.serialize_f64(height.get::<meter>()),
             stated @ (None | Some(Ceiling::Cirroform | Ceiling::Unlimited)) => CEILINGS.iter().find(|&&(_, ceiling)| ceiling == stated).map(|&(code, _)| code).serialize(serializer),
         }
     }
@@ -446,12 +445,6 @@ where R: io::Read {
         record.iter().skip(preceding).collect::<StringRecord>().deserialize::<Vec<Option<T>>>(None).map(|stated| stated.into_iter().flatten())
     }
 
-    fn interval(row: &Row, offset: Offset, per_hour: NonZero<u8>) -> Result<Range<Timestamp>, jiff::Error> {
-        let elapsed = if per_hour > NonZero::<u8>::MIN { SignedDuration::from_mins(i64::from(row.minute)) } else { SignedDuration::from_hours(1) };
-        let end = offset.to_timestamp(civil::DateTime::new(row.year, row.month, row.day, row.hour.saturating_sub(1), 0, 0, 0)?.checked_add(elapsed)?)?;
-        Ok(Range { start: end.checked_sub(SignedDuration::from_hours(1).div_f64(f64::from(per_hour.get())))?, end })
-    }
-
     fn redated(records: Vec<Hour>, zone: &TimeZone) -> Result<Vec<Hour>, jiff::Error> {
         let first = records.first().map(|record| zone.to_datetime(record.interval.start));
         records
@@ -469,8 +462,10 @@ where R: io::Read {
     }
 
     let hour = |row: Row, offset: Offset, per_hour: NonZero<u8>| -> Result<Hour, Malformed> {
+        let elapsed = if per_hour > NonZero::<u8>::MIN { SignedDuration::from_mins(i64::from(row.minute)) } else { SignedDuration::from_hours(1) };
+        let end = offset.to_timestamp(civil::DateTime::new(row.year, row.month, row.day, row.hour.saturating_sub(1), 0, 0, 0)?.checked_add(elapsed)?)?;
         Ok(transferred!(Hour {
-            interval: interval(&row, offset, per_hour)?,
+            interval: Range { start: end.checked_sub(SignedDuration::from_hours(1).div_f64(f64::from(per_hour.get())))?, end },
             present_weather: row
                 .present_weather
                 .trim_matches(|stated: char| stated.is_whitespace() || matches!(stated, '\'' | '"'))
@@ -481,26 +476,21 @@ where R: io::Read {
             flags: Some(row.flags).filter(|flags| !flags.is_empty()),
         } from row))
     };
-    let lines = ReaderBuilder::new()
-        .has_headers(false)
-        .flexible(true)
-        .from_reader(reader)
-        .byte_records()
-        .map_ok(|line| {
-            let position = line.position().cloned();
-            let mut text = StringRecord::from_byte_record_lossy(line);
-            text.set_position(position);
-            text
+    let (headers, rows): (Vec<_>, Vec<_>) = ReaderBuilder::new().has_headers(false).flexible(true).from_reader(reader).byte_records().process_results(|lines| {
+        lines.partition_map(|record| {
+            let position = record.position().cloned();
+            let mut record = StringRecord::from_byte_record_lossy(record);
+            record.set_position(position);
+            if let Ok(stated) = Keyword::deserialize(value::StrDeserializer::<value::Error>::new(record.get(0).unwrap_or_default().trim())) {
+                let line = record.clone();
+                record.trim();
+                Either::Left((stated, line, record))
+            } else {
+                record.trim();
+                Either::Right(record)
+            }
         })
-        .collect::<Result<Vec<_>, _>>()?;
-    let (headers, rows): (Vec<_>, Vec<_>) = lines.into_iter().partition_map(|line| {
-        let mut record = line.clone();
-        record.trim();
-        match StringRecord::from(vec![record.get(0).unwrap_or_default()]).deserialize::<Keyword>(None) {
-            Ok(stated) => Either::Left((stated, line, record)),
-            Err(csv::Error { .. }) => Either::Right(record),
-        }
-    });
+    })?;
     let location = header(&headers, Keyword::Location, |_, record| {
         let (_, station, position, zone, elevation) = record.deserialize::<(IgnoredAny, Station, Position, f64, Elevation)>(None)?;
         Ok((station, position, Offset::try_from(SignedDuration::try_from_secs_f64(Time::new::<time::hour>(zone).get::<time::second>())?)?, elevation))
@@ -575,7 +565,7 @@ where W: io::Write {
     let incoming = events::sampled(sun, series.iter().map(|record| record.interval), &rule)?.into_iter().into_grouping_map_by(|&(index, _, _, _)| index).fold(
         (HeatFluxDensity::default(), HeatFluxDensity::default()),
         |(on_horizontal, on_normal), _, (index, prepared, position, duration)| {
-            let arriving = extraterrestrial(&prepared) * series.get(index).map_or_default(|record| duration.get::<time::second>() / length(record.interval).as_secs_f64());
+            let arriving = extraterrestrial(&prepared) * (duration.get::<time::second>() / length(series[index].interval).as_secs_f64());
             (on_horizontal + arriving * cos_zenith(&position), on_normal + arriving)
         },
     );
@@ -632,9 +622,4 @@ fn names(weekday: Option<civil::Weekday>, month: Option<i8>, format: &str) -> Re
     names.set_weekday(weekday);
     names.set_month(month)?;
     names.to_string(format)
-}
-
-fn written(value: f64) -> f64 {
-    const DECIMALS: f64 = 1.0e9;
-    (value * DECIMALS).round() / DECIMALS
 }

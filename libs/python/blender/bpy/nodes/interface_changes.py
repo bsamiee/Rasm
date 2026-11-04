@@ -1,22 +1,22 @@
 """Group interface reconciliation: interface change rows that write themselves, and the read of a live interface against a desired one."""
 
 from collections.abc import Mapping
-from functools import partial, reduce
+from functools import partial
 from types import MappingProxyType
 
 import bpy
-from expression import Nothing, Ok, Option, Some
+from expression import Option, Some
 from expression.extra.result import catch
 import msgspec
 
 from blender.bpy.data.rna.descriptors import differing, Value, written
-from blender.bpy.data.rna.paths import RnaPath
+from blender.bpy.data.rna.paths import definition, RnaPath
 from blender.bpy.data.rna.snapshots import assigned
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.nodes.addressing import InterfaceItem, InterfaceKeys, OwnedNodes
 from blender.bpy.nodes.interfaces import DesiredItem, Interface, InterfacePanel, Socket
 from blender.bpy.nodes.trees import base_socket, interface_of
-from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
+from blender.records.faults import accumulated, Fault, Nothing, Ok, Outcome, paired, Reason
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -28,15 +28,16 @@ class Withdrawn(msgspec.Struct, frozen=True, kw_only=True):
 
     def applied(self, keyed: OwnedNodes, identity: Identity) -> Outcome[None]:
         """Removes the item and its panel toggle, then its stored key."""
+        live = InterfaceKeys.of(keyed.interface.tree, identity)
 
-        def withdrawn(live: InterfaceKeys, held: bpy.types.NodeTreeInterfaceItem) -> None:
+        def withdrawn(held: bpy.types.NodeTreeInterfaceItem) -> None:
             interface = interface_of(live.tree)
             for toggle in live.toggle(held).to_list():
                 interface.remove(toggle)
             interface.remove(held)
             live.store({name: identifier for name, identifier in live.stored.items() if name != self.key})
 
-        return InterfaceKeys.of(keyed.tree, identity).bind(lambda live: live.item(self.key, bpy.types.NodeTreeInterfaceItem).map(partial(withdrawn, live)))
+        return live.item(self.key, bpy.types.NodeTreeInterfaceItem).map(withdrawn)
 
 
 class Declared(msgspec.Struct, frozen=True, kw_only=True):
@@ -47,21 +48,24 @@ class Declared(msgspec.Struct, frozen=True, kw_only=True):
 
     def applied(self, keyed: OwnedNodes, identity: Identity) -> Outcome[None]:
         """Creates the socket, or the panel with its toggle, and stores its key."""
+        live = InterfaceKeys.of(keyed.interface.tree, identity)
 
-        def created(live: InterfaceKeys) -> Outcome[InterfaceItem]:
+        def created() -> Outcome[InterfaceItem]:
             interface = interface_of(live.tree)
             refused = partial(Fault.of, Reason.REFUSED, repr(interface))
 
             def toggled(panel: bpy.types.NodeTreeInterfacePanel, *, value: bool) -> Outcome[None]:
                 return (
-                    catch(interface.new_socket, exception=TypeError)(panel.name, in_out="INPUT", socket_type=bpy.types.NodeSocketBool.__name__, parent=panel)
+                    catch(interface.new_socket, exception=TypeError)(panel.name, in_out="INPUT", socket_type=definition(bpy.types.NodeSocketBool).identifier, parent=panel)
                     .map_error(refused)
-                    .bind(lambda socket: accumulated((written(socket, ("is_panel_toggle",), True), written(socket, ("default_value",), value))).map(lambda _: None))
+                    .bind(lambda socket: accumulated((written(socket, ("is_panel_toggle",), value=True), written(socket, ("default_value",), value))).map(lambda _: None))
                 )
 
             match self.entry:
                 case (Socket() as socket, side):
-                    return catch(interface.new_socket, exception=TypeError)(socket.title, description=socket.declared.description, in_out=side, socket_type=socket.base.__name__).map_error(refused)
+                    return catch(interface.new_socket, exception=TypeError)(
+                        socket.title, description=socket.declared.description, in_out=side, socket_type=definition(socket.base).identifier
+                    ).map_error(refused)
                 case InterfacePanel(description=description, closed=closed, toggle=toggle) as panel:
                     return (
                         catch(interface.new_panel, exception=TypeError)(panel.title, description=description, default_closed=closed)
@@ -69,7 +73,7 @@ class Declared(msgspec.Struct, frozen=True, kw_only=True):
                         .bind(lambda panel: accumulated(toggled(panel, value=value) for value in toggle.to_list()).map(lambda _: panel))
                     )
 
-        return InterfaceKeys.of(keyed.tree, identity).bind(lambda live: created(live).map(lambda declared: live.store({**live.stored, self.key: declared.identifier})))
+        return created().map(lambda declared: live.store({**live.stored, self.key: declared.identifier}))
 
 
 class Placed(msgspec.Struct, frozen=True, kw_only=True):
@@ -92,12 +96,12 @@ class Placed(msgspec.Struct, frozen=True, kw_only=True):
         retyped = self.kind.map(
             lambda kind: (
                 InterfaceKeys
-                .of(keyed.tree, identity)
-                .bind(lambda live: live.item(self.key, bpy.types.NodeTreeInterfaceItem))
-                .bind(lambda held: written(held, ("socket_type",), base_socket(kind).__name__))
+                .of(keyed.interface.tree, identity)
+                .item(self.key, bpy.types.NodeTreeInterfaceItem)
+                .bind(lambda held: written(held, ("socket_type",), definition(base_socket(kind)).identifier))
             )
         )
-        return retyped.default_value(Ok(Nothing)).bind(lambda _: self.place.map(lambda place: InterfaceKeys.of(keyed.tree, identity).bind(lambda live: moved(live, *place))).default_value(Ok(None)))
+        return retyped.default_value(Ok(None)).bind(lambda _: self.place.map(lambda place: moved(InterfaceKeys.of(keyed.interface.tree, identity), *place)).default_value(Ok(None)))
 
 
 class Restated(msgspec.Struct, frozen=True, kw_only=True):
@@ -112,8 +116,9 @@ class Restated(msgspec.Struct, frozen=True, kw_only=True):
 
     def applied(self, keyed: OwnedNodes, identity: Identity) -> Outcome[None]:
         """Writes name, description, panel state, toggle default, and socket members."""
+        live = InterfaceKeys.of(keyed.interface.tree, identity)
 
-        def rest(live: InterfaceKeys, held: bpy.types.NodeTreeInterfaceItem) -> Outcome[None]:
+        def rest(held: bpy.types.NodeTreeInterfaceItem) -> Outcome[None]:
             return accumulated((
                 *(written(held, ("name",), name) for name in self.name.to_list()),
                 *(written(held, ("description",), text) for text in self.description.to_list()),
@@ -122,7 +127,7 @@ class Restated(msgspec.Struct, frozen=True, kw_only=True):
                 assigned(held, self.members),
             )).map(lambda _: None)
 
-        return InterfaceKeys.of(keyed.tree, identity).bind(lambda live: live.item(self.key, bpy.types.NodeTreeInterfaceItem).bind(partial(rest, live)))
+        return live.item(self.key, bpy.types.NodeTreeInterfaceItem).bind(rest)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -152,7 +157,7 @@ def interfaced(addressed: InterfaceKeys, interface: Interface, /) -> tuple[tuple
     def kind(key: Key, entry: DesiredItem) -> Option[type[bpy.types.NodeSocket]]:
         match entry, held.get(key):
             case (Socket() as socket, _), bpy.types.NodeTreeInterfaceSocket() as item:
-                return changed(item.socket_type, socket.base.__name__).map(lambda _: socket.refined)
+                return changed(item.socket_type, definition(socket.base).identifier).map(lambda _: socket.refined)
             case _:
                 return Nothing
 
@@ -179,7 +184,9 @@ def interfaced(addressed: InterfaceKeys, interface: Interface, /) -> tuple[tuple
                 row = Restated(key=key)
         return Some(row).filter(lambda differs: differs != Restated(key=key))
 
-    depths = reduce(lambda held, entry: {**held, entry[0]: entry[2].map(lambda panel: held[panel] + 1).default_value(0)}, entries, dict[Key, int]())
+    depths: dict[Key, int] = {}
+    for key, _, parent, _ in entries:
+        depths[key] = parent.map(lambda panel: depths[panel] + 1).default_value(0)
     placed = sorted(
         (
             row

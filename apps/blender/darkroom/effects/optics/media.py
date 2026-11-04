@@ -1,25 +1,24 @@
 """Light-bearing media over the frame: a uniform medium along camera rays with SI depth transmittance, seeded opacity, and inscattered light, and a procedural field drifting, twirling, and evolving over the clock, emitting, absorbing, and scattering light."""
 
-from typing import Final
+from typing import Final, override
 
 import bpy
 import colour
-from expression import Ok, Some
+from expression import Some
 
 from blender.bpy.nodes import textures
 from blender.bpy.nodes.graphs import Expr, math, mixed, switched, vector, where, xyz
 from blender.bpy.nodes.interfaces import Interface, InterfacePanel, Socket
 from blender.bpy.render.compositor import lenses, motion
 from blender.bpy.render.compositor.colors import with_alpha
-from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect, depth_precise, precise
+from blender.bpy.render.compositor.effects import CompositorEffect, CompositorRecord, depth_precise, Mix, precise
 from blender.bpy.render.compositor.filters import blurred
 from blender.bpy.render.compositor.inputs import FRAME_METERS, GraphInputs
 from blender.bpy.render.compositor.shapes import turned
 from blender.bpy.scene import cameras
 from blender.imaging.color.processors import GRAY
 from blender.imaging.sampling import tiles
-from blender.records.faults import Outcome
-from blender.records.fields import Case
+from blender.records.faults import Ok, Outcome
 
 from .bases import bases, Basis, Perlin, textured
 from .emission import Emission, emission, emitted, Incandescence
@@ -38,7 +37,7 @@ _SPREAD: Final = Socket(key="radius", kind=bpy.types.NodeSocketFloat, descriptio
 _AMBIENT: Final = InterfacePanel.of("ambient", Interface(inputs=(_AMBIENT_COLOR,)), description="Uniformly lit medium scattering one color toward camera")
 _DIFFUSED: Final = InterfacePanel.of("diffused", Interface(inputs=(_TINT, _SPREAD)), description="Frame light spread through medium and tinted")
 _LIGHTS: Final = Interface(panels=(_AMBIENT, _DIFFUSED))
-_LIGHT: Final = Socket(key="source", kind=bpy.types.NodeSocketMenu, description="Scattered light source", default_value=_AMBIENT.title, items=Some(_LIGHTS.menu))
+_LIGHT: Final = Socket(key="source", kind=bpy.types.NodeSocketMenu, description="Scattered light source", default_value=_AMBIENT.title, items=_LIGHTS.menu.items)
 _INSCATTERING: Final = InterfacePanel.of("inscattering", Interface(inputs=(_LIGHT,), panels=_LIGHTS.panels), description="Light the medium scatters toward camera")
 _VARIATION: Final = Socket(key="variation", kind=bpy.types.NodeSocketFloatFactor, description="Largest opacity share field removes", default_value=1.0)
 _CUTOFF_DISTANCE: Final = Socket(key="distance", kind=bpy.types.NodeSocketFloat, description="Ray distance in meters past which samples keep light", min_value=0.0, default_value=1000.0)
@@ -68,17 +67,72 @@ _ENVELOPE: Final = InterfacePanel.of("envelope", Interface(inputs=(_WIDTH, _HEIG
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Atmosphere(Case, frozen=True, kw_only=True):
+class Atmosphere(CompositorRecord, frozen=True, kw_only=True):
     """Uniform medium absorbing and scattering light along camera rays, its opacity field basis holding the node settings."""
 
     noise_basis: Basis = Perlin()
 
+    @override
+    def graph(self, shell: GraphInputs) -> Outcome[Expr]:
+        """Mixes inscattered light over the stage input by medium coverage along each camera ray, coverage joining alpha."""
+        read, source = shell.input, shell.color
+        distance = math("MULTIPLY", shell.layer("Depth"), read(FRAME_METERS)) / lenses.chief_ray(source)
+        transmittance = math("EXPONENT", math("MINIMUM", read(_START) - distance, 0.0) / read(_ATTENUATION_LENGTH))
+        kept = Expr(kind=bpy.types.CompositorNodeAntiAliasing, inputs=(("Image", where(read(_CUTOFF) * (distance > read(_CUTOFF, _CUTOFF_DISTANCE)), 1.0, transmittance)),), socket="Image")
+        ((field, _),) = textured(
+            shell,
+            _NOISE.panel(_NOISE_BASIS.key),
+            self.noise_basis,
+            shell.space.point,
+            motion.clocked(read, _NOISE.panel(motion.CLOCK.key)),
+            read(_NOISE, motion.SEED),
+            streams=(tiles.stream(Atmosphere.noise_basis),),
+        )
+        coverage = (1.0 - kept) * (1.0 - switched(read(_NOISE), 0.0, field * read(_NOISE, _VARIATION)))
+        alpha = math("MULTIPLY_ADD", source["Alpha"], (1.0 - coverage).keyed("transmitted"), coverage)
+        spread = blurred(source, shell.space.pixel_size(read(_INSCATTERING, _DIFFUSED, _SPREAD)))
+        lit = shell.menu(_INSCATTERING, _LIGHT, cases={_AMBIENT.item: read(_INSCATTERING, _AMBIENT, _AMBIENT_COLOR), _DIFFUSED.item: vector("MULTIPLY", spread, read(_INSCATTERING, _DIFFUSED, _TINT))})
+        return Ok(with_alpha(mixed(coverage, source, lit), alpha))
 
-class NoiseField(Case, frozen=True, kw_only=True):
+    requested = staticmethod(depth_precise)
+
+
+class NoiseField(CompositorRecord, frozen=True, kw_only=True):
     """Procedural light and haze added to frame: fire, smoke, mist, light leaks, and flow, its basis and emission holding their node settings and ramps."""
 
     basis: Basis = _FIRE
     emission: Emission = _GLOW
+
+    @override
+    def graph(self, shell: GraphInputs) -> Outcome[Expr]:
+        """Emits and extinguishes light over the field's density, coverage as alpha."""
+        read, at = shell.input, shell.space
+        clock = motion.clocked(read, motion.CLOCK).keyed("clock")
+        axis = turned(at, read(_CENTER), read(_ANGLE))
+        radius = read(_VORTEX, _VORTEX_RADIUS)
+        rho = vector("LENGTH", axis) / radius
+        phase = math("MULTIPLY_ADD", math("ARCTAN2", axis["Y"], axis["X"]), read(_VORTEX, _ARMS), math("MULTIPLY_ADD", 1.0 - rho, read(_VORTEX, _TWIRL), clock * read(_VORTEX, _SPIN)))
+        cone = vector("SCALE", xyz(math("COSINE", phase), math("SINE", phase), read(_VORTEX, _TUNNEL)), math("MINIMUM", rho, 1.0) * radius)
+        reach = math("MAXIMUM", 1.0 - vector("LENGTH", axis / xyz(read(_ENVELOPE, _WIDTH), read(_ENVELOPE, _HEIGHT))), 0.0)
+        ((density, tone),) = textured(
+            shell,
+            _BASIS,
+            self.basis,
+            switched(read(_VORTEX), axis, cone) - vector("SCALE", read(_DRIFT), clock),
+            clock * read(_EVOLUTION),
+            read(motion.SEED),
+            loss=switched(read(_ENVELOPE), 0.0, 1.0 - reach * reach),
+            streams=(tiles.stream(NoiseField.basis),),
+        )
+        coverage = 1.0 - switched(read(_EXTINCTION), 1.0, math("EXPONENT", -(density * read(_EXTINCTION, _DENSITY))))
+
+        def generated(lights: tuple[Expr, ...]) -> Expr:
+            light = switched(read(_EMISSION), (0.0, 0.0, 0.0), vector("SCALE", lights[0], density)) + vector("SCALE", read(_EXTINCTION, _SCATTERED), coverage)
+            return with_alpha(light, coverage)
+
+        return emitted(shell, _EMISSION, self.emission, (tone,)).map(generated)
+
+    requested = staticmethod(precise)
 
 
 # --- [INTERFACES] -----------------------------------------------------------------------
@@ -93,77 +147,19 @@ _NOISE: Final = InterfacePanel.of(
 _BASIS: Final = bases("basis", _FIRE, "Procedural texture")
 _EMISSION: Final = emission("emission", _GLOW, "Light the field adds", Some(True))
 
-# --- [OPERATIONS] -----------------------------------------------------------------------
-
-
-def _hazed(shell: GraphInputs[Atmosphere]) -> Outcome[Expr]:
-    """Mixes inscattered light over the stage input by medium coverage along each camera ray, coverage joining alpha."""
-    read, source = shell.input, shell.color
-    distance = math("MULTIPLY", shell.layer("Depth"), read(FRAME_METERS)) / lenses.chief_ray(source)
-    transmittance = math("EXPONENT", math("MINIMUM", read(_START) - distance, 0.0) / read(_ATTENUATION_LENGTH))
-    kept = Expr(kind=bpy.types.CompositorNodeAntiAliasing, inputs=(("Image", where(read(_CUTOFF) * (distance > read(_CUTOFF, _CUTOFF_DISTANCE)), 1.0, transmittance)),), socket="Image")
-    ((field, _),) = textured(
-        shell,
-        _NOISE.panel(_NOISE_BASIS.key),
-        shell.record.noise_basis,
-        shell.space.point,
-        motion.clocked(read, _NOISE.panel(motion.CLOCK.key)),
-        read(_NOISE, motion.SEED),
-        streams=(tiles.stream(Atmosphere.noise_basis),),
-    )
-    coverage = (1.0 - kept) * (1.0 - switched(read(_NOISE), 0.0, field * read(_NOISE, _VARIATION)))
-    alpha = math("MULTIPLY_ADD", source["Alpha"], (1.0 - coverage).keyed("transmitted"), coverage)
-    spread = blurred(source, shell.space.pixel_size(read(_INSCATTERING, _DIFFUSED, _SPREAD)))
-    lit = shell.menu(_INSCATTERING, _LIGHT, cases={_AMBIENT.item: read(_INSCATTERING, _AMBIENT, _AMBIENT_COLOR), _DIFFUSED.item: vector("MULTIPLY", spread, read(_INSCATTERING, _DIFFUSED, _TINT))})
-    return Ok(with_alpha(mixed(coverage, source, lit), alpha))
-
-
-def _fielded(shell: GraphInputs[NoiseField]) -> Outcome[Expr]:
-    """Emits and extinguishes light over the field's density, coverage as alpha."""
-    read, at = shell.input, shell.space
-    clock = motion.clocked(read, motion.CLOCK).keyed("clock")
-    axis = turned(at, read(_CENTER), read(_ANGLE))
-    radius = read(_VORTEX, _VORTEX_RADIUS)
-    rho = vector("LENGTH", axis) / radius
-    phase = math("MULTIPLY_ADD", math("ARCTAN2", axis["Y"], axis["X"]), read(_VORTEX, _ARMS), math("MULTIPLY_ADD", 1.0 - rho, read(_VORTEX, _TWIRL), clock * read(_VORTEX, _SPIN)))
-    cone = vector("SCALE", xyz(math("COSINE", phase), math("SINE", phase), read(_VORTEX, _TUNNEL)), math("MINIMUM", rho, 1.0) * radius)
-    reach = math("MAXIMUM", 1.0 - vector("LENGTH", axis / xyz(read(_ENVELOPE, _WIDTH), read(_ENVELOPE, _HEIGHT))), 0.0)
-    ((density, tone),) = textured(
-        shell,
-        _BASIS,
-        shell.record.basis,
-        switched(read(_VORTEX), axis, cone) - vector("SCALE", read(_DRIFT), clock),
-        clock * read(_EVOLUTION),
-        read(motion.SEED),
-        loss=switched(read(_ENVELOPE), 0.0, 1.0 - reach * reach),
-        streams=(tiles.stream(NoiseField.basis),),
-    )
-    coverage = 1.0 - switched(read(_EXTINCTION), 1.0, math("EXPONENT", -(density * read(_EXTINCTION, _DENSITY))))
-
-    def generated(lights: tuple[Expr, ...]) -> Expr:
-        light = switched(read(_EMISSION), (0.0, 0.0, 0.0), vector("SCALE", lights[0], density)) + vector("SCALE", read(_EXTINCTION, _SCATTERED), coverage)
-        return with_alpha(light, coverage)
-
-    return emitted(shell, _EMISSION, shell.record.emission, (tone,)).map(generated)
-
-
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 atmosphere: Final = CompositorEffect(
-    _hazed,
     record=Atmosphere,
     interface=Interface(inputs=(_ATTENUATION_LENGTH, _START), panels=(_INSCATTERING, _NOISE, _CUTOFF)),
-    mix=Blended(alpha=Alpha.RESULT),
-    request=Some(depth_precise),
-    check=Some(lambda _identity, scene, _entry, _record, _preview: cameras.camera_type("PERSP", "ORTHO").check(bpy.context, Some(scene))),
+    mix=Mix.RESULT,
+    check=Some(lambda _identity, scene, _entry: cameras.camera_type("PERSP", "ORTHO").check(bpy.context, Some(scene))),
     derives=(motion.timing,),
 )
 noise_field: Final = CompositorEffect(
-    _fielded,
     record=NoiseField,
     interface=Interface(inputs=(_DRIFT, _EVOLUTION, _CENTER, _ANGLE, motion.SEED), panels=(_BASIS, _EMISSION, _EXTINCTION, motion.CLOCK, _VORTEX, _ENVELOPE)),
-    mix=Blended(alpha=Alpha.RESULT),
-    request=Some(precise),
+    mix=Mix.RESULT,
     derives=(motion.timing,),
 )
 

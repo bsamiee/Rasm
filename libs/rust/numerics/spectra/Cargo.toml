@@ -4,7 +4,7 @@
 name                 = "rasm-spectra"
 version.workspace    = true
 edition.workspace    = true
-description          = "Spectra of uniform series and planes: Fourier, real, cosine, analytic and chirp-z zoom transforms along array axes, Fourier resampling, FFT convolution and correlation under any boundary and regularized deconvolution, Welch power, cross-spectral and H1 transfer estimates with coherence and spectrograms under periodic tapers with mean or median averaging, Butterworth band-stop and RBJ biquad cascades and IEC 61672-1 A and C weighting run causal or zero-phase with their frequency responses, IEC 61260 fractional-octave bands and filter banks, ISO 3382-1 decay under optional converged Lundeby truncation, reverberation times, clarity, definition, centre time, strength, lateral energy and interaural cross-correlation"
+description          = "Spectra of uniform series and planes: Fourier, real, cosine, analytic and chirp-z zoom transforms along array axes, Fourier resampling, FFT convolution and correlation under any boundary and regularized deconvolution, Welch power, cross-spectral and H1 transfer estimates with coherence and spectrograms under periodic tapers with mean or median averaging, causal and zero-phase Butterworth band-stop, RBJ biquad and A and C weighting filters with frequency responses, IEC 61260 fractional-octave bands and filter banks, ISO 3382-1 decay under optional converged Lundeby truncation, reverberation times, clarity, definition, centre time, strength, lateral energy and interaural cross-correlation"
 repository.workspace = true
 license.workspace    = true
 keywords             = ["signal-processing", "fft", "spectrum", "filters", "acoustics"]
@@ -19,14 +19,20 @@ test    = false
 doctest = false
 bench   = false
 
+# --- [TEST]
+[[test]]
+name = "operations"
+path = "../../../../tests/rust/numerics/spectra/operations.rs"
+
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
 # --- [RUNTIME]
 [dependencies]
-thiserror    = { workspace = true }
-nutype       = { workspace = true }
-derive_more  = { workspace = true }
 rayon        = { workspace = true }
+thiserror    = { workspace = true }
+derive_more  = { workspace = true }
+itertools    = { workspace = true }
+nutype       = { workspace = true }
 faer         = { workspace = true }
 nalgebra     = { workspace = true }
 ndarray      = { workspace = true }
@@ -36,7 +42,13 @@ apodize      = { workspace = true }
 biquad       = { workspace = true }
 ndarray-conv = { workspace = true }
 ndrustfft    = { workspace = true }
+realfft      = { workspace = true }
 rustfft      = { workspace = true }
+
+# --- [TEST]
+[dev-dependencies]
+approx = { workspace = true }
+claims = { workspace = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

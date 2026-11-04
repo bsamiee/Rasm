@@ -1,6 +1,7 @@
 use core::f64::consts::PI;
 
 use csv::StringRecord;
+use dashu::base::ConversionError;
 use itertools::Itertools as _;
 use jiff::civil;
 use nalgebra::Vector2;
@@ -34,8 +35,6 @@ enum Heading {
     Cooling,
     Extremes,
 }
-
-type Sample<'hour> = (civil::DateTime, &'hour Hour, Option<Psychrometrics>);
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -215,17 +214,31 @@ pub fn profile(peak: ThermodynamicTemperature, range: TemperatureInterval) -> [T
 }
 
 pub fn computed(hours: &Hours, source: String, coincidence: Ratio) -> Result<Design, WeatherError> {
+    type Sample<'hour> = (civil::DateTime, &'hour Hour, Option<Psychrometrics>);
     const HEATING: [f64; 2] = [0.004, 0.01];
     const COOLING: [f64; 3] = [0.996, 0.99, 0.98];
     const WIND: [f64; 3] = [0.99, 0.975, 0.95];
     const RETURNS: [f64; 4] = [5.0, 10.0, 20.0, 50.0];
+    fn ranked<'sample, T>(within: impl IntoIterator<Item = &'sample T>, field: impl Fn(&T) -> Option<f64>) -> Vec<(f64, &'sample T)>
+    where T: 'sample {
+        within.into_iter().filter_map(|sample| field(sample).map(|value| (value, sample))).sorted_by(|(left, _), (right, _)| left.total_cmp(right)).collect()
+    }
     fn level<T>(within: &[T], field: impl Fn(&T) -> Option<f64>, share: f64) -> Option<f64> {
         let values = within.iter().filter_map(field).collect_vec();
         (!values.is_empty()).then(|| Data::new(values).quantile(share))
     }
-    fn coincident<T>(within: &[T], primary: impl Fn(&T) -> Option<f64>, share: f64, band: f64, other: impl Fn(&T) -> Option<f64>) -> Option<f64>
-    where T: Copy {
-        average(&window(within, primary, share, band), other)
+    fn window<'sample, 'view, T>(ranked: &'view [(f64, &'sample T)], share: f64, band: f64) -> &'view [(f64, &'sample T)] {
+        let count = nalgebra::convert::<usize, f64>(ranked.len());
+        let [low, high] = [share - band, share + band].map(|bound| (bound.clamp(0.0, 1.0) * count).to_int_saturating::<usize>());
+        let low = low.min(ranked.len().saturating_sub(1));
+        &ranked[low..high.max(low.strict_add(1)).min(ranked.len())]
+    }
+    fn average<'sample, T>(within: impl IntoIterator<Item = &'sample T>, field: impl Fn(&T) -> Option<f64>) -> Result<Option<f64>, ConversionError>
+    where T: 'sample {
+        weighted(within.into_iter().filter_map(|sample| field(sample).map(|value| (value, 1.0))))
+    }
+    fn coincident<T>(within: &[(f64, &T)], share: f64, band: f64, other: impl Fn(&T) -> Option<f64>) -> Result<Option<f64>, ConversionError> {
+        average(window(within, share, band).iter().map(|&(_, sample)| sample), other)
     }
     let band = coincidence.get::<ratio>();
     let samples = hours
@@ -245,34 +258,46 @@ pub fn computed(hours: &Hours, source: String, coincidence: Ratio) -> Result<Des
     let humidity_ratio = |sample: &Sample<'_>| sample.2.map(|state| state.humidity_ratio.value);
     let enthalpy = |sample: &Sample<'_>| sample.2.map(|state| state.enthalpy.value);
     let speed = |sample: &Sample<'_>| sample.1.wind_speed.map(|value| value.value);
+    let [dry, wet, dew, energy] = [dry_bulb, wet_bulb, dew_point, enthalpy].map(|field| ranked(&samples, field));
     let temperature = |value: Option<f64>| value.map(ThermodynamicTemperature::new::<kelvin>);
     let velocity = |value: Option<f64>| value.map(Velocity::new::<meter_per_second>);
     let prevailing = |share: f64| {
-        let toward = window(&samples, dry_bulb, share, band).iter().filter_map(|sample| sample.1.wind_direction.map(heading)).sum::<Vector2<f64>>();
+        let toward = window(&dry, share, band).iter().filter_map(|&(_, sample)| sample.1.wind_direction.map(heading)).sum::<Vector2<f64>>();
         (toward.norm() > 0.0).then(|| bearing(toward))
     };
-    let monthly = samples.iter().copied().into_group_map_by(|sample| sample.0.month());
-    let (coldest, hottest) = monthly
-        .iter()
-        .filter_map(|(&month, within)| average(within, dry_bulb).map(|mean| (month, mean)))
-        .minmax_by(|(_, colder), (_, warmer)| colder.total_cmp(warmer))
-        .into_option()
-        .map(|((coldest, _), (hottest, _))| (coldest, hottest))
-        .unzip();
-    let within = |month: Option<i8>| month.and_then(|month| monthly.get(&month)).map_or_default(Clone::clone);
+    let monthly = samples.iter().into_group_map_by(|sample| sample.0.month());
+    let (coldest, hottest) =
+        monthly.iter().filter_map(|(&month, within)| average(within.iter().copied(), dry_bulb).map(|mean| mean.map(|mean| (month, mean))).transpose()).process_results(|means| {
+            means
+                .minmax_by(|(left_month, colder), (right_month, warmer)| colder.total_cmp(warmer).then(left_month.cmp(right_month)))
+                .into_option()
+                .map(|((coldest, _), (hottest, _))| (coldest, hottest))
+                .unzip()
+        })?;
+    let within = |month: Option<i8>| month.and_then(|month| monthly.get(&month)).map_or(&[][..], Vec::as_slice);
+    let cold_wind = ranked(within(coldest).iter().copied(), speed);
     let range = within(hottest)
-        .into_iter()
+        .iter()
+        .copied()
         .into_group_map_by(|sample| sample.0.date())
-        .into_values()
-        .filter_map(|day| day.iter().filter_map(dry_bulb).minmax_by(f64::total_cmp).into_option())
+        .into_iter()
+        .sorted_by_key(|&(date, _)| date)
+        .filter_map(|(_, day)| day.into_iter().filter_map(dry_bulb).minmax_by(f64::total_cmp).into_option())
         .map(|(low, high)| (high - low, 1.0));
-    let humidification = |share: f64| Humidification {
-        dew_point: temperature(level(&samples, dew_point, share)),
-        humidity_ratio: coincident(&samples, dew_point, share, band, humidity_ratio).map(Ratio::new::<ratio>),
-        dry_bulb: temperature(coincident(&samples, dew_point, share, band, dry_bulb)),
+    let humidification = |share: f64| {
+        Ok::<_, ConversionError>(Humidification {
+            dew_point: temperature(level(&samples, dew_point, share)),
+            humidity_ratio: coincident(&dew, share, band, humidity_ratio)?.map(Ratio::new::<ratio>),
+            dry_bulb: temperature(coincident(&dew, share, band, dry_bulb)?),
+        })
     };
-    let yearly =
-        samples.iter().copied().into_group_map_by(|sample| sample.0.year()).into_values().filter_map(|year| year.iter().filter_map(dry_bulb).minmax_by(f64::total_cmp).into_option()).collect_vec();
+    let yearly = samples
+        .iter()
+        .into_group_map_by(|sample| sample.0.year())
+        .into_iter()
+        .sorted_by_key(|&(year, _)| year)
+        .filter_map(|(_, year)| year.into_iter().filter_map(dry_bulb).minmax_by(f64::total_cmp).into_option())
+        .collect_vec();
     let [highs, lows] = [yearly.iter().map(|&(_, high)| high).collect_vec(), yearly.iter().map(|&(low, _)| low).collect_vec()];
     let [mean_high, mean_low] = [&highs, &lows].map(|values| (!values.is_empty()).then(|| values.iter().mean()));
     let [spread_high, spread_low] = [&highs, &lows].map(|values| (values.len() > 1).then(|| values.iter().std_dev()));
@@ -288,18 +313,22 @@ pub fn computed(hours: &Hours, source: String, coincidence: Ratio) -> Result<Des
         heating: Heating {
             month: coldest,
             dry_bulb: HEATING.map(|share| temperature(level(&samples, dry_bulb, share))),
-            humidification: HEATING.map(humidification),
-            wind: HEATING.map(|share| 1.0 - share).map(|share| (velocity(level(&within(coldest), speed, share)), temperature(coincident(&within(coldest), speed, share, band, dry_bulb)))),
-            coincident: (velocity(coincident(&samples, dry_bulb, HEATING[0], band, speed)), prevailing(HEATING[0])),
+            humidification: HEATING.try_map(humidification)?,
+            wind: HEATING
+                .map(|share| 1.0 - share)
+                .try_map(|share| Ok::<_, ConversionError>((velocity(level(within(coldest), |sample| speed(sample), share)), temperature(coincident(&cold_wind, share, band, dry_bulb)?))))?,
+            coincident: (velocity(coincident(&dry, HEATING[0], band, speed)?), prevailing(HEATING[0])),
         },
         cooling: Cooling {
             month: hottest,
-            range: weighted(range).map(TemperatureInterval::new::<temperature_interval::kelvin>),
-            dry_bulb: COOLING.map(|share| (temperature(level(&samples, dry_bulb, share)), temperature(coincident(&samples, dry_bulb, share, band, wet_bulb)))),
-            wet_bulb: COOLING.map(|share| (temperature(level(&samples, wet_bulb, share)), temperature(coincident(&samples, wet_bulb, share, band, dry_bulb)))),
-            coincident: (velocity(coincident(&samples, dry_bulb, COOLING[0], band, speed)), prevailing(COOLING[0])),
-            dehumidification: COOLING.map(humidification),
-            enthalpy: COOLING.map(|share| (level(&samples, enthalpy, share).map(AvailableEnergy::new::<joule_per_kilogram>), temperature(coincident(&samples, enthalpy, share, band, dry_bulb)))),
+            range: weighted(range)?.map(TemperatureInterval::new::<temperature_interval::kelvin>),
+            dry_bulb: COOLING.try_map(|share| Ok::<_, ConversionError>((temperature(level(&samples, dry_bulb, share)), temperature(coincident(&dry, share, band, wet_bulb)?))))?,
+            wet_bulb: COOLING.try_map(|share| Ok::<_, ConversionError>((temperature(level(&samples, wet_bulb, share)), temperature(coincident(&wet, share, band, dry_bulb)?))))?,
+            coincident: (velocity(coincident(&dry, COOLING[0], band, speed)?), prevailing(COOLING[0])),
+            dehumidification: COOLING.try_map(humidification)?,
+            enthalpy: COOLING.try_map(|share| {
+                Ok::<_, ConversionError>((level(&samples, enthalpy, share).map(AvailableEnergy::new::<joule_per_kilogram>), temperature(coincident(&energy, share, band, dry_bulb)?)))
+            })?,
         },
         extremes: Extremes {
             wind: WIND.map(|share| velocity(level(&samples, speed, share))),
@@ -312,17 +341,6 @@ pub fn computed(hours: &Hours, source: String, coincidence: Ratio) -> Result<Des
         },
     })
 }
-
-fn window<T>(within: &[T], primary: impl Fn(&T) -> Option<f64>, share: f64, band: f64) -> Vec<T>
-where T: Copy {
-    let ranked = within.iter().filter_map(|sample| primary(sample).map(|value| (value, *sample))).sorted_by(|(left, _), (right, _)| left.total_cmp(right)).collect_vec();
-    let count = nalgebra::convert::<usize, f64>(ranked.len());
-    let [low, high] = [share - band, share + band].map(|bound| (bound.clamp(0.0, 1.0) * count).to_int_saturating::<usize>());
-    let low = low.min(ranked.len().saturating_sub(1));
-    ranked.get(low..high.max(low.strict_add(1)).min(ranked.len())).unwrap_or_default().iter().map(|&(_, sample)| sample).collect()
-}
-
-fn average<T>(within: &[T], field: impl Fn(&T) -> Option<f64>) -> Option<f64> { weighted(within.iter().filter_map(|sample| field(sample).map(|value| (value, 1.0)))) }
 
 pub(crate) fn decode(record: &StringRecord) -> Result<Option<Design>, csv::Error> {
     let record: StringRecord = record.iter().map(|field| if matches!(field, "N/A" | "N_A") { "" } else { field }).collect();

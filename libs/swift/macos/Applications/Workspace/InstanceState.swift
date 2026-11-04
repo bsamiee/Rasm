@@ -10,7 +10,6 @@ public import System
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 private let reportingSignals: Set<TerminationStatus> = Set([SIGQUIT, SIGILL, SIGTRAP, SIGABRT, SIGEMT, SIGFPE, SIGBUS, SIGSEGV, SIGSYS, SIGXCPU, SIGXFSZ].map(TerminationStatus.signaled))
-private let reportLimit: Duration = .seconds(60)
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -54,27 +53,33 @@ public enum InstanceState: Equatable, Sendable {
     private var status: ApplicationStatus? { self[case: \.running]?.status }
 
     public var next: Next? {
-        switch self {
+        let answer: Next? = status?[case: \.responding]?.elements.first(where: \.requiresAnswer).map { asking in
+            .answer(
+                id: asking.id,
+                buttons: (asking.detail?.controls ?? []).compactMap { control in
+                    switch (control.role, control.label) {
+                        case (kAXButtonRole, .some(let label)): Next.Button(id: control.id, label: label)
+                        case _: nil
+                    }
+                },
+                accept: asking.control(kAXDefaultButtonAttribute, otherwise: "OKButton"),
+                discard: asking.control(identifier: "DontSaveButton"),
+                cancel: asking.control(kAXCancelButtonAttribute, kAXCloseButtonAttribute, otherwise: "CancelButton"),
+            )
+        }
+        return switch self {
             case .running(let running):
                 switch running.status {
                     case .launching: .wait
-                    case .responding(let elements, let windows):
-                        switch (elements.first(where: \.requiresAnswer), windows.filter(\.onScreen).map(\.number)) {
-                            case (.some(let asking), _):
-                                .answer(
-                                    id: asking.id,
-                                    buttons: (asking.detail?.controls ?? []).compactMap { control in
-                                        control.role == kAXButtonRole ? control.label.map { label in Next.Button(id: control.id, label: label) } : nil
-                                    },
-                                    accept: asking.control(kAXDefaultButtonAttribute, otherwise: "OKButton"),
-                                    discard: asking.control(identifier: "DontSaveButton"),
-                                    cancel: asking.control(kAXCancelButtonAttribute, kAXCloseButtonAttribute, otherwise: "CancelButton"),
-                                )
+                    case .responding(_, let windows):
+                        switch (answer, windows.filter(\.onScreen).map(\.number)) {
+                            case (.some(let answer), _): answer
                             case (.none, let shown) where !shown.isEmpty: .capture(windows: shown)
                             case (.none, _): .drive
                         }
                     case .unresponsive(.stopped, _): .resume
-                    case .unresponsive: running.quitting ? .force : .wait
+                    case .unresponsive where running.quitting: .force
+                    case .unresponsive: .wait
                 }
             case .failed(let failure):
                 switch failure.reason {
@@ -184,7 +189,7 @@ extension NSRunningApplication {
                 continuation.yield(.exited(exit, report: nil))
                 if case .success(let ended) = exit, ended.detail.contains(.csError) || reportingSignals.contains(ended.status) {
                     continuation.yield(
-                        .exited(exit, report: await CrashReport.written(by: self.processIdentifier, since: self.launchDate ?? .distantPast, within: reportLimit, clock: clock))
+                        .exited(exit, report: await CrashReport.written(by: self.processIdentifier, since: self.launchDate ?? .distantPast, within: .seconds(60), clock: clock))
                     )
                 }
                 continuation.finish()

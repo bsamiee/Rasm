@@ -8,6 +8,7 @@ using Grasshopper2.Doc;
 using Grasshopper2.Eto.Drawing;
 using Grasshopper2.Parameters;
 using Grasshopper2.Parameters.Standard;
+using Grasshopper2.Parsing;
 using Grasshopper2.Types.Assistant;
 using Grasshopper2.Types.Linguistic;
 using Grasshopper2.UI;
@@ -55,11 +56,11 @@ public abstract class Component<TSelf> : ModularComponent, GrasshopperIO.ICustom
 
     protected sealed override void AddOutputs(ModularOutputAdder outputs) { }
 
-    public sealed override void VariableParameterMaintenance() => declared = declared.IsSome ? declared : Declared();
+    public sealed override void VariableParameterMaintenance() => declared = declared || Some(Declared());
 
-    private Option<(Ports<TSelf> Ports, Func<IDataAccess, Fin<Unit>> Solve)> Declared() =>
+    private (Ports<TSelf> Ports, Func<IDataAccess, Fin<Unit>> Solve) Declared() =>
         new Ports<TSelf>((TSelf)this) switch {
-            var ports => Some((ports, ports.Define())),
+            var ports => (ports, ports.Define()),
         };
 
     // --- [SOLVE]
@@ -261,8 +262,13 @@ public sealed class Ports<TSelf> where TSelf : Component<TSelf>, IComponentDefin
     private static Option<BarItem> Typed<T>(Preference<T> preference, T current, Nomen face) where T : notnull =>
         Optional(TypeAssistantServer.Find<T>()).Filter(static assistant => assistant.ZupportsRoundTripping).Map(assistant => {
             Pear<T> existing = Garden.Pear(current);
-            TextField field = new(icon: null, face, assistant.Format(current)) { Validator = text => assistant.Parse(constructor: null, text, existing).Success };
-            field.TextChanged += (_, text) => Some(assistant.Parse(constructor: null, text, existing)).Filter(static parsed => parsed.Success).Iter(parsed => Written(preference, parsed.Value));
+            string initial = assistant.Format(current);
+            Result<T> parsed = Result<T>.Succeed(current, initial);
+            TextField field = new(icon: null, face, initial) { Validator = _ => parsed.Success };
+            field.TextChanged += (_, text) => {
+                parsed = assistant.Parse(constructor: null, text, existing);
+                if (parsed.Success) _ = Written(preference, parsed.Value);
+            };
             return (BarItem)field;
         });
 

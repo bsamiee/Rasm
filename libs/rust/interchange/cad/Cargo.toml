@@ -19,12 +19,18 @@ test    = false
 doctest = false
 bench   = false
 
+# --- [TEST]
+[[test]]
+name = "projection"
+path = "../../../../tests/rust/interchange/cad/projection.rs"
+
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
 # --- [RUNTIME]
 [dependencies]
 nonempty-collections = { workspace = true }
 itertools            = { workspace = true }
+stacksafe            = { workspace = true }
 thiserror            = { workspace = true }
 validated            = { workspace = true }
 derive-where         = { workspace = true }

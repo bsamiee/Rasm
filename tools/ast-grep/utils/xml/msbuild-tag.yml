@@ -1,5 +1,0 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: msbuild-tag
-language: xml
-rule:
-    kind: STag, EmptyElemTag

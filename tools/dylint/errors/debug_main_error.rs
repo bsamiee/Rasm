@@ -9,6 +9,8 @@ use crate::{derives, is_error, result_parts, signature};
 
 lint!(DEBUG_MAIN_ERROR: "`main` functions returning a `Result` error that `Termination` prints through a derived `Debug`");
 
+// --- [COMPOSITION] ---------------------------------------------------------------------
+
 impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_crate(&mut self, cx: &LateContext<'tcx>) {
         if let Some((entry, _)) = cx.tcx.entry_fn(())

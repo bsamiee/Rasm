@@ -1,43 +1,10 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-duration-unit-factor
-language: rust
+language: rustlang
 severity: error
 rule:
     kind: 'call_expression, binary_expression'
     pattern: $FACTOR
-    matches:
-        rust-duration-scaling:
-            PATH: {pattern: $PATH}
-            SECS: {pattern: $SECS}
-            MILLIS: {pattern: $MILLIS}
-            MICROS: {pattern: $MICROS}
-            NANOS: {pattern: $NANOS}
-            ARG: {pattern: $ARG}
-            D: {pattern: $D}
-            READ: {pattern: $READ}
-            THOUSAND: {pattern: $THOUSAND}
-transform:
-    HEAD: {replace: {source: $PATH, replace: '^([\s\S]+)$', by: '$1::'}}
-    SECS_N: replace($SECS, replace='_|u64$', by='')
-    SECS_A: replace($SECS_N, replace='^60$', by='from_mins')
-    SECS_C: replace($SECS_A, replace='^3600$', by='from_hours')
-    MILLIS_N: replace($MILLIS, replace='_|u64$', by='')
-    MILLIS_A: replace($MILLIS_N, replace='^1000$', by='from_secs')
-    MILLIS_B: replace($MILLIS_A, replace='^60000$', by='from_mins')
-    MILLIS_C: replace($MILLIS_B, replace='^3600000$', by='from_hours')
-    MICROS_N: replace($MICROS, replace='_|u64$', by='')
-    MICROS_A: replace($MICROS_N, replace='^1000$', by='from_millis')
-    MICROS_B: replace($MICROS_A, replace='^1000000$', by='from_secs')
-    MICROS_D: replace($MICROS_B, replace='^60000000$', by='from_mins')
-    MICROS_C: replace($MICROS_D, replace='^3600000000$', by='from_hours')
-    NANOS_N: replace($NANOS, replace='_|u64$', by='')
-    NANOS_A: replace($NANOS_N, replace='^1000$', by='from_micros')
-    NANOS_B: replace($NANOS_A, replace='^1000000$', by='from_millis')
-    NANOS_D: replace($NANOS_B, replace='^1000000000$', by='from_secs')
-    NANOS_E: replace($NANOS_D, replace='^60000000000$', by='from_mins')
-    NANOS_C: replace($NANOS_E, replace='^3600000000000$', by='from_hours')
-    ARGUMENT: {replace: {source: $ARG, replace: '^([\s\S]+)$', by: '($1)'}}
-    MILLIS_READ: {replace: {source: $READ, replace: '^as_secs_(f32|f64)$', by: '.as_millis_$1()'}}
-fix: $HEAD$SECS_C$MILLIS_C$MICROS_C$NANOS_C$ARGUMENT$D$MILLIS_READ
+    matches: rust-duration-scaling
 message: '`$FACTOR` converts a duration unit by a literal factor'
 note: 'Call the count''s unit `Duration` constructor, or `as_millis_f64()` (`#![feature(duration_millis_float)]`) for `as_secs_f64() * 1000.0`'

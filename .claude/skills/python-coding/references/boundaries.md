@@ -58,7 +58,7 @@ def rewritten(target: Path, data: bytes, /) -> None:
 
 ## [04]-[PLANS]
 
-Changes to an external target are a plan a pure function derives from wanted and live state, and the boundary applies each change once. `_links` reads a folder's links, `edits(live, wanted)` keys each changed link to its `(live, wanted)` sources, and `relinked` applies one change:
+Changes to an external target derive from wanted and live state, and the boundary applies each change once:
 
 ```python
 def _links(folder: Path, /) -> frozendict[Path, Path]:
@@ -66,19 +66,15 @@ def _links(folder: Path, /) -> frozendict[Path, Path]:
 
 
 def reconciled(wanted: Mapping[Path, Path], live: Mapping[Path, Path], /) -> Outcome[tuple[Path, ...]]:
-    def relinked(link: Path, sides: tuple[Path | None, Path | None], /) -> Outcome[Path]:
-        match sides:
-            case (_, None):
-                return changed(Path.unlink, link)
-            case (None, source):
-                return changed(Path.symlink_to, link, source)
-            case (_, source):
-                return changed(Path.unlink, link).bind(lambda _: changed(Path.symlink_to, link, source))
+    def relinked(link: Path, sides: tuple[Option[Path], Option[Path]], /) -> Outcome[Path]:
+        before, after = sides
+        removed: Outcome[Path] = changed(Path.unlink, link) if before.is_some() else Ok(link)
+        return after.map(lambda source: removed.bind(lambda _: changed(Path.symlink_to, link, source))).default_value(removed)
 
     return accumulated(starmap(relinked, edits(live, wanted).items()))
 ```
 
-`read(_links, folder).bind(partial(reconciled, wanted))` reads live state once and applies its plan. `read(_links, folder).map(lambda live: edits(live, wanted))` is the dry run, and a missing folder fails before any change. A failed unlink skips its relink. `entry.info.is_symlink()` reads the file type from the `iterdir` scan, `entry.is_symlink()` runs one `lstat` per entry.
+`read(_links, folder).bind(partial(reconciled, wanted))` reads live state once and applies its plan. `read(_links, folder).map(lambda live: edits(live, wanted))` returns a dry run. Failed reads stop all changes, failed unlinks stop their relink, and `entry.info.is_symlink()` reuses directory-scan metadata.
 
 ## [05]-[ENTRY_POINTS]
 

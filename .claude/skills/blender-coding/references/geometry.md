@@ -47,13 +47,13 @@ Per-element geometry data sits in attributes, each built-in layer existing once 
 - Sculpt masks and face sets are `.sculpt_mask` and `.sculpt_face_set`
 - Bevel weights and creases are `bevel_weight_vert`, `bevel_weight_edge`, `crease_vert`, and `crease_edge`
 - `normals_domain` names the domain of complete normals, `corner_normals` reading per corner and `normals_split_custom_set` writing custom ones
-- `calc_loop_triangles()` fills `loop_triangles` key `vertices` with 3 `int32` per triangle and `loop_triangle_polygons` key `value` with its face
+- `loop_triangles` reads ensure tessellation, `vertices` holding 3 `int32` per triangle and `loop_triangle_polygons.value` its face
 - Vertex groups sit outside attributes, weights reading through `MeshVertex.groups` and names stored on the mesh for every sharing object
 - `VertexGroup.remove` takes indices below `len(mesh.vertices)`, a larger index crashing Blender
 
 ## [04]-[BUFFERS]
 
-`foreach_get` and `foreach_set` take one flat buffer of `len(collection)` times member width, others raising `RuntimeError("internal error setting the array")`. Attribute data and `Image.pixels` copy as one memcpy when the buffer's dtype is the stored type, and every other member or dtype converts per element. Dtype and shape derive from the item class's RNA, enum members reading each item's `value`:
+Collection `foreach_get` and `foreach_set` take a flat sequence of `len(collection)` times member width. RNA raw access copies matching types as one buffer for contiguous storage and per item for strided members, converting other values per element. Dtype and shape derive from item-class RNA, enum members reading each item's `value`:
 
 ```python
 type Buffer = NDArray[np.bool | np.int32 | np.float32]
@@ -78,6 +78,8 @@ def column[T: Struct](items: Elements[T], kind: type[T], member: str, /) -> Buff
 ```
 
 `column(scene.objects, bpy.types.Object, "matrix_world")` returns `(objects, 4, 4)` in stored column order. `column(scene.objects, bpy.types.Object, "type")` returns each type `value`, and string or pointer members raise `KeyError`.
+
+Property-array bulk access supports int/float storage with matching buffer format and item width (`float32` for floats); sequences convert per element. `foreach_set` omits RNA updates; native index and slice writes enforce editability and run updates. Raw matrix nesting follows RNA storage order, unlike Mathutils row indexing.
 
 Buffers follow host storage:
 - Topology is `.corner_vert` and `.corner_edge` key `value` per corner, `.edge_verts` key `value` 2 per edge, `polygons` key `loop_start` face offsets
@@ -120,10 +122,10 @@ def surface(source: bpy.types.Object, depsgraph: bpy.types.Depsgraph, /) -> Opti
 
 `to_mesh()` returns `None` for geometry evaluating to no mesh (an empty curve) and raises `RuntimeError` on a camera, empty, or point cloud.
 
-Construction sizes each domain from its buffer to fit each `foreach_set`, and `update()` derives edges before `validate()` judges topology:
+Construction sizes each domain from its topology buffers, writes their values, and lets `update()` derive edges:
 
 ```python
-def built(name: str, positions: NDArray[np.float32], corners: NDArray[np.int32], starts: NDArray[np.int32], /) -> Result[bpy.types.Mesh, bpy.types.Mesh]:
+def built(name: str, positions: NDArray[np.float32], corners: NDArray[np.int32], starts: NDArray[np.int32], /) -> bpy.types.Mesh:
     mesh: bpy.types.Mesh = bpy.data.meshes.new(name)
     mesh.vertices.add(len(positions))
     mesh.loops.add(len(corners))
@@ -134,10 +136,8 @@ def built(name: str, positions: NDArray[np.float32], corners: NDArray[np.int32],
     cornered.data.foreach_set("value", corners)
     mesh.polygons.foreach_set("loop_start", starts)
     mesh.update()
-    return Ok(mesh).filter_with(lambda held: not held.validate(), identity)
+    return mesh
 ```
-
-`validate()` returns `True` after repairs dropping faces with an out-of-range corner or offset, the `Error` holding the repaired mesh for a `WARNING` report. `validate()` before `update()` reads missing edges as damage and returns `True` on valid input.
 
 ## [05]-[ANIMATION]
 

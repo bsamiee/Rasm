@@ -1,13 +1,12 @@
 """Signal, structural, and perceptual comparison of written image planes."""
 
-from collections.abc import Callable, Iterable, Mapping
+from collections.abc import Iterable, Mapping
 from enum import auto, IntEnum
 import math
-import operator
 from types import MappingProxyType
 from typing import ClassVar
 
-from expression import Error, Nothing, Ok, Option, Some
+from expression import Option, Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -16,7 +15,7 @@ import PyOpenColorIO
 from skimage.metrics import normalized_root_mse, structural_similarity
 
 from blender.imaging.files.buffers import checked, pixels
-from blender.records.faults import Fault, Outcome, paired, Reason
+from blender.records.faults import Error, Fault, Nothing, Ok, Outcome, paired, Reason
 from blender.records.fields import Frozen, NonNegative
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -42,10 +41,9 @@ class Metric(IntEnum):
     FLIP = 6
     SSIM = 7
 
-    @property
-    def holds(self) -> Callable[[float, float], bool]:
+    def holds(self, value: float, threshold: float) -> bool:
         """Whether a measure meets a threshold, higher passing for similarity and lower for error."""
-        return operator.ge if self in {Metric.PSNR, Metric.SSIM} else operator.le
+        return value >= threshold if self in {Metric.PSNR, Metric.SSIM} else value <= threshold
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -82,7 +80,7 @@ class Comparison(Frozen, frozen=True, kw_only=True, eq=False):
     def of(cls, reference: npt.NDArray[np.float32], test: npt.NDArray[np.float32], domain: PyOpenColorIO.ReferenceSpaceType, *, data_range: float) -> Outcome["Comparison"]:
         """Compares equal-shape planes, `data_range` as SSIM input range."""
         if reference.shape != test.shape:
-            return Error(Fault.of(Reason.OUTSIDE, cls.__name__, str(test.shape), member=f"test planes of the reference shape {reference.shape}"))
+            return Error(Fault.of(Reason.OUTSIDE, cls.__name__, test.shape, member=f"test planes of the reference shape {reference.shape}"))
         first, second = OpenImageIO.ImageBuf(reference[..., :3]), OpenImageIO.ImageBuf(test[..., :3])
 
         @np.errstate(divide="ignore", invalid="ignore")

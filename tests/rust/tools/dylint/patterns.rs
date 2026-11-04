@@ -1,5 +1,6 @@
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+snapshots! {
 fn rest_pattern_workspace_field(found: &str) {
     insta::assert_snapshot!(found, @"
     warning: `..` covers `Window` fields the pattern leaves unnamed
@@ -38,11 +39,45 @@ fn rest_pattern_workspace_field(found: &str) {
        |                             |
        |                             help: name each field `..` covers as `field: _`: `scope: _,`
     applicability MachineApplicable: name each field `..` covers as `field: _`
+
+    warning: `..` covers `Fields` fields the pattern leaves unnamed
+      --> tools/dylint/examples/rest_pattern_workspace_field.rs:97:9
+       |
+    97 |     let Fields { kept, .. } = fields;
+       |         ^^^^^^^^^^^^^^^--^^
+       |                        |
+       |                        help: name each field `..` covers as `field: _`: `r#type: _`
+    applicability MachineApplicable: name each field `..` covers as `field: _`
     ");
 }
 
 fn wildcard_workspace_enum_match_arm(found: &str) {
     insta::assert_snapshot!(found, @"
+    warning: catch-all pattern covers each `LocalChoice` variant the other arms leave unnamed
+      --> tools/dylint/examples/wildcard_non_exhaustive.rs:20:9
+       |
+    20 |         _ => 0,
+       |         ^
+       |
+       = help: name each variant in a `match`, join variants that share a branch with an or-pattern, and keep a binding with `name @ (A | B)`
+       = note: `#[warn(wildcard_workspace_enum_match_arm)]` on by default
+
+    warning: catch-all pattern covers each `Inner` variant the other arms leave unnamed
+      --> tools/dylint/examples/wildcard_non_exhaustive.rs:44:22
+       |
+    44 |         Outer::Known(_) => 2,
+       |                      ^
+       |
+       = help: name each variant in a `match`, join variants that share a branch with an or-pattern, and keep a binding with `name @ (A | B)`
+
+    warning: catch-all pattern covers each `Inner` variant the other arms leave unnamed
+      --> tools/dylint/examples/wildcard_non_exhaustive.rs:52:13
+       |
+    52 |         (_, _) => 0,
+       |             ^
+       |
+       = help: name each variant in a `match`, join variants that share a branch with an or-pattern, and keep a binding with `name @ (A | B)`
+
     warning: catch-all pattern covers each `Signal` variant the other arms leave unnamed
       --> tools/dylint/examples/wildcard_workspace_enum_match_arm.rs:25:9
        |
@@ -240,9 +275,15 @@ fn wildcard_workspace_enum_match_arm(found: &str) {
         |                                       ^^^^^^^^^^^^^^^^^^^^^^
         |
         = help: name each variant in a `match`, join variants that share a branch with an or-pattern, and keep a binding with `name @ (A | B)`
+
+    warning: `matches!` sends each `Signal` variant it leaves unnamed to `false`
+       --> tools/dylint/examples/wildcard_workspace_enum_match_arm.rs:227:52
+        |
+    227 | const fn tested_nested(command: Command) -> bool { matches!(command, Command::Send { signal: Signal::Start | Signal::Pause }) }
+        |                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        |
+        = help: name each variant in a `match`, join variants that share a branch with an or-pattern, and keep a binding with `name @ (A | B)`
     ");
 }
 
-// --- [COMPOSITION] ---------------------------------------------------------------------
-
-snapshots!(rest_pattern_workspace_field, wildcard_workspace_enum_match_arm);
+}

@@ -13,17 +13,15 @@ public sealed record RenderSettingsScope(RenderSettings Settings, LengthUnit Uni
 
 [Union]
 public abstract partial record RenderSettingsSource {
-    private RenderSettingsSource(Option<RhinoDoc> document) => Document = document;
+    public Option<RhinoDoc> Document => Switch(live: static live => Some(live.Doc), section: static section => Some(section.Doc), archive: static _ => None, detached: static _ => None);
 
-    public Option<RhinoDoc> Document { get; }
+    public sealed record Live(RhinoDoc Doc) : RenderSettingsSource;
 
-    public sealed record Live(RhinoDoc Doc) : RenderSettingsSource(Some(Doc));
+    public sealed record Section(RhinoDoc Doc, ICollapsibleSection Host) : RenderSettingsSource;
 
-    public sealed record Section(RhinoDoc Doc, ICollapsibleSection Host) : RenderSettingsSource(Some(Doc));
+    public sealed record Archive(File3dm File) : RenderSettingsSource;
 
-    public sealed record Archive(File3dm File) : RenderSettingsSource(None);
-
-    public sealed record Detached(RenderSettingsScope Scope) : RenderSettingsSource(None);
+    public sealed record Detached(RenderSettingsScope Scope) : RenderSettingsSource;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -55,6 +53,16 @@ public static class RenderSettingsSources {
 
     public static IO<Unit> Replace(RhinoDoc doc, RenderSettings replacement) =>
         Commits.Commit(doc, nameof(RhinoDoc.RenderSettings), new RedrawPolicy.Silent(), Committed(doc, replacement)).Map(static _ => unit);
+
+    public static IO<RenderSettings> Snapshot(RhinoDoc doc) => Opened(doc, static scope => IO.lift(scope.Settings.Duplicate));
+
+    public static IO<T> Within<T>(RhinoDoc doc, RenderSettings replacement, IO<T> body) =>
+        (from prior in use(
+             Snapshot(doc),
+             snapshot => Replace(doc, snapshot).Finally(IO.lift(snapshot.Dispose)))
+         from replaced in Replace(doc, replacement)
+         from value in body
+         select value).Bracket();
 
     private static IO<T> Opened<T>(RhinoDoc doc, Func<RenderSettingsScope, IO<T>> body) =>
         use(() => doc.RenderSettings).Bind(settings => body(new RenderSettingsScope(settings, doc.ModelUnits))).Bracket();

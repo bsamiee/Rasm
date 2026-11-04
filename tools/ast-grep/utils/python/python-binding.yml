@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: python-binding
-language: python
+language: pythonlang
 arguments: [name]
 rule:
     any:
@@ -35,12 +35,20 @@ rule:
         - kind: named_expression
           has: {field: name, matches: name}
         - kind: as_pattern
-          has: {field: alias, has: {stopBy: end, kind: identifier, matches: name}}
+          has: {field: alias, has: {stopBy: {kind: 'attribute, subscript'}, kind: identifier, matches: name}}
         - kind: identifier
           matches: name
           inside: {kind: as_pattern_target, stopBy: {kind: 'as_pattern_target, attribute, subscript, call'}}
         - kind: function_definition, class_definition
           has: {field: name, matches: name}
+        - kind: type_alias_statement
+          has:
+              field: left
+              any:
+                  - has: {kind: identifier, matches: name}
+                  - has: {kind: generic_type, has: {kind: identifier, matches: name}}
+        - kind: delete_statement
+          has: {stopBy: {kind: 'attribute, subscript'}, kind: identifier, matches: name}
         - kind: identifier
           matches: name
           inside:

@@ -1,9 +1,9 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: rust-single-statement
-language: rust
+language: rustlang
 arguments: [first]
 rule:
     kind: block
     all:
-        - has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, matches: first}
-        - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}
+        - not: {has: {matches: rust-statement, follows: {stopBy: end, matches: rust-statement}}}
+        - has: {all: [{matches: rust-statement}, {matches: first}]}

@@ -11,7 +11,7 @@ use parry3d_f64::{
     shape::Triangle,
 };
 use rasm_linework::{EdgeKind, Tolerance, Visibility};
-use rasm_proximity::{Distance, DistanceError, rays};
+use rasm_proximity::{Assembly, Distance, DistanceError, rays};
 use rayon::iter::{Either, IndexedParallelIterator as _, IntoParallelIterator as _, IntoParallelRefIterator as _, ParallelIterator as _};
 
 use crate::{Feature, Frame, Prepared, Scene, ViewsError, clip, depth, picture, ray};
@@ -37,7 +37,7 @@ pub(crate) struct Piece {
 pub(crate) fn lines(frame: &Frame, scene: &Scene, features: Vec<Feature>, tolerance: Tolerance) -> Result<Lines, ViewsError> {
     let tolerance = tolerance.into_inner();
     let squared = tolerance.powi(2);
-    let assembly: &Bvh = scene.assembly.as_ref();
+    let assembly: &Bvh = Assembly::as_ref(&scene.assembly);
     let cell = |point: Point| (point.to_vec2() / (tolerance * FRAC_1_SQRT_2)).round();
     let margins = |point: &Point3<f64>| {
         let homogeneous = clip(frame, point);
@@ -90,7 +90,7 @@ pub(crate) fn lines(frame: &Frame, scene: &Scene, features: Vec<Feature>, tolera
         .into_iter()
         .map(|(left, right)| cmp::minmax(left, right))
         .chain(assembly.leaves(|node| overlapping(node, node)).map(|leaf| [leaf, leaf]))
-        .filter_map(|[left, right]| Some((left, &scene.bodies.get(left as usize)?.mesh, right, &scene.bodies.get(right as usize)?.mesh)))
+        .map(|[left, right]| (left, &scene.bodies[left as usize].mesh, right, &scene.bodies[right as usize].mesh))
         .collect::<Vec<_>>()
         .into_par_iter()
         .flat_map_iter(|(left, near, right, far)| {
@@ -109,7 +109,7 @@ pub(crate) fn lines(frame: &Frame, scene: &Scene, features: Vec<Feature>, tolera
             let along = move |node: &BvhNode| node.aabb().intersects_local_ray(&probe, length);
             let piercings = assembly
                 .leaves(along)
-                .filter_map(|leaf| scene.bodies.get(leaf as usize))
+                .map(|leaf| &scene.bodies[leaf as usize])
                 .flat_map(|Prepared { body: _, mesh, sources: _, surface: _ }| mesh.bvh().leaves(along).filter_map(|face| mesh.triangle(face).cast_local_ray(&probe, length, false)))
                 .filter(|&time| tolerance < time && time < length - tolerance)
                 .sorted_by(f64::total_cmp)
@@ -160,12 +160,12 @@ pub(crate) fn lines(frame: &Frame, scene: &Scene, features: Vec<Feature>, tolera
                 .leaves(move |node| node.aabb().intersects(&reach))
                 .map(|leaf| leaf as usize)
                 .filter(move |&other| other != index && (!contour(feature) || index < other))
-                .filter_map(move |other| segments.get(other).map(|crossed| (other, crossed)))
+                .map(move |other| (other, &segments[other]))
                 .flat_map(move |(other, crossed @ (_, _, over))| {
-                    let node = |point: Point| Some((point, placed(index, line, point)?, placed(other, over, point)?));
-                    let contacts = [line.p0, line.p1, over.p0, over.p1].into_iter().filter_map(node).collect::<Vec<_>>();
-                    let nodes = if contacts.is_empty() { line.crossing_point(*over).and_then(node).into_iter().collect() } else { contacts };
-                    nodes.into_iter().filter_map(move |(point, (near, here), (far, there))| match (here, there) {
+                    let node = move |point: Point| Some((point, placed(index, line, point)?, placed(other, over, point)?));
+                    let mut contacts = [line.p0, line.p1, over.p0, over.p1].into_iter().filter_map(node).peekable();
+                    let crossing = if contacts.peek().is_none() { line.crossing_point(*over).and_then(node) } else { None };
+                    contacts.chain(crossing).filter_map(move |(point, (near, here), (far, there))| match (here, there) {
                         (None, None) => {
                             let [own, opposite] = [depth(frame, &position(segment, near)), depth(frame, &position(crossed, far))];
                             (opposite <= own + tolerance || (contour(feature) && own <= opposite + tolerance)).then_some(Either::Right(([(index, near), (other, far)], point)))

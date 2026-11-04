@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-untraced-trailing-step
+language: tsxlang
+severity: error
+rule:
+    kind: call_expression
+    all:
+        - has: {field: function, kind: call_expression, has: {field: function, matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^fn$'}}}}}
+        - has: {field: arguments, has: {nthChild: {position: 1, reverse: true}, kind: member_expression, pattern: $STEP, has: {field: object, matches: {effect-module: {name: {regex: '\b(Stream|Layer)$'}}}}}}
+message: '`$STEP` ends an `Effect.fn` pipeline with a value that is no effect, dropping its span'
+note: 'Compose `flow(Effect.fn(<name>)(<body>), <step>)`'

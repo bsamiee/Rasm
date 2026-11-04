@@ -1,8 +1,12 @@
 import { Effect, Schema } from 'effect';
 import { Expression, Name, Reads } from '#/cases';
-import { HarnessError } from '#/error';
+import { HarnessError } from '#/harness-error';
 import type { Any } from '#/session';
 import { JsonObject } from '#/values';
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const RESULTS = '.results.json';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -84,6 +88,7 @@ const deciding = <E extends Schema.Top>(engine: E) => ({
     identifier: Schema.NonEmptyString.annotate({ description: 'Bundle identifier of the installation' }),
     version: Schema.NonEmptyString.annotate({ description: 'Version the installation reports' }),
     engine,
+    environment: Schema.optionalKey(Schema.Record(Schema.String, Schema.String).annotate({ description: 'Environment supplied by the caller that decides startup behavior' })),
     host: Schema.optionalKey(Schema.Json.annotate({ description: 'Install state deciding answers beside the version' })),
 });
 const hostCase = <S extends Schema.Struct.Fields>(shared: S) =>
@@ -116,4 +121,4 @@ const results = (engine: Any, outcome: Schema.Codec<typeof Outcome.Type, unknown
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Answer, Compare, deciding, Failed, Halted, hostCase, Outcome, Records, recorded, reply, results, Surveying };
+export { Answer, Compare, deciding, Failed, Halted, hostCase, Outcome, RESULTS, Records, recorded, reply, results, Surveying };

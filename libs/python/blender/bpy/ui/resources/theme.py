@@ -162,17 +162,17 @@ class Theme(msgspec.Struct, frozen=True, kw_only=True):
             case _, "WINDOW" | "PREVIEW":
                 stored = space.gradients.high_gradient if isinstance(space, bpy.types.ThemeSpaceGradient) else space.back
             case _, "HEADER" | "FOOTER" | "TOOL_HEADER":
-                stored = space.header
+                stored = space.header  # ty: ignore[unsound-assignment]
             case _, "CHANNELS":
                 stored = theme.regions.channels.back
             case _, "NAVIGATION_BAR":
-                stored = theme.regions.sidebars.tab_back
+                stored = theme.regions.sidebars.tab_back  # ty: ignore[unsound-assignment]
             case _, "ASSET_SHELF":
-                stored = theme.regions.asset_shelf.back
+                stored = theme.regions.asset_shelf.back  # ty: ignore[unsound-assignment]
             case _, "ASSET_SHELF_HEADER":
-                stored = theme.regions.asset_shelf.header_back
+                stored = theme.regions.asset_shelf.header_back  # ty: ignore[unsound-assignment]
             case _:
-                stored = theme.regions.sidebars.back
+                stored = theme.regions.sidebars.back  # ty: ignore[unsound-assignment]
         red, green, blue, alpha = color(stored)
         return (red, green, blue, alpha if overlaps(self.preferences, self.space, self.region) else 1.0)
 

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-file-url-by-hand
-language: tsx
+language: tsxlang
 severity: error
 utils:
     pathname:

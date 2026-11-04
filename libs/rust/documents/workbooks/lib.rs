@@ -1,9 +1,9 @@
 #![feature(cmp_minmax, iterator_try_collect)]
 
-use core::iter;
+use core::{iter, num::TryFromIntError};
 
 use calamine::{CellErrorType, Data, DataType as _, Range};
-use ironcalc::error;
+use ironcalc::{base::expressions::token::Error, error::XlsxError};
 use jiff::{SignedDuration, civil};
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -43,15 +43,17 @@ pub enum WorkbooksError {
     #[error("record {index} refused")]
     Record { index: usize, source: calamine::DeError },
     #[error("worksheet cell at row {}, column {} refused", cell.0, cell.1)]
-    Write { cell: (rust_xlsxwriter::RowNum, rust_xlsxwriter::ColNum), source: rust_xlsxwriter::XlsxError },
+    Write { cell: (u64, u64), source: rust_xlsxwriter::XlsxError },
+    #[error("worksheet cell at row {}, column {} exceeds supported coordinates", cell.0, cell.1)]
+    Coordinate { cell: (u64, u64), source: TryFromIntError },
     #[error("template name {name} {refusal}")]
     Template { name: String, refusal: Refusal },
     #[error(transparent)]
     Workbook(#[from] umya_spreadsheet::XlsxError),
-    #[error("recalculated result at sheet {sheet}, row {}, column {} has no umya error kind", cell.0, cell.1)]
-    Cached { sheet: u32, cell: (u32, u32), source: umya_spreadsheet::XlsxError },
+    #[error("recalculated {kind} at sheet {sheet}, row {}, column {} has no umya error kind", cell.0, cell.1)]
+    Cached { sheet: u32, cell: (u32, u32), kind: Error },
     #[error(transparent)]
-    Load(#[from] error::XlsxError),
+    Load(#[from] XlsxError),
     #[error("ironcalc model refused: {0}")]
     Model(String),
     #[error("ODS cell at row {}, column {} refused", cell.0, cell.1)]
@@ -69,16 +71,8 @@ pub fn value(at: (u32, u32), cell: &Data) -> Result<Value<'_>, WorkbooksError> {
         Data::DateTime(serial) if serial.is_duration() => SignedDuration::try_from_secs_f64(serial.as_f64() * SignedDuration::from_hours(24).as_secs_f64()).map(Value::Duration),
         Data::DateTime(serial) => {
             let (year, month, day, hour, minute, second, milli) = serial.to_ymd_hms_milli();
-            civil::DateTime::new(
-                year.cast_signed(),
-                month.cast_signed(),
-                day.cast_signed(),
-                hour.cast_signed(),
-                minute.cast_signed(),
-                second.cast_signed(),
-                i32::from(milli).strict_mul(1_000_000),
-            )
-            .map(Value::DateTime)
+            civil::DateTime::new(year.cast_signed(), month.cast_signed(), day.cast_signed(), hour.cast_signed(), minute.cast_signed(), second.cast_signed(), i32::from(milli).strict_mul(1_000_000))
+                .map(Value::DateTime)
         }
         Data::DateTimeIso(text) => text.parse().map(Value::DateTime),
         Data::DurationIso(text) => text.parse().map(Value::Duration),
@@ -90,12 +84,13 @@ pub fn value(at: (u32, u32), cell: &Data) -> Result<Value<'_>, WorkbooksError> {
 
 fn cells(block: &Range<Data>) -> impl Iterator<Item = ((u32, u32), (u32, u32), &Data)> {
     block.start().zip(block.end()).into_iter().flat_map(|((top, left), (bottom, right))| {
-        iter::zip(block.rows(), top..=bottom).flat_map(move |(row_cells, row)| iter::zip(row_cells, left..=right).map(move |(cell, column)| ((row.strict_sub(top), column.strict_sub(left)), (row, column), cell)))
+        iter::zip(block.rows(), top..=bottom)
+            .flat_map(move |(row_cells, row)| iter::zip(row_cells, left..=right).map(move |(cell, column)| ((row.strict_sub(top), column.strict_sub(left)), (row, column), cell)))
     })
 }
 
-fn values(block: &Range<Data>) -> Result<Vec<(u32, u32, Value<'_>)>, WorkbooksError> {
-    cells(block).filter(|&(_, _, cell)| !cell.is_empty()).map(|((row, column), at, cell)| value(at, cell).map(|value| (row, column, value))).collect()
+fn values(block: &Range<Data>) -> impl Iterator<Item = Result<((u32, u32), Value<'_>), WorkbooksError>> {
+    cells(block).filter(|&(_, _, cell)| !cell.is_empty()).map(|(offset, at, cell)| value(at, cell).map(|value| (offset, value)))
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

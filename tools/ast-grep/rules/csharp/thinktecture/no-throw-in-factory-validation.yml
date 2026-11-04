@@ -12,22 +12,6 @@ utils:
         all:
             - has: {field: function, has: {field: name, regex: '^Create$'}}
             - inside: {kind: assignment_expression, field: right, has: {field: left, regex: '^validationError$'}}
-    relay:
-        matches:
-            csharp-file-method-call:
-                declaration:
-                    not: {matches: thinktecture-factory-validation}
-                    has:
-                        stopBy: end
-                        any:
-                            - kind: throw_statement, throw_expression
-                            - kind: invocation_expression
-                              has:
-                                field: function
-                                any:
-                                    - matches: throw-callee
-                                    - matches: csharp-throwing-factory
-                                      not: {has: {field: name, regex: '^Create(<.+>)?$'}}
     string-method:
         regex: '^(Trim|TrimStart|TrimEnd|TrimOrNullify|ToUpper|ToUpperInvariant|ToLower|ToLowerInvariant|Normalize|Replace|ReplaceLineEndings|Substring|Remove|Insert|PadLeft|PadRight)$'
     key-path:
@@ -36,6 +20,7 @@ utils:
               pattern: $KEY
               inside:
                 stopBy: end
+                kind: method_declaration
                 matches: thinktecture-factory-validation
                 has: {field: parameters, has: {kind: parameter, all: [{has: {field: name, pattern: $KEY}}, {has: {field: type, regex: '^string\??$'}}]}}
             - matches: {csharp-block-local: {declarator: {has: {nthChild: 2, matches: key-path}}}}
@@ -71,7 +56,7 @@ rule:
     kind: throw_statement, throw_expression, invocation_expression, cast_expression
     pattern: $THROW
     all:
-        - inside: {stopBy: end, matches: thinktecture-factory-validation}
+        - inside: {stopBy: end, kind: method_declaration, matches: thinktecture-factory-validation}
         - any:
             - kind: throw_statement, throw_expression
             - kind: invocation_expression
@@ -81,7 +66,6 @@ rule:
                     - matches: throw-callee
                     - matches: csharp-throwing-factory
               not: {matches: error-factory}
-            - matches: relay
             - kind: cast_expression
               all:
                 - has: {field: type, kind: 'identifier, generic_name, qualified_name'}

@@ -1,6 +1,6 @@
-import { AfterEffects } from '@rasm/aftereffects/contract';
+import { AfterEffects } from '@rasm/aftereffects';
+import { link } from '@rasm/atelier';
 import { cep } from '../../../../../vite.shared.ts';
-import { link } from '../../link.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

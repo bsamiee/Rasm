@@ -49,6 +49,7 @@
 |  [08]   | `difft`     | `difft <before> <after>` for a syntax-tree diff, `GIT_EXTERNAL_DIFF=difft git diff` over a change           |
 |  [09]   | `hyperfine` | `hyperfine -r <runs> '<command>'` times commands under the same controls, `-N` skips the shell              |
 |  [10]   | `duckdb`    | `duckdb -c '<sql>'` queries CSV, Parquet, and JSON files in place, `-json` for machine output               |
+|  [11]   | `outline`   | `ast-grep outline <path>` lists a path's declarations before a read, `--items exports` its public API       |
 
 ## [02]-[IMPLEMENTATION_STANDARDS]
 

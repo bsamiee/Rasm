@@ -24,7 +24,7 @@ public sealed record GradientEditor(ColorRamp Value, Func<Edit<ColorRamp>, IO<Un
         new Handles<ColorRamp>(Value, Stops, Edited) {
             Selection = Selection,
             Selected = Selected,
-            Handle = (key, at) => new View.Pin(at, new View.Box { Role = Role.Stop, Conditions = Selection.Holds(key) ? [Condition.Selected] : [] }) { Align = UnitPoint.Center },
+            Handle = (key, at) => new View.Pin(at, new View.Box { Role = Roles.Stop, Conditions = Selection.Holds(key) ? [Condition.Selected] : [] }) { Align = UnitPoint.Center },
         }.Drawn(Track, [Legend.Strip]) with {
             Sheet = Legend.Scaled(Value),
         };
@@ -34,11 +34,12 @@ public sealed record GradientEditor(ColorRamp Value, Func<Edit<ColorRamp>, IO<Un
             static ramp => ramp.Stops,
             static stop => new Vector2((float)stop.At, 0.5f),
             static (stop, to) => Fraction.Validated(to.X).ToOption().Map(at => stop with { At = at }),
-            static (ramp, stops) => stops.IsEmpty ? None : Some(ramp.WithStops(stops)),
+            static (ramp, stops) => stops.IsEmpty ? None : Some((ramp.WithStops(stops.Map(static held => held.Item)), stops.Map(static held => held.Key))),
             static (ramp, at) =>
                 from position in Fraction.Validated(at.X).ToOption()
                 from color in ramp.At(position)
-                select new Stop(color, position));
+                select new Stop(color, position),
+            order: Some<Comparison<Stop>>(static (left, right) => left.At.CompareTo(right.At)));
 }
 
 public sealed record CurveEditor(PlotPlane.Cartesian Plane, Seq<Vector2> Points, Func<float, float> Fit, Func<Edit<Seq<Vector2>>, IO<Unit>> Edited) {
@@ -52,12 +53,12 @@ public sealed record CurveEditor(PlotPlane.Cartesian Plane, Seq<Vector2> Points,
     public View Drawn =>
         new Handles<Seq<Vector2>>(Points, Knots, Edited) { Selection = Selection, Selected = Selected }.Drawn(Plane,
             Background
-            + Underlay.Map(underlay => (View)new View.Mark(new Figure.Curve(Plane.X.Domain, underlay) { Fill = new Floor.Baseline(0f) }) { Role = Role.Trace }).ToSeq()
-            + Seq<View>(new View.Mark(new Figure.Grid(PhysicalAxis.Horizontal)) { Role = Role.Grid }, new View.Mark(new Figure.Grid(PhysicalAxis.Vertical)) { Role = Role.Grid })
-            + (Plane.X == Plane.Y ? Seq<View>(new View.Mark(new Figure.Path([new Vector2(Plane.X.Domain.From), new Vector2(Plane.X.Domain.To)])) { Role = Role.GridFine }) : [])
-            + References.Map(reference => (View)new View.Mark(new Figure.Graph(Plane.X.Domain, reference)) { Role = Role.Trace })
-            + Seq<View>(new View.Mark(new Figure.Graph(Plane.X.Domain, Fit)) { Role = Role.Series, Series = Series })) with {
-            Role = Role.Well,
+            + Underlay.Map(underlay => (View)new View.Mark(new Figure.Curve(Plane.X.Domain, underlay) { Fill = new Floor.Baseline(0f) }) { Role = Roles.Trace }).ToSeq()
+            + Seq<View>(new View.Mark(new Figure.Grid(PhysicalAxis.Horizontal)) { Role = Roles.Grid }, new View.Mark(new Figure.Grid(PhysicalAxis.Vertical)) { Role = Roles.Grid })
+            + (Plane.X == Plane.Y ? Seq<View>(new View.Mark(new Figure.Path([new Vector2(Plane.X.Domain.From), new Vector2(Plane.X.Domain.To)])) { Role = Roles.GridFine }) : [])
+            + References.Map(reference => (View)new View.Mark(new Figure.Graph(Plane.X.Domain, reference)) { Role = Roles.Trace })
+            + Seq<View>(new View.Mark(new Figure.Graph(Plane.X.Domain, Fit)) { Role = Roles.Series, Series = Series })) with {
+            Role = Roles.Well,
             Aspect = Factor.Unit,
         };
 
@@ -66,8 +67,9 @@ public sealed record CurveEditor(PlotPlane.Cartesian Plane, Seq<Vector2> Points,
             static knots => knots,
             static knot => knot,
             static (_, to) => Some(to),
-            static (_, knots) => Some(toSeq(knots.OrderBy(static knot => knot.X))),
-            (_, at) => Some(at with { Y = Plane.Y.Constrained(Fit(at.X)) }));
+            static (_, knots) => Some((knots.Map(static held => held.Item), knots.Map(static held => held.Key))),
+            (_, at) => Some(at with { Y = Plane.Y.Constrained(Fit(at.X)) }),
+            order: Some<Comparison<Vector2>>(static (left, right) => left.X.CompareTo(right.X)));
 }
 
 public sealed record Slider(PhysicalAxis Along, AxisRange Domain, Seq<float> Value, Func<Edit<Seq<float>>, IO<Unit>> Edited) {
@@ -77,7 +79,7 @@ public sealed record Slider(PhysicalAxis Along, AxisRange Domain, Seq<float> Val
     public Option<float> Origin { get; init; }
     public Option<Seq<float>> Rest { get; init; }
     public Seq<View> Background { get; init; }
-    public Role Role { get; init; } = Role.Track;
+    public Key Role { get; init; } = Roles.Track;
 
     public View Drawn(CultureInfo culture) =>
         Placed.Match(
@@ -96,16 +98,16 @@ public sealed record Slider(PhysicalAxis Along, AxisRange Domain, Seq<float> Val
         }
     }
 
-    private Axis Laid(AxisRange range) => Track(range) switch { var axis => axis with { Places = axis.Places | Step.Map(Axis.Digits) } };
+    private Axis Laid(AxisRange range) => Track(range) switch { var axis => axis with { Places = axis.Places || Step.Map(Axis.Digits) } };
 
     private View Shown(Axis axis, CultureInfo culture) {
         PlotPlane.Track plane = new(Along, axis);
-        bool filled = Role != Role.Track;
+        bool filled = Role != Roles.Track;
         Seq<float> ends = Value is [var only] ? Seq(Origin.IfNone(axis.Domain.From), only) : Value;
         HashSet<Condition> marks = Edit.Marked(Rest, Some(Value));
         View slid = new Handles<Seq<float>>(Value, Thumbs(plane), Edited) { Rest = Rest }.Drawn(plane,
             (filled ? [] : Seq(new View.Box { Role = Role }.Stretched(Along))) + Background
-            + (from first in ends.Head from last in ends.Last from span in AxisRange.Validated(first, last).ToOption() select (View)new View.Mark(new Figure.Region { First = Some(span) }) { Role = Role.Span }).ToSeq());
+            + (from first in ends.Head from last in ends.Last from span in Gauge.Span(Along, first, last, Gauge.Band with { Role = Roles.Span }) select span).ToSeq());
         return (filled ? new View.Overlay(slid, Seq(Readout(axis, culture, marks)) + Entry(axis, culture).ToSeq()) { Role = Role, Conditions = marks } : slid).Stretched(Along);
     }
 
@@ -121,18 +123,18 @@ public sealed record Slider(PhysicalAxis Along, AxisRange Domain, Seq<float> Val
 
     private View Readout(Axis axis, CultureInfo culture, HashSet<Condition> marks) =>
         Value.Last.Map(last => (View)new View.Text([culture.TextInfo.Listed(Value.Init.Map(value => axis.Formatted(value, culture)).Add(axis.Spoken(last, culture)))]) {
-            Role = Role.Label,
+            Role = Roles.Label,
             MaxLines = 1,
             Align = UnitPoint.Center,
             Conditions = marks,
-        }).IfNone(() => new View.Box { Role = Role.Checkmark, Conditions = marks.TryAdd(Condition.Mixed), Align = UnitPoint.Center });
+        }).IfNone(() => new View.Box { Role = Roles.Checkmark, Conditions = marks.TryAdd(Condition.Mixed), Align = UnitPoint.Center });
 
     private Points<Seq<float>> Thumbs(PlotPlane.Track plane) =>
         new(values => values.Map((value, index) => new HandlePoint(new Key.Ordinal((uint)index), plane.Along.With(new Vector2(0.5f), value))),
-            (values, targets, _) => new Dragged<Seq<float>>(targets.Fold(values, (held, target) => Moved(held, target.Key, Along.Of(target.At))), targets.Map(static target => target.Key))) {
+            (values, targets, _) => (targets.Fold(values, (held, target) => Moved(held, target.Key, Along.Of(target.At))), [])) {
             Placed = (values, at, nearest) => values.IsEmpty
-                ? Some(new Dragged<Seq<float>>(Seq(Quantized(Along.Of(at))), [new Key.Ordinal(0u)]))
-                : nearest.Map(key => new Dragged<Seq<float>>(Moved(values, key, Along.Of(at)), [key])),
+                ? Some<(Seq<float> Value, Key Key)>((Seq(Quantized(Along.Of(at))), new Key.Ordinal(0u)))
+                : nearest.Map(key => (Moved(values, key, Along.Of(at)), key)),
             Incremented = (values, key, sign) =>
                 from index in Optional(key as Key.Ordinal)
                 from value in values.At((int)index.Index)
@@ -142,7 +144,7 @@ public sealed record Slider(PhysicalAxis Along, AxisRange Domain, Seq<float> Val
     private Seq<float> Moved(Seq<float> values, Key key, float to) =>
         key is Key.Ordinal { Index: var index }
             ? values.Map((value, at) => at == (int)index
-                ? float.Max(values.Take(at).Last.IfNone(Domain.Low), float.Min(values.At(at + 1).IfNone(Domain.High), Quantized(to)))
+                ? float.Max(values.At(at - 1).IfNone(Domain.Low), float.Min(values.At(at + 1).IfNone(Domain.High), Quantized(to)))
                 : value)
             : values;
 
@@ -161,7 +163,7 @@ public sealed record Swatch(Unicolour Color, Func<SKRect, IO<Unit>> Pressed) {
     public static View.Box Patch(Unicolour colour) => Patch([new Material.Solid(new ColorValue.Fixed(colour))]) with { Accessible = new Accessible { Value = new AccessValue.Text(Hex(colour)) } };
 
     internal static View.Box Patch(Seq<Material> fills) =>
-        new() { Role = Role.Field, Width = Sizing.Grow.Unit, Height = Sizing.Grow.Unit, Sheet = new StyleSheet(HashMap((Role.Field, new Look { Fills = fills }))) };
+        new() { Role = Roles.Field, Width = Sizing.Grow.Unit, Height = Sizing.Grow.Unit, Sheet = new StyleSheet(HashMap((Roles.Field, new Look { Fills = fills }))) };
 
     internal static string Hex(Unicolour colour) => colour.MapToRgbGamut(GamutMap.OklchChromaReduction) switch { var shown => shown.Alpha.A < 1d ? shown.Hex + shown.Alpha.Hex : shown.Hex };
 }
@@ -173,7 +175,7 @@ public sealed record SwatchList(Seq<Unicolour> Colors, Selection Selection, Func
         get {
             Seq<Key> keys = Colors.Map(static (_, index) => (Key)new Key.Ordinal((uint)index)).Strict();
             return new Part.Choice(keys, Selection, Selected).Drawn(Colors.Map(static colour => (View)Swatch.Patch(colour)), static items => new View.Flex(PhysicalAxis.Horizontal, items) { Width = Sizing.Grow.Unit }) with {
-                Lift = new Lift(moved => IO.lift(moved.Head.Bind(key => keys.Position(key)).Bind(index => Colors.At(index)).Map(static colour => (Transfer)new Transfer.Color(colour.ToSKColorF())).ToFin(new UIFault(moved.ToString(), UIReason.Missing)))),
+                Lift = new Lift(moved => IO.lift(moved.Head.Bind(key => keys.Position(key)).Bind(index => Colors.At(index)).Map(static colour => (Transfer)new Transfer.Color(colour.ToSKColorF())).ToFin(new UIFault(moved, UIReason.Missing)))),
                 Drop = Edited.Map(edited => Drop.Of<Transfer.Color>((color, target, placement) => edited(Edit.Of(EditPhase.Commit, Inserted(keys, color.Value.ToUnicolour(), target, placement))))),
             };
         }
@@ -182,17 +184,17 @@ public sealed record SwatchList(Seq<Unicolour> Colors, Selection Selection, Func
     private Seq<Unicolour> Inserted(Seq<Key> keys, Unicolour colour, Option<Key> target, Placement placement) =>
         target.Bind(key => keys.Position(key)).Match(
             Some: index => placement.Map(before: (Cut: index, Resume: index), inside: (Cut: index, Resume: index + 1), after: (Cut: index + 1, Resume: index + 1)) switch {
-                var (cut, resume) => Colors.Take(cut) + Seq(colour) + Colors.Skip(resume),
+                var (cut, resume) => toSeq(Enumerable.Take(Colors, cut)) + Seq(colour) + Colors.Skip(resume),
             },
             None: () => Colors.Add(colour));
 }
 
 public sealed record ColorPicker(Unicolour Value, Func<Edit<Unicolour>, IO<Unit>> Edited) {
-    private static readonly AxisRange Turn = AxisRange.Validated(0f, 360f).ThrowIfFail();
-    private static readonly ColorRamp Hues = new ColorRamp.Smooth(toSeq(Range(0, 4)).Map(static third =>
-        new Stop(new ColorValue.Fixed(Colored(Turn.Span * third / 3f, 1d, 1d, 1d)), Fraction.Validated(third / 3f).ThrowIfFail()))) { Space = ColourSpace.Hsb };
+    private static readonly AxisRange Turn = new(0f, 360f);
+    private static readonly ColorRamp Hues = new ColorRamp.Smooth(Fraction.Partition(4).Map(static at =>
+        new Stop(new ColorValue.Fixed(Colored(Turn.Span * (float)at, 1d, 1d, 1d)), at))) { Space = ColourSpace.Hsb };
     private static readonly Material Shade = Spread(new ColorValue.Fixed(new Unicolour(ColourSpace.Rgb, 0d, 0d, 0d, 0d)), new ColorValue.Fixed(Css.Black), PhysicalAxis.Vertical);
-    private static readonly StyleSheet Unspanned = new(HashMap((Role.Span, Look.Unpainted)));
+    private static readonly StyleSheet Unspanned = new(HashMap((Roles.Span, Look.Unpainted)));
 
     public bool Alpha { get; init; } = true;
     public Option<Unicolour> Rest { get; init; }
@@ -245,8 +247,8 @@ public sealed record Dial(Axis.Periodic Axis, float Value, Func<Edit<float>, IO<
     public View Drawn =>
         new Handles<float>(Value, Points<float>.Fixed([Lens<float, Vector2>.New(static held => new Vector2(held, 1f), at => _ => Axis.Constrained(at.X))]), Edited) { Rest = Rest }
             .Drawn(Plane, [
-                new View.Mark(new Figure.Region()) { Role = Role.Track },
-                new View.Mark(new Figure.Path([new Vector2(Value, 0f), new Vector2(Value, 1f)])) { Role = Role.Needle },
+                new View.Mark(new Figure.Region()) { Role = Roles.Track },
+                new View.Mark(new Figure.Path([new Vector2(Value, 0f), new Vector2(Value, 1f)])) { Role = Roles.Needle },
             ]) with {
             Aspect = Plane.Aspect,
         };
@@ -263,11 +265,11 @@ public sealed record Scrub(string Label, AxisRange Domain, float Value, Func<Edi
                 Gearing = Gearing,
                 Rest = Rest,
                 Handle = (_, _) => new View.Pin(new Vector2(Domain.Low, 0f), new View.Box().Grown) {
-                    Role = Role.Label,
+                    Role = Roles.Label,
                     Span = new Vector2(MathF.Abs(Domain.Span), 1f),
                     Accessible = new Accessible { Label = Label },
                 },
-            }.Drawn(plane, [new View.Text([Label]) { Role = Role.Label }]) with {
+            }.Drawn(plane, [new View.Text([Label]) { Role = Roles.Label }]) with {
                 Width = Sizing.Fit.Content,
             },
         };

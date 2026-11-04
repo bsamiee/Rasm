@@ -8,7 +8,7 @@ use nonempty_collections::NEVec;
 use rasm_stats::{Bounds, Space, Tolerance};
 use validated::Validated;
 
-use crate::{Input, OptimizeError, Solution, failure};
+use crate::{Input, OptimizeError, Solution};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -19,7 +19,7 @@ pub enum Relation {
     Equality,
 }
 
-pub trait Objective<E> = Fn(&[f64], Option<&mut [f64]>) -> Result<f64, E>;
+pub trait Objective<E> = FnMut(&[f64], Option<&mut [f64]>) -> Result<f64, E>;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -28,14 +28,6 @@ pub struct Maxtime(Duration);
 
 #[nutype::nutype(validate(finite), derive(Debug, Clone, Copy, PartialEq, PartialOrd))]
 pub struct Stopval(f64);
-
-#[derive(Debug, Clone, Copy, derive_more::Display)]
-pub enum Termination {
-    #[display("{}", failure(*_0))]
-    Failure(FailState),
-    #[display("on a non-finite objective")]
-    Objective,
-}
 
 #[derive(derive_more::Debug, Clone)]
 pub struct Constraint<'function> {
@@ -109,7 +101,7 @@ where F: Objective<E> {
     let mut nlopt = Nlopt::new(
         settings.optimizer.algorithm,
         dimensions,
-        |point: &[f64], slot: Option<&mut [f64]>, failure: &mut Option<E>| match failure {
+        |point: &[f64], slot: Option<&mut [f64]>, (objective, failure): &mut (F, Option<E>)| match failure {
             Some(_) => worst,
             None => objective(point, slot).unwrap_or_else(|error| {
                 *failure = Some(error);
@@ -117,7 +109,7 @@ where F: Objective<E> {
             }),
         },
         target,
-        None,
+        (objective, None),
     );
     (try {
         nlopt.set_lower_bounds(&ends(|bounds| bounds.start))?;
@@ -149,11 +141,11 @@ where F: Objective<E> {
     Nlopt::<fn(&[f64], Option<&mut [f64]>, &mut ()) -> f64, ()>::srand_seed(settings.seed.map(u64::from));
     let mut point = start;
     let outcome = nlopt.optimize(point.as_mut_slice());
-    match (outcome, nlopt.recover_user_data()) {
+    match (outcome, nlopt.recover_user_data().1) {
         (Err((state @ (FailState::InvalidArgs | FailState::OutOfMemory), _)), _) => Err(Either::Right(OptimizeError::Algorithm { algorithm: settings.optimizer.algorithm, state })),
         (_, Some(failure)) => Err(Either::Left(failure)),
-        (Err((state, value)), None) => Err(Either::Right(OptimizeError::Nonlinear { point, objective: value, termination: Termination::Failure(state) })),
-        (Ok((_, value)), None) if !value.is_finite() => Err(Either::Right(OptimizeError::Nonlinear { point, objective: value, termination: Termination::Objective })),
+        (Err((state, value)), None) => Err(Either::Right(OptimizeError::Nonlinear { point, objective: value, termination: Some(state) })),
+        (Ok((_, value)), None) if !value.is_finite() => Err(Either::Right(OptimizeError::Nonlinear { point, objective: value, termination: None })),
         (Ok((status, value)), None) => Ok(Solution { point, objective: value, status }),
     }
     .map_err(|failure| failure.map_right(NEVec::new))

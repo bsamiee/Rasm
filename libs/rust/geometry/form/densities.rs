@@ -1,7 +1,7 @@
 use core::iter;
 
 use faer::{Side, linalg::solvers::Solve as _, sparse::linalg::solvers::Llt};
-use nalgebra::{DVector, DVectorView, Matrix3xX};
+use nalgebra::{DVectorView, Matrix3xX};
 use nonempty_collections::NEVec;
 use validated::Validated;
 
@@ -26,10 +26,10 @@ const fn sign(densities: &[f64]) -> f64 {
     }
 }
 
-pub(crate) fn solved(network: &Network, densities: &DVector<f64>) -> Result<Solved, FormError> {
+pub(crate) fn solved(network: &Network, densities: DVectorView<'_, f64>) -> Result<Solved, FormError> {
     let sign = sign(densities.as_slice());
-    let factor = Llt::try_new_with_symbolic(network.llt.clone(), laplacian(network, &(densities * sign))?.as_ref(), Side::Lower)?;
-    let [residual, _] = balance(network, &network.anchors, densities);
+    let factor = Llt::try_new_with_symbolic(network.llt.clone(), laplacian(network, densities.iter().map(|density| density * sign))?.as_ref(), Side::Lower)?;
+    let (residual, _) = balance(network, &network.anchors, densities);
     let mut free = residual * sign;
     factor.solve_in_place(view_mut(&mut free));
     Ok(Solved { factor, sign, spans: spans(network, &free), free })
@@ -44,7 +44,6 @@ pub fn equilibrium(network: &Network, densities: DVectorView<'_, f64>) -> Result
     .map(Err)
     .collect::<Validated<(), _>>()
     .ok()?;
-    let densities = densities.into_owned();
-    let Solved { factor: _, sign: _, spans, free } = solved(network, &densities).map_err(NEVec::new)?;
-    Ok(form(network, &free, &spans, &densities, balance(network, &spans, &densities)))
+    let Solved { factor: _, sign: _, spans, free } = solved(network, densities).map_err(NEVec::new)?;
+    Ok(form(network, &free, &spans, densities, balance(network, &spans, densities)))
 }

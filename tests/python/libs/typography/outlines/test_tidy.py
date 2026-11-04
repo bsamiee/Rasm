@@ -1,44 +1,52 @@
-"""Spike, sliver, and near-point cleanup, needle cuts under a join band, and coordinate snapping."""
+"""Cleanup removes narrow defects while retaining intended ink and coordinate groups."""
 
-from tests.python.support import assert_close
+from pathops import PathOp
+import pytest
+
 from typography.faces.glyphs import Outline, Point
-from typography.outlines.paths import area, bounds, Box
+from typography.outlines.paths import area, bounds, Box, combined
 from typography.outlines.tidy import despiked, snapped, tidied
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-SQUARE: Outline = (Box(xmin=0.0, ymin=0.0, xmax=100.0, ymax=100.0).contour,)
-RETRACED: Outline = ((Point(x=0.0, y=0.0), Point(x=50.0, y=0.0), Point(x=50.0, y=-40.0), Point(x=50.0, y=0.0), Point(x=100.0, y=0.0), Point(x=100.0, y=100.0), Point(x=0.0, y=100.0)),)
-NEEDLED: Outline = ((Point(x=0.0, y=0.0), Point(x=45.0, y=0.0), Point(x=50.0, y=-50.0), Point(x=55.0, y=0.0), Point(x=100.0, y=0.0), Point(x=100.0, y=100.0), Point(x=0.0, y=100.0)),)
-BOWL: Outline = ((Point(x=0.0, y=0.0), Point(x=50.0, y=-20.0, on=False), Point(x=100.0, y=0.0), Point(x=100.0, y=100.0), Point(x=0.0, y=100.0)),)
+SQUARE: Outline = (Box(xmin=0, ymin=0, xmax=100, ymax=100).contour,)
+RETRACED: Outline = ((Point(x=0, y=0), Point(x=50, y=0), Point(x=50, y=-40), Point(x=50, y=0), Point(x=100, y=0), Point(x=100, y=100), Point(x=0, y=100)),)
+NEEDLED: Outline = ((Point(x=0, y=0), Point(x=45, y=0), Point(x=50, y=-50), Point(x=55, y=0), Point(x=100, y=0), Point(x=100, y=100), Point(x=0, y=100)),)
+BOWL: Outline = ((Point(x=0, y=0), Point(x=50, y=-20, on=False), Point(x=100, y=0), Point(x=100, y=100), Point(x=0, y=100)),)
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def test_tidied_removes_retraced_spike() -> None:
-    """Square whose bottom edge runs out and back along one line, the spur gone."""
-    assert bounds(tidied(RETRACED, merge=1.0, corner=1.0, sliver=2.0)) == Box(xmin=0.0, ymin=0.0, xmax=100.0, ymax=100.0)
+def test_retraced_spurs_and_thin_slivers_leave_the_intended_fill() -> None:
+    """Cleanup restores square ink rather than merely retaining its bounding box."""
+    sliver = Box(xmin=200, ymin=0, xmax=300, ymax=1).contour
+    cleaned = tidied((*RETRACED, sliver), merge=1, corner=1, sliver=2)
+    assert len(cleaned) == 1
+    assert bounds(cleaned) == bounds(SQUARE)
+    assert area(combined(cleaned, SQUARE, PathOp.XOR)) == 0
+    assert area(combined(tidied(cleaned, merge=1, corner=1, sliver=2), cleaned, PathOp.XOR)) == 0
 
 
-def test_tidied_drops_slivers_and_merges_points() -> None:
-    """Square beside a one-unit sliver, its edges holding near and collinear points, back to four corners."""
-    crowded = ((Point(x=0.0, y=0.0), Point(x=0.4, y=0.0), Point(x=50.0, y=0.0), Point(x=100.0, y=0.0), Point(x=100.0, y=100.0), Point(x=0.0, y=100.0)),)
-    sliver = (Box(xmin=200.0, ymin=0.0, xmax=300.0, ymax=1.0).contour,)
-    tidy = tidied((*crowded, *sliver), merge=1.0, corner=1.0, sliver=2.0)
-    assert len(tidy) == 1
-    assert len(tidy[0]) == 4
-    assert_close(area(tidy), 10000.0)
+def test_near_points_and_collinear_vertices_merge_without_losing_corners() -> None:
+    """Near and collinear bottom points collapse to four square corners."""
+    crowded = ((Point(x=0, y=0), Point(x=0.4, y=0), Point(x=50, y=0), Point(x=100, y=0), Point(x=100, y=100), Point(x=0, y=100)),)
+    cleaned = tidied(crowded, merge=1, corner=1, sliver=2)
+    assert len(cleaned[0]) == 4
+    assert area(combined(cleaned, SQUARE, PathOp.XOR)) == 0
 
 
-def test_despiked_cuts_needle_and_keeps_overshoot() -> None:
-    """Needle 10 wide under a band from 0 to 40 cut at the band foot, a bowl 100 wide kept."""
-    assert bounds(despiked(NEEDLED, (0.0, 40.0))) == Box(xmin=0.0, ymin=0.0, xmax=100.0, ymax=100.0)
-    kept = bounds(despiked(BOWL, (0.0, 40.0)))
+def test_join_band_cuts_needles_and_preserves_round_overshoots() -> None:
+    """A narrow needle is cut at the baseline while a broad curved bowl retains its overshoot."""
+    cut, kept = despiked(NEEDLED, (0, 40)), bounds(despiked(BOWL, (0, 40)))
+    assert area(combined(cut, SQUARE, PathOp.XOR)) == 0
     assert kept is not None
-    assert_close(kept.ymin, -10.0, abs_tol=1e-6)
+    assert kept.ymin == pytest.approx(-10, rel=1e-9, abs=1e-6)
 
 
-def test_snapped_moves_near_coordinates_onto_one_grid_line() -> None:
-    """Quadrilateral with corners within half a unit of a square, each axis snapped to two shared lines."""
-    skewed = ((Point(x=0.0, y=0.0), Point(x=100.0, y=0.4), Point(x=99.6, y=100.0), Point(x=0.4, y=99.8)),)
-    assert {(point.x, point.y) for point in snapped(skewed, 1.0)[0]} == {(0.2, 0.2), (99.8, 0.2), (99.8, 99.9), (0.2, 99.9)}
+def test_coordinate_snapping_preserves_groups_and_bounds_displacement() -> None:
+    """Separated coordinate runs meet at their means and move no point past the tolerance."""
+    skewed = ((Point(x=0, y=0), Point(x=100, y=0.4), Point(x=99.6, y=100), Point(x=0.4, y=99.8)),)
+    aligned = snapped(skewed, 1)
+    assert {(point.x, point.y) for point in aligned[0]} == {(0.2, 0.2), (99.8, 0.2), (99.8, 99.9), (0.2, 99.9)}
+    assert all(abs(old.x - new.x) <= 1 and abs(old.y - new.y) <= 1 for old, new in zip(skewed[0], aligned[0], strict=True))
+    assert snapped(aligned, 1) == aligned

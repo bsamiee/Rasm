@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-single-variant-enum
-language: rust
+language: rustlang
 severity: error
 rule:
     kind: enum_item
@@ -10,4 +10,4 @@ rule:
         - not: {matches: {rust-attributed: {attribute: {regex: '^#\[\s*(serde\b|repr\b|derive\s*\([^)]*\b(ValueEnum|EnumString)\b)'}}}}
         - not: {has: {field: body, has: {kind: attribute_item, regex: '^#\[\s*serde\b'}}}
 message: '`$NAME` declares one variant'
-note: 'Declare a struct named for the variant holding its payload and its thiserror `#[error(..)]` attribute'
+note: 'Declare a struct named for the variant holding its data and its thiserror `#[error(..)]` attribute'

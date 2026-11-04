@@ -7,46 +7,47 @@ from functools import cached_property, partial
 from typing import ClassVar
 
 import bpy
-from expression import Error, Nothing, Ok, Option, Some, try_downcast
-from expression.collections import Block
+from expression import Option, Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
 import PyOpenColorIO
 
 from blender.bpy.commands.invocations import Popup
-from blender.bpy.commands.operators import Answer, answered, Call, called, Done, Empty, NoUndo, Operator
+from blender.bpy.commands.operators import Answer, answered, Call, called, Done, Empty, Operator
 from blender.bpy.data.ids.images import loaded, Tag
 from blender.bpy.data.ids.store import IdName
 from blender.bpy.data.rna.descriptors import Value
-from blender.bpy.data.rna.paths import rna, RnaPath, rooted, Struct
-from blender.bpy.data.rna.properties import annotated, Callbacks, choices, enum_choices, EnumItem, held_choices, IconedItem, offered
+from blender.bpy.data.rna.paths import rna, RnaPath, rooted
+from blender.bpy.data.rna.properties import annotated, Callbacks, choices, enum_choices, EnumItem, IconedItem, offered
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions, Declaration
 from blender.bpy.render.color.spaces import viewed
+from blender.bpy.render.outputs.results import CompletedRender
 from blender.bpy.render.review.history import RenderHistory, Renders
 from blender.bpy.settings.attachments import Attachment
-from blender.bpy.ui.drawing.handlers import Refresh
-from blender.bpy.ui.images.compare import Before, CompareView
-from blender.bpy.ui.images.views import Masks, overlaid, revealed, Tint
+from blender.bpy.ui.drawing.handlers import HandlerRefresh, Refresh
+from blender.bpy.ui.images import buffers
+from blender.bpy.ui.images.compare import CompareView
+from blender.bpy.ui.images.views import coverage, Masks, overlaid, revealed
 from blender.bpy.ui.layout.members import Member
 from blender.bpy.ui.layout.rows import even, grouped, Label, Layout, OperatorButton, Property
 from blender.bpy.ui.layout.sections import Section
 from blender.bpy.ui.layout.templates import Gallery
 from blender.bpy.ui.resources.icons import Icon
-from blender.bpy.ui.resources.previews import PREVIEWS
-from blender.bpy.ui.resources.theme import color, Metrics
+from blender.bpy.ui.resources.previews import PREVIEWS, Texture, uploaded
+from blender.bpy.ui.resources.theme import Color, color, Metrics
 from blender.bpy.ui.screens.areas import EditorState
 from blender.imaging.analysis.comparison import Comparison, Metric, Severity, Threshold
-from blender.imaging.color.processors import DisplayView
-from blender.records.faults import Fault, Outcome, paired, Reason
+from blender.imaging.color.processors import converted_image, DisplayView
+from blender.imaging.files.buffers import rgba
+from blender.imaging.files.images import ImageFile
+from blender.records.faults import Error, Fault, Nothing, Ok, Outcome, paired, Reason
 from blender.records.stores import ContentHash
 from blender.records.trees import Deleted, diff, Edit, Inserted, Moved, Reparametrized
 
 # --- [TYPES] ----------------------------------------------------------------------------
-
-type _Row = IconedItem | EnumItem
 
 
 class Baseline(Enum):
@@ -80,7 +81,7 @@ class Noting(bpy.types.PropertyGroup):
 class HistoryBrowser(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     """Render history browsed per window manager, its picked render compared as a before frame under `icon`, measured against `gates`, and restored or diffed against the scene.
 
-    Stored renders and the shown frame draw through the scene's view, as the editor shows them, and the view layer ahead of effects through `view`, its exposure holding any gain the effects apply.
+    Stored and shown buffers compare through the scene's OCIO viewing pipeline; the view layer ahead of effects passes through `view`, its exposure holding any gain the effects apply.
     """
 
     icon: Icon
@@ -101,35 +102,32 @@ class HistoryBrowser(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             key=self.history.key,
             form=Browsing,
             owner=bpy.types.WindowManager,
-            callbacks=Some(lambda identity: nullcontext({"shown": Callbacks(items=partial(self.listed, identity), get=partial(self.pick, identity), set=partial(self.picking, identity))})),
+            callbacks=Some(lambda identity: nullcontext({"shown": Callbacks[Browsing](items=partial(self.listed, identity), get=partial(self.pick, identity), set=partial(self.picking, identity))})),
         )
 
-    def listed(self, identity: Identity, _owner: Struct, _context: bpy.types.Context | None) -> tuple[_Row, *tuple[_Row, ...]]:
+    def listed(self, identity: Identity, _owner: Browsing, _context: bpy.types.Context | None) -> tuple[IconedItem | EnumItem, *tuple[IconedItem | EnumItem, ...]]:
         """Item rows of the stored renders newest first under their preview tiles, each value fixed per stored render key, the `NONE` row while none is stored."""
-        previews = identity.resources[PREVIEWS]
+        previews = PREVIEWS[identity]
         return offered(
-            held_choices(
-                tuple(
-                    (identifier, name, description, previews.icon_id(identifier).default_value(0), value)
-                    for renders in identity.reports.reported(self.history.held)(identity).to_list()
-                    for identifier, name, description, _, value in choices(
-                        (entry.value.hex(), f"{renders.named(entry.value)}  {entry.moment.astimezone():%H:%M:%S}", renders.notes.get(entry.value.hex(), "")) for entry in renders.history.past
-                    )
+            tuple(
+                (identifier, name, description, previews.get(identifier).map(lambda preview: preview.icon_id).default_value(0), value)
+                for renders in identity.reports.reported(self.history.held)(identity).to_list()
+                for names in (renders.names,)
+                for identifier, name, description, _, value in choices(
+                    (entry.value.hex(), f"{names[entry.value]}  {entry.moment.astimezone():%H:%M:%S}", renders.notes.get(entry.value.hex(), "")) for entry in renders.history.past
                 )
             )
         )
 
-    def pick(self, identity: Identity, owner: Struct) -> int:
+    def pick(self, identity: Identity, owner: Browsing) -> int:
         """Returns the gallery value of the stored render the browser draws as before frame, the first row's while none is stored."""
         rows = self.listed(identity, owner, None)
-        chosen = Option.of_optional(try_downcast(Browsing, owner)).bind(lambda browser: identity.reports.reported(self.history.held)(identity).bind(lambda renders: renders.before(browser.picked)))
-        return Block.of_seq(rows).filter(lambda row: chosen.filter(lambda key: key.hex() == row[0]).is_some()).try_head().default_value(rows[0])[4]
+        chosen = identity.reports.reported(self.history.held)(identity).bind(lambda renders: renders.before(owner.picked))
+        return chosen.map(lambda key: next(row[4] for row in rows if row[0] == key.hex())).default_value(rows[0][4])
 
-    def picking(self, identity: Identity, owner: Struct, value: int) -> None:
+    def picking(self, identity: Identity, owner: Browsing, value: int) -> None:
         """Picks the stored render of a gallery value."""
-        rows = self.listed(identity, owner, None)
-        for browser, row in ((browser, row) for browser in Option.of_optional(try_downcast(Browsing, owner)).to_list() for row in rows if row[4] == value):
-            browser.picked = row[0]
+        owner.picked = next(row[0] for row in self.listed(identity, owner, None) if row[4] == value)
 
     def browsed(self, identity: Identity, context: bpy.types.Context) -> Outcome[Browsing]:
         """Returns the window manager's browser."""
@@ -143,38 +141,12 @@ class HistoryBrowser(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             )
         )
 
-    def shown_render(self, identity: Identity, context: bpy.types.Context) -> Outcome[tuple[Renders, ContentHash]]:
-        """Returns renders and the stored render the editor shows: the newest for Render Result, the one a stored image's ownership mark names for a stored image."""
-
-        def shown(space: bpy.types.SpaceImageEditor, renders: Renders) -> Outcome[tuple[Renders, ContentHash]]:
-            keys = frozenset(entry.value for entry in renders.history.past)
-            return (
-                Option
-                .of_optional(space.image)
-                .bind(
-                    lambda image: (
-                        Block.of_seq(renders.history.past).try_head().map(lambda entry: entry.value)
-                        if image.type == "RENDER_RESULT"
-                        else self.history.stored.marked(identity, image).bind(lambda mark: mark.content).filter(lambda key: key in keys)
-                    )
-                )
-                .map(lambda key: (renders, key))
-                .to_result_with(partial(Fault.of, Reason.ABSENT, str(self.history.record(identity).path), member=repr(space.image)))
-            )
-
-        return paired(rooted(bpy.types.SpaceImageEditor, context), self.history.held(identity)).bind(lambda pair: shown(*pair))
-
     def caption(self, identity: Identity, context: bpy.types.Context) -> Outcome[str]:
         """Returns the shown frame's history name, the image's own name for a frame the history holds no entry of."""
-
-        def imaged(faults: tuple[Fault, *tuple[Fault, ...]]) -> Outcome[str]:
-            match faults:
-                case (Fault(reason=Reason.ABSENT),):
-                    return rooted(bpy.types.SpaceImageEditor, context).bind(lambda space: Option.of_optional(space.image).map(lambda image: image.name).to_result_with(lambda: faults))
-                case _:
-                    return Error(faults)
-
-        return self.shown_render(identity, context).map(lambda pair: pair[0].named(pair[1])).or_else_with(imaged)
+        image = rooted(bpy.types.SpaceImageEditor, context).bind(lambda space: Option.of_optional(space.image).to_result_with(partial(Fault.of, Reason.ABSENT, repr(space), member="image")))
+        return paired(image, self.history.held(identity)).map(
+            lambda pair: self.history.stored.marked(identity, pair[0]).bind(lambda mark: mark.content).bind(lambda key: Option.of_optional(pair[1].names.get(key))).default_value(pair[0].name)
+        )
 
     def note(self, identity: Identity, context: bpy.types.Context) -> tuple[str, ...]:
         """Returns the picked stored render's note, none while it holds none."""
@@ -182,77 +154,108 @@ class HistoryBrowser(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     # --- [FRAMES]
 
-    def side(self, identity: Identity, context: bpy.types.Context, baseline: Baseline) -> Outcome[Before]:
-        """Returns the picked stored render captioned by its history name, or the shown render's view layer ahead of effects formed through the view hook."""
+    def read(self, identity: Identity, context: bpy.types.Context) -> Outcome[tuple[bpy.types.Image, ImageFile, CompletedRender]]:
+        """Reads the explicitly opened history image from its owned immutable file and frozen encoding."""
         config = PyOpenColorIO.GetCurrentConfig()
+        return paired(rooted(bpy.types.SpaceImageEditor, context), self.history.selected(identity, context)).bind(
+            lambda found: (
+                paired(found[1].read(), found[1].encoding)
+                .bind(lambda source: converted_image(config, PyOpenColorIO.ROLE_SCENE_LINEAR, source[0], source=source[1]))
+                .bind(lambda file: Option.of_optional(found[0].image).map(lambda image: (image, file, found[1])).to_result_with(partial(Fault.of, Reason.ABSENT, repr(found[0]), member="image")))
+            )
+        )
 
-        def layered(scene: bpy.types.Scene, plane: npt.NDArray[np.float32]) -> Outcome[npt.NDArray[np.float32]]:
-            return self.view(identity, scene).bind(lambda view: view.form(config, plane))
+    def side(
+        self, identity: Identity, context: bpy.types.Context, baseline: Baseline, shown: tuple[bpy.types.Image, ImageFile, CompletedRender]
+    ) -> Outcome[tuple[npt.NDArray[np.float32], str, str, DisplayView]]:
+        """Returns the projected baseline and the selected OCIO view forming the shown buffer."""
+        config = PyOpenColorIO.GetCurrentConfig()
+        view = Some(shown[1].header.get_string_attribute("view")).filter(bool)
+        projection = buffers.projection(context, shown[0], config)
 
         match baseline:
             case Baseline.STORED_RENDER:
-                return paired(self.chosen(identity, context), self.caption(identity, context), rooted(bpy.types.Scene, context)).bind(
-                    lambda found: self.history.formed(identity, found[2], found[0][1]).map(lambda plane: Before(plane=plane, name=found[0][0].named(found[0][1]), shown=found[1]))
+                return paired(self.chosen(identity, context), self.caption(identity, context), projection).bind(
+                    lambda found: self.history.output(identity, found[0][1], config, view=view).bind(
+                        lambda file: found[2].form(config, rgba(file.pixels), file.colorspace).map(lambda plane: (plane, found[0][0].names[found[0][1]], found[1], found[2]))
+                    )
                 )
             case Baseline.VIEW_LAYER:
-                return paired(self.shown_render(identity, context), rooted(bpy.types.Scene, context), rooted(bpy.types.ViewLayer, context)).bind(
+                formation = rooted(bpy.types.Scene, context).bind(partial(self.view, identity))
+                return paired(shown[2].source(view=view), shown[2].source_encoding, formation, self.caption(identity, context), projection).bind(
                     lambda found: (
-                        self.history
-                        .output(identity, found[0][1], Some(found[2].name))
-                        .bind(lambda plane: layered(found[1], plane))
-                        .map(lambda plane: Before(plane=plane, name="Before effects", shown=found[0][0].named(found[0][1])))
+                        converted_image(config, PyOpenColorIO.ROLE_SCENE_LINEAR, found[0], source=found[1])
+                        .bind(lambda file: found[2].form(config, rgba(file.pixels), file.colorspace))
+                        .map(lambda plane: (plane, "Before effects", found[3], found[4]))
                     )
                 )
 
-    def before(self, identity: Identity) -> Outcome[Option[Before]]:
+    def before(self, identity: Identity) -> Outcome[Option[Texture[tuple[str, str]]]]:
         """Returns the before frame of the browser's baseline, `Nothing` while it holds no frame."""
         return (
             self
-            .browsed(identity, bpy.context)
-            .bind(lambda browser: self.side(identity, bpy.context, Baseline[browser.baseline]))
-            .map(Some)
+            .read(identity, bpy.context)
+            .bind(
+                lambda shown: (
+                    self
+                    .browsed(identity, bpy.context)
+                    .bind(lambda browser: self.side(identity, bpy.context, Baseline[browser.baseline], shown))
+                    .bind(lambda side: uploaded(side[0]).map(lambda texture: (texture, (side[1], side[2]))))
+                    .map(Some)
+                )
+            )
             .or_else_with(lambda faults: Ok(Nothing) if all(fault.reason is Reason.ABSENT for fault in faults) else Error(faults))
         )
 
     def compared(self, identity: Identity, context: bpy.types.Context) -> Outcome[Comparison]:
-        """Compares the browser's before frame with the frame the editor shows, both in the colors the editor shows them."""
-        shown = paired(self.shown_render(identity, context), rooted(bpy.types.Scene, context)).bind(lambda found: self.history.formed(identity, found[1], found[0][1]))
-        return (
-            self
-            .browsed(identity, context)
-            .bind(lambda browser: paired(self.side(identity, context, Baseline[browser.baseline]), shown))
-            .bind(lambda planes: Comparison.of(planes[0].plane, planes[1], PyOpenColorIO.REFERENCE_SPACE_DISPLAY, data_range=1.0))
+        """Compares the browser's before frame with the shown buffer through the selected OCIO viewing pipeline."""
+        return paired(self.browsed(identity, context), self.read(identity, context)).bind(lambda found: self.measured(identity, context, Baseline[found[0].baseline], found[1]))
+
+    def measured(self, identity: Identity, context: bpy.types.Context, baseline: Baseline, shown: tuple[bpy.types.Image, ImageFile, CompletedRender]) -> Outcome[Comparison]:
+        """Compares an actual selected buffer with the browser's baseline in full-frame OCIO RGB projection."""
+        config = PyOpenColorIO.GetCurrentConfig()
+        return self.side(identity, context, baseline, shown).bind(
+            lambda side: side[3].form(config, rgba(shown[1].pixels), shown[1].colorspace).bind(lambda after: Comparison.of(side[0], after, PyOpenColorIO.REFERENCE_SPACE_DISPLAY, data_range=1.0))
         )
 
-    def difference(self, identity: Identity, metrics: Metrics) -> Outcome[Option[tuple[Tint, ...]]]:
+    def difference(self, identity: Identity, metrics: Metrics) -> Outcome[Option[tuple[Texture[Color], ...]]]:
         """Returns the perceptual difference tint in the theme's error text color while difference shows."""
         tint = color(metrics.preferences.themes[0].info.info_error_text)
         return self.browsed(identity, bpy.context).bind(
-            lambda browser: self.compared(identity, bpy.context).map(lambda comparison: Some((Tint(plane=comparison.perceptual[..., 0], color=tint),))) if browser.difference else Ok(Nothing)
+            lambda browser: (
+                self.read(identity, bpy.context).bind(
+                    lambda shown: (
+                        self
+                        .measured(identity, bpy.context, Baseline[browser.baseline], shown)
+                        .bind(lambda comparison: coverage(comparison.perceptual[..., 0]))
+                        .map(lambda texture: Some(((texture, tint),)))
+                    )
+                )
+                if browser.difference
+                else Ok(Nothing)
+            )
         )
 
     @cached_property
     def compare(self) -> CompareView:
         """Before frame over the shown image, redrawn on browser change and each stored render."""
-        return CompareView(key=f"{self.history.key}_compare", icon=self.icon, read=lambda identity, _metrics: self.before(identity), kinds=("IMAGE", "RENDER_RESULT"), refreshes=self.refreshes)
+        return CompareView(key=f"{self.history.key}_compare", icon=self.icon, read=lambda identity, _metrics: self.before(identity), kinds=("IMAGE",), refreshes=self.refreshes)
 
     @staticmethod
-    def refreshes(identity: Identity) -> Outcome[tuple[Refresh, ...]]:
+    def refreshes(identity: Identity) -> tuple[Refresh, ...]:
         """Returns a refresh per browser field and the stored render signal."""
-        return Ok((*((Browsing, name) for name in annotated(Browsing)), identity.resources[RenderHistory.signal]))
+        return (  # ty: ignore[unsound-return-statement]
+            *((Browsing, name) for name in annotated(Browsing)),
+            RenderHistory.signal[identity],
+            HandlerRefresh(handlers=bpy.app.handlers.depsgraph_update_post, ids=(bpy.types.Scene, bpy.types.Image)),
+        )
 
     # --- [COMMANDS]
 
     def revised(self, call: Call[Noting] | Call[Empty], change: Callable[[Renders, ContentHash], Renders]) -> Outcome[Answer]:
         """Writes the picked render's change to the stored renders, then fires the compare signal."""
         identity = call.identity
-        return (
-            self
-            .chosen(identity, call.context)
-            .bind(lambda pair: self.history.kept(identity, pair[0], change(*pair)))
-            .bind(lambda _: identity.resources[RenderHistory.signal].fired())
-            .map(lambda _: Done())
-        )
+        return self.chosen(identity, call.context).bind(lambda pair: self.history.kept(identity, pair[0], change(*pair))).map(lambda _: Done())
 
     def restore_settings(self, call: Call[Empty]) -> Outcome[Answer]:
         """Apply stored settings to scene."""
@@ -293,23 +296,35 @@ class HistoryBrowser(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     def open_render(self, call: Call[Empty]) -> Outcome[Answer]:
         """Show stored render."""
+        config = PyOpenColorIO.GetCurrentConfig()
+
+        def opened(found: tuple[Renders, ContentHash]) -> Outcome[bpy.types.Image]:
+            renders, key = found
+            space = Option.of_optional(renders.origins.get(key.hex())).map(lambda origin: origin[0])
+            tag = Tag(
+                space=space,
+                view_as_render=Some(
+                    space
+                    .bind(lambda name: Option.of_optional(config.getColorSpace(name)))
+                    .filter(lambda color: not color.isData() and color.getReferenceSpaceType() == PyOpenColorIO.REFERENCE_SPACE_SCENE)
+                    .is_some()
+                ),
+            )
+            return self.history.stored.made(
+                call.identity, lambda: loaded(str(self.history.frame(call.identity, key)), Tag()), filled=lambda image: tag.applied(image).map(lambda _: image), content=Some(key)
+            )
 
         def shown(image: bpy.types.Image) -> Outcome[Answer]:
             return revealed(call.context).bind(
                 lambda located: (
                     EditorState
                     .of(bpy.types.SpaceImageEditor, {("image",): IdName.of(image)})
-                    .bind(lambda state: state.applied(located.area))
+                    .bind(lambda state: state.applied(located))
                     .map(lambda _: Done(notes=(("INFO", f"Showing {image.name}"),)))
                 )
             )
 
-        return (
-            self
-            .chosen(call.identity, call.context)
-            .bind(lambda pair: self.history.stored.made(call.identity, lambda: loaded(str(self.history.frame(call.identity, pair[1])), Tag(view_as_render=Some(True))), content=Some(pair[1])))
-            .bind(shown)
-        )
+        return self.chosen(call.identity, call.context).bind(opened).bind(shown)
 
     def measure_difference(self, call: Call[Empty]) -> Outcome[Answer]:
         """Grade stored render against shown frame."""
@@ -334,7 +349,7 @@ class HistoryBrowser(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     def clear_history(self, call: Call[Empty]) -> Outcome[Answer]:
         """Delete every stored render."""
         identity = call.identity
-        return self.history.held(identity).bind(lambda renders: self.history.kept(identity, renders, Renders())).bind(lambda _: identity.resources[RenderHistory.signal].fired()).map(lambda _: Done())
+        return self.history.held(identity).bind(lambda renders: self.history.kept(identity, renders, Renders())).map(lambda _: Done())
 
     def open_history_folder(self, call: Call[Empty]) -> Outcome[Answer]:
         """Open stored render folder."""
@@ -348,37 +363,37 @@ class HistoryBrowser(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     @cached_property
     def diffing(self) -> Operator[Empty]:
         """Command reporting the settings changed since the picked render."""
-        return Operator.of(Empty, undo=NoUndo())(self.compare_settings)
+        return Operator.of(Empty, options=frozenset())(self.compare_settings)
 
     @cached_property
     def opening(self) -> Operator[Empty]:
         """Command showing the picked render."""
-        return Operator.of(Empty, undo=NoUndo())(self.open_render)
+        return Operator.of(Empty, options=frozenset())(self.open_render)
 
     @cached_property
     def measuring(self) -> Operator[Empty]:
         """Command grading the before frame against the shown frame."""
-        return Operator.of(Empty, undo=NoUndo())(self.measure_difference)
+        return Operator.of(Empty, options=frozenset())(self.measure_difference)
 
     @cached_property
     def noting(self) -> Operator[Noting]:
         """Command writing the picked render's note through a dialog seeded with it."""
-        return Operator.of(Noting, invoke=Some(Popup(partial(bpy.types.WindowManager.invoke_props_dialog))), seed=Some(self.noted), undo=NoUndo())(self.edit_note)
+        return Operator.of(Noting, invoke=Some(Popup(partial(bpy.types.WindowManager.invoke_props_dialog))), seed=Some(self.noted), options=frozenset())(self.edit_note)
 
     @cached_property
     def removing(self) -> Operator[Empty]:
         """Command deleting the picked render."""
-        return Operator.of(Empty, undo=NoUndo())(self.remove_render)
+        return Operator.of(Empty, options=frozenset())(self.remove_render)
 
     @cached_property
     def clearing(self) -> Operator[Empty]:
         """Command deleting every stored render after a confirmation."""
-        return Operator.of(Empty, invoke=Some(Popup(partial(bpy.types.WindowManager.invoke_confirm, confirm_text="Clear", icon="WARNING"))), undo=NoUndo())(self.clear_history)
+        return Operator.of(Empty, invoke=Some(Popup[Empty](partial(bpy.types.WindowManager.invoke_confirm, confirm_text="Clear", icon="WARNING"))), options=frozenset())(self.clear_history)
 
     @cached_property
     def revealing(self) -> Operator[Empty]:
         """Command opening the history folder."""
-        return Operator.of(Empty, undo=NoUndo())(self.open_history_folder)
+        return Operator.of(Empty, options=frozenset())(self.open_history_folder)
 
     # --- [ROWS]
 
@@ -389,7 +404,7 @@ class HistoryBrowser(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             rows=(
                 Layout(rows=(Property(target=Member(root=self.browsing, path=("baseline",)), keywords={"expand": True}),), container=Some(even)),
                 Gallery(target=Member(root=self.browsing, path=("shown",))),
-                Layout(rows=lambda identity: Ok((Label(text=partial(self.note, identity)),))),
+                Layout(builder=Some(lambda identity: Ok((Label(text=partial(self.note, identity)),)))),
                 Property(target=Member(root=self.browsing, path=("difference",))),
                 Layout(rows=tuple(OperatorButton(target=command) for command in (self.restoring, self.diffing, self.opening)), container=Some(grouped)),
                 Layout(rows=(OperatorButton(target=self.measuring), OperatorButton(target=self.noting)), container=Some(grouped)),
@@ -404,22 +419,20 @@ class HistoryBrowser(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         """Render history the browser reads."""
         return (self.history,)
 
-    def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
+    def acquisitions(self, identity: Identity) -> Acquisitions:
         """Returns the browser, the commands, the compare, and the difference mask."""
-        return self.refreshes(identity).map(
-            lambda refreshes: (
-                self.browsing,
-                self.restoring,
-                self.diffing,
-                self.opening,
-                self.measuring,
-                self.noting,
-                self.removing,
-                self.clearing,
-                self.revealing,
-                self.compare,
-                overlaid(Masks(source=partial(self.difference, identity)), self.compare.shown, refreshes),
-            )
+        return (
+            self.browsing,
+            self.restoring,
+            self.diffing,
+            self.opening,
+            self.measuring,
+            self.noting,
+            self.removing,
+            self.clearing,
+            self.revealing,
+            self.compare,
+            overlaid(Masks(read=partial(self.difference, identity)), self.compare.shown, self.refreshes(identity)),
         )
 
 

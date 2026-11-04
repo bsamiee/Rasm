@@ -1,23 +1,38 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-follow-wait
-language: bash
+language: bashlang
 severity: error
+utils:
+    follower:
+        any:
+            - kind: command
+              all:
+                - has: {field: name, regex: '^tail$'}
+                - has:
+                    kind: word
+                    regex: '^(-[A-Za-z0-9]*[fF][A-Za-z0-9]*|--follow(=.*)?)$'
+                    not: {follows: {stopBy: end, regex: '^--$'}}
+            - kind: redirected_statement
+              has: {field: body, matches: follower}
+    reader:
+        any:
+            - kind: command
+              any:
+                - has: {field: name, regex: '^(head|read)$'}
+                - all:
+                    - has: {field: name, regex: '^grep$'}
+                    - has:
+                        kind: word
+                        regex: '^(-[A-Za-z]*[mq][A-Za-z0-9]*|--(max-count|quiet|silent)(=.*)?)$'
+                        not: {follows: {stopBy: end, regex: '^--$'}}
+            - kind: redirected_statement
+              has: {field: body, matches: reader}
 rule:
-    kind: command
-    pattern: $TAIL
+    kind: pipeline
     all:
-        - has: {field: name, regex: '^tail$'}
-        - has: {kind: word, regex: '^(-[A-Za-z0-9]*[fF][A-Za-z0-9]*|--follow(=.*)?)$'}
-        - any:
-            - inside: {stopBy: end, kind: process_substitution}
-            - inside: {kind: pipeline}
-              precedes:
-                stopBy: end
-                kind: command
-                any:
-                    - has: {field: name, regex: '^(head|read)$'}
-                    - all:
-                        - has: {field: name, regex: '^grep$'}
-                        - has: {kind: word, regex: '^(-[A-Za-z]*[mq][A-Za-z0-9]*|--(max-count|quiet|silent)(=.*)?)$'}
-message: '`$TAIL` never ends, poll the file in a bounded loop'
-note: 'Poll `grep -q <pattern> <file>` in `for _ in {1..<attempts>}; do ... && break; sleep <interval>; done`, a follower outlives its reader and never sees an absent line'
+        - has: {matches: follower, pattern: $FOLLOWER}
+        - has: {matches: reader, follows: {stopBy: end, pattern: $FOLLOWER}}
+labels:
+    FOLLOWER: {style: primary, message: Follower keeps waiting after its reader exits}
+message: Following file changes can outlive a pipeline reader
+note: Poll finite file reads in a loop with an attempt or time limit

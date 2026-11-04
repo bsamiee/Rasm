@@ -1,10 +1,10 @@
 use std::{io::Cursor, sync::Arc};
 
-use fast_image_resize::{ResizeOptions, Resizer};
-use image::{
-    DynamicImage, ImageBuffer, ImageError, ImageFormat, RgbaImage,
-    error::{ParameterError, ParameterErrorKind},
+use fast_image_resize::{
+    PixelType, ResizeOptions, Resizer,
+    images::{self, ImageRef},
 };
+use image::{ImageFormat, RgbaImage};
 use krilla::{
     Data,
     image::{BitsPerComponent, CustomImage, Image, ImageColorspace},
@@ -104,49 +104,49 @@ pub(crate) fn target(raster: &Raster, placed: Size, cap: Option<Resolution>) -> 
     })
 }
 
-pub(crate) fn image(raster: &Raster, (across, down): (u32, u32)) -> Result<Image, NEVec<PdfError>> {
-    let resized = |source: &RgbaImage| -> Result<Image, PdfError> {
-        let pixels = if source.dimensions() == (across, down) {
-            source.clone()
-        } else {
-            let mut target = RgbaImage::new(across, down);
-            Resizer::new().resize(source, &mut target, None::<&ResizeOptions>)?;
-            target
-        };
-        Ok(Image::from_rgba8(pixels.into_raw(), across, down))
-    };
+pub(crate) fn image(raster: &Raster, (across, down): (u32, u32), resizer: &mut Resizer) -> Result<Image, NEVec<PdfError>> {
     let custom = |frame: Frame| {
         frame.color_channel.len().checked_ilog2().is_none_or(|bits| bits < u32::BITS).ok_or_else(|| nev![PdfError::Raster { width: across.into(), height: down.into() }])?;
         Image::from_custom(frame, false).map_err(|message| nev![PdfError::Named { name: message.into(), refusal: Refusal::Decode }])
     };
     match raster {
         Raster::Encoded { image, bytes: _ } if image.size() == (across, down) => Ok(image.clone()),
-        Raster::Encoded { image: _, bytes } => image::load_from_memory(bytes).map_err(PdfError::from).and_then(|decoded| resized(&decoded.into_rgba8())).map_err(|error| nev![error]),
-        Raster::Pixels(pixels) => resized(pixels).map_err(|error| nev![error]),
+        Raster::Encoded { image: _, bytes } =>
+            image::load_from_memory(bytes).map_err(|error| nev![PdfError::from(error)]).and_then(|decoded| image(&Raster::Pixels(decoded.into_rgba8()), (across, down), resizer)),
+        Raster::Pixels(source) => {
+            let pixels = if source.dimensions() == (across, down) {
+                source.clone()
+            } else {
+                let mut target = RgbaImage::new(across, down);
+                resizer.resize(source, &mut target, None::<&ResizeOptions>).map_err(|error| nev![PdfError::from(error)])?;
+                target
+            };
+            Ok(Image::from_rgba8(pixels.into_raw(), across, down))
+        }
         Raster::Frame(frame) if frame.size == (across, down) => custom(frame.clone()),
         Raster::Frame(frame) => {
             let Frame { color_channel, alpha_channel, bits_per_component, size: (width, height), icc_profile: _, color_space } = frame;
-            let plane = |channel: &[u8], space: ImageColorspace| {
-                let wide = || channel.as_chunks::<2>().0.iter().map(|&pair| u16::from_be_bytes(pair)).collect::<Vec<_>>();
-                let source = match (bits_per_component, space) {
-                    (BitsPerComponent::Eight, ImageColorspace::Luma) => ImageBuffer::from_raw(*width, *height, channel.to_vec()).map(DynamicImage::ImageLuma8),
-                    (BitsPerComponent::Eight, ImageColorspace::Rgb) => ImageBuffer::from_raw(*width, *height, channel.to_vec()).map(DynamicImage::ImageRgb8),
-                    (BitsPerComponent::Eight, ImageColorspace::Cmyk) => ImageBuffer::from_raw(*width, *height, channel.to_vec()).map(DynamicImage::ImageRgba8),
-                    (BitsPerComponent::Sixteen, ImageColorspace::Luma) => ImageBuffer::from_raw(*width, *height, wide()).map(DynamicImage::ImageLuma16),
-                    (BitsPerComponent::Sixteen, ImageColorspace::Rgb) => ImageBuffer::from_raw(*width, *height, wide()).map(DynamicImage::ImageRgb16),
-                    (BitsPerComponent::Sixteen, ImageColorspace::Cmyk) => ImageBuffer::from_raw(*width, *height, wide()).map(DynamicImage::ImageRgba16),
+            let mut plane = |channel: &[u8], space: ImageColorspace| -> Result<Arc<[u8]>, PdfError> {
+                let wide = (*bits_per_component == BitsPerComponent::Sixteen).then(|| channel.as_chunks::<2>().0.iter().map(|&pair| u16::from_be_bytes(pair)).collect::<Vec<_>>());
+                let bytes = wide.as_ref().map_or(channel, |samples| bytemuck::cast_slice(samples));
+                let pixel_type = match (bits_per_component, space) {
+                    (BitsPerComponent::Eight, ImageColorspace::Luma) => PixelType::U8,
+                    (BitsPerComponent::Eight, ImageColorspace::Rgb) => PixelType::U8x3,
+                    (BitsPerComponent::Eight, ImageColorspace::Cmyk) => PixelType::U8x4,
+                    (BitsPerComponent::Sixteen, ImageColorspace::Luma) => PixelType::U16,
+                    (BitsPerComponent::Sixteen, ImageColorspace::Rgb) => PixelType::U16x3,
+                    (BitsPerComponent::Sixteen, ImageColorspace::Cmyk) => PixelType::U16x4,
                 };
-                Validated::from(source.ok_or_else(|| PdfError::from(ImageError::Parameter(ParameterError::from_kind(ParameterErrorKind::DimensionMismatch)))).and_then(|source| {
-                    let mut output = DynamicImage::new(across, down, source.color());
-                    Resizer::new().resize(&source, &mut output, &ResizeOptions::new().use_alpha(false))?;
-                    Ok(match output.as_flat_samples_u16() {
-                        Some(samples) => samples.samples.iter().flat_map(|sample| sample.to_be_bytes()).collect(),
-                        None => Arc::from(output.into_bytes()),
-                    })
-                }))
+                let source = ImageRef::new(*width, *height, bytes, pixel_type)?;
+                let mut output = images::Image::new(across, down, pixel_type);
+                resizer.resize(&source, &mut output, &ResizeOptions::new().use_alpha(false))?;
+                Ok(match bits_per_component {
+                    BitsPerComponent::Eight => Arc::from(output.into_vec()),
+                    BitsPerComponent::Sixteen => bytemuck::cast_slice::<_, u16>(output.buffer()).iter().flat_map(|sample| sample.to_be_bytes()).collect(),
+                })
             };
-            plane(color_channel, *color_space)
-                .map2(alpha_channel.as_deref().map_or(Validated::Good(None), |alpha| plane(alpha, ImageColorspace::Luma).map(Some)), |color_channel, alpha_channel| Frame {
+            Validated::from(plane(color_channel, *color_space))
+                .map2(Validated::from(alpha_channel.as_deref().map(|alpha| plane(alpha, ImageColorspace::Luma)).transpose()), |color_channel, alpha_channel| Frame {
                     color_channel,
                     alpha_channel,
                     size: (across, down),
@@ -210,8 +210,16 @@ fn decoded(reader: &mut Decoder<Cursor<&[u8]>>) -> Result<(Size, Frame), PdfErro
     let (color_channel, alpha_channel) = if samples == components {
         (Arc::from(bytes), None)
     } else {
-        let (colors, alphas): (Vec<_>, Vec<_>) = bytes.chunks_exact(samples.strict_mul(width_of_sample)).filter_map(|pixel| pixel.split_at_checked(components.strict_mul(width_of_sample))).unzip();
-        (Arc::from(colors.concat()), Some(Arc::from(alphas.concat())))
+        let [colors, alphas] = [components, samples.strict_sub(components)].map(|count| Vec::with_capacity(bytes.len().strict_div(samples).strict_mul(count)));
+        let [colors, alphas] = bytes.chunks_exact(samples.strict_mul(width_of_sample)).map(|pixel| pixel.split_at(components.strict_mul(width_of_sample))).fold(
+            [colors, alphas],
+            |[mut colors, mut alphas], (channels, alpha)| {
+                colors.extend_from_slice(channels);
+                alphas.extend_from_slice(alpha);
+                [colors, alphas]
+            },
+        );
+        (Arc::from(colors), Some(Arc::from(alphas)))
     };
     Ok((measured, Frame { color_channel, alpha_channel, bits_per_component, size, icc_profile, color_space }))
 }

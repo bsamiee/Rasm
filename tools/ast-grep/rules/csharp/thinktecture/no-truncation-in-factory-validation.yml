@@ -62,19 +62,11 @@ utils:
             - matches: remove-cut
             - matches: take-cut
             - matches: range-cut
-    relay:
-        matches:
-            csharp-file-method-call:
-                declaration:
-                    not: {matches: thinktecture-factory-validation}
-                    has: {stopBy: end, matches: cut}
 rule:
     kind: invocation_expression, element_access_expression
     pattern: $CUT
     all:
-        - inside: {stopBy: end, matches: thinktecture-factory-validation}
-        - any:
-            - matches: cut
-            - matches: relay
+        - inside: {stopBy: end, kind: method_declaration, matches: thinktecture-factory-validation}
+        - matches: cut
 message: '`$CUT` truncates the key inside `ValidateFactoryArguments` and collapses distinct inputs into one value'
 note: 'Assign `validationError` when the key exceeds its length limit'

@@ -1,4 +1,3 @@
-using System.Globalization;
 using Darkroom.Chain;
 using Rasm.Rhino;
 using Rasm.Rhino.Blocks;
@@ -17,49 +16,61 @@ namespace Darkroom.Queue;
 // --- [MODELS] --------------------------------------------------------------------------
 [Union]
 public abstract partial record PreflightFinding {
-    private PreflightFinding(Error error) => Error = error;
+    public Error Error => Switch(
+        queueEmpty: static _ => new DarkroomFault("render queue", DarkroomReason.Empty),
+        sourceRefused: static held => new DarkroomFault((FormattableString)$"entry source {held.Source}", held.Reason, held.Index),
+        entryRefused: static held => new DarkroomFault("entry", DarkroomReason.Unrenderable, held.Index, held.Cause),
+        destinationUnresolved: static held => held.Cause,
+        folderUnwritable: static held => new RhinoFault(held.Folder, RhinoReason.Unwritable),
+        spaceLow: static held => new DarkroomFault((FormattableString)$"render at {held.Folder} with {held.Free} bytes free", DarkroomReason.Space),
+        copyTooLarge: static held => new DarkroomFault((FormattableString)$"copy of {held.Copy} bytes at {held.Folder} with {held.Free} bytes free", DarkroomReason.Space),
+        linkBroken: static held => new DarkroomFault((FormattableString)$"{held.Definition} link {held.File}", DarkroomReason.Unreadable, Inner: held.Cause),
+        rendererMissing: static held => new DarkroomFault((FormattableString)$"current renderer {held.Renderer}", DarkroomReason.Missing),
+        renderingsUnsaved: static _ => new DarkroomFault("automatic saving of finished renderings", DarkroomReason.Off),
+        queueActive: static held => new DarkroomFault((FormattableString)$"render queue in process {held.ProcessId}", DarkroomReason.Running),
+        untitledEdits: static held => new DarkroomFault((FormattableString)$"untitled document {held.Document}", DarkroomReason.Edited),
+        linkUpdatePrompts: static _ => new DarkroomFault("prompting linked block updates", DarkroomReason.Unattended),
+        linkStale: static held => new DarkroomFault((FormattableString)$"{held.Definition} link {held.File}", DarkroomReason.Stale),
+        linkCycle: static held => new DarkroomFault((FormattableString)$"linked files {string.Join(", ", held.Files)}", DarkroomReason.Cyclic),
+        linkUnitsDiffer: static held => new DarkroomFault((FormattableString)$"{held.Definition} in {held.Units} linking {held.File} in {held.FileUnits}", DarkroomReason.Units),
+        fileRefused: static held => new DarkroomFault(held.Subject, held.Reason),
+        renderOnCpu: static _ => new DarkroomFault("Rhino Render in safe mode", DarkroomReason.Cpu));
 
-    public Error Error { get; }
+    public sealed record QueueEmpty() : PreflightFinding;
 
-    public sealed record QueueEmpty() : PreflightFinding(new DarkroomFault("render queue", DarkroomReason.Empty));
+    public sealed record SourceRefused(int Index, RenderSettings.RenderingSources Source, DarkroomReason Reason) : PreflightFinding;
 
-    public sealed record SourceRefused(int Index, RenderSettings.RenderingSources Source, DarkroomReason Reason) : PreflightFinding(new DarkroomFault($"entry source {Source}", Reason, Index));
+    public sealed record EntryRefused(int Index, Error Cause) : PreflightFinding;
 
-    public sealed record EntryRefused(int Index, Error Cause) : PreflightFinding(new DarkroomFault("entry", DarkroomReason.Unrenderable, Index, Cause));
+    public sealed record DestinationUnresolved(Error Cause) : PreflightFinding;
 
-    public sealed record DestinationUnresolved(Error Cause) : PreflightFinding(Cause);
+    public sealed record FolderUnwritable(string Folder) : PreflightFinding;
 
-    public sealed record FolderUnwritable(string Folder) : PreflightFinding(new RhinoFault(Folder, RhinoReason.Unwritable));
+    public sealed record SpaceLow(string Folder, long Free) : PreflightFinding;
 
-    public sealed record SpaceLow(string Folder, long Free)
-        : PreflightFinding(new DarkroomFault(string.Create(CultureInfo.InvariantCulture, $"render at {Folder} with {Free} bytes free"), DarkroomReason.Space));
+    public sealed record CopyTooLarge(string Folder, long Copy, long Free) : PreflightFinding;
 
-    public sealed record CopyTooLarge(string Folder, long Copy, long Free)
-        : PreflightFinding(new DarkroomFault(string.Create(CultureInfo.InvariantCulture, $"copy of {Copy} bytes at {Folder} with {Free} bytes free"), DarkroomReason.Space));
+    public sealed record LinkBroken(string Definition, string File, Error Cause) : PreflightFinding;
 
-    public sealed record LinkBroken(string Definition, string File, Error Cause) : PreflightFinding(new DarkroomFault($"{Definition} link {File}", DarkroomReason.Unreadable, Inner: Cause));
+    public sealed record RendererMissing(Guid Renderer) : PreflightFinding;
 
-    public sealed record RendererMissing(Guid Renderer) : PreflightFinding(new DarkroomFault($"current renderer {Renderer}", DarkroomReason.Missing));
+    public sealed record RenderingsUnsaved() : PreflightFinding;
 
-    public sealed record RenderingsUnsaved() : PreflightFinding(new DarkroomFault("automatic saving of finished renderings", DarkroomReason.Off));
+    public sealed record QueueActive(int ProcessId) : PreflightFinding;
 
-    public sealed record QueueActive(int ProcessId)
-        : PreflightFinding(new DarkroomFault(string.Create(CultureInfo.InvariantCulture, $"render queue in process {ProcessId}"), DarkroomReason.Running));
+    public sealed record UntitledEdits(uint Document) : PreflightFinding;
 
-    public sealed record UntitledEdits(uint Document) : PreflightFinding(new DarkroomFault($"untitled document {Document}", DarkroomReason.Edited));
+    public sealed record LinkUpdatePrompts() : PreflightFinding;
 
-    public sealed record LinkUpdatePrompts() : PreflightFinding(new DarkroomFault("prompting linked block updates", DarkroomReason.Unattended));
+    public sealed record LinkStale(string Definition, string File) : PreflightFinding;
 
-    public sealed record LinkStale(string Definition, string File) : PreflightFinding(new DarkroomFault($"{Definition} link {File}", DarkroomReason.Stale));
+    public sealed record LinkCycle(Seq<string> Files) : PreflightFinding;
 
-    public sealed record LinkCycle(Seq<string> Files) : PreflightFinding(new DarkroomFault($"linked files {string.Join(", ", Files)}", DarkroomReason.Cyclic));
+    public sealed record LinkUnitsDiffer(string Definition, string File, UnitSystem Units, UnitSystem FileUnits) : PreflightFinding;
 
-    public sealed record LinkUnitsDiffer(string Definition, string File, UnitSystem Units, UnitSystem FileUnits)
-        : PreflightFinding(new DarkroomFault($"{Definition} in {Units} linking {File} in {FileUnits}", DarkroomReason.Units));
+    public sealed record FileRefused(string Subject, DarkroomReason Reason) : PreflightFinding;
 
-    public sealed record FileRefused(string Subject, DarkroomReason Reason) : PreflightFinding(new DarkroomFault(Subject, Reason));
-
-    public sealed record RenderOnCpu() : PreflightFinding(new DarkroomFault("Rhino Render in safe mode", DarkroomReason.Cpu));
+    public sealed record RenderOnCpu() : PreflightFinding;
 }
 
 public sealed record Preflight(Seq<PreflightFinding> Refusals, Seq<PreflightFinding> Cautions, Map<int, ulong> Memory) {
@@ -72,7 +83,7 @@ public sealed record Preflight(Seq<PreflightFinding> Refusals, Seq<PreflightFind
         from links in Links.Closure(new LinkedModel.Opened(doc.RuntimeSerialNumber))
         from prompts in IO.lift(() => doc.LinkedInstanceDefinitionUpdate is LinkedInstanceDefinitionUpdateStyle.Prompt)
         from named in NamedTable.Read(doc, [NamedViews.Table, Snapshots.Table])
-        from channels in RenderSettingsSources.Read(new RenderSettingsSource.Live(doc), static scope => (from held in use(() => scope.Settings.RenderChannels) select QueueEstimate.Channels(held)).Bracket())
+        from channels in RenderSettingsSources.Read(new RenderSettingsSource.Live(doc), static scope => (from held in use(() => scope.Settings.RenderChannels) select QueueEstimate.Components(held)).Bracket())
         from run in target.RendersHere ? QueueProgress.Observed(context).Map(static observed => Some(observed.State)) : IO.pure(Option<RunState>.None)
         from host in Host.Read
         from disk in Measured(doc, plan, target)
@@ -116,7 +127,7 @@ public sealed record Preflight(Seq<PreflightFinding> Refusals, Seq<PreflightFind
     // --- [JUDGE]
     private static Preflight Judged(
         QueueTarget target, QueuePlan plan, RhinoDoc doc, Seq<NamedEntry> named, DocumentStatistics statistics, LinkClosure links, bool prompts,
-        RenderWindow.StandardChannels channels, Option<RunState> run, Host host, Disk disk, Textures textures) =>
+        Option<Seq<RenderWindow.StandardChannels>> channels, Option<RunState> run, Host host, Disk disk, Textures textures) =>
         new(
             (plan.Entries.IsEmpty ? Seq<PreflightFinding>(new PreflightFinding.QueueEmpty()) : Seq<PreflightFinding>())
             + plan.Entries.Map((entry, index) => Entered(doc, named, entry, index)).Flatten()
@@ -138,7 +149,7 @@ public sealed record Preflight(Seq<PreflightFinding> Refusals, Seq<PreflightFind
             + (target.RendersHere
                 ? (host.SafeMode && host.Renderer == host.RhinoRender ? Seq<PreflightFinding>(new PreflightFinding.RenderOnCpu()) : Seq<PreflightFinding>())
                 : (textures.Unpacked + toSeq(links.Graph.Edges).Choose(static link => Stored(link.Target))).Distinct().Map<PreflightFinding>(static path => new PreflightFinding.FileRefused(path, DarkroomReason.Uncopied))),
-            toMap(plan.Entries.Map((entry, index) => entry.Rendered.ToOption().Map(frame => (index, QueueEstimate.Memory(statistics, frame.Padded, channels)))).Somes()));
+            toMap(plan.Entries.Map((entry, index) => from frame in entry.Rendered.ToOption() from components in channels select (index, QueueEstimate.Memory(statistics, frame.Padded, components))).Somes()));
 
     private static Option<string> Stored(LinkedModel model) => model.Switch(opened: static _ => Option<string>.None, stored: static stored => Some(stored.Path));
 
@@ -170,13 +181,12 @@ public sealed record Preflight(Seq<PreflightFinding> Refusals, Seq<PreflightFind
             + (from free in Free from size in copy where size > free select (PreflightFinding)new PreflightFinding.CopyTooLarge(Folder, size, free)).ToSeq();
 
         public static IO<Volume> Of(string folder) =>
-            IO.lift(() => Nearest(new DirectoryInfo(folder))).Bind(found => found.Match(
+            IO.lift(() => toSeq(LanguageExt.List.unfold(Some(new DirectoryInfo(folder)), static current =>
+                current.Map(static held => (held, Optional(held.Parent))))).Find(static parent => parent.Exists)).Bind(found => found.Match(
                 Some: existing => IO.lift(() => Some(new DriveInfo(existing.FullName).AvailableFreeSpace))
                     .Catch(static error => error.HasException<ArgumentException>(), static _ => IO.pure(Option<long>.None))
                     .Map(free => new Volume(folder, !existing.Attributes.HasFlag(FileAttributes.ReadOnly), free)),
                 None: () => IO.pure(new Volume(folder, Writable: false, Free: None))));
-
-        private static Option<DirectoryInfo> Nearest(DirectoryInfo folder) => folder.Exists ? Some(folder) : Optional(folder.Parent).Bind(Nearest);
     }
 
     private sealed record Textures(Seq<string> Absent, Seq<string> Unpacked);

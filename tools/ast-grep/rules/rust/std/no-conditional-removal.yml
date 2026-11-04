@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-conditional-removal
-language: rust
+language: rustlang
 severity: error
 utils:
     paired:
@@ -18,13 +18,7 @@ rule:
     all:
         - any:
             - pattern: 'if $R.$PEEK().is_some_and($P) { $R.$TAKE() } else { None }'
-            - all:
-                - pattern: 'if $R.$PEEK().is_some_and($P) { $R.$TAKE(); }'
-                - pattern: $STATEMENT
+            - pattern: 'if $R.$PEEK().is_some_and($P) { $R.$TAKE(); }'
         - matches: paired
-transform:
-    METHOD: {replace: {source: $TAKE, replace: '^([\s\S]+)$', by: '${1}_if'}}
-    END: {replace: {source: $STATEMENT, replace: '^[\s\S]*$', by: ';'}}
-fix: $R.$METHOD($P)$END
 message: '`$R.$TAKE()` runs under a test of the same element through `$PEEK`'
-note: 'Call `take_if`, `pop_if`, `pop_back_if`, or `pop_front_if` with the test as a predicate over `&mut T`'
+note: 'Call `take_if`, `pop_if`, `pop_back_if`, or `pop_front_if` with `|value| predicate(&*value)`'

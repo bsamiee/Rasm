@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-loop-over-command-substitution
-language: bash
+language: bashlang
 severity: error
 utils:
     line-tool:
@@ -31,6 +31,12 @@ rule:
     not:
         any:
             - matches: line-output-substitution
-            - inside: {matches: bash-sh-program, stopBy: end}
+            - inside:
+                kind: program
+                stopBy: end
+                has:
+                    kind: comment
+                    regex: '^#!\s*(\S*/)?(?:env\s+(?:-S\s*|--split-string(?:=|\s+))?)?(sh|dash|ash)(\s|$)'
+                    not: {follows: {stopBy: end, pattern: $_}}
 message: '`for` word-splits and glob-expands `$SUB`'
 note: 'Hold the items in an array, `mapfile -t <items> < <(<command>)` for command output, and loop over `"${<items>[@]}"`'

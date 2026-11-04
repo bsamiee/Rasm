@@ -26,7 +26,7 @@ public abstract partial class DefinedSkin<TSelf> : Skin where TSelf : DefinedSki
             Switch<string, SkinLoad>(
                 plugIn,
                 starting: static (_, starting) => starting,
-                loading: static (begun, loading) => loading with { Begun = loading.Begun.Add(begun) },
+                loading: static (begun, loading) => loading with { Current = Some(begun) },
                 ready: static (_, ready) => ready);
 
         public SkinLoad End() =>
@@ -43,7 +43,7 @@ public abstract partial class DefinedSkin<TSelf> : Skin where TSelf : DefinedSki
 
         public sealed record Starting : SkinLoad;
 
-        public sealed record Loading(int Expected, Seq<string> Begun, int Ended) : SkinLoad;
+        public sealed record Loading(int Expected, Option<string> Current, int Ended) : SkinLoad;
 
         public sealed record Ready : SkinLoad;
     }
@@ -52,8 +52,8 @@ public abstract partial class DefinedSkin<TSelf> : Skin where TSelf : DefinedSki
     private readonly Ref<Option<Owned<Splash>>> splash = Ref(Option<Owned<Splash>>.None);
 
     protected DefinedSkin() =>
-        _ = Session.Run(Session.Bind(this, TSelf.Definition.Logging).Bind(static _ => Subscriptions.Inline<EventHandler, EventArgs>(static h => RhinoApp.Closing += h, static h => RhinoApp.Closing -= h, static handler => handler.Invoke)
-            .Attach(static _ => Session.Close).Scoped()));
+        _ = Session.RunSafe(Session.Bind(this, TSelf.Definition.Logging).Bind(static _ => Subscriptions.Inline<EventHandler, EventArgs>(static h => RhinoApp.Closing += h, static h => RhinoApp.Closing -= h, static handler => handler.Invoke)
+            .Attach(static _ => Session.Close).Scoped()), CancellationToken.None).ThrowIfFail();
 
     // --- [IDENTITY]
     protected sealed override string ApplicationName =>
@@ -75,7 +75,7 @@ public abstract partial class DefinedSkin<TSelf> : Skin where TSelf : DefinedSki
 
     // --- [LOAD]
     protected sealed override void OnBeginLoadAtStartPlugIns(int expectedCount) =>
-        _ = Session.Run(Advanced(current => expectedCount > 0 ? new SkinLoad.Loading(expectedCount, Seq<string>(), Ended: 0) : current));
+        _ = Session.Run(Advanced(current => expectedCount > 0 ? new SkinLoad.Loading(expectedCount, None, Ended: 0) : current));
 
     protected sealed override void OnBeginLoadPlugIn(string description) => _ = Session.Run(Advanced(current => current.Begin(description)));
 
@@ -155,12 +155,10 @@ public abstract partial class DefinedSkin<TSelf> : Skin where TSelf : DefinedSki
     protected sealed override void ShowChooseTemplate() =>
         _ = Session.Run(
             Chosen(
-                from paths in HostDialogs.Ask(static () => new global::Rhino.UI.OpenFileDialog {
-                    Title = LocalText.Of("New from Template").Local,
-                    Filter = HostDialogs.Filter(Seq((LocalText.Of("Rhino Templates").Local, Seq(".3dm")))),
-                    InitialDirectory = TSelf.Definition.TemplateFolder.IfNone(static () => FileSettings.TemplateFolder),
-                } switch {
-                    var dialog => (dialog.ShowOpenDialog(), toSeq(dialog.FileNames)),
+                from paths in HostDialogs.ShowOpenFileDialog(static dialog => {
+                    dialog.Title = LocalText.Of("New from Template").Local;
+                    dialog.Filter = HostDialogs.Filter(Seq((LocalText.Of("Rhino Templates").Local, Seq(".3dm"))));
+                    dialog.InitialDirectory = TSelf.Definition.TemplateFolder.IfNone(static () => FileSettings.TemplateFolder);
                 })
                 from opened in paths.TraverseM(static path => IO.lift(() => Conversions.Required(OpenNewDocument(path)))).As()
                 select unit));
@@ -185,7 +183,7 @@ public abstract partial class DefinedSkin<TSelf> : Skin where TSelf : DefinedSki
     private static void Refresh(SkinLoad state, Label status, ProgressBar bar) {
         status.Text = state.Switch(
             starting: static _ => LocalText.Of("Starting"),
-            loading: static loading => loading.Begun.Last.Match(
+            loading: static loading => loading.Current.Match(
                 Some: static plugIn => LocalText.Of("Loading {0}", arguments: [plugIn]),
                 None: static () => LocalText.Of("Loading plug-ins")),
             ready: static _ => LocalText.Of("Preparing viewports")).Local;

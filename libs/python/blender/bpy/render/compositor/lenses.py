@@ -17,7 +17,6 @@ from blender.bpy.render.compositor.shapes import rotated
 from blender.imaging.geometry.arithmetic import Namespace
 from blender.imaging.geometry.lenses import Aperture
 from blender.imaging.geometry.panoramas import ImagePoint
-from blender.records.fields import member
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -26,10 +25,10 @@ type PointMap = Callable[[ImagePoint[Expr], Namespace[Expr, Expr]], ImagePoint[E
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _BOKEH: Final = MappingProxyType({
-    member(Aperture, lambda kind: kind.blades): StockInput(node=bpy.types.CompositorNodeBokehImage, input="Flaps"),
-    member(Aperture, lambda kind: kind.rotation): StockInput(node=bpy.types.CompositorNodeBokehImage, input="Angle"),
-    member(Aperture, lambda kind: kind.roundness): StockInput(node=bpy.types.CompositorNodeBokehImage, input="Roundness"),
-    member(Aperture, lambda kind: kind.obstruction): StockInput(node=bpy.types.CompositorNodeBokehImage, input="Catadioptric Size"),
+    Aperture.blades: StockInput(node=bpy.types.CompositorNodeBokehImage, input="Flaps"),
+    Aperture.rotation: StockInput(node=bpy.types.CompositorNodeBokehImage, input="Angle"),
+    Aperture.roundness: StockInput(node=bpy.types.CompositorNodeBokehImage, input="Roundness"),
+    Aperture.obstruction: StockInput(node=bpy.types.CompositorNodeBokehImage, input="Catadioptric Size"),
 })
 IRIS: Final = InterfacePanel.of(
     "iris", Interface(inputs=tuple(msgspec.structs.replace(socket, kind=_BOKEH[getattr(Aperture, socket.key)]) for socket in fielded(Aperture()).inputs)), description="Bokeh iris outline"
@@ -94,7 +93,7 @@ def seen(local: Expr, lens: Expr, coverage: Scalar = 1.0) -> Expr:
 
     Args:
         local: Camera-space point or direction.
-        lens: Camera projection matrix (`lensed("Projection Matrix")`).
+        lens: Camera projection matrix (`camera_info("Projection Matrix")`).
         coverage: Coverage kept ahead of the camera.
 
     Returns:

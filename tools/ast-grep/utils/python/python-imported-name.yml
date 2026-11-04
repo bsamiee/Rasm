@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: python-imported-name
-language: python
+language: pythonlang
 arguments: [module, name]
 utils:
     plain-import:
@@ -18,16 +18,14 @@ utils:
         all:
             - has: {field: module_name, matches: module}
             - has: {kind: wildcard_import}
-    statement-walk: &statement-walk
-        not: {kind: "module, block, if_statement, elif_clause, else_clause, for_statement, while_statement, try_statement, except_clause, finally_clause, with_statement, match_statement, case_clause, decorated_definition"}
     bound-by-plain:
         any:
-            - inside: {kind: module, stopBy: end, has: {stopBy: *statement-walk, matches: wildcard-import}}
+            - inside: {kind: module, stopBy: end, has: {stopBy: &statement-walk {not: {kind: 'module, block, if_statement, elif_clause, else_clause, for_statement, while_statement, try_statement, except_clause, finally_clause, with_statement, match_statement, case_clause, decorated_definition'}}, matches: wildcard-import}}
             - inside: {kind: 'module, function_definition', stopBy: end, has: {stopBy: *statement-walk, matches: plain-import}}
             - inside: {kind: class_definition, stopBy: {kind: 'function_definition, lambda'}, has: {stopBy: *statement-walk, matches: plain-import}}
     bound-by-alias:
         all:
-            - inside: {kind: module, stopBy: end, regex: 'from[\s\\]+[\w.]+[\s\\]+import\b(?:[^\n]|\\\n)*\bas\b|from[\s\\]+[\w.]+[\s\\]+import\s*\([^)]*\bas\b'}
+            - inside: {kind: module, stopBy: end, regex: '\bfrom\b(?s:.*)\bimport\b(?s:.*)\bas\b'}
             - any:
                 - inside: {kind: 'module, function_definition', stopBy: end, has: {stopBy: *statement-walk, matches: aliased-import}}
                 - inside: {kind: class_definition, stopBy: {kind: 'function_definition, lambda'}, has: {stopBy: *statement-walk, matches: aliased-import}}

@@ -6,5 +6,12 @@ rule:
     has:
         nthChild: 1
         any:
-            - {kind: prefix_expression, regex: '^\.failure$'}
-            - {kind: navigation_expression, regex: '^(Swift\.)?Result(<[\s\S]*>)?\.failure$'}
+            - kind: prefix_expression
+              regex: '^\.failure$'
+              inside: {kind: call_expression, matches: swift-result-context}
+            - kind: navigation_expression
+              any:
+                - regex: '^Swift\.Result\.failure$'
+                - all:
+                    - has: {field: suffix, regex: '^\.failure$'}
+                    - has: {field: target, matches: swift-result-type}

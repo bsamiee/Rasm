@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-trailing-never
-language: tsx
+language: tsxlang
 severity: error
 utils:
     never:
@@ -78,4 +78,4 @@ rule:
                     - not: {has: {nthChild: 2}}
                     - has: {nthChild: 1, matches: sleep}
 message: '`$NEVER` holds the program open after its last step'
-note: 'Remove the wait, register cleanup through `Effect.acquireRelease` in the scope holding the program, and run a program as `Layer.launch(Layer.effectDiscard(<program>))`'
+note: 'Replace the wait with `Layer.launch(Layer.effectDiscard(<program>))` and scoped cleanup through `Effect.acquireRelease`'

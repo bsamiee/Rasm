@@ -54,7 +54,7 @@ public static class NamedViews {
         Hold = static (doc, viewport) => Held(doc, viewport.Match(
             Some: static id => new ViewportSet.One(new ViewportTarget.Id(id)),
             None: static () => (ViewportSet)new ViewportSet.One(new ViewportTarget.Active()))),
-        Transform = Some(Transform),
+        TransformEntry = Some(Transform),
         Import = Some(Import),
         Archive = Some(Archive),
         Current = Some(Current),

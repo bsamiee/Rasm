@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-untyped-error
-language: tsx
+language: tsxlang
 severity: error
 utils:
     native-error:
@@ -125,4 +125,4 @@ rule:
             - has: {field: function, pattern: $FAIL, matches: options-callee}
             - has: {field: arguments, has: {kind: object, has: {matches: failure-member}}}
 message: '`$FAIL` fails with `$ERROR`, a value no `_tag` match reads'
-note: 'Fail with a tagged error of typed fields holding the foreign value as `cause`, or keep the error `Effect.tryPromise` or `Effect.fromOption` types'
+note: 'Keep `Effect.tryPromise` or `Effect.fromOption` errors, or put the foreign `cause` in typed fields of a tagged error'

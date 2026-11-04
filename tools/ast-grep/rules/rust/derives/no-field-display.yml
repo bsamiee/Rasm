@@ -1,11 +1,93 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-field-display
-language: rust
+language: rustlang
 severity: error
+utils:
+    variant-pattern:
+        kind: match_pattern
+        not: {has: {field: condition, pattern: $_}}
+        any:
+            - has: {nthChild: 1, kind: scoped_identifier}
+            - has: {nthChild: 1, kind: 'tuple_struct_pattern, struct_pattern', not: {has: {stopBy: end, kind: 'tuple_struct_pattern, struct_pattern, tuple_pattern, slice_pattern, range_pattern, or_pattern, ref_pattern, integer_literal, string_literal, boolean_literal, negative_literal, char_literal, float_literal'}}}
+    field-text:
+        any:
+            - {kind: reference_expression, has: {field: value, kind: field_expression, has: {field: value, kind: self}}}
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: field_expression, all: [{has: {field: value, kind: field_expression, has: {field: value, kind: self}}}, {has: {field: field, regex: '^(as_str|as_ref)$'}}]}
+                - has: {field: arguments, not: {has: {pattern: $_}}}
+    field-write:
+        any:
+            - kind: macro_invocation
+              all:
+                - matches: {rust-std-macro: {name: {regex: '^write$'}}}
+                - has: {kind: token_tree, regex: '^\(\s*\w+\s*,\s*"(?:[^"\\]|\\.)*"(\s*,\s*(\w+\s*=\s*)?&?\s*self\.\w+)*\s*,?\s*\)$'}
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: field_expression, has: {field: field, regex: '^(write_str|pad)$'}}
+                - has: {field: arguments, all: [{has: {nthChild: 1, matches: field-text}}, {not: {has: {nthChild: 2}}}]}
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: field_expression, has: {field: field, regex: '^write_fmt$'}}
+                - has: {field: arguments, has: {nthChild: 1, kind: macro_invocation, all: [{matches: {rust-std-macro: {name: {regex: '^format_args$'}}}}, {has: {kind: token_tree, regex: '^\(\s*"(?:[^"\\]|\\.)*"(\s*,\s*(\w+\s*=\s*)?&?\s*self\.\w+)*\s*,?\s*\)$'}}]}}
+    field-forward:
+        kind: call_expression
+        any:
+            - pattern: self.$FIELD.fmt($F)
+            - pattern: fmt::Display::fmt(&self.$FIELD, $F)
+            - pattern: Display::fmt(&self.$FIELD, $F)
+            - pattern: std::fmt::Display::fmt(&self.$FIELD, $F)
+            - pattern: core::fmt::Display::fmt(&self.$FIELD, $F)
+    binding-write:
+        kind: macro_invocation
+        all:
+            - matches: {rust-std-macro: {name: {regex: '^write$'}}}
+            - has: {kind: token_tree, regex: '^\(\s*\w+\s*,\s*"(?:[^"\\]|\\.)*"(\s*,\s*[a-z_]\w*)*\s*,?\s*\)$'}
+    variant-arm:
+        kind: match_arm
+        all:
+            - has: {field: pattern, matches: variant-pattern}
+            - has: {field: value, matches: binding-write}
+    variant-match:
+        kind: match_expression
+        all:
+            - has: {field: value, regex: '^\*?\s*self$'}
+            - not: {has: {field: body, has: {kind: match_arm, not: {matches: variant-arm}}}}
+            - has: {field: body, has: {kind: match_arm, has: {field: pattern, has: {nthChild: 1, kind: 'tuple_struct_pattern, struct_pattern'}}}}
+    self-destructure:
+        kind: let_declaration
+        all:
+            - has: {field: pattern, kind: 'struct_pattern, tuple_struct_pattern', regex: '^Self\b'}
+            - has: {field: value, regex: '^\*?\s*self$'}
+    field-statement:
+        any: [{matches: field-write}, {matches: field-forward}, {matches: variant-match}, {kind: expression_statement, has: {nthChild: 1, any: [{matches: field-write}, {matches: field-forward}, {matches: variant-match}]}}]
+    binding-statement:
+        any: [{matches: binding-write}, {kind: expression_statement, has: {nthChild: 1, matches: binding-write}}]
+    display-body:
+        kind: block
+        any:
+            - all:
+                - has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, matches: field-statement}
+                - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}
+            - all:
+                - has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, matches: self-destructure}
+                - has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}, matches: binding-statement}
+                - not: {has: {nthChild: {position: 3, ofRule: {matches: rust-statement}}}}
+    error-type:
+        matches: {rust-error-type: {name: {pattern: $T}}}
 rule:
     kind: impl_item
     all:
         - has: {field: type, kind: type_identifier, pattern: $T}
-        - matches: rust-field-display
+        - not:
+            not:
+                all:
+                    - has: {field: trait, regex: '^(((std|core)::)?fmt::)?Display$'}
+                    - has: {field: body, has: {kind: function_item, all: [{has: {field: name, regex: '^fmt$'}}, {has: {field: body, matches: display-body}}]}}
+                    - inside:
+                        kind: 'source_file, declaration_list, block'
+                        all:
+                            - has: {kind: 'struct_item, enum_item', has: {field: name, pattern: $T}}
+                            - not: {has: {matches: error-type}}
 message: '`Display` for `$T` writes a literal format over its own fields'
 note: 'Replace the impl with `derive_more::Display` and `#[display("<format>")]` on type or variant, no attribute on a single-field struct'

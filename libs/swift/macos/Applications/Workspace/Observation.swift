@@ -11,7 +11,7 @@ import System
 
 public enum Target: Sendable {
     case watch([Installation])
-    case launch([(installation: Installation, documents: [URL])], arguments: [String], environment: [String: String], newInstance: Bool)
+    case launch([(installation: Installation, documents: [URL])], arguments: [String], environment: [String: String], newInstance: Bool, waitForExit: Bool = false)
     case act(ElementAction)
     case quit([NSRunningApplication])
     case kill([NSRunningApplication])
@@ -25,7 +25,7 @@ public enum Observation: Sendable {
 }
 
 private enum Course {
-    case launched(created: Bool)
+    case launched(created: Bool, waitForExit: Bool)
     case acted(window: CGWindowID?)
     case quitting
     case killed
@@ -46,11 +46,10 @@ private enum Ending {
 
 extension InstanceState {
     fileprivate func noting(created: Bool?, quitting: Bool, hidden: Bool) -> Self {
-        guard case .running(var running) = self else { return self }
-        running.created = created
-        running.quitting = quitting
-        running.hidden = hidden
-        return .running(running)
+        switch self {
+            case .running(let running): .running(Running(status: running.status, usage: running.usage, hidden: hidden, created: created, quitting: quitting))
+            case .failed, .exited: self
+        }
     }
 }
 
@@ -75,13 +74,14 @@ extension NSRunningApplication {
             sending?.cancel()
             holding?.cancel()
         }
-        let created: Bool? = if case .launched(let created) = course { created } else { nil }
+        let created: Bool? = if case .launched(let created, _) = course { created } else { nil }
         for await next: Event in events {
             switch next {
                 case .reply(.success): continue
                 case .reply(.failure(let failure)) where failure.reason.is(\.refused):
                     holding = Task {
-                        for await _ in AsyncTimerSequence(interval: messagingTimeout, clock: ContinuousClock()).prefix(1) { event.yield(.held(failure)) }
+                        _ = await AsyncTimerSequence(interval: messagingTimeout, clock: ContinuousClock()).first { _ in true }
+                        event.yield(.held(failure))
                     }
                 case .held(let failure):
                     switch await state(walking: \.requiresAnswer) {
@@ -95,14 +95,14 @@ extension NSRunningApplication {
                     output.yield(.failure(key, failure))
                     return
                 case .state(let read):
-                    if hidden, !isHidden, read.is(\.running), !read.isLaunching {
+                    if hidden, !isHidden, read.is(\.running), isFinishedLaunching {
                         do throws(ApplicationFailure) { try await setHidden(true) } catch { output.yield(.failure(key, error)) }
                     }
                     let state: InstanceState = read.noting(created: created, quitting: sending != nil, hidden: isHidden)
                     output.yield(.instance(self, state))
                     guard !state.is(\.exited) else { continue }
                     switch course {
-                        case .launched where state.next?.is(\.wait) != true: return
+                        case .launched(_, false) where state.next?.is(\.wait) != true: return
                         case .acted(let window) where window.map({ window in state.next?[case: \.capture]?.contains(window) != true }) ?? true: return
                         case .quitting where state.requiresAnswer || state.isUnresponsive || state.is(\.failed), .killed where state.is(\.failed): return
                         case .quitting where sending == nil: sending = Task { event.yield(.reply(await quit())) }
@@ -140,14 +140,23 @@ extension NSWorkspace {
         let (names, work): ([String], @Sendable () async -> Void) =
             switch target {
                 case .watch(let installations): (installations.map(\.name), { await Self.watch(installations, into: output) })
-                case .launch(let launches, let arguments, let environment, let newInstance):
+                case .launch(let launches, let arguments, let environment, let newInstance, let waitForExit):
                     (
                         launches.map(\.installation.name),
                         {
                             await withDiscardingTaskGroup { group in
                                 for (installation, documents): (Installation, [URL]) in launches {
                                     group.addTask {
-                                        await Self.launch(installation, documents, arguments: arguments, environment: environment, newInstance: newInstance, into: output) { opened in
+                                        await Self.launch(
+                                            installation,
+                                            documents,
+                                            arguments: arguments,
+                                            environment: environment,
+                                            newInstance: newInstance,
+                                            waitForExit: waitForExit,
+                                            into: output,
+                                        ) {
+                                            opened in
                                             launched.withLock { held in held.append(opened) }
                                         }
                                     }
@@ -164,7 +173,7 @@ extension NSWorkspace {
                 case .quit(let instances): (instances.compactMap(\.localizedName), { await Self.end(instances, killing: false, into: output) })
                 case .kill(let instances): (instances.compactMap(\.localizedName), { await Self.end(instances, killing: true, into: output) })
             }
-        let stopsAtPrompt: Bool = if case .launch = target { true } else { false }
+        let stopsAtPrompt: Bool = if case .launch(_, _, _, _, false) = target { true } else { false }
         let prompts: AsyncStream<(host: String, prompts: OrderedDictionary<NSRunningApplication, InstanceState>)> = systemPrompts(naming: names)
         let observing: Task<Void, Never> = Task {
             let prompted: Mutex<[String: OrderedDictionary<NSRunningApplication, InstanceState>]> = Mutex([:])
@@ -218,6 +227,7 @@ extension NSWorkspace {
         arguments: [String],
         environment: [String: String],
         newInstance: Bool,
+        waitForExit: Bool,
         into output: AsyncStream<Observation>.Continuation,
         opened: @Sendable ((instance: NSRunningApplication, created: Bool)) -> Void,
     ) async {
@@ -232,7 +242,7 @@ extension NSWorkspace {
             )
             opened(launched)
             await launched.instance.follow(
-                .launched(created: launched.created),
+                .launched(created: launched.created, waitForExit: waitForExit),
                 restoring: launched.created ? !installation.agent : reused == true,
                 ending: termination(of: launched.instance.processIdentifier),
                 into: output,
@@ -260,12 +270,12 @@ extension NSWorkspace {
         await withDiscardingTaskGroup { group in
             for instance: NSRunningApplication in instances {
                 let exits: AsyncStream<Result<ProcessExit, Errno>> = termination(of: instance.processIdentifier)
+                guard !killing || instance.forceTerminate() else {
+                    let reason: ApplicationFailure.Reason = instance.isTerminated ? .noProcess : .refused(nil)
+                    output.yield(.failure(instance.key, ApplicationFailure(subject: String(instance.processIdentifier), reason: reason)))
+                    continue
+                }
                 group.addTask {
-                    guard !killing || instance.forceTerminate() else {
-                        let reason: ApplicationFailure.Reason = instance.isTerminated ? .noProcess : .refused(nil)
-                        output.yield(.failure(instance.key, ApplicationFailure(subject: String(instance.processIdentifier), reason: reason)))
-                        return
-                    }
                     await instance.follow(killing ? .killed : .quitting, restoring: instance.isHidden, ending: exits, into: output)
                 }
             }

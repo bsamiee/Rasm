@@ -142,22 +142,11 @@ internal sealed class Decoding {
 
     internal Fin<Decoded> Decode((ImageSource.Encoded Source, SKSizeI Pixels) key) {
         using SKCodec? codec = SKCodec.Create(key.Source.Data);
-        return Optional(codec).ToFin(new UIFault(key.Source.Data.Size.ToString(CultureInfo.InvariantCulture), UIReason.Unreadable)).Bind(read => {
+        return Optional(codec).ToFin(new UIFault(key.Source.Data.Size, UIReason.Unreadable)).Bind(read => {
             SKSizeI wanted = ImageSource.Encoded.Oriented(read.EncodedOrigin, key.Pixels).Shown;
             SKImageInfo raw = read.Info.WithSize(read.GetScaledDimensions(float.Min(1f, float.Max((float)wanted.Width / read.Info.Width, (float)wanted.Height / read.Info.Height)))).WithAlphaType(SKAlphaType.Premul);
             (SKSizeI shown, SKMatrix orientation) = ImageSource.Encoded.Oriented(read.EncodedOrigin, raw.Size);
-            SKCodecFrameInfo[] timing = read.FrameInfo;
-            using SKBitmap canvas = new(raw);
-            (Seq<(SKBitmap Pixels, Duration Shown)> frames, Fin<Unit> stored) = Range(0, int.Max(1, read.FrameCount)).Fold(
-                (Frames: Seq<(SKBitmap Pixels, Duration Shown)>(), Read: Fin.Succ(unit)),
-                (held, index) => held.Read.IsFail ? held : Stored(read, raw, canvas, held.Frames, index, timing).Match(
-                    Succ: frame => (held.Frames.Add(frame), held.Read),
-                    Fail: error => (held.Frames, Fin.Fail<Unit>(error))));
-            Fin<Decoded> decoded = stored
-                .Bind(_ => offscreen(raw.WithSize(shown)).ToFin(new UIFault(shown.ToString(), UIReason.Refused)))
-                .Map(surface => Oriented(surface, frames, orientation));
-            _ = frames.Iter(static frame => frame.Pixels.Dispose());
-            return decoded;
+            return offscreen(raw.WithSize(shown)).ToFin(new UIFault(shown, UIReason.Refused)).Bind(surface => Frames(read, raw, surface, orientation));
         });
     }
 
@@ -188,27 +177,33 @@ internal sealed class Decoding {
     }
 
     // --- [DECODING]
-    private static Fin<(SKBitmap Pixels, Duration Shown)> Stored(SKCodec codec, SKImageInfo raw, SKBitmap canvas, Seq<(SKBitmap Pixels, Duration Shown)> decoded, int index, SKCodecFrameInfo[] timing) {
-        int required = timing.Length > index ? timing[index].RequiredFrame : -1;
-        if (required < 0) canvas.Erase(SKColors.Transparent);
-        return
-            from based in UIFault.Unless(required < 0 || decoded[required].Pixels.CopyTo(canvas), UIReason.Refused, required)
-            from read in codec.GetPixels(raw, canvas.GetPixels(), new SKCodecOptions(index, required)) switch {
-                var result => UIFault.Unless(result is SKCodecResult.Success or SKCodecResult.IncompleteInput, UIReason.Unreadable, result),
-            }
-            from copy in Optional(canvas.Copy()).ToFin(new UIFault(raw.Size.ToString(), UIReason.Refused))
-            select (copy, timing.Length > index ? Duration.FromMilliseconds(timing[index].Duration) : Duration.Zero);
-    }
-
-    private static Decoded Oriented(SKSurface surface, Seq<(SKBitmap Pixels, Duration Shown)> frames, SKMatrix orientation) {
+    private static Fin<Decoded> Frames(SKCodec codec, SKImageInfo raw, SKSurface surface, SKMatrix orientation) {
         using SKSurface owned = surface;
+        using SKBitmap canvas = new(raw);
         owned.Canvas.SetMatrix(orientation);
-        return new Decoded(frames.Map(frame => {
-            using SKImage pixels = SKImage.FromBitmap(frame.Pixels);
+        Seq<(SKImage Image, Duration Shown)> frames = [];
+        int prior = SKCodecOptions.Default.PriorFrame;
+        for (int index = 0, count = int.Max(1, codec.FrameCount); index < count; index++) {
+            bool animated = codec.GetFrameInfo(index, out SKCodecFrameInfo timing);
+            using SKBitmap? temporary = animated && timing.DisposalMethod is SKCodecAnimationDisposalMethod.RestorePrevious ? new(raw) : null;
+            SKBitmap destination = temporary ?? canvas;
+            int based = animated && timing.RequiredFrame >= 0 ? prior : SKCodecOptions.Default.PriorFrame;
+            if (temporary is not null && based >= 0 && !canvas.CopyTo(temporary)) return Failed(new UIFault(raw.Size, UIReason.Refused));
+            SKCodecResult result = codec.GetPixels(raw, destination.GetPixels(), new SKCodecOptions(index, based));
+            if (result is not (SKCodecResult.Success or SKCodecResult.IncompleteInput)) return Failed(new UIFault(result, UIReason.Unreadable));
+            if (animated && codec.EncodedFormat is SKEncodedImageFormat.Heif && !codec.GetFrameInfo(index, out timing)) return Failed(new UIFault(index, UIReason.Unreadable));
+            using SKImage pixels = SKImage.FromBitmap(destination);
             owned.Canvas.Clear(SKColors.Transparent);
             owned.Canvas.DrawImage(pixels, 0f, 0f, SKSamplingOptions.Default, paint: null);
-            return (owned.Snapshot(), frame.Shown);
-        }).Strict());
+            frames = frames.Add((owned.Snapshot(), animated ? Duration.FromMilliseconds(timing.Duration) : Duration.Zero));
+            if (temporary is null) prior = index;
+        }
+        return new Decoded(frames);
+
+        Fin<Decoded> Failed(UIFault error) {
+            _ = frames.Iter(static frame => frame.Image.Dispose());
+            return error;
+        }
     }
 
     private static Color Drawn(SKColor color) => Color.FromArgb(color.Alpha, color.Red, color.Green, color.Blue);

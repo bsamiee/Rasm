@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Runtime.CompilerServices;
 
 namespace Rasm.Rhino;
@@ -33,8 +32,8 @@ public static class Steps {
             Products.Each(components, (component, at) => Holds(geometry, component).Match(
                 Some: held => held
                     ? Fin.Succ(component)
-                    : new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"{component.ComponentIndexType} {component.Index} of {geometry.ObjectType}"), RhinoReason.Outside, at),
-                None: () => new RhinoFault($"{component.ComponentIndexType} of {geometry.ObjectType}", RhinoReason.Mismatched, at)));
+                    : new RhinoFault((Component: component, Geometry: geometry.ObjectType), RhinoReason.Outside, at),
+                None: () => new RhinoFault((Component: component.ComponentIndexType, Geometry: geometry.ObjectType), RhinoReason.Mismatched, at)));
 
         public Fin<Seq<int>> Within(ComponentIndexType kind, Seq<int> indices) =>
             geometry.Within(indices.Map(index => new ComponentIndex(kind, index))).Map(static held => held.Map(static component => component.Index));
@@ -81,7 +80,7 @@ public static class Steps {
 
 public static class Stages {
     // --- [IN_PLACE]
-    public static Stage<T> InPlace<T>() where T : class => new(Copy: IO.pure, Unchanged: static (_, _) => true, Commit: static (_, staged) => IO.pure(staged));
+    public static Stage<T> InPlace<T>() where T : class => new(Copy: IO.pure, Unchanged: ReferenceEquals, Commit: static (_, staged) => IO.pure(staged));
 
     // --- [GEOMETRY]
     public static Stage<T> Geometry<T>() where T : GeometryBase =>
@@ -98,7 +97,7 @@ public static class Stages {
                 from subd in IO.pure(Optional(staged as SubD))
                 from tagged in IO.lift(() => subd.Map(static held => held.UpdateAllTagsAndSectorCoefficients()))
                 from cleared in IO.lift(() => subd.Iter(static held => held.ClearEvaluationCache()))
-                from valid in IO.lift(() => staged.IsValidWithLog(out string log) ? Fin.Succ(staged) : new RhinoFault(staged.ObjectType.ToString(), RhinoReason.Invalid, Inner: Error.New(log)))
+                from valid in IO.lift(() => staged.IsValidWithLog(out string log) ? Fin.Succ(staged) : new RhinoFault(staged.ObjectType, RhinoReason.Invalid, Inner: Error.New(log)))
                 select valid);
 }
 

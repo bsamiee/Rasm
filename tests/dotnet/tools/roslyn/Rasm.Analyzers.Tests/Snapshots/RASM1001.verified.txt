@@ -8,3 +8,4 @@
 #7 `Fin.Fail<Option<int>>(Error.New("cancelled"))` restates implicit conversion of `Error.New("cancelled")` to `Fin<Option<int>>`, write `Error.New("cancelled")`
 #8 `Fin.Succ(pinned)` restates implicit conversion of `pinned` to `Fin<int>`, write `pinned`
 #9 `Fin.Fail<int>(error + fault)` restates implicit conversion of `error + fault` to `Fin<int>`, write `error + fault`
+#10 `Fin.Succ(/* value */ value)` restates implicit conversion of `value` to `Fin<int>`, write `value`

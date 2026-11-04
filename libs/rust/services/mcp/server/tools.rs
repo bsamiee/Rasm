@@ -247,7 +247,7 @@ where A: App {
         CallToolResponse::from(required)
     };
     if context.client_capabilities().is_some_and(|capabilities| capabilities.supports_tasks()) && server.info.capabilities.supports_tasks() {
-        let options = TaskOptions::default().with_ttl_ms((!running.destructive).then(|| u64::try_from(server.retention.as_millis()).unwrap_or(u64::MAX)));
+        let options = TaskOptions::default().with_ttl_ms((!running.destructive).then(|| server.retention.as_millis().saturating_cast::<u64>()));
         Ok(CreateTaskResult::new(server.tasks.spawn(options, |task| server.tracker.track_future(tasked(running, task, server.halted.clone())).boxed())).into())
     } else if running.pending.is_empty() {
         let mut asked = Vec::new();

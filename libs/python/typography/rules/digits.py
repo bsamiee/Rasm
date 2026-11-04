@@ -9,11 +9,10 @@ lazy from fontTools.misc.transform import Transform
 from typography.faces.declaration import Em, Ratio, Script
 from typography.rules.measures import Rule
 lazy from typography.faces.glyphs import Digit, Source
-lazy from typography.faces.layout import Single
-lazy from typography.faces.names import GlyphName
+lazy from typography.faces.layout import Lookups, Single
 lazy from typography.outlines.measure import restroked, stroke
-lazy from typography.outlines.paths import bounds, transformed
-lazy from typography.rules.measures import centred, key, made, middle
+lazy from typography.outlines.paths import bounds, Box, transformed
+lazy from typography.rules.measures import middle
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -34,41 +33,77 @@ class Digits(Rule, frozen=True, kw_only=True):
 def figured(source: Source, rule: Digits, /) -> Source:
     """Draws the digits of two scripts on one pen and sets their default advances, `pnum` and `tnum` each reaching its kind from either."""
     (lead, second), shared = rule.script.digits, rule.script.shared
-    own = {glyph.name.codes[0]: glyph for glyph in source.glyphs if glyph.codes and isinstance(glyph.role, Digit) and glyph.role.script in {lead, second} and glyph.contours}
-    leads = {unicodedata.decimal(chr(code)): code for code, glyph in own.items() if isinstance(glyph.role, Digit) and glyph.role.script == lead}
-    drawn = {
-        code: own[leads[value]].contours if code not in leads.values() and (value := unicodedata.decimal(chr(code))) in shared and value in leads else glyph.contours for code, glyph in own.items()
+    own = {
+        drawn.name.text: drawn
+        for glyph in source.glyphs
+        if glyph.codes and isinstance(glyph.role, Digit) and glyph.role.zero in {lead, second}
+        for drawn in (source.drawn(glyph.name.text),)
+        if drawn.contours
     }
+    primary = {unicodedata.decimal(chr(glyph.name.codes[0])): name for name, glyph in own.items() if glyph.role == Digit(zero=lead)}
+    models = {
+        name: primary[value] if glyph.role == Digit(zero=second) and (value := unicodedata.decimal(chr(glyph.name.codes[0]))) in shared and value in primary else name for name, glyph in own.items()
+    }
+    drawn = {model: own[model].contours for model in dict.fromkeys(models.values())}
     strokes = {code: stroke(contours) for code, contours in drawn.items()}
     pen = middle(tuple(strokes.values()))
     penned = {code: restroked(contours, pen) if pen and abs(strokes[code] / pen - 1) > rule.tolerance else contours for code, contours in drawn.items()}
-    stem = bounds(source.named[key(rule.script.stem)].contours) if key(rule.script.stem) in source.named else None
-    zero = bounds(penned[leads[0]]) if 0 in leads else None
-    penned |= (
-        {leads[0]: transformed(penned[leads[0]], Transform().translate(*zero.middle).scale(rule.zero * stem.height / zero.width).translate(-zero.middle[0], -zero.middle[1]))}
-        if zero and stem and rule.zero is not None
-        else {}
+    stem = Box.of(rect) if (rect := source.bounds(source.key(rule.script.stem))) is not None else None
+    zero = bounds(penned[primary[0]]) if 0 in primary else None
+    scaled = (
+        {primary[0]: Transform().translate(*zero.middle).scale(rule.zero * stem.height / zero.width).translate(-zero.middle[0], -zero.middle[1])} if zero and stem and rule.zero is not None else {}
     )
-    if not (boxes := {code: box for code, contours in penned.items() if (box := bounds(contours))}):
+    penned |= {name: transformed(penned[name], matrix) for name, matrix in scaled.items()}
+    if not (boxes := {model: box for model, contours in penned.items() if (box := bounds(contours))}):
         return source
-    broadest = max(boxes, key=lambda code: boxes[code].width)
-    sides = tuple(side for code, box in boxes.items() for side in (box.xmin, own[code].advance - box.xmax) if side >= 0)
+    names = tuple(name for name in own if models[name] in boxes)
+    broadest = min(boxes, key=lambda name: (-boxes[name].width, own[name].name.codes))
+    sides = tuple(side for name in names for box in (boxes[models[name]],) for side in (box.xmin, own[name].advance - box.xmax) if side >= 0)
     even = (own[broadest].advance - boxes[broadest].width) / 2
-    margin = rule.bearing * source.upm if rule.bearing is not None else max(middle(sides), even)
-    widths = {code: {"tabular": boxes[broadest].width + 2 * (even if even >= 0 else middle(sides)), "proportional": box.width + 2 * margin} for code, box in boxes.items()}
+    bearing = middle(sides)
+    margin = rule.bearing * source.upm if rule.bearing is not None else max(bearing, even)
+    widths = {name: {"tabular": boxes[broadest].width + 2 * (even if even >= 0 else bearing), "proportional": boxes[models[name]].width + 2 * margin} for name in names}
     variant, other = ("pnum", "proportional") if rule.advance == "tabular" else ("tnum", "tabular")
+    aliases = {name: msgspec.structs.replace(own[name].name, variant=".".join(filter(None, (own[name].name.variant, variant)))) for name in names}
     glyphs = tuple(
-        made(name, widths[code][kind], contours=centred(penned[code], widths[code][kind]))
-        for code in boxes
-        for name, kind in ((GlyphName(codes=(code,)), rule.advance), (GlyphName(codes=(code,), variant=variant), other))
+        msgspec.structs.replace(
+            glyph,
+            name=alias,
+            codes=codes,
+            advance=widths[name][kind],
+            contours=transformed(penned[model], shift),
+            components=(),
+            anchors=tuple(msgspec.structs.replace(anchor, x=x, y=y) for anchor in own[model].anchors for x, y in (matrix.transformPoint((anchor.x, anchor.y)),)),
+        )
+        for name in names
+        for glyph, model in ((own[name], models[name]),)
+        for alias, kind, codes in ((glyph.name, rule.advance, glyph.codes), (aliases[name], other, frozenset()))
+        for shift in (boxes[model].centered(widths[name][kind]),)
+        for matrix in (shift.transform(scaled[model]) if model in scaled else shift,)  # type: ignore[no-untyped-call]
     )
     order = max((lookup.order for lookup in source.lookups), default=0) + 1
-    mapping = {key(code): f"{key(code)}.{variant}" for code in boxes}
+    mapping = {name: alias.text for name, alias in aliases.items()}
     lookups = (
-        Single(feature=variant, order=order, mapping=frozendict(mapping)),
-        Single(feature="tnum" if variant == "pnum" else "pnum", order=order + 1, mapping=frozendict({held: default for default, held in mapping.items()})),
+        Single(features=frozendict({variant: frozendict()}), order=order, mapping=frozendict(mapping)),
+        Single(features=frozendict({"tnum" if variant == "pnum" else "pnum": frozendict()}), order=order + 1, mapping=frozendict({held: default for default, held in mapping.items()})),
     )
-    return msgspec.structs.replace(source.replaced(*glyphs), lookups=(*(lookup for lookup in source.lookups if lookup.feature not in {"pnum", "tnum"}), *lookups))
+    affected = frozenset((*aliases, *(alias.text for alias in aliases.values())))
+    features = frozenset(*lookup.features for lookup in lookups)
+
+    def retained(lookup: Lookups, /) -> tuple[Lookups, ...]:
+        match lookup:
+            case Single(mapping=values) if features & lookup.features.keys():
+                untouched = frozendict({tag: systems for tag, systems in lookup.features.items() if tag not in features})
+                selected = frozendict({tag: systems for tag, systems in lookup.features.items() if tag in features})
+                remaining = frozendict({name: target for name, target in values.items() if name not in affected})
+                return (
+                    *((msgspec.structs.replace(lookup, features=untouched),) if untouched else ()),
+                    *((msgspec.structs.replace(lookup, features=selected, mapping=remaining),) if remaining else ()),
+                )
+            case _:
+                return (lookup,)
+
+    return msgspec.structs.replace(source.replaced(*glyphs), lookups=(*(*retained(lookup) for lookup in source.lookups), *lookups))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: python-typed-parameter
-language: python
+language: pythonlang
 arguments: [type]
 utils:
     parameter:
@@ -9,6 +9,7 @@ utils:
             - any: [{has: {kind: identifier, nthChild: 1, pattern: $PARAMETER}}, {has: {field: name, pattern: $PARAMETER}}]
             - has: {field: type, matches: type}
     binding:
+        kind: 'identifier, typed_parameter, list_splat_pattern, dictionary_splat_pattern, default_parameter, typed_default_parameter, assignment, augmented_assignment, for_statement, for_in_clause, named_expression, as_pattern, function_definition, class_definition, type_alias_statement, delete_statement, global_statement, aliased_import, dotted_name'
         any:
             - matches: {python-binding: {name: {pattern: $PARAMETER}}}
             - kind: global_statement
@@ -25,17 +26,26 @@ utils:
         has:
             stopBy: {kind: 'function_definition, class_definition, lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression'}
             matches: binding
-    lexical-scope:
-        any:
-            - kind: block
-              inside: {kind: function_definition}
-            - inside: {kind: lambda, field: body}
-            - kind: list_comprehension, set_comprehension, dictionary_comprehension, generator_expression
     enclosing-scope:
-        inside:
-            matches: lexical-scope
-            stopBy: {matches: lexical-scope}
-            all: [{matches: parameter-scope}]
+        any:
+            - inside:
+                  kind: for_in_clause
+                  not: &preceding-iterable {follows: {kind: for_in_clause, stopBy: end}}
+                  field: right
+                  stopBy: &scope {kind: 'function_definition, class_definition, lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression'}
+                  inside:
+                      kind: list_comprehension, set_comprehension, dictionary_comprehension, generator_expression
+                      not: {inside: {kind: lambda, field: body, matches: bound}}
+                      matches: enclosing-scope
+            - not: {inside: {kind: for_in_clause, not: *preceding-iterable, field: right, stopBy: *scope}}
+              inside:
+                  any: &lexical-scope
+                      - kind: block
+                        inside: {kind: function_definition}
+                      - inside: {kind: lambda, field: body}
+                      - kind: list_comprehension, set_comprehension, dictionary_comprehension, generator_expression
+                  stopBy: {any: *lexical-scope}
+                  all: [{matches: parameter-scope}]
     parameter-scope:
         any:
             - kind: block
@@ -46,8 +56,8 @@ utils:
                         - has: {field: parameters, has: {matches: parameter}}
                         - not:
                             has:
-                                stopBy: {kind: 'function_definition, class_definition, lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression'}
-                                all: [{matches: binding}, {not: {matches: parameter}}]
+                                field: body
+                                has: {stopBy: *scope, matches: binding}
                     - all: [{not: {matches: bound}}, {matches: enclosing-scope}]
             - inside:
                 kind: lambda
@@ -61,11 +71,27 @@ rule:
     kind: identifier
     all:
         - pattern: $PARAMETER
+        - not:
+              any:
+                  - matches: {python-binding: {name: {pattern: $PARAMETER}}}
+                  - nthChild: 1
+                    inside: {kind: 'typed_parameter, list_splat_pattern, dictionary_splat_pattern'}
+                  - inside: {kind: 'default_parameter, typed_default_parameter', field: name}
+                  - inside: {kind: 'assignment, augmented_assignment, for_statement, for_in_clause', field: left}
+                  - inside: {kind: 'named_expression, function_definition, class_definition', field: name}
+                  - inside:
+                        kind: type
+                        stopBy: {not: {kind: generic_type}}
+                        inside: {kind: type_alias_statement, field: left}
+                  - inside: {kind: delete_statement, stopBy: {kind: 'attribute, subscript'}}
+                  - inside: {kind: attribute, field: attribute}
+                  - inside: {kind: keyword_argument, field: name}
+                  - inside: {kind: 'import_statement, import_from_statement, global_statement, nonlocal_statement', stopBy: end}
         - any:
-            - all: [{matches: lexical-scope}, {matches: parameter-scope}]
-            - all: [{not: {matches: lexical-scope}}, {matches: enclosing-scope}]
+            - all: [{any: *lexical-scope}, {matches: parameter-scope}]
+            - all: [{not: {any: *lexical-scope}}, {matches: enclosing-scope}]
         - not:
             inside:
                 kind: class_definition
-                stopBy: {any: [{matches: lexical-scope}, {kind: class_definition}]}
+                stopBy: {any: [{any: *lexical-scope}, {kind: class_definition}]}
                 matches: bound

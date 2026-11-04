@@ -1,4 +1,4 @@
-"""Render set membership: the file's set form, member scenes or view layers with their sync locks, category settings per root, category sync across unlocked members, and the set steps over them."""
+"""Render set scenes and view layers with category sync, membership locks, and restoration."""
 
 from collections.abc import Iterable, Mapping
 from enum import auto, Enum
@@ -7,7 +7,7 @@ from itertools import chain
 from typing import Final
 
 import bpy
-from expression import Error, Nothing, Ok, Option, Some
+from expression import Option, Some
 from expression.extra.result import catch
 import msgspec
 
@@ -22,7 +22,7 @@ from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.render.view_layers.passes import layer_of, used
 from blender.bpy.settings.attachments import Attached, Recovery
 from blender.bpy.settings.presets import Preset
-from blender.records.faults import accumulated, Fault, Outcome, Reason
+from blender.records.faults import accumulated, Error, Fault, Nothing, Ok, Outcome, Reason
 from blender.records.trees import Reparametrized, transfer
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -123,7 +123,15 @@ class Members(msgspec.Struct, frozen=True, kw_only=True):
 
     def members(self, context: bpy.types.Context, *, unlocked: bool = False) -> Outcome[tuple[Owner, ...]]:
         """Returns members of file form in list order, unlocked ones alone when `unlocked` is set."""
-        return self.form(context).bind(lambda form: MemberScope(members=self, owner_type=bpy.types.Scene if form is Form.COPIES else bpy.types.ViewLayer, unlocked=unlocked).owners(context))
+
+        def selected(form: Form) -> Outcome[tuple[Owner, ...]]:
+            match form:
+                case Form.COPIES:
+                    return self.copies(context)
+                case Form.LAYERS:
+                    return self.source(context).map(lambda scene: tuple(scene.view_layers))
+
+        return self.form(context).bind(selected).map(lambda owners: self.unlocked(owners) if unlocked else owners)
 
     def membership(self, owner: Owner) -> Membership:
         """Returns the membership group of a member scene or view layer."""
@@ -177,9 +185,19 @@ class MemberScope(msgspec.Struct, frozen=True, kw_only=True):
         """Returns owners of the member scenes, unlocked ones alone when `unlocked` is set."""
         return (
             self.members
-            .member_scenes(context)
-            .map(lambda scenes: tuple(layer for scene in scenes for layer in scene.view_layers) if self.owner_type is bpy.types.ViewLayer else scenes)
-            .map(lambda owners: self.members.unlocked(owners) if self.unlocked else owners)
+            .form(context)
+            .bind(
+                lambda form: (self.members.copies(context) if form is Form.COPIES else self.members.source(context).map(lambda scene: (scene,))).map(
+                    lambda scenes: self.members.unlocked(scenes) if self.unlocked and (form is Form.COPIES or self.owner_type is bpy.types.Scene) else scenes
+                )
+            )
+            .map(
+                lambda scenes: (
+                    tuple(layer for scene in scenes for layer in scene.view_layers if not self.unlocked or not self.members.membership(layer).locked)
+                    if self.owner_type is bpy.types.ViewLayer
+                    else scenes
+                )
+            )
         )
 
 
@@ -261,7 +279,7 @@ def propagated(members: Members, edited: Owner) -> Outcome[Option[str]]:
             if isinstance(edited, category.root)
         ).map(lambda outcomes: Some("Edit Across Render Sets") if any(applied.written for group in outcomes for applied in group) else Nothing)
 
-    return members.members(bpy.context, unlocked=True).bind(wrote)
+    return MemberScope(members=members, owner_type=bpy.types.Scene if isinstance(edited, bpy.types.Scene) else bpy.types.ViewLayer, unlocked=True).owners(bpy.context).bind(wrote)
 
 
 # --- [STEPS]

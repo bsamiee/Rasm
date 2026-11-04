@@ -3,9 +3,9 @@ import { Array, Data, type Duration, Effect, Layer, Option, String, Struct } fro
 import { SqlClient, type Statement } from 'effect/sql';
 import { atomic } from '#/atomic';
 import { Column } from '#/column';
-import { Engine } from '#/engine';
-import { ReconcileError } from '#/finding';
-import { Reconcile } from '#/reconcile';
+import { Engine } from '#/internal/engine/engine';
+import { refusals } from '#/internal/reconcile';
+import { ReconcileError } from '#/reconcile-error';
 import type { Relation } from '#/relation';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -40,33 +40,29 @@ class Catalog extends Data.Class<{
 
 const converge = Effect.fnUntraced(function* <E, R>(catalog: Catalog, runtime: Option.Option<string>, after: (planned: Effect.Success<ReturnType<Engine['Service']['plan']>>) => Effect.Effect<unknown, E, R>) {
     const [client, engine, d1] = yield* Effect.all([SqlClient.SqlClient, Engine, Effect.serviceOption(D1Client.D1Client)]);
-    yield* ReconcileError.raise([...catalog.tables.flatMap(Reconcile.refusals), ...catalog.tables.flatMap(engine.refusals)]);
+    yield* ReconcileError.raise([...catalog.tables.flatMap(refusals), ...catalog.tables.flatMap(engine.refusals)]);
     const steps = engine.plan(client.withoutTransforms(), catalog, runtime);
     const applied = Effect.tap(steps, after);
-    return yield* Option.isNone(d1)
-        ? client.withTransaction(applied)
-        : Effect.catchTag(applied, 'SqlError', (error) =>
-              Effect.filterOrFail(
-                  steps,
-                  ({ statements }) => Array.isReadonlyArrayEmpty(statements),
-                  () => error,
-              ),
-          );
+    const converged = <X>(error: X) =>
+        Effect.filterOrFail(
+            steps,
+            ({ statements }) => Array.isReadonlyArrayEmpty(statements),
+            () => error,
+        );
+    return yield* Option.isNone(d1) ? client.withTransaction(applied) : Effect.catchTag(applied, 'SqlError', converged);
 });
 const concurrently = Effect.fnUntraced(function* (session: readonly { readonly name: string; readonly value: string }[], statements: Array.NonEmptyReadonlyArray<Statement.Statement<object>>) {
     const sql = yield* SqlClient.SqlClient;
-    const connection = yield* sql.reserve;
+    const names = session.map(Struct.get('name'));
+    const connection = yield* Effect.acquireRelease(sql.reserve, (reserved) => Effect.orDie(reserved.executeUnprepared(...sql`SELECT set_config(name, reset_val, false) FROM pg_settings WHERE name = ANY(${names})`.compile(true), undefined)));
     const run = (statement: Statement.Statement<object>) => connection.executeUnprepared(...statement.compile(true), undefined);
-    return yield* Effect.acquireUseRelease(
-        Effect.forEach(session, ({ name, value }) => run(sql`SELECT set_config(${name}, ${value}, false)`), { discard: true }),
-        () => Effect.forEach(statements, run, { discard: true }),
-        () => Effect.orDie(Effect.forEach(session, ({ name }) => run(sql`SELECT set_config(name, reset_val, false) FROM pg_settings WHERE name = ${name}`), { discard: true })),
-    );
+    yield* Effect.forEach(session, ({ name, value }) => run(sql`SELECT set_config(${name}, ${value}, false)`), { discard: true });
+    return yield* Effect.forEach(statements, run, { discard: true });
 }, Effect.scoped);
 const start = Effect.fnUntraced(function* <M, N>(catalog: Catalog, migrator: Option.Option<Layer.Layer<SqlClient.SqlClient, M, N>>) {
     const [engine, client] = yield* Effect.all([Engine, SqlClient.SqlClient]);
     const undeclared = yield* Option.match(migrator, { onNone: () => Catalog.reconcile(catalog), onSome: (layer) => Effect.flatMap(engine.role(client), (role) => Effect.provide(Catalog.reconcile(catalog, Option.some(role)), layer)) });
-    yield* Object.values(undeclared).some((objects) => objects.length > 0) ? Effect.annotateLogs(Effect.logInfo('undeclared database objects'), undeclared) : Effect.void;
+    yield* Object.values(undeclared).some(Array.isReadonlyArrayNonEmpty<unknown>) ? Effect.annotateLogs(Effect.logInfo('undeclared database objects'), undeclared) : Effect.void;
     yield* engine.open(client);
 });
 

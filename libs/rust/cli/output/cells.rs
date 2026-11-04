@@ -1,28 +1,30 @@
 use core::{
     fmt::{Display, Write as _},
-    mem,
+    iter, mem,
 };
+use std::borrow::Cow;
 
-use indexmap::IndexSet;
+use indexmap::{IndexMap, map::RawEntryApiV1 as _};
 use serde::{
     Serialize,
     ser::{self, Error as _},
 };
+use serde_content::{Data, Enum, Number, Struct, Value};
 use serde_json::ser::{CompactFormatter, Formatter as _};
 
-// --- [TYPES] ---------------------------------------------------------------------------
-
-#[derive(Clone, Copy)]
-enum Place {
-    Root,
-    Field,
-    Key,
-}
+use crate::EncodingError;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
+#[derive(Clone, PartialEq, Eq, Hash)]
+pub(crate) enum Segment {
+    Name(Cow<'static, str>),
+    Key { kind: mem::Discriminant<Value<'static>>, json: Box<str> },
+    Index(usize),
+}
+
 pub(crate) struct Field {
-    pub(crate) text: String,
+    pub(crate) text: Vec<u8>,
     pub(crate) numeric: bool,
 }
 
@@ -34,35 +36,39 @@ pub(crate) struct Row {
 
 #[derive(Default)]
 pub(crate) struct Columns {
-    pub(crate) names: IndexSet<Box<str>>,
-    path: String,
+    pub(crate) names: IndexMap<Box<[Segment]>, Box<str>>,
+    path: Vec<Segment>,
+    text: String,
+}
+
+impl Columns {
+    const fn position(&self) -> (usize, usize) { (self.path.len(), self.text.len()) }
+
+    fn truncate(&mut self, (depth, end): (usize, usize)) {
+        self.path.truncate(depth);
+        self.text.truncate(end);
+    }
 }
 
 struct State<'columns> {
     columns: &'columns mut Columns,
     row: Row,
-    compound: bool,
 }
 
-struct Serializer<'state, 'columns> {
+struct Record<'state, 'columns> {
     state: &'state mut State<'columns>,
-    place: Place,
-}
-
-enum Record<'state, 'columns> {
-    Fields { state: &'state mut State<'columns>, root: bool, base: usize, end: usize },
-    Key,
+    base: (usize, usize),
+    end: (usize, usize),
 }
 
 enum Sequence<'state, 'columns> {
     Positional { state: &'state mut State<'columns>, index: usize },
-    Json { state: &'state mut State<'columns>, end: usize, first: bool, text: Vec<u8> },
-    Key,
+    Json { state: &'state mut State<'columns>, end: (usize, usize), first: bool, text: Vec<u8> },
 }
 
-impl<'state, 'columns> ser::Serializer for Serializer<'state, 'columns> {
+impl<'state, 'columns> ser::Serializer for &'state mut State<'columns> {
     type Ok = ();
-    type Error = serde_json::Error;
+    type Error = EncodingError;
     type SerializeSeq = Sequence<'state, 'columns>;
     type SerializeTuple = Sequence<'state, 'columns>;
     type SerializeTupleStruct = Sequence<'state, 'columns>;
@@ -123,19 +129,14 @@ impl<'state, 'columns> ser::Serializer for Serializer<'state, 'columns> {
 
     fn serialize_newtype_variant<T>(self, _name: &'static str, _variant_index: u32, variant: &'static str, value: &T) -> Result<(), Self::Error>
     where T: ?Sized + Serialize {
-        match self.place {
-            Place::Key => self.state.compound = true,
-            Place::Root | Place::Field => {
-                let end = tagged(self.state, self.place, variant);
-                value.serialize(Serializer { state: &mut *self.state, place: Place::Field })?;
-                self.state.columns.path.truncate(end);
-            }
-        }
+        let end = tagged(self, variant);
+        value.serialize(&mut *self)?;
+        self.columns.truncate(end);
         Ok(())
     }
 
     fn serialize_seq(self, _len: Option<usize>) -> Result<Sequence<'state, 'columns>, Self::Error> {
-        let end = self.state.columns.path.len();
+        let end = self.columns.position();
         sequence(self, end)
     }
 
@@ -144,30 +145,20 @@ impl<'state, 'columns> ser::Serializer for Serializer<'state, 'columns> {
     fn serialize_tuple_struct(self, _name: &'static str, len: usize) -> Result<Sequence<'state, 'columns>, Self::Error> { self.serialize_seq(Some(len)) }
 
     fn serialize_tuple_variant(self, _name: &'static str, _variant_index: u32, variant: &'static str, _len: usize) -> Result<Sequence<'state, 'columns>, Self::Error> {
-        match self.place {
-            Place::Key => sequence(self, 0),
-            Place::Root | Place::Field => {
-                let end = tagged(self.state, self.place, variant);
-                sequence(Serializer { state: self.state, place: Place::Field }, end)
-            }
-        }
+        let end = tagged(self, variant);
+        sequence(self, end)
     }
 
     fn serialize_map(self, _len: Option<usize>) -> Result<Record<'state, 'columns>, Self::Error> {
-        let end = self.state.columns.path.len();
+        let end = self.columns.position();
         Ok(record(self, end))
     }
 
     fn serialize_struct(self, _name: &'static str, len: usize) -> Result<Record<'state, 'columns>, Self::Error> { self.serialize_map(Some(len)) }
 
     fn serialize_struct_variant(self, _name: &'static str, _variant_index: u32, variant: &'static str, _len: usize) -> Result<Record<'state, 'columns>, Self::Error> {
-        match self.place {
-            Place::Key => Ok(record(self, 0)),
-            Place::Root | Place::Field => {
-                let end = tagged(self.state, self.place, variant);
-                Ok(record(Serializer { state: self.state, place: Place::Field }, end))
-            }
-        }
+        let end = tagged(self, variant);
+        Ok(record(self, end))
     }
 
     fn collect_str<T>(self, value: &T) -> Result<(), Self::Error>
@@ -178,63 +169,95 @@ impl<'state, 'columns> ser::Serializer for Serializer<'state, 'columns> {
 
 impl ser::SerializeMap for Record<'_, '_> {
     type Ok = ();
-    type Error = serde_json::Error;
+    type Error = EncodingError;
 
     fn serialize_key<T>(&mut self, key: &T) -> Result<(), Self::Error>
     where T: ?Sized + Serialize {
-        match self {
-            Record::Fields { state, root, base: _, end: _ } => {
-                if !*root {
-                    state.columns.path.push('.');
-                }
-                let start = state.columns.path.len();
-                key.serialize(Serializer { state, place: Place::Key })?;
-                if mem::take(&mut state.compound) {
-                    state.columns.path.truncate(start);
-                    state.columns.path.push_str(&serde_json::to_string(key)?);
-                }
-                Ok(())
+        fn inner<'value>(value: &'value Value<'static>) -> Option<&'value Value<'static>> {
+            match value {
+                Value::Option(Some(value)) => Some(value),
+                Value::Struct(Struct { data: Data::NewType { value }, .. }) => Some(value),
+                Value::Unit
+                | Value::Bool(_)
+                | Value::Number(_)
+                | Value::Char(_)
+                | Value::String(_)
+                | Value::Bytes(_)
+                | Value::Seq(_)
+                | Value::Map(_)
+                | Value::Option(None)
+                | Value::Struct(_)
+                | Value::Enum(_)
+                | Value::Tuple(_) => None,
             }
-            Record::Key => Ok(()),
         }
+        let value = serde_content::Serializer::new().human_readable().serialize(key)?;
+        if self.base.0 != 0 {
+            self.state.columns.text.push('.');
+        }
+        let segment = match value {
+            Value::String(name) => {
+                self.state.columns.text.push_str(&name);
+                Segment::Name(name)
+            }
+            value => {
+                let json = serde_json::to_string(&value)?;
+                let terminal = iter::successors(inner(&value), |&value| inner(value)).last().unwrap_or(&value);
+                match terminal {
+                    Value::Unit | Value::Option(None) | Value::Struct(Struct { data: Data::Unit, .. }) => (),
+                    Value::Number(Number::F32(value)) if !value.is_finite() => (),
+                    Value::Number(Number::F64(value)) if !value.is_finite() => (),
+                    Value::Char(value) => self.state.columns.text.push(*value),
+                    Value::String(value) => self.state.columns.text.push_str(value),
+                    Value::Bytes(value) => self.state.columns.text.push_str(&String::from_utf8_lossy(value)),
+                    Value::Enum(Enum { variant, data: Data::Unit, .. }) => self.state.columns.text.push_str(variant),
+                    Value::Bool(_) | Value::Number(_) | Value::Seq(_) | Value::Map(_) | Value::Option(Some(_)) | Value::Struct(_) | Value::Enum(_) | Value::Tuple(_) => {
+                        self.state.columns.text.push_str(&json);
+                    }
+                }
+                Segment::Key { kind: mem::discriminant(&value), json: json.into_boxed_str() }
+            }
+        };
+        self.state.columns.path.push(segment);
+        Ok(())
     }
 
     fn serialize_value<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where T: ?Sized + Serialize {
-        match self {
-            Record::Fields { state, root: _, base, end: _ } => {
-                value.serialize(Serializer { state, place: Place::Field })?;
-                state.columns.path.truncate(*base);
-                Ok(())
-            }
-            Record::Key => Ok(()),
-        }
+        value.serialize(&mut *self.state)?;
+        self.state.columns.truncate(self.base);
+        Ok(())
     }
 
     fn end(self) -> Result<(), Self::Error> {
-        ended(self);
+        self.state.columns.truncate(self.end);
         Ok(())
     }
 }
 
 impl ser::SerializeStruct for Record<'_, '_> {
     type Ok = ();
-    type Error = serde_json::Error;
+    type Error = EncodingError;
 
     fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<(), Self::Error>
     where T: ?Sized + Serialize {
-        ser::SerializeMap::serialize_entry(self, key, value)
+        if self.base.0 != 0 {
+            self.state.columns.text.push('.');
+        }
+        self.state.columns.text.push_str(key);
+        self.state.columns.path.push(Segment::Name(Cow::Borrowed(key)));
+        ser::SerializeMap::serialize_value(self, value)
     }
 
     fn end(self) -> Result<(), Self::Error> {
-        ended(self);
+        self.state.columns.truncate(self.end);
         Ok(())
     }
 }
 
 impl ser::SerializeStructVariant for Record<'_, '_> {
     type Ok = ();
-    type Error = serde_json::Error;
+    type Error = EncodingError;
 
     fn serialize_field<T>(&mut self, key: &'static str, value: &T) -> Result<(), Self::Error>
     where T: ?Sized + Serialize {
@@ -242,40 +265,40 @@ impl ser::SerializeStructVariant for Record<'_, '_> {
     }
 
     fn end(self) -> Result<(), Self::Error> {
-        ended(self);
+        self.state.columns.truncate(self.end);
         Ok(())
     }
 }
 
 impl ser::SerializeSeq for Sequence<'_, '_> {
     type Ok = ();
-    type Error = serde_json::Error;
+    type Error = EncodingError;
 
     fn serialize_element<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where T: ?Sized + Serialize {
         match self {
             Sequence::Positional { state, index } => {
-                state.columns.path.push_str(itoa::Buffer::new().format(*index));
+                state.columns.text.push_str(itoa::Buffer::new().format(*index));
+                state.columns.path.push(Segment::Index(*index));
                 *index = index.strict_add(1);
-                value.serialize(Serializer { state, place: Place::Field })?;
-                state.columns.path.clear();
+                value.serialize(&mut **state)?;
+                state.columns.truncate((0, 0));
                 Ok(())
             }
             Sequence::Json { state: _, end: _, first, text } => {
                 CompactFormatter.begin_array_value(text, mem::replace(first, false)).map_err(serde_json::Error::io)?;
-                serde_json::to_writer(&mut *text, value)
+                serde_json::to_writer(text, value).map_err(EncodingError::from)
             }
-            Sequence::Key => Ok(()),
         }
     }
 
     fn end(self) -> Result<(), Self::Error> {
         match self {
-            Sequence::Positional { state: _, index: _ } | Sequence::Key => Ok(()),
+            Sequence::Positional { state: _, index: _ } => Ok(()),
             Sequence::Json { state, end, first: _, mut text } => {
                 CompactFormatter.end_array(&mut text).map_err(serde_json::Error::io)?;
-                cell(state, String::from_utf8(text).map_err(serde_json::Error::custom)?, false);
-                state.columns.path.truncate(end);
+                cell(state, text, false);
+                state.columns.truncate(end);
                 Ok(())
             }
         }
@@ -284,7 +307,7 @@ impl ser::SerializeSeq for Sequence<'_, '_> {
 
 impl ser::SerializeTuple for Sequence<'_, '_> {
     type Ok = ();
-    type Error = serde_json::Error;
+    type Error = EncodingError;
 
     fn serialize_element<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where T: ?Sized + Serialize {
@@ -296,7 +319,7 @@ impl ser::SerializeTuple for Sequence<'_, '_> {
 
 impl ser::SerializeTupleStruct for Sequence<'_, '_> {
     type Ok = ();
-    type Error = serde_json::Error;
+    type Error = EncodingError;
 
     fn serialize_field<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where T: ?Sized + Serialize {
@@ -308,7 +331,7 @@ impl ser::SerializeTupleStruct for Sequence<'_, '_> {
 
 impl ser::SerializeTupleVariant for Sequence<'_, '_> {
     type Ok = ();
-    type Error = serde_json::Error;
+    type Error = EncodingError;
 
     fn serialize_field<T>(&mut self, value: &T) -> Result<(), Self::Error>
     where T: ?Sized + Serialize {
@@ -320,9 +343,11 @@ impl ser::SerializeTupleVariant for Sequence<'_, '_> {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-fn cell(state: &mut State<'_>, text: String, numeric: bool) {
-    let Columns { names, path } = &mut *state.columns;
-    let index = names.get_index_of(path.as_str()).unwrap_or_else(|| names.insert_full(Box::from(path.as_str())).0);
+fn cell(state: &mut State<'_>, text: Vec<u8>, numeric: bool) {
+    let Columns { names, path, text: name } = &mut *state.columns;
+    let entry = names.raw_entry_mut_v1().from_key(path.as_slice());
+    let index = entry.index();
+    entry.or_insert_with(|| (path.clone().into_boxed_slice(), Box::from(name.as_str())));
     let field = Some(Field { text, numeric });
     if let Some(slot) = state.row.fields.get_mut(index) {
         *slot = field;
@@ -332,68 +357,45 @@ fn cell(state: &mut State<'_>, text: String, numeric: bool) {
     }
 }
 
-fn leaf(Serializer { state, place }: Serializer<'_, '_>, text: impl Display, numeric: bool) -> Result<(), serde_json::Error> {
-    match place {
-        Place::Key => write!(state.columns.path, "{text}").map_err(serde_json::Error::custom),
-        Place::Root | Place::Field => {
-            let mut written = String::new();
-            write!(written, "{text}").map_err(serde_json::Error::custom)?;
-            cell(state, written, numeric);
-            Ok(())
-        }
-    }
+fn leaf(state: &mut State<'_>, text: impl Display, numeric: bool) -> Result<(), EncodingError> {
+    let mut written = String::new();
+    write!(written, "{text}").map_err(EncodingError::custom)?;
+    cell(state, written.into_bytes(), numeric);
+    Ok(())
 }
 
-fn tagged(state: &mut State<'_>, place: Place, variant: &str) -> usize {
-    let end = state.columns.path.len();
-    if !matches!(place, Place::Root) {
-        state.columns.path.push('.');
+fn tagged(state: &mut State<'_>, variant: &'static str) -> (usize, usize) {
+    let end = state.columns.position();
+    if !state.columns.path.is_empty() {
+        state.columns.text.push('.');
     }
-    state.columns.path.push_str(variant);
+    state.columns.text.push_str(variant);
+    state.columns.path.push(Segment::Name(Cow::Borrowed(variant)));
     state.row.named = true;
     end
 }
 
-const fn record<'state, 'columns>(Serializer { state, place }: Serializer<'state, 'columns>, end: usize) -> Record<'state, 'columns> {
-    match place {
-        Place::Key => {
-            state.compound = true;
-            Record::Key
-        }
-        Place::Root | Place::Field => {
-            state.row.named = true;
-            let base = state.columns.path.len();
-            Record::Fields { state, root: matches!(place, Place::Root), base, end }
-        }
+const fn record<'state, 'columns>(state: &'state mut State<'columns>, end: (usize, usize)) -> Record<'state, 'columns> {
+    state.row.named = true;
+    let base = state.columns.position();
+    Record { state, base, end }
+}
+
+fn sequence<'state, 'columns>(state: &'state mut State<'columns>, end: (usize, usize)) -> Result<Sequence<'state, 'columns>, EncodingError> {
+    if state.columns.path.is_empty() {
+        Ok(Sequence::Positional { state, index: 0 })
+    } else {
+        let mut text = Vec::new();
+        CompactFormatter.begin_array(&mut text).map_err(serde_json::Error::io)?;
+        Ok(Sequence::Json { state, end, first: true, text })
     }
 }
 
-fn ended(record: Record<'_, '_>) {
-    if let Record::Fields { state, root: _, base: _, end } = record {
-        state.columns.path.truncate(end);
-    }
-}
-
-fn sequence<'state, 'columns>(Serializer { state, place }: Serializer<'state, 'columns>, end: usize) -> Result<Sequence<'state, 'columns>, serde_json::Error> {
-    match place {
-        Place::Root => Ok(Sequence::Positional { state, index: 0 }),
-        Place::Field => {
-            let mut text = Vec::new();
-            CompactFormatter.begin_array(&mut text).map_err(serde_json::Error::io)?;
-            Ok(Sequence::Json { state, end, first: true, text })
-        }
-        Place::Key => {
-            state.compound = true;
-            Ok(Sequence::Key)
-        }
-    }
-}
-
-pub(crate) fn flattened(value: &impl Serialize, columns: &mut Columns) -> Result<Row, serde_json::Error> {
+pub(crate) fn flattened(value: &impl Serialize, columns: &mut Columns) -> Result<Row, EncodingError> {
     let known = columns.names.len();
-    columns.path.clear();
-    let mut state = State { columns, row: Row::default(), compound: false };
-    match value.serialize(Serializer { state: &mut state, place: Place::Root }) {
+    columns.truncate((0, 0));
+    let mut state = State { columns, row: Row::default() };
+    match value.serialize(&mut state) {
         Ok(()) => Ok(state.row),
         Err(source) => {
             state.columns.names.truncate(known);

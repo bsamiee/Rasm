@@ -4,6 +4,7 @@ use std::{
     sync::Arc,
 };
 
+use fast_image_resize::Resizer;
 use krilla::{
     Data,
     color::{
@@ -39,7 +40,7 @@ use crate::{Document, PdfError, Refusal};
 struct Face {
     id: u64,
     index: u32,
-    coordinates: Vec<(Tag, i32)>,
+    coordinates: Vec<(Tag, u32)>,
 }
 
 pub(crate) struct Drawing<'options> {
@@ -49,14 +50,18 @@ pub(crate) struct Drawing<'options> {
     images: HashMap<(usize, (u32, u32)), Image>,
     documents: HashMap<usize, (PdfDocument, usize)>,
     faces: HashMap<Face, Font>,
+    resizer: Resizer,
 }
 
 impl<'options> Drawing<'options> {
-    pub(crate) fn new(options: &'options Options) -> Self { Self { options, trees: HashMap::new(), rasters: HashMap::new(), images: HashMap::new(), documents: HashMap::new(), faces: HashMap::new() } }
+    pub(crate) fn new(options: &'options Options) -> Self {
+        Self { options, trees: HashMap::new(), rasters: HashMap::new(), images: HashMap::new(), documents: HashMap::new(), faces: HashMap::new(), resizer: Resizer::new() }
+    }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+#[stacksafe::stacksafe]
 pub(crate) fn draw(surface: &mut Surface<'_>, elements: &[Element], sheet: Rect, drawing: &mut Drawing<'_>, leaves: &mut Leaves) -> Validated<(), (usize, PdfError)> {
     fn path<I>(elements: I) -> Option<geom::Path>
     where I: IntoIterator<Item = PathEl> {
@@ -102,68 +107,75 @@ pub(crate) fn draw(surface: &mut Surface<'_>, elements: &[Element], sheet: Rect,
     }
     let tolerance = drawing.options.tolerance;
     let outlined = |region: &Region| path(region.path_elements(tolerance.into_inner()));
-    let drawn = elements
-        .iter()
-        .enumerate()
-        .map(|(index, element)| {
-            let located = |drawn: Result<(), PdfError>| Validated::from(drawn.map_err(|error| (index, error)));
-            match element {
-                Element::Stroke { path: centerline, pen, linetype } => {
-                    leaves.graphic(surface);
-                    match linetype {
-                        None => stroked(surface, centerline.iter(), pen, None),
-                        Some(dashed) => strokes::phases(centerline, dashed, tolerance).into_iter().for_each(|(piece, offset, dashes)| {
-                            let period = dashes.iter().sum::<f64>();
-                            let dash = StrokeDash { array: dashes.iter().map(|length| length.cast::<f32>()).collect(), offset: offset.rem_euclid(period).cast::<f32>() };
-                            stroked(surface, piece.iter().copied(), pen, Some(dash));
-                        }),
-                    }
-                    Validated::Good(())
+    let mut pending = vec![(None, elements.iter().enumerate())];
+    let mut drawn = Validated::Good(());
+    while let Some((root, remaining)) = pending.last_mut() {
+        let Some((position, element)) = remaining.next() else {
+            pending.pop();
+            if !pending.is_empty() {
+                leaves.close(surface);
+                surface.pop();
+            }
+            continue;
+        };
+        let index = root.unwrap_or(position);
+        let located = |outcome: Result<(), PdfError>| Validated::from(outcome.map_err(|error| (index, error)));
+        let next = match element {
+            Element::Stroke { path: centerline, pen, linetype } => {
+                leaves.graphic(surface);
+                match linetype {
+                    None => stroked(surface, centerline.iter(), pen, None),
+                    Some(dashed) => strokes::phases(centerline, dashed, tolerance).into_iter().for_each(|(piece, offset, dashes)| {
+                        let period = dashes.iter().sum::<f64>();
+                        let dash = StrokeDash { array: dashes.iter().map(|length| length.cast::<f32>()).collect(), offset: offset.rem_euclid(period).cast::<f32>() };
+                        stroked(surface, piece.iter().copied(), pen, Some(dash));
+                    }),
                 }
-                Element::Fill { region, color, opacity } => {
+                Validated::Good(())
+            }
+            Element::Fill { region, color, opacity } => {
+                if let Some(outline) = outlined(region) {
+                    leaves.graphic(surface);
+                    surface.set_stroke(None);
+                    surface.set_fill(Some(fill(color, *opacity, FillRule::EvenOdd)));
+                    surface.draw_path(&outline);
+                }
+                Validated::Good(())
+            }
+            Element::Hatch { region, pattern, placement, pen } => match hatches::expand(region, pattern, *placement, tolerance) {
+                Ok(lines) => {
                     if let Some(outline) = outlined(region) {
                         leaves.graphic(surface);
-                        surface.set_stroke(None);
-                        surface.set_fill(Some(fill(color, *opacity, FillRule::EvenOdd)));
-                        surface.draw_path(&outline);
+                        surface.push_clip_path(&outline, &FillRule::EvenOdd);
+                        stroked(surface, lines.iter(), pen, None);
+                        surface.pop();
                     }
                     Validated::Good(())
                 }
-                Element::Hatch { region, pattern, placement, pen } => match hatches::expand(region, pattern, *placement, tolerance) {
-                    Ok(lines) => {
-                        if let Some(outline) = outlined(region) {
-                            leaves.graphic(surface);
-                            surface.push_clip_path(&outline, &FillRule::EvenOdd);
-                            stroked(surface, lines.iter(), pen, None);
-                            surface.pop();
-                        }
+                Err(errors) => Validated::Fail(errors.into_nonempty_iter().map(|error| (index, PdfError::from(error))).collect()),
+            },
+            Element::Text { text, color: _, opacity: _ } => located(Err(PdfError::Named { name: Arc::clone(&text.content), refusal: Refusal::Unshaped })),
+            Element::Glyphs { run, color, opacity } => located(glyphs(surface, run, color, *opacity, drawing, leaves)),
+            Element::Placed { content, placement, opacity } => placed(surface, content, *placement, *opacity, drawing, leaves)
+                .map_or_else(|errors| Validated::Fail(errors.into_nonempty_iter().map(|error| (index, error)).collect()), Validated::Good),
+            Element::Clip { region, keep, elements: grouped } => {
+                let outline = match keep {
+                    Side::Inside => outlined(region),
+                    Side::Outside => path(iter::chain(sheet.path_elements(tolerance.into_inner()), region.path_elements(tolerance.into_inner()))),
+                };
+                match outline {
+                    Some(mask) => {
+                        leaves.close(surface);
+                        surface.push_clip_path(&mask, &FillRule::EvenOdd);
+                        pending.push((Some(index), grouped.iter().enumerate()));
                         Validated::Good(())
                     }
-                    Err(errors) => Validated::Fail(errors.into_nonempty_iter().map(|error| (index, PdfError::from(error))).collect()),
-                },
-                Element::Text { text, color: _, opacity: _ } => located(Err(PdfError::Named { name: Arc::clone(&text.content), refusal: Refusal::Unshaped })),
-                Element::Glyphs { run, color, opacity } => located(glyphs(surface, run, color, *opacity, drawing, leaves)),
-                Element::Placed { content, placement, opacity } => placed(surface, content, *placement, *opacity, drawing, leaves)
-                    .map_or_else(|errors| Validated::Fail(errors.into_nonempty_iter().map(|error| (index, error)).collect()), Validated::Good),
-                Element::Clip { region, keep, elements: grouped } => {
-                    let outline = match keep {
-                        Side::Inside => outlined(region),
-                        Side::Outside => path(iter::chain(sheet.path_elements(tolerance.into_inner()), region.path_elements(tolerance.into_inner()))),
-                    };
-                    match outline {
-                        Some(mask) => {
-                            leaves.close(surface);
-                            surface.push_clip_path(&mask, &FillRule::EvenOdd);
-                            let drawn = draw(surface, grouped, sheet, drawing, leaves);
-                            surface.pop();
-                            drawn.map_err(|errors| errors.into_nonempty_iter().map(|(_, error)| (index, error)).collect())
-                        }
-                        None => Validated::Good(()),
-                    }
+                    None => Validated::Good(()),
                 }
             }
-        })
-        .collect();
+        };
+        drawn = drawn.map2(next, |(), ()| ());
+    }
     leaves.close(surface);
     drawn
 }
@@ -174,18 +186,21 @@ fn transform(affine: Affine) -> Transform {
 }
 
 fn glyphs(surface: &mut Surface<'_>, run: &GlyphRun, color: &Color, opacity: Opacity, drawing: &mut Drawing<'_>, leaves: &mut Leaves) -> Result<(), PdfError> {
-    const FIXED_ONE: f64 = 65536.0;
-    let variations = run.variations.iter().map(|variation| (Tag::new(&variation.tag.to_bytes()), variation.value)).collect::<Vec<_>>();
-    let coordinates = variations.iter().map(|&(tag, value)| (tag, (f64::from(value) * FIXED_ONE).round().to_int_saturating::<i32>())).collect();
-    let font = match drawing.faces.entry(Face { id: run.font.data.id(), index: run.font.index, coordinates }) {
-        Entry::Occupied(held) => held.get().clone(),
-        Entry::Vacant(vacant) => vacant
-            .insert(
-                Font::new_variable(Data::from(run.font.data.clone().into_raw_parts().0), run.font.index, &variations)
-                    .ok_or_else(|| PdfError::Font { family: Arc::clone(&run.family), index: run.font.index })?,
-            )
-            .clone(),
-    };
+    let font = match drawing.faces.entry(Face {
+        id: run.font.data.id(),
+        index: run.font.index,
+        coordinates: run.variations.iter().map(|variation| (Tag::new(&variation.tag.to_bytes()), variation.value.to_bits())).collect(),
+    }) {
+        Entry::Occupied(held) => held.into_mut(),
+        Entry::Vacant(vacant) => {
+            let face = vacant.key();
+            let variations = face.coordinates.iter().map(|&(tag, bits)| (tag, f32::from_bits(bits))).collect::<Vec<_>>();
+            let font = Font::new_variable(Data::from(run.font.data.clone().into_raw_parts().0), face.index, &variations)
+                .ok_or_else(|| PdfError::Font { family: Arc::clone(&run.family), index: face.index })?;
+            vacant.insert(font)
+        }
+    }
+    .clone();
     let size = run.size.into_inner();
     let normalize = |measure: f64| (measure / size).cast::<f32>();
     let positioned = run
@@ -249,7 +264,7 @@ fn placed(surface: &mut Surface<'_>, content: &Content, placement: Placement, op
             let target = rasters::target(raster, Size::new(xx.hypot(xy), yx.hypot(yy)), drawing.options.resolution);
             let image = match drawing.images.entry((key, target)) {
                 Entry::Occupied(held) => held.get().clone(),
-                Entry::Vacant(vacant) => vacant.insert(rasters::image(raster, target)?).clone(),
+                Entry::Vacant(vacant) => vacant.insert(rasters::image(raster, target, &mut drawing.resizer)?).clone(),
             };
             enclosed(surface, placement, opacity, leaves, |marked| marked.draw_image(image, unit));
         }

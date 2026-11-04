@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-die-before-runner
-language: tsx
+language: tsxlang
 severity: error
 utils:
     die-handler:
@@ -22,10 +22,10 @@ utils:
         any:
             - all:
                 - has: {field: function, matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^orDie$'}}}}
-                - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $PROGRAM}}, {not: {has: {nthChild: 2}}}]}
+                - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $_PROGRAM}}, {not: {has: {nthChild: 2}}}]}
             - all:
                 - has: {field: function, matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^catch$'}}}}
-                - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $PROGRAM}}, {has: {nthChild: 2, matches: die-handler}}, {not: {has: {nthChild: 3}}}]}
+                - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $_PROGRAM}}, {has: {nthChild: 2, matches: die-handler}}, {not: {has: {nthChild: 3}}}]}
     context-step:
         kind: call_expression
         has: {field: function, matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^(provide|provideService|provideServiceEffect|provideContext)$'}}}}
@@ -52,7 +52,6 @@ utils:
             stopBy: {kind: 'arrow_function, function_expression, function_declaration, generator_function, generator_function_declaration, method_definition'}
             inside: {kind: arguments, inside: {matches: run-gen}}
 rule:
-    pattern: $DIE
     any:
         - matches: die-step
           inside: {kind: arguments}
@@ -69,14 +68,10 @@ rule:
           inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, kind: member_expression, has: {field: property, regex: '^pipe$'}}, inside: {matches: run-yield}}}
         - kind: call_expression
           all:
-            - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^pipe$'}}, {has: {field: object, pattern: $PROGRAM}}]}
+            - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^pipe$'}}, {has: {field: object, pattern: $_PROGRAM}}]}
             - has: {field: arguments, all: [{has: {nthChild: 1, matches: die-step}}, {not: {has: {nthChild: 2}}}]}
             - inside: {matches: run-yield}
         - matches: die-call
           inside: {matches: run-yield}
-fix:
-    template: $PROGRAM
-    expandStart: {regex: '^,$', not: {precedes: {stopBy: end, pattern: $_, follows: {stopBy: end, pattern: $DIE}}}}
-    expandEnd: {regex: '^,$', not: {inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, matches: runner-step}}}}}
 message: 'Failure turned into a defect throws the same value from `$RUN`'
 note: 'Remove `Effect.orDie` or the dying `Effect.catch` and let the failure reach the runner'

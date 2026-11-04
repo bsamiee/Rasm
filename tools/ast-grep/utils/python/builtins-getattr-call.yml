@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: builtins-getattr-call
-language: python
+language: pythonlang
 arguments: [object]
 utils:
     getattr-function:
@@ -8,5 +8,5 @@ utils:
 rule:
     kind: call
     all:
-        - has: {field: function, regex: 'getattr$', matches: getattr-function}
         - has: {field: arguments, kind: argument_list, has: {nthChild: 1, matches: object}}
+        - has: {field: function, matches: getattr-function}

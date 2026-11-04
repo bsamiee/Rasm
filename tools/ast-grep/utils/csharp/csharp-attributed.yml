@@ -5,5 +5,39 @@ arguments: [name]
 utils:
     attribute-name:
         matches: {csharp-type-name: {name: {matches: name}}}
+    alias-binding:
+        kind: &using using_directive
+        has: {field: name, pattern: $ATTRIBUTE_ALIAS}
+    alias-scope:
+        kind: &scope 'compilation_unit, namespace_declaration'
+        any:
+            - has:
+                stopBy: {kind: &declaration 'namespace_declaration, class_declaration, struct_declaration, record_declaration, interface_declaration'}
+                kind: *using
+                matches: alias-binding
+                all:
+                    - has: {matches: attribute-name, not: {inside: {kind: using_directive, field: name}}}
+                    - not: {precedes: {stopBy: end, matches: alias-binding}}
+            - not: {has: {stopBy: {kind: *declaration}, kind: *using, matches: alias-binding}}
+              inside: {stopBy: {kind: *scope}, matches: alias-scope}
 rule:
-    has: {kind: attribute_list, has: {kind: attribute, has: {field: name, matches: attribute-name}}}
+    has:
+        kind: attribute_list
+        has:
+            kind: attribute
+            has:
+                field: name
+                any:
+                    - all:
+                        - matches: attribute-name
+                        - not:
+                            kind: identifier
+                            pattern: $ATTRIBUTE_ALIAS
+                            inside:
+                                stopBy: end
+                                kind: *scope
+                                has: {stopBy: {kind: *declaration}, kind: *using, matches: alias-binding}
+                    - kind: identifier
+                      all:
+                        - pattern: $ATTRIBUTE_ALIAS
+                        - inside: {stopBy: {kind: *scope}, matches: alias-scope}

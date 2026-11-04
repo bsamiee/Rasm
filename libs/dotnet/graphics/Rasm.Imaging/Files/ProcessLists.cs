@@ -69,7 +69,6 @@ public sealed partial class LutFormat {
     private const string ExponentParams = "ExponentParams";
     private const string ExponentValue = "exponent";
     private const string OffsetValue = "offset";
-    private const string MonCurve = "monCurve";
     private const string Channel = "channel";
     private const string ChannelLetters = "RGB";
     private const string CorrectionNode = "ColorCorrection";
@@ -139,15 +138,22 @@ public sealed partial class LutFormat {
         }
         select (LutTable)new LutTable.Affine(Matrix4x4.CreateScale(read.Scales.In) * Homogeneous(read.Array.Values, columns) * Matrix4x4.CreateScale(1f / read.Scales.Out));
 
-    private static Fin<LutTable> ReadCurve(XElement node, bool inverted) =>
-        from scales in Depths(node)
-        from array in Flag(node, "rawHalfs") ? Values<ushort>(node).Map(static array => (array.Dimensions, Values: Halves(array.Values))) : Values<float>(node)
-        from width in (array.Dimensions is [var entries, 1 or 3] && array.Values.Length == entries * array.Dimensions[1] ? Some(array.Dimensions[1]) : None).ToFin(Malformed(node))
-        from _ in ImagingFault.Unless(Attribute(node, HueAdjust).ForAll(static held => held is HueRestore), ImagingReason.Unsupported, node.Name.LocalName, Line(node))
-        from curve in Curve(Divided(width is 3 ? array.Values : Interleaved(array.Values, array.Values, array.Values), scales.Out), UnitDomain, Flag(node, HalfDomain), Attribute(node, HueAdjust).IsSome)
-        from table in inverted ? curve.Inverse() : curve
-        from indexed in Indexed(node, scales.In, array.Values.Length / width, table)
-        select indexed;
+    private static Fin<LutTable> ReadCurve(XElement node, bool inverted) {
+        return
+            from modes in (Enabled("rawHalfs"), Enabled(HalfDomain)).Apply(static (raw, half) => (Raw: raw, Half: half)).As()
+            from scales in Depths(node)
+            from array in modes.Raw ? Values<ushort>(node).Map(static array => (array.Dimensions, Values: Halves(array.Values))) : Values<float>(node)
+            from width in (array.Dimensions is [var entries, 1 or 3] && array.Values.Length == entries * array.Dimensions[1] ? Some(array.Dimensions[1]) : None).ToFin(Malformed(node))
+            from _ in ImagingFault.Unless(Attribute(node, HueAdjust).ForAll(static held => held is HueRestore), ImagingReason.Unsupported, node.Name.LocalName, Line(node))
+            from curve in Curve(Divided(width is 3 ? array.Values : Interleaved(array.Values, array.Values, array.Values), inverted ? scales.In : scales.Out), UnitDomain, modes.Half, Attribute(node, HueAdjust).IsSome)
+            from table in inverted ? curve.Inverse() : curve
+            from indexed in Indexed(node, scales.In, array.Values.Length / width, table)
+            select indexed;
+
+        Fin<bool> Enabled(string name) => Attribute(node, name).Match(
+            Some: value => parseBool(value).Filter(identity).ToFin(ImagingFault.Of(ImagingReason.Malformed, (name, value), Line(node))),
+            None: static () => false);
+    }
 
     private static Fin<LutTable> ReadLattice(XElement node) =>
         from read in (
@@ -177,7 +183,7 @@ public sealed partial class LutFormat {
 
     private static Fin<LutTable> ReadExponent(XElement node, string parameters, string exponent) =>
         from style in Attribute(node, Style).Bind(static token => ExponentStyle.TryGet(token, out ExponentStyle? style) ? Some(style) : None).ToFin(Malformed(node))
-        let monCurve = style.Key.StartsWith(MonCurve, StringComparison.Ordinal)
+        let monCurve = style.MonCurve
         from channels in ChannelParameters(node, parameters)
         from _ in ImagingFault.Unless(
             channels.ForAll(held => held.IsEmpty || (held.Find(exponent).Case, held.Find(OffsetValue).Case) switch {
@@ -312,14 +318,14 @@ public sealed partial class LutFormat {
                 range.Maximum.ToSeq().Bind(static bound => Seq(new XElement(MaxIn, Invariant(bound.In)), new XElement(MaxOut, Invariant(bound.Out))))))),
             log: static (_, log) => Some(Seq(Node(
                 LogNode,
-                new XAttribute(Style, toSeq(ClfLogStyle.Items).Find(style => style.Base.IsNone && style.Camera == log.Curve.Camera.IsSome && style.Inverted == log.Inverted).Map(static style => style.Key).IfNone(ClfLogStyle.LinToLog.Key)),
+                new XAttribute(Style, ClfLogStyle.Items.First(style => style.Base.IsNone && style.Camera == log.Curve.Camera.IsSome && style.Inverted == log.Inverted).Key),
                 Parameters(LogParams, channel =>
                     Seq((LogBase, log.Curve.Base), (LogSideSlope, log.Curve.LogSideSlope[channel]), (LogSideOffset, log.Curve.LogSideOffset[channel]), (LinSideSlope, log.Curve.LinSideSlope[channel]), (LinSideOffset, log.Curve.LinSideOffset[channel]))
                     + log.Curve.Camera.ToSeq().Bind(camera => Seq((LinSideBreak, camera.LinSideBreak[channel]), (LinearSlope, camera.LinearSlope[channel]))))))),
             exponent: static (_, exponent) => Some(Seq(Node(
                 ExponentNode,
                 new XAttribute(Style, exponent.Style.Key),
-                Parameters(ExponentParams, channel => exponent.Style.Key.StartsWith(MonCurve, StringComparison.Ordinal)
+                Parameters(ExponentParams, channel => exponent.Style.MonCurve
                     ? Seq((ExponentValue, exponent.Power[channel]), (OffsetValue, exponent.Offset[channel]))
                     : Seq((ExponentValue, exponent.Power[channel])))))),
             cdl: static (_, cdl) => Some(Seq(Node(CdlNode, new XAttribute(Style, cdl.Style.Key), CorrectionNodes(XNamespace.None, cdl)))),
@@ -371,7 +377,7 @@ public sealed partial class LutFormat {
 
     private static Option<string> Attribute(XElement node, string name) => Optional(node.Attribute(name)?.Value);
 
-    private static bool Flag(XElement node, string name) => Attribute(node, name).Exists(static held => bool.TryParse(held, out bool flag) && flag);
+    private static bool Flag(XElement node, string name) => Attribute(node, name).Bind(parseBool).IfNone(noneValue: false);
 
     private static int Line(XElement node) => ((IXmlLineInfo)node).LineNumber;
 

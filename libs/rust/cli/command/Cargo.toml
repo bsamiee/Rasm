@@ -4,7 +4,7 @@
 name                 = "rasm-command"
 version.workspace    = true
 edition.workspace    = true
-description          = "Process surface over rasm-telemetry: assembled command, completions, man pages, settings layers, terminal decision, runtime and signals"
+description          = "CLI entry point with completions, man pages, layered settings, telemetry, color, async runtime, and shutdown signals"
 repository.workspace = true
 license.workspace    = true
 keywords             = ["cli", "clap", "completions", "settings", "signals"]

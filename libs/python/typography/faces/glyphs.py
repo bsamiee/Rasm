@@ -1,13 +1,25 @@
 """Glyph records with outlines, anchors, and roles, and the face source holding them."""
 
+# mypy: disable-error-code="no-untyped-call"
+
 from datetime import datetime
-from enum import StrEnum
+from enum import auto, StrEnum
 from functools import cached_property
 from typing import Annotated, Literal, Self
+lazy from collections.abc import Callable, Mapping
+lazy from functools import cache
+lazy from itertools import groupby
 lazy import unicodedata
 
 from expression import Option
 import msgspec
+lazy from fontTools.pens.basePen import AbstractPen
+lazy from fontTools.pens.boundsPen import BoundsPen
+lazy from fontTools.pens.cu2quPen import Cu2QuPen
+lazy from fontTools.pens.filterPen import DecomposingFilterPen
+lazy from fontTools.pens.pointPen import AbstractPointPen, PointToSegmentPen, SegmentToPointPen
+lazy from fontTools.pens.recordingPen import RecordingPointPen
+lazy from fontTools.unicodedata import script
 lazy from youseedee import ucd_data
 
 from typography.faces.declaration import Faces
@@ -40,8 +52,8 @@ class Joining(StrEnum):
 class Side(StrEnum):
     """Side of its base a mark attaches to."""
 
-    ABOVE = "above"
-    BELOW = "below"
+    ABOVE = auto()
+    BELOW = auto()
 
     @property
     def anchor(self) -> str:
@@ -108,9 +120,9 @@ class Ligature(_Role, frozen=True, kw_only=True):
 
 
 class Digit(_Role, frozen=True, kw_only=True):
-    """Decimal digit of a script: `arab`, `farsi`, or `latn`."""
+    """Decimal digit of the Unicode block named by its zero code point."""
 
-    script: Literal["arab", "farsi", "latn"]
+    zero: int
 
 
 class Sign(_Role, frozen=True, kw_only=True):
@@ -135,19 +147,25 @@ type Roles = Letter | Mark | Ligature | Digit | Sign | Ornament | Space | Contro
 
 
 class Glyph(msgspec.Struct, frozen=True, kw_only=True):
-    """Glyph with its role, advance, quadratic contours, components, and anchors."""
+    """Glyph with its actual cmap code points, role, advance, quadratic contours, components, and anchors."""
 
     name: GlyphName
     role: Roles
     advance: float
+    codes: frozenset[int] = frozenset()
     contours: Outline = ()
     components: tuple[Component, ...] = ()
     anchors: tuple[Anchor, ...] = ()
 
-    @property
-    def codes(self) -> tuple[int, ...]:
-        """Code point the glyph is mapped at, empty for forms, ligatures, variants, and unencoded glyphs."""
-        return self.name.codes if len(self.name.codes) == 1 and self.name.form is Form.ISOL and not self.name.variant else ()
+    def draw(self, pen: AbstractPen, /) -> None:
+        """Draws contours and component references through the native segment-pen protocol."""
+        draw_points(PointToSegmentPen(pen), self.contours, closed=True)
+        for component in self.components:
+            pen.addComponent(component.name, component.transform)
+
+    def decomposed(self, glyphs: Mapping[str, Glyph], /) -> Self:
+        """Resolves component geometry against a glyph set while retaining the glyph's other facts."""
+        return msgspec.structs.replace(self, contours=traced(lambda pen: self.draw(DecomposingFilterPen(pen, glyphs))), components=()) if self.components else self
 
     @property
     def category(self) -> _Category:
@@ -201,8 +219,10 @@ class Source(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     upm: int
     glyphs: tuple[Glyph, ...]
     info: Info
-    metrics: Metrics | None = None
+    metrics: Metrics
     lookups: tuple[Lookups, ...] = ()
+
+    # --- [QUERIES]
 
     @cached_property
     def named(self) -> frozendict[str, Glyph]:
@@ -214,6 +234,44 @@ class Source(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         """Glyph keys by the code point each is mapped at."""
         return frozendict({code: glyph.name.text for glyph in self.glyphs for code in glyph.codes})
 
+    def key(self, code: int, form: Form | None = None, /) -> str:
+        """Actual cmap key, its requested joining form, or the construction name of an unmapped code point."""
+        name = self.named[held].name if (held := self.encoded.get(code)) is not None else GlyphName(stem=(code,))
+        return (name if form is None else msgspec.structs.replace(name, form=form)).text
+
+    @cached_property
+    def scripts(self) -> tuple[str, ...]:
+        """Supported ISO 15924 scripts from mapped code points, excluding common, inherited, and unknown classes."""
+        return tuple(sorted({held for code in self.encoded if (held := script(chr(code))) not in {"Zyyy", "Zinh", "Zzzz"}}))  # ty: ignore[unsound-return-statement]
+
+    @cached_property
+    def drawn(self) -> Callable[[str], Glyph]:
+        """Glyph geometry including nested transformed components, retaining its role, advance, and anchors."""
+        named = self.named
+
+        @cache
+        def decomposed(name: str, /) -> Glyph:
+            return named[name].decomposed(named)
+
+        return decomposed
+
+    @cached_property
+    def bounds(self) -> Callable[[str], tuple[float, float, float, float] | None]:
+        """Native ink rectangles including transformed and nested components."""
+        named = self.named
+
+        @cache
+        def measured(name: str, /) -> tuple[float, float, float, float] | None:
+            match named.get(name):
+                case None:
+                    return None
+                case glyph:
+                    pen = BoundsPen(named)
+                    glyph.draw(pen)
+                    return pen.bounds  # ty: ignore[unsound-return-statement]
+
+        return measured
+
     def glyph(self, key: str, /) -> Option[Glyph]:
         """Returns the glyph of a key."""
         return Option.of_optional(self.named.get(key))
@@ -222,17 +280,48 @@ class Source(msgspec.Struct, frozen=True, kw_only=True, dict=True):
         """Returns the glyphs of one role case in glyph order."""
         return tuple(glyph for glyph in self.glyphs if isinstance(glyph.role, kind))
 
+    # --- [CHANGES]
+
     def replaced(self, *glyphs: Glyph) -> Self:
         """Returns a copy with each glyph replacing the one of its key, or appended where no glyph holds it."""
-        changed = frozendict({glyph.name.text: glyph for glyph in glyphs})
-        return msgspec.structs.replace(self, glyphs=(*(changed.get(glyph.name.text, glyph) for glyph in self.glyphs), *(glyph for key, glyph in changed.items() if key not in self.named)))
+        return msgspec.structs.replace(self, glyphs=tuple((self.named | {glyph.name.text: glyph for glyph in glyphs}).values()))
 
     def without(self, *keys: str) -> Self:
         """Returns a copy without the glyphs of the keys."""
-        return msgspec.structs.replace(self, glyphs=tuple(glyph for glyph in self.glyphs if glyph.name.text not in keys))
+        removed = frozenset(keys)
+        return msgspec.structs.replace(self, glyphs=tuple(glyph for glyph in self.glyphs if glyph.name.text not in removed))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+# --- [PENS]
+
+
+def draw_points(points: AbstractPointPen, outline: Outline, /, *, closed: bool) -> None:
+    """Draws contour points, each on-curve point typed by its predecessor, an open contour starting with a move."""
+    for contour in outline:
+        points.beginPath()
+        for index, (before, point) in enumerate(zip((*contour[-1:], *contour[:-1]), contour, strict=False)):
+            points.addPoint((point.x, point.y), None if not point.on else "move" if not closed and not index else "line" if before.on else "qcurve")
+        points.endPath()
+
+
+def recorded(recording: RecordingPointPen, /) -> Outline:
+    """Contours a recording point pen holds."""
+    return tuple(
+        tuple(Point(x=float(x), y=float(y), on=kind is not None) for _, ((x, y), kind, *_), _ in group)
+        for adding, group in groupby(recording.value, key=lambda entry: entry[0] == "addPoint")
+        if adding
+    )
+
+
+def traced(drawing: Callable[[AbstractPen], object], /) -> Outline:
+    """Reads a segment-pen drawing as quadratic contours, cubic segments converted through cu2qu within one unit."""
+    recording = RecordingPointPen()
+    drawing(Cu2QuPen(SegmentToPointPen(recording), max_err=1.0, all_quadratic=True))
+    return recorded(recording)
+
+
+# --- [ROLES]
 
 
 def role(name: GlyphName, /, *, components: tuple[str, ...] = ()) -> Roles:
@@ -240,7 +329,7 @@ def role(name: GlyphName, /, *, components: tuple[str, ...] = ()) -> Roles:
     head = next(iter(name.codes), 0)
     match len(name.codes), name.form, unicodedata.category(chr(head)), ucd_data(head).get("Joining_Type"):
         case count, _, _, _ if count > 1:
-            return Ligature(components=components or tuple(GlyphName(codes=(code,)).text for code in name.codes))
+            return Ligature(components=components or tuple(GlyphName(stem=(code,)).text for code in name.codes))
         case 1, form, _, _ if form is not Form.ISOL:
             return Letter(joining=Joining.of(head), form=form)
         case 1, _, "Mn" | "Me", _:
@@ -250,7 +339,7 @@ def role(name: GlyphName, /, *, components: tuple[str, ...] = ()) -> Roles:
         case 1, _, "Zs", _:
             return Space()
         case 1, _, "Nd", _:
-            return Digit(script="farsi" if (title := unicodedata.name(chr(head))).startswith("EXTENDED ARABIC-INDIC") else "arab" if title.startswith("ARABIC-INDIC") else "latn")
+            return Digit(zero=head - unicodedata.decimal(chr(head)))
         case 1, _, "Lo" | "Lm", str(joining):
             return Letter(joining=Joining(joining), form=Form.ISOL)
         case _:
@@ -280,5 +369,8 @@ __all__ = [
     "Sign",
     "Source",
     "Space",
+    "draw_points",
+    "recorded",
     "role",
+    "traced",
 ]

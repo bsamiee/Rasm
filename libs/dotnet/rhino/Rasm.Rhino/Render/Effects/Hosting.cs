@@ -36,7 +36,6 @@ public abstract class DefinedEffect<TSelf, TState> : PostEffect
     where TSelf : DefinedEffect<TSelf, TState>, IDefined<EffectDefinition<TState>> where TState : notnull {
     // --- [STATE]
     private readonly Atom<TState> held = Atom(TSelf.Definition.Default);
-    private readonly Atom<Option<TState>> refused = Atom(Option<TState>.None);
 
     protected DefinedEffect() =>
         _ = EffectList.Held(this, text => EffectList.Decoded<TState>(text).Exists(state => EqualityComparer<TState>.Default.Equals(state, held.Value)));
@@ -45,15 +44,10 @@ public abstract class DefinedEffect<TSelf, TState> : PostEffect
     public sealed override Guid[] RequiredChannels => Channels.Required(TSelf.Definition.Channels(held.Value));
 
     public sealed override bool CanExecute(PostEffectPipeline pipeline) =>
-        base.CanExecute(pipeline) && TSelf.Definition.Runs(held.Value) && !refused.Value.Exists(state => EqualityComparer<TState>.Default.Equals(state, held.Value));
+        base.CanExecute(pipeline) && TSelf.Definition.Runs(held.Value);
 
-    public sealed override bool Execute(PostEffectPipeline pipeline, Rectangle rect) {
-        TState state = held.Value;
-        bool ran = Session.Run(EffectJob.Run(this, pipeline, rect, state, TSelf.Definition).Map(static _ => true), failed: false);
-        if (!ran)
-            _ = refused.Swap(_ => Some(state));
-        return ran;
-    }
+    public sealed override bool Execute(PostEffectPipeline pipeline, Rectangle rect) =>
+        Session.Run(EffectJob.Run(this, pipeline, rect, held.Value, TSelf.Definition).Map(static _ => true), failed: false);
 
     // --- [PARAMETERS]
     public sealed override bool GetParam(string param, ref object v) {

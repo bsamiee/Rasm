@@ -7,7 +7,7 @@ from functools import partial
 from typing import ClassVar, Final, TYPE_CHECKING
 
 import bpy
-from expression import Error, Nothing, Ok, Option, Result, Some
+from expression import Option, Result, Some
 from expression.extra.result import catch
 from mathutils import Matrix, Vector
 import msgspec
@@ -24,9 +24,9 @@ from blender.bpy.data.rna.descriptors import Descriptor, Value, written
 from blender.bpy.data.rna.paths import RnaPath, rooted
 from blender.bpy.data.rna.properties import choices, enum_choices, reconciling
 from blender.bpy.data.rna.snapshots import assigned, Snapshot
-from blender.bpy.extension.events import Handler, updated
+from blender.bpy.extension.events import updated
 from blender.bpy.extension.identity import Identity
-from blender.bpy.extension.registration import Acquisitions
+from blender.bpy.extension.registration import Acquisitions, Handler
 from blender.bpy.nodes.content import Generated
 from blender.bpy.scene.collections import created
 from blender.bpy.scene.lights.emitters import TEMPERATURE
@@ -41,8 +41,8 @@ from blender.bpy.ui.layout.sections import Section
 from blender.bpy.ui.layout.values import Store
 from blender.bpy.ui.screens.areas import AreaQuery, Located
 from blender.imaging.analysis.lighting import LightingReading
-from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, Reason, typed
-from blender.records.fields import Positive, Retention
+from blender.records.faults import accumulated, Error, Fault, Faults, Nothing, Ok, Outcome, paired, Reason, typed
+from blender.records.fields import Positive, Retention, SEED_BOUND
 from blender.records.stores import content_hash
 from blender.rendering.lighting.references import Gel, ReferenceDistribution, ReferenceImage, REFERENCES
 from blender.rendering.lighting.rigs import Arranged, Disk, PlacedLight, PlacedRig, Point, Rig, RIGS, Spot, Sun
@@ -73,7 +73,7 @@ class RigAxes(Enum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_TYPE: Final = Descriptor.declared(bpy.types.Light, ("type",), bpy.types.EnumProperty)
+_TYPE: Final = Descriptor(root=bpy.types.Light, prop=bpy.types.Light.bl_rna.properties["type"])
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -114,7 +114,7 @@ class ReferenceDraw(bpy.types.PropertyGroup):
     """Reference seed and color distribution."""
 
     distribution: bpy.props.EnumProperty(name="Distribution", items=enum_choices(ReferenceDistribution), default=ReferenceDistribution.BALANCED.name)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    seed: bpy.props.IntProperty(name="Seed", min=0, max=2**24)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    seed: bpy.props.IntProperty(name="Seed", min=0, max=SEED_BOUND)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
 class GelPick(bpy.types.PropertyGroup):
@@ -158,14 +158,14 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
     reference: ClassVar[Ownership[bpy.types.Image]] = Ownership(kind=bpy.types.Image, key="rig_reference", saved=Saved.USED)
 
     @contextmanager
-    def acquisitions(self, identity: Identity) -> Generator[Outcome[Acquisitions]]:
+    def acquisitions(self, identity: Identity) -> Generator[Acquisitions]:
         """Yields attachment, ownerships, the handler placing rigs again when their reference image changes, and both sections.
 
         Args:
             identity: Identity of extension registering row.
 
         Yields:
-            Acquisitions with `Band` pairs.
+            Declarations held until extension unregisters.
         """
         with identity.reports.deferred(LightRig.replaced) as deferred:
 
@@ -179,7 +179,7 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
 
                 return LightRig.setup.bound(identity).map(placed)
 
-            yield Ok((
+            yield (
                 LightRig.setup,
                 LightRig.empty,
                 LightRig.lights,
@@ -190,7 +190,7 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
                 Handler(handlers=bpy.app.handlers.depsgraph_update_post, body=partial(updated, (bpy.types.Image,), referenced)),
                 self.section(),
                 self.references(),
-            ))
+            )
 
     def section(self) -> Section[RigSetup]:
         """Returns active rig setup with the place, pick, arrange, and remove buttons in its header."""
@@ -235,7 +235,8 @@ def resolved(view_layer: bpy.types.ViewLayer, identity: Identity) -> Outcome[bpy
 
 def states(identity: Identity, holder: bpy.types.Object) -> Outcome[tuple[Stored[RigState], RigState]]:
     """Returns the rig state store and the state holder keeps, defaults while it holds none."""
-    return Stored.keyed(identity, "rig_state", msgspec.msgpack.Decoder(RigState)).bind(lambda store: store.read(holder).map(lambda found: (store, found.default_with(RigState))))
+    store = Stored.keyed(identity, "rig_state", msgspec.msgpack.Decoder(RigState))
+    return store.read(holder).map(lambda found: (store, found.default_with(RigState)))
 
 
 def _restated[T: bpy.types.PropertyGroup](call: Call[T], change: Callable[[bpy.types.Object, RigSetup, RigState], Outcome[RigState]]) -> Outcome[Done]:
@@ -291,8 +292,9 @@ def rig_frame(target: bpy.types.Object, setup: RigSetup, context: bpy.types.Cont
             case RigFocus.ORIGIN:
                 return Ok(target.matrix_world.translation.copy())
             case RigFocus.BONE:
-                pose: Option[bpy.types.PoseBone] = Option.of_optional(target.pose).bind(lambda pose: Option.of_optional(pose.bones.get(setup.bone)))
-                return pose.map(lambda pose: target.matrix_world @ pose.head).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(target), member=setup.bone))
+                bone: str = setup.bone  # ty: ignore[unsound-assignment]
+                pose = Option.of_optional(target.pose).bind(lambda pose: catch(lambda: pose.bones[bone], exception=KeyError)().to_option())
+                return pose.map(lambda pose: target.matrix_world @ pose.head).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(target), member=bone))
             case RigFocus.CURSOR:
                 return Ok(scene.cursor.location.copy())
             case RigFocus.BOUNDS:
@@ -321,10 +323,11 @@ def rig_frame(target: bpy.types.Object, setup: RigSetup, context: bpy.types.Cont
     def measured(found: tuple[tuple[Vector, Vector], Vector, Matrix]) -> Outcome[tuple[Matrix, float]]:
         (low, high), center, frame = found
         reach = Vector(tuple(max(abs(lower), abs(upper)) for lower, upper in zip((low - center)[:], (high - center)[:], strict=True)))
-        radius: Outcome[float] = catch(msgspec.convert, exception=msgspec.ValidationError)(reach.length, type=Positive).map_error(
-            lambda error: Fault.of(Reason.OUTSIDE, f"{target!r}.bound_box", f"{low[:]} to {high[:]}", member=str(error))
-        )
-        return radius.map(lambda held: (Matrix.LocRotScale(center, frame, None).freeze(), held))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+        try:
+            radius: float = msgspec.convert(reach.length, type=Positive)  # ty: ignore[unsound-assignment]
+        except msgspec.ValidationError as error:
+            return Error(Fault.of(Reason.OUTSIDE, f"{target!r}.bound_box {low[:]} to {high[:]}", error, member="a positive radius"))
+        return Ok((Matrix.LocRotScale(center, frame, None).freeze(), radius))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
 
     return (
         evaluated(layer)
@@ -416,8 +419,9 @@ def rigged(target: bpy.types.Object, existing: Option[bpy.types.Object], context
                 )
 
             def joined_to(lit: tuple[bpy.types.Object, ...]) -> Outcome[tuple[bpy.types.Object, ...]]:
+                members = (target, *descendants(target, layer)) if alone else ()
                 return (
-                    accumulated(linked(item, RECEIVERS, (target, *descendants(target, layer)), LINK_STATE.prop.default, target, context, identity) for item in lit).map(lambda _: None)
+                    accumulated(linked(item, RECEIVERS, members, LINK_STATE.prop.default, target, context, identity) for item in lit).map(lambda _: None)
                     if alone
                     else accumulated(RECEIVERS.write(item.light_linking, None) for item in lit).map(lambda _: None)
                 ).map(lambda _: lit)

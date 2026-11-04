@@ -24,7 +24,7 @@ public sealed record Look : Monoid<Look> {
     public Option<SKBlender> Blend { get; init; }
     public Option<TimingCurve> Motion { get; init; }
     public HashMap<Condition, Look> When { get; init; }
-    public HashMap<Role, Look> Within { get; init; }
+    public HashMap<Key, Look> Within { get; init; }
     public HashMap<Metric, float> Metrics { get; init; }
 
     public Look Combine(Look rhs) =>

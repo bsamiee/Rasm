@@ -48,7 +48,6 @@ public static class DisplayModes {
     public static IO<Seq<Guid>> Reconcile(Guid owner, FolderPath package, DisplayModeSpec spec) =>
         from declared in spec.Modes
         let rows = declared.Map(mode => (Id: Id(owner, mode), Mode: mode)).Strict()
-        from valid in IO.lift(() => Checked(owner, rows, spec))
         from present in Products.Many(static () => DisplayModeDescription.GetDisplayModes()).Map(static modes => modes.Map(static mode => (mode.Id, mode.EnglishName)).Strict()).Bracket()
         let ids = toHashSet(rows.Map(static row => row.Id))
         let retired = present.Filter(mode => mode.Id == Uuid.NewNameBased(owner, mode.EnglishName) && !ids.Contains(mode.Id))
@@ -72,7 +71,7 @@ public static class DisplayModes {
         let owner = Session.PlugIn.Id
         from patched in Products.Each(ids.Map(id =>
             from table in Keys(id)
-            from touched in Touched(id, edits)
+            from touched in Touched(id, edits, table)
             from recorded in Recorded(owner, id).Read
             let owned = touched.AddOrUpdateRange(toHashMap(formatted).AsIterable())
             from written in when(!owned.IsEmpty, Imported(id, table.AddOrUpdateRange(owned.AsIterable())).Map(unit)).As()
@@ -82,20 +81,10 @@ public static class DisplayModes {
         from raised in IO.lift(() => Raise(ids))
         select unit;
 
-    private static Fin<Unit> Checked(Guid owner, Seq<(Guid Id, DisplayModeDefinition Mode)> rows, DisplayModeSpec spec) =>
-        toHashSet(rows.Map(static row => row.Id)) switch {
-            var ids => (
-                    Conversions.Unique(rows.Map(static row => row.Mode.Name) + toSeq(spec.Successors.Keys), identity, StringComparer.OrdinalIgnoreCase),
-                    Products.Each(rows, (row, index) => RhinoFault.Unless(!ids.Contains(row.Mode.Base), RhinoReason.Invalid, row.Mode.Base, index)),
-                    Products.Each(toSeq(spec.Successors.Values), (successor, index) => RhinoFault.Unless(ids.Contains(Id(owner, successor)), RhinoReason.Missing, successor.Name, index)))
-                .Apply(static (_, _, _) => unit)
-                .As(),
-        };
-
     private static IO<(HashMap<(string Section, string Key), string> Table, HashMap<(string Section, string Key), string> Owned)> Intended(
         DisplayModeDefinition mode, HashMap<(string Section, string Key), string> source, FolderPath package) =>
         from formatted in IO.lift(() => Ini.Merged(Root(mode, source) + mode.Keys).Traverse(key => key.Value.Formatted(Some(package)).Map(text => ((key.Section, key.Key), text))).As())
-        from touched in Touched(mode.Base, mode.Edits)
+        from touched in Touched(mode.Base, mode.Edits, source)
         let owned = touched.AddOrUpdateRange(toHashMap(formatted).AsIterable())
         select (source.AddOrUpdateRange(owned.AsIterable()), owned.Filter(static (key, _) => Volatile(key).IsNone));
 
@@ -105,19 +94,13 @@ public static class DisplayModes {
             ? Seq(new ModeKey("", DerivedFrom, new ModeValue.Id(mode.Base)))
             : Seq<ModeKey>());
 
-    private static IO<HashMap<(string Section, string Key), string>> Touched(Guid source, Seq<Action<DisplayModeDescription>> edits) =>
+    private static IO<HashMap<(string Section, string Key), string>> Touched(Guid source, Seq<Action<DisplayModeDescription>> edits, HashMap<(string Section, string Key), string> before) =>
         edits.IsEmpty
             ? IO.pure(HashMap<(string Section, string Key), string>())
-            : IO.lift(() => DisplayModeDescription.CopyDisplayMode(source, $"{nameof(DisplayModes)} {Guid.NewGuid():N}")).Bind(scratch =>
-                (from copy in IO.lift(() => Conversions.Required(Conversions.Present(scratch)))
-                 from before in Keys(copy)
-                 from updated in With(copy, staged =>
-                     from edited in IO.lift(() => edits.Iter(edit => edit(staged)))
-                     from written in Products.Accepted(() => DisplayModeDescription.UpdateDisplayMode(staged, bSave: false))
-                     select written)
-                 from after in Keys(copy)
-                 select after.Filter((key, text) => Volatile(key).IsNone && key != ("", "Name") && before.Find(key) != Some(text)))
-                .Finally(IO.lift(() => ignore(DisplayModeDescription.DeleteDisplayMode(scratch)))));
+            : With(source, staged =>
+                from edited in IO.lift(() => edits.Iter(edit => edit(staged)))
+                from after in Exported(staged)
+                select after.Filter((key, text) => Volatile(key).IsNone && key != ("", "Name") && before.Find(key) != Some(text)));
 
     private static IO<Option<bool>> Stale(Guid owner, Guid id, HashMap<(string Section, string Key), string> owned, Seq<ModeKey> keys, bool present, FolderPath package) =>
         present
@@ -149,7 +132,6 @@ public static class DisplayModes {
     private static IO<Guid> Imported(Guid id, HashMap<(string Section, string Key), string> table) =>
         from deleted in IO.lift(() => ignore(DisplayModeDescription.DeleteDisplayMode(id)))
         from imported in Import(Ini.Rendered(id, table))
-        from same in IO.lift(() => RhinoFault.Unless(imported == id, RhinoReason.Mismatched, imported))
         select imported;
 
     private static IO<Seq<Guid>> Retired(Guid owner, Seq<Guid> written, Seq<(Guid Id, Option<Guid> Successor)> candidates) =>
@@ -256,22 +238,11 @@ public static class DisplayModes {
                 .Bind(_ => Copied(slot, material, textures)),
         };
 
-    private static readonly Seq<Action<DisplayAttributeMaterial, Material>> Shading = [
-        static (slot, material) => slot.Diffuse = material.DiffuseColor,
-        static (slot, material) => slot.Emission = material.EmissionColor,
-        static (slot, material) => slot.Shine = material.Shine,
-        static (slot, material) => slot.Transparency = material.Transparency,
-        static (slot, material) => slot.IndexOfRefraction = material.IndexOfRefraction,
-        static (slot, material) => slot.Reflectivity = material.Reflectivity,
-        static (slot, material) => slot.DisableLighting = material.DisableLighting,
-    ];
-
     private static Fin<Unit> Copied(DisplayAttributeMaterial slot, Material material, Seq<Texture> textures) {
-        _ = Shading.Iter(copy => copy(slot, material));
+        (slot.Diffuse, slot.Emission, slot.Shine, slot.Transparency, slot.IndexOfRefraction, slot.Reflectivity, slot.DisableLighting) =
+            (material.DiffuseColor, material.EmissionColor, material.Shine, material.Transparency, material.IndexOfRefraction, material.Reflectivity, material.DisableLighting);
         return Products.Each(Slotted, (type, index) => textures.Find(texture => texture.TextureType == type).Match(
             Some: texture => RhinoFault.Unless(slot.SetTexture(texture, type), RhinoReason.Declined, type, index),
-            None: () => Optional(slot.GetTexture(type)).Match(
-                Some: _ => RhinoFault.Unless(slot.RemoveTexture(type), RhinoReason.Declined, type, index),
-                None: static () => unit))).Map(static _ => unit);
+            None: () => ignore(slot.RemoveTexture(type)))).Map(static _ => unit);
     }
 }

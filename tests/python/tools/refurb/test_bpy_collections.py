@@ -1,10 +1,15 @@
 """Type tests against RNA collection structs."""
 
 from textwrap import dedent
+lazy from collections.abc import Callable
+lazy from sys import getrecursionlimit
 
+from mypy.nodes import OpExpr, TupleExpr
 import pytest
+lazy from mypy.nodes import ARG_POS, Block, CallExpr, ClassDef, Expression, NameExpr, SymbolTable, TypeInfo
+lazy from refurb.error import Error
 
-from tools.refurb.bpy_collections import ErrorCollectionTypeTestError
+from tools.refurb.bpy_collections import check, ErrorCollectionTypeTestError
 lazy from tests.python.tools.refurb.conftest import Findings
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -20,7 +25,7 @@ def test_collection_struct_type_test_reports(findings: Findings) -> None:
             if isinstance(stack, bpy.types.ObjectModifiers):
                 stack.move(before, index)
     """)
-    assert findings(ErrorCollectionTypeTestError, source) == [(5, "`bpy.types.ObjectModifiers` matches no `bpy_prop_collection` value, read the collection as its owner's attribute")]
+    assert [error.line for error in findings(ErrorCollectionTypeTestError, source)] == [5]
 
 
 @pytest.mark.parametrize("findings", ["3.13"], indirect=True)
@@ -33,4 +38,57 @@ def test_owner_type_test_passes(findings: Findings) -> None:
             if isinstance(item, bpy.types.Object):
                 item.modifiers.move(before, index)
     """)
-    assert findings(ErrorCollectionTypeTestError, source) == []
+    assert findings(ErrorCollectionTypeTestError, source) == ()
+
+
+@pytest.mark.parametrize("findings", ["3.13"], indirect=True)
+def test_nested_collection_types_report(findings: Findings) -> None:
+    """Nested tuples, unions, aliases, and class patterns report collection references."""
+    source = dedent("""
+        import bpy
+
+        Modifiers = bpy.types.ObjectModifiers
+        Stack = Modifiers
+
+        def moved(item: object) -> None:
+            if isinstance(item, (bpy.types.Object, (Stack, bpy.types.ObjectModifiers | bpy.types.Object))):
+                pass
+            if issubclass(type(item), Modifiers):
+                pass
+
+        def matched(item: Modifiers) -> None:
+            match item:
+                case Stack():
+                    pass
+
+        Kinds = Stack | object
+
+        def union(item: object) -> bool:
+            return isinstance(item, Kinds)
+    """)
+    found = findings(ErrorCollectionTypeTestError, source)
+    assert [error.line for error in found] == [8, 8, 10, 15, 21]
+    assert all(error.msg.startswith("`bpy.types.ObjectModifiers` ") for error in found)
+
+
+@pytest.mark.parametrize(
+    "combined", [pytest.param(lambda left, right: TupleExpr([left, right]), id=TupleExpr.__name__), pytest.param(lambda left, right: OpExpr("|", left, right), id=OpExpr.__name__)]
+)
+def test_deep_collection_types_report(combined: Callable[[Expression, Expression], Expression]) -> None:
+    """Collection references beyond Python's recursion limit retain every diagnostic."""
+    declarations = [ClassDef(name, Block([])) for name in ("ObjectModifiers", "bpy_prop_collection", "bpy_struct")]
+    for declaration in declarations:
+        declaration.fullname = f"bpy.types.{declaration.name}"
+    owners = [TypeInfo(SymbolTable(), declaration, "bpy.types") for declaration in declarations]
+    owners[0].mro = owners
+    reference = NameExpr(owners[0].name)
+    reference.node = owners[0]
+    depth = getrecursionlimit() * 2
+    tested = combined(reference, reference)
+    for _ in range(1, depth):
+        tested = combined(tested, reference)
+    callee = NameExpr("isinstance")
+    callee.fullname = "builtins.isinstance"
+    errors: list[Error] = []
+    check(CallExpr(callee, [NameExpr("item"), tested], [ARG_POS, ARG_POS], []), errors)
+    assert len(errors) == depth + 1

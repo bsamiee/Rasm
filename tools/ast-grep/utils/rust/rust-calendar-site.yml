@@ -1,47 +1,39 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: rust-calendar-site
-language: rust
+language: rustlang
 utils:
-    zero:
-        kind: integer_literal
-        regex: '^0(_?[iu](8|16|32|64|128|size))?$'
-    leap-divisor:
-        kind: integer_literal
-        regex: '^(4|100|400)(_?[iu](8|16|32|64|128|size))?$'
-    remainder:
-        any:
-            - kind: binary_expression
-              all: [{has: {field: operator, regex: '^%$'}}, {has: {field: right, matches: leap-divisor}}]
-            - kind: call_expression
-              all:
-                - has: {field: function, kind: field_expression, has: {field: field, regex: '^(rem_euclid|wrapping_rem|strict_rem)$'}}
-                - has: {field: arguments, has: {nthChild: 1, matches: leap-divisor}}
-    divisibility:
-        any:
-            - kind: binary_expression
-              all:
-                - has: {field: operator, regex: '^(==|!=)$'}
-                - any:
-                    - all: [{has: {field: left, matches: remainder}}, {has: {field: right, matches: zero}}]
-                    - all: [{has: {field: right, matches: remainder}}, {has: {field: left, matches: zero}}]
-            - kind: call_expression
-              all:
-                - has: {field: function, kind: field_expression, has: {field: field, regex: '^is_multiple_of$'}}
-                - has: {field: arguments, has: {nthChild: 1, matches: leap-divisor}}
-    leap-chain:
+    divisible-by-four:
+        matches:
+            rust-divisibility-test:
+                dividend: {pattern: $YEAR}
+                divisor: {kind: integer_literal, regex: '^4(_?[iu](8|16|32|64|128|size))?$'}
+    divisible-by-hundred:
+        matches:
+            rust-divisibility-test:
+                dividend: {pattern: $YEAR}
+                divisor: {kind: integer_literal, regex: '^100(_?[iu](8|16|32|64|128|size))?$'}
+    four-with-hundred:
+        all:
+            - matches: divisible-by-four
+            - inside:
+                stopBy:
+                    not: &boolean
+                        any:
+                            - kind: parenthesized_expression
+                            - kind: unary_expression
+                              regex: '^!'
+                            - kind: binary_expression
+                              has: {field: operator, regex: '^(&&|\|\|)$'}
+                kind: binary_expression
+                pattern: $LEAP
+                has: {stopBy: {not: *boolean}, matches: divisible-by-hundred}
+    leap-rule:
         kind: binary_expression
         all:
             - has: {field: operator, regex: '^(&&|\|\|)$'}
-            - has: {stopBy: end, matches: divisibility, has: {stopBy: end, kind: integer_literal, regex: '^4(_?[iu]\w+)?$'}}
-            - has: {stopBy: end, matches: divisibility, has: {stopBy: end, kind: integer_literal, regex: '^100(_?[iu]\w+)?$'}}
-    leap-rule:
-        all:
-            - any:
-                - matches: leap-chain
-                - all:
-                    - matches: divisibility
-                    - has: {stopBy: end, kind: integer_literal, regex: '^400(_?[iu]\w+)?$'}
-            - not: {inside: {stopBy: end, matches: leap-chain}}
+            - not: {inside: {stopBy: {not: *boolean}, kind: binary_expression, has: {field: operator, regex: '^(&&|\|\|)$'}}}
+            - pattern: $LEAP
+            - has: {stopBy: {not: *boolean}, matches: four-with-hundred}
     month-table:
         any:
             - kind: array_expression
@@ -58,11 +50,11 @@ utils:
     duration-argument:
         any:
             - all:
-                - has: {stopBy: end, kind: integer_literal, regex: '^3_*6_*0_*0(_?u64)?$'}
                 - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '(^|::)Duration::from_secs$'}}}
+                - has: {stopBy: end, kind: integer_literal, regex: '^3_*6_*0_*0(_?u64)?$'}
             - all:
-                - has: {stopBy: end, kind: integer_literal, regex: '^3_*6_*0_*0_*0_*0_*0(_?u64)?$'}
                 - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '(^|::)Duration::from_millis$'}}}
+                - has: {stopBy: end, kind: integer_literal, regex: '^3_*6_*0_*0_*0_*0_*0(_?u64)?$'}
     second-count-split:
         all:
             - any:

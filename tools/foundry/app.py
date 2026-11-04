@@ -1,21 +1,14 @@
 """Reconcile a declared font set from its originals: source, build, check, approve, run and publish each face."""
 
-from enum import StrEnum
 lazy import sys
 
 from cyclopts import App, Parameter
-import msgspec
 lazy from expression import Result
+lazy import msgspec
+lazy import sysexits
 
-from typography.faces.faults import Reason
-lazy from typography.faces.faults import Outcome
-
-from .commands import foundry
-
-# --- [CONSTANTS] ------------------------------------------------------------------------
-
-_EXITS: frozendict[StrEnum, int] = frozendict({Reason.OUTSIDE: 65, Reason.INVALID: 65, Reason.ABSENT: 65, Reason.UNMET: 65, Reason.UNREADABLE: 66, Reason.UNWRITABLE: 73, Reason.FAILED: 70})
-_LINES = msgspec.json.Encoder(enc_hook=str)
+from typography.builds.pipeline import performed
+lazy from typography.faces.faults import Outcome, Reason
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -26,17 +19,22 @@ def exited(result: Outcome[tuple[object, ...]] | None, /) -> int:
         case None:
             return 0
         case Result(tag="ok", ok=values):
-            sys.stdout.buffer.write(_LINES.encode_lines(values))
+            sys.stdout.buffer.write(msgspec.json.Encoder(enc_hook=str).encode_lines(values))
             return 0
         case Result(error=faults):
             sys.stderr.writelines(dict.fromkeys(f"{fault.message}\n" for fault in faults))
-            return _EXITS[faults[0].reason]
+            return {
+                **dict.fromkeys((Reason.OUTSIDE, Reason.INVALID, Reason.ABSENT, Reason.UNMET), sysexits.EX_DATAERR),
+                Reason.UNREADABLE: sysexits.EX_NOINPUT,
+                Reason.UNWRITABLE: sysexits.EX_CANTCREAT,
+                Reason.FAILED: sysexits.EX_SOFTWARE,
+            }[faults[0].reason]
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 app = App(help=__doc__, result_action=(exited, "sys_exit"), default_parameter=Parameter(negative=()), error_formatter=str)
-app.default(foundry)
+app.default(performed)
 
 if __name__ == "__main__":
     app()

@@ -109,7 +109,7 @@ internal static class Fills {
             from map in held.Pass.Cache.Mattes.GetOrAdd((held.Frame.Size, held.Layout.Corners, held.Layout.Smoothing, held.Context.Scale), () => Displacement(held))
             select (Filter)new Filter.Displace(new Material.Image(map), refraction)).ToSeq(), held.Target));
         shape.Clip(canvas, SKClipOperation.Intersect);
-        _ = canvas.SaveLayer(new SKCanvasSaveLayerRec { Bounds = held.Frame, Backdrop = backdrop.ValueUnsafe(), Flags = held.Pass.Cache.Precision });
+        _ = canvas.SaveLayer(new SKCanvasSaveLayerRec { Backdrop = backdrop.ValueUnsafe(), Flags = held.Pass.Cache.Precision });
     }
 
     private static SKShader Edged(SKRuntimeEffect effect, FillContext held, SKMatrix local) {
@@ -124,7 +124,7 @@ internal static class Fills {
         return held.Pass.Cache.Rasterized(held.Frame.Size, held.Context.Scale, SKColorType.RgbaF16, canvas => canvas.DrawRect(SKRect.Create(held.Frame.Size), paint));
     }
 
-    private static Option<SKPaint> Rimmed(FillContext held, Material.Glass glass) {
+    private static SKPaint Rimmed(FillContext held, Material.Glass glass) {
         (SKPoint side, SKPoint end) = glass.Rim(held.Layout.Style.Conditions.Contains(Condition.Dark));
         using SKShader shader = Edged(Rim.Effect, held, SKMatrix.CreateTranslation(held.Frame.Left, held.Frame.Top));
         using SKRuntimeEffectUniforms curves = new(Lightness.Effect) { ["side"] = side, ["end"] = end };

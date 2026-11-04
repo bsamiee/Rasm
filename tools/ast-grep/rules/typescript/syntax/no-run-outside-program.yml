@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-run-outside-program
+language: tsxlang
+severity: error
+ignores: ['**/main.ts', '**/main.tsx', '.codex/hooks/**']
+rule:
+    any:
+        - {kind: identifier, regex: '^runMain$', not: {inside: {kind: import_specifier}}}
+        - {kind: property_identifier, regex: '^runMain$', inside: {kind: member_expression, field: property}}
+message: '`runMain` runs a program outside its `main.ts`'
+note: 'Return the effect with its requirements unprovided, and provide platform layers and call `runMain` in the program `main.ts`'

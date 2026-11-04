@@ -6,6 +6,7 @@
 use core::task::{Context, Poll};
 use core::{fmt, mem::DropGuard, num::NonZero};
 use std::{
+    env,
     error::Report,
     io,
     process::{ExitCode, Termination},
@@ -189,7 +190,8 @@ where
 {
     let factory = Augmented::<Options, A>::command;
     CompleteEnv::with_factory(factory).complete();
-    let command = factory();
+    let mut command = factory();
+    let parsed = command.try_get_matches_from_mut(env::args_os()).and_then(|mut matches| Augmented::<Options, A>::from_arg_matches_mut(&mut matches).map_err(|error| error.format(&mut command)));
     let printed = |error: &clap::Error, status: sysexits::ExitCode| error.print().map_or_else(|source| sysexits::ExitCode::from(source).into(), |()| status.into());
     let exited = |error: &clap::Error| printed(error, if error.use_stderr() { sysexits::ExitCode::Usage } else { sysexits::ExitCode::Ok });
     let reported = |error: CommandError| printed(&clap::Error::raw(ErrorKind::Io, format_args!("{}\n", Report::new(&error))).with_cmd(&command), error.into());
@@ -201,7 +203,7 @@ where
         .map_or_else(reported, |()| ExitCode::SUCCESS)
     };
     let failed = |operation: Operation| move |source: io::Error| NEVec::new(E::from(CommandError::Io { operation, source }));
-    let Augmented { options: Options { log_directory, log_rotation, max_log_files, manual: Manual { manual: _ }, color, telemetry }, args } = match Augmented::<Options, A>::try_parse() {
+    let Augmented { options: Options { log_directory, log_rotation, max_log_files, manual: Manual { manual: _ }, color, telemetry }, args } = match parsed {
         Ok(Augmented { options: Options { log_directory: _, log_rotation: _, max_log_files: _, manual: Manual { manual: Some(directory) }, color: _, telemetry: _ }, args: _ }) =>
             return written(directory),
         Ok(parsed) => parsed,

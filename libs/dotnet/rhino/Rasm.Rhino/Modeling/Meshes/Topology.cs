@@ -89,7 +89,7 @@ public static class MeshTopology {
 
     // --- [MATCHING]
     public static IO<Seq<Mesh>> MatchEdges(Seq<Mesh> inputMeshes, double distance, bool simpleSplits, bool rachet, bool average, bool join) =>
-        from copies in inputMeshes.TraverseM(static mesh => Products.Of(mesh.DuplicateMesh)).As()
+        from copies in Products.Each(inputMeshes.Map(static mesh => Products.Of(mesh.DuplicateMesh)))
         from matched in Products.Many(() => Mesh.MatchEdges(copies, distance, simpleSplits, rachet, average, @join))
         select matched;
 

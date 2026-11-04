@@ -3,22 +3,32 @@ use std::{collections::HashMap, error::Report};
 
 use itertools::Itertools as _;
 use merman::{
-    OperationControl, RenderError, RenderEvidence, RenderOutput, RenderRequest, Renderer, SvgRequest,
+    OperationControl, RenderError, RenderEvidence, RenderOutput, RenderRequest, Renderer, SvgOutput, SvgRequest,
     svg::export::{NativeFontContext, NativeFontLimits},
 };
 use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
-use rayon::iter::{Either, IntoParallelIterator, ParallelIterator as _};
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use typst::{
+    diag::Warned,
     foundations::{Bytes, Output, Repr as _},
     syntax::{
-        FileId, RootedPath, Source, SyntaxNode, VirtualRoot,
+        FileId, RootedPath, Source, SyntaxKind, SyntaxNode, VirtualRoot,
         ast::{Raw, Text},
     },
     utils::hash128,
 };
 use typst_kit::{files::FileStore, fonts::FontStore};
 
-use crate::{Compiled, Files, Project, TypesetError};
+use crate::{Files, Project, TypesetError};
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+#[derive(Debug)]
+pub struct Compilation<T> {
+    pub output: Result<Warned<T>, TypesetError>,
+    pub evidence: Vec<(FileId, RenderEvidence)>,
+    pub errors: Vec<TypesetError>,
+}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -51,7 +61,9 @@ pub fn blocks(source: &Source) -> Vec<(FileId, String)> {
     gen move {
         let mut pending = vec![source.root()];
         while let Some(node) = pending.pop() {
-            pending.extend(node.children().rev());
+            if node.kind() != SyntaxKind::Raw {
+                pending.extend(node.children().rev());
+            }
             yield node;
         }
     }
@@ -64,28 +76,24 @@ pub fn blocks(source: &Source) -> Vec<(FileId, String)> {
 fn block(source: &Source, text: String) -> (FileId, String) { (RootedPath::new(VirtualRoot::Project, source.id().vpath().with_extension(&format!("{:032x}.svg", hash128(&text)))).intern(), text) }
 
 #[must_use]
-pub fn svg<D, S>(renderer: &Renderer, request: &SvgRequest, control: &OperationControl, sources: D) -> (Vec<(FileId, Bytes, RenderEvidence)>, Vec<TypesetError>)
+pub fn svg<D, S>(renderer: &Renderer, request: &SvgRequest, control: &OperationControl, sources: D) -> impl ParallelIterator<Item = (FileId, Result<SvgOutput, RenderError>)>
 where
     D: IntoParallelIterator<Item = (FileId, S)>,
     S: AsRef<str>,
 {
-    sources
-        .into_par_iter()
-        .map(|(id, source)| {
-            renderer
-                .render(RenderRequest::svg(source.as_ref(), control.child(), request.clone()))
-                .and_then(|output| match output {
-                    RenderOutput::Svg(Some(output)) => Ok(output.into_parts()),
-                    RenderOutput::Svg(None) => Err(RenderError::NoDiagram),
-                    _ => Err(RenderError::UnsupportedTarget("svg")),
-                })
-                .map(|(svg, evidence)| (id, Bytes::from_string(svg), evidence))
-                .map_err(|source| TypesetError::Diagram { path: id.vpath().clone(), source })
-        })
-        .partition_map(|rendered| rendered.map_or_else(Either::Right, Either::Left))
+    sources.into_par_iter().map(move |(id, source)| {
+        (
+            id,
+            renderer.render(RenderRequest::svg(source.as_ref(), control.child(), request.clone())).and_then(|output| match output {
+                RenderOutput::Svg(Some(output)) => Ok(output),
+                RenderOutput::Svg(None) => Err(RenderError::NoDiagram),
+                _ => Err(RenderError::UnsupportedTarget("svg")),
+            }),
+        )
+    })
 }
 
-pub fn compile<T, F>(project: &mut Project<F>, renderer: &Renderer, request: &SvgRequest, control: &OperationControl, max_age: usize) -> (Compiled<T>, Vec<(FileId, RenderEvidence)>, Vec<TypesetError>)
+pub fn compile<T, F>(project: &mut Project<F>, renderer: &Renderer, request: &SvgRequest, control: &OperationControl, max_age: usize) -> Compilation<T>
 where
     T: Output,
     F: DerefMut<Target = FileStore<Files>> + Send + Sync,
@@ -102,28 +110,34 @@ where
             })
             .collect()
     };
-    let settled = |files: &Files, failures: &[TypesetError], id: FileId| {
-        files.diagrams.contains_key(&id) || failures.iter().any(|failure| matches!(failure, TypesetError::Diagram { path, source: _ } if path == id.vpath()))
-    };
+    let settled = |files: &Files, failures: &HashMap<FileId, RenderError>, id: FileId| files.diagrams.contains_key(&id) || failures.contains_key(&id);
     let module = RootedPath::new(VirtualRoot::Project, main.vpath().with_extension("mermaid.typ")).intern();
     let sources = accessed(&mut project.files);
     project.files.reset();
     let mut current = present(sources, &project.files);
+    project.files.loader_mut().diagrams.clear();
     let mut evidence = Vec::new();
-    let mut failures = Vec::new();
+    let mut failures = HashMap::new();
     loop {
         let pending = current.iter().filter(|&(&id, _)| !settled(project.files.loader(), &failures, id)).map(|(&id, text)| (id, text.as_str())).collect::<Vec<_>>();
-        let (diagrams, failed) = svg(renderer, request, control, pending);
-        let (entries, reports): (Vec<_>, Vec<_>) = diagrams.into_iter().map(|(id, bytes, report)| ((id, bytes), (id, report))).unzip();
-        evidence.extend(reports);
-        failures.extend(failed);
+        for (id, result) in svg(renderer, request, control, pending).collect::<Vec<_>>() {
+            match result {
+                Ok(output) => {
+                    let (svg, report) = output.into_parts();
+                    project.files.loader_mut().diagrams.insert(id, Bytes::from_string(svg));
+                    evidence.push((id, report));
+                }
+                Err(source) => {
+                    failures.insert(id, source);
+                }
+            }
+        }
         let files = project.files.loader_mut();
         files.diagrams.retain(|id, _| current.contains_key(id));
-        files.diagrams.extend(entries);
         let table = current
             .iter()
             .filter(|&(id, _)| files.diagrams.contains_key(id))
-            .sorted_by_key(|(_, text)| *text)
+            .sorted_unstable_by_key(|(id, text)| (*text, id.vpath().get_with_slash()))
             .format_with("", |(id, text), row| row(&format_args!("({}, {}),", text.repr(), id.vpath().get_with_slash().repr())));
         let text = format!(
             "#let diagrams = ({table}).to-dict()\n\
@@ -137,7 +151,7 @@ where
         let compiled = crate::compile::<T>(&*project, max_age);
         current = present(accessed(&mut project.files), &project.files);
         if current.keys().all(|&id| settled(project.files.loader(), &failures, id)) {
-            return (compiled, evidence, failures);
+            return Compilation { output: compiled, evidence, errors: failures.into_iter().map(|(id, source)| TypesetError::Diagram { path: id.vpath().clone(), source }).collect() };
         }
     }
 }

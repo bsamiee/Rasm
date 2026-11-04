@@ -15,10 +15,6 @@ utils:
         any:
             - matches: encoder
             - has: {stopBy: end, matches: encoder}
-            - all:
-                - kind: invocation_expression
-                - has: {field: function, kind: identifier}
-                - matches: {csharp-file-method-call: {declaration: {has: {field: body, has: {stopBy: end, matches: encoder}}}}}
     decoder:
         any:
             - kind: invocation_expression
@@ -30,14 +26,8 @@ utils:
 rule:
     kind: 'invocation_expression, object_creation_expression'
     pattern: $DECODE
-    any:
-        - all:
-            - matches: decoder
-            - matches: handed
-        - all:
-            - has: {field: function, kind: identifier}
-            - has: {kind: argument_list, has: {kind: argument, has: {kind: invocation_expression}}}
-            - matches: handed
-            - matches: {csharp-file-method-call: {declaration: {has: {field: body, has: {stopBy: end, matches: decoder}}}}}
+    all:
+        - matches: decoder
+        - matches: handed
 message: '`$DECODE` decodes pixels the same code encoded'
 note: 'Copy pixels between the rasters, `SKImage.FromPixelCopy(info, pointer, rowBytes)` and `ReadPixels` over `Bitmap.LockBits` or Eto `Bitmap.Lock()`'

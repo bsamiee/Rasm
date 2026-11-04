@@ -7,7 +7,7 @@ import sys
 from types import MappingProxyType
 from typing import Annotated, ClassVar, Final, override, Self
 
-from expression import Nothing, Ok, Option, Some
+from expression import Option, Some
 from expression.extra.result import catch
 import msgspec
 import numpy as np
@@ -18,7 +18,7 @@ from blender.imaging.analysis.lighting import LightingReading
 from blender.imaging.analysis.metering import Samples
 from blender.imaging.color.processors import luma, processor
 from blender.imaging.files.buffers import applied
-from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
+from blender.records.faults import accumulated, Fault, Nothing, Ok, Outcome, paired, Reason
 from blender.records.fields import Bearing, Case, Finite, Inclination, NonNegative, Positive, Rgb, Unit
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -136,8 +136,8 @@ class Matched(Case, frozen=True, kw_only=True):
             return max(float(color.max()), Samples.floor)
 
         def filtered(color: npt.NDArray[np.float64]) -> tuple[float, float, float]:
-            red, green, blue = (np.multiply(self.tint, color) / peak(color)).tolist()
-            return red, green, blue
+            values = color * self.tint / peak(color)
+            return values.item(0), values.item(1), values.item(2)
 
         @catch(exception=FloatingPointError)
         @np.errstate(over="raise", divide="raise", invalid="raise")
@@ -270,9 +270,9 @@ class Rig(msgspec.Struct, frozen=True, kw_only=True):
             operation = built.getDefaultCPUProcessor()
 
             def graded(color: Rgb) -> Outcome[Rgb]:
-                return catch(msgspec.convert, exception=msgspec.ValidationError)(applied(operation, np.asarray([color], dtype=np.float32))[0].tolist(), type=Rgb).map_error(
-                    partial(Fault.of, Reason.FAILED, repr(color))
-                )
+                return catch(  # ty: ignore[unsound-return-statement]
+                    lambda: msgspec.convert(applied(operation, np.asarray([color], dtype=np.float32))[0].tolist(), type=Rgb), exception=msgspec.ValidationError
+                )().map_error(partial(Fault.of, Reason.FAILED, repr(color)))
 
             def light_at(light: Light) -> Outcome[PlacedLight]:
                 return paired(graded(light.color), _scaled((self.irradiance,), light.stops)).map(

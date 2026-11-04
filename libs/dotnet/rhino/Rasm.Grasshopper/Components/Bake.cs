@@ -1,3 +1,4 @@
+using System.Reflection;
 using Grasshopper2.Bake;
 using Grasshopper2.Data;
 using Grasshopper2.Data.Meta;
@@ -82,13 +83,10 @@ public static class Bakes {
             from name in toSeq(meta.Names())
             where !string.Equals(name[0], StandardNames.Rhino.Id[0], StringComparison.OrdinalIgnoreCase)
             select (Name: name.ToString(), Value: meta[name].ToString())).Strict();
-        if (count < 2 && texts.IsEmpty)
-            return attributes;
-        ObjectAttributes specific = attributes.Duplicate();
         if (count > 1)
-            specific.AddToGroup(addGroup());
-        _ = texts.Iter(text => specific.SetUserString(text.Name, text.Value));
-        return specific;
+            attributes.AddToGroup(addGroup());
+        _ = texts.Iter(text => attributes.SetUserString(text.Name, text.Value));
+        return attributes;
     }
 
     private static (int Twig, int Item, int Part) Slot(BakeKey key) => (key.TwigIndex, key.ItemIndex, key.PartIndex);
@@ -97,27 +95,37 @@ public static class Bakes {
     private static Fin<Seq<Guid>> Written(RhinoDoc document, (Seq<(BakeKey Key, GeometryBase Geometry, ObjectAttributes Attributes, Option<Guid> Into)> Writes, Seq<Guid> Deleted, Seq<Guid> Severed) plan) {
         _ = plan.Severed.Iter(id => Optional(document.Objects.FindId(id)).Iter(static found => Severed(found.Attributes.UserDictionary)));
         Seq<bool> deleted = plan.Deleted.Map(id => Optional(document.Objects.FindId(id)).Exists(found => document.Objects.Delete(found, quiet: true, ignoreModes: true))).Strict();
-        return GrasshopperFault.Unless(deleted.ForAll(static removed => removed), GrasshopperReason.Declined, plan.Deleted).Map(_ => plan.Writes.Map(write => {
-            Option<Guid> replaced = write.Into.Bind(into => document.Objects.Replace(into, write.Geometry, ignoreModes: true) && document.Objects.ModifyAttributes(into, write.Attributes, quiet: true) ? Some(into) : Option<Guid>.None);
-            _ = write.Into.Filter(_ => replaced.IsNone).Bind(into => Optional(document.Objects.FindId(into))).Iter(found => document.Objects.Delete(found, quiet: true, ignoreModes: true));
-            Guid id = replaced.IfNone(() => document.Objects.Add(write.Geometry, write.Attributes));
-            _ = Optional(document.Objects.FindId(id)).Iter(found => write.Key.AssignToObject(found));
-            return id;
-        }).Strict());
+        return GrasshopperFault.Unless(deleted.ForAll(static removed => removed), GrasshopperReason.Declined, plan.Deleted)
+            .Bind(_ => plan.Writes.TraverseM(write => write.Into.Match(
+                Some: objectId =>
+                    from replaced in GrasshopperFault.Unless(document.Objects.Replace(objectId, write.Geometry, ignoreModes: true), GrasshopperReason.Declined, write.Key)
+                    from modified in GrasshopperFault.Unless(document.Objects.ModifyAttributes(objectId, write.Attributes, quiet: true), GrasshopperReason.Declined, write.Key)
+                    select objectId,
+                None: () => document.Objects.Add(write.Geometry, write.Attributes) switch {
+                    var added => GrasshopperFault.Unless(added != Guid.Empty, GrasshopperReason.Declined, write.Key).Map(_ => added),
+                }).Map(id => {
+                    write.Key.AssignToObject(document.Objects.FindId(id));
+                    return id;
+                })).As());
     }
 
     private static Fin<Seq<Guid>> Written(File3dm file, (Seq<(BakeKey Key, GeometryBase Geometry, ObjectAttributes Attributes, Option<Guid> Into)> Writes, Seq<Guid> Deleted, Seq<Guid> Severed) plan) {
         _ = plan.Severed.Iter(id => Optional(file.Objects.FindId(id)).Iter(static found => Severed(found.Attributes.UserDictionary)));
-        return GrasshopperFault.Unless(file.Objects.Delete(plan.Deleted) == plan.Deleted.Count, GrasshopperReason.Declined, plan.Deleted).Map(_ => plan.Writes.Map(write => {
-            _ = write.Into.Iter(into => file.Objects.Delete(into));
-            Guid id = file.Objects.Add(write.Geometry, write.Attributes);
-            _ = Optional(file.Objects.FindId(id)).Iter(found => write.Key.AssignToObject(found));
-            return id;
-        }).Strict());
+        return GrasshopperFault.Unless(file.Objects.Delete(plan.Deleted) == plan.Deleted.Count, GrasshopperReason.Declined, plan.Deleted)
+            .Bind(_ => plan.Writes.TraverseM(write =>
+                (from deleted in write.Into.Traverse(objectId => GrasshopperFault.Unless(file.Objects.Delete(objectId), GrasshopperReason.Declined, write.Key)).As()
+                 let id = file.Objects.Add(write.Geometry, write.Attributes)
+                 from added in GrasshopperFault.Unless(id != Guid.Empty, GrasshopperReason.Declined, write.Key)
+                 select id).Map(id => {
+                     write.Key.AssignToObject(file.Objects.FindId(id));
+                     return id;
+                 })).As());
     }
 
     // --- [KEYS]
-    private static Unit Severed(ArchivableDictionary dictionary) =>
-        Seq(BakeKey.BakeObjectGuid, BakeKey.BakeObjectHash, BakeKey.BakeProcessName, BakeKey.BakeProcessGuid, BakeKey.BakeTwigIndex, BakeKey.BakeItemIndex, BakeKey.BakePartIndex)
-            .Iter(key => dictionary.Remove(key));
+    private static readonly Memo<Seq<string>> Keys = memo(static () => toSeq(typeof(BakeKey).GetFields(BindingFlags.Public | BindingFlags.Static))
+        .Filter(static field => field.IsLiteral)
+        .Choose(static field => field.GetRawConstantValue() is string key ? Some(key) : None));
+
+    private static Unit Severed(ArchivableDictionary dictionary) => Keys.Value.Iter(key => dictionary.Remove(key));
 }

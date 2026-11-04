@@ -1,13 +1,13 @@
 import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { Array, Deferred, Effect, FileSystem, identity, Option, Path, type PlatformError, Record, Result, Schema, Struct, String as Text, UndefinedOr } from 'effect';
+import { Array, Deferred, Effect, FileSystem, identity, Option, Path, type PlatformError, Predicate, Record, Result, Schema, String, Struct, UndefinedOr } from 'effect';
 import type { ChildProcessSpawner } from 'effect/process';
-import { HarnessError } from '#/error';
+import { HarnessError } from '#/harness-error';
 import { appeared, Launched, output, Progress, plist, printed } from '#/instance';
 import { failing, lined } from '#/report';
-import { Closed, Engine, HostCase, HostOutcome, Info, type Placed, REFUSED, Request, Rows, Sarif, Session, Source, Survey } from '#/rhino/contract';
+import { Closed, Engine, HostCase, HostOutcome, Info, LoaderRequest, REFUSED, Rows, Sarif, Session, Source, Survey } from '#/rhino/contract';
 import { precondition } from '#/rhino/precondition';
-import type { Batch, Host as Harness, Installed, Live } from '#/session';
+import { type Batch, Harness, type Installed, type Live } from '#/session';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -78,7 +78,7 @@ const LOADER = [
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [PROCESSES]
-const lines = (command: string, args: readonly string[]) => Effect.map(printed(command, args), (text) => Array.fromIterable(Text.linesIterator(text)).filter(Text.isNonEmpty));
+const lines = (command: string, args: readonly string[]) => Effect.map(printed(command, args), (text) => Array.fromIterable(String.linesIterator(text)).filter(String.isNonEmpty));
 
 // --- [INSTALLATIONS]
 const installation = Effect.fn('installation')(function* (app: string, info: typeof Info.Type) {
@@ -101,22 +101,16 @@ const installed = Effect.gen(function* () {
 const requested = Effect.fn('requested')(function* (scratch: string, stem: string, paths: readonly string[]) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const draft = path.join(scratch, `${stem}.tmp`);
-    yield* fs.writeFileString(draft, yield* Schema.encodeEffect(Request)(paths));
+    yield* fs.writeFileString(draft, yield* Schema.encodeEffect(LoaderRequest)(paths));
     yield* fs.rename(draft, path.join(scratch, `${stem}.${REQUEST}`));
 });
 
 // --- [CASES]
 const refusal = (_: typeof Engine.Type, hosted: Case) =>
-    Option.firstSomeOf([
-        Option.map(
-            Array.findFirst(REFUSED, (key) => hosted[key] !== undefined),
-            (key) => `answers ${key}, which no Rhino case shows`,
-        ),
-        Option.map(
-            Option.liftPredicate(hosted, (held) => held.precondition.source._tag === 'Application' && ((held.commands ?? []).length > 0 || held._tag === 'Run')),
-            () => 'states commands or a script under an application precondition, which opens no document for them',
-        ),
-    ]);
+    Option.map(
+        Array.findFirst(REFUSED, (key) => hosted[key] !== undefined),
+        (key) => `answers ${key}, which no Rhino case shows`,
+    );
 
 // --- [BUILD]
 const called = (name: string) => `Engine.Call(${name}, scope.Args)`;
@@ -156,29 +150,25 @@ const uncompiled = Effect.fn('uncompiled')(function* (log: string, source: strin
     const errors = (yield* Effect.flatMap(fs.readFileString(log), Schema.decodeEffect(Sarif))).runs.flatMap(({ results }) => results ?? []).filter(({ level, suppressions }) => level === 'error' && (suppressions ?? []).length === 0);
     const owned = errors.map(({ ruleId, message, locations }) => {
         const at = locations?.[0]?.physicalLocation;
+        const file = at === undefined ? undefined : fileURLToPath(at.artifactLocation.uri);
+        const location = [file, at?.region?.startLine, at?.region?.startColumn].filter(Predicate.isNotUndefined).join(':');
         return {
-            text: `${ruleId ?? ''} ${message.text}`,
-            index: at !== undefined && fileURLToPath(at.artifactLocation.uri) === source ? Option.map(Option.flatMap(Option.fromUndefinedOr(at.region?.startLine), spanned(spans)), String) : Option.none<string>(),
+            text: `${location === '' ? '' : `${location}: `}${ruleId ?? ''} ${message.text}`,
+            index: file === source ? Option.map(Option.flatMap(Option.fromUndefinedOr(at?.region?.startLine), spanned(spans)), globalThis.String) : Option.none<string>(),
         };
     });
     const foreign = owned.filter(({ index }) => Option.isNone(index)).map(Struct.get('text'));
     yield* foreign.length === 0 && owned.length > 0 ? Effect.void : HarnessError.unavailable(`${ENTRY.type} build`)(foreign.length === 0 ? reported : foreign.join('; '));
     return Record.map(Array.groupBy(Array.getSomes(owned.map(({ text, index }) => Option.all({ index, text: Option.some(text) }))), Struct.get('index')), (rows): string => `did not compile: ${rows.map(Struct.get('text')).join('; ')}`);
 });
-const building = (chosen: Installed, folder: string, cases: readonly Case[], module: Option.Option<string>, plugin: Option.Option<string>) => {
+const building = (chosen: Installed, folder: string, cases: readonly Case[], plugin: Option.Option<string>) => {
+    const sources = Array.dedupe(Array.getSomes(cases.map((hosted) => Option.fromUndefinedOr(hosted.rebuilt?.module ?? (hosted._tag === 'Call' ? hosted.source?.script : undefined)))));
     const attempt = Effect.fnUntraced(function* (reasons: Record.ReadonlyRecord<string, string>): Effect.fn.Return<string, HarnessError | PlatformError.PlatformError | Schema.SchemaError, FileSystem.FileSystem | Path.Path | ChildProcessSpawner.ChildProcessSpawner> {
         const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
         const [source, log] = [path.join(folder, `${ENTRY.type}.cs`), path.join(folder, 'build.sarif')];
-        const { text: generated, spans } = program(cases.map((hosted, index) => Option.match(Record.get(reasons, String(index)), { onNone: () => entry(hosted), onSome: (reason) => [`        new Rasm.Harnesses.Rhino.Expressions.Uncompiled(${JSON.stringify(reason)}),`] })));
+        const { text: generated, spans } = program(cases.map((hosted, index) => Option.match(Record.get(reasons, globalThis.String(index)), { onNone: () => entry(hosted), onSome: (reason) => [`        new Rasm.Harnesses.Rhino.Expressions.Uncompiled(${JSON.stringify(reason)}),`] })));
         yield* fs.writeFileString(source, generated);
-        const properties = [
-            `-p:RhinoInstallPath=${chosen.app}`,
-            `-p:HarnessCases=${source}`,
-            `-p:ArtifactsPath=${path.join(folder, 'artifacts')}`,
-            `-p:ErrorLog=${log}%2Cversion=2.1`,
-            ...Option.toArray(Option.map(module, (file) => `-p:HarnessRebuilt=${file}`)),
-            ...Option.toArray(Option.map(plugin, (file) => `-p:HarnessPlugIn=${file}`)),
-        ];
+        const properties = [`-p:RhinoInstallPath=${chosen.app}`, `-p:HarnessCases="${[source, ...sources].join(';')}"`, `-p:ArtifactsPath=${path.join(folder, 'artifacts')}`, `-p:ErrorLog=${log}%2Cversion=2.1`, ...Option.toArray(Option.map(plugin, (file) => `-p:HarnessPlugIn=${file}`))];
         const { stdout, stderr, code } = yield* output('dotnet', ['build', PROJECT, '-nologo', '-v:q', ...properties, '-t:Build', '-getProperty:TargetPath']);
         const text = new TextDecoder().decode(stdout);
         return code === 0 ? text.trim() : yield* Effect.flatMap(uncompiled(log, source, spans, `${text}${stderr}`), (found) => attempt({ ...reasons, ...found }));
@@ -202,13 +192,7 @@ const ran = Effect.fn('ran')(function* (live: Live, records: string, cases: Arra
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const folder = path.dirname(records);
     const plugin = Array.findFirst(cases, ({ plugin: file }) => Option.fromUndefinedOr(file));
-    const assembly = yield* building(
-        live.chosen,
-        folder,
-        cases,
-        Array.findFirst(cases, ({ rebuilt }) => Option.fromUndefinedOr(rebuilt?.module)),
-        plugin,
-    );
+    const assembly = yield* building(live.chosen, folder, cases, plugin);
     const batch = path.join(folder, 'batch.json');
     const row = (hosted: Case) => ({
         name: hosted.name,
@@ -236,12 +220,12 @@ const send = Effect.fn('send')(function* (live: Live, batch: Batch<typeof Survey
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const Host = {
+const rhino = Harness({
     Engine,
     survey: { question: 'Language and environment the running instance reports', Schema: Survey },
     Case: HostCase,
     Outcome: HostOutcome,
-    progress: [new Progress({ title: 'Please Wait...', buttons: ['Cancel'] })],
+    progress: [new Progress({ title: 'Please Wait...', buttons: ['Cancel'] }), new Progress({ title: 'Preparing Plug-ins for First Use', buttons: ['Details', 'Close'], enabled: false })],
     engine: () => Result.succeed(Engine.literal),
     precondition,
     placed: (decoded, _folder, product) =>
@@ -269,8 +253,8 @@ const Host = {
         ]),
     quit: (live) => requested(live.scratch, `${live.pid}.quit`, []),
     rebuilt: ({ hosted, fn, module }, folder) => Effect.succeed({ hosted: { ...hosted, folder, rebuilt: { fn, module } }, map: [] }),
-} as const satisfies Harness<typeof Survey.Type, typeof HostCase.Type, typeof Engine.Type, typeof Placed.Type>;
+});
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Host };
+export { rhino };

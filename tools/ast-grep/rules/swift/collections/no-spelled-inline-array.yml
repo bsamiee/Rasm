@@ -5,10 +5,7 @@ severity: error
 utils:
     spelled:
         kind: user_type
-        all:
-            - has: {nthChild: 1, kind: type_identifier, regex: '^InlineArray$'}
-            - has: {nthChild: 2, kind: type_arguments, not: {has: {nthChild: 3}}}
-            - not: {has: {nthChild: 3}}
+        pattern: {context: 'var v: Swift.InlineArray<$_, $_>', selector: user_type}
 rule:
     matches: spelled
     pattern: $SPELLED

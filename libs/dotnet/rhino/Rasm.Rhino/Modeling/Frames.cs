@@ -8,27 +8,34 @@ namespace Rasm.Rhino.Modeling;
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record Alignment {
-    private Alignment(Option<(SweepFrame Frame, Vector3d Normal)> host, Func<Curve, Seq<double>, Fin<Seq<Plane>>> frames) => (Host, Frames) = (host, frames);
+    public Option<(SweepFrame Frame, Vector3d Normal)> Host => Switch(
+        freeform: static _ => Some((SweepFrame.Freeform, Vector3d.Unset)),
+        frenet: static _ => Option<(SweepFrame, Vector3d)>.None,
+        roadlike: static alignment => Some((SweepFrame.Roadlike, alignment.Up)),
+        surface: static _ => Some((SweepFrame.AlignWithSurface, Vector3d.Unset)));
 
-    public Option<(SweepFrame Frame, Vector3d Normal)> Host { get; }
+    public Fin<Seq<Plane>> Frames(Curve path, Seq<double> at) => Switch(
+        (Path: path, At: at),
+        freeform: static (of, _) => Minimized(of.Path, of.At),
+        frenet: static (of, _) => Products.Each(of.At, (t, index) =>
+            RhinoFault.Unless(of.Path.FrameAt(t, out Plane frame), RhinoReason.Declined, t, index).Map(_ => new Plane(frame.Origin, frame.YAxis, frame.ZAxis))),
+        roadlike: static (of, alignment) => Railed(of.Path, nurbs => nurbs.CreatePlanarRailFrames(of.At, alignment.Up)),
+        surface: static (of, alignment) => Products.Each(of.At, (t, index) => of.Path.PointAt(t) switch {
+            var point =>
+                from closest in RhinoFault.Unless(alignment.Trim.Face.ClosestPoint(point, out double u, out double v), RhinoReason.Declined, t, index).Map(_ => (U: u, V: v))
+                let normal = alignment.Trim.Face.NormalAt(closest.U, closest.V)
+                let side = Vector3d.CrossProduct(of.Path.TangentAt(t), normal)
+                from crossed in RhinoFault.Unless(side.IsValid && !side.IsTiny(), RhinoReason.Invalid, side, index)
+                select new Plane(point, normal, side),
+        }));
 
-    public Func<Curve, Seq<double>, Fin<Seq<Plane>>> Frames { get; }
+    public sealed record Freeform : Alignment;
 
-    public sealed record Freeform() : Alignment(Some((SweepFrame.Freeform, Vector3d.Unset)), Minimized);
+    public sealed record Frenet : Alignment;
 
-    public sealed record Frenet() : Alignment(None, static (path, at) =>
-        Products.Each(at, (t, index) => RhinoFault.Unless(path.FrameAt(t, out Plane frame), RhinoReason.Declined, t, index).Map(_ => new Plane(frame.Origin, frame.YAxis, frame.ZAxis))));
+    public sealed record Roadlike(Vector3d Up) : Alignment;
 
-    public sealed record Roadlike(Vector3d Up) : Alignment(Some((SweepFrame.Roadlike, Up)), (path, at) =>
-        Railed(path, nurbs => nurbs.CreatePlanarRailFrames(at, Up)));
-
-    public sealed record Surface(BrepTrim Trim) : Alignment(Some((SweepFrame.AlignWithSurface, Vector3d.Unset)), (path, at) =>
-        Products.Each(at, (t, index) =>
-            from closest in RhinoFault.Unless(Trim.Face.ClosestPoint(path.PointAt(t), out double u, out double v), RhinoReason.Declined, t, index).Map(_ => (U: u, V: v))
-            let normal = Trim.Face.NormalAt(closest.U, closest.V)
-            let side = Vector3d.CrossProduct(path.TangentAt(t), normal)
-            from crossed in RhinoFault.Unless(side.IsValid && !side.IsTiny(), RhinoReason.Invalid, side, index)
-            select new Plane(path.PointAt(t), normal, side)));
+    public sealed record Surface(BrepTrim Trim) : Alignment;
 
     private static Fin<Seq<Plane>> Minimized(Curve path, Seq<double> at) =>
         path.IsClosed && at.Last.Exists(t => t < path.Domain.T1)
@@ -103,20 +110,28 @@ public abstract partial record Spacing {
 
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record Law {
-    private Law(Func<double, double> at) => At = at;
+    public abstract double At(double t);
 
-    public Func<double, double> At { get; }
+    public sealed record Constant(double Value) : Law {
+        public override double At(double t) => Value;
+    }
 
-    public sealed record Constant(double Value) : Law(_ => Value);
+    public sealed record Linear(double Start, double End) : Law {
+        public override double At(double t) => double.Lerp(Start, End, t);
+    }
 
-    public sealed record Linear(double Start, double End) : Law(t => Start + ((End - Start) * t));
-
-    public sealed record Function(Func<double, double> Map) : Law(Map);
+    public sealed record Function(Func<double, double> Map) : Law {
+        public override double At(double t) => Map(t);
+    }
 
     public sealed record Through : Law {
-        private Through(Seq<(double At, double Value)> keys, IInterpolation spline) : base(spline.Interpolate) => Keys = keys;
+        private readonly IInterpolation _spline;
+
+        private Through(Seq<(double At, double Value)> keys, IInterpolation spline) => (Keys, _spline) = (keys, spline);
 
         public Seq<(double At, double Value)> Keys { get; }
+
+        public override double At(double t) => _spline.Interpolate(t);
 
         public static Fin<Through> Validated(Seq<(double At, double Value)> keys) =>
             toSeq(keys.DistinctBy(static key => key.At).OrderBy(static key => key.At)) switch {
@@ -136,9 +151,11 @@ public sealed record Placement {
     public Law OffsetY { get; init; } = new Law.Constant(0d);
 
     public Transform At(Plane basis, Plane frame, double t) =>
-        Transform.PlaneToPlane(basis, new Plane(frame.Origin + (frame.XAxis * OffsetX.At(t)) + (frame.YAxis * OffsetY.At(t)), frame.XAxis, frame.YAxis))
-        * Transform.Rotation(Twist.At(t), basis.ZAxis, basis.Origin)
-        * Transform.Scale(basis, Scale.At(t), Scale.At(t), 1d);
+        Scale.At(t) switch {
+            var scale => Transform.PlaneToPlane(basis, new Plane(frame.Origin + (frame.XAxis * OffsetX.At(t)) + (frame.YAxis * OffsetY.At(t)), frame.XAxis, frame.YAxis))
+                * Transform.Rotation(Twist.At(t), basis.ZAxis, basis.Origin)
+                * Transform.Scale(basis, scale, scale, 1d),
+        };
 }
 
 public sealed record Station(double Parameter, double Normalized, Plane Frame);
@@ -204,10 +221,10 @@ public abstract partial record Frames {
         Stations(tolerances).Map(stations => stations.Map(station => (Station: station, Xform: placement.At(basis, station.Frame, station.Normalized))).Strict());
 
     public IO<Seq<(Station Station, T Copy)>> Arrayed<T>(Tolerances tolerances, T geometry, Plane basis, Placement placement) where T : GeometryBase =>
-        IO.lift(() => Placements(tolerances, basis, placement)).Bind(placed => placed.TraverseM(row =>
+        IO.lift(() => Placements(tolerances, basis, placement)).Bind(placed => Products.Each(placed.Map(row =>
             from copy in Products.Copied(geometry)
             from moved in Transformations.Transformed(copy, row.Xform)
-            select (row.Station, Copy: moved)).As());
+            select (row.Station, Copy: moved))));
 
     private static Seq<Station> Indexed(Seq<Plane> planes) =>
         planes.Map((plane, index) => new Station(index, planes.Count > 1 ? index / (planes.Count - 1d) : 0d, plane)).Strict();

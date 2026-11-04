@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-never-none-pointer-test
-language: python
+language: pythonlang
 severity: error
 files:
     - libs/python/blender/**
@@ -14,14 +14,9 @@ utils:
             - matches: {python-typed-parameter: {type: {has: {matches: {python-member-use: {module: {regex: '^bpy\.types$'}, name: {regex: '^Context$'}}}}}}}
     member:
         kind: attribute
-        any:
-            - all:
-                - has: {field: attribute, regex: '^(preferences|window_manager)$'}
-                - has: {field: object, matches: context}
-            - has: {field: attribute, regex: '^(view_settings|display_settings|active_layer_collection|original|from_node|to_node|from_socket|to_socket)$'}
-            - all:
-                - has: {field: attribute, regex: '^(user|addon)$'}
-                - has: {field: object, kind: attribute, has: {field: attribute, regex: '^keyconfigs$'}}
+        all:
+            - has: {field: attribute, regex: '^preferences$'}
+            - has: {field: object, matches: context}
     member-value:
         any:
             - matches: member
@@ -33,11 +28,11 @@ utils:
                 - has: {nthChild: {position: 1, reverse: true}, matches: member-value}
     tested:
         any:
-            - matches: member-value
-            - kind: named_expression
-              has: {field: value, matches: member-value}
             - kind: parenthesized_expression
               has: {matches: tested}
+            - all: [{not: {kind: parenthesized_expression}}, {matches: member-value}]
+            - kind: named_expression
+              has: {field: value, matches: member-value}
             - kind: identifier
               matches: {python-assigned-name: {value: {matches: member}}}
     none-value:
@@ -74,8 +69,7 @@ utils:
                 - has: {field: attribute, regex: '^of_(obj|optional)$'}
                 - has: {field: object, matches: {expression-member: {name: {regex: '^(Option|option)$'}}}}
     test-call:
-        regex: '(^|\.)(bool|of_obj|of_optional)\)?$'
-        any: [{matches: optional-wrap}, {matches: {python-builtin-name: {name: {regex: '^bool$'}}}}]
+        any: [{matches: {python-builtin-name: {name: {regex: '^bool$'}}}}, {matches: optional-wrap}]
 rule:
     any:
         - kind: comparison_operator

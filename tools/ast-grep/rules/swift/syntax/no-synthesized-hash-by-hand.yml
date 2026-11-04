@@ -28,8 +28,8 @@ utils:
     member-of-owner:
         inside: {kind: class_body, inside: {kind: class_declaration, all: [{has: {field: declaration_kind, regex: '^(struct|extension)$'}}, {has: {field: name, pattern: $T}}]}}
 rule:
-    matches: hashing
     all:
+        - matches: hashing
         - matches: member-of-owner
         - has: {field: body, has: {kind: statements, has: {nthChild: 1, matches: combined}, not: {has: {not: {matches: combined}}}}}
         - inside: {kind: source_file, stopBy: end, has: {stopBy: end, matches: stored}}

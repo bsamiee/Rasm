@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Eto.Forms;
 using LanguageExt;
 using LanguageExt.UnsafeValueAccess;
@@ -55,4 +56,109 @@ public abstract class HeldPage : ObjectPropertiesPage {
 
 public abstract class OptionsPage() : OptionsDialogPage("Options") {
     public override object PageControl => new Panel();
+}
+
+public abstract class ChainedPage : ObjectPropertiesPage {
+    public override string EnglishPageTitle => "Chained";
+
+    public override object {|#2:PageControl|} => First;
+
+    internal object First => Next();
+
+    internal object Next() => Last;
+
+    internal object Last => new Panel();
+}
+
+public abstract class RecursivePage : ObjectPropertiesPage {
+    public override string EnglishPageTitle => "Recursive";
+
+    public override object PageControl => First;
+
+    internal object First => Second;
+
+    internal object Second => First;
+}
+
+public abstract class SetterPage : ObjectPropertiesPage {
+    private object? body;
+
+    public override string EnglishPageTitle => "Setter";
+
+    public override object? PageControl => Body;
+
+    internal object? Body {
+        get => body;
+        set => body = new Panel();
+    }
+}
+
+public abstract class UnusedPage : ObjectPropertiesPage {
+    private readonly object body = new();
+
+    public override string EnglishPageTitle => "Unused";
+
+    public override object PageControl {
+        get {
+            object {|CS8321:Unused|}() => new Panel();
+            Func<object> unusedLambda = static () => new Panel();
+            return body;
+        }
+    }
+}
+
+public abstract class InvokedLocalPage : ObjectPropertiesPage {
+    public override string EnglishPageTitle => "Invoked local";
+
+    public override object {|#3:PageControl|} => First;
+
+    private object First {
+        get {
+            object Create() => new Panel();
+            return Create();
+        }
+    }
+}
+
+public abstract class InvokedDelegatePage : ObjectPropertiesPage {
+    public override string EnglishPageTitle => "Invoked delegate";
+
+    public override object {|#4:PageControl|} => First;
+
+    private object First {
+        get {
+            Func<object> create = static () => new Panel();
+            Func<object> invoke = create;
+            return invoke();
+        }
+    }
+}
+
+public abstract class SuppliedDelegatePage : ObjectPropertiesPage {
+    public override string EnglishPageTitle => "Supplied delegate";
+
+    public override object {|#5:PageControl|} => Invoke(static () => new Panel());
+
+    private static object Invoke(Func<object> callback) => callback();
+}
+
+public abstract class IgnoredDelegatePage : ObjectPropertiesPage {
+    public override string EnglishPageTitle => "Ignored delegate";
+
+    public override object PageControl => Ignore(static () => new Panel());
+
+    private static object Ignore(Func<object> callback) => new object();
+}
+
+public abstract class StoredDelegatePage : ObjectPropertiesPage {
+    private static readonly List<Func<object>> factories = [];
+
+    public override string EnglishPageTitle => "Stored delegate";
+
+    public override object PageControl => Store(static () => new Panel());
+
+    private static object Store(Func<object> callback) {
+        factories.Add(callback);
+        return new object();
+    }
 }

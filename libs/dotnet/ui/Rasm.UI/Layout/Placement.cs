@@ -73,9 +73,9 @@ internal abstract partial record LayoutNode {
 
     internal Option<PlotFrame> Plotted(SKPoint origin) => View.Plotted.Map(plane => plane.In(Data).Translated(origin));
 
-    internal RoleStyle Styled(Role role) => Cascade.Resolve(role, Style.Conditions);
+    internal RoleStyle Styled(Key role) => Cascade.Resolve(role, Style.Conditions);
 
-    internal RoleStyle Within(Role role) => Inner.Resolve(role, Style.Conditions);
+    internal RoleStyle Within(Key role) => Inner.Resolve(role, Style.Conditions);
 
     private float Overhang => View.Role.IsSome || View.Traced.IsSome ? Style.Overhang : 0f;
 
@@ -88,7 +88,6 @@ internal abstract partial record LayoutNode {
 
     internal sealed record Text(Typeset Typeset) : LayoutNode {
         internal SKPoint Origin { get; init; }
-        internal float MinContent { get; init; }
 
         internal override SKRect Painted {
             get {
@@ -109,7 +108,8 @@ internal sealed record Place(SKPoint Origin, SKRect Clip, Option<PlotFrame> Plot
     internal static Place Root(LayoutNode layout, SKRect window) => new Place(SKPoint.Empty, window, None).Turned(layout);
 
     internal static HashMap<Seq<Key>, Place> Placing(LayoutNode layout, Place place, HashMap<Seq<Key>, float> offsets, HashMap<Seq<Key>, Place> placed) =>
-        layout.Children.Fold(placed.AddOrUpdate(layout.Path, place), (held, child) => Placing(child, place.Within(layout, child, offsets), offsets, held));
+        SuperEnumerable.TraverseDepthFirst((Layout: layout, Place: place), held => held.Layout.Children.Map(child => (Layout: child, Place: held.Place.Within(held.Layout, child, offsets))))
+            .Aggregate(placed, static (index, held) => index.AddOrUpdate(held.Layout.Path, held.Place));
 
     internal static SKRect Absolute(SKRect frame, SKPoint origin) => SKRect.Create(frame.Location + origin, frame.Size);
 

@@ -1,9 +1,8 @@
 #![feature(default_field_values, map_try_insert)]
 
-use core::num::NonZero;
+use core::{iter, num::NonZero};
 use std::{
     collections::{BTreeMap, hash_map::OccupiedError},
-    iter,
     sync::Arc,
 };
 
@@ -75,7 +74,7 @@ impl Set {
                         ),
                     )
                     .err()
-                    .map(|OccupiedError { entry, key: name, value: _ }| SheetsError::Duplicate { name, sheets: [Arc::clone(&entry.get().0[references::Mention::Sheet]), Arc::clone(key)] })
+                    .map(|OccupiedError { entry, key: name, .. }| SheetsError::Duplicate { name, sheets: [Arc::clone(&entry.get().0[references::Mention::Sheet]), Arc::clone(key)] })
             })
             .map(Err::<(), _>)
             .collect::<Validated<(), _>>();
@@ -114,8 +113,8 @@ pub enum SheetsError {
     Tolerance(#[from] ToleranceError),
     #[error(transparent)]
     Image(#[from] ImageError),
-    #[error("raster of {width} by {height} pixels spans no placeable extent")]
-    Raster { width: usize, height: usize },
+    #[error("raster of {} by {} pixels spans no placeable extent", .0.width, .0.height)]
+    Raster(ImageSize),
     #[error("scan density {} is not a positive normal value", .0.into_format_args(per_millimeter, Abbreviation))]
     Density(LinearNumberDensity),
     #[error("no {lookup} named {name}")]
@@ -133,9 +132,9 @@ impl From<SheetsError> for NEVec<SheetsError> {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 pub fn raster(bytes: Arc<[u8]>, fit: Fit, opacity: Opacity) -> Result<Element, SheetsError> {
-    let ImageSize { width, height } = blob_size(&bytes)?;
+    let size @ ImageSize { width, height } = blob_size(&bytes)?;
     let count = |pixels: usize| u32::try_from(pixels).ok().and_then(NonZero::new).map(|counted| f64::from(counted.get()));
-    let (across, down) = count(width).zip(count(height)).ok_or(SheetsError::Raster { width, height })?;
+    let (across, down) = count(width).zip(count(height)).ok_or(SheetsError::Raster(size))?;
     let extent = match fit {
         Fit::Contain(frame) => frame.abs().inscribed_rect_with_aspect_ratio(across / down),
         Fit::Density { origin, density } => {
@@ -154,7 +153,7 @@ pub fn compose(typesetter: &mut Typesetter, set: Set) -> Result<Vec<Page>, NEVec
         .map(|(key, Sheet { size, style, viewports: placed, layers: content, links, fields })| {
             let paper = layers::drawn(typesetter, &style, Placement::default(), &table, &targets, content).map_or_else(Validated::Fail, Validated::Good);
             let viewed = placed.into_iter().map(|(name, viewport)| within(Lookup::Viewport, &name, viewports::drawn(typesetter, &style, &table, &targets, viewport))).collect::<Validated<Vec<_>, _>>();
-            let page = paper.map2(viewed, |(linework, annotation, derived), views| {
+            let page = paper.map2(viewed, |layers::Drawing { model: linework, paper: annotation, links: derived }, views| {
                 let (flat, framed, linked) = views.into_iter().collect::<(Vec<_>, Vec<_>, Vec<_>)>();
                 let mut merged = framed.into_iter().flatten().chain(linework).chain(annotation).map(|pages::Layer { name, print: _, view: _, elements }| (name, elements)).into_group_map();
                 Page {
@@ -171,7 +170,7 @@ pub fn compose(typesetter: &mut Typesetter, set: Set) -> Result<Vec<Page>, NEVec
                             })
                         })
                         .collect(),
-                    links: links.into_iter().chain(linked.into_iter().flatten()).chain(derived).collect(),
+                    links: iter::chain(links, linked.into_iter().flatten()).chain(derived).collect(),
                     fields,
                 }
             });

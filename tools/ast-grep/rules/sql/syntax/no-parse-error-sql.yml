@@ -7,11 +7,21 @@ utils:
         inside: {kind: ERROR, stopBy: end}
 rule:
     any:
-        - kind: ERROR
+        - kind: ERROR, malformed_blob_literal, malformed_number_id
           not: {matches: unreported}
+        - any:
+            - {kind: host_comment, regex: '^//'}
+            - {kind: host_html_comment, regex: '^<!--'}
+            - kind: host_whitespace
+          not: {inside: {kind: 'ERROR, host_template_substitution', stopBy: end}}
         - kind: source_file
-          has: {stopBy: end, pattern: __MISSING, regex: '^$', not: {matches: unreported}}
+          has:
+            stopBy: end
+            all:
+                - regex: '^$'
+                - pattern: $$MISSING
+                - not: {matches: unreported}
 labels:
     MISSING: {style: primary, message: Token the grammar inserted to recover}
 message: Grammar failed to parse the span
-note: Write a form tree-sitter-sqlite3 parses
+note: Fix invalid syntax or add missing grammar support for valid source

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-promise-settled-by-hand
-language: tsx
+language: tsxlang
 severity: error
 utils:
     register:
@@ -30,5 +30,5 @@ rule:
         - inside: {stopBy: end, matches: register}
         - has: {field: arguments, has: {stopBy: end, matches: settle}}
 message: '`$METHOD` settles a promise into `$SINK` by hand'
-note: 'Call `Effect.tryPromise(<thunk>)` in place of `Effect.callback`, or compose it with `Queue.offer` or `Queue.into(<queue>)` inside `Stream.callback`'
+note: 'Replace `Effect.callback` with `Effect.tryPromise`, or use `Queue.offer` or `Queue.into` inside `Stream.callback`'
 labels: {SETTLED: {style: primary}}

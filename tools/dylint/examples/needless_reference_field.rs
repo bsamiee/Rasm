@@ -89,6 +89,41 @@ struct Tagged<'settings>(&'settings Settings);
 
 struct Unpacked<'settings>(&'settings Settings);
 
+trait Width {
+    type Value;
+}
+
+struct Byte;
+
+impl Width for Byte {
+    type Value = u8;
+}
+
+struct Projected<T>
+where T: Width
+{
+    value: T::Value,
+}
+
+struct Scoped<'value, T>
+where T: Width<Value = u8>
+{
+    source: &'value Projected<T>,
+}
+
+#[derive(Clone, Copy)]
+#[repr(align(64))]
+struct Aligned;
+
+struct Layout {
+    marker: Aligned,
+    count: usize,
+}
+
+struct Referenced<'layout> {
+    layout: &'layout Layout,
+}
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 impl<'tcx> Walker<'_, 'tcx> {
@@ -167,6 +202,16 @@ impl Unpacked<'_> {
     }
 }
 
+impl<T> Scoped<'_, T>
+where T: Width<Value = u8>
+{
+    fn value(&self) -> T::Value { self.source.value }
+}
+
+impl Referenced<'_> {
+    const fn marker(&self) -> Aligned { self.layout.marker }
+}
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 fn main() {
@@ -191,11 +236,14 @@ fn main() {
         Derived { settings: &settings }.clone().port(),
     ));
     let unpacked = Unpacked(&settings);
+    let layout = Layout { marker: Aligned, count: 1 };
     black_box(&(
         Kernel { matrix: &Matrix { cells: [1; 64] } }.cells(),
         *Lifted { settings: &settings }.port(),
         Tagged(&settings).retries(),
         Rendered { settings: &settings }.port(),
         (unpacked.retries(), unpacked.settings().port),
+        Scoped::<Byte> { source: &Projected { value: 7 } }.value(),
+        (Referenced { layout: &layout }.marker(), layout.count),
     ));
 }

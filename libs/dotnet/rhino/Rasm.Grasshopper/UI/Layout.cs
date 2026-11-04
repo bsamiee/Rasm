@@ -21,29 +21,29 @@ namespace Rasm.Grasshopper.UI;
 // --- [MODELS] --------------------------------------------------------------------------
 [Union]
 public abstract partial record Placement {
-    private Placement(string verb, Func<string, Nomen> face) => (Verb, Face) = (verb, face(verb));
+    public string Verb => Switch(
+        align: static _ => "Align", space: static p => p.Gap.IsSome ? "Stack" : "Distribute", level: static _ => "Level",
+        tidy: static _ => "Tidy", layered: static _ => "Layer", frame: static _ => "Frame", grid: static _ => "Snap");
 
-    public string Verb { get; }
+    public Nomen Face => Switch(Verb,
+        align: static (verb, p) =>
+            (p.Axis is Orientation.Horizontal ? Seq("left", "centre", "right") : Seq("top", "middle", "bottom"))[int.Clamp((int)MathF.Round(p.Edge * 2f, MidpointRounding.ToEven), 0, 2)] switch {
+                var side => new Nomen($"{verb} {CultureInfo.InvariantCulture.TextInfo.ToTitleCase(side)}", $"{verb} the selected objects to the {side}."),
+            },
+        space: static (verb, p) => new Nomen($"{verb} {p.Axis}", $"{verb} the selected objects {(p.Axis is Orientation.Horizontal ? "horizontally" : "vertically")}."),
+        level: static (_, _) => new Nomen("Level Wires", "Move the selected objects so their wires run straight."),
+        tidy: static (verb, _) => new Nomen(verb, "Space, align and level the selected objects by the snapping rules."),
+        layered: static (verb, _) => new Nomen(verb, "Lay the selected objects out in data-flow layers."),
+        frame: static (verb, _) => new Nomen(verb, "Keep the selected objects inside a frame."),
+        grid: static (verb, _) => new Nomen(verb, "Snap the selected objects to a snap space."));
 
-    public Nomen Face { get; }
-
-    public sealed record Align(Orientation Axis, float Edge) : Placement("Align", verb =>
-        (Axis is Orientation.Horizontal ? Seq("left", "centre", "right") : Seq("top", "middle", "bottom"))[int.Clamp((int)MathF.Round(Edge * 2f, MidpointRounding.ToEven), 0, 2)] switch {
-            var side => new Nomen($"{verb} {CultureInfo.InvariantCulture.TextInfo.ToTitleCase(side)}", $"{verb} the selected objects to the {side}."),
-        });
-
-    public sealed record Space(Orientation Axis, Option<int> Gap) : Placement(Gap.IsSome ? "Stack" : "Distribute", verb =>
-        new Nomen($"{verb} {Axis}", $"{verb} the selected objects {(Axis is Orientation.Horizontal ? "horizontally" : "vertically")}."));
-
-    public sealed record Level() : Placement("Level", static _ => new Nomen("Level Wires", "Move the selected objects so their wires run straight."));
-
-    public sealed record Tidy() : Placement("Tidy", static verb => new Nomen(verb, "Space, align and level the selected objects by the snapping rules."));
-
-    public sealed record Layered() : Placement("Layer", static verb => new Nomen(verb, "Lay the selected objects out in data-flow layers."));
-
-    public sealed record Frame(RectangleF Bounds) : Placement("Frame", static verb => new Nomen(verb, "Keep the selected objects inside a frame."));
-
-    public sealed record Grid(SnapSpace Snaps) : Placement("Snap", static verb => new Nomen(verb, "Snap the selected objects to a snap space."));
+    public sealed record Align(Orientation Axis, float Edge) : Placement;
+    public sealed record Space(Orientation Axis, Option<int> Gap) : Placement;
+    public sealed record Level : Placement;
+    public sealed record Tidy : Placement;
+    public sealed record Layered : Placement;
+    public sealed record Frame(RectangleF Bounds) : Placement;
+    public sealed record Grid(SnapSpace Snaps) : Placement;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -133,12 +133,20 @@ public static class Placements {
                 placements))
             .Bind(moves => Placed(document, placements is [var single] ? single.Verb : "Arrange", moves));
 
-    private static Seq<Guid> Movable(Document document, IDocumentObject item) =>
-        item switch {
-            IPin pin => Optional(Pins.FindObject(pin, document)).Filter(target => Pins.BothAgree(pin, target)).Match(Some: target => Movable(document, target), None: () => Seq(item.InstanceId)),
-            GroupObject group when group.Content.Any() => toSeq(group.Content).Bind(member => Movable(document, member)),
-            _ => Seq(item.InstanceId),
+    private static Seq<Guid> Movable(Document document, IDocumentObject item) {
+        System.Collections.Generic.HashSet<Guid> seen = [item.InstanceId];
+        return toSeq(SuperEnumerable.TraverseDepthFirst(
+                (Member: item, Children: Children(item)),
+                held => held.Children.Filter(child => seen.Add(child.InstanceId)).Map(child => (Member: child, Children: Children(child)))))
+            .Filter(static held => held.Children.IsEmpty)
+            .Map(static held => held.Member.InstanceId).Strict();
+
+        Seq<IDocumentObject> Children(IDocumentObject member) => member switch {
+            IPin pin => Optional(Pins.FindObject(pin, document)).Filter(target => Pins.BothAgree(pin, target)).ToSeq(),
+            GroupObject group => toSeq(group.Content),
+            _ => [],
         };
+    }
 
     private static Seq<IDocumentObject> Rows(Document document, HashSet<Guid> objects) =>
         toSeq(document.Objects.Forwards).Filter(item => objects.Contains(item.InstanceId)).Strict();

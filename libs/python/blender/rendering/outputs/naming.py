@@ -10,12 +10,12 @@ import string
 from types import MappingProxyType
 from typing import Annotated, Final, Self
 
-from expression import Error, Nothing, Ok, Option
+from expression import Option
 from expression.collections import Block
 from expression.extra.result import catch
 import msgspec
 
-from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
+from blender.records.faults import accumulated, Error, Fault, Nothing, Ok, Outcome, paired, Reason
 from blender.records.fields import Case
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -100,37 +100,41 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
     @classmethod
     def of(cls, template: str) -> Outcome[Self]:
         """Parses `{word}` and `{count:width}` fields, refusing braces in text, unknown fields, unseparated fields, and one count at two widths."""
-        refused = functools.partial(Fault.of, Reason.INVALID, template)
 
         def width(spec: str) -> Option[int]:
-            return catch(msgspec.json.decode, exception=msgspec.DecodeError)(spec, type=_Width).to_option() if spec.isdigit() else Nothing
+            return catch(lambda: msgspec.json.decode(spec, type=_Width), exception=msgspec.DecodeError)().to_option() if spec.isdigit() else Nothing  # ty: ignore[unsound-return-statement]
 
         def parted(text: str, name: str | None, spec: str | None, conversion: str | None) -> Outcome[tuple[_Part, ...]]:
             literal: tuple[_Part, ...] = (Text(text=text),) if text else ()
             match name, spec, conversion:
                 case _ if _UNLITERAL.search(text):
-                    return Error(refused(f"Literal {text!r} holds a brace or NUL"))
+                    return Error(Fault.of(Reason.OUTSIDE, template, text, member="literal text without braces or NUL"))
                 case None, _, _:
                     return Ok(literal)
                 case str(), "", None if name in TextKey:
                     return Ok((*literal, TextField(key=TextKey(name))))
                 case str(), str(), None if name in NumberKey:
-                    return width(spec).map(lambda held: (*literal, NumberField(key=NumberKey(name), width=held))).to_result_with(lambda: refused(f"Field {name!r} takes a width digit, got {spec!r}"))
+                    return (
+                        width(spec)
+                        .map(lambda held: (*literal, NumberField(key=NumberKey(name), width=held)))
+                        .to_result_with(lambda: Fault.of(Reason.OUTSIDE, template, (name, spec, conversion), member="number fields with one positive ASCII width digit"))
+                    )
                 case _:
-                    return Error(refused(f"Field {name!r} with conversion {conversion!r} and width {spec!r} names no output field"))
+                    return Error(Fault.of(Reason.OUTSIDE, template, (name, spec, conversion), member="known text fields or number fields with a width, without conversions"))
 
         def parsed(pieces: tuple[tuple[str, str | None, str | None, str | None], ...]) -> Outcome[Self]:
             return paired(
                 accumulated(starmap(parted, pieces)),
                 Ok(pieces[1:]).filter_with(
-                    lambda later: all(_SEPARATOR.search(text) for text, name, _, _ in later if name is not None), lambda _: refused("Adjacent fields need a non-word or underscore separator")
+                    lambda later: all(_SEPARATOR.search(text) for text, name, _, _ in later if name is not None),
+                    functools.partial(Fault.of, Reason.OUTSIDE, template, member="fields separated by a non-word character or underscore"),
                 ),
-                Ok({(name, spec) for _, name, spec, _ in pieces if name is not None and name in NumberKey}).filter_with(
-                    lambda counts: len(counts) == len({name for name, _ in counts}), lambda _: refused("A count field repeats at another width")
+                Ok(tuple(dict.fromkeys((name, spec) for _, name, spec, _ in pieces if name is not None and name in NumberKey))).filter_with(
+                    lambda counts: len(counts) == len({name for name, _ in counts}), functools.partial(Fault.of, Reason.OUTSIDE, template, member="one width per count field")
                 ),
             ).map(lambda found: cls(parts=tuple(chain.from_iterable(found[0]))))
 
-        return catch(tuple, exception=ValueError)(string.Formatter().parse(template)).map_error(refused).bind(parsed)
+        return catch(tuple, exception=ValueError)(string.Formatter().parse(template)).map_error(functools.partial(Fault.of, Reason.INVALID, template)).bind(parsed)
 
     @property
     def fields(self) -> frozenset[Field]:
@@ -154,8 +158,9 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
                     return re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
                 case TextField():
                     return re.compile(rf"[^{RESERVED}{excluded}]+")
-                case NumberField(width=width):
-                    return re.compile(rf"[0-9]{{{width}}}|[1-9][0-9]{{{width},}}")
+                case NumberField(key=key, width=width):
+                    digits = rf"[0-9]{{{width}}}|[1-9][0-9]{{{width},}}"
+                    return re.compile(rf"-?(?:{digits})" if key is NumberKey.FRAME else digits)
 
         return {part: pattern(part) for part in self.fields}
 
@@ -164,22 +169,34 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
         patterns = self.patterns()
 
         def spelled(part: _Part) -> Outcome[str]:
-            match part:
-                case Text(text=text):
-                    return Ok(text)
-                case TextField(key=key):
-                    value = Option.of_optional(fields.texts.get(key))
-                case NumberField(key=key, width=width):
-                    value = Option.of_optional(fields.numbers.get(key)).map(lambda count: f"{count:0{width}d}")
+            if isinstance(part, Text):
+                return Ok(part.text)
             pattern = patterns[part]
-            unmatched = Fault.of(Reason.OUTSIDE, f"{{{key}}}", value.default_value("no value"), member=pattern.pattern)
-            return written(part).or_else(value.filter(lambda held: pattern.fullmatch(held) is not None)).to_result(unmatched)
+            raw: str | int | None
+            match part:
+                case TextField(key=key):
+                    raw = fields.texts.get(key)
+                    value = Option.of_optional(raw).filter(lambda held: pattern.fullmatch(held) is not None)
+                case NumberField(key=key, width=width):
+                    raw = fields.numbers.get(key)
+                    value = Option.of_optional(raw).filter(lambda count: key is NumberKey.FRAME or count >= 0).map(lambda count: "%.*d" % (width, count))  # ruff: ignore[printf-string-formatting]
+            return written(part).or_else(value).to_result_with(lambda: Fault.of(Reason.OUTSIDE, f"{{{key}}}", raw, member=pattern.pattern))
 
         return accumulated(map(spelled, self.parts)).map("".join)
 
     def parse(self, text: str) -> Outcome[Fields]:
         """Parses relative extensionless name, requiring repeated fields to agree."""
-        grammar = _grammar(self)
+        patterns = self.patterns()
+        seen = set[Field]()
+        pieces = list[str]()
+        for part in self.parts:
+            match part:
+                case Text(text=literal):
+                    pieces.append(re.escape(literal))
+                case TextField() | NumberField():
+                    pieces.append(f"(?P={part.key})" if part in seen else f"(?P<{part.key}>{patterns[part].pattern})")
+                    seen.add(part)
+        grammar = re.compile("".join(pieces))
         return (
             Option
             .of_optional(grammar.fullmatch(text))
@@ -192,13 +209,15 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
             .to_result_with(functools.partial(Fault.of, Reason.OUTSIDE, type(self).__name__, text, member=grammar.pattern))
         )
 
-    def path(self, root: Path, fields: Fields) -> Outcome[Path]:
-        """Composes path, refusing one resolving outside root."""
+    def path(self, root: Path, fields: Fields, *, suffix: str = "", written: Callable[[Field], Option[str]] = lambda _: Nothing) -> Outcome[Path]:
+        """Composes path with its file suffix, refusing one resolving outside root."""
         return (
             self
-            .compose(fields)
-            .map(root.joinpath)
-            .filter_with(lambda path: path.resolve().is_relative_to(root.resolve()), lambda path: Fault.of(Reason.OUTSIDE, str(root.resolve()), str(path.resolve()), member="paths beneath it"))
+            .compose(fields, written)
+            .map(lambda text: root.joinpath(f"{text}{suffix}"))
+            .map(lambda path: (path, path.resolve(), root.resolve()))
+            .filter_with(lambda paths: paths[1].is_relative_to(paths[2]), lambda paths: Fault.of(Reason.OUTSIDE, str(paths[2]), str(paths[1]), member="paths beneath it"))
+            .map(lambda paths: paths[0])
         )
 
     def next_version(self, root: Path, fields: Fields) -> int:
@@ -217,18 +236,6 @@ class OutputName(msgspec.Struct, frozen=True, kw_only=True):
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
-
-
-@functools.cache
-def _grammar(name: OutputName) -> re.Pattern[str]:
-    """Returns the pattern a name's files match, each repeated field matching its first value."""
-    patterns = name.patterns()
-    return re.compile(
-        "".join(
-            re.escape(part.text) if isinstance(part, Text) else f"(?P<{part.key}>{patterns[part].pattern})" if name.parts.index(part) == index else f"(?P={part.key})"
-            for index, part in enumerate(name.parts)
-        )
-    )
 
 
 def stepped(text: str, offset: int) -> Option[str]:

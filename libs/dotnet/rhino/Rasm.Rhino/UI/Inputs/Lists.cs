@@ -6,31 +6,35 @@ using Rasm.Rhino.UI.Rows;
 using Rasm.Rhino.UI.Styling;
 using Rhino.UI;
 using Rhino.UI.Controls;
+using SuperLinq;
 
 namespace Rasm.Rhino.UI.Inputs;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ListColumn<TItem> where TItem : notnull {
-    private ListColumn(Option<string> caption, bool renames, bool edits, bool stretches, Option<Comparison<TItem>> order) =>
-        (Caption, Renames, Edits, Stretches, Order) = (caption, renames, edits, stretches, order);
+    private ListColumn(Option<string> caption) => Caption = caption;
 
-    public Option<string> Caption { get; }
-    public bool Renames { get; }
-    public bool Edits { get; }
-    public bool Stretches { get; }
-    public Option<Comparison<TItem>> Order { get; }
+    public Option<string> Caption { get; init; }
+    public bool Renames => this is Label { Rename.IsSome: true };
+    public bool Edits => this is Check || Renames;
+    public bool Stretches => this is Label or Progress;
+    public Option<Comparison<TItem>> Order => Switch(
+        label: static label => Some<Comparison<TItem>>((left, right) => Localization.LogicalSort(label.Read(left), label.Read(right))),
+        check: static check => Some<Comparison<TItem>>((left, right) => check.Value.Get(left).CompareTo(check.Value.Get(right))),
+        glyph: static _ => None,
+        progress: static progress => Some<Comparison<TItem>>((left, right) => progress.Read(left).IfNone(-1f).CompareTo(progress.Read(right).IfNone(-1f))));
 
     public sealed record Label(Option<string> Caption, Func<TItem, string> Read, Option<Func<TItem, IconResource>> Icon, Option<Func<TItem, string, Fin<TItem>>> Rename)
-        : ListColumn<TItem>(Caption, Rename.IsSome, Rename.IsSome, stretches: true, Some<Comparison<TItem>>((left, right) => Localization.LogicalSort(Read(left), Read(right))));
+        : ListColumn<TItem>(Caption);
 
     public sealed record Check(Option<string> Caption, Lens<TItem, bool> Value)
-        : ListColumn<TItem>(Caption, renames: false, edits: true, stretches: false, Some<Comparison<TItem>>((left, right) => Value.Get(left).CompareTo(Value.Get(right))));
+        : ListColumn<TItem>(Caption);
 
-    public sealed record Glyph(Option<string> Caption, Func<TItem, IconResource> Icon) : ListColumn<TItem>(Caption, renames: false, edits: false, stretches: false, None);
+    public sealed record Glyph(Option<string> Caption, Func<TItem, IconResource> Icon) : ListColumn<TItem>(Caption);
 
     public sealed record Progress(Option<string> Caption, Func<TItem, Option<float>> Read)
-        : ListColumn<TItem>(Caption, renames: false, edits: false, stretches: true, Some<Comparison<TItem>>((left, right) => Read(left).IfNone(-1f).CompareTo(Read(right).IfNone(-1f))));
+        : ListColumn<TItem>(Caption);
 }
 
 public sealed record ListSearch<TItem>(string Placeholder, Func<TItem, string> Text) where TItem : notnull {
@@ -84,14 +88,14 @@ public sealed record ListRow<TItem, TKey>(IterableNE<ListColumn<TItem>> Columns,
             static _ => false, None, Some(first.Selected), edit => latest.Bind(current => current.Picked(edit)))
         from editing in Subscriptions.On<GridViewCellEventArgs>(h => grid.CellEdited += h, h => grid.CellEdited -= h).Attach(args =>
             from current in latest
-            from committed in RowItem<TItem>.Of(args.Item).Traverse(node => current.Edited(EditPhase.Commit.Of(Lists.Replaced(current.Key, current.Branches, current.Items, node.Row)))).As()
+            from committed in RowItem<TItem>.Of(args.Item).Traverse(node => current.Edited(new Edit<Seq<TItem>>.Changed(Applies: true, Lists.Replaced(current.Key, current.Branches, current.Items, node.Row)))).As()
             select unit)
         from expanding in Subscriptions.Merged(
                 Subscriptions.On<TreeGridViewItemEventArgs>(h => grid.Expanded += h, h => grid.Expanded -= h),
                 Subscriptions.On<TreeGridViewItemEventArgs>(h => grid.Collapsed += h, h => grid.Collapsed -= h)).Attach(_ =>
             from current in latest
             from state in atomicIO(() => list.Value)
-            from opened in current.Branches.Traverse(branches => branches.Edited(EditPhase.Commit.Of(Lists.Open(current, state.Nodes)))).As()
+            from opened in current.Branches.Traverse(branches => branches.Edited(new Edit<HashSet<TKey>>.Changed(Applies: true, Lists.Open(current, state.Nodes)))).As()
             select unit)
         from sorting in Subscriptions.On<GridColumnEventArgs>(h => grid.ColumnHeaderClick += h, h => grid.ColumnHeaderClick -= h).Attach(args =>
             list.SwapIO(state => state with {
@@ -108,14 +112,13 @@ public sealed record ListRow<TItem, TKey>(IterableNE<ListColumn<TItem>> Columns,
 
 // --- [SERVICES] ------------------------------------------------------------------------
 internal sealed class RowItem<TItem> : TreeGridItem where TItem : notnull {
-    internal RowItem(TItem row, int depth, Seq<RowItem<TItem>> kids) : base(kids.Map<ITreeGridItem>(static kid => kid)) =>
-        (Row, Depth, Kids) = (row, depth, kids);
+    internal RowItem(TItem row, Seq<RowItem<TItem>> kids) : base(kids.Map<ITreeGridItem>(static kid => kid)) =>
+        (Row, Kids) = (row, kids);
 
     public TItem Row { get; internal set; }
-    public int Depth { get; }
     public Seq<RowItem<TItem>> Kids { get; }
-    public Seq<RowItem<TItem>> Preorder => this.Cons(Kids.Bind(static kid => kid.Preorder));
-    public Seq<RowItem<TItem>> Shown => this.Cons(Expanded ? Kids.Bind(static kid => kid.Shown) : []);
+    public Seq<RowItem<TItem>> Preorder => toSeq(SuperEnumerable.TraverseDepthFirst(this, static node => node.Kids));
+    public Seq<RowItem<TItem>> Shown => toSeq(SuperEnumerable.TraverseDepthFirst(this, static node => node.Expanded ? node.Kids : []));
 
     public static Option<RowItem<TItem>> Of(object? item) => item is RowItem<TItem> node ? Some(node) : None;
 }
@@ -158,19 +161,19 @@ internal static class Lists {
         select unit;
 
     private static Seq<TItem> Flattened<TItem, TKey>(ListRow<TItem, TKey> row, Seq<TItem> items) where TItem : notnull where TKey : notnull =>
-        items.Bind(item => item.Cons(row.Branches.ToSeq().Bind(branches => Flattened(row, branches.Children.Get(item)))));
+        items.Bind(item => toSeq(SuperEnumerable.TraverseDepthFirst(item, child => row.Branches.ToSeq().Bind(branches => branches.Children.Get(child)))));
 
     private static ListState<TItem> Filled<TItem, TKey>(ListRow<TItem, TKey> row, ListState<TItem> state, Func<TItem, bool> keep) where TItem : notnull where TKey : notnull =>
-        (Before: state.Nodes.Bind(static node => node.Preorder), After: Built(row, state.Sorted, row.Items, Open(row, state.Nodes), keep, 0)) switch {
+        (Before: state.Nodes.Bind(static node => node.Preorder), After: Built(row, state.Sorted, row.Items, Open(row, state.Nodes), keep)) switch {
             var built => built.After.Bind(static node => node.Preorder) switch {
-                var after when after.Map(node => (row.Key(node.Row), node.Depth)) == built.Before.Map(node => (row.Key(node.Row), node.Depth)) => state with {
+                var after when after.Map(node => (row.Key(node.Row), node.Kids.Count)) == built.Before.Map(node => (row.Key(node.Row), node.Kids.Count)) => state with {
                     Reloads = built.Before.Zip(after).Filter(static pair => !EqDefault<TItem>.Equals(pair.First.Row, pair.Second.Row)).Map(static pair => (pair.First, pair.Second.Row)),
                 },
                 _ => state with { Nodes = built.After, Store = new TreeGridItemCollection(built.After.Map<ITreeGridItem>(static node => node)), Reloads = [] },
             },
         };
 
-    private static Seq<RowItem<TItem>> Built<TItem, TKey>(ListRow<TItem, TKey> row, Option<(int Column, bool Descending)> sorted, Seq<TItem> items, HashSet<TKey> open, Func<TItem, bool> keep, int depth)
+    private static Seq<RowItem<TItem>> Built<TItem, TKey>(ListRow<TItem, TKey> row, Option<(int Column, bool Descending)> sorted, Seq<TItem> items, HashSet<TKey> open, Func<TItem, bool> keep)
         where TItem : notnull
         where TKey : notnull =>
         Sorted(items, (from held in sorted
@@ -178,18 +181,12 @@ internal static class Lists {
                        from order in column.Order
                        select held.Descending ? (left, right) => order(right, left) : order)
                 | row.Ordered.Map(static name => (Comparison<TItem>)((left, right) => Localization.LogicalSort(name(left), name(right)))))
-            .Map(item => (Item: item, Kids: Built(row, sorted, row.Branches.ToSeq().Bind(branches => branches.Children.Get(item)), open, keep, depth + 1)))
+            .Map(item => (Item: item, Kids: Built(row, sorted, row.Branches.ToSeq().Bind(branches => branches.Children.Get(item)), open, keep)))
             .Filter(pair => !pair.Kids.IsEmpty || keep(pair.Item))
-            .Map(pair => new RowItem<TItem>(pair.Item, depth, pair.Kids) { Expanded = open.Contains(row.Key(pair.Item)) });
+            .Map(pair => new RowItem<TItem>(pair.Item, pair.Kids) { Expanded = open.Contains(row.Key(pair.Item)) });
 
     private static Seq<TItem> Sorted<TItem>(Seq<TItem> items, Option<Comparison<TItem>> order) =>
-        order.Match(
-            Some: compare => {
-                TItem[] sorted = [.. items];
-                sorted.AsSpan().Sort(compare);
-                return toSeq(sorted);
-            },
-            None: () => items);
+        order.Match(Some: compare => toSeq(items.Order(System.Collections.Generic.Comparer<TItem>.Create(compare))), None: () => items);
 
     internal static Seq<TItem> Replaced<TItem, TKey>(Func<TItem, TKey> key, Option<ListBranches<TItem, TKey>> branches, Seq<TItem> items, TItem edited) where TItem : notnull where TKey : notnull =>
         items.Map(item => EqDefault<TKey>.Equals(key(item), key(edited))
@@ -248,7 +245,7 @@ internal static class Lists {
     private static IndirectBinding<string> Written<TItem>(ListColumn<TItem>.Label label) where TItem : notnull =>
         Binding.Delegate<RowItem<TItem>, string>(
             node => label.Read(node.Row),
-            (node, value) => _ = label.Rename.Bind(rename => rename(node.Row, value).ToOption()).Iter(item => node.Row = item));
+            (node, value) => Session.Run(label.Rename.Traverse(rename => IO.lift(() => rename(node.Row, value)).Map(item => node.Row = item)).As()));
 
     // --- [EXPANSION]
     internal static IO<Unit> Expand<TItem, TKey>(TreeGridView grid, Atom<ListState<TItem>> list, ListRow<TItem, TKey> row, HashSet<TKey> open) where TItem : notnull where TKey : notnull =>
@@ -298,7 +295,7 @@ internal static class Lists {
                               from node in RowItem<TItem>.Of(drop.Item)
                               where !moved.IsEmpty
                               select (Target: current.Key(node.Row), After: drop.Position is GridDragPosition.After))
-                    .Traverse(drop => current.Edited(EditPhase.Commit.Of(Reordered(current, current.Items, moved, drop.Target, drop.After)))).As()
+                    .Traverse(drop => current.Edited(new Edit<Seq<TItem>>.Changed(Applies: true, Reordered(current, current.Items, moved, drop.Target, drop.After)))).As()
                 select unit),
             Subscriptions.Inline<EventArgs>(h => grid.DragEnd += h, h => grid.DragEnd -= h).Attach(_ => atomicIO(() => dragging.Value = []).Map(unit)),
             Products.Changed(() => grid.AllowDrop, value => grid.AllowDrop = value, value: true),

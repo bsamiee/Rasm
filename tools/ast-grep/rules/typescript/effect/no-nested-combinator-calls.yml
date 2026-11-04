@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-nested-combinator-calls
-language: tsx
+language: tsxlang
 severity: error
 utils:
     member-call:
@@ -15,9 +15,9 @@ utils:
     one-argument:
         has: {field: arguments, all: [{has: {nthChild: 1}}, {not: {has: {nthChild: 2}}}]}
     step:
+        kind: call_expression
         all:
-            - matches: module-call
-            - not: {has: {field: function, has: {field: object, matches: {effect-module: {name: {regex: '\bSchema$'}}}}}}
+            - has: {field: function, kind: member_expression, has: {field: object, matches: {effect-module: {name: {regex: '\b[A-Z]\w*$', not: {regex: '\bSchema$'}}}}}}
             - any:
                 - matches: one-argument
                 - has: {field: function, matches: effect-dual-operation}
@@ -35,7 +35,6 @@ rule:
     pattern: $CALL
     any:
         - kind: call_expression
-          pattern: $KEPT
           all:
             - has:
                 field: function
@@ -61,44 +60,6 @@ rule:
                     - inside: {kind: arguments, inside: {matches: data-first-step}}
             - not: {has: {kind: comment, stopBy: end}}
             - not: {has: {kind: type_arguments, stopBy: end}}
-            - any:
-                - pattern: $FIXABLE
-                  inside:
-                    kind: program
-                    stopBy: end
-                    has: {kind: import_statement, has: {stopBy: end, kind: identifier, regex: '^pipe$', matches: effect-pipe-function}}
-                - pattern: $KEPT
-rewriters:
-    - id: unary
-      rule:
-        matches: unary-step
-        pattern: $M.$OP($FIRST)
-      transform:
-        INNER: rewrite($FIRST, rewriters=[unary, steps, unary-head, head])
-      fix: $INNER, $M.$OP
-    - id: steps
-      rule:
-        matches: data-first-step
-        pattern: '$M.$OP($FIRST, $$$REST)'
-      transform:
-        INNER: rewrite($FIRST, rewriters=[unary, steps, unary-head, head])
-        LISTED: {replace: {source: $$$REST, replace: '(?s),\s*$', by: ''}}
-      fix: $INNER, $M.$OP($LISTED)
-    - id: unary-head
-      rule:
-        matches: unary-step
-        pattern: $M.$OP($FIRST)
-      fix: $FIRST, $M.$OP
-    - id: head
-      rule:
-        matches: step
-        pattern: '$M.$OP($FIRST, $$$REST)'
-      transform: {LISTED: {replace: {source: $$$REST, replace: '(?s),\s*$', by: ''}}}
-      fix: $FIRST, $M.$OP($LISTED)
-transform:
-    STEPS: rewrite($FIXABLE, rewriters=[unary, steps, unary-head, head])
-    PIPED: {replace: {source: $STEPS, replace: '(?s)^(.+)$', by: 'pipe($1)'}}
-fix: $PIPED$KEPT
 message: '`$OUTER` nests data-first module calls four deep or under a `.pipe`'
 note: 'Write `pipe(<value>, <step>, <step>, <step>)`'
 labels:

@@ -23,21 +23,18 @@ pub struct Patch {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-#[must_use]
-pub fn patches(subdivision: NonZero<u8>, north: UnitQuaternion<f64>) -> Vec<Patch> {
+pub fn patches(subdivision: NonZero<u8>, north: UnitQuaternion<f64>) -> impl Iterator<Item = Patch> {
     let (band, zenith_row, row) = rows(subdivision);
-    iter::once(Patch { direction: north * -Vector3::z_axis(), solid_angle: SolidAngle::new::<steradian>(TAU) })
-        .chain((0..=zenith_row).flat_map(|index| {
-            let (_, count) = row(index);
-            let lower = band * nalgebra::convert::<usize, f64>(index);
-            let width = TAU / nalgebra::convert::<usize, f64>(count.get());
-            let solid_angle = SolidAngle::new::<steradian>(width * ((lower + band).min(FRAC_PI_2).sin() - lower.sin()));
-            (0..count.get()).map(move |column| Patch {
-                direction: direction(Angle::new::<radian>(width * nalgebra::convert::<usize, f64>(column)), Angle::new::<radian>(band.mul_add(0.5, lower)), north),
-                solid_angle,
-            })
-        }))
-        .collect()
+    iter::once(Patch { direction: north * -Vector3::z_axis(), solid_angle: SolidAngle::new::<steradian>(TAU) }).chain((0..=zenith_row).flat_map(move |index| {
+        let (_, count) = row(index);
+        let lower = band * nalgebra::convert::<usize, f64>(index);
+        let width = TAU / nalgebra::convert::<usize, f64>(count.get());
+        let solid_angle = SolidAngle::new::<steradian>(width * ((lower + band).min(FRAC_PI_2).sin() - lower.sin()));
+        (0..count.get()).map(move |column| Patch {
+            direction: direction(Angle::new::<radian>(width * nalgebra::convert::<usize, f64>(column)), Angle::new::<radian>(band.mul_add(0.5, lower)), north),
+            solid_angle,
+        })
+    }))
 }
 
 #[must_use]

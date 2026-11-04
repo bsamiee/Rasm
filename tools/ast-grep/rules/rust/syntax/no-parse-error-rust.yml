@@ -1,132 +1,22 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-parse-error-rust
-language: rust
+language: rustlang
 severity: error
 utils:
-    foreign-item:
-        kind: ERROR
-        regex: '^(safe|(pub(\s*\([^)]*\))?\s+)?type\s+\w+)$'
-        inside: {kind: declaration_list, stopBy: {kind: declaration_list}, inside: {kind: foreign_mod_item}}
-    macro-token:
-        kind: ERROR
-        regex: '^(~[~\s]*|\$)$'
-        inside: {kind: 'token_tree, token_tree_pattern'}
-    struct-where:
-        kind: ERROR
-        regex: '^where\b'
-        inside: {kind: struct_item}
-    unit-bound:
-        kind: type_identifier
-        inside: {kind: tuple_type, regex: '^\(\s*\)$', inside: {kind: where_predicate}}
     empty-raw-string:
         kind: string_content
         inside: {kind: raw_string_literal}
-    try-type:
-        kind: ERROR
-        any:
-            - regex: '^try\s+bikeshed\b'
-            - {regex: '^bikeshed\b', inside: {kind: try_block}}
-    trait-alias:
-        kind: ERROR
-        regex: '^((pub(\s*\([^)]*\))?\s+)?(unsafe\s+)?)?trait\s+\w+\s*(<[^=]*>)?\s*='
-    trait-alias-item:
-        kind: trait_item
-        has: {kind: ERROR, regex: '^\w+\s*(<[^=]*>)?\s*=', follows: {regex: '^trait$'}}
-    struct-default-head:
-        kind: ERROR
-        regex: '=\s*[\w:]+\s*\{[^{}]*$'
-        inside: {kind: field_declaration}
-    field-default:
-        any:
-            - matches: struct-default-head
-            - kind: ERROR
-              regex: '^\}$'
-              inside: {kind: field_declaration_list}
-              follows: {kind: field_declaration, has: {matches: struct-default-head}}
-            - kind: ERROR
-              regex: '^='
-              inside: {kind: field_declaration_list}
-              follows: {kind: field_declaration}
-            - kind: ERROR
-              regex: '=$'
-              inside: {kind: field_declaration}
-            - inside: {kind: parameters, stopBy: end, inside: {kind: function_type, inside: {kind: field_declaration, field: type, has: {kind: ERROR, regex: '=$'}, not: {regex: ',\s*\n\s*(pub(\s*\([^)]*\))?\s+)?\w+\s*:[^:]'}}}}
-    type-default:
-        kind: ERROR
-        has: {kind: trait_bounds}
-        inside: {kind: type_item, inside: {kind: declaration_list, inside: {kind: trait_item}}}
-    baseless-update:
-        kind: ERROR
-        regex: '^\.\.$'
-        inside: {kind: field_initializer_list}
-    return-notation:
-        any:
-            - kind: function_type
-              inside: {kind: type_arguments}
-              has: {field: parameters, regex: '^\(\s*\.\.'}
-            - kind: ERROR
-              regex: '^\(\s*\.\.\s*\)$'
-              inside: {kind: where_predicate}
-    impl-restriction:
-        kind: ERROR
-        regex: '^(pub(\s*\([^)]*\))?\s+)?impl\s*\(\s*(crate|self|super|in\s+[\w:]+)\s*\)(\s+(unsafe|auto))*$'
-        precedes: {kind: trait_item}
-    gen-keyword:
-        any:
-            - kind: ERROR
-              regex: '^gen$'
-              any: [{inside: {kind: 'function_item, async_block'}}, {precedes: {kind: function_item}}]
-            - inside: {kind: expression_statement, regex: '^gen$', precedes: {kind: function_item}}
-    macro-rule-anchor:
-        kind: macro_definition
-        has: {pattern: $$_MISSING, regex: '^$'}
-    macro-rule-recovery:
-        any:
-            - inside: {kind: macro_definition, matches: macro-rule-anchor}
-            - follows: {stopBy: &rule-end {any: [{kind: 'function_item, function_signature_item, struct_item, enum_item, union_item, impl_item, trait_item, const_item, static_item, type_item, mod_item, use_declaration, extern_crate_declaration, foreign_mod_item, macro_definition, attribute_item, inner_attribute_item'}, {kind: ERROR, regex: '^\}$'}]}, matches: macro-rule-anchor}
-            - inside: {stopBy: end, follows: {stopBy: *rule-end, matches: macro-rule-anchor}}
-    recovery-anchor:
-        any:
-            - matches: try-type
-            - matches: trait-alias
-    recovery-tail:
-        any:
-            - follows: {stopBy: &unit {kind: 'let_declaration, expression_statement, empty_statement, function_item, function_signature_item, struct_item, enum_item, union_item, impl_item, trait_item, const_item, static_item, type_item, mod_item, use_declaration, extern_crate_declaration, foreign_mod_item, macro_definition, attribute_item, inner_attribute_item'}, matches: recovery-anchor}
-            - inside:
-                stopBy: end
-                not: {kind: 'block, declaration_list, let_declaration, function_item, function_signature_item, struct_item, enum_item, union_item, impl_item, trait_item, const_item, static_item, type_item, mod_item, foreign_mod_item, macro_definition'}
-                follows: {stopBy: *unit, matches: recovery-anchor}
     unreported:
         any:
             - inside: {kind: ERROR, stopBy: end}
-            - matches: foreign-item
-            - matches: macro-token
-            - matches: struct-where
-            - matches: unit-bound
             - matches: empty-raw-string
-            - matches: recovery-anchor
-            - matches: recovery-tail
-            - inside: {kind: trait_item, stopBy: end, matches: trait-alias-item}
-            - matches: field-default
-            - matches: type-default
-            - matches: baseless-update
-            - matches: return-notation
-            - inside: {stopBy: end, matches: return-notation}
-            - matches: impl-restriction
-            - matches: gen-keyword
-            - matches: macro-rule-recovery
 rule:
     any:
         - kind: ERROR
-          inside: {kind: source_file, stopBy: end, not: {matches: rust-injected-source}}
           not: {matches: unreported}
-        - kind: ERROR
-          regex: '^[^(\[]'
-          not: {inside: {stopBy: end, any: [{kind: ERROR}, {kind: source_file}]}}
         - kind: source_file
-          not: {matches: rust-injected-source}
-          has: {stopBy: end, pattern: $$MISSING, regex: '^$', not: {matches: unreported}}
+          has: {stopBy: end, all: [{regex: '^$'}, {pattern: $$MISSING}, {not: {matches: unreported}}]}
 labels:
     MISSING: {style: primary, message: Token the grammar inserted to recover}
 message: 'Grammar failed to parse the span'
-note: 'Rewrite the span in a form tree-sitter-rust parses, calling a macro named for a primitive type by path (`<crate>::str![..]`) and a method call in a default field value by path (`NonZero::<usize>::saturating_add(NonZero::<usize>::MIN, 1023)` in place of `NonZero::new(1024).unwrap()`, `Option::unwrap(Result::ok(<T>::try_new(..)))` in place of `<T>::try_new(..).ok().unwrap()`, whose recovery swallows the next field), and a method on a package constant inside a constructor call that `.ok().unwrap()` follows in `const { .. }` (`try_new(const { parlance::FontWeight::NORMAL.value() }).ok().unwrap()`)'
+note: 'Fix invalid syntax or update tree-sitter-rust for valid syntax the grammar cannot parse'

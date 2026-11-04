@@ -2,10 +2,10 @@
     "name": "@rasm/function-hooks",
     "private": true,
     "description": "Policies that rewrite or refuse agent tool calls before they run",
+    "sideEffects": false,
     "type": "module",
     "exports": {
-        "./monads": "./monads.ts",
-        "./policies": "./policies/policies.ts"
+        ".": "./index.ts"
     },
     "devDependencies": {
         "@effect/platform-node": "catalog:",

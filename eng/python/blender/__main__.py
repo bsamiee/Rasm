@@ -1,5 +1,6 @@
-"""Packs and installs Blender extensions, syncs their wheels into Blender import folder, and runs Blender in fresh user bases."""
+"""Packs and installs Blender extensions, syncs locked Python requirements, and runs Blender in isolated profiles."""
 
+lazy from pathlib import Path
 lazy import subprocess
 lazy import sys
 
@@ -11,19 +12,26 @@ lazy from blender.records.faults import Fault, Outcome
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _reported(result: Outcome[int] | None) -> int:
-    """Returns zero, a command's exit status, a lone failed child process's status, or 1 for other faults, writing each fault to stderr."""
+def _reported(result: Outcome[int | Path] | None) -> int:
+    """Returns command or failed child status, zero for help or a printed user base, and 1 for other faults."""
     match result:
         case None:
             return 0
-        case Result(tag="ok", ok=status):
+        case Result(tag="ok", ok=int(status)):
             return status
-        case Result(error=(Fault(cause=subprocess.CalledProcessError(returncode=status)) as fault,)):
-            sys.stderr.write(f"{fault.message}\n")
-            return status
+        case Result(tag="ok", ok=Path() as base):
+            sys.stdout.write(f"{base}\n")
+            return 0
         case Result(error=faults):
-            sys.stderr.writelines(f"{fault.message}\n" for fault in faults)
-            return 1
+            for fault in faults:
+                for data, stream in ((error.stdout, sys.stdout.buffer), (error.stderr, sys.stderr.buffer)) if isinstance(error := fault.cause, subprocess.CalledProcessError) else ():
+                    stream.writelines(filter(None, (data,)))
+                sys.stderr.write(f"{fault.message}\n")
+            match faults:
+                case (Fault(cause=subprocess.CalledProcessError(returncode=status)),):
+                    return status
+                case _:
+                    return 1
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------

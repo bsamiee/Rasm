@@ -4,7 +4,7 @@ language: swiftlang
 severity: error
 utils:
     exited-zero:
-        regex: '^((Subprocess\.)?TerminationStatus)?\.exited\(0\)$'
+        regex: '^(Subprocess\.)?TerminationStatus\.exited\(\s*0\s*\)$'
     plain-operand:
         kind: 'simple_identifier, navigation_expression, call_expression'
 rule:
@@ -20,18 +20,8 @@ rule:
             - has: {matches: exited-zero}
             - has: {matches: plain-operand, not: {matches: exited-zero}}
         - kind: 'if_statement, guard_statement'
-          all:
-            - has: {kind: simple_identifier, regex: '^exited$', follows: {regex: '^\.$', follows: {regex: '^case$'}}}
-            - has: {kind: pattern, regex: '^0$'}
-            - has: {kind: 'simple_identifier, navigation_expression', regex: '^[\w.]+$', follows: {regex: '^=$'}}
+          regex: '^(if|guard)\s+case\s+(Subprocess\.)?TerminationStatus\.exited\(\s*0\s*\)\s*='
 transform:
-    CONDITION: {replace: {source: $SITE, replace: 'case\s+((Subprocess\.)?TerminationStatus)?\.exited\(0\)\s*=\s*([\w.]+)', by: '${3}.isSuccess'}}
-    BRANCH: {replace: {source: $CONDITION, replace: '(?s)^if ([\w.]+\.isSuccess) \{\s*true\s*\} else \{\s*false\s*\}$', by: '$1'}}
-    EQUAL: {replace: {source: $BRANCH, replace: '(?s)^(.+?)\s*==\s*((Subprocess\.)?TerminationStatus)?\.exited\(0\)$', by: '${1}.isSuccess'}}
-    UNEQUAL: {replace: {source: $EQUAL, replace: '(?s)^(.+?)\s*!=\s*((Subprocess\.)?TerminationStatus)?\.exited\(0\)$', by: '!${1}.isSuccess'}}
-    EQUAL_LEFT: {replace: {source: $UNEQUAL, replace: '(?s)^((Subprocess\.)?TerminationStatus)?\.exited\(0\)\s*==\s*(.+)$', by: '${3}.isSuccess'}}
-    RESULT: {replace: {source: $EQUAL_LEFT, replace: '(?s)^((Subprocess\.)?TerminationStatus)?\.exited\(0\)\s*!=\s*(.+)$', by: '!${3}.isSuccess'}}
     HEAD: {replace: {source: $SITE, replace: '(?s)\n.*$', by: ''}}
-fix: $RESULT
 message: '`$HEAD` tests a `TerminationStatus` for exit code 0 by pattern'
-note: 'Read `<status>.isSuccess`'
+note: 'Read `<status>.isSuccess`, or compare `<optional>?.isSuccess` with `true`'

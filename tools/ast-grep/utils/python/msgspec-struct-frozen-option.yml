@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: msgspec-struct-frozen-option
+language: pythonlang
+arguments: [value]
+utils:
+    frozen-keyword:
+        kind: keyword_argument
+        has: {field: name, regex: '^frozen$'}
+    unset-base:
+        any:
+            - matches: {python-member-use: {module: {regex: '^msgspec$'}, name: {regex: '^Struct$'}}}
+            - matches: {python-base-class: {superclasses: {inside: {matches: msgspec-struct-frozen-default, field: superclasses}}}}
+            - kind: subscript
+              has: {field: value, matches: unset-base}
+            - kind: parenthesized_expression
+              has: {matches: unset-base}
+    configured-base:
+        any:
+            - matches:
+                python-base-class:
+                    superclasses:
+                        all:
+                            - inside: {matches: msgspec-struct-class, field: superclasses}
+                            - matches: configured-options
+            - kind: subscript
+              has: {field: value, matches: configured-base}
+            - kind: parenthesized_expression
+              has: {matches: configured-base}
+    configured-options:
+        kind: argument_list
+        any:
+            - has: {matches: frozen-keyword, has: {field: value, matches: value}}
+            - all:
+                - not: {has: {matches: frozen-keyword}}
+                - has:
+                    matches: configured-base
+                    not: {follows: {stopBy: end, pattern: $_, not: {any: [{kind: 'keyword_argument, comment'}, {matches: unset-base}]}}}
+rule:
+    all:
+        - matches: msgspec-struct-class
+        - has: {field: superclasses, matches: configured-options}

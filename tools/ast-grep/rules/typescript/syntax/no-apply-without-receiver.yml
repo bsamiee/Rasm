@@ -1,31 +1,15 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-apply-without-receiver
-language: tsx
+language: tsxlang
 severity: error
 rule:
     kind: call_expression
+    pattern: '$_($F, $RECEIVER, $LIST)'
     has: {field: function, regex: '^((globalThis|window|self)\.)?Reflect\.apply$', matches: typescript-global-reference}
     not: {has: {field: arguments, has: {kind: comment, stopBy: end}}}
-    any:
-        - pattern: $_($F, $RECEIVER, [$$$LISTED])
-        - pattern: $_($F, $RECEIVER, $SPREAD)
-          not: {has: {field: arguments, has: {nthChild: 3, kind: array}}}
 constraints:
-    F: {not: {kind: 'member_expression, subscript_expression, parenthesized_expression'}}
-    RECEIVER: {regex: '^(undefined|null)$'}
-rewriters:
-    - id: bare
-      rule: {kind: 'identifier, call_expression', pattern: $NODE}
-      fix: $NODE
-    - id: wrapped
-      rule: {pattern: $NODE}
-      fix: ($NODE)
-    - id: spread
-      rule: {pattern: $NODE}
-      fix: '...$NODE'
-transform:
-    CALLEE: rewrite($F, rewriters=[bare, wrapped])
-    SPREADS: rewrite($SPREAD, rewriters=[spread])
-fix: $CALLEE($$$LISTED$SPREADS)
+    F: {not: {any: [{kind: 'member_expression, subscript_expression, parenthesized_expression'}, {kind: identifier, regex: '^eval$'}]}}
+    RECEIVER: {regex: '^undefined$', matches: typescript-global-reference}
+    LIST: {kind: array}
 message: '`$F` is called through `Reflect.apply` with no receiver'
 note: 'Call `<function>(<arguments>)`, spreading a held argument list as `<function>(...<arguments>)`'

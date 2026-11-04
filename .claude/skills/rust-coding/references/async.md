@@ -2,7 +2,7 @@
 
 ## [01]-[FUTURES]
 
-Dropping a future cancels its work at the `.await` it waits on. Values held across an `.await` decide a future's `Send`, and a non-`Send` value (an `Rc`, a lock guard) sits in a block ending before it. Racing and bounding combinators (`select!`, `timeout`, `run_until_cancelled`, `take_until`) drop the losing future. Raced operations keep their progress outside it:
+Dropping a future stops polling it; completed effects and separately spawned work remain. Captures and values retained across `.await` determine a future's `Send`, `Sync`, and layout. Non-`Send` locals (an `Rc`, a lock guard) end before suspension when the consumer requires `Send`. Replacing a blocking drive with `.await` can change the enclosing future's traits, size, and caller bounds; the selected executor and enabled drivers must support the awaited API. Racing and bounding combinators (`select!`, `timeout`, `run_until_cancelled`, `take_until`) drop the losing future. Raced operations keep their progress outside it:
 - Cancel-safe, lossless on drop: `mpsc::Receiver::recv`, `watch::Receiver::changed`, `TcpListener::accept`, `StreamExt::next`, `AsyncReadExt::read`
 - `read_exact` and `write_all` lose partial progress, a `LinesStream` keeps its partial line in its own buffer
 - `tokio::sync::Mutex::lock`, `Semaphore::acquire`, and `Notify::notified` lose their queue position when dropped
@@ -18,7 +18,7 @@ where S: Bucket + Send + Sync + 'static {
 }
 ```
 
-`iter::repeat` clones the `Arc` per part, and each future owns its inputs as `'static`. `join_all` resumes a task panic in the caller, and a `spawn_blocking` or scoped thread join resumes one through `panic::resume_unwind` over `error.into_panic()` or the join's payload. Blocking tasks read a stream as an iterator through `executor::block_on_stream`. Services hold a `TaskTracker` for tasks they start over their lifetime, and a `CancellationToken` stops the loop that starts them:
+`iter::repeat` clones the `Arc` per part, and each future owns its inputs as `'static`. `join_all` resumes a task panic in the caller. Other joins resume panic payloads through `panic::resume_unwind`; cancellation remains a distinct outcome where the task owner permits it. Blocking tasks read a stream as an iterator through `executor::block_on_stream`. Services hold a `TaskTracker` for tasks they start over their lifetime, and a `CancellationToken` stops the loop that starts them:
 
 ```rust
 pub async fn serve<H>(listener: TcpListener, handler: Arc<H>, stop: CancellationToken) -> Result<(), ServiceError>
@@ -38,7 +38,7 @@ where H: Handler + Send + Sync + 'static {
 }
 ```
 
-Accepting ends when `stop` fires or an accept fails. `close` with `wait` runs on both paths, and every accepted connection finishes before `serve` returns. HTTP services bind a `TcpSocket`, read `local_addr`, and call `listen(u32::MAX)` in place of the 128 backlog `TcpListener::bind` sets, then `axum::serve` over `tap_io(set_nodelay)` drains through `with_graceful_shutdown(token.cancelled_owned())`. `handle` returns `()` and records its connection's outcome itself. A token one scope owns becomes a `DropGuard` through `drop_guard`, or `drop_guard_ref` while the scope reads it, and the drop cancels it and every child token on each exit path. `child_token` hands a consumer a token that cannot cancel its root. Subscribers to one task each hold an `Arc<AbortOnDropHandle<()>>`, a map of its `Weak` hands it to later subscribers and retains entries with a nonzero `strong_count`, and the last drop aborts it. Programs drain on the first signal and abandon the drain on the next:
+Accepting ends when `stop` fires or an accept fails. `close` with `wait` runs on both paths, and every accepted connection finishes before `serve` returns. HTTP services use `TcpListener::bind` for native platform backlog defaults (128 on macOS, Linux, and Windows). Different backlog or pre-bind policies use `TcpSocket`, `local_addr`, and `listen` with caller policy. `axum::serve` over `tap_io(set_nodelay)` drains through `with_graceful_shutdown(token.cancelled_owned())`. `handle` returns `()` and records its connection's outcome itself. A token one scope owns becomes a `DropGuard` through `drop_guard`, or `drop_guard_ref` while the scope reads it, and the drop cancels it and every child token on each exit path. `child_token` hands a consumer a token that cannot cancel its root. Subscribers to one task each hold an `Arc<AbortOnDropHandle<()>>`, a map of its `Weak` hands it to later subscribers and retains entries with a nonzero `strong_count`, and the last drop aborts it. Programs drain on the first signal and abandon the drain on the next:
 
 ```rust
 pub async fn supervised(
@@ -75,13 +75,13 @@ pub async fn supervised(
 Values arriving over time are a `Stream` with each failure one item. `tokio_stream::wrappers` adapt receivers, listeners, watches, intervals, line readers, and join sets:
 
 ```rust
-pub fn sample<S>(sensor: &S, every: Duration) -> impl Stream<Item = Result<Reading, SensorError>>
+pub fn sample<S>(sensor: &S, ticks: Interval) -> impl Stream<Item = Result<Reading, SensorError>>
 where S: Sensor {
-    IntervalStream::new(interval(every)).then(move |_| sensor.read())
+    IntervalStream::new(ticks).then(move |_| sensor.read())
 }
 ```
 
-`sample` borrows the sensor and reads it once per tick, and a failed read is an `Err` item while the stream continues. `interval` ticks at once, then every period. `set_missed_tick_behavior` sets ticks after slow work: `Burst` by default, `Delay` for a full period, `Skip` for the original grid. `then` runs one read at a time. Consumers stop at the first `Err` through `try_for_each`, or record each failure and continue through `for_each` with a `match`. `ready_chunks(n)` batches waiting items into one write or one commit per batch. Sources of different item types one consumer reads in arrival order merge through `stream::select` into `Either` for a source pair and one `stream_select!` over the consumer's own input enum for more (nested `select` halving each inner share), `chain(stream::iter([<enum>::End]))` marking where one ends. Effect streams a program requests over time arrive on a channel merged through `flatten_unordered(None)`. Sources with a consumer each run as one `future::join` of their `for_each` calls. `WatchStream::new` yields the held value and each change, `from_changes` the changes alone. A `watch` empty until its first value holds `Option<T>`. Streams that end only with their sender (`WatchStream`, `BroadcastStream`) end beside other work through `take_until(stop.cancelled())`, and `TakeUntil::is_stopped`, read through `pin!` and `as_mut()` once the consumer finishes, tells a stream its signal cut from one that ended (a `TempFail` exit). Paged sources unfold into one stream of items:
+`sample` borrows the sensor and consumes a constructed native `Interval`, with its nonzero period and missed-tick policy already established. Each tick produces a reading or an `Err` item while the stream continues. `interval` ticks at once, then every period. `set_missed_tick_behavior` selects `Burst`, `Delay` for a full period, or `Skip` for the original grid. `then` runs one read at a time. Consumers stop at the first `Err` through `try_for_each`, or record each failure and continue through `for_each` with a `match`. `ready_chunks(n)` batches waiting items into one write or one commit per batch. Sources of different item types one consumer reads in arrival order merge through `stream::select` into `Either` for a source pair and one `stream_select!` over the consumer's own input enum for more (nested `select` halving each inner share), `chain(stream::iter([<enum>::End]))` marking where one ends. Effect streams a program requests over time arrive on a channel merged through `flatten_unordered(None)`. Sources with a consumer each run as one `future::join` of their `for_each` calls. `WatchStream::new` yields the held value and each change, `from_changes` the changes alone. A `watch` empty until its first value holds `Option<T>`. Streams that end only with their sender (`WatchStream`, `BroadcastStream`) end beside other work through `take_until(stop.cancelled())`, and `TakeUntil::is_stopped`, read through `pin!` and `as_mut()` once the consumer finishes, tells a stream its signal cut from one that ended (a `TempFail` exit). Paged sources unfold into one stream of items:
 
 ```rust
 pub fn listed<C>(catalog: &C) -> impl Stream<Item = Result<Item, SourceError>>
@@ -117,8 +117,12 @@ Transitions return the next state beside the reply, and a refused command keeps 
 - `watch::Sender::send_if_modified` edits the value in place and notifies when its closure returns `true`, `send_replace` publishes a whole next value
 - `nonpoison::Mutex` state one closure reads or writes goes through `with_mut`, `get_cloned`, `set`, or `replace`, and no guard outlives the call
 - `papaya::HashMap::pin` returns a guard that drops before the next `.await`, `pin_owned` a `Send` guard held across it
-- `moka::future::Cache::try_get_with(key, load)` runs one load per missing key while concurrent callers await it and caches only an `Ok`
+- `moka::future::Cache::try_get_with(key, load)` coalesces concurrent loads for a missing key and caches only an `Ok`
 - `try_get_with` returns `Result<V, Arc<E>>` with one failure every waiter shares, and a crate error variant holds the `Arc<E>` as its source
+
+`ArcSwap::rcu` can retry its update closure. Callbacks stay pure, and effects use the committed update's returned state after success.
+
+Borrowed cache keys take `get_with_by_ref` or `try_get_with_by_ref`, deferring owned key construction until insertion. Cache keys contain every varying input, or invalidation belongs to the owner of those inputs. Scope retention to an operation, immutable snapshot, or external validity period. Native capacity and weighting are best-effort eviction policies, not hard allocator bounds; `get` clones its value, making shared ownership useful only when the value needs that shared lifetime. A task-local computation read once needs no concurrent cache.
 
 ## [05]-[TELEMETRY]
 

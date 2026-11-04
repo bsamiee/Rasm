@@ -86,7 +86,7 @@ Geometry tree sockets take single values or fields, and a field computes per ele
 `tree.links.new(output, input, verify_limits=True, handle_dynamic_sockets=False)` links sockets of one tree:
 - Endpoints go in either order, a pair of inputs or of outputs raising `RuntimeError`
 - Links into a linked single input replace the old link
-- `verify_limits=True` removes links past `link_limit` on either endpoint and clears `hide` on both, and `False` stacks links reading `is_valid` true
+- `verify_limits=True` removes links past `link_limit` on either endpoint, and `links.new` clears `hide` on both endpoints
 - Links onto a virtual socket pass `handle_dynamic_sockets=True` to add an item named and typed after the source, returning `None` for a refused type
 - Plain links onto a virtual socket read `is_valid` false and add nothing
 - `link.is_muted` mutes a link in place, the target reading its own default
@@ -94,26 +94,29 @@ Geometry tree sockets take single values or fields, and a field computes per ele
 
 Multi-input sockets order their links by `multi_input_sort_id`, each new link added on top:
 - `socket.links` lists top first by descending sort id, up to 4095 links
-- `links.new` on a linked pair moves the held link on top with a duplicate sort id, `verify_limits=False` stacking a second link from that output
-- Reorder by removing the socket's links and relinking sources bottom first, sort ids renumbering from 0
+- `links.new` with `verify_limits=True` replaces matching pairs with a new link; `False` adds another link from that output
 - `link.swap_multi_input_sort_id(other)` swaps link positions on one socket, keeping both links and their mute state
 
 `NodeSocket.links` scans `tree.links` on each read and lists muted links. Graph walks index one `tree.links` pass by target node:
 
 ```python
 def upstream(tree: bpy.types.NodeTree, root: bpy.types.Node, /, *, kept: Callable[[bpy.types.NodeLink], bool] = lambda link: link.is_valid and not link.is_muted) -> tuple[bpy.types.Node, ...]:
-    feeding: dict[bpy.types.Node, set[bpy.types.Node]] = {root: set()}
+    feeding: defaultdict[bpy.types.Node, dict[bpy.types.Node, None]] = defaultdict(dict)
     for link in filter(kept, tree.links):
-        feeding.setdefault(link.to_node, set()).add(link.from_node)  # type: ignore[arg-type]  # ty: ignore[no-matching-overload]
-    order = tuple(TopologicalSorter(feeding).static_order())
-    reached = reduce(lambda held, node: held | feeding.get(node, set()) if node in held else held, reversed(order), {root})
-    return tuple(node for node in order if node in reached)
+        feeding[link.to_node][link.from_node] = None
+    reached: dict[bpy.types.Node, dict[bpy.types.Node, None]] = {}
+    pending = [root]
+    while pending:
+        node = pending.pop()
+        if node not in reached:
+            reached[node] = feeding[node]
+            pending.extend(reversed(feeding[node]))
+    return tuple(TopologicalSorter(reached).static_order())
 ```
 
 `upstream` returns sources first and `root` last over links `kept` passes:
 - `kept=lambda link: link.is_valid` follows muted links
-- `reduce` visits each node after all its consumers
-- Default `kept` drops the invalid link Blender marks in each cycle before `TopologicalSorter` reads the graph
+- Iteration reaches the root's dependencies once before sorting them, leaving disconnected components outside the operation
 
 Geometry and compositor trees convert link values by type pair:
 - Floats, integers, and booleans convert among each other and into vectors and colors, a scalar filling every channel and color alpha reading 1
@@ -127,12 +130,11 @@ Geometry and compositor trees convert link values by type pair:
 Other tree kinds validate links by their own rules:
 - Shader trees link any value into a `Shader` input as emission and a `Shader` output into `Shader` inputs alone
 - Shader trees link Bundle, Closure, Menu, and String sockets to their own type alone
-- Texture trees and Python-defined trees validate no link, every pair reading `is_valid` true
+- Texture trees and Python-defined trees impose no socket-type conversion restriction
 
 Links read `is_valid` false for:
 - Disabled endpoint
 - Menu socket in a definition conflict
-- One link of each cycle
 - Type pair with no conversion
 - Zone-internal value reaching a node downstream of the zone output
 - Field reaching a `LINE` input
@@ -176,6 +178,7 @@ Item collections (`capture_items`, `bake_items`, `bundle_items`, `index_switch_i
 - Collections take `new(socket_type, name)` with socket enums (`FLOAT`, `VECTOR`, `RGBA`, `GEOMETRY`), an idname raising `TypeError` that lists them
 - Capture items created with `VECTOR` read back `data_type` `FLOAT_VECTOR`
 - Collections take `remove(item)`, `clear()`, and `move(from_index, to_index)`, an index past the range moving nothing
+- Array-backed items reallocate on addition and removal; moves shift values between slots, so hold identifiers and reacquire items after edits
 - `enum_items` and `rasterize_items` take `new(name)`, `index_switch_items` and `combine_list_items` take `new()`
 - Repeat and For Each items hold `socket_type`, Simulation items add `attribute_domain`, Bake items `attribute_domain` and `is_attribute`
 - For Each generation items hold `domain` (Capture Attribute on the node), closure, Evaluate Closure, and bundle items `structure_type`

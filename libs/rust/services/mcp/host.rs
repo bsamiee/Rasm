@@ -25,6 +25,8 @@ use opentelemetry_semantic_conventions::{
 use rasm_command::Augmented;
 use rasm_daemon::{Daemon, Lifetime};
 use rasm_telemetry::{Defaults, Handle, Layer};
+#[expect(deprecated, reason = "rmcp::ServerHandler::set_level requires its deprecated request type")]
+use rmcp::model::SetLevelRequestParams;
 use rmcp::{
     ErrorData, RoleServer, ServerHandler,
     model::{
@@ -32,8 +34,9 @@ use rmcp::{
         ConstString as _, CustomNotification, CustomRequest, CustomResult, DiscoverRequestMethod, DiscoverResult, GetPromptRequestMethod, GetPromptRequestParams, GetPromptResponse, GetTaskMethod,
         GetTaskParams, GetTaskResult, Implementation, InitializeRequestParams, InitializeResult, InitializeResultMethod, ListPromptsRequestMethod, ListPromptsResult,
         ListResourceTemplatesRequestMethod, ListResourceTemplatesResult, ListResourcesRequestMethod, ListResourcesResult, ListToolsRequestMethod, ListToolsResult, PaginatedRequestParams,
-        ProgressNotificationParam, ProtocolVersion, ReadResourceRequestMethod, ReadResourceRequestParams, ReadResourceResponse, ResourcesCapability, ServerConfig, ServerNotification,
-        SubscribeRequestMethod, SubscribeRequestParams, SubscriptionFilter, Tool, UnsubscribeRequestMethod, UnsubscribeRequestParams, UpdateTaskMethod, UpdateTaskParams,
+        PingRequestMethod, ProgressNotificationParam, ProtocolVersion, ReadResourceRequestMethod, ReadResourceRequestParams, ReadResourceResponse, ResourcesCapability, ServerConfig,
+        ServerNotification, SetLevelRequestMethod, SubscribeRequestMethod, SubscribeRequestParams, SubscriptionFilter, Tool, UnsubscribeRequestMethod, UnsubscribeRequestParams, UpdateTaskMethod,
+        UpdateTaskParams,
     },
     service::{NotificationContext, RequestContext, SubscriptionContext},
     transport::{StreamableHttpServerConfig, StreamableHttpService, common::http_header::HEADER_SESSION_ID, streamable_http_server::session::local::LocalSessionManager},
@@ -53,7 +56,7 @@ use tracing::{
 };
 use tracing_opentelemetry::{OpenTelemetrySpanExt as _, SetParentError};
 
-use crate::{Endpoint, McpError, Meta, Notifier, Response, list_changes, resynced, versions};
+use crate::{Endpoint, McpError, Meta, Response, list_changes, resynced, versions};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -72,7 +75,7 @@ const PROTOCOL: &str = "http";
 pub struct Host {
     pub identity: Implementation,
     pub filter: Handle,
-    pub notifier: Notifier,
+    pub notifier: broadcast::Sender<ServerNotification>,
 }
 
 #[derive(Args)]
@@ -97,7 +100,7 @@ enum Target {
 
 struct Hosted<E> {
     endpoint: E,
-    notifier: Notifier,
+    notifier: broadcast::Sender<ServerNotification>,
     stopping: CancellationToken,
     requests: TaskTracker,
     watches: TaskTracker,
@@ -275,7 +278,7 @@ where E: Endpoint
     }
 
     fn notifications(&self, filter: SubscriptionFilter, held: watch::Receiver<Leases>) -> impl Stream<Item = ServerNotification> + Send + 'static {
-        BroadcastStream::new(self.host.notifier.0.subscribe()).flat_map(move |received| {
+        BroadcastStream::new(self.host.notifier.subscribe()).flat_map(move |received| {
             stream::iter(
                 match received {
                     Ok(ServerNotification::ResourceUpdatedNotification(updated)) if held.borrow().contains_key(&updated.params.uri) => Either::Left(Some(updated.into())),
@@ -307,6 +310,8 @@ impl<E> Drop for Session<E> {
 impl<E> ServerHandler for Session<E>
 where E: Endpoint
 {
+    async fn ping(&self, context: RequestContext<RoleServer>) -> Result<(), ErrorData> { self.traced(PingRequestMethod::VALUE, None, &context, self.host.endpoint.ping(context.clone())).await }
+
     async fn initialize(&self, request: InitializeRequestParams, context: RequestContext<RoleServer>) -> Result<InitializeResult, ErrorData> {
         let negotiated = async {
             context.peer.set_peer_info(request.clone());
@@ -323,6 +328,11 @@ where E: Endpoint
 
     async fn complete(&self, request: CompleteRequestParams, context: RequestContext<RoleServer>) -> Result<CompleteResult, ErrorData> {
         self.traced(CompleteRequestMethod::VALUE, None, &context, self.host.endpoint.complete(request, context.clone())).await
+    }
+
+    #[expect(deprecated, reason = "rmcp::ServerHandler::set_level requires its deprecated request type")]
+    async fn set_level(&self, request: SetLevelRequestParams, context: RequestContext<RoleServer>) -> Result<(), ErrorData> {
+        self.traced(SetLevelRequestMethod::VALUE, None, &context, self.host.endpoint.set_level(request, context.clone())).await
     }
 
     async fn get_prompt(&self, request: GetPromptRequestParams, context: RequestContext<RoleServer>) -> Result<GetPromptResponse, ErrorData> {
@@ -461,7 +471,7 @@ where
         Defaults { directives: format!("rmcp=warn,rmcp::service=error,{}", defaults.directives).into(), ..defaults },
         layer,
         async |Augmented { options: Options { allowed_host, allowed_origin, max_request_body }, args }, addresses, filter, stopping| {
-            let notifier = Notifier(broadcast::Sender::new(CAPACITY));
+            let notifier = broadcast::Sender::new(CAPACITY);
             let endpoint = build(args, Host { identity, filter, notifier: notifier.clone() }).await?;
             let mut config = max_request_body
                 .map(NonZero::get)

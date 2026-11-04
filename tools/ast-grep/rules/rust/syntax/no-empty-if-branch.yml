@@ -1,50 +1,18 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-empty-if-branch
-language: rust
+language: rustlang
 severity: error
 utils:
     comment:
         kind: 'line_comment, block_comment'
-    negation:
-        kind: unary_expression
-        regex: '^!'
-    compound:
-        not: {any: [{matches: rust-postfix-expression}, {matches: negation}, {kind: 'let_condition, let_chain'}]}
     empty-then:
         kind: block
         not: {has: {pattern: $_, not: {matches: comment}}}
-    bare-then:
-        kind: block
-        not: {has: {pattern: $_}}
-    else-block:
-        kind: else_clause
-        all:
-            - has: {kind: block, pattern: $BLOCK}
-            - not: {has: {matches: comment}}
-            - not: {follows: {matches: comment}}
 rule:
     kind: if_expression
     all:
         - has: {field: consequence, matches: empty-then}
         - has: {field: condition, pattern: $COND}
         - has: {field: alternative, kind: else_clause}
-        - any:
-            - all: [{has: {field: consequence, matches: bare-then}}, {has: {field: condition, matches: rust-postfix-expression, pattern: $P}}, {has: {field: alternative, matches: else-block}}]
-            - all: [{has: {field: consequence, matches: bare-then}}, {has: {field: condition, matches: negation, pattern: $N}}, {has: {field: alternative, matches: else-block}}]
-            - all: [{has: {field: consequence, matches: bare-then}}, {has: {field: condition, kind: binary_expression, pattern: $EQUAL == $OTHER}}, {has: {field: alternative, matches: else-block}}]
-            - all: [{has: {field: consequence, matches: bare-then}}, {has: {field: condition, kind: binary_expression, pattern: $UNEQUAL != $SAME}}, {has: {field: alternative, matches: else-block}}]
-            - all: [{has: {field: consequence, matches: bare-then}}, {has: {field: condition, matches: compound, pattern: $Q}}, {has: {field: alternative, matches: else-block}}]
-            - pattern: $UNFIXED
-transform:
-    NEGATED: {replace: {source: $P, replace: '^([\s\S]+)$', by: 'if !$1 '}}
-    STRIPPED: {replace: {source: $N, replace: '^!\s*([\s\S]+)$', by: 'if $1 '}}
-    UNEQUAL_OPEN: {replace: {source: $EQUAL, replace: '^[\s\S]*$', by: 'if '}}
-    UNEQUAL_OPERATOR: {replace: {source: $OTHER, replace: '^[\s\S]*$', by: ' != '}}
-    EQUAL_OPEN: {replace: {source: $UNEQUAL, replace: '^[\s\S]*$', by: 'if '}}
-    EQUAL_OPERATOR: {replace: {source: $SAME, replace: '^[\s\S]*$', by: ' == '}}
-    UNEQUAL_CLOSE: {replace: {source: $OTHER, replace: '^[\s\S]*$', by: ' '}}
-    EQUAL_CLOSE: {replace: {source: $SAME, replace: '^[\s\S]*$', by: ' '}}
-    GROUPED: {replace: {source: $Q, replace: '^([\s\S]+)$', by: 'if !($1) '}}
-fix: $NEGATED$STRIPPED$UNEQUAL_OPEN$EQUAL$UNEQUAL_OPERATOR$OTHER$UNEQUAL_CLOSE$EQUAL_OPEN$UNEQUAL$EQUAL_OPERATOR$SAME$EQUAL_CLOSE$GROUPED$BLOCK$UNFIXED
 message: '`if $COND` holds an empty branch beside its `else`'
-note: 'Move the `else` body under a negated condition, a `let` test as `let <pattern> = <value> else { .. };` when `else` diverges, else `!matches!(..)`'
+note: 'Negate the condition, using `let .. else` for diverging pattern failures or `!matches!(..)` for boolean pattern tests'

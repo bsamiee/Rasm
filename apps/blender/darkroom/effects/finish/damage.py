@@ -1,10 +1,11 @@
 """Projected film damage: speckles, scratches, and hairs integrated over each pixel's footprint, gate weave, and a stationary rough projector aperture."""
 
+from collections.abc import Callable
 from functools import partial, reduce
-from typing import Annotated, Final
+from typing import Annotated, Final, override
 
 import bpy
-from expression import Ok, Option, Some
+from expression import Option, Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -14,16 +15,16 @@ from blender.bpy.extension.identity import Identity
 from blender.bpy.nodes.functions import column, POSITION, sampled, W
 from blender.bpy.nodes.interfaces import decoded, Interface, InterfacePanel
 from blender.bpy.nodes.textures import Noise, Voronoi
-from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect, precise, Prepared, Stage
-from blender.bpy.render.compositor.inputs import passed, toggled, value
+from blender.bpy.render.compositor.effects import CompositorEffect, CompositorRecord, Mix, precise, Prepared, Stage
+from blender.bpy.render.compositor.inputs import toggled, value
 from blender.bpy.render.compositor.motion import CLOCK, Clock, SEED
 from blender.imaging.files import buffers
 from blender.imaging.geometry.arithmetic import smoothstep
 from blender.imaging.geometry.frames import Raster
 from blender.imaging.sampling.integration import Estimate, footprint, Population, Precision
 from blender.imaging.sampling.tiles import stream, uniforms
-from blender.records.faults import accumulated, Outcome, paired
-from blender.records.fields import AtLeastOne, Case, NonNegative, Positive, Seed, Unit
+from blender.records.faults import accumulated, Ok, Outcome, paired
+from blender.records.fields import AtLeastOne, NonNegative, Positive, Seed, Unit
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -190,84 +191,85 @@ class Gate(msgspec.Struct, frozen=True, kw_only=True):
         return sampled(identity, {"position": np.column_stack((points, np.full(len(points), stream(Gate, seed))))}, self.edge.node(POSITION)).map(covered)
 
 
-class Damage(Case, frozen=True, kw_only=True):
+class Damage(CompositorRecord, frozen=True, kw_only=True):
     """Film marks and weave behind a stationary projector aperture, rendered on the CPU before the graph reads them."""
 
+    @property
+    @override
+    def prepared(self) -> Callable[[Stage], Outcome[Option[Prepared]]]:
+        """Marks captured film with its projector damage."""
 
-# --- [OPERATIONS] -----------------------------------------------------------------------
+        def prepared(stage: Stage) -> Outcome[Option[Prepared]]:
+            """Marks captured film in original camera units, weaves it through the gate, and estimates the result with its numerical error.
 
+            Args:
+                stage: Captured film, entry values, camera frame, scene, and precision.
 
-def _prepared(stage: Stage[Damage]) -> Outcome[Option[Prepared]]:
-    """Marks captured film in original camera units, weaves it through the gate, and estimates the result with its numerical error.
+            Returns:
+                Damaged film estimate, or the faults of the entry values, mark integrals, and warp.
+            """
+            values, identity, source, precision = stage.values, stage.identity, stage.image, stage.precision
+            spec = source.spec()
+            raster, camera = stage.rasters
+            extent = (camera.bounds.right - camera.bounds.left, camera.bounds.top - camera.bounds.bottom)
+            empty = np.broadcast_to(0.0, (precision.replicates, spec.height, spec.width, 2))
 
-    Args:
-        stage: Captured film, entry values, camera frame, scene, and precision.
+            def part[T: msgspec.Struct](panel: InterfacePanel, record: T) -> Outcome[Option[T]]:
+                return toggled(values, partial(decoded, record, values, panel.key), panel)
 
-    Returns:
-        Damaged film estimate, or the faults of the entry values, mark integrals, and warp.
-    """
-    values, identity, source, precision = stage.values, stage.identity, stage.image, stage.precision
-    spec = source.spec()
-    bounds, extent = stage.frame.window(spec)
-    raster = Raster(bounds=bounds, shape=(spec.height, spec.width))
-    empty = np.zeros((precision.replicates, spec.height, spec.width, 2), dtype=np.float64)
+            def marks(seed: int, clock: float, found: _Parts) -> Outcome[npt.NDArray[np.float64]]:
+                speckles, scratches, hairs, _, gate = found
+                return accumulated((
+                    speckles.map(lambda held: held.covered(raster, precision, clock, seed=seed)).default_value(Ok(empty)),
+                    Ok(scratches.map(lambda held: np.broadcast_to(held.covered(raster, extent, clock, seed=seed), empty.shape)).default_value(empty)),
+                    hairs.map(
+                        lambda held: footprint(lambda points: held.sampled(identity, points, extent, clock, seed=seed), raster, precision).map(lambda estimate: estimate.replicates)
+                    ).default_value(Ok(empty)),
+                    gate.map(lambda held: footprint(lambda points: held.sampled(identity, points, extent, seed=seed), raster, precision).map(lambda estimate: estimate.replicates)).default_value(
+                        Ok(np.broadcast_to(1.0, (*empty.shape[:-1], 1)))
+                    ),
+                )).map(lambda planes: np.concatenate(planes, axis=-1))
 
-    def part[T: msgspec.Struct](panel: InterfacePanel, record: T) -> Outcome[Option[T]]:
-        return toggled(values, partial(decoded, record, values, panel.key), panel)
+            def damaged(plane: npt.NDArray[np.float32], seed: int, clock: float, found: _Parts) -> Outcome[Option[Prepared]]:
+                _, _, _, weave, gate = found
 
-    def replicated(estimate: Estimate[npt.NDArray[np.float64]]) -> npt.NDArray[np.float64]:
-        return estimate.replicates
+                def woven(fields: npt.NDArray[np.float64]) -> Outcome[tuple[npt.NDArray[np.float64], tuple[npt.NDArray[np.float32], ...]]]:
+                    alpha = np.broadcast_to(plane[..., 3:], (*fields.shape[:-1], 1))
+                    color = reduce(
+                        lambda color, index: color * (1.0 - fields[..., 2 * index : 2 * index + 1]) + alpha * fields[..., 2 * index + 1 : 2 * index + 2], range(3), plane[..., :3].astype(np.float64)
+                    )
+                    replicates = tuple(replicate.astype(np.float32) for replicate in np.concatenate((color, alpha), axis=-1))
 
-    def marks(seed: int, clock: float, found: _Parts) -> Outcome[npt.NDArray[np.float64]]:
-        speckles, scratches, hairs, _, gate = found
-        return accumulated((
-            speckles.map(lambda held: held.covered(raster, precision, clock, seed=seed)).default_value(Ok(empty)),
-            Ok(scratches.map(lambda held: np.broadcast_to(held.covered(raster, extent, clock, seed=seed), empty.shape)).default_value(empty)),
-            hairs.map(lambda held: footprint(lambda points: held.sampled(identity, points, extent, clock, seed=seed), raster, precision).map(replicated)).default_value(Ok(empty)),
-            gate.map(lambda held: footprint(lambda points: held.sampled(identity, points, extent, seed=seed), raster, precision).map(replicated)).default_value(
-                Ok(np.ones((*empty.shape[:-1], 1), dtype=np.float64))
-            ),
-        )).map(lambda planes: np.concatenate(planes, axis=-1))
+                    def warped(shift: npt.NDArray[np.float64]) -> Outcome[tuple[npt.NDArray[np.float32], ...]]:
+                        transform = (1.0, 0.0, 0.0, 0.0, 1.0, 0.0, float(shift[0] / raster.step[0]), float(-shift[1] / raster.step[1]), 1.0)
+                        return accumulated(
+                            buffers.located(replicate, source).bind(lambda image: buffers.checked(OpenImageIO.ImageBufAlgo.warp(image, transform, "triangle", 2.0, wrap="clamp"))).bind(buffers.pixels)
+                            for replicate in replicates
+                        )
 
-    def damaged(plane: npt.NDArray[np.float32], seed: int, clock: float, found: _Parts) -> Outcome[Option[Prepared]]:
-        _, _, _, weave, gate = found
+                    return weave.map(lambda held: held.shifted(identity, clock, seed=seed).bind(warped)).default_value(Ok(replicates)).map(lambda shown: (fields, shown))
 
-        def section(held: tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]], index: int, fields: npt.NDArray[np.float64]) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
-            color, mask = held
-            coverage, white = fields[..., 2 * index : 2 * index + 1], fields[..., 2 * index + 1 : 2 * index + 2]
-            return np.concatenate((color[..., :3] * (1.0 - coverage) + color[..., 3:] * white, color[..., 3:]), axis=-1), 1.0 - (1.0 - mask) * (1.0 - coverage)
+                def gated(held: tuple[npt.NDArray[np.float64], tuple[npt.NDArray[np.float32], ...]]) -> Outcome[Option[Prepared]]:
+                    fields, shown = held
+                    result = np.stack(shown).astype(np.float64)
+                    opening = fields[..., 6:]
+                    outside = gate.map(lambda held: np.asarray(held.color[:3])).default_value(np.zeros(3))
+                    result[..., :3] = result[..., :3] * opening + outside * result[..., 3:4] * (1.0 - opening)
+                    estimate = Estimate.of(result, precision)
+                    return buffers.located(estimate.value.astype(np.float32), source).map(lambda image: Some(estimate.holding(image)))
 
-        def woven(fields: npt.NDArray[np.float64]) -> Outcome[tuple[npt.NDArray[np.float64], tuple[npt.NDArray[np.float32], ...]]]:
-            copies = np.broadcast_to(plane, (precision.replicates, *plane.shape)).astype(np.float64)
-            color, mask = reduce(lambda held, index: section(held, index, fields), range(3), (copies, np.zeros((*copies.shape[:-1], 1), dtype=np.float64)))
-            replicates = tuple(replicate.astype(np.float32) for replicate in np.concatenate((color, mask), axis=-1))
+                return marks(seed, clock, found).bind(woven).bind(gated)
 
-            def warped(shift: npt.NDArray[np.float64]) -> Outcome[tuple[npt.NDArray[np.float32], ...]]:
-                transform = (1.0, 0.0, 0.0, 0.0, 1.0, 0.0, float(shift[0] / raster.step[0]), float(-shift[1] / raster.step[1]), 1.0)
-                return accumulated(
-                    buffers.located(replicate, source).bind(lambda image: buffers.checked(OpenImageIO.ImageBufAlgo.warp(image, transform, "triangle", 2.0, False, "clamp"))).bind(buffers.pixels)
-                    for replicate in replicates
-                )
+            settings = paired(
+                value(values, Seed, SEED),
+                decoded(Clock(), values, _CLOCK.key).map(lambda held: held.timed(stage.scene)),
+                paired(part(_SPECKLES, Speckles()), part(_SCRATCHES, Scratches()), part(_HAIRS, Hairs()), part(_WEAVE, Weave()), part(_GATE, Gate())),
+            )
+            return paired(buffers.pixels(source), settings).bind(lambda held: damaged(held[0], *held[1]))
 
-            return weave.map(lambda held: held.shifted(identity, clock, seed=seed).bind(warped)).default_value(Ok(replicates)).map(lambda shown: (fields, shown))
+        return prepared
 
-        def gated(held: tuple[npt.NDArray[np.float64], tuple[npt.NDArray[np.float32], ...]]) -> Outcome[Option[Prepared]]:
-            fields, shown = held
-            result = np.stack(shown).astype(np.float64)
-            opening = fields[..., 6:]
-            outside = gate.map(lambda held: np.asarray(held.color[:3])).default_value(np.zeros(3))
-            result[..., :3] = result[..., :3] * opening + outside * result[..., 3:4] * (1.0 - opening)
-            estimate = Estimate.of(result[..., :4], precision)
-            return buffers.located(estimate.value.astype(np.float32), source).map(estimate.holding).map(Some)
-
-        return marks(seed, clock, found).bind(woven).bind(gated)
-
-    settings = paired(
-        value(values, Seed, SEED),
-        decoded(Clock(), values, _CLOCK.key).map(lambda held: held.timed(stage.scene)),
-        paired(part(_SPECKLES, Speckles()), part(_SCRATCHES, Scratches()), part(_HAIRS, Hairs()), part(_WEAVE, Weave()), part(_GATE, Gate())),
-    )
-    return paired(buffers.pixels(source), settings).bind(lambda held: damaged(held[0], *held[1]))
+    requested = staticmethod(precise)
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
@@ -278,14 +280,7 @@ _SCRATCHES: Final = InterfacePanel.of("scratches", Scratches(), toggle=Some(True
 _HAIRS: Final = InterfacePanel.of("hairs", Hairs(), toggle=Some(False))
 _WEAVE: Final = InterfacePanel.of("weave", Weave(), toggle=Some(True))
 _GATE: Final = InterfacePanel.of("gate", Gate(), toggle=Some(False))
-damage: Final = CompositorEffect(
-    passed,
-    record=Damage,
-    interface=Interface(inputs=(SEED,), panels=(_CLOCK, _SPECKLES, _SCRATCHES, _HAIRS, _WEAVE, _GATE)),
-    mix=Blended(alpha=Alpha.RESULT),
-    prepared=Some(_prepared),
-    request=Some(precise),
-)
+damage: Final = CompositorEffect(record=Damage, interface=Interface(inputs=(SEED,), panels=(_CLOCK, _SPECKLES, _SCRATCHES, _HAIRS, _WEAVE, _GATE)), mix=Mix.RESULT)
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

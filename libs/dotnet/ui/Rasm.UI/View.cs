@@ -36,7 +36,7 @@ public abstract partial record View {
     private View(Option<Painting> painting = default) => Painting = painting.IfNone(Painting.Frame);
 
     public Option<Key> Key { get; init; }
-    public Option<Role> Role { get; init; }
+    public Option<Key> Role { get; init; }
     public HashSet<Condition> Conditions { get; init; }
     public StyleSheet Sheet { get; init; } = StyleSheet.Empty;
     public Fraction Opacity { get; init; } = Fraction.MaxValue;
@@ -62,7 +62,7 @@ public abstract partial record View {
     public View Stretched(PhysicalAxis along) =>
         along.Map(horizontal: this with { Width = Sizing.Grow.Unit, Height = Sizing.Fit.Content }, vertical: this with { Width = Sizing.Fit.Content, Height = Sizing.Grow.Unit });
 
-    internal static View Divider(PhysicalAxis container) => new Box { Role = Styling.Role.Divider, Accessible = new Accessible { Role = AccessRole.Separator } }.Stretched(container.Cross);
+    internal static View Divider(PhysicalAxis container) => new Box { Role = Roles.Divider, Accessible = new Accessible { Role = AccessRole.Separator } }.Stretched(container.Cross);
 
     internal Painting Painting { get; }
 
@@ -91,7 +91,7 @@ public abstract partial record View {
 
     public sealed record Lazy(PhysicalAxis Axis, Tracks Across, Seq<Key> Items) : View {
         public Option<float> Extent { get; init; }
-        public Role Rows { get; init; } = Styling.Role.ListRow;
+        public Key Rows { get; init; } = Roles.ListRow;
         public HashMap<Key, View> Realized { get; init; }
 
         internal override Option<PhysicalAxis> MainAxis => Some(Axis);
@@ -152,7 +152,7 @@ public abstract partial record View {
         public string Content => string.Concat(Spans.Map(static span => span.Text));
         public Option<int> MaxLines { get; init; }
         public Option<float> MaxHeight { get; init; }
-        public Truncation Truncation { get; init; } = Truncation.End;
+        public Fraction Truncation { get; init; } = Fraction.MaxValue;
         public TextAlignment Alignment { get; init; } = TextAlignment.Auto;
         public Option<TextRange> Selected { get; init; }
         public Option<Func<Edit<string>, IO<Unit>>> Edited { get; init; }

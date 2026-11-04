@@ -78,7 +78,7 @@ public static class Proximity {
                 point, Some(at.ComponentIndex), at.IsFaceParameter ? [at.FaceCornerIndex, at.FaceCornerParameters.X, at.FaceCornerParameters.Y] : at.IsEdgeParameter ? [at.EdgeParameter] : [], None)),
             PointCloud cloud => Found(Conversions.Present(cloud.ClosestPoint(query)), None).Map(found => found.Map(index => new Closest(
                 cloud[index].Location, Some(new ComponentIndex(ComponentIndexType.PointCloudPoint, index)), [], cloud.ContainsNormals ? Some(cloud[index].Normal) : None)).Filter(at => Inside(query, at, limit))),
-            _ => new RhinoFault(subject.ObjectType.ToString(), RhinoReason.Mismatched),
+            _ => new RhinoFault(subject.ObjectType, RhinoReason.Mismatched),
         };
 
     public static Fin<Option<(Point3d OnCurve, Point3d OnObject, T Geometry)>> Nearest<T>(Curve curve, Seq<T> candidates, Option<double> limit) where T : GeometryBase =>

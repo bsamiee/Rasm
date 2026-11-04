@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-text-currency-code
-language: rust
+language: rustlang
 severity: error
 utils:
     currency-name:
@@ -21,7 +21,7 @@ rule:
           all:
             - any: [{has: {field: name, matches: currency-name}}, {has: {field: pattern, kind: identifier, matches: currency-name}}]
             - has: {field: type, matches: text-type}
-            - not: {inside: {kind: parameters, inside: {matches: rust-trait-or-extern-function}}}
+            - not: {inside: {kind: parameters, inside: {matches: rust-trait-impl-or-extern-function}}}
             - not: {matches: rust-text-decoder}
         - kind: identifier
           matches: currency-name
@@ -30,6 +30,6 @@ rule:
             field: name
             all:
                 - has: {field: return_type, matches: text-type}
-                - not: {matches: rust-trait-or-extern-function}
+                - not: {matches: rust-trait-impl-or-extern-function}
 message: '`$DECLARATION` holds an ISO 4217 currency code as text'
 note: 'Type the code as `iso_currency::Currency`, parsed at its boundary through `Currency::from_code`, `FromStr`, or serde'

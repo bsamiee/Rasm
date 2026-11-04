@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-nested-result
-language: rust
+language: rustlang
 severity: error
 utils:
     result:
@@ -25,6 +25,6 @@ rule:
         - any:
             - inside: {kind: 'function_item, function_signature_item, closure_expression', field: return_type}
             - inside: {kind: 'parameter, field_declaration, type_item, let_declaration', field: type}
-        - not: {inside: {stopBy: end, matches: rust-trait-or-extern-function}}
+        - not: {inside: {stopBy: end, matches: rust-trait-impl-or-extern-function}}
 message: '`$TYPE` nests `Result` in `Result` or between two `Option` layers'
 note: 'Flatten the type into one `Result<<value>, <error>>` with an error variant per cause, or an enum with a variant per outcome'

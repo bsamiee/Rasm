@@ -29,8 +29,7 @@ public static class Printers {
 
     // --- [CUSTOM_PAGES]
     public static IO<T> WithCustomPages<T>(Seq<PrintedPageDefinition> pages, IO<T> write) =>
-        (from prior in IO.lift(FilePdf.GetCustomPages)
-         from added in Products.Changed<IEnumerable<PrintedPageDefinition>>(FilePdf.GetCustomPages, FilePdf.SetCustomPages, [.. prior, .. pages])
+        (from added in Products.Changed<IEnumerable<PrintedPageDefinition>>(FilePdf.GetCustomPages, FilePdf.SetCustomPages, prior => [.. prior, .. pages])
          from written in write
          select written).Bracket();
 }

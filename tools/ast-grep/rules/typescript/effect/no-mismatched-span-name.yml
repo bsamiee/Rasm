@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-mismatched-span-name
-language: tsx
+language: tsxlang
 severity: error
 utils:
     service-object:
@@ -87,6 +87,5 @@ rule:
                 - any: [{has: {kind: string_fragment, pattern: $NAME}}, {not: {regex: '\.'}}]
 transform:
     QUALIFIER: {replace: {source: $OWNER, replace: '^(.+)$', by: '${1}.'}}
-fix: "'$QUALIFIER$NAME'"
 message: '`Effect.fn($SPAN)` names the span of `$QUALIFIER$NAME` with another name'
 note: 'Name the span after its binding, `<Owner>.<member>` for a class field, a service key, or a member of an exported module object'

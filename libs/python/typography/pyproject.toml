@@ -4,7 +4,7 @@
 name            = "typography"
 version         = "1.0.0"
 description     = "Font capability over fontTools, ufo2ft, HarfBuzz and skia-pathops, with the pipeline that reconciles a declared font set from its originals"
-requires-python = ">=3.13"
+requires-python = ">=3.15"
 
 dependencies = [
     # --- [CORE]
@@ -12,12 +12,14 @@ dependencies = [
     "msgspec",            # Records, tagged unions, field bounds, and TOML and JSON codecs
 
     # --- [FONTS]
-    "fonttools",          # Font tables, feature AST, subsetting, WOFF2, pens, and the test font builder
+    "fonttools[woff]",    # Font tables, feature AST, subsetting, WOFF2, pens, and the test font builder
     "ufo2ft",             # UFO to TrueType compile with its mark, cursive, kern and GDEF writers and filters
     "ufoLib2",            # UFO source object model the compile reads
     "youseedee",          # Unicode Character Database rows for joining type and joining group
 
     # --- [GEOMETRY]
+    "scipy",              # Scalar optimization over glyph outlines
+    "shapely",            # Planar topology and outline geometry
     "skia-pathops",       # Path booleans, simplify and stroke over glyph outlines
 
     # --- [SHAPING]
@@ -50,10 +52,7 @@ only-include = ["faces", "outlines", "shaping", "rules", "verification", "builds
 [tool.ruff]
 extend = "../../../pyproject.toml"
 
-# --- [DEPTRY] ---------------------------------------------------------------------------
+# --- [FAWLTYDEPS] -----------------------------------------------------------------------
 
-[tool.deptry]
-experimental_namespace_package = true # The `typography` import root is a namespace package holding no top-level module
-
-[tool.deptry.per_rule_ignores]
-DEP002 = ["opentype-sanitizer"] # deptry 0.25.1 parses no 3.15 comprehension unpacking and skips the verification module importing `ots`
+[tool.fawltydeps]
+base_dir = "."

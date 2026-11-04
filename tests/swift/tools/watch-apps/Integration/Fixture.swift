@@ -123,12 +123,10 @@ extension AsyncStream<WatchAppsLine>.Iterator {
         return try #require(matched, "watch output ended after \(seen.count) lines with none matching, last \(seen.suffix(3))", sourceLocation: sourceLocation)
     }
 
-    mutating func collect(until done: ([WatchAppsLine]) -> Bool, after seen: [WatchAppsLine] = []) async -> [WatchAppsLine] {
-        if !done(seen), let line: WatchAppsLine = await next(isolation: #isolation) {
-            await collect(until: done, after: seen + [line])
-        } else {
-            seen
-        }
+    mutating func collect(until done: ([WatchAppsLine]) -> Bool) async -> [WatchAppsLine] {
+        var seen: [WatchAppsLine] = []
+        while !done(seen), let line: WatchAppsLine = await next(isolation: #isolation) { seen.append(line) }
+        return seen
     }
 }
 

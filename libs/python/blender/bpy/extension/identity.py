@@ -1,31 +1,31 @@
-"""Extension identity, generated host names, add-on preferences, and resources held from registration to release."""
+"""Extension identity, generated host names, add-on preferences, and native manifest reads."""
 
-from collections.abc import Callable, Generator, Mapping
-from contextlib import AbstractContextManager, contextmanager, ExitStack
+from base64 import b32encode
+from collections.abc import Mapping
 from functools import partial
 import importlib.resources
 from pathlib import Path
 from types import MappingProxyType
-from typing import Annotated, Any, Final, Self
+from typing import Annotated, Final, Self
 from uuid import NAMESPACE_URL, uuid5
 
 import bpy
-from expression import Nothing, Ok, Option, Result, Some, try_downcast
+from expression import Option, Result, try_downcast
 from expression.extra.result import catch
 import msgspec
 import structlog
 
 from blender.bpy.data.rna.paths import addon_preferences, Struct
 from blender.bpy.extension.reports import Reports
-from blender.records.faults import Fault, Faults, Outcome, paired, Reason
+from blender.records.faults import Fault, Outcome, paired, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type Key = Annotated[str, msgspec.Meta(pattern=r"\A[a-z][a-z0-9]*(?:_[a-z0-9]+)*\Z")]
-type _Made[T] = Callable[[Identity], AbstractContextManager[T]]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
+_ENGINE_ID_BYTES: Final = 31
 _FORMS: Final[Mapping[type[Struct], str]] = MappingProxyType({
     **{
         base: f"{{ID}}_{infix}_{{key}}"
@@ -41,8 +41,6 @@ _FORMS: Final[Mapping[type[Struct], str]] = MappingProxyType({
         )
     },
     **dict.fromkeys((bpy.types.NodeTree, bpy.types.Node, bpy.types.NodeSocket, bpy.types.NodeTreeInterfaceSocket, bpy.types.KeyingSetInfo, bpy.types.USDHook), "{ID}_{BASE}_{key}"),
-    bpy.types.PropertyGroup: "GROUP_{digest}",
-    bpy.types.RenderEngine: "{ID}_{KEY}",
     bpy.types.Operator: "{id}.{key}",
 })
 
@@ -68,72 +66,34 @@ class Manifest(msgspec.Struct, frozen=True, kw_only=True):
         return {"Software": f"{self.name} {self.version}"}
 
 
-class Resource[T](msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Value each extension holds while registered, made after the resources its make reads, optionally renewed after every file load."""
-
-    made: _Made[T]
-    renewed: Option[Callable[[T], T]] = Nothing
-    prerequisites: tuple["Resource[Any]", ...] = ()
-
-
-# --- [SERVICES] -------------------------------------------------------------------------
-
-
-class ResourceValues:
-    """Values one extension's resources made, keyed by resource, each read typed by the resource that made it."""
-
-    __slots__ = ("values",)
-
-    def __init__(self) -> None:
-        """Holds no value until the registration scope makes one."""
-        self.values: dict[Resource[Any], Any] = {}
-
-    def __getitem__[T](self, resource: Resource[T], /) -> T:
-        """Returns the value resource made."""
-        value: T = self.values[resource]
-        return value
-
-    def get[T](self, resource: Resource[T], /) -> Option[T]:
-        """Returns the value resource made, Nothing outside its scope."""
-        return Some(self[resource]) if resource in self.values else Nothing
-
-    @contextmanager
-    def holding[T](self, resource: Resource[T], opened: Callable[[], AbstractContextManager[T]], /) -> Generator[Outcome[None]]:
-        """Holds the value the opened scope yields under resource until scope exit."""
-        with ExitStack() as stack:
-            self.values[resource] = stack.enter_context(opened())
-            stack.callback(self.values.pop, resource)
-            yield Result[None, Faults](ok=None)
-
-    def renewed[T](self, resource: Resource[T], renew: Callable[[T], T], /) -> Outcome[None]:
-        """Replaces the value held under resource with its renewal after a file load."""
-        self.values[resource] = renew(self[resource])
-        return Ok(None)
-
-
-class Identity(msgspec.Struct, frozen=True, kw_only=True):
+class Identity(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     """Enabled extension context."""
 
     package: str
     manifest: Manifest
     folder: Path
     reports: Reports
-    resources: ResourceValues
 
     # --- [NAMING]
 
-    def name(self, base: type[Struct], key: Key, /) -> Outcome[str]:
-        """Builds the host name of a class under a key, unregistered fault for a name past the host's 63 bytes or a base no name form serves."""
+    def name(self, base: type[Struct], key: Key, /) -> str:
+        """Returns the host class name under the extension key."""
+        match base:
+            case bpy.types.PropertyGroup:
+                return f"GROUP_{uuid5(NAMESPACE_URL, f'{self.manifest.id}/{key}').hex}"
+            case bpy.types.RenderEngine:
+                scope, stem = self.manifest.id.upper(), key.upper()
+                return (
+                    f"{scope}_{stem}"
+                    if scope and not scope.startswith("_") and len(scope.encode()) + len(stem.encode()) < _ENGINE_ID_BYTES
+                    else f"_{b32encode(uuid5(NAMESPACE_URL, f'{self.manifest.id}/{key}').bytes).decode().rstrip('=')}"
+                )
+            case _:
+                return _FORMS[base].format(ID=self.manifest.id.upper(), id=self.manifest.id.lower(), key=key, BASE=base.__name__)
 
-        def formed(template: str) -> Outcome[str]:
-            name = template.format(ID=self.manifest.id.upper(), id=self.manifest.id.lower(), key=key, KEY=key.upper(), BASE=base.__name__, digest=uuid5(NAMESPACE_URL, f"{self.manifest.id}/{key}").hex)
-            return _checked(name, (key, name.encode()), tuple[Key, Annotated[bytes, msgspec.Meta(max_length=63)]])
-
-        return Option.of_optional(_FORMS.get(base)).to_result_with(partial(Fault.of, Reason.UNREGISTERED, base.__name__, "name form")).bind(formed)
-
-    def identifier(self, key: Key, /) -> Outcome[str]:
-        """Builds a property, record, or command identifier under the manifest ID, unregistered fault for a key outside lowercase snake case."""
-        return _checked(f"{self.manifest.prefix}{key}", key, Key)
+    def identifier(self, key: Key, /) -> str:
+        """Returns the property, record, or command identifier under the manifest ID."""
+        return f"{self.manifest.prefix}{key}"
 
     def owns(self, identifier: str, /) -> bool:
         """Whether an identifier takes the manifest prefix, a property, record, or command the extension declares."""
@@ -152,23 +112,13 @@ class Identity(msgspec.Struct, frozen=True, kw_only=True):
         path = importlib.resources.files(package) / "blender_manifest.toml"
         manifest = (
             Result[bytes, OSError | msgspec.DecodeError]
-            .bind(catch(path.read_bytes, exception=OSError)(), lambda data: catch(msgspec.toml.decode, exception=msgspec.DecodeError)(data, type=Manifest))
+            .bind(catch(path.read_bytes, exception=OSError)(), lambda data: catch(lambda: msgspec.toml.decode(data, type=Manifest), exception=msgspec.DecodeError)())
             .map_error(partial(Fault.of, Reason.UNREADABLE, str(path)))
         )
         folder = catch(bpy.utils.extension_path_user, exception=ValueError)(package).map_error(partial(Fault.of, Reason.UNREGISTERED, package))
-        return paired(manifest, folder).map(
-            lambda pair: cls(package=package, manifest=pair[0], folder=Path(pair[1]), reports=Reports(structlog.get_logger(package, extension=pair[0].id)), resources=ResourceValues())
-        )
-
-
-# --- [OPERATIONS] -----------------------------------------------------------------------
-
-
-def _checked(name: str, parts: object, form: object, /) -> Outcome[str]:
-    """Returns name once parts convert to form, unregistered fault naming it otherwise."""
-    return catch(msgspec.convert, exception=msgspec.ValidationError)(parts, form).map(lambda _: name).map_error(partial(Fault.of, Reason.UNREGISTERED, name))
+        return paired(manifest, folder).map(lambda pair: cls(package=package, manifest=pair[0], folder=Path(pair[1]), reports=Reports(structlog.get_logger(package, extension=pair[0].id))))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Identity", "Key", "Manifest", "Resource", "ResourceValues"]
+__all__ = ["Identity", "Key", "Manifest"]

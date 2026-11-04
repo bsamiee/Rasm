@@ -3,19 +3,17 @@
 from collections.abc import Callable, Generator, Iterable, Mapping
 from contextlib import contextmanager, ExitStack
 import enum
-import functools
 from functools import partial, reduce
 import inspect
-import operator
 import re
-from types import FunctionType, MappingProxyType
-from typing import Any, Final, get_args, overload, TYPE_CHECKING, TypeAliasType, TypedDict
+from types import MappingProxyType
+from typing import Final, get_args, get_type_hints, Never, overload, ReadOnly, TYPE_CHECKING, TypeAliasType, TypedDict
 import zlib
 
 import bpy
-from expression import Nothing, Option, Result
+from expression import Option, Result
 from expression.extra.result import catch
-import msgspec
+from makefun import create_function
 import numpy as np
 
 from blender.bpy.data.ids.store import Handle, holder
@@ -23,6 +21,7 @@ from blender.bpy.data.rna.descriptors import Descriptor
 from blender.bpy.data.rna.paths import Struct
 from blender.bpy.extension.identity import Identity
 from blender.records.faults import Fault, Faults, Outcome, Reason
+from blender.records.trees import reached
 
 if TYPE_CHECKING:
     from bpy.stub_internal.rna_enums import PropertySubtypeStringItems
@@ -31,23 +30,26 @@ if TYPE_CHECKING:
 
 type EnumItem = tuple[str, str, str, str, int]
 type IconedItem = tuple[str, str, str, int, int]
+type EnumRow = tuple[str, str, str] | tuple[str, str, str, int] | EnumItem | IconedItem | None
 type Changed = Callable[[Struct, bpy.types.Context], None]
 
 
 class Callbacks[T: Struct = Struct](TypedDict, total=False):
     """Host callbacks of one property definition over owners of `T`, as `bpy.props` takes them, `items` also taking its static item rows."""
 
-    items: tuple[EnumItem | IconedItem, ...] | Callable[[T, bpy.types.Context | None], Iterable[EnumItem | IconedItem]]
-    get: Callable[[T], Any]
-    set: Callable[[T, Any], None]
-    poll: Callable[[T, Any], bool]
-    update: Callable[[T, bpy.types.Context], None]
+    items: ReadOnly[tuple[EnumRow, ...] | Callable[[T, bpy.types.Context | None], Iterable[EnumRow]]]
+    get: ReadOnly[Callable[[T], object]]
+    set: ReadOnly[Callable[[T, Never], None]]
+    get_transform: ReadOnly[Callable[[T, Never, bool], object]]
+    set_transform: ReadOnly[Callable[[T, Never, Never, bool], object]]
+    poll: ReadOnly[Callable[[T, Never], bool]]
+    update: ReadOnly[Callable[[T, bpy.types.Context], None]]
+    search: ReadOnly[Callable[[T, bpy.types.Context, str], Iterable[str | tuple[str, str]]]]
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _NONE: Final[tuple[EnumItem]] = (("NONE", "None", "", "NONE", 0),)
-_ARITIES: Final[Mapping[str, int]] = MappingProxyType({"items": 2, "get": 1, "set": 2, "poll": 2, "update": 2})
 _ARRAYED: Final = frozenset({
     "COLOR",
     "TRANSLATION",
@@ -66,7 +68,7 @@ _ARRAYED: Final = frozenset({
     "LAYER_MEMBER",
 })
 _TEXTUAL: Final = frozenset({"FILE_PATH", "DIR_PATH", "FILE_NAME", "BYTE_STRING", "PASSWORD"})
-_NUMBERS: Final[Mapping[tuple[type[bpy.types.Property], bool], Callable[..., bpy.props._PropertyDeferred]]] = MappingProxyType({
+_NUMBERS: Final[Mapping[tuple[type[bpy.types.Property], bool], Callable[..., bpy.props._PropertyDeferred]]] = MappingProxyType({  # type: ignore[explicit-any]
     (bpy.types.FloatProperty, False): bpy.props.FloatProperty,
     (bpy.types.FloatProperty, True): bpy.props.FloatVectorProperty,
     (bpy.types.IntProperty, False): bpy.props.IntProperty,
@@ -75,79 +77,63 @@ _NUMBERS: Final[Mapping[tuple[type[bpy.types.Property], bool], Callable[..., bpy
     (bpy.types.BoolProperty, True): bpy.props.BoolVectorProperty,
 })
 
-# --- [MODELS] ---------------------------------------------------------------------------
-
-
-class Declared(msgspec.Struct, frozen=True, kw_only=True):
-    """Form group and nested groups under fresh definitions, named properties taking `callbacks` and value properties running `change` after update."""
-
-    form: type[bpy.types.PropertyGroup]
-    callbacks: Mapping[str, Callbacks] = MappingProxyType({})
-    change: Option[Changed] = Nothing
-
-    @contextmanager
-    def acquisitions(self, _identity: Identity, /) -> Generator[Outcome[tuple[type[bpy.types.PropertyGroup], ...]]]:
-        """Yields the nested groups, then the form, under their fresh definitions."""
-        held = Result[tuple[type[bpy.types.PropertyGroup], ...], Faults].Ok((*nested(self.form), self.form))
-        with declaring(self.form, self.callbacks, self.change):
-            yield held
-
-
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 # --- [DEFINITIONS]
 
 
-def choices(rows: Iterable[bpy.types.EnumPropertyItem | tuple[str, str, str]]) -> tuple[EnumItem, ...]:
+@overload
+def choices(rows: Iterable[bpy.types.EnumPropertyItem | tuple[str, str, str] | EnumItem]) -> tuple[EnumItem, ...]: ...
+@overload
+def choices(rows: Iterable[IconedItem]) -> tuple[IconedItem, ...]: ...
+@overload
+def choices(rows: Iterable[bpy.types.EnumPropertyItem | tuple[str, str, str] | EnumItem | IconedItem]) -> tuple[EnumItem | IconedItem, ...]: ...
+def choices(rows: Iterable[bpy.types.EnumPropertyItem | tuple[str, str, str] | EnumItem | IconedItem]) -> tuple[EnumItem | IconedItem, ...]:
     """Returns `EnumProperty` items, each value fixed per identifier.
 
     Host items the owning property declares statically keep their value, config items and module rows take a value hashed from the identifier.
     Interface buttons compare enum values as float32, and hashed values stay within its exact integers for an expanded row to show its item.
 
     Args:
-        rows: Host enum items or module `(identifier, name, description)` rows.
+        rows: Host enum items, generated `(identifier, name, description)` rows, or full native items.
 
     Returns:
         Five-part items in row order.
 
     Raises:
-        ValueError: Two identifiers hash to one value, host items sharing a static value kept.
+        ValueError: External rows give one identifier different values or distinct identifiers one generated value.
     """
+    mask = (1 << (np.finfo(np.float32).nmant + 1)) - 1
 
     def hashed(identifier: str) -> int:
-        return zlib.crc32(identifier.encode()) & ((1 << (np.finfo(np.float32).nmant + 1)) - 1)
+        return zlib.crc32(identifier.encode()) & mask
 
-    def item(row: bpy.types.EnumPropertyItem | tuple[str, str, str]) -> EnumItem:
+    def item(row: bpy.types.EnumPropertyItem | tuple[str, str, str] | EnumItem | IconedItem) -> tuple[EnumItem | IconedItem, bool]:
         match row:
             case bpy.types.EnumPropertyItem() as host:
                 fixed = any(host.identifier in prop.enum_items_static for prop in host.rna_ancestors() if isinstance(prop, bpy.types.EnumProperty))
-                return (host.identifier, host.name, host.description, host.icon, host.value if fixed else hashed(host.identifier))
+                return (host.identifier, host.name, host.description, host.icon, host.value if fixed else hashed(host.identifier)), not fixed
             case (identifier, name, description):
-                return (identifier, name, description, "NONE", hashed(identifier))
+                return (identifier, name, description, "NONE", hashed(identifier)), True
+            case _:
+                return row, False
 
-    items = tuple(map(item, rows))
-    values = tuple(held[4] for held in items)
-    if collided := tuple(held[0] for held in items if values.count(held[4]) > 1 and held[4] == hashed(held[0])):
-        raise ValueError(collided)
-    return items
-
-
-@overload
-def held_choices(rows: tuple[tuple[str, str, str], ...], /) -> tuple[EnumItem, ...]: ...
-@overload
-def held_choices[R: EnumItem | IconedItem](rows: tuple[R, ...], /) -> tuple[R, ...]: ...
-@functools.cache
-def held_choices(rows: tuple[tuple[str, str, str] | EnumItem | IconedItem, ...], /) -> tuple[EnumItem | IconedItem, ...]:
-    """Returns the items of a dynamic enum's rows, cached by content to keep the strings Blender reads referenced.
-
-    Args:
-        rows: `(identifier, name, description)` rows taking the values `choices` fixes, or full items stating an icon name or `icon_value` and their value.
-
-    Returns:
-        Five-part items in row order, full items as given and three-part rows through one `choices` call.
-    """
-    named = tuple(row for row in rows if len(row) == 3)
-    return choices(named) if named else tuple(row for row in rows if len(row) == 5)
+    items: list[EnumItem | IconedItem] = []
+    seen: dict[int | str, tuple[int | str, bool]] = {}
+    aliases: dict[int | str, int | str] = {}
+    for row in rows:
+        current, generated = item(row)
+        identifier, value = current[0], current[4]
+        for key, target in ((value, identifier), (identifier, value)):
+            prior, prior_generated = seen.setdefault(key, (target, generated))
+            prefix = () if isinstance(key, int) else (key,)
+            if (conflict := (*prefix, prior, target) if target != prior and (generated or prior_generated) else (*prefix, target, aliases[key]) if generated and key in aliases else None) is not None:
+                raise ValueError(conflict)
+            if target != prior:
+                aliases[key] = target
+            seen[key] = (prior, prior_generated or generated)
+        items.append(current)
+    return tuple(items)
 
 
 def offered[R: EnumItem | IconedItem](rows: tuple[R, ...], /) -> tuple[R | EnumItem, *tuple[R | EnumItem, ...]]:
@@ -161,23 +147,24 @@ def offered[R: EnumItem | IconedItem](rows: tuple[R, ...], /) -> tuple[R | EnumI
 
 def flagged[F: enum.Flag](kind: type[F], names: Iterable[str]) -> F:
     """Returns the flag an `ENUM_FLAG` property's identifier set holds, its members iterating in declaration order."""
-    return reduce(operator.or_, (kind[name] for name in names), kind(0))
+    return reduce(kind.__or__, (kind[name] for name in names), kind(0))
 
 
 def titled(kind: type, /) -> str:
     """Returns a class name split into title-cased words, an acronym run kept whole (`CDL`, `HDRTone` as `HDR Tone`)."""
-    return " ".join(word if word.isupper() else word.capitalize() for word in re.findall(r"[A-Z]+(?![a-z])|[A-Z]?[a-z]+|[0-9]+", kind.__name__))
+    words = (match.group() for match in re.finditer(r"[A-Z]+(?![a-z])|[A-Z]?[a-z]+|[0-9]+", kind.__name__))
+    return " ".join(word if word.isupper() else word.capitalize() for word in words)
 
 
 def case_choices(union: TypeAliasType) -> tuple[EnumItem, ...]:
-    """Returns `choices` over a tagged union alias's cases: tag as identifier, class name in `titled` words as name, docstring as description."""
-    return choices((case.__struct_config__.tag, titled(case), inspect.getdoc(case) or "") for case in get_args(union.__value__))
+    """Returns `choices` over a tagged union alias's cases: tag text as identifier, class name in `titled` words as name, docstring as description."""
+    return choices((str(case.__struct_config__.tag), titled(case), inspect.getdoc(case) or "") for case in get_args(union.__value__))
 
 
 def enum_choices(kind: type[enum.Enum], /) -> tuple[EnumItem, ...]:
     """Returns `EnumProperty` items of an `Enum` type, member name as identifier and name, a `Flag` bit as value, others the value `choices` fixes."""
     rows = tuple((member.name, bpy.path.display_name(member.name.lower()), "") for member in kind)
-    return tuple((*row, "NONE", member.value) for row, member in zip(rows, kind, strict=True)) if issubclass(kind, enum.Flag) else choices(rows)
+    return tuple((*row, "NONE", member.value) for row, member in zip(rows, kind)) if issubclass(kind, enum.Flag) else choices(rows)
 
 
 def redeclared(prop: bpy.types.FloatProperty | bpy.types.IntProperty | bpy.types.BoolProperty | bpy.types.StringProperty | bpy.types.EnumProperty, /) -> bpy.props._PropertyDeferred:
@@ -186,12 +173,13 @@ def redeclared(prop: bpy.types.FloatProperty | bpy.types.IntProperty | bpy.types
     Subtypes `bpy.props` refuses (array on scalars, number on arrays, string `TRANSLATION`) declare as `NONE`, the unit keeping its quantity.
     Dynamic arrays declare at their current shape.
     """
-    shown: dict[str, Any] = {"name": prop.name, "description": prop.description, "translation_context": prop.translation_context}
     match prop:
         case bpy.types.FloatProperty() | bpy.types.IntProperty() | bpy.types.BoolProperty():
             shape, arrayed = Descriptor.dimensions(prop), prop.subtype in _ARRAYED
             return _NUMBERS[type(prop), bool(shape)](
-                **shown,
+                name=prop.name,
+                description=prop.description,
+                translation_context=prop.translation_context,
                 **(
                     {"size": shape, "default": np.resize(np.asarray(prop.default_array), shape).tolist(), "subtype": prop.subtype if arrayed else "NONE"}
                     if shape
@@ -202,46 +190,54 @@ def redeclared(prop: bpy.types.FloatProperty | bpy.types.IntProperty | bpy.types
             )
         case bpy.types.StringProperty():
             text: PropertySubtypeStringItems = prop.subtype if prop.subtype in _TEXTUAL else "NONE"  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-            return bpy.props.StringProperty(**shown, subtype=text, default=prop.default, maxlen=prop.length_max)
-        case bpy.types.EnumProperty(is_enum_flag=True):
-            return bpy.props.EnumProperty(**shown, items=choices(prop.enum_items), default=set(prop.default_flag), options={"ENUM_FLAG"})
+            return bpy.props.StringProperty(name=prop.name, description=prop.description, translation_context=prop.translation_context, subtype=text, default=prop.default, maxlen=prop.length_max)
         case bpy.types.EnumProperty():
-            return bpy.props.EnumProperty(**shown, items=choices(prop.enum_items), default=prop.default)
+            definition = partial(bpy.props.EnumProperty, name=prop.name, description=prop.description, translation_context=prop.translation_context, items=choices(prop.enum_items))
+            return definition(default=set(prop.default_flag), options={"ENUM_FLAG"}) if prop.is_enum_flag else definition(default=prop.default)
 
 
 # --- [DECLARATIONS]
 
 
-def annotated(form: type[Struct]) -> dict[str, bpy.props._PropertyDeferred]:
+def annotated(form: type) -> dict[str, bpy.props._PropertyDeferred]:
     """Property definitions a form class and its bases declare, bases first, as Blender registers them."""
-    return {name: definition for kind in reversed(form.__mro__) for name, definition in vars(kind).get("__annotations__", {}).items() if isinstance(definition, bpy.props._PropertyDeferred)}
+    return {name: definition for name, definition in get_type_hints(form).items() if isinstance(definition, bpy.props._PropertyDeferred)}
 
 
 def declared(definition: bpy.props._PropertyDeferred, callbacks: Mapping[str, object], /) -> bpy.props._PropertyDeferred:
-    """Returns a fresh definition with each callback a plain function, other keywords as declared.
+    """Returns a fresh definition with callbacks replacing their declared keywords.
 
     Args:
         definition: Property definition the callbacks extend.
-        callbacks: Callbacks per `bpy.props` keyword, static items and plain functions kept as given.
+        callbacks: Callbacks per `bpy.props` keyword.
 
     Returns:
-        Definition whose partials, bound methods, and callable objects call through a function of the positional arity the host checks.
+        Definition retaining every other keyword.
     """
-
-    def hosted(name: str, callback: object) -> object:
-        if isinstance(callback, FunctionType) or not callable(callback):
-            return callback
-
-        def unary(owner: Struct) -> object:
-            return callback(owner)
-
-        def binary(owner: Struct, value: object) -> object:
-            return callback(owner, value)
-
-        return unary if _ARITIES[name] == 1 else binary
-
-    fresh: bpy.props._PropertyDeferred = definition.function(**{**definition.keywords, **{name: hosted(name, callback) for name, callback in callbacks.items()}})
+    fresh: bpy.props._PropertyDeferred = definition.function(**{**definition.keywords, **callbacks})  # ty: ignore[unsound-assignment]
     return fresh
+
+
+def hosted(definition: bpy.props._PropertyDeferred, /) -> bpy.props._PropertyDeferred:
+    """Returns native callback functions, keeping dynamic enum strings for the property's registration lifetime."""
+    callbacks = get_type_hints(Callbacks)
+
+    def function(name: str, callback: object) -> object:
+        if not callable(callback):
+            return callback
+        if name == "items":
+            supplied: Callable[[Struct, bpy.types.Context | None], Iterable[EnumRow]] = callback  # ty: ignore[invalid-assignment]
+            strings: dict[str, str] = {}
+
+            def items(owner: Struct, context: bpy.types.Context | None) -> tuple[tuple[object, ...] | None, ...]:
+                return tuple(None if row is None else tuple(strings.setdefault(value, value) if isinstance(value, str) else value for value in row) for row in supplied(owner, context))
+
+            return items
+        arguments, _ = get_args(callbacks[name])
+        signature = inspect.Signature(tuple(inspect.Parameter(f"arg{index}", inspect.Parameter.POSITIONAL_ONLY) for index in range(len(arguments))))
+        return create_function(signature, callback)
+
+    return declared(definition, {name: function(name, value) for name, value in definition.keywords.items() if name in callbacks})
 
 
 def rebound[T: Struct](form: type[T], /, **callbacks: Callbacks | Callbacks[T]) -> type[T]:
@@ -249,32 +245,35 @@ def rebound[T: Struct](form: type[T], /, **callbacks: Callbacks | Callbacks[T]) 
 
     Args:
         form: Form class declaring each named property.
-        **callbacks: Callbacks per property name, dynamic item strings kept referenced by their caller (`held_choices`).
+        **callbacks: Callbacks per property name.
 
     Returns:
         Form subclass the host registers in place of form.
     """
     held = annotated(form)
-    derived: type[T] = type(form.__name__, (form,), {"__annotations__": {name: declared(held[name], bound) for name, bound in callbacks.items()}})  # ty: ignore[invalid-assignment]
+    derived: type[T] = type(form.__name__, (form,), {"__annotations__": {name: declared(held[name], bound) for name, bound in callbacks.items()}})  # ty: ignore[invalid-assignment, unsupported-dynamic-base]
     return derived
 
 
 def nested(form: type[bpy.types.PropertyGroup]) -> tuple[type[bpy.types.PropertyGroup], ...]:
-    """Property group classes a form's pointer and collection properties hold, children first."""
-    return tuple(
-        child
-        for definition in annotated(form).values()
-        if definition.function in {bpy.props.PointerProperty, bpy.props.CollectionProperty}
-        for target in (definition.keywords["type"],)
-        if issubclass(target, bpy.types.PropertyGroup)
-        for child in (*nested(target), target)
-    )
+    """Property group classes a form's pointer and collection properties reach, each once."""
+
+    def targets(group: type[bpy.types.PropertyGroup]) -> tuple[type[bpy.types.PropertyGroup], ...]:
+        return tuple(
+            target
+            for definition in annotated(group).values()
+            if definition.function in {bpy.props.PointerProperty, bpy.props.CollectionProperty}
+            for target in (definition.keywords["type"],)
+            if issubclass(target, bpy.types.PropertyGroup)
+        )
+
+    return tuple(group for group in reached((form,), targets) if group is not form)  # type: ignore[type-var]
 
 
 def _updated(definition: bpy.props._PropertyDeferred, change: Changed) -> bpy.props._PropertyDeferred:
     """Returns a fresh definition of a value property running the change callback after its declared update, any other definition as declared."""
     valued = definition.function is not bpy.props.CollectionProperty and not issubclass(definition.keywords.get("type", bpy.types.ID), bpy.types.PropertyGroup)
-    prior: Changed | None = definition.keywords.get("update")
+    prior: Changed | None = definition.keywords.get("update")  # ty: ignore[unsound-assignment]
 
     def changed(owner: Struct, context: bpy.types.Context) -> None:
         if prior is not None:
@@ -285,11 +284,11 @@ def _updated(definition: bpy.props._PropertyDeferred, change: Changed) -> bpy.pr
 
 
 @contextmanager
-def declaring(form: type[bpy.types.PropertyGroup], callbacks: Mapping[str, Callbacks], change: Option[Changed]) -> Generator[None]:
-    """Declares the properties of a form, the groups it nests, and their bases again while the scope registers them.
+def declaring(form: type[bpy.types.PropertyGroup], callbacks: Mapping[str, Callbacks[Never]], change: Option[Changed]) -> Generator[tuple[type[bpy.types.PropertyGroup], ...]]:
+    """Declares the properties of a form and its nested groups while the scope registers them.
 
-    Properties `callbacks` names on the form or its bases take those callbacks, then every value property runs `change` after its declared update.
-    Each declaring class holds the fresh definitions for the scope and its own definitions again at exit, no definition changing.
+    Form properties take their named callbacks, then every value property runs `change` after its declared update.
+    Concrete group classes hold fresh definitions for the scope and their original annotation mappings again at exit.
 
     Args:
         form: Form class the scope registers after the groups it nests.
@@ -297,16 +296,36 @@ def declaring(form: type[bpy.types.PropertyGroup], callbacks: Mapping[str, Callb
         change: Update callback every value property runs.
 
     Yields:
-        None under the fresh definitions.
+        Groups under the fresh definitions.
     """
-    named = frozenset(form.__mro__)
-    kinds = dict.fromkeys(kind for group in (*nested(form), form) for kind in reversed(group.__mro__))
-    declarations: tuple[tuple[type, dict[str, object]], ...] = tuple((kind, vars(kind).get("__annotations__", {})) for kind in kinds)
+    groups = (*nested(form), form)
     with ExitStack() as stack:
-        for kind, table, name, definition in ((kind, held, name, value) for kind, held in declarations for name, value in tuple(held.items()) if isinstance(value, bpy.props._PropertyDeferred)):
-            bound = declared(definition, callbacks[name]) if kind in named and name in callbacks else definition
-            table[name] = change.map(partial(_updated, bound)).default_value(bound)
-            stack.callback(table.__setitem__, name, definition)
+        for group in groups:
+            if (prior := vars(group).get("__annotations__")) is None:
+                stack.callback(delattr, group, "__annotations__")
+            else:
+                stack.callback(setattr, group, "__annotations__", prior)
+            group.__annotations__ = {
+                **(prior if prior is not None else {}),
+                **{
+                    name: change.map(partial(_updated, bound)).default_value(bound)
+                    for name, definition in annotated(group).items()
+                    for bound in (declared(definition, callbacks[name]) if group is form and name in callbacks else definition,)
+                },
+            }
+        yield groups
+
+
+@contextmanager
+def hosting(form: type, /) -> Generator[None]:
+    """Supplies native callback definitions while registration transfers callback ownership to the host."""
+    prior = vars(form).get("__annotations__")
+    with ExitStack() as stack:
+        if prior is None:
+            stack.callback(delattr, form, "__annotations__")
+        else:
+            stack.callback(setattr, form, "__annotations__", prior)
+        form.__annotations__ = {**(prior if prior is not None else {}), **{name: hosted(definition) for name, definition in annotated(form).items()}}
         yield
 
 
@@ -319,7 +338,7 @@ def pointed(owner: type[Struct], name: str, definition: bpy.props._PropertyDefer
         yield (
             Result[None, Faults](ok=None)
             .filter_with(lambda _: not (name in rna.properties or name in rna.functions or hasattr(owner, name)), lambda _: Fault.of(Reason.TAKEN, request, member=owner.__name__))
-            .bind(lambda _: catch(setattr, exception=ValueError)(owner, name, definition).map_error(partial(Fault.of, Reason.REFUSED, request)))
+            .bind(lambda _: catch(setattr, exception=ValueError)(owner, name, hosted(definition)).map_error(partial(Fault.of, Reason.REFUSED, request)))
             .map(lambda _: stack.callback(delattr, owner, name))
             .map(lambda _: None)
         )
@@ -352,8 +371,8 @@ def reconciling[T: bpy.types.ID](kind: type[T], write: Callable[[Handle[T], Iden
 __all__ = [
     "Callbacks",
     "Changed",
-    "Declared",
     "EnumItem",
+    "EnumRow",
     "IconedItem",
     "annotated",
     "case_choices",
@@ -362,7 +381,8 @@ __all__ = [
     "declaring",
     "enum_choices",
     "flagged",
-    "held_choices",
+    "hosted",
+    "hosting",
     "nested",
     "offered",
     "pointed",

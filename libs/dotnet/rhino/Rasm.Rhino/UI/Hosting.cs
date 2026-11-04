@@ -9,6 +9,7 @@ using Rhino.Commands;
 using Rhino.DocObjects;
 using Rhino.UI;
 using Rhino.UI.Controls;
+using SuperLinq;
 
 namespace Rasm.Rhino.UI;
 
@@ -167,7 +168,7 @@ internal sealed class HostFrame(HostedView hosted) : Panel {
 }
 
 internal sealed class HostedWindow : Form {
-    internal HostedWindow(View.Window row, RhinoDoc document) : base(row.Kind.Handler()) =>
+    internal HostedWindow(View.Window row, RhinoDoc document) : base(row.Handler()) =>
         (Row, Hosted) = (row, new HostedView(() => HostedView.Opened(row, Some(document), new CommitMode.Immediate(), None)));
 
     internal View.Window Row { get; }
@@ -356,12 +357,8 @@ internal static class ViewOps {
         select (Control)stack;
 
     private static Seq<(Child Lead, Seq<Child> Run)> Runs(Seq<Child> children) =>
-        children.FoldBack(Seq<(Child Lead, Seq<Child> Run)>(), static (runs, child) =>
-            runs.Match(
-                Empty: () => Seq((Lead: child, Run: Seq(child))),
-                Tail: (next, rest) => child.IsControl && next.Lead.IsControl
-                    ? (Lead: child, Run: child.Cons(next.Run)).Cons(rest)
-                    : (Lead: child, Run: Seq(child)).Cons(runs)));
+        toSeq(children.Segment(static (current, previous, _) => !current.IsControl || !previous.IsControl))
+            .Map(static run => (Lead: run[0], Run: toSeq(run)));
 
     private static IO<(Control Body, bool Fill)> Part((Child Lead, Seq<Child> Run) run, RowScope scope) =>
         run.Lead.Switch(

@@ -26,7 +26,7 @@ from blender.records.faults import Outcome, paired
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-VECTOR_PASS: Final = Descriptor.declared(bpy.types.ViewLayer, ("use_pass_vector",), bpy.types.BoolProperty)
+VECTOR_PASS: Final = Descriptor(root=bpy.types.ViewLayer, prop=bpy.types.ViewLayer.bl_rna.properties["use_pass_vector"])
 
 # --- [MODELS] ---------------------------------------------------------------------------
 

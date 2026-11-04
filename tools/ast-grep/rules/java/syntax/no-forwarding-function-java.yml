@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-forwarding-function-java
-language: java
+language: javalang
 severity: error
 utils:
     parameter:
@@ -17,28 +17,30 @@ utils:
                 - matches: parameter-read
                 - has: {stopBy: end, any: [{kind: method_invocation}, {matches: parameter-read}]}
     forwarded:
-        pattern: $CALL
         all:
             - any:
                 - kind: method_invocation
                   all:
+                    - has: {field: name, pattern: $F}
                     - not: {has: {field: object, not: {any: [{matches: named-callee}, {matches: parameter-read}]}}}
                     - not:
                         all:
                             - has: {field: name, pattern: $FN}
                             - not: {has: {field: object, not: {kind: 'this, super'}}}
                 - kind: object_creation_expression
+                  has: {field: type, pattern: $F}
                   not: {has: {kind: class_body}}
             - has:
                 field: arguments
                 all:
-                    - not: {has: {pattern: $_, not: {matches: parameter-read}}}
+                    - not: {has: {pattern: $_, not: {any: [{matches: parameter-read}, {kind: 'line_comment, block_comment'}]}}}
                     - not: {has: {kind: identifier, pattern: $REPEATED, follows: {stopBy: end, pattern: $REPEATED}}}
             - not: {all: [{has: {field: object, pattern: $RECEIVER}}, {has: {field: arguments, has: {pattern: $RECEIVER}}}]}
 rule:
     kind: method_declaration
     all:
         - has: {field: name, pattern: $FN}
+        - has: {kind: modifiers, has: {regex: '^(private|static)$'}}
         - not:
             any:
                 - has: {field: name, regex: '^main$'}
@@ -50,7 +52,7 @@ rule:
         - has: {field: parameters, has: {kind: 'formal_parameter, spread_parameter'}}
         - has:
             field: body
-            not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}
+            not: {has: {pattern: $_, not: &comment {kind: 'line_comment, block_comment'}, follows: {stopBy: end, pattern: $_, not: *comment}}}
             has: {kind: 'return_statement, expression_statement', has: {matches: forwarded}}
         - not:
             has:
@@ -67,7 +69,5 @@ rule:
                                     has:
                                         kind: return_statement, expression_statement
                                         has: {any: [{has: {field: arguments, has: {pattern: $P}}}, {has: {field: object, pattern: $P}}]}
-transform:
-    F: {replace: {source: $CALL, replace: '\s*\([\s\S]*$', by: ''}}
 message: '`$FN` forwards its parameters unchanged to `$F`'
-note: 'Widen `<callee>` to the forwarding method''s visibility, call it at each call site, and delete the method'
+note: Widen callee visibility to match forwarding method, call it directly, and delete forwarding method

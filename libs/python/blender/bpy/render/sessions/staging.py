@@ -1,59 +1,67 @@
-"""Staged CPU renders: each staged compositor entry's CPU step over the image its prefix renders, its result entering the entry's group, the captured passes replayed through a postprocess engine, then Blender's native render over the prepared groups."""
+"""CPU compositor stages with captured inputs, prepared groups, replayed passes, and native rendering."""
 
 from collections.abc import Callable, Mapping
 from contextlib import ExitStack
-from functools import cache, partial, reduce
+from functools import partial, reduce
+from itertools import starmap
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Final, Self, TYPE_CHECKING
 
 import bpy
-from expression import Error, Ok, Option, Some
-from expression.collections import Block
+from expression import Option, Some
 import msgspec
 import numpy as np
+import numpy.typing as npt
 import OpenImageIO
 import PyOpenColorIO
 
 from blender.bpy.commands.operators import called
 from blender.bpy.data.ids.images import loaded, Tag
-from blender.bpy.data.ids.ownership import Mark, Saved
+from blender.bpy.data.ids.ownership import Saved
 from blender.bpy.data.ids.store import IdName
-from blender.bpy.data.rna.descriptors import Value, written
+from blender.bpy.data.rna.descriptors import Descriptor, Value, written
 from blender.bpy.data.rna.snapshots import assigned, Snapshot
-from blender.bpy.extension.events import Handler
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.extension.registration import Acquisitions, Declaration
+from blender.bpy.extension.registration import Acquisitions, Declaration, Handler
+from blender.bpy.nodes import functions
+from blender.bpy.nodes.addressing import InterfaceKeys, owned
 from blender.bpy.nodes.changes import made
-from blender.bpy.nodes.desired import member_paths
-from blender.bpy.nodes.graphs import Expr, group_input
-from blender.bpy.render.compositor.colors import COLOR_INPUT
-from blender.bpy.render.compositor.effects import Entry, Prepared, Stage
+from blender.bpy.nodes.desired import INPUTS, member_paths
+from blender.bpy.nodes.graphs import Expr, group_input, rgba, vector
+from blender.bpy.nodes.interfaces import Interface, NodeGroup
+from blender.bpy.nodes.trees import base_socket, created, DATA_TYPES, endpoints, group_set, group_tree, linked, links_of, nested, socket_at
+from blender.bpy.render.compositor.colors import COLOR_INPUT, COLOR_RESULT
+from blender.bpy.render.compositor.coordinates import dimensions, FrameSpace
+from blender.bpy.render.compositor.effects import Prepared, Stage
 from blender.bpy.render.compositor.entries import EXECUTING
-from blender.bpy.render.compositor.inputs import CameraFrame, captured, entered, inputs_of, valued
-from blender.bpy.render.compositor.offered import OfferedEffects, Owned
-from blender.bpy.render.compositor.viewers import capturing
+from blender.bpy.render.compositor.inputs import CameraFrame, captured, grouped, inputs_of, interface_input, restored, value, valued
+from blender.bpy.render.compositor.masks import relayed
+from blender.bpy.render.compositor.offered import OfferedEffects
+from blender.bpy.render.compositor.stack_service import LayerStackService, stacked_by, StageTarget
 from blender.bpy.render.outputs.formats import Colorspace, FileItem, FileItems, OutputFormat
-from blender.bpy.render.outputs.framing import Border, Framing
+from blender.bpy.render.outputs.framing import FrameSize
 from blender.bpy.render.outputs.paths import Pathed
-from blender.bpy.render.outputs.results import intermediate, INTERMEDIATES, RENDER_ORIGINS, saved
+from blender.bpy.render.outputs.results import intermediate, INTERMEDIATES, RENDER_ORIGINS
 from blender.bpy.render.sessions.engines import Engine, Tile
 from blender.bpy.render.sessions.renders import engined, native, RenderCall, sourced
 from blender.bpy.render.view_layers.passes import used
-from blender.imaging.files.buffers import located, pixels
-from blender.imaging.files.images import emitted, Subimage
+from blender.imaging.files.buffers import checked, pixels
+from blender.imaging.files.images import emitted, ImageFile, Subimage
 from blender.imaging.files.multilayer import Layer, Multilayer
+from blender.imaging.geometry.frames import Raster, Region
 from blender.imaging.sampling.integration import Estimate, Precision
-from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
-from blender.records.fields import Case
-from blender.records.stores import removed
+from blender.records.faults import accumulated, Error, Fault, Nothing, Ok, Outcome, paired, Reason
+from blender.records.stores import content_hash, removed
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type _Step[R: Case] = Callable[[Stage[R]], Outcome[Option[Prepared]]]
 type _Returned = frozenset[rna_enums.OperatorReturnItems]
+type _Target = tuple[bpy.types.SceneCompositorEffect, StageTarget]
+type _Owner = bpy.types.SceneCompositorEffect | bpy.types.CompositorNodeGroup
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -85,11 +93,11 @@ class _Authored(msgspec.Struct, frozen=True, kw_only=True):
 class _Job:
     """Staged render of one scene owning its capture files, replay tiles, prepared groups, and temporary data until its scope exits."""
 
-    __slots__ = ("config", "files", "identity", "precision", "prepared", "replay", "scene", "scope", "sources")
+    __slots__ = ("config", "files", "identity", "precision", "prepared", "rasters", "replay", "scene", "scope", "sources")
 
-    def __init__(self, identity: Identity, scene: bpy.types.Scene, precision: Precision) -> None:
+    def __init__(self, identity: Identity, scene: bpy.types.Scene, precision: Precision, rasters: Option[tuple[Raster, Raster]] = Nothing) -> None:
         """Holds the current OCIO config and the scenes the render-enabled groups read."""
-        self.identity, self.scene, self.precision = identity, scene, precision
+        self.identity, self.scene, self.precision, self.rasters = identity, scene, precision, rasters
         self.config = PyOpenColorIO.GetCurrentConfig()
         self.scope = ExitStack()
         self.replay: dict[tuple[int, int, str], tuple[Tile, ...]] = {}
@@ -99,90 +107,138 @@ class _Job:
 
     # --- [CAPTURE]
 
-    def isolated(self, scope: ExitStack) -> Outcome[None]:
-        """Swaps render-enabled groups for copies with output nodes muted until the scope exits."""
-
-        @cache
-        def copied(tree: bpy.types.CompositorNodeTree) -> Outcome[bpy.types.CompositorNodeTree]:
-            match tree.copy():
-                case bpy.types.CompositorNodeTree() as result:
-                    scope.callback(bpy.data.node_groups.remove, result)
-                    for live in result.nodes:
-                        if isinstance(live, bpy.types.CompositorNodeOutputFile | bpy.types.CompositorNodeViewer):
-                            live.mute = True
-                    return accumulated(
-                        copied(child).bind(lambda group: written(live, ("node_tree",), group))
-                        for live in result.nodes
-                        if isinstance(live, bpy.types.CompositorNodeGroup) and isinstance(child := live.node_tree, bpy.types.CompositorNodeTree)
-                    ).map(lambda _: result)
-                case _:
-                    return Error(Fault.of(Reason.ABSENT, repr(tree), member="copy"))
+    def copied(self, scope: ExitStack) -> Outcome[Mapping[bpy.types.CompositorNodeTree, bpy.types.CompositorNodeTree]]:
+        """Swaps render-enabled groups for native copies until the scope exits."""
+        entries = tuple(
+            (entry, tree) for source in self.sources for entry in source.compositor_effects if entry.enable_for_render and isinstance(tree := entry.node_group, bpy.types.CompositorNodeTree)
+        )
+        copies: dict[bpy.types.CompositorNodeTree, bpy.types.CompositorNodeTree] = {}
+        for tree in nested(tree for _, tree in entries):
+            copied: bpy.types.CompositorNodeTree = tree.copy()  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            copies[tree] = copied
+            scope.callback(bpy.data.node_groups.remove, copied)
+        for live in (live for tree in copies.values() for live in tree.nodes if isinstance(live, bpy.types.CompositorNodeGroup)):
+            for child in Option.of_optional(live.node_tree).to_list():
+                live.node_tree = copies[child]
 
         def swapped(authored: _Authored, group: bpy.types.CompositorNodeTree) -> Outcome[None]:
             scope.callback(self.identity.reports.reported(self.restored), (authored,))
             return msgspec.structs.replace(authored, group=group).assigned()
 
-        return accumulated(
-            paired(_Authored.of(entry), copied(tree)).bind(lambda pair: swapped(*pair))
-            for source in self.sources
-            for entry in source.compositor_effects
-            if entry.enable_for_render and isinstance(tree := entry.node_group, bpy.types.CompositorNodeTree)
-        ).map(lambda _: None)
+        return accumulated(_Authored.of(entry).bind(lambda authored: swapped(authored, copies[tree])) for entry, tree in entries).map(lambda _: copies)
 
-    def raster(self, frame: int) -> tuple[str, Path, OpenImageIO.ImageBuf]:
-        """Returns capture name, EXR path, and an empty buffer of the captured raster, the border window alone while the render crops to it."""
-        framing = Framing.of(self.scene.render)
-        (width, height), window = framing.bounds
-        name = f"{self.scene.session_uid}_{frame}_entering"
-        match framing.extent:
-            case Border(crop=True):
-                spec = OpenImageIO.ImageSpec(window.width, window.height, 4, OpenImageIO.FLOAT)
-                spec.x, spec.y = window.xbegin, window.ybegin
-            case _:
-                spec = OpenImageIO.ImageSpec(width, height, 4, OpenImageIO.FLOAT)
-        spec.full_x, spec.full_y, spec.full_width, spec.full_height = 0, 0, width, height
-        return name, Path(bpy.app.tempdir, f"{name}.exr"), OpenImageIO.ImageBuf(spec)
+    def isolated(self, scope: ExitStack) -> Outcome[Mapping[bpy.types.CompositorNodeTree, bpy.types.CompositorNodeTree]]:
+        """Copies render-enabled groups and mutes their output nodes for an isolated capture."""
+
+        def muted(copies: Mapping[bpy.types.CompositorNodeTree, bpy.types.CompositorNodeTree]) -> Mapping[bpy.types.CompositorNodeTree, bpy.types.CompositorNodeTree]:
+            for live in (live for tree in copies.values() for live in tree.nodes if isinstance(live, bpy.types.CompositorNodeOutputFile | bpy.types.CompositorNodeViewer)):
+                live.mute = True
+            return copies
+
+        return self.copied(scope).map(muted)
 
     def captured(self, source: bpy.types.Scene, frame: int) -> Outcome[None]:
-        """Saves the source render result as multilayer EXR and holds its tiles for replay."""
-
-        def replayed(path: str) -> Outcome[None]:
-            self.files.add(Path(path))
-            return (
-                Multilayer
-                .read(Path(path))
-                .bind(lambda file: Tile.replayed(file, source))
-                .map(lambda tiles: self.replay.update({(frame, source.session_uid, layer): held for layer, held in tiles.items()}))
-            )
-
-        return saved(source).bind(replayed)
-
-    def output(self, name: str, spec: OpenImageIO.ImageSpec, *, demand: bool) -> tuple[Expr, ...]:
-        """Builds capture roots writing the entering image at spec size, adding source Render Layers on `demand`."""
-        domain = Expr(kind=bpy.types.CompositorNodeBlankImage, inputs=(("Size", (spec.width, spec.height)),), socket="Image", socket_type=bpy.types.NodeSocketColor)
-        raster = Expr(
-            kind=bpy.types.ShaderNodeMixRGB,
-            inputs=(("Fac", 1.0), ("Color1", domain), ("Color2", group_input(COLOR_INPUT.key, bpy.types.NodeSocketColor))),
-            socket="Color",
-            socket_type=bpy.types.NodeSocketColor,
+        """Reads the source's native pass receipt and holds its tiles for replay."""
+        return (
+            Multilayer
+            .read(self.pass_path(source))
+            .bind(lambda file: Tile.replayed(file, source))
+            .map(lambda tiles: self.replay.update({(frame, source.session_uid, layer): held for layer, held in tiles.items()}))
         )
-        content = FileItems(items=(FileItem(name=name, socket_type="RGBA"),))
-        capture = Expr(
-            kind=bpy.types.CompositorNodeOutputFile,
-            inputs=tuple((stored.name, raster) for stored in content.items),
-            members={Pathed.directory.path: bpy.app.tempdir, Pathed.file_name.path: ""},
-            content=Some(content),
-        ).keyed(_CAPTURE)
+
+    def pass_path(self, source: bpy.types.Scene) -> Path:
+        """Owns the raw pass path shared by native production and replay."""
+        path = Path(bpy.app.tempdir, f"{source.session_uid}_passes.exr")
+        self.files.add(path)
+        return path
+
+    def passes(self, tree: bpy.types.NodeTree) -> Outcome[None]:
+        """Connects the capture group's actual render-pass sockets to source-owned native files."""
+
+        def recorded(source: bpy.types.Scene) -> Outcome[None]:
+            sockets = {
+                f"{node.layer}.{Engine.combined.name if socket.identifier == 'Image' else socket.identifier}": socket
+                for node in tree.nodes
+                if isinstance(node, bpy.types.CompositorNodeRLayers) and node.scene == source
+                for socket in node.outputs
+                if socket.enabled and not socket.is_unavailable and socket.identifier != "Alpha"
+            }
+
+            def item(key: Key, socket: bpy.types.NodeSocket) -> Outcome[tuple[Key, FileItem]]:
+                declared = FileItem(name=key, socket_type=DATA_TYPES[base_socket(type(socket))])
+                return (
+                    Descriptor.resolve(socket, ("default_value",), bpy.types.FloatProperty).map(lambda descriptor: (key, msgspec.structs.replace(declared, vector_socket_dimensions=descriptor.prop.array_length)))
+                    if socket.type == "VECTOR"
+                    else Ok((key, declared))
+                )
+
+            def wrote(content: FileItems, output: bpy.types.CompositorNodeOutputFile) -> Outcome[None]:
+                path = self.pass_path(source)
+                inputs: bpy.types.NodeInputs = output.inputs  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+                output_format = msgspec.structs.replace(self.format, media_type="MULTI_LAYER_IMAGE", file_format="OPEN_EXR_MULTILAYER", use_exr_interleave=False)
+                return (
+                    content
+                    .write(output, self.identity)
+                    .bind(lambda _: assigned(output, member_paths({Pathed.directory.path: str(path.parent), Pathed.file_name.path: path.stem, **output_format.members(("format",))})))
+                    .bind(lambda _: accumulated(linked(tree, sockets[key], inputs[identifier]) for key, identifier in content.sockets(output, self.identity).items()))
+                    .map(lambda _: None)
+                )
+
+            return accumulated(starmap(item, sockets.items())).bind(lambda items: created(tree, bpy.types.CompositorNodeOutputFile).bind(partial(wrote, FileItems(items=dict(items)))))
+
+        return accumulated(map(recorded, self.sources)).map(lambda _: None)
+
+    def output(self, name: str, raster: Expr, directory: Path, frame: CameraFrame, *, demand: bool) -> tuple[Expr, ...]:
+        """Captures realized input pixels and native coordinate bounds in the same multiview render."""
+        realized = Expr(kind=bpy.types.CompositorNodeBlur, inputs=(("Image", raster),), socket="Image", socket_type=bpy.types.NodeSocketColor)
+        location = dimensions(realized).at("Location", bpy.types.NodeSocketVector)
+        neutral = Expr(kind=bpy.types.CompositorNodeTranslate, inputs=(("Image", realized), ("X", -location["X"]), ("Y", -location["Y"])), socket="Image", socket_type=bpy.types.NodeSocketColor)
+        space = FrameSpace.of(realized, frame.aspect, frame.scale)
+        pitch = vector("DIVIDE", (1.0, 1.0, 0.0), space.scale)
+        minimum, maximum = (
+            tuple(Expr(kind=bpy.types.CompositorNodeLevels, inputs=(("Image", space.point), ("Channel", channel)), socket=socket) for channel in ("Red", "Green")) for socket in ("Minimum", "Maximum")
+        )
+        terms = {
+            "carrier": Expr(kind=bpy.types.CompositorNodeBlankImage, inputs=(("Size", (2, 1)),), socket="Image", socket_type=bpy.types.NodeSocketColor),
+            "bounds": rgba(
+                minimum[0] + (location["X"] - 0.5) * pitch["X"],
+                minimum[1] + (location["Y"] - 0.5) * pitch["Y"],
+                maximum[0] + (location["X"] + 0.5) * pitch["X"],
+                maximum[1] + (location["Y"] + 0.5) * pitch["Y"],
+            ),
+        }
+        output = msgspec.structs.replace(
+            self.format,
+            media_type="MULTI_LAYER_IMAGE",
+            file_format="OPEN_EXR_MULTILAYER",
+            use_exr_interleave=False,
+            linear_colorspace_settings=Colorspace(name=self.config.getColorSpace(PyOpenColorIO.ROLE_DATA).getName()),
+        )
         layers = (
             Expr(kind=bpy.types.CompositorNodeRLayers, members={"scene": IdName.of(source), "layer": layer.name}, socket="Image", socket_type=bpy.types.NodeSocketColor)
             for source in (self.sources if demand else ())
             for layer in used(source)
         )
-        return (capture, *layers)
+        return (
+            Expr(
+                kind=bpy.types.CompositorNodeOutputFile,
+                inputs=(("image", neutral),),
+                members={Pathed.directory.path: str(directory), Pathed.file_name.path: "", **msgspec.structs.replace(self.format, use_exr_interleave=False).members(("format",))},
+                content=Some(FileItems(items={"image": FileItem(name=name, socket_type="RGBA")})),
+            ).keyed(_CAPTURE),
+            Expr(
+                kind=bpy.types.CompositorNodeOutputFile,
+                inputs=tuple(terms.items()),
+                members={Pathed.directory.path: str(directory), Pathed.file_name.path: f"{name}_geometry", **output.members(("format",))},
+                content=Some(FileItems(items={key: FileItem(name=key, socket_type="RGBA") for key in terms})),
+            ).keyed(f"{_CAPTURE}_geometry"),
+            *layers,
+        )
 
-    def formatted(self, tree: bpy.types.NodeTree) -> Outcome[None]:
-        """Sets the capture output to 32-bit interleaved multiview scene-linear EXR."""
-        captured = OutputFormat(
+    @property
+    def format(self) -> OutputFormat:
+        """Native raw capture format under the job's configuration."""
+        return OutputFormat(
             media_type="IMAGE",
             file_format="OPEN_EXR",
             color_mode="RGBA",
@@ -193,20 +249,69 @@ class _Job:
             color_management="OVERRIDE",
             linear_colorspace_settings=Colorspace(name=self.config.getColorSpace(PyOpenColorIO.ROLE_SCENE_LINEAR).getName()),
         )
-        return (
-            Block
-            .of_seq(tree.nodes)
-            .filter(lambda live: isinstance(live, bpy.types.CompositorNodeOutputFile) and Mark.read(self.identity, live).filter(lambda mark: mark.key == _CAPTURE).is_some())
-            .try_head()
-            .to_result_with(partial(Fault.of, Reason.ABSENT, repr(tree.nodes), member=_CAPTURE))
-            .bind(lambda capture: assigned(capture, member_paths(captured.members(("format",)))))
-        )
 
     # --- [PREPARATION]
 
-    def image(self, entry: bpy.types.SceneCompositorEffect, buffers: tuple[tuple[str, OpenImageIO.ImageBuf], ...]) -> Outcome[bpy.types.Image]:
+    @staticmethod
+    def resolved(entry: bpy.types.SceneCompositorEffect, path: tuple[bpy.types.CompositorNodeGroup, ...]) -> Outcome[tuple[tuple[_Owner, ...], bpy.types.NodeTree]]:
+        """Resolves an instance path against the entry's current job-owned copies."""
+
+        def step(done: Outcome[tuple[tuple[_Owner, ...], bpy.types.NodeTree]], original: bpy.types.CompositorNodeGroup) -> Outcome[tuple[tuple[_Owner, ...], bpy.types.NodeTree]]:
+            def entered(found: tuple[tuple[_Owner, ...], bpy.types.NodeTree]) -> Outcome[tuple[tuple[_Owner, ...], bpy.types.NodeTree]]:
+                owners, tree = found
+                node = {node.name: node for node in tree.nodes if isinstance(node, bpy.types.CompositorNodeGroup)}[original.name]
+                return group_tree(node).to_result_with(partial(Fault.of, Reason.ABSENT, node.name, member="node_tree")).map(lambda tree: ((*owners, node), tree))
+
+            return done.bind(entered)
+
+        return reduce(step, path, grouped(entry).map(lambda tree: ((entry,), tree)))
+
+    def active(self, target: _Target) -> Outcome[bool]:
+        """Reads parent execution controls and the preparation gate from evaluated native inputs."""
+        entry, (path, _, record, _, gates) = target
+        gate = record.record.prepared_when
+        if not gates and gate is None:
+            return Ok(value=True)
+        with bpy.context.temp_override(scene=self.scene):
+            evaluated = self.scene.evaluated_get(bpy.context.evaluated_depsgraph_get())
+        reading = evaluated.compositor_effects[entry.name]
+        for owner, keys in gates.items():
+            if (
+                enabled := self.resolved(entry, owner).bind(lambda found: self.values(found[0], reading, found[1])).bind(lambda values: accumulated(value(values, bool, key) for key in keys).map(all))
+            ).is_error():
+                return Error(enabled.error)
+            if not enabled.ok:
+                return Ok(value=False)
+        return Ok(value=True) if gate is None else self.resolved(entry, path).bind(lambda found: self.values(found[0], reading, found[1])).bind(lambda values: value(values, bool, gate))
+
+    def values(self, owners: tuple[_Owner, ...], reading: bpy.types.SceneCompositorEffect, tree: bpy.types.NodeTree) -> Outcome[Mapping[Key, Value]]:
+        """Reads target sockets through their native group-input ancestry to evaluated entry values."""
+        target = owners[-1]
+        if isinstance(target, bpy.types.SceneCompositorEffect):
+            return captured(self.identity, reading).map(valued)
+        keys = InterfaceKeys.of(tree, self.identity).sockets
+
+        def read(socket: bpy.types.NodeSocket) -> Outcome[Value]:
+            for owner in reversed(owners[:-1]):
+                if not (links := links_of(socket)):
+                    return Descriptor.resolve(socket, ("default_value",), bpy.types.Property).map(lambda descriptor: descriptor.read(socket))
+                source, outlet, _, _ = endpoints(links[0])
+                if not isinstance(source, bpy.types.NodeGroupInput):
+                    return Error(Fault.of(Reason.OUTSIDE, source.name, member="CPU scalar input"))
+                if isinstance(owner, bpy.types.SceneCompositorEffect):
+                    return interface_input(reading, outlet.identifier).bind(lambda value: Descriptor.resolve(value, ("value",), bpy.types.Property).map(lambda descriptor: descriptor.read(value)))
+                socket = owner.inputs[outlet.identifier]
+            return Descriptor.resolve(socket, ("default_value",), bpy.types.Property).map(lambda descriptor: descriptor.read(socket))
+
+        return accumulated(
+            read(socket).map(lambda value: (key, value)) for key, identifier in keys.items() if key != COLOR_INPUT.key for socket in target.inputs if socket.identifier == identifier
+        ).map(dict)
+
+    def image(self, target: _Target, buffers: tuple[tuple[str, OpenImageIO.ImageBuf], ...]) -> Outcome[bpy.types.Image]:
         """Writes prepared pixels as one EXR part per view and loads them as one premultiplied data image, multiview across views."""
-        path = Path(bpy.app.tempdir, f"{self.scene.session_uid}_{self.scene.frame_current}_{entry.name}_prepared.exr")
+        entry, (nodes, _, _, _, _) = target
+        key = content_hash(Stage, entry.name, tuple(node.name for node in nodes)).hex()
+        path = Path(bpy.app.tempdir, f"{self.scene.session_uid}_{self.scene.frame_current}_{key}_prepared.exr")
         views = tuple(name for name, _ in buffers)
         headed = len(views) > 1
         self.files.add(path)
@@ -227,70 +332,112 @@ class _Job:
 
         return emitted(path, parts).bind(lambda held: loaded(str(held), Tag(space=Some(self.config.getColorSpace(PyOpenColorIO.ROLE_DATA).getName()), alpha=Some("PREMUL")))).bind(tagged)
 
-    def stage[R: Case](self, held: Owned[R], step: _Step[R], path: Path, like: OpenImageIO.ImageBuf) -> Outcome[_Authored]:
+    def stage(self, target: _Target, path: Path, camera: Raster) -> Outcome[_Authored]:
         """Runs the entry's CPU step per view over the captured pixels, its evaluated input values, and its camera frame."""
         with bpy.context.temp_override(scene=self.scene):
             evaluated = self.scene.evaluated_get(bpy.context.evaluated_depsgraph_get())
-        reading = evaluated.compositor_effects[held.entry.name]
+        entry, (_, _, _, prepare, _) = target
+        reading = evaluated.compositor_effects[entry.name]
 
-        def views(file: Multilayer, record: Entry[R], values: Mapping[Key, Value], frame: CameraFrame) -> Outcome[_Authored]:
-            def view(layer: Layer) -> Outcome[tuple[str, Option[Prepared]]]:
-                return (
-                    file
-                    .plane(layer, layer.channels)
-                    .bind(lambda plane: located(plane, like))
-                    .bind(
-                        lambda image: step(Stage(record=record.record, identity=self.identity, values=values, config=self.config, image=image, frame=frame, scene=evaluated, precision=self.precision))
+        def views(file: Multilayer, geometry: Multilayer, owners: tuple[_Owner, ...], values: Mapping[Key, Value]) -> Outcome[_Authored]:
+            def view(layer: Layer) -> Outcome[tuple[str, Option[Prepared], tuple[Raster, Raster]]]:
+                spec = file.parts[layer.part]
+                metadata = next(item for item in geometry.layers if geometry.parts[item.part].get_string_attribute("view") == spec.get_string_attribute("view") and item.name == "bounds")
+
+                def prepared(image: OpenImageIO.ImageBuf, bounds: npt.NDArray[np.float32]) -> Outcome[tuple[str, Option[Prepared], tuple[Raster, Raster]]]:
+                    left, bottom, right, top = bounds[0, 0]
+                    region = Region(left=float(left), bottom=float(bottom), right=float(right), top=float(top))
+                    for source, _ in self.rasters.to_list():
+                        factor = max(source.bounds.right - source.bounds.left, source.bounds.top - source.bounds.bottom)
+                        region = Region(
+                            left=source.bounds.left + region.left * factor,
+                            bottom=source.bounds.bottom + region.bottom * factor,
+                            right=source.bounds.left + region.right * factor,
+                            top=source.bounds.bottom + region.top * factor,
+                        )
+                    rasters = (Raster(bounds=region, shape=(spec.height, spec.width)), camera)
+                    return prepare(Stage(identity=self.identity, values=values, config=self.config, image=image, rasters=rasters, scene=evaluated, precision=self.precision)).map(
+                        lambda value: (spec.get_string_attribute("view"), value, rasters)
                     )
-                    .map(lambda value: (layer.name, value))
-                )
 
-            return accumulated(map(view, file.layers)).bind(lambda found: self.published(held, record, found))
+                return paired(checked(OpenImageIO.ImageBuf(str(path), layer.part, 0)), geometry.plane(metadata, ("R", "G", "B", "A"))).bind(lambda pair: prepared(*pair))
 
-        return paired(Multilayer.read(path), held.row.read(self.identity, held.entry), captured(self.identity, reading), CameraFrame.read(self.identity, reading)).bind(
-            lambda parts: views(parts[0], parts[1], valued(parts[2]), parts[3])
-        )
+            return accumulated(map(view, file.layers)).bind(lambda found: self.published(target, owners[-1], found))
+
+        def ready(found: tuple[tuple[_Owner, ...], bpy.types.NodeTree]) -> Outcome[_Authored]:
+            owners, tree = found
+            return self.values(owners, reading, tree).bind(
+                lambda values: paired(Multilayer.read(path), Multilayer.read(path.with_stem(f"{path.stem}_geometry"))).bind(lambda files: views(*files, owners, values))
+            )
+
+        return self.resolved(target[0], target[1][0]).bind(ready)
 
     def estimated(self, entry: bpy.types.SceneCompositorEffect, view: str, value: OpenImageIO.ImageBuf | Estimate[OpenImageIO.ImageBuf]) -> OpenImageIO.ImageBuf:
         """Returns a prepared image, logging an estimate's largest replicate standard error."""
         match value:
-            case Estimate(value=image, standard_error=error):
-                self.identity.reports.logger.info("Staged estimate", entry=entry.name, view=view, standard_error=float(np.max(error, initial=0.0)))
-                return image
-            case _:
+            case OpenImageIO.ImageBuf():
                 return value
+            case _:
+                self.identity.reports.logger.info("Staged estimate", entry=entry.name, view=view, standard_error=float(np.max(value.standard_error, initial=0.0)))
+                return value.value
 
-    def published[R: Case](self, held: Owned[R], record: Entry[R], views: tuple[tuple[str, Option[Prepared]], ...]) -> Outcome[_Authored]:
+    def published(self, target: _Target, owner: _Owner, views: tuple[tuple[str, Option[Prepared], tuple[Raster, Raster]], ...]) -> Outcome[_Authored]:
         """Enters measured values into the entry, or builds and assigns its job-owned group over the prepared image, answering the group and inputs each frame assigns."""
-        entry, row = held.entry, held.row
-        results = tuple((name, value) for name, found in views for value in found.to_list())
-        images = tuple((name, self.estimated(entry, name, value)) for name, value in results if not isinstance(value, Mapping))
-        measured = tuple(value for _, value in results if isinstance(value, Mapping))
+        entry, (_, row, record, _, _) = target
+        results = tuple((name, value) for name, found, _ in views for value in found.to_list())
+        images = tuple((name, self.estimated(entry, name, value)) for name, value in results if isinstance(value, OpenImageIO.ImageBuf | Estimate))
 
         def owned(group: bpy.types.NodeTree) -> bpy.types.NodeTree:
-            self.scope.callback(bpy.data.node_groups.remove, group)
+            for tree in nested((group,)):
+                if tree.is_runtime_data:
+                    self.scope.callback(bpy.data.node_groups.remove, tree)
             return group
 
-        def grouped(image: bpy.types.Image) -> Outcome[bpy.types.NodeTree | None]:
-            with bpy.context.temp_override(scene=self.scene):
+        def grouped(image: Option[bpy.types.Image]) -> Outcome[bpy.types.NodeTree]:
+            def view(name: str, prepared: Option[Prepared], rasters: tuple[Raster, Raster]) -> Outcome[NodeGroup]:
+                measured = prepared.to_optional()
+                staged = image.map(IdName.of) if isinstance(measured, OpenImageIO.ImageBuf | Estimate) else Nothing
+                return row.grouped(
+                    self.identity,
+                    self.scene,
+                    record,
+                    self.config,
+                    entry=Some(entry) if isinstance(owner, bpy.types.SceneCompositorEffect) else Nothing,
+                    staged=staged,
+                    rasters=Some(measured if isinstance(measured, tuple) else rasters),
+                ).map(lambda group: msgspec.structs.replace(group, key=f"{group.key}_{name}", name=f"{group.name} {name}", single=False, saved=Saved.NEVER))
+
+            def combined(groups: tuple[NodeGroup, ...]) -> Outcome[bpy.types.NodeTree]:
+                def placed(name: str, prepared: Option[Prepared], group: NodeGroup) -> tuple[str, Expr]:
+                    inputs = relayed(group_input, group.interface)
+                    measured = prepared.to_optional()
+                    if isinstance(measured, Mapping):
+                        inputs.update(measured)
+                    return name, functions.placed(group, inputs, COLOR_RESULT.key)
+
+                outputs = tuple(placed(name, prepared, group) for (name, prepared, _), group in zip(views, groups))
+                result = outputs[0][1] if len(outputs) == 1 else Expr(kind=bpy.types.CompositorNodeSwitchView, inputs=outputs, socket="Image", socket_type=bpy.types.NodeSocketColor)
                 return (
-                    row
-                    .grouped(self.identity, self.scene, record, self.config, entry=Some(entry), staged=Some(IdName.of(image)))
+                    functions
+                    .built(row.ownership(record).key, groups[0].interface, {COLOR_RESULT.key: result}, bpy.types.CompositorNodeTree, name=Some(row.title))
                     .map(lambda group: msgspec.structs.replace(group, single=False, saved=Saved.NEVER))
                     .bind(lambda group: made(group, self.identity, of=Some(self.scene)))
                     .map(owned)
+                    .bind(lambda tree: row.stored(self.identity, row.record).write(tree, record).map(lambda _: tree))
                 )
 
-        def placed(before: _Authored, tree: bpy.types.NodeTree | None) -> Outcome[_Authored]:
-            return (
-                msgspec.structs
-                .replace(before, group=tree)
-                .assigned()
-                .bind(lambda _: Block.of_seq(measured).try_head().map(lambda values: entered(self.identity, entry, values)).default_value(Ok(False)))
-                .bind(lambda _: _Authored.of(entry))
-            )
+            with bpy.context.temp_override(scene=self.scene):
+                return accumulated(starmap(view, views)).bind(combined)
 
-        return paired(_Authored.of(entry), self.image(entry, images).bind(grouped) if images else Ok(entry.node_group)).bind(lambda pair: placed(*pair))
+        def placed(tree: bpy.types.NodeTree) -> Outcome[_Authored]:
+            wrote = (
+                captured(self.identity, owner).bind(lambda values: written(owner, ("node_group",), tree).bind(lambda _: restored(self.identity, owner, values)).map(lambda _: None))
+                if isinstance(owner, bpy.types.SceneCompositorEffect)
+                else group_set(owner, tree)
+            )
+            return wrote.bind(lambda _: _Authored.of(entry))
+
+        return (self.image(target, images).map(Some) if images else Ok(Nothing)).bind(grouped).bind(placed)
 
     # --- [LIFETIME]
 
@@ -307,51 +454,136 @@ class _Job:
         """Deletes capture and prepared files."""
         return accumulated(map(removed, self.files)).map(lambda _: None)
 
-    def frame[R: Case](self, frame: int, subframe: float, engine: str, original: tuple[_Authored, ...], staged: tuple[tuple[Owned[R], _Step[R]], ...]) -> Outcome[None]:
+    def frame(self, frame: int, subframe: float, engine: str, original: tuple[_Authored, ...], staged: tuple[_Target, ...], call: RenderCall) -> Outcome[None]:
         """Captures the frame render once under the authored groups and engines, then prepares each staged entry from its replayed prefix."""
-        name, path, like = self.raster(frame)
-        self.files.add(path)
+        name = f"{self.scene.session_uid}_{frame}_entering"
+        path = Path(bpy.app.tempdir, f"{name}.exr")
+        self.files.update((path, path.with_stem(f"{name}_geometry")))
+        raster = group_input(COLOR_INPUT.key, bpy.types.NodeSocketColor)
 
-        def prefixed(held: Owned[R], *, demand: bool) -> Outcome[_Returned]:
-            with ExitStack() as capture:
+        def prefixed(target: _Target, camera: CameraFrame, *, demand: bool) -> Outcome[_Returned]:
+            with ExitStack() as capture, bpy.context.temp_override(scene=self.scene):
+                at = tuple(self.scene.compositor_effects).index(target[0])
+                for entry in tuple(self.scene.compositor_effects)[at + 1 :]:
+                    capture.callback(setattr, entry, "enable_for_render", entry.enable_for_render)
+                    entry.enable_for_render = False
                 for source in self.sources:
                     capture.enter_context(intermediate(self.identity, source))
-                return (
-                    self
-                    .isolated(capture)
-                    .bind(lambda _: capture.enter_context(capturing(self.identity, self.scene, held.entry, self.output(name, like.spec(), demand=demand), stop=True)))
-                    .bind(lambda entry: Option.of_optional(entry.node_group).to_result_with(partial(Fault.of, Reason.ABSENT, repr(entry), member="node_group")))
-                    .bind(self.formatted)
-                    .bind(lambda _: called(bpy.ops.render.render, {"scene": self.scene.name, "write_still": False}))
-                )
 
-        def appended(completed: Outcome[tuple[_Authored, ...]], pair: tuple[Owned[R], _Step[R]]) -> Outcome[tuple[_Authored, ...]]:
-            return completed.bind(lambda ready: prefixed(pair[0], demand=False).bind(lambda _: self.stage(*pair, path, like)).map(lambda entry: (*ready, entry)))
+                def attached(tree: bpy.types.CompositorNodeTree) -> Outcome[None]:
+                    source = socket_at(owned(tree, self.identity)[INPUTS].outputs, COLOR_INPUT.key, InterfaceKeys.of(tree, self.identity).sockets)
+                    roots = self.output(name, raster, path.parent, camera, demand=demand)
+                    built = functions.built("stage_capture", Interface(inputs=(COLOR_INPUT,), outputs=(COLOR_RESULT,)), {COLOR_RESULT.key: raster.keeping(*roots)}, bpy.types.CompositorNodeTree)
 
-        (head, step), *tail = staged
+                    def placed(source: bpy.types.NodeSocket, group: bpy.types.NodeTree) -> Outcome[None]:
+                        capture.callback(bpy.data.node_groups.remove, group)
+                        edges = links_of(source)
 
-        def body() -> Outcome[None]:
+                        def connected(node: bpy.types.CompositorNodeGroup) -> Outcome[None]:
+                            keys = InterfaceKeys.of(group, self.identity).sockets
+
+                            def routed(outlet: bpy.types.NodeSocket, link: bpy.types.NodeLink) -> Outcome[None]:
+                                _, _, _, inlet = endpoints(link)
+
+                                def replaced(made: bpy.types.NodeLink) -> None:
+                                    if inlet.is_multi_input:
+                                        made.swap_multi_input_sort_id(link)
+                                    tree.links.remove(link)
+
+                                return linked(tree, outlet, inlet, verify_limits=False).map(replaced)
+
+                            return (
+                                group_set(node, group)
+                                .bind(lambda _: paired(socket_at(node.inputs, COLOR_INPUT.key, keys), socket_at(node.outputs, COLOR_RESULT.key, keys)))
+                                .bind(lambda pair: linked(tree, source, pair[0]).bind(lambda _: accumulated(routed(pair[1], link) for link in edges)).map(lambda _: None))
+                            )
+
+                        return (self.passes(group) if demand else Ok(None)).bind(lambda _: created(tree, bpy.types.CompositorNodeGroup).bind(connected))
+
+                    return paired(source, built.map(lambda group: msgspec.structs.replace(group, single=False, saved=Saved.NEVER)).bind(lambda group: made(group, self.identity))).bind(
+                        lambda pair: placed(*pair)
+                    )
+
+                def selected(found: tuple[tuple[_Owner, ...], bpy.types.NodeTree]) -> Outcome[None]:
+                    owners, tree = found
+                    owner = owners[-1]
+
+                    def copied(tree: bpy.types.NodeTree) -> Outcome[None]:
+                        copy: bpy.types.CompositorNodeTree = tree.copy()  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+                        capture.callback(bpy.data.node_groups.remove, copy)
+                        if isinstance(owner, bpy.types.SceneCompositorEffect):
+                            return _Authored.of(owner).bind(lambda before: msgspec.structs.replace(before, group=copy).assigned()).bind(lambda _: attached(copy))
+                        return group_set(owner, copy).bind(lambda _: attached(copy))
+
+                    return copied(tree)
+
+                return self.isolated(capture).bind(lambda _: self.resolved(target[0], target[1][0])).bind(selected).bind(lambda _: called(bpy.ops.render.render, {"write_still": False}))
+
+        def body(targets: tuple[_Target, ...], camera: CameraFrame, rasters: tuple[Raster, Raster]) -> Outcome[None]:
+            head, *tail = targets
+
+            def appended(completed: Outcome[tuple[_Authored, ...]], held: _Target) -> Outcome[tuple[_Authored, ...]]:
+                return completed.bind(lambda ready: prefixed(held, camera, demand=False).bind(lambda _: self.stage(held, path, rasters[1])).map(lambda entry: (*ready, entry)))
+
             first: Outcome[tuple[_Authored, ...]] = (
-                prefixed(head, demand=True)
+                prefixed(head, camera, demand=True)
                 .bind(lambda _: accumulated(self.captured(source, frame) for source in self.sources))
-                .bind(lambda _: self.stage(head, step, path, like))
+                .bind(lambda _: self.stage(head, path, rasters[1]))
                 .map(lambda entry: (entry,))
             )
-            return reduce(appended, tail, first).map(lambda completed: self.prepared.update({frame: completed}))
+            return first.bind(lambda ready: engined(self.sources, engine, lambda: reduce(appended, tail, Ok(ready))) if tail else Ok(ready)).map(
+                lambda completed: self.prepared.update({frame: tuple({held.entry: held for held in completed}.values())})
+            )
 
         def started(_: None) -> Outcome[None]:
             self.scene.frame_set(frame, subframe=subframe)
-            return engined(self.sources, engine, body)
+
+            def selected(targets: tuple[_Target, ...]) -> Outcome[None]:
+                if not targets:
+                    with ExitStack() as capture:
+                        for source in self.sources:
+                            capture.enter_context(intermediate(self.identity, source))
+                            capture.callback(setattr, source.render, "use_compositing", source.render.use_compositing)
+                            source.render.use_compositing = False
+                        for source in self.sources:
+                            capture.callback(setattr, source.render, "filepath", source.render.filepath)
+                            source.render.filepath = str(self.pass_path(source))
+                            if (
+                                result := capture
+                                .enter_context(msgspec.structs.replace(self.format, media_type="MULTI_LAYER_IMAGE", file_format="OPEN_EXR_MULTILAYER", use_exr_interleave=False).held(source.render.image_settings))
+                                .bind(lambda _: native(self.identity, source, RenderCall(write_still=True)))
+                                .bind(lambda _: self.captured(source, frame))
+                            ).is_error():
+                                return Error(result.error)
+                    self.prepared[frame] = original
+                    return Ok(None)
+                reference = self.rasters.map(Ok).default_with(lambda: FrameSize().bound(self.identity).bind(lambda framed: framed.rasters(self.scene)))
+                return (
+                    self
+                    .copied(self.scope)
+                    .bind(lambda _: paired(CameraFrame.of(self.identity, self.scene), reference))
+                    .bind(
+                        lambda held: body(targets, msgspec.structs.replace(held[0], aspect=float(held[1][0].step[0] / held[1][0].step[1]), scale=1.0) if self.rasters.is_some() else held[0], held[1])
+                    )
+                )
+
+            return (
+                accumulated(self.active(target).map(lambda enabled: Some(target) if enabled else Nothing) for target in staged)
+                .map(lambda found: tuple(target for active in found for target in active.to_list()))
+                .bind(selected)
+                if call.animation
+                else selected(staged)
+            )
 
         return self.restored(original).bind(started)
 
-    def rendered[R: Case](self, call: RenderCall, staged: tuple[tuple[Owned[R], _Step[R]], ...]) -> Outcome[_Returned]:
+    def rendered(self, call: RenderCall, staged: tuple[_Target, ...]) -> Outcome[_Returned]:
         """Prepares every frame, then renders natively with the replay engine writing the captured passes and each frame assigning its prepared groups."""
         scene = self.scene
         frames = tuple(range(call.frame_start.default_value(scene.frame_start), call.frame_end.default_value(scene.frame_end) + 1, scene.frame_step)) if call.animation else (scene.frame_current,)
         at, subframe = scene.frame_current, scene.frame_subframe
         sample = 0.0 if call.animation else subframe
-        original = accumulated(_Authored.of(held.entry) for held, _ in staged)
+        original = accumulated(_Authored.of(entry) for entry in dict.fromkeys(target[0] for target in staged))
 
         def completed() -> Outcome[_Returned]:
             def framed(_: None) -> Outcome[_Returned]:
@@ -364,13 +596,13 @@ class _Job:
             self.scope.callback(self.identity.reports.reported(self.restored), authored)
             with Engine.replayed(self.identity, "staged_render", lambda source, layer: self.replay.get((scene.frame_current, source.session_uid, layer.name), ())) as engine:
                 return engine.bind(
-                    lambda name: reduce(lambda done, frame: done.bind(lambda _: self.frame(frame, sample, name, authored, staged)), frames, Ok(None)).bind(
+                    lambda name: reduce(lambda done, frame: done.bind(lambda _: self.frame(frame, sample, name, authored, staged, call)), frames, Ok(None)).bind(
                         lambda _: engined(self.sources, name, completed)
                     )
                 )
 
         with self.scope:
-            executing = self.identity.resources[EXECUTING]
+            executing = EXECUTING[self.identity]
             for source in self.sources:
                 executing.add(source.session_uid)
                 self.scope.callback(executing.remove, source.session_uid)
@@ -379,13 +611,14 @@ class _Job:
             return original.bind(prepared)
 
 
-class StagedRender[R: Case](msgspec.Struct, frozen=True, kw_only=True):
+class StagedRender(msgspec.Struct, frozen=True, kw_only=True):
     """Renders through the CPU step of each render-enabled entry an effect of `rows` owns, each step over the image the entries before it render, natively while compositing is off or no entry stages.
 
     Each step's image enters its entry's group in place of the entry input, measured values enter its inputs, and `precision` bounds each estimate a step samples.
     """
 
-    rows: OfferedEffects[R]
+    rows: OfferedEffects
+    stacks: Option[Callable[[Identity], Outcome[LayerStackService]]] = Nothing
     precision: Precision = Precision()
 
     @property
@@ -394,16 +627,97 @@ class StagedRender[R: Case](msgspec.Struct, frozen=True, kw_only=True):
         return (self.rows, INTERMEDIATES, RENDER_ORIGINS)
 
     @staticmethod
-    def acquisitions(_identity: Identity, /) -> Outcome[Acquisitions]:
+    def acquisitions(_identity: Identity, /) -> Acquisitions:
         """Acquires nothing of its own, its prerequisites holding what it reads."""
-        return Ok(())
+        return ()
 
-    def rendered(self, identity: Identity, scene: bpy.types.Scene, call: RenderCall) -> Outcome[_Returned]:
+    def rendered(self, identity: Identity, scene: bpy.types.Scene, call: RenderCall, *, rasters: Option[tuple[Raster, Raster]] = Nothing) -> Outcome[_Returned]:
         """Renders a scene through its staged entries, else natively."""
-        staged = tuple((held, step) for held in self.rows.owned(identity, scene) if held.entry.enable_for_render for step in held.row.prepared.to_list()) if scene.render.use_compositing else ()
-        return _Job(identity, scene, self.precision).rendered(call, staged) if staged else native(identity, scene, call)
+
+        def targets(stacks: Option[LayerStackService]) -> Outcome[tuple[_Target, ...]]:
+            direct = {held.entry: held.row for held in self.rows.owned(identity, scene)}
+
+            def entry(held: bpy.types.SceneCompositorEffect) -> Outcome[tuple[_Target, ...]]:
+                return (
+                    Option
+                    .of_optional(direct.get(held))
+                    .map(
+                        lambda row: row.read(identity, held).map(
+                            lambda record: tuple[_Target, ...](
+                                (held, ((), row, record, prepare, dict[tuple[bpy.types.CompositorNodeGroup, ...], tuple[Key, ...]]()))
+                                for prepare in Option.of_optional(record.record.prepared).to_list()
+                            )
+                        )
+                    )
+                    .default_with(
+                        lambda: stacks.map(
+                            lambda stack: stacked_by(identity, held.node_group).map(lambda tree: stack.stages(tree).map(lambda found: tuple((held, target) for target in found))).default_value(Ok(()))
+                        ).default_value(Ok(()))
+                    )
+                )
+
+            return accumulated(entry(held) for held in scene.compositor_effects if held.enable_for_render).map(lambda found: tuple(target for entries in found for target in entries))
+
+        def rendered(staged: tuple[_Target, ...]) -> Outcome[_Returned]:
+            job = _Job(identity, scene, self.precision, rasters)
+            return (
+                job.rendered(call, staged)
+                if call.animation and staged
+                else accumulated(job.active(target).map(lambda enabled: Some(target) if enabled else Nothing) for target in staged)
+                .map(lambda found: tuple(target for active in found for target in active.to_list()))
+                .bind(lambda selected: job.rendered(call, selected) if selected else native(identity, scene, call))
+            )
+
+        return self.stacks.map(lambda bind: bind(identity).map(Some)).default_value(Ok(Nothing)).bind(targets).bind(rendered) if scene.render.use_compositing else native(identity, scene, call)
+
+
+# --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+def captured_input(identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, space: str, source: bpy.types.NodeSocket) -> Outcome[ImageFile]:
+    """Renders the prepared native socket through isolated groups into an owned EXR in its captured encoding."""
+    original: bpy.types.CompositorNodeTree = source.id_data  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    node: bpy.types.Node = source.node  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    name, identifier = node.name, source.identifier
+    with ExitStack() as selected, TemporaryDirectory() as directory, bpy.context.temp_override(scene=scene):
+        entries = tuple(scene.compositor_effects)
+        selected_at = entries.index(entry)
+        for position, held in enumerate(entries):
+            selected.callback(setattr, held, "enable_for_render", held.enable_for_render)
+            held.enable_for_render = held.enable_for_preview if position < selected_at else held == entry
+        job = _Job(identity, scene, Precision())
+        scope = selected.enter_context(job.scope)
+        for rendered in job.sources:
+            executing = EXECUTING[identity]
+            executing.add(rendered.session_uid)
+            scope.callback(executing.remove, rendered.session_uid)
+            scope.enter_context(intermediate(identity, rendered))
+        path = Path(directory, "entering.exr")
+
+        def captured(copies: Mapping[bpy.types.CompositorNodeTree, bpy.types.CompositorNodeTree]) -> Outcome[None]:
+            tree = copies[original]
+            content = FileItems(items={path.stem: FileItem(name=path.stem, socket_type="RGBA")})
+
+            def output(prepared: bpy.types.NodeSocket, target: bpy.types.CompositorNodeOutputFile) -> Outcome[None]:
+                inputs: bpy.types.NodeInputs = target.inputs  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+                return (
+                    content
+                    .write(target, identity)
+                    .bind(lambda _: assigned(target, member_paths({Pathed.directory.path: str(path.parent), Pathed.file_name.path: "", **job.format.members(("format",))})))
+                    .bind(lambda _: socket_at(inputs, 0))
+                    .bind(lambda inlet: linked(tree, prepared, inlet))
+                    .map(lambda _: None)
+                )
+
+            return socket_at(tree.nodes[name].outputs, identifier).bind(lambda prepared: created(tree, bpy.types.CompositorNodeOutputFile).bind(partial(output, prepared)))
+
+        def read(_: object) -> Outcome[ImageFile]:
+            image = OpenImageIO.ImageBuf(str(path))
+            return pixels(image).map(lambda values: ImageFile(pixels=values, colorspace=space, header=image.spec()))
+
+        return job.isolated(scope).bind(captured).bind(lambda _: called(bpy.ops.render.render, {"write_still": False})).bind(read)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["StagedRender"]
+__all__ = ["StagedRender", "captured_input"]

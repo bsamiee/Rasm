@@ -1,10 +1,9 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-unquoted-replacement
-language: bash
+language: bashlang
 severity: error
 rule:
     kind: simple_expansion, expansion, command_substitution
-    pattern: $VALUE
     matches: bash-string-expansion
     any:
         - follows: {regex: '^/$'}
@@ -13,6 +12,5 @@ rule:
             kind: concatenation
             follows: {regex: '^/$'}
             inside: {kind: expansion}
-fix: '"$VALUE"'
-message: 'Unquoted replacement `$VALUE` inserts the matched text at `&` under `patsub_replacement`'
-note: Quote the replacement, `${<name>//<pattern>/"$<replacement>"}`
+message: Unquoted replacement data treats `&` as matched text under `patsub_replacement`
+note: Quote replacement data while preserving existing literal quoting

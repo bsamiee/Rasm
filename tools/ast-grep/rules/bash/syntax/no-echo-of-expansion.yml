@@ -1,18 +1,14 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-echo-of-expansion
-language: bash
+language: bashlang
 severity: error
 utils:
-    every-element: {kind: 'simple_expansion, expansion', regex: '\$\{?@|\[@\]|@\}'}
-    expansion:
-        kind: simple_expansion, expansion, command_substitution, arithmetic_expansion
-        not: {matches: every-element}
     expanded-argument:
         any:
             - kind: string
-              has: {matches: expansion}
-              not: {has: {any: [{kind: string_content}, {matches: every-element}]}}
-            - matches: expansion
+              has: {matches: bash-string-expansion}
+              not: {has: {kind: string_content}}
+            - matches: bash-string-expansion
     echo-word: {kind: word, regex: '^echo$', nthChild: 2}
     option:
         kind: word
@@ -26,59 +22,5 @@ rule:
             - has: {field: name, regex: '^echo$'}
             - all: [{has: {field: name, regex: '^(builtin|command)$'}}, {has: {matches: echo-word}}]
         - has: {matches: expanded-argument, pattern: $TEXT, not: {follows: {stopBy: end, not: {matches: leading-word}}}}
-        - not:
-            has:
-                not:
-                    any:
-                        - matches: leading-word
-                        - kind: raw_string, ansi_c_string, simple_expansion, expansion, command_substitution, arithmetic_expansion
-                        - kind: string
-                          not: {has: {matches: every-element}}
-                        - kind: word
-                          not: {regex: '[*?\[{~]'}
-                    not: {matches: every-element}
-        - any:
-            - pattern: echo $$$ARGS
-            - pattern: builtin echo $$$ARGS
-            - pattern: command echo $$$ARGS
-rewriters:
-    - id: drop-option
-      rule: {matches: option}
-      fix: ''
-    - id: keep-option
-      rule: {matches: option, pattern: $WORD}
-      fix: $WORD
-    - id: drop-argument
-      rule: {pattern: $WORD}
-      fix: ''
-    - id: escape-directive
-      rule:
-        pattern: $WORD
-        inside:
-            kind: command
-            has:
-                matches: option
-                regex: 'e[n]*$'
-                not: {precedes: {stopBy: end, matches: option, regex: 'E[n]*$'}}
-      fix: '%b'
-    - id: text-directive
-      rule: {pattern: $WORD}
-      fix: '%s'
-    - id: quote-expansion
-      rule: {matches: expansion, pattern: $WORD}
-      fix: '"$WORD"'
-    - id: keep-argument
-      rule: {pattern: $WORD}
-      fix: $WORD
-transform:
-    DIRECTIVES: rewrite($$$ARGS, rewriters=[drop-option, escape-directive, text-directive], joinBy=' ')
-    FORMAT: {replace: {source: $DIRECTIVES, replace: '^ +', by: ''}}
-    WORDS: rewrite($$$ARGS, rewriters=[drop-option, quote-expansion, keep-argument], joinBy=' ')
-    ARGUMENTS: {replace: {source: $WORDS, replace: '^ +', by: ''}}
-    OPTIONS: rewrite($$$ARGS, rewriters=[keep-option, drop-argument], joinBy='')
-    NO_NEWLINE: {replace: {source: $OPTIONS, replace: '(?s)^.*n.*$', by: 'N'}}
-    LINE: {replace: {source: $NO_NEWLINE, replace: '^[-eE]*$', by: '\n'}}
-    NEWLINE: {replace: {source: $LINE, replace: '^N$', by: ''}}
-fix: printf '$FORMAT$NEWLINE' $ARGUMENTS
-message: '`echo` parses `$TEXT` as options when its value matches `-[neE]+`'
+message: '`echo` interprets `$TEXT` as options when its value matches `-[neE]+`'
 note: Print with a literal format, `printf '%s\n' "$<value>"`

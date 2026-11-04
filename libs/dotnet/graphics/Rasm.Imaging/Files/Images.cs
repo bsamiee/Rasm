@@ -27,7 +27,7 @@ public abstract partial record ImageFile {
              : Decoded(stream) | @catch(static error => error.HasException<SixLabors.ImageSharp.UnknownImageFormatException>(), _ => Imread(path))
          select read)
             .Bracket()
-            .Catch(static error => error.IsExceptional, error => IO.fail<(PixelFrame, Option<ColorEncoding>)>(ImagingFault.Of(ImagingReason.Unreadable, path, inner: error)));
+            | @catch(static error => error.IsExceptional, error => IO.fail<(PixelFrame, Option<ColorEncoding>)>(ImagingFault.Of(ImagingReason.Unreadable, path, inner: error)));
 
     private static bool Claimed(SafeFileHandle file) {
         Span<byte> magic = stackalloc byte[sizeof(uint)];

@@ -39,15 +39,11 @@ where I: IntoIterator<Item: Borrow<Point2<f64>>> {
         DelaunayTriangulation::<spade::Point2<f64>>::bulk_load(sites.iter().copied().chain(iproduct!([-reach, reach], [-reach, reach]).map(|(x, y)| position(center + Vector2::new(x, y)))).collect())
             .map_err(|source| PlanarError::Extent { source })?;
     let located = sites.iter().map(|site| triangulation.locate_vertex(*site)).collect_vec();
-    let claimed = located.iter().enumerate().rev().filter_map(|(site, handle)| handle.map(|handle| (site, handle.fix().index()))).fold(
-        vec![None; triangulation.num_vertices()],
-        |mut claimed, (site, vertex)| {
-            if let Some(owner) = claimed.get_mut(vertex) {
-                *owner = Some(site);
-            }
+    let claimed =
+        located.iter().enumerate().filter_map(|(site, handle)| handle.map(|handle| (site, handle.fix().index()))).fold(vec![None; triangulation.num_vertices()], |mut claimed, (site, vertex)| {
+            claimed[vertex].get_or_insert(site);
             claimed
-        },
-    );
+        });
     let owners = owners(shape);
     let Shape { ccw_plines: bodies, cw_plines: holes, plines_index } = shape;
     let pos_equal_eps = tolerance.into_inner();
@@ -63,10 +59,10 @@ where I: IntoIterator<Item: Borrow<Point2<f64>>> {
             .into_iter()
             .flat_map(|extent| plines_index.query_iter(extent.min_x, extent.min_y, extent.max_x, extent.max_y))
             .partition_map(|index| index.checked_sub(bodies.len()).map_or(Either::Left(index), Either::Right));
-        let carving = nearby.into_iter().filter_map(|hole| owners.get(hole).copied().flatten().zip(holes.get(hole))).into_group_map();
+        let carving = nearby.into_iter().filter_map(|hole| owners[hole].map(|owner| (owner, &holes[hole]))).into_group_map();
         let (kept, carved): (Vec<_>, Vec<_>) = near
             .into_iter()
-            .filter_map(|body| bodies.get(body).map(|outline| (body, outline)))
+            .map(|body| (body, &bodies[body]))
             .map(|(body, outline)| {
                 let (inside, _) = clip(&cell, outline, BooleanOp::And);
                 carving.get(&body).into_iter().flatten().fold((inside, Vec::new()), |(pieces, carved), hole| {
@@ -82,7 +78,7 @@ where I: IntoIterator<Item: Borrow<Point2<f64>>> {
         .enumerate()
         .map(|(site, handle)| {
             handle
-                .filter(|handle| claimed.get(handle.fix().index()) == Some(&Some(site)))
+                .filter(|handle| claimed[handle.fix().index()] == Some(site))
                 .and_then(|handle| handle.as_voronoi_face().adjacent_edges().map(|edge| edge.from().position().map(|corner| PlineVertex::new(corner.x, corner.y, 0.0))).collect::<Option<Vec<_>>>())
                 .map(|corners| surviving::<{ Closure::Closed }>(corners.into_iter(), tolerance))
                 .transpose()?

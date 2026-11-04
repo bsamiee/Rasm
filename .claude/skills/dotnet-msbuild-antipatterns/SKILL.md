@@ -207,25 +207,13 @@ GOOD in a `netstandard2.0` analyzer project:
 <LangVersion>latest</LangVersion>
 ```
 
-### [02.6]-[AP-09]-[STYLE]-[NOWARN_IN_A_PROJECT_FILE]
+### [02.6]-[AP-09]-[STYLE]-[DIAGNOSTIC_SUPPRESSION_SCOPE]
 
-- SMELL: `NoWarn` or `WarningsNotAsErrors` in a project, `NoWarn` metadata on a project item, or `NoWarn` assigned without `$(NoWarn);`
-- WHY: Assignments without `$(NoWarn);` drop SDK defaults `1701;1702`
+- SMELL: `NoWarn` replacing inherited settings, or a local diagnostic exception in shared build properties
+- WHY: Replacement discards earlier project and package values, C# targets append compiler defaults inside `CoreCompile`
 - RULE:
-    - Fix the code each diagnostic reports, a diagnostic no root-cause fix clears takes a `Directory.Build.props` row
-    - Every `NoWarn` assignment starts with `$(NoWarn);`
-
-BAD in `MyProject.csproj`:
-
-```xml
-<NoWarn>CS1591</NoWarn>
-```
-
-GOOD in `Directory.Build.props`:
-
-```xml
-<NoWarn>$(NoWarn);EPC20</NoWarn>
-```
+    - Fix source and dependency causes, unavoidable external defects take diagnostic-specific exceptions at affected lines or files
+    - Required `NoWarn` assignments preserve inherited values through `$(NoWarn);`
 
 ### [02.7]-[AP-10]-[ERROR]-[RSP_OR_SOLUTION_PROPS_FOR_A_PROJECT_SETTING]
 

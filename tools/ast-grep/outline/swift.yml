@@ -9,7 +9,12 @@ rule:
 name: $NAME
 signature: $DECLARATION
 isImport: true
-isExported: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(public|package)$'}}}
+isExported:
+    has:
+        kind: modifiers
+        any:
+            - has: {kind: visibility_modifier, regex: '^(public|package)$'}
+            - has: {kind: attribute, has: {kind: user_type, regex: '^_exported$'}}
 
 ---
 id: swift-class
@@ -17,19 +22,22 @@ language: swiftlang
 role: item
 symbolType: class
 rule:
-    kind: class_declaration
+    kind: &declaration class_declaration
     pattern: $DECLARATION
+    inside: &scope {kind: source_file}
     all:
         - has: {field: declaration_kind, regex: '^class$'}
         - has: {field: name, pattern: $NAME}
+rewriters:
+    - id: body
+      rule: {kind: class_body, inside: {kind: *declaration, inside: *scope}}
+      fix: ''
 transform:
-    HEADER: {replace: {source: $DECLARATION, replace: '\s*\{[\s\S]*$', by: ''}}
-    UNTRAILED: {replace: {source: $HEADER, replace: ',(\s*\n\s*[)\]>])', by: '$1'}}
-    LINE: {replace: {source: $UNTRAILED, replace: '\s*\n\s*', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: '(\()\s+|\s+(\))', by: '$1$2'}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s+$', by: ''}}
 name: $NAME
 signature: $SIGNATURE
-isExported: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(public|open)$'}}}
+isExported: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(public|open|package)$'}}}
 
 ---
 id: swift-struct
@@ -37,19 +45,22 @@ language: swiftlang
 role: item
 symbolType: struct
 rule:
-    kind: class_declaration
+    kind: &declaration class_declaration
     pattern: $DECLARATION
+    inside: &scope {kind: source_file}
     all:
         - has: {field: declaration_kind, regex: '^struct$'}
         - has: {field: name, pattern: $NAME}
+rewriters:
+    - id: body
+      rule: {kind: class_body, inside: {kind: *declaration, inside: *scope}}
+      fix: ''
 transform:
-    HEADER: {replace: {source: $DECLARATION, replace: '\s*\{[\s\S]*$', by: ''}}
-    UNTRAILED: {replace: {source: $HEADER, replace: ',(\s*\n\s*[)\]>])', by: '$1'}}
-    LINE: {replace: {source: $UNTRAILED, replace: '\s*\n\s*', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: '(\()\s+|\s+(\))', by: '$1$2'}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s+$', by: ''}}
 name: $NAME
 signature: $SIGNATURE
-isExported: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(public|open)$'}}}
+isExported: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(public|open|package)$'}}}
 
 ---
 id: swift-enum
@@ -57,39 +68,50 @@ language: swiftlang
 role: item
 symbolType: enum
 rule:
-    kind: class_declaration
+    kind: &declaration class_declaration
     pattern: $DECLARATION
+    inside: &scope {kind: source_file}
     all:
         - has: {field: declaration_kind, regex: '^enum$'}
         - has: {field: name, pattern: $NAME}
+rewriters:
+    - id: body
+      rule: {kind: enum_class_body, inside: {kind: *declaration, inside: *scope}}
+      fix: ''
 transform:
-    HEADER: {replace: {source: $DECLARATION, replace: '\s*\{[\s\S]*$', by: ''}}
-    UNTRAILED: {replace: {source: $HEADER, replace: ',(\s*\n\s*[)\]>])', by: '$1'}}
-    LINE: {replace: {source: $UNTRAILED, replace: '\s*\n\s*', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: '(\()\s+|\s+(\))', by: '$1$2'}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s+$', by: ''}}
 name: $NAME
 signature: $SIGNATURE
-isExported: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(public|open)$'}}}
+isExported: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(public|open|package)$'}}}
 
 ---
-id: swift-actor
+id: swift-object
 language: swiftlang
 role: item
 symbolType: object
 rule:
-    kind: class_declaration
+    kind: &declaration class_declaration
     pattern: $DECLARATION
+    inside: &scope {kind: source_file}
     all:
-        - has: {field: declaration_kind, regex: '^actor$'}
+        - has: {field: declaration_kind, regex: '^(actor|extension)$'}
         - has: {field: name, pattern: $NAME}
+rewriters:
+    - id: body
+      rule: {kind: class_body, inside: {kind: *declaration, inside: *scope}}
+      fix: ''
 transform:
-    HEADER: {replace: {source: $DECLARATION, replace: '\s*\{[\s\S]*$', by: ''}}
-    UNTRAILED: {replace: {source: $HEADER, replace: ',(\s*\n\s*[)\]>])', by: '$1'}}
-    LINE: {replace: {source: $UNTRAILED, replace: '\s*\n\s*', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: '(\()\s+|\s+(\))', by: '$1$2'}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s+$', by: ''}}
 name: $NAME
 signature: $SIGNATURE
-isExported: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(public|open)$'}}}
+isExported:
+    any:
+        - &exported {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(public|open|package)$'}}}
+        - all:
+              - has: {field: declaration_kind, regex: '^extension$'}
+              - has: {field: body, has: *exported}
 
 ---
 id: swift-protocol
@@ -97,17 +119,20 @@ language: swiftlang
 role: item
 symbolType: interface
 rule:
-    kind: protocol_declaration
+    kind: &declaration protocol_declaration
     pattern: $DECLARATION
+    inside: &scope {kind: source_file}
     has: {field: name, pattern: $NAME}
+rewriters:
+    - id: body
+      rule: {kind: protocol_body, inside: {kind: *declaration, inside: *scope}}
+      fix: ''
 transform:
-    HEADER: {replace: {source: $DECLARATION, replace: '\s*\{[\s\S]*$', by: ''}}
-    UNTRAILED: {replace: {source: $HEADER, replace: ',(\s*\n\s*[)\]>])', by: '$1'}}
-    LINE: {replace: {source: $UNTRAILED, replace: '\s*\n\s*', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: '(\()\s+|\s+(\))', by: '$1$2'}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s+$', by: ''}}
 name: $NAME
 signature: $SIGNATURE
-isExported: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(public|open)$'}}}
+isExported: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(public|open|package)$'}}}
 
 ---
 id: swift-function
@@ -115,38 +140,22 @@ language: swiftlang
 role: item
 symbolType: function
 rule:
-    kind: function_declaration
+    kind: &declaration 'function_declaration, macro_declaration'
     pattern: $DECLARATION
-    inside: {kind: source_file}
-    has: {field: name, kind: simple_identifier, pattern: $NAME}
+    inside: &scope {kind: source_file}
+    any:
+        - has: {field: name, pattern: $$NAME}
+        - has: {kind: simple_identifier, pattern: $NAME}
+rewriters:
+    - id: body
+      rule: {kind: 'function_body, macro_definition', inside: {kind: *declaration, inside: *scope}}
+      fix: "\n"
 transform:
-    HEADER: {replace: {source: $DECLARATION, replace: '\s*\{[\s\S]*$', by: ''}}
-    UNTRAILED: {replace: {source: $HEADER, replace: ',(\s*\n\s*[)\]>])', by: '$1'}}
-    LINE: {replace: {source: $UNTRAILED, replace: '\s*\n\s*', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: '(\()\s+|\s+(\))', by: '$1$2'}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s+$', by: ''}}
 name: $NAME
 signature: $SIGNATURE
-isExported: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(public|open)$'}}}
-
----
-id: swift-extension
-language: swiftlang
-role: item
-symbolType: object
-rule:
-    kind: class_declaration
-    pattern: $DECLARATION
-    all:
-        - has: {field: declaration_kind, regex: '^extension$'}
-        - has: {field: name, kind: user_type, pattern: $NAME}
-transform:
-    HEADER: {replace: {source: $DECLARATION, replace: '\s*\{[\s\S]*$', by: ''}}
-    UNTRAILED: {replace: {source: $HEADER, replace: ',(\s*\n\s*[)\]>])', by: '$1'}}
-    LINE: {replace: {source: $UNTRAILED, replace: '\s*\n\s*', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: '(\()\s+|\s+(\))', by: '$1$2'}}
-name: $NAME
-signature: $SIGNATURE
-isExported: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(public|open)$'}}}
+isExported: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(public|open|package)$'}}}
 
 ---
 id: swift-typealias
@@ -157,71 +166,88 @@ rule:
     kind: typealias_declaration
     pattern: $DECLARATION
     inside: {kind: source_file}
-    has: {kind: type_identifier, pattern: $NAME}
+    has: {field: name, pattern: $NAME}
 name: $NAME
 signature: $DECLARATION
-isExported: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(public|open)$'}}}
+isExported: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(public|open|package)$'}}}
 
 ---
 id: swift-global-variable
 language: swiftlang
 role: item
 symbolType: property
-utils:
-    exported: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(public|open)$'}}
 rule:
-    any:
-        - kind: property_declaration
-          pattern: $DECLARATION
-          inside: {kind: source_file}
-          has: {field: name, kind: pattern, has: {field: bound_identifier, pattern: $NAME}}
-          not: {has: {kind: pattern, follows: {kind: pattern, stopBy: end}}}
-          any:
-            - has: {kind: computed_property, has: {kind: computed_setter, pattern: $SETTER}}
-            - has: {kind: computed_property, pattern: $GETTER, not: {has: {kind: computed_setter}}}
-            - not: {has: {kind: computed_property}}
-        - kind: simple_identifier
-          pattern: $NAME
-          inside:
-            kind: pattern
-            any:
-                - inside: {kind: property_declaration, pattern: $BINDINGS, inside: {kind: source_file}}
-                - inside: {kind: pattern, inside: {kind: property_declaration, pattern: $BINDINGS, inside: {kind: source_file}}}
-transform:
-    HEADER: {replace: {source: $DECLARATION, replace: '\s*(=|\{)[\s\S]*$', by: ''}}
-    UNTRAILED: {replace: {source: $HEADER, replace: ',(\s*\n\s*[)\]>])', by: '$1'}}
-    SIGNATURE: {replace: {source: $UNTRAILED, replace: '\s*\n\s*', by: ' '}}
-    GET: {replace: {source: $GETTER, replace: '(?s)^.*$', by: ' { get }'}}
-    SET: {replace: {source: $SETTER, replace: '(?s)^.*$', by: ' { get set }'}}
-    BINDINGS_HEADER: {replace: {source: $BINDINGS, replace: '\s*\{[\s\S]*$', by: ''}}
-    BINDINGS_UNTRAILED: {replace: {source: $BINDINGS_HEADER, replace: ',(\s*\n\s*[)\]>])', by: '$1'}}
-    BINDINGS_LINE: {replace: {source: $BINDINGS_UNTRAILED, replace: '\s*\n\s*', by: ' '}}
-name: $NAME
-signature: $SIGNATURE$GET$SET$BINDINGS_LINE
-isExported:
-    any:
-        - has: {matches: exported}
-        - inside: {kind: property_declaration, stopBy: end, has: {matches: exported}}
-
----
-id: swift-operator-function
-language: swiftlang
-role: item
-symbolType: function
-rule:
-    kind: function_declaration
+    kind: &declaration property_declaration
     pattern: $DECLARATION
-    inside: {kind: source_file}
-    has: {field: name, pattern: $$NAME}
-    not: {has: {field: name, kind: simple_identifier}}
+    inside: &scope {kind: source_file}
+    all:
+        - any:
+            - has: {field: name, kind: pattern, has: {field: bound_identifier, pattern: $SINGLE_NAME}}
+              not: {has: {kind: pattern, follows: {kind: pattern, stopBy: end}}}
+            - pattern: $GROUP_DECLARATION
+              has:
+                  kind: pattern
+                  any:
+                      - kind: &leaf 'pattern:not(:has(> pattern))'
+                        has: {kind: simple_identifier}
+                      - has: {kind: *leaf, has: {kind: simple_identifier}, stopBy: end}
+        - any:
+            - has: {kind: computed_property, pattern: $ACCESSOR_BODY, has: {kind: 'computed_getter, computed_setter, computed_modify, computed_init'}}
+            - has: {kind: computed_property, has: {pattern: $$IMPLICIT_TOKEN, regex: '^\{$'}, not: {has: {kind: 'computed_getter, computed_setter, computed_modify, computed_init'}}}
+            - not: {has: {kind: computed_property}}
+rewriters:
+    - id: nonbinding
+      rule:
+          not: {kind: 'property_declaration, pattern'}
+      fix: ''
+    - id: binding
+      rule:
+          kind: *leaf
+          has: {kind: simple_identifier, pattern: $BINDING_NAME}
+      fix: '$BINDING_NAME, '
+    - id: body
+      rule:
+          kind: 'computed_property, willset_didset_block'
+          inside: {kind: *declaration, inside: *scope}
+      fix: ''
+    - id: initializer
+      rule:
+          all:
+              - not: {has: {pattern: $$_}}
+              - regex: '^=$'
+              - inside: {kind: *declaration, inside: *scope}
+      fix: {template: '', expandEnd: {not: {kind: 'comment, multiline_comment'}, stopBy: {not: {kind: 'comment, multiline_comment'}}}}
+    - id: accessor
+      rule:
+          kind: &accessor 'computed_getter, computed_setter, computed_modify, computed_init'
+          pattern: $ACCESSOR_DECLARATION
+          inside: {kind: computed_property, inside: {kind: *declaration, inside: *scope}}
+      transform:
+          ACCESSOR_HEADER: {rewrite: {source: $ACCESSOR_DECLARATION, rewriters: [accessor-body]}}
+          ACCESSOR_SIGNATURE: {replace: {source: $ACCESSOR_HEADER, replace: '\s+$', by: ''}}
+      fix: $ACCESSOR_SIGNATURE
+    - id: accessor-body
+      rule:
+          all:
+              - inside:
+                    kind: *accessor
+                    inside: {kind: computed_property, inside: {kind: *declaration, inside: *scope}}
+              - any:
+                  - kind: statements
+                  - regex: '^[{}]$'
+      fix: ''
 transform:
-    HEADER: {replace: {source: $DECLARATION, replace: '\s*\{[\s\S]*$', by: ''}}
-    UNTRAILED: {replace: {source: $HEADER, replace: ',(\s*\n\s*[)\]>])', by: '$1'}}
-    LINE: {replace: {source: $UNTRAILED, replace: '\s*\n\s*', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: '(\()\s+|\s+(\))', by: '$1$2'}}
-name: $NAME
-signature: $SIGNATURE
-isExported: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(public|open)$'}}}
+    NAMES: {rewrite: {source: $GROUP_DECLARATION, rewriters: [nonbinding, binding], joinBy: ''}}
+    GROUP_NAME: {replace: {source: $NAMES, replace: ', $', by: ''}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, initializer]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s+$', by: ''}}
+    ACCESSORS: {rewrite: {source: $ACCESSOR_BODY, rewriters: [accessor], joinBy: ' '}}
+    COMPUTED: {replace: {source: $ACCESSORS, replace: '(?s)^(.+)$', by: ' { $1 }'}}
+    IMPLICIT: {replace: {source: $IMPLICIT_TOKEN, replace: '^\{$', by: ' { get }'}}
+name: $SINGLE_NAME$GROUP_NAME
+signature: $SIGNATURE$COMPUTED$IMPLICIT
+isExported: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(public|open|package)$'}}}
+
 
 ---
 id: swift-operator
@@ -231,7 +257,8 @@ symbolType: operator
 rule:
     kind: operator_declaration
     pattern: $DECLARATION
-    has: {kind: custom_operator, pattern: $NAME}
+    inside: {kind: source_file}
+    has: {pattern: $$NAME, follows: {regex: '^operator$'}}
 name: $NAME
 signature: $DECLARATION
 
@@ -243,28 +270,10 @@ symbolType: operator
 rule:
     kind: precedence_group_declaration
     pattern: $DECLARATION
+    inside: {kind: source_file}
     has: {kind: simple_identifier, pattern: $NAME}
-transform:
-    SIGNATURE: {replace: {source: $DECLARATION, replace: '\s*\{[\s\S]*$', by: ''}}
 name: $NAME
-signature: $SIGNATURE
-
----
-id: swift-macro
-language: swiftlang
-role: item
-symbolType: function
-rule:
-    kind: macro_declaration
-    pattern: $DECLARATION
-    has: {kind: simple_identifier, pattern: $NAME}
-transform:
-    HEADER: {replace: {source: $DECLARATION, replace: '\s*=[\s\S]*$', by: ''}}
-    UNTRAILED: {replace: {source: $HEADER, replace: ',(\s*\n\s*[)\]>])', by: '$1'}}
-    SIGNATURE: {replace: {source: $UNTRAILED, replace: '\s*\n\s*', by: ' '}}
-name: $NAME
-signature: $SIGNATURE
-isExported: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(public|open)$'}}}
+signature: $DECLARATION
 
 ---
 id: swift-macro-expansion
@@ -275,12 +284,19 @@ rule:
     kind: 'macro_invocation, diagnostic'
     pattern: $DECLARATION
     inside: {kind: source_file}
+    any:
+        - has: {kind: simple_identifier, pattern: $NAME}
+        - kind: diagnostic
+          pattern: $DIAGNOSTIC
+rewriters:
+    - id: body
+      rule: {kind: lambda_literal}
+      fix: '{ ... }'
 transform:
-    NAME: {replace: {source: $DECLARATION, replace: '^#(\w+)[\s\S]*$', by: '$1'}}
-    HEADER: {replace: {source: $DECLARATION, replace: '\s*\{[\s\S]*$', by: ''}}
-    UNTRAILED: {replace: {source: $HEADER, replace: ',(\s*\n\s*[)\]>])', by: '$1'}}
-    SIGNATURE: {replace: {source: $UNTRAILED, replace: '\s*\n\s*', by: ' '}}
-name: $NAME
+    DIAGNOSTIC_NAME: {replace: {source: $DIAGNOSTIC, replace: '^#([^\s(]+)[\s\S]*$', by: '$1'}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s+$', by: ''}}
+name: $NAME$DIAGNOSTIC_NAME
 signature: $SIGNATURE
 isExported: false
 
@@ -288,118 +304,212 @@ isExported: false
 id: swift-member-struct
 language: swiftlang
 role: member
-parentRuleIds: [swift-class, swift-struct, swift-enum, swift-actor, swift-extension]
+parentRuleIds: [swift-class, swift-struct, swift-enum, swift-object]
 symbolType: struct
 rule:
-    kind: class_declaration
+    kind: &declaration class_declaration
     pattern: $DECLARATION
+    inside: &scope {kind: 'source_file > :is(class_declaration, protocol_declaration) > :is(class_body, enum_class_body, protocol_body)'}
     all:
         - has: {field: declaration_kind, regex: '^struct$'}
         - has: {field: name, pattern: $NAME}
+rewriters:
+    - id: body
+      rule: {kind: class_body, inside: {kind: *declaration, inside: *scope}}
+      fix: ''
 transform:
-    HEADER: {replace: {source: $DECLARATION, replace: '\s*\{[\s\S]*$', by: ''}}
-    UNTRAILED: {replace: {source: $HEADER, replace: ',(\s*\n\s*[)\]>])', by: '$1'}}
-    LINE: {replace: {source: $UNTRAILED, replace: '\s*\n\s*', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: '(\()\s+|\s+(\))', by: '$1$2'}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s+$', by: ''}}
 name: $NAME
 signature: $SIGNATURE
-isPublic: {not: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)$'}}}}
+isPublic:
+    any:
+        - has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(public|open|package|internal)$'}}
+        - not:
+              any:
+                  - has: &private {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)$'}}
+                  - inside:
+                        kind: class_body
+                        inside:
+                            kind: class_declaration
+                            has:
+                                field: declaration_kind
+                                regex: '^extension$'
+                                follows: {all: [*private], stopBy: {pattern: $_, not: {kind: 'comment, multiline_comment'}}}
 
 ---
 id: swift-member-enum
 language: swiftlang
 role: member
-parentRuleIds: [swift-class, swift-struct, swift-enum, swift-actor, swift-extension]
+parentRuleIds: [swift-class, swift-struct, swift-enum, swift-object]
 symbolType: enum
 rule:
-    kind: class_declaration
+    kind: &declaration class_declaration
     pattern: $DECLARATION
+    inside: &scope {kind: 'source_file > :is(class_declaration, protocol_declaration) > :is(class_body, enum_class_body, protocol_body)'}
     all:
         - has: {field: declaration_kind, regex: '^enum$'}
         - has: {field: name, pattern: $NAME}
+rewriters:
+    - id: body
+      rule: {kind: enum_class_body, inside: {kind: *declaration, inside: *scope}}
+      fix: ''
 transform:
-    HEADER: {replace: {source: $DECLARATION, replace: '\s*\{[\s\S]*$', by: ''}}
-    UNTRAILED: {replace: {source: $HEADER, replace: ',(\s*\n\s*[)\]>])', by: '$1'}}
-    LINE: {replace: {source: $UNTRAILED, replace: '\s*\n\s*', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: '(\()\s+|\s+(\))', by: '$1$2'}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s+$', by: ''}}
 name: $NAME
 signature: $SIGNATURE
-isPublic: {not: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)$'}}}}
+isPublic:
+    any:
+        - has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(public|open|package|internal)$'}}
+        - not:
+              any:
+                  - has: &private {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)$'}}
+                  - inside:
+                        kind: class_body
+                        inside:
+                            kind: class_declaration
+                            has:
+                                field: declaration_kind
+                                regex: '^extension$'
+                                follows: {all: [*private], stopBy: {pattern: $_, not: {kind: 'comment, multiline_comment'}}}
 
 ---
 id: swift-member-class
 language: swiftlang
 role: member
-parentRuleIds: [swift-class, swift-struct, swift-enum, swift-actor, swift-extension]
+parentRuleIds: [swift-class, swift-struct, swift-enum, swift-object]
 symbolType: class
 rule:
-    kind: class_declaration
+    kind: &declaration class_declaration
     pattern: $DECLARATION
+    inside: &scope {kind: 'source_file > :is(class_declaration, protocol_declaration) > :is(class_body, enum_class_body, protocol_body)'}
     all:
         - has: {field: declaration_kind, regex: '^class$'}
         - has: {field: name, pattern: $NAME}
+rewriters:
+    - id: body
+      rule: {kind: class_body, inside: {kind: *declaration, inside: *scope}}
+      fix: ''
 transform:
-    HEADER: {replace: {source: $DECLARATION, replace: '\s*\{[\s\S]*$', by: ''}}
-    UNTRAILED: {replace: {source: $HEADER, replace: ',(\s*\n\s*[)\]>])', by: '$1'}}
-    LINE: {replace: {source: $UNTRAILED, replace: '\s*\n\s*', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: '(\()\s+|\s+(\))', by: '$1$2'}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s+$', by: ''}}
 name: $NAME
 signature: $SIGNATURE
-isPublic: {not: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)$'}}}}
+isPublic:
+    any:
+        - has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(public|open|package|internal)$'}}
+        - not:
+              any:
+                  - has: &private {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)$'}}
+                  - inside:
+                        kind: class_body
+                        inside:
+                            kind: class_declaration
+                            has:
+                                field: declaration_kind
+                                regex: '^extension$'
+                                follows: {all: [*private], stopBy: {pattern: $_, not: {kind: 'comment, multiline_comment'}}}
 
 ---
 id: swift-member-actor
 language: swiftlang
 role: member
-parentRuleIds: [swift-class, swift-struct, swift-enum, swift-actor, swift-extension]
+parentRuleIds: [swift-class, swift-struct, swift-enum, swift-object]
 symbolType: object
 rule:
-    kind: class_declaration
+    kind: &declaration class_declaration
     pattern: $DECLARATION
+    inside: &scope {kind: 'source_file > :is(class_declaration, protocol_declaration) > :is(class_body, enum_class_body, protocol_body)'}
     all:
         - has: {field: declaration_kind, regex: '^actor$'}
         - has: {field: name, pattern: $NAME}
+rewriters:
+    - id: body
+      rule: {kind: class_body, inside: {kind: *declaration, inside: *scope}}
+      fix: ''
 transform:
-    HEADER: {replace: {source: $DECLARATION, replace: '\s*\{[\s\S]*$', by: ''}}
-    UNTRAILED: {replace: {source: $HEADER, replace: ',(\s*\n\s*[)\]>])', by: '$1'}}
-    LINE: {replace: {source: $UNTRAILED, replace: '\s*\n\s*', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: '(\()\s+|\s+(\))', by: '$1$2'}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s+$', by: ''}}
 name: $NAME
 signature: $SIGNATURE
-isPublic: {not: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)$'}}}}
+isPublic:
+    any:
+        - has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(public|open|package|internal)$'}}
+        - not:
+              any:
+                  - has: &private {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)$'}}
+                  - inside:
+                        kind: class_body
+                        inside:
+                            kind: class_declaration
+                            has:
+                                field: declaration_kind
+                                regex: '^extension$'
+                                follows: {all: [*private], stopBy: {pattern: $_, not: {kind: 'comment, multiline_comment'}}}
 
 ---
 id: swift-member-protocol
 language: swiftlang
 role: member
-parentRuleIds: [swift-class, swift-struct, swift-enum, swift-actor, swift-extension]
+parentRuleIds: [swift-class, swift-struct, swift-enum, swift-object]
 symbolType: interface
 rule:
-    kind: protocol_declaration
+    kind: &declaration protocol_declaration
     pattern: $DECLARATION
+    inside: &scope {kind: 'source_file > :is(class_declaration, protocol_declaration) > :is(class_body, enum_class_body, protocol_body)'}
     has: {field: name, pattern: $NAME}
+rewriters:
+    - id: body
+      rule: {kind: protocol_body, inside: {kind: *declaration, inside: *scope}}
+      fix: ''
 transform:
-    HEADER: {replace: {source: $DECLARATION, replace: '\s*\{[\s\S]*$', by: ''}}
-    UNTRAILED: {replace: {source: $HEADER, replace: ',(\s*\n\s*[)\]>])', by: '$1'}}
-    LINE: {replace: {source: $UNTRAILED, replace: '\s*\n\s*', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: '(\()\s+|\s+(\))', by: '$1$2'}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s+$', by: ''}}
 name: $NAME
 signature: $SIGNATURE
-isPublic: {not: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)$'}}}}
+isPublic:
+    any:
+        - has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(public|open|package|internal)$'}}
+        - not:
+              any:
+                  - has: &private {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)$'}}
+                  - inside:
+                        kind: class_body
+                        inside:
+                            kind: class_declaration
+                            has:
+                                field: declaration_kind
+                                regex: '^extension$'
+                                follows: {all: [*private], stopBy: {pattern: $_, not: {kind: 'comment, multiline_comment'}}}
 
 ---
 id: swift-member-typealias
 language: swiftlang
 role: member
-parentRuleIds: [swift-class, swift-struct, swift-enum, swift-actor, swift-extension, swift-protocol]
+parentRuleIds: [swift-class, swift-struct, swift-enum, swift-object, swift-protocol]
 symbolType: struct
 rule:
     kind: typealias_declaration
     pattern: $DECLARATION
-    has: {kind: type_identifier, pattern: $NAME}
+    inside: {kind: 'source_file > :is(class_declaration, protocol_declaration) > :is(class_body, enum_class_body, protocol_body)'}
+    has: {field: name, pattern: $NAME}
 name: $NAME
 signature: $DECLARATION
-isPublic: {not: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)$'}}}}
+isPublic:
+    any:
+        - has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(public|open|package|internal)$'}}
+        - not:
+              any:
+                  - has: &private {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)$'}}
+                  - inside:
+                        kind: class_body
+                        inside:
+                            kind: class_declaration
+                            has:
+                                field: declaration_kind
+                                regex: '^extension$'
+                                follows: {all: [*private], stopBy: {pattern: $_, not: {kind: 'comment, multiline_comment'}}}
 
 ---
 id: swift-member-associatedtype
@@ -410,7 +520,8 @@ symbolType: typeParameter
 rule:
     kind: associatedtype_declaration
     pattern: $DECLARATION
-    has: {kind: type_identifier, pattern: $NAME}
+    inside: {kind: 'source_file > :is(class_declaration, protocol_declaration) > :is(class_body, enum_class_body, protocol_body)'}
+    has: {field: name, pattern: $NAME}
 name: $NAME
 signature: $DECLARATION
 
@@ -418,43 +529,93 @@ signature: $DECLARATION
 id: swift-member-property
 language: swiftlang
 role: member
-parentRuleIds: [swift-class, swift-struct, swift-enum, swift-actor, swift-extension]
+parentRuleIds: [swift-class, swift-struct, swift-enum, swift-object]
 symbolType: property
-utils:
-    hidden: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)$'}}
 rule:
-    any:
-        - kind: property_declaration
-          pattern: $DECLARATION
-          has: {field: name, kind: pattern, has: {field: bound_identifier, pattern: $NAME}}
-          not: {has: {kind: pattern, follows: {kind: pattern, stopBy: end}}}
-          any:
-            - has: {kind: computed_property, has: {kind: computed_setter, pattern: $SETTER}}
-            - has: {kind: computed_property, pattern: $GETTER, not: {has: {kind: computed_setter}}}
+    kind: &declaration property_declaration
+    pattern: $DECLARATION
+    inside: &scope {kind: 'source_file > class_declaration > :is(class_body, enum_class_body)'}
+    all:
+        - any:
+            - has: {field: name, kind: pattern, has: {field: bound_identifier, pattern: $SINGLE_NAME}}
+              not: {has: {kind: pattern, follows: {kind: pattern, stopBy: end}}}
+            - pattern: $GROUP_DECLARATION
+              has:
+                  kind: pattern
+                  any:
+                      - kind: &leaf 'pattern:not(:has(> pattern))'
+                        has: {kind: simple_identifier}
+                      - has: {kind: *leaf, has: {kind: simple_identifier}, stopBy: end}
+        - any:
+            - has: {kind: computed_property, pattern: $ACCESSOR_BODY, has: {kind: 'computed_getter, computed_setter, computed_modify, computed_init'}}
+            - has: {kind: computed_property, has: {pattern: $$IMPLICIT_TOKEN, regex: '^\{$'}, not: {has: {kind: 'computed_getter, computed_setter, computed_modify, computed_init'}}}
             - not: {has: {kind: computed_property}}
-        - kind: simple_identifier
-          pattern: $NAME
-          inside:
-            kind: pattern
-            any:
-                - inside: {kind: property_declaration, pattern: $BINDINGS}
-                - inside: {kind: pattern, inside: {kind: property_declaration, pattern: $BINDINGS}}
+rewriters:
+    - id: nonbinding
+      rule:
+          not: {kind: 'property_declaration, pattern'}
+      fix: ''
+    - id: binding
+      rule:
+          kind: *leaf
+          has: {kind: simple_identifier, pattern: $BINDING_NAME}
+      fix: '$BINDING_NAME, '
+    - id: body
+      rule:
+          kind: 'computed_property, willset_didset_block'
+          inside: {kind: *declaration, inside: *scope}
+      fix: ''
+    - id: initializer
+      rule:
+          all:
+              - not: {has: {pattern: $$_}}
+              - regex: '^=$'
+              - inside: {kind: *declaration, inside: *scope}
+      fix: {template: '', expandEnd: {not: {kind: 'comment, multiline_comment'}, stopBy: {not: {kind: 'comment, multiline_comment'}}}}
+    - id: accessor
+      rule:
+          kind: &accessor 'computed_getter, computed_setter, computed_modify, computed_init'
+          pattern: $ACCESSOR_DECLARATION
+          inside: {kind: computed_property, inside: {kind: *declaration, inside: *scope}}
+      transform:
+          ACCESSOR_HEADER: {rewrite: {source: $ACCESSOR_DECLARATION, rewriters: [accessor-body]}}
+          ACCESSOR_SIGNATURE: {replace: {source: $ACCESSOR_HEADER, replace: '\s+$', by: ''}}
+      fix: $ACCESSOR_SIGNATURE
+    - id: accessor-body
+      rule:
+          all:
+              - inside:
+                    kind: *accessor
+                    inside: {kind: computed_property, inside: {kind: *declaration, inside: *scope}}
+              - any:
+                  - kind: statements
+                  - regex: '^[{}]$'
+      fix: ''
 transform:
-    HEADER: {replace: {source: $DECLARATION, replace: '\s*(=|\{)[\s\S]*$', by: ''}}
-    UNTRAILED: {replace: {source: $HEADER, replace: ',(\s*\n\s*[)\]>])', by: '$1'}}
-    SIGNATURE: {replace: {source: $UNTRAILED, replace: '\s*\n\s*', by: ' '}}
-    GET: {replace: {source: $GETTER, replace: '(?s)^.*$', by: ' { get }'}}
-    SET: {replace: {source: $SETTER, replace: '(?s)^.*$', by: ' { get set }'}}
-    BINDINGS_HEADER: {replace: {source: $BINDINGS, replace: '\s*\{[\s\S]*$', by: ''}}
-    BINDINGS_UNTRAILED: {replace: {source: $BINDINGS_HEADER, replace: ',(\s*\n\s*[)\]>])', by: '$1'}}
-    BINDINGS_LINE: {replace: {source: $BINDINGS_UNTRAILED, replace: '\s*\n\s*', by: ' '}}
-name: $NAME
-signature: $SIGNATURE$GET$SET$BINDINGS_LINE
+    NAMES: {rewrite: {source: $GROUP_DECLARATION, rewriters: [nonbinding, binding], joinBy: ''}}
+    GROUP_NAME: {replace: {source: $NAMES, replace: ', $', by: ''}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, initializer]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s+$', by: ''}}
+    ACCESSORS: {rewrite: {source: $ACCESSOR_BODY, rewriters: [accessor], joinBy: ' '}}
+    COMPUTED: {replace: {source: $ACCESSORS, replace: '(?s)^(.+)$', by: ' { $1 }'}}
+    IMPLICIT: {replace: {source: $IMPLICIT_TOKEN, replace: '^\{$', by: ' { get }'}}
+name: $SINGLE_NAME$GROUP_NAME
+signature: $SIGNATURE$COMPUTED$IMPLICIT
 isPublic:
-    not:
-        any:
-            - has: {matches: hidden}
-            - inside: {kind: property_declaration, stopBy: end, has: {matches: hidden}}
+    any:
+        - has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(public|open|package|internal)$'}}
+        - not:
+              any:
+                  - has: &private {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)$'}}
+                  - inside:
+                        kind: class_body
+                        inside:
+                            kind: class_declaration
+                            has:
+                                field: declaration_kind
+                                regex: '^extension$'
+                                follows: {all: [*private], stopBy: {pattern: $_, not: {kind: 'comment, multiline_comment'}}}
+
 
 ---
 id: swift-member-protocol-property
@@ -465,6 +626,7 @@ symbolType: property
 rule:
     kind: protocol_property_declaration
     pattern: $DECLARATION
+    inside: {kind: 'source_file > :is(class_declaration, protocol_declaration) > :is(class_body, enum_class_body, protocol_body)'}
     has: {field: name, kind: pattern, has: {kind: simple_identifier, pattern: $NAME}}
 name: $NAME
 signature: $DECLARATION
@@ -476,90 +638,179 @@ role: member
 parentRuleIds: [swift-enum]
 symbolType: enumMember
 rule:
+    kind: enum_entry
+    pattern: $DECLARATION
+    inside: {kind: 'source_file > class_declaration > enum_class_body'}
     any:
-        - kind: enum_entry
-          pattern: $DECLARATION
-          has: {field: name, kind: simple_identifier, pattern: $NAME}
-          not: {has: {kind: simple_identifier, follows: {kind: simple_identifier, stopBy: end}}}
-        - kind: simple_identifier
-          pattern: $NAME
-          inside: {kind: enum_entry, pattern: $DECLARATION}
-name: $NAME
+        - has: {field: name, kind: simple_identifier, pattern: $SINGLE_NAME}
+          not: {has: {kind: simple_identifier, follows: {regex: '^,$', stopBy: {not: {kind: 'comment, multiline_comment'}}}}}
+        - pattern: $GROUP_DECLARATION
+rewriters:
+    - id: raw-value
+      rule:
+          all:
+              - not: {has: {pattern: $$_}}
+              - regex: '^=$'
+      fix: {template: '', expandEnd: {not: {kind: 'comment, multiline_comment'}, stopBy: {not: {kind: 'comment, multiline_comment'}}}}
+    - id: noncase
+      rule: {not: {kind: 'enum_entry, simple_identifier'}}
+      fix: ''
+    - id: case
+      rule:
+          kind: simple_identifier
+          pattern: $CASE_NAME
+      fix: '$CASE_NAME, '
+transform:
+    NAMES: {rewrite: {source: $GROUP_DECLARATION, rewriters: [raw-value, noncase, case], joinBy: ''}}
+    GROUP_NAME: {replace: {source: $NAMES, replace: ', $', by: ''}}
+name: $SINGLE_NAME$GROUP_NAME
 signature: $DECLARATION
 
 ---
 id: swift-member-method
 language: swiftlang
 role: member
-parentRuleIds: [swift-class, swift-struct, swift-enum, swift-actor, swift-extension, swift-protocol]
+parentRuleIds: [swift-class, swift-struct, swift-enum, swift-object, swift-protocol]
 symbolType: method
 rule:
-    kind: 'function_declaration, protocol_function_declaration'
+    kind: &declaration 'function_declaration, protocol_function_declaration'
     pattern: $DECLARATION
+    inside: &scope {kind: 'source_file > :is(class_declaration, protocol_declaration) > :is(class_body, enum_class_body, protocol_body)'}
     has: {field: name, pattern: $$NAME}
+rewriters:
+    - id: body
+      rule: {kind: function_body, inside: {kind: *declaration, inside: *scope}}
+      fix: ''
 transform:
-    HEADER: {replace: {source: $DECLARATION, replace: '\s*\{[\s\S]*$', by: ''}}
-    UNTRAILED: {replace: {source: $HEADER, replace: ',(\s*\n\s*[)\]>])', by: '$1'}}
-    LINE: {replace: {source: $UNTRAILED, replace: '\s*\n\s*', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: '(\()\s+|\s+(\))', by: '$1$2'}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s+$', by: ''}}
 name: $NAME
 signature: $SIGNATURE
-isPublic: {not: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)$'}}}}
+isPublic:
+    any:
+        - has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(public|open|package|internal)$'}}
+        - not:
+              any:
+                  - has: &private {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)$'}}
+                  - inside:
+                        kind: class_body
+                        inside:
+                            kind: class_declaration
+                            has:
+                                field: declaration_kind
+                                regex: '^extension$'
+                                follows: {all: [*private], stopBy: {pattern: $_, not: {kind: 'comment, multiline_comment'}}}
 
 ---
 id: swift-member-initializer
 language: swiftlang
 role: member
-parentRuleIds: [swift-class, swift-struct, swift-enum, swift-actor, swift-extension, swift-protocol]
+parentRuleIds: [swift-class, swift-struct, swift-enum, swift-object, swift-protocol]
 symbolType: constructor
 rule:
-    kind: init_declaration
+    kind: &declaration init_declaration
     pattern: $DECLARATION
-    has: {regex: '^init$', pattern: $$NAME}
+    inside: &scope {kind: 'source_file > :is(class_declaration, protocol_declaration) > :is(class_body, enum_class_body, protocol_body)'}
+rewriters:
+    - id: body
+      rule: {kind: function_body, inside: {kind: *declaration, inside: *scope}}
+      fix: ''
 transform:
-    HEADER: {replace: {source: $DECLARATION, replace: '\s*\{[\s\S]*$', by: ''}}
-    UNTRAILED: {replace: {source: $HEADER, replace: ',(\s*\n\s*[)\]>])', by: '$1'}}
-    LINE: {replace: {source: $UNTRAILED, replace: '\s*\n\s*', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: '(\()\s+|\s+(\))', by: '$1$2'}}
-name: $NAME
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s+$', by: ''}}
+name: init
 signature: $SIGNATURE
-isPublic: {not: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)$'}}}}
+isPublic:
+    any:
+        - has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(public|open|package|internal)$'}}
+        - not:
+              any:
+                  - has: &private {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)$'}}
+                  - inside:
+                        kind: class_body
+                        inside:
+                            kind: class_declaration
+                            has:
+                                field: declaration_kind
+                                regex: '^extension$'
+                                follows: {all: [*private], stopBy: {pattern: $_, not: {kind: 'comment, multiline_comment'}}}
 
 ---
 id: swift-member-deinitializer
 language: swiftlang
 role: member
-parentRuleIds: [swift-class, swift-struct, swift-enum, swift-actor]
+parentRuleIds: [swift-class, swift-struct, swift-enum, swift-object]
 symbolType: constructor
 rule:
-    kind: deinit_declaration
+    kind: &declaration deinit_declaration
     pattern: $DECLARATION
-    has: {regex: '^deinit$', pattern: $$NAME}
+    inside: &scope {kind: 'source_file > :is(class_declaration, protocol_declaration) > :is(class_body, enum_class_body, protocol_body)'}
+    not: {inside: {kind: class_body, inside: {kind: class_declaration, has: {field: declaration_kind, regex: '^extension$'}}}}
+rewriters:
+    - id: body
+      rule: {kind: function_body, inside: {kind: *declaration, inside: *scope}}
+      fix: ''
 transform:
-    SIGNATURE: {replace: {source: $DECLARATION, replace: '\s*\{[\s\S]*$', by: ''}}
-name: $NAME
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s+$', by: ''}}
+name: deinit
 signature: $SIGNATURE
 
 ---
 id: swift-member-subscript
 language: swiftlang
 role: member
-parentRuleIds: [swift-class, swift-struct, swift-enum, swift-actor, swift-extension, swift-protocol]
+parentRuleIds: [swift-class, swift-struct, swift-enum, swift-object, swift-protocol]
 symbolType: method
 rule:
-    kind: subscript_declaration
+    kind: &declaration subscript_declaration
     pattern: $DECLARATION
+    inside: &scope {kind: 'source_file > :is(class_declaration, protocol_declaration) > :is(class_body, enum_class_body, protocol_body)'}
     any:
-        - has: {stopBy: end, kind: setter_specifier, pattern: $SETTER}
-        - pattern: $GETTER
-          not: {has: {stopBy: end, kind: setter_specifier}}
+        - has: {kind: computed_property, pattern: $ACCESSOR_BODY, has: {kind: 'computed_getter, computed_setter, computed_modify, computed_init'}}
+        - has: {kind: computed_property, has: {pattern: $$IMPLICIT_TOKEN, regex: '^\{$'}, not: {has: {kind: 'computed_getter, computed_setter, computed_modify, computed_init'}}}
+rewriters:
+    - id: body
+      rule: {kind: computed_property, inside: {kind: *declaration, inside: *scope}}
+      fix: ''
+    - id: accessor
+      rule:
+          kind: &accessor 'computed_getter, computed_setter, computed_modify, computed_init'
+          pattern: $ACCESSOR_DECLARATION
+          inside: {kind: computed_property, inside: {kind: *declaration, inside: *scope}}
+      transform:
+          ACCESSOR_HEADER: {rewrite: {source: $ACCESSOR_DECLARATION, rewriters: [accessor-body]}}
+          ACCESSOR_SIGNATURE: {replace: {source: $ACCESSOR_HEADER, replace: '\s+$', by: ''}}
+      fix: $ACCESSOR_SIGNATURE
+    - id: accessor-body
+      rule:
+          all:
+              - inside:
+                    kind: *accessor
+                    inside: {kind: computed_property, inside: {kind: *declaration, inside: *scope}}
+              - any:
+                  - kind: statements
+                  - regex: '^[{}]$'
+      fix: ''
 transform:
-    HEADER: {replace: {source: $DECLARATION, replace: '\s*\{[\s\S]*$', by: ''}}
-    UNTRAILED: {replace: {source: $HEADER, replace: ',(\s*\n\s*[)\]>])', by: '$1'}}
-    LINE: {replace: {source: $UNTRAILED, replace: '\s*\n\s*', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: '(\()\s+|\s+(\))', by: '$1$2'}}
-    GET: {replace: {source: $GETTER, replace: '(?s)^.*$', by: ' { get }'}}
-    SET: {replace: {source: $SETTER, replace: '(?s)^.*$', by: ' { get set }'}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s+$', by: ''}}
+    ACCESSORS: {rewrite: {source: $ACCESSOR_BODY, rewriters: [accessor], joinBy: ' '}}
+    COMPUTED: {replace: {source: $ACCESSORS, replace: '(?s)^(.+)$', by: ' { $1 }'}}
+    IMPLICIT: {replace: {source: $IMPLICIT_TOKEN, replace: '^\{$', by: ' { get }'}}
 name: subscript
-signature: $SIGNATURE$GET$SET
-isPublic: {not: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)$'}}}}
+signature: $SIGNATURE$COMPUTED$IMPLICIT
+isPublic:
+    any:
+        - has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(public|open|package|internal)$'}}
+        - not:
+              any:
+                  - has: &private {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)$'}}
+                  - inside:
+                        kind: class_body
+                        inside:
+                            kind: class_declaration
+                            has:
+                                field: declaration_kind
+                                regex: '^extension$'
+                                follows: {all: [*private], stopBy: {pattern: $_, not: {kind: 'comment, multiline_comment'}}}

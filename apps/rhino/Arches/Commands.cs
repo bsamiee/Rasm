@@ -21,21 +21,21 @@ internal abstract partial record ArchStage {
 
     public sealed record Rising(PlainArch Arch, ArchSpan Span) : ArchStage {
         public Fin<Point3d> Apex(double height, Tolerances tolerances) =>
-            from admitted in Admitted(tolerances)
-            let least = admitted.T0 * Span.Baseline.Length
-            let most = admitted.T1 * Span.Baseline.Length
-            from plain in ArchFault.Unless(admitted.IncludesParameter(double.Abs(height) / Span.Baseline.Length), ArchReason.RiseOutside, (height, least, most))
+            from ratios in AllowedRatios(tolerances)
+            let least = ratios.T0 * Span.Baseline.Length
+            let most = ratios.T1 * Span.Baseline.Length
+            from plain in ArchFault.Unless(ratios.IncludesParameter(double.Abs(height) / Span.Baseline.Length), ArchReason.RiseOutside, (height, least, most))
             select Span.Apex(height);
 
         public Fin<Point3d> Nearest(Point3d cursor, Tolerances tolerances) =>
             Span.Height(cursor) switch {
-                var height => Admitted(tolerances).Map(admitted => Span.Apex(double.CopySign(double.Clamp(double.Abs(height) / Span.Baseline.Length, admitted.T0, admitted.T1), height) * Span.Baseline.Length)),
+                var height => AllowedRatios(tolerances).Map(ratios => Span.Apex(double.CopySign(double.Clamp(double.Abs(height) / Span.Baseline.Length, ratios.T0, ratios.T1), height) * Span.Baseline.Length)),
             };
 
-        private Fin<Interval> Admitted(Tolerances tolerances) =>
+        private Fin<Interval> AllowedRatios(Tolerances tolerances) =>
             (tolerances.Absolute / Span.Baseline.Length) switch {
                 var margin => new Interval(Arch.Ratios.T0 + margin, Arch.Ratios.T1 - margin) switch {
-                    var admitted => ArchFault.Unless(admitted.IsIncreasing, ArchReason.SpanNarrow, (length: Span.Baseline.Length, Arch.Ratios)).Map(_ => admitted),
+                    var ratios => ArchFault.Unless(ratios.IsIncreasing, ArchReason.SpanNarrow, (length: Span.Baseline.Length, Arch.Ratios)).Map(_ => ratios),
                 },
             };
     }
@@ -73,9 +73,9 @@ internal static class ArchPrompts {
                         plain: static (_, _) => Seq<OptionSpec<StageStep<ArchStage, Unit>>>(),
                         foiled: static (held, foiled) => Seq(Toggle(held.Kit, "Shape", new LabelPair("Rounded", "Pointed"), foiled.Pointed, pointed => held.End with { Choice = foiled with { Pointed = pointed } }))
                             + (toSeq(foiled.Arch.Lobes) switch {
-                                var admitted when admitted.Tail.IsEmpty => Seq<OptionSpec<StageStep<ArchStage, Unit>>>(),
-                                var admitted => Seq(OptionSpecs.Of(OptionType.Integer(admitted.Head, admitted.Last), foiled.Lobes, lobes =>
-                                    ArchFault.Unless(admitted.Exists(count => count == lobes), ArchReason.LobesOutside, lobes).Match(
+                                var counts when counts.Tail.IsEmpty => Seq<OptionSpec<StageStep<ArchStage, Unit>>>(),
+                                var counts => Seq(OptionSpecs.Of(OptionType.Integer(counts.Head, counts.Last), foiled.Lobes, lobes =>
+                                    ArchFault.Unless(counts.Exists(count => count == lobes), ArchReason.LobesOutside, lobes).Match(
                                         Succ: _ => held.Kit.Replace(held.End with { Choice = foiled with { Lobes = lobes } }),
                                         Fail: held.Kit.Retry))),
                             })),
@@ -121,7 +121,7 @@ internal static class ArchPrompts {
 
     // --- [FEEDBACK]
     private static IO<Unit> Drawn(DisplayPipeline display, ArchSpan span, Option<IO<Seq<Curve>>> build) =>
-        (from curves in build.Traverse(static held => held).As().Catch(Getters.Retried, static _ => IO.pure(Option<Seq<Curve>>.None))
+        (from curves in build.Traverse(static held => held).As() | @catch(Getters.Retried, static _ => IO.pure(Option<Seq<Curve>>.None))
          from drawn in IO.lift(() => {
              Ends(display, span.Baseline);
              display.DrawDottedLine(span.Apex(-span.Baseline.Length), span.Apex(span.Baseline.Length), AppearanceSettings.TrackingColor);

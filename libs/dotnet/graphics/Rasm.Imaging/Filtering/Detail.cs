@@ -132,8 +132,9 @@ public static class GrainNoise {
                 for (int lane = 0; lane < 4; lane++) {
                     CvInvoke.ExtractChannel(mixed, channel, lane);
                     TensorPrimitives.ConvertChecked(channel.GetSpan<float>(), values);
-                    ReadOnlySpan<float> probits = [.. values.Ranks(RankDefinition.Min).Zip(ArrayStatistics.RanksInplace(values, RankDefinition.Max), (low, high) => (float)Normal.InvCDF(0d, 1d, (low + high - 1d) / (2d * pixels)))];
-                    probits.CopyTo(lanes.GetColumn(lane));
+                    double[] ranks = ArrayStatistics.RanksInplace(values, RankDefinition.Average);
+                    for (int pixel = 0; pixel < pixels; pixel++)
+                        lanes[pixel, lane] = (float)Normal.InvCDF(0d, 1d, (ranks[pixel] - 0.5d) / pixels);
                 }
                 return scores.AsMemory().AsMemory2D((int)height, (int)width);
             }).Run();

@@ -54,6 +54,7 @@ Stub declarations runtime contradicts take one form each. Suppressions hold `# t
 Never-null members the stubs type optional:
 - `Context.preferences` and `window_manager`, `Scene.view_settings` and `display_settings`, `ViewLayer.active_layer_collection`
 - `Depsgraph.scene` and `view_layer`, `AssetRepresentation.metadata`
+- `Context.evaluated_depsgraph_get()` after successful native evaluation
 - `NodeTree.interface`, concrete node classes' `inputs` and `outputs`, `NodeLink` endpoints, `NodeSocket.links` (empty tuple when unlinked)
 - `id_data` on structs an ID owns, `ID.original`, `DepsgraphUpdate.id`
 - `KeyMapItem.active`, `keyconfigs.user` and `addon` in background runs included
@@ -68,7 +69,7 @@ Optionals stubs declare and runtime returns narrow once at read with no suppress
 - Every `Context` window member in `depsgraph_update_post`, whose body reads its `scene` and `depsgraph` parameters
 - `depsgraph_update_post` context holding last window and any area an editor refresh left in event loop calls, and no window or screen on window close
 - `Context.window` and `screen` under `temp_override(window=<window>)` once `wm.window_close` closes that window
-- `ViewLayer.depsgraph` until that layer evaluates, `evaluated_depsgraph_get()` under `temp_override(view_layer=<layer>)` evaluating another layer
+- `ViewLayer.depsgraph` before native graph creation
 - `id_data` on `Preferences` and its member structs, outside every ID
 - `KeyMapItem.properties` on a modal keymap's items
 - `ID.copy()` on a `WindowManager` and `modifiers.new` on an object type its modifier kind rejects, each returning `None` with no raise

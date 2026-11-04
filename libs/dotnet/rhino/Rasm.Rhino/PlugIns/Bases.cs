@@ -39,7 +39,7 @@ internal static class FileFormats {
             (from format in IO.lift(() => Conversions.Required(toSeq(formats).At(index), index))
              from ran in format.Run(path, doc, options)
              select done)
-                .Catch(static error => error.Is(Errors.Cancelled), _ => IO.pure(cancelled)),
+                | @catch(static error => error.Is(Errors.Cancelled), _ => IO.pure(cancelled)),
             failed);
 
     // --- [OPTIONS]
@@ -48,12 +48,12 @@ internal static class FileFormats {
             (from dialog in IO.lift(() => toSeq(formats)
                  .Find(format =>
                      string.Equals(LocalText.Of(format.Description).Local, description, StringComparison.Ordinal)
-                     && string.Equals(((string)format.Extensions.Head)[1..], extension, StringComparison.Ordinal))
+                     && format.Extensions.Any(candidate => string.Equals(((string)candidate)[1..], extension, StringComparison.Ordinal)))
                  .Bind(static format => format.Options)
-                 .ToFin(new RhinoFault($"{description} {extension}", RhinoReason.Missing)))
+                 .ToFin(new RhinoFault((description, extension), RhinoReason.Missing)))
              from shown in Documents.With(new DocumentSource.Active(), document => Showing.ShowSemiModal(dialog, document))
              select unit)
-                .Catch(static error => error.Is(Errors.Cancelled), static _ => IO.pure(unit)));
+                | @catch(static error => error.Is(Errors.Cancelled), static _ => IO.pure(unit)));
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

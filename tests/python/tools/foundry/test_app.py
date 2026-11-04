@@ -1,28 +1,83 @@
-"""Help, refused declarations, and fault exits of the foundry app."""
+"""CLI binding, help, independent input faults, and JSON line output."""
 
+from datetime import timedelta
 from pathlib import Path
 
+from cyclopts.exceptions import CycloptsError
+from expression import Result
+import msgspec
 import pytest
+import sysexits
 
 from tools.foundry.app import app, exited
-from typography.builds.pipeline import Action
+from typography.builds.pipeline import Action, Report
+from typography.faces.faults import Error, Fault, Ok, Reason
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def test_help_lists_every_action(capsys: pytest.CaptureFixture[str]) -> None:
-    """Root help names each action the one command takes."""
-    app(["--help"], result_action="return_value", exit_on_error=False)
-    out = capsys.readouterr().out
-    assert all(action in out for action in Action)
+def test_help_lists_actions_and_exits_successfully(capsys: pytest.CaptureFixture[str]) -> None:
+    """Native help exposes every action without writing error output."""
+    assert exited(app(["--help"], result_action="return_value", exit_on_error=False)) == 0
+    captured = capsys.readouterr()
+    assert all(action in captured.out for action in Action)
+    assert not captured.err
 
 
-@pytest.mark.parametrize("text, status", [('name = ""\ncorpus = "corpus.toml"\noutput = "build"\nfamilies = []\n', 65), ("", 66)])
-def test_refused_declaration_exits_with_its_reason(text: str, status: int, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    """Invalid or missing declaration exits with its reason's status and one line naming it on stderr."""
+def test_optional_positionals_and_options_bind_the_same_typed_call(tmp_path: Path) -> None:
+    """Publication supports both CLI forms without a forwarding command layer."""
+    declaration, destination = tmp_path / "set.toml", tmp_path / "published"
+    _, positional, _ = app.parse_args(["publish", str(declaration), "Test", str(destination)])
+    _, options, _ = app.parse_args(["publish", str(declaration), "--name", "Test", "--destination", str(destination)])
+    assert positional.args == options.args == (Action.PUBLISH, declaration, "Test", destination)
+    with pytest.raises(CycloptsError):
+        app(["unknown-action", str(declaration)], result_action="return_value", exit_on_error=False, print_error=False)
+
+
+@pytest.mark.parametrize("text,status", [('name=""\ncorpus="x"\noutput="build"\nfamilies=[]\n', sysexits.EX_DATAERR), (None, sysexits.EX_NOINPUT)])
+def test_declared_input_failures_keep_their_cli_status(text: str | None, status: int, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """Malformed declarations and missing files produce one path-specific error with the required exit code."""
     declaration = tmp_path / "set.toml"
-    if text:
-        declaration.write_text(text)
-    code = exited(app(["build", str(declaration)], result_action="return_value", exit_on_error=False))
-    err = capsys.readouterr().err
-    assert (code, err.startswith(str(declaration)), err.count("\n")) == (status, True, 1)
+    if text is not None:
+        declaration.write_text(text, encoding="utf-8")
+    assert exited(app(["build", str(declaration)], result_action="return_value", exit_on_error=False)) == status
+    captured = capsys.readouterr()
+    assert not captured.out
+    assert captured.err.startswith(str(declaration))
+    assert captured.err.count("\n") == 1
+
+
+def test_independent_corpus_and_selection_failures_accumulate(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """A missing corpus does not hide an unknown family selection."""
+    declaration = tmp_path / "set.toml"
+    declaration.write_text(
+        'name="Set"\ncorpus="missing.toml"\noutput="build"\n[[families]]\nname="Test"\noriginal="original"\ngenre={kind="kufi"}\n[[families.faces]]\nstyle="Regular"\noriginal="Test.ttf"\n',
+        encoding="utf-8",
+    )
+    outcome = app(["build", str(declaration), "Missing"], result_action="return_value", exit_on_error=False)
+    match outcome:
+        case Result(error=faults):
+            assert tuple(fault.reason for fault in faults) == (Reason.UNREADABLE, Reason.ABSENT)
+        case other:
+            pytest.fail(str(other))
+    assert exited(outcome) == sysexits.EX_NOINPUT
+    assert capsys.readouterr().err.count("\n") == 2
+
+
+def test_result_action_writes_one_json_line_per_face(capsys: pytest.CaptureFixture[str]) -> None:
+    """Report batching retains one independently decodable record per face."""
+    reports = (Report(face="First", duration=timedelta(microseconds=1)), Report(face="Second", duration=timedelta(milliseconds=2), findings=3))
+    assert exited(Ok(reports)) == 0
+    captured = capsys.readouterr()
+    assert not captured.err
+    assert msgspec.json.Decoder(Report).decode_lines(captured.out) == list(reports)
+
+
+def test_result_action_deduplicates_faults_and_keeps_first_reason_status(capsys: pytest.CaptureFixture[str]) -> None:
+    """Repeated faults print once while the first reason determines the process exit."""
+    first = Fault(reason=Reason.UNREADABLE, subject="font", cause="missing")
+    second = Fault(reason=Reason.FAILED, subject="compile", cause="rejected")
+    assert exited(Error((first, second, first))) == sysexits.EX_NOINPUT
+    captured = capsys.readouterr()
+    assert not captured.out
+    assert captured.err.splitlines() == [first.message, second.message]

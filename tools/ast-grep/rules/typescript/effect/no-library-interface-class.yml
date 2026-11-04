@@ -1,13 +1,13 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-library-interface-class
-language: tsx
+language: tsxlang
 severity: error
 utils:
     library-interface:
         kind: nested_type_identifier
         all:
-            - has: {field: module, matches: {effect-module: {name: {regex: '\b[A-Z]\w*$'}}}}
             - not: {has: {field: name, regex: '^(Equal|Hash|Inspectable|Pipeable|Redactable)$'}}
+            - has: {field: module, matches: {effect-module: {name: {regex: '\b[A-Z]\w*$'}}}}
 rule:
     kind: class_declaration, abstract_class_declaration, class
     all:

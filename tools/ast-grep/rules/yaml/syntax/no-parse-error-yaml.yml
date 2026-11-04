@@ -10,7 +10,9 @@ rule:
         - kind: ERROR
           not: {matches: unreported}
         - kind: stream
-          has: {stopBy: end, pattern: $$MISSING, regex: '^$', not: {matches: unreported}}
+          has:
+            stopBy: end
+            all: [{regex: '^$'}, {pattern: $$MISSING}, {not: {matches: unreported}}]
 labels:
     MISSING: {style: primary, message: Token the grammar inserted to recover}
 message: Grammar failed to parse the span

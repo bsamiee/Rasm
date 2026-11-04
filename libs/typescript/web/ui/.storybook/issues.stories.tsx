@@ -1,7 +1,7 @@
 import { Option, Result, Schema, SchemaParser } from 'effect';
 import { fn } from 'storybook/test';
 import preview from '#/.storybook/preview';
-import { Issues } from '#/form/issues';
+import { Issues } from '#/issues';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

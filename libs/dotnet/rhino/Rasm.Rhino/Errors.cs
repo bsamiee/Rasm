@@ -27,16 +27,19 @@ public sealed partial class RhinoReason {
     public string Message { get; }
 }
 
-public sealed record RhinoFault(string Subject, RhinoReason Reason, Option<int> Index = default, Option<Error> Inner = default)
-    : Expected(
-        Index.Match(
-            at => string.Create(CultureInfo.InvariantCulture, $"{Reason.Message}: {Subject} at index {at}"),
-            () => $"{Reason.Message}: {Subject}"),
-        0,
-        Inner),
+public sealed record RhinoFault(object Subject, RhinoReason Reason, Option<int> Index = default, Option<Error> Inner = default)
+    : Expected(Reason.Message, 0, Inner),
     IValidationError<RhinoFault> {
+    public object Subject { get; } = Subject;
+
+    public RhinoReason Reason { get; } = Reason;
+
+    public override string Message => Index.Match(
+        at => string.Create(CultureInfo.InvariantCulture, $"{Reason.Message}: {Subject} at index {at}"),
+        () => string.Create(CultureInfo.InvariantCulture, $"{Reason.Message}: {Subject}"));
+
     public static RhinoFault Create(string message) => new(message, RhinoReason.Stated);
 
     public static Fin<Unit> Unless<T>(bool flag, RhinoReason reason, T rejected, Option<int> index = default, [CallerArgumentExpression(nameof(rejected))] string names = "") =>
-        flag ? unit : new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"{names} = {rejected}"), reason, index);
+        flag ? unit : new RhinoFault((names, rejected), reason, index);
 }

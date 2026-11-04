@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-partitioned-result-branch
-language: rust
+language: rustlang
 severity: error
 utils:
     partitioned:
@@ -76,4 +76,4 @@ rule:
                 - has: {stopBy: end, matches: rollback}
                 - inside: {stopBy: {kind: 'if_expression, match_expression, block'}, kind: 'if_expression, match_expression', has: {stopBy: end, matches: rollback}}
 message: '`$SITE` selects `Ok` or `Err` by testing `$ERRORS` from a partition for emptiness'
-note: 'Call `<iterator>.collect::<validated::Validated<Vec<_>, _>>().ok()` for a `Result<Vec<T>, NEVec<E>>` holding every error, keeping the partition where the error branch reads the `Ok` values'
+note: 'Collect into `validated::Validated` and call `ok()`, keeping partitions whose failure branches consume successes'

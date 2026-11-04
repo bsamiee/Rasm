@@ -48,14 +48,9 @@ public static class SolidTopology {
 
     // --- [SPLITS]
     public static IO<Seq<Grouped<Brep, ComponentIndex>>> SplitDisjointPieces(Brep brep) =>
-        from answered in IO.lift(() => (Pieces: Brep.SplitDisjointPieces(brep, out List<int[]> map), Map: map))
-        from pieces in Products.Many(() => answered.Pieces, member: nameof(Brep.SplitDisjointPieces))
-        from grouped in IO.lift(() =>
-            from map in Conversions.Required(answered.Map)
-            from matched in RhinoFault.Unless(map.Count == pieces.Count, RhinoReason.Mismatched, map.Count)
-            select pieces.Zip(toSeq(map), static (piece, faces) =>
-                new Grouped<Brep, ComponentIndex>(piece, toSeq(faces).Map(static face => new ComponentIndex(ComponentIndexType.BrepFace, face)).Strict())).Strict())
-        select grouped;
+        from answered in Products.Many(() => (Brep.SplitDisjointPieces(brep, out List<int[]> map), map))
+        select answered.Values.Zip(toSeq(answered.Out), static (piece, faces) =>
+            new Grouped<Brep, ComponentIndex>(piece, toSeq(faces).Map(static face => new ComponentIndex(ComponentIndexType.BrepFace, face)).Strict())).Strict();
 
     public static IO<(Seq<Brep> Pieces, Option<bool> ToleranceWasRaised)> Split(Tolerances tolerances, Brep brep, BrepCut cut) =>
         cut.Switch(

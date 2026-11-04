@@ -3,9 +3,14 @@
         <Description>Geometry as pure mathematics, independent of any CAD host</Description>
     </PropertyGroup>
 
+    <ItemGroup Label="Core">
+        <PackageReference Include="CommunityToolkit.HighPerformance" />
+    </ItemGroup>
+
     <ItemGroup Label="Mathematics">
         <PackageReference Include="HyperJet" PrivateAssets="contentfiles;analyzers;build;buildtransitive" />
         <PackageReference Include="MathNet.Numerics" />
+        <PackageReference Include="System.Numerics.Tensors" />
     </ItemGroup>
 
     <ItemGroup Label="Algorithms and Data Structures">

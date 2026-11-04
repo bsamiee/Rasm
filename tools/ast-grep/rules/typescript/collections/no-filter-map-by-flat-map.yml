@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-filter-map-by-flat-map
-language: tsx
+language: tsxlang
 severity: error
 ignores: ['plugins/function-hooks/**']
 utils:
@@ -38,4 +38,4 @@ rule:
             - has: {field: function, has: {field: object, not: {matches: {effect-module: {name: {regex: '\b[A-Z]\w*$'}}}}}}
         - has: {field: arguments, has: {nthChild: {position: 1, reverse: true}, matches: selecting-callback}}
 message: '`$CALLEE` keeps one element or none per input'
-note: 'Call `Array.filterMap` with a filter returning `Result.succeed(<value>)` or `Result.failVoid`, `Array.filter` to keep the element, `Array.getSomes` over options'
+note: 'Call `Array.filterMap` with a `Result` filter, `Array.filter` to retain inputs, or `Array.getSomes` for options'

@@ -1,13 +1,16 @@
 use core::{iter, marker::PhantomData};
 use std::collections::BTreeSet;
 
+use itertools::Either;
 use petgraph::{
     Direction,
+    acyclic::Acyclic,
+    algo::Cycle,
     stable_graph::{NodeIndex, StableDiGraph},
     visit::{Dfs, NodeIndexable as _, Reversed, VisitMap as _, Visitable, Walker as _},
 };
 
-use crate::{DependencyError, Evaluation, acyclic, at, dense, entries, present};
+use crate::{DependencyError, Evaluation, at, dense, entries, present};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -53,9 +56,7 @@ impl<'id, N, E> Propagation<'_, 'id, N, E> {
         self.advance(released)
     }
 
-    pub fn outstanding(&self) -> impl Iterator<Item = (NodeIndex, Outcome)> {
-        entries(&self.pending).map(|(node, &Pending { inputs: _, received })| (node, received))
-    }
+    pub fn outstanding(&self) -> impl Iterator<Item = (NodeIndex, Outcome)> { entries(&self.pending).map(|(node, &Pending { inputs: _, received })| (node, received)) }
 
     pub fn dirty(&self) -> impl Iterator<Item = NodeIndex> { self.dirty.iter().copied() }
 
@@ -95,11 +96,11 @@ impl<'id, N, E> Propagation<'_, 'id, N, E> {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub fn reach<N, E>(evaluation: &Evaluation<N, E>, nodes: impl IntoIterator<Item = NodeIndex>, direction: Direction) -> Result<Evaluation<&N, &E>, DependencyError> {
+pub fn reach<N, E>(evaluation: &Evaluation<N, E>, nodes: impl IntoIterator<Item = NodeIndex>, direction: Direction) -> Result<Evaluation<&N, &E>, Either<DependencyError, Cycle<NodeIndex>>> {
     let nodes = nodes.into_iter().collect::<Vec<_>>();
-    present(evaluation, nodes.iter().copied())?;
+    present(evaluation, nodes.iter().copied()).map_err(Either::Left)?;
     let discovered = walk(evaluation, nodes, direction);
-    Ok(acyclic(evaluation.filter_map(|node, weight| discovered.is_visited(&node).then_some(weight), |_, weight| Some(weight))))
+    Acyclic::try_from(evaluation.filter_map(|node, weight| discovered.is_visited(&node).then_some(weight), |_, weight| Some(weight))).map_err(Either::Right)
 }
 
 pub fn propagate<'graph, N, E, R>(

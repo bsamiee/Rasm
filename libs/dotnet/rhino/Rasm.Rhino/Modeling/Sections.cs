@@ -16,7 +16,7 @@ public abstract partial record SectionSubject {
 
         public static Fin<SectionSubject> Of(GeometryBase geometry) =>
             geometry is InstanceReferenceGeometry or PointCloud
-                ? new RhinoFault(geometry.ObjectType.ToString(), RhinoReason.Mismatched)
+                ? new RhinoFault(geometry.ObjectType, RhinoReason.Mismatched)
                 : new Shape(geometry);
     }
 
@@ -74,7 +74,7 @@ public static class Sections {
             lifted.Vertices.SetVertex(vertex, field.Mesh.TextureCoordinates[vertex].X, field.Mesh.TextureCoordinates[vertex].Y, value), RhinoReason.Declined, value, vertex)))
         from normals in IO.lift(lifted.RebuildNormals)
         from cache in use(static () => new MeshIntersectionCache())
-        from sections in levels.Map(static (level, index) => (Level: level, Index: index)).TraverseM(row => Level(tolerances, field.Mesh, lifted, cache, row.Level, row.Index)).As()
+        from sections in Products.Each(levels.Map((level, index) => Level(tolerances, field.Mesh, lifted, cache, level, index)))
         select sections;
 
     private static IO<(double Level, Seq<Curve> Curves)> Level(Tolerances tolerances, Mesh source, Mesh lifted, MeshIntersectionCache cache, double level, int index) =>

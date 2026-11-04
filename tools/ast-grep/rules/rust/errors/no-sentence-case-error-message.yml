@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-sentence-case-error-message
-language: rust
+language: rustlang
 severity: error
 rule:
     kind: string_literal
@@ -8,15 +8,10 @@ rule:
     nthChild: 1
     any:
         - regex: '[.!?;:,]"$'
-          pattern: $PUNCTUATED
         - regex: '^"[A-Z][a-z]*\b'
           not: {regex: '^"[A-Z][a-z]*[A-Z0-9]'}
-          pattern: $KEPT
     inside:
         kind: token_tree
         inside: {kind: attribute, field: arguments, has: {nthChild: 1, kind: identifier, regex: '^error$'}, inside: {kind: attribute_item}}
-transform:
-    STRIPPED: {replace: {source: $PUNCTUATED, replace: '[.!?;:,]+"$', by: '"'}}
-fix: $STRIPPED$KEPT
 message: '`#[error($MESSAGE)]` opens with a capital or closes with punctuation'
 note: 'Open with a lowercase word ahead of any proper noun or backticked code name, and delete trailing punctuation'

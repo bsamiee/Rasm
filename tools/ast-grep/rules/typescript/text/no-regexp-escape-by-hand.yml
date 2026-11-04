@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-regexp-escape-by-hand
-language: tsx
+language: tsxlang
 severity: error
 ignores:
     - libs/typescript/creative-cloud/indesign/**
@@ -83,11 +83,9 @@ rule:
                 - has: {nthChild: 1, matches: escaped-pattern}
         - any:
             - has: {field: function, has: {field: object, matches: {effect-module: {name: {regex: '\bString$'}}}}}
-            - has: {field: function, not: {has: {kind: optional_chain}}, has: {field: object, pattern: $TEXT}}
+            - has: {field: function, not: {has: {kind: optional_chain}}, has: {field: object, pattern: $_}}
     not: {inside: {kind: program, stopBy: end, matches: extendscript-file}}
 transform:
-    ARGUMENT: {replace: {source: $TEXT, replace: '(?s)^(.+)$', by: '($1)'}}
     HEAD: {replace: {source: $CALL, replace: '(?s)^([^(]+)\(.*$', by: '$1'}}
-fix: RegExp.escape$ARGUMENT
 message: '`$HEAD` escapes regular expression syntax characters by hand'
 note: 'Call `RegExp.escape(<text>)`'

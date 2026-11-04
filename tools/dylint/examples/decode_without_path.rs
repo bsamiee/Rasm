@@ -1,6 +1,6 @@
 use core::hint::black_box;
 
-use serde::{Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, de::value};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -14,6 +14,20 @@ struct Port {
 enum Reply {
     Port(Port),
     Number(u16),
+}
+
+#[derive(Deserialize)]
+enum Keyword {
+    #[serde(rename = "READY")]
+    Ready,
+    #[serde(rename = "DONE", alias = "FINISHED")]
+    Done,
+}
+
+#[derive(Deserialize)]
+enum Delegated {
+    #[serde(deserialize_with = "unit")]
+    Unit,
 }
 
 struct Wrapped(Port);
@@ -39,6 +53,21 @@ fn tracked(text: &str) -> Result<Wrapped, serde_path_to_error::Error<serde_json:
 
 fn dynamic(bytes: &[u8]) -> Result<serde_json::Value, serde_json::Error> { serde_json::Value::deserialize(&mut serde_json::Deserializer::from_slice(bytes)) }
 
+fn manually_tracked(text: &str) -> Result<Port, serde_json::Error> {
+    let mut track = serde_path_to_error::Track::new();
+    Port::deserialize(serde_path_to_error::Deserializer::new(&mut serde_json::Deserializer::from_str(text), &mut track))
+}
+
+fn keyword(text: &str) -> Result<Keyword, value::Error> { Keyword::deserialize(value::StrDeserializer::new(text)) }
+
+fn keyword_json(text: &str) -> Result<Keyword, serde_json::Error> { Keyword::deserialize(&mut serde_json::Deserializer::from_str(text)) }
+
+fn scalar_record(text: &str) -> Result<Port, value::Error> { Port::deserialize(value::StrDeserializer::new(text)) }
+
+fn unit<'de, D: Deserializer<'de>>(deserializer: D) -> Result<(), D::Error> { <()>::deserialize(deserializer) }
+
+fn custom_unit(text: &str) -> Result<Delegated, value::Error> { Delegated::deserialize(value::StrDeserializer::new(text)) }
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 fn main() {
@@ -53,5 +82,12 @@ fn main() {
         tracked("{}").map(|Wrapped(port)| read(port)),
         text(&serde_json::Value::Null).map(str::len),
         dynamic(b"null"),
+        manually_tracked("{}").map(read),
+        keyword("READY"),
+        keyword("FINISHED"),
+        keyword("unknown"),
+        keyword_json("null"),
+        scalar_record("unknown").map(read),
+        custom_unit("Unit"),
     ));
 }

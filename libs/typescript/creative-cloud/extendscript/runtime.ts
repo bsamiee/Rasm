@@ -1,8 +1,8 @@
-import type { Reply } from '@rasm/cep/contract';
+import type { Completion } from '@rasm/cep';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Replied<Tag extends (typeof Reply.Encoded)['_tag']> = Extract<typeof Reply.Encoded, { readonly _tag: Tag }>;
+type Replied<Tag extends (typeof Completion.Encoded)['_tag']> = Extract<typeof Completion.Encoded, { readonly _tag: Tag }>;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-nested-conditional-expression-rust
-language: rust
+language: rustlang
 severity: error
 utils:
     statement:
@@ -153,4 +153,4 @@ rule:
         - kind: call_expression
           pattern: Some($VALUE).filter($TEST).unwrap_or_else($FALLBACK)
 message: '`if`, `match`, `map_or`, `map_or_else`, `unwrap_or_else`, or `filter(..).unwrap_or_else` value nests another decision'
-note: 'Bind the operand once, then select with one `match` over the combined subjects (`match (<a>, <b>)`), an `else if` chain, or an arm guard (`<pattern> if <test> =>`)'
+note: 'Bind operands once, then select with tuple `match`, `else if`, or arm guards'

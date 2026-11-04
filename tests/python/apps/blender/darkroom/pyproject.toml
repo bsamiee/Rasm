@@ -1,0 +1,29 @@
+# --- [PROJECT] --------------------------------------------------------------------------
+
+[project]
+name            = "darkroom-tests"
+version         = "1.0.0"
+description     = "Native Blender tests over Darkroom effects"
+requires-python = ">=3.13"
+
+dependencies = [
+    # --- [CORE]
+    "blender",           # Library operations under test
+    "blender-bpy-tests", # Shared native fixture declarations
+    "darkroom",          # Application effects under test
+    "expression",        # Results in native assertions
+    "msgspec",           # Record transitions in native assertions
+    "pytest",            # Native suite runner and fixtures
+
+    # --- [MATHEMATICS]
+    "numpy",             # Particle positions and captured numerical fields
+
+    # --- [IMAGING]
+    "opencolorio",       # Color processors in native assertions
+    "openimageio",       # Image buffers in native assertions
+]
+
+# --- [RUFF] -----------------------------------------------------------------------------
+
+[tool.ruff]
+extend = "../../../../../pyproject.toml"

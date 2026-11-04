@@ -8,12 +8,11 @@ from types import MappingProxyType
 from typing import Annotated, Final, TYPE_CHECKING
 
 import bpy
-from expression import Nothing, Ok, Option, Some
+from expression import Option, Some
 import msgspec
 import psdtags
 import PyOpenColorIO
 
-from blender.bpy.data.rna.descriptors import Descriptor
 from blender.bpy.extension.identity import Key
 from blender.bpy.nodes import functions
 from blender.bpy.nodes.desired import item_key, MenuItem, MenuItems
@@ -24,7 +23,7 @@ from blender.bpy.render.compositor.colors import COLOR_INPUT, converted, hsy, lo
 from blender.bpy.render.compositor.coordinates import FrameSpace, shorter
 from blender.bpy.render.compositor.inputs import read
 from blender.bpy.render.compositor.shapes import turned
-from blender.records.faults import accumulated, Outcome
+from blender.records.faults import accumulated, Nothing, Ok, Outcome
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -64,7 +63,7 @@ _TRANSITIONED: Final = MenuItem(name="Transition", description="Spatial wipe rev
 
 # --- [SHAPE]
 
-_OUTLINE: Final = Socket(key="outline", kind=bpy.types.NodeSocketMenu, description="Box or ellipse", default_value=_ELLIPSE.name, items=Some(OUTLINES))
+_OUTLINE: Final = Socket(key="outline", kind=bpy.types.NodeSocketMenu, description="Box or ellipse", default_value=_ELLIPSE.name, items=OUTLINES.items)
 _POSITION: Final = Socket(key="position", kind=bpy.types.NodeSocketVector2D, description="Center in frame fractions", default_value=(0.5, 0.5))
 _SIZE: Final = Socket(key="size", kind=bpy.types.NodeSocketVectorXYZ2D, description="Half extents over greater frame side", default_value=(0.1, 0.05))
 _ROTATION: Final = Socket(key="rotation", kind=bpy.types.NodeSocketFloatAngle, description="Turn about center")
@@ -107,14 +106,14 @@ HIGHLIGHTS: Final = Interface(
 
 _KEY_INTERFACES: Final = MappingProxyType({_SHAPED: SHAPE, _QUALIFIED: QUALIFIER, _TRANSITIONED: TRANSITION})
 KEYS: Final = MenuItems(items=tuple(_KEY_INTERFACES))
-_CHOICE: Final = Socket(key="key", kind=bpy.types.NodeSocketMenu, description="Shape, qualifier, or transition", default_value=_SHAPED.name, items=Some(KEYS))
-_OPERATION: Final = Socket(key="operation", kind=bpy.types.NodeSocketMenu, description="Join with the masks before it", default_value=MenuItem.of(MaskOperation.ADD).name, items=Some(OPERATIONS))
+_CHOICE: Final = Socket(key="key", kind=bpy.types.NodeSocketMenu, description="Shape, qualifier, or transition", default_value=_SHAPED.name, items=KEYS.items)
+_OPERATION: Final = Socket(key="operation", kind=bpy.types.NodeSocketMenu, description="Join with the masks before it", default_value=MenuItem.of(MaskOperation.ADD).name, items=OPERATIONS.items)
 _INVERT: Final = Socket(key="invert", kind=bpy.types.NodeSocketBool, description="Select key complement")
 MASK: Final = Interface(
     inputs=(_CHOICE, _OPERATION, _INVERT),
     panels=tuple(InterfacePanel.of(item_key(_CHOICE.key, item.name.lower()), interface, name=item.name, description=item.description) for item, interface in _KEY_INTERFACES.items()),
 )
-_CHANNEL: Final = Socket(key="channel", kind=bpy.types.NodeSocketMenu, description="Coverage channel of the layer beneath", default_value=_ALPHA.name, items=Some(CHANNELS))
+_CHANNEL: Final = Socket(key="channel", kind=bpy.types.NodeSocketMenu, description="Coverage channel of the layer beneath", default_value=_ALPHA.name, items=CHANNELS.items)
 _COMPLEMENT: Final = Socket(key="invert", kind=bpy.types.NodeSocketBool, description="Read channel complement")
 TRACK_MATTE: Final = Interface(inputs=(_CHANNEL, _COMPLEMENT))
 _COVERAGE: Final = Socket(key="coverage", kind=bpy.types.NodeSocketFloat)
@@ -127,9 +126,9 @@ _RUNNING: Final = Socket(key="running", kind=bpy.types.NodeSocketFloat)
 
 BLEND: Final[Key] = "blend"
 _MASKS: Final[Key] = "masks"
-FORMULAS: Final = Descriptor.declared(bpy.types.ShaderNodeMix, ("blend_type",), bpy.types.EnumProperty).prop
+FORMULAS: Final[bpy.types.EnumProperty] = bpy.types.ShaderNodeMix.bl_rna.properties["blend_type"]  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
 MODES: Final = MenuItems.of(FORMULAS)
-MODE: Final = Socket(key="mode", name="Blend", kind=bpy.types.NodeSocketMenu, description="Mix node formula mixing result with base", default_value=FORMULAS.enum_items["MIX"].name, items=Some(MODES))
+MODE: Final = Socket(key="mode", name="Blend", kind=bpy.types.NodeSocketMenu, description="Mix node formula mixing result with base", default_value=FORMULAS.enum_items["MIX"].name, items=MODES.items)
 OPACITY: Final = Socket(key="opacity", kind=bpy.types.NodeSocketFloatFactor, description="Share of result mixed over base", default_value=1.0)
 _MIX_BASE: Final = Socket(key="base", kind=bpy.types.NodeSocketColor)
 _MIX_RESULT: Final = Socket(key="result", kind=bpy.types.NodeSocketColor)

@@ -1,7 +1,7 @@
-import { Uploads } from '@rasm/media/uploads';
+import { preprocessUploads, selectUploadState } from '@rasm/media';
 import Uppy, { type Body, type Meta, type UppyFile } from '@uppy/core';
 import XHRUpload from '@uppy/xhr-upload';
-import { Array, ByteSize, Cause, Data, Effect, Equivalence, Function, Match, Optic, Option, Record, Result, Schema, Struct } from 'effect';
+import { Array, ByteSize, Cause, Data, Effect, Equal, Equivalence, Function, Match, Optic, Option, Predicate, Record, Result, Schema, Struct } from 'effect';
 import { SecureRandom } from 'effect/crypto';
 import { HttpClient, HttpClientRequest, HttpClientResponse } from 'effect/http';
 import { HttpApiClient } from 'effect/http-api';
@@ -61,8 +61,12 @@ const uppy = Atom.make((get) => {
             const queued = uploader.getFiles();
             const following = new Set(
                 queued
-                    .slice(queued.findIndex(({ id }) => id === file.id) + 1)
-                    .flatMap((item) => item.meta.prepared?.compositions ?? [])
+                    .values()
+                    .drop(queued.findIndex(Function.flow(Struct.get('id'), Equal.equals(file.id))) + 1)
+                    .map(Struct.get('meta'))
+                    .map(Struct.get('prepared'))
+                    .filter(Predicate.isNotUndefined)
+                    .flatMap(Struct.get('compositions'))
                     .map(Struct.get('id')),
             );
             const preceding = (item: typeof Composition.Type) => !following.has(item.id);
@@ -87,37 +91,36 @@ const uppy = Atom.make((get) => {
     get.addFinalizer(() => uploader.destroy());
     return uploader;
 }).pipe(Atom.keepAlive);
+const preparationMessage = Match.type<{ readonly error: unknown; readonly type: string }>().pipe(
+    Match.when({ error: { _tag: 'MediaError', reason: { _tag: 'Protected' } } }, () => 'PDF is password protected. Remove it and add unlocked export'),
+    Match.when({ error: { _tag: 'MediaError', reason: { _tag: 'Unsupported' } } }, () => 'Browser cannot resize image. Retry in another browser'),
+    Match.when({ error: { _tag: 'UnknownError' } }, () => 'Browser cannot read file. Retry or add it again'),
+    Match.when({ error: { _tag: 'SchemaError', message: Match.string } }, ({ error: { message } }) => `${message}. Remove it and add new export`),
+    Match.when({ type: Match.is(...PdfAsset.fields.mime.literals) }, () => 'Browser cannot read PDF. Remove it and add new export'),
+    Match.when({ type: Match.is(...VideoAsset.fields.mime.literals) }, () => 'Browser cannot play video. Remove it and add H.264 MP4 or VP9 WebM export'),
+    Match.orElse(() => 'Browser cannot read image. Remove it and add new export'),
+);
 const prepare = Effect.fnUntraced(
     function* ({ meta: { destination }, name, type }: UppyFile<UploadMeta, Body>, data: Blob) {
         const { inspectFile } = yield* Effect.tryPromise(() => import('#/editor/inspect-file.ts'));
         const random = yield* SecureRandom.SecureRandom;
         const { asset, renditions } = yield* inspectFile(new File([data], name, { type }), yield* random.uuidV7());
         const placements = Destination.$is('Entry')(destination) && !Asset.guards.pdf(asset) ? Placement.fromAsset(asset) : [];
-        const compositions = yield* Effect.forEach(placements, (placement) => Effect.map(random.uuidV7(), (id) => Composition.make({ id: CompositionId.make(id), items: [placement] })));
+        const compositions = yield* Effect.forEach(
+            placements,
+            Effect.fnUntraced(function* (placement: typeof Placement.Type) {
+                const id = yield* random.uuidV7();
+                return Composition.make({ id: CompositionId.make(id), items: [placement] });
+            }),
+        );
         return { [uploadField.asset]: yield* Schema.encodeEffect(Asset.json)(asset), prepared: { asset, compositions }, [uploadField.renditions]: renditions };
     },
-    (effect, { type }) =>
-        Effect.mapError(
-            effect,
-            (error) =>
-                new Cause.UnknownError(
-                    error,
-                    Match.value({ error, type }).pipe(
-                        Match.when({ error: { _tag: 'MediaError', reason: { _tag: 'Protected' } } }, () => 'PDF is password protected. Remove it and add unlocked export'),
-                        Match.when({ error: { _tag: 'MediaError', reason: { _tag: 'Unsupported' } } }, () => 'Browser cannot resize image. Retry in another browser'),
-                        Match.when({ error: { _tag: 'UnknownError' } }, () => 'Browser cannot read file. Retry or add it again'),
-                        Match.when({ error: { _tag: 'SchemaError' } }, ({ error: { message } }) => `${message}. Remove it and add new export`),
-                        Match.when({ type: Match.is(...PdfAsset.fields.mime.literals) }, () => 'Browser cannot read PDF. Remove it and add new export'),
-                        Match.when({ type: Match.is(...VideoAsset.fields.mime.literals) }, () => 'Browser cannot play video. Remove it and add H.264 MP4 or VP9 WebM export'),
-                        Match.orElse(() => 'Browser cannot read image. Remove it and add new export'),
-                    ),
-                ),
-        ),
+    (effect, { type }) => Effect.mapError(effect, (error) => new Cause.UnknownError(error, preparationMessage({ error, type }))),
 );
 const preprocessing = Atom.runtime(SecureRandom.layerWebCrypto)
-    .atom((get) => Uploads.preprocess(get(uppy), prepare, { concurrency: 2, message: 'Reading file' }))
+    .atom((get) => preprocessUploads(get(uppy), prepare, { concurrency: 2, message: 'Reading file' }))
     .pipe(Atom.keepAlive);
-const queue = Uploads.state(uppy, Struct.get('files'));
+const queue = selectUploadState(uppy, Struct.get('files'));
 const pendingUploads = Atom.make((get) => Array.filterMap(Object.values(get(queue)), (file) => (file.progress.uploadComplete === true ? Result.failVoid : Result.succeed(file.meta.destination)))).pipe(Atom.withEquality(Equivalence.Array(Equivalence.strictEqual<Destination>())));
 
 // --- [EXPORTS] -------------------------------------------------------------------------

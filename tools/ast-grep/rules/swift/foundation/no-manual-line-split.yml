@@ -88,4 +88,4 @@ rule:
                                                             - has: {field: name, has: {field: bound_identifier, pattern: $PIECE}}
                                                             - has: {field: value, any: [{pattern: $B}, {has: {stopBy: end, pattern: $B}}]}
 message: '`for` over `$BYTES` splits lines by hand'
-note: 'Iterate `jsonLines` from `Encoding` for JSON lines over bytes, `<bytes>.lines` for text, Subprocess `strings(separatedBy:)` (`.unicodeScalarSequence(["\n"])` for JSON lines), or `split(whereSeparator: \.isNewline)`'
+note: 'Read JSON with Encoding `jsonLines` or Subprocess `strings(separatedBy: .unicodeScalarSequence(["\n"]))`, text with `lines` or `\.isNewline`'

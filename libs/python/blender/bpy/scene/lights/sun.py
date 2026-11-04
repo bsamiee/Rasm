@@ -11,7 +11,7 @@ from typing import ClassVar, Final
 import zoneinfo
 
 import bpy
-from expression import Nothing, Ok, Option, Some
+from expression import Option, Some
 from expression.extra.result import catch
 import msgspec
 import numpy as np
@@ -25,9 +25,8 @@ from blender.bpy.data.rna.descriptors import Descriptor, Value, written
 from blender.bpy.data.rna.paths import id_path, Native, RnaPath, root_in, rooted
 from blender.bpy.data.rna.properties import annotated, choices, nested, reconciling
 from blender.bpy.data.rna.snapshots import Snapshot
-from blender.bpy.extension.events import Subscription
 from blender.bpy.extension.identity import Identity
-from blender.bpy.extension.registration import Acquisitions, entered, Tier
+from blender.bpy.extension.registration import Acquisitions, entered, Subscription, Tier
 from blender.bpy.scene.lights.groups import Lobe
 from blender.bpy.scene.objects import owned_object, shaped, VERTEX
 from blender.bpy.scene.worlds import Follower, followers, WorldEnvironment
@@ -35,7 +34,7 @@ from blender.bpy.settings.attachments import Attached, Attachment
 from blender.bpy.ui.layout.rows import ConditionalRow, OperatorButton, RowDraw
 from blender.bpy.ui.layout.sections import Section
 from blender.bpy.ui.layout.values import Store
-from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
+from blender.records.faults import accumulated, Fault, Nothing, Ok, Outcome, paired, Reason
 from blender.records.fields import Retention
 from blender.rendering.lighting.solar import Daylight, Polar, Site, SolarDay, Study, SunPaths, SunPosition
 
@@ -52,8 +51,8 @@ class Timing(Enum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_SPLINE_POINT: Final = Descriptor.declared(bpy.types.SplinePoint, ("co",), bpy.types.FloatProperty)
-_IRRADIANCE: Final = Descriptor.declared(bpy.types.SunLight, ("energy",), bpy.types.FloatProperty)
+_SPLINE_POINT: Final[bpy.types.FloatProperty] = bpy.types.SplinePoint.bl_rna.properties["co"]  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+_IRRADIANCE: Final = Descriptor(root=bpy.types.SunLight, prop=bpy.types.SunLight.bl_rna.properties["energy"])
 _CAMERA_ALONE: Final[Mapping[RnaPath, Value]] = MappingProxyType(dict[RnaPath, Value]({(name,): False for name in (*(lobe.value for lobe in Lobe), "visible_shadow")}))
 _ZONES: Final = tuple(sorted(zoneinfo.available_timezones()))
 
@@ -146,14 +145,14 @@ class SceneSun(msgspec.Struct, frozen=True, kw_only=True):
     curve: ClassVar[Ownership[bpy.types.Curve]] = Ownership(kind=bpy.types.Curve, key="sun_analemmas", saved=Saved.USED)
 
     @contextmanager
-    def acquisitions(self, identity: Identity) -> Generator[Outcome[Acquisitions]]:
+    def acquisitions(self, identity: Identity) -> Generator[Acquisitions]:
         """Yields attachments, ownerships, section, and scene and world subscriptions.
 
         Args:
             identity: Identity of extension registering row.
 
         Yields:
-            Acquisitions with `Band` pairs.
+            Declarations held until extension unregisters.
         """
         with identity.reports.deferred(SceneSun.resited) as resite:
 
@@ -181,7 +180,7 @@ class SceneSun(msgspec.Struct, frozen=True, kw_only=True):
                         )
                     )
 
-            yield Ok((
+            yield (
                 SceneSun.attachment,
                 WorldEnvironment.attachment,
                 SceneSun.sun,
@@ -193,7 +192,7 @@ class SceneSun(msgspec.Struct, frozen=True, kw_only=True):
                 self.section(),
                 *(Subscription(owner=bpy.types.Scene, setting=bpy.types.Scene.bl_rna.properties[member], body=stored) for member in ("world", "frame_start")),
                 (Tier.SUBSCRIPTIONS, worlds()),
-            ))
+            )
 
     def section(self) -> Section[SunSetup]:
         """Returns scene sun setup with solar caption, and place and remove buttons."""
@@ -215,9 +214,9 @@ def sited(setup: SunSetup) -> Outcome[tuple[Site, Study]]:
             timing = Study(start=start, step=datetime.timedelta(days=setup.days), frames=setup.frames)
         case Timing.MOMENT:
             timing = Study(start=start, step=datetime.timedelta(), frames=1)
-    site: Outcome[Site] = catch(msgspec.convert, exception=msgspec.ValidationError)(
-        {"latitude": setup.latitude, "longitude": setup.longitude, "north": setup.north, "zone": setup.zone}, Site
-    ).map_error(lambda error: Fault.of(Reason.OUTSIDE, repr(setup), str(error), member="a site the time zone database holds"))
+    site = catch(lambda: msgspec.convert({"latitude": setup.latitude, "longitude": setup.longitude, "north": setup.north, "zone": setup.zone}, Site), exception=msgspec.ValidationError)().map_error(
+        lambda error: Fault.of(Reason.OUTSIDE, repr(setup), error, member="a site the time zone database holds")
+    )
     return site.map(lambda held: (held, timing))
 
 
@@ -241,11 +240,14 @@ def sun_placed(scene: bpy.types.Scene, identity: Identity) -> Outcome[bpy.types.
         rows = (
             *((sun, ("location", axis), located[:, axis]) for axis in range(3)),
             (sun, ("rotation_euler", 0), position.elevation - math.pi / 2.0),
+            (sun, ("rotation_euler", 1), np.zeros_like(position.elevation)),
             (sun, ("rotation_euler", 2), -position.rotation),
             *((owner, path, value(position)) for tree, follower in following for owner, path, value in _channels(tree, *follower)),
         )
-        return accumulated((*(Animation(path=path, source=Keys(points=tuple(zip(frames, values.tolist())))).apply(owner) for owner, path, values in rows), ranged(setup, len(frames)))).map(
-            lambda _: None
+        return written(sun, ("rotation_mode",), "XYZ").bind(
+            lambda _: accumulated((*(Animation(path=path, source=Keys(points=tuple(zip(frames, values.tolist())))).apply(owner) for owner, path, values in rows), ranged(setup, len(frames)))).map(
+                lambda _: None
+            )
         )
 
     def followed(tree: bpy.types.NodeTree) -> Outcome[tuple[tuple[bpy.types.NodeTree, Follower], ...]]:
@@ -296,7 +298,7 @@ def paths_placed(site: Site, year: int, paths: Option[SunSetup], scene: bpy.type
         .filter(lambda shown: shown.analemmas)
         .map(
             lambda shown: accumulated(
-                Descriptor.quantized(_SPLINE_POINT.prop, np.hstack((run * shown.distance, np.ones((len(run), 1))))).map(lambda points: (points, cyclic)) for run, cyclic in traced().arcs
+                Descriptor.quantized(_SPLINE_POINT, np.hstack((run * shown.distance, np.ones((len(run), 1))))).map(lambda points: (points, cyclic)) for run, cyclic in traced().arcs
             ).map(Some)
         )
         .default_value(Ok(Nothing)),

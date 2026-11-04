@@ -4,10 +4,10 @@ import datetime
 from http import HTTPMethod
 from typing import ClassVar, override
 
-from expression import Ok, Option, Some
+from expression import Option, Some
 import msgspec
 
-from blender.records.faults import Outcome
+from blender.records.faults import Ok, Outcome
 from blender.rendering.batch.queue import Forecast
 from blender.rendering.batch.targets import Endpoint, sent
 

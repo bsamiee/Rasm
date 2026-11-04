@@ -30,13 +30,12 @@ public sealed record BlendEdge(BrepEdge Edge, BlendContinuity Continuity) {
 public static class Shells {
     // --- [OFFSETS]
     public static IO<OffsetResult> Offset(Tolerances tolerances, Brep brep, double distance, bool solid, bool extend, bool shrink) =>
-        from answered in IO.lift(() => (Offsets: Brep.CreateOffsetBrep(brep, distance, solid, extend, shrink, tolerances.Absolute, out Brep[] blends, out Brep[] walls), Blends: blends, Walls: walls))
-        from offsets in Products.Many(() => answered.Offsets, member: nameof(Brep.CreateOffsetBrep))
-        from blends in Products.Many(() => answered.Blends, required: false, nameof(Brep.CreateOffsetBrep))
-        from walls in Products.Many(() => answered.Walls, required: false, nameof(Brep.CreateOffsetBrep))
-        select offsets.Count is 1 && blends.IsEmpty && walls.IsEmpty
-            ? (OffsetResult)new OffsetResult.Joined(offsets[0])
-            : new OffsetResult.Pieces(offsets, blends, walls);
+        from answered in Products.Many(() => (Brep.CreateOffsetBrep(brep, distance, solid, extend, shrink, tolerances.Absolute, out Brep[] blends, out Brep[] walls), (Blends: blends, Walls: walls)))
+        from blends in Products.Many(() => answered.Out.Blends, required: false, nameof(Brep.CreateOffsetBrep))
+        from walls in Products.Many(() => answered.Out.Walls, required: false, nameof(Brep.CreateOffsetBrep))
+        select answered.Values.Count is 1 && blends.IsEmpty && walls.IsEmpty
+            ? (OffsetResult)new OffsetResult.Joined(answered.Values[0])
+            : new OffsetResult.Pieces(answered.Values, blends, walls);
 
     public static IO<Seq<Brep>> Shell(Tolerances tolerances, Brep brep, Seq<int> removedFaces, double distance) =>
         from faces in IO.lift(() => brep.Within(ComponentIndexType.BrepFace, removedFaces))

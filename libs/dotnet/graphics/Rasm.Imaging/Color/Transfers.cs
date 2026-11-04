@@ -75,12 +75,11 @@ public abstract partial record Transfer : IConvertible<string>, IFixedFunction {
     private static Fin<DynamicRange> Lit(DynamicRange range) =>
         ImagingFault.Unless(double.IsNormal(range.WhiteLuminance) && double.IsNormal(range.MaxLuminance) && range.WhiteLuminance > 0d && range.MaxLuminance > 0d, ImagingReason.Range, (range.WhiteLuminance, range.MaxLuminance)).Map(_ => range);
 
-    private static void Coded(Span<Vector4> row, TransferFunction curve, bool encode) {
+    private static void Coded(Span<Vector4> row, TransferFunction curve, Action<ReadOnlySpan<float>, Span<float>, TransferFunction> convert) {
         Span<float> samples = MemoryMarshal.Cast<Vector4, float>(row);
         using SpanOwner<float> alpha = SpanOwner<float>.Allocate(row.Length);
         samples.AsSpan2D(row.Length, 4).GetColumn(3).CopyTo(alpha.Span);
-        if (encode) ImageProcessing.EncodeTransfer(samples, samples, curve);
-        else ImageProcessing.DecodeTransfer(samples, samples, curve);
+        convert(samples, samples, curve);
         alpha.Span.CopyTo(samples.AsSpan2D(row.Length, 4).GetColumn(3));
     }
 
@@ -126,9 +125,9 @@ public abstract partial record Transfer : IConvertible<string>, IFixedFunction {
 
         public override void Apply(Span<Vector4> row, bool inverted) {
             float scale = (float)(inverted ? Peak / Range.WhiteLuminance : Range.WhiteLuminance / Peak);
-            if (inverted) Coded(row, TransferFunction.Pq, encode: false);
+            if (inverted) Coded(row, TransferFunction.Pq, ImageProcessing.DecodeTransfer);
             foreach (ref Vector4 pixel in row) pixel = new Vector4(pixel.AsVector3() * scale, pixel.W);
-            if (!inverted) Coded(row, TransferFunction.Pq, encode: true);
+            if (!inverted) Coded(row, TransferFunction.Pq, ImageProcessing.EncodeTransfer);
         }
     }
 
@@ -147,14 +146,15 @@ public abstract partial record Transfer : IConvertible<string>, IFixedFunction {
 
         public override void Apply(Span<Vector4> row, bool inverted) {
             (Vector3 weights, float gamma, float scale) = (Gamut.Rec2020.Luminance, 1.2f + (0.42f * float.Log10((float)Range.MaxLuminance / 1_000f)), (float)(Range.WhiteLuminance / Range.MaxLuminance));
-            if (inverted) Coded(row, TransferFunction.Hlg, encode: false);
+            (float floor, float power) = inverted ? (float.Pow(Black, 1f / gamma) / 3f, gamma - 1f) : (Black / float.Pow(3f, gamma), (1f - gamma) / gamma);
+            if (inverted) Coded(row, TransferFunction.Hlg, ImageProcessing.DecodeTransfer);
             foreach (ref Vector4 pixel in row) {
                 float luminance = Vector3.Dot(pixel.AsVector3(), weights);
                 pixel = inverted
-                    ? new Vector4(pixel.AsVector3() * (float.Pow(float.Max(luminance, float.Pow(Black, 1f / gamma) / 3f), gamma - 1f) / scale), pixel.W)
-                    : new Vector4(pixel.AsVector3() * scale * float.Pow(float.Max(luminance * scale, Black / float.Pow(3f, gamma)), (1f - gamma) / gamma), pixel.W);
+                    ? new Vector4(pixel.AsVector3() * (float.Pow(float.Max(luminance, floor), power) / scale), pixel.W)
+                    : new Vector4(pixel.AsVector3() * scale * float.Pow(float.Max(luminance * scale, floor), power), pixel.W);
             }
-            if (!inverted) Coded(row, TransferFunction.Hlg, encode: true);
+            if (!inverted) Coded(row, TransferFunction.Hlg, ImageProcessing.EncodeTransfer);
         }
     }
 

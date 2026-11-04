@@ -54,15 +54,15 @@ public abstract partial record ImageTool {
                     held => held.At(anchor) * extent,
                     to => held => held.Moved(anchor, to / extent, Aspect.Map(wide => wide * extent.Y / extent.X)).IfNone(held)))) with { Placed = static (_, _, _) => None, },
                 Edited).Drawn(view, Figure.Region.Spanning(Value.Bounds.Left * extent.X, Value.Bounds.Right * extent.X, Value.Bounds.Top * extent.Y, Value.Bounds.Bottom * extent.Y)
-                    .Map(static region => (View)new View.Mark(region) { Role = Role.Ring }).ToSeq());
+                    .Map(static region => (View)new View.Mark(region) { Role = Roles.Ring }).ToSeq());
     }
 
     public sealed record Pick(Option<Vector2> At, Func<Edit<Option<Vector2>>, IO<Unit>> Edited) : ImageTool {
         internal override View Drawn(PlotPlane view, Vector2 extent) =>
             new Handles<Option<Vector2>>(At, new Points<Option<Vector2>>(
                     static at => at.ToSeq().Map(static held => new HandlePoint(Picked, held)),
-                    static (at, targets, _) => new Dragged<Option<Vector2>>(targets.Last.Map(static target => target.At) | at, targets.Map(static target => target.Key))) {
-                Placed = static (_, at, _) => Some(new Dragged<Option<Vector2>>(Some(at), [Picked])),
+                    static (at, targets, _) => (targets.Last.Map(static target => target.At) | at, [])) {
+                Placed = static (_, at, _) => Some((Some(at), Picked)),
             },
                 Edited) { BackgroundCursor = CursorShape.Crosshair }.Drawn(view, []);
     }
@@ -74,7 +74,7 @@ public abstract partial record ImageTool {
                         at => new Vector2((float)at * extent.X, extent.Y / 2f),
                         to => held => Fraction.Validated(to.X / extent.X).ToOption().IfNone(held))]), Edited)
                     .Drawn(view, Before.Current.Bind(source => ImagePlot.Clipped(new SKRect(0f, 0f, split, extent.Y), extent, new View.Image(source) { Rendering = ImageRendering.Pixelated })).ToSeq()
-                        .Add(new View.Mark(new Figure.Path([new Vector2(split, 0f), new Vector2(split, extent.Y)])) { Role = Role.Needle })),
+                        .Add(new View.Mark(new Figure.Path([new Vector2(split, 0f), new Vector2(split, extent.Y)])) { Role = Roles.Needle })),
             };
     }
 }
@@ -101,14 +101,14 @@ public sealed record ImagePlot(Content<ImageSource> Image, Func<Edit<PlotPlane>,
                     Hovered = Hovered,
                     Accessible = Described,
                 },
-                Caption.Map(static caption => (View)new View.Text([caption]) { Role = Role.OverlayCaption }).ToSeq()),
+                Caption.Map(static caption => (View)new View.Text([caption]) { Role = Roles.OverlayCaption }).ToSeq()),
             None: () => new View.Box { Width = Sizing.Grow.Unit, Conditions = Image.Conditions, Accessible = Described });
 
     public Option<float> Zoom(float across) => Shown.Bind(static view => view.Dimension(PhysicalAxis.Horizontal)).Map(axis => across / MathF.Abs(axis.Domain.Span));
 
     public Option<PlotPlane> Fit => Image.Current.Bind(static source => Framed(source.Info.Rect));
 
-    private Option<PlotPlane> Shown => View | Fit;
+    private Option<PlotPlane> Shown => View || Fit;
 
     private Accessible Described => new() { Role = AccessRole.Image, Label = Caption, Help = Image.Message };
 
@@ -127,7 +127,7 @@ public sealed record ImagePlot(Content<ImageSource> Image, Func<Edit<PlotPlane>,
             + Tool.Map(tool => tool.Drawn(view, extent)).ToSeq()
             + (from loupe in Loupe
                from lens in Clipped(loupe.Lens, extent, image)
-               select lens with { Role = Role.Ring, Sheet = new StyleSheet(HashMap((Role.Ring, new Look { Filters = Seq<Filter>(loupe.Magnify) }))) }).ToSeq();
+               select lens with { Role = Roles.Ring, Sheet = new StyleSheet(HashMap((Roles.Ring, new Look { Filters = Seq<Filter>(loupe.Magnify) }))) }).ToSeq();
     }
 }
 
@@ -208,9 +208,11 @@ public sealed record Gallery<TItem>(Seq<TItem> Items, Func<TItem, Key> Keyed, Fu
             SKRectI.Ceiling(SKRect.Create(TileSide * scale, TileSide / (float)Aspect * scale)).Size);
 
     private View.Overlay TileView((Key Key, TItem Item, int Number) entry, CultureInfo culture) =>
-        new(new ImageTile(Tiles.Shown(entry.Key)).Drawn,
-            (Numbered ? Seq<View>(new View.Text([entry.Number.ToString(culture)]) { Role = Role.OverlayCaption }) : [])
-            + Overlay(entry.Item).Add(new View.Text([Label(entry.Item)]) { Role = Role.OverlayCaption, MaxLines = 1, Width = Sizing.Grow.Unit, Align = UnitPoint.Bottom })) {
-            Accessible = new Accessible { Label = Label(entry.Item), Shortcut = Numbered && entry.Number <= 9 ? Some(entry.Number.ToString(CultureInfo.InvariantCulture)) : None },
+        Label(entry.Item) switch {
+            var label => new(new ImageTile(Tiles.Shown(entry.Key)).Drawn,
+            (Numbered ? Seq<View>(new View.Text([entry.Number.ToString(culture)]) { Role = Roles.OverlayCaption }) : [])
+            + Overlay(entry.Item).Add(new View.Text([label]) { Role = Roles.OverlayCaption, MaxLines = 1, Width = Sizing.Grow.Unit, Align = UnitPoint.Bottom })) {
+                Accessible = new Accessible { Label = label, Shortcut = Numbered && entry.Number <= 9 ? Some(entry.Number.ToString(CultureInfo.InvariantCulture)) : None },
+            },
         };
 }

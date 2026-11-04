@@ -77,7 +77,13 @@ public static class GeometryExtensions {
 public static class Arrangements {
     // --- [HIERARCHIES]
     public static Fin<Seq<Arranged>> Treemap(PlotFrame frame, Hierarchy root, float inner = 0f, float outer = 0f) =>
-        UIFault.Unless(float.IsFinite(inner) && float.IsFinite(outer) && inner >= 0f && outer >= 0f, UIReason.Range, (inner, outer)).Map(_ => Tiled(frame, root, frame.Box, inner / 2f, outer));
+        UIFault.Unless(float.IsFinite(inner) && float.IsFinite(outer) && inner >= 0f && outer >= 0f, UIReason.Range, (inner, outer)).Map(_ => {
+            float half = inner / 2f;
+            return toSeq(SuperEnumerable.TraverseDepthFirst((Node: root, Rect: frame.Box), held =>
+                Squarified(toSeq(held.Node.Members.Filter(static member => member.Weight > 0f).OrderByDescending(static member => member.Weight)), Deflated(held.Rect, outer - half))
+                    .Map(section => (section.Node, Rect: Deflated(section.Rect, half)))))
+                .Choose(held => Rectangle(frame, held.Node.Key, held.Node.Weight, held.Rect));
+        });
 
     public static Network Tree(PlotFrame frame, Hierarchy root) {
         (Seq<(Hierarchy Node, Vector2 At, Option<Vector2> From)> spots, Seq<(float Left, float Right)> contour) = Shaped(root);
@@ -112,32 +118,22 @@ public static class Arrangements {
         }
     }
 
-    private static Seq<Arranged> Tiled(PlotFrame frame, Hierarchy node, SKRect rect, float half, float outer) {
-        SKRect content = Deflated(rect, outer - half);
-        return Rectangle(frame, node.Key, node.Weight, rect).ToSeq()
-            + Squarified(toSeq(node.Members.Filter(static member => member.Weight > 0f).OrderByDescending(static member => member.Weight)), content)
-                .Bind(section => Tiled(frame, section.Node, Deflated(section.Rect, half), half, outer));
-    }
-
-    private static Seq<(Hierarchy Node, SKRect Rect)> Squarified(Seq<Hierarchy> items, SKRect rect) {
-        Seq<(Hierarchy Node, SKRect Rect)> Row() {
-            Seq<float> areas = items.Map(item => item.Weight * rect.Width * rect.Height / items.Sum(static held => held.Weight));
-            PhysicalAxis along = rect.Width >= rect.Height ? PhysicalAxis.Horizontal : PhysicalAxis.Vertical;
-            float side = along.Cross.Of(rect.Size);
-            int taken = toSeq(Range(1, areas.Count)).TakeWhile(count => count is 1 || Worst(areas.Take(count), side) <= Worst(areas.Take(count - 1), side)).Last.IfNone(1);
-            float thickness = TensorPrimitives.Sum<float>([.. areas.Take(taken)]) / side;
+    private static Seq<(Hierarchy Node, SKRect Rect)> Squarified(Seq<Hierarchy> items, SKRect rect) =>
+        toSeq(LanguageExt.List.unfold<Seq<Hierarchy>, SKRect, Seq<(Hierarchy Node, SKRect Rect)>>((items, rect), static (pending, space) => {
+            if (pending.IsEmpty || space.Width <= 0f || space.Height <= 0f) return None;
+            float total = pending.Sum(static held => held.Weight);
+            Seq<float> areas = pending.Map(item => item.Weight * space.Width * space.Height / total);
             Seq<float> starts = areas.Scan(0f, static (sum, area) => sum + area);
-            Seq<(Hierarchy Node, SKRect Rect)> row = toSeq(Range(0, taken)).Map(index => (items[index], along.Spanned(along.Cross.Spanned(rect, along.Cross.Of(rect.Location) + (starts[index] / thickness), areas[index] / thickness), along.Of(rect.Location), thickness)));
-            return row + Squarified(items.Skip(taken), along.Spanned(rect, along.Of(rect.Location) + thickness, along.Of(rect.Size) - thickness));
-        }
-        return items.IsEmpty || rect.Width <= 0f || rect.Height <= 0f ? [] : Row();
-    }
-
-    private static float Worst(Seq<float> row, float side) {
-        float[] areas = [.. row];
-        (float sum, float most, float least) = (TensorPrimitives.Sum<float>(areas), TensorPrimitives.Max<float>(areas), TensorPrimitives.Min<float>(areas));
-        return float.Max(side * side * most / (sum * sum), sum * sum / (side * side * least));
-    }
+            PhysicalAxis along = space.Width >= space.Height ? PhysicalAxis.Horizontal : PhysicalAxis.Vertical;
+            float side = along.Cross.Of(space.Size);
+            float Worst(int count) => (Sum: starts[count] * starts[count], Side: side * side) switch {
+                var (sum, square) => float.Max(square * areas[0] / sum, sum / (square * areas[count - 1])),
+            };
+            int taken = toSeq(Range(1, areas.Count)).TakeWhile(count => count is 1 || Worst(count) <= Worst(count - 1)).Last();
+            float thickness = starts[taken] / side;
+            Seq<(Hierarchy Node, SKRect Rect)> row = toSeq(Range(0, taken)).Map(index => (pending[index], along.Spanned(along.Cross.Spanned(space, along.Cross.Of(space.Location) + (starts[index] / thickness), areas[index] / thickness), along.Of(space.Location), thickness)));
+            return Some((row, pending.Skip(taken), along.Spanned(space, along.Of(space.Location) + thickness, along.Of(space.Size) - thickness)));
+        })).Flatten();
 
     private static SKRect Deflated(SKRect rect, float by) =>
         SKRect.Inflate(rect, -by, -by) switch { var inset => new SKRect(float.Min(inset.Left, rect.MidX), float.Min(inset.Top, rect.MidY), float.Max(inset.Right, rect.MidX), float.Max(inset.Bottom, rect.MidY)) };
@@ -146,6 +142,7 @@ public static class Arrangements {
     private const int Relaxations = 6;
 
     public static Fin<Network> Sankey(PlotFrame frame, Seq<Flow> flows, Fraction width, Fraction gap) {
+        if (flows.IsEmpty) return new Network([], []);
         Seq<Key> keys = toSeq(flows.Bind(static flow => Seq(flow.Source, flow.Target)).Distinct());
         BidirectionalGraph<Key, TaggedEdge<Key, Flow>> graph = flows.Map(static flow => new TaggedEdge<Key, Flow>(flow.Source, flow.Target, flow)).ToBidirectionalGraph<Key, TaggedEdge<Key, Flow>>();
         Seq<Flow> Outgoing(Key key) => toSeq(graph.OutEdges(key)).Map(static edge => edge.Tag);
@@ -159,7 +156,8 @@ public static class Arrangements {
                 Seq<Seq<Key>> columns = toSeq(keys.GroupBy(key => depths[key]).OrderBy(static column => column.Key).Select(static column => toSeq(column)));
                 float node = (float)width * box.Width / columns.Count;
                 float spacing = (float)gap * box.Height / float.Max(1f, columns.Max(static column => column.Count) - 1);
-                float scale = columns.Min(column => (box.Height - ((column.Count - 1) * spacing)) / column.Sum(key => values[key]));
+                float scale = columns.Map(column => (Total: column.Sum(key => values[key]), Space: box.Height - ((column.Count - 1) * spacing)))
+                    .Filter(static column => column.Total > 0f).Map(static column => column.Space / column.Total).Min<Seq, float>().IfNone(0f);
                 float Left(Key key) => box.Left + (columns.Count > 1 ? depths[key] * (box.Width - node) / (columns.Count - 1) : (box.Width - node) / 2f);
                 float Middle(HashMap<Key, float> held, Key key) => held[key] + (values[key] * scale / 2f);
                 HashMap<Key, float> Collided(HashMap<Key, float> held, Seq<Key> column) {
@@ -172,7 +170,7 @@ public static class Arrangements {
                     }).Tops;
                 }
                 HashMap<Key, float> Toward(HashMap<Key, float> held, Seq<Key> column, Func<Key, Seq<Flow>> linked, Func<Flow, Key> other, float alpha) =>
-                    Collided(column.Fold(held, (moved, key) => Some(linked(key)).Filter(static near => !near.IsEmpty).Map(near =>
+                    Collided(column.Fold(held, (moved, key) => Some(linked(key)).Filter(static near => near.Exists(static flow => flow.Weight > 0f)).Map(near =>
                         moved.SetItem(key, moved[key] + (alpha * ((near.Sum(flow => Middle(moved, other(flow)) * flow.Weight) / near.Sum(static flow => flow.Weight)) - Middle(moved, key))))).IfNone(moved)), column);
                 HashMap<Key, float> tops = Range(0, Relaxations).Fold(
                     toHashMap(columns.Bind(column => column.Zip(column.Scan(box.Top, (top, key) => top + (values[key] * scale) + spacing), static (key, top) => (key, top)))),

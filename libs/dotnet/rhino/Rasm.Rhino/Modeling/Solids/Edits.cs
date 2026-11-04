@@ -1,4 +1,3 @@
-using System.Globalization;
 using Rasm.Rhino.Document.Units;
 
 namespace Rasm.Rhino.Modeling.Solids;
@@ -6,17 +5,15 @@ namespace Rasm.Rhino.Modeling.Solids;
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record EdgeReplacement {
-    private EdgeReplacement(BrepReplaceEdgeMethod method, Option<Curve> guide) => (Method, Guide) = (method, guide);
+    public BrepReplaceEdgeMethod Method => Switch(line: static _ => BrepReplaceEdgeMethod.Line, extendSideEdges: static _ => BrepReplaceEdgeMethod.ExtendSideEdges, along: static _ => BrepReplaceEdgeMethod.Curve);
 
-    public BrepReplaceEdgeMethod Method { get; }
+    public Option<Curve> Guide => Switch(line: static _ => Option<Curve>.None, extendSideEdges: static _ => Option<Curve>.None, along: static replacement => Some(replacement.Path));
 
-    public Option<Curve> Guide { get; }
+    public sealed record Line : EdgeReplacement;
 
-    public sealed record Line() : EdgeReplacement(BrepReplaceEdgeMethod.Line, None);
+    public sealed record ExtendSideEdges : EdgeReplacement;
 
-    public sealed record ExtendSideEdges() : EdgeReplacement(BrepReplaceEdgeMethod.ExtendSideEdges, None);
-
-    public sealed record Along(Curve Path) : EdgeReplacement(BrepReplaceEdgeMethod.Curve, Some(Path));
+    public sealed record Along(Curve Path) : EdgeReplacement;
 
     public Step<Brep> ReplaceEdge(Tolerances tolerances, Seq<int> edges) =>
         Steps.Derived<Brep>(brep =>
@@ -42,7 +39,7 @@ public static class SolidEdits {
             from inner in IO.lift(() => brep.Within(loops.Map(static loop => new ComponentIndex(ComponentIndexType.BrepLoop, loop))).Bind(held =>
                 Products.Each(held, (loop, element) => brep.Loops[loop.Index].LoopType switch {
                     BrepLoopType.Inner => Fin.Succ(loop),
-                    var type => new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"{type} {ComponentIndexType.BrepLoop} {loop.Index}"), RhinoReason.Mismatched, element),
+                    var type => new RhinoFault((Loop: loop, Type: type), RhinoReason.Mismatched, element),
                 })))
             from removed in Products.Of(() => brep.RemoveHoles(inner, tolerances.Absolute))
             select removed);

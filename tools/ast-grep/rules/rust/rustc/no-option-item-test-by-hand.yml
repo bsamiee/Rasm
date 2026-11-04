@@ -1,21 +1,16 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-option-item-test-by-hand
-language: rust
+language: rustlang
 severity: error
 files: [tools/dylint/**]
 rule:
     kind: call_expression
     all:
         - any:
-            - pattern: $X.is_some_and(|$I| $I.$TEST($CX, $NAME))
-            - pattern: $X.is_some_and(|&$I| $I.$TEST($CX, $NAME))
-        - has: {field: arguments, has: {kind: closure_expression, has: {field: parameters, has: {kind: 'identifier, reference_pattern', pattern: $PARAM}}}}
+            - pattern: $X.is_some_and(|$I| $I.$TEST($_, $_))
+            - pattern: $X.is_some_and(|&$I| $I.$TEST($_, $_))
         - not: {matches: rustc-trait-of-assoc-test}
 constraints:
     TEST: {regex: '^(is_diag_item|is_lang_item)$'}
-transform:
-    REFERENCE: {replace: {source: $PARAM, replace: '^[^&].*$', by: ''}}
-    COPIED: {replace: {source: $REFERENCE, replace: '^&.*$', by: '.copied()'}}
-fix: $X$COPIED.$TEST($CX, $NAME)
 message: '`$X.is_some_and(..)` tests the `Option` value through `$TEST` by hand'
 note: 'Call `<option>.is_diag_item(..)` or `is_lang_item(..)` (`use clippy_utils::res::MaybeDef as _;`), after `copied()` for an `Option<&T>`'

@@ -4,7 +4,7 @@ import OrderedCollections
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-private let hosts: [String] = [
+private let hosts: OrderedSet<String> = [
     "com.apple.UserNotificationCenter", "com.apple.coreservices.uiagent", "com.apple.accessibility.universalAccessAuthWarn", "com.apple.SecurityAgent",
 ]
 
@@ -50,14 +50,15 @@ extension NSWorkspace {
 
     @MainActor
     func currentPrompts(naming names: [String]) async -> [(host: String, prompts: OrderedDictionary<NSRunningApplication, InstanceState>)] {
-        var found: [(host: String, prompts: OrderedDictionary<NSRunningApplication, InstanceState>)] = []
-        for host: String in hosts {
-            var prompts: OrderedDictionary<NSRunningApplication, InstanceState> = [:]
-            for instance: NSRunningApplication in instances(of: { instance in instance.bundleIdentifier == host }) {
-                prompts[instance] = await instance.state(walking: \.requiresAnswer).prompting(names)
+        let running: [String?: [NSRunningApplication]] = Dictionary(grouping: instances { instance in instance.bundleIdentifier.map(hosts.contains) == true }, by: \.bundleIdentifier)
+        return await Array(
+            hosts.async.compactMap { host in
+                let prompts: OrderedDictionary<NSRunningApplication, InstanceState> = await (running[host] ?? []).async.reduce(into: [:]) {
+                    prompts,
+                    instance in prompts[instance] = await instance.state(walking: \.requiresAnswer).prompting(names)
+                }
+                return prompts.isEmpty ? nil : (host, prompts)
             }
-            if !prompts.isEmpty { found.append((host, prompts)) }
-        }
-        return found
+        )
     }
 }

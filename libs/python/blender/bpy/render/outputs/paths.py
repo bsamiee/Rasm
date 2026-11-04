@@ -5,47 +5,52 @@ from contextlib import contextmanager
 import datetime
 from functools import partial
 from itertools import chain, count
+import ntpath
+import os
 from pathlib import Path
 import posixpath
 import re
+import string
 from types import MappingProxyType
 from typing import ClassVar, Final, Self
 
 import bpy
-from expression import Error, Nothing, Ok, Option, Result, Some
+from expression import Option, Result, Some
 from expression.extra.result import catch
 import msgspec
 
 from blender.bpy.commands.invocations import Suppressible
-from blender.bpy.commands.operators import Answer, Call, called, Done, Empty, NoUndo, Operator, tallied, Unchanged, UndoGroup
+from blender.bpy.commands.operators import Answer, Call, called, Done, Empty, Operator, tallied, Unchanged
 from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.conditions import Condition, Setting
 from blender.bpy.data.rna.descriptors import Descriptor, written
 from blender.bpy.data.rna.paths import definition, rooted
 from blender.bpy.data.rna.properties import Changed
 from blender.bpy.data.rna.snapshots import assigned, Snapshot
-from blender.bpy.extension.events import Handler, located, runtime, Subscription
+from blender.bpy.extension.events import located, runtime
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.extension.registration import Acquisitions, Registrable
+from blender.bpy.extension.registration import Acquisitions, Handler, Registrable, Subscription
 from blender.bpy.files.sessions import BlendFile
-from blender.bpy.render.outputs.formats import FileItems
+from blender.bpy.render.outputs.formats import extension
+from blender.bpy.scene.cameras import render_views
 from blender.bpy.settings.attachments import Attached, Attachment, Stored
 from blender.bpy.settings.presets import Preset
 from blender.bpy.ui.layout.rows import OperatorButton
 from blender.bpy.ui.layout.sections import Section
 from blender.bpy.ui.layout.values import Store
-from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, Reason
+from blender.records.faults import accumulated, Error, Fault, Faults, Nothing, Ok, Outcome, paired, Reason
 from blender.records.stores import existing, removed
 from blender.rendering.outputs.naming import Field, Fields, NumberField, NumberKey, Output, OutputName, stepped, TextField, TextKey
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_NATIVE: Final = MappingProxyType({TextKey.SCENE: "{scene_name}", TextKey.CAMERA: "{camera_name}", TextKey.FILE: "{blend_name}"})
-_EDITED: Final = Setting(descriptor=Descriptor.declared(bpy.types.SpaceNodeEditor, ("tree_type",), bpy.types.EnumProperty), accepted=(bpy.types.CompositorNodeTree.__name__,)) & Setting(
-    descriptor=Descriptor.declared(bpy.types.SpaceNodeEditor, ("edit_tree", "is_editable"), bpy.types.BoolProperty)
-)
+_NATIVE: Final = MappingProxyType({TextKey.SCENE: "scene_name", TextKey.CAMERA: "camera_name", TextKey.FILE: "blend_name"})
+_FILEPATH: Final[bpy.types.StringProperty] = bpy.types.RenderSettings.bl_rna.properties["filepath"]  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+_EDITED: Final = Setting(
+    descriptor=Descriptor(root=bpy.types.SpaceNodeEditor, prop=bpy.types.SpaceNodeEditor.bl_rna.properties["tree_type"]), accepted=(bpy.types.CompositorNodeTree.__name__,)
+) & Setting(descriptor=Descriptor(root=bpy.types.SpaceNodeEditor, owner=("edit_tree",), prop=bpy.types.ID.bl_rna.properties["is_editable"]))
 _FILE_OUTPUT: Final = Setting(
-    descriptor=Descriptor.declared(bpy.types.SpaceNodeEditor, ("edit_tree", "nodes", "active"), bpy.types.PointerProperty), accepted=(bpy.types.CompositorNodeOutputFile.__name__,)
+    descriptor=Descriptor(root=bpy.types.SpaceNodeEditor, owner=("edit_tree", "nodes"), prop=bpy.types.Nodes.bl_rna.properties["active"]), accepted=(bpy.types.CompositorNodeOutputFile.__name__,)
 )
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -77,20 +82,19 @@ class Bump(bpy.types.PropertyGroup):
 
 
 class Rename(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """String edit with original, requested, and predicted stored spelling."""
+    """Native string owner with its original and requested text."""
 
     node: bpy.types.Node
     owner: bpy.types.Node | bpy.types.NodeCompositorFileOutputItem
     prop: bpy.types.StringProperty
     before: str
     requested: str
-    stored: str
 
 
 class NodePaths(msgspec.Struct, frozen=True, kw_only=True):
     """Path member values and requested File Output item names."""
 
-    members: Mapping[Descriptor[bpy.types.StringProperty], str]
+    members: Mapping[Descriptor, str]
     items: tuple[str, ...]
 
 
@@ -117,11 +121,9 @@ class OutputPath(msgspec.Struct, frozen=True, kw_only=True):
         """Returns native variables for selected words and frame padding."""
         match part:
             case TextField(key=key):
-                return Option.of_optional(_NATIVE.get(key)).filter(lambda _: key in self.spelled)
-            case NumberField(key=NumberKey.FRAME, width=width):
-                return Some("#" * width)
+                return Option.of_optional(_NATIVE.get(key)).filter(lambda _: key in self.spelled).map(lambda name: f"{{{name}}}")
             case NumberField():
-                return Nothing
+                return _frame(part)
 
     @classmethod
     def of(cls, outputs: Outputs, scene: bpy.types.Scene, root: tuple[str, Path], blend: Option[Path], day: datetime.date) -> Outcome[Self]:
@@ -153,33 +155,28 @@ class OutputPath(msgspec.Struct, frozen=True, kw_only=True):
 
         return Result[tuple[OutputName, OutputName], Faults].bind(paired(OutputName.of(outputs.template), OutputName.of(outputs.stem)), lambda pair: built(*pair))
 
-    def _filled(self, layer: str, output: Output, item: Option[str], frame: Option[int] = Nothing) -> Fields:
+    def _filled(self, layer: str, output: Output, item: Option[str]) -> Fields:
         return Fields(
             texts={**self.fields.texts, TextKey.LAYER: layer, TextKey.OUTPUT: output, TextKey.PASS: item.default_value(output)},
-            numbers={
-                **self.fields.numbers,
-                **dict(Option.of_optional(self.orders.get(layer)).map(lambda order: (NumberKey.ORDER, order)).to_list()),
-                **dict(frame.map(lambda held: (NumberKey.FRAME, held)).to_list()),
-            },
+            numbers={**self.fields.numbers, **dict(Option.of_optional(self.orders.get(layer)).map(lambda order: (NumberKey.ORDER, order)).to_list())},
         )
 
     def text(self, layer: str, output: Output, item: Option[str] = Nothing) -> Outcome[str]:
-        """Composes a relative native template with every field value read literally, refusing a {date} the host cannot expand."""
+        """Composes a relative native template with literal field values."""
         filled = self._filled(layer, output, item)
-        return (
-            Error(Fault.of(Reason.REQUIRED, f"template of {layer} without {{date}}, which Blender cannot expand"))
-            if TextKey.DATE in self.name.keys
-            else self.name.compose(msgspec.structs.replace(filled, texts={key: escaped(value) for key, value in filled.texts.items()}), self.spelling)
-        )
+        return self.name.compose(msgspec.structs.replace(filled, texts={key: escaped(value) for key, value in filled.texts.items()}), self.spelling)
 
-    def scene_output(self, scene: bpy.types.Scene) -> Outcome[str]:
-        """Composes a scene's preview output under native root, for the context view layer of the context scene and the first view layer of any other."""
-        layer = Option.of_optional(bpy.context.view_layer).filter(lambda held: held.id_data == scene).default_with(lambda: scene.view_layers[0])
-        return self.text(layer.name, Output.PREVIEW).map(lambda text: posixpath.join(self.root, text))
+    def scene_output(self, scene: bpy.types.Scene, *, layer: Option[bpy.types.ViewLayer] = Nothing) -> Outcome[str]:
+        """Composes the requested layer's preview path, resolving native target-scene context when none was requested."""
+        with bpy.context.temp_override(scene=scene):
+            return (
+                layer.map(Ok).default_with(lambda: rooted(bpy.types.ViewLayer, bpy.context)).bind(lambda held: self.text(held.name, Output.PREVIEW)).map(lambda text: posixpath.join(self.root, text))
+            )
 
-    def written(self, layer: str, output: Output, item: Option[str], frame: int, suffix: str) -> Outcome[Path]:
-        """Composes literal written-file path."""
-        return self.name.path(self.base, self._filled(layer, output, item, Some(frame))).map(lambda path: path.with_name(f"{path.name}{suffix}"))
+    def literal(self, layer: str, output: Output, item: Option[str], frame: int, *, suffix: Option[str] = Nothing) -> Outcome[Path]:
+        """Composes a frame's literal filename and suffix under its output root."""
+        fields = self._filled(layer, output, item)
+        return self.name.path(self.base, msgspec.structs.replace(fields, numbers={**fields.numbers, NumberKey.FRAME: frame}), suffix=suffix.default_value(""))
 
     def next_version(self) -> int:
         """Returns next take after matching files, ignoring date."""
@@ -189,19 +186,20 @@ class OutputPath(msgspec.Struct, frozen=True, kw_only=True):
     def removed(self, scene: bpy.types.Scene, frames: range) -> Outcome[None]:
         """Removes scene outputs under job root."""
 
-        def dropped(frame: int) -> Outcome[None]:
-            return Result[Path, Faults].bind(_frame_file(scene, frame), lambda file: removed(file).map(lambda _: None) if bpy.path.is_subdir(str(file), str(self.base)) else Ok(None))
+        def dropped(frame: int, view: Option[bpy.types.SceneRenderView]) -> Outcome[None]:
+            return frame_file(scene.render, frame, view).bind(lambda file: removed(file).map(lambda _: None) if bpy.path.is_subdir(str(file), str(self.base)) else Ok(None))
 
-        return accumulated(map(dropped, frames)).map(lambda _: None)
+        views = tuple(map(Some, render_views(scene.render))) if scene.render.use_multiview and scene.render.image_settings.views_format == "INDIVIDUAL" else (Nothing,)
+        return accumulated(dropped(frame, view) for frame in frames for view in views).map(lambda _: None)
 
 
 class Pathed(msgspec.Struct, frozen=True, kw_only=True):
     """Bound scene output settings and shared native descriptors."""
 
-    filepath: ClassVar[Descriptor[bpy.types.StringProperty]] = Descriptor.declared(bpy.types.RenderSettings, ("filepath",), bpy.types.StringProperty)
-    directory: ClassVar[Descriptor[bpy.types.StringProperty]] = Descriptor.declared(bpy.types.CompositorNodeOutputFile, ("directory",), bpy.types.StringProperty)
-    file_name: ClassVar[Descriptor[bpy.types.StringProperty]] = Descriptor.declared(bpy.types.CompositorNodeOutputFile, ("file_name",), bpy.types.StringProperty)
-    unsaved: ClassVar[Condition] = ~Setting(descriptor=Descriptor.declared(bpy.types.Context, ("blend_data", "filepath"), bpy.types.StringProperty), accepted=("",))
+    filepath: ClassVar[Descriptor] = Descriptor(root=bpy.types.RenderSettings, prop=bpy.types.RenderSettings.bl_rna.properties["filepath"])
+    directory: ClassVar[Descriptor] = Descriptor(root=bpy.types.CompositorNodeOutputFile, prop=bpy.types.CompositorNodeOutputFile.bl_rna.properties["directory"])
+    file_name: ClassVar[Descriptor] = Descriptor(root=bpy.types.CompositorNodeOutputFile, prop=bpy.types.CompositorNodeOutputFile.bl_rna.properties["file_name"])
+    unsaved: ClassVar[Condition] = ~Setting(descriptor=Descriptor(root=bpy.types.Context, owner=("blend_data",), prop=bpy.types.BlendData.bl_rna.properties["filepath"]), accepted=("",))
     attached: Attached[Outputs]
     stored: Stored[OutputPath]
 
@@ -276,54 +274,186 @@ def escaped(text: str) -> str:
     return text.replace("{", "{{").replace("}", "}}")
 
 
-def _frame_file(scene: bpy.types.Scene, frame: int) -> Outcome[Path]:
-    """Returns the file the scene writes at a frame, templates expanded."""
-    return catch(scene.render.frame_path, exception=RuntimeError)(frame=frame).map(Path).map_error(partial(Fault.of, Reason.REFUSED, repr(scene.render)))
+def _frame(part: Field) -> Option[str]:
+    """Spells native frame placeholders at the declared field width."""
+    match part:
+        case NumberField(key=NumberKey.FRAME, width=width):
+            return Some("#" * width)
+        case _:
+            return Nothing
+
+
+def frame_file(render: bpy.types.RenderSettings, frame: int, view: Option[bpy.types.SceneRenderView] = Nothing) -> Outcome[Path]:
+    """Returns the native animation file path, with templates, frame, and camera-view suffix resolved."""
+    return catch(render.frame_path, exception=RuntimeError)(frame=frame, view=view.map(lambda held: held.name).default_value("")).map(Path).map_error(partial(Fault.of, Reason.REFUSED, repr(render)))
+
+
+def file_output_path(
+    scene: bpy.types.Scene,
+    node: bpy.types.CompositorNodeOutputFile,
+    settings: bpy.types.ImageFormatSettings,
+    frame: int,
+    *,
+    animation: Option[bool],
+    item: Option[bpy.types.NodeCompositorFileOutputItem] = Nothing,
+    view: Option[bpy.types.SceneRenderView] = Nothing,
+) -> Outcome[Path]:
+    """Resolves an owned File Output's live strings, actual item name, format and render mode."""
+    separators = "/\\" if os.name == "nt" else "/"
+    base = _path_bytes(f"{node.directory}{'' if node.directory.endswith(tuple(separators)) else os.sep}{node.file_name}{item.map(lambda held: held.name).default_value('')}")
+
+    def chosen(paths: tuple[Path, ...]) -> Outcome[Path]:
+        match tuple(dict.fromkeys(paths)):
+            case (path,):
+                return Ok(path)
+            case candidates:
+                return Error(Fault.of(Reason.REQUIRED, repr(node), candidates, member="render mode for distinct still and animation paths"))
+
+    return (
+        extension(settings)
+        .to_result_with(lambda: Fault.of(Reason.OUTSIDE, repr(settings), settings.file_format, member="still image extension"))
+        .bind(
+            lambda suffix: accumulated(
+                _image_path(
+                    scene,
+                    base if animated else _path_frame(base, frame, 0),
+                    suffix,
+                    view,
+                    use_extension=node.use_file_extension,
+                    framed=partial(_path_frame, frame=frame, digits=4) if animated else lambda text: text,
+                ).map(Path)
+                for animated in animation.map(lambda mode: (mode,)).default_with(lambda: (False, True))
+            )
+        )
+        .bind(chosen)
+    )
+
+
+def scene_still_path(scene: bpy.types.Scene, *, view: Option[bpy.types.SceneRenderView] = Nothing) -> Outcome[Path]:
+    """Resolves a native scene still, adding its individual view after its extension."""
+    return _image_path(scene, scene.render.filepath, scene.render.file_extension, Nothing, use_extension=scene.render.use_file_extension).map(lambda text: Path(_view_path(scene, text, view)))
+
+
+def _path_bytes(text: str, reserve: int = 0) -> str:
+    """Copies a native path buffer, retaining filesystem bytes at its RNA capacity."""
+    return text.encode(errors="surrogateescape")[: _FILEPATH.length_max - 1 - reserve].decode(errors="surrogateescape")
+
+
+def _path_frame(text: str, frame: int, digits: int) -> str:
+    """Expands the last basename hash group, appending requested frame digits when absent."""
+    name = ntpath.basename(text)
+    if not (width := len(found[0]) if (found := re.search(r"#+(?=[^#]*$)", name)) else digits):
+        return text
+    number = f"{'-' if frame < 0 else ''}{abs(frame):0{width}d}"
+    start = len(text) - len(name)
+    return _path_bytes(f"{text[: start + found.start()]}{number}{text[start + found.end() :]}" if found else f"{text}{number}")
+
+
+def _path_suffix(text: str, suffix: str) -> str:
+    """Inserts a native suffix before an existing extension when its path buffer holds it."""
+    stem, previous = ntpath.splitext(text)
+    return f"{stem}{suffix}{previous}" if len(text.encode(errors="surrogateescape")) + len(suffix.encode()) < _FILEPATH.length_max else text
+
+
+def _view_path(scene: bpy.types.Scene, text: str, view: Option[bpy.types.SceneRenderView]) -> str:
+    """Adds the requested native view suffix while scene multiview is enabled."""
+    return _path_suffix(text, view.map(lambda held: held.file_suffix).default_value("") if scene.render.use_multiview else "")
+
+
+def _image_path(scene: bpy.types.Scene, base: str, extension: str, view: Option[bpy.types.SceneRenderView], *, use_extension: bool, framed: Callable[[str], str] = lambda text: text) -> Outcome[str]:
+    """Resolves compiler-owned templates, a frame phase, suffixes and extensions.
+
+    Blender exposes neither its still resolver nor its filename sanitizer to Python.
+    Native image paths reserve ten input bytes before template expansion.
+
+    Returns:
+        Native path text, or faults for unknown variables or invalid template syntax.
+    """
+    capacity = _FILEPATH.length_max
+
+    def filename(value: str) -> str:
+        safe = re.sub(r'[\x01-\x1f/\\?*:|"<>]', "_", _path_bytes(value))
+        safe = f"_{safe[1:]}" if safe and not safe.strip(".") else safe
+        if os.name == "nt":
+            reserved = re.match(r"(?:con|prn|aux|null|com[1-9]|lpt[1-9])(?:\.|$)", safe, re.IGNORECASE | re.ASCII)
+            safe = f"{safe[:-1]}_" if safe.endswith(".") else safe
+            safe = f"_{safe[1:]}" if reserved else safe
+        return safe
+
+    variables = {
+        _NATIVE[TextKey.SCENE]: filename(scene.name),
+        **dict(Option.of_optional(scene.camera).map(lambda camera: (_NATIVE[TextKey.CAMERA], filename(camera.name))).to_list()),
+        _NATIVE[TextKey.FILE]: _path_bytes(ntpath.splitext(ntpath.basename(bpy.data.filepath))[0] if bpy.data.filepath else bpy.app.translations.pgettext_data("Unsaved")),
+        **{
+            variable.name: _path_bytes(variable.value) if variable.subtype == "FILEPATH" else filename(variable.value)
+            for project in Option.of_optional(bpy.data.project).to_list()
+            for variable in project.variables
+            if isinstance(variable, bpy.types.ProjectVariableString)
+        },
+    }
+
+    def resolved() -> str:
+        parts = tuple(string.Formatter().parse(_path_bytes(base, 10)))
+        if any(spec or conversion is not None for _, key, spec, conversion in parts if key is not None):
+            raise ValueError(base)
+        text = _path_bytes("".join(literal + (variables[key] if key is not None else "") for literal, key, _, _ in parts))
+        if os.name != "nt" and re.match(r"[A-Za-z]:[/\\]", text):
+            text = f"/{text[0].lower()}{text[2:]}"
+        prefix = 4 if text.startswith("\\\\?\\") else 2 if text.startswith("\\\\") else 0
+        text = text[:prefix] + text[prefix:].replace("\\", "/")
+        text = _path_bytes(f"{bpy.path.abspath('//')}{text[2:]}" if text.startswith("//") else bpy.path.abspath(text))
+        trailing = text.endswith(tuple("/\\" if os.name == "nt" else "/"))
+        terminal_dot = text.endswith(f"{os.sep}.")
+        terminal_parent = text.endswith(f"{os.sep}..")
+        text = os.path.normpath(text[:-1] if terminal_dot else text) if text else text
+        trailing = trailing or (terminal_parent and ntpath.basename(text) not in {".", ".."})
+        text = f"{text}{'' if text.endswith(os.sep) else os.sep}." if terminal_dot else text
+        text = f"{text}{os.sep}" if trailing and not text.endswith(os.sep) else text
+        text = framed(text)
+        text = _path_suffix(text, bpy.app.translations.pgettext_data("Untitled")) if text.endswith(tuple("/\\" if os.name == "nt" else "/")) else text
+        previous = ntpath.splitext(text)[1]
+        text = _view_path(scene, text, view)
+        accepted = {".jpg", ".jpeg"} if extension == ".jpg" else {".tif", ".tiff"} if extension == ".tif" else {extension}
+        if use_extension and previous.lower() not in accepted:
+            stem, previous = ntpath.splitext(text)
+            replaced = previous.lower() in bpy.path.extensions_image  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            target = stem if replaced else text.rstrip(".")
+            text = f"{target}{extension}" if len(target.encode(errors="surrogateescape")) + len(extension.encode()) < capacity else text if replaced else target
+        return text
+
+    try:
+        return Ok(resolved())
+    except (KeyError, ValueError) as error:
+        return Error(Fault.of(Reason.INVALID, base, error))
 
 
 # --- [RENAMES]
 
 
 def edits(node: bpy.types.CompositorNodeOutputFile | bpy.types.NodeFrame, transform: Callable[[str], Outcome[Option[str]]]) -> Outcome[tuple[Rename, ...]]:
-    """Plans node strings and File Output item names a transform changes, item names predicted as the host stores them."""
+    """Plans original requests for native node strings and File Output item names."""
     texts = tuple(prop for prop in definition(node).properties if isinstance(prop, bpy.types.StringProperty) and (prop.is_path_supports_templates or prop.identifier == "label"))
     items = tuple(
         (item, prop) for item in (node.file_output_items if isinstance(node, bpy.types.CompositorNodeOutputFile) else ()) for prop in Option.of_optional(definition(item).name_property).to_list()
     )
-    before, held = tuple(getattr(node, prop.identifier) for prop in texts), tuple(getattr(item, prop.identifier) for item, prop in items)
-
-    def named(asked: tuple[Option[str], ...]) -> tuple[Rename, ...]:
-        requests = tuple(request.default_value(name) for request, name in zip(asked, held))
-        return tuple(
-            Rename(node=node, owner=item, prop=prop, before=text, requested=request, stored=stored)
-            for (item, prop), text, request, stored in zip(items, held, requests, FileItems.stored(requests, held))
-            if request != text
-        )
-
-    return paired(
-        accumulated(map(transform, before)).map(
-            lambda asked: tuple(
-                Rename(node=node, owner=node, prop=prop, before=text, requested=request, stored=request.encode()[: prop.length_max - 1].decode(errors="ignore") if prop.length_max else request)
-                for prop, text, changed in zip(texts, before, asked)
-                for request in changed.to_list()
-            )
-        ),
-        accumulated(map(transform, held)).map(named),
-    ).map(lambda pair: (*pair[0], *pair[1]))
+    return accumulated(
+        transform(before).map(lambda changed: tuple(Rename(node=node, owner=owner, prop=prop, before=before, requested=request) for request in changed.to_list()))
+        for owner, prop in (*((node, prop) for prop in texts), *items)
+        for before in (getattr(owner, prop.identifier),)
+    ).map(lambda groups: tuple(chain.from_iterable(groups)))
 
 
 def planned(nodes: Iterable[bpy.types.Node], properties: Replace) -> Outcome[tuple[Rename, ...]]:
     """Plans every string edit before writes."""
+    replacement: str = properties.replace  # ty: ignore[unsound-assignment]
 
     def substituted(pattern: re.Pattern[str], text: str) -> Outcome[Option[str]]:
-        insert: Callable[[re.Match[str]], str] = (lambda found: found.expand(properties.replace)) if properties.regex else (lambda _: properties.replace)
-        refused = partial(Fault.of, Reason.INVALID, properties.replace)
-        return (
-            catch(catch(pattern.sub, exception=IndexError), exception=re.PatternError)(insert, text)
-            .map_error(refused)
-            .bind(lambda named: named.map_error(refused))
-            .map(lambda changed: Some(changed) if changed != text else Nothing)
-        )
+        insert: Callable[[re.Match[str]], str] = (lambda found: found.expand(replacement)) if properties.regex else (lambda _: replacement)
+        try:
+            changed = pattern.sub(insert, text)
+        except (IndexError, re.PatternError) as error:
+            return Error(Fault.of(Reason.INVALID, replacement, error))
+        return Ok(Some(changed).filter(lambda value: value != text))
 
     return (
         Result[re.Pattern[str], Faults]
@@ -338,25 +468,17 @@ def planned(nodes: Iterable[bpy.types.Node], properties: Replace) -> Outcome[tup
 
 
 def _applied(renames: tuple[Rename, ...], unmatched: str) -> Outcome[Answer]:
-    """Writes each request after freeing renamed items for swaps, reporting what the host stored, Unchanged when no stored spelling differs."""
-    if not (changed := tuple(rename for rename in renames if rename.stored != rename.before)):
+    """Writes original requests after freeing renamed items for swaps, unchanged when every request matches its current text."""
+    if not (changed := tuple(rename for rename in renames if rename.requested != rename.before)):
         return Ok(Unchanged(reason=unmatched))
     taken = {
         *(rename.before for rename in changed),
         *(rename.requested for rename in changed),
-        *(rename.stored for rename in changed),
         *(item.name for rename in changed if isinstance(rename.node, bpy.types.CompositorNodeOutputFile) for item in rename.node.file_output_items),
     }
 
     def reported(writes: tuple[Outcome[object], ...]) -> Outcome[Answer]:
-        respelled = tuple((rename.requested, stored) for rename in changed for stored in (getattr(rename.owner, rename.prop.identifier),) if stored != rename.requested)
-        return tallied(
-            writes,
-            (
-                ("INFO", f"Replaced {len(changed)} fields across {len({rename.node.name for rename in changed})} nodes"),
-                *((("WARNING", f"Blender stores {respelled[0][0]} as {respelled[0][1]}, {len(respelled)} names respelled"),) if respelled else ()),
-            ),
-        )
+        return tallied(writes, (("INFO", f"Requested {len(changed)} fields across {len({rename.node.name for rename in changed})} nodes"),))
 
     return accumulated(
         written(rename.owner, (rename.prop.identifier,), next(f"{index}{'_' * number}" for number in count() if f"{index}{'_' * number}" not in taken))
@@ -375,7 +497,7 @@ def _applied(renames: tuple[Rename, ...], unmatched: str) -> Outcome[Answer]:
     invoke=Some(
         Suppressible[Replace](
             message=lambda context, properties: planned(context.selected_nodes, properties).map(
-                lambda renames: "\n".join(f"{rename.node.name} · {rename.before} → {rename.stored}" for rename in renames)
+                lambda renames: "\n".join(f"{rename.node.name} · {rename.before} → {rename.requested}" for rename in renames)
             ),
             dialog=partial(bpy.types.WindowManager.invoke_props_dialog, width=400),
         )
@@ -386,7 +508,7 @@ def output_replace(call: Call[Replace]) -> Outcome[Answer]:
     return planned(call.context.selected_nodes, call.properties).bind(lambda renames: _applied(renames, "No selected path holds find text"))
 
 
-@Operator.of(Bump, condition=Some(_EDITED & _FILE_OUTPUT), undo=UndoGroup(group="output_version"))
+@Operator.of(Bump, condition=Some(_EDITED & _FILE_OUTPUT), options=frozenset({"UNDO_GROUPED"}), undo_group=Some("output_version"))
 def output_version(call: Call[Bump]) -> Outcome[Answer]:
     """Move version tokens in active File Output node."""
     match call.context.active_node:
@@ -404,13 +526,13 @@ def output_take(call: Call[Empty]) -> Outcome[Answer]:
     )
 
 
-@Operator.of(Empty, icon=Some("FILE_FOLDER"), undo=NoUndo())
+@Operator.of(Empty, icon=Some("FILE_FOLDER"), options=frozenset())
 def output_folder(call: Call[Empty]) -> Outcome[Answer]:
     """Open deepest existing output folder."""
     return (
         rooted(bpy.types.Scene, call.context)
-        .bind(lambda scene: _frame_file(scene, scene.frame_current))
-        .bind(lambda file: called(bpy.ops.wm.path_open, {"filepath": str(existing(file))}))
+        .bind(lambda scene: frame_file(scene.render, scene.frame_current))
+        .bind(lambda file: called(bpy.ops.wm.path_open, {"filepath": str(existing(file.parent))}))
         .map(lambda _: Done())
     )
 
@@ -437,23 +559,23 @@ class ScenePaths(msgspec.Struct, frozen=True, kw_only=True):
 
     def bound(self, identity: Identity) -> Outcome[Pathed]:
         """Binds registered scene settings."""
-        return paired(self.attachment.bound(identity), self.stored(identity)).map(lambda pair: Pathed(attached=pair[0], stored=pair[1]))
+        return self.attachment.bound(identity).map(lambda attached: Pathed(attached=attached, stored=self.stored(identity)))
 
     @staticmethod
-    def stored(identity: Identity) -> Outcome[Stored[OutputPath]]:
+    def stored(identity: Identity) -> Stored[OutputPath]:
         """Names persistent render paths shared by preparation, workers, and finishing."""
         return Stored.keyed(
             identity, "output_path", msgspec.msgpack.Decoder(OutputPath, dec_hook=lambda kind, value: kind(value)), enc_hook=Some(lambda value: value.as_posix() if isinstance(value, Path) else value)
         )
 
-    def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
+    def acquisitions(self, identity: Identity) -> Acquisitions:
         """Returns commands and refresh handlers binding attachment on call."""
 
         def refreshed(saving: Option[Path]) -> Outcome[None]:
             return self.bound(identity).bind(lambda pathed: pathed.refreshed(identity, today(), saving))
 
         current = partial(refreshed, Nothing)
-        return Ok((
+        return (
             output_replace,
             output_version,
             output_take,
@@ -465,7 +587,7 @@ class ScenePaths(msgspec.Struct, frozen=True, kw_only=True):
                 Subscription(owner=owner, setting=owner.bl_rna.properties[key], body=current)
                 for owner, key in ((bpy.types.ViewLayer, "name"), (bpy.types.Scene, "view_layers"), (bpy.types.PreferencesFilePaths, "render_output_directory"))
             ),
-        ))
+        )
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
@@ -481,10 +603,13 @@ __all__ = [
     "ScenePaths",
     "edits",
     "escaped",
+    "file_output_path",
+    "frame_file",
     "output_folder",
     "output_replace",
     "output_take",
     "output_version",
     "planned",
+    "scene_still_path",
     "today",
 ]

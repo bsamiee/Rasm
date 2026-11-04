@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-redundant-check
-language: rust
+language: rustlang
 severity: error
 utils:
     zero:
@@ -44,7 +44,7 @@ utils:
     presence:
         kind: call_expression
         all:
-            - has: {field: function, kind: field_expression, all: [{has: {field: value, pattern: $V}}, {has: {field: field, regex: '^(is_some|is_none|is_ok|is_err)$'}}]}
+            - has: {field: function, kind: field_expression, all: [{has: {field: value, pattern: $V}}, {has: {field: field, regex: '^(is_some|is_ok)$'}}]}
             - matches: no-arguments
     iteration:
         any:

@@ -1,17 +1,72 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-map-then-default
-language: rust
+language: rustlang
 severity: error
+utils:
+    empty-literal:
+        kind: string_literal
+        not: {has: {kind: 'string_content, escape_sequence'}}
+    empty-string:
+        any:
+            - matches: empty-literal
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: field_expression, all: [{has: {field: value, matches: empty-literal}}, {has: {field: field, regex: '^(into|to_owned|to_string)$'}}]}
+                - has: {field: arguments, not: {has: {pattern: $_}}}
+    zero-value:
+        any:
+            - matches: empty-string
+            - matches: rust-default-value
+            - {kind: boolean_literal, regex: '^false$'}
+    retest:
+        any:
+            - kind: call_expression
+              has: {field: function, kind: field_expression, all: [{has: {field: value, pattern: $NAME}}, {has: {field: field, regex: '^is_empty$'}}]}
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^(==|!=)$'}
+                - has: {pattern: $NAME}
+                - has: {matches: zero-value}
+    default-compared-binding:
+        inside:
+            kind: let_declaration
+            stopBy: {kind: block}
+            has: {field: pattern, kind: identifier, pattern: $NAME}
+            precedes:
+                stopBy: {kind: let_declaration, has: {field: pattern, pattern: $NAME}}
+                any: [{matches: retest}, {has: {stopBy: {kind: 'function_item, closure_expression'}, matches: retest}}]
+    result-read:
+        kind: identifier
+        any:
+            - inside: {kind: 'let_declaration, parameter, closure_parameters', field: pattern}
+            - inside: {kind: field_expression, field: value, inside: {kind: call_expression, has: {field: function, has: {field: field, regex: '^(is_ok|is_err)$'}}}}
+            - inside:
+                kind: field_expression
+                field: value
+                has: {field: field, regex: '^as_(ref|mut|deref|deref_mut)$'}
+                inside:
+                    kind: call_expression
+                    has: {field: arguments, not: {has: {pattern: $_}}}
+                    inside: {kind: field_expression, field: value, has: {field: field, regex: '^ok$'}}
+    dropped-error:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: field_expression, has: {field: field, regex: '^ok$'}}
+            - has: {field: arguments, not: {has: {pattern: $_}}}
+            - not: {has: {field: function, kind: field_expression, has: {field: value, kind: call_expression, has: {field: function, kind: field_expression, has: {field: field, regex: '^inspect_err$'}}}}}
+            - not:
+                all:
+                    - has: {field: function, has: {field: value, kind: call_expression, has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^as_(ref|mut|deref|deref_mut)$'}}, {has: {field: value, kind: identifier, pattern: $RESULT}}]}}}
+                    - inside: {stopBy: end, kind: block, inside: {kind: 'function_item, closure_expression', field: body}, has: {stopBy: end, kind: identifier, pattern: $RESULT, not: {matches: result-read}}}
 rule:
     kind: call_expression
     all:
         - any:
-            - pattern: $O.map_or($D, $F)
-            - pattern: $O.map_or_else($D, $F)
-        - not: {matches: rust-default-compared-binding}
+            - pattern: $O.map_or($D, $_)
+            - pattern: $O.map_or_else($D, $_)
+        - has: {field: arguments, has: {pattern: $D, matches: rust-default-value}}
+        - not: {matches: default-compared-binding}
 constraints:
-    O: {not: {matches: rust-dropped-error}}
-    D: {matches: rust-default-value}
-fix: $O.map_or_default($F)
+    O: {not: {matches: dropped-error}}
 message: '`$O` maps its value and spells default `$D` as its fallback'
 note: 'Call `<value>.map_or_default(<f>)` on the `Option` or `Result`'

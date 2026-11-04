@@ -1,13 +1,14 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-mutable-struct
-language: python
+language: pythonlang
 severity: error
 rule:
     kind: class_definition
     all:
-        - has: {field: superclasses, regex: '\bStruct\b'}
+        - inside: {kind: module, stopBy: end, regex: '\bmsgspec\b'}
         - has: {field: name, pattern: $NAME}
-        - has: {field: superclasses, has: {matches: {python-member-use: {module: {regex: '^msgspec$'}, name: {regex: '^Struct$'}}}}}
-        - not: {matches: msgspec-frozen-class}
+        - any:
+            - matches: msgspec-struct-frozen-default
+            - matches: {msgspec-struct-frozen-option: {value: {kind: 'false'}}}
 message: '`$NAME` is a mutable `msgspec.Struct`'
 note: 'Declare `frozen=True` on a record, and hold changing state in a slotted class owning its release'

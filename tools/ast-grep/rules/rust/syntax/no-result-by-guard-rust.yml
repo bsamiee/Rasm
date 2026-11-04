@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-result-by-guard-rust
-language: rust
+language: rustlang
 severity: error
 utils:
     valued-return:
@@ -18,16 +18,16 @@ utils:
             - has: {field: consequence, matches: early-return}
     plain-condition:
         kind: if_expression
-        has: {field: condition, not: {any: [{regex: '\n'}, {kind: 'let_condition, let_chain'}]}}
+        has: {field: condition, not: {kind: 'let_condition, let_chain'}}
     some-early:
         kind: if_expression
-        has: {field: consequence, has: {stopBy: end, matches: valued-return, has: {pattern: 'Some($X)', not: {regex: '\n'}}}}
+        has: {field: consequence, has: {stopBy: end, matches: valued-return, has: {pattern: 'Some($X)'}}}
     none-early:
         kind: if_expression
         has: {field: consequence, has: {stopBy: end, matches: valued-return, has: {pattern: None}}}
     value-early:
         kind: if_expression
-        has: {field: consequence, has: {stopBy: end, matches: valued-return, has: {pattern: $VALUE, not: {regex: '\n'}}}}
+        has: {field: consequence, has: {stopBy: end, matches: valued-return, has: {pattern: $_}}}
     borrowed:
         kind: identifier
         any:
@@ -48,18 +48,14 @@ utils:
             - not: {pattern: $E}
             - not: {matches: converted}
             - has: {stopBy: end, pattern: $E}
+    closure-safe:
+        not:
+            any:
+                - kind: &control 'await_expression, try_expression, return_expression, break_expression, continue_expression'
+                - has: {stopBy: {kind: 'closure_expression, async_block, function_item'}, kind: *control}
     returned-error:
         kind: return_expression
         has: {kind: call_expression, all: [{has: {field: function, regex: '^Err$'}}, {has: {field: arguments, has: {nthChild: 1, pattern: $RET, matches: mapped-error}}}]}
-    ok-name:
-        kind: match_arm
-        has: {field: pattern, has: {matches: ok-binding, has: {nthChild: 2, pattern: $OKV}}}
-    err-name:
-        kind: match_arm
-        has: {field: pattern, has: {matches: err-binding, has: {nthChild: 2, pattern: $ERRV}}}
-    guard-name:
-        kind: if_expression
-        has: {field: condition, has: {field: pattern, has: {nthChild: 2, pattern: $ERRV}}}
     ok-binding:
         kind: tuple_struct_pattern
         all:
@@ -97,56 +93,42 @@ utils:
     mapping-match:
         kind: match_expression
         all:
-            - not: {matches: rust-const-context}
             - has: {field: value, pattern: $R, matches: subject}
             - has: {field: body, matches: two-arms}
+            - not: {matches: rust-const-context}
     err-guard:
         kind: expression_statement
         all:
             - inside: {kind: block, inside: {kind: 'function_item, closure_expression'}}
-            - not: {matches: rust-const-context}
             - has:
                 kind: if_expression
                 all:
                     - not: {has: {field: alternative, pattern: $_}}
                     - has: {field: condition, kind: let_condition, all: [{has: {field: pattern, matches: err-binding}}, {has: {field: value, pattern: $R, matches: subject}}]}
                     - has: {field: consequence, kind: block, all: [{has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, any: [{matches: returned-error}, {kind: expression_statement, has: {matches: returned-error}}]}}, {not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}}]}
+            - not: {matches: rust-const-context}
             - not: {precedes: {stopBy: end, any: [{kind: identifier, pattern: $R}, {has: {stopBy: end, kind: identifier, pattern: $R}}]}}
 rule:
     all:
         - any:
             - matches: err-guard
-              all:
-                - has: {matches: guard-name}
-                - precedes: {matches: tail, pattern: $GUARD_TAIL}
-            - matches: err-guard
-              all:
-                - has: {matches: guard-name, pattern: $GUARD_ONLY}
-                - not: {precedes: {matches: tail}}
-            - matches: mapping-match
-              has:
-                field: body
-                all:
-                    - has: {matches: ok-arm, has: {field: value, kind: identifier, pattern: $V}}
-                    - has: {matches: err-arm, all: [{matches: err-name}, {has: {field: value, matches: returned-error}}]}
-            - matches: mapping-match
-              has:
-                field: body
-                all:
-                    - has: {matches: ok-arm, all: [{matches: ok-name}, {has: {field: value, matches: ok-wrap, has: {field: arguments, has: {nthChild: 1, not: {pattern: $V}, has: {stopBy: end, pattern: $V}}}}}]}
-                    - has: {matches: err-arm, all: [{matches: err-name}, {has: {field: value, matches: err-wrap, has: {field: arguments, has: {nthChild: 1, matches: mapped-error}}}}]}
-            - matches: mapping-match
-              has:
-                field: body
-                all:
-                    - has: {matches: ok-arm, all: [{matches: ok-name}, {has: {field: value, matches: ok-wrap, has: {field: arguments, has: {nthChild: 1, not: {pattern: $V}, has: {stopBy: end, pattern: $V}}}}}]}
-                    - has: {matches: err-arm, has: {field: value, kind: call_expression, all: [{has: {field: function, regex: '^Err$'}}, {has: {field: arguments, has: {nthChild: 1, pattern: $E}}}]}}
-            - matches: mapping-match
-              has:
-                field: body
-                all:
-                    - has: {matches: ok-arm, has: {field: value, kind: call_expression, all: [{has: {field: function, regex: '^Ok$'}}, {has: {field: arguments, has: {nthChild: 1, pattern: $V}}}]}}
-                    - has: {matches: err-arm, all: [{matches: err-name}, {has: {field: value, matches: err-wrap, has: {field: arguments, has: {nthChild: 1, matches: mapped-error}}}}]}
+            - all:
+                - matches: mapping-match
+                - has:
+                    field: body
+                    any:
+                        - all:
+                            - has: {matches: ok-arm, has: {field: value, kind: identifier, pattern: $V}}
+                            - has: {matches: err-arm, has: {field: value, matches: returned-error}}
+                        - all:
+                            - has: {matches: ok-arm, has: {field: value, matches: ok-wrap, has: {field: arguments, has: {nthChild: 1, not: {pattern: $V}, has: {stopBy: end, pattern: $V}}}}}
+                            - has: {matches: err-arm, has: {field: value, matches: err-wrap, has: {field: arguments, has: {nthChild: 1, matches: mapped-error}}}}
+                        - all:
+                            - has: {matches: ok-arm, has: {field: value, matches: ok-wrap, has: {field: arguments, has: {nthChild: 1, not: {pattern: $V}, has: {stopBy: end, pattern: $V}}}}}
+                            - has: {matches: err-arm, has: {field: value, kind: call_expression, all: [{has: {field: function, regex: '^Err$'}}, {has: {field: arguments, has: {nthChild: 1, pattern: $E}}}]}}
+                        - all:
+                            - has: {matches: ok-arm, has: {field: value, kind: call_expression, all: [{has: {field: function, regex: '^Ok$'}}, {has: {field: arguments, has: {nthChild: 1, pattern: $V}}}]}}
+                            - has: {matches: err-arm, has: {field: value, matches: err-wrap, has: {field: arguments, has: {nthChild: 1, matches: mapped-error}}}}
             - kind: expression_statement
               all:
                 - inside: {kind: block, inside: {kind: 'function_item, closure_expression'}}
@@ -158,48 +140,21 @@ rule:
                         - precedes: {matches: tail, pattern: None}
                         - has: {matches: plain-condition}
                         - not: {matches: rust-const-context}
-                        - any:
-                            - has: {kind: if_expression, has: {field: condition, matches: rust-postfix-expression, pattern: $THEN_PRIMARY}}
-                            - has: {kind: if_expression, has: {field: condition, not: {matches: rust-postfix-expression}, pattern: $THEN_COMPOUND}}
                     - all:
                         - has: {matches: none-early}
-                        - precedes: {matches: tail, pattern: 'Some($X)', not: {regex: '\n'}}
+                        - precedes: {matches: tail, pattern: 'Some($X)'}
                         - has: {matches: plain-condition}
                         - not: {matches: rust-const-context}
-                        - any:
-                            - has: {kind: if_expression, has: {field: condition, matches: rust-postfix-expression, pattern: $UNLESS_PRIMARY}}
-                            - has: {kind: if_expression, has: {field: condition, not: {matches: rust-postfix-expression}, pattern: $UNLESS_COMPOUND}}
                     - all:
                         - has: {matches: value-early}
-                        - precedes: {matches: tail, pattern: $LAST, not: {regex: '\n'}}
-                        - has: {kind: if_expression, has: {field: condition, not: {regex: '\n'}, pattern: $COND}}
+                        - precedes: {matches: tail}
         - any:
             - has: {field: value, pattern: $SUBJECT}
             - has: {kind: if_expression, has: {field: condition, any: [{kind: let_condition, has: {field: value, pattern: $SUBJECT}}, {pattern: $SUBJECT}]}}
-transform:
-    THEN_COMPOUND_WRAPPED: {replace: {source: $THEN_COMPOUND, replace: '^([\s\S]+)$', by: '($1)'}}
-    UNLESS_PRIMARY_WRAPPED: {replace: {source: $UNLESS_PRIMARY, replace: '^([\s\S]+)$', by: '(!$1)'}}
-    UNLESS_COMPOUND_WRAPPED: {replace: {source: $UNLESS_COMPOUND, replace: '^([\s\S]+)$', by: '(!($1))'}}
-    EAGER: {replace: {source: $X, replace: '^(?:[A-Za-z_]\w*(?:\.\w+)*|-?[0-9][\w.]*|true|false|\(\))$', by: '.then_some('}}
-    THEN_OPEN: {replace: {source: $EAGER, replace: '^(?:[^.]|\.[^t])[\s\S]*$', by: '.then(|| '}}
-    THEN_CLOSE: {replace: {source: $X, replace: '^[\s\S]*$', by: ')'}}
-    IF_OPEN: {replace: {source: $COND, replace: '^[\s\S]*$', by: 'if '}}
-    IF_THEN: {replace: {source: $COND, replace: '^[\s\S]*$', by: ' { '}}
-    IF_ELSE: {replace: {source: $COND, replace: '^[\s\S]*$', by: ' } else { '}}
-    IF_CLOSE: {replace: {source: $COND, replace: '^[\s\S]*$', by: ' }'}}
-    MAP_OPEN: {replace: {source: $A, replace: '^[\s\S]*$', by: '.map(|'}}
-    MAP_MID: {replace: {source: $A, replace: '^[\s\S]*$', by: '| '}}
-    MAP_CLOSE: {replace: {source: $A, replace: '^[\s\S]*$', by: ')'}}
-    MAP_ERR_OPEN: {replace: {source: $B, replace: '^[\s\S]*$', by: '.map_err(|'}}
-    MAP_ERR_MID: {replace: {source: $B, replace: '^[\s\S]*$', by: '| '}}
-    MAP_ERR_CLOSE: {replace: {source: $B, replace: '^[\s\S]*$', by: ')'}}
-    RET_OPEN: {replace: {source: $RET, replace: '^[\s\S]*$', by: '.map_err(|'}}
-    RET_MID: {replace: {source: $RET, replace: '^[\s\S]*$', by: '| '}}
-    RET_CLOSE: {replace: {source: $RET, replace: '^[\s\S]*$', by: ')?'}}
-    STATEMENT_END: {replace: {source: $GUARD_ONLY, replace: '^[\s\S]*$', by: ';'}}
-    TAIL_BREAK: {replace: {source: $GUARD_TAIL, replace: '^[\s\S]*$', by: ";\n"}}
-fix:
-    template: '$THEN_PRIMARY$THEN_COMPOUND_WRAPPED$UNLESS_PRIMARY_WRAPPED$UNLESS_COMPOUND_WRAPPED$THEN_OPEN$X$THEN_CLOSE$IF_OPEN$COND$IF_THEN$VALUE$IF_ELSE$LAST$IF_CLOSE$R$MAP_OPEN$OKV$MAP_MID$A$MAP_CLOSE$MAP_ERR_OPEN$RET_OPEN$ERRV$MAP_ERR_MID$RET_MID$B$RET$MAP_ERR_CLOSE$RET_CLOSE$STATEMENT_END$TAIL_BREAK$GUARD_TAIL'
-    expandEnd: {matches: tail}
+constraints:
+    A: {matches: closure-safe}
+    B: {matches: closure-safe}
+    RET: {matches: closure-safe}
+    X: {matches: closure-safe}
 message: '`if` or `match` over `$SUBJECT` selects a result through an early `return` or a restated case'
-note: 'Select the result through `bool::then_some` or `then`, one `if` expression, or `Result::map` and `map_err`, with `?` on a step the body continues past and a chain of the return type standing as the body in place of `Ok(<chain>?)`'
+note: 'Use `then_some`, `then`, `if`, `map`, or `map_err`; apply `?` to continuing steps and return terminal result chains directly'

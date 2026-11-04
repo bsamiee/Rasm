@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Runtime.CompilerServices;
 using Rasm.Rhino.Document.Units;
 
@@ -27,46 +26,43 @@ public abstract partial record Ribbon {
 public static class CurveConstruction {
     // --- [CATENARIES]
     public static IO<CatenaryCurve> CreateCatenaryCurve(CatenaryCall call, [CallerArgumentExpression(nameof(call))] string member = "") =>
-        from answered in IO.lift(() => (Curve: call(out Point3d apex, out double parameter, out double length, out double deviation), Apex: apex, Parameter: parameter, Length: length, Deviation: deviation))
-        from curve in Products.Of(() => answered.Curve, member)
-        select new CatenaryCurve(curve, answered.Apex, answered.Parameter, answered.Length, answered.Deviation);
+        from answered in Products.Of(() => (call(out Point3d apex, out double parameter, out double length, out double deviation), (Apex: apex, Parameter: parameter, Length: length, Deviation: deviation)), member)
+        select new CatenaryCurve(answered.Value, answered.Out.Apex, answered.Out.Parameter, answered.Out.Length, answered.Out.Deviation);
 
     // --- [FITS]
     public static IO<NurbsCurveFit> CreateNurbsCurveFit(Curve curve, Interval domain, NurbsCurveFitParameters rebuildOptions) =>
-        from answered in IO.lift(() => (
-            Curve: Curve.CreateNurbsCurveFit(curve, domain, rebuildOptions, out Line separation, out double source, out double fit), Separation: separation, Source: source, Fit: fit))
-        from fitted in Products.Of(() => answered.Curve, nameof(Curve.CreateNurbsCurveFit))
-        select new NurbsCurveFit(fitted, Conversions.Present(answered.Separation),
-            from sourceAt in Conversions.Present(answered.Source)
-            from fitAt in Conversions.Present(answered.Fit)
+        from answered in Products.Of(() => (
+            Curve.CreateNurbsCurveFit(curve, domain, rebuildOptions, out Line separation, out double source, out double fit), (Separation: separation, Source: source, Fit: fit)))
+        select new NurbsCurveFit(answered.Value, Conversions.Present(answered.Out.Separation),
+            from sourceAt in Conversions.Present(answered.Out.Source)
+            from fitAt in Conversions.Present(answered.Out.Fit)
             select (Source: sourceAt, Fit: fitAt));
 
     // --- [RIBBONS]
     public static IO<Ribbon> RibbonOffset(Curve curve, RibbonOffsetParameters parameters) =>
         parameters.RibbonSurfaceGenerationMethod is RibbonOffsetSurfaceMethod.None
-            ? from answered in IO.lift(() => (
-                  Offset: curve.RibbonOffset(parameters.OffsetDistance, parameters.BlendRadius, parameters.OffsetLocation, parameters.OffsetPlaneVector3d, parameters.OffsetTolerance,
-                      out Curve[] sections, out Surface[] surfaces), Sections: sections, Surfaces: surfaces))
-              from offset in Products.Of(() => answered.Offset, nameof(Curve.RibbonOffset))
-              from sections in Products.Many(() => answered.Sections, required: false, nameof(Curve.RibbonOffset))
-              from surfaces in Products.Many(() => answered.Surfaces, required: false, nameof(Curve.RibbonOffset))
-              select (Ribbon)new Ribbon.Ruled(offset, sections, surfaces)
-            : from answered in IO.lift(() => (Offset: curve.RibbonOffset(parameters, out Curve[] rails, out Curve[] sections, out Brep[] breps), Rails: rails, Sections: sections, Breps: breps))
-              from offset in Products.Of(() => answered.Offset, nameof(Curve.RibbonOffset))
-              from rails in Products.Many(() => answered.Rails, required: false, nameof(Curve.RibbonOffset))
-              from sections in Products.Many(() => answered.Sections, required: false, nameof(Curve.RibbonOffset))
-              from breps in Products.Many(() => answered.Breps, required: false, nameof(Curve.RibbonOffset))
-              select (Ribbon)new Ribbon.Swept(offset, rails, sections, breps);
+            ? from answered in Products.Of(() => (
+                  curve.RibbonOffset(parameters.OffsetDistance, parameters.BlendRadius, parameters.OffsetLocation, parameters.OffsetPlaneVector3d, parameters.OffsetTolerance,
+                      out Curve[] sections, out Surface[] surfaces), (Sections: sections, Surfaces: surfaces)))
+              from sections in Products.Many(() => answered.Out.Sections, required: false, nameof(Curve.RibbonOffset))
+              from surfaces in Products.Many(() => answered.Out.Surfaces, required: false, nameof(Curve.RibbonOffset))
+              select (Ribbon)new Ribbon.Ruled(answered.Value, sections, surfaces)
+            : from answered in Products.Of(() => (curve.RibbonOffset(parameters, out Curve[] rails, out Curve[] sections, out Brep[] breps), (Rails: rails, Sections: sections, Breps: breps)))
+              from rails in Products.Many(() => answered.Out.Rails, required: false, nameof(Curve.RibbonOffset))
+              from sections in Products.Many(() => answered.Out.Sections, required: false, nameof(Curve.RibbonOffset))
+              from breps in Products.Many(() => answered.Out.Breps, required: false, nameof(Curve.RibbonOffset))
+              select (Ribbon)new Ribbon.Swept(answered.Value, rails, sections, breps);
 
     // --- [CHAMFERS]
     public static Step<Curve> Chamfer(Tolerances tolerances, double before, double after) =>
         Steps.Derived<Curve>(curve =>
-            from seamed in IO.lift(() => CurveEvaluation.Kinks(tolerances, curve, Continuity.G1_continuous) switch {
-                var kinks when curve.IsClosed && kinks.Exists(t => t >= curve.Domain.T1) => Seam(curve, kinks.Filter(t => t < curve.Domain.T1).Last.IfNone(curve.Domain.T0))
-                    .Bind(t => RhinoFault.Unless(curve.ChangeClosedCurveSeam(t), RhinoReason.Declined, t)),
-                _ => unit,
-            })
-            from cuts in IO.lift(() => Cuts(curve, CurveEvaluation.Kinks(tolerances, curve, Continuity.G1_continuous).Filter(t => t > curve.Domain.T0 && t < curve.Domain.T1), before, after))
+            from kinks in IO.lift(() => CurveEvaluation.Kinks(tolerances, curve, Continuity.G1_continuous))
+            from corners in IO.lift(() => curve.IsClosed && kinks.Exists(t => t >= curve.Domain.T1)
+                ? Seam(curve, kinks.Filter(t => t < curve.Domain.T1).Last.IfNone(curve.Domain.T0))
+                    .Bind(t => RhinoFault.Unless(curve.ChangeClosedCurveSeam(t), RhinoReason.Declined, t))
+                    .Map(_ => CurveEvaluation.Kinks(tolerances, curve, Continuity.G1_continuous))
+                : kinks)
+            from cuts in IO.lift(() => Cuts(curve, corners.Filter(t => t > curve.Domain.T0 && t < curve.Domain.T1), before, after))
             from chamfered in cuts.IsEmpty ? IO.pure(curve) : Cut(tolerances, curve, cuts)
             select chamfered);
 
@@ -84,7 +80,7 @@ public static class CurveConstruction {
                     ? (RhinoFault.Unless(curve.LengthParameter(span.Start, out double start), RhinoReason.Outside, span.Start, index).Map(_ => start),
                         RhinoFault.Unless(curve.LengthParameter(span.End, out double end), RhinoReason.Outside, span.End, index).Map(_ => end))
                         .Apply(static (start, end) => (Start: start, End: end)).As()
-                    : new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"chamfer ({span.Start}, {span.End})"), RhinoReason.Outside, index)),
+                    : new RhinoFault(span, RhinoReason.Outside, index)),
         };
 
     private static IO<Curve> Cut(Tolerances tolerances, Curve curve, Seq<(double Start, double End)> cuts) =>

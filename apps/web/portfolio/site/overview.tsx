@@ -1,4 +1,4 @@
-import { ModalOverlay } from '@rasm/ui/dialog/overlay';
+import { Backdrop } from '@rasm/ui';
 import { Array, Option, Predicate } from 'effect';
 import { Grid2x2, X } from 'lucide-react';
 import { Button, Dialog, DialogTrigger, GridLayout, GridList, GridListItem, Heading, Modal, Size, Virtualizer } from 'react-aria-components';
@@ -16,7 +16,7 @@ const Overview = ({ title, compositions, selected, onSelect }: { title: string; 
                 <Grid2x2 aria-hidden="true" className="size-4" />
                 Overview
             </Button>
-            <ModalOverlay className="bg-foreground/35 fixed inset-0 z-40 flex items-center justify-center p-4" isDismissable={true}>
+            <Backdrop className="bg-foreground/35 fixed inset-0 z-40 flex items-center justify-center p-4" isDismissable={true}>
                 <Modal className="max-h-viewport-inset border-line bg-background flex w-full max-w-5xl flex-col border p-5 shadow-xl max-sm:p-3">
                     <Dialog className="flex min-h-0 flex-col outline-none">
                         {({ close }) => (
@@ -66,7 +66,7 @@ const Overview = ({ title, compositions, selected, onSelect }: { title: string; 
                         )}
                     </Dialog>
                 </Modal>
-            </ModalOverlay>
+            </Backdrop>
         </DialogTrigger>
     );
 };

@@ -8,10 +8,9 @@ from math import pi, tau
 from typing import Final, get_args, Literal, Self, TYPE_CHECKING
 
 import bpy
-from expression import Option, Some
+from expression import Option
 import msgspec
 
-from blender.bpy.data.rna.descriptors import Descriptor
 from blender.bpy.nodes.desired import MenuItem, MenuItems
 from blender.bpy.nodes.functions import EXPRESSIONS
 from blender.bpy.nodes.graphs import equal, Expr, math, menus, mixed, Scalar, switched, vector, where, xyz
@@ -40,13 +39,13 @@ class Join(Enum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_WAVE_PROFILE: Final = Descriptor.declared(bpy.types.ShaderNodeTexWave, ("wave_profile",), bpy.types.EnumProperty).prop
+_WAVE_PROFILE: Final[bpy.types.EnumProperty] = bpy.types.ShaderNodeTexWave.bl_rna.properties["wave_profile"]  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
 _PROFILE: Final = Socket(
     key="profile",
     kind=bpy.types.NodeSocketMenu,
     description="Periodic profile of each cycle",
     default_value=_WAVE_PROFILE.enum_items[_WAVE_PROFILE.default].name,
-    items=Some(MenuItems.of(_WAVE_PROFILE)),
+    items=MenuItems.of(_WAVE_PROFILE).items,
 )
 _STEPS: Final = Socket(key="steps", kind=bpy.types.NodeSocketInt, description="Levels each cycle holds past its first, continuous at 0 and a square wave at 1 over Saw", min_value=0)
 PROFILE: Final = Interface(inputs=(_PROFILE, _STEPS))

@@ -159,7 +159,7 @@ impl<A> TryFrom<ResourceRouter<A>> for Resources<A> {
             .tuple_windows()
             .filter(|((left, _), (right, _))| left.uri == right.uri)
             .map(|(_, (resource, _))| Err(McpError::Route { pattern: resource.uri.clone(), source: matchit::InsertError::Conflict { with: resource.uri.clone() } }))
-            .collect::<Validated<Vec<()>, _>>();
+            .collect::<Validated<(), _>>();
         let templates = templates
             .into_iter()
             .map(|((template, complete), route)| {
@@ -169,7 +169,7 @@ impl<A> TryFrom<ResourceRouter<A>> for Resources<A> {
             })
             .collect::<Validated<Vec<_>, _>>();
         distinct
-            .map2(templates, |_, templates| Self {
+            .map2(templates, |(), templates| Self {
                 patterns,
                 lists,
                 declared,
@@ -193,8 +193,7 @@ impl<A> Resources<A> {
             params
                 .iter()
                 .map(|(name, variable)| percent_encoding::percent_decode_str(variable).decode_utf8().map(|decoded| (name, decoded)))
-                .collect::<Result<Vec<_>, _>>()
-                .map(|decoded| {
+                .process_results(|decoded| {
                     let queried = pairs.iter().filter(|(name, _)| variables.iter().any(|variable| variable == name));
                     (route, form_urlencoded::Serializer::new(String::new()).extend_pairs(decoded).extend_pairs(queried).finish())
                 })

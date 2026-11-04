@@ -2,45 +2,46 @@
 id: no-fourth-nesting-level-sql
 language: sql
 severity: error
-utils:
-    query:
-        any:
+rule:
+    pattern: $SCOPE
+    any:
+        - any: &query
             - kind: cte_definition
             - kind: select_clause
               inside: {kind: 'table_or_subquery, subquery_expression, exists_expression, in_subquery_expression'}
-    fourth-query:
-        matches: query
-        inside:
-            matches: query
-            stopBy: end
-            inside:
-                matches: query
-                stopBy: end
-                inside: {matches: query, stopBy: end}
-    choice:
-        any:
-            - kind: case_expression
-              not: {inside: {kind: case_expression, field: else, stopBy: {not: {kind: parenthesized_expression}}}}
-            - matches: sql-iif-call
-              not: {all: [{nthChild: 3}, {inside: {kind: normal_function_arguments, inside: {matches: sql-iif-call}}}]}
-    scope: {kind: 'select_statement, select_clause, cte_definition'}
-    boundary: {any: [{matches: choice}, {matches: scope}]}
-rule:
-    pattern: _SCOPE
-    any:
-        - matches: fourth-query
-          not: {inside: {matches: fourth-query, stopBy: end}}
-        - matches: choice
           inside:
-            matches: choice
-            stopBy: {matches: boundary}
+            any: *query
+            stopBy: &query-boundary {any: *query}
             inside:
-                matches: choice
-                stopBy: {matches: boundary}
+                any: *query
+                stopBy: *query-boundary
                 inside:
-                    matches: choice
-                    stopBy: {matches: boundary}
-                    not: {inside: {matches: choice, stopBy: {matches: scope}}}
+                    any: *query
+                    stopBy: *query-boundary
+                    not: {inside: {any: *query, stopBy: *query-boundary}}
+        - all: &choice
+            - any: [{kind: case_expression}, {matches: sql-iif-call}]
+            - not:
+                any:
+                    - inside: {kind: case_expression, field: else, stopBy: {not: {kind: parenthesized_expression}}}
+                    - all: &tail
+                        - inside: {kind: normal_function_arguments, inside: {matches: sql-iif-call}}
+                        - not: {precedes: {stopBy: end, not: {kind: &comments 'line_comment, block_comment'}}}
+                        - nthChild: {position: '2n+3', ofRule: {not: {kind: *comments}}}
+                    - inside:
+                        kind: parenthesized_expression
+                        stopBy: {not: {kind: parenthesized_expression}}
+                        all: *tail
+          inside:
+            all: *choice
+            stopBy: &boundary {any: [{all: *choice}, {kind: &scope 'select_statement, select_clause, cte_definition'}]}
+            inside:
+                all: *choice
+                stopBy: *boundary
+                inside:
+                    all: *choice
+                    stopBy: *boundary
+                    not: {inside: {all: *choice, stopBy: {kind: *scope}}}
 transform:
     HEAD: {replace: {source: $SCOPE, replace: '(?s)\n.*$', by: ''}}
 message: '`$HEAD` opens a fourth nesting level of its statement'

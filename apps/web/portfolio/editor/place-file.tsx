@@ -1,7 +1,6 @@
 import { useAtomSet } from '@effect/atom-react';
-import { MenuButton } from '@rasm/ui/collection/menu-button';
-import { Field } from '@rasm/ui/form/field';
-import { Array, Option, Record, Struct } from 'effect';
+import { Field, MenuButton } from '@rasm/ui';
+import { Array, Function, Option, Record, Struct } from 'effect';
 import { SecureRandom } from 'effect/crypto';
 import { useState } from 'react';
 import { CheckboxGroup } from 'react-aria-components';
@@ -37,7 +36,7 @@ const PlaceFile = ({
         const compositions = chosen.map((placement) => Composition.make({ id: CompositionId.make(SecureRandom.uuidV7Unsafe()), items: [placement] }));
         setDraft(updateEntry(entryId, Struct.evolve({ compositions: Array.appendAll(compositions) })));
         onSelect(Option.none());
-        Option.map(Array.head(compositions), ({ id }) => onAdd(id));
+        Option.match(Array.head(compositions), { onNone: Function.constVoid, onSome: ({ id }) => onAdd(id) });
     };
     return (
         <div className="flex min-w-0 flex-col gap-4">

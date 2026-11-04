@@ -8,6 +8,9 @@
         "#/*": "./*.ts",
         "#/package.json": "./package.json"
     },
+    "exports": {
+        ".": "./link.ts"
+    },
     "dependencies": {
         "@effect/platform-node": "catalog:",
         "@rasm/aftereffects": "workspace:*",

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-match-in-catch
-language: tsx
+language: tsxlang
 severity: error
 utils:
     error-handler:
@@ -101,4 +101,4 @@ rule:
                     - matches: type-matcher
         - not: {matches: refailing-catch}
 message: '`$HANDLER` selects the failure by hand inside its callback'
-note: 'Call `catchTag`, `catchTags`, `tapErrorTag`, or `catchIf` of the same module to select the failure by `_tag` or predicate, `catchCauseIf` or `tapCauseIf` to select the cause by a `Cause` refinement'
+note: 'Select failures with `catchTag`, `catchTags`, `tapErrorTag`, or `catchIf`; select causes with `catchCauseIf` or `tapCauseIf`'

@@ -5,11 +5,8 @@ severity: error
 files: ['**/rhino/**']
 utils:
     event:
-        any:
-            - kind: identifier
-              pattern: $EVENT
-            - kind: member_access_expression
-              has: {field: name, pattern: $EVENT}
+        kind: identifier, member_access_expression
+        pattern: $EVENT
     handler-lambda:
         kind: lambda_expression
         has: {field: parameters, any: [{kind: implicit_parameter, pattern: $P}, {kind: parameter_list, has: {kind: parameter, has: {field: name, pattern: $P}}}]}
@@ -57,4 +54,4 @@ rule:
                     - has: {field: left, matches: event}
                     - not: {matches: action}
 message: '`+=` attaches a handler to `$EVENT` and a separate `-=` detaches it'
-note: 'Pair `() => <source>.<event> += <handler>` with `() => <source>.<event> -= <handler>` in one row, through `Subscriptions.On<TArgs>` where the project references Rasm.Rhino'
+note: 'Pair subscribe and unsubscribe lambdas in one row through `Subscriptions.On<TArgs>` where Rasm.Rhino is referenced'

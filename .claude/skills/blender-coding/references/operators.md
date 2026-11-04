@@ -32,7 +32,7 @@ Popups read operator members:
 
 ## [03]-[MODAL]
 
-Modal gestures write a property and apply it through `execute` for Redo and Repeat Last to replay, `cancel` restoring what `invoke` captured:
+Modal gestures capture targets and prior values in `invoke`, update properties for Redo, and roll back through native modal or cancel callbacks. Context-free resource disposal has its own lifetime:
 
 ```python
 class Shrink(bpy.types.Operator):
@@ -54,22 +54,29 @@ class Shrink(bpy.types.Operator):
 
     @override
     def modal(self, context: bpy.types.Context, event: bpy.types.Event) -> Returns:
-        match event.type, event.value:
-            case "MOUSEMOVE", _ if region := context.region:
+        reply: Returns
+        match context.area, context.region, event.type, event.value:
+            case (None, _, _, _) | (_, None, _, _):
+                self.cancel(context)
+                return {"CANCELLED"}
+            case _, region, "MOUSEMOVE", _:
                 self.factor = event.mouse_region_x / region.width
-                self.execute(context)
-                return {"RUNNING_MODAL"}
-            case "LEFTMOUSE", "PRESS":
-                return self.execute(context)
-            case (("RIGHTMOUSE" | "ESC"), "PRESS"):
+                reply = {"RUNNING_MODAL"}
+            case _, _, "LEFTMOUSE", "PRESS":
+                reply = {"FINISHED"}
+            case _, _, ("RIGHTMOUSE" | "ESC"), "PRESS":
                 self.cancel(context)
                 return {"CANCELLED"}
             case _:
                 return {"RUNNING_MODAL"}
+        selected = [obj for obj in bpy.data.objects if obj.session_uid in self.before]
+        with context.temp_override(selected_editable_objects=selected):
+            self.execute(context)
+        return reply
 
     @override
-    def cancel(self, context: bpy.types.Context) -> None:
-        for obj in context.selected_editable_objects:
+    def cancel(self, _context: bpy.types.Context) -> None:
+        for obj in (obj for obj in bpy.data.objects if obj.session_uid in self.before):
             obj.delta_scale = self.before[obj.session_uid]
 
     @override
@@ -82,11 +89,13 @@ class Shrink(bpy.types.Operator):
 Buttons passing `factor` skip the gesture, and Redo after a drag reruns `execute` at the dragged `factor`:
 - Instance attributes persist from `invoke` through every `modal` step, and each Redo builds a fresh instance holding properties alone
 - `modal` runs in `invoke`'s area and region, or with `self.options.use_cursor_region` the same-type region under the cursor (a quad view quarter)
-- Blender calls `cancel` only when a file load or window close ends the gesture
+- File load and window close call `cancel`; class unregistration removes modal handlers without it
+- Area or region teardown clears modal UI context, and a step with absent area or region ends that lifetime
 - Every window timer sends `TIMER` to each modal step with no timer on `Event`, and steps read progress from their own `timer.time_duration`
-- `event_timer_add(<seconds>, window=context.window)` timers end through `event_timer_remove` at finish and in `cancel`
-- Cursor, status text, and header writes reset at finish and in `cancel`
+- `event_timer_add(<seconds>, window=context.window)` timers release through `event_timer_remove`
 - Steps returning `PASS_THROUGH` let undo and other operators run between steps, and state held across them keys by `session_uid`
+
+Context-free scopes release cursor, timer, progress, and workspace status at finish, native cancellation, and unregistration. Registration holds their `close` methods after acquisition so releases precede class removal. Rollback uses native callback context; saved Contexts and manual calls from unregistration cannot supply it.
 
 ## [04]-[CALL_SITES]
 

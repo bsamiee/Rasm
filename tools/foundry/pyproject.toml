@@ -4,7 +4,7 @@
 name            = "foundry"
 version         = "1.0.0"
 description     = "Command line over the typography pipeline: source, build, check, approve, run and publish a declared font set"
-requires-python = ">=3.13"
+requires-python = ">=3.15"
 
 dependencies = [
     # --- [CORE]
@@ -13,6 +13,7 @@ dependencies = [
 
     # --- [COMMANDS]
     "cyclopts",   # Command parser from typed signatures
+    "sysexits",   # Portable process exit codes
 
     # --- [LIBRARY]
     "typography", # Font set pipeline every command runs
@@ -33,7 +34,7 @@ build-backend = "hatchling.build"
 dev-mode-dirs = [".."] # Editable installs expose the folder holding the import root
 
 [tool.hatch.build.targets.wheel]
-only-include = ["app.py", "commands.py", "py.typed"] # Modules under the `foundry` root, the manifest left out
+only-include = ["app.py", "py.typed"] # Modules under the `foundry` root, the manifest left out
 
 [tool.hatch.build.targets.wheel.sources]
 "" = "foundry"
@@ -41,14 +42,14 @@ only-include = ["app.py", "commands.py", "py.typed"] # Modules under the `foundr
 # --- [UV] -------------------------------------------------------------------------------
 
 [tool.uv.sources]
-typography = { workspace = true }
+typography = { path = "../../libs/python/typography", editable = true }
 
 # --- [RUFF] -----------------------------------------------------------------------------
 
 [tool.ruff]
 extend = "../../pyproject.toml"
 
-# --- [DEPTRY] ---------------------------------------------------------------------------
+# --- [FAWLTYDEPS] -----------------------------------------------------------------------
 
-[tool.deptry]
-experimental_namespace_package = true # The `foundry` import root is a namespace package holding no top-level module
+[tool.fawltydeps]
+base_dir = "."

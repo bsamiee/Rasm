@@ -1,4 +1,4 @@
-import type { Source } from '@rasm/typography/source';
+import type { Source } from '@rasm/typography';
 import { Effect, FileSystem, Option, Path, Schema } from 'effect';
 
 // --- [MODELS] --------------------------------------------------------------------------

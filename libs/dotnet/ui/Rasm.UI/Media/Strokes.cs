@@ -46,10 +46,7 @@ public abstract partial record PathEffect {
         public static Fin<Stamp> Validated(Shape.Outlined mark, float advance) =>
             UIFault.Unless(float.IsFinite(advance) && advance > 0f, UIReason.Range, advance).Map(_ => new Stamp(mark, advance));
 
-        internal override SKPathEffect Effect(float width, float clock) {
-            using SKPath mark = Mark.Path();
-            return SKPathEffect.Create1DPath(mark, Advance, 0f, SKPath1DPathEffectStyle.Rotate);
-        }
+        internal override SKPathEffect Effect(float width, float clock) => SKPathEffect.Create1DPath(Mark.Path, Advance, 0f, SKPath1DPathEffectStyle.Rotate);
     }
 
     public sealed record Corner : PathEffect {

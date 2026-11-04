@@ -11,34 +11,29 @@ utils:
                 - has: {kind: lambda_function_type, has: {kind: lambda_function_type_parameters, has: {kind: lambda_parameter, has: {field: name, pattern: $G}}}}
                 - inside:
                     kind: call_suffix
-                    inside: {kind: call_expression, has: {nthChild: 1, kind: simple_identifier, regex: '^withTaskGroup$'}}
+                    inside: {kind: call_expression, has: {nthChild: 1, kind: navigation_expression, regex: '^_Concurrency\.withTaskGroup$'}}
     drain:
         any:
             - kind: await_expression
               has: {field: expr, pattern: $G.waitForAll()}
-            - kind: for_statement
-              regex: '^for\s+await\b'
-              all:
-                - has: {field: item, has: {kind: wildcard_pattern}}
-                - has: {field: collection, pattern: $G}
-                - not: {has: {kind: statements}}
-            - kind: while_statement
-              regex: '^while\s+(let\s+_\s*=\s*)?await\s+[^{]*\{\s*\}$'
-              has: {stopBy: end, pattern: $G.next()}
+            - pattern: 'for await _ in $G {}'
+              not: {has: {kind: where_clause}}
+            - pattern: 'while await $G.next() != nil {}'
+            - pattern: 'while let _ = await $G.next() {}'
 rule:
     pattern: $WAIT
     all:
-        - inside: {matches: group-body}
         - matches: drain
-        - follows: {pattern: $PREV}
-        - any:
-            - not: {precedes: {regex: '[\s\S]'}}
-            - precedes:
-                kind: control_transfer_statement
-                regex: '^return(\s+[\w.]+)?$'
-                not: {precedes: {regex: '[\s\S]'}}
+        - not: {precedes: {regex: '[\s\S]'}}
+        - inside: {matches: group-body}
+        - not:
+            follows:
+                stopBy: end
+                any:
+                    - kind: property_declaration
+                      has: {field: name, has: {stopBy: end, kind: simple_identifier, pattern: $G}}
+                    - kind: guard_statement
+                      has: {stopBy: {kind: statements}, field: bound_identifier, kind: simple_identifier, pattern: $G}
 message: '`$WAIT` repeats the wait `withTaskGroup` runs on remaining child tasks after its body returns'
 note: 'Delete the wait'
-fix:
-    template: $PREV
-    expandStart: {pattern: $PREV}
+fix: ''

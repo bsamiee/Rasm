@@ -1,76 +1,95 @@
-"""Stroke width, counters, moments, signed gaps and column ink over rectangles, rings and stroked skeletons."""
+"""Analytic geometry and stroke fitting over thin, holed, and disconnected ink."""
 
 import math
 
 from fontTools.misc.transform import Transform
+from pathops import PathOp
+import pytest
 
-from tests.python.support import assert_close
 from typography.faces.glyphs import Outline, Point
-from typography.outlines.measure import column_ink, counter, gap, moments, perimeter, restroked, stroke
+from typography.outlines.measure import column_ink, counter, gap, inradius, moments, perimeter, restroked, stroke
 from typography.outlines.nib import monoline
-from typography.outlines.paths import Box, combined, Operation, transformed
+from typography.outlines.paths import area, Axis, Box, combined, transformed
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-SQUARE: Outline = (Box(xmin=0.0, ymin=0.0, xmax=100.0, ymax=100.0).contour,)
-BAR: Outline = (Box(xmin=0.0, ymin=0.0, xmax=100.0, ymax=20.0).contour,)
-SEGMENT: Outline = ((Point(x=0.0, y=0.0), Point(x=200.0, y=0.0)),)
+SQUARE: Outline = (Box(xmin=0, ymin=0, xmax=100, ymax=100).contour,)
+BAR: Outline = (Box(xmin=0, ymin=0, xmax=100, ymax=20).contour,)
+SEGMENT: Outline = ((Point(x=0, y=0), Point(x=200, y=0)),)
+STADIUM = monoline(SEGMENT, 20)
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def test_stroke_of_rectangle_is_twice_area_over_perimeter() -> None:
-    """Bar of 100 by 20, mean width 2 * 2000 / 240."""
-    assert_close(perimeter(BAR), 240.0)
-    assert_close(stroke(BAR), 4000.0 / 240.0)
-    assert stroke(()) == 0.0
+def test_rectangle_and_stadium_measurements_follow_analytic_geometry() -> None:
+    """Area and perimeter determine mean stroke for flat and round-ended bars."""
+    assert perimeter(BAR) == pytest.approx(240, rel=1e-9, abs=0)
+    assert stroke(BAR) == pytest.approx(4000 / 240, rel=1e-9, abs=0)
+    assert stroke(STADIUM) == pytest.approx(2 * (4000 + math.pi * 100) / (400 + 20 * math.pi), rel=1e-3, abs=0)
 
 
-def test_stroke_of_stroked_skeleton_nears_pen_width() -> None:
-    """Segment of 200 stroked 20 wide with round ends, a stadium of known area and perimeter."""
-    assert_close(stroke(monoline(SEGMENT, 20.0)), 2 * (4000.0 + math.pi * 100.0) / (400.0 + 20.0 * math.pi), rel_tol=1e-3)
+def test_counter_and_inradius_distinguish_holes_from_filled_ink() -> None:
+    """A stadium counter has its pen diameter while filled square ink has no counter."""
+    slotted = combined((Box(xmin=-50, ymin=-50, xmax=250, ymax=50).contour,), STADIUM, PathOp.DIFFERENCE)
+    assert counter(slotted) == pytest.approx(20, rel=1e-2, abs=0)
+    assert counter(SQUARE) == 0
+    assert inradius(SQUARE) == pytest.approx(50, rel=1e-9, abs=0)
+    assert stroke(()) == counter(()) == inradius(()) == 0
 
 
-def test_counter_reads_stadium_hole_width() -> None:
-    """Slab with a stadium hole 20 wide, the counter its pen width, a square without holes 0."""
-    slotted = combined((Box(xmin=-50.0, ymin=-50.0, xmax=250.0, ymax=50.0).contour,), monoline(SEGMENT, 20.0), Operation.DIFFERENCE)
-    assert_close(counter(slotted), 20.0, rel_tol=1e-2)
-    assert counter(SQUARE) == 0.0
+def test_counter_measures_the_bounded_channel_around_an_ink_island() -> None:
+    """The square channel's largest corner circle has diameter twenty times two minus the square root of two."""
+    nested = (*SQUARE, tuple(reversed(Box(xmin=10, ymin=10, xmax=90, ymax=90).contour)), Box(xmin=20, ymin=20, xmax=80, ymax=80).contour)
+    assert counter(nested) == pytest.approx(20 * (2 - math.sqrt(2)), rel=0, abs=0.5)
 
 
-def test_moments_read_centre_and_axis() -> None:
-    """Bar turned 30 degrees about its center, the center kept and the principal axis at 30 degrees."""
-    turned = moments(transformed(BAR, Transform().translate(50.0, 10.0).rotate(math.radians(30.0)).translate(-50.0, -10.0)))
-    assert_close(turned.centre, (50.0, 10.0), abs_tol=1e-6)
-    assert_close(turned.angle, 30.0, rel_tol=1e-6)
+def test_moments_rotate_with_the_ink_about_its_center() -> None:
+    """A bar keeps its center while its principal axis follows a thirty-degree rotation."""
+    rotated = moments(transformed(BAR, Transform().translate(50, 10).rotate(math.pi / 6).translate(-50, -10)))
+    assert rotated.centre == pytest.approx((50, 10), rel=1e-9, abs=1e-6)
+    assert rotated.angle == pytest.approx(30, rel=1e-6, abs=0)
 
 
-def test_gap_positive_for_separated_squares() -> None:
-    """Squares 30 units apart sideways and diagonally."""
-    assert_close(gap(SQUARE, transformed(SQUARE, Transform().translate(130.0, 0.0))), 30.0)
-    assert_close(gap(SQUARE, transformed(SQUARE, Transform().translate(130.0, 130.0))), 30.0 * math.sqrt(2.0))
+@pytest.mark.parametrize("dx,dy,expected", [(130, 0, 30), (130, 130, 30 * math.sqrt(2)), (100, 0, 0), (90, 0, -5)])
+def test_signed_gaps_are_symmetric_and_translation_invariant(dx: float, dy: float, expected: float) -> None:
+    """Disjoint gaps, touching ink, and intersection inradius retain the same geometry after translation."""
+    other, shift = transformed(SQUARE, Transform().translate(dx, dy)), Transform().translate(-250, 300)
+    assert gap(SQUARE, other) == pytest.approx(expected, rel=1e-9, abs=0)
+    assert gap(other, SQUARE) == pytest.approx(expected, rel=1e-9, abs=0)
+    assert gap(transformed(SQUARE, shift), transformed(other, shift)) == pytest.approx(expected, rel=1e-9, abs=0)
 
 
-def test_gap_negative_for_overlapping_rectangles() -> None:
-    """Squares overlapping in a 10 by 100 band, depth the inward offset of the stadium with its area and perimeter, near half the band."""
-    assert_close(gap(SQUARE, transformed(SQUARE, Transform().translate(90.0, 0.0))), -(220.0 - math.sqrt(220.0**2 - 4000.0 * math.pi)) / (2 * math.pi))
+def test_axis_gaps_exclude_ink_that_never_faces() -> None:
+    """A mark faces the base vertically while horizontal and empty separations are infinite."""
+    mark = (Box(xmin=40, ymin=130, xmax=60, ymax=150).contour,)
+    assert gap(SQUARE, mark, "y") == pytest.approx(30, rel=1e-9, abs=0)
+    assert gap(SQUARE, mark, "x") == gap((), mark) == math.inf
+    assert gap(SQUARE, transformed(mark, Transform().translate(0, -40)), "y") < 0
 
 
-def test_gap_along_each_axis() -> None:
-    """Mark square above a base square, 30 apart vertically, never facing horizontally, overlapping once lowered."""
-    mark = (Box(xmin=40.0, ymin=130.0, xmax=60.0, ymax=150.0).contour,)
-    assert_close(gap(SQUARE, mark, "y"), 30.0)
-    assert gap(SQUARE, mark, "x") == math.inf
-    assert gap(SQUARE, transformed(mark, Transform().translate(0.0, -40.0)), "y") < 0.0
+@pytest.mark.parametrize("axis,box", [("x", Box(xmin=0, ymin=0, xmax=200, ymax=100)), ("y", Box(xmin=0, ymin=0, xmax=100, ymax=200))])
+def test_strip_coverage_conserves_ink(axis: Axis, box: Box) -> None:
+    """Strip fractions cover half a box and reconstruct the measured ink area."""
+    fractions = column_ink(SQUARE, box, 4, axis)
+    assert fractions == pytest.approx((1, 1, 0, 0), rel=1e-9, abs=0)
+    assert sum(fractions) * box.width * box.height / len(fractions) == pytest.approx(area(SQUARE), rel=1e-9, abs=0)
 
 
-def test_column_ink_per_strip_along_each_axis() -> None:
-    """Square across the left half of a box, two full and two empty columns, and the bottom half of a tall box, two full and two empty rows."""
-    assert_close(column_ink(SQUARE, Box(xmin=0.0, ymin=0.0, xmax=200.0, ymax=100.0), 4), (1.0, 1.0, 0.0, 0.0))
-    assert_close(column_ink(SQUARE, Box(xmin=0.0, ymin=0.0, xmax=100.0, ymax=200.0), 4, "y"), (1.0, 1.0, 0.0, 0.0))
+@pytest.mark.parametrize("ink,pen,relative", [(BAR, 10, 1e-3), (SQUARE, 30, 1e-3), ((Box(xmin=0, ymin=0, xmax=1000, ymax=1).contour,), 2, 1e-3), (STADIUM, 10, 1e-2), (STADIUM, 30, 1e-2)])
+def test_stroke_fit_retains_ink_and_reduces_target_error(ink: Outline, pen: float, relative: float) -> None:
+    """Offset fitting improves finite targets without erasing long thin ink on an empty search plateau."""
+    fitted = restroked(ink, pen)
+    assert area(fitted) > 0
+    assert stroke(fitted) == pytest.approx(pen, rel=relative, abs=0)
 
 
-def test_restroked_reaches_the_pen() -> None:
-    """Stadium of pen 20 restroked to 30 and to 10, each mean stroke the pen it was given."""
-    stadium = monoline(SEGMENT, 20.0)
-    assert_close(tuple(stroke(restroked(stadium, pen)) for pen in (30.0, 10.0)), (30.0, 10.0), rel_tol=1e-2)
+def test_stroke_fit_handles_holes_and_competing_disconnected_extents() -> None:
+    """Topology changes retain finite ink with smaller mean-stroke error than the original."""
+    ring = (*SQUARE, tuple(reversed(Box(xmin=20, ymin=20, xmax=80, ymax=80).contour)))
+    disconnected = (*BAR, Box(xmin=500, ymin=0, xmax=501, ymax=1000).contour)
+    for ink in (ring, disconnected):
+        target = stroke(ink) / 2
+        fitted = restroked(ink, target)
+        assert area(fitted) > 0
+        assert abs(stroke(fitted) - target) < abs(stroke(ink) - target)
+    assert restroked((), 20) == ()

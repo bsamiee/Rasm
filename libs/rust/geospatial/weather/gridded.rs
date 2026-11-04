@@ -9,6 +9,7 @@ use std::{
     io,
 };
 
+use dashu::base::ConversionError;
 use grib::{
     Grib2Read, Grib2SubmessageDecoder, LatLons as _, SubMessage,
     codetables::grib2::Table4_4,
@@ -20,10 +21,11 @@ use grib::{
         },
     },
 };
+use indexmap::IndexMap;
 use itertools::{Either, Itertools as _};
 use jiff::{SignedDuration, Span, Timestamp, civil, tz::Offset};
 use nalgebra::{Rotation2, Vector2, Vector3};
-use ndarray::{Array1, Array2, arr2};
+use ndarray::{aview1, aview2};
 use ndarray_interp::{InterpolateError, interp2d::Interp2D};
 use nonempty_collections::nev;
 use rasm_analysis::roots;
@@ -44,7 +46,7 @@ use uom::si::{
 };
 use validated::Validated;
 
-use crate::{Hour, Hours, Malformed, Record, Refusal, WeatherError, averaged, bearing, comfort, completed, heading, length, normal, position};
+use crate::{Hour, Hours, Malformed, Record, Refusal, WeatherError, averaged, bearing, comfort, completed, heading, length, normal, position, reduced};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -92,6 +94,11 @@ struct Cell {
     rotation: Option<Rotation2<f64>>,
 }
 
+struct Grid {
+    sites: Vec<Option<Cell>>,
+    indices: Vec<(usize, (usize, usize))>,
+}
+
 #[derive(Clone, Copy)]
 struct Reading {
     site: usize,
@@ -109,9 +116,9 @@ where
     R: io::Read + io::Seek,
     I: IntoIterator<Item = R>,
 {
-    fn sampled<R>(cells: &OnceCell<Vec<Option<Cell>>>, locations: &[Location], message: SubMessage<'_, R>) -> Result<Vec<Reading>, Malformed>
+    fn sampled<R>(grid: &OnceCell<Grid>, locations: &[Location], message: SubMessage<'_, R>) -> Result<Vec<Reading>, Malformed>
     where R: Grib2Read {
-        fn product<R>(message: &SubMessage<'_, R>) -> Result<Option<Product>, Malformed> {
+        let product = || -> Result<Option<Product>, Malformed> {
             const METEOROLOGY: u8 = 0;
             const AVERAGE: u8 = 0;
             const ACCUMULATION: u8 = 1;
@@ -209,18 +216,21 @@ where
                 Some((end, Some(ACCUMULATION))) if end > valid => Some(Product { field, member, interval: Range { start: valid, end }, weight: 1.0 }),
                 Some((_, Some(_) | None)) => None,
             })
-        }
+        };
 
-        fn lattice<R>(message: &SubMessage<'_, R>, template: &GridDefinitionTemplate, locations: &[Location]) -> Result<Vec<Option<Cell>>, Malformed> {
+        let Some(product) = product()? else {
+            return Ok(Vec::new());
+        };
+        let grid = grid.get_or_try_init(|| -> Result<_, Malformed> {
             const GRID_RELATIVE: u8 = 0b0000_1000;
             let sign = |positive: bool| if positive { 1.0_f64 } else { -1.0 };
-            match template {
+            let sites = match &message.section3()?.payload.template {
                 GridDefinitionTemplate::_3_0(Template3_0 { earth: _, lat_lon: LatLonGrid { grid: _, i_direction_inc: _, j_direction_inc: _, scanning_mode } })
                 | GridDefinitionTemplate::_3_40(Template3_40 { earth: _, gaussian: GaussianGrid { grid: _, i_direction_inc: _, n: _, scanning_mode } }) =>
-                    geographic(message, sign(scanning_mode.scans_positively_for_i()), locations),
+                    geographic(&message, sign(scanning_mode.scans_positively_for_i()), locations),
                 GridDefinitionTemplate::_3_1(Template3_1 { earth: _, lat_lon: LatLonGrid { grid, i_direction_inc: _, j_direction_inc: _, scanning_mode }, rotation: _ })
                 | GridDefinitionTemplate::_3_41(Template3_41 { earth: _, gaussian: GaussianGrid { grid, i_direction_inc: _, n: _, scanning_mode }, rotation: _ }) =>
-                    projected(message, grid.resolution_and_component_flags.0 & GRID_RELATIVE != 0, sign(scanning_mode.scans_positively_for_i()), locations),
+                    projected(&message, grid.resolution_and_component_flags.0 & GRID_RELATIVE != 0, sign(scanning_mode.scans_positively_for_i()), locations),
                 GridDefinitionTemplate::_3_10(Template3_10 {
                     earth_shape: _,
                     ni: _,
@@ -267,31 +277,36 @@ where
                     latin2: _,
                     south_pole_lat: _,
                     south_pole_lon: _,
-                }) => projected(message, resolution_and_component_flags.0 & GRID_RELATIVE != 0, sign(scanning_mode.scans_positively_for_i()), locations),
+                }) => projected(&message, resolution_and_component_flags.0 & GRID_RELATIVE != 0, sign(scanning_mode.scans_positively_for_i()), locations),
                 _ => Err(Malformed::Grid),
-            }
-        }
-
-        let Some(product) = product(&message)? else {
-            return Ok(Vec::new());
+            }?;
+            let wanted = sites.iter().flatten().flat_map(|cell| cell.corners).collect::<HashSet<_>>();
+            let indices = message.ij()?.enumerate().filter_map(|(index, (column, row))| wanted.contains(&(row, column)).then_some((index, (row, column)))).collect_vec();
+            Ok(Grid { sites, indices })
+        })?;
+        let values = {
+            let decoder = Grib2SubmessageDecoder::from(message)?;
+            grid.indices
+                .iter()
+                .scan((decoder.dispatch()?, 0), |(samples, next), &(index, corner)| {
+                    let value = samples.nth(index.strict_sub(*next));
+                    *next = index.strict_add(1);
+                    Some(value.map(|value| (corner, f64::from(value))))
+                })
+                .flatten()
+                .collect::<HashMap<_, _>>()
         };
-        let cells = cells.get_or_try_init(|| lattice(&message, &message.section3()?.payload.template, locations))?;
-        let wanted = cells.iter().flatten().flat_map(|cell| cell.corners).collect::<HashSet<_>>();
-        let indices = message.ij()?;
-        let decoder = Grib2SubmessageDecoder::from(message)?;
-        let values =
-            indices.zip(decoder.dispatch()?).filter(|&((column, row), _)| wanted.contains(&(row, column))).map(|((column, row), value)| ((row, column), f64::from(value))).collect::<HashMap<_, _>>();
-        cells
+        grid.sites
             .iter()
             .enumerate()
             .map(|(site, cell)| {
                 let Cell { corners, axes: [row_axis, column_axis], at: (row_at, column_at), rotation } = cell.ok_or(Malformed::Outside)?;
                 let [south_west, south_east, north_west, north_east] = corners.try_map(|corner| values.get(&corner).copied().ok_or(Malformed::Grid))?;
-                let lattice = arr2(&[[south_west, south_east], [north_west, north_east]]);
-                let interpolated = |samples: Array2<f64>| -> Result<f64, Malformed> {
-                    Interp2D::builder(samples)
-                        .x(Array1::from_vec(row_axis.to_vec()))
-                        .y(Array1::from_vec(column_axis.to_vec()))
+                let lattice = [[south_west, south_east], [north_west, north_east]];
+                let interpolated = |samples: &[[f64; 2]; 2]| -> Result<f64, Malformed> {
+                    Interp2D::builder(aview2(samples))
+                        .x(aview1(&row_axis))
+                        .y(aview1(&column_axis))
                         .build()
                         .map_err(Malformed::Lattice)?
                         .interp_scalar(row_at, column_at)
@@ -299,8 +314,8 @@ where
                 };
                 let value = match product.field {
                     Field::WindDirection => {
-                        let [east, north] =
-                            [|toward: Vector2<f64>| toward.x, |toward: Vector2<f64>| toward.y].map(|component| interpolated(lattice.mapv(|degrees| component(heading(Angle::new::<degree>(degrees))))));
+                        let lattice = lattice.map(|row| row.map(|degrees| heading(Angle::new::<degree>(degrees))));
+                        let [east, north] = [|toward: Vector2<f64>| toward.x, |toward: Vector2<f64>| toward.y].map(|component| interpolated(&lattice.map(|row| row.map(component))));
                         bearing(Vector2::new(east?, north?)).get::<degree>()
                     }
                     Field::DryBulb
@@ -319,7 +334,7 @@ where
                     | Field::SnowDepth
                     | Field::Albedo
                     | Field::Precipitation
-                    | Field::Orography => interpolated(lattice)?,
+                    | Field::Orography => interpolated(&lattice)?,
                 };
                 Ok(Reading { site, member: product.member, field: product.field, interval: product.interval, value: value.is_finite().then_some(value * product.weight), rotation })
             })
@@ -331,8 +346,9 @@ where
         totals
             .chunk_by(|earlier, later| (earlier.site, earlier.member, earlier.field, earlier.interval.start) == (later.site, later.member, later.field, later.interval.start))
             .flat_map(|accumulation| {
-                let origin = accumulation.first().map(|&first| Reading { interval: Range { start: first.interval.start, end: first.interval.start }, value: Some(0.0), ..first });
-                iter::chain(origin, accumulation.iter().copied()).dedup_by(|earlier, later| earlier.interval.end == later.interval.end).tuple_windows().map(|(previous, reading)| {
+                let first = accumulation[0];
+                let origin = Reading { interval: Range { start: first.interval.start, end: first.interval.start }, value: Some(0.0), ..first };
+                iter::once(origin).chain(accumulation.iter().copied()).dedup_by(|earlier, later| earlier.interval.end == later.interval.end).tuple_windows().map(|(previous, reading)| {
                     let interval = Range { start: previous.interval.end, ..reading.interval };
                     Reading { interval, value: previous.value.zip(reading.value).map(|(before, after)| (after - before) / length(interval).as_secs_f64()), ..reading }
                 })
@@ -343,24 +359,34 @@ where
             .collect()
     }
 
-    fn series(sun: &Sun, orography: Option<f64>, instants: &[Reading], steps: &HashMap<Field, &[Reading]>) -> Result<Hours, WeatherError> {
-        let ends = iter::chain(instants, steps.values().copied().flatten()).map(|reading| reading.interval.end).sorted_unstable().dedup().collect_vec();
-        let rotation = iter::chain(instants, steps.values().copied().flatten()).find(|reading| reading.field == Field::Eastward).and_then(|reading| reading.rotation);
+    fn series(sun: &Sun, orography: Option<f64>, instants: &[Reading], steps: &HashMap<Field, Vec<Reading>>) -> Result<Hours, WeatherError> {
+        let ends = iter::chain(instants, steps.values().flatten()).map(|reading| reading.interval.end).sorted_unstable().dedup().collect_vec();
+        let rotation = iter::chain(instants, steps.values().flatten()).find(|reading| reading.field == Field::Eastward).and_then(|reading| reading.rotation);
         let at = instants.iter().into_group_map_by(|reading| reading.interval.end);
         let lead = match *ends {
             [] => None,
             [first, ..] => {
                 let back = ends.get(1).map(|&next| first.checked_sub(next.duration_since(first))).transpose()?;
-                Some(steps.values().copied().flatten().map(|step| step.interval.start).filter(|&start| start < first).min().or(back).ok_or_else(|| nev![Refusal::Instant(first)])?)
+                Some(steps.values().flatten().map(|step| step.interval.start).filter(|&start| start < first).min().or(back).ok_or_else(|| nev![Refusal::Instant(first)])?)
             }
         };
         let rise = orography.map(|height| *AsRef::<Place>::as_ref(sun).elevation - Length::new::<meter>(height));
         let hour = |interval: Range<Timestamp>| -> Result<Hour, WeatherError> {
             let elapsed = length(interval);
-            let mean = |field: Field| steps.get(&field).and_then(|run| averaged(run, interval, |step| step.interval, SignedDuration::ZERO, |step| step.value));
-            let value = |field: Field| mean(field).or_else(|| at.get(&interval.end).and_then(|readings| readings.iter().find(|reading| reading.field == field)).and_then(|reading| reading.value));
-            let [grid_dry_bulb, grid_dew_point] = [Field::DryBulb, Field::DewPoint].map(|field| value(field).map(ThermodynamicTemperature::new::<kelvin>));
-            let relative_humidity = value(Field::RelativeHumidity)
+            let mean = |field: Field| -> Result<Option<f64>, ConversionError> {
+                steps
+                    .get(&field)
+                    .map(|run| averaged(run, interval, |step| step.interval, SignedDuration::ZERO, |step| step.value.map(|value| (value, 1.0))))
+                    .transpose()?
+                    .flatten()
+                    .map(|totals| reduced(totals, 1.0))
+                    .transpose()
+            };
+            let value = |field: Field| -> Result<Option<f64>, ConversionError> {
+                Ok(mean(field)?.or_else(|| at.get(&interval.end).and_then(|readings| readings.iter().find(|reading| reading.field == field)).and_then(|reading| reading.value)))
+            };
+            let [grid_dry_bulb, grid_dew_point] = [Field::DryBulb, Field::DewPoint].try_map(|field| value(field).map(|value| value.map(ThermodynamicTemperature::new::<kelvin>)))?;
+            let relative_humidity = value(Field::RelativeHumidity)?
                 .map(|humidity| Ratio::new::<percent>(humidity).min(Ratio::new::<percent>(100.0)))
                 .or_else(|| grid_dry_bulb.zip(grid_dew_point).map(|(air, dew)| comfort::relative_humidity(air, dew)));
             let lifted = grid_dry_bulb.zip(rise).map(|(air, rise)| lapsed(air, rise));
@@ -369,16 +395,16 @@ where
                 (Some(_), Some(air), Some(humidity)) => comfort::dew_point(air, humidity)?,
                 (None | Some(_), _, _) => grid_dew_point,
             };
-            let pressure = value(Field::Pressure).map(Pressure::new::<pascal>).and_then(|stated| match (rise, lifted) {
+            let pressure = value(Field::Pressure)?.map(Pressure::new::<pascal>).and_then(|stated| match (rise, lifted) {
                 (None, _) => Some(stated),
                 (Some(_), Some((_, scale))) => Some(stated * scale),
                 (Some(_), None) => None,
             });
-            let [infrared, global_irradiance, beam] =
-                [Field::Infrared, Field::GlobalIrradiance, Field::DirectHorizontal].map(|field| value(field).map(|flux| HeatFluxDensity::new::<watt_per_square_meter>(flux.max(0.0))));
+            let [infrared, global_irradiance, beam] = [Field::Infrared, Field::GlobalIrradiance, Field::DirectHorizontal]
+                .try_map(|field| value(field).map(|value| value.map(|flux| HeatFluxDensity::new::<watt_per_square_meter>(flux.max(0.0)))))?;
             let direct_irradiance = beam.map(|beam| position(sun, interval).map(|(prepared, solar)| normal(beam, &prepared, &solar))).transpose()?;
-            let wind = value(Field::Eastward).zip(value(Field::Northward)).map(|(eastward, northward)| -(rotation.unwrap_or_else(Rotation2::identity) * Vector2::new(eastward, northward)));
-            let precipitation = mean(Field::Precipitation).map(|rate| Length::new::<millimeter>((rate * elapsed.as_secs_f64()).max(0.0)));
+            let wind = value(Field::Eastward)?.zip(value(Field::Northward)?).map(|(eastward, northward)| -(rotation.unwrap_or_else(Rotation2::identity) * Vector2::new(eastward, northward)));
+            let precipitation = mean(Field::Precipitation)?.map(|rate| Length::new::<millimeter>((rate * elapsed.as_secs_f64()).max(0.0)));
             Ok(Hour {
                 interval,
                 dry_bulb,
@@ -388,13 +414,13 @@ where
                 infrared,
                 global_irradiance,
                 direct_irradiance,
-                wind_direction: value(Field::WindDirection).map(Angle::new::<degree>).or_else(|| wind.map(bearing)),
-                wind_speed: value(Field::WindSpeed).or_else(|| wind.as_ref().map(Vector2::norm)).map(Velocity::new::<meter_per_second>),
-                total_sky_cover: value(Field::TotalSkyCover).map(Ratio::new::<percent>),
-                visibility: value(Field::Visibility).map(Length::new::<meter>),
-                precipitable_water: value(Field::PrecipitableWater).map(|depth| Length::new::<millimeter>(depth.max(0.0))),
-                snow_depth: value(Field::SnowDepth).map(|depth| Length::new::<meter>(depth.max(0.0))),
-                albedo: value(Field::Albedo).map(Ratio::new::<percent>),
+                wind_direction: value(Field::WindDirection)?.map(Angle::new::<degree>).or_else(|| wind.map(bearing)),
+                wind_speed: value(Field::WindSpeed)?.or_else(|| wind.as_ref().map(Vector2::norm)).map(Velocity::new::<meter_per_second>),
+                total_sky_cover: value(Field::TotalSkyCover)?.map(Ratio::new::<percent>),
+                visibility: value(Field::Visibility)?.map(Length::new::<meter>),
+                precipitable_water: value(Field::PrecipitableWater)?.map(|depth| Length::new::<millimeter>(depth.max(0.0))),
+                snow_depth: value(Field::SnowDepth)?.map(|depth| Length::new::<meter>(depth.max(0.0))),
+                albedo: value(Field::Albedo)?.map(Ratio::new::<percent>),
                 precipitation,
                 precipitation_period: precipitation.map(|_| Time::new::<second>(elapsed.as_secs_f64())),
                 ..
@@ -414,30 +440,31 @@ where
     let readings = (&grids)
         .into_iter()
         .flat_map(|(_, grid)| {
-            let (cells, locations) = (OnceCell::new(), locations.as_slice());
-            grid.map(move |(record, message)| sampled(&cells, locations, message).map_err(|malformed| (record, malformed)))
+            let locations = locations.as_slice();
+            grid.scan(OnceCell::new(), move |cache, (record, message)| Some(sampled(cache, locations, message).map_err(|malformed| (record, malformed))))
         })
         .collect::<Validated<Vec<_>, _>>()
         .ok()?
         .into_iter()
         .flatten()
         .collect_vec();
-    let (instants, totals): (Vec<_>, Vec<_>) = readings.iter().copied().filter(|reading| reading.field != Field::Orography).partition(|reading| reading.interval.is_empty());
-    let steps = accumulated(totals);
-    suns.iter()
+    let orography = readings.iter().filter(|reading| reading.field == Field::Orography).map(|reading| (reading.site, reading.value)).into_grouping_map().reduce(|kept, _, next| kept.or(next));
+    let by_site = {
+        let (instants, totals): (Vec<_>, Vec<_>) = readings.into_iter().filter(|reading| reading.field != Field::Orography).partition(|reading| reading.interval.is_empty());
+        let by_site = instants.into_iter().fold(suns.iter().map(|_| IndexMap::<_, (Vec<_>, HashMap<_, _>)>::new()).collect_vec(), |mut by_site, reading| {
+            by_site[reading.site].entry(reading.member).or_default().0.push(reading);
+            by_site
+        });
+        accumulated(totals).into_iter().fold(by_site, |mut by_site, ((site, member, field), run)| {
+            by_site[site].entry(member).or_default().1.insert(field, run);
+            by_site
+        })
+    };
+    iter::zip(suns, by_site)
         .enumerate()
-        .map(|(site, sun)| {
-            let orography = readings.iter().find_map(|reading| (reading.site == site && reading.field == Field::Orography).then_some(reading.value).flatten());
-            iter::chain(&instants, steps.values().flatten())
-                .filter(|reading| reading.site == site)
-                .map(|reading| reading.member)
-                .unique()
-                .map(|member| {
-                    let own = |reading: &&Reading| reading.site == site && reading.member == member;
-                    let steps = steps.iter().filter(|((stated, held, _), _)| *stated == site && *held == member).map(|(&(_, _, field), run)| (field, run.as_slice())).collect::<HashMap<_, _>>();
-                    series(sun, orography, &instants.iter().filter(own).copied().collect_vec(), &steps).map(|hours| (member, hours))
-                })
-                .collect::<Result<BTreeMap<_, _>, _>>()
+        .map(|(site, (sun, members))| {
+            let orography = orography.get(&site).copied().flatten();
+            members.into_iter().map(|(member, (instants, steps))| series(sun, orography, &instants, &steps).map(|hours| (member, hours))).collect::<Result<BTreeMap<_, _>, _>>()
         })
         .collect()
 }

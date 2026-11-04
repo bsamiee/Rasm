@@ -3,8 +3,6 @@ id: no-affix-slice-by-count
 language: swiftlang
 severity: error
 utils:
-    count-difference:
-        has: {kind: call_suffix, has: {stopBy: end, kind: additive_expression, has: {field: lhs, pattern: $R.count}}}
     affix-argument:
         kind: call_suffix
         has: {kind: value_arguments, has: {kind: value_argument, has: {field: value, pattern: $AFFIX}}}
@@ -19,9 +17,21 @@ utils:
             - pattern: $R.hasSuffix($_)
             - has: {matches: affix-argument}
     prefix-tested:
-        any: [{matches: prefix-test}, {has: {stopBy: end, matches: prefix-test}}]
+        any:
+            - matches: prefix-test
+            - kind: conjunction_expression
+              has: {matches: prefix-tested}
+            - kind: tuple_expression
+              has: {field: value, matches: prefix-tested}
+              not: {has: {nthChild: 2}}
     suffix-tested:
-        any: [{matches: suffix-test}, {has: {stopBy: end, matches: suffix-test}}]
+        any:
+            - matches: suffix-test
+            - kind: conjunction_expression
+              has: {matches: suffix-tested}
+            - kind: tuple_expression
+              has: {field: value, matches: suffix-tested}
+              not: {has: {nthChild: 2}}
     prefix-clause:
         not: {kind: statements}
         precedes: {stopBy: end, kind: statements}
@@ -70,31 +80,17 @@ rule:
         - any:
             - all:
                 - any:
-                    - pattern: $R.dropFirst($$$)
-                    - pattern: $R.removeFirst($$$)
-                    - pattern: '$R[$R.index($R.startIndex, offsetBy: $$$)...]'
-                    - {pattern: $R.suffix($$$), matches: count-difference}
+                    - pattern: $R.dropFirst($AFFIX.count)
+                    - pattern: $R.removeFirst($AFFIX.count)
+                    - pattern: '$R[$R.index($R.startIndex, offsetBy: $AFFIX.count)...]'
+                    - pattern: $R.suffix($R.count - $AFFIX.count)
                 - matches: prefix-guarded
             - all:
                 - any:
-                    - pattern: $R.dropLast($$$)
-                    - pattern: $R.removeLast($$$)
-                    - pattern: '$R[..<$R.index($R.endIndex, offsetBy: $$$)]'
-                    - {pattern: $R.prefix($$$), matches: count-difference}
+                    - pattern: $R.dropLast($AFFIX.count)
+                    - pattern: $R.removeLast($AFFIX.count)
+                    - pattern: '$R[..<$R.index($R.endIndex, offsetBy: -$AFFIX.count)]'
+                    - pattern: $R.prefix($R.count - $AFFIX.count)
                 - matches: suffix-guarded
-rewriters:
-    - id: trimmed-copy
-      rule:
-        any:
-            - pattern: $R.dropFirst($AFFIX.count)
-            - pattern: '$R[$R.index($R.startIndex, offsetBy: $AFFIX.count)...]'
-            - pattern: $R.suffix($R.count - $AFFIX.count)
-      fix: $R.trimmingPrefix($AFFIX)
-    - id: trimmed-in-place
-      rule: {pattern: $R.removeFirst($AFFIX.count)}
-      fix: $R.trimPrefix($AFFIX)
-transform:
-    TRIMMED: {rewrite: {source: $SLICE, rewriters: [trimmed-copy, trimmed-in-place]}}
-fix: $TRIMMED
 message: '`$SLICE` removes tested affix `$AFFIX` by a count restating its length'
-note: 'Call `trimmingPrefix(<affix>)`, `trimPrefix(<affix>)` in place, `replacing(/<affix>\z/, with: "")` for a suffix, `wholeMatch(of:)?.1` for an optional'
+note: 'Use `trimmingPrefix` or `trimPrefix`, `replacing(/<affix>\z/, with: "")` for suffixes, or `wholeMatch(of:)?.1` for optional content'

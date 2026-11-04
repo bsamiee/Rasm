@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-restated-absence-error
-language: tsx
+language: tsxlang
 severity: error
 utils:
     rebuild:
@@ -64,7 +64,6 @@ utils:
             - has: {field: function, has: {field: property, regex: '^fromOption$'}}
 rule:
     kind: call_expression
-    pattern: $HAND
     all:
         - has: {field: function, kind: member_expression, has: {field: property, regex: '^(fromOption|fromNullishOr|mapError|pipe)$'}}
         - any:
@@ -90,47 +89,5 @@ rule:
                 - any:
                     - all: [{matches: rebuild-step}, {follows: {stopBy: {pattern: $_}, matches: previous-step}}]
                     - all: [{matches: mapper-step}, {follows: {stopBy: {pattern: $_}, matches: previous-option-step}}]
-rewriters:
-    - id: drop-on-none
-      rule: {pattern: '$L($X, $R)', has: {field: function, matches: option-lift}}
-      fix: $L($X)
-    - id: drop-data-last-on-none
-      rule: {pattern: $L($R), has: {field: function, matches: option-lift}}
-      fix: $L
-    - id: drop-mapped
-      rule: {pattern: '$M($LIFTED, $R)', all: [{has: {field: function, matches: map-error}}, {has: {field: arguments, has: {nthChild: 2, matches: rebuild}}}]}
-      fix: $LIFTED
-    - id: move-mapped
-      rule: {pattern: '$M($L($X), $F)', has: {field: function, matches: map-error}}
-      fix: $L($X, $F)
-    - id: drop-piped
-      rule: {pattern: $LIFTED.pipe($S), has: {field: arguments, has: {matches: rebuild-step}}}
-      fix: $LIFTED
-    - id: drop-piped-first
-      rule: {pattern: '$LIFTED.pipe($S, $$$REST)', has: {field: arguments, has: {nthChild: 1, matches: rebuild-step}}}
-      fix: $LIFTED.pipe($$$REST)
-    - id: move-piped
-      rule: {pattern: $L($X).pipe($M($F)), has: {field: function, has: {field: object, matches: lifted}}}
-      fix: $L($X, $F)
-    - id: move-piped-first
-      rule: {pattern: '$L($X).pipe($M($F), $$$REST)', has: {field: function, has: {field: object, matches: lifted}}}
-      fix: $L($X, $F).pipe($$$REST)
-    - id: drop-step
-      rule: {matches: rebuild-step, follows: {stopBy: {pattern: $_}, pattern: $PREVIOUS}}
-      fix: $PREVIOUS
-    - id: move-step
-      rule: {pattern: $M($F), matches: map-step, follows: {stopBy: {pattern: $_}, kind: member_expression, pattern: $L}}
-      fix: $L($F)
-    - id: move-lifted-step
-      rule: {pattern: $M($F), matches: map-step, follows: {stopBy: {pattern: $_}, pattern: $L($X)}}
-      fix: $L($X, $F)
-transform:
-    FIXED:
-        rewrite:
-            source: $HAND
-            rewriters: [drop-on-none, drop-data-last-on-none, drop-mapped, move-mapped, drop-piped, drop-piped-first, move-piped, move-piped-first, drop-step, move-step, move-lifted-step]
-fix:
-    template: $FIXED
-    expandStart: {matches: previous-step, stopBy: {pattern: $_}, precedes: {stopBy: {pattern: $_}, all: [{matches: map-step}, {inside: {matches: step-chain}}]}}
 message: '`$LIFT` absence error is rebuilt or mapped outside its `onNone` argument'
 note: 'Pass the mapper as the `onNone` argument of `Effect.fromOption`, and delete a rebuilt `NoSuchElementError`'

@@ -166,11 +166,19 @@ public sealed partial class StandardName : IComparable<StandardName> {
         standard.Layout.Split(standard.Fields, text).ToFin(new DraftingFault(text, DraftingReason.NameBroken)).Bind(fields => Validated(standard, fields));
 
     public static Fin<Seq<(TSheet Sheet, StandardName Number)>> Renumber<TSheet>(Seq<(TSheet Sheet, StandardName Number)> ordered, Seq<StandardName> others) =>
-        from sequences in Fin.Succ(ordered.Map(static entry => (entry.Number.Series, Value: entry.Number.Sequence.Map(static sequence => sequence.Value))).Distinct().ToLookup(static entry => entry.Series, static entry => entry.Value))
-        let renumbered = ordered.Map(entry => (entry.Sheet, Number: entry.Number.Resequenced(toSeq(sequences[entry.Number.Series]).Somes())))
-        let taken = renumbered.Map(static entry => entry.Number).Concat(others).ToLookup(static number => number)
-        from numbered in renumbered.Map((entry, index) => taken[entry.Number].Skip(1).Any() ? new DraftingFault(entry.Number.Text, DraftingReason.NumberTaken, index) : Fin.Succ(entry)).Traverse(static held => held).As()
-        select numbered;
+        ordered.Map(static entry => (entry.Sheet, entry.Number, entry.Number.Series, entry.Number.Sequence)).Strict() switch {
+            var rows => rows.Map(static row => row.Sequence.Map(sequence => (row.Series, sequence.Value))).Somes().Distinct().GroupBy(static entry => entry.Series)
+                .ToDictionary(static group => group.Key, static group => group.Min(static entry => entry.Value) switch {
+                    var minimum => toHashMap(group.Select((entry, index) => (entry.Value, minimum + index))),
+                }) switch {
+                    var series => rows.Map(row => (row.Sheet, Number: row.Sequence.Map(sequence => new StandardName(row.Number.Standard, row.Number.Fields.SetItem(sequence.Field,
+                            series[row.Series][sequence.Value].ToString(CultureInfo.InvariantCulture).PadLeft(sequence.Text.Length, '0')))).IfNone(row.Number))).Strict() switch {
+                                var renumbered => renumbered.Map(static entry => entry.Number).Concat(others).CountBy(static number => number).ToDictionary() switch {
+                                    var taken => renumbered.Map((entry, index) => taken[entry.Number] > 1 ? new DraftingFault(entry.Number.Text, DraftingReason.NumberTaken, index) : Fin.Succ(entry)).Traverse(static held => held).As(),
+                                },
+                            },
+                },
+        };
 
     public static Seq<(TSheet Sheet, int Ordinal, int Count)> Positions<TSheet>(Seq<(TSheet Sheet, StandardName Number)> sheets) =>
         from members in toSeq(sheets.OrderBy(static entry => entry.Number).GroupBy(static entry => entry.Number.Series)).Map(static series => toSeq(series))
@@ -200,11 +208,11 @@ public sealed partial class StandardName : IComparable<StandardName> {
         from value in nameField.Role.Rank(text)
         select (nameField, text, value);
 
-    private StandardName Resequenced(Seq<int> sequences) =>
-        Sequence.Map(sequence => new StandardName(Standard, Fields.SetItem(sequence.Field,
-            (sequences.Fold(sequence.Value, int.Min) + sequences.TakeWhile(other => other != sequence.Value).Count).ToString(CultureInfo.InvariantCulture).PadLeft(sequence.Text.Length, '0')))).IfNone(this);
-
     private static bool Accepts(NamingStandard standard, HashMap<NameField, string> fields) =>
-        standard.Fields.ForAll(field => fields.Find(field).Match(Some: field.Allows, None: () => !field.Required))
-        && standard.Layout.Split(standard.Fields, standard.Layout.Compose(standard.Fields, fields)) == Some(fields);
+        standard.Fields.Map(field => (Field: field, Value: fields.Find(field))).Strict() switch {
+            var slots => slots.Filter(static slot => slot.Value.IsSome).Count == fields.Count
+                && slots.ForAll(static slot => slot.Value.Match(Some: slot.Field.Allows, None: () => !slot.Field.Required))
+                && (standard.Layout is not NameLayout.Delimited || slots.FoldBack((Next: Option<string>.None, Valid: true), static (state, slot) =>
+                    (slot.Value || state.Next, state.Valid && (slot.Value.IsSome || state.Next.ForAll(next => !slot.Field.Fits(next.Length))))).Valid),
+        };
 }

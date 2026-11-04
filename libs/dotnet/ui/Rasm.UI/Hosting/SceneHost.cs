@@ -7,7 +7,7 @@ using SkiaSharp;
 namespace Rasm.UI.Hosting;
 
 // --- [SERVICES] ------------------------------------------------------------------------
-public sealed class SceneHost : IDisposable {
+public sealed class SceneHost : IAsyncDisposable {
     // --- [STATE]
     private sealed class Raster(SKSurface surface, SKImageInfo info, PaintCache cache, float scale, SKPoint origin) : IDisposable {
         private readonly SKRegion damage = new(info.Rect);
@@ -46,16 +46,16 @@ public sealed class SceneHost : IDisposable {
         internal Option<Mount> Current { get; init; }
         internal Option<Func<bool, IO<Unit>>> Running { get; init; }
         internal Option<SynchronizationContext> Context { get; init; }
-        internal Option<Fin<Mount>> Moved { get; init; }
 
-        internal Session Stepped(Option<Fin<Mount>> moved) => this with { Moved = moved, Current = moved.Bind(static held => held.ToOption()) | Current };
+        internal (Session Next, Option<Fin<Mount>> Moved) Stepped(Option<Fin<Mount>> moved) => (this with { Current = moved.Bind(static held => held.ToOption()) || Current }, moved);
     }
 
     private readonly SceneBackend backend;
     private readonly TimeProvider clock;
     private readonly ITimer timer;
     private readonly Shaping shaping;
-    private readonly Atom<Session> session = Atom(Session.Empty);
+    private readonly Lock gate = new();
+    private Session session = Session.Empty;
     private HashMap<Option<Seq<Key>>, Raster> rasters;
 
     public SceneHost(SceneBackend backend, TimeProvider clock, Seq<SKTypeface> embedded = default) {
@@ -64,7 +64,7 @@ public sealed class SceneHost : IDisposable {
         timer = clock.CreateTimer(static held => ((SceneHost)held!).TimerElapsed(), this, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
     }
 
-    public Option<Mount> Current => session.Value.Current;
+    public Option<Mount> Current => Volatile.Read(ref session).Current;
 
     // --- [DERIVED]
     public IO<Duration> Now => IO.lift(() => clock.GetElapsedTime(0L).ToDuration());
@@ -81,30 +81,30 @@ public sealed class SceneHost : IDisposable {
         Changed(held => held.Hosting == Some((Host: host, Sheet: sheet)) ? None : Some(held with { Hosting = Some((Host: host, Sheet: sheet)) }), (current, now) => current.Rehost(host, sheet, now));
 
     public IO<bool> Receive(InputEvent input, Duration at) =>
-        session.SwapIO(held => held.Stepped(held.Current.Map(current => (Fin<Mount>)current.Receive(input, at)))).Bind(Applied);
+        Applied(held => held.Stepped(held.Current.Map(current => (Fin<Mount>)current.Receive(input, at))));
 
     public IO<Unit> Released =>
-        from held in session.ValueIO
-        from cleared in IO.lift(Cleared)
+        from held in IO.lift(Taken)
+        from cleared in IO.lift(() => Cleared(held))
         from stopped in held.Running.Traverse(static run => run(false)).As()
         select unit;
 
     private IO<Unit> Changed(Func<Session, Option<Session>> changed, Func<Mount, Duration, Fin<Mount>> step) =>
         from now in Now
-        from swapped in session.SwapIO(held => changed(held).Match(
-            Some: next => next.Stepped(next.Current.Map(current => step(current, now)) | (from placed in next.Hosting from view in next.View select Mount.Create(placed.Host, placed.Sheet, view, shaping))),
-            None: () => held with { Moved = None }))
-        from applied in Applied(swapped)
+        from applied in Applied(held => changed(held).Match(
+            Some: next => next.Stepped(next.Current.Map(current => step(current, now)) || (from placed in next.Hosting from view in next.View select Mount.Create(placed.Host, placed.Sheet, view, shaping))),
+            None: () => (held, Option<Fin<Mount>>.None)))
         select unit;
 
     private IO<Unit> Tick(Duration now) =>
         from animated in IO.lift(() => Animated)
-        from swapped in session.SwapIO(held => held.Stepped(held.Current.Map(current => (Fin<Mount>)current.Tick(now, animated))))
-        from applied in Applied(swapped)
+        from applied in Applied(held => held.Stepped(held.Current.Map(current => (Fin<Mount>)current.Tick(now, animated))))
         select unit;
 
     // --- [OUTPUT]
-    private IO<bool> Applied(Session swapped) => swapped.Moved.Match(Some: moved => IO.lift(moved).Bind(mount => Emitted(swapped.Running, mount)), None: static () => IO.pure(value: false));
+    private IO<bool> Applied(Func<Session, (Session Next, Option<Fin<Mount>> Moved)> step) =>
+        IO.lift(() => Stored(held => step(held) switch { var (next, moved) => (moved.Exists(static changed => changed.IsFail) ? held : next, (next.Running, Moved: moved)) }))
+            .Bind(stepped => stepped.Moved.Match(Some: moved => IO.lift(moved).Bind(mount => Emitted(stepped.Running, mount)), None: static () => IO.pure(value: false)));
 
     private IO<bool> Emitted(Option<Func<bool, IO<Unit>>> running, Mount mount) =>
         from damaged in IO.lift(() => Damaged(mount))
@@ -128,7 +128,7 @@ public sealed class SceneHost : IDisposable {
         from running in held.Match(
             Some: static run => IO.pure(Some(run)),
             None: () => animating || mount.Timers.Due.IsSome
-                ? backend.DisplayLinked(Tick).Bind(started => session.SwapIO(current => current with { Running = current.Running | Some(started) })).Map(static current => current.Running)
+                ? backend.DisplayLinked(Tick).Bind(started => IO.lift(() => Stored(current => (current with { Running = current.Running || Some(started) }) switch { var next => (next, next.Running) })))
                 : IO.pure(Option<Func<bool, IO<Unit>>>.None))
         from ran in running.Traverse(run => run(animating)).As()
         select unit;
@@ -137,19 +137,19 @@ public sealed class SceneHost : IDisposable {
     private IO<Unit> Scheduled(Option<Duration> deadline) =>
         from context in IO.syncContext
         from now in Now
-        from stored in session.SwapIO(held => held with { Context = context })
+        from stored in IO.lift(() => Stored(held => (held with { Context = context }, unit)))
         from changed in IO.lift(() => timer.Change(deadline.Map(at => Duration.Max(at - now, Duration.Zero).ToTimeSpan()).IfNone(Timeout.InfiniteTimeSpan), period: Timeout.InfiniteTimeSpan))
         select unit;
 
     private void TimerElapsed() {
-        Session held = session.Value;
+        Session held = Volatile.Read(ref session);
         using EnvIO environment = EnvIO.New(token: CancellationToken.None, syncContext: held.Context.ValueUnsafe());
-        _ = held.Running.Traverse(static run => run(true)).As().Post().Run(environment);
+        _ = IO.lift(() => Volatile.Read(ref session).Running).Bind(static running => running.Traverse(static run => run(true)).As()).Post().Run(environment);
     }
 
     // --- [PAINT]
     public IO<Option<SKSurface>> Paint(float scale, Option<Seq<Key>> popup = default) =>
-        from held in session.ValueIO
+        from held in IO.lift(() => Volatile.Read(ref session))
         from now in Now
         from drawn in IO.lift(() => (from current in held.Current
                                      from frame in popup.Match(
@@ -159,29 +159,43 @@ public sealed class SceneHost : IDisposable {
                                      where info.Width > 0 && info.Height > 0
                                      select (Mount: current, Origin: frame.Location, Info: info))
             .Traverse(target => Rastered(popup, target.Info, scale, target.Origin).Bind(raster => raster.Drawn(target.Mount, popup, now))).As())
+        from linked in held.Current.Traverse(current => Linked(held.Running, current)).As()
         select drawn;
 
-    private Fin<Raster> Rastered(Option<Seq<Key>> popup, SKImageInfo info, float scale, SKPoint origin) =>
-        rasters.Find(popup).Filter(held => held.Fits(info, scale, origin)).Match(Some: static held => held, None: () => {
-            _ = rasters.Find(popup).Iter(static held => held.Dispose());
+    private Fin<Raster> Rastered(Option<Seq<Key>> popup, SKImageInfo info, float scale, SKPoint origin) {
+        Option<Raster> prior = rasters.Find(popup);
+        return prior.Filter(held => held.Fits(info, scale, origin)).Match(Some: static held => held, None: () => {
+            _ = prior.Iter(static held => held.Dispose());
             Fin<Raster> made = backend.Allocated(info).Map(surface => new Raster(surface, info, new PaintCache(info, surface.SurfaceProperties, shaping, Optional(surface.Context)), scale, origin));
             rasters = made.Map(held => rasters.AddOrUpdate(popup, held)).IfFail(rasters.Remove(popup));
             return made;
         });
+    }
 
     // --- [RELEASE]
-    private Unit Cleared() {
-        _ = session.Value.Current.Iter(static held => held.Scene.Outlines.Dispose());
-        _ = toSeq(rasters.Values).Iter(static held => held.Dispose());
+    private T Stored<T>(Func<Session, (Session Next, T Result)> change) {
+        lock (gate) {
+            (Session next, T result) = change(session);
+            Volatile.Write(ref session, next);
+            return result;
+        }
+    }
+
+    private Session Taken() => Stored(static held => (Session.Empty, held));
+
+    private Unit Cleared(Session held) {
+        _ = held.Current.Iter(mount => {
+            _ = timer.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+            mount.Scene.Outlines.Dispose();
+        });
+        _ = toSeq(rasters.Values).Iter(static raster => raster.Dispose());
         rasters = [];
-        _ = session.Swap(static _ => Session.Empty);
-        _ = timer.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
         return unit;
     }
 
-    public void Dispose() {
-        _ = Cleared();
-        timer.Dispose();
-        shaping.Dispose();
+    public async ValueTask DisposeAsync() {
+        using (shaping)
+        await using (timer.ConfigureAwait(false))
+            _ = await Released.RunAsync().ConfigureAwait(false);
     }
 }

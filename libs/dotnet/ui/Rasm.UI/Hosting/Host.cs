@@ -32,8 +32,10 @@ public sealed partial class Blending {
     internal partial bool Native(bool overSlot);
 }
 
-public sealed record Host(SKSize Size, Theme Theme, Visibility Visibility, Role Root, CultureInfo Culture) {
-    public bool Cycles { get; init; } = Root == Role.Window;
+public sealed record Host(SKSize Size, Theme Theme, Visibility Visibility, Key Root, CultureInfo Culture) {
+    private readonly Option<bool> cycles;
+
+    public bool Cycles { get => cycles.IfNone(Root == Roles.Window); init => cycles = value; }
     public Blending Blending { get; init; } = Blending.Raster;
     public Factor Headroom { get; init; } = Factor.Unit;
 }
@@ -74,15 +76,17 @@ public sealed record PlacedControls<TControl>(
 
     public IO<PlacedControls<TControl>> Reconciled(Mount mount) {
         HashMap<Seq<Key>, Hosted.Slot> wanted = toHashMap(mount.Hosted.Choose(static hosted => Optional(hosted as Hosted.Slot)).Map(static slot => (slot.Path, slot)));
-        return toSeq(Controls.Keys).Concat(wanted.Keys).Distinct().Fold(IO.pure(this), (sequence, path) => sequence.Bind(placed => placed.Changed(path, wanted.Find(path), mount)));
+        return toSeq(Controls.AsIterable().FullOuterHashJoin(wanted.AsIterable(),
+            static entry => entry.Key,
+            static entry => entry.Key,
+            held => Some(Removed(held.Value.Control).Map(_ => (Path: held.Key, Value: Option<(Hosted.Slot Slot, TControl Control)>.None))),
+            slot => Some(Added(slot.Value, mount.Elements.Find(slot.Key)).Map(control => (Path: slot.Key, Value: Some((Slot: slot.Value, Control: control))))),
+            (held, slot) => Some(slot.Value).Filter(next => held.Value.Slot != next).Map(next => Moved(held.Value.Control, next)
+                .Map(control => (Path: slot.Key, Value: Some((Slot: next, Control: control)))))))
+            .Somes()
+            .Fold(IO.pure(this), static (sequence, change) =>
+                from placed in sequence
+                from next in change
+                select placed with { Controls = next.Value.Map(value => placed.Controls.AddOrUpdate(next.Path, value)).IfNone(() => placed.Controls.Remove(next.Path)) });
     }
-
-    private IO<PlacedControls<TControl>> Changed(Seq<Key> path, Option<Hosted.Slot> wanted, Mount mount) =>
-        Controls.Find(path).Match(
-            Some: held => wanted.Match(
-                Some: slot => held.Slot == slot ? IO.pure(this) : Moved(held.Control, slot).Map(moved => this with { Controls = Controls.AddOrUpdate(path, (slot, moved)) }),
-                None: () => Removed(held.Control).Map(_ => this with { Controls = Controls.Remove(path) })),
-            None: () => wanted.Match(
-                Some: slot => Added(slot, mount.Elements.Find(path)).Map(control => this with { Controls = Controls.AddOrUpdate(path, (slot, control)) }),
-                None: () => IO.pure(this)));
 }

@@ -14,17 +14,6 @@ utils:
               any:
                 - has: {field: body, matches: host-success}
                 - has: {field: body, kind: block, all: [{has: {kind: return_statement, nthChild: 1, has: {matches: host-success}}}, {not: {has: {nthChild: 2}}}]}
-            - kind: identifier
-              pattern: $SUCCEEDED
-              inside:
-                stopBy: end
-                kind: compilation_unit
-                has:
-                    stopBy: end
-                    kind: method_declaration
-                    all:
-                        - has: {field: name, pattern: $SUCCEEDED}
-                        - has: {field: body, kind: arrow_expression_clause, has: {matches: host-success}}
     reported-failure:
         kind: block
         all:
@@ -104,64 +93,10 @@ utils:
                 - has: {field: condition, pattern: $SOURCE.IsFail}
                 - has: {field: consequence, matches: host-failure}
                 - has: {field: alternative, matches: host-success}
-    kept-results:
-        kind: invocation_expression
-        all:
-            - has:
-                field: function
-                kind: member_access_expression
-                all:
-                    - has: {field: name, regex: '^Catch$'}
-                    - has: {field: expression, matches: success-map}
-            - has:
-                field: arguments
-                all:
-                    - has: {kind: argument, nthChild: 1, has: {stopBy: end, matches: to-result}}
-                    - has: {kind: argument, nthChild: 2, has: {stopBy: end, matches: to-result}}
-                    - not: {has: {kind: argument, nthChild: 3}}
-    answered:
-        any:
-            - matches: success-map
-            - matches: kept-results
-    failed-failure:
-        kind: argument
-        not: {has: {field: name, not: {regex: '^failed$'}}}
-        has:
-            kind: lambda_expression
-            all:
-                - matches: csharp-parameterless
-                - has: {field: body, matches: host-failure}
-    effect-answer:
-        kind: invocation_expression
-        all:
-            - matches: {csharp-owner-call: {type: {regex: '^Session$'}, member: {regex: '^Run$'}}}
-            - any:
-                - has:
-                    field: arguments
-                    all:
-                        - has: {kind: argument, nthChild: 1, has: {matches: answered}}
-                        - has: {kind: argument, nthChild: 2, matches: failed-failure}
-                        - has: {kind: argument, nthChild: 3}
-                        - not: {has: {kind: argument, nthChild: 4}}
-                - has:
-                    field: arguments
-                    all:
-                        - has:
-                            kind: argument
-                            nthChild: 1
-                            has:
-                                kind: invocation_expression
-                                all:
-                                    - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^Map$'}}
-                                    - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {kind: lambda_expression, has: {field: body, matches: answered}}}}
-                        - has: {kind: argument, nthChild: 3, matches: failed-failure}
-                        - has: {kind: argument, nthChild: 4}
-                        - not: {has: {kind: argument, nthChild: 5}}
 rule:
     any:
         - matches: fin-match
         - matches: fin-fold
         - matches: fin-test
-        - matches: effect-answer
 message: '`$SOURCE` converts to a host `Result`'
-note: 'Call `Session.Run(Results.Of(<effect>), Result.Failure)` with the member its `[CallerMemberName]` derives'
+note: 'Map unused values to `unit` and call `Results.Of`; finish `Fin` with `IfFail(Result.Failure)` or `IO` with `Session.Run(<effect>, Result.Failure)`'

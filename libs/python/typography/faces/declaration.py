@@ -1,41 +1,45 @@
 """Font set declarations: families, faces, genres, treatments, value overrides, and ornament sets."""
 
 from collections import Counter
-from enum import StrEnum
+from enum import auto, StrEnum
 from functools import partialmethod
 from pathlib import Path
 from typing import Annotated, Literal
 lazy from functools import partial
+lazy from itertools import batched
 lazy import math
 lazy import unicodedata
 
 from expression.extra.result import catch
 import msgspec
+from ufoLib2.objects.info import WidthClass
 
 from typography.faces.coverage import Coverage
+from typography.faces.layout import Tag
 lazy from typography.faces.faults import Fault, Outcome, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type _Name = Annotated[str, msgspec.Meta(min_length=1)]
-type _Style = Annotated[str, msgspec.Meta(pattern=r"^[A-Z][A-Za-z]*(?: [A-Z][A-Za-z]*)*$")]
+type _Style = Annotated[str, msgspec.Meta(pattern=r"\A[A-Z][A-Za-z]*(?: [A-Z][A-Za-z]*)*\Z")]
 type _Code = Annotated[int, msgspec.Meta(ge=0, le=0x10FFFF)]
 type Em = Annotated[float, msgspec.Meta(ge=0.0, le=4.0)]
 type Ratio = Annotated[float, msgspec.Meta(gt=0.0)]
 type Band = tuple[Em, Em]
+type _Members[F] = Annotated[tuple[F, ...], msgspec.Meta(min_length=1)]
 
 
 class Recipe(StrEnum):
     """Construction of a rebuilt mark from the face's own letters and nuqta."""
 
-    BAR = "bar"
-    DOUBLED = "doubled"
-    HEAD = "head"
-    HEADS = "heads"
-    TEETH = "teeth"
-    RING = "ring"
-    STEM = "stem"
-    DOTS = "dots"
+    BAR = auto()
+    DOUBLED = auto()
+    HEAD = auto()
+    HEADS = auto()
+    TEETH = auto()
+    RING = auto()
+    STEM = auto()
+    DOTS = auto()
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -47,7 +51,7 @@ class Derived(msgspec.Struct, frozen=True, kw_only=True):
 
     code: _Code
     variant: str = ""
-    model: str
+    model: _Code | _Name
     turned: bool = False
     foot: Literal["own", "base", "middle"] = "own"
     reference: _Code | None = None
@@ -75,19 +79,21 @@ class Script(msgspec.Struct, frozen=True, kw_only=True):
     counters: tuple[_Code, ...]
     standing: frozenset[_Code]
     locl: frozendict[_Code, _Code]
-    language: str
+    language: tuple[Tag, Tag]
     rlig: frozendict[_Code, frozenset[_Code]]
     derived: tuple[Derived, ...]
-    digits: tuple[str, str]
+    digits: tuple[_Code, _Code]
     shared: frozenset[int]
     signs: frozendict[_Code, tuple[str, ...]]
 
     @staticmethod
     def spelled(*codes: int) -> frozendict[int, tuple[str, ...]]:
         """Returns word signs by the rows of words their compatibility decomposition spells, as many rows as the square root of the word count rounds up to."""
-        words = {code: "".join(chr(int(part, 16)) for part in unicodedata.decomposition(chr(code)).split()[1:]).split(" ") for code in codes}
-        sizes = {code: math.ceil(len(held) / math.ceil(math.sqrt(len(held)))) for code, held in words.items()}
-        return frozendict({code: tuple(" ".join(held[start : start + sizes[code]]) for start in range(0, len(held), sizes[code])) for code, held in words.items()})
+        return frozendict({
+            code: tuple(" ".join(row) for row in batched(words, math.ceil(len(words) / math.ceil(math.sqrt(len(words))))))
+            for code in codes
+            if (words := unicodedata.normalize("NFKD", chr(code)).split())
+        })
 
 
 _PERSO_ARABIC = Script(
@@ -115,20 +121,20 @@ _PERSO_ARABIC = Script(
     counters=(0x0645, 0x0641, 0x0642, 0x0648, 0x0624, 0x0647, 0x0635, 0x0637, 0x0639, 0x0629),
     standing=frozenset({0x0627, 0x062F, 0x0630}),
     locl=frozendict({0x0643: 0x06A9, 0x064A: 0x06CC, 0x0664: 0x06F4, 0x0665: 0x06F5, 0x0666: 0x06F6}),
-    language="arab/FAR ",
+    language=("arab", "FAR "),
     rlig=frozendict({0x0644: frozenset({0x0627, 0x0622, 0x0623, 0x0625, 0x0671})}),
     derived=(
-        Derived(code=0x06F7, model="uni06F8", turned=True, kept=False),
-        Derived(code=0x066B, model="uni0631", reference=0x06F1, height=0.6),
-        Derived(code=0x066B, variant="far", model="slash"),
-        Derived(code=0x066C, model="uni060C", turned=True, foot="middle", reference=0x06F1),
-        Derived(code=0x066C, variant="far", model="uni060C", turned=True, foot="base"),
-        Derived(code=0x0609, model="uni066A", repeats=1),
-        Derived(code=0x060A, model="uni066A", repeats=2),
-        Derived(code=0x2010, model="hyphen"),
-        Derived(code=0x25CC, model="uni062B", reference=0x0627, height=0.75, around=12),
+        Derived(code=0x06F7, model=0x06F8, turned=True, kept=False),
+        Derived(code=0x066B, model=0x0631, reference=0x06F1, height=0.6),
+        Derived(code=0x066B, variant="far", model=0x002F),
+        Derived(code=0x066C, model=0x060C, turned=True, foot="middle", reference=0x06F1),
+        Derived(code=0x066C, variant="far", model=0x060C, turned=True, foot="base"),
+        Derived(code=0x0609, model=0x066A, repeats=1),
+        Derived(code=0x060A, model=0x066A, repeats=2),
+        Derived(code=0x2010, model=0x002D),
+        Derived(code=0x25CC, model=0x062B, reference=0x0627, height=0.75, around=12),
     ),
-    digits=("farsi", "arab"),
+    digits=(0x06F0, 0x0660),
     shared=frozenset({0, 1, 2, 3, 7, 8, 9}),
     signs=Script.spelled(0xFDF2, 0xFDF4, 0xFDFA, 0xFDFB, 0xFDFC) | {0xFDFD: ("بِسْمِ ٱللَّهِ ٱلرَّحْمَٰنِ ٱلرَّحِيمِ",), 0x060B: ("فرٰ",)},
 )
@@ -253,7 +259,7 @@ class Values(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=Tr
     digit_pen: str | None = None
     digit_advance: Literal["tabular", "proportional"] | None = None
     digit_bearing: Em | None = None
-    marks_drawn: bool | None = None
+    marks_drawn: bool = False
     inside_bearings: bool | None = None
     fatha_angle: float | None = None
     fatha_length: Em | None = None
@@ -287,8 +293,8 @@ class _Member(msgspec.Struct, frozen=True, kw_only=True, tag_field="kind", tag=s
 class Face(_Member, frozen=True, kw_only=True):
     """Text face with weight, width, treatments, and value overrides, its genre filled from its family."""
 
-    weight: Annotated[int, msgspec.Meta(ge=100, le=1000)] = 400
-    width: Annotated[int, msgspec.Meta(ge=1, le=9)] = 5
+    weight: Annotated[int, msgspec.Meta(ge=1, le=1000)] = 400
+    width: WidthClass = WidthClass.NORMAL
     treatments: tuple[Treatments, ...] = ()
     values: Values = Values()
     genre: Genres = TextNaskh()
@@ -305,30 +311,33 @@ type Faces = Face | OrnamentFace
 # --- [SETS]
 
 
-class _Set[F: Faces](msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
-    """Named group of faces under one original folder, each face filled with the group name and every other field both declare."""
+class _Set(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
+    """Named group under one original folder."""
 
     name: _Name
     original: str
-    faces: Annotated[tuple[F, ...], msgspec.Meta(min_length=1)]
     notes: str = ""
 
-    def __post_init__(self) -> None:
-        """Fills each face's family name and every group field outside the base set fields the face declares (`genre`)."""
-        shared = {field: getattr(self, field) for field in self.__struct_fields__ if field not in _Set.__struct_fields__}
-        msgspec.structs.force_setattr(
-            self, "faces", tuple(msgspec.structs.replace(face, family=self.name, **{field: value for field, value in shared.items() if field in face.__struct_fields__}) for face in self.faces)
-        )
 
-
-class Family(_Set[Face], frozen=True, kw_only=True):
+class Family(_Set, frozen=True, kw_only=True):
     """Text family under one genre, its faces filled with its name and genre."""
 
     genre: Genres
+    faces: _Members[Face]
+
+    def __post_init__(self) -> None:
+        """Fills each face's family name and genre."""
+        msgspec.structs.force_setattr(self, "faces", tuple(msgspec.structs.replace(face, family=self.name, genre=self.genre) for face in self.faces))
 
 
-class OrnamentSet(_Set[OrnamentFace], frozen=True, kw_only=True):
+class OrnamentSet(_Set, frozen=True, kw_only=True):
     """Ornament family, its faces filled with its name."""
+
+    faces: _Members[OrnamentFace]
+
+    def __post_init__(self) -> None:
+        """Fills each ornament's family name."""
+        msgspec.structs.force_setattr(self, "faces", tuple(msgspec.structs.replace(face, family=self.name) for face in self.faces))
 
 
 class FontSet(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):

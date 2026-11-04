@@ -5,6 +5,7 @@ using Rasm.Rhino.Document.Units;
 using Rasm.Rhino.Persistence;
 using Rhino;
 using Rhino.DocObjects;
+using DistanceDisplayMode = Rhino.UI.DistanceDisplayMode;
 
 namespace Rasm.Rhino.Annotation.Styles;
 
@@ -117,7 +118,7 @@ public static class DimensionStyles {
 
     private static int Digits(DimensionStyle.LengthDisplay display, Length resolution, UnitSystem system) =>
         LanguageExt.List.unfold(0, digits =>
-            Quantities.Resolution(display is DimensionStyle.LengthDisplay.InchesFractional or DimensionStyle.LengthDisplay.FeetAndInches ? global::Rhino.UI.DistanceDisplayMode.Fractional : global::Rhino.UI.DistanceDisplayMode.Decimal,
+            Quantities.Resolution(display is DimensionStyle.LengthDisplay.InchesFractional or DimensionStyle.LengthDisplay.FeetAndInches ? DistanceDisplayMode.Fractional : DistanceDisplayMode.Decimal,
                 digits, LengthUnit.FromKnownUnitSystem(system)) > resolution
                 ? Some((digits, digits + 1))
                 : None).Count();

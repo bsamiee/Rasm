@@ -8,9 +8,8 @@
         "#/*": "./*.ts"
     },
     "exports": {
-        "./contract": "./contract.ts",
-        "./entrypoints": "./entrypoints.ts",
-        "./manifest": "./manifest.ts"
+        ".": "./index.ts",
+        "./panel": "./panel.ts"
     },
     "dependencies": {
         "@rasm/automation": "workspace:*",

@@ -5,13 +5,14 @@ from functools import reduce
 from typing import Final, Literal, override, TYPE_CHECKING
 
 import bpy
-from expression import Nothing, Option, Some
+from expression import Option, Some
 import msgspec
 
 from blender.bpy.data.rna.descriptors import Value
 from blender.bpy.extension.identity import Key
 from blender.bpy.nodes.desired import Content, End, INPUTS, Membered, MenuItem, MenuItems
 from blender.bpy.nodes.trees import base_socket, DATA_TYPES
+from blender.records.faults import Nothing
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -139,7 +140,7 @@ class Expr(Membered, frozen=True, kw_only=True, eq=False):
                 return Expr(kind=bpy.types.ShaderNodeSeparateColor, inputs=((0, self),), members={"mode": "RGB"}, socket=component)
 
     def at(self, socket: str | int, socket_type: SocketType = bpy.types.NodeSocketFloat, /) -> "Expr":
-        """Reads another output of the same node (a Menu Switch item's boolean at the item name), read as a 0 or 1 value by default."""
+        """Reads another output of the same node, a Menu Switch item's boolean by its position after Output, as a 0 or 1 value by default."""
         return msgspec.structs.replace(self, socket=socket, socket_type=socket_type)
 
     def keyed(self, key: Key) -> "Expr":
@@ -190,10 +191,10 @@ def switched(gate: Scalar, off: Term, on: Term, /) -> Expr:
 
 
 def menu(selector: Term | MenuItem, cases: Mapping[MenuItem, Term], /, *, socket_type: Option[SocketType] = Nothing) -> Expr:
-    """Builds Menu Switch over items in case order, each case operand at the socket of its declaring item, every item's boolean output beside `Output` read through `at(item.name)`.
+    """Builds Menu Switch over items in case order, each case operand at the socket of its declaring item, with Boolean outputs following `Output` in case order.
 
     Args:
-        selector: Menu input operand, or the item chosen.
+        selector: Menu input operand, the item chosen, or None for the native default selection.
         cases: Term per declaring item, the items the switch holds.
         socket_type: Socket class of the cases where literals cannot state it (menu cases given as item names).
 
@@ -201,18 +202,18 @@ def menu(selector: Term | MenuItem, cases: Mapping[MenuItem, Term], /, *, socket
         `Output` socket expression of the cases' widest shape.
     """
     kind = socket_type.default_with(lambda: widest(*cases.values()))
-    chosen: Term = selector.name if isinstance(selector, MenuItem) else selector
+    chosen, selected = (None, selector) if isinstance(selector, MenuItem) else (selector, None)
     return Expr(
         kind=bpy.types.GeometryNodeMenuSwitch,
-        inputs=(("Menu", chosen), *((item.name, term) for item, term in cases.items())),
+        inputs=(*(() if chosen is None else (("Menu", chosen),)), *enumerate(cases.values(), 1)),
         members={"data_type": DATA_TYPES[kind]},
-        content=Some(MenuItems(items=tuple(cases))),
+        content=Some(MenuItems(items=tuple(cases), selected=selected)),
         socket="Output",
         socket_type=kind,
     )
 
 
-def menus[T: Term](selector: Term | MenuItem, cases: Mapping[MenuItem, tuple[T, ...]], /) -> tuple[Expr, *tuple[Expr | T, ...]]:
+def menus(selector: Term | MenuItem, cases: Mapping[MenuItem, tuple[Term, ...]], /) -> tuple[Expr, *tuple[Expr, ...]]:
     """Selects outputs by one menu through one Menu Switch, a menu socket feeding a second switch invalidating both links.
 
     Args:
@@ -220,15 +221,14 @@ def menus[T: Term](selector: Term | MenuItem, cases: Mapping[MenuItem, tuple[T, 
         cases: Terms per declaring item, one per output in output order, every item holding as many.
 
     Returns:
-        Switch at its `Output` for the first output, then each other output chosen by Switch nodes over the item booleans in item order.
+        Switch at its `Output` for the first output, then each other output chosen by Switch nodes over the item booleans in item order. Absent selections read native defaults.
     """
     head, *rest = zip(*cases.values(), strict=True)
     switch = menu(selector, dict(zip(cases, head, strict=True)))
 
-    def chosen(column: tuple[T, ...]) -> Expr | T:
-        (_, first), *others = zip(cases, column, strict=True)
-        initial: Expr | T = first
-        return reduce(lambda held, case: switched(switch.at(case[0].name), held, case[1]), others, initial)
+    def chosen(column: tuple[Term, ...]) -> Expr:
+        initial = menu(None, {}, socket_type=Some(widest(*column)))
+        return reduce(lambda held, case: switched(switch.at(case[0]), held, case[1]), enumerate(column, 1), initial)
 
     return (switch, *map(chosen, rest))
 
@@ -326,7 +326,8 @@ def _combined(operation: str, a: Term, b: Term) -> Expr:
 
 
 def _mixed(socket_type: SocketType, factor: Term, a: Term, b: Term, *, blend: str) -> Expr:
-    return Expr(kind=bpy.types.ShaderNodeMix, inputs=tuple(enumerate((factor, a, b))), members={"data_type": DATA_TYPES[socket_type], "blend_type": blend}, socket=0, socket_type=socket_type)
+    shape = bpy.types.NodeSocketFloat if socket_type in _SCALARS else socket_type
+    return Expr(kind=bpy.types.ShaderNodeMix, inputs=tuple(enumerate((factor, a, b))), members={"data_type": DATA_TYPES[shape], "blend_type": blend}, socket=0, socket_type=shape)
 
 
 def _broadcast(term: Term, socket_type: SocketType) -> Term:

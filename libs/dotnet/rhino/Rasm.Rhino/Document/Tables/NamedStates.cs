@@ -17,7 +17,7 @@ public sealed partial class StateName {
     public static Fin<StateName> Validated(string value) => TryCreate(value, out StateName? name, out RhinoFault? fault) ? name : fault;
 
     static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref string value) =>
-        validationError = value.Length > 0 ? null : new RhinoFault($"value = '{value}'", RhinoReason.Invalid);
+        validationError = value.Length > 0 ? null : new RhinoFault(value, RhinoReason.Invalid);
 }
 
 public sealed record NamedWrite(IO<Unit> Revert, IO<Unit> Release) {
@@ -45,23 +45,34 @@ public abstract record NamedRestore(NamedTable Table, StateName Name) {
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record NamedChange {
-    private NamedChange(NamedTable table, string label) => (Table, Label) = (table, label);
+    // --- [CHANGES]
+    public NamedTable Table => Switch(
+        save: static save => save.State.Table,
+        restore: static restore => restore.Target.Table,
+        rename: static rename => rename.Entry.Table,
+        delete: static delete => delete.Entry.Table,
+        xform: static xform => xform.Entry.Table,
+        import: static import => import.Source);
 
-    public NamedTable Table { get; }
+    public string Label => Switch(
+        save: static save => $"{nameof(Save)} {save.State.Name}",
+        restore: static restore => $"{nameof(Restore)} {restore.Target.Name}",
+        rename: static rename => $"{nameof(Rename)} {rename.Entry.Name}",
+        delete: static delete => $"{nameof(Delete)} {delete.Entry.Name}",
+        xform: static xform => $"{nameof(Transform)} {xform.Entry.Name}",
+        import: static import => $"{nameof(Import)} {import.Source}");
 
-    public string Label { get; }
+    public sealed record Save(NamedState State) : NamedChange;
 
-    public sealed record Save(NamedState State) : NamedChange(State.Table, $"{nameof(Save)} {State.Name}");
+    public sealed record Restore(NamedRestore Target) : NamedChange;
 
-    public sealed record Restore(NamedRestore Target) : NamedChange(Target.Table, $"{nameof(Restore)} {Target.Name}");
+    public sealed record Rename(NamedEntry Entry, StateName Name) : NamedChange;
 
-    public sealed record Rename(NamedEntry Entry, StateName Name) : NamedChange(Entry.Table, $"{nameof(Rename)} {Entry.Name}");
+    public sealed record Delete(NamedEntry Entry) : NamedChange;
 
-    public sealed record Delete(NamedEntry Entry) : NamedChange(Entry.Table, $"{nameof(Delete)} {Entry.Name}");
+    public sealed record Xform(NamedEntry Entry, Transform Transform) : NamedChange;
 
-    public sealed record Xform(NamedEntry Entry, Transform Transform) : NamedChange(Entry.Table, $"{nameof(Transform)} {Entry.Name}");
-
-    public sealed record Import(NamedTable Source, InputPath Path, Option<Seq<StateName>> Names) : NamedChange(Source, $"{nameof(Import)} {Source}");
+    public sealed record Import(NamedTable Source, InputPath Path, Option<Seq<StateName>> Names) : NamedChange;
 
     // --- [PLANNING]
     public static Fin<Seq<NamedChange>> Plan(Seq<NamedEntry> held, Seq<NamedState> desired, Seq<NamedTable> prune) =>
@@ -122,7 +133,7 @@ public abstract partial record NamedChange {
             restore: static (document, restore) => restore.Target.Restore(document),
             rename: static (document, rename) => rename.Entry.Table.Rename(document, rename.Entry, rename.Name),
             delete: static (document, delete) => delete.Entry.Table.Delete(document, delete.Entry),
-            xform: static (document, xform) => IO.lift(() => xform.Entry.Table.Supported(xform.Entry.Table.Transform)).Bind(run => run(document, xform.Entry, xform.Transform)),
+            xform: static (document, xform) => IO.lift(() => xform.Entry.Table.Supported(xform.Entry.Table.TransformEntry)).Bind(run => run(document, xform.Entry, xform.Transform)),
             import: static (document, import) => IO.lift(() => import.Source.Supported(import.Source.Import)).Bind(run => run(document, import.Path, import.Names)));
 
     private Fin<Seq<NamedEntry>> Projected(Seq<NamedEntry> entries) =>
@@ -140,7 +151,7 @@ public abstract partial record NamedChange {
             delete: static (held, delete) => delete.Entry.Table.Present(held, delete.Entry.Name).Map(found => held.Filter(entry => entry != found)),
             xform: static (held, xform) =>
                 from found in xform.Entry.Table.Present(held, xform.Entry.Name)
-                from operation in xform.Entry.Table.Supported(xform.Entry.Table.Transform)
+                from operation in xform.Entry.Table.Supported(xform.Entry.Table.TransformEntry)
                 select held,
             import: static (held, import) =>
                 from operation in import.Source.Supported(import.Source.Import)
@@ -175,6 +186,7 @@ public sealed record NamedEvent {
 
 // --- [TABLES] --------------------------------------------------------------------------
 public sealed class NamedTable(string name, IEqualityComparer<string> comparer) {
+    // --- [CAPABILITIES]
     public static HostEvent<Option<uint>> DocumentProperties { get; } =
         ReadModels.Marks(Documents.PropertiesChanged.Documents());
 
@@ -194,7 +206,7 @@ public sealed class NamedTable(string name, IEqualityComparer<string> comparer) 
 
     public Option<Func<StateName, Fin<Unit>>> Accepts { get; init; }
 
-    public Option<Func<RhinoDoc, NamedEntry, Transform, IO<NamedWrite>>> Transform { get; init; }
+    public Option<Func<RhinoDoc, NamedEntry, Transform, IO<NamedWrite>>> TransformEntry { get; init; }
 
     public Option<Func<RhinoDoc, InputPath, Option<Seq<StateName>>, IO<NamedWrite>>> Import { get; init; }
 
@@ -217,10 +229,10 @@ public sealed class NamedTable(string name, IEqualityComparer<string> comparer) 
         Accepts.Map(accepts => accepts(entry)).IfNone(unit);
 
     internal Fin<T> Supported<T>(Option<T> operation, [CallerArgumentExpression(nameof(operation))] string call = "") =>
-        operation.ToFin(new RhinoFault($"{call} on {name}", RhinoReason.Unsupported));
+        operation.ToFin(new RhinoFault((Table: this, Operation: call), RhinoReason.Unsupported));
 
     internal RhinoFault Missing(string entry) =>
-        new($"{entry} in {name}", RhinoReason.Missing);
+        new((Table: this, Entry: entry), RhinoReason.Missing);
 
     public static IO<Seq<NamedEntry>> Read(RhinoDoc doc, Seq<NamedTable> tables) =>
         tables.TraverseM(table => table.Entries(doc)).As().Map(static entries => entries.Flatten());
@@ -262,7 +274,7 @@ public sealed class NamedTable(string name, IEqualityComparer<string> comparer) 
              Some: wanted => wanted.Traverse(held => stored.Find(row => Comparer.Equals(entry(row), held)).ToFin(Missing(held))).As(),
              None: () => stored))
          from scaling in IO.lift(() => Conversions.Required(Conversions.Present(LengthUnit.Scale(model.Settings.ModelUnits, doc.ModelUnits)).Filter(static scale => scale > 0d))
-             .Map(static scale => global::Rhino.Geometry.Transform.Scale(Point3d.Origin, scale)))
+             .Map(static scale => Transform.Scale(Point3d.Origin, scale)))
          from written in chosen.TraverseM(row => write(row, scaling)).As()
          select new NamedWrite(NamedWrite.Reverted(written), NamedWrite.Released(written))).Bracket();
 

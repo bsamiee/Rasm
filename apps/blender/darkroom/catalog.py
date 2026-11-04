@@ -2,32 +2,33 @@
 
 from functools import partial
 from types import MappingProxyType
-from typing import Any, Final
+from typing import Final
 
 from bl_ui.properties_compositor import SCENE_PT_compositor_effects
 from bl_ui.space_node import NODE_PT_backdrop
 import bpy
-from expression import Ok, Option, Some
+from expression import Option, Some
 
 from blender.bpy.extension.identity import Identity
 from blender.bpy.nodes.interfaces import Socket
 from blender.bpy.render.compositor.editors import EntryEditor
-from blender.bpy.render.compositor.effects import Entry
+from blender.bpy.render.compositor.effects import CompositorRecord, Entry
 from blender.bpy.render.compositor.entries import Enabled, Pinned, StackEnd
 from blender.bpy.render.compositor.inputs import path_key, snapshot
 from blender.bpy.render.compositor.layers import Adjustment, LayerStack, PINNED, StackLayer
-from blender.bpy.render.compositor.offered import Exclusive, OfferedEffects, Phase
+from blender.bpy.render.compositor.offered import OfferedEffects, Phase
 from blender.bpy.render.compositor.recipes import Valued
 from blender.bpy.render.compositor.stack_extension import LayerStackExtension
 from blender.bpy.render.compositor.strips import Strips
 from blender.bpy.render.previews.nodes import NodePreview
+from blender.bpy.render.previews.scenes import PreviewScene
 from blender.bpy.render.previews.tiles import EffectTiles, EntryTile
 from blender.bpy.render.sessions.setups import ENTRY_LOCKS, EntryLocks, WHOLE
 from blender.bpy.render.sessions.staging import StagedRender
 from blender.bpy.render.view_layers.routing import RoutingRow
 from blender.bpy.ui.elements.panels import Beside, Panel
 from blender.bpy.ui.layout.rows import Label, Layout
-from blender.records.fields import Case
+from blender.records.faults import Ok
 
 from .effects.finish.damage import damage
 from .effects.finish.dither import dither
@@ -56,10 +57,10 @@ from .rendering import temporal
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _look(name: str, *settings: tuple[Case, Socket, float]) -> Valued[LayerStack[Case]]:
+def _look(name: str, *settings: tuple[CompositorRecord, Socket, float]) -> Valued[LayerStack]:
     """Look stack of one adjustment layer through each effect record at its socket's value."""
-    layer = StackLayer[Case](key="look", name=name, source=Adjustment(), effects=tuple(Entry(record=record) for record, _, _ in settings))
-    return Valued(structure=LayerStack(layers=(layer,)), values=snapshot({path_key(place, socket): value for place, (_, socket, value) in zip(layer.places, settings, strict=True)}))
+    layer = StackLayer(key="look", name=name, source=Adjustment(), effects=tuple(Entry(record=record) for record, _, _ in settings))
+    return Valued(structure=LayerStack(layers=(layer,)), values=snapshot({path_key(place, socket): value for place, (_, socket, value) in zip(layer.places, settings)}))
 
 
 def _unformed(identity: Identity, context: bpy.types.Context) -> tuple[str, ...]:
@@ -69,14 +70,15 @@ def _unformed(identity: Identity, context: bpy.types.Context) -> tuple[str, ...]
         for scene in Option.of_optional(context.scene).to_list()
         for entry in Option.of_optional(scene.compositor_effects.active).to_list()
         for row in chain.row(identity, entry).to_list()
-        if chain.rank(row) > chain.rank(formation) and not any(scene.compositor_effects.find(formed.name) < scene.compositor_effects.find(entry.name) for formed in formation.entries(identity, scene))
+        if chain.rank(row) > chain.rank(formation)
+        and not any(scene.compositor_effects.find(formed.name) < scene.compositor_effects.find(entry.name) for formed in formation.earliest(identity, scene).to_list())
     )
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-tones: Final = Exclusive[Any](members=(tone_curve, hable, tony, neutral, photoreceptor))
-chain: Final = OfferedEffects[Any](
+tones: Final = (tone_curve, hable, tony, neutral, photoreceptor)
+chain: Final = OfferedEffects(
     phases=(
         Phase(
             key="optics",
@@ -102,12 +104,9 @@ chain: Final = OfferedEffects[Any](
                 halation,
             ),
         ),
-        Phase(
-            key="grade",
-            members=(exposure, flicker, grain, white_balance, primaries, gamut_compression, levels, zones, Exclusive(members=(cdl,)), primary, saturation, curves, hue_curves, lookup, local_exposure),
-        ),
-        Phase(key="formation", members=(tones, Exclusive(members=(formation,)), Exclusive(members=(peak_mapping,)))),
-        Phase(key="finish", members=(pixelation, palette, pattern, edges, damage, emulation, Exclusive(members=(dither,)))),
+        Phase(key="grade", members=(exposure, flicker, grain, white_balance, primaries, gamut_compression, levels, zones, (cdl,), primary, saturation, curves, hue_curves, lookup, local_exposure)),
+        Phase(key="formation", members=(tones, (formation,), (peak_mapping,))),
+        Phase(key="finish", members=(pixelation, palette, pattern, edges, damage, emulation, (dither,))),
     ),
     pinned=(
         PINNED,
@@ -115,9 +114,9 @@ chain: Final = OfferedEffects[Any](
         Pinned(ownership=RoutingRow.ownership, edge=StackEnd.TAIL, enables=frozenset({Enabled.RENDER})),
     ),
 )
-render: Final = StagedRender(rows=chain)
-tiles: Final = EffectTiles[Any](rows=chain, closing=Some(formation))
-stacks: Final = LayerStackExtension[Any](
+render: Final = StagedRender(rows=chain, stacks=Some(lambda identity: stacks.bound(identity)))  # ruff: ignore[unnecessary-lambda]
+tiles: Final = EffectTiles(rows=chain, closing=Some(formation), preview=PreviewScene(render=render))
+stacks: Final[LayerStackExtension] = LayerStackExtension(
     rows=chain,
     before=Some(formation),
     looks=MappingProxyType({
@@ -139,7 +138,7 @@ rows: Final = (
     EntryEditor(
         rows=chain,
         header=(ENTRY_LOCKS.row(WHOLE),),
-        leading=(EntryTile(tiles=tiles), Layout(rows=lambda identity: Ok((Label(text=partial(_unformed, identity), icon=Some("STATUS_ERROR_FILLED")),)))),
+        leading=(EntryTile(tiles=tiles), Layout(builder=Some(lambda identity: Ok((Label(text=partial(_unformed, identity), icon=Some("STATUS_ERROR_FILLED")),))))),
         trailing=(EntryLocks(),),
     ),
     Panel(section=stacks.section(), at=Beside(SCENE_PT_compositor_effects)),

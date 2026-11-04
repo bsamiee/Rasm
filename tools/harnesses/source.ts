@@ -1,6 +1,6 @@
 import { Array, Effect, FileSystem, Match, Option, Path, type PlatformError, Record, Result, String } from 'effect';
 import type { Call } from '#/cases';
-import { HarnessError } from '#/error';
+import { HarnessError } from '#/harness-error';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

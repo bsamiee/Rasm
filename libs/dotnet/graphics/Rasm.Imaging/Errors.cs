@@ -24,12 +24,19 @@ public sealed partial class ImagingReason {
     public string Message { get; }
 }
 
-public sealed record ImagingFault(string Subject, ImagingReason Reason, Option<int> Index = default, Option<Error> Inner = default)
-    : Expected(Index.Match(at => string.Create(CultureInfo.InvariantCulture, $"{Reason.Message}: {Subject} at index {at}"), () => $"{Reason.Message}: {Subject}"), 0, Inner), IValidationError<ImagingFault> {
+public sealed record ImagingFault(object? Subject, ImagingReason Reason, Option<int> Index = default, Option<Error> Inner = default, string Expression = "")
+    : Expected(Reason.Message, 0, Inner), IValidationError<ImagingFault> {
+    public object? Subject { get; } = Subject;
+    public ImagingReason Reason { get; } = Reason;
+    public string Expression { get; } = Expression;
+
+    public override string Message => string.Create(CultureInfo.InvariantCulture,
+        $"{Reason.Message}: {(Expression.Length is 0 ? "" : $"{Expression} = ")}{Subject}{Index.Match(static at => string.Create(CultureInfo.InvariantCulture, $" at index {at}"), static () => "")}");
+
     public static ImagingFault Create(string message) => new(message, ImagingReason.Stated);
 
     public static ImagingFault Of<T>(ImagingReason reason, T rejected, Option<int> index = default, Option<Error> inner = default, [CallerArgumentExpression(nameof(rejected))] string names = "") =>
-        new(string.Create(CultureInfo.InvariantCulture, $"{names} = {rejected}"), reason, index, inner);
+        new(rejected, reason, index, inner, names);
 
     public static Fin<Unit> Unless<T>(bool flag, ImagingReason reason, T rejected, Option<int> index = default, [CallerArgumentExpression(nameof(rejected))] string names = "") =>
         flag ? unit : Of(reason, rejected, index, names: names);

@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Drawing;
-using System.Globalization;
 using System.Runtime.CompilerServices;
 using Rhino;
 
@@ -91,7 +90,7 @@ public static class Conversions {
         where TKey : notnull =>
         toSeq(rows.CountBy(key, comparer))
             .Filter(static counted => counted.Value > 1)
-            .Traverse(counted => Fin.Fail<Unit>(new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"{counted.Key} in {call}"), RhinoReason.Repeated)))
+            .Traverse(counted => Fin.Fail<Unit>(new RhinoFault((counted.Key, Source: call), RhinoReason.Repeated)))
             .As()
             .Map(_ => rows);
 
@@ -101,7 +100,7 @@ public static class Conversions {
     public static Option<LocalDateTime> Present(DateTime? value) => Optional(value).Bind(Present);
 
     public static Fin<int> Whole(Duration span, Duration step, [CallerArgumentExpression(nameof(span))] string call = "") =>
-        Int128.DivRem(span.ToInt128Nanoseconds(), step.ToInt128Nanoseconds()) is var (count, remainder) && remainder == 0 && count >= 0 && count <= int.MaxValue
+        step > Duration.Zero && Int128.DivRem(span.ToInt128Nanoseconds(), step.ToInt128Nanoseconds()) is var (count, remainder) && remainder == 0 && count >= 0 && count <= int.MaxValue
             ? (int)count
             : new RhinoFault(call, RhinoReason.Outside);
 
@@ -135,5 +134,6 @@ public static class Conversions {
 
     // --- [HOOKS]
     public static RhinoFault? Rejection<T>(Fin<T> result) =>
-        result.Match(Succ: static _ => null, Fail: static error => error.Filter<RhinoFault>().Head as RhinoFault);
+        result.Match<RhinoFault?>(Succ: static _ => null, Fail: static error =>
+            error.Filter<RhinoFault>().Head is RhinoFault failure && error.Count is 1 ? failure : new RhinoFault(typeof(T), RhinoReason.Invalid, Inner: error));
 }

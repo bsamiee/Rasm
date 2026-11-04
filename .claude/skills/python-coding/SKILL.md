@@ -34,13 +34,10 @@ Parameter types state every value a function accepts and return types every outc
 - Choices a composition passes down are one record its caller builds once
 - Members differing only in a number, flag, type, or applied function are one generic member taking it as a parameter
 
-`Field` states the operators a formula reads, and `smoothstep` returns its argument's type (numpy scalar or array of any shape) from one body:
+`Field` combines optype's multiplication and reflected-subtraction protocols, and `smoothstep` preserves its scalar or array argument's type:
 
 ```python
-class Field(Protocol):
-    def __add__(self, other: Self | float, /) -> Self: ...
-    def __mul__(self, other: Self | float, /) -> Self: ...
-    def __rsub__(self, other: float, /) -> Self: ...
+class Field(optype.CanMulSame[float], optype.CanRSubSelf[float], Protocol): ...
 
 
 def smoothstep[V: Field](values: V, /) -> V:
@@ -51,7 +48,7 @@ def smoothstep[V: Field](values: V, /) -> V:
 
 Functions are total when each declared input produces a declared output, with no exception or `None` their signature omits. Functions failing on part of their input narrow it to a validated type or widen output to `Option[T]` or `Outcome[T]`:
 - `int -> Tier` is incomplete when some integers fail validation, `Quantity -> Tier` over a record validating at construction covers every value
-- `min`, `max`, and `next` raise on empty input, `max(items, default=...)` and `Block.of_seq(items).try_head()` make the read total
+- `min`, `max`, and `next` raise on empty input, `max(items, default=...)` and `next(iter(items), default)` make empty reads total
 - `T | None` appears where an external API speaks it, `Option.of_optional` converts it at the read
 - Types narrow through `match`, `isinstance`, or a `TypeIs` predicate
 - Behavior a caller selects enters as the function it applies, a `bool` parameter holds data
@@ -128,7 +125,7 @@ def toggled(watch: Watch, at: datetime, /) -> Watch:
 
 ## [03]-[RECORDS]
 
-Values no language or package type (`datetime`, `Path`, `ndarray`) states are frozen `msgspec.Struct` records: slotted, hashable, matchable. Fields state constraints as `Meta` bounds every decode enforces, a `type` alias names each bounded domain, and behavior is a method or property. `Ramp` bounds each stop and the stop count, checks stop order in `__post_init__`, and derives a value no field stores:
+Domain values no language or package type (`datetime`, `Path`, `ndarray`) states are frozen `msgspec.Struct` records: slotted, hashable, matchable. Fields state constraints as `Meta` bounds every decode enforces, a `type` alias names each bounded domain, and behavior is a method or property. `Ramp` bounds each stop and the stop count, checks stop order in `__post_init__`, and derives a value no field stores:
 
 ```python
 type Unit = Annotated[float, msgspec.Meta(ge=0.0, le=1.0)]
@@ -145,16 +142,13 @@ class Ramp(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def slopes(self) -> tuple[float, ...]:
         return tuple((high - low) / (end - start) for (start, low), (end, high) in pairwise(self.stops))
-
-    def mirrored(self) -> Self:
-        return msgspec.structs.replace(self, stops=tuple((1.0 - at, value) for at, value in reversed(self.stops)))
 ```
 
 `msgspec.json.decode(raw, type=Ramp)` refuses a stop outside its bound or a lone stop with the refused key path (`$.stops[1][0]`):
 - Parts a projection reads together by position are a typed tuple (`tuple[Unit, Positive]`), parts read by name are record fields
-- `Meta` bounds hold at decode and `convert` alone, values built outside a decode enter through `convert`, `Annotated` parameters accept any value
-- `__post_init__` raises `ValueError` for an invariant across fields and runs at construction, decode, `convert`, and `structs.replace`
-- Transitions keep every invariant by construction (`mirrored` maps a unit interval onto itself), or return `Outcome[Self]`
+- `Meta` validates decoding and raw-value conversion; constructors and `Annotated` parameters do not enforce `Meta` bounds
+- `__post_init__` raises `ValueError` for cross-field invariants on new records; `convert` reuses matching records unchanged
+- Transitions keep every invariant by construction or return `Outcome[Self]`
 - Fields hold frozen typed values (`tuple[T, ...]`, `frozenset[T]`, `frozendict[K, V]`, a frozen record), hashing a record hashes every field
 - Absence is an `Option[T]` property over a decoded `T | None` field
 - Fields no consumer reads apart from another merge into it, and optional fields set together are one optional record
@@ -235,11 +229,15 @@ Input boundaries select the result type and functions keep it. One boundary conv
 
 ### [04.1]-[ERRORS]
 
-Exceptions mark a violated precondition or a third-party raise a boundary converts. One `Fault` record serves every package, its `reason` an enum member holding the message template. `Fault.of` returns the non-empty tuple every fault builder needs:
+Exceptions mark a violated precondition or a third-party raise a boundary converts. Native factories bind `Ok` to `Faults` and `Error` to absent success. `Nothing` preserves Expression's singleton through a line-specific correction of its `Option[Any]` annotation. One `Fault` record serves every package, its `reason` an enum member holding the message template. `Fault.of` returns the non-empty tuple every fault builder needs:
 
 ```python
 type Faults = tuple[Fault, *tuple[Fault, ...]]
 type Outcome[T] = Result[T, Faults]
+
+Ok = Result[Never, Faults].Ok
+Error = Result[Never, Never].Error
+Nothing: Option[Never] = expression.Nothing  # ty: ignore[unsound-assignment]
 
 
 class Reason(StrEnum):
@@ -273,17 +271,14 @@ class Fault(msgspec.Struct, frozen=True, kw_only=True):
 - Consumers classify a fault by its `reason` member or by a class pattern on its `cause`
 - Suppressed or warned conditions become an `Error` or a `Result` holding the degraded value
 
-`catch(f, exception=E)(arguments)` from `expression.extra.result` covers one raising call and passes the callable itself. `ran` applies one fault builder to a failed launch and a failed exit, and a failed exit holds the standard library's `CalledProcessError` as cause:
+`catch(f, exception=E)(arguments)` from `expression.extra.result` covers one raising call and passes the callable itself. `ran` keeps native launch and exit exceptions as its fault cause:
 
 ```python
-def ran(*argv: str, stdout: int | None = None) -> Outcome[subprocess.CompletedProcess[bytes]]:
-    failed = partial(Fault.of, Reason.FAILED, argv[0])
-
-    @catch(exception=OSError)
-    def launched() -> subprocess.CompletedProcess[bytes]:
-        return subprocess.run(argv, stdout=stdout, check=False)
-
-    return launched().map_error(failed).filter_with(lambda done: done.returncode == 0, lambda done: failed(subprocess.CalledProcessError(done.returncode, done.args, done.stdout, done.stderr)))
+def ran(program: str, /, *args: str, stdout: int | None = None) -> Outcome[subprocess.CompletedProcess[bytes]]:
+    try:
+        return Ok(subprocess.run((program, *args), stdout=stdout, check=True))
+    except (OSError, subprocess.CalledProcessError) as error:
+        return Error(Fault.of(Reason.FAILED, program, error))
 ```
 
 `catch` types one exception class and erases parameters to `...`. Overloaded calls take a typed `def` under `@catch`, and calls raising unrelated classes take a `try`.
@@ -320,7 +315,7 @@ def accepted(limit: int, taken: frozenset[str], entry: Entry, /) -> Outcome[Entr
 
 ### [04.3]-[MATCHING]
 
-Values stay inside a result through a pipeline, and the entry point reads it once through `match`. `Result(tag="ok", ok=<name>)` binds the value and `Result(error=<name>)` the faults, an exhaustive pair:
+Values stay inside a result through a pipeline, and the entry point reads it once through `match`. `Result(tag="ok", ok=<name>)` binds the value and `Result(error=<name>)` the faults. Unix commands map reasons to native `sysexits` statuses:
 
 ```python
 EXITS: frozendict[StrEnum, int] = frozendict({
@@ -352,7 +347,7 @@ def exited(outcome: Outcome[int], /) -> int:
 
 ### [05.1]-[CODECS]
 
-Decode external bytes or builtins in one typed call through `msgspec.<format>.decode(raw, type=T)` or `msgspec.convert`. Module-level codecs hold options those functions lack (`dec_hook`, `strict=False`). `TypeForm[T]` parameters accept any type form, a `type` alias over `Annotated` included, and type the result as `T`:
+Decode external bytes or builtins in one typed call through `msgspec.<format>.decode(raw, type=T)` or `msgspec.convert`. Module-level codecs hold a fixed type or decoder-only options (JSON `float_hook`). `TypeForm[T]` parameters accept any type form, a `type` alias over `Annotated` included, and type the result as `T`:
 
 ```python
 def stored[T](form: TypeForm[T], path: Path, /) -> Outcome[T]:
@@ -369,7 +364,7 @@ def stored[T](form: TypeForm[T], path: Path, /) -> Outcome[T]:
 
 ### [05.2]-[RESOURCES]
 
-Inject the narrowest dependency: a value for a snapshot, a function for on-demand work, a `Protocol` for an interface each platform implements in full. Scopes yield their acquisition's result to their body:
+Inject a snapshot value, an on-demand function, or a `Protocol` each platform implements in full. Handle owners needing field-level equality or representation exclusions use frozen `dataclass` records with `field(compare=False, repr=False)`. Prefer generated dataclass initialization when declared fields express the constructor. Custom constructors initialize frozen dataclass fields, including inherited fields, with `object.__setattr__`; ordinary frozen field assignment raises `FrozenInstanceError`. Dynamic host writes use `setattr` for native `__setattr__` dispatch. Scopes yield acquisition results:
 
 ```python
 @catch(exception=OSError)
@@ -434,9 +429,8 @@ Each module holds one owner, and imports point down its layers. Names a class st
 ```python
 import msgspec
 lazy import numpy as np
-lazy from expression import Ok
 
-lazy from .faults import Outcome
+lazy from .faults import Ok, Outcome
 
 
 class Window(msgspec.Struct, frozen=True, kw_only=True):

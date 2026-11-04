@@ -85,7 +85,7 @@ internal sealed record Scene {
     // --- [TRANSITIONS]
     internal static Fin<Scene> Of(Cascade root, View view, Host host, Shaping shaping) {
         LayoutPass pass = new([], [], shaping, host.Culture);
-        return Layouts.Unique(Layouts.Arrange(pass, root, view, host.Size), []).Map(main => Laid(host, pass, new Slot<OutlineKey, Outline>(), main, [], None).Scene);
+        return Layouts.Unique(Layouts.Arrange(pass, root, view, host.Size), []).Map(main => Laid(host, pass, new Slot<OutlineKey, Outline>(static value => value.Dispose()), main, [], None).Scene);
     }
 
     internal Fin<SceneChange> Reconcile(View root) {
@@ -227,7 +227,7 @@ internal sealed record Scene {
     internal Seq<PlacedLayer> Anchoring(Seq<Key> path) => anchors.Find(path).IfNone([]);
 
     internal Option<PlacedNode> FocusRing(Seq<Key> path) =>
-        Placed(path).Map(static held => held with { Style = held.Layout.Styled(Role.FocusRing) });
+        Placed(path).Map(static held => held with { Style = held.Layout.Styled(Roles.FocusRing) });
 
     internal Option<Scroller> Scroller(Seq<Key> path) =>
         Index.Find(path).Bind(layout => Layouts.IsHandle(layout)
@@ -245,7 +245,7 @@ internal sealed record Scene {
                  from held in Placed(path.Init)
                  from text in held.Layout.TextNode
                  from runs in text.Typeset.Parts.Find((int)span.Index)
-                 let lines = runs.Map(static run => SKRect.Create(run.XCoord, run.Line.YCoord, run.Width, run.Line.Height))
+                 let lines = runs.Map(static run => run.Bounds)
                  from laid in lines.Head.Map(first => lines.Tail.Fold(first, SKRect.Union))
                  select held with { Frame = SKRect.Create(held.Frame.Location + text.Origin + laid.Location, laid.Size) },
         };

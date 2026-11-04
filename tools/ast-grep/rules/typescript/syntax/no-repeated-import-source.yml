@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-repeated-import-source
+language: tsxlang
+severity: error
+rule:
+    kind: import_statement
+    all:
+        - has: {field: source, pattern: $SOURCE}
+        - follows: {stopBy: end, kind: import_statement, has: {field: source, pattern: $SOURCE}}
+message: 'Import statement repeats source $SOURCE'
+note: 'Merge into one statement, `import { type A, b }` when it holds a value and `import type { A }` when it holds types alone'

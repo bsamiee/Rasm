@@ -9,7 +9,7 @@ import WatchAppsWire
 private let helps: [(arguments: [String], names: [String])] = [
     (["--help"], ["watch", "launch", "show", "read", "capture", "perform", "set", "quit"]),
     (["watch", "--help"], ["<names>"]),
-    (["launch", "--help"], ["<names>", "--new", "--document", "--arguments", "--environment"]),
+    (["launch", "--help"], ["<names>", "--new", "--wait", "--document", "--arguments", "--environment"]),
     (["show", "--help"], ["<names>", "--pid"]),
     (["read", "--help"], ["<names>", "--pid"]),
     (["capture", "--help"], ["<names>", "--pid", "--window", "--longest-side"]),
@@ -23,6 +23,7 @@ private let refusals: [(arguments: [String], key: String, reason: String)] = { (
         (["undeclared"], "watch-apps", "malformed"), (["watch"], "watch-apps", "malformed"), (["read", absent, "--undeclared"], "watch-apps", "malformed"),
         (["read", absent, "--pid", "text"], "watch-apps", "malformed"), (["read", absent, "\(absent).second", "--pid", "1"], "watch-apps", "malformed"),
         (["capture", absent, "--longest-side", "0"], "watch-apps", "malformed"), (["launch", absent, "--environment", "NAME"], "watch-apps", "malformed"),
+        (["launch", absent, "\(absent).second", "--wait"], "watch-apps", "malformed"), (["launch", "--wait", "--document", "/\(absent)/absent.txt"], "watch-apps", "malformed"),
         (["launch", "--document", "/\(absent)/absent.txt"], "/\(absent)/absent.txt", "host"), (["perform", "not base64!", "AXPress"], "watch-apps", "malformed"),
         (["set", "", "text"], "watch-apps", "malformed"), (["quit", absent, "--pid", "text"], "watch-apps", "malformed"),
     ]

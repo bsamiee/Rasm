@@ -1,7 +1,6 @@
 import { useAtomSet } from '@effect/atom-react';
-import { MenuButton } from '@rasm/ui/collection/menu-button';
-import { focus } from '@rasm/ui/focus';
-import { Array, ByteSize, Optic, Option, Record } from 'effect';
+import { focusElement, MenuButton } from '@rasm/ui';
+import { Array, ByteSize, Function, Optic, Option, Record } from 'effect';
 import { FileText, Film } from 'lucide-react';
 import { useId } from 'react';
 import { GridList, GridListItem } from 'react-aria-components';
@@ -51,7 +50,7 @@ const Library = ({
                     onSelectionChange={(keys) => {
                         const chosen = Array.findFirst(Record.keys(assets), (id) => keys !== 'all' && keys.has(id));
                         onSelect(chosen);
-                        Option.map(chosen, () => focus(`${idPrefix}place`));
+                        Option.match(chosen, { onNone: Function.constVoid, onSome: () => focusElement(`${idPrefix}place`) });
                     }}
                     selectedKeys={Option.toArray(assetId)}
                     selectionMode="single"
@@ -81,7 +80,7 @@ const Library = ({
                                     className="button button-ghost self-start"
                                     onClick={() => {
                                         onSelect(Option.none());
-                                        focus(`${idPrefix}library`);
+                                        focusElement(`${idPrefix}library`);
                                     }}
                                     type="button"
                                 >

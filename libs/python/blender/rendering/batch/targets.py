@@ -1,6 +1,6 @@
 """Render queue targets: HTTP exchanges inside one client scope, Flamenco Manager submission, B-Renderon queues, and job files."""
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 import datetime
 from functools import partial
 from http import HTTPMethod
@@ -10,14 +10,15 @@ import platform
 import sys
 from typing import Annotated, ClassVar, Final, Literal, Self
 
-from expression import Error, Nothing, Ok, Option, Some
+from expression import Option, Result, Some
 from expression.collections import Block
 from expression.extra.result import catch
 import httpx2
 import msgspec
 from scipy.cluster.hierarchy import DisjointSet
+from typing_extensions import TypeForm
 
-from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
+from blender.records.faults import accumulated, Error, Fault, Nothing, Ok, Outcome, paired, Reason
 from blender.records.fields import Case
 from blender.records.stores import argument, committed, files_copied, RecordFile
 from blender.rendering.batch.queue import PackedFile, RenderFrames, RenderQueue
@@ -26,6 +27,7 @@ from blender.rendering.batch.supervision import detached, HostCommands, LocalMac
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type Target = LocalMachine | Flamenco | Renderon | JobFile
+type _Body = msgspec.Struct | bytes | Iterable[bytes]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -186,15 +188,20 @@ class Manager(msgspec.Struct, frozen=True, kw_only=True):
         def stored(root: str) -> Mapping[str, str]:
             return {job.file: f"{{jobs}}/{root}/{part}/{job.blend.path}" for part, job in jobs}
 
-        def read[T](source: str, reader: Callable[[Path], T]) -> Outcome[T]:
-            return catch(reader, exception=OSError)(Path(source)).map_error(partial(Fault.of, Reason.UNREADABLE, source))
-
         def specified(name: str, placed: PackedFile) -> Outcome[_ShamanFileSpec]:
-            return read(placed.source, Path.stat).map(lambda stat: _ShamanFileSpec(sha=placed.digest.hex(), size=stat.st_size, path=name))
+            return (
+                catch(Path(placed.source).stat, exception=OSError)()
+                .map_error(partial(Fault.of, Reason.UNREADABLE, placed.source))
+                .map(lambda stat: _ShamanFileSpec(sha=placed.digest.hex(), size=stat.st_size, path=name))
+            )
 
         def checked(specs: tuple[_ShamanFileSpec, ...]) -> Outcome[tuple[Mapping[str, str], Option[_JobStorageInfo]]]:
             def uploaded(spec: _ShamanFileSpec, placed: PackedFile) -> Outcome[httpx2.Response]:
-                return read(placed.source, Path.read_bytes).bind(lambda data: sent(client, HTTPMethod.POST, f"/api/v3/shaman/files/{spec.sha}/{spec.size}", Some(data)))
+                try:
+                    with Path(placed.source).open("rb") as stream:
+                        return sent(client, HTTPMethod.POST, f"/api/v3/shaman/files/{spec.sha}/{spec.size}", Some(stream))
+                except OSError as error:
+                    return Error(Fault.of(Reason.UNREADABLE, placed.source, error))
 
             return (
                 exchange(client, HTTPMethod.POST, "/api/v3/shaman/checkout/requirements", _Checkout, Some(_Checkout(files=specs)))
@@ -313,8 +320,18 @@ class Renderon(Case, frozen=True, kw_only=True):
 
     def sent(self, queue: RenderQueue, host: HostCommands) -> Outcome[tuple[Outcome[str], ...]]:
         """Writes one queue line per frame range, then starts B-Renderon on the lines when executable is set, returning the queue path."""
-        if dependent := tuple(part for part, job in enumerate(queue.jobs) if job.prerequisites):
-            return Error(Fault.of(Reason.INVALID, type(self).__name__, f"prerequisites of queue parts {', '.join(map(str, dependent))} cannot be enforced"))
+        match accumulated(
+            Error(Fault.of(Reason.OUTSIDE, type(self).__name__, cause, member=member))
+            for cause, member in (
+                (tuple(part for part, job in enumerate(queue.jobs) if job.prerequisites), "jobs without prerequisites"),
+                (tuple((part, job.frames) for part, job in enumerate(queue.jobs) if job.frames.start < 0), "nonnegative absolute frames"),
+            )
+            if cause
+        ):
+            case Result(tag="ok"):
+                pass
+            case Result(error=faults):
+                return Error(faults)
         path = host.path(queue.stem, RunFile.RENDERON)
         lines = _LINES.encode_lines(
             _QueueItem(folder=str(file.parent), file=file.name, blender=self.blender, scene=job.scene, start=str(start), end=str(end))
@@ -356,27 +373,31 @@ class JobFile(Case, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def sent(client: httpx2.Client, method: HTTPMethod, path: str, body: Option[msgspec.Struct | bytes] = Nothing) -> Outcome[httpx2.Response]:
+def sent(client: httpx2.Client, method: HTTPMethod, path: str, body: Option[_Body] = Nothing) -> Outcome[httpx2.Response]:
     """Sends request, non-success status as fault."""
-    match body.to_optional():
-        case msgspec.Struct() as content:
-            request = client.build_request(method, path, content=msgspec.json.encode(content), headers={"Content-Type": "application/json"})
-        case bytes(content):
-            request = client.build_request(method, path, content=content, headers={"Content-Type": "application/octet-stream"})
-        case None:
-            request = client.build_request(method, path)
-    url = str(request.url)
+    content = body.to_optional()
+    data, headers = (
+        (msgspec.json.encode(content), {"Content-Type": "application/json"})
+        if isinstance(content, msgspec.Struct)
+        else (None, {})
+        if content is None
+        else (content, {"Content-Type": "application/octet-stream"})
+    )
     return (
-        catch(client.send, exception=httpx2.RequestError)(request)
-        .map_error(partial(Fault.of, Reason.FAILED, url))
-        .filter_with(lambda response: response.is_success, lambda response: Fault.of(Reason.ANSWERED, url, member=f"HTTP {response.status_code}"))
+        catch(client.request, exception=httpx2.RequestError)(method, path, content=data, headers=headers)
+        .map_error(lambda error: Fault.of(Reason.FAILED, str(error.request.url), error))
+        .bind(
+            lambda response: catch(response.raise_for_status, exception=httpx2.HTTPStatusError)().map_error(
+                lambda error: Fault.of(Reason.ANSWERED, str(error.request.url), error, member=f"HTTP {error.response.status_code}")
+            )
+        )
     )
 
 
-def exchange[T](client: httpx2.Client, method: HTTPMethod, path: str, reply: type[T], body: Option[msgspec.Struct | bytes] = Nothing) -> Outcome[T]:
+def exchange[T](client: httpx2.Client, method: HTTPMethod, path: str, reply: TypeForm[T], body: Option[_Body] = Nothing) -> Outcome[T]:
     """Sends request and decodes JSON reply."""
-    return sent(client, method, path, body).bind(
-        lambda response: catch(msgspec.json.decode, exception=msgspec.DecodeError)(response.content, type=reply).map_error(partial(Fault.of, Reason.FAILED, str(response.request.url)))
+    return sent(client, method, path, body).bind(  # ty: ignore[unsound-return-statement]
+        lambda response: catch(lambda: msgspec.json.decode(response.content, type=reply), exception=msgspec.DecodeError)().map_error(partial(Fault.of, Reason.FAILED, str(response.request.url)))
     )
 
 

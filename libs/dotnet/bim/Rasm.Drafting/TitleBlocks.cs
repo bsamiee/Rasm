@@ -53,14 +53,12 @@ public sealed partial class TitleRule {
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record TitleEntry {
-    private TitleEntry(Option<TitleRule> rule) => Rule = rule;
+    public virtual Option<TitleRule> Rule => None;
 
-    public Option<TitleRule> Rule { get; }
-
-    public sealed record ProjectEntry(TitleRule Check) : TitleEntry(Check);
-    public sealed record SheetEntry(Option<TitleRule> Check) : TitleEntry(Check);
-    public sealed record SheetName() : TitleEntry(None);
-    public sealed record SheetFact(Func<Sheet, string> Read) : TitleEntry(None);
+    public sealed record ProjectEntry(TitleRule Check) : TitleEntry { public override Option<TitleRule> Rule => Check; }
+    public sealed record SheetEntry(Option<TitleRule> Check) : TitleEntry { public override Option<TitleRule> Rule => Check; }
+    public sealed record SheetName() : TitleEntry;
+    public sealed record SheetFact(Func<Sheet, string> Read) : TitleEntry;
 }
 
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]

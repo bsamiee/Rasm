@@ -1,58 +1,1299 @@
-id: typescript-function-value
-language: tsx
+id: typescript-import
+language: tsxlang
+role: item
+symbolType: module
+rule:
+    kind: import_statement
+    pattern: $DECLARATION
+    any:
+        - has: {field: source, pattern: $NAME}
+        - has: {kind: import_require_clause, has: {field: source, pattern: $NAME}}
+transform:
+    SIGNATURE: {replace: {source: $DECLARATION, replace: '\s*;?\s*$', by: ''}}
+name: $NAME
+signature: $SIGNATURE
+isImport: true
+isExported: false
+
+---
+id: typescript-import-alias
+language: tsxlang
+role: item
+symbolType: module
+rule:
+    kind: import_alias
+    pattern: $DECLARATION
+    has: {kind: identifier, nthChild: 1, pattern: $NAME}
+transform:
+    SIGNATURE: {replace: {source: $DECLARATION, replace: '\s*;?\s*$', by: ''}}
+name: $NAME
+signature: $SIGNATURE
+isImport: true
+isExported: {inside: {kind: export_statement}}
+
+---
+id: typescript-export-from
+language: tsxlang
+role: item
+symbolType: module
+rule:
+    kind: export_statement
+    pattern: $DECLARATION
+    has: {field: source, pattern: $NAME}
+transform:
+    SIGNATURE: {replace: {source: $DECLARATION, replace: '\s*;?\s*$', by: ''}}
+name: $NAME
+signature: $SIGNATURE
+
+---
+id: typescript-export-list
+language: tsxlang
+role: item
+symbolType: module
+rule:
+    kind: export_statement
+    pattern: $DECLARATION
+    has: {kind: export_clause}
+transform:
+    SIGNATURE: {replace: {source: $DECLARATION, replace: '\s*;?\s*$', by: ''}}
+name: exports
+signature: $SIGNATURE
+
+---
+id: typescript-export-namespace
+language: tsxlang
+role: item
+symbolType: namespace
+rule:
+    kind: export_statement
+    pattern: $DECLARATION
+    has: {regex: '^namespace$', not: {pattern: $_}}
+    all:
+        - has: {kind: identifier, pattern: $NAME}
+        - not: {has: {field: source, pattern: $_}}
+transform:
+    SIGNATURE: {replace: {source: $DECLARATION, replace: '\s*;?\s*$', by: ''}}
+name: $NAME
+signature: $SIGNATURE
+
+---
+id: typescript-default-class
+language: tsxlang
+role: item
+symbolType: class
+utils:
+    class-value:
+        any:
+            - kind: class
+            - kind: as_expression, satisfies_expression, parenthesized_expression, non_null_expression
+              has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: class-value}
+    declaration-scope:
+        any:
+            - kind: program
+            - kind: statement_block
+              inside:
+                any:
+                    - kind: internal_module, module
+                    - kind: ambient_declaration
+                      has: {regex: '^global$', not: {pattern: $_}}
+    class-owner:
+        any:
+            - kind: class_declaration, abstract_class_declaration
+              inside: {matches: declaration-scope, stopBy: {not: {kind: 'export_statement, ambient_declaration'}}}
+            - kind: class
+              any:
+                  - inside:
+                        kind: variable_declarator
+                        field: value
+                        stopBy: {not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression'}}
+                        inside:
+                            kind: lexical_declaration, variable_declaration, using_declaration
+                            inside: {matches: declaration-scope, stopBy: {not: {kind: 'export_statement, ambient_declaration'}}}
+                  - inside:
+                        kind: export_statement
+                        field: value
+                        stopBy: {not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression'}}
+                        inside: {kind: program}
+rule:
+    kind: export_statement
+    pattern: $DECLARATION
+    has: {field: value, matches: class-value}
+    all:
+        - has: {regex: '^default$'}
+rewriters:
+    - id: body
+      rule: {kind: class_body, inside: {matches: class-owner}}
+      fix: ''
+    - id: nested
+      rule: {kind: class_body}
+      fix: '{…}'
+transform:
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, nested]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s*;?\s*$', by: ''}}
+name: default
+signature: $SIGNATURE
+
+---
+id: typescript-default-function
+language: tsxlang
 role: item
 symbolType: function
 utils:
-    listed: {inside: {kind: program, has: {kind: export_statement, has: {stopBy: end, kind: export_specifier, has: {field: name, pattern: $NAME}}}}}
-rule:
-    kind: lexical_declaration, variable_declaration
-    pattern: $DECLARATION
-    inside: {kind: program}
-    has:
-        kind: variable_declarator
+    effect-root-binding:
+        any:
+            - kind: identifier, undefined, shorthand_property_identifier_pattern
+              pattern: $OUTLINE_EFFECT_ROOT
+            - kind: object_pattern, array_pattern, rest_pattern
+              has: {matches: effect-root-binding}
+            - kind: assignment_pattern, object_assignment_pattern
+              has: {field: left, matches: effect-root-binding}
+            - kind: pair_pattern
+              has: {field: value, matches: effect-root-binding}
+    effect-namespace-root:
+        any:
+            - kind: identifier
+              pattern: $OUTLINE_EFFECT_ROOT
+            - kind: nested_identifier, member_expression
+              has: {field: object, matches: effect-namespace-root}
+    effect-root-declaration:
+        any:
+            - kind: lexical_declaration, variable_declaration, using_declaration
+              has: {kind: variable_declarator, has: {field: name, matches: effect-root-binding}}
+            - kind: function_declaration, generator_function_declaration, class_declaration, abstract_class_declaration, enum_declaration
+              has: {field: name, pattern: $OUTLINE_EFFECT_ROOT}
+            - kind: internal_module, module
+              has: {field: name, matches: effect-namespace-root}
+            - kind: expression_statement
+              has: {matches: effect-root-declaration}
+            - kind: export_statement, ambient_declaration
+              has: {matches: effect-root-declaration}
+            - kind: import_alias
+              has: {kind: identifier, nthChild: 1, pattern: $OUTLINE_EFFECT_ROOT}
+            - kind: import_statement
+              has: {kind: import_require_clause, has: {kind: identifier, nthChild: 1, pattern: $OUTLINE_EFFECT_ROOT}}
+    effect-root:
+        kind: identifier
+        pattern: $OUTLINE_EFFECT_ROOT
+        not:
+            inside:
+                kind: statement_block
+                stopBy: end
+                has: {matches: effect-root-declaration}
+    effect-namespace-import:
+        kind: import_clause
+        has: {kind: namespace_import, has: {kind: identifier, pattern: $OUTLINE_EFFECT_ROOT}}
+    effect-import:
+        kind: import_statement
         all:
-            - has: {field: name, pattern: $NAME}
-            - has:
-                field: value
+            - not: {has: {regex: '^type$', not: {kind: identifier}}}
+            - any:
+                - all:
+                    - has: {field: source, not: {has: {kind: escape_sequence}}, has: {kind: string_fragment, regex: '^effect$'}}
+                    - has:
+                        kind: import_clause
+                        has:
+                            kind: named_imports
+                            has:
+                                kind: import_specifier
+                                all:
+                                    - has:
+                                        field: name
+                                        any:
+                                            - regex: '^Effect$'
+                                            - kind: string
+                                              not: {has: {kind: escape_sequence}}
+                                              has: {kind: string_fragment, regex: '^Effect$'}
+                                    - any:
+                                        - has: {field: alias, pattern: $OUTLINE_EFFECT_ROOT}
+                                        - has: {field: name, pattern: $OUTLINE_EFFECT_ROOT}
+                                          not: {has: {field: alias, pattern: $_}}
+                                    - not: {has: {regex: '^type$', not: {kind: identifier}}}
+                - all:
+                    - has: {field: source, not: {has: {kind: escape_sequence}}, has: {kind: string_fragment, regex: '^effect/Effect$'}}
+                    - has: {matches: effect-namespace-import}
+    effect-module:
+        any:
+            - kind: identifier
+              all:
+                  - matches: effect-root
+                  - inside: {kind: program, stopBy: end, has: {matches: effect-import}}
+            - kind: member_expression
+              all:
+                  - has: {field: property, regex: '^Effect$'}
+                  - has: {field: object, matches: effect-root}
+                  - inside:
+                        kind: program
+                        stopBy: end
+                        has:
+                            kind: import_statement
+                            all:
+                                - not: {has: {regex: '^type$', not: {kind: identifier}}}
+                                - has: {field: source, not: {has: {kind: escape_sequence}}, has: {kind: string_fragment, regex: '^effect$'}}
+                                - has: {matches: effect-namespace-import}
+    effect-function:
+        any:
+            - kind: member_expression
+              all:
+                  - has: {field: property, regex: '^fn(Untraced)?$'}
+                  - has: {field: object, matches: effect-module}
+            - kind: identifier
+              all:
+                  - matches: effect-root
+                  - inside:
+                        kind: program
+                        stopBy: end
+                        has:
+                            kind: import_statement
+                            all:
+                                - not: {has: {regex: '^type$', not: {kind: identifier}}}
+                                - has: {field: source, not: {has: {kind: escape_sequence}}, has: {kind: string_fragment, regex: '^effect/Effect$'}}
+                                - has:
+                                    kind: import_clause
+                                    has:
+                                        kind: named_imports
+                                        has:
+                                            kind: import_specifier
+                                            all:
+                                                - has:
+                                                    field: name
+                                                    any:
+                                                        - regex: '^fn(Untraced)?$'
+                                                        - kind: string
+                                                          not: {has: {kind: escape_sequence}}
+                                                          has: {kind: string_fragment, regex: '^fn(Untraced)?$'}
+                                                - any:
+                                                    - has: {field: alias, pattern: $OUTLINE_EFFECT_ROOT}
+                                                    - has: {field: name, pattern: $OUTLINE_EFFECT_ROOT}
+                                                      not: {has: {field: alias, pattern: $_}}
+                                                - not: {has: {regex: '^type$', not: {kind: identifier}}}
+    function-value:
+        any:
+            - kind: arrow_function, function_expression, generator_function
+            - kind: call_expression
+              has:
+                field: function
                 any:
-                    - kind: arrow_function, function_expression
+                    - matches: effect-function
                     - kind: call_expression
-                      has: {field: function, regex: '^Effect\.fn(Untraced)?(\(|$)'}
+                      has: {field: function, matches: effect-function}
+            - kind: as_expression, satisfies_expression, parenthesized_expression, non_null_expression
+              has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: function-value}
+rule:
+    kind: export_statement
+    pattern: $DECLARATION
+    has: {field: value, matches: function-value}
+    all:
+        - has: {regex: '^default$'}
 rewriters:
-    - id: block
-      rule: {kind: statement_block, has: {pattern: $_}}
+    - id: body
+      rule: {kind: statement_block, inside: {kind: 'function_expression, generator_function', field: body, inside: {kind: export_statement, field: value, stopBy: {not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression'}}}}}
+      fix: ''
+    - id: nested
+      rule: {kind: statement_block, inside: {kind: 'function_expression, generator_function', field: body}}
       fix: '{…}'
-    - id: object
-      rule: {kind: object, has: {pattern: $_}}
+    - id: arrow
+      rule: {kind: statement_block, inside: {kind: arrow_function, field: body}}
       fix: '{…}'
-    - id: array
-      rule: {kind: array, has: {pattern: $_}}
-      fix: '[…]'
-    - id: expression-body
-      rule: {inside: {kind: arrow_function, field: body}, not: {kind: statement_block}, pattern: $_}
+    - id: expression
+      rule: {pattern: $_, not: {kind: statement_block}, inside: {kind: arrow_function, field: body}}
       fix: …
 transform:
-    SHAPED: {rewrite: {source: $DECLARATION, rewriters: [block, object, array, expression-body]}}
-    CHAINED: {replace: {source: $SHAPED, replace: '\s*\n\s*\.', by: '.'}}
-    FLAT: {replace: {source: $CHAINED, replace: '\s*\n\s*', by: ' '}}
-    SIGNATURE: {replace: {source: $FLAT, replace: '(?:,\s*)?;?$|,\s*(?P<close>[)\]])|(?P<open>[(\[])\s+', by: '${close}${open}'}}
-name: $NAME
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, nested, arrow, expression]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s*;?\s*$', by: ''}}
+name: default
 signature: $SIGNATURE
-isExported: {matches: listed}
 
 ---
-id: typescript-constant
-language: tsx
+id: typescript-default-value
+language: tsxlang
 role: item
 symbolType: constant
 utils:
-    listed: {inside: {kind: program, has: {kind: export_statement, has: {stopBy: end, kind: export_specifier, has: {field: name, pattern: $NAME}}}}}
+    function-or-class:
+        any:
+            - kind: arrow_function, function_expression, generator_function, class
+            - kind: call_expression
+              has:
+                field: function
+                any:
+                    - matches: effect-function
+                    - kind: call_expression
+                      has: {field: function, matches: effect-function}
+            - kind: as_expression, satisfies_expression, parenthesized_expression, non_null_expression
+              has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: function-or-class}
+    effect-root-binding:
+        any:
+            - kind: identifier, undefined, shorthand_property_identifier_pattern
+              pattern: $OUTLINE_EFFECT_ROOT
+            - kind: object_pattern, array_pattern, rest_pattern
+              has: {matches: effect-root-binding}
+            - kind: assignment_pattern, object_assignment_pattern
+              has: {field: left, matches: effect-root-binding}
+            - kind: pair_pattern
+              has: {field: value, matches: effect-root-binding}
+    effect-namespace-root:
+        any:
+            - kind: identifier
+              pattern: $OUTLINE_EFFECT_ROOT
+            - kind: nested_identifier, member_expression
+              has: {field: object, matches: effect-namespace-root}
+    effect-root-declaration:
+        any:
+            - kind: lexical_declaration, variable_declaration, using_declaration
+              has: {kind: variable_declarator, has: {field: name, matches: effect-root-binding}}
+            - kind: function_declaration, generator_function_declaration, class_declaration, abstract_class_declaration, enum_declaration
+              has: {field: name, pattern: $OUTLINE_EFFECT_ROOT}
+            - kind: internal_module, module
+              has: {field: name, matches: effect-namespace-root}
+            - kind: expression_statement
+              has: {matches: effect-root-declaration}
+            - kind: export_statement, ambient_declaration
+              has: {matches: effect-root-declaration}
+            - kind: import_alias
+              has: {kind: identifier, nthChild: 1, pattern: $OUTLINE_EFFECT_ROOT}
+            - kind: import_statement
+              has: {kind: import_require_clause, has: {kind: identifier, nthChild: 1, pattern: $OUTLINE_EFFECT_ROOT}}
+    effect-root:
+        kind: identifier
+        pattern: $OUTLINE_EFFECT_ROOT
+        not:
+            inside:
+                kind: statement_block
+                stopBy: end
+                has: {matches: effect-root-declaration}
+    effect-namespace-import:
+        kind: import_clause
+        has: {kind: namespace_import, has: {kind: identifier, pattern: $OUTLINE_EFFECT_ROOT}}
+    effect-import:
+        kind: import_statement
+        all:
+            - not: {has: {regex: '^type$', not: {kind: identifier}}}
+            - any:
+                - all:
+                    - has: {field: source, not: {has: {kind: escape_sequence}}, has: {kind: string_fragment, regex: '^effect$'}}
+                    - has:
+                        kind: import_clause
+                        has:
+                            kind: named_imports
+                            has:
+                                kind: import_specifier
+                                all:
+                                    - has:
+                                        field: name
+                                        any:
+                                            - regex: '^Effect$'
+                                            - kind: string
+                                              not: {has: {kind: escape_sequence}}
+                                              has: {kind: string_fragment, regex: '^Effect$'}
+                                    - any:
+                                        - has: {field: alias, pattern: $OUTLINE_EFFECT_ROOT}
+                                        - has: {field: name, pattern: $OUTLINE_EFFECT_ROOT}
+                                          not: {has: {field: alias, pattern: $_}}
+                                    - not: {has: {regex: '^type$', not: {kind: identifier}}}
+                - all:
+                    - has: {field: source, not: {has: {kind: escape_sequence}}, has: {kind: string_fragment, regex: '^effect/Effect$'}}
+                    - has: {matches: effect-namespace-import}
+    effect-module:
+        any:
+            - kind: identifier
+              all:
+                  - matches: effect-root
+                  - inside: {kind: program, stopBy: end, has: {matches: effect-import}}
+            - kind: member_expression
+              all:
+                  - has: {field: property, regex: '^Effect$'}
+                  - has: {field: object, matches: effect-root}
+                  - inside:
+                        kind: program
+                        stopBy: end
+                        has:
+                            kind: import_statement
+                            all:
+                                - not: {has: {regex: '^type$', not: {kind: identifier}}}
+                                - has: {field: source, not: {has: {kind: escape_sequence}}, has: {kind: string_fragment, regex: '^effect$'}}
+                                - has: {matches: effect-namespace-import}
+    effect-function:
+        any:
+            - kind: member_expression
+              all:
+                  - has: {field: property, regex: '^fn(Untraced)?$'}
+                  - has: {field: object, matches: effect-module}
+            - kind: identifier
+              all:
+                  - matches: effect-root
+                  - inside:
+                        kind: program
+                        stopBy: end
+                        has:
+                            kind: import_statement
+                            all:
+                                - not: {has: {regex: '^type$', not: {kind: identifier}}}
+                                - has: {field: source, not: {has: {kind: escape_sequence}}, has: {kind: string_fragment, regex: '^effect/Effect$'}}
+                                - has:
+                                    kind: import_clause
+                                    has:
+                                        kind: named_imports
+                                        has:
+                                            kind: import_specifier
+                                            all:
+                                                - has:
+                                                    field: name
+                                                    any:
+                                                        - regex: '^fn(Untraced)?$'
+                                                        - kind: string
+                                                          not: {has: {kind: escape_sequence}}
+                                                          has: {kind: string_fragment, regex: '^fn(Untraced)?$'}
+                                                - any:
+                                                    - has: {field: alias, pattern: $OUTLINE_EFFECT_ROOT}
+                                                    - has: {field: name, pattern: $OUTLINE_EFFECT_ROOT}
+                                                      not: {has: {field: alias, pattern: $_}}
+                                                - not: {has: {regex: '^type$', not: {kind: identifier}}}
 rule:
-    kind: lexical_declaration
+    kind: export_statement
     pattern: $DECLARATION
-    regex: '^const\b'
-    inside: {kind: program}
-    has: {kind: variable_declarator, has: {field: name, pattern: $NAME}}
+    has: {regex: '^default$'}
+    not:
+        any:
+            - has: {field: declaration, pattern: $_}
+            - has: {field: value, matches: function-or-class}
+rewriters:
+    - id: object
+      rule: {kind: object}
+      fix: '{…}'
+    - id: array
+      rule: {kind: array}
+      fix: '[…]'
+transform:
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [object, array]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s*;?\s*$', by: ''}}
+name: default
+signature: $SIGNATURE
+
+---
+id: typescript-export-assignment
+language: tsxlang
+role: item
+symbolType: module
+rule:
+    kind: export_statement
+    pattern: $DECLARATION
+    has: {regex: '^=$'}
+transform:
+    SIGNATURE: {replace: {source: $DECLARATION, replace: '\s*;?\s*$', by: ''}}
+name: exports
+signature: $SIGNATURE
+
+---
+id: typescript-module
+language: tsxlang
+role: item
+symbolType: module
+rule:
+    kind: internal_module, module
+    pattern: $DECLARATION
+    has: {field: name, pattern: $NAME}
+    inside:
+        any:
+            - kind: program
+            - kind: statement_block
+              inside:
+                  any:
+                      - kind: internal_module, module
+                      - kind: ambient_declaration
+                        has: {regex: '^global$', not: {pattern: $_}}
+        stopBy: {not: {kind: 'export_statement, ambient_declaration, expression_statement'}}
+rewriters:
+    - id: body
+      rule: {kind: statement_block, inside: {kind: 'internal_module, module, ambient_declaration'}}
+      fix: ''
+transform:
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s*;?\s*$', by: ''}}
+name: $NAME
+signature: $SIGNATURE
+isExported:
+    any:
+        - inside:
+            kind: ambient_declaration
+            stopBy: {not: {kind: 'object_pattern, array_pattern, rest_pattern, pair_pattern, assignment_pattern, object_assignment_pattern, variable_declarator, lexical_declaration, variable_declaration, using_declaration, statement_block, internal_module, module, expression_statement'}}
+        - inside:
+            kind: export_statement, ambient_declaration
+            stopBy: {not: {kind: 'lexical_declaration, variable_declaration, using_declaration, expression_statement'}}
+        - inside:
+            kind: program
+            stopBy: {not: {kind: 'lexical_declaration, variable_declaration, using_declaration, expression_statement, export_statement, ambient_declaration'}}
+            has:
+                kind: export_statement
+                not: {has: {field: source, pattern: $_}}
+                any:
+                    - has: {kind: export_clause, has: {kind: export_specifier, has: {field: name, pattern: $NAME}}}
+                    - has: {kind: identifier, pattern: $NAME}
+                      any:
+                          - has: {regex: '^default$'}
+                          - has: {regex: '^=$'}
+
+---
+id: typescript-global
+language: tsxlang
+role: item
+symbolType: namespace
+rule:
+    kind: ambient_declaration
+    pattern: $DECLARATION
+    has: {regex: '^global$', not: {pattern: $_}}
+rewriters:
+    - id: body
+      rule: {kind: statement_block, inside: {kind: 'internal_module, module, ambient_declaration'}}
+      fix: ''
+transform:
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s*;?\s*$', by: ''}}
+name: global
+signature: $SIGNATURE
+
+---
+id: typescript-class
+language: tsxlang
+role: item
+symbolType: class
+utils:
+    declaration-scope:
+        any:
+            - kind: program
+            - kind: statement_block
+              inside:
+                any:
+                    - kind: internal_module, module
+                    - kind: ambient_declaration
+                      has: {regex: '^global$', not: {pattern: $_}}
+    class-owner:
+        any:
+            - kind: class_declaration, abstract_class_declaration
+              inside: {matches: declaration-scope, stopBy: {not: {kind: 'export_statement, ambient_declaration'}}}
+            - kind: class
+              any:
+                  - inside:
+                        kind: variable_declarator
+                        field: value
+                        stopBy: {not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression'}}
+                        inside:
+                            kind: lexical_declaration, variable_declaration, using_declaration
+                            inside: {matches: declaration-scope, stopBy: {not: {kind: 'export_statement, ambient_declaration'}}}
+                  - inside:
+                        kind: export_statement
+                        field: value
+                        stopBy: {not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression'}}
+                        inside: {kind: program}
+rule:
+    pattern: $DECLARATION
+    any:
+        - kind: export_statement
+          has:
+              field: declaration
+              kind: class_declaration, abstract_class_declaration
+              matches: class-owner
+              has: {field: name, pattern: $NAME}
+        - kind: class_declaration, abstract_class_declaration
+          matches: class-owner
+          has: {field: name, pattern: $NAME}
+rewriters:
+    - id: body
+      rule: {kind: class_body, inside: {matches: class-owner}}
+      fix: ''
+    - id: nested
+      rule: {kind: class_body}
+      fix: '{…}'
+transform:
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, nested]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s*;?\s*$', by: ''}}
+name: $NAME
+signature: $SIGNATURE
+isExported:
+    any:
+        - inside:
+            kind: ambient_declaration
+            stopBy: {not: {kind: 'object_pattern, array_pattern, rest_pattern, pair_pattern, assignment_pattern, object_assignment_pattern, variable_declarator, lexical_declaration, variable_declaration, using_declaration, statement_block, internal_module, module, expression_statement'}}
+        - kind: export_statement
+        - inside:
+            kind: export_statement, ambient_declaration
+            stopBy: {not: {kind: 'lexical_declaration, variable_declaration, using_declaration'}}
+        - inside:
+            kind: program
+            stopBy: {not: {kind: 'lexical_declaration, variable_declaration, using_declaration, export_statement, ambient_declaration'}}
+            has:
+                kind: export_statement
+                not: {has: {field: source, pattern: $_}}
+                any:
+                    - has: {kind: export_clause, has: {kind: export_specifier, has: {field: name, pattern: $NAME}}}
+                    - has: {kind: identifier, pattern: $NAME}
+                      any:
+                          - has: {regex: '^default$'}
+                          - has: {regex: '^=$'}
+
+---
+id: typescript-function-declaration
+language: tsxlang
+role: item
+symbolType: function
+utils:
+    declaration-scope:
+        any:
+            - kind: program
+            - kind: statement_block
+              inside:
+                  any:
+                      - kind: internal_module, module
+                      - kind: ambient_declaration
+                        has: {regex: '^global$', not: {pattern: $_}}
+rule:
+    kind: function_declaration, generator_function_declaration, function_signature
+    pattern: $DECLARATION
+    has: {field: name, pattern: $NAME}
+    inside:
+        any:
+            - kind: program
+            - kind: statement_block
+              inside:
+                  any:
+                      - kind: internal_module, module
+                      - kind: ambient_declaration
+                        has: {regex: '^global$', not: {pattern: $_}}
+        stopBy: {not: {kind: 'export_statement, ambient_declaration'}}
+rewriters:
+    - id: body
+      rule:
+          kind: statement_block
+          inside:
+              kind: function_declaration, generator_function_declaration
+              field: body
+              inside: {matches: declaration-scope, stopBy: {not: {kind: 'export_statement, ambient_declaration'}}}
+      fix: ''
+    - id: nested-class
+      rule: {kind: class_body}
+      fix: '{…}'
+    - id: nested-function
+      rule: {kind: statement_block, inside: {kind: 'function_declaration, generator_function_declaration, function_expression, generator_function, arrow_function', field: body}}
+      fix: '{…}'
+transform:
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, nested-class, nested-function]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s*;?\s*$', by: ''}}
+name: $NAME
+signature: $SIGNATURE
+isExported:
+    any:
+        - inside:
+            kind: ambient_declaration
+            stopBy: {not: {kind: 'object_pattern, array_pattern, rest_pattern, pair_pattern, assignment_pattern, object_assignment_pattern, variable_declarator, lexical_declaration, variable_declaration, using_declaration, statement_block, internal_module, module, expression_statement'}}
+        - inside:
+            kind: export_statement, ambient_declaration
+            stopBy: {not: {kind: 'lexical_declaration, variable_declaration, using_declaration'}}
+        - inside:
+            kind: program
+            stopBy: {not: {kind: 'lexical_declaration, variable_declaration, using_declaration, export_statement, ambient_declaration'}}
+            has:
+                kind: export_statement
+                not: {has: {field: source, pattern: $_}}
+                any:
+                    - has: {kind: export_clause, has: {kind: export_specifier, has: {field: name, pattern: $NAME}}}
+                    - has: {kind: identifier, pattern: $NAME}
+                      any:
+                          - has: {regex: '^default$'}
+                          - has: {regex: '^=$'}
+
+---
+id: typescript-interface
+language: tsxlang
+role: item
+symbolType: interface
+rule:
+    kind: interface_declaration
+    pattern: $DECLARATION
+    has: {field: name, pattern: $NAME}
+    inside:
+        any:
+            - kind: program
+            - kind: statement_block
+              inside:
+                  any:
+                      - kind: internal_module, module
+                      - kind: ambient_declaration
+                        has: {regex: '^global$', not: {pattern: $_}}
+        stopBy: {not: {kind: 'export_statement, ambient_declaration'}}
+rewriters:
+    - id: body
+      rule: {kind: interface_body, inside: {kind: interface_declaration, field: body}}
+      fix: ''
+transform:
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s*;?\s*$', by: ''}}
+name: $NAME
+signature: $SIGNATURE
+isExported:
+    any:
+        - inside:
+            kind: ambient_declaration
+            stopBy: {not: {kind: 'object_pattern, array_pattern, rest_pattern, pair_pattern, assignment_pattern, object_assignment_pattern, variable_declarator, lexical_declaration, variable_declaration, using_declaration, statement_block, internal_module, module, expression_statement'}}
+        - inside:
+            kind: export_statement, ambient_declaration
+            stopBy: {not: {kind: 'lexical_declaration, variable_declaration, using_declaration'}}
+        - inside:
+            kind: program
+            stopBy: {not: {kind: 'lexical_declaration, variable_declaration, using_declaration, export_statement, ambient_declaration'}}
+            has:
+                kind: export_statement
+                not: {has: {field: source, pattern: $_}}
+                any:
+                    - has: {kind: export_clause, has: {kind: export_specifier, has: {field: name, pattern: $NAME}}}
+                    - has: {kind: identifier, pattern: $NAME}
+                      any:
+                          - has: {regex: '^default$'}
+                          - has: {regex: '^=$'}
+
+---
+id: typescript-type
+language: tsxlang
+role: item
+symbolType: struct
+rule:
+    kind: type_alias_declaration
+    pattern: $DECLARATION
+    has: {field: name, pattern: $NAME}
+    inside:
+        any:
+            - kind: program
+            - kind: statement_block
+              inside:
+                  any:
+                      - kind: internal_module, module
+                      - kind: ambient_declaration
+                        has: {regex: '^global$', not: {pattern: $_}}
+        stopBy: {not: {kind: 'export_statement, ambient_declaration'}}
+rewriters:
+    - id: body
+      rule: {kind: object_type, inside: {kind: type_alias_declaration, field: value, stopBy: {not: {kind: 'union_type, intersection_type, parenthesized_type'}}}}
+      fix: '{…}'
+transform:
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s*;?\s*$', by: ''}}
+name: $NAME
+signature: $SIGNATURE
+isExported:
+    any:
+        - inside:
+            kind: ambient_declaration
+            stopBy: {not: {kind: 'object_pattern, array_pattern, rest_pattern, pair_pattern, assignment_pattern, object_assignment_pattern, variable_declarator, lexical_declaration, variable_declaration, using_declaration, statement_block, internal_module, module, expression_statement'}}
+        - inside:
+            kind: export_statement, ambient_declaration
+            stopBy: {not: {kind: 'lexical_declaration, variable_declaration, using_declaration'}}
+        - inside:
+            kind: program
+            stopBy: {not: {kind: 'lexical_declaration, variable_declaration, using_declaration, export_statement, ambient_declaration'}}
+            has:
+                kind: export_statement
+                not: {has: {field: source, pattern: $_}}
+                any:
+                    - has: {kind: export_clause, has: {kind: export_specifier, has: {field: name, pattern: $NAME}}}
+                    - has: {kind: identifier, pattern: $NAME}
+                      any:
+                          - has: {regex: '^default$'}
+                          - has: {regex: '^=$'}
+
+---
+id: typescript-enum
+language: tsxlang
+role: item
+symbolType: enum
+rule:
+    kind: enum_declaration
+    pattern: $DECLARATION
+    has: {field: name, pattern: $NAME}
+    inside:
+        any:
+            - kind: program
+            - kind: statement_block
+              inside:
+                  any:
+                      - kind: internal_module, module
+                      - kind: ambient_declaration
+                        has: {regex: '^global$', not: {pattern: $_}}
+        stopBy: {not: {kind: 'export_statement, ambient_declaration'}}
+rewriters:
+    - id: body
+      rule: {kind: enum_body, inside: {kind: enum_declaration, field: body}}
+      fix: ''
+transform:
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s*;?\s*$', by: ''}}
+name: $NAME
+signature: $SIGNATURE
+isExported:
+    any:
+        - inside:
+            kind: ambient_declaration
+            stopBy: {not: {kind: 'object_pattern, array_pattern, rest_pattern, pair_pattern, assignment_pattern, object_assignment_pattern, variable_declarator, lexical_declaration, variable_declaration, using_declaration, statement_block, internal_module, module, expression_statement'}}
+        - inside:
+            kind: export_statement, ambient_declaration
+            stopBy: {not: {kind: 'lexical_declaration, variable_declaration, using_declaration'}}
+        - inside:
+            kind: program
+            stopBy: {not: {kind: 'lexical_declaration, variable_declaration, using_declaration, export_statement, ambient_declaration'}}
+            has:
+                kind: export_statement
+                not: {has: {field: source, pattern: $_}}
+                any:
+                    - has: {kind: export_clause, has: {kind: export_specifier, has: {field: name, pattern: $NAME}}}
+                    - has: {kind: identifier, pattern: $NAME}
+                      any:
+                          - has: {regex: '^default$'}
+                          - has: {regex: '^=$'}
+
+---
+id: typescript-function-value
+language: tsxlang
+role: item
+symbolType: function
+utils:
+    effect-root-binding:
+        any:
+            - kind: identifier, undefined, shorthand_property_identifier_pattern
+              pattern: $OUTLINE_EFFECT_ROOT
+            - kind: object_pattern, array_pattern, rest_pattern
+              has: {matches: effect-root-binding}
+            - kind: assignment_pattern, object_assignment_pattern
+              has: {field: left, matches: effect-root-binding}
+            - kind: pair_pattern
+              has: {field: value, matches: effect-root-binding}
+    effect-namespace-root:
+        any:
+            - kind: identifier
+              pattern: $OUTLINE_EFFECT_ROOT
+            - kind: nested_identifier, member_expression
+              has: {field: object, matches: effect-namespace-root}
+    effect-root-declaration:
+        any:
+            - kind: lexical_declaration, variable_declaration, using_declaration
+              has: {kind: variable_declarator, has: {field: name, matches: effect-root-binding}}
+            - kind: function_declaration, generator_function_declaration, class_declaration, abstract_class_declaration, enum_declaration
+              has: {field: name, pattern: $OUTLINE_EFFECT_ROOT}
+            - kind: internal_module, module
+              has: {field: name, matches: effect-namespace-root}
+            - kind: expression_statement
+              has: {matches: effect-root-declaration}
+            - kind: export_statement, ambient_declaration
+              has: {matches: effect-root-declaration}
+            - kind: import_alias
+              has: {kind: identifier, nthChild: 1, pattern: $OUTLINE_EFFECT_ROOT}
+            - kind: import_statement
+              has: {kind: import_require_clause, has: {kind: identifier, nthChild: 1, pattern: $OUTLINE_EFFECT_ROOT}}
+    effect-root:
+        kind: identifier
+        pattern: $OUTLINE_EFFECT_ROOT
+        not:
+            inside:
+                kind: statement_block
+                stopBy: end
+                has: {matches: effect-root-declaration}
+    effect-namespace-import:
+        kind: import_clause
+        has: {kind: namespace_import, has: {kind: identifier, pattern: $OUTLINE_EFFECT_ROOT}}
+    effect-import:
+        kind: import_statement
+        all:
+            - not: {has: {regex: '^type$', not: {kind: identifier}}}
+            - any:
+                - all:
+                    - has: {field: source, not: {has: {kind: escape_sequence}}, has: {kind: string_fragment, regex: '^effect$'}}
+                    - has:
+                        kind: import_clause
+                        has:
+                            kind: named_imports
+                            has:
+                                kind: import_specifier
+                                all:
+                                    - has:
+                                        field: name
+                                        any:
+                                            - regex: '^Effect$'
+                                            - kind: string
+                                              not: {has: {kind: escape_sequence}}
+                                              has: {kind: string_fragment, regex: '^Effect$'}
+                                    - any:
+                                        - has: {field: alias, pattern: $OUTLINE_EFFECT_ROOT}
+                                        - has: {field: name, pattern: $OUTLINE_EFFECT_ROOT}
+                                          not: {has: {field: alias, pattern: $_}}
+                                    - not: {has: {regex: '^type$', not: {kind: identifier}}}
+                - all:
+                    - has: {field: source, not: {has: {kind: escape_sequence}}, has: {kind: string_fragment, regex: '^effect/Effect$'}}
+                    - has: {matches: effect-namespace-import}
+    effect-module:
+        any:
+            - kind: identifier
+              all:
+                  - matches: effect-root
+                  - inside: {kind: program, stopBy: end, has: {matches: effect-import}}
+            - kind: member_expression
+              all:
+                  - has: {field: property, regex: '^Effect$'}
+                  - has: {field: object, matches: effect-root}
+                  - inside:
+                        kind: program
+                        stopBy: end
+                        has:
+                            kind: import_statement
+                            all:
+                                - not: {has: {regex: '^type$', not: {kind: identifier}}}
+                                - has: {field: source, not: {has: {kind: escape_sequence}}, has: {kind: string_fragment, regex: '^effect$'}}
+                                - has: {matches: effect-namespace-import}
+    effect-function:
+        any:
+            - kind: member_expression
+              all:
+                  - has: {field: property, regex: '^fn(Untraced)?$'}
+                  - has: {field: object, matches: effect-module}
+            - kind: identifier
+              all:
+                  - matches: effect-root
+                  - inside:
+                        kind: program
+                        stopBy: end
+                        has:
+                            kind: import_statement
+                            all:
+                                - not: {has: {regex: '^type$', not: {kind: identifier}}}
+                                - has: {field: source, not: {has: {kind: escape_sequence}}, has: {kind: string_fragment, regex: '^effect/Effect$'}}
+                                - has:
+                                    kind: import_clause
+                                    has:
+                                        kind: named_imports
+                                        has:
+                                            kind: import_specifier
+                                            all:
+                                                - has:
+                                                    field: name
+                                                    any:
+                                                        - regex: '^fn(Untraced)?$'
+                                                        - kind: string
+                                                          not: {has: {kind: escape_sequence}}
+                                                          has: {kind: string_fragment, regex: '^fn(Untraced)?$'}
+                                                - any:
+                                                    - has: {field: alias, pattern: $OUTLINE_EFFECT_ROOT}
+                                                    - has: {field: name, pattern: $OUTLINE_EFFECT_ROOT}
+                                                      not: {has: {field: alias, pattern: $_}}
+                                                - not: {has: {regex: '^type$', not: {kind: identifier}}}
+    function-value:
+        any:
+            - kind: arrow_function, function_expression, generator_function
+            - kind: call_expression
+              has:
+                field: function
+                any:
+                    - matches: effect-function
+                    - kind: call_expression
+                      has: {field: function, matches: effect-function}
+            - kind: as_expression, satisfies_expression, parenthesized_expression, non_null_expression
+              has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: function-value}
+rule:
+    kind: variable_declarator
+    pattern: $DECLARATION
+    all:
+        - inside:
+            kind: lexical_declaration, variable_declaration, using_declaration
+            has: {regex: '^(const|let|var|using|await)$', pattern: $$KIND}
+            inside:
+                any:
+                    - kind: program
+                    - kind: statement_block
+                      inside:
+                          any:
+                              - kind: internal_module, module
+                              - kind: ambient_declaration
+                                has: {regex: '^global$', not: {pattern: $_}}
+                stopBy: {not: {kind: 'export_statement, ambient_declaration'}}
+        - has: {field: name, kind: identifier, pattern: $NAME}
+        - has: {field: value, matches: function-value}
+rewriters:
+    - id: block
+      rule: {kind: statement_block, inside: {kind: 'arrow_function, function_expression, generator_function', field: body}}
+      fix: '{…}'
+    - id: expression
+      rule: {pattern: $_, not: {kind: statement_block}, inside: {kind: arrow_function, field: body}}
+      fix: …
+transform:
+    PREFIX: {replace: {source: $KIND, replace: '^await$', by: 'await using'}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [block, expression]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s*;?\s*$', by: ''}}
+name: $NAME
+signature: $PREFIX $SIGNATURE
+isExported:
+    any:
+        - inside:
+            kind: ambient_declaration
+            stopBy: {not: {kind: 'object_pattern, array_pattern, rest_pattern, pair_pattern, assignment_pattern, object_assignment_pattern, variable_declarator, lexical_declaration, variable_declaration, using_declaration, statement_block, internal_module, module, expression_statement'}}
+        - inside:
+            kind: export_statement, ambient_declaration
+            stopBy: {not: {kind: 'lexical_declaration, variable_declaration, using_declaration'}}
+        - inside:
+            kind: program
+            stopBy: {not: {kind: 'lexical_declaration, variable_declaration, using_declaration, export_statement, ambient_declaration'}}
+            has:
+                kind: export_statement
+                not: {has: {field: source, pattern: $_}}
+                any:
+                    - has: {kind: export_clause, has: {kind: export_specifier, has: {field: name, pattern: $NAME}}}
+                    - has: {kind: identifier, pattern: $NAME}
+                      any:
+                          - has: {regex: '^default$'}
+                          - has: {regex: '^=$'}
+
+---
+id: typescript-class-value
+language: tsxlang
+role: item
+symbolType: class
+utils:
+    class-value:
+        any:
+            - kind: class
+            - kind: as_expression, satisfies_expression, parenthesized_expression, non_null_expression
+              has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: class-value}
+    declaration-scope:
+        any:
+            - kind: program
+            - kind: statement_block
+              inside:
+                any:
+                    - kind: internal_module, module
+                    - kind: ambient_declaration
+                      has: {regex: '^global$', not: {pattern: $_}}
+    class-owner:
+        any:
+            - kind: class_declaration, abstract_class_declaration
+              inside: {matches: declaration-scope, stopBy: {not: {kind: 'export_statement, ambient_declaration'}}}
+            - kind: class
+              any:
+                  - inside:
+                        kind: variable_declarator
+                        field: value
+                        stopBy: {not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression'}}
+                        inside:
+                            kind: lexical_declaration, variable_declaration, using_declaration
+                            inside: {matches: declaration-scope, stopBy: {not: {kind: 'export_statement, ambient_declaration'}}}
+                  - inside:
+                        kind: export_statement
+                        field: value
+                        stopBy: {not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression'}}
+                        inside: {kind: program}
+rule:
+    kind: variable_declarator
+    pattern: $DECLARATION
+    all:
+        - inside:
+            kind: lexical_declaration, variable_declaration, using_declaration
+            has: {regex: '^(const|let|var|using|await)$', pattern: $$KIND}
+            inside:
+                any:
+                    - kind: program
+                    - kind: statement_block
+                      inside:
+                          any:
+                              - kind: internal_module, module
+                              - kind: ambient_declaration
+                                has: {regex: '^global$', not: {pattern: $_}}
+                stopBy: {not: {kind: 'export_statement, ambient_declaration'}}
+        - has: {field: name, kind: identifier, pattern: $NAME}
+        - has: {field: value, matches: class-value}
+rewriters:
+    - id: body
+      rule: {kind: class_body, inside: {matches: class-owner}}
+      fix: ''
+    - id: nested
+      rule: {kind: class_body}
+      fix: '{…}'
+transform:
+    PREFIX: {replace: {source: $KIND, replace: '^await$', by: 'await using'}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, nested]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s*;?\s*$', by: ''}}
+name: $NAME
+signature: $PREFIX $SIGNATURE
+isExported:
+    any:
+        - inside:
+            kind: ambient_declaration
+            stopBy: {not: {kind: 'object_pattern, array_pattern, rest_pattern, pair_pattern, assignment_pattern, object_assignment_pattern, variable_declarator, lexical_declaration, variable_declaration, using_declaration, statement_block, internal_module, module, expression_statement'}}
+        - inside:
+            kind: export_statement, ambient_declaration
+            stopBy: {not: {kind: 'lexical_declaration, variable_declaration, using_declaration'}}
+        - inside:
+            kind: program
+            stopBy: {not: {kind: 'lexical_declaration, variable_declaration, using_declaration, export_statement, ambient_declaration'}}
+            has:
+                kind: export_statement
+                not: {has: {field: source, pattern: $_}}
+                any:
+                    - has: {kind: export_clause, has: {kind: export_specifier, has: {field: name, pattern: $NAME}}}
+                    - has: {kind: identifier, pattern: $NAME}
+                      any:
+                          - has: {regex: '^default$'}
+                          - has: {regex: '^=$'}
+
+---
+id: typescript-schema
+language: tsxlang
+role: item
+symbolType: constant
+utils:
+    schema-root-binding:
+        any:
+            - kind: identifier, undefined, shorthand_property_identifier_pattern
+              pattern: $OUTLINE_SCHEMA_ROOT
+            - kind: object_pattern, array_pattern, rest_pattern
+              has: {matches: schema-root-binding}
+            - kind: assignment_pattern, object_assignment_pattern
+              has: {field: left, matches: schema-root-binding}
+            - kind: pair_pattern
+              has: {field: value, matches: schema-root-binding}
+    schema-namespace-root:
+        any:
+            - kind: identifier
+              pattern: $OUTLINE_SCHEMA_ROOT
+            - kind: nested_identifier, member_expression
+              has: {field: object, matches: schema-namespace-root}
+    schema-root-declaration:
+        any:
+            - kind: lexical_declaration, variable_declaration, using_declaration
+              has: {kind: variable_declarator, has: {field: name, matches: schema-root-binding}}
+            - kind: function_declaration, generator_function_declaration, class_declaration, abstract_class_declaration, enum_declaration
+              has: {field: name, pattern: $OUTLINE_SCHEMA_ROOT}
+            - kind: internal_module, module
+              has: {field: name, matches: schema-namespace-root}
+            - kind: expression_statement
+              has: {matches: schema-root-declaration}
+            - kind: export_statement, ambient_declaration
+              has: {matches: schema-root-declaration}
+            - kind: import_alias
+              has: {kind: identifier, nthChild: 1, pattern: $OUTLINE_SCHEMA_ROOT}
+            - kind: import_statement
+              has: {kind: import_require_clause, has: {kind: identifier, nthChild: 1, pattern: $OUTLINE_SCHEMA_ROOT}}
+    schema-root:
+        kind: identifier
+        pattern: $OUTLINE_SCHEMA_ROOT
+        not:
+            inside:
+                kind: statement_block
+                stopBy: end
+                has: {matches: schema-root-declaration}
+    schema-namespace-import:
+        kind: import_clause
+        has: {kind: namespace_import, has: {kind: identifier, pattern: $OUTLINE_SCHEMA_ROOT}}
+    schema-import:
+        kind: import_statement
+        all:
+            - not: {has: {regex: '^type$', not: {kind: identifier}}}
+            - any:
+                - all:
+                    - has: {field: source, not: {has: {kind: escape_sequence}}, has: {kind: string_fragment, regex: '^effect$'}}
+                    - has:
+                        kind: import_clause
+                        has:
+                            kind: named_imports
+                            has:
+                                kind: import_specifier
+                                all:
+                                    - has:
+                                        field: name
+                                        any:
+                                            - regex: '^Schema$'
+                                            - kind: string
+                                              not: {has: {kind: escape_sequence}}
+                                              has: {kind: string_fragment, regex: '^Schema$'}
+                                    - any:
+                                        - has: {field: alias, pattern: $OUTLINE_SCHEMA_ROOT}
+                                        - has: {field: name, pattern: $OUTLINE_SCHEMA_ROOT}
+                                          not: {has: {field: alias, pattern: $_}}
+                                    - not: {has: {regex: '^type$', not: {kind: identifier}}}
+                - all:
+                    - has: {field: source, not: {has: {kind: escape_sequence}}, has: {kind: string_fragment, regex: '^effect/Schema$'}}
+                    - has: {matches: schema-namespace-import}
+    schema-module:
+        any:
+            - kind: identifier
+              all:
+                  - matches: schema-root
+                  - inside: {kind: program, stopBy: end, has: {matches: schema-import}}
+            - kind: member_expression
+              all:
+                  - has: {field: property, regex: '^Schema$'}
+                  - has: {field: object, matches: schema-root}
+                  - inside:
+                        kind: program
+                        stopBy: end
+                        has:
+                            kind: import_statement
+                            all:
+                                - not: {has: {regex: '^type$', not: {kind: identifier}}}
+                                - has: {field: source, not: {has: {kind: escape_sequence}}, has: {kind: string_fragment, regex: '^effect$'}}
+                                - has: {matches: schema-namespace-import}
+    schema-constructor:
+        any:
+            - kind: member_expression
+              all:
+                  - has: {field: property, regex: '^(Struct|TaggedUnion)$'}
+                  - has: {field: object, matches: schema-module}
+            - kind: identifier
+              all:
+                  - matches: schema-root
+                  - inside:
+                        kind: program
+                        stopBy: end
+                        has:
+                            kind: import_statement
+                            all:
+                                - not: {has: {regex: '^type$', not: {kind: identifier}}}
+                                - has: {field: source, not: {has: {kind: escape_sequence}}, has: {kind: string_fragment, regex: '^effect/Schema$'}}
+                                - has:
+                                    kind: import_clause
+                                    has:
+                                        kind: named_imports
+                                        has:
+                                            kind: import_specifier
+                                            all:
+                                                - has:
+                                                    field: name
+                                                    any:
+                                                        - regex: '^(Struct|TaggedUnion)$'
+                                                        - kind: string
+                                                          not: {has: {kind: escape_sequence}}
+                                                          has: {kind: string_fragment, regex: '^(Struct|TaggedUnion)$'}
+                                                - any:
+                                                    - has: {field: alias, pattern: $OUTLINE_SCHEMA_ROOT}
+                                                    - has: {field: name, pattern: $OUTLINE_SCHEMA_ROOT}
+                                                      not: {has: {field: alias, pattern: $_}}
+                                                - not: {has: {regex: '^type$', not: {kind: identifier}}}
+    schema-value:
+        any:
+            - kind: call_expression
+              has: {field: function, matches: schema-constructor}
+            - kind: as_expression, satisfies_expression, parenthesized_expression, non_null_expression
+              has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: schema-value}
+rule:
+    kind: variable_declarator
+    pattern: $DECLARATION
+    all:
+        - inside:
+            kind: lexical_declaration, using_declaration
+            has: {field: kind, regex: '^(const|using|await)$', pattern: $$KIND}
+            inside:
+                any:
+                    - kind: program
+                    - kind: statement_block
+                      inside:
+                          any:
+                              - kind: internal_module, module
+                              - kind: ambient_declaration
+                                has: {regex: '^global$', not: {pattern: $_}}
+                stopBy: {not: {kind: 'export_statement, ambient_declaration'}}
+        - has: {field: name, kind: identifier, pattern: $NAME}
+        - has: {field: value, matches: schema-value}
 rewriters:
     - id: block
       rule: {kind: statement_block, has: {pattern: $_}}
@@ -67,45 +1308,810 @@ rewriters:
       rule: {inside: {kind: arrow_function, field: body}, not: {kind: statement_block}, pattern: $_}
       fix: …
 transform:
+    PREFIX: {replace: {source: $KIND, replace: '^await$', by: 'await using'}}
     SHAPED: {rewrite: {source: $DECLARATION, rewriters: [block, object, array, expression-body]}}
-    CHAINED: {replace: {source: $SHAPED, replace: '\s*\n\s*\.', by: '.'}}
-    FLAT: {replace: {source: $CHAINED, replace: '\s*\n\s*', by: ' '}}
-    SIGNATURE: {replace: {source: $FLAT, replace: '(?:,\s*)?;?$|,\s*(?P<close>[)\]])|(?P<open>[(\[])\s+', by: '${close}${open}'}}
+    SIGNATURE: {replace: {source: $SHAPED, replace: '\s*;?\s*$', by: ''}}
 name: $NAME
-signature: $SIGNATURE
-isExported: {matches: listed}
+signature: $PREFIX $SIGNATURE
+isExported:
+    any:
+        - inside:
+            kind: ambient_declaration
+            stopBy: {not: {kind: 'object_pattern, array_pattern, rest_pattern, pair_pattern, assignment_pattern, object_assignment_pattern, variable_declarator, lexical_declaration, variable_declaration, using_declaration, statement_block, internal_module, module, expression_statement'}}
+        - inside:
+            kind: export_statement, ambient_declaration
+            stopBy: {not: {kind: 'lexical_declaration, variable_declaration, using_declaration'}}
+        - inside:
+            kind: program
+            stopBy: {not: {kind: 'lexical_declaration, variable_declaration, using_declaration, export_statement, ambient_declaration'}}
+            has:
+                kind: export_statement
+                not: {has: {field: source, pattern: $_}}
+                any:
+                    - has: {kind: export_clause, has: {kind: export_specifier, has: {field: name, pattern: $NAME}}}
+                    - has: {kind: identifier, pattern: $NAME}
+                      any:
+                          - has: {regex: '^default$'}
+                          - has: {regex: '^=$'}
 
 ---
-id: typescript-variable
-language: tsx
+id: typescript-schema-variable
+language: tsxlang
 role: item
 symbolType: variable
 utils:
-    listed: {inside: {kind: program, has: {kind: export_statement, has: {stopBy: end, kind: export_specifier, has: {field: name, pattern: $NAME}}}}}
+    schema-root-binding:
+        any:
+            - kind: identifier, undefined, shorthand_property_identifier_pattern
+              pattern: $OUTLINE_SCHEMA_ROOT
+            - kind: object_pattern, array_pattern, rest_pattern
+              has: {matches: schema-root-binding}
+            - kind: assignment_pattern, object_assignment_pattern
+              has: {field: left, matches: schema-root-binding}
+            - kind: pair_pattern
+              has: {field: value, matches: schema-root-binding}
+    schema-namespace-root:
+        any:
+            - kind: identifier
+              pattern: $OUTLINE_SCHEMA_ROOT
+            - kind: nested_identifier, member_expression
+              has: {field: object, matches: schema-namespace-root}
+    schema-root-declaration:
+        any:
+            - kind: lexical_declaration, variable_declaration, using_declaration
+              has: {kind: variable_declarator, has: {field: name, matches: schema-root-binding}}
+            - kind: function_declaration, generator_function_declaration, class_declaration, abstract_class_declaration, enum_declaration
+              has: {field: name, pattern: $OUTLINE_SCHEMA_ROOT}
+            - kind: internal_module, module
+              has: {field: name, matches: schema-namespace-root}
+            - kind: expression_statement
+              has: {matches: schema-root-declaration}
+            - kind: export_statement, ambient_declaration
+              has: {matches: schema-root-declaration}
+            - kind: import_alias
+              has: {kind: identifier, nthChild: 1, pattern: $OUTLINE_SCHEMA_ROOT}
+            - kind: import_statement
+              has: {kind: import_require_clause, has: {kind: identifier, nthChild: 1, pattern: $OUTLINE_SCHEMA_ROOT}}
+    schema-root:
+        kind: identifier
+        pattern: $OUTLINE_SCHEMA_ROOT
+        not:
+            inside:
+                kind: statement_block
+                stopBy: end
+                has: {matches: schema-root-declaration}
+    schema-namespace-import:
+        kind: import_clause
+        has: {kind: namespace_import, has: {kind: identifier, pattern: $OUTLINE_SCHEMA_ROOT}}
+    schema-import:
+        kind: import_statement
+        all:
+            - not: {has: {regex: '^type$', not: {kind: identifier}}}
+            - any:
+                - all:
+                    - has: {field: source, not: {has: {kind: escape_sequence}}, has: {kind: string_fragment, regex: '^effect$'}}
+                    - has:
+                        kind: import_clause
+                        has:
+                            kind: named_imports
+                            has:
+                                kind: import_specifier
+                                all:
+                                    - has:
+                                        field: name
+                                        any:
+                                            - regex: '^Schema$'
+                                            - kind: string
+                                              not: {has: {kind: escape_sequence}}
+                                              has: {kind: string_fragment, regex: '^Schema$'}
+                                    - any:
+                                        - has: {field: alias, pattern: $OUTLINE_SCHEMA_ROOT}
+                                        - has: {field: name, pattern: $OUTLINE_SCHEMA_ROOT}
+                                          not: {has: {field: alias, pattern: $_}}
+                                    - not: {has: {regex: '^type$', not: {kind: identifier}}}
+                - all:
+                    - has: {field: source, not: {has: {kind: escape_sequence}}, has: {kind: string_fragment, regex: '^effect/Schema$'}}
+                    - has: {matches: schema-namespace-import}
+    schema-module:
+        any:
+            - kind: identifier
+              all:
+                  - matches: schema-root
+                  - inside: {kind: program, stopBy: end, has: {matches: schema-import}}
+            - kind: member_expression
+              all:
+                  - has: {field: property, regex: '^Schema$'}
+                  - has: {field: object, matches: schema-root}
+                  - inside:
+                        kind: program
+                        stopBy: end
+                        has:
+                            kind: import_statement
+                            all:
+                                - not: {has: {regex: '^type$', not: {kind: identifier}}}
+                                - has: {field: source, not: {has: {kind: escape_sequence}}, has: {kind: string_fragment, regex: '^effect$'}}
+                                - has: {matches: schema-namespace-import}
+    schema-constructor:
+        any:
+            - kind: member_expression
+              all:
+                  - has: {field: property, regex: '^(Struct|TaggedUnion)$'}
+                  - has: {field: object, matches: schema-module}
+            - kind: identifier
+              all:
+                  - matches: schema-root
+                  - inside:
+                        kind: program
+                        stopBy: end
+                        has:
+                            kind: import_statement
+                            all:
+                                - not: {has: {regex: '^type$', not: {kind: identifier}}}
+                                - has: {field: source, not: {has: {kind: escape_sequence}}, has: {kind: string_fragment, regex: '^effect/Schema$'}}
+                                - has:
+                                    kind: import_clause
+                                    has:
+                                        kind: named_imports
+                                        has:
+                                            kind: import_specifier
+                                            all:
+                                                - has:
+                                                    field: name
+                                                    any:
+                                                        - regex: '^(Struct|TaggedUnion)$'
+                                                        - kind: string
+                                                          not: {has: {kind: escape_sequence}}
+                                                          has: {kind: string_fragment, regex: '^(Struct|TaggedUnion)$'}
+                                                - any:
+                                                    - has: {field: alias, pattern: $OUTLINE_SCHEMA_ROOT}
+                                                    - has: {field: name, pattern: $OUTLINE_SCHEMA_ROOT}
+                                                      not: {has: {field: alias, pattern: $_}}
+                                                - not: {has: {regex: '^type$', not: {kind: identifier}}}
+    schema-value:
+        any:
+            - kind: call_expression
+              has: {field: function, matches: schema-constructor}
+            - kind: as_expression, satisfies_expression, parenthesized_expression, non_null_expression
+              has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: schema-value}
 rule:
-    kind: lexical_declaration, variable_declaration
+    kind: variable_declarator
     pattern: $DECLARATION
-    regex: '^(let|var)\b'
-    inside: {kind: program}
-    has: {kind: variable_declarator, has: {field: name, pattern: $NAME}}
+    all:
+        - inside:
+            kind: lexical_declaration, variable_declaration
+            has: {regex: '^(let|var)$', pattern: $$KIND}
+            inside:
+                any:
+                    - kind: program
+                    - kind: statement_block
+                      inside:
+                          any:
+                              - kind: internal_module, module
+                              - kind: ambient_declaration
+                                has: {regex: '^global$', not: {pattern: $_}}
+                stopBy: {not: {kind: 'export_statement, ambient_declaration'}}
+        - has: {field: name, kind: identifier, pattern: $NAME}
+        - has: {field: value, matches: schema-value}
+rewriters:
+    - id: initializer
+      rule: {pattern: $_, inside: {kind: variable_declarator, field: value}}
+      fix: {template: '', expandStart: {regex: '^=$', stopBy: end}}
 transform:
-    SIGNATURE: {replace: {source: $DECLARATION, replace: '\s*=[\s\S]*$|;$', by: ''}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [initializer]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s*;?\s*$', by: ''}}
 name: $NAME
-signature: $SIGNATURE
-isExported: {matches: listed}
+signature: $KIND $SIGNATURE
+isExported:
+    any:
+        - inside:
+            kind: ambient_declaration
+            stopBy: {not: {kind: 'object_pattern, array_pattern, rest_pattern, pair_pattern, assignment_pattern, object_assignment_pattern, variable_declarator, lexical_declaration, variable_declaration, using_declaration, statement_block, internal_module, module, expression_statement'}}
+        - inside:
+            kind: export_statement, ambient_declaration
+            stopBy: {not: {kind: 'lexical_declaration, variable_declaration'}}
+        - inside:
+            kind: program
+            stopBy: {not: {kind: 'lexical_declaration, variable_declaration, export_statement, ambient_declaration'}}
+            has:
+                kind: export_statement
+                not: {has: {field: source, pattern: $_}}
+                any:
+                    - has: {kind: export_clause, has: {kind: export_specifier, has: {field: name, pattern: $NAME}}}
+                    - has: {kind: identifier, pattern: $NAME}
+                      any:
+                          - has: {regex: '^default$'}
+                          - has: {regex: '^=$'}
 
 ---
-id: typescript-entry
-language: tsx
+id: typescript-constant
+language: tsxlang
 role: item
-symbolType: function
+symbolType: constant
+utils:
+    function-or-class:
+        any:
+            - kind: arrow_function, function_expression, generator_function, class
+            - kind: call_expression
+              has:
+                field: function
+                any:
+                    - matches: effect-function
+                    - kind: call_expression
+                      has: {field: function, matches: effect-function}
+            - kind: as_expression, satisfies_expression, parenthesized_expression, non_null_expression
+              has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: function-or-class}
+    effect-root-binding:
+        any:
+            - kind: identifier, undefined, shorthand_property_identifier_pattern
+              pattern: $OUTLINE_EFFECT_ROOT
+            - kind: object_pattern, array_pattern, rest_pattern
+              has: {matches: effect-root-binding}
+            - kind: assignment_pattern, object_assignment_pattern
+              has: {field: left, matches: effect-root-binding}
+            - kind: pair_pattern
+              has: {field: value, matches: effect-root-binding}
+    effect-namespace-root:
+        any:
+            - kind: identifier
+              pattern: $OUTLINE_EFFECT_ROOT
+            - kind: nested_identifier, member_expression
+              has: {field: object, matches: effect-namespace-root}
+    effect-root-declaration:
+        any:
+            - kind: lexical_declaration, variable_declaration, using_declaration
+              has: {kind: variable_declarator, has: {field: name, matches: effect-root-binding}}
+            - kind: function_declaration, generator_function_declaration, class_declaration, abstract_class_declaration, enum_declaration
+              has: {field: name, pattern: $OUTLINE_EFFECT_ROOT}
+            - kind: internal_module, module
+              has: {field: name, matches: effect-namespace-root}
+            - kind: expression_statement
+              has: {matches: effect-root-declaration}
+            - kind: export_statement, ambient_declaration
+              has: {matches: effect-root-declaration}
+            - kind: import_alias
+              has: {kind: identifier, nthChild: 1, pattern: $OUTLINE_EFFECT_ROOT}
+            - kind: import_statement
+              has: {kind: import_require_clause, has: {kind: identifier, nthChild: 1, pattern: $OUTLINE_EFFECT_ROOT}}
+    effect-root:
+        kind: identifier
+        pattern: $OUTLINE_EFFECT_ROOT
+        not:
+            inside:
+                kind: statement_block
+                stopBy: end
+                has: {matches: effect-root-declaration}
+    effect-namespace-import:
+        kind: import_clause
+        has: {kind: namespace_import, has: {kind: identifier, pattern: $OUTLINE_EFFECT_ROOT}}
+    effect-import:
+        kind: import_statement
+        all:
+            - not: {has: {regex: '^type$', not: {kind: identifier}}}
+            - any:
+                - all:
+                    - has: {field: source, not: {has: {kind: escape_sequence}}, has: {kind: string_fragment, regex: '^effect$'}}
+                    - has:
+                        kind: import_clause
+                        has:
+                            kind: named_imports
+                            has:
+                                kind: import_specifier
+                                all:
+                                    - has:
+                                        field: name
+                                        any:
+                                            - regex: '^Effect$'
+                                            - kind: string
+                                              not: {has: {kind: escape_sequence}}
+                                              has: {kind: string_fragment, regex: '^Effect$'}
+                                    - any:
+                                        - has: {field: alias, pattern: $OUTLINE_EFFECT_ROOT}
+                                        - has: {field: name, pattern: $OUTLINE_EFFECT_ROOT}
+                                          not: {has: {field: alias, pattern: $_}}
+                                    - not: {has: {regex: '^type$', not: {kind: identifier}}}
+                - all:
+                    - has: {field: source, not: {has: {kind: escape_sequence}}, has: {kind: string_fragment, regex: '^effect/Effect$'}}
+                    - has: {matches: effect-namespace-import}
+    effect-module:
+        any:
+            - kind: identifier
+              all:
+                  - matches: effect-root
+                  - inside: {kind: program, stopBy: end, has: {matches: effect-import}}
+            - kind: member_expression
+              all:
+                  - has: {field: property, regex: '^Effect$'}
+                  - has: {field: object, matches: effect-root}
+                  - inside:
+                        kind: program
+                        stopBy: end
+                        has:
+                            kind: import_statement
+                            all:
+                                - not: {has: {regex: '^type$', not: {kind: identifier}}}
+                                - has: {field: source, not: {has: {kind: escape_sequence}}, has: {kind: string_fragment, regex: '^effect$'}}
+                                - has: {matches: effect-namespace-import}
+    effect-function:
+        any:
+            - kind: member_expression
+              all:
+                  - has: {field: property, regex: '^fn(Untraced)?$'}
+                  - has: {field: object, matches: effect-module}
+            - kind: identifier
+              all:
+                  - matches: effect-root
+                  - inside:
+                        kind: program
+                        stopBy: end
+                        has:
+                            kind: import_statement
+                            all:
+                                - not: {has: {regex: '^type$', not: {kind: identifier}}}
+                                - has: {field: source, not: {has: {kind: escape_sequence}}, has: {kind: string_fragment, regex: '^effect/Effect$'}}
+                                - has:
+                                    kind: import_clause
+                                    has:
+                                        kind: named_imports
+                                        has:
+                                            kind: import_specifier
+                                            all:
+                                                - has:
+                                                    field: name
+                                                    any:
+                                                        - regex: '^fn(Untraced)?$'
+                                                        - kind: string
+                                                          not: {has: {kind: escape_sequence}}
+                                                          has: {kind: string_fragment, regex: '^fn(Untraced)?$'}
+                                                - any:
+                                                    - has: {field: alias, pattern: $OUTLINE_EFFECT_ROOT}
+                                                    - has: {field: name, pattern: $OUTLINE_EFFECT_ROOT}
+                                                      not: {has: {field: alias, pattern: $_}}
+                                                - not: {has: {regex: '^type$', not: {kind: identifier}}}
+rule:
+    kind: variable_declarator
+    pattern: $DECLARATION
+    all:
+        - inside:
+            kind: lexical_declaration, using_declaration
+            has: {field: kind, regex: '^(const|using|await)$', pattern: $$KIND}
+            inside:
+                any:
+                    - kind: program
+                    - kind: statement_block
+                      inside:
+                          any:
+                              - kind: internal_module, module
+                              - kind: ambient_declaration
+                                has: {regex: '^global$', not: {pattern: $_}}
+                stopBy: {not: {kind: 'export_statement, ambient_declaration'}}
+        - has: {field: name, kind: identifier, pattern: $NAME}
+        - not: {has: {field: value, matches: function-or-class}}
+rewriters:
+    - id: block
+      rule: {kind: statement_block, has: {pattern: $_}}
+      fix: '{…}'
+    - id: object
+      rule: {kind: object, has: {pattern: $_}}
+      fix: '{…}'
+    - id: array
+      rule: {kind: array, has: {pattern: $_}}
+      fix: '[…]'
+    - id: expression-body
+      rule: {inside: {kind: arrow_function, field: body}, not: {kind: statement_block}, pattern: $_}
+      fix: …
+transform:
+    PREFIX: {replace: {source: $KIND, replace: '^await$', by: 'await using'}}
+    SHAPED: {rewrite: {source: $DECLARATION, rewriters: [block, object, array, expression-body]}}
+    SIGNATURE: {replace: {source: $SHAPED, replace: '\s*;?\s*$', by: ''}}
+name: $NAME
+signature: $PREFIX $SIGNATURE
+isExported:
+    any:
+        - inside:
+            kind: ambient_declaration
+            stopBy: {not: {kind: 'object_pattern, array_pattern, rest_pattern, pair_pattern, assignment_pattern, object_assignment_pattern, variable_declarator, lexical_declaration, variable_declaration, using_declaration, statement_block, internal_module, module, expression_statement'}}
+        - inside:
+            kind: export_statement, ambient_declaration
+            stopBy: {not: {kind: 'lexical_declaration, variable_declaration, using_declaration'}}
+        - inside:
+            kind: program
+            stopBy: {not: {kind: 'lexical_declaration, variable_declaration, using_declaration, export_statement, ambient_declaration'}}
+            has:
+                kind: export_statement
+                not: {has: {field: source, pattern: $_}}
+                any:
+                    - has: {kind: export_clause, has: {kind: export_specifier, has: {field: name, pattern: $NAME}}}
+                    - has: {kind: identifier, pattern: $NAME}
+                      any:
+                          - has: {regex: '^default$'}
+                          - has: {regex: '^=$'}
+
+---
+id: typescript-variable
+language: tsxlang
+role: item
+symbolType: variable
+utils:
+    function-or-class:
+        any:
+            - kind: arrow_function, function_expression, generator_function, class
+            - kind: call_expression
+              has:
+                field: function
+                any:
+                    - matches: effect-function
+                    - kind: call_expression
+                      has: {field: function, matches: effect-function}
+            - kind: as_expression, satisfies_expression, parenthesized_expression, non_null_expression
+              has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: function-or-class}
+    effect-root-binding:
+        any:
+            - kind: identifier, undefined, shorthand_property_identifier_pattern
+              pattern: $OUTLINE_EFFECT_ROOT
+            - kind: object_pattern, array_pattern, rest_pattern
+              has: {matches: effect-root-binding}
+            - kind: assignment_pattern, object_assignment_pattern
+              has: {field: left, matches: effect-root-binding}
+            - kind: pair_pattern
+              has: {field: value, matches: effect-root-binding}
+    effect-namespace-root:
+        any:
+            - kind: identifier
+              pattern: $OUTLINE_EFFECT_ROOT
+            - kind: nested_identifier, member_expression
+              has: {field: object, matches: effect-namespace-root}
+    effect-root-declaration:
+        any:
+            - kind: lexical_declaration, variable_declaration, using_declaration
+              has: {kind: variable_declarator, has: {field: name, matches: effect-root-binding}}
+            - kind: function_declaration, generator_function_declaration, class_declaration, abstract_class_declaration, enum_declaration
+              has: {field: name, pattern: $OUTLINE_EFFECT_ROOT}
+            - kind: internal_module, module
+              has: {field: name, matches: effect-namespace-root}
+            - kind: expression_statement
+              has: {matches: effect-root-declaration}
+            - kind: export_statement, ambient_declaration
+              has: {matches: effect-root-declaration}
+            - kind: import_alias
+              has: {kind: identifier, nthChild: 1, pattern: $OUTLINE_EFFECT_ROOT}
+            - kind: import_statement
+              has: {kind: import_require_clause, has: {kind: identifier, nthChild: 1, pattern: $OUTLINE_EFFECT_ROOT}}
+    effect-root:
+        kind: identifier
+        pattern: $OUTLINE_EFFECT_ROOT
+        not:
+            inside:
+                kind: statement_block
+                stopBy: end
+                has: {matches: effect-root-declaration}
+    effect-namespace-import:
+        kind: import_clause
+        has: {kind: namespace_import, has: {kind: identifier, pattern: $OUTLINE_EFFECT_ROOT}}
+    effect-import:
+        kind: import_statement
+        all:
+            - not: {has: {regex: '^type$', not: {kind: identifier}}}
+            - any:
+                - all:
+                    - has: {field: source, not: {has: {kind: escape_sequence}}, has: {kind: string_fragment, regex: '^effect$'}}
+                    - has:
+                        kind: import_clause
+                        has:
+                            kind: named_imports
+                            has:
+                                kind: import_specifier
+                                all:
+                                    - has:
+                                        field: name
+                                        any:
+                                            - regex: '^Effect$'
+                                            - kind: string
+                                              not: {has: {kind: escape_sequence}}
+                                              has: {kind: string_fragment, regex: '^Effect$'}
+                                    - any:
+                                        - has: {field: alias, pattern: $OUTLINE_EFFECT_ROOT}
+                                        - has: {field: name, pattern: $OUTLINE_EFFECT_ROOT}
+                                          not: {has: {field: alias, pattern: $_}}
+                                    - not: {has: {regex: '^type$', not: {kind: identifier}}}
+                - all:
+                    - has: {field: source, not: {has: {kind: escape_sequence}}, has: {kind: string_fragment, regex: '^effect/Effect$'}}
+                    - has: {matches: effect-namespace-import}
+    effect-module:
+        any:
+            - kind: identifier
+              all:
+                  - matches: effect-root
+                  - inside: {kind: program, stopBy: end, has: {matches: effect-import}}
+            - kind: member_expression
+              all:
+                  - has: {field: property, regex: '^Effect$'}
+                  - has: {field: object, matches: effect-root}
+                  - inside:
+                        kind: program
+                        stopBy: end
+                        has:
+                            kind: import_statement
+                            all:
+                                - not: {has: {regex: '^type$', not: {kind: identifier}}}
+                                - has: {field: source, not: {has: {kind: escape_sequence}}, has: {kind: string_fragment, regex: '^effect$'}}
+                                - has: {matches: effect-namespace-import}
+    effect-function:
+        any:
+            - kind: member_expression
+              all:
+                  - has: {field: property, regex: '^fn(Untraced)?$'}
+                  - has: {field: object, matches: effect-module}
+            - kind: identifier
+              all:
+                  - matches: effect-root
+                  - inside:
+                        kind: program
+                        stopBy: end
+                        has:
+                            kind: import_statement
+                            all:
+                                - not: {has: {regex: '^type$', not: {kind: identifier}}}
+                                - has: {field: source, not: {has: {kind: escape_sequence}}, has: {kind: string_fragment, regex: '^effect/Effect$'}}
+                                - has:
+                                    kind: import_clause
+                                    has:
+                                        kind: named_imports
+                                        has:
+                                            kind: import_specifier
+                                            all:
+                                                - has:
+                                                    field: name
+                                                    any:
+                                                        - regex: '^fn(Untraced)?$'
+                                                        - kind: string
+                                                          not: {has: {kind: escape_sequence}}
+                                                          has: {kind: string_fragment, regex: '^fn(Untraced)?$'}
+                                                - any:
+                                                    - has: {field: alias, pattern: $OUTLINE_EFFECT_ROOT}
+                                                    - has: {field: name, pattern: $OUTLINE_EFFECT_ROOT}
+                                                      not: {has: {field: alias, pattern: $_}}
+                                                - not: {has: {regex: '^type$', not: {kind: identifier}}}
+rule:
+    kind: variable_declarator
+    pattern: $DECLARATION
+    all:
+        - inside:
+            kind: lexical_declaration, variable_declaration
+            has: {regex: '^(let|var)$', pattern: $$KIND}
+            inside:
+                any:
+                    - kind: program
+                    - kind: statement_block
+                      inside:
+                          any:
+                              - kind: internal_module, module
+                              - kind: ambient_declaration
+                                has: {regex: '^global$', not: {pattern: $_}}
+                stopBy: {not: {kind: 'export_statement, ambient_declaration'}}
+        - has: {field: name, kind: identifier, pattern: $NAME}
+        - not: {has: {field: value, matches: function-or-class}}
+rewriters:
+    - id: initializer
+      rule: {pattern: $_, inside: {kind: variable_declarator, field: value}}
+      fix: {template: '', expandStart: {regex: '^=$', stopBy: end}}
+transform:
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [initializer]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s*;?\s*$', by: ''}}
+name: $NAME
+signature: $KIND $SIGNATURE
+isExported:
+    any:
+        - inside:
+            kind: ambient_declaration
+            stopBy: {not: {kind: 'object_pattern, array_pattern, rest_pattern, pair_pattern, assignment_pattern, object_assignment_pattern, variable_declarator, lexical_declaration, variable_declaration, using_declaration, statement_block, internal_module, module, expression_statement'}}
+        - inside:
+            kind: export_statement, ambient_declaration
+            stopBy: {not: {kind: 'lexical_declaration, variable_declaration'}}
+        - inside:
+            kind: program
+            stopBy: {not: {kind: 'lexical_declaration, variable_declaration, export_statement, ambient_declaration'}}
+            has:
+                kind: export_statement
+                not: {has: {field: source, pattern: $_}}
+                any:
+                    - has: {kind: export_clause, has: {kind: export_specifier, has: {field: name, pattern: $NAME}}}
+                    - has: {kind: identifier, pattern: $NAME}
+                      any:
+                          - has: {regex: '^default$'}
+                          - has: {regex: '^=$'}
+
+---
+id: typescript-schema-assignment
+language: tsxlang
+role: item
+symbolType: property
+utils:
+    schema-root-binding:
+        any:
+            - kind: identifier, undefined, shorthand_property_identifier_pattern
+              pattern: $OUTLINE_SCHEMA_ROOT
+            - kind: object_pattern, array_pattern, rest_pattern
+              has: {matches: schema-root-binding}
+            - kind: assignment_pattern, object_assignment_pattern
+              has: {field: left, matches: schema-root-binding}
+            - kind: pair_pattern
+              has: {field: value, matches: schema-root-binding}
+    schema-namespace-root:
+        any:
+            - kind: identifier
+              pattern: $OUTLINE_SCHEMA_ROOT
+            - kind: nested_identifier, member_expression
+              has: {field: object, matches: schema-namespace-root}
+    schema-root-declaration:
+        any:
+            - kind: lexical_declaration, variable_declaration, using_declaration
+              has: {kind: variable_declarator, has: {field: name, matches: schema-root-binding}}
+            - kind: function_declaration, generator_function_declaration, class_declaration, abstract_class_declaration, enum_declaration
+              has: {field: name, pattern: $OUTLINE_SCHEMA_ROOT}
+            - kind: internal_module, module
+              has: {field: name, matches: schema-namespace-root}
+            - kind: expression_statement
+              has: {matches: schema-root-declaration}
+            - kind: export_statement, ambient_declaration
+              has: {matches: schema-root-declaration}
+            - kind: import_alias
+              has: {kind: identifier, nthChild: 1, pattern: $OUTLINE_SCHEMA_ROOT}
+            - kind: import_statement
+              has: {kind: import_require_clause, has: {kind: identifier, nthChild: 1, pattern: $OUTLINE_SCHEMA_ROOT}}
+    schema-root:
+        kind: identifier
+        pattern: $OUTLINE_SCHEMA_ROOT
+        not:
+            inside:
+                kind: statement_block
+                stopBy: end
+                has: {matches: schema-root-declaration}
+    schema-namespace-import:
+        kind: import_clause
+        has: {kind: namespace_import, has: {kind: identifier, pattern: $OUTLINE_SCHEMA_ROOT}}
+    schema-import:
+        kind: import_statement
+        all:
+            - not: {has: {regex: '^type$', not: {kind: identifier}}}
+            - any:
+                - all:
+                    - has: {field: source, not: {has: {kind: escape_sequence}}, has: {kind: string_fragment, regex: '^effect$'}}
+                    - has:
+                        kind: import_clause
+                        has:
+                            kind: named_imports
+                            has:
+                                kind: import_specifier
+                                all:
+                                    - has:
+                                        field: name
+                                        any:
+                                            - regex: '^Schema$'
+                                            - kind: string
+                                              not: {has: {kind: escape_sequence}}
+                                              has: {kind: string_fragment, regex: '^Schema$'}
+                                    - any:
+                                        - has: {field: alias, pattern: $OUTLINE_SCHEMA_ROOT}
+                                        - has: {field: name, pattern: $OUTLINE_SCHEMA_ROOT}
+                                          not: {has: {field: alias, pattern: $_}}
+                                    - not: {has: {regex: '^type$', not: {kind: identifier}}}
+                - all:
+                    - has: {field: source, not: {has: {kind: escape_sequence}}, has: {kind: string_fragment, regex: '^effect/Schema$'}}
+                    - has: {matches: schema-namespace-import}
+    schema-module:
+        any:
+            - kind: identifier
+              all:
+                  - matches: schema-root
+                  - inside: {kind: program, stopBy: end, has: {matches: schema-import}}
+            - kind: member_expression
+              all:
+                  - has: {field: property, regex: '^Schema$'}
+                  - has: {field: object, matches: schema-root}
+                  - inside:
+                        kind: program
+                        stopBy: end
+                        has:
+                            kind: import_statement
+                            all:
+                                - not: {has: {regex: '^type$', not: {kind: identifier}}}
+                                - has: {field: source, not: {has: {kind: escape_sequence}}, has: {kind: string_fragment, regex: '^effect$'}}
+                                - has: {matches: schema-namespace-import}
+    schema-constructor:
+        any:
+            - kind: member_expression
+              all:
+                  - has: {field: property, regex: '^(Struct|TaggedUnion)$'}
+                  - has: {field: object, matches: schema-module}
+            - kind: identifier
+              all:
+                  - matches: schema-root
+                  - inside:
+                        kind: program
+                        stopBy: end
+                        has:
+                            kind: import_statement
+                            all:
+                                - not: {has: {regex: '^type$', not: {kind: identifier}}}
+                                - has: {field: source, not: {has: {kind: escape_sequence}}, has: {kind: string_fragment, regex: '^effect/Schema$'}}
+                                - has:
+                                    kind: import_clause
+                                    has:
+                                        kind: named_imports
+                                        has:
+                                            kind: import_specifier
+                                            all:
+                                                - has:
+                                                    field: name
+                                                    any:
+                                                        - regex: '^(Struct|TaggedUnion)$'
+                                                        - kind: string
+                                                          not: {has: {kind: escape_sequence}}
+                                                          has: {kind: string_fragment, regex: '^(Struct|TaggedUnion)$'}
+                                                - any:
+                                                    - has: {field: alias, pattern: $OUTLINE_SCHEMA_ROOT}
+                                                    - has: {field: name, pattern: $OUTLINE_SCHEMA_ROOT}
+                                                      not: {has: {field: alias, pattern: $_}}
+                                                - not: {has: {regex: '^type$', not: {kind: identifier}}}
+    schema-value:
+        any:
+            - kind: call_expression
+              has: {field: function, matches: schema-constructor}
+            - kind: as_expression, satisfies_expression, parenthesized_expression, non_null_expression
+              has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: schema-value}
+rule:
+    kind: assignment_expression
+    pattern: $DECLARATION
+    inside: {kind: expression_statement, inside: {kind: program}}
+    all:
+        - has: {field: left, kind: member_expression, pattern: $NAME}
+        - has: {field: right, matches: schema-value}
+rewriters:
+    - id: block
+      rule: {kind: statement_block, has: {pattern: $_}}
+      fix: '{…}'
+    - id: object
+      rule: {kind: object, has: {pattern: $_}}
+      fix: '{…}'
+    - id: array
+      rule: {kind: array, has: {pattern: $_}}
+      fix: '[…]'
+transform:
+    SHAPED: {rewrite: {source: $DECLARATION, rewriters: [block, object, array]}}
+    SIGNATURE: {replace: {source: $SHAPED, replace: '\s*;?\s*$', by: ''}}
+name: $NAME
+signature: $SIGNATURE
+isExported: false
+
+---
+id: typescript-invocation
+language: tsxlang
+role: item
+symbolType: event
 rule:
     kind: expression_statement
     pattern: $STATEMENT
     inside: {kind: program}
     has:
         kind: call_expression
-        has: {stopBy: end, kind: member_expression, has: {field: property, regex: '^(runMain|runFork|runPromise|runSync)$'}}
+        has:
+            field: function
+            pattern: $CALLEE
+            any:
+                - kind: member_expression
+                  has: {field: property, regex: '^(runMain|runFork|runPromise|runSync)$'}
+                - kind: member_expression
+                  has: {field: property, regex: '^pipe$'}
+                  inside:
+                    kind: call_expression
+                    has:
+                        field: arguments
+                        has:
+                            any:
+                                - kind: member_expression
+                                  has: {field: property, regex: '^(runMain|runFork|runPromise|runSync)$'}
+                                - kind: call_expression
+                                  has: {field: function, kind: member_expression, has: {field: property, regex: '^(runMain|runFork|runPromise|runSync)$'}}
 rewriters:
     - id: block
       rule: {kind: statement_block, has: {pattern: $_}}
@@ -115,241 +2121,41 @@ rewriters:
       fix: '{…}'
 transform:
     SHAPED: {rewrite: {source: $STATEMENT, rewriters: [block, object]}}
-    CHAINED: {replace: {source: $SHAPED, replace: '\s*\n\s*\.', by: '.'}}
-    FLAT: {replace: {source: $CHAINED, replace: '\s*\n\s*', by: ' '}}
-    SIGNATURE: {replace: {source: $FLAT, replace: '(?:,\s*)?;?$|,\s*(?P<close>[)\]])|(?P<open>[(\[])\s+', by: '${close}${open}'}}
-name: main
+    SIGNATURE: {replace: {source: $SHAPED, replace: '\s*;?\s*$', by: ''}}
+name: $CALLEE
 signature: $SIGNATURE
 isExported: false
 
 ---
-id: typescript-export-default
-language: tsx
+id: typescript-property-assignment
+language: tsxlang
 role: item
-symbolType: module
-rule:
-    kind: export_statement
-    pattern: $DECLARATION
-    has: {regex: '^default$'}
-    not: {has: {field: declaration, pattern: $_}}
-transform:
-    FLAT: {replace: {source: $DECLARATION, replace: '\s*\n\s*', by: ' '}}
-    SIGNATURE: {replace: {source: $FLAT, replace: ';$', by: ''}}
-name: default
-signature: $SIGNATURE
-
----
-id: typescript-export-type-list
-language: tsx
-role: item
-symbolType: module
-rule:
-    kind: export_statement
-    pattern: $DECLARATION
-    has: {regex: '^type$'}
-    all:
-        - has: {kind: export_clause}
-        - not: {has: {field: source, pattern: $_}}
-transform:
-    SIGNATURE: {replace: {source: $DECLARATION, replace: '\s*\n\s*', by: ' '}}
-name: types
-signature: $SIGNATURE
-
----
-id: typescript-abstract-class
-language: tsx
-role: item
-symbolType: class
-rule:
-    kind: abstract_class_declaration
-    pattern: $DECLARATION
-    has: {field: name, pattern: $NAME}
-rewriters:
-    - id: body
-      rule: {kind: class_body, inside: {kind: abstract_class_declaration, field: body}}
-      fix: ''
-transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
-    FLAT: {replace: {source: $HEADER, replace: '\s*\n\s*', by: ' '}}
-    SIGNATURE: {replace: {source: $FLAT, replace: '\s+$', by: ''}}
-name: $NAME
-signature: $SIGNATURE
-isExported: {inside: {kind: export_statement}}
-
----
-id: typescript-abstract-class-member
-language: tsx
-role: member
-parentRuleIds: [typescript-abstract-class]
-symbolType: method
-rule:
-    kind: abstract_method_signature, method_definition, public_field_definition
-    pattern: $DECLARATION
-    inside: {kind: class_body, inside: {kind: abstract_class_declaration}}
-    has: {field: name, pattern: $NAME}
-rewriters:
-    - id: body
-      rule: {kind: statement_block, inside: {kind: method_definition, field: body}}
-      fix: ''
-    - id: value
-      rule: {inside: {kind: public_field_definition, field: value}, pattern: $_}
-      fix: ''
-transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, value]}}
-    FLAT: {replace: {source: $HEADER, replace: '\s*\n\s*', by: ' '}}
-    SIGNATURE: {replace: {source: $FLAT, replace: '\s*=?\s*;?$', by: ''}}
-name: $NAME
-signature: $SIGNATURE
-isPublic: {not: {has: {kind: accessibility_modifier, regex: '^(private|protected)$'}}}
-
----
-id: typescript-generator-function
-language: tsx
-role: item
-symbolType: function
-rule:
-    kind: generator_function_declaration
-    pattern: $DECLARATION
-    has: {field: name, pattern: $NAME}
-rewriters:
-    - id: body
-      rule: {kind: statement_block, inside: {kind: generator_function_declaration, field: body}}
-      fix: ''
-transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
-    FLAT: {replace: {source: $HEADER, replace: '\s*\n\s*', by: ' '}}
-    SIGNATURE: {replace: {source: $FLAT, replace: '\s+$', by: ''}}
-name: $NAME
-signature: $SIGNATURE
-isExported: {inside: {kind: export_statement}}
-
----
-id: typescript-ambient-member
-language: tsx
-role: member
-parentRuleIds: [tsx-ambient-module, tsx-export-ambient-module]
-symbolType: struct
-utils:
-    module-body:
-        kind: statement_block
-        inside: {kind: module, inside: {kind: ambient_declaration}}
-rule:
-    pattern: $DECLARATION
-    all:
-        - any:
-            - kind: type_alias_declaration, interface_declaration, function_signature
-              has: {field: name, pattern: $NAME}
-            - kind: lexical_declaration
-              has: {kind: variable_declarator, has: {field: name, pattern: $NAME}}
-        - any:
-            - inside: {matches: module-body}
-            - inside: {kind: export_statement, inside: {matches: module-body}}
-transform:
-    WITHOUT_VALUE: {replace: {source: $DECLARATION, replace: '^(type\s+[\w$]+(?:<[\s\S]*>)?)\s*=[\s\S]*$', by: '$1'}}
-    WITHOUT_BODY: {replace: {source: $WITHOUT_VALUE, replace: '^(interface\s[^{]*?)\s*\{[\s\S]*$', by: '$1'}}
-    WITHOUT_TERMINATOR: {replace: {source: $WITHOUT_BODY, replace: ';\s*$', by: ''}}
-    SIGNATURE: {replace: {source: $WITHOUT_TERMINATOR, replace: '\s*\n\s*', by: ' '}}
-name: $NAME
-signature: $SIGNATURE
-isPublic: {inside: {kind: export_statement}}
-
----
-id: typescript-object-member
-language: tsx
-role: member
-parentRuleIds: [typescript-constant, typescript-variable, typescript-property-assignment]
 symbolType: property
-utils:
-    declared-value:
-        any:
-            - inside:
-                kind: variable_declarator
-                field: value
-                inside: {kind: 'lexical_declaration, variable_declaration', inside: {kind: program}}
-                stopBy:
-                    not: {kind: 'as_expression, satisfies_expression, parenthesized_expression'}
-            - inside:
-                kind: assignment_expression
-                field: right
-                inside: {kind: expression_statement, inside: {kind: program}}
-                stopBy:
-                    not: {kind: 'as_expression, satisfies_expression, parenthesized_expression'}
-    schema-module:
-        kind: identifier
-        pattern: $MODULE
-        inside:
-            kind: program
-            stopBy: end
-            has:
-                kind: import_statement
-                not: {has: {regex: '^type$'}}
-                any:
-                    - all:
-                        - has: {field: source, regex: '^["'']effect(/index)?["'']$'}
-                        - has:
-                            stopBy: end
-                            kind: import_specifier
-                            has: {kind: identifier, nthChild: {position: 1, ofRule: {kind: identifier}}, regex: '^Schema$'}
-                            all:
-                                - has: {kind: identifier, pattern: $MODULE, nthChild: {position: 1, ofRule: {kind: identifier}, reverse: true}}
-                                - not: {has: {regex: '^type$'}}
-                    - all:
-                        - has: {field: source, regex: '^["'']effect/Schema["'']$'}
-                        - has: {stopBy: end, kind: namespace_import, has: {kind: identifier, pattern: $MODULE}}
 rule:
-    any:
-        - kind: pair
-          has: {field: key, pattern: $NAME}
-        - kind: shorthand_property_identifier
-          pattern: $NAME
+    kind: assignment_expression
     pattern: $DECLARATION
-    inside:
-        kind: object
-        any:
-            - matches: declared-value
-            - nthChild: {position: 1, ofRule: {not: {kind: comment}}}
-              inside:
-                kind: arguments
-                inside:
-                    kind: call_expression
-                    matches: declared-value
-                    has:
-                        field: function
-                        kind: member_expression
-                        all:
-                            - has: {field: property, regex: '^(Struct|TaggedUnion)$'}
-                            - has: {field: object, matches: schema-module}
+    inside: {kind: expression_statement, inside: {kind: program}}
+    has: {field: left, kind: member_expression, pattern: $NAME}
+rewriters:
+    - id: block
+      rule: {kind: statement_block, has: {pattern: $_}}
+      fix: '{…}'
+    - id: object
+      rule: {kind: object, has: {pattern: $_}}
+      fix: '{…}'
+    - id: array
+      rule: {kind: array, has: {pattern: $_}}
+      fix: '[…]'
 transform:
-    SIGNATURE: {replace: {source: $DECLARATION, replace: '\s*\n\s*', by: ' '}}
+    SHAPED: {rewrite: {source: $DECLARATION, rewriters: [block, object, array]}}
+    SIGNATURE: {replace: {source: $SHAPED, replace: '\s*;?\s*$', by: ''}}
 name: $NAME
 signature: $SIGNATURE
-
----
-id: typescript-hook-registration
-language: tsx
-role: member
-parentRuleIds: [typescript-function-value]
-symbolType: method
-rule:
-    kind: call_expression
-    inside:
-        kind: expression_statement
-        inside:
-            kind: statement_block
-            inside:
-                kind: arrow_function, function_expression
-                inside: {kind: variable_declarator, field: value, inside: {kind: lexical_declaration, inside: {kind: program}}}
-    all:
-        - has: {field: function, kind: identifier, regex: '^on$'}
-        - has: {field: arguments, has: {kind: 'string, template_string', nthChild: 1, pattern: $EVENT}}
-transform:
-    NAME: {replace: {source: $EVENT, replace: '^[''"`]([\s\S]*)[''"`]$', by: '$1'}}
-name: $NAME
-signature: on($EVENT)
+isExported: false
 
 ---
 id: typescript-test
-language: tsx
+language: tsxlang
 role: item
 symbolType: function
 rule:
@@ -376,8 +2182,978 @@ signature: $CALLEE($TITLE)
 isExported: false
 
 ---
+id: typescript-class-method
+language: tsxlang
+role: member
+parentRuleIds: [typescript-class, typescript-class-value, typescript-default-class]
+symbolType: method
+utils:
+    declaration-scope:
+        any:
+            - kind: program
+            - kind: statement_block
+              inside:
+                any:
+                    - kind: internal_module, module
+                    - kind: ambient_declaration
+                      has: {regex: '^global$', not: {pattern: $_}}
+    class-owner:
+        any:
+            - kind: class_declaration, abstract_class_declaration
+              inside: {matches: declaration-scope, stopBy: {not: {kind: 'export_statement, ambient_declaration'}}}
+            - kind: class
+              any:
+                  - inside:
+                        kind: variable_declarator
+                        field: value
+                        stopBy: {not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression'}}
+                        inside:
+                            kind: lexical_declaration, variable_declaration, using_declaration
+                            inside: {matches: declaration-scope, stopBy: {not: {kind: 'export_statement, ambient_declaration'}}}
+                  - inside:
+                        kind: export_statement
+                        field: value
+                        stopBy: {not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression'}}
+                        inside: {kind: program}
+rule:
+    kind: abstract_method_signature, method_signature, method_definition
+    pattern: $DECLARATION
+    inside: {kind: class_body, inside: {matches: class-owner}}
+    has: {field: name, pattern: $NAME}
+    not: {has: {field: name, regex: '^constructor$'}}
+rewriters:
+    - id: body
+      rule:
+          kind: statement_block
+          inside:
+              kind: method_definition
+              field: body
+              inside: {kind: class_body, inside: {matches: class-owner}}
+      fix: ''
+    - id: nested-class
+      rule: {kind: class_body}
+      fix: '{…}'
+    - id: nested-function
+      rule: {kind: statement_block, inside: {kind: 'function_expression, generator_function, arrow_function, method_definition', field: body}}
+      fix: '{…}'
+transform:
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, nested-class, nested-function]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s*;?\s*$', by: ''}}
+name: $NAME
+signature: $SIGNATURE
+isPublic:
+    not:
+        any:
+            - has: {kind: accessibility_modifier, regex: '^(private|protected)$'}
+            - has: {field: name, kind: private_property_identifier}
+
+---
+id: typescript-class-constructor
+language: tsxlang
+role: member
+parentRuleIds: [typescript-class, typescript-class-value, typescript-default-class]
+symbolType: constructor
+utils:
+    declaration-scope:
+        any:
+            - kind: program
+            - kind: statement_block
+              inside:
+                any:
+                    - kind: internal_module, module
+                    - kind: ambient_declaration
+                      has: {regex: '^global$', not: {pattern: $_}}
+    class-owner:
+        any:
+            - kind: class_declaration, abstract_class_declaration
+              inside: {matches: declaration-scope, stopBy: {not: {kind: 'export_statement, ambient_declaration'}}}
+            - kind: class
+              any:
+                  - inside:
+                        kind: variable_declarator
+                        field: value
+                        stopBy: {not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression'}}
+                        inside:
+                            kind: lexical_declaration, variable_declaration, using_declaration
+                            inside: {matches: declaration-scope, stopBy: {not: {kind: 'export_statement, ambient_declaration'}}}
+                  - inside:
+                        kind: export_statement
+                        field: value
+                        stopBy: {not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression'}}
+                        inside: {kind: program}
+rule:
+    kind: method_definition, method_signature
+    pattern: $DECLARATION
+    inside: {kind: class_body, inside: {matches: class-owner}}
+    has: {field: name, regex: '^constructor$'}
+rewriters:
+    - id: body
+      rule:
+          kind: statement_block
+          inside:
+              kind: method_definition
+              field: body
+              inside: {kind: class_body, inside: {matches: class-owner}}
+      fix: ''
+    - id: nested-class
+      rule: {kind: class_body}
+      fix: '{…}'
+    - id: nested-function
+      rule: {kind: statement_block, inside: {kind: 'function_expression, generator_function, arrow_function, method_definition', field: body}}
+      fix: '{…}'
+transform:
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, nested-class, nested-function]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s*;?\s*$', by: ''}}
+name: constructor
+signature: $SIGNATURE
+isPublic: {not: {has: {kind: accessibility_modifier, regex: '^(private|protected)$'}}}
+
+---
+id: typescript-class-field
+language: tsxlang
+role: member
+parentRuleIds: [typescript-class, typescript-class-value, typescript-default-class]
+symbolType: field
+utils:
+    declaration-scope:
+        any:
+            - kind: program
+            - kind: statement_block
+              inside:
+                any:
+                    - kind: internal_module, module
+                    - kind: ambient_declaration
+                      has: {regex: '^global$', not: {pattern: $_}}
+    class-owner:
+        any:
+            - kind: class_declaration, abstract_class_declaration
+              inside: {matches: declaration-scope, stopBy: {not: {kind: 'export_statement, ambient_declaration'}}}
+            - kind: class
+              any:
+                  - inside:
+                        kind: variable_declarator
+                        field: value
+                        stopBy: {not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression'}}
+                        inside:
+                            kind: lexical_declaration, variable_declaration, using_declaration
+                            inside: {matches: declaration-scope, stopBy: {not: {kind: 'export_statement, ambient_declaration'}}}
+                  - inside:
+                        kind: export_statement
+                        field: value
+                        stopBy: {not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression'}}
+                        inside: {kind: program}
+rule:
+    kind: public_field_definition
+    pattern: $DECLARATION
+    inside: {kind: class_body, inside: {matches: class-owner}}
+    has: {field: name, pattern: $NAME}
+rewriters:
+    - id: value
+      rule: {pattern: $_, inside: {kind: public_field_definition, field: value, inside: {kind: class_body, inside: {matches: class-owner}}}}
+      fix: {template: '', expandStart: {regex: '^=$', stopBy: end}}
+transform:
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [value]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s*;?\s*$', by: ''}}
+name: $NAME
+signature: $SIGNATURE
+isPublic:
+    not:
+        any:
+            - has: {kind: accessibility_modifier, regex: '^(private|protected)$'}
+            - has: {field: name, kind: private_property_identifier}
+
+---
+id: typescript-module-type
+language: tsxlang
+role: member
+parentRuleIds: [typescript-module, typescript-global]
+symbolType: struct
+rule:
+    kind: type_alias_declaration
+    pattern: $DECLARATION
+    has: {field: name, pattern: $NAME}
+    inside:
+        kind: statement_block
+        inside: {any: [{kind: 'module, internal_module'}, {kind: ambient_declaration, has: {regex: '^global$', not: {pattern: $_}}}]}
+        stopBy: {not: {kind: 'export_statement, ambient_declaration'}}
+rewriters:
+    - id: body
+      rule: {kind: object_type, inside: {kind: type_alias_declaration, field: value, stopBy: {not: {kind: 'union_type, intersection_type, parenthesized_type'}}}}
+      fix: '{…}'
+transform:
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s*;?\s*$', by: ''}}
+name: $NAME
+signature: $SIGNATURE
+isPublic:
+    any:
+        - inside: {kind: export_statement}
+        - inside: {kind: ambient_declaration, stopBy: {not: {kind: 'statement_block, module, internal_module, expression_statement'}}}
+
+---
+id: typescript-module-interface
+language: tsxlang
+role: member
+parentRuleIds: [typescript-module, typescript-global]
+symbolType: interface
+rule:
+    kind: interface_declaration
+    pattern: $DECLARATION
+    has: {field: name, pattern: $NAME}
+    inside:
+        kind: statement_block
+        inside: {any: [{kind: 'module, internal_module'}, {kind: ambient_declaration, has: {regex: '^global$', not: {pattern: $_}}}]}
+        stopBy: {not: {kind: 'export_statement, ambient_declaration'}}
+rewriters:
+    - id: body
+      rule: {kind: interface_body, inside: {kind: interface_declaration, field: body}}
+      fix: ''
+transform:
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s*;?\s*$', by: ''}}
+name: $NAME
+signature: $SIGNATURE
+isPublic:
+    any:
+        - inside: {kind: export_statement}
+        - inside: {kind: ambient_declaration, stopBy: {not: {kind: 'statement_block, module, internal_module, expression_statement'}}}
+
+---
+id: typescript-module-class
+language: tsxlang
+role: member
+parentRuleIds: [typescript-module, typescript-global]
+symbolType: class
+utils:
+    declaration-scope:
+        any:
+            - kind: program
+            - kind: statement_block
+              inside:
+                any:
+                    - kind: internal_module, module
+                    - kind: ambient_declaration
+                      has: {regex: '^global$', not: {pattern: $_}}
+    class-owner:
+        any:
+            - kind: class_declaration, abstract_class_declaration
+              inside: {matches: declaration-scope, stopBy: {not: {kind: 'export_statement, ambient_declaration'}}}
+            - kind: class
+              any:
+                  - inside:
+                        kind: variable_declarator
+                        field: value
+                        stopBy: {not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression'}}
+                        inside:
+                            kind: lexical_declaration, variable_declaration, using_declaration
+                            inside: {matches: declaration-scope, stopBy: {not: {kind: 'export_statement, ambient_declaration'}}}
+                  - inside:
+                        kind: export_statement
+                        field: value
+                        stopBy: {not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression'}}
+                        inside: {kind: program}
+rule:
+    kind: class_declaration, abstract_class_declaration
+    pattern: $DECLARATION
+    has: {field: name, pattern: $NAME}
+    inside:
+        kind: statement_block
+        inside: {any: [{kind: 'module, internal_module'}, {kind: ambient_declaration, has: {regex: '^global$', not: {pattern: $_}}}]}
+        stopBy: {not: {kind: 'export_statement, ambient_declaration'}}
+rewriters:
+    - id: body
+      rule: {kind: class_body, inside: {matches: class-owner}}
+      fix: ''
+    - id: nested
+      rule: {kind: class_body}
+      fix: '{…}'
+transform:
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, nested]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s*;?\s*$', by: ''}}
+name: $NAME
+signature: $SIGNATURE
+isPublic:
+    any:
+        - inside: {kind: export_statement}
+        - inside: {kind: ambient_declaration, stopBy: {not: {kind: 'statement_block, module, internal_module, expression_statement'}}}
+
+---
+id: typescript-module-enum
+language: tsxlang
+role: member
+parentRuleIds: [typescript-module, typescript-global]
+symbolType: enum
+rule:
+    kind: enum_declaration
+    pattern: $DECLARATION
+    has: {field: name, pattern: $NAME}
+    inside:
+        kind: statement_block
+        inside: {any: [{kind: 'module, internal_module'}, {kind: ambient_declaration, has: {regex: '^global$', not: {pattern: $_}}}]}
+        stopBy: {not: {kind: 'export_statement, ambient_declaration'}}
+rewriters:
+    - id: body
+      rule: {kind: enum_body, inside: {kind: enum_declaration, field: body}}
+      fix: ''
+transform:
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s*;?\s*$', by: ''}}
+name: $NAME
+signature: $SIGNATURE
+isPublic:
+    any:
+        - inside: {kind: export_statement}
+        - inside: {kind: ambient_declaration, stopBy: {not: {kind: 'statement_block, module, internal_module, expression_statement'}}}
+
+---
+id: typescript-module-function
+language: tsxlang
+role: member
+parentRuleIds: [typescript-module, typescript-global]
+symbolType: function
+utils:
+    declaration-scope:
+        any:
+            - kind: program
+            - kind: statement_block
+              inside:
+                  any:
+                      - kind: internal_module, module
+                      - kind: ambient_declaration
+                        has: {regex: '^global$', not: {pattern: $_}}
+rule:
+    kind: function_declaration, generator_function_declaration, function_signature
+    pattern: $DECLARATION
+    has: {field: name, pattern: $NAME}
+    inside:
+        kind: statement_block
+        inside: {any: [{kind: 'module, internal_module'}, {kind: ambient_declaration, has: {regex: '^global$', not: {pattern: $_}}}]}
+        stopBy: {not: {kind: 'export_statement, ambient_declaration'}}
+rewriters:
+    - id: body
+      rule:
+          kind: statement_block
+          inside:
+              kind: function_declaration, generator_function_declaration
+              field: body
+              inside: {matches: declaration-scope, stopBy: {not: {kind: 'export_statement, ambient_declaration'}}}
+      fix: ''
+    - id: nested-class
+      rule: {kind: class_body}
+      fix: '{…}'
+    - id: nested-function
+      rule: {kind: statement_block, inside: {kind: 'function_declaration, generator_function_declaration, function_expression, generator_function, arrow_function', field: body}}
+      fix: '{…}'
+transform:
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, nested-class, nested-function]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s*;?\s*$', by: ''}}
+name: $NAME
+signature: $SIGNATURE
+isPublic:
+    any:
+        - inside: {kind: export_statement}
+        - inside: {kind: ambient_declaration, stopBy: {not: {kind: 'statement_block, module, internal_module, expression_statement'}}}
+
+---
+id: typescript-module-function-value
+language: tsxlang
+role: member
+parentRuleIds: [typescript-module, typescript-global]
+symbolType: function
+utils:
+    effect-root-binding:
+        any:
+            - kind: identifier, undefined, shorthand_property_identifier_pattern
+              pattern: $OUTLINE_EFFECT_ROOT
+            - kind: object_pattern, array_pattern, rest_pattern
+              has: {matches: effect-root-binding}
+            - kind: assignment_pattern, object_assignment_pattern
+              has: {field: left, matches: effect-root-binding}
+            - kind: pair_pattern
+              has: {field: value, matches: effect-root-binding}
+    effect-namespace-root:
+        any:
+            - kind: identifier
+              pattern: $OUTLINE_EFFECT_ROOT
+            - kind: nested_identifier, member_expression
+              has: {field: object, matches: effect-namespace-root}
+    effect-root-declaration:
+        any:
+            - kind: lexical_declaration, variable_declaration, using_declaration
+              has: {kind: variable_declarator, has: {field: name, matches: effect-root-binding}}
+            - kind: function_declaration, generator_function_declaration, class_declaration, abstract_class_declaration, enum_declaration
+              has: {field: name, pattern: $OUTLINE_EFFECT_ROOT}
+            - kind: internal_module, module
+              has: {field: name, matches: effect-namespace-root}
+            - kind: expression_statement
+              has: {matches: effect-root-declaration}
+            - kind: export_statement, ambient_declaration
+              has: {matches: effect-root-declaration}
+            - kind: import_alias
+              has: {kind: identifier, nthChild: 1, pattern: $OUTLINE_EFFECT_ROOT}
+            - kind: import_statement
+              has: {kind: import_require_clause, has: {kind: identifier, nthChild: 1, pattern: $OUTLINE_EFFECT_ROOT}}
+    effect-root:
+        kind: identifier
+        pattern: $OUTLINE_EFFECT_ROOT
+        not:
+            inside:
+                kind: statement_block
+                stopBy: end
+                has: {matches: effect-root-declaration}
+    effect-namespace-import:
+        kind: import_clause
+        has: {kind: namespace_import, has: {kind: identifier, pattern: $OUTLINE_EFFECT_ROOT}}
+    effect-import:
+        kind: import_statement
+        all:
+            - not: {has: {regex: '^type$', not: {kind: identifier}}}
+            - any:
+                - all:
+                    - has: {field: source, not: {has: {kind: escape_sequence}}, has: {kind: string_fragment, regex: '^effect$'}}
+                    - has:
+                        kind: import_clause
+                        has:
+                            kind: named_imports
+                            has:
+                                kind: import_specifier
+                                all:
+                                    - has:
+                                        field: name
+                                        any:
+                                            - regex: '^Effect$'
+                                            - kind: string
+                                              not: {has: {kind: escape_sequence}}
+                                              has: {kind: string_fragment, regex: '^Effect$'}
+                                    - any:
+                                        - has: {field: alias, pattern: $OUTLINE_EFFECT_ROOT}
+                                        - has: {field: name, pattern: $OUTLINE_EFFECT_ROOT}
+                                          not: {has: {field: alias, pattern: $_}}
+                                    - not: {has: {regex: '^type$', not: {kind: identifier}}}
+                - all:
+                    - has: {field: source, not: {has: {kind: escape_sequence}}, has: {kind: string_fragment, regex: '^effect/Effect$'}}
+                    - has: {matches: effect-namespace-import}
+    effect-module:
+        any:
+            - kind: identifier
+              all:
+                  - matches: effect-root
+                  - inside: {kind: program, stopBy: end, has: {matches: effect-import}}
+            - kind: member_expression
+              all:
+                  - has: {field: property, regex: '^Effect$'}
+                  - has: {field: object, matches: effect-root}
+                  - inside:
+                        kind: program
+                        stopBy: end
+                        has:
+                            kind: import_statement
+                            all:
+                                - not: {has: {regex: '^type$', not: {kind: identifier}}}
+                                - has: {field: source, not: {has: {kind: escape_sequence}}, has: {kind: string_fragment, regex: '^effect$'}}
+                                - has: {matches: effect-namespace-import}
+    effect-function:
+        any:
+            - kind: member_expression
+              all:
+                  - has: {field: property, regex: '^fn(Untraced)?$'}
+                  - has: {field: object, matches: effect-module}
+            - kind: identifier
+              all:
+                  - matches: effect-root
+                  - inside:
+                        kind: program
+                        stopBy: end
+                        has:
+                            kind: import_statement
+                            all:
+                                - not: {has: {regex: '^type$', not: {kind: identifier}}}
+                                - has: {field: source, not: {has: {kind: escape_sequence}}, has: {kind: string_fragment, regex: '^effect/Effect$'}}
+                                - has:
+                                    kind: import_clause
+                                    has:
+                                        kind: named_imports
+                                        has:
+                                            kind: import_specifier
+                                            all:
+                                                - has:
+                                                    field: name
+                                                    any:
+                                                        - regex: '^fn(Untraced)?$'
+                                                        - kind: string
+                                                          not: {has: {kind: escape_sequence}}
+                                                          has: {kind: string_fragment, regex: '^fn(Untraced)?$'}
+                                                - any:
+                                                    - has: {field: alias, pattern: $OUTLINE_EFFECT_ROOT}
+                                                    - has: {field: name, pattern: $OUTLINE_EFFECT_ROOT}
+                                                      not: {has: {field: alias, pattern: $_}}
+                                                - not: {has: {regex: '^type$', not: {kind: identifier}}}
+    function-value:
+        any:
+            - kind: arrow_function, function_expression, generator_function
+            - kind: call_expression
+              has:
+                field: function
+                any:
+                    - matches: effect-function
+                    - kind: call_expression
+                      has: {field: function, matches: effect-function}
+            - kind: as_expression, satisfies_expression, parenthesized_expression, non_null_expression
+              has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: function-value}
+rule:
+    kind: variable_declarator
+    pattern: $DECLARATION
+    all:
+        - has: {field: name, kind: identifier, pattern: $NAME}
+        - has: {field: value, matches: function-value}
+    inside:
+        kind: lexical_declaration, variable_declaration, using_declaration
+        has: {regex: '^(const|let|var|using|await)$', pattern: $$KIND}
+        inside:
+            kind: statement_block
+            inside: {any: [{kind: 'module, internal_module'}, {kind: ambient_declaration, has: {regex: '^global$', not: {pattern: $_}}}]}
+            stopBy: {not: {kind: 'export_statement, ambient_declaration'}}
+rewriters:
+    - id: block
+      rule: {kind: statement_block, inside: {kind: 'arrow_function, function_expression, generator_function', field: body}}
+      fix: '{…}'
+    - id: expression
+      rule: {pattern: $_, not: {kind: statement_block}, inside: {kind: arrow_function, field: body}}
+      fix: …
+transform:
+    PREFIX: {replace: {source: $KIND, replace: '^await$', by: 'await using'}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [block, expression]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s*;?\s*$', by: ''}}
+name: $NAME
+signature: $PREFIX $SIGNATURE
+isPublic:
+    inside:
+        kind: lexical_declaration, variable_declaration, using_declaration
+        any:
+            - inside: {kind: export_statement, ambient_declaration}
+            - inside: {kind: ambient_declaration, stopBy: {not: {kind: 'statement_block, module, internal_module, expression_statement'}}}
+
+---
+id: typescript-module-class-value
+language: tsxlang
+role: member
+parentRuleIds: [typescript-module, typescript-global]
+symbolType: class
+utils:
+    class-value:
+        any:
+            - kind: class
+            - kind: as_expression, satisfies_expression, parenthesized_expression, non_null_expression
+              has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: class-value}
+    declaration-scope:
+        any:
+            - kind: program
+            - kind: statement_block
+              inside:
+                any:
+                    - kind: internal_module, module
+                    - kind: ambient_declaration
+                      has: {regex: '^global$', not: {pattern: $_}}
+    class-owner:
+        any:
+            - kind: class_declaration, abstract_class_declaration
+              inside: {matches: declaration-scope, stopBy: {not: {kind: 'export_statement, ambient_declaration'}}}
+            - kind: class
+              any:
+                  - inside:
+                        kind: variable_declarator
+                        field: value
+                        stopBy: {not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression'}}
+                        inside:
+                            kind: lexical_declaration, variable_declaration, using_declaration
+                            inside: {matches: declaration-scope, stopBy: {not: {kind: 'export_statement, ambient_declaration'}}}
+                  - inside:
+                        kind: export_statement
+                        field: value
+                        stopBy: {not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression'}}
+                        inside: {kind: program}
+rule:
+    kind: variable_declarator
+    pattern: $DECLARATION
+    all:
+        - has: {field: name, kind: identifier, pattern: $NAME}
+        - has: {field: value, matches: class-value}
+    inside:
+        kind: lexical_declaration, variable_declaration, using_declaration
+        has: {regex: '^(const|let|var|using|await)$', pattern: $$KIND}
+        inside:
+            kind: statement_block
+            inside: {any: [{kind: 'module, internal_module'}, {kind: ambient_declaration, has: {regex: '^global$', not: {pattern: $_}}}]}
+            stopBy: {not: {kind: 'export_statement, ambient_declaration'}}
+rewriters:
+    - id: body
+      rule: {kind: class_body, inside: {matches: class-owner}}
+      fix: ''
+    - id: nested
+      rule: {kind: class_body}
+      fix: '{…}'
+transform:
+    PREFIX: {replace: {source: $KIND, replace: '^await$', by: 'await using'}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, nested]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s*;?\s*$', by: ''}}
+name: $NAME
+signature: $PREFIX $SIGNATURE
+isPublic:
+    inside:
+        kind: lexical_declaration, variable_declaration, using_declaration
+        any:
+            - inside: {kind: export_statement, ambient_declaration}
+            - inside: {kind: ambient_declaration, stopBy: {not: {kind: 'statement_block, module, internal_module, expression_statement'}}}
+
+---
+id: typescript-module-constant
+language: tsxlang
+role: member
+parentRuleIds: [typescript-module, typescript-global]
+symbolType: constant
+rule:
+    kind: variable_declarator
+    pattern: $DECLARATION
+    has: {field: name, kind: identifier, pattern: $NAME}
+    inside:
+        kind: lexical_declaration, using_declaration
+        has: {field: kind, regex: '^(const|using|await)$', pattern: $$KIND}
+        inside:
+            kind: statement_block
+            inside: {any: [{kind: 'module, internal_module'}, {kind: ambient_declaration, has: {regex: '^global$', not: {pattern: $_}}}]}
+            stopBy: {not: {kind: 'export_statement, ambient_declaration'}}
+rewriters:
+    - id: block
+      rule: {kind: statement_block, has: {pattern: $_}}
+      fix: '{…}'
+    - id: object
+      rule: {kind: object, has: {pattern: $_}}
+      fix: '{…}'
+    - id: array
+      rule: {kind: array, has: {pattern: $_}}
+      fix: '[…]'
+    - id: expression-body
+      rule: {inside: {kind: arrow_function, field: body}, not: {kind: statement_block}, pattern: $_}
+      fix: …
+transform:
+    PREFIX: {replace: {source: $KIND, replace: '^await$', by: 'await using'}}
+    SHAPED: {rewrite: {source: $DECLARATION, rewriters: [block, object, array, expression-body]}}
+    SIGNATURE: {replace: {source: $SHAPED, replace: '\s*;?\s*$', by: ''}}
+name: $NAME
+signature: $PREFIX $SIGNATURE
+isPublic:
+    inside:
+        kind: lexical_declaration
+        any:
+            - inside: {kind: export_statement}
+            - inside: {kind: ambient_declaration, stopBy: {not: {kind: 'statement_block, module, internal_module, expression_statement'}}}
+
+---
+id: typescript-module-variable
+language: tsxlang
+role: member
+parentRuleIds: [typescript-module, typescript-global]
+symbolType: variable
+rule:
+    kind: variable_declarator
+    pattern: $DECLARATION
+    has: {field: name, kind: identifier, pattern: $NAME}
+    inside:
+        kind: lexical_declaration, variable_declaration
+        has: {regex: '^(let|var)$', pattern: $$KIND}
+        inside:
+            kind: statement_block
+            inside: {any: [{kind: 'module, internal_module'}, {kind: ambient_declaration, has: {regex: '^global$', not: {pattern: $_}}}]}
+            stopBy: {not: {kind: 'export_statement, ambient_declaration'}}
+rewriters:
+    - id: initializer
+      rule: {pattern: $_, inside: {kind: variable_declarator, field: value}}
+      fix: {template: '', expandStart: {regex: '^=$', stopBy: end}}
+transform:
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [initializer]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s*;?\s*$', by: ''}}
+name: $NAME
+signature: $KIND $SIGNATURE
+isPublic:
+    inside:
+        kind: lexical_declaration, variable_declaration
+        any:
+            - inside: {kind: export_statement}
+            - inside: {kind: ambient_declaration, stopBy: {not: {kind: 'statement_block, module, internal_module, expression_statement'}}}
+
+---
+id: typescript-module-namespace
+language: tsxlang
+role: member
+parentRuleIds: [typescript-module, typescript-global]
+symbolType: module
+rule:
+    kind: internal_module
+    pattern: $DECLARATION
+    has: {field: name, pattern: $NAME}
+    inside:
+        kind: statement_block
+        inside: {any: [{kind: 'module, internal_module'}, {kind: ambient_declaration, has: {regex: '^global$', not: {pattern: $_}}}]}
+        stopBy: {not: {kind: 'export_statement, ambient_declaration, expression_statement'}}
+rewriters:
+    - id: body
+      rule: {kind: statement_block, inside: {kind: 'internal_module, module, ambient_declaration'}}
+      fix: ''
+transform:
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s*;?\s*$', by: ''}}
+name: $NAME
+signature: $SIGNATURE
+isPublic:
+    any:
+        - inside: {kind: export_statement}
+        - inside: {kind: ambient_declaration, stopBy: {not: {kind: 'statement_block, module, internal_module, expression_statement'}}}
+
+---
+id: typescript-type-method
+language: tsxlang
+role: member
+parentRuleIds: [typescript-interface, typescript-type]
+symbolType: method
+rule:
+    kind: method_signature
+    pattern: $DECLARATION
+    has: {field: name, pattern: $NAME}
+    inside:
+        any:
+            - kind: interface_body
+            - kind: object_type
+              inside: {kind: type_alias_declaration, field: value, stopBy: {not: {kind: 'union_type, intersection_type, parenthesized_type'}}}
+transform:
+    SIGNATURE: {replace: {source: $DECLARATION, replace: '\s*;?\s*$', by: ''}}
+name: $NAME
+signature: $SIGNATURE
+
+---
+id: typescript-type-property
+language: tsxlang
+role: member
+parentRuleIds: [typescript-interface, typescript-type]
+symbolType: property
+rule:
+    kind: property_signature
+    pattern: $DECLARATION
+    has: {field: name, pattern: $NAME}
+    inside:
+        any:
+            - kind: interface_body
+            - kind: object_type
+              inside: {kind: type_alias_declaration, field: value, stopBy: {not: {kind: 'union_type, intersection_type, parenthesized_type'}}}
+transform:
+    SIGNATURE: {replace: {source: $DECLARATION, replace: '\s*;?\s*$', by: ''}}
+name: $NAME
+signature: $SIGNATURE
+
+---
+id: typescript-call-signature
+language: tsxlang
+role: member
+parentRuleIds: [typescript-interface, typescript-type]
+symbolType: method
+rule:
+    kind: call_signature
+    pattern: $DECLARATION
+    inside:
+        any:
+            - kind: interface_body
+            - kind: object_type
+              inside: {kind: type_alias_declaration, field: value, stopBy: {not: {kind: 'union_type, intersection_type, parenthesized_type'}}}
+transform:
+    SIGNATURE: {replace: {source: $DECLARATION, replace: '\s*;?\s*$', by: ''}}
+name: call
+signature: $SIGNATURE
+
+---
+id: typescript-construct-signature
+language: tsxlang
+role: member
+parentRuleIds: [typescript-interface, typescript-type]
+symbolType: constructor
+rule:
+    kind: construct_signature
+    pattern: $DECLARATION
+    inside:
+        any:
+            - kind: interface_body
+            - kind: object_type
+              inside: {kind: type_alias_declaration, field: value, stopBy: {not: {kind: 'union_type, intersection_type, parenthesized_type'}}}
+transform:
+    SIGNATURE: {replace: {source: $DECLARATION, replace: '\s*;?\s*$', by: ''}}
+name: new
+signature: $SIGNATURE
+
+---
+id: typescript-index-signature
+language: tsxlang
+role: member
+parentRuleIds: [typescript-class, typescript-interface, typescript-type, typescript-class-value, typescript-default-class]
+symbolType: property
+utils:
+    declaration-scope:
+        any:
+            - kind: program
+            - kind: statement_block
+              inside:
+                any:
+                    - kind: internal_module, module
+                    - kind: ambient_declaration
+                      has: {regex: '^global$', not: {pattern: $_}}
+    class-owner:
+        any:
+            - kind: class_declaration, abstract_class_declaration
+              inside: {matches: declaration-scope, stopBy: {not: {kind: 'export_statement, ambient_declaration'}}}
+            - kind: class
+              any:
+                  - inside:
+                        kind: variable_declarator
+                        field: value
+                        stopBy: {not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression'}}
+                        inside:
+                            kind: lexical_declaration, variable_declaration, using_declaration
+                            inside: {matches: declaration-scope, stopBy: {not: {kind: 'export_statement, ambient_declaration'}}}
+                  - inside:
+                        kind: export_statement
+                        field: value
+                        stopBy: {not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression'}}
+                        inside: {kind: program}
+rule:
+    kind: index_signature
+    pattern: $DECLARATION
+    inside:
+        any:
+            - kind: interface_body
+            - kind: class_body
+              inside: {matches: class-owner}
+            - kind: object_type
+              inside: {kind: type_alias_declaration, field: value, stopBy: {not: {kind: 'union_type, intersection_type, parenthesized_type'}}}
+transform:
+    SIGNATURE: {replace: {source: $DECLARATION, replace: '\s*;?\s*$', by: ''}}
+name: index
+signature: $SIGNATURE
+
+---
+id: typescript-enum-assignment
+language: tsxlang
+role: member
+parentRuleIds: [typescript-enum]
+symbolType: enumMember
+rule:
+    kind: enum_assignment
+    pattern: $DECLARATION
+    has: {field: name, pattern: $NAME}
+transform:
+    SIGNATURE: {replace: {source: $DECLARATION, replace: '\s*;?\s*$', by: ''}}
+name: $NAME
+signature: $SIGNATURE
+
+---
+id: typescript-object-property
+language: tsxlang
+role: member
+parentRuleIds: [typescript-constant, typescript-variable, typescript-property-assignment, typescript-default-value]
+symbolType: property
+utils:
+    declared-value:
+        any:
+            - inside:
+                kind: variable_declarator
+                field: value
+                inside:
+                    kind: lexical_declaration, variable_declaration, using_declaration
+                    inside:
+                        any:
+                            - kind: program
+                            - kind: statement_block
+                              inside:
+                                  any:
+                                      - kind: internal_module, module
+                                      - kind: ambient_declaration
+                                        has: {regex: '^global$', not: {pattern: $_}}
+                        stopBy: {not: {kind: 'export_statement, ambient_declaration'}}
+                stopBy:
+                    not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression'}
+            - inside:
+                kind: assignment_expression
+                field: right
+                inside: {kind: expression_statement, inside: {kind: program}}
+                stopBy:
+                    not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression'}
+            - inside:
+                kind: export_statement
+                field: value
+                stopBy: {not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression'}}
+rule:
+    any:
+        - kind: pair
+          has: {field: key, pattern: $NAME}
+        - kind: shorthand_property_identifier
+          pattern: $NAME
+    pattern: $DECLARATION
+    inside: {kind: object, matches: declared-value}
+transform:
+    SIGNATURE: {replace: {source: $DECLARATION, replace: '\s*;?\s*$', by: ''}}
+name: $NAME
+signature: $SIGNATURE
+
+---
+id: typescript-schema-property
+language: tsxlang
+role: member
+parentRuleIds: [typescript-schema, typescript-schema-variable, typescript-schema-assignment]
+symbolType: property
+rule:
+    any:
+        - kind: pair
+          has: {field: key, pattern: $NAME}
+        - kind: shorthand_property_identifier
+          pattern: $NAME
+    pattern: $DECLARATION
+    inside:
+        kind: object
+        nthChild: {position: 1, ofRule: {not: {kind: comment}}}
+        inside:
+            kind: arguments
+            inside:
+                kind: call_expression
+                any:
+                    - inside: {kind: variable_declarator, field: value, stopBy: {not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression'}}}
+                    - inside: {kind: assignment_expression, field: right, stopBy: {not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression'}}}
+transform:
+    SIGNATURE: {replace: {source: $DECLARATION, replace: '\s*;?\s*$', by: ''}}
+name: $NAME
+signature: $SIGNATURE
+
+---
+id: typescript-hook-registration
+language: tsxlang
+role: member
+parentRuleIds: [typescript-function-value]
+symbolType: method
+rule:
+    kind: call_expression
+    inside:
+        kind: expression_statement
+        inside:
+            kind: statement_block
+            inside:
+                kind: arrow_function, function_expression
+                inside: {kind: variable_declarator, field: value}
+    all:
+        - has: {field: function, kind: identifier, regex: '^on$'}
+        - has: {field: arguments, has: {kind: 'string, template_string', nthChild: 1, pattern: $EVENT}}
+transform:
+    NAME: {replace: {source: $EVENT, replace: '^[''"`]([\s\S]*)[''"`]$', by: '$1'}}
+name: $NAME
+signature: on($EVENT)
+
+---
 id: typescript-test-case
-language: tsx
+language: tsxlang
 role: member
 parentRuleIds: [typescript-test]
 symbolType: method
@@ -421,29 +3197,373 @@ name: $NAME
 signature: $CALLEE($TITLE)
 
 ---
-id: typescript-property-assignment
-language: tsx
-role: item
-symbolType: property
+id: typescript-enum-value
+language: tsxlang
+role: member
+parentRuleIds: [typescript-enum]
+symbolType: enumMember
 rule:
-    kind: assignment_expression
+    kind: property_identifier, string, number, computed_property_name, private_property_identifier
+    pattern: $NAME
+    inside: {kind: enum_body}
+name: $NAME
+signature: $NAME
+
+---
+id: typescript-class-static
+language: tsxlang
+role: member
+parentRuleIds: [typescript-class, typescript-class-value, typescript-default-class]
+symbolType: constructor
+utils:
+    declaration-scope:
+        any:
+            - kind: program
+            - kind: statement_block
+              inside:
+                any:
+                    - kind: internal_module, module
+                    - kind: ambient_declaration
+                      has: {regex: '^global$', not: {pattern: $_}}
+    class-owner:
+        any:
+            - kind: class_declaration, abstract_class_declaration
+              inside: {matches: declaration-scope, stopBy: {not: {kind: 'export_statement, ambient_declaration'}}}
+            - kind: class
+              any:
+                  - inside:
+                        kind: variable_declarator
+                        field: value
+                        stopBy: {not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression'}}
+                        inside:
+                            kind: lexical_declaration, variable_declaration, using_declaration
+                            inside: {matches: declaration-scope, stopBy: {not: {kind: 'export_statement, ambient_declaration'}}}
+                  - inside:
+                        kind: export_statement
+                        field: value
+                        stopBy: {not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression'}}
+                        inside: {kind: program}
+rule:
+    kind: class_static_block
     pattern: $DECLARATION
-    inside: {kind: expression_statement, inside: {kind: program}}
-    has: {field: left, kind: member_expression, pattern: $NAME}
+    inside: {kind: class_body, inside: {matches: class-owner}}
 rewriters:
-    - id: block
-      rule: {kind: statement_block, has: {pattern: $_}}
-      fix: '{…}'
-    - id: object
-      rule: {kind: object, has: {pattern: $_}}
-      fix: '{…}'
-    - id: array
-      rule: {kind: array, has: {pattern: $_}}
-      fix: '[…]'
+    - id: body
+      rule: {kind: statement_block, inside: {kind: class_static_block, field: body}}
+      fix: ''
 transform:
-    SHAPED: {rewrite: {source: $DECLARATION, rewriters: [block, object, array]}}
-    FLAT: {replace: {source: $SHAPED, replace: '\s*\n\s*', by: ' '}}
-    SIGNATURE: {replace: {source: $FLAT, replace: ';?$', by: ''}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s*;?\s*$', by: ''}}
+name: static
+signature: $SIGNATURE
+isPublic: false
+
+---
+id: typescript-module-import
+language: tsxlang
+role: member
+parentRuleIds: [typescript-module, typescript-global]
+symbolType: module
+rule:
+    kind: import_alias
+    pattern: $DECLARATION
+    has: {kind: identifier, nthChild: 1, pattern: $NAME}
+transform:
+    SIGNATURE: {replace: {source: $DECLARATION, replace: '\s*;?\s*$', by: ''}}
 name: $NAME
 signature: $SIGNATURE
-isExported: false
+isPublic: {inside: {kind: export_statement}}
+
+---
+id: typescript-object-method
+language: tsxlang
+role: member
+parentRuleIds: [typescript-constant, typescript-variable, typescript-property-assignment, typescript-default-value]
+symbolType: method
+utils:
+    declared-value:
+        any:
+            - inside:
+                kind: variable_declarator
+                field: value
+                inside:
+                    kind: lexical_declaration, variable_declaration, using_declaration
+                    inside:
+                        any:
+                            - kind: program
+                            - kind: statement_block
+                              inside:
+                                  any:
+                                      - kind: internal_module, module
+                                      - kind: ambient_declaration
+                                        has: {regex: '^global$', not: {pattern: $_}}
+                        stopBy: {not: {kind: 'export_statement, ambient_declaration'}}
+                stopBy:
+                    not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression'}
+            - inside:
+                kind: assignment_expression
+                field: right
+                inside: {kind: expression_statement, inside: {kind: program}}
+                stopBy:
+                    not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression'}
+            - inside:
+                kind: export_statement
+                field: value
+                stopBy: {not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression'}}
+rule:
+    kind: method_definition
+    pattern: $DECLARATION
+    has: {field: name, pattern: $NAME}
+    inside: {kind: object, matches: declared-value}
+rewriters:
+    - id: body
+      rule:
+          kind: statement_block
+          inside:
+              kind: method_definition
+              field: body
+              inside: {kind: object, matches: declared-value}
+      fix: ''
+    - id: nested-class
+      rule: {kind: class_body}
+      fix: '{…}'
+    - id: nested-function
+      rule: {kind: statement_block, inside: {kind: 'function_expression, generator_function, arrow_function, method_definition', field: body}}
+      fix: '{…}'
+transform:
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, nested-class, nested-function]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s*;?\s*$', by: ''}}
+name: $NAME
+signature: $SIGNATURE
+
+---
+id: typescript-destructured-constant
+language: tsxlang
+role: item
+symbolType: constant
+utils:
+    binding-owner:
+        any:
+            - inside:
+                  kind: variable_declarator
+                  field: name
+                  inside:
+                      kind: lexical_declaration
+                      has: {field: kind, regex: '^const$', pattern: $$KIND}
+                      inside:
+                          kind: program
+                          stopBy: {not: {kind: 'export_statement, ambient_declaration'}}
+            - matches: binding-parent
+    binding-parent:
+        any:
+            - inside: {kind: 'object_pattern, array_pattern, rest_pattern', matches: binding-owner}
+            - inside: {kind: 'assignment_pattern, object_assignment_pattern', field: left, matches: binding-owner}
+            - inside: {kind: pair_pattern, field: value, matches: binding-owner}
+rule:
+    pattern: $DECLARATION
+    any:
+        - kind: identifier, shorthand_property_identifier_pattern
+          pattern: $NAME
+        - kind: assignment_pattern, object_assignment_pattern
+          has: {field: left, kind: 'identifier, shorthand_property_identifier_pattern', pattern: $NAME}
+    matches: binding-parent
+rewriters:
+    - id: body
+      rule: {kind: statement_block, inside: {kind: 'arrow_function, function_expression, generator_function', field: body}}
+      fix: '{…}'
+transform:
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s*;?\s*$', by: ''}}
+name: $NAME
+signature: $KIND $SIGNATURE
+isExported:
+    any:
+        - inside:
+            kind: ambient_declaration
+            stopBy: {not: {kind: 'object_pattern, array_pattern, rest_pattern, pair_pattern, assignment_pattern, object_assignment_pattern, variable_declarator, lexical_declaration, variable_declaration, using_declaration, statement_block, internal_module, module, expression_statement'}}
+        - inside:
+            kind: export_statement, ambient_declaration
+            stopBy: {not: {kind: 'object_pattern, array_pattern, rest_pattern, pair_pattern, assignment_pattern, object_assignment_pattern, variable_declarator, lexical_declaration, variable_declaration'}}
+        - inside:
+            kind: program
+            stopBy: {not: {kind: 'object_pattern, array_pattern, rest_pattern, pair_pattern, assignment_pattern, object_assignment_pattern, variable_declarator, lexical_declaration, variable_declaration, using_declaration, export_statement, ambient_declaration'}}
+            has:
+                kind: export_statement
+                not: {has: {field: source, pattern: $_}}
+                any:
+                    - has: {kind: export_clause, has: {kind: export_specifier, has: {field: name, pattern: $NAME}}}
+                    - has: {kind: identifier, pattern: $NAME}
+                      any:
+                          - has: {regex: '^default$'}
+                          - has: {regex: '^=$'}
+
+---
+id: typescript-destructured-variable
+language: tsxlang
+role: item
+symbolType: variable
+utils:
+    binding-owner:
+        any:
+            - inside:
+                  kind: variable_declarator
+                  field: name
+                  inside:
+                      kind: lexical_declaration, variable_declaration, using_declaration
+                      has: {regex: '^(let|var)$', pattern: $$KIND}
+                      inside:
+                          kind: program
+                          stopBy: {not: {kind: 'export_statement, ambient_declaration'}}
+            - matches: binding-parent
+    binding-parent:
+        any:
+            - inside: {kind: 'object_pattern, array_pattern, rest_pattern', matches: binding-owner}
+            - inside: {kind: 'assignment_pattern, object_assignment_pattern', field: left, matches: binding-owner}
+            - inside: {kind: pair_pattern, field: value, matches: binding-owner}
+rule:
+    pattern: $DECLARATION
+    any:
+        - kind: identifier, shorthand_property_identifier_pattern
+          pattern: $NAME
+        - kind: assignment_pattern, object_assignment_pattern
+          has: {field: left, kind: 'identifier, shorthand_property_identifier_pattern', pattern: $NAME}
+    matches: binding-parent
+rewriters:
+    - id: body
+      rule: {kind: statement_block, inside: {kind: 'arrow_function, function_expression, generator_function', field: body}}
+      fix: '{…}'
+transform:
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s*;?\s*$', by: ''}}
+name: $NAME
+signature: $KIND $SIGNATURE
+isExported:
+    any:
+        - inside:
+            kind: ambient_declaration
+            stopBy: {not: {kind: 'object_pattern, array_pattern, rest_pattern, pair_pattern, assignment_pattern, object_assignment_pattern, variable_declarator, lexical_declaration, variable_declaration, using_declaration, statement_block, internal_module, module, expression_statement'}}
+        - inside:
+            kind: export_statement, ambient_declaration
+            stopBy: {not: {kind: 'object_pattern, array_pattern, rest_pattern, pair_pattern, assignment_pattern, object_assignment_pattern, variable_declarator, lexical_declaration, variable_declaration'}}
+        - inside:
+            kind: program
+            stopBy: {not: {kind: 'object_pattern, array_pattern, rest_pattern, pair_pattern, assignment_pattern, object_assignment_pattern, variable_declarator, lexical_declaration, variable_declaration, export_statement, ambient_declaration'}}
+            has:
+                kind: export_statement
+                not: {has: {field: source, pattern: $_}}
+                any:
+                    - has: {kind: export_clause, has: {kind: export_specifier, has: {field: name, pattern: $NAME}}}
+                    - has: {kind: identifier, pattern: $NAME}
+                      any:
+                          - has: {regex: '^default$'}
+                          - has: {regex: '^=$'}
+
+---
+id: typescript-module-destructured-constant
+language: tsxlang
+role: member
+parentRuleIds: [typescript-module, typescript-global]
+symbolType: constant
+utils:
+    binding-owner:
+        any:
+            - inside:
+                  kind: variable_declarator
+                  field: name
+                  inside:
+                      kind: lexical_declaration
+                      has: {field: kind, regex: '^const$', pattern: $$KIND}
+                      inside:
+                          kind: statement_block
+                          inside:
+                              any:
+                                  - kind: internal_module, module
+                                  - kind: ambient_declaration
+                                    has: {regex: '^global$', not: {pattern: $_}}
+                          stopBy: {not: {kind: 'export_statement, ambient_declaration'}}
+            - matches: binding-parent
+    binding-parent:
+        any:
+            - inside: {kind: 'object_pattern, array_pattern, rest_pattern', matches: binding-owner}
+            - inside: {kind: 'assignment_pattern, object_assignment_pattern', field: left, matches: binding-owner}
+            - inside: {kind: pair_pattern, field: value, matches: binding-owner}
+rule:
+    pattern: $DECLARATION
+    any:
+        - kind: identifier, shorthand_property_identifier_pattern
+          pattern: $NAME
+        - kind: assignment_pattern, object_assignment_pattern
+          has: {field: left, kind: 'identifier, shorthand_property_identifier_pattern', pattern: $NAME}
+    matches: binding-parent
+rewriters:
+    - id: body
+      rule: {kind: statement_block, inside: {kind: 'arrow_function, function_expression, generator_function', field: body}}
+      fix: '{…}'
+transform:
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s*;?\s*$', by: ''}}
+name: $NAME
+signature: $KIND $SIGNATURE
+isPublic:
+    any:
+        - inside:
+              kind: export_statement, ambient_declaration
+              stopBy: {not: {kind: 'object_pattern, array_pattern, rest_pattern, pair_pattern, assignment_pattern, object_assignment_pattern, variable_declarator, lexical_declaration, variable_declaration'}}
+        - inside:
+              kind: ambient_declaration
+              stopBy: {not: {kind: 'object_pattern, array_pattern, rest_pattern, pair_pattern, assignment_pattern, object_assignment_pattern, variable_declarator, lexical_declaration, variable_declaration, statement_block, module, internal_module, expression_statement'}}
+
+---
+id: typescript-module-destructured-variable
+language: tsxlang
+role: member
+parentRuleIds: [typescript-module, typescript-global]
+symbolType: variable
+utils:
+    binding-owner:
+        any:
+            - inside:
+                  kind: variable_declarator
+                  field: name
+                  inside:
+                      kind: lexical_declaration, variable_declaration, using_declaration
+                      has: {regex: '^(let|var)$', pattern: $$KIND}
+                      inside:
+                          kind: statement_block
+                          inside:
+                              any:
+                                  - kind: internal_module, module
+                                  - kind: ambient_declaration
+                                    has: {regex: '^global$', not: {pattern: $_}}
+                          stopBy: {not: {kind: 'export_statement, ambient_declaration'}}
+            - matches: binding-parent
+    binding-parent:
+        any:
+            - inside: {kind: 'object_pattern, array_pattern, rest_pattern', matches: binding-owner}
+            - inside: {kind: 'assignment_pattern, object_assignment_pattern', field: left, matches: binding-owner}
+            - inside: {kind: pair_pattern, field: value, matches: binding-owner}
+rule:
+    pattern: $DECLARATION
+    any:
+        - kind: identifier, shorthand_property_identifier_pattern
+          pattern: $NAME
+        - kind: assignment_pattern, object_assignment_pattern
+          has: {field: left, kind: 'identifier, shorthand_property_identifier_pattern', pattern: $NAME}
+    matches: binding-parent
+rewriters:
+    - id: body
+      rule: {kind: statement_block, inside: {kind: 'arrow_function, function_expression, generator_function', field: body}}
+      fix: '{…}'
+transform:
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s*;?\s*$', by: ''}}
+name: $NAME
+signature: $KIND $SIGNATURE
+isPublic:
+    any:
+        - inside:
+              kind: export_statement, ambient_declaration
+              stopBy: {not: {kind: 'object_pattern, array_pattern, rest_pattern, pair_pattern, assignment_pattern, object_assignment_pattern, variable_declarator, lexical_declaration, variable_declaration'}}
+        - inside:
+              kind: ambient_declaration
+              stopBy: {not: {kind: 'object_pattern, array_pattern, rest_pattern, pair_pattern, assignment_pattern, object_assignment_pattern, variable_declarator, lexical_declaration, variable_declaration, statement_block, module, internal_module, expression_statement'}}

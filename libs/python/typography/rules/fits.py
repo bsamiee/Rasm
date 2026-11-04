@@ -3,15 +3,18 @@
 from functools import partial
 
 import msgspec
+lazy from fontTools.misc.transform import Offset
+lazy from pathops import PathOp
+lazy from scipy.optimize import root_scalar
 
 from typography.faces.declaration import Em, Ratio
 from typography.rules.measures import Rule
 lazy from typography.faces.glyphs import Glyph, Letter, Outline, Source
 lazy from typography.faces.names import Form
-lazy from typography.outlines.measure import counter, gap
-lazy from typography.outlines.paths import area, bounds, combined, offset, Operation, pieces, transformed, union
+lazy from typography.outlines.measure import counters, gap, inradius
+lazy from typography.outlines.paths import area, bounds, combined, offset, transformed, union
 lazy from typography.outlines.tidy import despiked, snapped, tidied
-lazy from typography.rules.measures import band, dotted, key, nuqta
+lazy from typography.rules.measures import band, dotted, nuqta
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -47,16 +50,19 @@ def _floored(body: Outline, dots: tuple[Outline, ...], floor: float, /) -> Outli
     """Moves a dot group vertically away from its letter's middle until the group stands the floor off the body."""
     group = union(*dots)
     match bounds(body), bounds(group):
-        case (held, moving) if held and moving and (short := floor - gap(body, group)) > 0:
-            return (*body, *transformed(group, (1.0, 0.0, 0.0, 1.0, 0.0, short if moving.middle[1] > held.middle[1] else -short)))
+        case (held, moving) if held and moving and gap(body, group) < floor:
+            above = moving.middle[1] > held.middle[1]
+            bound = abs(held.ymax - moving.ymin if above else moving.ymax - held.ymin) + held.height + moving.height + floor
+            fit = root_scalar(lambda distance: gap(body, transformed(group, Offset(0.0, distance if above else -distance))) - floor, bracket=(0.0, bound))
+            return (*body, *transformed(group, Offset(0.0, fit.root if above else -fit.root)))
         case _:
             return (*body, *group)
 
 
 def _opened(contours: Outline, width: float, /) -> Outline:
-    """Grows each counter narrower than a width until its narrowest span reaches it."""
-    narrow = tuple(hole for _, *holes in pieces(contours) for hole in holes if (span := counter((hole,))) < width and span > 0)
-    return combined(contours, union(*(offset((hole,), (width - counter((hole,))) / 2) for hole in narrow)), Operation.DIFFERENCE) if narrow else contours
+    """Widens counters whose largest inscribed diameter falls below the requested width."""
+    narrow = tuple((void, span) for void in counters(contours) if (span := 2 * inradius(void)) < width)
+    return combined(contours, union(*(offset(void, (width - span) / 2) for void, span in narrow)), PathOp.DIFFERENCE) if narrow else contours
 
 
 def _fit(rule: Outlines, joins: tuple[float, float] | None, canonical: Outline, counted: frozenset[str], em: float, glyph: Glyph, /) -> Glyph:
@@ -67,13 +73,13 @@ def _fit(rule: Outlines, joins: tuple[float, float] | None, canonical: Outline, 
     contours = _opened(contours, rule.opened * em) if rule.opened is not None and glyph.name.text in counted else contours
     area_ = area(canonical)
     body, dots = dotted(msgspec.structs.replace(glyph, contours=contours), area_) if isinstance(glyph.role, Letter) else (contours, ())
-    seated = tuple(_unified(piece, canonical, area_, rule.single) for piece in dots)
-    return msgspec.structs.replace(glyph, contours=_floored(body, seated, rule.floor * em) if rule.floor is not None and seated else (*body, *(*piece for piece in seated)))
+    redrawn = tuple(_unified(piece, canonical, area_, rule.single) for piece in dots)
+    return msgspec.structs.replace(glyph, contours=_floored(body, redrawn, rule.floor * em) if rule.floor is not None and redrawn else (*body, *(*piece for piece in redrawn)))
 
 
 def fitted(source: Source, rule: Outlines, /) -> Source:
     """Cleans every drawn glyph and redraws each letter's single dots as the face's nuqta, at least the floor off the body."""
-    counted = frozenset(key(code, form) for code in rule.letters for form in Form)
+    counted = frozenset(source.key(code, form) for code in rule.letters for form in Form)
     fit = partial(_fit, rule, band(source) if rule.spurs else None, nuqta(source, rule.dot) if rule.dot is not None else (), counted, source.upm)
     return source.replaced(*(fit(glyph) for glyph in source.glyphs if glyph.contours))
 

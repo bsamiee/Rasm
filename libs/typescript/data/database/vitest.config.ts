@@ -1,14 +1,14 @@
 import { cloudflareTest } from '@cloudflare/vitest-plugin';
-import { project } from '../../../../vitest.config.ts';
+import { vitestProject } from '../../../../vitest.config.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-export default project(import.meta.dirname, {
+export default vitestProject(import.meta.dirname, {
     test: {
         projects: [
             { test: { name: 'node', include: ['node.test.ts', 'postgres.test.ts'] } },
             {
-                plugins: [cloudflareTest({ experimental: { newConfig: true } })],
+                plugins: [cloudflareTest({ config: true })],
                 test: { name: 'workers', include: ['d1.test.ts'] },
             },
         ],

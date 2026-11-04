@@ -1,10 +1,10 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-fourth-nesting-level-tsx
-language: tsx
+language: tsxlang
 severity: error
 utils:
     closure: {kind: 'arrow_function, function_expression, generator_function, function_declaration, generator_function_declaration'}
-    scope: {any: [{matches: typescript-control-flow}, {matches: closure}, {matches: typescript-declaration-scope}]}
+    scope: {any: [{matches: typescript-control-flow}, {matches: closure}, &declaration {kind: 'function_declaration, generator_function_declaration, method_definition'}]}
     conditioned:
         any:
             - inside: {kind: 'if_statement, while_statement, do_statement, for_statement, ternary_expression', field: condition, stopBy: &scope {matches: scope}}
@@ -22,10 +22,10 @@ utils:
               not: {matches: conditioned}
             - matches: closure
               all:
-                - inside: {matches: typescript-control-flow, stopBy: {matches: typescript-declaration-scope}}
+                - inside: {matches: typescript-control-flow, stopBy: *declaration}
                 - not: {matches: conditioned}
                 - matches: nested-body
-    boundary: {any: [{matches: level}, {matches: typescript-declaration-scope}]}
+    boundary: {any: [{matches: level}, *declaration]}
 rule:
     matches: level
     pattern: $SCOPE
@@ -38,7 +38,7 @@ rule:
             inside:
                 matches: level
                 stopBy: {matches: boundary}
-                not: {inside: {matches: level, stopBy: {matches: typescript-declaration-scope}}}
+                not: {inside: {matches: level, stopBy: *declaration}}
 transform:
     HEAD: {replace: {source: $SCOPE, replace: '(?s)\s*\{?\s*\n.*$', by: ''}}
 message: '`$HEAD` opens a fourth nesting level'

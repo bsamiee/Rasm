@@ -4,49 +4,105 @@ language: yaml
 severity: error
 files: ['.github/workflows/**', '**/action.{yml,yaml}']
 utils:
-    key:
+    scalar:
         kind: plain_scalar, single_quote_scalar, double_quote_scalar
-        pattern: $KEY
     expression-source:
-        regex: '\$\{\{'
-        any:
-            - kind: flow_node
-            - kind: block_node
-              has: {kind: block_scalar}
-    input:
+        kind: block_node, flow_node
+        has: {kind: 'plain_scalar, single_quote_scalar, double_quote_scalar, block_scalar', regex: '\$\{\{'}
+    root-map:
+        kind: document > :is(block_node, flow_node) > :is(block_mapping, flow_mapping)
+    jobs-map:
+        kind: block_mapping, flow_mapping
+        inside:
+            kind: block_node, flow_node
+            inside:
+                kind: block_mapping_pair, flow_pair
+                has: {field: key, matches: {yaml-resolved-value: {value: {has: {matches: scalar, regex: '^(jobs|"jobs"|''jobs'')$'}}}}}
+                inside: {matches: root-map}
+    job-map:
+        kind: block_mapping, flow_mapping
+        inside:
+            kind: block_node, flow_node
+            inside: {kind: 'block_mapping_pair, flow_pair', inside: {matches: jobs-map}}
+    composite-map:
+        kind: block_mapping, flow_mapping
+        all:
+            - inside:
+                kind: block_node, flow_node
+                inside:
+                    kind: block_mapping_pair, flow_pair
+                    has: {field: key, matches: {yaml-resolved-value: {value: {has: {matches: scalar, regex: '^(runs|"runs"|''runs'')$'}}}}}
+                    inside: {matches: root-map}
+            - has:
+                kind: block_mapping_pair, flow_pair
+                all:
+                    - has: {field: key, matches: {yaml-resolved-value: {value: {has: {matches: scalar, regex: '^(using|"using"|''using'')$'}}}}}
+                    - has: {field: value, matches: {yaml-resolved-value: {value: {has: {matches: scalar, regex: '^(composite|"composite"|''composite'')$'}}}}}
+    steps-pair:
         kind: block_mapping_pair, flow_pair
-        has: {field: key, regex: '^(with|"with"|''with'')$'}
+        has: {field: key, matches: {yaml-resolved-value: {value: {has: {matches: scalar, regex: '^(steps|"steps"|''steps'')$'}}}}}
+        inside: {any: [{matches: job-map}, {matches: composite-map}]}
+    step-node:
+        kind: block_node, flow_node
+        inside:
+            kind: block_sequence_item, flow_sequence
+            inside: {matches: steps-pair, stopBy: {kind: 'block_mapping_pair, flow_pair'}}
+    expression-step:
+        kind: block_mapping, flow_mapping
+        any:
+            - has:
+                kind: block_mapping_pair, flow_pair
+                all:
+                    - has: {field: key, matches: {yaml-resolved-value: {value: {has: {matches: scalar, regex: '^(run|"run"|''run'')$'}}}}}
+                    - has: {field: value, matches: {yaml-resolved-value: {value: {matches: expression-source}}}}
+            - all:
+                - has:
+                    kind: block_mapping_pair, flow_pair
+                    all:
+                        - has: {field: key, matches: {yaml-resolved-value: {value: {has: {matches: scalar, regex: '^(uses|"uses"|''uses'')$'}}}}}
+                        - has: {field: value, matches: {yaml-resolved-value: {value: {has: {matches: scalar, regex: '^["'']?actions/github-script@'}}}}}
+                - has:
+                    kind: block_mapping_pair, flow_pair
+                    all:
+                        - has: {field: key, matches: {yaml-resolved-value: {value: {has: {matches: scalar, regex: '^(with|"with"|''with'')$'}}}}}
+                        - has:
+                            field: value
+                            matches:
+                                yaml-resolved-value:
+                                    value:
+                                        has:
+                                            kind: block_mapping, flow_mapping
+                                            has:
+                                                kind: block_mapping_pair, flow_pair
+                                                all:
+                                                    - has: {field: key, matches: {yaml-resolved-value: {value: {has: {matches: scalar, regex: '^(script|"script"|''script'')$'}}}}}
+                                                    - has: {field: value, matches: {yaml-resolved-value: {value: {matches: expression-source}}}}
+    expression-step-value:
+        matches: {yaml-resolved-value: {value: {has: {matches: expression-step}}}}
 rule:
-    kind: block_mapping_pair, flow_pair
-    all:
-        - has:
-            field: value
+    kind: block_mapping, flow_mapping, alias
+    not:
+        not:
             any:
-                - matches: expression-source
-                - kind: flow_node
-                  has: {kind: alias, has: {kind: alias_name, pattern: $ANCHOR}}
+                - kind: block_mapping, flow_mapping
+                  all: [{inside: {matches: step-node}}, {matches: expression-step}]
+                - kind: alias
                   inside:
-                    kind: document
-                    stopBy: end
-                    has:
-                        stopBy: end
-                        matches: expression-source
-                        has: {kind: anchor, has: {kind: anchor_name, pattern: $ANCHOR}}
-        - any:
-            - all:
-                - has: {field: key, regex: '^(run|"run"|''run'')$', has: {matches: key, stopBy: end}}
-                - not: {inside: {matches: input, stopBy: end}}
-            - all:
-                - has: {field: key, regex: '^(script|"script"|''script'')$', has: {matches: key, stopBy: end}}
-                - inside:
-                    matches: input
-                    stopBy: end
-                    inside:
-                        kind: block_mapping, flow_mapping
-                        has:
-                            kind: block_mapping_pair, flow_pair
-                            all:
-                                - has: {field: key, regex: '^(uses|"uses"|''uses'')$'}
-                                - has: {field: value, regex: '^["'']?actions/github-script@'}
-message: '`$KEY` holds a `${{ }}` expression GitHub splices into code text before a shell or script parses it'
-note: 'Set step `env: {<NAME>: ''${{ <expression> }}''}` and read `"$<NAME>"` in bash, `$env:<NAME>` in pwsh, or `process.env.<NAME>` in `script`'
+                    kind: flow_node
+                    any:
+                        - all: [{matches: step-node}, {matches: expression-step-value}]
+                        - all:
+                            - inside: {matches: steps-pair, field: value}
+                            - matches:
+                                yaml-resolved-value:
+                                    value:
+                                        has:
+                                            kind: block_sequence, flow_sequence
+                                            has:
+                                                any:
+                                                    - kind: block_sequence_item
+                                                      has: {matches: expression-step-value}
+                                                    - kind: flow_node
+                                                      matches: expression-step-value
+message: GitHub interpolates expressions into executable code
+note: 'Move expressions to step `env` and read `"$NAME"` in bash, `$env:NAME` in pwsh, or `process.env.NAME` in github-script'

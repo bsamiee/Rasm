@@ -2,16 +2,18 @@
 
 from abc import abstractmethod
 from collections.abc import Mapping
+from functools import partial
 from typing import ClassVar, Final, override, Protocol, TYPE_CHECKING
 
 import bpy
-from expression import Nothing, Ok, Option, Some
+from expression import Option, Some
+from expression.extra.result import catch
 import msgspec
 
 from blender.bpy.data.rna.descriptors import Descriptor, Value
 from blender.bpy.data.rna.paths import root_in, rooted, Struct
 from blender.bpy.data.rna.properties import case_choices
-from blender.records.faults import accumulated, Fault, Outcome, Reason
+from blender.records.faults import accumulated, Fault, Nothing, Ok, Outcome, Reason
 from blender.records.fields import Case
 
 if TYPE_CHECKING:
@@ -159,7 +161,7 @@ class Count(Condition, frozen=True, kw_only=True):
         return (
             self.collection
             .owner_of(context, item)
-            .map(lambda owner: sum(self.where.map(lambda where: where.holds(context, Some(each))).default_value(True) for each in getattr(owner, self.collection.prop.identifier)))
+            .map(lambda owner: sum(self.where.map(lambda where: where.holds(context, Some(each))).default_value(value=True) for each in getattr(owner, self.collection.prop.identifier)))
             .filter(lambda size: self.least <= size and all(size <= bound for bound in self.most.to_list()))
             .is_some()
         )
@@ -198,7 +200,7 @@ class Extension(Condition, frozen=True, kw_only=True):
 
     @override
     def holds(self, context: bpy.types.Context, item: Option[Struct] = Nothing) -> bool:
-        return root_in(bpy.types.Preferences, context).map(lambda preferences: self.module in preferences.addons).default_value(False)
+        return root_in(bpy.types.Preferences, context).map(lambda preferences: self.module in preferences.addons).default_value(value=False)
 
     @property
     @override
@@ -262,7 +264,9 @@ class Scenes(Case, frozen=True, kw_only=True):
         return (
             Option
             .of_optional(self.names)
-            .map(lambda names: accumulated(Option.of_optional(bpy.data.scenes.get(name)).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(bpy.data.scenes), member=name)) for name in names))
+            .map(
+                lambda names: accumulated(catch(lambda: bpy.data.scenes[name], exception=KeyError)().map_error(partial(Fault.of, Reason.ABSENT, repr(bpy.data.scenes), member=name)) for name in names)
+            )
             .default_with(lambda: Ok(tuple(scene for scene in bpy.data.scenes if not scene.is_runtime_data)))
         )
 
@@ -298,9 +302,8 @@ class Objects(Case, frozen=True, kw_only=True):
     def owners(self, _context: bpy.types.Context) -> Outcome[tuple[bpy.types.Object, ...]]:
         """Returns collection objects."""
         return (
-            Option
-            .of_optional(bpy.data.collections.get(self.collection))
-            .to_result_with(lambda: Fault.of(Reason.ABSENT, repr(bpy.data.collections), member=self.collection))
+            catch(lambda: bpy.data.collections[self.collection], exception=KeyError)()
+            .map_error(partial(Fault.of, Reason.ABSENT, repr(bpy.data.collections), member=self.collection))
             .map(lambda collection: tuple(collection.all_objects))
         )
 
@@ -315,7 +318,7 @@ SCOPES: Final = case_choices(Scope)
 
 def satisfied(condition: Option[Condition], context: bpy.types.Context, item: Option[Struct] = Nothing, /) -> bool:
     """Whether a stated condition holds over the context and item, every context passing while none is stated."""
-    return condition.map(lambda required: required.holds(context, item)).default_value(True)
+    return condition.map(lambda required: required.holds(context, item)).default_value(value=True)
 
 
 def polled(condition: Option[Condition]) -> Mapping[str, _Poll]:
@@ -331,7 +334,7 @@ def polled(condition: Option[Condition]) -> Mapping[str, _Poll]:
                 cls.poll_message_set(lambda: " ".join(fault.message for fault in failures))
         return faults.is_none()
 
-    return {"poll": classmethod(poll)} if condition.is_some() else {}
+    return condition.map(lambda _: {"poll": classmethod(poll)}).default_with(dict[str, _Poll])
 
 
 # --- [SCOPES]
@@ -344,7 +347,7 @@ def scope_choice(default: type[Scope]) -> bpy.props._PropertyDeferred:
 
 def chosen(form: ScopeForm) -> Scope:
     """Returns the scope a form's choice names, a collection's objects by its name."""
-    held: Scope = msgspec.convert({Case.__struct_config__.tag_field: form.scope, "collection": form.collection}, Scope)
+    held: Scope = msgspec.convert({Case.__struct_config__.tag_field: form.scope, "collection": form.collection}, Scope)  # ty: ignore[unsound-assignment]
     return held
 
 

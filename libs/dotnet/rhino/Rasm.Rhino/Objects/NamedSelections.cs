@@ -9,14 +9,16 @@ namespace Rasm.Rhino.Objects;
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class SelectionChange {
-    public static readonly SelectionChange Added = new(selects: true, clears: false);
-    public static readonly SelectionChange Removed = new(selects: false, clears: false);
-    public static readonly SelectionChange Replaced = new(selects: true, clears: true);
+    public static readonly SelectionChange Added = new();
+    public static readonly SelectionChange Removed = new();
+    public static readonly SelectionChange Replaced = new();
 
-    public bool Selects { get; }
+    public bool Selects => this != Removed;
 
-    public bool Clears { get; }
+    public bool Clears => this == Replaced;
 }
+
+internal enum SelectionOperation { Save, Select, Delete, Rename }
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record NamedSelection(Guid Id, string Name, Seq<Guid> Objects, Seq<(Guid ObjectId, ComponentIndex Component)> SubObjects) {
@@ -29,7 +31,7 @@ public sealed record NamedSelectionState(StateName Name, ObjectTarget Objects) :
         from prior in NamedSelections.Named(doc, Name)
         from saved in NamedSelections.Saved(doc, Name, objects.Map(static found => found.Id).Distinct().Strict(), [])
         select new NamedWrite(
-            prior.Head.Match(Some: row => NamedSelections.Saved(doc, Name, row.Objects, row.SubObjects), None: () => NamedSelections.Scripted(doc, "Delete", Name)),
+            prior.Head.Match(Some: row => NamedSelections.Saved(doc, Name, row.Objects, row.SubObjects), None: () => NamedSelections.Scripted(doc, SelectionOperation.Delete, Name)),
             IO.pure(unit));
 }
 
@@ -39,7 +41,7 @@ public sealed record NamedSelectionRestore(StateName Name, SelectionChange Chang
         from held in ObjectTarget.Selection(doc)
         from restored in (from cleared in when(Change.Clears, IO.lift(doc.Objects.UnselectAll).Map(unit)).As()
                           from changed in Change.Selects
-                              ? NamedSelections.Scripted(doc, "Select", Name)
+                              ? NamedSelections.Scripted(doc, SelectionOperation.Select, Name)
                               : IO.lift(() => doc.Objects.Select(found.Bind(static row => row.Objects), @select: false, syncHighlight: true, persistentSelect: true, ignoreGripsState: true, ignoreLayerLocking: true, ignoreLayerVisibility: true)).Map(unit)
                           select unit).Catch(error => NamedSelections.Reverted(doc, held) >> IO.fail<Unit>(error))
         select new NamedWrite(NamedSelections.Reverted(doc, held), IO.pure(unit));
@@ -66,12 +68,11 @@ public static class NamedSelections {
         Entries = static doc => NamedSelection.Read(doc).Map(static rows => rows.Map(Entry).Strict()),
         Rename = static (doc, entry, name) =>
             from found in Found(doc, entry.Name)
-            from renamed in Scripted(doc, "Rename", entry.Name, name)
-            from verified in Found(doc, name)
-            select new NamedWrite(Scripted(doc, "Rename", name, entry.Name), IO.pure(unit)),
+            from renamed in Scripted(doc, SelectionOperation.Rename, entry.Name, name)
+            select new NamedWrite(Scripted(doc, SelectionOperation.Rename, name, entry.Name), IO.pure(unit)),
         Delete = static (doc, entry) =>
             from held in Found(doc, entry.Name)
-            from deleted in Scripted(doc, "Delete", entry.Name)
+            from deleted in Scripted(doc, SelectionOperation.Delete, entry.Name)
             select new NamedWrite(Saved(doc, entry.Name, held.Bind(static row => row.Objects).Distinct().Strict(), held.Bind(static row => row.SubObjects).Distinct().Strict()), IO.pure(unit)),
         Hold = static (doc, _) => ObjectTarget.Selection(doc).Map(held => new NamedWrite(Reverted(doc, held), IO.pure(unit))),
         Accepts = Some<Func<StateName, Fin<Unit>>>(static name =>
@@ -82,7 +83,7 @@ public static class NamedSelections {
     private static NamedEntry Entry(NamedSelection row) => new(Table, row.Name, Some(row.Id));
 
     // --- [SCRIPT]
-    internal static IO<Unit> Scripted(RhinoDoc doc, string option, params Seq<string> names) =>
+    internal static IO<Unit> Scripted(RhinoDoc doc, SelectionOperation option, params Seq<string> names) =>
         Documents.RunScript(doc, $"-_NamedSelections _{option} {string.Join(' ', names.Map(static name => $"{Quote}{name}{Quote}"))}", echo: false, display: None);
 
     internal static IO<Unit> Saved(RhinoDoc doc, string name, Seq<Guid> objects, Seq<(Guid ObjectId, ComponentIndex Component)> parts) =>
@@ -92,12 +93,9 @@ public static class NamedSelections {
                  from found in IO.lift(() => Conversions.Required(doc.Objects.FindId(owned.Key)))
                  from selected in found.SelectSubObjects(toSeq(owned).Map(static part => part.Component), ObjectSelection.Persistent, syncHighlight: true)
                  select selected).As()
-             from made in Scripted(doc, "Save", name)
+             from made in Scripted(doc, SelectionOperation.Save, name)
              select unit).Finally(Reverted(doc, held)))
-        from stored in Named(doc, name)
-        from confirmed in IO.lift(() => RhinoFault.Unless(
-            stored.Head.Exists(row => toHashSet(row.Objects) == toHashSet(objects) && toHashSet(row.SubObjects) == toHashSet(parts)), RhinoReason.Declined, name))
-        select unit;
+        select created;
 
     internal static IO<Unit> Reverted(RhinoDoc doc, Seq<(RhinoObject Object, bool Persistent)> held) =>
         IO.lift(doc.Objects.UnselectAll).Bind(_ => ObjectTarget.Reselected(held));

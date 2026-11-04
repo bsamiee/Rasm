@@ -1,12 +1,12 @@
 """Collection membership, Outliner order, placement, instancing, and lifetimes."""
 
-from collections.abc import Iterable
+from collections.abc import Generator, Iterable
 from contextlib import ExitStack
 from functools import partial, reduce
-from itertools import chain, starmap
+from itertools import chain, takewhile
 
 import bpy
-from expression import Nothing, Ok, Option, Result, Some
+from expression import Option, Result, Some
 from expression.collections import Block
 from expression.extra.result import catch
 from idprop.types import IDPropertyGroup
@@ -17,7 +17,7 @@ from blender.bpy.data.ids.store import Handle, resolved
 from blender.bpy.data.rna.descriptors import Descriptor, written
 from blender.bpy.data.rna.paths import Struct
 from blender.bpy.data.rna.snapshots import Snapshot
-from blender.records.faults import accumulated, Fault, Faults, Outcome, Reason
+from blender.records.faults import accumulated, Fault, Faults, Nothing, Ok, Outcome, Reason
 from blender.records.trees import reached
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -56,29 +56,22 @@ def walked(root: bpy.types.LayerCollection) -> Block[LayerPath]:
 def entry(collection: bpy.types.Collection, member: Member) -> Outcome[bpy.types.CollectionObject | bpy.types.CollectionChild]:
     """Returns member entry, failing when member is outside collection."""
 
-    def found[E, M](entries: Iterable[E], items: Iterable[M]) -> Outcome[E]:
-        return (
-            Block
-            .of_seq(zip(entries, items))
-            .filter(lambda pair: pair[1] == member)
-            .map(lambda pair: pair[0])
-            .try_head()
-            .to_result_with(lambda: Fault.of(Reason.ABSENT, repr(collection), member=member.name))
-        )
+    def found[E](pairs: Iterable[tuple[E, Member]]) -> Outcome[E]:
+        return Option.of_optional(next((entry for entry, item in pairs if item == member), None)).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(collection), member=member.name))
 
     match member:
         case bpy.types.Object():
-            return found(collection.collection_objects, collection.objects)
+            return found(zip(collection.collection_objects, collection.objects))
         case bpy.types.Collection():
-            return found(collection.collection_children, collection.children)
+            return found(zip(collection.collection_children, collection.children))
 
 
 def parents(collection: bpy.types.Collection) -> tuple[bpy.types.Collection, ...]:
     """Returns direct parents in name order, scene collections last."""
-    users = bpy.data.user_map(subset=(collection,), value_types={"COLLECTION", "SCENE"})[collection]
+    users = sorted(bpy.data.user_map(subset=(collection,), value_types={"COLLECTION", "SCENE"})[collection], key=lambda held: held.name_full)
     return (
-        *sorted((user for user in users if isinstance(user, bpy.types.Collection)), key=lambda held: held.name_full),
-        *(root for user in sorted(users, key=lambda held: held.name_full) if isinstance(user, bpy.types.Scene) and collection in (root := user.collection).children.values()),
+        *(user for user in users if isinstance(user, bpy.types.Collection) and collection in user.children.values()),
+        *(root for user in users if isinstance(user, bpy.types.Scene) and collection in (root := user.collection).children.values()),
     )
 
 
@@ -89,17 +82,25 @@ def reconciled(tree: CollectionState, collection: bpy.types.Collection) -> Outco
         held = dict(zip((*collection.objects, *collection.children), (item.sort_index for item in (*collection.collection_objects, *collection.collection_children))))
 
         def written_all(items: tuple[Member, ...]) -> Outcome[tuple[Member, ...]]:
-            dropped = tuple(item for item in held if type(item) in tree.kinds and item not in items)
+            included = frozenset(items)
+            dropped = tuple(item for item in held if type(item) in tree.kinds and item not in included)
             added = tuple(item for item in items if item not in held)
             moved = tuple((index, item) for index, item in enumerate(items) if held.get(item) != index)
             links = (*((item, False) for item in dropped), *((item, True) for item in added))
             return (
-                reduce(lambda done, link: done.bind(lambda _: _linked(collection, link[0], linked=link[1])), links, Result[None, Faults](ok=None))
+                reduce(Result[None, Faults].bind, (lambda _: _linked(collection, link[0], linked=link[1]) for link in links), Result[None, Faults](ok=None))
+                .map(
+                    lambda _: (
+                        dict[Member, bpy.types.CollectionObject | bpy.types.CollectionChild](
+                            chain(zip(collection.objects, collection.collection_objects), zip(collection.children, collection.collection_children))
+                        )
+                        if moved
+                        else dict[Member, bpy.types.CollectionObject | bpy.types.CollectionChild]()
+                    )
+                )
                 .bind(
-                    lambda _: reduce(
-                        lambda done, order: done.bind(lambda _: entry(collection, order[1]).bind(lambda found: written(found, ("sort_index",), order[0])).map(lambda _: None)),
-                        moved,
-                        Result[None, Faults](ok=None),
+                    lambda entries: reduce(
+                        Result[None, Faults].bind, (lambda _: written(entries[order[1]], ("sort_index",), order[0]).map(lambda _: None) for order in moved), Result[None, Faults](ok=None)
                     )
                 )
                 .map(lambda _: (*dropped, *added, *(item for _, item in moved)))
@@ -129,13 +130,10 @@ def _linked(collection: bpy.types.Collection, member: Member, *, linked: bool) -
 
 def active_editable(view_layer: bpy.types.ViewLayer) -> Outcome[bpy.types.Collection]:
     """Returns active collection or nearest editable included ancestor."""
-    active: bpy.types.Collection = view_layer.active_layer_collection.collection  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-    layers = {node.collection: node for node, _ in reversed(tuple(walked(view_layer.layer_collection)))}
-    return (
-        reached((active,), lambda held: parents(held) if held in layers else ())
-        .filter(lambda held: held in layers and _editable(held) and not layers[held].exclude)
-        .try_head()
-        .to_result_with(lambda: Fault.of(Reason.ABSENT, repr(view_layer), member="active_layer_collection"))
+    active: bpy.types.LayerCollection = view_layer.active_layer_collection  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    path = next((*ancestors, node) for node, ancestors in walked(view_layer.layer_collection) if node == active)
+    return Option.of_optional(next((layer.collection for layer in reversed(tuple(takewhile(lambda layer: not layer.exclude, path))) if _editable(layer.collection)), None)).to_result_with(
+        lambda: Fault.of(Reason.ABSENT, repr(view_layer), member="active_layer_collection")
     )
 
 
@@ -167,7 +165,8 @@ def _editable(collection: bpy.types.Collection) -> bool:
 
 def _holders(item: bpy.types.Object, scene: bpy.types.Scene) -> tuple[bpy.types.Collection, ...]:
     """Editable collections of the scene that link the object directly."""
-    return tuple(held for held in (scene.collection, *scene.collection.children_recursive) if item in held.objects.values() and _editable(held))
+    holders = frozenset(item.users_collection)
+    return tuple(held for held in (scene.collection, *scene.collection.children_recursive) if held in holders and _editable(held))
 
 
 # --- [LIFETIME]
@@ -194,52 +193,90 @@ def duplicated(collection: bpy.types.Collection, parent: bpy.types.Collection, c
         def finished(
             collections: dict[bpy.types.Collection, bpy.types.Collection], objects: dict[bpy.types.Object, bpy.types.Object], data: dict[bpy.types.ID, bpy.types.ID]
         ) -> Outcome[bpy.types.Collection]:
-            mapping: dict[bpy.types.ID, bpy.types.ID] = dict(chain(collections.items(), objects.items(), data.items()))
-            seen: set[tuple[int, type[object]]] = set()
-            owned: set[bpy.types.ID] = set(mapping.values())
+            def copied_parts(pair: tuple[bpy.types.ID, bpy.types.ID]) -> tuple[tuple[bpy.types.ID, bpy.types.ID], ...]:
+                original, made = pair
+                return tuple(
+                    (source, target)
+                    for prop in original.bl_rna.properties
+                    if isinstance(prop, bpy.types.PointerProperty) and prop.is_readonly
+                    for source, target in ((getattr(original, prop.identifier), getattr(made, prop.identifier)),)
+                    if isinstance(source, bpy.types.ID) and isinstance(target, bpy.types.ID) and source != target
+                )
 
-            def custom(group: IDPropertyGroup) -> Outcome[None]:
-                def remapped(name: str, value: object) -> Outcome[None]:
+            mapping = dict(reached(chain(collections.items(), objects.items(), data.items()), copied_parts))
+            owned = frozenset(mapping.values())
+
+            def custom(group: Struct | IDPropertyGroup) -> Outcome[None]:
+                type Changed = Outcome[Option[object]]
+                completed: list[Changed] = []
+
+                def remapped(value: object) -> Generator[object, Changed]:
                     match value:
                         case bpy.types.ID() if value in mapping:
-                            return catch(group.update, exception=ReferenceError)({name: mapping[value]}).map(lambda _: None).map_error(partial(Fault.of, Reason.REFUSED, f"{group!r}[{name!r}]"))
-                        case IDPropertyGroup():
-                            return custom(value)
+                            completed.append(Ok(Some(mapping[value])))
                         case list():
-                            return accumulated(custom(item) for item in value).map(lambda _: None)
+                            answers: list[Changed] = []
+                            for item in value:
+                                answers.append((yield item))  # ruff: ignore[manual-list-comprehension]
+                            completed.append(
+                                accumulated(answers).map(
+                                    lambda changes: Some([change.default_value(item) for item, change in zip(value, changes)]) if any(change.is_some() for change in changes) else Nothing
+                                )
+                            )
                         case _:
-                            return Ok(None)
+                            completed.append(Ok(Nothing))
 
-                return accumulated(starmap(remapped, group.items())).map(lambda _: None)
+                def members(held: Struct | IDPropertyGroup) -> Generator[object, Changed]:
+                    answers: list[Outcome[None]] = []
+                    for name, value in held.items():
+                        changed = yield value
+                        answers.append(
+                            changed.bind(
+                                lambda change: accumulated(
+                                    catch(held.__setitem__, exception=ReferenceError)(name, replacement).map_error(partial(Fault.of, Reason.REFUSED, f"{held!r}[{name!r}]"))  # type: ignore[index]  # ty: ignore[unresolved-attribute]
+                                    for replacement in change.to_list()
+                                ).map(lambda _: None)
+                            )
+                        )
+                    completed.append(accumulated(answers).map(lambda _: Nothing))
 
-            def repointed(owner: Struct) -> Outcome[None]:
-                if (identity := ((owner.as_pointer(), type(owner)))) in seen:
-                    return Ok(None)
-                seen.add(identity)
+                pending = [members(group)]
+                answer: Option[Changed] = Nothing
+                while True:
+                    try:
+                        child = answer.map(pending[-1].send).default_with(lambda: next(pending[-1]))
+                    except StopIteration:
+                        pending.pop()
+                        result = completed.pop()
+                        if not pending:
+                            return result.map(lambda _: None)
+                        answer = Some(result)
+                    else:
+                        pending.append(members(child) if isinstance(child, IDPropertyGroup) else remapped(child))
+                        answer = Nothing
 
-                def member(prop: bpy.types.Property) -> Outcome[None]:
+            writes: list[Outcome[None]] = []
+
+            def followed(row: tuple[type[Struct], Struct]) -> Iterable[tuple[type[Struct], Struct]]:
+                _, owner = row
+                for prop in owner.bl_rna.properties:
                     match prop:
                         case bpy.types.PointerProperty():
                             match getattr(owner, prop.identifier):
                                 case bpy.types.ID() as value if not prop.is_readonly and value in mapping:
-                                    return Descriptor(root=type(owner), owner=(), prop=prop).write(owner, mapping[value]).map(lambda _: None)
-                                case bpy.types.ID(is_embedded_data=True) as value if prop.is_readonly:
-                                    owned.add(value)
-                                    return repointed(value)
+                                    writes.append(Descriptor(root=type(owner), owner=(), prop=prop).write(owner, mapping[value]).map(lambda _: None))
+                                case bpy.types.ID() as value if prop.is_readonly and value in owned:
+                                    yield type(value), value
                                 case bpy.types.ID() | None:
-                                    return Ok(None)
+                                    pass
                                 case bpy.types.bpy_struct(id_data=held) as value if held in owned:
-                                    return repointed(value)
-                                case _:
-                                    return Ok(None)
+                                    yield type(value), value
                         case bpy.types.CollectionProperty():
-                            return accumulated(repointed(item) for item in getattr(owner, prop.identifier) if item.id_data in owned).map(lambda _: None)
+                            yield from ((type(item), item) for item in getattr(owner, prop.identifier) if item.id_data in owned)
                         case _:
-                            return Ok(None)
-
-                return accumulated((*(member(prop) for prop in owner.bl_rna.properties), catch(owner.id_properties_ensure, exception=TypeError)().map(custom).default_value(Ok(None)))).map(
-                    lambda _: None
-                )
+                            pass
+                if hasattr(owner, "__getitem__"):
+                    writes.append(custom(owner))
 
             def rebuilt(original: bpy.types.Collection) -> Outcome[None]:
                 made = collections[original]
@@ -278,7 +315,9 @@ def duplicated(collection: bpy.types.Collection, parent: bpy.types.Collection, c
 
             for original, made in objects.items():
                 made.matrix_parent_inverse = original.matrix_parent_inverse.copy()
-            return accumulated(repointed(made) for made in mapping.values()).bind(lambda _: accumulated(rebuilt(held) for held in tree)).bind(placed)
+            seeds: Iterable[tuple[type[Struct], Struct]] = ((type(made), made) for made in mapping.values())  # ty: ignore[unsound-assignment]
+            reached(seeds, followed)
+            return accumulated(writes).bind(lambda _: accumulated(rebuilt(held) for held in tree)).bind(placed)
 
         return retained(
             copied(tree).bind(
@@ -293,7 +332,7 @@ def duplicated(collection: bpy.types.Collection, parent: bpy.types.Collection, c
 
 
 def grouped(item: bpy.types.Object, scene: bpy.types.Scene, name: str) -> Outcome[bpy.types.Collection]:
-    """Wraps object in collection under its editable holders or scene collection, removing it on fault."""
+    """Adds object to a new collection under editable scene holders or scene root, preserving direct links and removing the new collection on fault."""
     holders = _holders(item, scene) or (scene.collection,)
     return kept(created(Nothing, name), lambda made: relinked(made, (item,), linked=True).bind(lambda _: accumulated(relinked(held, (made,), linked=True) for held in holders)).map(lambda _: made))
 
@@ -301,10 +340,7 @@ def grouped(item: bpy.types.Object, scene: bpy.types.Scene, name: str) -> Outcom
 def ungrouped(collection: bpy.types.Collection) -> Outcome[int]:
     """Dissolves collection into its parents, returning removed count."""
     members = (*collection.objects, *collection.children)
-    return accumulated(
-        relinked(parent, tuple(member for member in members if not (isinstance(member, bpy.types.Collection) and parent in {member, *member.children_recursive})), linked=True)
-        for parent in parents(collection)
-    ).bind(lambda _: released((collection,)))
+    return accumulated(relinked(parent, members, linked=True) for parent in parents(collection)).bind(lambda _: released((collection,)))
 
 
 def deleted(collection: bpy.types.Collection) -> Outcome[int]:

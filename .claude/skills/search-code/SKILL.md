@@ -86,14 +86,12 @@ jq -c '(.["$defs"] // .definitions).<Def>' ${CLAUDE_PROJECT_DIR}/node_modules/<p
 ```
 
 Python package in `uv.lock`, `--with <pkg>` before `python` resolves one outside the lock:
-1. Declared API from `__all__`, public names of `dir` without one
-2. Signature per parameter with module and docstring, a class lists its members
-3. Body of a function or class
+1. Docs, signatures, and visible members; dotted names select members, module source holds declared `__all__` and imports
+2. Module source with `<mod>`, member source with `<mod>:<qualname>`; `-d` replaces source with origin and cache details
 
 ```bash
-uv run --frozen python -c "import <mod>; print(getattr(<mod>, '__all__', None) or [n for n in dir(<mod>) if not n.startswith('_')])"
-uv run --frozen python -c "import <mod>; help(<mod>.<Obj>)"
-uv run --frozen python -c "import inspect, <mod>; print(inspect.getsource(<mod>.<Obj>))"
+uv run --frozen python -m pydoc <mod>
+uv run --frozen python -m inspect <mod>:<qualname>
 ```
 
 Python typed signature per overload from a package's `.pyi` or its `-stubs` package where the runtime declares no types:

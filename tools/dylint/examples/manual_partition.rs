@@ -1,99 +1,175 @@
 use core::hint::black_box;
-use std::sync::mpsc;
-
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const VERSIONS: &[Version] = &[Version("2024-11-05"), Version("2025-06-18"), Version("2026-07-28")];
+use std::{
+    alloc::System,
+    sync::atomic::{AtomicUsize, Ordering},
+};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-#[derive(Clone, Debug, PartialEq)]
-struct Version(&'static str);
-
-#[derive(Debug)]
-struct Lifecycle {
-    preferred: Vec<Version>,
-    legacy: Option<Version>,
-}
-
-#[derive(Debug)]
 struct Catalog {
     words: Vec<&'static str>,
 }
 
+impl Catalog {
+    fn split(&self) -> (Vec<&'static str>, Vec<&'static str>) {
+        let blank = self.words.iter().filter(|word| word.is_empty()).copied().collect();
+        let filled = self.words.iter().filter(|word| !word.is_empty()).copied().collect();
+        (blank, filled)
+    }
+}
+
+impl AsRef<Catalog> for [u8] {
+    fn as_ref(&self) -> &Catalog {
+        CALLS.fetch_add(1, Ordering::Relaxed);
+        &EMPTY
+    }
+}
+
+impl<'a> FromIterator<&'a Catalog> for Vec<u8> {
+    fn from_iter<T: IntoIterator<Item = &'a Catalog>>(items: T) -> Self {
+        CALLS.fetch_add(1, Ordering::Relaxed);
+        items.into_iter().map(|item| u8::from(item.words.is_empty())).collect()
+    }
+}
+
+impl<'a> FromIterator<&'a Catalog> for Vec<&'a Catalog, System> {
+    fn from_iter<T: IntoIterator<Item = &'a Catalog>>(_: T) -> Self {
+        CALLS.fetch_add(1, Ordering::Relaxed);
+        Self::new_in(System)
+    }
+}
+
+// --- [SERVICES] ------------------------------------------------------------------------
+
+static CALLS: AtomicUsize = AtomicUsize::new(0);
+static EMPTY: Catalog = Catalog { words: Vec::new() };
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-impl Version {
-    fn legacy(&self) -> bool { self.0 < "2026" }
-}
-
-impl Lifecycle {
-    fn unplaced(&self) -> usize { VERSIONS.len().saturating_sub(self.preferred.len()).saturating_sub(usize::from(self.legacy.as_ref().is_some_and(Version::legacy))) }
-}
-
-impl Catalog {
-    fn split(&self) -> (usize, Option<&'static str>) { (self.words.iter().filter(|word| word.is_empty()).count(), self.words.iter().find(|word| !word.is_empty()).copied()) }
-}
-
-fn short(word: &&&str) -> bool { word.len() < 4 }
-
-fn lifecycle() -> Lifecycle {
-    Lifecycle { preferred: VERSIONS.iter().rev().filter(|version| !version.legacy()).cloned().collect(), legacy: VERSIONS.iter().rev().find(|version| version.legacy()).cloned() }
-}
-
 fn halves(words: &[&'static str]) -> (Vec<&'static str>, Vec<&'static str>) {
-    let blank = words.iter().filter(|word| word.trim().is_empty()).copied().collect::<Vec<_>>();
-    let filled = words.iter().filter(|text| !text.trim().is_empty()).copied().collect::<Vec<_>>();
+    let blank = words.iter().filter(|word| str::is_empty(word)).copied().collect();
+    let filled = words.iter().filter(|word| !str::is_empty(word)).copied().collect();
     (blank, filled)
 }
 
-fn named(words: &[&'static str]) -> (usize, Option<&'static str>) {
-    let counted = words.iter().filter(short).count();
-    (counted, words.iter().find(|word| !short(word)).copied())
+fn trimmed(words: &[&'static str]) -> (Vec<&'static str>, Vec<&'static str>) {
+    let blank = words.iter().filter(|word| word.trim().is_empty()).copied().collect();
+    let filled = words.iter().filter(|word| !word.trim().is_empty()).copied().collect();
+    (blank, filled)
 }
 
-fn other(words: &[&'static str], names: &[&'static str]) -> (usize, Option<&'static str>) { (words.iter().filter(|word| word.is_empty()).count(), names.iter().find(|word| !word.is_empty()).copied()) }
-
-fn same(words: &[&'static str]) -> (usize, Option<&'static str>) { (words.iter().filter(|word| word.is_empty()).count(), words.iter().find(|word| word.is_empty()).copied()) }
-
-fn branched(words: &[&'static str], counting: bool) -> usize {
-    if counting { words.iter().filter(|word| word.is_empty()).count() } else { usize::from(words.iter().find(|word| !word.is_empty()).is_some()) }
+fn closures(words: &[&'static str]) -> (Vec<&'static str>, Vec<&'static str>) {
+    let blank = || words.iter().filter(|word| word.is_empty()).copied().collect::<Vec<_>>();
+    let filled = words.iter().filter(|word| !word.is_empty()).copied().collect();
+    (blank(), filled)
 }
 
-fn probed(words: &[&'static str]) -> (Option<&'static str>, Option<&'static str>) {
-    (words.iter().filter(|word| word.is_empty()).next_back().copied(), words.iter().find(|word| !word.is_empty()).copied())
+fn closure_halves(words: &[&'static str]) -> (Vec<&'static str>, Vec<&'static str>) {
+    let split = || {
+        let blank = words.iter().filter(|word| word.is_empty()).copied().collect();
+        let filled = words.iter().filter(|word| !word.is_empty()).copied().collect();
+        (blank, filled)
+    };
+    split()
 }
 
-fn drained(received: &mpsc::Receiver<u32>) -> (usize, Option<u32>) { (received.try_iter().filter(|value| *value > 3).count(), received.try_iter().find(|value| *value <= 3)) }
-
-fn computed(numbers: fn() -> Vec<u32>) -> (usize, Option<u32>) { (numbers().iter().filter(|value| value.is_power_of_two()).count(), numbers().into_iter().find(|value| !value.is_power_of_two())) }
-
-fn bumped(words: &mut [String]) -> (usize, usize) {
-    let grown = words.iter_mut().filter(|word| word.is_empty()).map(|word| word.push('x')).count();
-    (grown, words.iter_mut().filter(|word| !word.is_empty()).count())
+fn tuple_members(items: &[(i32, i32)]) -> (Vec<(i32, i32)>, Vec<(i32, i32)>) {
+    let left = items.iter().filter(|(left, _)| *left > 0).copied().collect();
+    let right = items.iter().filter(|(_, right)| !(*right > 0)).copied().collect();
+    (left, right)
 }
 
-fn partitioned(words: &[&'static str]) -> (Vec<&'static str>, Vec<&'static str>) { words.iter().partition(|word| word.is_empty()) }
+fn tuple_halves(items: &[(i32, i32)]) -> (Vec<(i32, i32)>, Vec<(i32, i32)>) {
+    let positive = items.iter().filter(|(value, _)| *value > 0).copied().collect();
+    let negative = items.iter().filter(|(value, _)| !(*value > 0)).copied().collect();
+    (positive, negative)
+}
+
+fn borrowed(items: &[u8]) -> (Vec<&u8>, Vec<&u8>) {
+    let selected = items.iter().filter(|value| **value > 0).collect();
+    let rejected = items.iter().filter(|value| !(**value > 0)).collect();
+    (selected, rejected)
+}
+
+fn mixed(items: &[u8]) -> (Vec<&u8>, Vec<u8>) {
+    let selected = items.iter().filter(|value| **value > 0).collect();
+    let rejected = items.iter().filter(|value| !(**value > 0)).copied().collect();
+    (selected, rejected)
+}
+
+fn discarded(items: &[u8]) -> Vec<u8> {
+    let _ = items.iter().filter(|value| **value > 0).copied().collect::<Vec<_>>();
+    let rejected = items.iter().filter(|value| !(**value > 0)).copied().collect();
+    rejected
+}
+
+fn custom_collection(items: &[Catalog]) -> (Vec<u8>, Vec<u8>, usize) {
+    let selected = items.iter().filter(|item| item.words.is_empty()).collect();
+    let rejected = items.iter().filter(|item| !item.words.is_empty()).collect();
+    (selected, rejected, CALLS.load(Ordering::Relaxed))
+}
+
+fn allocated_collection(items: &[Catalog]) -> (Vec<&Catalog, System>, Vec<&Catalog, System>, usize) {
+    let selected = items.iter().filter(|item| item.words.is_empty()).collect();
+    let rejected = items.iter().filter(|item| !item.words.is_empty()).collect();
+    (selected, rejected, CALLS.load(Ordering::Relaxed))
+}
+
+fn qualified(items: &[u8]) -> (Vec<u8>, Vec<u8>) {
+    let selected = Iterator::collect(Iterator::copied(Iterator::filter(<[u8]>::iter(items), |value| **value > 0)));
+    let rejected = Iterator::collect(Iterator::copied(Iterator::filter(<[u8]>::iter(items), |value| !(**value > 0))));
+    (selected, rejected)
+}
+
+fn predicate_effect(items: &[u8], calls: &AtomicUsize) -> (Vec<u8>, Vec<u8>) {
+    let selected = items.iter().filter(|_| calls.fetch_add(1, Ordering::Relaxed) < 2).copied().collect();
+    let rejected = items.iter().filter(|_| !(calls.fetch_add(1, Ordering::Relaxed) < 2)).copied().collect();
+    (selected, rejected)
+}
+
+fn trait_effect(items: &[u8]) -> (Vec<u8>, Vec<u8>, usize) {
+    let selected = items.iter().filter(|_| AsRef::<Catalog>::as_ref(&items).words.is_empty()).copied().collect();
+    let rejected = items.iter().filter(|_| !AsRef::<Catalog>::as_ref(&items).words.is_empty()).copied().collect();
+    (selected, rejected, CALLS.load(Ordering::Relaxed))
+}
+
+fn observed(_: &&u8) { CALLS.fetch_add(1, Ordering::Relaxed); }
+
+fn source_effect(items: &[u8]) -> (Vec<u8>, Vec<u8>, usize) {
+    let selected = items.iter().inspect(observed).filter(|value| **value > 0).copied().collect();
+    let rejected = items.iter().inspect(observed).filter(|value| !(**value > 0)).copied().collect();
+    (selected, rejected, CALLS.load(Ordering::Relaxed))
+}
+
+fn output_effect(items: &[u8]) -> (Vec<u8>, Vec<u8>, usize) {
+    let selected = items.iter().filter(|value| **value > 0).inspect(observed).copied().collect();
+    let rejected = items.iter().filter(|value| !(**value > 0)).inspect(observed).copied().collect();
+    (selected, rejected, CALLS.load(Ordering::Relaxed))
+}
+
+fn changed_predicate(items: &[u8]) -> (Vec<u8>, Vec<u8>) {
+    let mut limit = 1;
+    let selected = items.iter().filter(|value| **value > limit).copied().collect();
+    limit = 2;
+    let rejected = items.iter().filter(|value| !(**value > limit)).copied().collect();
+    (selected, rejected)
+}
+
+fn changed_source(items: &mut [u8]) -> (Vec<u8>, Vec<u8>) {
+    let selected = items.iter().filter(|value| **value > 0).copied().collect();
+    items.fill(0);
+    let rejected = items.iter().filter(|value| !(**value > 0)).copied().collect();
+    (selected, rejected)
+}
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 fn main() {
-    let words = ["", "port", "tls"];
-    let (sender, received) = mpsc::channel();
-    sender.send(4).unwrap_or_default();
-    black_box(&(
-        lifecycle().unplaced(),
-        short(&&"tls"),
-        Catalog { words: words.to_vec() }.split(),
-        halves(&words),
-        named(&words),
-        other(&words, &words),
-        same(&words),
-        branched(&words, true),
-        probed(&words),
-        drained(&received),
-        computed(|| vec![1, 2]),
-        bumped(&mut [String::new()]),
-        partitioned(&words),
-    ));
+    let words = ["", " ", "item"];
+    black_box((Catalog { words: words.to_vec() }.split(), halves(&words), trimmed(&words), closures(&words), closure_halves(&words)));
+    black_box((tuple_members(&[(1, -1)]), tuple_halves(&[(1, -1)]), borrowed(&[0, 1]), mixed(&[0, 1]), qualified(&[0, 1])));
+    black_box((predicate_effect(&[0, 1], &AtomicUsize::new(0)), source_effect(&[0, 1]), output_effect(&[0, 1]), changed_predicate(&[0, 1]), changed_source(&mut [0, 1])));
+    black_box(trait_effect(&[0, 1]));
+    black_box((discarded(&[0, 1]), custom_collection(&[Catalog { words: Vec::new() }])));
+    black_box(allocated_collection(&[Catalog { words: Vec::new() }]));
 }

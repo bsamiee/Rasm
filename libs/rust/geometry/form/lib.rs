@@ -1,6 +1,6 @@
 #![feature(cmp_minmax, control_flow_into_value, try_blocks_heterogeneous)]
 
-use core::{cmp, iter, mem, num::NonZero};
+use core::{cmp, iter, num::NonZero};
 
 use faer::{
     Accum, MatMut, MatRef, Side, get_global_parallelism,
@@ -10,8 +10,9 @@ use faer::{
     },
 };
 use itertools::Itertools as _;
-use nalgebra::{DVector, Matrix3xX, Point3, Vector3};
-use nonempty_collections::{IntoIteratorExt as _, NEVec, NonEmptyIterator};
+use nalgebra::{DVector, DVectorView, Matrix3xX, Point3, Vector3};
+use nonempty_collections::NEVec;
+use petgraph::unionfind::UnionFind;
 use rasm_optimize::OptimizeError;
 use validated::Validated;
 
@@ -82,30 +83,25 @@ impl Network {
                 Node::Free { position: _, load: _ } => None,
             }),
         );
-        let adjacency = edges.iter().flat_map(|&[first, second]| [[first, second], [second, first]]).fold(vec![Vec::new(); nodes.len()], |mut adjacency, [node, neighbor]| {
-            if let Some(neighbors) = adjacency.get_mut(node) {
-                neighbors.push(neighbor);
-            }
-            adjacency
+        let mut components = edges.iter().fold(UnionFind::<usize>::new(nodes.len()), |mut components, &[first, second]| {
+            components.union(first, second);
+            components
         });
-        let mut reached = supported.iter().map(Option::is_some).collect::<Vec<_>>();
-        iter::successors(supported.iter().enumerate().filter_map(|(node, rank)| rank.map(|_| node)).try_into_nonempty_iter().map(NonEmptyIterator::collect::<NEVec<_>>), |frontier| {
-            frontier
-                .iter()
-                .filter_map(|&node| adjacency.get(node))
-                .flatten()
-                .copied()
-                .filter(|&neighbor| reached.get_mut(neighbor).is_some_and(|mark| !mem::replace(mark, true)))
-                .try_into_nonempty_iter()
-                .map(NonEmptyIterator::collect::<NEVec<_>>)
-        })
-        .for_each(drop);
-        reached.iter().positions(|&mark| !mark).map(|node| Err(FormError::Floating { node })).collect::<Validated<(), _>>().ok()?;
+        let support = supported
+            .iter()
+            .positions(Option::is_some)
+            .reduce(|first, second| {
+                components.union(first, second);
+                first
+            })
+            .map(|node| components.find_mut(node));
+        (0..nodes.len()).filter(|&node| Some(components.find_mut(node)) != support).map(|node| Err(FormError::Floating { node })).collect::<Validated<(), _>>().ok()?;
+        drop(components);
         let incidence = |ranks: &[Option<usize>]| {
             let entries = edges
                 .iter()
                 .enumerate()
-                .flat_map(|(edge, ends)| iter::zip(ends, [1.0, -1.0]).filter_map(move |(&end, sign)| ranks.get(end).copied().flatten().map(|column| Triplet::new(edge, column, sign))))
+                .flat_map(|(edge, ends)| iter::zip(ends, [1.0, -1.0]).filter_map(move |(&end, sign)| ranks[end].map(|column| Triplet::new(edge, column, sign))))
                 .collect::<Vec<_>>();
             Validated::from(SparseColMat::<usize, f64>::try_new_from_triplets(edges.len(), ranks.iter().flatten().count(), &entries).map_err(FormError::from))
         };
@@ -166,7 +162,7 @@ fn view_mut(matrix: &mut Matrix3xX<f64>) -> MatMut<'_, f64> {
 fn grounded<I>(index: &[Option<usize>], edges: &[[usize; 2]], weights: I) -> impl Iterator<Item = (Pair<usize, usize>, f64)>
 where I: IntoIterator<Item = f64> {
     iter::zip(edges, weights).flat_map(move |(&[first, second], weight)| {
-        let (start, end) = (index.get(first).copied().flatten(), index.get(second).copied().flatten());
+        let (start, end) = (index[first], index[second]);
         [
             start.map(|start| (Pair::new(start, start), weight)),
             end.map(|end| (Pair::new(end, end), weight)),
@@ -180,8 +176,8 @@ where I: IntoIterator<Item = f64> {
     })
 }
 
-fn laplacian(network: &Network, magnitudes: &DVector<f64>) -> Result<SparseColMat<usize, f64>, CreationError> {
-    SparseColMat::new_from_argsort(network.symbolic.clone(), &network.argsort, &grounded(&network.index, &network.edges, magnitudes.iter().copied()).map(|(_, value)| value).collect::<Vec<_>>())
+fn laplacian(network: &Network, magnitudes: impl IntoIterator<Item = f64>) -> Result<SparseColMat<usize, f64>, CreationError> {
+    SparseColMat::new_from_argsort(network.symbolic.clone(), &network.argsort, &grounded(&network.index, &network.edges, magnitudes).map(|(_, value)| value).collect::<Vec<_>>())
         .map_err(CreationError::from)
 }
 
@@ -192,25 +188,31 @@ fn spans(network: &Network, free: &Matrix3xX<f64>) -> Matrix3xX<f64> {
     spans
 }
 
-fn balance(network: &Network, spans: &Matrix3xX<f64>, densities: &DVector<f64>) -> [Matrix3xX<f64>; 2] {
+fn balance<'network>(network: &'network Network, spans: &Matrix3xX<f64>, densities: DVectorView<'_, f64>) -> (Matrix3xX<f64>, impl FnOnce() -> Matrix3xX<f64> + use<'network>) {
     let weighted = Matrix3xX::from_iterator(spans.ncols(), iter::zip(spans.column_iter(), densities.iter()).flat_map(|(span, &density)| <[f64; 3]>::from(span * density)));
-    let (mut residual, mut reactions) = (network.loads.clone(), Matrix3xX::zeros(network.supports.ncols()));
+    let mut residual = network.loads.clone();
     sparse_dense_matmul(view_mut(&mut residual), Accum::Add, network.free.transpose(), view(&weighted), -1.0, get_global_parallelism());
-    sparse_dense_matmul(view_mut(&mut reactions), Accum::Replace, network.supports.transpose(), view(&weighted), 1.0, get_global_parallelism());
-    [residual, reactions]
+    (residual, move || {
+        let mut reactions = Matrix3xX::zeros(network.supports.ncols());
+        sparse_dense_matmul(view_mut(&mut reactions), Accum::Replace, network.supports.transpose(), view(&weighted), 1.0, get_global_parallelism());
+        reactions
+    })
 }
 
-fn form(network: &Network, free: &Matrix3xX<f64>, spans: &Matrix3xX<f64>, densities: &DVector<f64>, [residual, supports]: [Matrix3xX<f64>; 2]) -> Form {
+fn form(network: &Network, free: &Matrix3xX<f64>, spans: &Matrix3xX<f64>, densities: DVectorView<'_, f64>, (residual, reactions): (Matrix3xX<f64>, impl FnOnce() -> Matrix3xX<f64>)) -> Form {
+    let (positions, reactions) = {
+        let supports = reactions();
+        let (mut moved, mut held) = (iter::zip(free.column_iter(), residual.column_iter()), supports.column_iter());
+        network
+            .nodes
+            .iter()
+            .filter_map(|node| match *node {
+                Node::Support(position) => held.next().map(|reaction| (position, reaction.into_owned())),
+                Node::Free { position: _, load: _ } => moved.next().map(|(position, imbalance)| (Point3::from(position.into_owned()), -imbalance)),
+            })
+            .unzip()
+    };
     let lengths = DVector::from_iterator(spans.ncols(), spans.column_iter().map(|span| span.norm()));
-    let (mut moved, mut held) = (iter::zip(free.column_iter(), residual.column_iter()), supports.column_iter());
-    let (positions, reactions) = network
-        .nodes
-        .iter()
-        .filter_map(|node| match *node {
-            Node::Support(position) => held.next().map(|reaction| (position, reaction.into_owned())),
-            Node::Free { position: _, load: _ } => moved.next().map(|(position, imbalance)| (Point3::from(position.into_owned()), -imbalance)),
-        })
-        .unzip();
     Form { positions, forces: densities.component_mul(&lengths), lengths, reactions }
 }
 

@@ -9,20 +9,18 @@ def replaced[R: msgspec.Struct](record: R, /, **changes: object) -> Outcome[R]:
     return catch(partial(msgspec.structs.replace, record), exception=ValueError)(**changes).map_error(partial(Fault.of, Reason.INVALID, type(record).__name__))
 ```
 
-`Stock` holds `count` and `reserved`, and its `__post_init__` raises `ValueError(f"reserved {self.reserved} outside 0 to {self.count}")`. `msgspec.json.decode(b'{"count": 3, "reserved": 4}', type=Stock)` fails with `reserved 4 outside 0 to 3`. Applying `replaced(stock, reserved=stock.reserved + 2)` twice from `reserved=0` fails with `Stock is invalid. reserved 4 outside 0 to 3`:
-- `partial(msgspec.structs.replace, record)` fixes the record type before `catch` erases parameters
+`replaced(ramp, stops=tuple((1.0 - at, value) for at, value in reversed(ramp.stops)))` returns a reflected ramp or an `INVALID` fault when rounding merges distinct stop positions. `partial(msgspec.structs.replace, record)` fixes the record type before `catch` erases parameters.
 
 ## [02]-[KEYED_DIFFS]
 
-Keyed diffs map each changed key to its `(before, after)` pair, and a `None` side names the case. `edits` keeps first-seen key order and drops each key with equal snapshots:
+Keyed diffs retain presence separately from each stored value:
 
 ```python
-def edits[K, V](before: Mapping[K, V], after: Mapping[K, V], /) -> frozendict[K, tuple[V | None, V | None]]:
-    return frozendict({key: (old, new) for key in dict.fromkeys((*before, *after)) if (old := before.get(key)) != (new := after.get(key))})
+def edits[K, V](before: Mapping[K, V], after: Mapping[K, V], /) -> frozendict[K, tuple[Option[V], Option[V]]]:
+    return frozendict({key: (old, new) for key in dict.fromkeys((*before, *after)) if (old := Some(before[key]) if key in before else Nothing) != (new := Some(after[key]) if key in after else Nothing)})
 ```
 
-`case (None, new):` matches an insertion, `case (old, None):` a deletion, and `case (old, new):` a change:
-- `msgspec.json.encode` writes `null` for a missing side, and `type=frozendict[str, tuple[V | None, V | None]]` reads it back
+`Some(None)` retains a present null value, `Nothing` marks absence, and equal present values produce no edit. Keys retain first-seen order across both mappings.
 
 ## [03]-[DEPENDENCY_GRAPHS]
 

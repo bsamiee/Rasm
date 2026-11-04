@@ -10,7 +10,7 @@ from typing import Final, Literal, TYPE_CHECKING
 
 import bpy
 from bpy_extras.io_utils import path_reference, path_reference_mode, poll_file_object_drop  # type: ignore[attr-defined]  # ty: ignore[unresolved-import]
-from expression import Error, Nothing, Ok, Option, Some
+from expression import Option, Some
 from expression.extra.result import catch
 import msgspec
 
@@ -21,7 +21,7 @@ from blender.bpy.data.rna.paths import definition, subclass
 from blender.bpy.data.rna.snapshots import assigned
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions
-from blender.records.faults import accumulated, Fault, Outcome, paired, Reason, typed
+from blender.records.faults import accumulated, Error, Fault, Nothing, Ok, Outcome, paired, Reason
 from blender.records.stores import files_copied
 
 if TYPE_CHECKING:
@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_EXPORTER_NAME: Final = Descriptor.declared(bpy.types.CollectionExport, ("name",), bpy.types.StringProperty)
+_EXPORTER_NAME: Final[bpy.types.StringProperty] = bpy.types.CollectionExport.bl_rna.properties["name"]  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -44,33 +44,23 @@ class Interchange[I: bpy.types.PropertyGroup, E: bpy.types.PropertyGroup](msgspe
     drop: Callable[[bpy.types.Context], bool] = poll_file_object_drop
     title: Option[str] = Nothing
 
-    def __post_init__(self) -> None:
-        """Refuses a handler naming neither an import nor an export operator."""
-        if self.importing.is_none() and self.exporting.is_none():
-            raise TypeError(f"{self.key!r} names no import or export operator")
-
-    def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
+    def acquisitions(self, identity: Identity) -> Acquisitions:
         """Returns operators and file handler class."""
-
-        def named(operator: Option[Operator[I]] | Option[Operator[E]]) -> Outcome[Option[str]]:
-            return operator.map(lambda held: identity.name(bpy.types.Operator, held.key).map(Some)).default_value(Ok(Nothing))
-
-        def built(parts: tuple[Option[str], Option[str], str]) -> Acquisitions:
-            import_name, export_name, name = parts
-            kind = type(
-                name,
-                (bpy.types.FileHandler,),
-                {
-                    "bl_idname": name,
-                    "bl_label": self.title.default_with(lambda: bpy.path.display_name(self.key)),
-                    "bl_file_extensions": ";".join(self.extensions),
-                    **import_name.map(lambda identifier: {"bl_import_operator": identifier, "poll_drop": classmethod(lambda _cls, context: self.drop(context))}).default_value({}),
-                    **export_name.map(lambda identifier: {"bl_export_operator": identifier}).default_value({}),
-                },
-            )
-            return (*self.importing.to_list(), *self.exporting.to_list(), kind)
-
-        return paired(named(self.importing), named(self.exporting), identity.name(bpy.types.FileHandler, self.key)).map(built)
+        name = identity.name(bpy.types.FileHandler, self.key)
+        kind = type(
+            name,
+            (bpy.types.FileHandler,),
+            {
+                "bl_idname": name,
+                "bl_label": self.title.default_with(lambda: bpy.path.display_name(self.key)),
+                "bl_file_extensions": ";".join(self.extensions),
+                **self.importing.map(
+                    lambda operator: {"bl_import_operator": identity.name(bpy.types.Operator, operator.key), "poll_drop": classmethod(lambda _cls, context: self.drop(context))}
+                ).default_value({}),
+                **self.exporting.map(lambda operator: {"bl_export_operator": identity.name(bpy.types.Operator, operator.key)}).default_value({}),
+            },
+        )
+        return (*self.importing.to_list(), *self.exporting.to_list(), kind)
 
 
 class References(msgspec.Struct, frozen=True, kw_only=True):
@@ -105,7 +95,7 @@ def dropped_in(spaces: frozenset["rna_enums.SpaceTypeItems"], context: bpy.types
 def length(scene: bpy.types.Scene, source: str) -> Outcome[float]:
     """Parses length text in the scene's unit system into scene units, a unitless number read in the scene's length unit."""
     units = scene.unit_settings
-    category: str = bpy.utils.units.categories.LENGTH  # type: ignore[attr-defined]
+    category: str = bpy.utils.units.categories.LENGTH  # type: ignore[attr-defined]  # ty: ignore[unsound-assignment]
     return (
         catch(bpy.utils.units.to_value, exception=ValueError)(units.system, category, source, str_ref_unit=f"1 {units.length_unit}")
         .map(lambda meters: meters / units.scale_length)
@@ -130,8 +120,11 @@ def reconciled(collection: bpy.types.Collection, exporters: Mapping[str, Exporte
     with ExitStack() as cleanup:
 
         def made(name: str, handler: str) -> Outcome[bpy.types.CollectionExport]:
-            new = catch(catch(catch(held.new, exception=ReferenceError), exception=RuntimeError), exception=TypeError)
-            return tracked(cleanup, held.remove, new(type=handler, name=name).map_error(partial(Fault.of, Reason.REFUSED, request)).bind(partial(typed, bpy.types.CollectionExport, request)))
+            try:
+                item = held.new(type=handler, name=name)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+            except (ReferenceError, RuntimeError, TypeError) as error:
+                return Error(Fault.of(Reason.REFUSED, request, error))
+            return tracked(cleanup, held.remove, Ok(item))
 
         def placed(name: str, exporter: Exporter) -> Outcome[None]:
             def filled(item: bpy.types.CollectionExport) -> Outcome[None]:
@@ -152,7 +145,7 @@ def reconciled(collection: bpy.types.Collection, exporters: Mapping[str, Exporte
                 wanted = subclass(bpy.types.FileHandler, exporter.handler).to_option().map(lambda handler: handler.bl_export_operator)
                 return Option.of_optional(item.export_properties).map(lambda properties: definition(properties).identifier.replace("_OT_", ".").lower()) == wanted
 
-            return Descriptor.validated(_EXPORTER_NAME.prop, name).bind(lambda _: Option.of_optional(existing.get(name)).filter(current).map(Ok).default_with(replaced).bind(filled))
+            return Descriptor.validated(_EXPORTER_NAME, name).bind(lambda _: Option.of_optional(existing.get(name)).filter(current).map(Ok).default_with(replaced).bind(filled))
 
         def completed(_: tuple[None, ...]) -> Outcome[None]:
             return retained(

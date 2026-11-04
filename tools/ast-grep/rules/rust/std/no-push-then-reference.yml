@@ -1,55 +1,15 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-push-then-reference
-language: rust
+language: rustlang
 severity: error
 utils:
     pushed:
         kind: expression_statement
-        has: {nthChild: 1, pattern: $V.$PUSH($$$ARGS)}
-rewriters:
-    - id: unwrapped
-      rule:
-        any:
-            - pattern: $V.last_mut().unwrap()
-            - pattern: $V.last_mut().expect($_)
-            - pattern: $V.last_mut()?
-      fix: $V.push_mut($$$ARGS)
-    - id: back-unwrapped
-      rule:
-        any:
-            - pattern: $V.back_mut().unwrap()
-            - pattern: $V.back_mut().expect($_)
-            - pattern: $V.back_mut()?
-      fix: $V.push_back_mut($$$ARGS)
-    - id: front-unwrapped
-      rule:
-        any:
-            - pattern: $V.front_mut().unwrap()
-            - pattern: $V.front_mut().expect($_)
-            - pattern: $V.front_mut()?
-      fix: $V.push_front_mut($$$ARGS)
-    - id: wrapped
-      rule: {pattern: $V.last_mut()}
-      fix: Some($V.push_mut($$$ARGS))
-    - id: back-wrapped
-      rule: {pattern: $V.back_mut()}
-      fix: Some($V.push_back_mut($$$ARGS))
-    - id: front-wrapped
-      rule: {pattern: $V.front_mut()}
-      fix: Some($V.push_front_mut($$$ARGS))
-    - id: indexed
-      rule: {pattern: '&mut $V[$I]'}
-      fix: $V.insert_mut($$$ARGS)
+        has: {nthChild: 1, pattern: $V.$PUSH($$$_)}
 rule:
     kind: 'expression_statement, let_declaration, call_expression, try_expression'
     all:
         - follows: {matches: pushed}
         - matches: {rust-pushed-element-lookup: {boundary: {matches: rust-conditional-scope}}}
-        - pattern: $NEXT
-transform:
-    REWRITTEN: {rewrite: {source: $NEXT, rewriters: [unwrapped, back-unwrapped, front-unwrapped, wrapped, back-wrapped, front-wrapped, indexed]}}
-fix:
-    template: $REWRITTEN
-    expandStart: {matches: pushed}
 message: '`$V.$PUSH` adds an element the next statement borrows back through a second lookup'
 note: 'Read the `&mut T` that `push_mut`, `insert_mut`, `push_back_mut`, or `push_front_mut` returns, in `Some` for an `Option` consumer'

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-enumeration-table
-language: tsx
+language: tsxlang
 severity: error
 utils:
     member:
@@ -32,4 +32,4 @@ rule:
             - has: {matches: member-entry, has: {nthChild: 2, matches: host-member}}
             - not: {has: {pattern: $_, not: {any: [{kind: comment}, {matches: member-entry}]}}}
 message: 'Table restates members of `$ENUMERATION` under keys of its own'
-note: 'Read each member as `Reflect.get(<enumeration>, <name>)` through one `instanceof <module>.Enumerator` guard declared once beside `<module>`, `<name>` in upper snake, camel, or lowercase'
+note: 'Read `Reflect.get(<enum>, <name>)` through one `instanceof <module>.Enumerator` guard; use upper snake, camel, or lowercase'

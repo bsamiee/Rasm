@@ -7,7 +7,7 @@ from functools import partial
 from typing import Final, Self, TypedDict, Unpack
 
 import bpy
-from expression import Nothing, Ok, Option, Result, Some, try_downcast
+from expression import Option, Result, Some, try_downcast
 from expression.extra.result import catch
 import idprop
 import msgspec
@@ -15,10 +15,9 @@ from typing_extensions import TypeForm
 
 from blender.bpy.data.ids.store import blocks, named
 from blender.bpy.data.rna.descriptors import custom_read
-from blender.bpy.extension.events import Handler
-from blender.bpy.extension.identity import Identity, Key, Resource
-from blender.bpy.extension.registration import Acquisitions, Tier
-from blender.records.faults import Fault, Faults, Outcome, Reason
+from blender.bpy.extension.identity import Identity, Key
+from blender.bpy.extension.registration import Acquisitions, Handler, Resource, Tier
+from blender.records.faults import Fault, Faults, Nothing, Ok, Outcome, Reason
 from blender.records.stores import ContentHash
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -57,7 +56,13 @@ class Mark(msgspec.Struct, frozen=True, kw_only=True):
         group = custom_read(holder, identity.manifest.id).to_option().bind(lambda found: Option.of_optional(try_downcast(idprop.types.IDPropertyGroup, found)))
 
         def field[V](name: str, kind: TypeForm[V]) -> Option[V]:
-            return group.bind(lambda held: catch(msgspec.convert, exception=msgspec.ValidationError)(held.get(name), kind).to_option())
+            for held in group.to_list():
+                try:
+                    value: V = msgspec.convert(held.get(name), kind)  # ty: ignore[unsound-assignment]
+                except msgspec.ValidationError:
+                    return Nothing
+                return Some(value)
+            return Nothing
 
         return field("key", Key).map(
             lambda key: cls(key=key, of=group.bind(lambda held: Option.of_optional(try_downcast(bpy.types.ID, held.get("of")))), content=field("content", ContentHash), slot=field("slot", int))
@@ -89,7 +94,8 @@ class Ownership[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
 
     def found(self, identity: Identity, **origin: Unpack[_Origin]) -> Option[T]:
         """Returns earliest holder of origin."""
-        return Option.of_optional(_earliest(self.held(identity)).get(Mark(key=self.key, **origin)))
+        wanted = Mark(key=self.key, **origin)
+        return Option.of_optional(min((block for block, mark in self.held(identity) if mark == wanted), key=lambda block: block.session_uid, default=None))
 
     def reused(self, identity: Identity, **origin: Unpack[_Origin]) -> Option[T]:
         """Returns the holder a single row reuses for origin, Nothing for a row holding many."""
@@ -139,9 +145,9 @@ class Ownership[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
 
     # --- [REGISTRATION]
 
-    def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
+    def acquisitions(self, identity: Identity) -> Acquisitions:
         """Returns the saved single row's place on its extension's import merge."""
-        return Ok((_MERGES, (Tier.APP_HANDLERS, _Merges.holding(identity, (self.kind, self.key)))) if self.single and self.saved is not Saved.NEVER else ())
+        return (_MERGES, (Tier.APP_HANDLERS, _Merges.holding(identity, (self.kind, self.key)))) if self.single and self.saved is not Saved.NEVER else ()
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -168,7 +174,7 @@ class _Merges:
     @contextmanager
     def holding(identity: Identity, row: tuple[type[bpy.types.ID], Key]) -> Generator[Outcome[None]]:
         """Holds row on the extension's merge until scope exit."""
-        merges = identity.resources[_MERGES]
+        merges = _MERGES[identity]
         with ExitStack() as stack:
             merges.rows.append(row)
             stack.callback(merges.rows.remove, row)
@@ -176,6 +182,13 @@ class _Merges:
 
     def merged(self, identity: Identity, context: bpy.types.BlendImportContext) -> Outcome[None]:
         """Scans each held kind once, remapping imported duplicates and removing them in one batch."""
+
+        def earliest[T: bpy.types.ID](pairs: Iterable[tuple[T, Mark]]) -> Mapping[Mark, T]:
+            earliest: dict[Mark, T] = {}
+            for block, mark in pairs:
+                earliest[mark] = min(earliest.get(mark, block), block, key=lambda item: item.session_uid)
+            return earliest
+
         imported = frozenset(item.id for item in context.import_items if item.id is not None and item.id.library is None)
         kinds = {kind: frozenset(key for held, key in self.rows if held is kind) for kind, _ in self.rows}
         duplicates = tuple(
@@ -183,7 +196,7 @@ class _Merges:
             for kind, keys in kinds.items()
             if any(isinstance(block, kind) for block in imported)
             for local in (_held(identity, kind, keys),)
-            for keepers in (_earliest(local),)
+            for keepers in (earliest(local),)
             for block, mark in local
             if block in imported and block != (keeper := keepers[mark])
         )
@@ -232,11 +245,6 @@ def released(blocks: tuple[bpy.types.ID, ...]) -> Outcome[int]:
 def _held[T: bpy.types.ID](identity: Identity, kind: type[T], keys: frozenset[Key]) -> tuple[tuple[T, Mark], ...]:
     """Returns local blocks of kind with their marks under keys, in collection order."""
     return tuple((block, mark) for block in blocks(kind) if block.library is None for mark in Mark.read(identity, block).filter(lambda mark: mark.key in keys).to_list())
-
-
-def _earliest[T: bpy.types.ID](pairs: Iterable[tuple[T, Mark]]) -> Mapping[Mark, T]:
-    """Returns holder with least session UID per mark."""
-    return {mark: block for block, mark in sorted(pairs, key=lambda pair: pair[0].session_uid, reverse=True)}
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

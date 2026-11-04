@@ -4,31 +4,33 @@ from collections.abc import Callable, Iterator
 from enum import Enum
 from functools import partial
 import itertools
-from typing import Final, Self
+from typing import Final, Generic, Self, TypeVar
 
 import bpy
-from expression import Nothing, Ok, Option, Some, try_downcast
+from expression import Option, Some
 from expression.collections import Block
 import msgspec
 
 from blender.bpy.data.ids.ownership import Ownership, Saved
 from blender.bpy.data.rna.paths import Struct
-from blender.bpy.data.rna.properties import case_choices, choices, enum_choices, EnumItem, held_choices
+from blender.bpy.data.rna.properties import case_choices, choices, enum_choices, EnumItem
 from blender.bpy.extension.identity import Key
 from blender.bpy.nodes.desired import item_key
 from blender.bpy.nodes.graphs import Expr, group_input
 from blender.bpy.nodes.interfaces import Interface, NodeGroup, Socket
-from blender.bpy.render.compositor.effects import Entry
+from blender.bpy.render.compositor.effects import CompositorRecord, Entry
 from blender.bpy.render.compositor.entries import Pinned, StackEnd
 from blender.bpy.render.compositor.masks import Blend
 from blender.bpy.render.compositor.recombination import Recombination, Recombined, TermFilter
 from blender.bpy.render.view_layers.passes import used
 from blender.bpy.settings.attachments import Attachment
-from blender.records.faults import accumulated, Fault, Outcome, Reason
-from blender.records.fields import amended, Case, focused, Lens, member
+from blender.records.faults import accumulated, Fault, Nothing, Ok, Outcome, Reason
+from blender.records.fields import amended, Case, focused, Lens
 from blender.records.trees import Toward
 
 # --- [TYPES] ----------------------------------------------------------------------------
+
+_M_co = TypeVar("_M_co", bound=CompositorRecord, default=CompositorRecord, covariant=True)
 
 type Source = Adjustment | RenderPass | NodeSource | Recombined
 type Target = LayerAt | EffectAt | LayerMaskAt | EffectMaskAt
@@ -82,7 +84,7 @@ _PADDING: Final = 4
 
 def views(_owner: Struct, context: bpy.types.Context | None) -> tuple[EnumItem, ...]:
     """Used view layer items of the context scene."""
-    return held_choices(tuple((layer.name, layer.name, "") for scene in Option.of_optional(context).bind(lambda held: Option.of_optional(held.scene)).to_list() for layer in used(scene)))
+    return choices((layer.name, layer.name, "") for scene in Option.of_optional(context).bind(lambda held: Option.of_optional(held.scene)).to_list() for layer in used(scene))
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -134,13 +136,13 @@ class EffectMaskAt(Case, frozen=True, kw_only=True):
     mask: int
 
 
-class StackLayer[M: Case](msgspec.Struct, frozen=True, kw_only=True):
+class StackLayer(msgspec.Struct, Generic[_M_co], frozen=True, kw_only=True):  # ruff: ignore[non-pep695-generic-class]
     """Source through compositor effects and placement, blended over the layers beneath, its values held by the stack group's inputs."""
 
     key: str
     name: str
     source: Source
-    effects: tuple[Entry[M], ...] = ()
+    effects: tuple[Entry[_M_co], ...] = ()
     blend: Blend = Blend()
     matte: bool = False
     visible: bool = True
@@ -172,19 +174,19 @@ class StackLayer[M: Case](msgspec.Struct, frozen=True, kw_only=True):
         return not self.blend.masks and not self.matte and not self.effects
 
 
-class LayerStack[M: Case](msgspec.Struct, frozen=True, kw_only=True):
+class LayerStack(msgspec.Struct, Generic[_M_co], frozen=True, kw_only=True):  # ruff: ignore[non-pep695-generic-class]
     """Layers ordered bottom first over a transparent frame, the list drawing them top first."""
 
-    layers: tuple[StackLayer[M], ...] = ()
+    layers: tuple[StackLayer[_M_co], ...] = ()
 
-    def composited(self) -> tuple[tuple[StackLayer[M], Option[StackLayer[M]]], ...]:
+    def composited(self) -> tuple[tuple[StackLayer[_M_co], Option[StackLayer[_M_co]]], ...]:
         """Selects visible layers under solo, leaving out layers a matte above consumes.
 
         Returns:
             Layers in stack order, each with the layer beneath, absent at the bottom.
         """
         soloed = any(layer.solo for layer in self.layers)
-        beneath: tuple[Option[StackLayer[M]], ...] = (Nothing, *map(Some, self.layers))
+        beneath: tuple[Option[StackLayer[_M_co]], ...] = (Nothing, *map(Some, self.layers))
         consumed = (*(layer.matte for layer in self.layers[1:]), False)
         return tuple((layer, below) for layer, below, matte in zip(self.layers, beneath, consumed) if layer.visible and not matte and (layer.solo or not soloed))
 
@@ -193,11 +195,11 @@ class LayerStack[M: Case](msgspec.Struct, frozen=True, kw_only=True):
         taken = frozenset(layer.key for layer in self.layers)
         return (key for index in itertools.count(1) for key in (f"layer_{index}",) if key not in taken)
 
-    def layer(self, index: int) -> Outcome[StackLayer[M]]:
+    def layer(self, index: int) -> Outcome[StackLayer[_M_co]]:
         """Returns the layer at a bottom-first index, absent past the stack."""
         return Option.of_optional(self.layers[index] if 0 <= index < len(self.layers) else None).to_result_with(partial(Fault.of, Reason.ABSENT, type(self).__name__, member=str(index)))
 
-    def edited(self, edit: Edit, target: Target, seeded: Callable[[M], Outcome[M]]) -> Outcome[tuple[Self, int, Order]]:
+    def edited(self, edit: Edit, target: Target, seeded: Callable[[CompositorRecord], Outcome[CompositorRecord]]) -> Outcome[tuple["LayerStack", int, Order]]:
         """Applies an edit to a target's item, answering the edited stack, the layer it leaves active, and the prior position of each item's values.
 
         Args:
@@ -232,7 +234,7 @@ class LayerStack[M: Case](msgspec.Struct, frozen=True, kw_only=True):
                 case _:
                     return Ok(item)
 
-        def written(items: tuple[object, ...]) -> Outcome[tuple[Self, int, Order]]:
+        def written(items: tuple[object, ...]) -> Outcome[tuple[LayerStack, int, Order]]:
             order = edit.reordered(index, len(items), drawn_reversed=isinstance(target, LayerAt))
             kept = accumulated(prior.map(lambda at: Ok(items[at])).default_with(lambda: fresh(items[index])) for prior in order)
             moved = max((position for position, prior in enumerate(order) if prior == Some(index)), default=index if edit is Edit.RESET else max(index - 1, 0))
@@ -252,29 +254,27 @@ class LayerStack[M: Case](msgspec.Struct, frozen=True, kw_only=True):
         return changed.to_result_with(partial(Fault.of, Reason.ABSENT, type(self).__name__, member=repr(target)))
 
 
-class StoredLayer[M: Case](msgspec.Struct, frozen=True, kw_only=True):
+class StoredLayer(msgspec.Struct, Generic[_M_co], frozen=True, kw_only=True):  # ruff: ignore[non-pep695-generic-class]
     """Structure of one layer the stack group stores under the layer key, its name, flags, and order held by its layer row."""
 
     source: Source
-    effects: tuple[Entry[M], ...] = ()
+    effects: tuple[Entry[_M_co], ...] = ()
     blend: Blend = Blend()
 
 
-class TermFiltering[M: Case](msgspec.Struct, frozen=True, kw_only=True):
+class TermFiltering(msgspec.Struct, frozen=True, kw_only=True):
     """Term filter a recombined layer builds from its first effect of `record`, reading that effect's inputs and requested passes."""
 
-    record: type[M]
-    filter: Callable[[M, Recombined, Callable[[Key], Expr], NodeGroup], Outcome[TermFilter]]
+    record: type[CompositorRecord]
+    filter: Callable[[Recombined, Callable[[Key], Expr], NodeGroup], Outcome[TermFilter]]
 
-    def matched(self, layer: StackLayer[M]) -> Option[tuple[int, M]]:
-        """First effect of the record type the layer holds, with its one-based place among the layer's effects."""
-        return Block.of_seq(enumerate(layer.effects, 1)).choose(lambda pair: Option.of_optional(try_downcast(self.record, pair[1].record)).map(lambda record: (pair[0], record))).try_head()
+    def matched(self, layer: StackLayer) -> Option[int]:
+        """One-based place of the first effect of the configured record type."""
+        return Block.of_seq(enumerate(layer.effects, 1)).filter(lambda pair: isinstance(pair[1].record, self.record)).try_head().map(lambda pair: pair[0])
 
-    def built(self, layer: StackLayer[M], source: Recombined, luminance: NodeGroup) -> Outcome[Option[TermFilter]]:
+    def built(self, layer: StackLayer, source: Recombined, luminance: NodeGroup) -> Outcome[Option[TermFilter]]:
         """Builds the filter over the layer's matched entry, reading its inputs under the entry's place, `Nothing` while the layer holds none."""
-        return (
-            self.matched(layer).map(lambda found: self.filter(found[1], source, lambda key: group_input(item_key(layer.key, EFFECTS, found[0], key)), luminance).map(Some)).default_value(Ok(Nothing))
-        )
+        return self.matched(layer).map(lambda index: self.filter(source, lambda key: group_input(item_key(layer.key, EFFECTS, index, key)), luminance).map(Some)).default_value(Ok(Nothing))
 
 
 class Switched(bpy.types.PropertyGroup):
@@ -300,7 +300,7 @@ class NodeKind(bpy.types.PropertyGroup):
             (struct.identifier, struct.name, struct.description)
             for kind in (getattr(bpy.types, name) for name in dir(bpy.types))
             if isinstance(kind, type) and issubclass(kind, bpy.types.CompositorNode) and kind.is_registered_node_type()
-            for struct in (bpy.types.Node.bl_rna_get_subclass(kind.__name__),)
+            for struct in (kind.bl_rna,)
         ),
     )
 
@@ -366,13 +366,13 @@ class StackLook(bpy.types.PropertyGroup):
 
 # --- [LENSES] ---------------------------------------------------------------------------
 
-LAYERS: Final = member(LayerStack, lambda kind: kind.layers)
-SOURCE: Final = member(StackLayer, lambda kind: kind.source)
-EFFECTS: Final = member(StackLayer, lambda kind: kind.effects)
-LAYER_BLEND: Final = member(StackLayer, lambda kind: kind.blend)
-MATTE: Final = member(StackLayer, lambda kind: kind.matte)
-ENTRY_BLEND: Final = member(Entry, lambda kind: kind.blend)
-MASKS: Final = member(Blend, lambda kind: kind.masks)
+LAYERS: Final = LayerStack.layers  # type: ignore[misc]  # ty: ignore[invalid-attribute-access]
+SOURCE: Final = StackLayer.source
+EFFECTS: Final = StackLayer.effects  # type: ignore[misc]  # ty: ignore[invalid-attribute-access]
+LAYER_BLEND: Final = StackLayer.blend
+MATTE: Final = StackLayer.matte
+ENTRY_BLEND: Final = Entry.blend
+MASKS: Final = Blend.masks
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 

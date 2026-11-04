@@ -1,13 +1,13 @@
 import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import type { State } from '@rasm/automation/applications';
+import type { State } from '@rasm/automation';
 import { Array, ByteSize, DateTime, Duration, Effect, FileSystem, type LogLevel, Option, Path, Predicate, Record, Schema, String, Struct, UndefinedOr } from 'effect';
 import type { ChildProcessSpawner } from 'effect/process';
-import { HarnessError } from '#/error';
+import { HarnessError } from '#/harness-error';
 import { printed } from '#/instance';
 import { type Kind, type Messages, messageOf, record, tagOf } from '#/log';
 import type { Halted } from '#/results';
-import type { Host, Instance } from '#/session';
+import type { Harness, Instance } from '#/session';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -272,12 +272,12 @@ const ruled = Effect.fn('ruled')(function* (instance: Instance, { kind, pattern,
     );
     return Array.getSomes(kept.map(({ file, info, contents }) => Option.map(factsOf(text, contents, instance), opened(kind, dated(info, instance.ended), file))));
 });
-const located = Effect.fn('located')(function* (host: Pick<Host, 'logs'>, instance: Instance) {
+const located = Effect.fn('located')(function* (host: Pick<Harness, 'logs'>, instance: Instance) {
     const rules = yield* host.logs?.(instance) ?? Effect.succeed([]);
     const [found, matched] = yield* Effect.all([system(instance), Effect.forEach(rules, (rule) => ruled(instance, rule), { concurrency: 'unbounded' })], { concurrency: 'unbounded' });
     return [...found, ...matched.flat()];
 });
-const linked = (host: Pick<Host, 'logs'>, instance: Instance) =>
+const linked = (host: Pick<Harness, 'logs'>, instance: Instance) =>
     located(host, instance).pipe(
         Effect.flatMap(Effect.forEach(({ kind, file, facts }) => record(KINDS[kind].level, 'report linked', { kind, ...Record.getSomes({ file }), ...facts }), { discard: true })),
         Effect.catch((error) => record('Error', 'failed', { tag: tagOf(error), error: messageOf(error) })),

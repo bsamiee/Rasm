@@ -7,10 +7,10 @@ from itertools import dropwhile
 import operator
 from typing import TYPE_CHECKING
 
-import _bpy_types
+import _bpy_types  # ruff: ignore[import-private-name]
 from bl_ui import UI_MT_button_context_menu, UI_MT_list_item_context_menu
 import bpy
-from expression import Nothing, Ok, Option, Some
+from expression import Option, Some
 import msgspec
 
 from blender.bpy.commands.operators import Command, Operation, operation, Placement, PopupKind, PopupTarget, rna_type
@@ -18,13 +18,12 @@ from blender.bpy.data.rna.conditions import Condition, polled, satisfied
 from blender.bpy.data.rna.paths import definition, Struct, subclass
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.extension.registration import Acquisitions, Tier
+from blender.bpy.extension.registration import acquired, Acquisitions, Classes, Tier
 from blender.bpy.extension.reports import alerted
 from blender.bpy.ui.layout.members import Member
-from blender.bpy.ui.layout.rows import acquired, ConditionalRow, Layout, layout_method, LayoutOwner, Opens, OperatorButton, Property, realized, RowContent, RowDraw
-from blender.bpy.ui.layout.sections import sections_in
+from blender.bpy.ui.layout.rows import ConditionalRow, Layout, layout_method, LayoutOwner, Opens, OperatorButton, Property, realized, RowContent, RowDraw
 from blender.bpy.ui.layout.values import Captured, Listing, Store
-from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
+from blender.records.faults import accumulated, Nothing, Ok, Outcome, paired
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -85,7 +84,7 @@ class Menu(msgspec.Struct, frozen=True, kw_only=True):
 
     # --- [ACQUISITION]
 
-    def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
+    def acquisitions(self, identity: Identity) -> Acquisitions:
         """Returns submenus, row acquisitions, then the menu class built when the interface tier opens."""
         match self.body:
             case Dropdown(entries=rows, order=order, search=search):
@@ -97,8 +96,8 @@ class Menu(msgspec.Struct, frozen=True, kw_only=True):
                 submenus = tuple(
                     Menu(
                         key=f"{self.key}_{group}",
-                        title=Some(bpy.path.display_name(group)),
-                        description=f"{bpy.path.display_name(group)}: {self.description}",
+                        title=Some(label := bpy.path.display_name(group)),
+                        description=f"{label}: {self.description}",
                         body=Dropdown(entries=tuple(row for held, row in entries if held == group)),
                         condition=self.condition,
                     )
@@ -111,7 +110,7 @@ class Menu(msgspec.Struct, frozen=True, kw_only=True):
                 rows = tuple(row for slot in slots for row in slot.to_list())
                 drawing = partial(_radial_drawing, identity, slots)
         title = self.title.default_with(lambda: bpy.path.display_name(self.key))
-        return Ok((*submenus, *acquired(rows), (Tier.INTERFACE, partial(_menu, identity, self.key, title, self.description, rows, drawing, search=search, condition=self.condition))))
+        return (*submenus, *acquired(rows), (Tier.INTERFACE, Classes(build=partial(_menu, identity, self.key, title, self.description, drawing, search=search, condition=self.condition))))
 
 
 class PresetMenu[T: msgspec.Struct = Snapshot](msgspec.Struct, frozen=True, kw_only=True):
@@ -120,19 +119,19 @@ class PresetMenu[T: msgspec.Struct = Snapshot](msgspec.Struct, frozen=True, kw_o
     source: Store[bpy.types.PropertyGroup] | Listing[T] | Captured
     entries: tuple[RowContent, ...] = ()
 
-    def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
+    def acquisitions(self, identity: Identity) -> Acquisitions | Outcome[Acquisitions]:
         """Returns source acquisitions, then the preset menu, none while a store holds no presets."""
         match self.source:
             case Store() as store:
-                return Ok((
+                return (
                     store,
                     *acquired(self.entries),
-                    (Tier.INTERFACE, lambda: store.listing(identity).bind(lambda found: found.map(partial(_preset_menu, identity, self.entries)).default_value(Ok(())))),
-                ))
+                    (Tier.INTERFACE, Classes(build=lambda: store.listing(identity).bind(lambda found: found.map(partial(_preset_menu, identity, self.entries)).default_value(Ok(()))))),
+                )
             case Listing() as listing:
                 return _listed(identity, self.entries, listing)
             case Captured() as captured:
-                return captured.listing().bind(partial(_listed, identity, self.entries))
+                return captured.listing().map(partial(_listed, identity, self.entries))
 
 
 # --- [HEADERS]
@@ -148,15 +147,15 @@ class Header(msgspec.Struct, frozen=True, kw_only=True):
     region: "rna_enums.RegionTypeItems" = "HEADER"
     condition: Option[Condition] = Nothing
 
-    def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
+    def acquisitions(self, identity: Identity) -> Acquisitions:
         """Returns the editor menus, row acquisitions, then the header class built when the interface tier opens."""
 
         def drawing(_name: str) -> Outcome[RowDraw]:
-            menus = self.menus.map(lambda menu: identity.name(bpy.types.Menu, menu.key).map(Some)).default_value(Ok(Nothing))
-            return menus.bind(lambda named: realized(self.rows, identity).map(lambda draw: named.map(lambda menu: partial(_collapsed, menu, draw)).default_value(draw)))
+            menus = self.menus.map(lambda menu: identity.name(bpy.types.Menu, menu.key))
+            return realized(self.rows, identity).map(lambda draw: menus.map(lambda menu: partial(_collapsed, menu, draw)).default_value(draw))
 
         members = {"bl_space_type": self.space, "bl_region_type": self.region}
-        return Ok((*self.menus.to_list(), *acquired(self.rows), (Tier.INTERFACE, partial(_classed, identity, bpy.types.Header, self.key, self.rows, members, self.condition, drawing))))
+        return (*self.menus.to_list(), *acquired(self.rows), (Tier.INTERFACE, Classes(build=partial(_classed, identity, bpy.types.Header, self.key, members, self.condition, drawing))))
 
 
 # --- [EXTENSIONS]
@@ -190,9 +189,9 @@ class Append(msgspec.Struct, frozen=True, kw_only=True):
     prepend: bool = False
     condition: Option[Condition] = Nothing
 
-    def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
+    def acquisitions(self, identity: Identity) -> Acquisitions:
         """Returns what the content holds, then the draw function held on the target for the scope."""
-        return Ok((*acquired(self.rows), (Tier.APPENDS, _extended(self, identity))))
+        return (*acquired(self.rows), (Tier.APPENDS, _extended(self, identity)))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -201,26 +200,14 @@ class Append(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def _classed(
-    identity: Identity,
-    base: type[bpy.types.Menu | bpy.types.Header],
-    key: Key,
-    rows: tuple[RowContent, ...],
-    members: Mapping[str, object],
-    condition: Option[Condition],
-    drawing: Callable[[str], Outcome[RowDraw]],
+    identity: Identity, base: type[bpy.types.Menu | bpy.types.Header], key: Key, members: Mapping[str, object], condition: Option[Condition], drawing: Callable[[str], Outcome[RowDraw]]
 ) -> Outcome[tuple[type, ...]]:
-    """Builds the menu or header class over its realized rows, refusing a section, whose layout panel the host refuses in menus, pies, and headers."""
-    return (
-        Ok(sections_in(rows))
-        .filter_with(lambda found: not found, lambda found: Fault.of(Reason.OUTSIDE, key, ", ".join(section.key for section in found), member="rows without layout panels"))
-        .bind(lambda _: identity.name(base, key))
-        .bind(lambda name: drawing(name).map(lambda draw: (type(name, (base,), {"bl_idname": name, **members, "draw": layout_method(draw), **polled(condition)}),)))
-    )
+    """Builds the menu or header class over its realized rows."""
+    name = identity.name(base, key)
+    return drawing(name).map(lambda draw: (type(name, (base,), {"bl_idname": name, **members, "draw": layout_method(draw), **polled(condition)}),))  # ty: ignore[unsupported-dynamic-base]
 
 
-def _menu(
-    identity: Identity, key: Key, title: str, description: str, rows: tuple[RowContent, ...], drawing: Callable[[], Outcome[RowDraw]], *, search: bool, condition: Option[Condition] = Nothing
-) -> Outcome[tuple[type, ...]]:
+def _menu(identity: Identity, key: Key, title: str, description: str, drawing: Callable[[], Outcome[RowDraw]], *, search: bool, condition: Option[Condition] = Nothing) -> Outcome[tuple[type, ...]]:
     """Builds the menu class, a searchable menu opened from code or a key leading with its search entry."""
 
     def headed(name: str) -> Outcome[RowDraw]:
@@ -229,19 +216,19 @@ def _menu(
         return paired(heading, drawing()).map(lambda pair: partial(_headed, *pair))
 
     members = {"bl_label": title, "bl_description": description, "bl_options": {"SEARCH_ON_KEY_PRESS"} if search else set()}
-    return _classed(identity, bpy.types.Menu, key, rows, members, condition, headed)
+    return _classed(identity, bpy.types.Menu, key, members, condition, headed)
 
 
 def _preset_menu[S: msgspec.Struct](identity: Identity, entries: tuple[RowContent, ...], listing: Listing[S]) -> Outcome[tuple[type, ...]]:
     """Builds the searchable preset menu titled after the listing's preset."""
     name = bpy.path.display_name(listing.preset.key)
     owned = (listing, *entries)
-    return _menu(identity, listing.key, f"{name} Presets", f"Apply, add, or import {name.lower()} presets", owned, partial(realized, owned, identity), search=True)
+    return _menu(identity, listing.key, f"{name} Presets", f"Apply, add, or import {name.lower()} presets", partial(realized, owned, identity), search=True)
 
 
-def _listed[S: msgspec.Struct](identity: Identity, entries: tuple[RowContent, ...], listing: Listing[S]) -> Outcome[Acquisitions]:
+def _listed[S: msgspec.Struct](identity: Identity, entries: tuple[RowContent, ...], listing: Listing[S]) -> Acquisitions:
     """Returns the listing and trailing rows, then the preset menu over them."""
-    return Ok((*acquired((listing, *entries)), (Tier.INTERFACE, partial(_preset_menu, identity, entries, listing))))
+    return (*acquired((listing, *entries)), (Tier.INTERFACE, Classes(build=partial(_preset_menu, identity, entries, listing))))
 
 
 @contextmanager
@@ -267,9 +254,9 @@ def _ordered(identity: Identity, rows: tuple[RowContent, ...], order: Option[Cal
 
 def _picked(draws: tuple[RowDraw, ...], order: Option[Callable[[bpy.types.Context], Iterable[int]]], layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
     """Draws the entries the order names, skipping an index past them."""
-    for index in order.map(lambda read: tuple(read(context))).default_value(tuple(range(len(draws)))):
-        for draw in draws[index : index + 1] if index >= 0 else ():
-            draw(layout, holder, context)
+    for index in order.map(lambda read: read(context)).default_with(lambda: range(len(draws))):
+        if 0 <= index < len(draws):
+            draws[index](layout, holder, context)
 
 
 def _headed(heading: Option[RowDraw], draw: RowDraw, layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
@@ -287,11 +274,10 @@ def _collapsed(menu: str, draw: RowDraw, layout: bpy.types.UILayout, holder: Str
 
 
 def _radial_drawing(identity: Identity, slots: tuple[Option[_Slot], ...]) -> Outcome[RowDraw]:
-    """Realizes slots up to the last filled one into the pie draw, a property slot holding a boolean or enum and a plain draw taking one column slot."""
+    """Realizes slots up to the last filled one into the pie draw, a plain draw taking one column slot."""
 
     def slot(row: _Slot) -> Outcome[RowDraw]:
-        checked = row.target.realized(identity, kinds=(bpy.types.BoolProperty, bpy.types.EnumProperty)).map(lambda _: None) if isinstance(row, Property) else Ok(None)
-        return checked.bind(lambda _: realized((row if isinstance(row, ConditionalRow) else Layout(rows=(row,), container=Some(bpy.types.UILayout.column)),), identity))
+        return realized((row if isinstance(row, ConditionalRow) else Layout(rows=(row,), container=Some(bpy.types.UILayout.column)),), identity)
 
     filled = reversed(tuple(dropwhile(Option.is_none, reversed(slots))))
     return accumulated(each.map(lambda row: slot(row).map(Some)).default_with(lambda: Ok(Nothing)) for each in filled).map(lambda draws: partial(_radial, draws))
@@ -306,7 +292,7 @@ def _radial(draws: tuple[Option[RowDraw], ...], layout: bpy.types.UILayout, hold
 
 def _shown(append: Append, draw: RowDraw, pointed: Option[_Pointed], extended: LayoutOwner, context: bpy.types.Context) -> None:
     """Draws the content while the condition holds and a context menu's hovered button passes its test."""
-    if not (pointed.map(lambda test: test(context)).default_value(True) and satisfied(append.condition, context)):
+    if not (pointed.map(lambda test: test(context)).default_value(value=True) and satisfied(append.condition, context)):
         return
     layout: bpy.types.UILayout = extended.layout  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
     match extended, append.prepend:

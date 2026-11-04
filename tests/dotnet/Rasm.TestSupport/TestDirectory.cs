@@ -6,18 +6,14 @@ public sealed class TestDirectory : IDisposable {
 
     public DirectoryInfo Root { get; }
 
-    public static TestDirectory Create(string prefix) {
-        ArgumentException.ThrowIfNullOrWhiteSpace(prefix);
-        return new TestDirectory(Directory.CreateTempSubdirectory(prefix));
-    }
+    public static TestDirectory Create(string prefix) => new(Directory.CreateTempSubdirectory(prefix));
 
     public DirectoryInfo CreateDirectory(string relativePath) => Directory.CreateDirectory(Resolve(relativePath));
 
     public FileInfo File(string relativePath) => new(Resolve(relativePath));
 
     public void Dispose() {
-        Root.Refresh();
-        if (Root.Exists) Root.Delete(recursive: true);
+        try { Root.Delete(recursive: true); } catch (DirectoryNotFoundException) { }
     }
 
     private string Resolve(string relativePath) {
@@ -25,6 +21,7 @@ public sealed class TestDirectory : IDisposable {
         string resolved = Path.GetFullPath(relativePath, Root.FullName);
         string remainder = Path.GetRelativePath(Root.FullName, resolved);
         bool escapes = Path.IsPathFullyQualified(relativePath)
+            || Path.IsPathRooted(remainder)
             || string.Equals(remainder, "..", StringComparison.Ordinal)
             || remainder.StartsWith($"..{Path.DirectorySeparatorChar}", StringComparison.Ordinal);
         return escapes

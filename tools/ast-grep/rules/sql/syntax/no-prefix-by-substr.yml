@@ -6,32 +6,24 @@ utils:
     leading-slice:
         kind: function_call
         all:
-            - has: {field: name, regex: '(?i)^substr(ing)?$'}
+            - has: {field: name, regex: '(?i-u)^["`\[]?substr(ing)?["`\]]?$'}
             - has:
                 field: arguments
                 kind: normal_function_arguments
                 all:
-                    - has: {nthChild: 1, pattern: _SUBJECT}
-                    - has: {nthChild: 2, kind: numeric_literal, regex: '^1$'}
-                    - has: {nthChild: 3, pattern: _LENGTH}
-                    - not: {has: {nthChild: 4}}
-    prefix-test:
-        kind: binary_expression
-        all:
-            - has: {field: operator, regex: '^(==?|<>|!=)$', pattern: __OPERATOR}
-            - any:
-                - all: [{has: {field: left, matches: leading-slice}}, {has: {field: right, pattern: _PREFIX}}]
-                - all: [{has: {field: right, matches: leading-slice}}, {has: {field: left, pattern: _PREFIX}}]
+                    - not: {has: {nthChild: {position: 4, ofRule: &named {not: {kind: 'line_comment, block_comment'}}}}}
+                    - has: {nthChild: {position: 3, ofRule: *named}}
+                    - has: {nthChild: {position: 2, ofRule: *named}, kind: numeric_literal, regex: '^1$'}
     prefix-length:
         kind: function_call
         all:
-            - has: {field: name, regex: '(?i)^length$'}
-            - has: {field: arguments, has: {nthChild: 1, pattern: _PREFIX}}
+            - has: {field: name, regex: '(?i-u)^["`\[]?length["`\]]?$'}
+            - has: {field: arguments, has: {nthChild: &first {position: 1, ofRule: *named}, pattern: $PREFIX}}
     base-length:
         kind: function_call
         all:
-            - has: {field: name, regex: '(?i)^length$'}
-            - has: {field: arguments, has: {nthChild: 1, pattern: _BASE}}
+            - has: {field: name, regex: '(?i-u)^["`\[]?length["`\]]?$'}
+            - has: {field: arguments, has: {nthChild: *first, pattern: $BASE}}
     separated-length:
         kind: binary_expression
         all:
@@ -43,28 +35,20 @@ utils:
         kind: binary_expression
         all:
             - has: {field: operator, regex: '^\|\|$'}
-            - has: {field: left, pattern: _BASE}
+            - has: {field: left, pattern: $BASE}
             - has: {field: right, kind: string_literal, regex: "^'([^']|'')'$"}
 rule:
-    matches: prefix-test
-    pattern: _TEST
-    any:
-        - pattern: _FIXABLE
-          any:
-            - has: {matches: leading-slice, has: {field: arguments, has: {nthChild: {position: 1, reverse: true}, matches: prefix-length}}}
+    kind: binary_expression
+    pattern: $TEST
+    all:
+        - has: {field: operator, regex: '^(==?|<>|!=)$'}
+        - any:
+            - all: [{has: {field: left, matches: leading-slice}}, {has: {field: right, pattern: $PREFIX}}]
+            - all: [{has: {field: right, matches: leading-slice}}, {has: {field: left, pattern: $PREFIX}}]
+        - any:
+            - has: {matches: leading-slice, has: {field: arguments, has: {nthChild: &last {position: 1, reverse: true, ofRule: *named}, matches: prefix-length}}}
             - all:
-                - has: {matches: leading-slice, has: {field: arguments, has: {nthChild: {position: 1, reverse: true}, matches: separated-length}}}
+                - has: {matches: leading-slice, has: {field: arguments, has: {nthChild: *last, matches: separated-length}}}
                 - has: {matches: separated-prefix}
-        - pattern: _KEPT
-rewriters:
-    - id: position
-      rule: {matches: prefix-test}
-      transform:
-        EQUAL: {replace: {source: $OPERATOR, replace: '^==?$', by: '='}}
-        RELATION: {replace: {source: $EQUAL, replace: '^!=$', by: '<>'}}
-      fix: instr($SUBJECT, $PREFIX) $RELATION 1
-transform:
-    FIXED: {rewrite: {source: $FIXABLE, rewriters: [position]}}
-fix: $FIXED$KEPT
-message: '`$TEST` tests a prefix through a slice as long as the prefix'
-note: 'Write `instr(<subject>, <prefix>) = 1`, `<> 1` for a negated test'
+message: '`$TEST` compares `$PREFIX` with a prefix-length slice'
+note: 'Use `instr(<subject>, <prefix>) = 1` under binary text comparison while preserving expression evaluation'

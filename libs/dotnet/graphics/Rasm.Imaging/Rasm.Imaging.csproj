@@ -15,6 +15,7 @@
 
     <ItemGroup Label="Mathematics">
         <PackageReference Include="MathNet.Numerics" />
+        <PackageReference Include="MathNet.Numerics.Data.Text" />
         <PackageReference Include="System.Numerics.Tensors" />
     </ItemGroup>
 

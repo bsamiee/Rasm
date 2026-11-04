@@ -1,22 +1,48 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/project.json
-ruleDirs:
-    - tools/ast-grep/rules
-utilDirs:
-    - tools/ast-grep/utils
+# --- [DISCOVERY] ------------------------------------------------------------------------
+
+ruleDirs: [tools/ast-grep/rules]
+utilDirs: [tools/ast-grep/utils]
+noIgnore: [hidden]
 languageGlobs:
-    tsx: ["*.ts", "*.js"]
     xml: ["NuGet.config"]
+
+# --- [LANGUAGES] ------------------------------------------------------------------------
+
 customLanguages:
-    xml:
-        libraryPath: .cache/ast-grep/xml.so
-        extensions: [xml, csproj, props, targets, slnx]
-        expandoChar: _
-        outlineRules: tools/ast-grep/outline/msbuild.yml
+    bashlang:
+        libraryPath: .cache/ast-grep/bash.so
+        languageSymbol: tree_sitter_bash
+        extensions: [bash, bats, cgi, command, env, fcgi, ksh, sh, tmux, tool, zsh]
+        outlineRules: tools/ast-grep/outline/bash.yml
+    csharplang:
+        libraryPath: .cache/ast-grep/csharp.so
+        languageSymbol: tree_sitter_c_sharp
+        extensions: [cs]
+        expandoChar: µ
+        outlineRules: tools/ast-grep/outline/csharp.yml
+    javalang:
+        libraryPath: .cache/ast-grep/java.so
+        languageSymbol: tree_sitter_java
+        extensions: [java]
+        outlineRules: tools/ast-grep/outline/java.yml
+    pythonlang:
+        libraryPath: .cache/ast-grep/python.so
+        languageSymbol: tree_sitter_python
+        extensions: [py, py3, pyi, bzl, bazel]
+        expandoChar: µ
+        outlineRules: tools/ast-grep/outline/python.yml
+    rustlang:
+        libraryPath: .cache/ast-grep/rust.so
+        languageSymbol: tree_sitter_rust
+        extensions: [rs]
+        expandoChar: µ
+        outlineRules: tools/ast-grep/outline/rust.yml
     sql:
         libraryPath: .cache/ast-grep/sql.so
         languageSymbol: tree_sitter_sqlite3
         extensions: [sql]
-        expandoChar: _
+        expandoChar: µ
         outlineRules: tools/ast-grep/outline/sql.yml
     swiftlang:
         libraryPath: .cache/ast-grep/swift.so
@@ -24,47 +50,39 @@ customLanguages:
         extensions: [swift]
         expandoChar: µ
         outlineRules: tools/ast-grep/outline/swift.yml
-    csharplang:
-        libraryPath: .cache/ast-grep/csharp.so
-        languageSymbol: tree_sitter_c_sharp
-        extensions: [cs]
-        expandoChar: µ
-        outlineRules: tools/ast-grep/outline/csharp.yml
+    tsxlang:
+        libraryPath: .cache/ast-grep/typescript.so
+        languageSymbol: tree_sitter_tsx
+        extensions: [ts, tsx, mts, cts, js, jsx, mjs, cjs]
+        outlineRules: tools/ast-grep/outline/typescript.yml
+    xml:
+        libraryPath: .cache/ast-grep/xml.so
+        extensions: [xml, csproj, props, targets, slnx]
+        expandoChar: x
+        outlineRules: tools/ast-grep/outline/msbuild.yml
+
+# --- [INJECTIONS] -----------------------------------------------------------------------
+
 languageInjections:
-    - hostLanguage: rust
+    - hostLanguage: tsxlang
       rule:
-        kind: token_tree
-        pattern: $CONTENT
-        regex: '^[(\[]'
-        any:
-            - inside: {kind: macro_invocation}
-            - follows: {regex: '^!$', follows: {kind: identifier}}
-        not: {matches: test-scope}
-      utils:
-        test-attribute:
-            kind: attribute_item
-            any:
-                - regex: '^#\[\s*cfg\s*\(.*\b(test|doctest)\b'
-                  not: {regex: '^#\[\s*cfg\s*\(\s*not\s*\(\s*test\b'}
-                - regex: '^#\[\s*(::)?(((tokio|sqlx)::)?test|bench|(rstest::)?(rstest|fixture)|(proptest::)?property_test)\s*(\(|\]|$)'
-        test-scope:
-            inside:
-                stopBy: end
-                kind: 'mod_item, function_item, impl_item, const_item, static_item'
-                follows: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, kind: attribute_item, matches: test-attribute}
-      injected: rust
-    - hostLanguage: tsx
-      rule:
-        kind: template_string
         pattern: $CONTENT
         all:
-            - not: {has: {kind: escape_sequence}}
             - any:
-                - inside: {kind: call_expression, field: arguments, has: {field: function, regex: '(?s)(?:^|=>\s*)sql(?:\s*<.*>)?$'}}
-                - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '^sql\.unsafe$'}}}
-                - regex: '^`\s*(?:(?:ALTER|ANALYZE|ATTACH|BEGIN|COMMIT|CREATE|DELETE|DETACH|DROP|END|EXPLAIN|INSERT|PRAGMA|REINDEX|RELEASE|REPLACE|ROLLBACK|SAVEPOINT|SELECT|UPDATE|VACUUM|VALUES)\b(?:\s+[^\s`]|[^\s`:])|WITH\s+(?:RECURSIVE\b|\w+(?:\s*\([^)]*\))?\s+AS\s*\())'
+                - kind: template_string
+                  all:
+                    - not: {has: {kind: escape_sequence}}
+                    - any:
+                        - inside: {kind: call_expression, field: arguments, has: {field: function, regex: '(?s)(?:^|=>\s*)sql(?:\s*<.*>)?$'}}
+                        - inside: {kind: call_expression, field: arguments, has: {field: function, pattern: sql.withoutTransforms()}}
+                        - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '^sql\.unsafe$'}}}
+                - kind: string_fragment
+                  inside:
+                    kind: string
+                    not: {has: {kind: escape_sequence}}
+                    inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '^sql\.unsafe$'}}}
             - not: {matches: postgres-scope}
-      utils: &sql
+      utils:
         postgres-scope:
             inside:
                 stopBy: end
@@ -72,28 +90,122 @@ languageInjections:
                     - {kind: pair, has: {field: key, regex: '^pg$'}, inside: {kind: object, has: {kind: pair, has: {field: key, regex: '^(sqlite|mysql|mssql|clickhouse|orElse)$'}}}}
                     - {kind: 'variable_declarator, function_declaration, method_definition, class_declaration', has: {field: name, regex: '(?:^|[a-z_])(?:pg|Pg|PG)(?:$|[A-Z_])'}}
       injected: sql
-    - hostLanguage: tsx
-      rule:
-        kind: string_fragment
-        pattern: $CONTENT
-        all:
-            - inside:
-                kind: string
-                not: {has: {kind: escape_sequence}}
-                any:
-                    - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '^sql\.unsafe$'}}}
-                    - regex: '^[''"]\s*(?:(?:ALTER|ANALYZE|ATTACH|BEGIN|COMMIT|CREATE|DELETE|DETACH|DROP|END|EXPLAIN|INSERT|PRAGMA|REINDEX|RELEASE|REPLACE|ROLLBACK|SAVEPOINT|SELECT|UPDATE|VACUUM|VALUES)\b(?:\s+[^\s''"]|[^\s''":])|WITH\s+(?:RECURSIVE\b|\w+(?:\s*\([^)]*\))?\s+AS\s*\())'
-            - not: {matches: postgres-scope}
-      utils: *sql
-      injected: sql
     - hostLanguage: yaml
       rule:
         kind: block_mapping_pair, flow_pair
         all:
-            - has: {field: key, regex: '^(run|"run"|''run'')$'}
-            - has:
-                field: value
-                any:
-                    - {kind: flow_node, has: {kind: plain_scalar, pattern: $CONTENT, not: {regex: '[\r\n]'}}}
-                    - {kind: block_node, has: {kind: block_scalar, pattern: $CONTENT, regex: '^\|'}}
-      injected: bash
+            - matches: run
+            - has: {field: value, has: {kind: plain_scalar, pattern: $CONTENT, not: {regex: '[\r\n]|\$\{\{'}}}
+            - inside:
+                kind: block_mapping, flow_mapping
+                all:
+                    - inside:
+                        kind: block_node, flow_node
+                        inside:
+                            kind: block_sequence_item, flow_sequence
+                            inside:
+                                kind: block_mapping_pair, flow_pair
+                                has: {field: key, has: {kind: 'plain_scalar, single_quote_scalar, double_quote_scalar', regex: '^(steps|"steps"|''steps'')$'}}
+                                inside:
+                                    any:
+                                        - matches: job-map
+                                        - kind: block_mapping, flow_mapping
+                                          all:
+                                            - inside:
+                                                kind: block_node, flow_node
+                                                inside:
+                                                    kind: block_mapping_pair, flow_pair
+                                                    has: {field: key, has: {kind: 'plain_scalar, single_quote_scalar, double_quote_scalar', regex: '^(runs|"runs"|''runs'')$'}}
+                                                    inside: {matches: root-map}
+                                            - has:
+                                                kind: block_mapping_pair, flow_pair
+                                                all:
+                                                    - has: {field: key, has: {kind: 'plain_scalar, single_quote_scalar, double_quote_scalar', regex: '^(using|"using"|''using'')$'}}
+                                                    - has: {field: value, has: {kind: 'plain_scalar, single_quote_scalar, double_quote_scalar', regex: '^(composite|"composite"|''composite'')$'}}
+                                stopBy: {kind: 'block_mapping_pair, flow_pair'}
+                    - any:
+                        - has: {matches: bash-shell}
+                        - all:
+                            - matches: literal-map
+                            - not: {has: {matches: shell}}
+                            - inside:
+                                matches: job-map
+                                stopBy: end
+                                any:
+                                    - has: {matches: bash-defaults}
+                                    - all:
+                                        - matches: literal-map
+                                        - not:
+                                            has:
+                                                matches: defaults
+                                                not:
+                                                    has:
+                                                        field: value
+                                                        has:
+                                                            matches: literal-map
+                                                            not:
+                                                                has:
+                                                                    matches: run
+                                                                    not: {has: {field: value, has: {matches: literal-map, not: {has: {matches: shell}}}}}
+                                        - inside: {matches: root-map, stopBy: end, has: {matches: bash-defaults}}
+      utils:
+        literal-map:
+            kind: block_mapping, flow_mapping
+            not:
+                has:
+                    kind: block_mapping_pair, flow_pair
+                    has:
+                        field: key
+                        has:
+                            any:
+                                - kind: alias
+                                - kind: double_quote_scalar
+                                  any:
+                                    - has: {kind: escape_sequence}
+                                    - regex: '[\r\n]'
+        root-map:
+            kind: document > :is(block_node, flow_node) > :is(block_mapping, flow_mapping)
+        job-map:
+            kind: block_mapping, flow_mapping
+            inside:
+                kind: block_node, flow_node
+                inside:
+                    kind: block_mapping_pair, flow_pair
+                    inside:
+                        kind: block_mapping, flow_mapping
+                        inside:
+                            kind: block_node, flow_node
+                            inside:
+                                kind: block_mapping_pair, flow_pair
+                                has: {field: key, has: {kind: 'plain_scalar, single_quote_scalar, double_quote_scalar', regex: '^(jobs|"jobs"|''jobs'')$'}}
+                                inside: {matches: root-map}
+        run:
+            kind: block_mapping_pair, flow_pair
+            has: {field: key, has: {kind: 'plain_scalar, single_quote_scalar, double_quote_scalar', regex: '^(run|"run"|''run'')$'}}
+        shell:
+            kind: block_mapping_pair, flow_pair
+            has: {field: key, has: {kind: 'plain_scalar, single_quote_scalar, double_quote_scalar', regex: '^(shell|"shell"|''shell'')$'}}
+        defaults:
+            kind: block_mapping_pair, flow_pair
+            has: {field: key, has: {kind: 'plain_scalar, single_quote_scalar, double_quote_scalar', regex: '^(defaults|"defaults"|''defaults'')$'}}
+        bash-shell:
+            all:
+                - matches: shell
+                - has:
+                    field: value
+                    has:
+                        kind: plain_scalar, single_quote_scalar, double_quote_scalar
+                        all:
+                            - regex: '^(?:bash(?: [^\r\n]*)?|"bash(?: [^"\\\r\n]*)?"|''bash(?: [^''\r\n]*)?'')$'
+                            - not: {regex: '\$\{\{'}
+        bash-defaults:
+            all:
+                - matches: defaults
+                - has:
+                    field: value
+                    has:
+                        matches: literal-map
+                        has:
+                            matches: run
+                            has: {field: value, has: {matches: literal-map, has: {matches: bash-shell}}}
+      injected: bashlang

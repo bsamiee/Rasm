@@ -1,57 +1,69 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-result-to-option-decode
-language: tsx
+language: tsxlang
 severity: error
 utils:
     result-decoder:
         kind: call_expression
-        pattern: $M.$FN($$$ARGS)
+        pattern: $M.$FN($$$_ARGS)
         has:
             field: function
             all:
                 - has: {field: property, regex: '^(decode|encode)(Unknown)?(Result|Exit)$'}
                 - has: {field: object, matches: {effect-module: {name: {regex: '\bSchema$'}}}}
     success-getter:
-        kind: member_expression
-        all:
-            - has: {field: property, regex: '^getSuccess$'}
-            - has: {field: object, matches: {effect-module: {name: {regex: '\b(Result|Option|Exit)$'}}}}
+        any:
+            - kind: member_expression
+              all:
+                - has: {field: property, regex: '^getSuccess$'}
+                - has: {field: object, matches: {effect-module: {name: {regex: '\b(Result|Option|Exit)$'}}}}
+            - kind: identifier
+              matches: {typescript-import-reference: {source: {regex: '^effect/(Result|Option|Exit)$'}, exported: {regex: '^getSuccess$'}}}
     applied-decoder:
         kind: call_expression
         all:
             - has: {field: function, matches: result-decoder}
-            - has: {field: arguments, pattern: $APP}
+            - has: {field: arguments, pattern: $_}
     chain-call:
         kind: call_expression
         has:
             field: function
             any:
-                - {kind: identifier, matches: {typescript-import-reference: {source: {regex: '^effect(/Function)?$'}, exported: {regex: '^(flow|pipe)$'}}}}
+                - matches: {typescript-import-reference: {source: {regex: '^effect(/Function)?$'}, exported: {regex: '^(flow|pipe)$'}}}
                 - {kind: member_expression, has: {field: property, regex: '^pipe$'}}
+    conversion-call:
+        kind: call_expression
+        any:
+            - all:
+                - any:
+                    - all:
+                        - pattern: '$_F($_D, $G)'
+                        - has: {field: function, matches: {typescript-import-reference: {source: {regex: '^effect(/Function)?$'}, exported: {regex: '^flow$'}}}}
+                        - has: {field: arguments, has: {nthChild: 1, matches: result-decoder}}
+                    - all:
+                        - pattern: '$_F($_INNER, $G)'
+                        - has: {field: function, matches: effect-pipe-function}
+                        - has: {field: arguments, has: {nthChild: 1, matches: applied-decoder}}
+                    - all:
+                        - pattern: $_INNER.pipe($G)
+                        - has: {field: function, has: {field: object, matches: applied-decoder}}
+                - has: {field: arguments, has: {nthChild: {position: 1, reverse: true}, matches: success-getter}}
+            - all:
+                - pattern: $G($_INNER)
+                - has: {field: function, matches: success-getter}
+                - has: {field: arguments, has: {nthChild: 1, matches: applied-decoder}}
 rule:
-    regex: getSuccess
     any:
-        - kind: call_expression
-          any:
-            - all: [{pattern: '$F($D, $G)'}, {has: {field: function, matches: {typescript-import-reference: {source: {regex: '^effect(/Function)?$'}, exported: {regex: '^flow$'}}}}}]
-            - all: [{pattern: '$F($INNER, $G)'}, {has: {field: function, matches: effect-pipe-function}}]
-            - pattern: $INNER.pipe($G)
-            - pattern: $G($INNER)
-        - kind: member_expression
+        - matches: conversion-call
+        - kind: identifier, member_expression
           pattern: $G
           all:
+            - matches: success-getter
             - follows: {matches: result-decoder, stopBy: {pattern: $_}}
             - inside: {kind: arguments, inside: {matches: chain-call}}
-            - not: {inside: {kind: arguments, inside: {any: [{pattern: 'flow($_, $_)'}, {pattern: 'pipe($_($$$_), $_)'}]}}}
+            - not: {inside: {kind: arguments, inside: {matches: conversion-call}}}
     not: {has: {kind: comment, stopBy: end}}
-constraints:
-    D: {matches: result-decoder}
-    G: {matches: success-getter}
-    INNER: {matches: applied-decoder}
 transform:
     OPT: replace($FN, replace='(Result|Exit)$', by='Option')
-fix:
-    template: $M.$OPT($$$ARGS)$APP
-    expandStart: {matches: result-decoder, stopBy: {pattern: $_}, precedes: {pattern: $G, stopBy: {pattern: $_}}}
 message: '`$G` over `$M.$FN` rebuilds `$M.$OPT`'
 note: 'Call `Schema.<operation>Option(<schema>)` for `Option.none()` on a schema issue'

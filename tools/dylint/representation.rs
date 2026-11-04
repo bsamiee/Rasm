@@ -1,23 +1,9 @@
-use clippy_utils::{
-    peel_blocks, peel_hir_expr_while,
-    res::{MaybeQPath as _, MaybeResPath as _},
-    sym,
-};
-use itertools::Itertools as _;
-use rustc_hir::{Expr, ExprKind, UnOp, def_id::DefId};
+use clippy_utils::{fn_def_id, res::MaybeDef as _, sym};
+use rustc_hir::{Expr, ExprKind, UnOp};
 use rustc_lint::LateContext;
-use rustc_middle::ty::{self, AdtDef, Ty, VariantDef};
-use rustc_span::Symbol;
+use rustc_middle::ty::{AdtDef, Ty};
 
-use crate::{expanded_externally, impl_owner, parameter_bindings};
-
-// --- [MODELS] --------------------------------------------------------------------------
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum VariantCollection<'tcx> {
-    Array,
-    Map(DefId, Ty<'tcx>),
-}
+use crate::{associated_trait, is_text};
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -25,80 +11,38 @@ fn fieldless_local_enum(held: Ty<'_>) -> Option<AdtDef<'_>> {
     held.peel_refs().ty_adt_def().filter(|adt| adt.is_enum() && adt.did().is_local() && adt.variants().len() > 1 && adt.all_fields().next().is_none())
 }
 
-fn variant_collection<'tcx>(cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) -> Option<(VariantCollection<'tcx>, AdtDef<'tcx>)> {
+fn text_view<'tcx>(cx: &LateContext<'tcx>, inner: &'tcx Expr<'tcx>) -> Option<&'tcx Expr<'tcx>> {
     let typeck = cx.typeck_results();
-    if expanded_externally(cx, expr.span) {
-        return None;
+    match inner.kind {
+        ExprKind::AddrOf(_, _, operand) => Some(operand),
+        ExprKind::Unary(UnOp::Deref, operand) if is_text(cx, typeck.expr_ty(operand)) => Some(operand),
+        ExprKind::MethodCall(_, receiver, [], _)
+            if is_text(cx, typeck.expr_ty(receiver))
+                && is_text(cx, typeck.expr_ty(inner))
+                && let Some(method) = fn_def_id(cx, inner)
+                && (cx.tcx.is_diagnostic_item(sym::string_as_str, method)
+                    || matches!(associated_trait(cx.tcx, method).opt_diag_name(cx), Some(sym::AsRef | sym::Borrow | sym::Deref | sym::ToOwned | sym::ToString | sym::From | sym::Into))) =>
+            Some(receiver),
+        ExprKind::Call(_, [argument])
+            if is_text(cx, typeck.expr_ty(argument)) && matches!(fn_def_id(cx, inner).and_then(|method| associated_trait(cx.tcx, method)).opt_diag_name(cx), Some(sym::From | sym::Into)) =>
+            Some(argument),
+        _ => None,
     }
-    if let ExprKind::Array(elements @ [first, ..]) = expr.kind {
-        let keyed = fieldless_local_enum(typeck.expr_ty(first))?;
-        return itertools::equal(elements.iter().map(|element| element.res(typeck).opt_def_id()), keyed.variants().iter().map(VariantDef::ctor_def_id)).then_some((VariantCollection::Array, keyed));
-    }
-    let ty::Adt(map, args) = typeck.expr_ty(expr).kind() else { return None };
-    let mut held = args.types();
-    let (keyed, value) = (fieldless_local_enum(held.next()?)?, held.next()?);
-    let pairs = match expr.kind {
-        ExprKind::Call(_, [pairs]) => pairs,
-        ExprKind::MethodCall(collected, pairs, [], _) if collected.ident.name == sym::collect => pairs,
-        _ => return None,
-    };
-    let enumerated = |source: &'tcx Expr<'tcx>| {
-        let source = peel_hir_expr_while(source, |step| match step.kind {
-            ExprKind::MethodCall(segment, receiver, [], _)
-                if matches!(segment.ident.name, sym::iter | sym::into_iter | sym::copied | sym::cloned | sym::rev | sym::fuse | sym::peekable | sym::by_ref) =>
-                Some(receiver),
-            ExprKind::MethodCall(segment, receiver, [_], _) if segment.ident.name == sym::inspect => Some(receiver),
-            _ => None,
-        });
-        let owned = |path: &'tcx Expr<'tcx>, name: Symbol| {
-            path.res_if_named(typeck, name).opt_def_id().is_some_and(|item| {
-                impl_owner(cx.tcx, item).and_then(Ty::ty_adt_def) == Some(keyed)
-                    || cx.tcx.trait_of_assoc(item).is_some() && typeck.node_args(path.hir_id).types().next().and_then(Ty::ty_adt_def) == Some(keyed)
-            })
-        };
-        matches!(source.kind, ExprKind::Call(callee, []) if owned(callee, sym::iter)) || owned(source, Symbol::intern("VARIANTS"))
-    };
-    let listed = |entries: &'tcx [Expr<'tcx>]| {
-        entries.len() == keyed.variants().len()
-            && entries
-                .iter()
-                .map(|entry| if let ExprKind::Tup([key, _]) = entry.kind { key.res(typeck).opt_def_id() } else { None })
-                .collect::<Option<Vec<_>>>()
-                .is_some_and(|keys| keys.iter().all_unique())
-    };
-    match pairs.kind {
-        ExprKind::MethodCall(mapped, source, [Expr { kind: ExprKind::Closure(closure), .. }], _) if mapped.ident.name == sym::map =>
-            matches!(peel_blocks(cx.tcx.hir_body(closure.body).value).kind, ExprKind::Tup([key, _])
-                if peel_hir_expr_while(key, |inner| if let ExprKind::Unary(UnOp::Deref, operand) = inner.kind { Some(operand) } else { None })
-                    .res_local_id()
-                    .is_some_and(|binding| parameter_bindings(cx.tcx, closure.body).contains(&binding)))
-                && enumerated(source),
-        ExprKind::MethodCall(zipped, source, [_], _) if zipped.ident.name == sym::zip => enumerated(source),
-        ExprKind::MethodCall(iterated, &Expr { kind: ExprKind::Array(entries), .. }, [], _) if iterated.ident.name == sym::into_iter => listed(entries),
-        ExprKind::Array(entries) => listed(entries),
-        _ => false,
-    }
-    .then_some((VariantCollection::Map(map.did(), value), keyed))
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-pub(crate) mod fn_pointer_iterator_type;
 pub(crate) mod formatted_tracing_value;
-pub(crate) mod forwarding_newtype;
+pub(crate) mod manual_reference_impl;
 pub(crate) mod manual_serialization;
-pub(crate) mod manual_slot_map;
-pub(crate) mod manual_variant_collection;
+pub(crate) mod manual_variant_array;
 pub(crate) mod needless_reference_field;
 pub(crate) mod needless_struct;
 pub(crate) mod option_field_pairs;
-pub(crate) mod primitive_domain_binding;
 pub(crate) mod restated_constant;
 pub(crate) mod sentinel_default;
 pub(crate) mod single_impl_trait;
 pub(crate) mod stringified_uuid;
 pub(crate) mod stringly_typed_value;
-pub(crate) mod unchecked_construction;
-pub(crate) mod unparsed_field;
 pub(crate) mod untyped_json_access;
 pub(crate) mod variant_constant_functions;

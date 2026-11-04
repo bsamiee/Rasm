@@ -10,13 +10,13 @@ import functools
 import math
 from typing import Final, Literal, overload
 
-from expression import Ok, Option
+from expression import Option, Result
 import numpy as np
 import numpy.typing as npt
 import OpenImageIO
 import PyOpenColorIO
 
-from blender.records.faults import Fault, Outcome, Reason
+from blender.records.faults import Error, Fault, Ok, Outcome, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -35,28 +35,27 @@ class Coding(Enum):
         rounded = pixels(OpenImageIO.ImageBuf(np.ascontiguousarray(plane).reshape(1, -1, 1)), depth).map(lambda codes: codes.reshape(plane.shape))
         if self is Coding.ROUNDED:
             return rounded
-        height, width, _ = plane.shape
-
-        def diffused(rounded_codes: npt.NDArray[np.uint8 | np.uint16]) -> npt.NDArray[np.uint8 | np.uint16]:
-            coded = rounded_codes.copy()
-            levels = float(np.iinfo(coded.dtype).max)
-            color = levels * np.nan_to_num(plane[..., :3], nan=0.0, posinf=np.inf, neginf=-np.inf)
-            ring = np.zeros((height + 1, 4, color.shape[2]), np.float32)
-            for step in range(width + 2 * height - 2):
-                low, high = max(0, (step - width + 2) // 2), min(height - 1, step // 2)
-                rows, ahead = np.arange(low, high + 1), min(high, (step - 1) // 2) + 1
-                columns = step - 2 * rows
-                visited = np.clip(color[rows, columns] + ring[low : high + 1, step % 4], 0.0, levels)
-                rounded_step = np.floor(visited + 0.5)
-                coded[rows, columns, :3], error = rounded_step, visited - rounded_step
-                ring[low : high + 1, step % 4] = 0.0
-                ring[low + 1 : ahead + 1, (step + 1) % 4] += error[: ahead - low] * (3 / 16)
-                ring[low + 1 : high + 2, (step + 2) % 4] += error * (5 / 16)
-                ring[low + 1 : high + 2, (step + 3) % 4] += error * (1 / 16)
-                ring[low : high + 1, (step + 1) % 4] += error * (7 / 16)
-            return coded
-
-        return rounded.map(diffused)
+        match rounded:
+            case Result(tag="error", error=errors):
+                return Error(errors)
+            case Result(ok=coded):
+                height, width, _ = plane.shape
+                levels = float(np.iinfo(coded.dtype).max)
+                color = levels * np.nan_to_num(plane[..., :3], nan=0.0, posinf=np.inf, neginf=-np.inf)
+                ring = np.zeros((height + 1, 4, color.shape[2]), np.float32)
+                for step in range(width + 2 * height - 2):
+                    low, high = max(0, (step - width + 2) // 2), min(height - 1, step // 2)
+                    rows, ahead = np.arange(low, high + 1), min(high, (step - 1) // 2) + 1
+                    columns = step - 2 * rows
+                    visited = np.clip(color[rows, columns] + ring[low : high + 1, step % 4], 0.0, levels)
+                    rounded_step = np.floor(visited + 0.5)
+                    coded[rows, columns, :3], error = rounded_step, visited - rounded_step
+                    ring[low : high + 1, step % 4] = 0.0
+                    ring[low + 1 : ahead + 1, (step + 1) % 4] += error[: ahead - low] * (3 / 16)
+                    ring[low + 1 : high + 2, (step + 2) % 4] += error * (5 / 16)
+                    ring[low + 1 : high + 2, (step + 3) % 4] += error * (1 / 16)
+                    ring[low : high + 1, (step + 1) % 4] += error * (7 / 16)
+                return Ok(coded)
 
 
 class Depth(IntEnum):
@@ -111,7 +110,7 @@ def pixels(image: OpenImageIO.ImageBuf) -> Outcome[npt.NDArray[np.float32]]: ...
 def pixels(image: OpenImageIO.ImageBuf, depth: Literal[Depth.UINT8]) -> Outcome[npt.NDArray[np.uint8]]: ...
 @overload
 def pixels(image: OpenImageIO.ImageBuf, depth: IntegerDepth) -> Outcome[npt.NDArray[np.uint8 | np.uint16]]: ...
-def pixels(image: OpenImageIO.ImageBuf, depth: Depth = Depth.FLOAT) -> Outcome[npt.NDArray[np.generic]]:
+def pixels(image: OpenImageIO.ImageBuf, depth: Depth = Depth.FLOAT) -> Outcome[npt.NDArray[Coded | np.float16]]:
     """Returns pixels of buffer stored at `depth`, float32 by default, or `FAILED` fault."""
     return Option.of_optional(image.get_pixels(depth.basetype)).to_result_with(lambda: Fault.of(Reason.FAILED, image.name, image.geterror()))
 
@@ -148,6 +147,14 @@ def resized(image: OpenImageIO.ImageBuf, spec: OpenImageIO.ImageSpec, /, *, filt
     return checked(target)
 
 
+# --- [CHANNELS]
+
+
+def rgba(values: npt.NDArray[np.float32]) -> npt.NDArray[np.float32]:
+    """Returns associated gray or RGB as RGBA with opaque alpha, existing RGBA unchanged."""
+    return values if values.shape[-1] == 4 else np.pad(np.broadcast_to(values, (*values.shape[:-1], 3)), ((0, 0),) * (values.ndim - 1) + ((0, 1),), constant_values=1.0)
+
+
 # --- [ASSOCIATION]
 
 
@@ -176,4 +183,4 @@ def applied(operation: PyOpenColorIO.CPUProcessor | Callable[[npt.NDArray[np.flo
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Coded", "Coding", "Depth", "IntegerDepth", "applied", "associated", "checked", "fitted", "located", "pixels", "premultiplied", "rescaled", "resized", "unassociated"]
+__all__ = ["Coded", "Coding", "Depth", "IntegerDepth", "applied", "associated", "checked", "fitted", "located", "pixels", "premultiplied", "rescaled", "resized", "rgba", "unassociated"]

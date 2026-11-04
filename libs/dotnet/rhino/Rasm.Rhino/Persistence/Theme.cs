@@ -1,5 +1,8 @@
 using System.Drawing;
 using MathNet.Numerics.RootFinding;
+using QuikGraph;
+using QuikGraph.Algorithms;
+using QuikGraph.Algorithms.TopologicalSort;
 using Rhino.ApplicationSettings;
 using Rhino.PlugIns;
 using Rhino.Runtime;
@@ -85,7 +88,7 @@ public sealed record RhinoTheme(string Name) {
         (from latest in IO.lift(static () => Ref(Option<Owned<(bool Dark, IO<Unit> Restore)>>.None))
          from colored in Products.Replace(latest, Colored)
          from held in Preferences.Hold(Overrides + Seq(Current.Swap(Name))).Catch(error => Restored(latest) >> IO.fail<Unit>(error))
-         from released in Products.Released(() => Session.Run(Restored(latest) >> Flush))
+         from released in Products.Released(Restored(latest) >> Flush)
          from flushed in Flush
          from followed in ThemeChanged.Attach(_ => Switched(latest))
          select unit).Scoped();
@@ -164,32 +167,42 @@ public sealed record RhinoTheme(string Name) {
 
     private Fin<HashMap<ThemeKey, Color>> Resolved(HashMap<ThemeKey, Color> live, HashSet<PaintColor> hooked) {
         HashMap<ThemeKey, ColorBinding> bound = toHashMap(toSeq(live.Keys).Choose(key => (Colors(key) || Colors(key with { Dark = None })).Map(binding => (key, binding))));
+        HashMap<ThemeKey, Seq<ThemeKey>> dependencies = bound.Map((key, binding) => binding.Switch(
+            key,
+            set: static (_, _) => Seq<ThemeKey>(),
+            inherit: static (at, inherit) => (inherit.Source with { Dark = inherit.Source.Dark || at.Dark }) switch {
+                var source => (source == at ? Seq<ThemeKey>() : Seq(source))
+                    + inherit.Modifiers.Choose(static modifier => modifier is ColorModifier.Legible legible ? Some(legible.Against) : None)
+                        .Map(against => against with { Dark = against.Dark || at.Dark }),
+            }).Filter(bound.ContainsKey));
 
-        Fin<Unicolour> Base(ThemeKey key) =>
-            live.Find(key).Map(ToUnicolour).ToFin(new RhinoFault(key.ToString(), RhinoReason.Missing));
+        Func<ThemeKey, Fin<Unicolour>> basis = key =>
+            live.Find(key).Map(ToUnicolour).ToFin(new RhinoFault(key, RhinoReason.Missing));
 
-        Fin<Unicolour> Value(ThemeKey key, Seq<ThemeKey> path) =>
-            bound.Find(key).Match(Some: binding => Resolve(key, binding, path), None: () => Base(key));
+        Func<ThemeKey, HashMap<ThemeKey, Fin<Unicolour>>, Fin<Unicolour>> value = (key, known) =>
+            bound.ContainsKey(key) ? known[key] : basis(key);
 
-        Fin<Unicolour> Resolve(ThemeKey key, ColorBinding binding, Seq<ThemeKey> path) =>
-            binding.Switch(
-                (Key: key, Path: path, Value: (Func<ThemeKey, Seq<ThemeKey>, Fin<Unicolour>>)Value, Base: (Func<ThemeKey, Fin<Unicolour>>)Base),
-                set: static (_, set) => set.Value,
-                inherit: static (state, inherit) => (inherit.Source with { Dark = inherit.Source.Dark || state.Key.Dark }) switch {
-                    var source when source == state.Key => state.Base(source),
-                    var source when state.Path.Exists(visited => visited == source) => new RhinoFault(source.ToString(), RhinoReason.Repeated),
-                    var source => state.Value(source, state.Path.Add(state.Key)),
-                }).Bind(color => binding is ColorBinding.Inherit { Modifiers: var modifiers }
-                    ? modifiers.Fold(Fin.Succ(color), (held, modifier) => held.Bind(current => Modified(current, modifier, against => Value(against with { Dark = against.Dark || key.Dark }, path.Add(key)))))
-                    : color);
+        Fin<Unicolour> Resolve(ThemeKey key, HashMap<ThemeKey, Fin<Unicolour>> known) =>
+            key is ThemeKey.Paint { Member: var member } && hooked.Contains(member)
+                ? new RhinoFault(member, RhinoReason.Unsupported)
+                : bound[key].Switch(
+                    (Key: key, Known: known, Base: basis, Value: value),
+                    set: static (_, set) => set.Value,
+                    inherit: static (state, inherit) => (inherit.Source with { Dark = inherit.Source.Dark || state.Key.Dark }) switch {
+                        var source =>
+                            from color in source == state.Key ? state.Base(source) : state.Value(source, state.Known)
+                            let read = fun((ThemeKey against) => state.Value(against with { Dark = against.Dark || state.Key.Dark }, state.Known))
+                            from modified in inherit.Modifiers.FoldM(color, (current, modifier) => Modified(current, modifier, read)).As()
+                            select modified,
+                    });
 
-        return toSeq(bound.AsIterable()).Traverse(row =>
-                (row.Key is ThemeKey.Paint { Member: var member } && hooked.Contains(member)
-                    ? new RhinoFault(member.ToString(), RhinoReason.Unsupported)
-                    : Resolve(row.Key, row.Value, []))
-                .Map(color => (row.Key, Color: ToColor(color)))
-                .MapFail(error => new RhinoFault(row.Key.ToString(), RhinoReason.Invalid, Inner: error)))
-            .As()
+        return Try.lift(() => toSeq(dependencies.Keys)
+                .ToBidirectionalGraph(key => dependencies[key].Map(target => new Edge<ThemeKey>(key, target)), allowParallelEdges: false)
+                .SourceFirstBidirectionalTopologicalSort(TopologicalSortDirection.Backward)).Run()
+            .MapFail(error => error.HasException<NonAcyclicGraphException>() ? new RhinoFault(Name, RhinoReason.Repeated, Inner: error) : error)
+            .Map(order => toSeq(order).Fold(HashMap<ThemeKey, Fin<Unicolour>>(), (known, key) =>
+                known.Add(key, Resolve(key, known).MapFail(error => new RhinoFault(key, RhinoReason.Invalid, Inner: error)))))
+            .Bind(static known => toSeq(known.AsIterable()).Traverse(static row => row.Value.Map(color => (row.Key, Color: ToColor(color)))).As())
             .Map(static rows => toHashMap(rows));
     }
 

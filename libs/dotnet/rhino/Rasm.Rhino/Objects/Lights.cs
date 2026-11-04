@@ -1,5 +1,4 @@
 using System.Drawing;
-using System.Globalization;
 using Rasm.Rhino.Document.Units;
 using Rasm.Rhino.Persistence;
 using Rhino;
@@ -29,41 +28,45 @@ public sealed partial class ColorFilter {
     static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref double red, ref double green, ref double blue) =>
         validationError = Math.Min(red, Math.Min(green, blue)) >= 0d && Math.Max(red, Math.Max(green, blue)) is > 0d and < double.PositiveInfinity
             ? null
-            : new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"(red, green, blue) = ({red}, {green}, {blue})"), RhinoReason.Outside);
+            : new RhinoFault((red, green, blue), RhinoReason.Outside);
 }
 
 [Union]
 public abstract partial record LightShape {
-    private LightShape(LightStyle style) => Style = style;
-
-    public LightStyle Style { get; }
+    public LightStyle Style => Switch(
+        pointLight: static point => point.CameraRelative ? LightStyle.CameraPoint : LightStyle.WorldPoint,
+        spotLight: static spot => spot.CameraRelative ? LightStyle.CameraSpot : LightStyle.WorldSpot,
+        directionalLight: static directional => directional.CameraRelative ? LightStyle.CameraDirectional : LightStyle.WorldDirectional,
+        linearLight: static _ => LightStyle.WorldLinear,
+        rectangularLight: static _ => LightStyle.WorldRectangular,
+        ambientLight: static _ => LightStyle.Ambient);
 
     internal abstract void Write(Light light);
 
-    public sealed record PointLight(Point3d Location, double Radius, bool CameraRelative) : LightShape(CameraRelative ? LightStyle.CameraPoint : LightStyle.WorldPoint) {
+    public sealed record PointLight(Point3d Location, double Radius, bool CameraRelative) : LightShape {
         internal override void Write(Light light) => (light.Location, light.Radius) = (Location, Radius);
     }
 
     public sealed record SpotLight(Point3d Location, Vector3d Direction, Angle Angle, double HotSpot, double Radius, bool CameraRelative)
-        : LightShape(CameraRelative ? LightStyle.CameraSpot : LightStyle.WorldSpot) {
+        : LightShape {
         internal override void Write(Light light) =>
             (light.Location, light.Direction, light.SpotAngleRadians, light.HotSpot, light.Radius) = (Location, Direction, Angle.Radians.ToDouble(), HotSpot, Radius);
     }
 
     public sealed record DirectionalLight(Point3d Location, Vector3d Direction, Angle Angle, bool CameraRelative)
-        : LightShape(CameraRelative ? LightStyle.CameraDirectional : LightStyle.WorldDirectional) {
+        : LightShape {
         internal override void Write(Light light) => (light.Location, light.Direction, light.Radius) = (Location, Direction, Angle.Degrees.ToDouble());
     }
 
-    public sealed record LinearLight(Point3d Location, Vector3d Length, Vector3d Width) : LightShape(LightStyle.WorldLinear) {
+    public sealed record LinearLight(Point3d Location, Vector3d Length, Vector3d Width) : LightShape {
         internal override void Write(Light light) => (light.Location, light.Length, light.Width) = (Location, Length, Width);
     }
 
-    public sealed record RectangularLight(Point3d Location, Vector3d Length, Vector3d Width, Vector3d Direction) : LightShape(LightStyle.WorldRectangular) {
+    public sealed record RectangularLight(Point3d Location, Vector3d Length, Vector3d Width, Vector3d Direction) : LightShape {
         internal override void Write(Light light) => (light.Location, light.Length, light.Width, light.Direction) = (Location, Length, Width, Direction);
     }
 
-    public sealed record AmbientLight() : LightShape(LightStyle.Ambient) {
+    public sealed record AmbientLight() : LightShape {
         internal override void Write(Light light) { }
     }
 

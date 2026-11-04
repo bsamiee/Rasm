@@ -1,7 +1,6 @@
 using System.Drawing;
 using Darkroom.Chain;
 using Rasm.Imaging.Pixels;
-using Rasm.Rhino.Render.Sessions;
 using Rasm.Rhino.Render.Settings;
 using Rhino;
 using Rhino.DocObjects;
@@ -53,16 +52,4 @@ public sealed class OverscanFrame {
         });
 
     private static int Grown(int side, double overscan) => int.CreateSaturating((2d * Math.Round(overscan * side, MidpointRounding.ToEven)) + side);
-}
-
-public sealed record RenderOverride(RenderSettings Settings, Option<float> Clay) {
-    // --- [SCOPE]
-    public static IO<RenderSettings> Current(RhinoDoc doc) => RenderSettingsSources.Read(new RenderSettingsSource.Live(doc), static scope => IO.lift(scope.Settings.Duplicate));
-
-    public IO<T> Around<T>(RhinoDoc doc, IO<T> launch) =>
-        Current(doc).Bind(prior =>
-            (from applied in RenderSettingsSources.Replace(doc, Settings)
-             from clay in Clay.Traverse(albedo => ClayMeshProvider.Register(doc, albedo)).As()
-             from launched in launch
-             select launched).Bracket().Finally(RenderSettingsSources.Replace(doc, prior)));
 }

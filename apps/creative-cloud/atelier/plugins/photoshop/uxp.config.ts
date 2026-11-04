@@ -1,6 +1,6 @@
-import { Photoshop } from '@rasm/photoshop/contract';
+import { link } from '@rasm/atelier';
+import { Photoshop } from '@rasm/photoshop';
 import { uxp } from '../../../../../vite.shared.ts';
-import { link } from '../../link.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Drawing;
-using System.Globalization;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
 using Darkroom.Chain;
@@ -9,6 +8,7 @@ using Rasm.Rhino;
 using Rasm.Rhino.Commands;
 using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.Persistence;
+using Rasm.Rhino.Render.Sessions;
 using Rasm.Rhino.Render.Settings;
 using Rasm.Rhino.Viewport;
 using Rhino;
@@ -42,11 +42,11 @@ public sealed record EntryProgress(Option<SequenceNumber> Last, Seq<Duration> Ti
 }
 
 public sealed record QueueProgress(
-    Option<string> Job, int ProcessId, Instant ProcessStart, int Retries, Duration Delay, Option<RunEnd> Ended, HashMap<ContentKey, EntryProgress> Entries) {
+    Option<string> Job, int ProcessId, Instant ProcessStart, int Retries, Duration Delay, Option<RunEnd> Ended, HashMap<UInt128, EntryProgress> Entries) {
     // --- [STATE]
     public bool Succeeded => Ended.Exists(static end => end == RunEnd.Succeeded);
 
-    public long Landed => Entries.Values.Fold(0L, static (sum, entry) => sum + entry.Times.Count);
+    public long Completed => Entries.Values.Fold(0L, static (sum, entry) => sum + entry.Times.Count);
 
     public Option<Relaunch> Relaunch => Job.Map(job => new Relaunch(job, Delay));
 
@@ -68,9 +68,11 @@ public sealed record QueueProgress(
              resumed.Map(static record => record.Retries).IfNone(settings.Retries),
              settings.Delay,
              None,
-             toHashMap(batch.Entries.Map(entry => (entry.Key, resumed.Bind(record => record.Entries.Find(entry.Key)).IfNone(EntryProgress.Empty) with {
-                 Versions = toHashMap(entry.Outputs.Choose(static output => output.Name.Version is OutputVersioning.Pinned pinned ? Some((output.Name.Scope, pinned.Version)) : None)),
-             }))))).Bracket();
+             toHashMap(batch.Entries.Map(entry => entry.Key switch {
+                 var key => (key, resumed.Bind(record => record.Entries.Find(key)).IfNone(EntryProgress.Empty) with {
+                     Versions = toHashMap(entry.Outputs.Choose(static output => output.Name.Version is OutputVersioning.Pinned pinned ? Some((output.Name.Scope, pinned.Version)) : None)),
+                 }),
+             })))).Bracket();
 
     public static IO<(QueueSettings Settings, Option<QueueProgress> Prior, RunState State)> Observed(QueueContext context) =>
         from settings in context.Settings
@@ -88,13 +90,13 @@ public sealed record QueueProgress(
 
     private static IO<bool> Live(QueueProgress record) =>
         (from process in use(() => Process.GetProcessById(record.ProcessId)) select process.StartTime.ToUniversalTime().ToInstant() == record.ProcessStart).Bracket()
-            .Catch(static error => error.HasException<ArgumentException>() || error.HasException<InvalidOperationException>(), static _ => IO.pure(value: false));
+            | @catch(static error => error.HasException<ArgumentException>() || error.HasException<InvalidOperationException>(), static _ => IO.pure(value: false));
 }
 
 internal sealed record ProgressRecord(Option<string> Job, int ProcessId, Instant ProcessStart, int Retries, Duration Delay, Option<RunEnd> Ended, Seq<ProgressRecord.Entry> Entries) {
     internal static readonly JsonTypeInfo<ProgressRecord> Info = ArchivableDictionaries.Info<ProgressRecord>();
 
-    internal sealed record Entry(ContentKey Key, Option<SequenceNumber> Last, Seq<Duration> Times, Seq<Version> Versions);
+    internal sealed record Entry(UInt128 Key, Option<SequenceNumber> Last, Seq<Duration> Times, Seq<Version> Versions);
 
     internal sealed record Version(Seq<NamePart> Scope, OutputVersion Number);
 
@@ -149,10 +151,10 @@ public static partial class QueueRuns {
                                         select frames).Bracket() switch {
                                             var run => settings.KeepAwake ? MachinePower.HeldAwake(run) : run,
                                         }
-                      from closed in Closed(context, held, began, RunEnd.Succeeded, static (record, elapsed) => new QueueEvent.Complete(record.Landed, elapsed))
+                      from closed in Closed(context, held, began, RunEnd.Succeeded, static (record, elapsed) => new QueueEvent.Complete(record.Completed, elapsed))
                       select rendered)
                  .Catch(error => (Stopping(error)
-                     ? Closed(context, held, began, RunEnd.Stopped, static (record, _) => new QueueEvent.Stopped(record.Landed))
+                     ? Closed(context, held, began, RunEnd.Stopped, static (record, _) => new QueueEvent.Stopped(record.Completed))
                      : Closed(context, held, began, RunEnd.Failed, (_, _) => new QueueEvent.Failed(error))) >> IO.fail<Unit>(error))
                  .Bind(_ => when(settings.ShutDownAfterSuccess, MachinePower.ShutDown).As())
          select unit).Bracket().Fork().Bind(static forked => forked.Await);
@@ -212,18 +214,22 @@ public static partial class QueueRuns {
          };
 
     private static IO<Unit> Requested(Func<Unit, Request, IO<Unit>> post, Pending run) =>
-        IO.lift(static () => Conduit.make<Fin<Unit>>()).Bind(reply =>
-            (from posted in post(unit, new Request(run, reply))
-             from answer in reply.Source.Take(1).Last()
-             from ran in IO.lift(answer)
-             select ran).Finally(reply.Complete()));
+        (from reply in use(IO.lift(static () => Conduit.make<Fin<Unit>>()), static open => open.Complete())
+         from posted in post(unit, new Request(run, reply))
+         from answer in reply.Source.Take(1).Last()
+         from ran in IO.lift(answer)
+         select ran).Bracket();
 
     private static IO<Unit> Turn(RunScope scope, Request request) =>
         Ran(scope, request.Run).Bind(_ => request.Reply.Post(unit)).Catch(error => request.Reply.Post(error)).As();
 
     private static IO<Unit> Ran(RunScope scope, Pending run) =>
         from rendered in IO.lift(run.Entry.Rendered)
-        from ran in run.Entry.Override.Around(scope.Doc, Sized(scope.Doc, run.Entry.Queued, rendered).Bind(_ => Widened(scope, run, rendered)))
+        from ran in RenderSettingsSources.Within(scope.Doc, run.Entry.Settings,
+            (from clay in run.Entry.Queued.Clay.Traverse(albedo => ClayMeshProvider.Register(scope.Doc, albedo)).As()
+             from sized in Sized(scope.Doc, run.Entry.Queued, rendered)
+             from widened in Widened(scope, run, rendered)
+             select widened).Bracket())
         select ran;
 
     private static IO<Unit> Sized(RhinoDoc doc, QueuedEntry entry, OverscanFrame rendered) =>
@@ -240,33 +246,23 @@ public static partial class QueueRuns {
         }));
 
     private static IO<Unit> Widened(RunScope scope, Pending run, OverscanFrame rendered) =>
-        run.Entry.Queued.Overscan is 0d
-            ? Lit(scope, run, rendered)
-            : Viewports.With(scope.Doc, new ViewportTarget.Active(), held => Cameras.Within(held.Viewport, rendered.Widen, Lit(scope, run, rendered)));
-
-    private static IO<Unit> Lit(RunScope scope, Pending run, OverscanFrame rendered) =>
-        run.Entry.Queued.Sun.Match(
-            Some: _ => RenderSettingsSources.Read(new RenderSettingsSource.Live(scope.Doc), static held => (from sun in use(() => held.Settings.Sun) select SunSite.Moment(sun)).Bracket())
-                .Bind(prior => Looped(scope, run, rendered).Finally(Moved(scope.Doc, prior))),
-            None: () => Looped(scope, run, rendered));
-
-    private static IO<Unit> Moved(RhinoDoc doc, LocalDateTime moment) =>
-        RenderSettingsSources.Edit(new RenderSettingsSource.Live(doc), held =>
-            (from sun in use(() => held.Settings.Sun)
-             from site in IO.lift(() => SunSite.Read(sun))
-             from set in site.SetDateTime(sun, moment)
-             select set).Bracket());
-
-    private static IO<Unit> Looped(RunScope scope, Pending run, OverscanFrame rendered) =>
-        run.Frames.TraverseM(frame => Frame(scope, run.Entry, rendered, frame)).As().Map(unit);
+        run.Frames.TraverseM(frame => Frame(scope, run.Entry, rendered, frame)).As().Map(unit) switch {
+            var frames => run.Entry.Queued.Overscan is 0d
+                ? frames
+                : Viewports.With(scope.Doc, new ViewportTarget.Active(), held => Cameras.Within(held.Viewport, rendered.Widen, frames)),
+        };
 
     private static IO<Unit> Frame(RunScope scope, QueueEntry<OutputPath> entry, OverscanFrame rendered, SequenceNumber frame) =>
         from started in IO.lift(scope.Context.Clock.GetTimestamp)
-        from lit in entry.Moment(frame).Traverse(moment => Moved(scope.Doc, moment)).As()
+        from lit in entry.Moment(frame).Traverse(moment => RenderSettingsSources.Edit(new RenderSettingsSource.Live(scope.Doc), held =>
+            (from sun in use(() => held.Settings.Sun)
+             from site in IO.lift(() => SunSite.Read(sun))
+             from set in site.SetDateTime(sun, moment)
+             select set).Bracket())).As()
         from framing in ChainScene.Sourced(scope.Doc, rendered.Padded, entry.Frames.Time(frame))
         from launched in Documents.RunScript(scope.Doc, $"_-{RenderCommand}", echo: false, display: None)
         from heard in scope.Heard.ValueIO
-        let lost = new DarkroomFault(string.Create(CultureInfo.InvariantCulture, $"frame {(int)frame}"), DarkroomReason.Unsaved)
+        let lost = new DarkroomFault(frame, DarkroomReason.Unsaved, Expression: "frame")
         from ended in IO.lift(heard.Ended.ToFin(lost).Bind(result => Results.Ended(result).MapFail(error => Stopping(error) ? error : lost + error)))
         from began in IO.lift(heard.Began.ToFin(lost))
         from saved in IO.lift(heard.Saved.ToFin(lost))
@@ -281,10 +277,10 @@ public static partial class QueueRuns {
         from peak in OperatingSystem.IsMacOS()
             ? IO.lift(SafeNativeMethods.PeakResident)
             : (from self in use(Process.GetCurrentProcess) select self.PeakWorkingSet64).Bracket()
-        from landed in Landed(scope, new FrameMark(entry.Key, frame, started, began, saved.At, finished, peak))
+        from recorded in Recorded(scope, new FrameMark(entry.Key, frame, started, began, saved.At, finished, peak))
         select unit;
 
-    private static IO<Unit> Landed(RunScope scope, FrameMark mark) =>
+    private static IO<Unit> Recorded(RunScope scope, FrameMark mark) =>
         from record in scope.Held.SwapIO(was => was with {
             Entries = was.Entries.AddOrUpdate(
                 mark.Entry,

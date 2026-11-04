@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: yaml-resolved-value
+language: yaml
+arguments: [value]
+utils:
+    anchor-name:
+        kind: anchor_name
+        all:
+            - pattern: $ANCHOR
+            - inside: {kind: anchor, inside: {pattern: $RESOLVED}}
+    last-anchor:
+        any:
+            - matches: anchor-name
+            - all:
+                - has: {stopBy: end, kind: anchor_name, pattern: $ANCHOR}
+                - has:
+                    all:
+                        - not: {precedes: {pattern: $$_}}
+                        - any:
+                            - matches: last-anchor
+                            - follows: {stopBy: end, matches: last-anchor}
+rule:
+    kind: block_node, flow_node
+    any:
+        - matches: value
+        - all:
+            - has: {kind: alias, has: {kind: alias_name, pattern: $ANCHOR}}
+            - any:
+                - follows: {stopBy: end, matches: last-anchor}
+                - inside:
+                    stopBy: {kind: document}
+                    not: {kind: document}
+                    follows: {stopBy: end, matches: last-anchor}
+constraints:
+    RESOLVED: {matches: value}

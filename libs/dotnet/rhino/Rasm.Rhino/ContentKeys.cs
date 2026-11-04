@@ -1,28 +1,29 @@
 using System.Buffers.Binary;
 using System.IO.Hashing;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using System.Text;
 using CommunityToolkit.HighPerformance.Buffers;
 
 namespace Rasm.Rhino;
 
-// --- [MODELS] --------------------------------------------------------------------------
-[ValueObject<UInt128>(AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public sealed partial class ContentKey {
-    public static ContentKey Of<TOwner>(Func<XxHash128, XxHash128> fields) =>
-        new(fields(new XxHash128().Id(typeof(TOwner).GUID)).GetCurrentHashAsUInt128());
-
-    public Guid Id {
-        get {
-            Span<byte> bytes = stackalloc byte[16];
-            BinaryPrimitives.WriteUInt128BigEndian(bytes, _value);
-            return new Guid(bytes, bigEndian: true);
-        }
-    }
-}
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ContentKeys {
+    // --- [KEYS]
+    public static UInt128 Of<TOwner>(Func<XxHash128, XxHash128> fields) =>
+        fields(new XxHash128().Id(typeof(TOwner).GUID)).GetCurrentHashAsUInt128();
+
+    extension(UInt128 value) {
+        public Guid Id {
+            get {
+                Span<byte> bytes = stackalloc byte[Unsafe.SizeOf<Guid>()];
+                BinaryPrimitives.WriteUInt128BigEndian(bytes, value);
+                return new Guid(bytes, bigEndian: true);
+            }
+        }
+    }
+
+    // --- [FIELDS]
     extension(XxHash128 accumulator) {
         public XxHash128 Integer<T>(T value) where T : unmanaged, IBinaryInteger<T> {
             Span<byte> field = stackalloc byte[value.GetByteCount()];
@@ -43,7 +44,7 @@ public static class ContentKeys {
         }
 
         public XxHash128 Id(Guid value) {
-            Span<byte> field = stackalloc byte[16];
+            Span<byte> field = stackalloc byte[Unsafe.SizeOf<Guid>()];
             _ = value.TryWriteBytes(field, bigEndian: true, out _);
             return accumulator.Integer(BinaryPrimitives.ReadUInt128BigEndian(field));
         }

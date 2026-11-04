@@ -29,6 +29,13 @@ macro_rules! spawned {
 
 fn statement() { tokio::spawn(async {}); }
 
+fn local_statement() {
+    let state = std::rc::Rc::new(());
+    tokio::task::spawn_local(async move { black_box(state) });
+}
+
+fn runtime_statement(runtime: &tokio::runtime::Runtime) { runtime.spawn(async {}); }
+
 fn unread() { let _worker = thread::spawn(|| 1_i32); }
 
 async fn threaded() { let _worker = thread::spawn(|| 1_i32); }
@@ -51,6 +58,12 @@ fn tracked_path(tracker: &TaskTracker) { TaskTracker::spawn(tracker, async {}); 
 
 fn tracked_future(tracker: &TaskTracker) { tokio::spawn(tracker.track_future(async {})); }
 
+fn replaced_tracked(tracker: &TaskTracker) {
+    let mut worker = Worker { task: tracker.spawn(async { 1 }), guard: AbortOnDropHandle::new(tracker.spawn(async { 1 })) };
+    worker.task = tracker.spawn(async { 2 });
+    black_box(worker);
+}
+
 fn bound_tracked(tracker: &TaskTracker) {
     let task = tracker.spawn(async {});
     drop(task);
@@ -72,6 +85,37 @@ async fn deferred(fast: bool) -> Result<u64, JoinError> {
         task = tokio::spawn(async { 4 });
     }
     task.await
+}
+
+async fn closure_unread() {
+    [0_u8]
+        .into_iter()
+        .map(|_| {
+            let _worker = thread::spawn(|| 1_u8);
+        })
+        .for_each(drop);
+}
+
+fn discarded(tracker: &TaskTracker) {
+    let _ = tokio::spawn(async {});
+    let _ = thread::spawn(|| 1_u8);
+    let _ = tracker.spawn(async {});
+}
+
+fn ignored_tracker(tracker: &TaskTracker) -> JoinHandle<()> {
+    black_box(tracker);
+    tokio::spawn(async {})
+}
+
+fn ignored_future<F>(future: F) -> JoinHandle<()>
+where F: Future + Send + 'static {
+    drop(future);
+    tokio::spawn(async {})
+}
+
+fn untracked(tracker: &TaskTracker) {
+    ignored_tracker(tracker);
+    ignored_future(tracker.track_future(async {}));
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

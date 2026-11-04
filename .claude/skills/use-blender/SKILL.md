@@ -175,9 +175,9 @@ Log reads follow host rules:
 
 ## [09]-[EVALUATION]
 
-Blender reads each `BLENDER_USER_CONFIG|SCRIPTS|EXTENSIONS|DATAFILES` variable, then `BLENDER_USER_RESOURCES` naming an existing folder as user base. Lookups neither answers fail with no profile fallback. `python -m eng.python.blender run` runs from the repository root, creating a fresh `.artifacts/blender/evaluate/<name>/` folder as `BLENDER_USER_RESOURCES` and `TMPDIR` before starting Blender with factory settings:
+Blender resolves user folders through `BLENDER_USER_CONFIG|SCRIPTS|EXTENSIONS|DATAFILES`, then `BLENDER_USER_RESOURCES` naming an existing base folder; unresolved lookups have no profile fallback. `python -m eng.python.blender run` creates a fresh `.artifacts/blender/evaluate/<name>/` profile and `TMPDIR` from the repository root:
 - `python -m eng.python.blender run <name> -- <arguments>` runs Blender with the arguments and prints its output
-- `run` passes `--python-use-system-env` and the process's `PYTHONPYCACHEPREFIX` ahead of the arguments, and arguments omit them
-- `run` syncs `.cache/blender/scripts/modules` to the wheels `nx run <id>:pack` bundles, first on `sys.path`, and adds `libs/python` through `PYTHONPATH`
+- `run` sets `PYTHONUSERBASE` and process `PYTHONPYCACHEPREFIX`, with `--python-use-system-env` before caller arguments enabling native user-site and `.pth` startup
+- `run` syncs selected `--package` and `--groups` dependencies into `purelib` from Blender's `sysconfig` user scheme, retaining editable sources
 - `watch-apps launch --new` starts macOS GUI runs hidden
 - Crash reports sit in the folder's root, and output sits in its `blender.log`

@@ -2,13 +2,14 @@ use core::{cell::LazyCell, cmp, iter, num::NonZero, ops::ControlFlow, range::Ran
 
 use faer::{MatRef, linalg::svd::SvdError};
 use itertools::{Itertools as _, iproduct, izip};
-use nalgebra::{DMatrix, DMatrixView, DVector, convert};
+use libm::frexp;
+use nalgebra::{DMatrix, DMatrixView, DVector, DVectorView, Matrix2, Vector2, convert};
 use nlopt::Target;
 use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
-use num_dual::{Dual2DVec64, DualDVec64, DualNum, first_derivative, gradient, hessian, jacobian};
+use num_dual::{Dual2DVec64, DualDVec64, DualNum, gradient, hessian, jacobian};
 use rasm_optimize::{
     Solution,
-    nonlinear::{Objective, Settings, optimize},
+    nonlinear::{Settings, optimize},
 };
 use rasm_stats::{Space, Tolerance, inference::Confidence};
 use rayon::iter::{Either, IndexedParallelIterator as _, ParallelIterator as _};
@@ -19,19 +20,19 @@ use statrs::{
 };
 use validated::Validated;
 
-use crate::{AnalysisError, Breakdown, Input, Observations, TOLERANCE, determined, finite, joined, refused_sites, refused_weights, roots::minimum};
+use crate::{AnalysisError, Breakdown, Input, Observations, SearchHooks, TOLERANCE, determined, finite, joined, refused_sites, refused_weights, roots::minimum};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 pub trait Model: Sync {
-    fn evaluate<D>(&self, site: &DVector<D>, parameters: &DVector<D>) -> D
+    fn evaluate<D>(&self, site: DVectorView<'_, D>, parameters: DVectorView<'_, D>) -> D
     where D: DualNum<Primitive = f64>;
 }
 
 pub trait Separable: Sync {
     fn terms(&self) -> usize;
 
-    fn basis<D>(&self, site: &DVector<D>, shape: &DVector<D>, term: usize) -> D
+    fn basis<D>(&self, site: DVectorView<'_, D>, shape: DVectorView<'_, D>, term: usize) -> D
     where D: DualNum<Primitive = f64>;
 }
 
@@ -160,9 +161,9 @@ struct Profile<'call, S> {
 impl<S> Model for Profile<'_, S>
 where S: Separable
 {
-    fn evaluate<D>(&self, site: &DVector<D>, parameters: &DVector<D>) -> D
+    fn evaluate<D>(&self, site: DVectorView<'_, D>, parameters: DVectorView<'_, D>) -> D
     where D: DualNum<Primitive = f64> {
-        self.coefficients.iter().enumerate().fold(D::from(0.0), |total, (term, &coefficient)| self.separable.basis(site, parameters, term).mul_add(D::from(coefficient), total))
+        self.coefficients.iter().enumerate().fold(D::from(0.0), |total, (term, &coefficient)| self.separable.basis(site.as_view(), parameters.as_view(), term).mul_add(D::from(coefficient), total))
     }
 }
 
@@ -174,10 +175,10 @@ struct Joint<'call, S> {
 impl<S> Model for Joint<'_, S>
 where S: Separable
 {
-    fn evaluate<D>(&self, site: &DVector<D>, parameters: &DVector<D>) -> D
+    fn evaluate<D>(&self, site: DVectorView<'_, D>, parameters: DVectorView<'_, D>) -> D
     where D: DualNum<Primitive = f64> {
-        let shape = parameters.rows(0, self.shapes).into_owned();
-        parameters.iter().skip(self.shapes).enumerate().fold(D::from(0.0), |total, (term, coefficient)| self.separable.basis(site, &shape, term).mul_add(coefficient.clone(), total))
+        let shape = parameters.rows(0, self.shapes);
+        parameters.iter().skip(self.shapes).enumerate().fold(D::from(0.0), |total, (term, coefficient)| self.separable.basis(site.as_view(), shape.as_view(), term).mul_add(coefficient.clone(), total))
     }
 }
 
@@ -211,39 +212,45 @@ fn decompose(design: &DMatrix<f64>) -> Result<Spectrum, AnalysisError> {
     })
 }
 
-fn penalty(spectrum: &Spectrum, projected: &DMatrix<f64>, remainder: f64, regularization: Regularization) -> Result<f64, AnalysisError> {
-    let lowest = spectrum.rank.checked_sub(1).and_then(|last| spectrum.singular.get(last).copied());
-    match (regularization, lowest) {
+fn estimate(design: &DMatrix<f64>, target: &DMatrix<f64>, regularization: Regularization, solved: Option<&DVector<f64>>, hooks: SearchHooks<'_>) -> Result<Estimate, AnalysisError> {
+    let spectrum = decompose(design)?;
+    let filters = |lambda: f64| {
+        let scale = lambda.sqrt();
+        spectrum.singular.iter().enumerate().map(move |(index, &value)| {
+            if index >= spectrum.rank {
+                (0.0, 0.0)
+            } else if scale <= value {
+                let ratio = scale / value;
+                let factor = ratio.mul_add(ratio, 1.0).recip();
+                (factor, factor / value)
+            } else {
+                let ratio = value / scale;
+                let square = ratio.powi(2);
+                let divisor = 1.0 + square;
+                (square / divisor, (ratio / divisor) / scale)
+            }
+        })
+    };
+    let projected = spectrum.left.tr_mul(target);
+    let remainder = (target.norm_squared() - projected.norm_squared()).max(0.0);
+    let lambda = match (regularization, spectrum.rank.checked_sub(1).and_then(|last| spectrum.singular.get(last).copied())) {
         (Regularization::Truncated, _) | (Regularization::Gcv, None) => Ok(0.0),
         (Regularization::Tikhonov(lambda), _) => Ok(lambda.into_inner()),
         (Regularization::Gcv, Some(lowest)) => {
             let points = convert::<usize, f64>(spectrum.left.nrows());
+            let energies = projected.row_iter().map(|row| row.norm_squared()).collect::<Vec<_>>();
             let gcv = |exponent: f64| {
-                let filter = filters(spectrum, exponent.exp());
-                let lack = izip!(filter.iter(), projected.row_iter()).map(|(factor, row)| (1.0 - factor).powi(2) * row.norm_squared()).sum::<f64>() + remainder;
-                Ok(points * lack / (points - filter.sum()).max(f64::EPSILON * points).powi(2))
+                let (trace, lack) =
+                    iter::zip(filters(exponent.exp()), &energies).fold((0.0, 0.0), |(trace, lack), ((factor, _), energy)| (trace + factor, (1.0 - factor).powi(2).mul_add(*energy, lack)));
+                Ok(points * (lack + remainder) / (points - trace).max(f64::EPSILON * points).powi(2))
             };
             let start = 2.0_f64.mul_add(lowest.ln(), f64::EPSILON.ln());
-            minimum(gcv, start, 2.0 * spectrum.singular.amax().ln(), f64::from(almost::F32_TOLERANCE)).map(|(exponent, _)| exponent.exp())
+            minimum(gcv, start, 2.0 * spectrum.singular.amax().ln(), f64::from(almost::F32_TOLERANCE), hooks).map(|(exponent, _)| exponent.exp())
         }
-    }
-}
-
-fn filters(spectrum: &Spectrum, lambda: f64) -> DVector<f64> {
-    spectrum.singular.map_with_location(|index, _, value| {
-        let square = value.powi(2);
-        if index < spectrum.rank { square / (square + lambda) } else { 0.0 }
-    })
-}
-
-fn estimate(design: &DMatrix<f64>, target: &DMatrix<f64>, regularization: Regularization, solved: Option<&DVector<f64>>) -> Result<Estimate, AnalysisError> {
-    let spectrum = decompose(design)?;
-    let projected = spectrum.left.tr_mul(target);
-    let remainder = (target.norm_squared() - projected.norm_squared()).max(0.0);
-    let lambda = penalty(&spectrum, &projected, remainder, regularization)?;
-    let factors = filters(&spectrum, lambda);
-    let gains = factors.zip_map(&spectrum.singular, |factor, value| if factor > 0.0 { factor / value } else { 0.0 });
-    let pseudoinverse = &spectrum.right * DMatrix::from_diagonal(&gains) * spectrum.left.transpose();
+    }?;
+    let (factors, gains): (Vec<_>, Vec<_>) = filters(lambda).unzip();
+    let (factors, gains) = (DVector::from_vec(factors), DVector::from_vec(gains));
+    let pseudoinverse = spectrum.right.map_with_location(|_, column, value| value * gains[column]) * spectrum.left.transpose();
     let (parameters, residuals) = solved.map_or_else(
         || {
             let parameters = &pseudoinverse * target;
@@ -267,55 +274,162 @@ fn estimate(design: &DMatrix<f64>, target: &DMatrix<f64>, regularization: Regula
 // --- [LOSS]
 fn rho<D>(loss: Loss, residual: &D) -> D
 where D: DualNum<Primitive = f64> {
-    let square = residual.powi(2);
+    #[expect(clippy::arithmetic_side_effects, reason = "Clippy cannot match arithmetic allowances through DualNum bounds")]
+    fn lifted<D, I>(residual: &D, value: f64, coefficients: impl FnOnce() -> I) -> D
+    where
+        D: DualNum<Primitive = f64>,
+        I: Iterator<Item = (f64, i128)>,
+    {
+        fn scaled<D>(value: &D, exponent: u128, direction: f64) -> D
+        where D: DualNum<Primitive = f64> {
+            let chunk = if direction > 0.0 { u128::from(f64::MAX_EXP.unsigned_abs().strict_sub(1)) } else { u128::from(f64::MIN_EXP.unsigned_abs()) };
+            (0..exponent.div_ceil(chunk)).fold(value.clone(), |value, index| value * (direction * convert::<u128, f64>(exponent.strict_sub(index.strict_mul(chunk)).min(chunk))).exp2())
+        }
+
+        if D::NDERIV == 0 {
+            return D::from(value);
+        }
+        let delta = residual.clone() - residual.re();
+        coefficients().zip(0..D::NDERIV).filter(|((coefficient, _), _)| *coefficient != 0.0).fold(D::from(value), |sum, ((coefficient, exponent), index)| {
+            let order = NonZero::<u128>::MIN.saturating_add(index.strict_cast::<u128>());
+            let magnitude = exponent.unsigned_abs();
+            let (quotient, remainder) = (magnitude / order, magnitude % order);
+            let direction = if exponent < 0 { -1.0 } else { 1.0 };
+            let lower = scaled(&delta, quotient, direction);
+            let upper = LazyCell::new(|| scaled(&lower, 1, direction));
+            sum + (0..order.get()).fold(D::from(coefficient), |term, power| term * if power < remainder { &*upper } else { &lower })
+        })
+    }
+
+    fn cauchy<D>(scale: f64, residual: &D) -> D
+    where D: DualNum<Primitive = f64> {
+        let real = residual.re();
+        let inside = real.abs() <= scale;
+        let ratio = if inside { real / scale } else { scale / real };
+        let square = ratio.powi(2);
+        let value = if inside {
+            let factor = if square == 0.0 { 1.0 } else { square.ln_1p() / square };
+            real * factor * real
+        } else {
+            let logarithm = if ratio == 0.0 { real.abs().ln() - scale.ln() } else { -ratio.abs().ln() };
+            (2.0_f64.mul_add(logarithm, square.ln_1p()) * scale) * scale
+        };
+        lifted(residual, value, move || {
+            let (scale_mantissa, scale_exponent) = frexp(scale);
+            let (real_mantissa, real_exponent) = frexp(real);
+            let (scale_exponent, real_exponent) = (i128::from(scale_exponent), i128::from(real_exponent));
+            let divisor = if inside { (scale_mantissa, scale_exponent) } else { (real_mantissa, real_exponent) };
+            (1..=D::NDERIV).scan((Vector2::new(1.0, 0.0), scale_mantissa.powi(2), scale_exponent.strict_mul(2)), move |state, order| {
+                let (inverse, mantissa, exponent) = *state;
+                let even = order.is_multiple_of(2);
+                let (real_factor, cross_factor, imaginary_factor) = match (inside, even) {
+                    (true, false) => (1.0, 1.0, square),
+                    (true, true) => (square, 1.0, 1.0),
+                    (false, _) => (1.0, square, 1.0),
+                };
+                let inverse = Matrix2::new(real_factor, cross_factor, -1.0, imaginary_factor) * inverse / (1.0 + square);
+                let (mantissa, shift) = frexp(mantissa / divisor.0);
+                let exponent = exponent.strict_add(i128::from(shift)).strict_sub(divisor.1);
+                let factor = inverse[0] * (if even { -2.0 } else { 2.0 }) / convert::<usize, f64>(order);
+                let coefficient =
+                    if inside && !even { (mantissa * factor * real_mantissa / scale_mantissa, exponent.strict_add(real_exponent).strict_sub(scale_exponent)) } else { (mantissa * factor, exponent) };
+                *state = (inverse, mantissa, exponent);
+                Some(coefficient)
+            })
+        })
+    }
+
+    fn soft_l1<D>(scale: f64, residual: &D) -> D
+    where D: DualNum<Primitive = f64> {
+        let real = residual.re();
+        let inside = real.abs() <= scale;
+        let ratio = if inside { real / scale } else { scale / real };
+        let unit = 1.0_f64.hypot(ratio);
+        let value = if inside { real / (unit + 1.0) * 2.0 * real } else { real.abs() / (unit + ratio.abs()) * scale * 2.0 };
+        lifted(residual, value, move || {
+            let (scale_mantissa, scale_exponent) = frexp(scale);
+            let (real_mantissa, real_exponent) = frexp(real);
+            let (scale_exponent, real_exponent) = (i128::from(scale_exponent), i128::from(real_exponent));
+            let (radius_mantissa, radius_exponent) = {
+                let (mantissa, exponent) = if inside { (scale_mantissa, scale_exponent) } else { (real_mantissa.abs(), real_exponent) };
+                let (mantissa, shift) = frexp(mantissa * unit);
+                (mantissa, exponent.strict_add(i128::from(shift)))
+            };
+            let coordinate = if inside { ratio / unit } else { real.signum() / unit };
+            (1..=D::NDERIV).scan((Vector2::new(0.5, 0.0), scale_mantissa.powi(3) / radius_mantissa, scale_exponent.strict_mul(3).strict_sub(radius_exponent)), move |state, order| {
+                let (previous, mantissa, exponent) = *state;
+                let degree = convert::<usize, f64>(order);
+                let previous = if order > 2 { Matrix2::new(-(2.0_f64.mul_add(degree, -3.0)) * coordinate / degree, -(degree - 3.0) / degree, 1.0, 0.0) * previous } else { previous };
+                let (mantissa, shift) = frexp(mantissa / radius_mantissa);
+                let exponent = exponent.strict_add(i128::from(shift)).strict_sub(radius_exponent);
+                let coefficient = match (order == 1, inside) {
+                    (true, true) => (real_mantissa * (2.0 / unit), real_exponent),
+                    (true, false) => (scale_mantissa.copysign(real) * (2.0 / unit), scale_exponent),
+                    (false, _) => (mantissa * 2.0 * previous[0], exponent),
+                };
+                *state = (previous, mantissa, exponent);
+                Some(coefficient)
+            })
+        })
+    }
+
     match loss {
-        Loss::Squared => square,
+        Loss::Squared => residual.powi(2),
         Loss::Huber(scale) => {
             let scale = scale.into_inner();
-            if residual.re().abs() <= scale { square } else { residual.abs().mul_add(D::from(2.0 * scale), D::from(-scale * scale)) }
+            if residual.re().abs() <= scale { residual.powi(2) } else { residual.abs().mul_add(D::from(2.0 * scale), D::from(-scale * scale)) }
         }
-        Loss::SoftL1(scale) => {
-            let scale = scale.into_inner();
-            square.mul_add(D::from(scale.powi(-2)), D::from(1.0)).sqrt().mul_add(D::from(2.0 * scale * scale), D::from(-2.0 * scale * scale))
-        }
-        Loss::Cauchy(scale) => {
-            let scale = scale.into_inner();
-            square.mul_add(D::from(scale.powi(-2)), D::from(1.0)).ln().mul_add(D::from(scale * scale), D::from(0.0))
-        }
+        Loss::SoftL1(scale) => soft_l1(scale.into_inner(), residual),
+        Loss::Cauchy(scale) => cauchy(scale.into_inner(), residual),
     }
 }
 
 fn reweight(loss: Loss, residual: f64) -> f64 {
-    let (_, slope) = first_derivative(|value| rho(loss, &value), residual);
-    if residual == 0.0 { 1.0 } else { (slope / (2.0 * residual)).sqrt() }
+    match loss {
+        Loss::Squared => 1.0,
+        Loss::Huber(scale) => {
+            let scale = scale.into_inner();
+            if residual.abs() <= scale { 1.0 } else { scale.sqrt() / residual.abs().sqrt() }
+        }
+        Loss::SoftL1(scale) => {
+            let scale = scale.into_inner();
+            let magnitude = residual.abs().max(scale);
+            (scale.sqrt() / magnitude.sqrt()) / (residual / magnitude).hypot(scale / magnitude).sqrt()
+        }
+        Loss::Cauchy(scale) => {
+            let scale = scale.into_inner();
+            let magnitude = residual.abs().max(scale);
+            (scale / magnitude) / (residual / magnitude).hypot(scale / magnitude)
+        }
+    }
 }
 
-fn robust(design: &DMatrix<f64>, target: &DMatrix<f64>, options: Options) -> Result<Estimate, AnalysisError> {
-    let first = estimate(design, target, options.regularization, None)?;
-    if options.loss == Loss::Squared {
-        return Ok(first);
+fn robust(design: &DMatrix<f64>, target: &DMatrix<f64>, options: Options, hooks: SearchHooks<'_>) -> Result<Estimate, AnalysisError> {
+    let first = estimate(design, target, options.regularization, None, hooks)?;
+    match options.loss {
+        Loss::Squared => Ok(first),
+        Loss::Huber(_) | Loss::SoftL1(_) | Loss::Cauchy(_) => (1..options.iterations.get())
+            .try_fold(first, |current, _| {
+                let lack = target - design * &current.parameters;
+                let reweights = DVector::from_iterator(lack.nrows(), lack.row_iter().map(|row| reweight(options.loss, row.norm())));
+                match estimate(&scaled(design, &reweights), &scaled(target, &reweights), options.regularization, None, hooks) {
+                    Err(error) => ControlFlow::Break(Err(error)),
+                    Ok(next) if (&next.parameters - &current.parameters).norm() <= options.tolerance.into_inner() * next.parameters.norm() => ControlFlow::Break(Ok(next)),
+                    Ok(next) => ControlFlow::Continue(next),
+                }
+            })
+            .map_continue(Ok)
+            .into_value(),
     }
-    (1..options.iterations.get())
-        .try_fold(first, |current, _| {
-            let lack = target - design * &current.parameters;
-            let reweights = DVector::from_iterator(lack.nrows(), lack.row_iter().map(|row| reweight(options.loss, row.norm())));
-            match estimate(&scaled(design, &reweights), &scaled(target, &reweights), options.regularization, None) {
-                Err(error) => ControlFlow::Break(Err(error)),
-                Ok(next) if (&next.parameters - &current.parameters).norm() <= options.tolerance.into_inner() * next.parameters.norm() => ControlFlow::Break(Ok(next)),
-                Ok(next) => ControlFlow::Continue(next),
-            }
-        })
-        .map_continue(Ok)
-        .into_value()
 }
 
 // --- [POLYNOMIAL]
-pub(crate) fn design<T>(exponents: &DMatrix<u8>, sites: &DMatrix<T>) -> DMatrix<T>
+pub(crate) fn design<T>(exponents: &DMatrix<u8>, sites: &DMatrixView<'_, T>) -> DMatrix<T>
 where T: DualNum<Primitive = f64> {
-    DMatrix::from_row_iterator(
+    DMatrix::from_iterator(
         sites.ncols(),
         exponents.ncols(),
-        iproduct!(sites.column_iter(), exponents.column_iter()).map(|(site, term)| iter::zip(site.iter(), term.iter()).map(|(value, &exponent)| value.powi(i32::from(exponent))).product::<T>()),
+        iproduct!(exponents.column_iter(), sites.column_iter()).map(|(term, site)| iter::zip(site.iter(), term.iter()).map(|(value, &exponent)| value.powi(i32::from(exponent))).product::<T>()),
     )
 }
 
@@ -330,7 +444,7 @@ pub fn total_degree(dimensions: usize, degree: u8) -> DMatrix<u8> {
     )
 }
 
-pub fn fit(observations: &Observations, exponents: DMatrix<u8>, options: Options) -> Result<(Polynomial, Estimate), NEVec<AnalysisError>> {
+pub fn fit(observations: &Observations, exponents: DMatrix<u8>, options: Options, hooks: SearchHooks<'_>) -> Result<(Polynomial, Estimate), NEVec<AnalysisError>> {
     let Observations { sites, values, weights: _ } = observations;
     let (dimensions, points) = sites.shape();
     let terms = exponents.ncols();
@@ -356,9 +470,10 @@ pub fn fit(observations: &Observations, exponents: DMatrix<u8>, options: Options
     let weights = scales(observations);
     let conditioned = design(
         &exponents,
-        &DMatrix::from_iterator(dimensions, points, iter::zip(sites.iter(), iter::zip(offsets.iter(), spans.iter()).cycle()).map(|(coordinate, (offset, span))| (coordinate - offset) / span)),
+        &DMatrix::from_iterator(dimensions, points, iter::zip(sites.iter(), iter::zip(offsets.iter(), spans.iter()).cycle()).map(|(coordinate, (offset, span))| (coordinate - offset) / span))
+            .as_view(),
     );
-    let solved = robust(&scaled(&conditioned, &weights), &scaled(&values.transpose(), &weights), options).map_err(NEVec::new)?;
+    let solved = robust(&scaled(&conditioned, &weights), &scaled(&values.transpose(), &weights), options, hooks).map_err(NEVec::new)?;
     let raw = DMatrix::from_fn(terms, terms, |lower, upper| {
         izip!(exponents.column(lower).iter(), exponents.column(upper).iter(), offsets.iter(), spans.iter())
             .map(|(&held, &exponent, &offset, &span)| {
@@ -386,7 +501,7 @@ where T: DualNum<Primitive = f64> {
     }))
     .collect::<Validated<(), _>>()
     .ok()?;
-    Ok(design(exponents, sites))
+    Ok(design(exponents, &sites.as_view()))
 }
 
 pub fn evaluate<T>(polynomial: &Polynomial, sites: &DMatrix<T>) -> Result<DMatrix<T>, NEVec<AnalysisError>>
@@ -397,7 +512,6 @@ where T: DualNum<Primitive = f64> {
 fn refused_reading(uncertainty: &Uncertainty, parameters: usize, points: usize, weights: Option<&DVector<f64>>) -> impl Iterator<Item = Result<(), AnalysisError>> {
     iter::chain(
         [
-            (uncertainty.parameters.len() == parameters).ok_or(AnalysisError::Shape { input: Input::Coefficients, expected: parameters, found: uncertainty.parameters.len() }),
             (uncertainty.covariance.shape() == (parameters, parameters)).ok_or(AnalysisError::Shape { input: Input::Covariance, expected: parameters, found: uncertainty.covariance.nrows() }),
             weights.map_or(Ok(()), |weights| (weights.len() == points).ok_or(AnalysisError::Shape { input: Input::Weights, expected: points, found: weights.len() })),
         ],
@@ -409,7 +523,11 @@ fn noises(noise: f64, weights: Option<&DVector<f64>>, points: usize) -> DVector<
 
 pub fn predict<T>(polynomial: &Polynomial, uncertainty: &Uncertainty, sites: &DMatrix<T>, weights: Option<&DVector<f64>>) -> Result<Prediction<T>, NEVec<AnalysisError>>
 where T: DualNum<Primitive = f64> {
-    refused_reading(uncertainty, polynomial.exponents.ncols(), sites.ncols(), weights).collect::<Validated<(), _>>().ok()?;
+    let parameters = polynomial.exponents.ncols();
+    iter::once((uncertainty.parameters.len() == parameters).ok_or(AnalysisError::Shape { input: Input::Coefficients, expected: parameters, found: uncertainty.parameters.len() }))
+        .chain(refused_reading(uncertainty, parameters, sites.ncols(), weights))
+        .collect::<Validated<(), _>>()
+        .ok()?;
     let terms = terms(polynomial, sites)?;
     Ok(Prediction {
         mean: &terms * uncertainty.parameters.map(T::from),
@@ -420,40 +538,36 @@ where T: DualNum<Primitive = f64> {
 }
 
 // --- [NONLINEAR]
-fn residuals<M, D>(model: &M, observations: &Observations, scales: &DVector<f64>, parameters: &DVector<D>) -> DVector<D>
+fn residuals<'call, M, D>(model: &'call M, observations: &'call Observations, scales: &'call DVector<f64>, parameters: DVectorView<'call, D>) -> impl ExactSizeIterator<Item = D>
 where
     M: Model,
     D: DualNum<Primitive = f64>,
 {
-    DVector::from_iterator(
-        scales.len(),
-        izip!(observations.sites.column_iter(), observations.values.row(0).iter(), scales.iter())
-            .map(|(site, &value, &scale)| model.evaluate(&site.map(D::from), parameters).mul_add(D::from(scale), D::from(-value * scale))),
-    )
+    izip!(observations.sites.column_iter(), observations.values.column_iter(), scales.iter())
+        .map(move |(site, value, &scale)| model.evaluate(site.map(D::from).as_view(), parameters.as_view()).mul_add(D::from(scale), D::from(-value[0] * scale)))
 }
 
-fn objective<M, D>(model: &M, observations: &Observations, scales: &DVector<f64>, loss: Loss, parameters: &DVector<D>) -> D
+fn objective<M, D>(model: &M, observations: &Observations, scales: &DVector<f64>, loss: Loss, parameters: DVectorView<'_, D>) -> D
 where
     M: Model,
     D: DualNum<Primitive = f64>,
 {
-    residuals(model, observations, scales, parameters).iter().map(|residual| rho(loss, residual)).sum()
+    residuals(model, observations, scales, parameters).map(|residual| rho(loss, &residual)).sum()
 }
 
 fn searched<M>(model: &M, observations: &Observations, scales: &DVector<f64>, loss: Loss, point: &[f64], slot: Option<&mut [f64]>) -> Result<f64, AnalysisError>
 where M: Model {
-    let point = DVector::from_column_slice(point);
+    let point = DVectorView::from_slice(point, point.len());
     let value = match slot {
         Some(slot) => {
-            let (weighted, design) = jacobian(|parameters: DVector<DualDVec64>| residuals(model, observations, scales, &parameters), &point);
-            let (values, slopes): (Vec<_>, Vec<_>) = weighted.iter().map(|&residual| first_derivative(|value| rho(loss, &value), residual)).unzip();
-            slot.copy_from_slice(design.tr_mul(&DVector::from_vec(slopes)).as_slice());
-            values.into_iter().sum()
+            let (value, slope) = gradient(|parameters: DVector<DualDVec64>| objective(model, observations, scales, loss, parameters.as_view()), &point.into_owned());
+            slot.copy_from_slice(slope.as_slice());
+            value
         }
-        None => objective(model, observations, scales, loss, &point),
+        None => objective(model, observations, scales, loss, point),
     };
     if !value.is_finite() {
-        finite(residuals(model, observations, scales, &point).iter(), |observation| AnalysisError::Point { breakdown: Breakdown::Model, point: observation }).next().transpose()?;
+        finite(residuals(model, observations, scales, point), |observation| AnalysisError::Point { breakdown: Breakdown::Model, point: observation }).next().transpose()?;
     }
     Ok(value)
 }
@@ -461,7 +575,7 @@ where M: Model {
 fn minima<K, F>(space: &Space<K>, starts: DMatrixView<'_, f64>, settings: &Settings<'_>, tolerance: Tolerance, objective: &F) -> Result<(NEVec<Solution>, Vec<AnalysisError>), NEVec<AnalysisError>>
 where
     K: Sync,
-    F: Objective<AnalysisError> + Sync,
+    F: Fn(&[f64], Option<&mut [f64]>) -> Result<f64, AnalysisError> + Sync,
 {
     let (failed, solved): (Vec<_>, Vec<_>) = starts
         .par_column_iter()
@@ -475,19 +589,21 @@ where
     let near = |left: &Solution, right: &Solution| {
         izip!(left.point.iter(), right.point.iter(), space.values()).all(|(first, second, bounds)| (first - second).abs() <= resolution * (bounds.last - bounds.start))
     };
-    let distinct = solved
-        .into_iter()
-        .sorted_by(|left, right| left.objective.total_cmp(&right.objective))
-        .fold(Vec::<Solution>::new(), |kept, solution| if kept.iter().any(|held| near(held, &solution)) { kept } else { iter::chain(kept, iter::once(solution)).collect() });
+    let distinct = solved.into_iter().sorted_by(|left, right| left.objective.total_cmp(&right.objective)).fold(Vec::<Solution>::new(), |mut kept, solution| {
+        if !kept.iter().any(|held| near(held, &solution)) {
+            kept.push(solution);
+        }
+        kept
+    });
     match NEVec::try_from_vec(distinct) {
         Some(distinct) => Ok((distinct, failures)),
         None => Err(NEVec::try_from_vec(failures).unwrap_or_else(|| NEVec::new(AnalysisError::Shape { input: Input::Starts, expected: 1, found: 0 }))),
     }
 }
 
-fn linearized<M>(model: &M, observations: &Observations, scales: &DVector<f64>, options: Options, point: &DVector<f64>) -> Result<Estimate, NEVec<AnalysisError>>
+fn linearized<M>(model: &M, observations: &Observations, scales: &DVector<f64>, options: Options, point: &DVector<f64>, hooks: SearchHooks<'_>) -> Result<Estimate, NEVec<AnalysisError>>
 where M: Model {
-    let (weighted, slopes) = jacobian(|parameters: DVector<DualDVec64>| residuals(model, observations, scales, &parameters), point);
+    let (weighted, slopes) = jacobian(|parameters: DVector<DualDVec64>| DVector::from_iterator(scales.len(), residuals(model, observations, scales, parameters.as_view())), point);
     finite(weighted.iter(), |observation| AnalysisError::Point { breakdown: Breakdown::Model, point: observation })
         .chain(finite(slopes.iter(), |entry| {
             let (observation, parameter) = slopes.vector_to_matrix_index(entry);
@@ -497,14 +613,22 @@ where M: Model {
         .ok()?;
     let reweights = weighted.map(|residual| reweight(options.loss, residual));
     let target = DMatrix::from_iterator(weighted.len(), 1, weighted.iter().map(|residual| -residual));
-    estimate(&scaled(&slopes, &reweights), &scaled(&target, &reweights), options.regularization, Some(point)).map_err(NEVec::new)
+    estimate(&scaled(&slopes, &reweights), &scaled(&target, &reweights), options.regularization, Some(point), hooks).map_err(NEVec::new)
 }
 
 fn active<K>(space: &Space<K>, point: &DVector<f64>) -> Vec<usize> {
     iter::zip(point.iter(), space.values()).positions(|(&value, bounds)| almost::equal(value, bounds.start) || almost::equal(value, bounds.last)).collect()
 }
 
-pub fn least_squares<K, M>(model: &M, observations: &Observations, space: &Space<K>, starts: DMatrixView<'_, f64>, settings: &Settings<'_>, options: Options) -> Result<Fit, NEVec<AnalysisError>>
+pub fn least_squares<K, M>(
+    model: &M,
+    observations: &Observations,
+    space: &Space<K>,
+    starts: DMatrixView<'_, f64>,
+    settings: &Settings<'_>,
+    options: Options,
+    hooks: SearchHooks<'_>,
+) -> Result<Fit, NEVec<AnalysisError>>
 where
     K: Sync,
     M: Model,
@@ -514,10 +638,18 @@ where
     let search = |point: &[f64], slot: Option<&mut [f64]>| searched(model, observations, &scales, options.loss, point, slot);
     let (distinct, failures) = minima(space, starts, settings, options.tolerance, &search)?;
     let point = &distinct.first().point;
-    Ok(Fit { estimate: linearized(model, observations, &scales, options, point)?, active: active(space, point), minima: distinct, failures })
+    Ok(Fit { estimate: linearized(model, observations, &scales, options, point, hooks)?, active: active(space, point), minima: distinct, failures })
 }
 
-pub fn separable<K, S>(model: &S, observations: &Observations, space: &Space<K>, starts: DMatrixView<'_, f64>, settings: &Settings<'_>, options: Options) -> Result<Fit, NEVec<AnalysisError>>
+pub fn separable<K, S>(
+    model: &S,
+    observations: &Observations,
+    space: &Space<K>,
+    starts: DMatrixView<'_, f64>,
+    settings: &Settings<'_>,
+    options: Options,
+    hooks: SearchHooks<'_>,
+) -> Result<Fit, NEVec<AnalysisError>>
 where
     K: Sync,
     S: Separable,
@@ -526,26 +658,26 @@ where
     [single_response(observations), determined(points, shapes.saturating_add(model.terms()))].into_iter().collect::<Validated<(), _>>().ok()?;
     let scales = scales(observations);
     let target = scaled(&observations.values.transpose(), &scales);
-    let projected = |shape: &DVector<f64>| -> Result<(DVector<f64>, f64), AnalysisError> {
-        let basis = scaled(&DMatrix::from_fn(points, model.terms(), |point, term| model.basis(&observations.sites.column(point).into_owned(), shape, term)), &scales);
+    let projected = |shape: DVectorView<'_, f64>| -> Result<(DVector<f64>, f64), AnalysisError> {
+        let basis = DMatrix::from_fn(points, model.terms(), |point, term| model.basis(observations.sites.column(point), shape.as_view(), term) * scales[point]);
         finite(basis.iter(), |entry| {
             let (point, parameter) = basis.vector_to_matrix_index(entry);
             AnalysisError::Design { point, parameter }
         })
         .next()
         .transpose()?;
-        robust(&basis, &target, options).map(|solved| (solved.parameters.column(0).into_owned(), solved.lambda))
+        robust(&basis, &target, options, hooks).map(|solved| (solved.parameters.column(0).into_owned(), solved.lambda))
     };
     let search = |point: &[f64], slot: Option<&mut [f64]>| {
-        projected(&DVector::from_column_slice(point)).and_then(|(coefficients, lambda)| {
+        projected(DVectorView::from_slice(point, point.len())).and_then(|(coefficients, lambda)| {
             searched(&Profile { separable: model, coefficients: &coefficients }, observations, &scales, options.loss, point, slot).map(|value| lambda.mul_add(coefficients.norm_squared(), value))
         })
     };
     let (distinct, failures) = minima(space, starts, settings, options.tolerance, &search)?;
     let shape = &distinct.first().point;
-    let (coefficients, _) = projected(shape).map_err(NEVec::new)?;
+    let (coefficients, _) = projected(shape.as_view()).map_err(NEVec::new)?;
     let joint = DVector::from_iterator(shapes.strict_add(coefficients.len()), iter::chain(shape.iter(), coefficients.iter()).copied());
-    Ok(Fit { estimate: linearized(&Joint { separable: model, shapes }, observations, &scales, options, &joint)?, active: active(space, shape), minima: distinct, failures })
+    Ok(Fit { estimate: linearized(&Joint { separable: model, shapes }, observations, &scales, options, &joint, hooks)?, active: active(space, shape), minima: distinct, failures })
 }
 
 pub fn propagate<M>(
@@ -572,10 +704,10 @@ where
         .par_column_iter()
         .enumerate()
         .map(|(point, site)| {
-            let (value, slope) = gradient(|parameters: DVector<DualDVec64>| model.evaluate(&site.map(DualDVec64::from_re), &parameters), &uncertainty.parameters);
+            let (value, slope) = gradient(|parameters: DVector<DualDVec64>| model.evaluate(site.map(DualDVec64::from_re).as_view(), parameters.as_view()), &uncertainty.parameters);
             let propagated = site_covariance.map_or_default(|covariance| {
                 let lifted = uncertainty.parameters.map(DualDVec64::from_re);
-                let (_, tilt) = gradient(|coordinates: DVector<DualDVec64>| model.evaluate(&coordinates, &lifted), &site.into_owned());
+                let (_, tilt) = gradient(|coordinates: DVector<DualDVec64>| model.evaluate(coordinates.as_view(), lifted.as_view()), &site.into_owned());
                 tilt.dot(&(covariance * &tilt))
             });
             iter::once(value.is_finite().ok_or(AnalysisError::Point { breakdown: Breakdown::Model, point }))
@@ -593,9 +725,9 @@ where M: Model {
     single_response(observations)?;
     let (scales, precision) = (scales(observations), sigma.into_inner().powi(-2));
     Ok(move |point: &[f64], slot: &mut [f64]| {
-        let (weighted, design) = jacobian(|parameters: DVector<DualDVec64>| residuals(model, observations, &scales, &parameters), &DVector::from_column_slice(point));
-        slot.copy_from_slice((design.tr_mul(&weighted) * -precision).as_slice());
-        weighted.norm_squared() * precision * -0.5
+        let (value, slope) = gradient(|parameters: DVector<DualDVec64>| objective(model, observations, &scales, Loss::Squared, parameters.as_view()), &DVector::from_column_slice(point));
+        slot.copy_from_slice((slope * (-0.5 * precision)).as_slice());
+        value * precision * -0.5
     })
 }
 
@@ -603,7 +735,7 @@ where M: Model {
 pub fn uncertainty(estimate: &Estimate, estimator: Estimator) -> Result<Vec<Uncertainty>, NEVec<AnalysisError>> {
     let (pseudoinverse, points, freedom) = (&estimate.pseudoinverse, estimate.leverage.len(), estimate.freedom());
     let gram = LazyCell::new(|| pseudoinverse * pseudoinverse.transpose());
-    let scored = |factors: &DVector<f64>| scaled(&pseudoinverse.transpose(), factors).transpose();
+    let scored = |factors: &DVector<f64>| pseudoinverse.map_with_location(|_, column, value| value * factors[column]);
     joined(estimate.residuals.row_iter().zip(estimate.parameters.column_iter()).enumerate().map(|(response, (lack, parameters))| {
         let reduced = lack.norm_squared() / freedom;
         let (covariance, noise, freedom) = match estimator {
@@ -634,13 +766,14 @@ where M: Model {
     single_response(observations).map_err(NEVec::new)?;
     let parameters = estimate.parameters.column(0).into_owned();
     let weights = scales(observations);
-    let (value, _, curvature) = hessian(|point: DVector<Dual2DVec64>| objective(model, observations, &weights, loss, &point), &parameters);
-    (value.is_finite() && curvature.iter().all(|entry| entry.is_finite())).ok_or_else(|| NEVec::new(AnalysisError::Overflow { parameters: estimate.parameters.clone(), residual: value }))?;
-    let spectrum = decompose(&curvature).map_err(NEVec::new)?;
     let freedom = estimate.freedom();
-    let noise = value / freedom;
+    let (noise, spectrum) = {
+        let (value, _, curvature) = hessian(|point: DVector<Dual2DVec64>| objective(model, observations, &weights, loss, point.as_view()), &parameters);
+        (value.is_finite() && curvature.iter().all(|entry| entry.is_finite())).ok_or_else(|| NEVec::new(AnalysisError::Overflow { parameters: estimate.parameters.clone(), residual: value }))?;
+        (value / freedom, decompose(&curvature).map_err(NEVec::new)?)
+    };
     let gains = spectrum.singular.map_with_location(|index, _, singular| if index < spectrum.rank { 2.0 * noise / singular } else { 0.0 });
-    Ok(Uncertainty { parameters, covariance: &spectrum.right * DMatrix::from_diagonal(&gains) * spectrum.left.transpose(), noise, freedom })
+    Ok(Uncertainty { parameters, covariance: spectrum.right.map_with_location(|_, column, value| value * gains[column]) * spectrum.left.transpose(), noise, freedom })
 }
 
 pub fn influence(estimate: &Estimate) -> Result<Vec<Influence>, NEVec<AnalysisError>> {

@@ -8,25 +8,23 @@ from fractions import Fraction
 from functools import partial
 from graphlib import TopologicalSorter
 import hashlib
-from itertools import groupby
 import math
 from operator import add
 from pathlib import Path, PurePath
 from statistics import fmean
 from typing import Annotated, Self
 
-from expression import Nothing, Ok, Option, Some
+from expression import Option, Some
 from expression.extra.result import catch
 import msgspec
 
-from blender.records.faults import Fault, Outcome, Reason
+from blender.records.faults import Fault, Nothing, Ok, Outcome, Reason
 from blender.records.fields import Case, Count
 from blender.records.stores import content_hash, ContentHash, RecordFile
 from blender.rendering.outputs.naming import Output
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type _Frame = Annotated[int, msgspec.Meta(ge=0)]
 type _Digest = Annotated[bytes, msgspec.Meta(min_length=hashlib.sha256().digest_size, max_length=hashlib.sha256().digest_size)]
 type JobCamera = MarkedCamera | FixedCamera
 type _Phase = Liveness | Ending
@@ -55,9 +53,9 @@ class Ending(IntEnum):
 class Frames(msgspec.Struct, frozen=True, kw_only=True):
     """Frame range with step."""
 
-    start: _Frame
-    end: _Frame
-    step: _Frame
+    start: int
+    end: int
+    step: Annotated[int, msgspec.Meta(ge=0)]
 
     def __post_init__(self) -> None:
         """Validates start at or before end."""
@@ -100,7 +98,7 @@ class RenderFrames(Case, frozen=True, kw_only=True):
     """Scene frames a farm worker renders."""
 
     scene: str
-    frames: Annotated[tuple[_Frame, ...], msgspec.Meta(min_length=1)]
+    frames: Annotated[tuple[int, ...], msgspec.Meta(min_length=1)]
 
 
 class PackedFile(msgspec.Struct, frozen=True, kw_only=True):
@@ -126,7 +124,7 @@ class Job(msgspec.Struct, frozen=True, kw_only=True):
     output_root: str
     outputs: Mapping[Output, str]
     passes: tuple[str, ...]
-    prerequisites: tuple[_Frame, ...] = ()
+    prerequisites: tuple[Annotated[int, msgspec.Meta(ge=0)], ...] = ()
     pack: tuple[PackedFile, ...] = ()
 
     def __post_init__(self) -> None:
@@ -232,12 +230,12 @@ class Progress(msgspec.Struct, frozen=True, kw_only=True):
     def remaining(self, queue: RenderQueue) -> tuple[tuple[int, int], ...]:
         """Returns renders no mark covers."""
         marked = {(mark.job, mark.frame) for mark in self.marks}
-        return tuple(step for step in queue.steps if step not in marked)
+        return tuple((part, frame) for part, job in enumerate(queue.jobs) for frame in job.frames.numbers if (part, frame) not in marked)
 
     def done(self, queue: RenderQueue) -> Fraction:
         """Returns share of queue renders marks cover."""
-        total = len(queue.steps)
-        return Fraction(total - len(self.remaining(queue)), total)
+        total = sum(len(job.frames.numbers) for job in queue.jobs)
+        return Fraction(total - sum(self._remaining_counts(queue)), total)
 
     def phase(self, beat: datetime.datetime, now: datetime.datetime, stale: datetime.timedelta, /) -> _Phase:
         """Returns ending when set, else stopped once the heartbeat is `stale` old, else active."""
@@ -246,14 +244,21 @@ class Progress(msgspec.Struct, frozen=True, kw_only=True):
 
     def forecast(self, queue: RenderQueue, now: datetime.datetime) -> Option[Forecast]:
         """Forecasts renders left at each job's measured seconds per weight, the mean rate for unmeasured jobs, Nothing before any mark or past the longest duration."""
-        counts = Counter(part for part, _ in self.remaining(queue))
         jobs = dict(enumerate(queue.jobs))
-        timed = {part: tuple(mark.elapsed.total_seconds() for mark in marks) for part, marks in groupby(sorted(self.marks, key=lambda mark: mark.job), key=lambda mark: mark.job)}
-        if not (rates := {part: fmean(times[1:] or times) / jobs[part].weight for part, times in timed.items()}):
+        timed: dict[int, list[float]] = {}
+        for mark in self.marks:
+            timed.setdefault(mark.job, []).append(mark.elapsed.total_seconds())
+        if not (rates := {part: fmean(times[1:] or times) / jobs[part].weight for part, times in sorted(timed.items())}):
             return Nothing
         average = fmean(rates.values())
+        counts = self._remaining_counts(queue)
         seconds = math.fsum(counts[part] * job.weight * rates.get(part, average) for part, job in jobs.items())
         return catch(datetime.timedelta, exception=OverflowError)(seconds=seconds).to_option().map(lambda left: Forecast(left=left, finish=catch(add, exception=OverflowError)(now, left).to_option()))
+
+    def _remaining_counts(self, queue: RenderQueue) -> tuple[int, ...]:
+        marked = {(mark.job, mark.frame) for mark in self.marks}
+        finished = Counter(part for part, frame in marked if 0 <= part < len(queue.jobs) and frame in queue.jobs[part].frames.numbers)
+        return tuple(len(job.frames.numbers) - finished[part] for part, job in enumerate(queue.jobs))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

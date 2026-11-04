@@ -1,7 +1,8 @@
 using System.Collections.Generic;
-using System.Globalization;
 using Eto.Drawing;
 using Eto.Forms;
+using GraphShape.Algorithms;
+using GraphShape.Algorithms.Layout;
 using Grasshopper2.Doc;
 using Grasshopper2.Doc.Attributes;
 using Grasshopper2.Extensions;
@@ -16,8 +17,6 @@ using QuikGraph.Algorithms.Condensation;
 using QuikGraph.Graphviz;
 using QuikGraph.Graphviz.Dot;
 using Rasm.Grasshopper.UI;
-using SuperLinq;
-using UUIDNext;
 
 namespace Rasm.Grasshopper.Doc;
 
@@ -31,11 +30,14 @@ public sealed class WireGraph {
         Graph = graph;
         this.labels = labels;
         components = graph.CondensateStronglyConnected<Guid, SEquatableEdge<Guid>, AdjacencyGraph<Guid, SEquatableEdge<Guid>>>();
-        Ranks = toSeq(components.SourceFirstBidirectionalTopologicalSort())
-            .Fold(HashMap<AdjacencyGraph<Guid, SEquatableEdge<Guid>>, int>(), (ranks, component) =>
-                ranks.Add(component, toSeq(components.InEdges(component)).Fold(0, (rank, edge) => int.Max(rank, ranks[edge.Source] + 1))))
-            .AsIterable()
-            .Fold(HashMap<Guid, int>(), static (ranks, entry) => toSeq(entry.Key.Vertices).Fold(ranks, (all, vertex) => all.Add(vertex, entry.Value)));
+        Ranks = Ranked(components);
+
+        static HashMap<Guid, int> Ranked<TVertex, TEdge>(IVertexAndEdgeListGraph<TVertex, TEdge> dag)
+            where TVertex : IVertexSet<Guid> where TEdge : IEdge<TVertex> {
+            LayeredTopologicalSortAlgorithm<TVertex, TEdge> layers = new(dag);
+            layers.Compute();
+            return toHashMap(layers.LayerIndices.SelectMany(static layer => layer.Key.Vertices, static (layer, vertex) => (vertex, layer.Value)));
+        }
     }
 
     public ArrayBidirectionalGraph<Guid, SEquatableEdge<Guid>> Graph { get; }
@@ -83,46 +85,24 @@ public sealed class WireGraph {
         });
 
     // --- [LAYERS]
-    private const int Sweeps = 4;
-
     public Seq<Seq<Guid>> Layers() {
-        Seq<Seq<(Guid Vertex, int Rank)>> chains = toSeq(Graph.Edges)
-            .Filter(edge => Ranks[edge.Target] > Ranks[edge.Source])
-            .Map(edge => toSeq(Enumerable.Range(Ranks[edge.Source], Ranks[edge.Target] - Ranks[edge.Source] + 1)).Map(rank => (
-                Vertex: rank == Ranks[edge.Source] ? edge.Source
-                    : rank == Ranks[edge.Target] ? edge.Target
-                    : Uuid.NewNameBased(edge.Source, string.Create(CultureInfo.InvariantCulture, $"{edge.Target}/{rank}")),
-                Rank: rank)).Strict())
-            .Strict();
-        Seq<(Guid Upper, Guid Lower)> links = chains.Bind(static chain => toSeq(chain.AsIterable().Window(2, static window => (Upper: window[0].Vertex, Lower: window[1].Vertex)))).Strict();
-        HashMap<Guid, Seq<Guid>> above = links.Fold(HashMap<Guid, Seq<Guid>>(), static (held, link) => held.AddOrUpdate(link.Lower, prior => prior.Add(link.Upper), () => Seq(link.Upper)));
-        HashMap<Guid, Seq<Guid>> below = links.Fold(HashMap<Guid, Seq<Guid>>(), static (held, link) => held.AddOrUpdate(link.Upper, prior => prior.Add(link.Lower), () => Seq(link.Lower)));
-        Seq<Seq<Guid>> initial = toSeq((toSeq(Graph.Vertices).Map(vertex => (Vertex: vertex, Rank: Ranks[vertex])) + chains.Bind(static chain => chain.Tail.Init))
-            .GroupBy(static placed => placed.Rank)
-            .OrderBy(static layer => layer.Key)
-            .Select(static layer => toSeq(layer).Map(static placed => placed.Vertex).Strict()))
-            .Strict();
-        return toSeq(Enumerable.Range(0, Sweeps))
-            .Map(static sweep => int.IsEvenInteger(sweep))
-            .Fold(initial, (layers, downward) => Swept(layers, downward ? above : below, downward))
-            .Map(layer => layer.Filter(Graph.ContainsVertex).Strict())
-            .Strict();
-    }
+        if (components.IsEdgesEmpty)
+            return Graph.IsVerticesEmpty ? [] : Seq(toSeq(Graph.Vertices));
+        HashMap<Guid, int> order = toHashMap(Graph.Vertices.Select(static (vertex, index) => (vertex, index)));
+        return Ordered(components);
 
-    private static Seq<Seq<Guid>> Swept(Seq<Seq<Guid>> layers, HashMap<Guid, Seq<Guid>> neighbours, bool downward) =>
-        toSeq(Enumerable.Range(1, int.Max(layers.Count - 1, 0)))
-            .Map(step => downward ? step : layers.Count - 1 - step)
-            .Fold(layers, (held, index) => held.Map((layer, at) => at == index ? Ordered(layer, held[downward ? index - 1 : index + 1], neighbours) : layer).Strict());
-
-    private static Seq<Guid> Ordered(Seq<Guid> layer, Seq<Guid> adjacent, HashMap<Guid, Seq<Guid>> neighbours) {
-        HashMap<Guid, int> positions = toHashMap(adjacent.Map(static (vertex, at) => (vertex, at)));
-        return toSeq(layer
-            .Map((vertex, at) => (Vertex: vertex, Key: toSeq(neighbours.Find(vertex).IfNone(Seq<Guid>()).Choose(neighbour => positions.Find(neighbour)).Order()) switch {
-                { IsEmpty: true } => at,
-                var sorted => (sorted[(sorted.Count - 1) / 2] + sorted[sorted.Count / 2]) / 2d,
-            }))
-            .OrderBy(static entry => entry.Key)
-            .Select(static entry => entry.Vertex)).Strict();
+        Seq<Seq<Guid>> Ordered<TVertex, TEdge>(IVertexAndEdgeListGraph<TVertex, TEdge> graph)
+            where TVertex : class, IVertexSet<Guid> where TEdge : IEdge<TVertex> {
+            SugiyamaLayoutAlgorithm<TVertex, TEdge, IVertexAndEdgeListGraph<TVertex, TEdge>> layout = new(graph, new SugiyamaLayoutParameters { MinimizeEdgeLength = false }) { Rand = new Random(0) };
+            layout.Compute();
+            return toSeq(graph.Vertices
+                .GroupBy(component => Ranks[component.Vertices.First()])
+                .OrderBy(static layer => layer.Key)
+                .Select(layer => toSeq(layer
+                    .OrderBy(component => layout.VerticesPositions[component].X)
+                    .ThenBy(component => component.Vertices.Min(vertex => order[vertex]))
+                    .SelectMany(component => component.Vertices.OrderBy(vertex => order[vertex])))));
+        }
     }
 }
 
@@ -146,16 +126,16 @@ public sealed partial class Relationship {
     // --- [TRAVERSAL]
     public Seq<IDocumentObject> Reach(Document document, Seq<Guid> roots, int depth, Func<IDocumentObject, bool> through) {
         Connectivity connectivity = document.Objects.Connectivity;
-        return Walked(roots, toHashSet(roots), depth, Seq<IDocumentObject>());
+        return Walked(roots, toHashSet(roots), depth, Seq<IDocumentObject>()).Run();
 
-        Seq<IDocumentObject> Walked(Seq<Guid> frontier, LanguageExt.HashSet<Guid> seen, int left, Seq<IDocumentObject> reached) =>
+        Trampoline<Seq<IDocumentObject>> Walked(Seq<Guid> frontier, LanguageExt.HashSet<Guid> seen, int left, Seq<IDocumentObject> reached) =>
             left <= 0 || frontier.IsEmpty
-                ? reached
+                ? Trampoline.Pure(reached)
                 : frontier.Bind(id => Next(document, connectivity, id)).Fold((Seen: seen, Found: Seq<IDocumentObject>()), (state, id) =>
                     state.Seen.Contains(id)
                         ? state
                         : Optional(document.Objects.Find(id)).Filter(through).Match(Some: member => (Seen: state.Seen.Add(id), Found: state.Found.Add(member)), None: () => state)) switch {
-                            var step => Walked(step.Found.Map(static member => member.InstanceId), step.Seen, left - 1, reached + step.Found),
+                            var step => Trampoline.More(() => Walked(step.Found.Map(static member => member.InstanceId), step.Seen, left - 1, reached + step.Found)),
                         };
     }
 

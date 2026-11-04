@@ -1,6 +1,6 @@
 import { useAtomSet } from '@effect/atom-react';
-import { User } from '@rasm/hosting/user';
-import { Field } from '@rasm/ui/form/field';
+import { User } from '@rasm/hosting';
+import { Field } from '@rasm/ui';
 import { Optic } from 'effect';
 import type { Atom } from 'effect/reactivity';
 import { PlacementFields } from '#/editor/placement-fields.tsx';

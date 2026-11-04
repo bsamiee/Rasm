@@ -5,22 +5,17 @@ arguments: [declarator]
 rule:
     kind: identifier
     pattern: $LOCAL
-    all:
-        - inside:
-            stopBy: end
-            kind: &owner 'block, switch_section'
-            has: {kind: local_declaration_statement, has: {kind: variable_declaration, has: {kind: variable_declarator, has: {field: name, pattern: $LOCAL}}}}
-        - inside:
-            stopBy: end
-            all:
-                - inside: {kind: *owner}
-                - follows:
-                    stopBy: end
-                    kind: local_declaration_statement
+    inside:
+        stopBy: end
+        all:
+            - inside: {kind: 'block, switch_section'}
+            - follows:
+                stopBy: end
+                kind: local_declaration_statement
+                has:
+                    kind: variable_declaration
                     has:
-                        kind: variable_declaration
-                        has:
-                            kind: variable_declarator
-                            all:
-                                - has: {field: name, pattern: $LOCAL}
-                                - matches: declarator
+                        kind: variable_declarator
+                        all:
+                            - has: {field: name, pattern: $LOCAL}
+                            - matches: declarator

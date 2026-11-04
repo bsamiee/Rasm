@@ -7,6 +7,11 @@ warnings    = "deny"
 rustflags   = ["-Zunstable-options", "--jobs-frontend=4"]
 fingerprint = "content"
 
+# --- [ENV] -----------------------------------------------------------------------------
+
+[env]
+DYLINT_RUSTFLAGS = "-Zflatten-format-args=no"
+
 # --- [RESOLVER] -------------------------------------------------------------------------
 
 [resolver]

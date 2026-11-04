@@ -12,14 +12,14 @@ from typing import Literal, Protocol, Required, TYPE_CHECKING, TypedDict
 
 from bl_keymap_utils import keymap_hierarchy, platform_helpers
 import bpy
-from expression import Nothing, Ok, Option, Some
+from expression import Option, Some
 import rna_keymap_ui
 
 from blender.bpy.commands.operators import filled, Pairs, Placement, PopupKind, PopupTarget, Setting
 from blender.bpy.data.rna.paths import definition, Struct
 from blender.bpy.extension.identity import Identity
-from blender.bpy.extension.registration import Acquisitions, Registrable, Tier
-from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
+from blender.bpy.extension.registration import acquired, Acquisitions, Declaration, Tier
+from blender.records.faults import accumulated, Fault, Nothing, Ok, Outcome, paired, Reason
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -106,8 +106,13 @@ class Keymap:
 
     # --- [REGISTRATION]
 
+    @property
+    def prerequisites(self) -> tuple[Declaration, ...]:
+        """Declarations each bound placement registers."""
+        return acquired(placement for _, placement in self.bindings)
+
     def acquisitions(self, identity: Identity, /) -> Outcome[Acquisitions]:
-        """Acquires each bound command, then adds each binding's items to every space of the keymap name, holding each item's removal."""
+        """Adds binding items in every space of the keymap name, holding each item's removal."""
 
         @contextmanager
         def held(locations: tuple[Location, ...], rows: tuple[Row, ...]) -> Generator[Outcome[None]]:
@@ -131,14 +136,14 @@ class Keymap:
                 self._items = tuple(pair for pair, _ in made)
                 yield accumulated(fill for _, fill in made).map(lambda _: None)
 
-        commands = tuple(dict.fromkeys(placement.operator for _, placement in self.bindings if isinstance(placement.operator, Registrable)))
-        return paired(nesting(self.keymap), resolved(identity, self.bindings)).map(lambda pair: (*commands, (Tier.KEYMAP_ITEMS, held(*pair))))
+        return paired(nesting(self.keymap), resolved(identity, self.bindings)).map(lambda pair: ((Tier.KEYMAP_ITEMS, held(*pair)),))
 
     # --- [USER_ITEMS]
 
     def counterparts(self, context: bpy.types.Context, /) -> tuple[tuple[bpy.types.KeyMap, bpy.types.KeyMapItem], ...]:
-        """Returns user keymap and item matching each owned item."""
+        """Updates native keyconfigs and returns the user keymap and item matching each owned item."""
         manager: bpy.types.WindowManager = context.window_manager  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        manager.keyconfigs.update(keep_properties=True)
         user: bpy.types.KeyConfig = manager.keyconfigs.user  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
         return tuple(
             (keymap, item)
@@ -187,12 +192,12 @@ def parameters(context: bpy.types.Context, /) -> Outcome[Parameters]:
             Option
             .of_optional(manager.keyconfigs.active)
             .bind(lambda config: Option.of_optional(config.preferences))
-            .map(lambda held: {prop.identifier: getattr(held, prop.identifier) for prop in definition(held).properties})
+            .map(lambda held: dict[str, object]((prop.identifier, getattr(held, prop.identifier)) for prop in definition(held).properties))
             .default_value({})
         )
         emulated = inputs.use_mouse_emulate_3_button and inputs.mouse_emulate_3_button_modifier == "ALT"
         alternate = bool(stated.get("use_alt_tool" if stated.get("select_mouse") == "LEFT" else "use_alt_cursor"))
-        params: Parameters = module.Params(**{name: stated[name] for name in accepted if name in stated}, use_alt_tool_or_cursor=not emulated and alternate)
+        params: Parameters = module.Params(**{name: stated[name] for name in accepted if name in stated}, use_alt_tool_or_cursor=not emulated and alternate)  # ty: ignore[unsound-assignment]
         return params
 
     return Option.of_optional(bpy.utils.preset_find(default.name, "keyconfig")).to_result_with(partial(Fault.of, Reason.ABSENT, default.name, member="keyconfig preset")).map(built)
@@ -217,7 +222,7 @@ def resolved(identity: Identity, bindings: Bindings, /) -> Outcome[tuple[Row, ..
         darwin: KeyconfigData = platform_helpers.keyconfig_data_oskey_from_ctrl_for_macos(data) if sys.platform == "darwin" else data  # type: ignore[func-returns-value, assignment]  # ty: ignore[invalid-assignment]
         return tuple(item for _, _, block in darwin for item in block["items"])
 
-    return parameters(bpy.context).bind(lambda held: accumulated(placement.resolved(identity).map(partial(row, held, chord, placement)) for chord, placement in bindings).map(doubled))
+    return parameters(bpy.context).map(lambda held: doubled(tuple(row(held, chord, placement, placement.resolved(identity)) for chord, placement in bindings)))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

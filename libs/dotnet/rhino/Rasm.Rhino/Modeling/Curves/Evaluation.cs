@@ -1,4 +1,3 @@
-using System.Globalization;
 using Rasm.Rhino.Document.Units;
 using Rhino;
 using SuperLinq;
@@ -12,9 +11,9 @@ public sealed partial class AscendingParameters {
     public Seq<double> Values { get; }
 
     static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref Seq<double> values) =>
-        validationError = values.Count >= 2 && values.Window(2).All(static pair => pair[0] < pair[1])
+        validationError = values.Count >= 2 && values.Window(2, static pair => pair[0] < pair[1]).All(static increasing => increasing)
             ? null
-            : new RhinoFault($"parameters [{string.Join(", ", values.Map(static value => value.ToString(CultureInfo.InvariantCulture)))}]", RhinoReason.Outside);
+            : new RhinoFault(values, RhinoReason.Outside);
 }
 
 [SmartEnum]
@@ -51,12 +50,13 @@ public static class CurveEvaluation {
         at.Switch(
             curve,
             along: static (held, address) => address.Measure.Resolve(held, address.Value),
-            onSegment: static (held, address) =>
-                from segment in held.Within(ComponentIndexType.PolycurveSegment, Seq(address.Segment))
-                let polycurve = (PolyCurve)held
-                from local in Conversions.Within(polycurve.SegmentDomain(address.Segment), address.T)
-                from t in Conversions.Required(Conversions.Present(polycurve.PolyCurveParameter(address.Segment, local)))
-                select t);
+            onSegment: static (held, address) => held.Within(ComponentIndexType.PolycurveSegment, Seq(address.Segment)).Bind(_ => {
+                PolyCurve polycurve = (PolyCurve)held;
+                using Curve segment = polycurve.SegmentCurve(address.Segment);
+                return from local in Conversions.Within(segment.Domain, address.T)
+                       from t in Conversions.Required(Conversions.Present(polycurve.PolyCurveParameter(address.Segment, local)))
+                       select t;
+            }));
 
     // --- [JETS]
     public static Fin<CurveJet> Jet(Curve curve, CurveAddress at, int order, CurveEvaluationSide side) =>

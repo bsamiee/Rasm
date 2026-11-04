@@ -1,4 +1,4 @@
-#![feature(error_reporter)]
+#![feature(error_reporter, try_blocks)]
 
 use core::{
     convert::Infallible,
@@ -17,8 +17,9 @@ use std::{
 };
 
 use anyhow::Context as _;
-use itertools::Itertools as _;
+use itertools::{Itertools as _, structs::ExactlyOneError};
 use nonempty_collections::NEVec;
+use nuts_rs::{DiagNutsSettings, Settings as _};
 use rmcp::{ErrorData, model::ErrorCode};
 use tokio::{sync::oneshot, task};
 use validated::Validated;
@@ -118,6 +119,8 @@ struct Tagged<E>(#[source] E);
 enum ConfigError {
     #[error("{0}")]
     Message(String),
+    #[error("{0}")]
+    Received(String),
     #[error("{detail} in {context}")]
     Detail { detail: Box<str>, context: Cow<'static, str> },
     #[error("key {key} holds no port")]
@@ -186,6 +189,10 @@ enum Unserved {
 
 impl From<Unserved> for ErrorData {
     fn from(value: Unserved) -> Self { Self::invalid_params(Report::new(value).to_string(), None) }
+}
+
+impl From<Unserved> for io::Error {
+    fn from(value: Unserved) -> Self { Self::other(value) }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -279,6 +286,8 @@ fn configured(text: &str) -> Result<u16, ConfigError> {
 
 fn refused() -> Result<u16, Refusal> { Err(Refusal(Arc::from("port refused"))) }
 
+fn received(lookup: impl Fn(&str) -> String) -> ConfigError { ConfigError::Received(lookup("port")) }
+
 fn loaded(path: &Path) -> Result<String, LoadError> { fs_err::read_to_string(path).map_err(|source| LoadError::Read { path: path.to_owned(), source }) }
 
 fn reported(path: &Path) -> anyhow::Result<String> { Ok(fs_err::read_to_string(path)?) }
@@ -324,6 +333,12 @@ fn dispatched(name: &str, method: &str) -> Result<u16, ErrorData> { if method ==
 
 fn extracted(name: Option<&str>) -> Result<&str, ErrorData> { name.ok_or_else(|| ErrorData::internal_error("no port name reaches the extractor", None)) }
 
+fn unrelated(name: &str) -> ErrorData {
+    let converted = || -> io::Result<u16> { Ok(listed(name)?) };
+    black_box(&converted);
+    ErrorData::invalid_params("unrelated failure", None)
+}
+
 fn numbered(text: &str) -> Result<u16, i32> { text.parse().map_err(|_error: ParseIntError| -1) }
 
 fn documented(text: &str) -> Result<u16, serde_json::Value> { text.parse().map_err(|error: ParseIntError| serde_json::Value::String(error.to_string())) }
@@ -355,12 +370,87 @@ fn tallied(texts: &[&str]) -> Result<Vec<u16>, NEVec<(usize, ParseIntError)>> {
 
 fn merged(values: &[u16]) -> Vec<u16> { values.iter().copied().coalesce(|left, right| if left == right { Ok(left) } else { Err((left, right)) }).collect() }
 
+fn selected(values: &mut dyn Iterator<Item = u16>) -> Result<u16, ExactlyOneError<&mut dyn Iterator<Item = u16>>> { values.exactly_one() }
+
+fn validated(settings: &DiagNutsSettings) -> anyhow::Result<()> { settings.validate() }
+
+fn propagated(settings: &DiagNutsSettings) -> anyhow::Result<()> {
+    settings.validate()?;
+    Ok(())
+}
+
+fn held(settings: &DiagNutsSettings) -> Result<(), ReportError> { settings.validate().map_err(ReportError::Project) }
+
+fn mixed(settings: &DiagNutsSettings, local: bool) -> anyhow::Result<()> {
+    if local {
+        return Err(anyhow::Error::from(fmt::Error));
+    }
+    settings.validate()
+}
+
+fn chosen_report<E>(outcome: Result<(), E>) -> anyhow::Result<()>
+where E: Error + Send + Sync + 'static {
+    Ok(outcome?)
+}
+
+fn mixed_propagation<E>(settings: &DiagNutsSettings, outcome: Result<(), E>) -> anyhow::Result<()>
+where E: Error + Send + Sync + 'static {
+    settings.validate()?;
+    Ok(outcome?)
+}
+
+fn aliased_report(settings: &DiagNutsSettings) -> anyhow::Result<u8> {
+    let first = settings.validate();
+    let second = { first };
+    second.map(|()| 1)
+}
+
+async fn async_report(settings: &DiagNutsSettings) -> anyhow::Result<()> {
+    task::yield_now().await;
+    settings.validate()?;
+    Ok(())
+}
+
+fn tried_foreign_report(settings: &DiagNutsSettings) -> anyhow::Result<()> { try { settings.validate()? } }
+
+fn field_report(settings: &DiagNutsSettings, held: (anyhow::Result<()>, u16)) -> anyhow::Result<()> {
+    settings.validate()?;
+    held.0
+}
+
+fn joined_report(settings: &DiagNutsSettings, outcome: anyhow::Result<()>) -> anyhow::Result<()> { settings.validate().and(outcome) }
+
+fn argument_report<E>(settings: &DiagNutsSettings, outcome: Result<(), E>) -> anyhow::Result<()>
+where E: Error + Send + Sync + 'static {
+    settings.validate()?;
+    Ok(black_box(outcome?))
+}
+
+fn tried_local_report<E>(settings: &DiagNutsSettings, outcome: Result<(), E>) -> anyhow::Result<()>
+where E: Error + Send + Sync + 'static {
+    settings.validate()?;
+    try { outcome.map_err(anyhow::Error::from)? }
+}
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let text = "8080";
     let source: &dyn Source = &Port;
+    black_box(&selected(&mut [1, 2].into_iter()));
+    black_box(&received(|_| text.to_owned()));
+    let settings = DiagNutsSettings::default();
+    black_box(&(validated(&settings), propagated(&settings), held(&settings), mixed(&settings, false), chosen_report(Err(fmt::Error)), mixed_propagation(&settings, Err(fmt::Error))));
+    black_box(&(
+        aliased_report(&settings),
+        async_report(&settings).await,
+        tried_foreign_report(&settings),
+        field_report(&settings, (Ok(()), 1)),
+        joined_report(&settings, Ok(())),
+        argument_report(&settings, Err(fmt::Error)),
+        tried_local_report(&settings, Err(fmt::Error)),
+    ));
     black_box(&(
         numbered(text),
         documented(text),
@@ -428,6 +518,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         mapped(text).unwrap_or_default(),
         dispatched(text, "ports/read").unwrap_or_default(),
         extracted(Some(text)).unwrap_or_default(),
+        unrelated(text),
     ));
     ports.iter().all(|port| *port == 8080).then_some(()).filter(|()| files.iter().all(|file| !file.is_empty())).ok_or_else(|| Box::from("ports differ"))
 }

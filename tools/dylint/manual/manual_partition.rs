@@ -1,122 +1,100 @@
-use core::{iter, ops::ControlFlow};
-
-use clippy_utils::{SpanlessEq, diagnostics::span_lint_hir_and_then, fn_def_id, peel_blocks, peel_hir_expr_while, res::MaybeResPath as _, source::snippet, sym, visitors::for_each_expr};
+use clippy_utils::{
+    SpanlessEq,
+    diagnostics::span_lint_hir_and_then,
+    eq_expr_value, fn_def_id, peel_blocks, peel_hir_expr_while,
+    res::{MaybeDef as _, MaybeResPath as _},
+    source::snippet,
+    sym,
+    ty::get_iterator_item_ty,
+};
 use itertools::Itertools as _;
-use rustc_ast::BinOpKind;
-use rustc_hir::{Body, Expr, ExprKind, HirId, Mutability, Node, UnOp, def_id::DefId};
+use rustc_hir::{Block, BodyId, Expr, ExprKind, LetStmt, Pat, PatKind, Stmt, StmtKind, UnOp};
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_middle::ty::adjustment::{Adjust, AutoBorrow};
-use rustc_span::Span;
 
-use super::iterator_method;
-use crate::{expanded_externally, fn_item_value, method_call_on, parameter_bindings};
+use super::{collects_vec, repeatable};
+use crate::{expanded_externally, parameters_match};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-enum Predicate<'tcx> {
-    Closure(Vec<HirId>, &'tcx Expr<'tcx>),
-    Path(DefId),
-}
-
+#[derive(Clone, Copy)]
 struct Split<'tcx> {
     site: &'tcx Expr<'tcx>,
-    span: Span,
     source: &'tcx Expr<'tcx>,
+    predicate: BodyId,
+    value: &'tcx Expr<'tcx>,
     negated: bool,
-    predicate: Predicate<'tcx>,
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-lint!(MANUAL_PARTITION: "two `filter` passes that collect one source on a predicate and its negation");
+lint!(MANUAL_PARTITION: "adjacent `filter` collections splitting one unchanged slice on a pure predicate and its negation");
 
 impl<'tcx> LateLintPass<'tcx> for Pass {
-    fn check_body(&mut self, cx: &LateContext<'tcx>, body: &Body<'tcx>) {
-        fn split<'tcx>(cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) -> Option<Split<'tcx>> {
-            let typeck = cx.typeck_results();
-            if let ExprKind::MethodCall(segment, source, [predicate], _) = expr.kind
-                && segment.ident.name == sym::filter
-                && !expanded_externally(cx, expr.span)
-                && iterator_method(cx, expr)
-                && let root = peel_hir_expr_while(source, |step| if let ExprKind::MethodCall(_, receiver, ..) = step.kind { Some(receiver) } else { None })
-                && let ExprKind::Path(_) = peel_hir_expr_while(root, |place| if let ExprKind::Field(base, _) = place.kind { Some(base) } else { None }).kind
-                && !typeck.expr_adjustments(root).iter().any(|adjustment| matches!(adjustment.kind, Adjust::Borrow(AutoBorrow::Ref(borrow)) if Mutability::from(borrow).is_mut()))
-                && typeck.expr_ty(root).peel_refs().is_freeze(cx.tcx, cx.typing_env())
-                && let Some((negated, predicate)) = match predicate.kind {
-                    ExprKind::Closure(closure) => {
-                        let value = peel_blocks(cx.tcx.hir_body(closure.body).value);
-                        let (negated, kept) = if let ExprKind::Unary(UnOp::Not, kept) = value.kind { (true, kept) } else { (false, value) };
-                        Some((negated, Predicate::Closure(parameter_bindings(cx.tcx, closure.body), kept)))
-                    }
-                    _ => fn_item_value(cx, predicate).map(|function| (false, Predicate::Path(function))),
-                }
-                && iter::successors(Some(expr), |&current| method_call_on(cx, current).map(|(call, _)| call).filter(|call| iterator_method(cx, call)))
-                    .skip(1)
-                    .filter_map(Expr::method_ident)
-                    .map(|step| step.name)
-                    .find(|&name| {
-                        !matches!(name, sym::map | sym::cloned | sym::copied | sym::rev | sym::enumerate | sym::inspect | sym::filter | sym::filter_map | sym::flat_map | sym::flatten | sym::chain)
-                    })
-                    == Some(sym::collect)
-            {
-                Some(Split { site: expr, span: segment.ident.span.to(expr.span.shrink_to_hi()), source, negated, predicate })
+    fn check_block(&mut self, cx: &LateContext<'tcx>, block: &'tcx Block<'tcx>) {
+        fn split<'tcx>(cx: &LateContext<'tcx>, statement: &'tcx Stmt<'tcx>) -> Option<Split<'tcx>> {
+            let StmtKind::Let(&LetStmt { pat: Pat { kind: PatKind::Binding(_, _, _, None), .. }, init: Some(collected), els: None, .. }) = statement.kind else { return None };
+            let iterator = match collected.kind {
+                ExprKind::MethodCall(segment, filtered, [], _) if segment.ident.name == sym::collect => filtered,
+                ExprKind::Call(_, [filtered]) => filtered,
+                _ => return None,
+            };
+            let collected_ty = cx.typeck_results().expr_ty(collected);
+            if !fn_def_id(cx, collected).is_diag_item(cx, sym::iterator_collect_fn) || !collected_ty.is_diag_item(cx, sym::Vec) {
+                return None;
+            }
+            let filtered = if fn_def_id(cx, iterator).is_diag_item(cx, sym::iter_copied) {
+                let (ExprKind::MethodCall(_, inner, [], _) | ExprKind::Call(_, [inner])) = iterator.kind else { return None };
+                inner
             } else {
-                None
-            }
-        }
-
-        fn complementary<'tcx>(cx: &LateContext<'tcx>, left: &Split<'tcx>, right: &Split<'tcx>) -> bool {
-            fn applied(cx: &LateContext<'_>, function: DefId, bindings: &[HirId], value: &Expr<'_>) -> bool {
-                let (ExprKind::MethodCall(_, operand, [], _) | ExprKind::Call(_, [operand])) = value.kind else { return false };
-                let peeled = peel_hir_expr_while(operand, |step| if let ExprKind::Unary(UnOp::Deref, inner) | ExprKind::AddrOf(_, _, inner) = step.kind { Some(inner) } else { None });
-                fn_def_id(cx, value) == Some(function) && matches!(bindings, [binding] if peeled.res_local_id() == Some(*binding))
-            }
-
-            fn together(cx: &LateContext<'_>, left: HirId, right: HirId) -> bool {
-                let tcx = cx.tcx;
-                let ancestors = |node: HirId| iter::once(node).chain(tcx.hir_parent_id_iter(node));
-                let unconditional = |node: HirId, common: HirId| {
-                    ancestors(node).take_while(|&step| step != common).all(|child| match tcx.parent_hir_node(child) {
-                        Node::Arm(_) => false,
-                        Node::Expr(&Expr { kind: ExprKind::If(condition, ..), .. }) => condition.hir_id == child,
-                        Node::Expr(&Expr { kind: ExprKind::Binary(operator, _, rhs), .. }) if matches!(operator.node, BinOpKind::And | BinOpKind::Or) => rhs.hir_id != child,
-                        Node::LetStmt(local) => local.els.is_none_or(|otherwise| otherwise.hir_id != child),
-                        _ => true,
-                    })
-                };
-                ancestors(left).find(|&ancestor| ancestors(right).any(|other| other == ancestor)).is_some_and(|common| unconditional(left, common) && unconditional(right, common))
-            }
-
-            let ctxt = left.site.span.ctxt();
-            left.negated != right.negated
-                && SpanlessEq::new(cx).eq_expr(ctxt, left.source, right.source)
-                && match (&left.predicate, &right.predicate) {
-                    (Predicate::Closure(left_bindings, left_value), Predicate::Closure(right_bindings, right_value)) =>
-                        left_bindings.len() == right_bindings.len() && {
-                            let mut spanless = SpanlessEq::new(cx);
-                            let mut inter = spanless.inter_expr(ctxt);
-                            inter.locals.extend(iter::zip(left_bindings.iter().copied(), right_bindings.iter().copied()));
-                            inter.eq_expr(left_value, right_value)
-                        },
-                    (&Predicate::Path(function), Predicate::Closure(bindings, value)) | (Predicate::Closure(bindings, value), &Predicate::Path(function)) => applied(cx, function, bindings, value),
-                    (Predicate::Path(_), Predicate::Path(_)) => false,
+                iterator
+            };
+            let (ExprKind::MethodCall(_, iterated, [predicate], _) | ExprKind::Call(_, [iterated, predicate])) = filtered.kind else { return None };
+            let (ExprKind::MethodCall(_, source, [], _) | ExprKind::Call(_, [source])) = iterated.kind else { return None };
+            let ExprKind::Closure(closure) = predicate.kind else { return None };
+            let source = source.peel_borrows();
+            if !fn_def_id(cx, filtered).is_diag_item(cx, sym::iter_filter)
+                || !fn_def_id(cx, iterated).is_diag_item(cx, sym::slice_iter)
+                || !match source.kind {
+                    ExprKind::Path(_) => true,
+                    ExprKind::Field(base, _) => repeatable(cx, base),
+                    _ => false,
                 }
-                && together(cx, left.site.hir_id, right.site.hir_id)
+                || peel_hir_expr_while(source, |place| if let ExprKind::Field(base, _) = place.kind { Some(base) } else { None }).res_local_id().is_none()
+                || get_iterator_item_ty(cx, cx.typeck_results().expr_ty(iterator)).is_none_or(|item| !collects_vec(cx, item, collected_ty))
+            {
+                return None;
+            }
+            let held = cx.typeck_results().expr_ty(source).peel_refs();
+            if !(held.is_slice() || held.is_array() || held.is_diag_item(cx, sym::Vec)) || !held.is_freeze(cx.tcx, cx.typing_env()) {
+                return None;
+            }
+            let body = cx.tcx.hir_body(closure.body);
+            let value = peel_blocks(body.value);
+            let (negated, value) = if let ExprKind::Unary(UnOp::Not, value) = value.kind { (true, value) } else { (false, value) };
+            let context = LateContext { enclosing_body: Some(body.id()), typeck_results: Some(cx.tcx.typeck_body(body.id())), param_env: cx.tcx.param_env(closure.def_id), ..*cx };
+            (context.typeck_results().expr_ty(value).is_bool() && repeatable(&context, value) && !expanded_externally(cx, filtered.span)).then_some(Split {
+                site: collected,
+                source,
+                predicate: body.id(),
+                value,
+                negated,
+            })
         }
 
-        if cx.tcx.is_typeck_child(cx.tcx.hir_body_owner_def_id(body.id()).to_def_id()) {
-            return;
-        }
-        let mut splits = Vec::new();
-        let _: Option<()> = for_each_expr(cx.tcx, body.value, |expr| {
-            splits.extend(split(cx, expr));
-            ControlFlow::Continue(())
-        });
-        for [left, right] in splits.iter().array_combinations::<2>().filter(|&[left, right]| complementary(cx, left, right)) {
+        for (left, right) in block.stmts.iter().map(|statement| split(cx, statement)).tuple_windows().filter_map(|(left, right)| Some((left?, right?))).filter(|(left, right)| {
+            left.negated != right.negated
+                && cx.tcx.erase_and_anonymize_regions(cx.typeck_results().expr_ty(left.site)) == cx.tcx.erase_and_anonymize_regions(cx.typeck_results().expr_ty(right.site))
+                && eq_expr_value(cx, right.site.span.ctxt(), left.source, right.source)
+                && {
+                    let mut spanless = SpanlessEq::new(cx);
+                    let mut inter = spanless.inter_expr(right.site.span.ctxt());
+                    parameters_match(cx.tcx, &mut inter.locals, left.predicate, right.predicate) && inter.eq_expr(left.value, right.value)
+                }
+        }) {
             let source = snippet(cx, right.source.span, "..");
-            span_lint_hir_and_then(cx, MANUAL_PARTITION, right.site.hir_id, right.span, format!("two `filter` passes split `{source}` on one predicate and its negation"), |diag| {
-                diag.span_note(left.span, "other pass here");
-                diag.help(format!("split `{source}` once with `Iterator::partition`"));
+            span_lint_hir_and_then(cx, MANUAL_PARTITION, right.site.hir_id, right.site.span, format!("two `filter` passes split `{source}` on one predicate and its negation"), |diag| {
+                diag.span_note(left.site.span, "other pass here");
+                diag.help(format!("iterate `{source}` once with `Iterator::partition`"));
             });
         }
     }

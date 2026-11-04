@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-forwarding-property-python
-language: python
+language: pythonlang
 severity: error
 utils:
     member-chain:
@@ -48,7 +48,6 @@ utils:
                 - has: {field: body, matches: forwarded-value}
             - kind: call
               all:
-                - has: {field: function, matches: {python-member-use: {module: {regex: '^operator$'}, name: {regex: '^attrgetter$'}}}}
                 - has:
                     field: arguments
                     not: {has: {nthChild: 2}}
@@ -58,6 +57,7 @@ utils:
                         pattern: $READ
                         has: {kind: string_content, regex: '\.'}
                         not: {has: {kind: 'escape_sequence, interpolation', stopBy: end}}
+                - has: {field: function, matches: {python-member-use: {module: {regex: '^operator$'}, name: {regex: '^attrgetter$'}}}}
     getter-argument:
         any:
             - nthChild: 1
@@ -84,16 +84,16 @@ rule:
         - any:
             - kind: function_definition
               all:
-                - inside:
-                    kind: decorated_definition
-                    has: {matches: property-decorator}
-                    not: {has: {kind: decorator, not: {any: [{matches: property-decorator}, {has: {matches: typing-override}}]}}}
                 - has: {field: name, pattern: $NAME}
                 - has: {field: parameters, matches: single-parameter}
                 - has:
                     field: body
                     matches: python-single-statement-block
                     has: {kind: return_statement, has: {matches: forwarded-value}}
+                - inside:
+                    kind: decorated_definition
+                    has: {matches: property-decorator}
+                    not: {has: {kind: decorator, not: {any: [{matches: property-decorator}, {has: {matches: typing-override}}]}}}
                 - any:
                     - not: {inside: {kind: decorated_definition, has: {kind: decorator, has: {matches: typing-override}}}}
                     - has: {field: body, has: {kind: return_statement, has: {pattern: super().$NAME}}}
@@ -105,11 +105,11 @@ rule:
                     field: right
                     kind: call
                     all:
-                        - has: {field: function, matches: property-callee}
                         - has:
                             field: arguments
                             has: {matches: getter-argument}
                             not: {has: {pattern: $_, not: {any: [{matches: getter-argument}, {kind: keyword_argument, has: {field: name, regex: '^doc$'}}]}}}
+                        - has: {field: function, matches: property-callee}
         - not:
             inside:
                 kind: block

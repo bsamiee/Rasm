@@ -35,14 +35,13 @@ public static class Projections {
             onMeshes: static (at, target) => Products.Many(() => Curve.ProjectToMesh(at.Curves, target.Meshes, target.Direction, at.Absolute, at.Loose))
                 .Map(static projected => projected.Map(static curve => (Curve: curve, Source: Option<int>.None, Target: Option<int>.None)).Strict()),
             onBreps: static (at, target) =>
-                from answered in IO.lift(() => (Curves: Curve.ProjectToBrep(at.Curves, target.Breps, target.Direction, at.Absolute, at.Loose, out int[]? sources, out int[]? targets), Sources: sources, Targets: targets))
-                from projected in Products.Many(() => answered.Curves)
-                select projected.Zip(Conversions.Rows(answered.Sources).Zip(Conversions.Rows(answered.Targets)), static (curve, row) => (Curve: curve, Source: Some(row.First), Target: Some(row.Second))).Strict(),
+                from answered in Products.Many(() => (Curve.ProjectToBrep(at.Curves, target.Breps, target.Direction, at.Absolute, at.Loose, out int[]? sources, out int[]? targets), (Sources: sources, Targets: targets)))
+                select answered.Values.Zip(Conversions.Rows(answered.Out.Sources).Zip(Conversions.Rows(answered.Out.Targets)), static (curve, row) => (Curve: curve, Source: Some(row.First), Target: Some(row.Second))).Strict(),
             onPlane: static (at, target) =>
                 from xform in IO.lift(() => target.Projection)
-                from projected in at.Curves.Map(static (curve, index) => (Curve: curve, Index: index)).TraverseM(row =>
-                    from copy in Products.Of(row.Curve.DuplicateCurve)
+                from projected in Products.Each(at.Curves.Map((curve, index) =>
+                    from copy in Products.Of(curve.DuplicateCurve)
                     from moved in Transformations.Transformed(copy, xform)
-                    select (Curve: moved, Source: Some(row.Index), Target: Option<int>.None)).As()
+                    select (Curve: moved, Source: Some(index), Target: Option<int>.None)))
                 select projected);
 }

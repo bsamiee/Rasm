@@ -9,57 +9,36 @@ utils:
         regex: '^((global::)?(LanguageExt\.)?IO\.(lift|pure)\s*(<.+>)?\s*\(\s*(static\s+)?(\(\s*\)\s*=>\s*)?)?(global::)?(LanguageExt\.)?(Prelude\.)?(Atom|AtomHashMap|AtomSeq|AtomQue|Ref|VersionHashMap|atomIO)\b'
     atom-element-type:
         regex: '^(global::)?(LanguageExt\.)?(Atom|AtomHashMap|AtomSeq|AtomQue|Ref|VersionHashMap)\s*<.*>\s*\[\s*\]$|[<,]\s*(global::)?(LanguageExt\.)?(Atom|AtomHashMap|AtomSeq|AtomQue|Ref|VersionHashMap)\s*<'
-    type-member:
-        kind: 'method_declaration, constructor_declaration, destructor_declaration, operator_declaration, conversion_operator_declaration, property_declaration, indexer_declaration, field_declaration, event_declaration, global_statement'
-    declared-name:
-        any:
-            - kind: parameter
-              has: {field: name, pattern: $CELL}
-              not: {inside: {kind: parameter_list, inside: {kind: &callback-owner 'lambda_expression, anonymous_method_expression, local_function_statement'}}}
-            - kind: 'variable_declarator, from_clause'
-              has: {field: name, pattern: $CELL}
-            - kind: let_clause
-              has: {kind: identifier, nthChild: 1, pattern: $CELL}
     callback-parameter:
         kind: identifier
         inside:
             stopBy: end
-            kind: *callback-owner
+            kind: 'lambda_expression, anonymous_method_expression, local_function_statement'
             has: {field: parameters, any: [{kind: implicit_parameter, pattern: $CELL}, {has: {kind: parameter, has: {field: name, pattern: $CELL}}}]}
-    atom-local:
+    query-binding:
         any:
-            - kind: parameter
-              all:
-                - has: {field: type, matches: atom-type}
-                - has: {field: name, pattern: $CELL}
-            - kind: variable_declaration
-              all:
-                - has: {field: type, matches: atom-type}
-                - has: {kind: variable_declarator, has: {field: name, pattern: $CELL}}
-            - kind: variable_declarator
-              all:
-                - has: {field: name, pattern: $CELL}
-                - has: {nthChild: 2, matches: atom-creation}
             - kind: from_clause
-              all:
-                - has: {field: name, pattern: $CELL}
-                - any:
-                    - has: {field: type, matches: atom-type}
-                    - has: {matches: atom-creation}
+              has: {field: name, pattern: $CELL}
             - kind: let_clause
-              all:
-                - has: {kind: identifier, nthChild: 1, pattern: $CELL}
-                - has: {matches: atom-creation}
+              has: {kind: identifier, nthChild: 1, pattern: $CELL}
+    typed-local:
+        matches: {csharp-declared-type: {type: {matches: atom-type}}}
+    local-binding:
+        matches: {csharp-declared-type: {type: {pattern: $_}}}
+    typed-elements:
+        matches: {csharp-declared-type: {type: {matches: atom-element-type}}}
     atom-member:
         any:
             - kind: field_declaration
-              has: {kind: variable_declaration, matches: atom-local}
+              has: {kind: variable_declaration, all: [{has: {field: type, matches: atom-type}}, {has: {kind: variable_declarator, has: {field: name, pattern: $CELL}}}]}
             - kind: property_declaration
               all:
                 - has: {field: type, matches: atom-type}
                 - has: {field: name, pattern: $CELL}
             - kind: parameter
-              matches: atom-local
+              all:
+                - has: {field: type, matches: atom-type}
+                - has: {field: name, pattern: $CELL}
               inside: {kind: parameter_list, inside: {kind: &owner-type 'class_declaration, struct_declaration, record_declaration, interface_declaration'}}
     plain-member:
         any:
@@ -91,8 +70,24 @@ utils:
             - kind: member_access_expression
               has: {field: name, pattern: $ELEMENTS}
     elements:
-        matches: elements-name
-        inside: {stopBy: {kind: *owner-type}, kind: *owner-type, has: {stopBy: {kind: *owner-type}, matches: atom-elements}}
+        all:
+            - matches: elements-name
+            - any:
+                - matches: typed-elements
+                - all:
+                    - not: {matches: local-binding}
+                    - not:
+                        kind: identifier
+                        inside:
+                            stopBy: end
+                            kind: 'lambda_expression, anonymous_method_expression, local_function_statement'
+                            has: {field: parameters, any: [{kind: implicit_parameter, pattern: $ELEMENTS}, {has: {kind: parameter, has: {field: name, pattern: $ELEMENTS}}}]}
+                    - inside:
+                        stopBy: {kind: *owner-type}
+                        kind: *owner-type
+                        any:
+                            - has: {field: body, has: {any: [{kind: property_declaration, matches: atom-elements}, {kind: field_declaration, has: {kind: variable_declaration, matches: atom-elements}}]}}
+                            - has: {kind: parameter_list, has: {kind: parameter, matches: atom-elements}}
     own-name:
         any:
             - kind: identifier
@@ -105,10 +100,21 @@ utils:
         all:
             - matches: own-name
             - any:
-                - inside: {stopBy: {matches: type-member}, matches: type-member, has: {stopBy: end, matches: atom-local}}
+                - matches: typed-local
+                - kind: identifier
+                  inside:
+                    stopBy: end
+                    inside: {kind: query_expression}
+                    follows:
+                        stopBy: end
+                        matches: query-binding
+                        any:
+                            - has: {field: type, matches: atom-type}
+                            - has: {matches: atom-creation}
                 - all:
-                    - not: {inside: {stopBy: {matches: type-member}, matches: type-member, has: {stopBy: end, matches: declared-name}}}
+                    - not: {matches: local-binding}
                     - not: {kind: identifier, matches: callback-parameter}
+                    - not: {kind: identifier, inside: {stopBy: end, inside: {kind: query_expression}, follows: {stopBy: end, matches: query-binding}}}
                     - inside:
                         stopBy: {kind: *owner-type}
                         kind: *owner-type
@@ -129,15 +135,15 @@ utils:
                     inside: {kind: invocation_expression, has: {field: function, kind: member_access_expression, has: {field: expression, matches: elements}}}
 rule:
     any:
-        - matches: {csharp-block-local: {declarator: {has: {nthChild: 2, matches: languageext-atom-cell}}}}
+        - matches: atom-creation
         - matches: own-cell
+        - matches: {csharp-block-local: {declarator: {has: {nthChild: 2, matches: languageext-atom-cell}}}}
         - matches: element-parameter
         - kind: member_access_expression
           all:
             - not: {has: {field: expression, regex: '^this$'}}
             - has: {field: name, pattern: $CELL}
-            - inside: {kind: compilation_unit, stopBy: end, has: {stopBy: end, matches: atom-member}}
-            - not: {inside: {kind: compilation_unit, stopBy: end, has: {stopBy: end, matches: plain-member}}}
+            - inside: {kind: compilation_unit, stopBy: end, all: [{has: {stopBy: end, matches: atom-member}}, {not: {has: {stopBy: end, matches: plain-member}}}]}
         - kind: element_access_expression
           has: {field: expression, matches: elements}
         - kind: parenthesized_expression

@@ -62,7 +62,7 @@ Crates hold general capability in architecture and computational design: modelin
 |  [18]   | `kasuari`                                                                      | `ratatui-core` layout                              |
 |  [19]   | `indicatif`                                                                    | `tracing-indicatif` `style` and `IndicatifSpanExt` |
 |  [20]   | `rand_distr`                                                                   | `rand` `RngExt`, `statrs` `inverse_cdf`            |
-|  [21]   | `realfft`                                                                      | `ndrustfft` `R2cFftHandler`, `ndarray-conv`        |
+| [21] | `realfft` | Welch `RealFftPlanner` with `process_with_scratch`, `ndrustfft` planes, `ndarray-conv` convolution |
 |  [22]   | `jagua-rs`                                                                     | No work, its optimizer sparrow unpublished         |
 |  [23]   | `write-fonts`, `rust-lapper`, `geohash`, `h3o`, `geoarrow-expr-geo`, `adbc`    | No work                                            |
 |  [24]   | `arrow-flight`, `iceberg`, `apache-avro`, `iso_currency`, `croner`, `notify`   | No work                                            |

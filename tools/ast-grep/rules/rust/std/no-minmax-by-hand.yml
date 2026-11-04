@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-minmax-by-hand
-language: rust
+language: rustlang
 severity: error
 rule:
     any:
@@ -32,4 +32,4 @@ rule:
                 stopBy: {kind: 'block, match_arm, function_item'}
                 has: {stopBy: {kind: match_arm}, kind: call_expression, pattern: $A.max($B)}
 message: '`if`, a `min` and `max` pair, or a `min_by` and `max_by` pair orders `$A` and `$B` by hand'
-note: 'Call `cmp::minmax(<a>, <b>)` (`#![feature(cmp_minmax)]`), `cmp::minmax_by(<a>, <b>, <float>::total_cmp)`, or `cmp::minmax_by_key(<a>, <b>, <key>)` and read the `[min, max]` array'
+note: 'Use `cmp::minmax`, `minmax_by`, or `minmax_by_key`; compare floats through `total_cmp` and read `[min, max]`'

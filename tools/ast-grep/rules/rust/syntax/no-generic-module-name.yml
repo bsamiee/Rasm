@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-generic-module-name
-language: rust
+language: rustlang
 severity: error
 utils:
     generic-name:

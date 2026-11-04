@@ -15,7 +15,7 @@ allow-mixed-uninlined-format-args            = false
 lint-commented-code                          = true
 
 # --- [NUMERICS]
-arithmetic-side-effects-allowed       = ["acadrust::Vector3", "centrality::Centrality", "faer::col::generic::Col", "faer::mat::generic::Mat", "fidget::context::Tree", "geo_types::Coord", "good_lp::Expression", "good_lp::Variable", "kurbo::Affine", "kurbo::Point", "kurbo::Vec2", "nalgebra::Isometry", "nalgebra::Matrix", "nalgebra::OPoint", "nalgebra::Transform", "nalgebra::Unit", "num_complex::Complex", "num_dual::Dual", "num_dual::DualVec", "typst::layout::Axes", "uom::si::Quantity"]
+arithmetic-side-effects-allowed       = ["acadrust::Vector3", "centrality::Centrality", "f128", "faer::col::generic::Col", "faer::mat::generic::Mat", "fidget::context::Tree", "geo_types::Coord", "good_lp::Expression", "good_lp::Variable", "kurbo::Affine", "kurbo::Point", "kurbo::Vec2", "nalgebra::Isometry", "nalgebra::Matrix", "nalgebra::OPoint", "nalgebra::Transform", "nalgebra::Unit", "num_complex::Complex", "num_dual::Dual", "num_dual::DualVec", "twofloat::TwoFloat", "typst::layout::Axes", "uom::si::Quantity"]
 arithmetic-side-effects-allowed-unary = ["acadrust::Vector3", "kurbo::Vec2", "nalgebra::Matrix", "num_dual::DualVec", "rust_decimal::Decimal"]
 
 # --- [NAMING]
@@ -80,6 +80,7 @@ allowed-duplicate-crates = [
     "indexmap",              # 1 under newest `serde_with` 3.24.0 through the weak `indexmap_1?/std` of its default `std` (rust-clippy#16440), beside 2 under `petgraph`, `rmcp`, `serde_json`, `arrow-json`, and `zip` 6
     "schemars",              # 0.9 under newest `serde_with` 3.24.0 through the weak `schemars_0_9?/std` of its default `std` (rust-clippy#16440), beside 1 under `rmcp`, `bounded-integer`, and serde_with `schemars_1`
     "toml",                  # 0.8 under `typst-syntax`, `typst-library`, and `typst-eval` 0.15.1 beside 1 under `rasm-command`, `dylint_linting`, and `dylint_internal`
+    "toml_edit",             # 0.22 under Typst's required toml 0.8 beside 0.25 under proc-macro-crate 3.5, grib 0.20, and dylint_internal 6.3
     "serde_spanned",         # 0.6 under `toml` 0.8 and `toml_edit` 0.22 beside 1 under `toml` 1
     "toml_datetime",         # 0.6 under `toml` 0.8 and `toml_edit` 0.22 beside 1 under `toml` 1 and `toml_edit` 0.25
     "winnow",                # 0.7 under `toml_edit` 0.22 beside 1 under `toml` 1, `toml_edit` 0.25, and `toml_parser`
@@ -120,7 +121,6 @@ disallowed-methods          = [
     { path = "std::time::Instant::now", replacement = "tokio::time::Instant::now", reason = "Paused test clocks drive `tokio::time::Instant`" },
     { path = "std::time::Instant::elapsed", replacement = "tokio::time::Instant::elapsed", reason = "Paused test clocks drive `tokio::time::Instant`" },
     { path = "std::env::var", reason = "Parse variables through `#[arg(env)]`" },
-    { path = "std::env::var_os", reason = "Parse variables through `#[arg(env)]`" },
     { path = "std::env::vars", reason = "Parse variables through `#[arg(env)]`" },
     { path = "std::env::vars_os", reason = "Parse variables through `#[arg(env)]`" },
     { path = "tracing_subscriber::filter::EnvFilter::from_default_env", reason = "Drops unparsable directives, parse `RUST_LOG` through `#[arg(env = EnvFilter::DEFAULT_ENV)]`" },
@@ -135,8 +135,7 @@ disallowed-methods          = [
     { path = "std::env::temp_dir", reason = "Pass paths as arguments" },
     { path = "std::env::current_exe", reason = "Pass paths as arguments" },
     { path = "std::env::set_current_dir", reason = "Changes working directory of every thread, pass paths as arguments" },
-    { path = "std::env::args", reason = "Parse arguments through `clap::Parser`" },
-    { path = "std::env::args_os", reason = "Parse arguments through `clap::Parser`" },
+    { path = "std::env::args", reason = "Read OS arguments through a native parser" },
     { path = "std::process::abort", reason = "Skips unwinding, telemetry flush, and `main` exit code" },
     { path = "tempfile::tempdir", replacement = "tempfile::tempdir_in", reason = "Reads temporary directory from environment" },
     { path = "tempfile::tempfile", replacement = "tempfile::tempfile_in", reason = "Reads temporary directory from environment" },
@@ -179,10 +178,6 @@ disallowed-methods          = [
     { path = "std::sync::Arc::into_raw_with_allocator", reason = "Leaks allocation without forbidden `unsafe`, owner outliving readers passes `&` or `Arc`" },
     { path = "std::vec::Vec::into_parts", reason = "Leaks allocation without forbidden `unsafe`, owner outliving readers passes `&` or `Arc`" },
     { path = "std::vec::Vec::remove", replacement = "std::vec::Vec::try_remove", reason = "Panics past end, absence stays `Option`" },
-    { path = "slice::split_at", replacement = "slice::split_at_checked", reason = "Panics past end, absence stays `Option`, a split where a predicate turns is `split_once` or `rsplit_once`, its `None` meaning no element matched" },
-    { path = "slice::split_at_mut", replacement = "slice::split_at_mut_checked", reason = "Panics past end, absence stays `Option`" },
-    { path = "str::split_at", replacement = "str::split_at_checked", reason = "Panics past end or off char boundary, absence stays `Option`" },
-    { path = "str::split_at_mut", replacement = "str::split_at_mut_checked", reason = "Panics past end or off char boundary, absence stays `Option`" },
     { path = "core::time::Duration::from_secs_f64", replacement = "core::time::Duration::try_from_secs_f64", reason = "Panics on negative, NaN, or overflowing input" },
     { path = "core::time::Duration::from_secs_f32", replacement = "core::time::Duration::try_from_secs_f32", reason = "Panics on negative, NaN, or overflowing input" },
     { path = "core::time::Duration::mul_f64", replacement = "core::time::Duration::try_from_secs_f64", reason = "Panics on negative, NaN, or overflowing product, convert product" },
@@ -346,7 +341,6 @@ disallowed-macros           = [
     { path = "tokio::try_join", replacement = "tokio::join", reason = "Drops other results on first error" },
     { path = "futures::try_join", replacement = "futures::join", reason = "Drops other results on first error" },
     { path = "scopeguard::defer", replacement = "core::mem::DropGuard", reason = "`core` owns the operation" },
-    { path = "tokio::pin", replacement = "core::pin::pin", reason = "`core` owns the operation" },
     { path = "futures_util::pin_mut", replacement = "core::pin::pin", reason = "`core` owns the operation" },
     { path = "pin_utils::pin_mut", replacement = "core::pin::pin", reason = "`core` owns the operation" },
     { path = "cfg_if::cfg_if", replacement = "core::cfg_select", reason = "`core` owns the operation" },
@@ -354,6 +348,7 @@ disallowed-macros           = [
     { path = "trait_variant::make", reason = "Generates second trait for `Send` futures, use return-type notation for `Send`" },
 ]
 disallowed-types            = [
+    { path = "core::convert::Infallible", reason = "Write `!` and delete its unused import" },
     { path = "std::sync::Mutex", replacement = "std::sync::nonpoison::Mutex", reason = "Poisoning wraps every guard in `LockResult`, guards across `.await` take `tokio::sync::Mutex`" },
     { path = "std::sync::RwLock", replacement = "std::sync::nonpoison::RwLock", reason = "Poisoning wraps every guard in `LockResult`, guards across `.await` take `tokio::sync::RwLock`" },
     { path = "std::sync::Condvar", replacement = "std::sync::nonpoison::Condvar", reason = "Poisoning wraps every wait in `LockResult`" },

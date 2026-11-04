@@ -26,9 +26,9 @@ public abstract partial record CurvatureSource {
             onSubD: static (_, of) => Sampled(() => of.At.Map(parameter => of.SubD.EvaluateCurvature(parameter, of.Extraordinary, out SurfaceCurvature curvature) ? curvature : null)),
             onMesh: static (_, of) => IO.lift(() => of.Mesh.HasPrincipalCurvatures).Bind(held => held
                 ? Sampled(() => toSeq(of.Mesh.PrincipalCurvatures))
-                : from gaussian in Approximated(of.Mesh, CurvatureStyle.GaussianCurvature)
-                  from mean in Approximated(of.Mesh, CurvatureStyle.MeanCurvature)
-                  from sampled in Sampled(() => toSeq(gaussian.Zip(mean, static (k, h) => double.IsNaN(k) || double.IsNaN(h) ? null : SurfaceCurvature.CreateFromGaussianAndMeanCurvatures(k, -h))))
+                : from approximated in (Approximated(of.Mesh, CurvatureStyle.GaussianCurvature), Approximated(of.Mesh, CurvatureStyle.MeanCurvature))
+                      .Apply(static (gaussian, mean) => (Gaussian: gaussian, Mean: mean)).As()
+                  from sampled in Sampled(() => toSeq(approximated.Gaussian.Zip(approximated.Mean, static (k, h) => double.IsNaN(k) || double.IsNaN(h) ? null : SurfaceCurvature.CreateFromGaussianAndMeanCurvatures(k, -h))))
                   select sampled));
 
     private static IO<double[]> Approximated(Mesh mesh, CurvatureStyle style) =>

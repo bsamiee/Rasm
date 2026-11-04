@@ -224,6 +224,13 @@ const fn stopped(signal: Signal) -> bool {
 
 const fn paused(signal: Signal) -> bool { if let Signal::Pause = signal { true } else { false } }
 
+const fn tested_nested(command: Command) -> bool { matches!(command, Command::Send { signal: Signal::Start | Signal::Pause }) }
+
+const fn tested_constants(signal: Signal) -> bool {
+    const REST: Signal = Signal::Stop;
+    matches!(signal, Signal::Start | Signal::Pause | Signal::Resume | REST)
+}
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 fn main() {
@@ -267,6 +274,8 @@ fn main() {
         wrapped,
         negated,
         every,
+        tested_nested,
+        tested_constants,
         Command::Wait,
     ));
 }

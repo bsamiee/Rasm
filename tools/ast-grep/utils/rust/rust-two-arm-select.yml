@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: rust-two-arm-select
-language: rust
+language: rustlang
 utils:
     arrow:
         regex: '^=>$'

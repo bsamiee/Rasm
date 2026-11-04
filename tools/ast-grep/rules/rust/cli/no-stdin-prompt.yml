@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-stdin-prompt
-language: rust
+language: rustlang
 severity: error
 utils:
     stdin-call:
@@ -66,11 +66,12 @@ utils:
         pattern: $PROMPT
         has: {any: [{matches: prompt-write}, {kind: try_expression, has: {matches: prompt-write}}, {kind: await_expression, has: {matches: prompt-write}}, {kind: try_expression, has: {kind: await_expression, has: {matches: prompt-write}}}]}
 rule:
-    matches: line-read
     pattern: $READ
-    any:
-        - follows: {stopBy: end, matches: prompt}
-        - inside: {stopBy: {inside: {kind: block}}, follows: {stopBy: end, matches: prompt}}
+    all:
+        - matches: line-read
+        - any:
+            - follows: {stopBy: end, matches: prompt}
+            - inside: {stopBy: {inside: {kind: block}}, follows: {stopBy: end, matches: prompt}}
 labels:
     READ: {style: primary, message: 'Reads the answer'}
     PROMPT: {style: secondary, message: 'Prints the prompt'}

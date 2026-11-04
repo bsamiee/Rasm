@@ -4,7 +4,7 @@
 name                 = "rasm-form"
 version.workspace    = true
 edition.workspace    = true
-description          = "Form-finding of nets at nalgebra signatures: validated nets of supports and loaded free nodes refused once with every floating node, linear force-density equilibrium of tension and compression nets through one sorted sparse pattern and one symbolic Cholesky factor, kinetic-damping dynamic relaxation of elastic bars, slack cables and force-density members, and inverse form-finding of grouped densities against position, plane, length and force goals by adjoint gradient over parallel starts of a design"
+description          = "Force-density equilibrium, dynamic relaxation, and inverse form-finding of supported networks"
 repository.workspace = true
 license.workspace    = true
 keywords             = ["form-finding", "force-density", "dynamic-relaxation", "cable-net", "gridshell"]
@@ -31,6 +31,7 @@ derive_more          = { workspace = true }
 itertools            = { workspace = true }
 faer                 = { workspace = true }
 nalgebra             = { workspace = true }
+petgraph             = { workspace = true }
 nlopt                = { workspace = true }
 rasm-stats           = { workspace = true }
 rasm-optimize        = { workspace = true }

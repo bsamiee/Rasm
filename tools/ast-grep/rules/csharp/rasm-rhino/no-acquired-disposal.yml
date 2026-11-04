@@ -61,7 +61,7 @@ utils:
             - inside: {kind: expression_statement}
             - inside: {kind: assignment_expression, field: right, has: {field: left, regex: '^_$'}}
 rule:
-    matches: acquire
+    all: [{matches: acquire}]
     any:
         - all:
             - has:

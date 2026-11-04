@@ -180,7 +180,7 @@ public sealed record Mount {
 
     private Mount Nearing(Mount prior) =>
         (this with {
-            Nearest = prior.Routing.Pointer == Routing.Pointer
+            Nearest = ReferenceEquals(prior.Scene, Scene) && prior.Routing.Pointer == Routing.Pointer
                 ? Nearest.Filter(near => Scene.Index.Find(near.Plot).Exists(static layout => layout.View is View.Plot))
                 : from at in Routing.Pointer
                   from layout in Scene.Order.Rev().Find(layout => layout.View is View.Plot plot && (plot.Pointed.IsSome || plot.Crosshair.IsSome) && !Inert(layout.Path) && Scene.Visible(layout.Path).Exists(shown => shown.Contains(at)))
@@ -287,7 +287,7 @@ public sealed record Mount {
                                select (part.Owner, overlay)).ToSeq());
 
     private View Selected(Seq<Key> owner, Figure figure) =>
-        new View.Mark(figure) { Role = Role.Selection } switch {
+        new View.Mark(figure) { Role = Roles.Selection } switch {
             var mark when (from layout in Scene.Index.Find(owner) from place in Scene.Places.Find(owner) from plot in place.Plotted(layout) select plot).IsSome => mark,
             var mark => new View.Plot(PlotPlane.Cartesian.Unit, [mark]).Grown,
         };

@@ -3,6 +3,7 @@ using Rasm.Drafting;
 using Rasm.Rhino.Document.Units;
 using Rhino;
 using Rhino.DocObjects;
+using SuperLinq;
 
 namespace Rasm.Rhino.Document.Tables;
 
@@ -80,7 +81,7 @@ public static class Layers {
         static (doc, row) => doc.Layers.Add(row),
         static (doc, row, index) => doc.Layers.Modify(row, index, quiet: true),
         static doc => doc.Layers.GetUnusedLayerName()) {
-        Live = static doc => toSeq(doc.Layers.GetSorted()).Map(index => doc.Layers[index]).Filter(static row => !row.IsDeleted).Strict(),
+        Listing = Some<Func<RhinoDoc, Seq<Layer>>>(static doc => toSeq(doc.Layers.GetSorted()).Map(index => doc.Layers[index]).Filter(static row => !row.IsDeleted).Strict()),
         Key = static row => row.FullPath,
         Names = StringComparer.OrdinalIgnoreCase,
         Parent = static row => Conversions.Present(row.ParentLayerId),
@@ -121,15 +122,15 @@ public static class Layers {
         select unit;
 
     // --- [TREE]
-    private static Seq<string> Preorder(Seq<string> keys) {
-        Seq<string> paths = toSeq(keys.Bind(Lineage).Distinct(StringComparer.OrdinalIgnoreCase));
-        ILookup<string, string> children = paths.ToLookup(Layer.GetParentName, StringComparer.OrdinalIgnoreCase);
-        Seq<string> Beneath(string parent) => toSeq(children[parent]).Bind(child => child.Cons(Beneath(child)));
-        return Beneath("");
-    }
+    private static Fin<Seq<string>> Preorder(Seq<string> keys) =>
+        Products.Each(toSeq((keys.Bind(Lineage) + keys).Distinct(StringComparer.OrdinalIgnoreCase)), static (key, index) =>
+                RhinoFault.Unless(ModelComponent.IsValidComponentName(Layer.GetLeafName(key)), RhinoReason.Unqualified, key, index).Map(_ => key))
+            .Map(static names => names.ToLookup(Layer.GetParentName, StringComparer.OrdinalIgnoreCase))
+            .Map(static children => toSeq(SuperEnumerable.TraverseDepthFirst("", parent => children[parent]).Skip(1)));
 
     private static Seq<string> Lineage(string key) =>
-        (Layer.GetParentName(key) is { Length: > 0 } parent ? Lineage(parent) : []).Add(key);
+        LanguageExt.List.unfold(key, static path => path.Length is 0 ? None : Some((path, Layer.GetParentName(path))))
+            .Aggregate(Seq<string>(), static (parents, path) => path.Cons(parents));
 
     private static Fin<Seq<RowEdit<Layer>>> Placed(RhinoDoc doc, Option<Layer> live, string key) =>
         (Layer.GetLeafName(key), Layer.GetParentName(key)) switch {

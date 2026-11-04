@@ -3,16 +3,14 @@ id: no-linear-lookup-per-item
 language: csharplang
 severity: error
 utils:
-    owner:
-        kind: 'method_declaration, local_function_statement, constructor_declaration, accessor_declaration, property_declaration, field_declaration'
     sequence-type:
         regex: '^(IEnumerable|IReadOnlyList|IReadOnlyCollection|IList|ICollection|List|ImmutableArray|ImmutableList|Seq|Lst|Arr|Iterable)\b|\[\]$'
     item:
         any:
-            - inside: {stopBy: {matches: owner}, kind: foreach_statement, has: {field: left, pattern: $ITEM}}
-            - inside: {stopBy: {matches: owner}, kind: for_statement, has: {field: initializer, has: {kind: variable_declarator, has: {field: name, pattern: $ITEM}}}}
+            - inside: {stopBy: {kind: &owner 'method_declaration, local_function_statement, constructor_declaration, accessor_declaration, property_declaration, field_declaration'}, kind: foreach_statement, has: {field: left, pattern: $ITEM}}
+            - inside: {stopBy: {kind: *owner}, kind: for_statement, has: {field: initializer, has: {kind: variable_declarator, has: {field: name, pattern: $ITEM}}}}
             - inside:
-                stopBy: {matches: owner}
+                stopBy: {kind: *owner}
                 kind: lambda_expression
                 all:
                     - has: {field: parameters, any: [{kind: implicit_parameter, pattern: $ITEM}, {kind: parameter_list, has: {kind: parameter, has: {field: name, pattern: $ITEM}}}]}

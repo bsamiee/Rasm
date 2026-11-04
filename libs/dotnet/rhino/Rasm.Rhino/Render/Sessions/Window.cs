@@ -32,8 +32,8 @@ public static class RenderWindows {
 
     // --- [PIXELS]
     public static IO<Memory2D<float>> Read(RenderWindow window, RenderWindow.StandardChannels channel) =>
-        Opened(window, channel, static opened => IO.lift(() => Channels.Read(opened, new Rectangle(0, 0, opened.Width, opened.Height))
-            .Map(native => Channels.Widened(native.Span, opened.Width))));
+        Opened(window, channel, opened => IO.lift(() => Channels.Read(opened, new Rectangle(0, 0, opened.Width, opened.Height))
+            .Map(native => channel is RenderWindow.StandardChannels.RGBA ? native : Channels.Widened(native.Span, opened.Width))));
 
     public static IO<Unit> Blit(RenderWindow window, Rectangle rect, ReadOnlyMemory2D<float> rgba) =>
         from written in Opened(window, RenderWindow.StandardChannels.RGBA, opened => IO.lift(() => Channels.Put(opened, rect, rgba)))

@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: msgspec-struct-frozen-default
+language: pythonlang
+utils:
+    base:
+        any:
+            - matches: {python-member-use: {module: {regex: '^msgspec$'}, name: {regex: '^Struct$'}}}
+            - matches: {python-base-class: {superclasses: {matches: options}}}
+            - kind: subscript
+              has: {field: value, matches: base}
+            - kind: parenthesized_expression
+              has: {matches: base}
+    options:
+        kind: argument_list
+        all:
+            - not: {has: {kind: keyword_argument, has: {field: name, regex: '^frozen$'}}}
+            - not: {has: {pattern: $_, not: {any: [{kind: 'keyword_argument, comment'}, {matches: base}]}}}
+rule:
+    all:
+        - matches: msgspec-struct-class
+        - has: {field: superclasses, matches: options}

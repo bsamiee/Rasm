@@ -13,7 +13,7 @@ pub fn phases<'path>(path: &'path BezPath, linetype: &Linetype, tolerance: Toler
     let pattern = linetype.dashes.iter().copied().collect::<kurbo::Dashes>();
     let first = *linetype.dashes.first();
     let period = linetype.dashes.iter().sum::<f64>();
-    let length = |elements: &[PathEl]| elements.perimeter(tolerance.into_inner() / f64::from(u32::try_from(segments(elements.iter().copied()).count()).unwrap_or(u32::MAX)));
+    let length = |elements: &[PathEl]| elements.perimeter(tolerance.into_inner() / nalgebra::convert::<usize, f64>(segments(elements.iter().copied()).count()));
     let fitted = |piece: Cow<'path, [PathEl]>| {
         let length = length(&piece);
         let scale = length / ((length / period).round().max(1.0_f64) * period);

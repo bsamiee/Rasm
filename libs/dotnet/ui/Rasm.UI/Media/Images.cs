@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Reflection;
 using SkiaSharp;
 using Wacton.Unicolour.Datasets;
@@ -42,16 +41,17 @@ public sealed partial class ImageRendering {
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ImageSource {
-    private ImageSource(SKImageInfo info) => Info = info;
+    public abstract SKImageInfo Info { get; }
 
-    public SKImageInfo Info { get; }
-
-    public sealed record Still(SKImage Image) : ImageSource(Image.Info);
+    public sealed record Still(SKImage Image) : ImageSource {
+        public override SKImageInfo Info => Image.Info;
+    }
 
     public sealed record Encoded : ImageSource {
-        private Encoded(SKData data, SKCodec codec)
-            : base(codec.Info.WithSize(Oriented(codec.EncodedOrigin, codec.Info.Size).Shown)) => (Data, FrameCount) = (data, codec.FrameCount);
+        private Encoded(SKData data, SKCodec codec) =>
+            (Data, FrameCount, Info) = (data, codec.FrameCount, codec.Info.WithSize(Oriented(codec.EncodedOrigin, codec.Info.Size).Shown));
 
+        public override SKImageInfo Info { get; }
         public SKData Data { get; }
         public int FrameCount { get; }
 
@@ -59,7 +59,7 @@ public abstract partial record ImageSource {
             using SKCodec? codec = SKCodec.Create(data);
             return codec is { } read
                 ? new Encoded(data, read)
-                : new UIFault(string.Create(CultureInfo.InvariantCulture, $"{nameof(data)}.{nameof(data.Size)} = {data.Size}"), UIReason.Unreadable);
+                : new UIFault(data.Size, UIReason.Unreadable);
         }
 
         internal static (SKSizeI Shown, SKMatrix Matrix) Oriented(SKEncodedOrigin origin, SKSizeI stored) =>

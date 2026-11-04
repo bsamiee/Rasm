@@ -2,18 +2,18 @@
 
 import functools
 from pathlib import Path
-from typing import Final
+from typing import Final, override
 
 import bpy
-from expression import Nothing, Ok, Option, Some
+from expression import Option, Some
 import numpy as np
 import numpy.typing as npt
 import PyOpenColorIO
 
-from blender.bpy.data.ids.images import read, Tag
+from blender.bpy.data.ids.images import normalized, Tag
 from blender.bpy.data.ids.ownership import Ownership, Saved
 from blender.bpy.nodes.content import Generated
-from blender.bpy.nodes.desired import MenuItem, MenuItems
+from blender.bpy.nodes.desired import MenuItem
 from blender.bpy.nodes.functions import EXPRESSIONS
 from blender.bpy.nodes.graphs import equal, Expr, math, mixed, vector, where, xyz
 from blender.bpy.nodes.interfaces import Interface, InterfacePanel, Socket
@@ -22,7 +22,7 @@ from blender.bpy.render.compositor import motion
 from blender.bpy.render.compositor.colors import space_item
 from blender.bpy.render.compositor.coordinates import PixelGrid
 from blender.bpy.render.compositor.editors import FilePath
-from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect, precise
+from blender.bpy.render.compositor.effects import CompositorEffect, CompositorRecord, Mix, precise
 from blender.bpy.render.compositor.filters import tiled
 from blender.bpy.render.compositor.inputs import GraphInputs
 from blender.bpy.render.compositor.masks import luminance
@@ -32,8 +32,7 @@ from blender.imaging.files.images import read_file
 from blender.imaging.geometry.arithmetic import gaussian
 from blender.imaging.sampling import tiles
 from blender.imaging.sampling.tiles import stream
-from blender.records.faults import Outcome, paired
-from blender.records.fields import Case
+from blender.records.faults import Nothing, Ok, Outcome, paired
 from blender.records.stores import content_hash, ContentHash, rng
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -46,7 +45,7 @@ _FILM: Final = InterfacePanel.of(
     "film",
     Interface(
         inputs=(
-            Socket(key="field", kind=bpy.types.NodeSocketMenu, description="Procedural grain or scanned image", default_value=_PROCEDURAL.name, items=Some(MenuItems(items=(_PROCEDURAL, _SCAN)))),
+            Socket(key="field", kind=bpy.types.NodeSocketMenu, description="Procedural grain or scanned image", default_value=_PROCEDURAL.name, items=(_PROCEDURAL, _SCAN)),
             Socket(key="size", kind=bpy.types.NodeSocketFloat, description="Grain diameter over greater frame side", min_value=0.0, default_value=0.00104),
             Socket(key="span", kind=bpy.types.NodeSocketFloat, description="Tile width over greater frame side", min_value=0.0, default_value=1.0),
             Socket(key="granularity", kind=bpy.types.NodeSocketFloat, description="Deviation of the log grain factor", min_value=0.0),
@@ -70,17 +69,94 @@ _SENSOR: Final = InterfacePanel.of(
     ),
     description="Shot noise scaling with signal and constant read noise",
 )
-_MEDIUM: Final = Socket(key="medium", kind=bpy.types.NodeSocketMenu, description="Film grain or sensor noise", default_value=_FILM.item.name, items=Some(MenuItems(items=(_FILM.item, _SENSOR.item))))
+_MEDIUM: Final = Socket(key="medium", kind=bpy.types.NodeSocketMenu, description="Film grain or sensor noise", default_value=_FILM.item.name, items=(_FILM.item, _SENSOR.item))
 _CHROMA: Final = Socket(key="chroma", kind=bpy.types.NodeSocketFloatFactor, description="Per-channel noise share against shared noise")
 _CLOCK: Final = InterfacePanel.of(CLOCK.key, Clock(speed=24.0))
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Grain(Case, frozen=True, kw_only=True):
+class Grain(CompositorRecord, frozen=True, kw_only=True):
     """Multiplicative film grain or additive sensor noise, the scanned grain image tiled over the frame when one is held."""
 
     scan: FilePath | None = None
+
+    @override
+    def graph(self, shell: GraphInputs) -> Outcome[Expr]:
+        """Builds the selected medium on straight scene-linear color, film over the tiled field and sensor over hashed normal draws."""
+        field, size, span, granularity, shadows, midtones, highlights, shadow_edge, midtone_span, highlight_span = _FILM.inputs
+        shot, read_noise = map(shell.input, _SENSOR.inputs)
+        source, share = shell.color, shell.input(_CHROMA)
+        own, shared = math("SQRT", share), math("SQRT", 1.0 - share)
+        deviation = shell.input(granularity)
+        pattern = math("FLOOR", clocked(shell.input, _CLOCK))
+
+        def developed(content: Generated, texels: int, extent: Expr, correlation: npt.NDArray[np.float64]) -> Expr:
+            image = Expr(kind=bpy.types.CompositorNodeImage, content=Some(content), socket="Image", socket_type=bpy.types.NodeSocketColor)
+            shift = vector("SCALE", vector("FRACTION", origin(shell.input(SEED), float(stream(Grain, _FILM.key)), pattern)), extent)
+            scores = tiled(image, vector("MULTIPLY_ADD", shift, (1.0, 1.0, 0.0), shell.space.point), texels / extent, correlation)
+            normal = vector("MULTIPLY_ADD", scores, own, scores["Alpha"] * shared)
+            return vector("POWER", (np.e,) * 3, vector("MULTIPLY_ADD", normal, deviation, deviation * deviation * -0.5))
+
+        def fielded(space: str) -> Outcome[Expr]:
+            tag = Tag(space=Some(space), alpha=Some("CHANNEL_PACKED"))
+            tile, key, correlation = _procedural()
+            procedural = Generated(ownership=_TILES, content=key, name="Grain Procedural", plane=lambda: Ok(Some(tile)), tag=tag)
+
+            def scanned(path: str) -> Outcome[Expr]:
+                held = content_hash(Grain, path.encode())
+
+                def scores(found: npt.NDArray[np.float32]) -> npt.NDArray[np.float32]:
+                    color = found[..., (0, 1, 2) if found.shape[2] >= 3 else (0, 0, 0)]
+                    return tiles.normal_scores(np.dstack((color, color.mean(axis=2, dtype=np.float64))))
+
+                plane = (
+                    _TILES
+                    .found(shell.identity, content=Some(held))
+                    .map(lambda image: normalized(image, shell.config).map(lambda file: file.pixels))
+                    .default_with(lambda: read_file(Path(bpy.path.abspath(path)), shell.config, colorspace=Some(PyOpenColorIO.ROLE_DATA)).map(lambda image: scores(image.pixels)))
+                )
+                return plane.map(
+                    lambda values: developed(
+                        Generated(ownership=_TILES, content=held, name=f"Grain {Path(path).name}", plane=lambda: Ok(Some(values)), tag=tag),
+                        values.shape[1],
+                        shell.input(span),
+                        tiles.correlated(values),
+                    )
+                )
+
+            scan: Outcome[Option[Expr]] = Option.of_optional(self.scan).map(lambda path: scanned(path).map(Some)).default_value(Ok(Nothing))
+            return scan.map(
+                lambda held: shell.menu(field, cases={_PROCEDURAL: developed(procedural, _SIDE, shell.input(size) * (_SIDE / 2.0), correlation), _SCAN: held.default_value((1.0, 1.0, 1.0))}).keyed(
+                    "field"
+                )
+            )
+
+        def filmed(factor: Expr, level: Expr) -> Expr:
+            def band(distance: Expr, width: Expr) -> Expr:
+                return where(width > 0.0, MapRange(interpolation_type="SMOOTHSTEP").node(distance / width), distance > 0.0)
+
+            low, middle, high, edge, middle_extent, high_extent = map(shell.input, (shadows, midtones, highlights, shadow_edge, midtone_span, highlight_span))
+            toned = math("MULTIPLY_ADD", 1.0 - band(level, edge), low - middle, middle)
+            weight = math("MULTIPLY_ADD", band(level - edge - middle_extent, high_extent), high - middle, toned).keyed("weight")
+            return mixed(weight, source, factor, blend="MULTIPLY")
+
+        def sensored(level: Expr) -> Expr:
+            grid = PixelGrid.of(source)
+            sited = vector("FLOOR", grid.base / grid.inverse) + origin(shell.input(SEED), float(stream(Grain, _SENSOR.key)), pattern)
+            draws = tuple(WhiteNoise(noise_dimensions="4D").node(sited, float(index)) for index in range(4))
+            (common, red), (green, blue) = gaussian(draws[0], draws[1], EXPRESSIONS), gaussian(draws[2], draws[3], EXPRESSIONS)
+            gain, floor = shot * shot / GRAY, read_noise * read_noise
+            spread = vector("POWER", vector("MULTIPLY_ADD", vector("MAXIMUM", source, (0.0, 0.0, 0.0)), gain, floor), (0.5, 0.5, 0.5)).keyed("deviation")
+            scatter = vector("SCALE", xyz(red, green, blue), own) * spread + common * shared * math("SQRT", math("MULTIPLY_ADD", math("MAXIMUM", level, 0.0), gain, floor))
+            return where(equal(source["Alpha"], 0.0), source, vector("ADD", source, scatter))
+
+        def built(level: Expr, factor: Expr) -> Expr:
+            return shell.menu(_MEDIUM, cases={_FILM.item: filmed(factor, level), _SENSOR.item: sensored(level)})
+
+        return paired(luminance(shell.config, source), space_item(shell.config, PyOpenColorIO.ROLE_DATA).bind(fielded)).map(lambda parts: built(*parts))
+
+    requested = staticmethod(precise)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -93,87 +169,9 @@ def _procedural() -> tuple[npt.NDArray[np.float32], ContentHash, npt.NDArray[np.
     return tile, content_hash(Grain, arrays=(tile,)), tiles.correlated(tile)
 
 
-def _grain(shell: GraphInputs[Grain]) -> Outcome[Expr]:
-    """Builds the selected medium on straight scene-linear color, film over the tiled field and sensor over hashed normal draws."""
-    field, size, span, granularity, shadows, midtones, highlights, shadow_edge, midtone_span, highlight_span = _FILM.inputs
-    shot, read_noise = map(shell.input, _SENSOR.inputs)
-    source, share = shell.color, shell.input(_CHROMA)
-    own, shared = math("SQRT", share), math("SQRT", 1.0 - share)
-    deviation = shell.input(granularity)
-    pattern = math("FLOOR", clocked(shell.input, _CLOCK))
-
-    def developed(content: Generated, texels: int, extent: Expr, correlation: npt.NDArray[np.float64]) -> Expr:
-        image = Expr(kind=bpy.types.CompositorNodeImage, content=Some(content), socket="Image", socket_type=bpy.types.NodeSocketColor)
-        shift = vector("SCALE", vector("FRACTION", origin(shell.input(SEED), float(stream(Grain, _FILM.key)), pattern)), extent)
-        scores = tiled(image, vector("MULTIPLY_ADD", shift, (1.0, 1.0, 0.0), shell.space.point), texels / extent, correlation)
-        normal = vector("MULTIPLY_ADD", scores, own, scores["Alpha"] * shared)
-        return vector("POWER", (np.e,) * 3, vector("MULTIPLY_ADD", normal, deviation, deviation * deviation * -0.5))
-
-    def fielded(space: str) -> Outcome[Expr]:
-        tag = Tag(space=Some(space), alpha=Some("CHANNEL_PACKED"))
-        tile, key, correlation = _procedural()
-        procedural = Generated(ownership=_TILES, content=key, name="Grain Procedural", plane=lambda: Ok(Some(tile)), tag=tag)
-
-        def scanned(path: str) -> Outcome[Expr]:
-            held = content_hash(Grain, path.encode())
-
-            def scores(found: npt.NDArray[np.float32]) -> npt.NDArray[np.float32]:
-                color = found[..., (0, 1, 2) if found.shape[2] >= 3 else (0, 0, 0)]
-                return tiles.normal_scores(np.dstack((color, color.mean(axis=2, dtype=np.float64))))
-
-            plane = (
-                _TILES
-                .found(shell.identity, content=Some(held))
-                .map(lambda image: read(image, shell.config).map(lambda file: file.pixels))
-                .default_with(lambda: read_file(Path(bpy.path.abspath(path)), shell.config, colorspace=Some(PyOpenColorIO.ROLE_DATA)).map(lambda image: scores(image.pixels)))
-            )
-            return plane.map(
-                lambda values: developed(
-                    Generated(ownership=_TILES, content=held, name=f"Grain {Path(path).name}", plane=lambda: Ok(Some(values)), tag=tag), values.shape[1], shell.input(span), tiles.correlated(values)
-                )
-            )
-
-        scan: Outcome[Option[Expr]] = Option.of_optional(shell.record.scan).map(lambda path: scanned(path).map(Some)).default_value(Ok(Nothing))
-        return scan.map(
-            lambda held: shell.menu(field, cases={_PROCEDURAL: developed(procedural, _SIDE, shell.input(size) * (_SIDE / 2.0), correlation), _SCAN: held.default_value((1.0, 1.0, 1.0))}).keyed("field")
-        )
-
-    def filmed(factor: Expr, level: Expr) -> Expr:
-        def band(distance: Expr, width: Expr) -> Expr:
-            return where(width > 0.0, MapRange(interpolation_type="SMOOTHSTEP").node(distance / width), distance > 0.0)
-
-        low, middle, high, edge, middle_extent, high_extent = map(shell.input, (shadows, midtones, highlights, shadow_edge, midtone_span, highlight_span))
-        toned = math("MULTIPLY_ADD", 1.0 - band(level, edge), low - middle, middle)
-        weight = math("MULTIPLY_ADD", band(level - edge - middle_extent, high_extent), high - middle, toned).keyed("weight")
-        return mixed(weight, source, factor, blend="MULTIPLY")
-
-    def sensored(level: Expr) -> Expr:
-        grid = PixelGrid.of(source)
-        sited = vector("FLOOR", grid.base / grid.inverse) + origin(shell.input(SEED), float(stream(Grain, _SENSOR.key)), pattern)
-        draws = tuple(WhiteNoise(noise_dimensions="4D").node(sited, float(index)) for index in range(4))
-        (common, red), (green, blue) = gaussian(draws[0], draws[1], EXPRESSIONS), gaussian(draws[2], draws[3], EXPRESSIONS)
-        gain, floor = shot * shot / GRAY, read_noise * read_noise
-        spread = vector("POWER", vector("MULTIPLY_ADD", vector("MAXIMUM", source, (0.0, 0.0, 0.0)), gain, floor), (0.5, 0.5, 0.5)).keyed("deviation")
-        scatter = vector("SCALE", xyz(red, green, blue), own) * spread + common * shared * math("SQRT", math("MULTIPLY_ADD", math("MAXIMUM", level, 0.0), gain, floor))
-        return where(equal(source["Alpha"], 0.0), source, vector("ADD", source, scatter))
-
-    def built(level: Expr, factor: Expr) -> Expr:
-        return shell.menu(_MEDIUM, cases={_FILM.item: filmed(factor, level), _SENSOR.item: sensored(level)})
-
-    return paired(luminance(shell.config, source), space_item(shell.config, PyOpenColorIO.ROLE_DATA).bind(fielded)).map(lambda parts: built(*parts))
-
-
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-grain: Final = CompositorEffect(
-    _grain,
-    record=Grain,
-    mix=Blended(alpha=Alpha.STRAIGHT),
-    interface=Interface(inputs=(_MEDIUM, _CHROMA, SEED), panels=(_FILM, _SENSOR, _CLOCK)),
-    request=Some(precise),
-    derives=(motion.timing,),
-    registers=(_TILES,),
-)
+grain: Final = CompositorEffect(record=Grain, mix=Mix.STRAIGHT, interface=Interface(inputs=(_MEDIUM, _CHROMA, SEED), panels=(_FILM, _SENSOR, _CLOCK)), derives=(motion.timing,), registers=(_TILES,))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

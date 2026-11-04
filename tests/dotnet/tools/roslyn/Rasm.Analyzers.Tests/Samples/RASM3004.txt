@@ -34,14 +34,14 @@ internal static class UnnamedEnum {
 
     internal static int Guarded(Mode mode, bool held) => mode switch { Mode.First when held => 1, _ => 0 };
 
-    internal static int GuardedNegation(Mode mode, bool held) => mode switch {
+    internal static int GuardedNegation(Mode mode, bool held) => mode {|CS8846:switch|} {
         Mode.First => 1,
         not Mode.First when held => 2,
         Mode.Second => 3,
         Mode.Third => 4,
     };
 
-    internal static int Named(Mode mode) => mode switch {
+    internal static int Named(Mode mode) => mode {|CS8524:switch|} {
         Mode.First => 1,
         Mode.Second or Mode.Third => 2,
     };

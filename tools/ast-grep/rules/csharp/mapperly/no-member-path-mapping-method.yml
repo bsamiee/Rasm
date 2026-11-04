@@ -12,8 +12,9 @@ utils:
               pattern: $LOCAL
               inside:
                 stopBy: end
-                kind: block
-                has:
+                inside: {kind: block}
+                follows:
+                    stopBy: end
                     kind: local_declaration_statement
                     has:
                         kind: variable_declaration
@@ -57,7 +58,6 @@ utils:
 rule:
     kind: method_declaration
     all:
-        - matches: mapperly-mapping-method
         - not: {has: {kind: modifier, regex: '^partial$'}}
         - not:
             has:
@@ -73,5 +73,6 @@ rule:
                 - has: {kind: parameter, has: {field: name, pattern: $SOURCE}}
                 - not: {has: {kind: parameter, nthChild: 2}}
         - has: {matches: path-body}
+        - matches: mapperly-mapping-method
 message: 'Mapping method returns source member path `$PATH`'
 note: 'Replace the method and its `Use` reference with `[MapProperty(nameof(@<source>.<path>), nameof(<target>.<member>))]`'

@@ -1,8 +1,12 @@
-use core::{f64::consts::TAU, iter};
+use core::{
+    cmp::Ordering,
+    f64::consts::{LOG2_E, TAU},
+    iter,
+};
 use std::sync::LazyLock;
 
 use faer::{
-    MatRef, Side,
+    MatMut, MatRef, Side,
     linalg::{
         cholesky::llt::factor::LltError,
         solvers::{Llt, Solve as _},
@@ -144,19 +148,14 @@ where
 
 pub fn interpolate(triangulation: &Delaunay, sites: Sites<'_>, interpolant: Interpolant) -> Result<Vec<Option<f64>>, NEVec<AnalysisError>> {
     let value = |vertex: VertexHandle<'_, Observation>| vertex.data().value;
-    let coincident = |position: spade::Point2<f64>| {
-        triangulation.nearest_neighbor(position).filter(|vertex| {
-            vertex.out_edges().map(|edge| edge.length_2()).max_by(f64::total_cmp).is_some_and(|longest| vertex.position().distance_2(position) <= f64::EPSILON * f64::EPSILON * longest)
-        })
-    };
     let slopes = LazyLock::new(|| triangulation.natural_neighbor().estimate_gradients(value));
     query(
         sites,
         || triangulation.natural_neighbor(),
         |neighbor, position| match interpolant {
             Interpolant::NearestNeighbor => triangulation.nearest_neighbor(position).map(value),
-            Interpolant::NaturalNeighbor => coincident(position).map(value).or_else(|| neighbor.interpolate(value, position)),
-            Interpolant::Gradient(flatness) => coincident(position).map(value).or_else(|| neighbor.interpolate_gradient(value, &*slopes, flatness.into_inner(), position)),
+            Interpolant::NaturalNeighbor => neighbor.interpolate(value, position),
+            Interpolant::Gradient(flatness) => neighbor.interpolate_gradient(value, &*slopes, flatness.into_inner(), position),
         },
         |value: &f64| value.is_finite(),
     )
@@ -186,24 +185,38 @@ pub fn gradients(triangulation: &Delaunay, sites: Sites<'_>) -> Result<Vec<Optio
 
 // --- [KRIGING]
 fn correlation(kernel: Kernel, lengths: &DVector<f64>, first: DVectorView<'_, f64>, second: DVectorView<'_, f64>) -> f64 {
-    let distance = izip!(first.iter(), second.iter(), lengths.iter()).map(|(near, far, length)| ((near - far) / length).powi(2)).sum::<f64>().sqrt();
+    let distance = izip!(first.iter(), second.iter(), lengths.iter())
+        .map(|(near, far, length)| {
+            let difference = near - far;
+            if difference.is_finite() { difference / length } else { near / length - far / length }.powi(2)
+        })
+        .sum::<f64>()
+        .sqrt();
+    let subnormal = |scaled: f64| scaled * LOG2_E > 1.0 - f64::from(f64::MIN_EXP);
     match kernel {
+        _ if distance.is_infinite() => 0.0,
         Kernel::Exponential => (-distance).exp(),
         Kernel::Matern32 => {
             let scaled = 3.0_f64.sqrt() * distance;
-            (1.0 + scaled) * (-scaled).exp()
+            if subnormal(scaled) { (scaled.ln_1p() - scaled).exp() } else { (1.0 + scaled) * (-scaled).exp() }
         }
         Kernel::Matern52 => {
             let scaled = 5.0_f64.sqrt() * distance;
-            (1.0 + scaled + scaled * scaled / 3.0) * (-scaled).exp()
+            if subnormal(scaled) {
+                let share = scaled / (1.0 + scaled);
+                (2.0_f64.mul_add(scaled.ln_1p(), (share * (share / 3.0 - 1.0)).ln_1p()) - scaled).exp()
+            } else {
+                (1.0 + scaled + scaled * scaled / 3.0) * (-scaled).exp()
+            }
         }
         Kernel::Gaussian => (-0.5 * distance * distance).exp(),
     }
 }
 
-fn solved(factor: &Llt<f64>, right: &DMatrix<f64>) -> DMatrix<f64> {
-    let solution = factor.solve(MatRef::from_column_major_slice(right.as_slice(), right.nrows(), right.ncols()));
-    DMatrix::from_fn(right.nrows(), right.ncols(), |row, column| solution[(row, column)])
+fn solved(factor: &Llt<f64>, mut right: DMatrix<f64>) -> DMatrix<f64> {
+    let (rows, columns) = right.shape();
+    factor.solve_in_place(MatMut::from_column_major_slice_mut(right.as_mut_slice(), rows, columns));
+    right
 }
 
 pub fn krige(observations: &Observations, kernel: Kernel, lengths: &[Tolerance], variance: Tolerance, noise: Option<Tolerance>, drift: DMatrix<u8>) -> Result<Kriging, NEVec<AnalysisError>> {
@@ -222,19 +235,22 @@ pub fn krige(observations: &Observations, kernel: Kernel, lengths: &[Tolerance],
     let lengths = DVector::from_iterator(dimensions, lengths.iter().map(|length| length.into_inner()));
     let variance = variance.into_inner();
     let nugget = noise.map_or_default(Tolerance::into_inner);
-    let covariance = DMatrix::from_fn(points, points, |row, column| variance * correlation(kernel, &lengths, sites.column(row), sites.column(column)))
-        + DMatrix::from_diagonal(&observation_weights.map(|weight| nugget / weight));
+    let covariance = DMatrix::from_fn(points, points, |row, column| match row.cmp(&column) {
+        Ordering::Less => 0.0,
+        Ordering::Equal => variance + nugget / observation_weights[row],
+        Ordering::Greater => variance * correlation(kernel, &lengths, sites.column(row), sites.column(column)),
+    });
     let factor = MatRef::from_column_major_slice(covariance.as_slice(), points, points)
         .llt(Side::Lower)
         .map_err(|LltError::NonPositivePivot { index }| NEVec::new(AnalysisError::Point { breakdown: Breakdown::Kernel, point: index }))?;
-    let basis = design(&drift, sites);
-    let whitened = solved(&factor, &basis);
+    let basis = design(&drift, &sites.as_view());
+    let whitened = solved(&factor, basis.clone());
     let gram = basis.tr_mul(&whitened);
     let trend = MatRef::from_column_major_slice(gram.as_slice(), terms, terms).llt(Side::Lower).map_err(|LltError::NonPositivePivot { index }| NEVec::new(AnalysisError::Drift { term: index }))?;
     let targets = values.transpose();
-    let coefficients = solved(&trend, &whitened.tr_mul(&targets));
+    let coefficients = solved(&trend, whitened.tr_mul(&targets));
     let lack = &targets - &basis * &coefficients;
-    let weights = solved(&factor, &lack);
+    let weights = solved(&factor, lack.clone());
     let determinants = log_determinant(&factor) + log_determinant(&trend);
     let likelihood = -0.5 * convert::<usize, f64>(targets.ncols()).mul_add(convert::<usize, f64>(points.strict_sub(terms)).mul_add(TAU.ln(), determinants), lack.dot(&weights));
     Ok(Kriging { sites: sites.clone(), lengths, variance, kernel, nugget, basis, drift: Polynomial { exponents: drift, coefficients }, weights, factor, trend, likelihood })
@@ -248,10 +264,10 @@ pub fn predict(kriging: &Kriging, sites: DMatrixView<'_, f64>) -> Result<Vec<Pre
         .ok()?;
     let cross =
         DMatrix::from_fn(kriging.sites.ncols(), sites.ncols(), |known, query| kriging.variance * correlation(kriging.kernel, &kriging.lengths, kriging.sites.column(known), sites.column(query)));
-    let reduced = solved(&kriging.factor, &cross);
-    let terms = design(&kriging.drift.exponents, &sites.clone_owned()).transpose();
+    let reduced = solved(&kriging.factor, cross.clone());
+    let terms = design(&kriging.drift.exponents, &sites).transpose();
     let gap = &terms - kriging.basis.tr_mul(&reduced);
-    let correction = solved(&kriging.trend, &gap);
+    let correction = solved(&kriging.trend, gap.clone());
     let means = kriging.drift.coefficients.tr_mul(&terms) + kriging.weights.tr_mul(&cross);
     let variance = DVector::from_iterator(
         sites.ncols(),

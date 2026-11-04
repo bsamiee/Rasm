@@ -113,7 +113,7 @@ rule:
                 - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(Map|Select)$'}}, {has: {field: expression, matches: unless-call}}]}
                 - has: {field: arguments, all: [{has: {matches: discarding-lift}}, {not: {has: {kind: argument, nthChild: 2}}}]}
             - kind: invocation_expression
-              pattern: $ANSWER.ToFin(new Refused($MEMBER, Refused.Absent))
+              pattern: $OPTION.ToFin(new Refused($MEMBER, Refused.Absent))
               has: {field: function, has: {field: expression, matches: optional-chain}}
             - kind: conditional_expression
               matches: result

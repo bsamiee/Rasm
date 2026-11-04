@@ -1,8 +1,8 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: effect-module
-language: tsx
+language: tsxlang
 arguments: [name]
 rule:
     any:
-        - matches: {typescript-import-reference: {source: {regex: '^(effect|@effect/[\w-]+)(/[a-z][\w-]*)?$'}, exported: {matches: name}}}
-        - matches: {typescript-import-reference: {source: {regex: '^(effect|@effect/[\w-]+)(/[a-z][\w-]*)?/[A-Z]\w*$', matches: name}, exported: {regex: '^\*$'}}}
+        - matches: {typescript-import-reference: {source: {regex: '^(effect|@effect/[\w-]+)(/[a-z][\w-]*)*$'}, exported: {matches: name}}}
+        - matches: {typescript-import-reference: {source: {regex: '^(effect|@effect/[\w-]+)(/[a-z][\w-]*)*/[A-Z]\w*$', matches: name}, exported: {regex: '^\*$'}}}

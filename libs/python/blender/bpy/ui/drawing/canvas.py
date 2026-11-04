@@ -1,16 +1,16 @@
 """GPU drawing in editor regions and offscreen buffers."""
 
-from collections.abc import Callable, Generator, Mapping
+from collections.abc import Callable, Generator
 from contextlib import AbstractContextManager, contextmanager, ExitStack
 from enum import Enum
 import functools
 from functools import partial
 import math
-from typing import Final, Literal, Protocol, Self
+from typing import Final, Literal, Self
 
 import blf
 import bpy
-from expression import Error, Nothing, Ok, Option, Some
+from expression import Option, Some
 from expression.extra.result import catch
 import gpu
 from gpu_extras.batch import batch_for_shader
@@ -19,10 +19,10 @@ import msgspec
 import numpy as np
 import numpy.typing as npt
 
-from blender.bpy.extension.identity import Resource
+from blender.bpy.extension.registration import Resource
 from blender.bpy.ui.resources.theme import Checker, CLEAR, Color, Metrics, Theme
-from blender.bpy.ui.screens.areas import EditorState, Located, region_in, visible_bounds
-from blender.records.faults import Fault, Outcome, paired, Reason
+from blender.bpy.ui.screens.areas import Located, region_in, visible_bounds
+from blender.records.faults import Error, Fault, Nothing, Ok, Outcome, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -30,14 +30,7 @@ type Blend = Literal["NONE", "ALPHA", "ALPHA_PREMULT", "ADDITIVE", "ADDITIVE_PRE
 type DrawType = Literal["PRE_VIEW", "POST_VIEW", "POST_PIXEL", "BACKDROP"]
 type _DepthTest = Literal["NONE", "ALWAYS", "LESS", "LESS_EQUAL", "EQUAL", "GREATER", "GREATER_EQUAL"]
 type _Polyline = Literal["POLYLINE_UNIFORM_COLOR", "POLYLINE_FLAT_COLOR", "POLYLINE_SMOOTH_COLOR"]
-type _Primitive = Literal["POINTS", "LINES", "TRIS", "LINE_STRIP", "TRI_STRIP", "LINES_ADJ", "TRIS_ADJ", "LINE_STRIP_ADJ"]
-
-
-class _Batching(Protocol):
-    """`batch_for_shader` over numpy attributes and index rows, the arrays the stubs give it no sight of."""
-
-    def __call__(self, shader: gpu.types.GPUShader, kind: _Primitive, content: Mapping[str, npt.NDArray[np.float32]], /, *, indices: npt.NDArray[np.uint32] | None = None) -> gpu.types.GPUBatch:
-        """Batches the attributes, `indices` naming each primitive's vertices."""
+type Program = tuple[gpu.types.GPUShader, Callable[[], None]]
 
 
 class Align(Enum):
@@ -52,14 +45,9 @@ class Align(Enum):
 
 QUAD: Final = np.array(((0.0, 0.0), (1.0, 0.0), (0.0, 1.0), (1.0, 1.0)), np.float32)
 QUAD.setflags(write=False)
-_PUSH_POP: Final[Callable[[], AbstractContextManager[None]]] = gpu.matrix.push_pop  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-_PUSH_POP_PROJECTION: Final[Callable[[], AbstractContextManager[None]]] = gpu.matrix.push_pop_projection  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-_BATCH_FOR_SHADER: Final[_Batching] = batch_for_shader  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-_BLEND_GET: Final[Callable[[], Blend]] = gpu.state.blend_get  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-_DEPTH_TEST_GET: Final[Callable[[], _DepthTest]] = gpu.state.depth_test_get  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-_VIEWED: Final[frozenset[DrawType]] = frozenset({"PRE_VIEW", "POST_VIEW"})
 _CLIPPED: Final = frozenset({"UNIFORM_COLOR", "FLAT_COLOR", "SMOOTH_COLOR", "POLYLINE_UNIFORM_COLOR"})
 _BLURS: Final = frozenset({3, 5, 6})
+UNCLIPPED: Final = partial(gpu.state.clip_distances_set, 0)
 
 DECODED: Final = """
 vec3 targeted(vec3 srgb) {
@@ -130,9 +118,10 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
         space: bpy.types.Space = area.spaces.active  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
         x, y, width, height = visible_bounds(area, region)
         origin_x, origin_y = pointer.map(lambda _: (region.x, region.y)).default_value((0, 0))
-        match phase in _VIEWED, space, region.data:
-            case True, bpy.types.SpaceView3D(shading=bpy.types.View3DShading(type="WIREFRAME" | "SOLID")), bpy.types.RegionView3D(use_clip_planes=True) as view:
-                clipping = Some(gpu.types.GPUUniformBuf(gpu.types.Buffer("FLOAT", 40, np.concatenate((np.identity(4, np.float32).ravel(), np.asarray(view.clip_planes, np.float32).ravel())))))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+        match phase, space, region.data:
+            case "PRE_VIEW" | "POST_VIEW", bpy.types.SpaceView3D(shading=bpy.types.View3DShading(type="WIREFRAME" | "SOLID")), bpy.types.RegionView3D(use_clip_planes=True) as view:
+                values = np.concatenate((np.identity(4, np.float32).ravel(), np.asarray(view.clip_planes, np.float32).ravel()))
+                clipping = Some(gpu.types.GPUUniformBuf(gpu.types.Buffer("FLOAT", values.shape, values)))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
             case _:
                 clipping = Nothing
         extent = Rect(x=float(x + origin_x), y=float(y + origin_y), width=float(width), height=float(height))
@@ -147,25 +136,33 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
 
     @contextmanager
     def drawn(self) -> Generator[Self]:
-        """Scopes matrix stacks and alpha blending."""
-        with _PUSH_POP(), _PUSH_POP_PROJECTION(), Canvas.blended("ALPHA"):
+        """Scopes matrices and alpha blending, establishing enabled scissor and clip count zero on entry and exit."""
+        with ExitStack() as stack:
+            stack.callback(UNCLIPPED)
+            stack.callback(gpu.state.scissor_test_set, True)  # ruff: ignore[boolean-positional-value-in-call]
+            UNCLIPPED()
+            gpu.state.scissor_test_set(True)  # ruff: ignore[boolean-positional-value-in-call]
+            stack.enter_context(gpu.matrix.push_pop())  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+            stack.enter_context(gpu.matrix.push_pop_projection())  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+            stack.enter_context(Canvas.blended("ALPHA"))
             yield self
 
     @staticmethod
     def blended(mode: Blend) -> AbstractContextManager[None]:
         """Scopes blend mode, restoring the mode it found."""
-        return _restored(_BLEND_GET, gpu.state.blend_set, mode)
+        return _restored(gpu.state.blend_get, gpu.state.blend_set, mode)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
 
     @staticmethod
     def depth_tested(mode: _DepthTest = "LESS_EQUAL") -> AbstractContextManager[None]:
         """Scopes the depth test, by default the test a view drawing hides behind scene geometry with, restoring the test it found."""
-        return _restored(_DEPTH_TEST_GET, gpu.state.depth_test_set, mode)
+        return _restored(gpu.state.depth_test_get, gpu.state.depth_test_set, mode)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
 
     @staticmethod
     @contextmanager
     def mapped(rect: Rect) -> Generator[None]:
         """Scopes a model matrix mapping the unit square onto a rectangle."""
-        with _PUSH_POP():
+        with ExitStack() as stack:
+            stack.enter_context(gpu.matrix.push_pop())  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
             gpu.matrix.translate((rect.x, rect.y))
             gpu.matrix.scale((rect.width, rect.height))
             yield
@@ -173,7 +170,10 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
     @staticmethod
     @contextmanager
     def clipped(rect: Rect, *, view: Option[bpy.types.View2D] = Nothing) -> Generator[None]:
-        """Narrows scissor to a pixel or View2D rectangle under the scissor test, which region drawing outside viewports holds on, restoring the box it found."""
+        """Narrows an enabled scissor to a pixel or View2D rectangle, restoring its box.
+
+        The caller owns the enabled test boundary, established by Canvas.drawn.
+        """
         corners = ((rect.x, rect.y), (rect.x + rect.width, rect.y + rect.height))
         match view:
             case Option(tag="some", some=held):
@@ -185,51 +185,47 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
         right, top = min(held_x + held_width, right), min(held_y + held_height, top)
         with ExitStack() as stack:
             stack.callback(gpu.state.scissor_set, *found)
-            gpu.state.scissor_test_set(True)
             gpu.state.scissor_set(x, y, max(0, right - x), max(0, top - y))
             yield
 
     # --- [SHADERS]
 
-    @contextmanager
-    def shader(self, name: str) -> Generator[gpu.types.GPUShader]:
-        """Binds a built-in shader for the scope, its `CLIPPED` configuration under held clip planes."""
-        with ExitStack() as stack:
-            match self.clipping, self.region.data:
-                case Option(tag="some", some=planes), bpy.types.RegionView3D() as view if name in _CLIPPED:
-                    shader = gpu.shader.from_builtin(name, config="CLIPPED")
-                    shader.bind()
-                    shader.uniform_block("clip_planes", planes)
-                    shader.uniform_float("ClipModelMatrix", view.view_matrix.inverted_safe() @ gpu.matrix.get_model_view_matrix())  # type: ignore[arg-type]
-                    gpu.state.clip_distances_set(6)
-                    stack.callback(gpu.state.clip_distances_set, 0)
-                case _:
-                    shader = gpu.shader.from_builtin(name)
-                    shader.bind()
-            yield shader
+    def shader(self, name: str) -> Program:
+        """Returns a built-in program with its declared clipping configuration."""
+        match self.clipping, self.region.data:
+            case Option(tag="some", some=planes), bpy.types.RegionView3D() as view if name in _CLIPPED:
+                shader = gpu.shader.from_builtin(name, config="CLIPPED")
 
-    @contextmanager
-    def lines(self, width: float, shader: _Polyline = "POLYLINE_UNIFORM_COLOR") -> Generator[gpu.types.GPUShader]:
-        """Binds a polyline shader at device-pixel width for the scope."""
-        with self.shader(shader) as bound:
+                def setup() -> None:
+                    shader.uniform_block("clip_planes", planes)
+                    shader.uniform_float("ClipModelMatrix", view.view_matrix.inverted() @ gpu.matrix.get_model_view_matrix())  # type: ignore[arg-type]
+                    gpu.state.clip_distances_set(len(view.clip_planes))
+
+                return shader, setup
+            case _:
+                return gpu.shader.from_builtin(name), UNCLIPPED
+
+    def lines(self, width: float, shader: _Polyline = "POLYLINE_UNIFORM_COLOR") -> Program:
+        """Prepares a polyline program at device-pixel width."""
+        bound, clip = self.shader(shader)
+
+        def setup() -> None:
             bound.uniform_float("viewportSize", gpu.state.viewport_get()[2:])
             bound.uniform_float("lineWidth", self.metrics.line(width))
-            bound.uniform_bool("lineSmooth", True)
-            yield bound
+            bound.uniform_bool("lineSmooth", True)  # ruff: ignore[boolean-positional-value-in-call]
+            clip()
 
-    @contextmanager
-    def points(self) -> Generator[gpu.types.GPUShader]:
-        """Binds the flat point shader for the scope at device pixel size, the point size state overriding its size uniform."""
-        gpu.state.point_size_set(float(self.metrics.pixel_size))
-        with self.shader("POINT_FLAT_COLOR") as bound:
-            yield bound
+        return bound, setup
 
-    @staticmethod
-    def batched(
-        shader: str | gpu.types.GPUShader, primitive: _Primitive, attributes: Mapping[str, npt.NDArray[np.float32]], *, indices: Option[npt.NDArray[np.uint32]] = Nothing
-    ) -> gpu.types.GPUBatch:
-        """Batches vertex attributes in the format a shader, or a built-in shader by name, reads, `indices` naming each primitive's vertices."""
-        return _BATCH_FOR_SHADER(gpu.shader.from_builtin(shader) if isinstance(shader, str) else shader, primitive, attributes, indices=indices.to_optional())
+    def points(self) -> Program:
+        """Prepares the flat point program at device pixel size, the point state overriding its size uniform."""
+        shader, clip = self.shader("POINT_FLAT_COLOR")
+
+        def setup() -> None:
+            gpu.state.point_size_set(float(self.metrics.pixel_size))
+            clip()
+
+        return shader, setup
 
     # --- [TEXT]
 
@@ -241,10 +237,12 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
     def label(self, text: str, at: tuple[float, float], color: Color, style: FontStyle) -> None:
         """Draws text as given in a font style under the blend mode it found."""
         font, x, y = style.font, *at
-        with Canvas.blended(_BLEND_GET()), _typeset(self.metrics, style):
+        with ExitStack() as stack, _typeset(self.metrics, style):
+            stack.callback(gpu.state.blend_set, gpu.state.blend_get())  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
             reach = blf.dimensions(font, text)[0] * style.align.value
             blf.color(font, *color)
             blf.position(font, x - reach * math.cos(style.rotation), y - reach * math.sin(style.rotation), 0.0)
+            UNCLIPPED()
             blf.draw(font, text)
 
     # --- [PRIMITIVES]
@@ -252,125 +250,84 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
     def frame(self, rect: Rect, fill: Color, edge: Color, radius: float) -> None:
         """Draws antialiased rounded frame."""
         shader, quad = _rounded()
-        shader.bind()
-        box = gpu.types.GPUUniformBuf(gpu.types.Buffer("FLOAT", 16, (rect.x, rect.y, rect.width, rect.height, *fill, *edge, radius, self.metrics.line(1.0), 0.0, 0.0)))
-        shader.uniform_block("box", box)
+        values = (rect.x, rect.y, rect.width, rect.height, *fill, *edge, radius, self.metrics.line(1.0), 0.0, 0.0)
+        box = gpu.types.GPUUniformBuf(gpu.types.Buffer("FLOAT", len(values), values))
         with Canvas.blended("ALPHA_PREMULT"):
-            quad.draw(shader)
+            draw_batch(quad, configured((shader, UNCLIPPED), partial(shader.uniform_block, "box", box)))
 
     @staticmethod
     def picture(source: gpu.types.GPUTexture | bpy.types.Image, rect: Rect, *, blend: Blend, color: Color = (1.0, 1.0, 1.0, 1.0)) -> None:
-        """Draws a texture of display colors, or an image's cached scene-linear texture through the Rec.709 display shader, tinted under a blend mode."""
+        """Draws display colors from a texture, or interprets an image's cached GPU values as scene linear through the Rec.709 display shader, under a tint and blend."""
         match source:
             case bpy.types.Image():
                 shader, texture = gpu.shader.from_builtin("IMAGE_COLOR_SCENE_LINEAR_TO_REC709_SRGB"), gpu.texture.from_image(source)
             case _:
                 shader, texture = gpu.shader.from_builtin("IMAGE_COLOR"), source
-        shader.bind()
-        shader.uniform_sampler("image", texture)
-        shader.uniform_float("color", color)
         with Canvas.mapped(rect), Canvas.blended(blend):
-            _textured().draw(shader)
+            draw_batch(_textured(), configured((shader, UNCLIPPED), partial(shader.uniform_sampler, "image", texture), partial(shader.uniform_float, "color", color)))
 
     def checkered(self, rect: Rect, checker: Checker) -> None:
-        """Draws the transparency checker over a rect as one flat-colored triangle batch, edge squares clipped to the rect."""
+        """Draws the transparency checker as indexed cell quads, clipping edge cells to the rectangle."""
         size = float(checker.cell)
         left, bottom = np.meshgrid(rect.x + np.arange(math.ceil(rect.width / size)) * size, rect.y + np.arange(math.ceil(rect.height / size)) * size)
         right, top = np.minimum(left + size, rect.x + rect.width), np.minimum(bottom + size, rect.y + rect.height)
-        corners = np.stack((left, bottom, right, bottom, right, top, left, bottom, right, top, left, top), axis=-1).reshape(-1, 2).astype(np.float32)
-        odd = (np.indices(left.shape).sum(axis=0) % 2).reshape(-1, 1).astype(bool)
-        tints = np.repeat(np.where(odd, np.asarray(checker.primary, np.float32), np.asarray(checker.secondary, np.float32)), 6, axis=0)
-        with self.shader("FLAT_COLOR") as shader:
-            Canvas.batched("FLAT_COLOR", "TRIS", {"pos": corners, "color": tints}).draw(shader)
+        corners = np.stack((left, bottom, right, bottom, right, top, left, top), axis=-1).reshape(-1, 2).astype(np.float32)
+        rows, columns = np.indices(left.shape, sparse=True)
+        odd = ((rows + columns) % 2).reshape(-1, 1).astype(bool)
+        tints = np.repeat(np.where(odd, np.asarray(checker.primary, np.float32), np.asarray(checker.secondary, np.float32)), 4, axis=0)
+        indices = (np.arange(left.size, dtype=np.uint32)[:, None, None] * 4 + np.array(((0, 1, 2), (0, 2, 3)), np.uint32)).reshape(-1, 3)
+        program = self.shader("FLAT_COLOR")
+        draw_batch(batch_for_shader(program[0], "TRIS", {"pos": corners, "color": tints}, indices=indices), program)  # type: ignore[arg-type, dict-item]  # ty: ignore[invalid-argument-type]
 
 
 # --- [OFFSCREEN]
 
 
 class Offscreen(msgspec.Struct, frozen=True, kw_only=True):
-    """Color buffer at caller device-pixel size and precision."""
+    """Owned 2D color and depth attachments at caller device-pixel size and precision."""
 
     width: int
     height: int
     format: Literal["RGBA8", "RGBA16", "RGBA16F", "RGBA32F"] = "RGBA8"
 
-    def read(self, draw: Callable[[gpu.types.GPUOffScreen], Outcome[None]]) -> Outcome[npt.NDArray[np.float32]]:
-        """Draws into a buffer it owns and binds for the call, reading normalized float RGBA top row first under that bind, refusing sizes past the texture limit."""
+    def read(self, draw: Callable[[gpu.types.GPUFrameBuffer], Outcome[None]]) -> Outcome[npt.NDArray[np.float32]]:
+        """Draws into an owned framebuffer and reads top-first RGBA, restoring caller binding, viewport and scissor."""
 
-        @catch(exception=SystemError)
-        def limit() -> int:
-            gpu.init()
-            return gpu.capabilities.max_texture_size_get()
+        def opened() -> Outcome[tuple[gpu.types.GPUTexture, gpu.types.GPUTexture, gpu.types.GPUFrameBuffer]]:
+            try:
+                color = gpu.types.GPUTexture((max(1, self.width), max(1, self.height)), format=self.format)
+                depth = gpu.types.GPUTexture((color.width, color.height), format="DEPTH32F_STENCIL8")
+                buffer = gpu.types.GPUFrameBuffer(depth_slot=depth, color_slots=color)
+            except (TypeError, RuntimeError) as error:
+                return Error(Fault.of(Reason.REFUSED, type(self).__name__, error))
+            return Ok((color, depth, buffer))
 
-        @catch(exception=RuntimeError)
-        def opened() -> gpu.types.GPUOffScreen:
-            return gpu.types.GPUOffScreen(self.width, self.height, format=self.format)
-
-        def drawn(buffer: gpu.types.GPUOffScreen) -> Outcome[npt.NDArray[np.float32]]:
+        def drawn(target: tuple[gpu.types.GPUTexture, gpu.types.GPUTexture, gpu.types.GPUFrameBuffer]) -> Outcome[npt.NDArray[np.float32]]:
+            color, _, buffer = target
             with ExitStack() as stack:
-                stack.callback(buffer.free)
-                stack.enter_context(buffer.bind())  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-                return draw(buffer).bind(lambda _: captured(Rect(x=0.0, y=0.0, width=float(self.width), height=float(self.height))))
+                stack.callback(gpu.state.viewport_set, *gpu.state.viewport_get())
+                stack.callback(gpu.state.scissor_set, *gpu.state.scissor_get())
+                with buffer.bind():
+                    buffer.viewport_set(0, 0, color.width, color.height)
+                    gpu.state.scissor_set(0, 0, color.width, color.height)
+                    return draw(buffer).bind(lambda _: captured(Rect(x=0.0, y=0.0, width=float(color.width), height=float(color.height))))
 
-        return (
-            limit()
-            .map_error(partial(Fault.of, Reason.REFUSED, "gpu.init"))
-            .filter_with(lambda bound: max(self.width, self.height) <= bound, lambda bound: Fault.of(Reason.OUTSIDE, "gpu.types.GPUOffScreen", f"{self.width}x{self.height}", member=str(bound)))
-            .bind(lambda _: opened().map_error(partial(Fault.of, Reason.REFUSED, "gpu.types.GPUOffScreen")))
-            .bind(drawn)
-        )
+        return catch(gpu.init, exception=SystemError)().map_error(partial(Fault.of, Reason.REFUSED, "gpu.init")).bind(lambda _: opened()).bind(drawn)
 
     def drawn(self, canvas: Canvas, draw: Callable[[Canvas], None]) -> Outcome[npt.NDArray[np.float32]]:
-        """Draws on a pixel canvas in the metrics and editor theme of `canvas`, under pixel projection with depth test off, returning top-first RGBA."""
-        pixels = msgspec.structs.replace(canvas, extent=Rect(x=0.0, y=0.0, width=float(self.width), height=float(self.height)), clipping=Nothing, pointer=Nothing)
+        """Draws a cleared pixel canvas under pixel projection with depth test off, returning top-first RGBA."""
 
-        def painted(_buffer: gpu.types.GPUOffScreen) -> Outcome[None]:
-            """Draws callback on the cleared buffer under the scissor test over the whole buffer, the test region drawing holds on staying on, restoring the box it changed."""
-            with pixels.drawn(), Canvas.depth_tested("NONE"), ExitStack() as stack:
-                stack.callback(gpu.state.scissor_set, *gpu.state.scissor_get())
-                gpu.state.active_framebuffer_get().clear(color=CLEAR)
-                gpu.state.scissor_set(0, 0, self.width, self.height)
-                gpu.state.scissor_test_set(True)
+        def painted(buffer: gpu.types.GPUFrameBuffer) -> Outcome[None]:
+            _, _, width, height = buffer.viewport_get()
+            pixels = msgspec.structs.replace(canvas, extent=Rect(x=0.0, y=0.0, width=float(width), height=float(height)), clipping=Nothing, pointer=Nothing)
+            with pixels.drawn(), Canvas.depth_tested("NONE"):
+                buffer.clear(color=CLEAR, depth=1.0)
                 gpu.matrix.load_identity()
-                gpu.matrix.load_projection_matrix(Matrix.Translation((-1.0, -1.0, 0.0)) @ Matrix.Diagonal((2.0 / self.width, 2.0 / self.height, 1.0, 1.0)))
+                gpu.matrix.load_projection_matrix(Matrix.Translation((-1.0, -1.0, 0.0)) @ Matrix.Diagonal((2.0 / width, 2.0 / height, 1.0, 1.0)))
                 draw(pixels)
             return Ok(None)
 
         return self.read(painted)
-
-    def viewed(
-        self, located: Located, camera: bpy.types.Object, scene: bpy.types.Scene, view_layer: bpy.types.ViewLayer, *, do_color_management: bool = True, draw_background: bool = True
-    ) -> Outcome[npt.NDArray[np.float32]]:
-        """Draws camera view with overlays off, restoring the editor value after, the offscreen view drawing no gizmos."""
-        space = located.area.spaces.active
-        if not isinstance(space, bpy.types.SpaceView3D):
-            return Error(Fault.of(Reason.ABSENT, repr(located.area), member=bpy.types.SpaceView3D.__name__))
-
-        def painted(region: bpy.types.Region, buffer: gpu.types.GPUOffScreen) -> Outcome[None]:
-            """Draws camera view into buffer, refusing a camera transform with no inverse."""
-
-            def projected(view: Matrix) -> Outcome[None]:
-                return catch(buffer.draw_view3d, exception=RuntimeError)(
-                    scene,
-                    view_layer,
-                    space,
-                    region,
-                    view,
-                    camera.calc_matrix_camera(view_layer.depsgraph, x=buffer.width, y=buffer.height),
-                    do_color_management=do_color_management,
-                    draw_background=draw_background,
-                ).map_error(partial(Fault.of, Reason.REFUSED, "gpu.types.GPUOffScreen.draw_view3d"))
-
-            return catch(camera.matrix_world.normalized().inverted, exception=ValueError)().map_error(partial(Fault.of, Reason.REFUSED, "mathutils.Matrix.inverted")).bind(projected)
-
-        def restored(region: bpy.types.Region, state: EditorState) -> Outcome[npt.NDArray[np.float32]]:
-            """Reads view pixels between the editor write and its restore."""
-            return state.applied(located.area).bind(
-                lambda prior: paired(self.read(lambda buffer: painted(region, buffer)), prior.map(lambda held: held.applied(located.area)).default_value(Ok(Nothing))).map(lambda pair: pair[0])
-            )
-
-        region = located.region.map(Ok).default_with(lambda: region_in(located.area))
-        return paired(region, EditorState.of(bpy.types.SpaceView3D, {("overlay", "show_overlays"): False})).bind(lambda pair: restored(*pair))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -378,9 +335,41 @@ class Offscreen(msgspec.Struct, frozen=True, kw_only=True):
 # --- [STATE]
 
 
+def draw_batch(batch: gpu.types.GPUBatch, program: Program) -> None:
+    """Applies a program's native bindings and draws its batch.
+
+    Args:
+        batch: Native geometry to draw.
+        program: Shader and setup replaying its native resources, uniforms and clip count.
+    """
+    shader, setup = program
+    setup()
+    batch.draw(shader)
+
+
+def configured(program: Program, *uniforms: Callable[[], None]) -> Program:
+    """Adds native uniform bindings replayed before a program's setup at every draw.
+
+    Args:
+        program: Native shader and its existing setup.
+        *uniforms: Native setters with their arguments bound.
+
+    Returns:
+        Program retaining those bindings and their resources for each draw.
+    """
+    shader, previous = program
+
+    def setup() -> None:
+        for uniform in uniforms:
+            uniform()
+        previous()
+
+    return shader, setup
+
+
 @contextmanager
 def _restored[T](read: Callable[[], T], write: Callable[[T], None], value: T) -> Generator[None]:
-    """Writes a GPU state value, restoring the value read before it at scope exit."""
+    """Scopes one GPU state value, restoring its prior value on every exit."""
     with ExitStack() as stack:
         stack.callback(write, read())
         write(value)
@@ -411,8 +400,71 @@ def _typeset(metrics: Metrics, style: FontStyle) -> Generator[None]:
 # --- [READS]
 
 
+def viewed(
+    buffer: gpu.types.GPUOffScreen,
+    located: Located,
+    camera: bpy.types.Object,
+    scene: bpy.types.Scene,
+    view_layer: bpy.types.ViewLayer,
+    *,
+    do_color_management: bool = True,
+    draw_background: bool = True,
+) -> Outcome[npt.NDArray[np.float32]]:
+    """Captures a camera view through a caller-owned native offscreen allocated at a default-framebuffer boundary.
+
+    Args:
+        buffer: Native offscreen whose allocation and release the caller owns.
+        located: 3D View and optional main region to draw through.
+        camera: Object supplying the view and projection matrices.
+        scene: Scene to draw.
+        view_layer: View layer supplying its dependency graph.
+        do_color_management: Whether native viewport drawing applies color management.
+        draw_background: Whether the native view draws its background.
+
+    Returns:
+        Top-first RGBA at the native resource's dimensions, or editor, transform and drawing faults.
+    """
+    space = located.area.spaces.active
+    if not isinstance(space, bpy.types.SpaceView3D):
+        return Error(Fault.of(Reason.ABSENT, repr(located.area), member=bpy.types.SpaceView3D.__name__))
+
+    def painted(region: bpy.types.Region, view: Matrix) -> Outcome[npt.NDArray[np.float32]]:
+        overlay = space.overlay
+        with ExitStack() as stack:
+            stack.callback(setattr, overlay, "show_overlays", overlay.show_overlays)
+            stack.callback(gpu.state.viewport_set, *gpu.state.viewport_get())
+            stack.callback(gpu.state.scissor_set, *gpu.state.scissor_get())
+            stack.enter_context(buffer.bind())  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+            overlay.show_overlays = False
+            return (
+                catch(buffer.draw_view3d, exception=RuntimeError)(
+                    scene,
+                    view_layer,
+                    space,
+                    region,
+                    view,
+                    camera.calc_matrix_camera(view_layer.depsgraph, x=buffer.width, y=buffer.height),
+                    do_color_management=do_color_management,
+                    draw_background=draw_background,
+                )
+                .map_error(partial(Fault.of, Reason.REFUSED, "gpu.types.GPUOffScreen.draw_view3d"))
+                .bind(lambda _: captured(Rect(x=0.0, y=0.0, width=float(buffer.width), height=float(buffer.height))))
+            )
+
+    return (
+        located.region
+        .map(Ok)
+        .default_with(lambda: region_in(located.area))
+        .bind(
+            lambda region: (
+                catch(camera.matrix_world.normalized().inverted, exception=ValueError)().map_error(partial(Fault.of, Reason.REFUSED, "mathutils.Matrix.inverted")).bind(partial(painted, region))
+            )
+        )
+    )
+
+
 def captured(rect: Rect) -> Outcome[npt.NDArray[np.float32]]:
-    """Reads normalized float RGBA of a framebuffer rectangle, top row first, from the bound offscreen buffer or inside a draw callback.
+    """Reads normalized integer or stored floating RGBA as top-first float32 from the active framebuffer.
 
     Args:
         rect: Pixel rectangle of the active framebuffer.
@@ -462,13 +514,13 @@ void main() {
     info.vertex_source(vertex)
     info.fragment_source(fragment)
     shader = gpu.shader.create_from_info(info)
-    return shader, Canvas.batched(shader, "TRI_STRIP", {"pos": QUAD})
+    return shader, batch_for_shader(shader, "TRI_STRIP", {"pos": QUAD})  # type: ignore[dict-item]  # ty: ignore[invalid-argument-type]
 
 
 @functools.cache
 def _textured() -> gpu.types.GPUBatch:
     """Returns UV quad for image shaders."""
-    return Canvas.batched("IMAGE_COLOR", "TRI_STRIP", {"pos": QUAD, "texCoord": QUAD})
+    return batch_for_shader(gpu.shader.from_builtin("IMAGE_COLOR"), "TRI_STRIP", {"pos": QUAD, "texCoord": QUAD})  # type: ignore[dict-item]  # ty: ignore[invalid-argument-type]
 
 
 def programs(*clears: Callable[[], None]) -> Resource[None]:
@@ -480,16 +532,17 @@ def programs(*clears: Callable[[], None]) -> Resource[None]:
     Returns:
         Resource dropping every builder's program at release, inside the GPU context unregistration runs in.
     """
-    return Resource[None](made=lambda _identity: _cleared(clears))
 
+    @contextmanager
+    def cleared(_identity: object) -> Generator[None]:
+        """Clears each builder's memoized program at scope exit."""
+        with ExitStack() as stack:
+            for clear in clears:
+                stack.callback(clear)
+            stack.callback(gpu.shader.unbind)
+            yield
 
-@contextmanager
-def _cleared(clears: tuple[Callable[[], None], ...]) -> Generator[None]:
-    """Clears each builder's memoized program at scope exit."""
-    with ExitStack() as stack:
-        for clear in clears:
-            stack.callback(clear)
-        yield
+    return Resource[None](made=cleared)
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
@@ -498,4 +551,23 @@ PROGRAMS: Final = programs(_rounded.cache_clear, _textured.cache_clear)
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["DECODED", "PROGRAMS", "QUAD", "Align", "Blend", "Canvas", "DrawType", "FontStyle", "Offscreen", "Rect", "Shadow", "captured", "programs"]
+__all__ = [
+    "DECODED",
+    "PROGRAMS",
+    "QUAD",
+    "UNCLIPPED",
+    "Align",
+    "Blend",
+    "Canvas",
+    "DrawType",
+    "FontStyle",
+    "Offscreen",
+    "Program",
+    "Rect",
+    "Shadow",
+    "captured",
+    "configured",
+    "draw_batch",
+    "programs",
+    "viewed",
+]

@@ -73,7 +73,8 @@ public sealed class RhinoAnalyzer : RasmAnalyzer {
         Category,
         "Page view built in `PageControl`, realize in `OnActivate(true)`",
         "`{0}.PageControl` reaches `{1}` and Rhino disposes every page's result on panel close, return a held control realized in `OnActivate(true)`",
-        "`ObjectPropertiesPage.PageControl` getters create no Eto control, call no acquire or `Rasm.Rhino.UI` `Open` or `Realize`, directly or through type members");
+        "`ObjectPropertiesPage.PageControl` getters create no Eto control, call no acquire or `Rasm.Rhino.UI` `Open` or `Realize`, directly or through type members",
+        WellKnownDiagnosticTags.CompilationEnd);
 
     public static readonly DiagnosticDescriptor Docked = Rule(
         "RASM2011",
@@ -87,7 +88,8 @@ public sealed class RhinoAnalyzer : RasmAnalyzer {
         Category,
         "Owned `DisplayModeDescription` left undisposed, acquire through `Products.Of`",
         "`{0}` returns an owned `DisplayModeDescription` copy no release reaches, acquire it through `Products.Of`",
-        "`DisplayModeDescription.GetDisplayMode`, `FindByName`, and `RhinoViewport.DisplayMode` copies reach `Dispose`, `using`, `use`, `release`, acquire, or retaining call");
+        "`DisplayModeDescription.GetDisplayMode`, `FindByName`, and `RhinoViewport.DisplayMode` copies reach `Dispose`, `using`, `use`, `release`, acquire, or retaining call",
+        WellKnownDiagnosticTags.CompilationEnd);
 
     public static readonly DiagnosticDescriptor Settings = Rule(
         "RASM2101",
@@ -108,7 +110,8 @@ public sealed class RhinoAnalyzer : RasmAnalyzer {
         Category,
         "Cast or type test on `GeometryBase` duplicate, acquire a typed copy through `Products.Copied`",
         "`{0}` narrows `{1}` to `{2}`, acquire a copy typed `{2}` through `Products.Copied`",
-        "`GeometryBase.Duplicate` and `DuplicateShallow` results reach no narrowing cast, type test, or switch");
+        "`GeometryBase.Duplicate` and `DuplicateShallow` results reach no narrowing cast, type test, or switch",
+        WellKnownDiagnosticTags.CompilationEnd);
 
     public static readonly DiagnosticDescriptor Toggled = Rule(
         "RASM2104",
@@ -129,24 +132,34 @@ public sealed class RhinoAnalyzer : RasmAnalyzer {
 
     protected override void Start(CompilationStartAnalysisContext context) {
         Compilation compilation = context.Compilation;
+        AnalyzerConfigOptions options = context.Options.AnalyzerConfigOptionsProvider.GlobalOptions;
+        bool consumer = (options.TryGetValue("build_property.ProjectRole", out string? role) && string.Equals(role, "library", StringComparison.OrdinalIgnoreCase))
+            || (options.TryGetValue("build_property.TargetExt", out string? extension) && string.Equals(extension, ".rhp", StringComparison.OrdinalIgnoreCase));
+        bool Applies(INamedTypeSymbol owner) => consumer || SymbolEqualityComparer.Default.Equals(owner.ContainingAssembly, compilation.Assembly);
         (SystemSymbols system, RhinoCommonSymbols rhino, RasmRhinoSymbols rasm, LanguageExtSymbols languageExt) = (new(compilation), new(compilation), new(compilation), new(compilation));
-        if (rasm.Session is { } callbacks) Marshals(context, new EtoSymbols(compilation), new MacSymbols(compilation), callbacks);
+        EtoSymbols eto = new(compilation);
+        if (rasm.Session is { } callbacks) Marshals(context, eto, new MacSymbols(compilation), callbacks);
         if (rhino.Document is not { } document) return;
+        SemanticModels models = new(context);
         Counts(context, rhino.Counted);
         Threads(context, system.Schedulers, document);
         if (rhino.ActiveDoc is { } active) ActiveDocs(context, active, document);
         if (rhino is { Command: { } command, CommandStyle: { } style, ScriptRunner: IFieldSymbol { ConstantValue: int runner } }) Scripts(context, rhino.RunScript, command, style, runner);
-        if (!rhino.SetDisplayModeOverride.IsEmpty) Overrides(context, rhino.SetDisplayModeOverride);
+        if (!rhino.SetDisplayModeOverride.IsEmpty)
+            Report<IInvocationOperation>(context, [OperationKind.Invocation], Override, (invocation, _) =>
+                Among(invocation.TargetMethod, rhino.SetDisplayModeOverride) && Consumer(invocation) is not (IExpressionStatementOperation or ISimpleAssignmentOperation { Target: IDiscardOperation }));
         if (system.IsMacOS is { } mac) Platforms(context, rhino, system, mac);
         if (rhino.GrayscaleDib is { } grayscale) Captures(context, grayscale, [.. rasm.Required, .. languageExt.Optional], rasm.Acquire);
-        if (rhino is { ObjectPropertiesPage: { } page, PageControl: IPropertySymbol shown } && new EtoSymbols(compilation).Control is { } control) Pages(context, rasm, page, shown, control);
-        Writes(context, rhino.Floating, Docked, static (assignment, _) => assignment is ISimpleAssignmentOperation { Value.ConstantValue: { HasValue: true, Value: false } });
-        if (rhino.DisplayModeDescription is { } description && Lifetimes.Of(system, rasm, languageExt) is { } lifetimes) Modes(context, lifetimes, rhino.OwnedModes, description);
+        if (rhino is { ObjectPropertiesPage: { } page, PageControl: IPropertySymbol shown } && eto.Control is { } control) Pages(context, models, rasm, page, shown, control, languageExt.Lifts);
+        Writes(context, rhino.Floating, Docked, static (assignment, value, _) => assignment is ISimpleAssignmentOperation or IDeconstructionAssignmentOperation && value?.ConstantValue is { HasValue: true, Value: false });
+        if (rhino.DisplayModeDescription is { } description && Lifetimes.Of(system, rasm, languageExt) is { } lifetimes) Modes(models, lifetimes, rhino.OwnedModes, description);
         if (rhino.PersistentSettings is { } settings) Reads(context, settings);
-        if (rasm.Commits is { } commits) Redraws(context, rhino.Redraws, commits);
-        Duplicates(context, rhino.Duplicates);
-        if (rasm.Conduits is { } conduits) Writes(context, rhino.ConduitEnabled, Toggled, (_, analysis) => !Within(analysis.ContainingSymbol, conduits));
-        if (rasm.RenderSettingsSources is { } sources) Writes(context, rhino.RenderSettings, Rendering, (_, analysis) => !Within(analysis.ContainingSymbol, sources));
+        if (rasm.Commits is { } commits && Applies(commits))
+            Report<IOperation>(context, [OperationKind.Invocation, OperationKind.MethodReference, OperationKind.PropertyReference], Redraw, (call, analysis) =>
+                (call is not IPropertyReferenceOperation || Written(call)) && Among(Target(call), rhino.Redraws) && !Inside<INameOfOperation>(call) && !Within(analysis.ContainingSymbol, commits));
+        Duplicates(models, rhino.Duplicates);
+        if (rasm.Conduits is { } conduits && Applies(conduits)) Writes(context, rhino.ConduitEnabled, Toggled, (_, _, analysis) => !Within(analysis.ContainingSymbol, conduits));
+        if (rasm.RenderSettingsSources is { } sources && Applies(sources)) Writes(context, rhino.RenderSettings, Rendering, (_, _, analysis) => !Within(analysis.ContainingSymbol, sources));
     }
 
     // --- [MARSHALS]
@@ -194,12 +207,10 @@ public sealed class RhinoAnalyzer : RasmAnalyzer {
 
     // --- [ACTIVE_DOCS]
     private static void ActiveDocs(CompilationStartAnalysisContext context, ISymbol active, INamedTypeSymbol document) {
-        static bool Compared(IOperation operation) =>
-            operation.Parent switch {
-                IBinaryOperation { OperatorKind: BinaryOperatorKind.Equals or BinaryOperatorKind.NotEquals } => true,
-                IConversionOperation or IConditionalAccessOperation or IMemberReferenceOperation => Compared(operation.Parent),
-                _ => false,
-            };
+        static bool Compared(IOperation operation) {
+            while (operation.Parent is IConversionOperation or IConditionalAccessOperation or IMemberReferenceOperation) operation = operation.Parent;
+            return operation.Parent is IBinaryOperation { OperatorKind: BinaryOperatorKind.Equals or BinaryOperatorKind.NotEquals };
+        }
         Report<IPropertyReferenceOperation>(context, [OperationKind.PropertyReference], (reference, analysis) => {
             if (!Same(reference.Property, active) || Inside<INameOfOperation>(reference) || Compared(reference) || reference.SemanticModel is not { } model) return [];
             ISymbol owner = analysis.ContainingSymbol;
@@ -228,11 +239,6 @@ public sealed class RhinoAnalyzer : RasmAnalyzer {
                 : []);
     }
 
-    // --- [OVERRIDES]
-    private static void Overrides(CompilationStartAnalysisContext context, ImmutableArray<ISymbol> setters) =>
-        Report<IInvocationOperation>(context, [OperationKind.Invocation], Override, (invocation, _) =>
-            Among(invocation.TargetMethod, setters) && Consumer(invocation) is not (IExpressionStatementOperation or ISimpleAssignmentOperation { Target: IDiscardOperation }));
-
     // --- [PLATFORMS]
     private static void Platforms(CompilationStartAnalysisContext context, RhinoCommonSymbols rhino, SystemSymbols system, ISymbol mac) {
         ImmutableArray<(ISymbol Member, string Fact, string Action)> broken = [
@@ -250,7 +256,11 @@ public sealed class RhinoAnalyzer : RasmAnalyzer {
                 IBinaryOperation { OperatorKind: BinaryOperatorKind.ConditionalOr } either when either.RightOperand == child => OnMac(either.LeftOperand),
                 _ => false,
             };
-        bool Guarded(IOperation node) => node.Parent is { } parent && (Shields(parent, node) || Guarded(parent));
+        bool Guarded(IOperation node) {
+            for (IOperation child = node; child.Parent is { } parent; child = parent)
+                if (Shields(parent, child)) return true;
+            return false;
+        }
         Report<IOperation>(context, [OperationKind.Invocation, OperationKind.MethodReference], (operation, _) =>
             Target(operation) is { } member && broken.FirstOrDefault(row => Same(member, row.Member)) is { Member: not null } row && !Inside<INameOfOperation>(operation) && !Guarded(operation)
                 ? [Diagnostic.Create(Mac, operation.Syntax.GetLocation(), operation.Syntax, row.Fact, row.Action)]
@@ -267,95 +277,123 @@ public sealed class RhinoAnalyzer : RasmAnalyzer {
     }
 
     // --- [PAGES]
-    private static void Pages(CompilationStartAnalysisContext context, RasmRhinoSymbols rasm, INamedTypeSymbol page, IPropertySymbol shown, INamedTypeSymbol control) {
+    private static void Pages(CompilationStartAnalysisContext context, SemanticModels models, RasmRhinoSymbols rasm, INamedTypeSymbol page, IPropertySymbol shown, INamedTypeSymbol control, ImmutableArray<IMethodSymbol> callbacks) {
         (ImmutableArray<IMethodSymbol> scopes, ISymbol? views) = (rasm.Acquire, rasm.UI);
-        string? Realization(IOperation operation) =>
+        ControlFlow flow = ControlFlow.For(context.Compilation);
+        IMethodSymbol? Realization(IOperation operation) =>
             operation switch {
-                IObjectCreationOperation { Constructor: { } made } when Derives(made.ContainingType, control) => Label(made),
+                IObjectCreationOperation { Constructor: { } made } when Derives(made.ContainingType, control) => made,
                 IInvocationOperation call when Among(call.TargetMethod, scopes)
-                    || (call.TargetMethod.Name is "Open" or "Realize" && Namespaced(context.Compilation, call.TargetMethod, views)) => Label(call.TargetMethod),
+                    || (call.TargetMethod.Name is "Open" or "Realize" && Namespaced(context.Compilation, call.TargetMethod, views)) => call.TargetMethod,
                 _ => null,
             };
+        ConcurrentDictionary<INamedTypeSymbol, ConcurrentDictionary<ISymbol, (IMethodSymbol? Realized, ImmutableArray<IOperation> Operations)>> types = new(SymbolEqualityComparer.Default);
         context.RegisterSymbolStartAction(
             start => {
-                if (start.Symbol is not INamedTypeSymbol type || !Derives(type.BaseType, page)) return;
-                ConcurrentDictionary<ISymbol, (string? Realized, ImmutableArray<ISymbol> Reads)> bodies = new(SymbolEqualityComparer.Default);
+                if (start.IsGeneratedCode || start.Symbol is not INamedTypeSymbol type || !Derives(type.BaseType, page)) return;
+                ConcurrentDictionary<ISymbol, (IMethodSymbol? Realized, ImmutableArray<IOperation> Operations)> bodies = types.GetOrAdd(type, static _ => new(SymbolEqualityComparer.Default));
                 start.RegisterOperationBlockAction(block => {
-                    ISymbol owner = Member(block.OwningSymbol).OriginalDefinition;
-                    ImmutableArray<IOperation> operations = [.. block.OperationBlocks.SelectMany(static root => root.DescendantsAndSelf())];
-                    (string? Realized, ImmutableArray<ISymbol> Reads) read = (
-                        operations.Select(Realization).FirstOrDefault(static label => label is not null),
-                        [.. operations.Select(Target).OfType<ISymbol>().Where(member => member is not IEventSymbol && Same(member.ContainingType, type)).Select(static member => member.OriginalDefinition).Distinct(SymbolEqualityComparer.Default)]);
-                    _ = bodies.AddOrUpdate(owner, read, (_, prior) => (prior.Realized ?? read.Realized, prior.Reads.AddRange(read.Reads)));
-                });
-                start.RegisterSymbolEndAction(end => {
-                    string? Reached(ISymbol member) => bodies.TryGetValue(member, out (string? Realized, ImmutableArray<ISymbol> Reads) held) ? held.Realized : null;
-                    foreach (IPropertySymbol property in type.GetMembers().OfType<IPropertySymbol>().Where(property => !Same(property, shown) && Overridden(property).Any(held => Same(held, shown))))
-                        if (bodies.TryGetValue(property, out (string? Realized, ImmutableArray<ISymbol> Reads) held) && (held.Realized ?? held.Reads.Select(Reached).FirstOrDefault(static label => label is not null)) is { } label)
-                            end.ReportDiagnostic(Diagnostic.Create(Page, property.Locations[0], type.Name, label));
+                    if (block.IsGeneratedCode) return;
+                    foreach (IOperation root in block.OperationBlocks.SelectMany(static body => body.DescendantsAndSelf().Where(operation => operation == body || operation is IAnonymousFunctionOperation or ILocalFunctionOperation))) {
+                        ISymbol owner = (root switch {
+                            IAnonymousFunctionOperation function => function.Symbol,
+                            ILocalFunctionOperation function => function.Symbol,
+                            _ => block.OwningSymbol,
+                        }).OriginalDefinition;
+                        ImmutableArray<IOperation> operations = [.. ControlFlow.Operations(root, block.CancellationToken)];
+                        (IMethodSymbol? Realized, ImmutableArray<IOperation> Operations) read = (operations.Select(Realization).FirstOrDefault(static made => made is not null),
+                            [.. operations.Where(static operation => operation is IPropertyReferenceOperation or IFieldReferenceOperation or IInvocationOperation)]);
+                        _ = bodies.AddOrUpdate(owner, read, (_, prior) => (prior.Realized ?? read.Realized, prior.Operations.AddRange(read.Operations)));
+                    }
                 });
             },
             SymbolKind.NamedType);
+        models.Complete((end, provided) => {
+            foreach (KeyValuePair<INamedTypeSymbol, ConcurrentDictionary<ISymbol, (IMethodSymbol? Realized, ImmutableArray<IOperation> Operations)>> type in types) {
+                Dictionary<ISymbol, (IMethodSymbol? Realized, ImmutableArray<ISymbol> Reads)> bodies = new(SymbolEqualityComparer.Default);
+                foreach (KeyValuePair<ISymbol, (IMethodSymbol? Realized, ImmutableArray<IOperation> Operations)> body in type.Value) {
+                    IEnumerable<ISymbol?> Reads(IOperation operation) => operation switch {
+                        IPropertyReferenceOperation property when Written(property) =>
+                            operation.Parent is ISimpleAssignmentOperation or ITupleOperation ? [property.Property.SetMethod] : [property.Property.GetMethod, property.Property.SetMethod],
+                        IPropertyReferenceOperation property => [property.Property.GetMethod],
+                        IInvocationOperation call => Calls(call, new Reading(call.SemanticModel!, provided, end.CancellationToken), flow, callbacks),
+                        _ => [Target(operation)],
+                    };
+                    bodies.Add(body.Key, (body.Value.Realized, [.. body.Value.Operations.SelectMany(Reads).OfType<ISymbol>()
+                        .Where(member => member is not IEventSymbol && Same(member.ContainingType, type.Key)).Select(static member => member.OriginalDefinition).Distinct(SymbolEqualityComparer.Default)]));
+                }
+                IMethodSymbol? Reached(ISymbol member) {
+                    HashSet<ISymbol> seen = new(SymbolEqualityComparer.Default);
+                    Queue<ISymbol> pending = new([member]);
+                    while (pending.Count is > 0) {
+                        ISymbol current = pending.Dequeue();
+                        end.CancellationToken.ThrowIfCancellationRequested();
+                        if (!seen.Add(current) || !bodies.TryGetValue(current, out (IMethodSymbol? Realized, ImmutableArray<ISymbol> Reads) held)) continue;
+                        if (held.Realized is { } made) return made;
+                        foreach (ISymbol read in held.Reads) pending.Enqueue(read);
+                    }
+                    return null;
+                }
+                foreach (IPropertySymbol property in type.Key.GetMembers().OfType<IPropertySymbol>().Where(property => !Same(property, shown) && Overridden(property).Any(held => Same(held, shown))))
+                    if (property.GetMethod is { } getter && Reached(getter.OriginalDefinition) is { } made) end.ReportDiagnostic(Diagnostic.Create(Page, property.Locations[0], type.Key.Name, Label(made)));
+            }
+        });
     }
 
     // --- [MODES]
-    private static void Modes(CompilationStartAnalysisContext context, Lifetimes lifetimes, ImmutableArray<ISymbol> owned, INamedTypeSymbol description) =>
-        Report<IOperation>(context, [OperationKind.Invocation, OperationKind.PropertyReference], Mode, (operation, analysis) =>
-            !Written(operation) && Among(Target(operation), owned) && !Inside<INameOfOperation>(operation) && operation.SemanticModel is { } model
-            && !lifetimes.Released(operation, description, new Reading(model, analysis.CancellationToken)).Any());
+    private static void Modes(SemanticModels models, Lifetimes lifetimes, ImmutableArray<ISymbol> owned, INamedTypeSymbol description) =>
+        models.Report<IOperation>([OperationKind.Invocation, OperationKind.PropertyReference], (operation, _, reading) =>
+            !Written(operation) && Among(Target(operation), owned) && !Inside<INameOfOperation>(operation) && !lifetimes.Released(operation, description, reading).Any()
+                ? [Diagnostic.Create(Mode, operation.Syntax.GetLocation(), operation.Syntax)] : []);
 
     // --- [READS]
     private static void Reads(CompilationStartAnalysisContext context, INamedTypeSymbol settings) {
         ImmutableArray<IMethodSymbol> methods = [
             .. settings.GetMembers().OfType<IMethodSymbol>().Where(static method => method is { IsStatic: false, Parameters: { IsEmpty: false } parameters } && parameters[0].Type.SpecialType is SpecialType.System_String),
         ];
-        ImmutableHashSet<string> tried = [.. methods.Where(static method => method.Name.StartsWith("TryGet", StringComparison.Ordinal)).Select(static method => method.Name.Substring(6))];
-        ImmutableHashSet<string> kinds = [
-            .. methods.Where(static method => method is { ReturnsVoid: true, Parameters.Length: 2 } && method.Name.StartsWith("Set", StringComparison.Ordinal))
-                .GroupBy(static method => method.Name.Substring(3), StringComparer.Ordinal)
-                .Where(family => tried.Contains(family.Key) && family.Select(static method => method.Parameters[1].Type).Distinct(SymbolEqualityComparer.Default).Count() is 1)
-                .Select(static family => family.Key),
-        ];
-        ImmutableArray<IMethodSymbol> defaulted = [
-            .. methods.Where(method => method.Parameters.Length > 1 && method.Name.StartsWith("Get", StringComparison.Ordinal) && kinds.Contains(method.Name.Substring(3))),
+        ImmutableArray<(IMethodSymbol Get, IMethodSymbol Try)> defaulted = [
+            .. methods.Where(static method => method.Parameters.Length > 1 && method.Name.StartsWith("Get", StringComparison.Ordinal) && Same(method.Parameters[1].Type, method.ReturnType))
+                .SelectMany(get => settings.GetMembers($"Try{get.Name}").OfType<IMethodSymbol>().Where(tried => tried.Arity == get.Arity)
+                    .Select(tried => tried.IsGenericMethod ? tried.Construct([.. get.TypeArguments]) : tried)
+                    .Where(tried => tried is { ReturnType.SpecialType: SpecialType.System_Boolean, Parameters.Length: 2 } && tried.Parameters[1] is { RefKind: RefKind.Out } result && Same(result.Type, get.ReturnType))
+                    .Select(tried => (get, tried))),
         ];
         Report<IInvocationOperation>(context, [OperationKind.Invocation], (invocation, _) =>
-            invocation is { Instance: { } source, TargetMethod: var method } && Among(method, defaulted)
+            invocation is { Instance: { } source, TargetMethod: var method } && defaulted.FirstOrDefault(pair => Same(method, pair.Get)).Try is { } tried
                 ? [Diagnostic.Create(
                     Settings,
                     invocation.Syntax.GetLocation(),
                     method.Name,
-                    $"{source.Syntax}.Try{method.Name}{(method.IsGenericMethod ? $"<{method.TypeArguments[0].ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)}>" : "")}({invocation.Arguments[0].Value.Syntax}, out {method.ReturnType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)} value)")]
+                    $"{source.Syntax}.{tried.Name}{(method.IsGenericMethod ? $"<{string.Join(", ", method.TypeArguments.Select(static argument => argument.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)))}>" : "")}({invocation.Arguments.First(static argument => argument.Parameter?.Ordinal is 0).Value.Syntax}, out {method.ReturnType.ToDisplayString(SymbolDisplayFormat.MinimallyQualifiedFormat)} value)")]
                 : []);
     }
 
-    // --- [REDRAWS]
-    private static void Redraws(CompilationStartAnalysisContext context, ImmutableArray<ISymbol> redraws, INamedTypeSymbol commits) =>
-        Report<IOperation>(context, [OperationKind.Invocation, OperationKind.MethodReference, OperationKind.PropertyReference], Redraw, (call, analysis) =>
-            (call is not IPropertyReferenceOperation || Written(call)) && Among(Target(call), redraws) && !Inside<INameOfOperation>(call) && !Within(analysis.ContainingSymbol, commits));
-
     // --- [DUPLICATES]
-    private static void Duplicates(CompilationStartAnalysisContext context, ImmutableArray<ISymbol> duplicates) {
-        static IEnumerable<ITypeSymbol?> Tested(IOperation operand) =>
-            operand.Parent switch {
-                IConversionOperation { IsImplicit: false } conversion => [conversion.Type],
-                IIsTypeOperation test => [test.TypeOperand],
-                IIsPatternOperation test => [test.Pattern.NarrowedType],
-                ISwitchExpressionOperation dispatch when dispatch.Value == operand => dispatch.Arms.Select(static ITypeSymbol? (arm) => arm.Pattern.NarrowedType),
+    private static void Duplicates(SemanticModels models, ImmutableArray<ISymbol> duplicates) {
+        static IEnumerable<ITypeSymbol?> Tested(IOperation test) {
+            IEnumerable<IPatternOperation> patterns = test switch {
+                IIsPatternOperation patterned => [patterned.Pattern],
+                ISwitchExpressionOperation dispatch => dispatch.Arms.Select(static arm => arm.Pattern),
+                ISwitchOperation dispatch => dispatch.Cases.SelectMany(static section => section.Clauses).OfType<IPatternCaseClauseOperation>().Select(static clause => clause.Pattern),
                 _ => [],
             };
+            return test switch {
+                IConversionOperation { IsImplicit: false } conversion => [conversion.Type],
+                IIsTypeOperation typed => [typed.TypeOperand],
+                _ => patterns.SelectMany(static pattern => pattern.DescendantsAndSelf()).OfType<IPatternOperation>().Select(static ITypeSymbol? (pattern) => pattern.NarrowedType),
+            };
+        }
         static (SyntaxNode Test, ITypeSymbol Narrowed)? Narrowing(IOperation operand, INamedTypeSymbol copied) =>
-            operand.Parent is { } parent && Tested(operand).FirstOrDefault(type => !Same(type, copied) && Derives(type, copied)) is { } narrowed ? (parent.Syntax, narrowed) : null;
-        Report<IInvocationOperation>(context, [OperationKind.Invocation], (invocation, analysis) => {
+            Consumer(operand) is { } parent && Tested(parent).FirstOrDefault(type => !Same(type, copied) && Derives(type, copied)) is { } narrowed ? (parent.Syntax, narrowed) : null;
+        models.Report<IInvocationOperation>([OperationKind.Invocation], (invocation, owner, reading) => {
             if (!Overridden(invocation.TargetMethod).Any(method => Among(method, duplicates))
-                || invocation is not { Type: INamedTypeSymbol copied, Instance.Type: not null, SemanticModel: { } model }) return [];
-            Reading reading = new(model, analysis.CancellationToken);
+                || invocation is not { Type: INamedTypeSymbol copied, Instance.Type: not null }) return [];
             (SyntaxNode? site, ISymbol holder, IEnumerable<IOperation> operands) = Consumer(invocation) switch {
                 IArgumentOperation { Parameter: { } parameter } argument => (argument.Syntax, parameter.ContainingSymbol,
-                    Declarations(parameter.ContainingSymbol.OriginalDefinition, reading).SelectMany(body => References(parameter, body, reading))),
-                IVariableInitializerOperation { Parent: IVariableDeclaratorOperation { Symbol: var local } } => (null, analysis.ContainingSymbol,
+                    Declarations(parameter.ContainingSymbol.OriginalDefinition, reading).SelectMany(body => References(parameter.OriginalDefinition, body, reading))),
+                IVariableInitializerOperation { Parent: IVariableDeclaratorOperation { Symbol: var local } } => (null, owner,
                     References(local, invocation, reading).OrderBy(static reference => reference.Syntax.SpanStart).TakeWhile(static reference => !Written(reference))),
-                _ => (null, analysis.ContainingSymbol, [invocation]),
+                _ => (null, owner, [invocation]),
             };
             return operands.Select(operand => Narrowing(operand, copied)).OfType<(SyntaxNode Test, ITypeSymbol Narrowed)>().Select(found => Diagnostic.Create(
                 Narrowed,

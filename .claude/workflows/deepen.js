@@ -103,7 +103,7 @@ if (!valid) throw new Error(`args take language (${Object.keys(languages).join('
   + `exclude and inputs as path lists, oracle a command and plan a path, with a root outside exclude; got ${JSON.stringify(args ?? null)}`)
 const mode = MODES[MODE === 'build' ? 'deepen' : MODE]
 const rowed = PLAN !== null && MODE !== 'build'
-const OUTLINE = `ast-grep outline --custom-languages allow --color never --outline-rules tools/ast-grep/outline/${row.grep}.yml`
+const OUTLINE = 'ast-grep outline'
 
 // --- [PROMPTS]
 const relative = (path) => trimmed(path.replace(`${REPO}/`, ''))

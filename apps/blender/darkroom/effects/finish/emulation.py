@@ -1,26 +1,27 @@
 """Video path emulation: JPEG coding, digital corruption, tape playback, and analog reception in BT.601 luma and color difference, shown on a picture tube with vertical roll, power-off collapse, screen-glass glow, beam scanlines, phosphor masks, and glass curvature."""
 
+from collections.abc import Callable
 from functools import partial
 from itertools import product
 from types import MappingProxyType
-from typing import Annotated, Final
+from typing import Annotated, Final, override
 
 import bpy
 from colour.models import WEIGHTS_YCBCR
-from expression import Ok, Option, Result, Some
+from expression import Option, Result, Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
 import OpenImageIO
 
-from blender.bpy.nodes.desired import MenuItem, MenuItems
+from blender.bpy.nodes.desired import MenuItem
 from blender.bpy.nodes.functions import EXPRESSIONS
 from blender.bpy.nodes.graphs import Component, Expr, math, mixed, rgba, Scalar, switched, vector, where, xyz
 from blender.bpy.nodes.interfaces import decoded, Interface, InterfacePanel, Socket
 from blender.bpy.nodes.textures import WhiteNoise
 from blender.bpy.render.compositor.colors import from_ycc, ycc
 from blender.bpy.render.compositor.coordinates import Border, dimensions, extended, uv_mapped
-from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect, precise, Prepared, Stage
+from blender.bpy.render.compositor.effects import CompositorEffect, CompositorRecord, Mix, precise, Prepared, Stage
 from blender.bpy.render.compositor.filters import blurred
 from blender.bpy.render.compositor.inputs import FRAME_SCALE, GraphInputs, toggled, value
 from blender.bpy.render.compositor.motion import CLOCK, Clock, clocked, origin, SEED, timing
@@ -28,8 +29,8 @@ from blender.bpy.render.outputs.framing import capacity
 from blender.imaging.files import buffers, images
 from blender.imaging.geometry.arithmetic import Elementwise, gaussian, Namespace
 from blender.imaging.sampling.tiles import stream
-from blender.records.faults import accumulated, Faults, Outcome, paired
-from blender.records.fields import Case, Count
+from blender.records.faults import accumulated, Faults, Ok, Outcome, paired
+from blender.records.fields import Count
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -88,7 +89,7 @@ _GLOW: Final = InterfacePanel.of("glow", Interface(inputs=(_RADIUS,)), descripti
 _DARKENING: Final = Socket(key="strength", kind=bpy.types.NodeSocketFloatFactor, description="Darkening between raster lines before mean normalization", default_value=0.4)
 _INTERLACED: Final = Socket(key="interlaced", kind=bpy.types.NodeSocketBool, description="Light alternate raster fields per pattern")
 _SCANLINES: Final = InterfacePanel.of("scanlines", Interface(inputs=(_DARKENING, _INTERLACED)), description="Raster lines the beam draws", toggle=Some(True))
-_LAYOUT: Final = Socket(key="layout", kind=bpy.types.NodeSocketMenu, description="Phosphor arrangement", default_value=next(iter(_LAYOUTS)).name, items=Some(MenuItems(items=tuple(_LAYOUTS))))
+_LAYOUT: Final = Socket(key="layout", kind=bpy.types.NodeSocketMenu, description="Phosphor arrangement", default_value=next(iter(_LAYOUTS)).name, items=tuple(_LAYOUTS))
 _TRIADS: Final = Socket(key="triads", kind=bpy.types.NodeSocketInt, description="Phosphor triads across frame width", min_value=1, default_value=640)
 _MASKING: Final = Socket(key="strength", kind=bpy.types.NodeSocketFloatFactor, description="Blend toward mean-one phosphor mask", default_value=0.705394)
 _PHOSPHORS: Final = InterfacePanel.of("phosphors", Interface(inputs=(_LAYOUT, _TRIADS, _MASKING)), description="Phosphor mask on glass", toggle=Some(False))
@@ -132,21 +133,233 @@ class Compression(msgspec.Struct, frozen=True, kw_only=True):
         )
 
 
-class Emulation(Case, frozen=True, kw_only=True):
+class Emulation(CompositorRecord, frozen=True, kw_only=True):
     """Coded, transmitted, taped, received, and displayed video path, the coding rendered on the CPU before the graph reads it."""
+
+    @override
+    def graph(self, shell: GraphInputs) -> Outcome[Expr]:
+        """Builds corruption, tape, reception, and display after the CPU coding, color differences in BT.601 luma weights at unit swing about zero.
+
+        Args:
+            shell: Coded image, camera frame, and parameter group inputs.
+
+        Returns:
+            Displayed color.
+        """
+        source, frame, held = shell.color, shell.space, shell.input
+        corrupting, taping, signaling = partial(held, _CORRUPTION), partial(held, _TAPE), partial(held, _SIGNAL)
+        seed, lines = held(SEED), held(_LINES)
+        red_weight, blue_weight = (float(weight) for weight in WEIGHTS_YCBCR["ITU-R BT.601"])
+        weights = (red_weight, 1.0 - red_weight - blue_weight, blue_weight)
+        time = clocked(held, _CLOCK)
+        pattern = math("FLOOR", time)
+        x, y = frame.fraction["X"], frame.fraction["Y"]
+        line = math("FLOOR", y * lines)
+        line_cell, sample_cell = xyz(line), xyz(math("FLOOR", x * math("ROUND", lines * frame.extent["X"] / frame.extent["Y"])), line)
+
+        def white(coordinate: Scalar) -> Expr:
+            return WhiteNoise(noise_dimensions="4D").node(coordinate, pattern)
+
+        def shifted(image: Scalar, horizontal: Scalar, vertical: Scalar = y, across: Border = Border.CLAMP, up: Border = Border.CLAMP) -> Expr:
+            return extended(image, frame.sampled(xyz(horizontal, vertical)), (across, up), clipped=True)
+
+        def banded(image: Scalar, horizontal: Scalar, vertical: Scalar) -> Expr:
+            return blurred(image, frame.pixel_size(xyz(horizontal, vertical) * frame.extent))
+
+        def drawn(socket: Socket, lattice: Scalar | tuple[float, ...]) -> Expr:
+            return white(vector("ADD", lattice, origin(seed, stream(Emulation, socket.key))))
+
+        def normals(socket: Socket, lattice: Scalar) -> tuple[Expr, Expr, Expr, Expr]:
+            axes = vector("ADD", lattice, origin(seed, stream(Emulation, socket.key)))
+            first, second, third, fourth = (white(xyz(axes["X"], axes["Y"], index)) for index in range(4))
+            return (*gaussian(first, second, EXPRESSIONS), *gaussian(third, fourth, EXPRESSIONS))
+
+        def corrupted(image: Expr) -> Expr:
+            cells = drawn(_COVERAGE, vector("FLOOR", vector("DIVIDE", frame.point, xyz(corrupting(_CELL_WIDTH), corrupting(_CELL_HEIGHT), 1.0))))
+            tone = cells.at("Color", bpy.types.NodeSocketColor)
+            struck = cells < corrupting(_COVERAGE)
+            cell_x = x + math("MULTIPLY_ADD", tone["Red"], 2.0, -1.0) * corrupting(_DISPLACEMENT) * struck
+            channels: tuple[Component, ...] = ("Red", "Green", "Blue")
+            red, green, blue = (
+                shifted(image, math("MULTIPLY_ADD", corrupting(_SPLIT), direction, cell_x), across=Border.PERIODIC, up=Border.BLACK)[channel] for channel, direction in zip(channels, (-1.0, 0.0, 1.0))
+            )
+            luma, blue_difference, red_difference = ycc(rgba(red, green, blue), weights)
+            power = 2.0 ** math("MULTIPLY_ADD", tone["Green"], 4.0, -2.0)
+
+            def powered(difference: Expr) -> Expr:
+                return mixed(corrupting(_POWER) * struck, difference, math("SIGN", difference) * (abs(difference) * 2.0) ** power * 0.5)
+
+            return switched(held(_CORRUPTION), image, from_ycc(luma, powered(blue_difference), powered(red_difference), weights))
+
+        def played(image: Expr) -> Expr:
+            lower, upper = (Expr(kind=bpy.types.CompositorNodeLevels, inputs=(("Image", frame.fraction), ("Channel", "Green")), socket=socket) for socket in ("Minimum", "Maximum"))
+            first, support, rows, taps = _canvases(lower, upper, lines, taping(_JITTER_PERIOD), EXPRESSIONS)
+            padding = support * 2.0
+            jitter_canvas, impulse_canvas = (
+                Expr(kind=bpy.types.CompositorNodeBlankImage, inputs=(("Size", xyz(1.0, extent)),), socket="Image", socket_type=bpy.types.NodeSocketColor) for extent in (rows, taps)
+            )
+            jitter_row, impulse_row = (
+                Expr(kind=bpy.types.CompositorNodeImageCoordinates, inputs=(("Image", canvas),), socket="Pixel", socket_type=bpy.types.NodeSocketVector)["Y"]
+                for canvas in (jitter_canvas, impulse_canvas)
+            )
+            filtered = xyz(0.0, taping(_JITTER_PERIOD) * lines)
+            jittered = blurred(normals(_JITTER, xyz(jitter_row + (first - support)))[0], filtered)
+            impulse = uv_mapped(blurred(blurred(math("COMPARE", impulse_row, padding, 0.0), filtered), filtered), (0.5, 0.5, 1.0), interpolation="Nearest")
+            normalized = jittered["Red"] / math("SQRT", impulse["Red"])
+            jitter_shift = math("MULTIPLY", uv_mapped(normalized, xyz(0.5, (line - first + support + 0.5) / rows, 1.0), interpolation="Nearest"), taping(_JITTER))
+            bounce_shift = math("MULTIPLY_ADD", drawn(_BOUNCE, (0.0, 0.0, 0.0)), 2.0, -1.0) * taping(_BOUNCE)
+            head = y / taping(_HEAD_SWITCHING)
+            head_shift = math("MINIMUM", head / 0.9, math("MULTIPLY_ADD", head, -10.0, 10.0)) * ((1.0 - (y < 0.0)) * (y < taping(_HEAD_SWITCHING))) * taping(_SKEW)
+            tracking = math("MULTIPLY_ADD", abs(math("WRAP", y - math("FRACT", time * taping(_TRACKING_RATE)), 0.5, -0.5)) / taping(_TRACKING_HEIGHT), -2.0, 1.0, clamp=True)
+            picture = shifted(image, x + jitter_shift + head_shift + tracking * taping(_TRACKING_SHIFT), y + bounce_shift, up=Border.BLACK)
+            luma, blue_difference, red_difference = ycc(picture, weights)
+            mistracked = from_ycc(mixed(tracking * taping(_MISTRACKING), luma, drawn(_MISTRACKING, line_cell)), blue_difference, red_difference, weights)
+            position = x / taping(_DROPOUT_LENGTH)
+            struck = drawn(_DROPOUTS, xyz(math("FLOOR", position), line)) < taping(_DROPOUTS)
+            return switched(held(_TAPE), image, mixed((1.0 - math("FRACT", position)) * struck, mistracked, (1.0, 1.0, 1.0)))
+
+        def received(image: Expr) -> Expr:
+            luma, blue_difference, red_difference = ycc(image, weights)
+            luma_noise, chroma_noises = normals(_NOISE, sample_cell), normals(_CHROMA_NOISE, sample_cell)
+            strength = math("SUBTRACT", luma, banded(luma, 1.0 / 377.0, 0.0)) * signaling(_CROSS_COLOR)
+            phase = math("MULTIPLY_ADD", x, 188.3, (line + pattern) * 0.5) * 2.0 * np.pi
+            green, blue = (
+                math("MULTIPLY_ADD", noise, signaling(_CHROMA_NOISE), math("MULTIPLY_ADD", strength, wave, difference))
+                for difference, wave, noise in ((blue_difference, math("COSINE", phase), chroma_noises[0]), (red_difference, math("SINE", phase), chroma_noises[1]))
+            )
+            band = banded(math("MULTIPLY_ADD", luma_noise[0], signaling(_NOISE), luma), signaling(_LUMA_BLUR), 0.0)
+            chroma = shifted(banded(rgba(green, blue, 0.0), signaling(_CHROMA_BLUR), signaling(_CHROMA_VERTICAL)), x - signaling(_CHROMA_DELAY))
+            ringed = (shifted(band, math("MULTIPLY_ADD", signaling(_LUMA_BLUR) / 3.0, direction, x)) for direction in (-1.0, 1.0))
+            overshoot = -math("MULTIPLY_ADD", band, -2.0, math("ADD", *ringed))
+            packed = rgba(math("MULTIPLY_ADD", overshoot, signaling(_RINGING), band), chroma["Red"] * signaling(_SATURATION), chroma["Green"] * signaling(_SATURATION))
+            amplitude = signaling(_GHOST, _ECHO)
+            echoed = switched(signaling(_GHOST), packed, mixed(amplitude / (amplitude + 1.0), packed, shifted(packed, x - signaling(_GHOST, _DELAY))))
+            loss = math("MULTIPLY_ADD", math("SINE", math("MULTIPLY_ADD", time, -0.002, y) * 2.0 * np.pi), 0.5, 0.5) * signaling(_HUM)
+            return switched(held(_SIGNAL), image, from_ycc(echoed["Red"] * (1.0 - loss), echoed["Green"], echoed["Blue"], weights))
+
+        image = received(played(corrupted(source)))
+        aspect = frame.extent["X"] / frame.extent["Y"]
+        sides, scale = dimensions(source), held(FRAME_SCALE)
+        half_x, half_y = (0.5 / (sides[axis] * scale) for axis in ("X", "Y"))
+        rolled = extended(image, frame.sampled(xyz(x, math("MULTIPLY_ADD", held(_DISPLAY, _ROLL), time, y))), (Border.CLAMP, Border.PERIODIC), clipped=True)
+        least = 1.0 / lines
+        lowered = math("MULTIPLY_ADD", held(_DISPLAY, _COLLAPSE), -2.0, 1.0)
+        height, width = math("MAXIMUM", lowered, least), math("MINIMUM", math("MAXIMUM", lowered + 1.0, least), 1.0)
+        at = vector("ADD", vector("DIVIDE", vector("SUBTRACT", frame.fraction, (0.5, 0.5, 0.0)), xyz(width, height, 1.0)), (0.5, 0.5, 0.0))
+        collapsed = vector("DIVIDE", extended(rolled, frame.sampled(at), Border.BLACK, clipped=True), width * height)
+        radius = frame.pixel_size(xyz(held(_DISPLAY, _GLOW, _RADIUS), held(_DISPLAY, _GLOW, _RADIUS)))
+        near = blurred(collapsed, radius)
+        glowed = switched(held(_DISPLAY, _GLOW), collapsed, mixed(0.890909, blurred(near, radius * (4.0, 1.0, 0.0)), near))
+        field = math("PINGPONG", math("FLOOR", time), 1.0)
+
+        def scanned_row(sign: float) -> Expr:
+            raster = ((math("MULTIPLY_ADD", half_y, sign, y) - 0.5) / height + 0.5) * lines
+            return switched(held(_DISPLAY, _SCANLINES, _INTERLACED), raster, (raster + field) * 0.5)
+
+        low, high = scanned_row(-1.0), scanned_row(1.0)
+        tau = 2.0 * np.pi
+        darkening = held(_DISPLAY, _SCANLINES, _DARKENING)
+        light = 1.0 - ((math("SINE", high * tau) - math("SINE", low * tau)) / ((high - low) * (2.0 * tau)) + 0.5) * darkening
+        scanned = switched(held(_DISPLAY, _SCANLINES), glowed, vector("SCALE", glowed, light / math("MULTIPLY_ADD", darkening, -0.5, 1.0)))
+        geometry = shell.menu(_DISPLAY, _PHOSPHORS, _LAYOUT, cases=_LAYOUTS)
+        fill = 1.0 - geometry["X"]
+        triads = held(_DISPLAY, _PHOSPHORS, _TRIADS)
+        rows_per_frame = triads / aspect
+        reach = {"x": (x * triads, half_x * triads, geometry["Z"]), "y": (y * rows_per_frame, half_y * rows_per_frame, geometry["Y"])}
+        ends = {
+            (axis, parity, sign): math("MULTIPLY_ADD", half, sign, math("MULTIPLY_ADD", stagger, parity, center))
+            for axis, (center, half, stagger) in reach.items()
+            for parity in range(2)
+            for sign in (-1.0, 1.0)
+        }
+
+        def primitive(at: Expr, gain: Scalar, start: Scalar, span: Scalar) -> Expr:
+            whole = math("FLOOR", at / 2.0)
+            return math("MULTIPLY_ADD", whole, gain, math("MINIMUM", math("MAXIMUM", math("MULTIPLY_ADD", whole, -2.0, at) - start, 0.0), span))
+
+        def covered(axis: str, parity: int, gain: Scalar, start: Scalar, span: Scalar) -> Expr:
+            return primitive(ends[axis, parity, 1.0], gain, start, span) - primitive(ends[axis, parity, -1.0], gain, start, span)
+
+        matrix = {(row, column): covered("y", column, fill, float(row), fill) for row, column in product(range(2), repeat=2)}
+        area = reach["y"][1] * 2.0 * (reach["x"][1] * 2.0)
+        mask = held(_DISPLAY, _PHOSPHORS, _MASKING)
+
+        def gained(index: int) -> Expr:
+            lit = {(row, column): covered("x", row, 1.0 / 3.0, column + index / 3.0, 1.0 / 3.0) * cell for (row, column), cell in matrix.items()}
+            integral = lit[0, 0] + lit[0, 1] + (lit[1, 0] + lit[1, 1])
+            return math("MULTIPLY_ADD", integral / area / fill * 3.0, mask, 1.0 - mask)
+
+        masked = switched(held(_DISPLAY, _PHOSPHORS), scanned, vector("MULTIPLY", scanned, rgba(gained(0), gained(1), gained(2))))
+        bulge = held(_DISPLAY, _CURVATURE)
+        offset = frame.point * (2.0, 2.0, 0.0) - frame.extent
+        stretched = vector("SCALE", offset, math("SQRT", bulge) * 2.0 / (bulge + 1.0))
+        real = 1.0 - (vector("LENGTH", stretched) > 1.0)
+        lens = vector(
+            "MULTIPLY_ADD",
+            vector("SCALE", offset / frame.extent, scale),
+            where(real, 1.0 / ((bulge + 1.0) * (vector("LENGTH", vector("ADD", stretched, (0.0, 0.0, 1.0))) + 1.0)), 0.0),
+            xyz(0.5, 0.5, real),
+        )
+        return Ok(switched(held(_DISPLAY), image, extended(masked, lens, Border.BLACK, clipped=True)))
+
+    @property
+    @override
+    def prepared(self) -> Callable[[Stage], Outcome[Option[Prepared]]]:
+        """Codes the captured image before graph evaluation."""
+
+        def prepared(stage: Stage) -> Outcome[Option[Prepared]]:
+            """Accepts the tape canvases of the captured raster and codes the captured display image before the graph.
+
+            Args:
+                stage: Captured display image, entry values, camera frame, and scene.
+
+            Returns:
+                Coded image while compression is on, else Nothing, or the faults of the entry values, canvas sizes, and coding.
+            """
+            values, source = stage.values, stage.image
+
+            def fitted(lines: int, period: float) -> Outcome[None]:
+                data, camera = stage.rasters
+                pitch = data.step[1]
+                extent = camera.bounds.top - camera.bounds.bottom
+                lower, upper, count, smoothing = (
+                    np.asarray(value, dtype=np.float64)
+                    for value in ((data.bounds.bottom + pitch / 2 - camera.bounds.bottom) / extent, (data.bounds.top - pitch / 2 - camera.bounds.bottom) / extent, lines, period)
+                )
+                _, _, rows, taps = _canvases(lower, upper, count, smoothing, np)
+                return accumulated(capacity(stage.scene, (1, int(size))) for size in (taps, rows)).map(lambda _: None)
+
+            def coded(compression: Compression) -> Outcome[OpenImageIO.ImageBuf]:
+                def straight(pixels: npt.NDArray[np.float32]) -> Outcome[OpenImageIO.ImageBuf]:
+                    alpha = pixels[..., 3:]
+                    return (
+                        buffers
+                        .located(pixels[..., :3], source)
+                        .bind(compression.applied)
+                        .bind(buffers.pixels)
+                        .bind(lambda rgb: buffers.located(buffers.associated(np.concatenate((rgb, alpha), axis=-1)), source))
+                    )
+
+                return buffers.pixels(source).map(buffers.unassociated).bind(straight)
+
+            taped = toggled(values, lambda: paired(value(values, int, _LINES), value(values, float, _TAPE, _JITTER_PERIOD)).bind(lambda held: fitted(*held)), _TAPE)
+            compressed = toggled(values, lambda: decoded(Compression(), values, _COMPRESSION.key).bind(coded), _COMPRESSION)
+            return paired(taped, compressed).map(lambda parts: parts[1])
+
+        return prepared
+
+    requested = staticmethod(precise)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
-# --- [CANVASES]
 
-
-def _canvases[V: Elementwise, B](scale: V, height: V, lines: V, period: V, ns: Namespace[V, B], /) -> tuple[V, V, V, V]:
+def _canvases[V: Elementwise, B](lower: V, upper: V, lines: V, period: V, ns: Namespace[V, B], /) -> tuple[V, V, V, V]:
     """Tape jitter canvases over the raster lines a frame's data window spans, in any namespace.
 
     Args:
-        scale: Camera share of overscan.
-        height: Data window height in pixels.
+        lower: Lowest pixel center in camera-height shares.
+        upper: Highest pixel center in camera-height shares.
         lines: Raster lines across frame height.
         period: Jitter smoothing period as a frame share.
         ns: Elementwise namespace, numpy on the CPU and `EXPRESSIONS` in a graph.
@@ -154,235 +367,9 @@ def _canvases[V: Elementwise, B](scale: V, height: V, lines: V, period: V, ns: N
     Returns:
         First spanned line, smoothing support in lines, then the jitter and impulse canvas heights.
     """
-    margin = (1.0 - scale) * 0.5
-    half = 0.5 / height
-    first, last = (ns.floor((edge - margin) / scale * lines) for edge in (half, 1.0 - half))
+    first, last = (ns.floor(edge * lines) for edge in (lower, upper))
     support = ns.negative(ns.floor(ns.negative(period * lines)))
     return first, support, last - first + 1.0 + support * 2.0, support * 4.0 + 1.0
-
-
-# --- [PREPARATION]
-
-
-def _prepared(stage: Stage[Emulation]) -> Outcome[Option[Prepared]]:
-    """Accepts the tape canvases of the captured raster and codes the captured display image before the graph.
-
-    Args:
-        stage: Captured display image, entry values, camera frame, and scene.
-
-    Returns:
-        Coded image while compression is on, else Nothing, or the faults of the entry values, canvas sizes, and coding.
-    """
-    values, source = stage.values, stage.image
-
-    def fitted(lines: int, period: float) -> Outcome[None]:
-        held = (np.asarray(stage.frame.scale, dtype=np.float64), np.asarray(source.spec().height, dtype=np.float64), np.asarray(lines, dtype=np.float64), np.asarray(period, dtype=np.float64))
-        _, _, rows, taps = _canvases(*held, np)
-        return accumulated(capacity(stage.scene, (1, int(size))) for size in (taps, rows)).map(lambda _: None)
-
-    def coded(compression: Compression) -> Outcome[OpenImageIO.ImageBuf]:
-        def straight(pixels: npt.NDArray[np.float32]) -> Outcome[OpenImageIO.ImageBuf]:
-            alpha = pixels[..., 3:]
-            return (
-                buffers
-                .located(pixels, source)
-                .bind(lambda image: buffers.checked(OpenImageIO.ImageBufAlgo.channels(image, (0, 1, 2))))
-                .bind(compression.applied)
-                .bind(buffers.pixels)
-                .bind(lambda rgb: buffers.located(buffers.associated(np.concatenate((rgb, alpha), axis=-1)), source))
-            )
-
-        return buffers.pixels(source).map(buffers.unassociated).bind(straight)
-
-    taped = toggled(values, lambda: paired(value(values, int, _LINES), value(values, float, _TAPE, _JITTER_PERIOD)).bind(lambda held: fitted(*held)), _TAPE)
-    compressed = toggled(values, lambda: decoded(Compression(), values, _COMPRESSION.key).bind(coded), _COMPRESSION)
-    return paired(taped, compressed).map(lambda parts: parts[1])
-
-
-# --- [TUBE]
-
-
-def _displayed(shell: GraphInputs[Emulation], image: Expr, *, time: Expr, lines: Expr) -> Expr:
-    """Shows a received signal on a picture tube whose sockets the display panel declares, the entering image's data window setting the beam's pixel footprint.
-
-    Args:
-        shell: Entry inputs and the entering image.
-        image: Received associated signal.
-        time: Clock units animating roll and interlaced fields.
-        lines: Raster lines across frame height.
-
-    Returns:
-        Displayed associated color, the signal while the display is off.
-    """
-    frame, display = shell.space, shell.input
-    x, y = frame.fraction["X"], frame.fraction["Y"]
-    aspect = frame.extent["X"] / frame.extent["Y"]
-    sides, scale = dimensions(shell.color), display(FRAME_SCALE)
-    half_x, half_y = (0.5 / (sides[axis] * scale) for axis in ("X", "Y"))
-    rolled = extended(image, frame.sampled(xyz(x, math("MULTIPLY_ADD", display(_DISPLAY, _ROLL), time, y))), (Border.CLAMP, Border.PERIODIC), clipped=True)
-    least = 1.0 / lines
-    lowered = math("MULTIPLY_ADD", display(_DISPLAY, _COLLAPSE), -2.0, 1.0)
-    height, width = math("MAXIMUM", lowered, least), math("MINIMUM", math("MAXIMUM", lowered + 1.0, least), 1.0)
-    at = vector("ADD", vector("DIVIDE", vector("SUBTRACT", frame.fraction, (0.5, 0.5, 0.0)), xyz(width, height, 1.0)), (0.5, 0.5, 0.0))
-    collapsed = vector("DIVIDE", extended(rolled, frame.sampled(at), Border.BLACK, clipped=True), width * height)
-    radius = frame.pixel_size(xyz(display(_DISPLAY, _GLOW, _RADIUS), display(_DISPLAY, _GLOW, _RADIUS)))
-    near = blurred(collapsed, radius)
-    glowed = switched(display(_DISPLAY, _GLOW), collapsed, mixed(0.890909, blurred(near, radius * (4.0, 1.0, 0.0)), near))
-    field = math("PINGPONG", math("FLOOR", time), 1.0)
-
-    def scanned_row(sign: float) -> Expr:
-        raster = ((math("MULTIPLY_ADD", half_y, sign, y) - 0.5) / height + 0.5) * lines
-        return switched(display(_DISPLAY, _SCANLINES, _INTERLACED), raster, (raster + field) * 0.5)
-
-    low, high = scanned_row(-1.0), scanned_row(1.0)
-    tau = 2.0 * np.pi
-    darkening = display(_DISPLAY, _SCANLINES, _DARKENING)
-    light = 1.0 - ((math("SINE", high * tau) - math("SINE", low * tau)) / ((high - low) * (2.0 * tau)) + 0.5) * darkening
-    scanned = switched(display(_DISPLAY, _SCANLINES), glowed, vector("SCALE", glowed, light / math("MULTIPLY_ADD", darkening, -0.5, 1.0)))
-    geometry = shell.menu(_DISPLAY, _PHOSPHORS, _LAYOUT, cases=_LAYOUTS)
-    fill = 1.0 - geometry["X"]
-    triads = display(_DISPLAY, _PHOSPHORS, _TRIADS)
-    rows_per_frame = triads / aspect
-    reach = {"x": (x * triads, half_x * triads, geometry["Z"]), "y": (y * rows_per_frame, half_y * rows_per_frame, geometry["Y"])}
-    ends = {
-        (axis, parity, sign): math("MULTIPLY_ADD", half, sign, math("MULTIPLY_ADD", stagger, parity, center))
-        for axis, (center, half, stagger) in reach.items()
-        for parity in range(2)
-        for sign in (-1.0, 1.0)
-    }
-
-    def primitive(at: Expr, gain: Scalar, start: Scalar, span: Scalar) -> Expr:
-        whole = math("FLOOR", at / 2.0)
-        return math("MULTIPLY_ADD", whole, gain, math("MINIMUM", math("MAXIMUM", math("MULTIPLY_ADD", whole, -2.0, at) - start, 0.0), span))
-
-    def covered(axis: str, parity: int, gain: Scalar, start: Scalar, span: Scalar) -> Expr:
-        return primitive(ends[axis, parity, 1.0], gain, start, span) - primitive(ends[axis, parity, -1.0], gain, start, span)
-
-    matrix = {(row, column): covered("y", column, fill, float(row), fill) for row, column in product(range(2), repeat=2)}
-    area = reach["y"][1] * 2.0 * (reach["x"][1] * 2.0)
-    mask = display(_DISPLAY, _PHOSPHORS, _MASKING)
-
-    def gained(index: int) -> Expr:
-        lit = {(row, column): covered("x", row, 1.0 / 3.0, column + index / 3.0, 1.0 / 3.0) * cell for (row, column), cell in matrix.items()}
-        integral = lit[0, 0] + lit[0, 1] + (lit[1, 0] + lit[1, 1])
-        return math("MULTIPLY_ADD", integral / area / fill * 3.0, mask, 1.0 - mask)
-
-    masked = switched(display(_DISPLAY, _PHOSPHORS), scanned, vector("MULTIPLY", scanned, rgba(gained(0), gained(1), gained(2))))
-    bulge = display(_DISPLAY, _CURVATURE)
-    offset = frame.point * (2.0, 2.0, 0.0) - frame.extent
-    stretched = vector("SCALE", offset, math("SQRT", bulge) * 2.0 / (bulge + 1.0))
-    real = 1.0 - (vector("LENGTH", stretched) > 1.0)
-    lens = vector(
-        "MULTIPLY_ADD",
-        vector("SCALE", offset / frame.extent, scale),
-        where(real, 1.0 / ((bulge + 1.0) * (vector("LENGTH", vector("ADD", stretched, (0.0, 0.0, 1.0))) + 1.0)), 0.0),
-        xyz(0.5, 0.5, real),
-    )
-    return switched(display(_DISPLAY), image, extended(masked, lens, Border.BLACK, clipped=True))
-
-
-# --- [GRAPH]
-
-
-def _emulation(shell: GraphInputs[Emulation]) -> Outcome[Expr]:
-    """Builds corruption, tape, reception, and display after the CPU coding, color differences in BT.601 luma weights at unit swing about zero.
-
-    Args:
-        shell: Coded image, camera frame, and parameter group inputs.
-
-    Returns:
-        Displayed color.
-    """
-    source, frame, held = shell.color, shell.space, shell.input
-    corrupting, taping, signaling = partial(held, _CORRUPTION), partial(held, _TAPE), partial(held, _SIGNAL)
-    seed, lines = held(SEED), held(_LINES)
-    red_weight, blue_weight = (float(weight) for weight in WEIGHTS_YCBCR["ITU-R BT.601"])
-    weights = (red_weight, 1.0 - red_weight - blue_weight, blue_weight)
-    time = clocked(held, _CLOCK)
-    pattern = math("FLOOR", time)
-    x, y = frame.fraction["X"], frame.fraction["Y"]
-    line = math("FLOOR", y * lines)
-    line_cell, sample_cell = xyz(line), xyz(math("FLOOR", x * math("ROUND", lines * frame.extent["X"] / frame.extent["Y"])), line)
-
-    def white(coordinate: Scalar) -> Expr:
-        return WhiteNoise(noise_dimensions="4D").node(coordinate, pattern)
-
-    def shifted(image: Scalar, horizontal: Scalar, vertical: Scalar = y, across: Border = Border.CLAMP, up: Border = Border.CLAMP) -> Expr:
-        return extended(image, frame.sampled(xyz(horizontal, vertical)), (across, up), clipped=True)
-
-    def banded(image: Scalar, horizontal: Scalar, vertical: Scalar) -> Expr:
-        return blurred(image, frame.pixel_size(xyz(horizontal, vertical) * frame.extent))
-
-    def drawn(socket: Socket, lattice: Scalar | tuple[float, ...]) -> Expr:
-        return white(vector("ADD", lattice, origin(seed, stream(Emulation, socket.key))))
-
-    def normals(socket: Socket, lattice: Scalar) -> tuple[Expr, Expr, Expr, Expr]:
-        axes = vector("ADD", lattice, origin(seed, stream(Emulation, socket.key)))
-        first, second, third, fourth = (white(xyz(axes["X"], axes["Y"], index)) for index in range(4))
-        return (*gaussian(first, second, EXPRESSIONS), *gaussian(third, fourth, EXPRESSIONS))
-
-    def corrupted(image: Expr) -> Expr:
-        cells = drawn(_COVERAGE, vector("FLOOR", vector("DIVIDE", frame.point, xyz(corrupting(_CELL_WIDTH), corrupting(_CELL_HEIGHT), 1.0))))
-        tone = cells.at("Color", bpy.types.NodeSocketColor)
-        struck = cells < corrupting(_COVERAGE)
-        cell_x = x + math("MULTIPLY_ADD", tone["Red"], 2.0, -1.0) * corrupting(_DISPLACEMENT) * struck
-        channels: tuple[Component, ...] = ("Red", "Green", "Blue")
-        red, green, blue = (
-            shifted(image, math("MULTIPLY_ADD", corrupting(_SPLIT), direction, cell_x), across=Border.PERIODIC, up=Border.BLACK)[channel] for channel, direction in zip(channels, (-1.0, 0.0, 1.0))
-        )
-        luma, blue_difference, red_difference = ycc(rgba(red, green, blue), weights)
-        power = 2.0 ** math("MULTIPLY_ADD", tone["Green"], 4.0, -2.0)
-
-        def powered(difference: Expr) -> Expr:
-            return mixed(corrupting(_POWER) * struck, difference, math("SIGN", difference) * (abs(difference) * 2.0) ** power * 0.5)
-
-        return switched(held(_CORRUPTION), image, from_ycc(luma, powered(blue_difference), powered(red_difference), weights))
-
-    def played(image: Expr) -> Expr:
-        first, support, rows, taps = _canvases(held(FRAME_SCALE), dimensions(source)["Y"], lines, taping(_JITTER_PERIOD), EXPRESSIONS)
-        padding = support * 2.0
-        jitter_canvas, impulse_canvas = (
-            Expr(kind=bpy.types.CompositorNodeBlankImage, inputs=(("Size", xyz(1.0, extent)),), socket="Image", socket_type=bpy.types.NodeSocketColor) for extent in (rows, taps)
-        )
-        jitter_row, impulse_row = (
-            Expr(kind=bpy.types.CompositorNodeImageCoordinates, inputs=(("Image", canvas),), socket="Pixel", socket_type=bpy.types.NodeSocketVector)["Y"] for canvas in (jitter_canvas, impulse_canvas)
-        )
-        filtered = xyz(0.0, taping(_JITTER_PERIOD) * lines)
-        jittered = blurred(normals(_JITTER, xyz(jitter_row + (first - support)))[0], filtered)
-        impulse = uv_mapped(blurred(blurred(math("COMPARE", impulse_row, padding, 0.0), filtered), filtered), (0.5, 0.5, 1.0), interpolation="Nearest")
-        normalized = jittered["Red"] / math("SQRT", impulse["Red"])
-        jitter_shift = math("MULTIPLY", uv_mapped(normalized, xyz(0.5, (line - first + support + 0.5) / rows, 1.0), interpolation="Nearest"), taping(_JITTER))
-        bounce_shift = math("MULTIPLY_ADD", drawn(_BOUNCE, (0.0, 0.0, 0.0)), 2.0, -1.0) * taping(_BOUNCE)
-        head = y / taping(_HEAD_SWITCHING)
-        head_shift = math("MINIMUM", head / 0.9, math("MULTIPLY_ADD", head, -10.0, 10.0)) * ((1.0 - (y < 0.0)) * (y < taping(_HEAD_SWITCHING))) * taping(_SKEW)
-        tracking = math("MULTIPLY_ADD", abs(math("WRAP", y - math("FRACT", time * taping(_TRACKING_RATE)), 0.5, -0.5)) / taping(_TRACKING_HEIGHT), -2.0, 1.0, clamp=True)
-        picture = shifted(image, x + jitter_shift + head_shift + tracking * taping(_TRACKING_SHIFT), y + bounce_shift, up=Border.BLACK)
-        luma, blue_difference, red_difference = ycc(picture, weights)
-        mistracked = from_ycc(mixed(tracking * taping(_MISTRACKING), luma, drawn(_MISTRACKING, line_cell)), blue_difference, red_difference, weights)
-        position = x / taping(_DROPOUT_LENGTH)
-        struck = drawn(_DROPOUTS, xyz(math("FLOOR", position), line)) < taping(_DROPOUTS)
-        return switched(held(_TAPE), image, mixed((1.0 - math("FRACT", position)) * struck, mistracked, (1.0, 1.0, 1.0)))
-
-    def received(image: Expr) -> Expr:
-        luma, blue_difference, red_difference = ycc(image, weights)
-        luma_noise, chroma_noises = normals(_NOISE, sample_cell), normals(_CHROMA_NOISE, sample_cell)
-        strength = math("SUBTRACT", luma, banded(luma, 1.0 / 377.0, 0.0)) * signaling(_CROSS_COLOR)
-        phase = math("MULTIPLY_ADD", x, 188.3, (line + pattern) * 0.5) * 2.0 * np.pi
-        green, blue = (
-            math("MULTIPLY_ADD", noise, signaling(_CHROMA_NOISE), math("MULTIPLY_ADD", strength, wave, difference))
-            for difference, wave, noise in ((blue_difference, math("COSINE", phase), chroma_noises[0]), (red_difference, math("SINE", phase), chroma_noises[1]))
-        )
-        band = banded(math("MULTIPLY_ADD", luma_noise[0], signaling(_NOISE), luma), signaling(_LUMA_BLUR), 0.0)
-        chroma = shifted(banded(rgba(green, blue, 0.0), signaling(_CHROMA_BLUR), signaling(_CHROMA_VERTICAL)), x - signaling(_CHROMA_DELAY))
-        ringed = (shifted(band, math("MULTIPLY_ADD", signaling(_LUMA_BLUR) / 3.0, direction, x)) for direction in (-1.0, 1.0))
-        overshoot = -math("MULTIPLY_ADD", band, -2.0, math("ADD", *ringed))
-        packed = rgba(math("MULTIPLY_ADD", overshoot, signaling(_RINGING), band), chroma["Red"] * signaling(_SATURATION), chroma["Green"] * signaling(_SATURATION))
-        amplitude = signaling(_GHOST, _ECHO)
-        echoed = switched(signaling(_GHOST), packed, mixed(amplitude / (amplitude + 1.0), packed, shifted(packed, x - signaling(_GHOST, _DELAY))))
-        loss = math("MULTIPLY_ADD", math("SINE", math("MULTIPLY_ADD", time, -0.002, y) * 2.0 * np.pi), 0.5, 0.5) * signaling(_HUM)
-        return switched(held(_SIGNAL), image, from_ycc(echoed["Red"] * (1.0 - loss), echoed["Green"], echoed["Blue"], weights))
-
-    return Ok(_displayed(shell, received(played(corrupted(source))), time=time, lines=lines))
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
@@ -390,13 +377,7 @@ def _emulation(shell: GraphInputs[Emulation]) -> Outcome[Expr]:
 _COMPRESSION: Final = InterfacePanel.of("compression", Compression(), toggle=Some(False))
 _CLOCK: Final = InterfacePanel.of(CLOCK.key, Clock(speed=24.0))
 emulation: Final = CompositorEffect(
-    _emulation,
-    record=Emulation,
-    interface=Interface(inputs=(_LINES, SEED), panels=(_COMPRESSION, _CORRUPTION, _TAPE, _SIGNAL, _DISPLAY, _CLOCK)),
-    mix=Blended(alpha=Alpha.STRAIGHT),
-    prepared=Some(_prepared),
-    request=Some(precise),
-    derives=(timing,),
+    record=Emulation, interface=Interface(inputs=(_LINES, SEED), panels=(_COMPRESSION, _CORRUPTION, _TAPE, _SIGNAL, _DISPLAY, _CLOCK)), mix=Mix.STRAIGHT, derives=(timing,)
 )
 
 # --- [EXPORTS] --------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-collected-join
-language: rust
+language: rustlang
 severity: error
 utils:
     literal-separator:
@@ -23,18 +23,10 @@ rule:
         - pattern: '$I.map(|$X| $X.to_string()).collect::<Vec<$_>>().join($S)'
         - pattern: '$I.map(|$X| $X.to_owned()).collect::<Vec<$_>>().join($S)'
         - all: [{pattern: '$I.collect::<Vec<$_>>().join($S)'}, {has: {stopBy: end, pattern: '$_.map(|$X| $X.as_str())'}}]
-        - pattern: '$J.map(|$P| format!($$$A)).collect::<Vec<$_>>().join($T)'
+        - pattern: '$J.map(|$_| format!($$$)).collect::<Vec<$_>>().join($T)'
         - all: [{pattern: '$I.collect::<Vec<$_>>().join($S)'}, {matches: literal-separator}]
 constraints:
     S: {not: {regex: '^""$'}}
     T: {not: {regex: '^""$'}}
-transform:
-    OPEN: {replace: {source: $I, replace: '^[\s\S]+$', by: '.join('}}
-    CLOSE: {replace: {source: $I, replace: '^[\s\S]+$', by: ')'}}
-    FOPEN: {replace: {source: $J, replace: '^[\s\S]+$', by: '.format_with('}}
-    FPARAM: {replace: {source: $T, replace: '^[\s\S]+$', by: ', |'}}
-    FBODY: {replace: {source: $P, replace: '^[\s\S]+$', by: ', sink| sink(&format_args!('}}
-    FCLOSE: {replace: {source: $J, replace: '^[\s\S]+$', by: '))).to_string()'}}
-fix: '$I$OPEN$S$CLOSE$J$FOPEN$T$FPARAM$P$FBODY$$$A$FCLOSE'
 message: '`$I$J` joins items through `intersperse` or an intermediate `Vec`'
 note: 'Call `<iterator>.join(<separator>)`, or `format_with(<separator>, |<item>, sink| ..)` over a `format!` map (`use itertools::Itertools as _;`)'

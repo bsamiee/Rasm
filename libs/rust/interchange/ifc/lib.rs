@@ -1,8 +1,11 @@
-#![feature(default_field_values, deref_patterns, float_conversions, gen_blocks)]
+#![feature(default_field_values, deref_patterns, float_conversions, gen_blocks, iterator_try_collect, vec_into_chunks)]
 
 use core::{
+    borrow::Borrow,
     hash::Hash,
+    mem,
     num::{ParseFloatError, ParseIntError, TryFromIntError},
+    ptr,
     str::FromStr,
 };
 use std::{
@@ -15,7 +18,7 @@ use data_encoding::DecodeError;
 use indexmap::IndexMap;
 use itertools::Itertools as _;
 use jiff::fmt::temporal::Pieces;
-use nonempty_collections::{NEVec, NonEmptyIterator as _, iter as nonempty};
+use nonempty_collections::{NEVec, NonEmptyIterator as _, iter};
 use parry3d_f64::shape::TriMeshBuilderError;
 use serde::{
     Deserialize, Deserializer, Serialize, Serializer,
@@ -41,6 +44,10 @@ use zip::result::ZipError;
 )]
 pub struct Name(Arc<str>);
 
+impl Borrow<str> for Name {
+    fn borrow(&self) -> &str { self }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, derive_more::AsRef, derive_more::Display, SerializeDisplay, DeserializeFromStr)]
 #[display("{}", _0.iter().format("/"))]
 pub struct Path(NEVec<Name>);
@@ -57,12 +64,16 @@ impl Path {
     }
 }
 
+impl Borrow<[Name]> for Path {
+    fn borrow(&self) -> &[Name] { self.0.iter().as_slice() }
+}
+
 impl FromStr for Path {
     type Err = IfcError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let (head, names) = s.split_once('/').map_or((s, None), |(head, names)| (head, Some(names)));
-        nonempty::once(head).chain(names.into_iter().flat_map(|names| names.split('/'))).map(|name| Name::try_new(Arc::<str>::from(name))).collect::<Result<NEVec<_>, _>>().map(Self)
+        iter::once(head).chain(names.into_iter().flat_map(|names| names.split('/'))).map(|name| Name::try_new(Arc::<str>::from(name))).collect::<Result<NEVec<_>, _>>().map(Self)
     }
 }
 
@@ -196,7 +207,12 @@ pub struct ObjectRestrictions {
 // --- [QUANTITIES]
 
 #[nutype::nutype(
-    validate(with = |length: &Length| -> Result<(), IfcError> { (length.is_normal() && length.is_sign_positive()).ok_or(IfcError::Constrained(Constraint::Length(length.get::<si::length::meter>()))) }, error = IfcError),
+    validate(
+        with = |length: &Length| -> Result<(), IfcError> {
+            (length.is_normal() && length.is_sign_positive()).ok_or(IfcError::Constrained(Constraint::Length(length.get::<si::length::meter>())))
+        },
+        error = IfcError
+    ),
     derive(Debug, Clone, Copy, PartialEq, PartialOrd, Deref)
 )]
 pub struct PositiveLength(Length);
@@ -334,11 +350,51 @@ impl<'de> IntoDeserializer<'de, serde_json::Error> for &'de Value {
 
 // --- [MODEL]
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone)]
 pub struct Composed {
     pub path: Path,
     pub attributes: IndexMap<Box<str>, Arc<Value>>,
     pub children: IndexMap<Name, Arc<Self>>,
+}
+
+impl PartialEq for Composed {
+    fn eq(&self, other: &Self) -> bool {
+        let mut pending = Vec::new();
+        let mut seen = HashSet::new();
+        let mut pair = (self, other);
+        loop {
+            let (left, right) = pair;
+            if left.children.is_empty() || seen.insert((ptr::from_ref(left), ptr::from_ref(right))) {
+                if left.path != right.path || left.attributes != right.attributes || left.children.len() != right.children.len() {
+                    return false;
+                }
+                if left
+                    .children
+                    .iter()
+                    .try_for_each(|(name, child)| {
+                        pending.push((child.as_ref(), right.children.get(name)?.as_ref()));
+                        Some(())
+                    })
+                    .is_none()
+                {
+                    return false;
+                }
+            }
+            let Some(next) = pending.pop() else { return true };
+            pair = next;
+        }
+    }
+}
+
+impl Drop for Composed {
+    fn drop(&mut self) {
+        let mut pending = mem::take(&mut self.children).into_values().collect::<Vec<_>>();
+        while let Some(child) = pending.pop() {
+            if let Some(mut child) = Arc::into_inner(child) {
+                pending.extend(mem::take(&mut child.children).into_values());
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -371,9 +427,45 @@ impl Model {
 
     #[must_use]
     pub fn occurrences(&self, path: &Path) -> Vec<Path> {
-        let nested =
-            self.holders.get(path).into_iter().flatten().flat_map(|(name, holder)| self.occurrences(&holder.path).into_iter().map(|occurrence| occurrence.child(name.clone()))).collect::<Vec<_>>();
-        if nested.is_empty() { Vec::from([path.clone()]) } else { nested }
+        let (relevant, roots) = {
+            let mut relevant = HashSet::new();
+            let mut roots = Vec::new();
+            let mut pending = match self.holders.get(path) {
+                Some(holders) => holders.iter().rev().map(|(name, holder)| holder.children[name].as_ref()).collect::<Vec<_>>(),
+                None => return Vec::from([path.clone()]),
+            };
+            while let Some(node) = pending.pop() {
+                if relevant.insert(ptr::from_ref(node)) {
+                    match self.holders.get(&node.path) {
+                        Some(holders) => pending.extend(holders.iter().rev().filter(|(name, holder)| ptr::eq(holder.children[name].as_ref(), node)).map(|(_, holder)| holder.as_ref())),
+                        None => roots.push(node),
+                    }
+                }
+            }
+            (relevant, roots)
+        };
+        let mut paths = Vec::new();
+        let mut names = Vec::new();
+        let mut pending = roots.into_iter().rev().map(|node| Some((node, &node.path, None))).collect::<Vec<_>>();
+        while let Some(next) = pending.pop() {
+            let (node, root) = match next {
+                Some((node, root, Some(name))) => {
+                    names.push(name);
+                    pending.push(None);
+                    (node, root)
+                }
+                Some((node, root, None)) => (node, root),
+                None => {
+                    names.truncate(names.len().strict_sub(1));
+                    continue;
+                }
+            };
+            if node.path == *path {
+                paths.push(Path(root.0.nonempty_iter().chain(names.iter().copied()).cloned().collect()));
+            }
+            pending.extend(node.children.iter().rev().filter(|(_, child)| relevant.contains(&Arc::as_ptr(child))).map(|(name, child)| Some((child.as_ref(), root, Some(name)))));
+        }
+        paths
     }
 }
 
@@ -484,7 +576,7 @@ pub enum IfcError {
     #[error("BCF entry {entry} exceeds the ZIP64 size range")]
     Size { entry: Box<str>, source: TryFromIntError },
     #[error("{path} holds conflicting opinions on {opinion}")]
-    Conflict { path: Path, opinion: Box<str> },
+    Conflict { path: Path, opinion: composition::Subject },
     #[error("{node} holds no triangle mesh")]
     Mesh { node: Path, source: TriMeshBuilderError },
     #[error("{node} holds an unreadable PCD point cloud")]

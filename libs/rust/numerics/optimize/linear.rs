@@ -1,11 +1,11 @@
-use core::{iter, range::RangeInclusive};
+use core::{cmp::Ordering, iter, range::RangeInclusive};
 
 use good_lp::{
     Constraint, DualValues as _, Expression, ProblemVariables, Solution as _, SolutionStatus, SolutionWithDual as _, SolverModel as _, Variable, highs,
     solvers::{MipGapError, highs::HighsProblem},
     variable,
 };
-use itertools::Itertools as _;
+use itertools::{Itertools as _, izip};
 use nalgebra::{DMatrix, DMatrixView, DVector, DVectorView};
 use nonempty_collections::NEVec;
 use validated::Validated;
@@ -44,10 +44,10 @@ pub struct Duals {
 #[derive(Debug, Clone)]
 pub struct Allocation {
     pub shares: DMatrix<f64>,
-    pub variables: Vec<f64>,
     pub objective: f64,
     pub status: SolutionStatus,
     pub duals: Option<Duals>,
+    pub variables: Vec<f64>,
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -57,6 +57,11 @@ where
     M: FnOnce(&mut ProblemVariables, &DMatrix<Variable>) -> (Expression, Vec<Constraint>),
     C: FnOnce(HighsProblem) -> Result<HighsProblem, MipGapError>,
 {
+    fn weighted<'term>(terms: impl IntoIterator<Item = (&'term f64, &'term bool, &'term Variable)>) -> Expression {
+        let mut expression = Expression::default();
+        terms.into_iter().filter(|&(weight, permitted, _)| *permitted && *weight != 0.0).for_each(|(&weight, _, &share)| expression.add_mul(weight, share));
+        expression
+    }
     resources
         .iter()
         .enumerate()
@@ -68,24 +73,30 @@ where
                     (Input::Capacities { resource }, costs.ncols(), capacities.len()),
                 ]
                 .map(|(input, expected, found)| (expected == found).ok_or(OptimizeError::Shape { input, expected, found })),
-                capacities.iter().positions(|&capacity| !(capacity > f64::NEG_INFINITY)).map(move |index| Err(OptimizeError::Entry { input: Input::Capacities { resource }, index })),
+                capacities
+                    .iter()
+                    .positions(|capacity| !matches!(capacity.partial_cmp(&f64::NEG_INFINITY), Some(Ordering::Greater)))
+                    .map(move |index| Err(OptimizeError::Entry { input: Input::Capacities { resource }, index })),
             )
         })
         .collect::<Validated<(), _>>()
         .ok()?;
-    let permitted = resources.iter().fold(costs.map(f64::is_finite), |permitted, resource| permitted.zip_map(&resource.demands, |permitted, demand| permitted && demand.is_finite()));
+    let permitted = resources.iter().fold(costs.map(f64::is_finite), |mut permitted, resource| {
+        permitted.zip_apply(&resource.demands, |permitted, demand| *permitted = *permitted && demand.is_finite());
+        permitted
+    });
     permitted.row_iter().positions(|row| coverage.start > 0.0 && !row.iter().any(|&share| share)).map(|item| Err(OptimizeError::Item { item })).collect::<Validated<(), _>>().ok()?;
-    let definition = match integrality {
-        Integrality::Binary => variable().binary(),
-        Integrality::Continuous => variable().bounds(0.0..=1.0),
-    };
     let mut variables = ProblemVariables::new();
-    let shares = DMatrix::from_vec(costs.nrows(), costs.ncols(), variables.add_all(permitted.iter().map(|&permitted| definition.clone().max(u8::from(permitted)))));
+    let shares = {
+        let definition = match integrality {
+            Integrality::Binary => variable().binary(),
+            Integrality::Continuous => variable().bounds(0.0..=1.0),
+        };
+        DMatrix::from_vec(costs.nrows(), costs.ncols(), variables.add_all(permitted.iter().map(|&permitted| definition.clone().max(u8::from(permitted)))))
+    };
     let (terms, constraints) = model(&mut variables, &shares);
-    let added = variables.iter_variables_with_def().skip(shares.len()).map(|(added, _)| added).collect::<Vec<_>>();
     let integer = variables.iter_variables_with_def().any(|(_, definition)| definition.is_integer());
-    let weighted = |weights: DMatrixView<'_, f64>| weights.zip_zip_map(&permitted, &shares, |weight, permitted, share| permitted.then_some((weight, share)));
-    let objective = weighted(costs).iter().flatten().map(|&(cost, share)| cost * share).sum::<Expression>() + terms;
+    let objective = weighted(izip!(costs, &permitted, &shares)) + terms;
     let mut problem = configure(variables.minimise(&objective).using(highs)).map_err(|source| NEVec::new(source.into()))?;
     let bounds = shares
         .row_iter()
@@ -97,9 +108,8 @@ where
     let limits = resources
         .iter()
         .flat_map(|resource| {
-            iter::zip(weighted(resource.demands).column_iter(), &resource.capacities)
-                .map(|(column, &capacity)| (column.iter().flatten().map(|&(demand, share)| demand * share).sum::<Expression>(), capacity))
-                .collect::<Vec<_>>()
+            izip!(resource.demands.column_iter(), permitted.column_iter(), shares.column_iter(), &resource.capacities)
+                .map(|(demands, permitted, shares, &capacity)| (weighted(izip!(demands, permitted, shares)), capacity))
         })
         .map(|(load, capacity)| problem.add_constraint(load.leq(capacity)))
         .collect::<Vec<_>>();
@@ -107,7 +117,6 @@ where
     let mut solution = problem.solve().map_err(|source| NEVec::new(source.into()))?;
     Ok(Allocation {
         shares: shares.map(|share| solution.value(share)),
-        variables: added.into_iter().map(|added| solution.value(added)).collect(),
         objective: solution.eval(&objective),
         status: solution.status(),
         duals: (!integer).then(|| {
@@ -118,5 +127,6 @@ where
                 constraints: rows.into_iter().map(|row| dual.dual(row)).collect(),
             }
         }),
+        variables: solution.into_inner().columns()[shares.len()..].to_vec(),
     })
 }

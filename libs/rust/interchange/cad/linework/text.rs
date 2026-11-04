@@ -37,12 +37,8 @@ pub(super) fn lifted(
     tolerance: Tolerance,
     subject: &Subject,
 ) -> Result<Option<Lettering>, NEVec<CadError>> {
-    const fn weighted(bold: bool) -> FontWeight {
-        if bold { const { FontWeight::try_new(parlance::FontWeight::BOLD.value()).ok().unwrap() } } else { const { FontWeight::try_new(parlance::FontWeight::NORMAL.value()).ok().unwrap() } }
-    }
-    const fn slanted(italic: bool) -> FontStyle {
-        if italic { FontStyle::Italic } else { FontStyle::Normal }
-    }
+    const fn weighted(bold: bool) -> FontWeight { if bold { const { FontWeight::try_new(parlance::FontWeight::BOLD.value()).ok().unwrap() } } else { FontWeight::NORMAL } }
+    const fn slanted(italic: bool) -> FontStyle { if italic { FontStyle::Italic } else { FontStyle::Normal } }
     let refused = |reason| CadError::Refused { subject: subject.clone(), reason };
     let misshapen = |source| CadError::Geometry { subject: subject.clone(), source };
     let typeface = |style: Option<&TextStyle>, height: f64| -> Result<(FontSize, FontFamily<'static>, FontWeight, FontStyle), CadError> {
@@ -56,7 +52,7 @@ pub(super) fn lifted(
             })
             .map_err(|(FontSizeError::FiniteViolated | FontSizeError::GreaterViolated)| refused(Refusal::Height))
     };
-    let seated = |vertical: TextVerticalAlignment, size: FontSize| match vertical {
+    let align = |vertical: TextVerticalAlignment, size: FontSize| match vertical {
         TextVerticalAlignment::Baseline => (Baseline::Alphabetic, Affine::IDENTITY),
         TextVerticalAlignment::Bottom => (Baseline::Bottom, Affine::IDENTITY),
         TextVerticalAlignment::Middle => (Baseline::Middle, Affine::IDENTITY),
@@ -105,7 +101,7 @@ pub(super) fn lifted(
             (_, _, Some(second)) => (second, text.rotation),
         };
         let flipped = |bit: i16| if text.generation_flags & bit == 0 { 1.0 } else { -1.0 };
-        let (baseline, shift) = seated(vertical, size);
+        let (baseline, shift) = align(vertical, size);
         Placement::try_new(
             frame
                 * ocs(text.normal, text.insertion_point.z)
@@ -135,36 +131,33 @@ pub(super) fn lifted(
             AttachmentPoint::BottomCenter => (Anchor::Middle, TextVerticalAlignment::Bottom),
             AttachmentPoint::BottomRight => (Anchor::End, TextVerticalAlignment::Bottom),
         };
-        let (baseline, shift) = seated(vertical, size);
+        let (baseline, shift) = align(vertical, size);
         let angle = mtext.dwg_x_direction.map_or(mtext.rotation, |direction| {
             let Matrix3 { m: [[x_x, y_x, _], [x_y, y_y, _], [x_z, y_z, _]] } = Matrix3::arbitrary_axis(mtext.normal);
             direction.dot(&Vector3::new(y_x, y_y, y_z)).atan2(direction.dot(&Vector3::new(x_x, x_y, x_z)))
         });
         let plane = frame * Affine::translate((mtext.insertion_point.x, mtext.insertion_point.y)) * ocs(mtext.normal, 0.0) * Affine::rotate(angle);
-        let pieces = parse_mtext(&mtext.value, true)
+        let (content, spans) = parse_mtext(&mtext.value, true)
             .paragraphs
             .into_iter()
             .enumerate()
             .flat_map(|(index, paragraph)| {
                 iter::chain(
-                    (index > 0).then(|| (String::from("\n"), None)),
-                    paragraph.spans.into_iter().map(|span| (span.stacking.map_or(span.text, |stacking| stacking.to_plain_text()), span.properties.font)),
+                    (index > 0).then_some((Cow::Borrowed("\n"), None)),
+                    paragraph.spans.into_iter().map(|span| (Cow::Owned(span.stacking.map_or(span.text, |stacking| stacking.to_plain_text())), span.properties.font)),
                 )
             })
-            .collect::<Vec<_>>();
-        let spans = pieces
-            .iter()
-            .scan(0_usize, |start, (piece, font)| {
-                let range = Range { start: *start, end: start.strict_add(piece.len()) };
-                *start = range.end;
-                Some((range, font.as_ref()))
-            })
-            .filter_map(|(range, font)| {
-                font.filter(|font| font.bold_explicit || font.italic_explicit).map(|font| {
-                    Span { range, weight: font.bold_explicit.then(|| weighted(font.bold)), style: font.italic_explicit.then(|| slanted(font.italic)), .. }
-                })
-            })
-            .collect();
+            .fold((String::new(), Vec::new()), |(mut content, mut spans), (piece, font)| {
+                let start = content.len();
+                content.push_str(&piece);
+                spans.extend(font.filter(|font| font.bold_explicit || font.italic_explicit).map(|font| Span {
+                    range: Range { start, end: content.len() },
+                    weight: font.bold_explicit.then(|| weighted(font.bold)),
+                    style: font.italic_explicit.then(|| slanted(font.italic)),
+                    ..
+                }));
+                (content, spans)
+            });
         let fill = match (mtext.background_fill_flags & 2, mtext.background_fill_flags & 1) {
             (0, 0) => None,
             (0, _) => Some(mtext.background_color),
@@ -188,7 +181,9 @@ pub(super) fn lifted(
                     TextVerticalAlignment::Middle => tall / 2.0,
                     TextVerticalAlignment::Bottom => tall,
                 };
-                Region::new(&(plane * Rect::new(left - margin, top - tall - margin, left + wide + margin, top + margin).to_path(tolerance.into_inner())), FillRule::NonZero, tolerance).map(|region| (region, color))
+                let mut outline = Rect::new(left - margin, top - tall - margin, left + wide + margin, top + margin).to_path(tolerance.into_inner());
+                outline.apply_affine(plane);
+                Region::new(outline, FillRule::NonZero, tolerance).map(|region| (region, color))
             })
             .transpose()
             .map_err(misshapen);
@@ -198,20 +193,7 @@ pub(super) fn lifted(
                 Validated::from(Some(mtext.rectangle_width / widening).filter(|advance| *advance > 0.0).map(Width::try_new).transpose().map_err(widthless)),
                 Validated::from(Some(mtext.line_spacing_factor).filter(|factor| *factor > 0.0).map(|factor| Width::try_new(size.into_inner() * factor * 5.0 / 3.0)).transpose().map_err(widthless)),
                 |background, placement, max_advance, line_height| Lettering {
-                    text: rasm_linework::Text {
-                        content: pieces.into_iter().map(|(piece, _)| piece).collect::<String>().into(),
-                        family,
-                        size,
-                        placement,
-                        weight,
-                        style,
-                        anchor,
-                        baseline,
-                        max_advance,
-                        line_height,
-                        spans,
-                        ..
-                    },
+                    text: rasm_linework::Text { content: content.into(), family, size, placement, weight, style, anchor, baseline, max_advance, line_height, spans, .. },
                     background,
                 },
             )
@@ -314,11 +296,7 @@ pub(super) fn written(text: &rasm_linework::Text, frame: Affine) -> (EntityType,
                 .filter(|cut| (begin..=end).contains(cut) && content.is_char_boundary(*cut))
                 .collect::<BTreeSet<_>>();
             MTextParagraph {
-                spans: cuts
-                    .iter()
-                    .tuple_windows::<(_, _)>()
-                    .filter_map(|(&low, &high)| content.get(low..high).map(|piece| MTextSpan::new(piece, properties(Range { start: low, end: high }))))
-                    .collect(),
+                spans: cuts.iter().tuple_windows::<(_, _)>().map(|(&low, &high)| MTextSpan::new(&content[low..high], properties(Range { start: low, end: high }))).collect(),
                 ..MTextParagraph::new()
             }
         })

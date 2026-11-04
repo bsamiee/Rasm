@@ -31,9 +31,9 @@ internal static class SiblingArm {
 }
 
 internal static class DefaultedArm {
-    internal static Fin<int> Unset(int count) => count switch { > 0 => (Fin<int>)count, _ => default };
+    internal static Fin<int> Unset(int count) => {|CS8603:count switch { > 0 => (Fin<int>)count, _ => default }|};
     internal static Validation<Error, int> Typed(bool held, int value) => (held ? Fin.Succ(value) : Error.New("refused")).ToValidation();
-    internal static Validation<Error, int> Defaulted(int count) => (count switch { > 0 => default, _ => Fin.Succ(count) }).ToValidation();
+    internal static Validation<Error, int> Defaulted(int count) => ({|CS8602:count switch { > 0 => default, _ => Fin.Succ(count) }|}).ToValidation();
 }
 
 internal static class InferredCallback {
@@ -47,4 +47,8 @@ internal static class InferredLocal {
         return held;
     }
     internal static Fin<int> Inferred(Fin<int> start) => start.Bind(value => Fin.Succ(value + 1));
+}
+
+internal static class DocumentedLift {
+    internal static Fin<int> Kept(int value) => {|#10:Fin.Succ(/* value */ value)|};
 }

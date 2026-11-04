@@ -19,11 +19,12 @@ public sealed record BrowserRow<TItem, TKey>(Func<TItem, TKey> Key, Func<TItem, 
     public RowShape Shape { get; init; } = RowShape.Filled;
 
     public static IO<RowCells> Realize(IO<BrowserRow<TItem, TKey>> latest, LocalizeStringPair label, RowScope scope) =>
+        Products.Serialized(run =>
+        from owned in IO.env
         from first in latest
-        from tiles in IO.lift(static () => Ref(HashMap<TKey, Owned<Image>>()))
+        from tiles in IO.lift(static () => Ref(HashMap<(TKey Key, TItem Item, Size Size), Owned<Image>>()))
         from buttons in IO.lift(static () => Ref(HashMap<TKey, Owned<ImageButton>>()))
         from keep in atomIO<Func<TItem, bool>>(static _ => true)
-        from owned in use(static () => EnvIO.New(token: CancellationToken.None))
         from loads in IO.lift(static () => Ref(Option<Owned<Unit>>.None))
         from grid in Containers.Frame(static () => new ControlGridLayout { Wrap = true, GridWrapMode = GridWrapMode.Horizontal, ItemPadding = RhinoLayout.Padding(RhinoLayout.PaddingType.ButtonRow) })
         from scroll in Containers.Frame(static () => new Scrollable { Border = BorderType.None, ExpandContentWidth = true, ExpandContentHeight = false })
@@ -35,30 +36,36 @@ public sealed record BrowserRow<TItem, TKey>(Func<TItem, TKey> Key, Func<TItem, 
             stack.Items.Add(empty);
         })
         from commands in Lists.Commanded(None, first.Commands(from current in latest from kept in keep.ValueIO select current.Items.Filter(kept)), scope)
+        from post in Mailboxes.Idle<Unit, Unit>(_ => run(
+            from current in latest
+            from kept in keep.ValueIO
+            from arranged in Arranged(grid, current, latest, buttons, tiles, current.Items.Filter(kept), commands.Menu, scope, owned)
+            select unit))
         let shown =
             from current in latest
             from kept in keep.ValueIO
             let listed = current.Items.Filter(kept)
-            from loaded in Products.Clear(loads).Bind(_ => Products.Replace(loads, Loaded(latest, tiles, listed, scope, owned))).Scoped(owned)
-            from arranged in Arranged(grid, latest, buttons, tiles, listed, commands.Menu, scope, owned)
+            from loaded in Products.Clear(loads).Bind(_ => Products.Replace(loads, Loaded(current, tiles, listed, scope, owned, post(unit, unit)))).Scoped(owned)
+            from arranged in Arranged(grid, current, latest, buttons, tiles, listed, commands.Menu, scope, owned)
             from emptied in IO.lift(() => { (scroll.Visible, empty.Visible, grid.ItemSize) = (!listed.IsEmpty, listed.IsEmpty, current.TileSize); })
             select unit
-        from keys in Subscriptions.Inline<KeyEventArgs>(h => grid.KeyDown += h, h => grid.KeyDown -= h).Attach(args => CommandRows.Pressed(commands.Keyed, args))
-        from content in Lists.Searched(stack, first.Search, kept => writeIO(keep, kept).Bind(_ => shown))
-        select new RowCells(content.Control, latest.Bind(current => content.Shown(current.Search)).Bind(_ => shown).Bind(_ => commands.Refresh)) { Menu = commands.Menu };
+        from keys in Subscriptions.Inline<KeyEventArgs>(h => grid.KeyDown += h, h => grid.KeyDown -= h).Attach(args => run(CommandRows.Pressed(commands.Keyed, args)))
+        from content in Lists.Searched(stack, first.Search, kept => run(writeIO(keep, kept).Bind(_ => shown)))
+        select (new RowCells(content.Control, run(latest.Bind(current => content.Shown(current.Search)).Bind(_ => shown).Bind(_ => commands.Refresh))) { Menu = commands.Menu },
+            IO.lift(grid.Items.Clear).Finally(Products.Clear(loads))));
 
     private static IO<Unit> Arranged(
-        ControlGridLayout grid, IO<BrowserRow<TItem, TKey>> latest, Ref<HashMap<TKey, Owned<ImageButton>>> buttons, Ref<HashMap<TKey, Owned<Image>>> tiles,
+        ControlGridLayout grid, BrowserRow<TItem, TKey> current, IO<BrowserRow<TItem, TKey>> latest, Ref<HashMap<TKey, Owned<ImageButton>>> buttons, Ref<HashMap<(TKey Key, TItem Item, Size Size), Owned<Image>>> tiles,
         Seq<TItem> listed, Seq<Seq<Command<Invoke>>> menu, RowScope scope, EnvIO owned) =>
-        from current in latest
-        let wanted = listed.Map(current.Key)
+        from wanted in IO.pure(listed.Map(current.Key))
         let chosen = toHashSet(wanted)
+        let requests = toHashSet(listed.Map(item => (Key: current.Key(item), Item: item, Size: current.TileSize)))
         from prior in atomicIO(() => buttons.Value)
         from made in wanted.Filter(key => !prior.ContainsKey(key)).TraverseM(key => Products.Replace(buttons, key, Tiled(latest, key, menu, scope)).Scoped(owned)).As()
         from held in atomicIO(() => buttons.Value)
         from images in atomicIO(() => tiles.Value)
         from faced in listed.TraverseM(item => held.Find(current.Key(item)).Traverse(button => IO.lift(() => {
-            (button.Value.Size, button.Value.ToolTip, button.Value.Image) = (current.TileSize, current.Label(item), images.Find(current.Key(item)).Map(static tile => tile.Value).ValueUnsafe());
+            (button.Value.Size, button.Value.ToolTip, button.Value.Image) = (current.TileSize, current.Label(item), images.Find((current.Key(item), item, current.TileSize)).Map(static tile => tile.Value).ValueUnsafe());
             button.Value.BackgroundColor = current.Current == Some(current.Key(item)) ? SystemColors.Highlight : Colors.Transparent;
         })).As()).As()
         let controls = wanted.Choose(key => held.Find(key).Map(static button => (Control)button.Value))
@@ -67,24 +74,21 @@ public sealed record BrowserRow<TItem, TKey>(Func<TItem, TKey> Key, Func<TItem, 
             _ = controls.Iter(control => grid.Items.Add(control));
         })).As()
         from dropped in toSeq(held.Keys).Filter(key => !chosen.Contains(key)).TraverseM(key => Products.Clear(buttons, key).Scoped(owned)).As()
+        from pruned in toSeq(images.Keys).Filter(request => !requests.Contains(request)).TraverseM(request => Products.Clear(tiles, request).Scoped(owned)).As()
         select unit;
 
     private static IO<ImageButton> Tiled(IO<BrowserRow<TItem, TKey>> latest, TKey key, Seq<Seq<Command<Invoke>>> menu, RowScope scope) =>
         from made in use(static () => new ImageButton())
-        from pressed in Subscriptions.On<EventArgs>(h => made.Click += h, h => made.Click -= h).Attach(_ => latest.Bind(last => last.Chosen(EditPhase.Commit.Of(key))))
+        from pressed in Subscriptions.On<EventArgs>(h => made.Click += h, h => made.Click -= h).Attach(_ => latest.Bind(last => last.Chosen(new Edit<TKey>.Changed(Applies: true, key))))
         from popup in unless(menu.IsEmpty, CommandRows.Menu(menu, scope).Bind(held => IO.lift(() => { made.ContextMenu = held.Menu; }))).As()
         select made;
 
-    private static IO<Unit> Loaded(IO<BrowserRow<TItem, TKey>> latest, Ref<HashMap<TKey, Owned<Image>>> tiles, Seq<TItem> listed, RowScope scope, EnvIO owned) =>
-        from current in latest
-        let wanted = toHashSet(listed.Map(current.Key))
+    private static IO<Unit> Loaded(BrowserRow<TItem, TKey> current, Ref<HashMap<(TKey Key, TItem Item, Size Size), Owned<Image>>> tiles, Seq<TItem> listed, RowScope scope, EnvIO owned, IO<Unit> refreshed) =>
         from prior in atomicIO(() => tiles.Value)
-        from pruned in toSeq(prior.Keys).Filter(key => !wanted.Contains(key)).TraverseM(key => Products.Clear(tiles, key).Scoped(owned)).As()
-        from forked in listed.Filter(item => !prior.ContainsKey(current.Key(item))).TraverseM(item =>
-            use(((from made in current.Tile(scope, item, current.TileSize)
-                  from cached in Products.Replace(tiles, current.Key(item), use(() => made)).Scoped(owned)
-                  select unit)
-                    | @catch(static error => !Session.Cancellation(error), static error => IO.lift(() => Session.Failed(error, nameof(BrowserRow<,>)))))
-                .Fork(), static fork => fork.Cancel)).As()
+        from forked in listed.Filter(item => !prior.ContainsKey((current.Key(item), item, current.TileSize))).TraverseM(item =>
+            Products.Forked((from cached in Products.Replace(tiles, (current.Key(item), item, current.TileSize), Products.Acquired(current.Tile(scope, item, current.TileSize))).Scoped(owned.Resources)
+                             from posted in refreshed
+                             select unit)
+                    | @catch(static error => !Session.Cancellation(error), static error => IO.lift(() => Session.Failed(error, nameof(BrowserRow<,>)))))).As()
         select unit;
 }

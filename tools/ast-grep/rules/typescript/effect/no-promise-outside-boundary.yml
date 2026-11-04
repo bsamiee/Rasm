@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-promise-outside-boundary
-language: tsx
+language: tsxlang
 severity: error
 ignores: ['plugins/function-hooks/**', '.claude/workflows/**']
 utils:
@@ -105,8 +105,8 @@ utils:
                 - matches: {typescript-import-reference: {source: {regex: '^effect/Effect$'}, exported: {regex: '^(runPromise|runPromiseExit)$'}}}
                 - kind: member_expression
                   all:
-                    - has: {field: object, matches: {effect-module: {name: {regex: '\bEffect$'}}}}
                     - has: {field: property, regex: '^(runPromise|runPromiseExit)$'}
+                    - has: {field: object, matches: {effect-module: {name: {regex: '\bEffect$'}}}}
     promise-call:
         kind: call_expression
         has:
@@ -115,8 +115,8 @@ utils:
                 - matches: {typescript-import-reference: {source: {regex: '^effect/Effect$'}, exported: {regex: '^(promise|tryPromise)$'}}}
                 - kind: member_expression
                   all:
-                    - has: {field: object, matches: {effect-module: {name: {regex: '\bEffect$'}}}}
                     - has: {field: property, regex: '^(promise|tryPromise)$'}
+                    - has: {field: object, matches: {effect-module: {name: {regex: '\bEffect$'}}}}
     conversion-boundary:
         any:
             - kind: arrow_function, function_expression
@@ -131,36 +131,30 @@ utils:
             - kind: method_definition
               has: {field: name, regex: '^(try|"try"|''try'')$'}
               inside: {kind: object, inside: {kind: arguments, inside: {matches: promise-call}}}
-            - matches: typescript-function-boundary
-              inside: {matches: conversion-boundary, stopBy: {matches: typescript-function-boundary}}
-    promise-boundary:
-        any:
-            - matches: nx-boundary
-            - matches: conversion-boundary
     global-receiver: {matches: typescript-global-reference, regex: '^(globalThis|window|self)(\.(globalThis|window|self))*$'}
     promise-constructor:
         any:
             - {matches: typescript-global-reference, regex: '^Promise$'}
             - kind: member_expression
               all:
-                - has: {field: object, matches: global-receiver}
                 - has: {field: property, regex: '^Promise$'}
+                - has: {field: object, matches: global-receiver}
             - kind: subscript_expression
               all:
-                - has: {field: object, matches: global-receiver}
                 - has: {field: index, kind: string, regex: '^[''"]Promise[''"]$'}
+                - has: {field: object, matches: global-receiver}
             - matches: typescript-expression-wrapper
               has: {matches: promise-constructor}
     promise-combinator:
         any:
             - kind: member_expression
               all:
-                - has: {field: object, matches: promise-constructor}
                 - has: {field: property, regex: '^(all|allSettled|any|race|resolve|reject|withResolvers|try)$'}
+                - has: {field: object, matches: promise-constructor}
             - kind: subscript_expression
               all:
-                - has: {field: object, matches: promise-constructor}
                 - has: {field: index, kind: string, regex: '^[''"](all|allSettled|any|race|resolve|reject|withResolvers|try)[''"]$'}
+                - has: {field: object, matches: promise-constructor}
             - matches: typescript-expression-wrapper
               has: {matches: promise-combinator}
     fetch-callee:
@@ -168,12 +162,12 @@ utils:
             - {matches: typescript-global-reference, regex: '^fetch$'}
             - kind: member_expression
               all:
-                - has: {field: object, matches: global-receiver}
                 - has: {field: property, regex: '^fetch$'}
+                - has: {field: object, matches: global-receiver}
             - kind: subscript_expression
               all:
-                - has: {field: object, matches: global-receiver}
                 - has: {field: index, kind: string, regex: '^[''"]fetch[''"]$'}
+                - has: {field: object, matches: global-receiver}
             - matches: typescript-expression-wrapper
               has: {matches: fetch-callee}
 rule:
@@ -185,7 +179,6 @@ rule:
                 - not:
                     any:
                         - has: {matches: host-import}
-                        - has: {kind: assignment_expression, has: {regex: '^using$', not: {kind: identifier}}}
                         - has: {matches: run-promise}
                         - has: {kind: call_expression, has: {field: function, any: [{matches: fetch-callee}, {matches: promise-combinator}]}}
                         - has: {kind: new_expression, has: {field: constructor, matches: promise-constructor}}
@@ -202,7 +195,10 @@ rule:
                 field: function
                 pattern: $CALLEE
                 matches: promise-combinator
-        - not: {inside: {stopBy: {matches: typescript-function-boundary}, matches: promise-boundary}}
+        - not:
+            any:
+                - inside: {stopBy: {matches: typescript-function-boundary}, matches: nx-boundary}
+                - inside: {stopBy: end, matches: conversion-boundary}
 transform:
     AWAITED_HEAD: {replace: {source: $AWAITED, replace: '(?s)^([^(]+)\(.*$', by: '$1'}}
     ITERABLE_HEAD: {replace: {source: $ITERABLE, replace: '(?s)^([^(]+)\(.*$', by: '$1'}}

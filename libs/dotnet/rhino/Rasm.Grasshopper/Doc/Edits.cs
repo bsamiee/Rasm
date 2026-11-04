@@ -119,7 +119,7 @@ public static class Edits {
 
     public static IO<Unit> Rename(IParameter start, Side side, string userName, ActionList actions) =>
         from document in Located(start)
-        from renamed in IO.lift(() => Wired(document, side, Seq(start), toHashSet(Seq(start.InstanceId)), Seq(start)).Iter(member => {
+        from renamed in IO.lift(() => Wired(document, side, Seq(start), toHashSet(Seq(start.InstanceId)), Seq(start)).Run().Iter(member => {
             actions.Add(new RenameAction(member));
             member.UserName = userName;
         }))
@@ -136,14 +136,14 @@ public static class Edits {
     private static IO<Unit> Replaced(Document document, IParameter source, IParameter replacement, ActionList actions) =>
         IO.lift(() => Ends(document, source.Outputs).Iter(target => ignore(Connections.ReplaceSource(source, replacement, target, actions))));
 
-    private static Seq<IParameter> Wired(Document document, Side side, Seq<IParameter> frontier, HashSet<Guid> seen, Seq<IParameter> reached) =>
+    private static Trampoline<Seq<IParameter>> Wired(Document document, Side side, Seq<IParameter> frontier, HashSet<Guid> seen, Seq<IParameter> reached) =>
         frontier.IsEmpty
-            ? reached
+            ? Trampoline.Pure(reached)
             : frontier.Bind(member => toSeq((side is Side.Input ? member.Inputs : member.Outputs).Forwards)).Fold((Seen: seen, Found: Seq<IParameter>()), (state, id) =>
                 state.Seen.Contains(id)
                     ? state
                     : Optional(document.Objects.FindParameter(id)).Match(Some: found => (Seen: state.Seen.Add(id), Found: state.Found.Add(found)), None: () => state)) switch {
-                        var step => Wired(document, side, step.Found.Filter(static member => member.Kind is Kind.Floating), step.Seen, reached + step.Found),
+                        var step => Trampoline.More(() => Wired(document, side, step.Found.Filter(static member => member.Kind is Kind.Floating), step.Seen, reached + step.Found)),
                     };
 
     private static Seq<IParameter> Ends(Document document, Connections connections) =>

@@ -1,15 +1,15 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: python-invariant-index-test
-language: python
+language: pythonlang
 utils:
-    scope:
-        kind: 'function_definition, lambda, class_definition'
+    constructor:
+        matches: {python-builtin-name: {name: {regex: '^(set|frozenset|list|tuple|dict|sorted)$'}}}
     construct:
         any:
             - kind: call
               all:
-                - has: {field: function, regex: '^(set|frozenset|list|tuple|dict|sorted)$'}
                 - has: {field: arguments, all: [{has: {nthChild: 1, kind: 'identifier, attribute', pattern: $SOURCE}}, {not: {has: {nthChild: 2}}}]}
+                - has: {field: function, matches: constructor}
             - kind: 'list_comprehension, set_comprehension, dictionary_comprehension'
               has: {kind: for_in_clause, not: {follows: {kind: for_in_clause, stopBy: end}}, has: {field: right, pattern: $SOURCE}}
     mutated:
@@ -48,12 +48,12 @@ utils:
             pattern: $LOOP
             any:
                 - matches: bound
-                - has: {stopBy: {matches: scope}, matches: bound}
+                - has: {stopBy: &scope {kind: 'function_definition, lambda, class_definition'}, matches: bound}
 rule:
     kind: comparison_operator
     all:
         - has: {field: operators, regex: '^(not\s+)?in$'}
-        - any: [{matches: per-item}, {inside: {stopBy: {matches: scope}, matches: per-item}}]
+        - any: [{matches: per-item}, {inside: {stopBy: *scope, matches: per-item}}]
         - has: {nthChild: 2, matches: construct, pattern: $INDEX}
         - not: {has: {nthChild: 2, has: {stopBy: end, matches: variant}}}
         - not: {inside: {stopBy: end, pattern: $LOOP, has: {stopBy: end, matches: mutated}}}

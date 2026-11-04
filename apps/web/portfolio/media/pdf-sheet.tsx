@@ -1,6 +1,5 @@
 import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
-import { PdfDocument } from '@rasm/media/pdf/document';
-import { PdfViewer } from '@rasm/media/pdf/viewer';
+import { PdfDocument, PdfViewer } from '@rasm/media/pdf';
 import { Array, HashSet, Match, Option, Record } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import { ChevronLeft, ChevronRight, RotateCw } from 'lucide-react';
@@ -140,21 +139,12 @@ const SheetPreview = ({ document, page, asset }: { document: PDFDocumentProxy; p
 };
 const PdfSheet = ({ placement, layoutId }: { placement: Extract<typeof Placement.Type, { kind: 'pdf' }>; layoutId: string | undefined }) => {
     const url = assetUrl(placement.asset);
-    const source = PdfDocument.family({ url, disableStream: true, disableAutoFetch: true });
+    const source = PdfDocument({ url, base: import.meta.env.BASE_URL, disableStream: true, disableAutoFetch: true });
     const retry = useAtomRefresh(source);
     return AsyncResult.builder(useAtomValue(source))
         .onInitialOrWaiting(() => <MediaLoading />)
         .onSuccess((document) => (layoutId === undefined ? <SheetPreview asset={placement.asset} document={document} page={placement.page.number} /> : <SheetViewer document={document} layoutId={layoutId} placement={placement} url={url} />))
-        .onErrorTag('MediaError', ({ reason }) => (
-            <MediaFailure
-                asset={placement.asset}
-                message={Match.value(reason).pipe(
-                    Match.tag('Protected', () => 'PDF is password protected'),
-                    Match.tag('Missing', () => 'PDF not found'),
-                    Match.orElse(() => 'Browser cannot read PDF'),
-                )}
-            />
-        ))
+        .onErrorTag('MediaError', ({ reason }) => <MediaFailure asset={placement.asset} message={Record.get<string, string>({ Protected: 'PDF is password protected', Missing: 'PDF not found' }, reason._tag).pipe(Option.getOrElse(() => 'Browser cannot read PDF'))} />)
         .onFailure(() => <MediaFailure asset={placement.asset} message="PDF failed to load" onRetry={retry} />)
         .exhaustive();
 };

@@ -10,9 +10,6 @@ Covers C# design from signature shape to host boundary, with LanguageExt, Thinkt
 [PRINCIPLES]:
 - Facts are stated once at their owner, and every other use derives from it
 - Packages and hosts are used through their members, and a hand-written form of a member is a defect
-- Helpers one function reads sit inside it, and a one-member static class or a forwarding layer merges into its caller
-- Kinds, keys, and states are smart enum items or union cases, and a string compared or switched on in their place is a defect
-- Optional fields set and read together are one `Option` of a record
 - Parameters every caller passes alike fold into their owner
 - Changes leave code smaller or more capable, a move, split, rename, or extracted helper changes nothing
 
@@ -26,6 +23,7 @@ Covers C# design from signature shape to host boundary, with LanguageExt, Thinkt
 - [07]-[STREAMS](references/streams.md): Observable model and agent model, with per-item failure, backpressure, and entity processes
 - [08]-[EVENT_SOURCING](references/event-sourcing.md): Event history as the source of truth, from storage to the command and query sides
 - [09]-[LANGUAGE_FEATURES](references/language-features.md): Language and runtime features that reshape declarations, with when each applies
+- [10]-[ANALYZERS](references/analyzers.md): Roslyn action scopes, semantic identity, traversal costs, and document fixes
 
 ## [01]-[FUNCTIONS]
 
@@ -147,7 +145,7 @@ Each arm states an input category beside its outcome, and the switch expression 
 - `when` adds a guard, `_` is the discard for the fallback arm
 - List patterns recognize values at the beginning, middle, or end of an array with known headers or footers
 
-C# has no active patterns, `Deconstruct` is the only user code that runs inside a pattern and cannot fail. Interpret an external value once near its source into `Option<A>` or a closed union (`parseInt(text)`, a classifier returning a `[Union]` case), then match the typed result.
+Patterns can invoke getters, indexers, and `Deconstruct` with unspecified evaluation order. Keep those members pure, and decode fallible input into `Option<A>` or a closed union before matching.
 
 ### [02.2]-[TUPLES]
 
@@ -263,7 +261,7 @@ internal static class Workflow {
 
 ### [04.2]-[ERRORS]
 
-Expected failures are data in return types, and exceptions are reserved for developer defects that violate a precondition, configuration failures during initialization, and exception-based third-party calls a boundary converts with `IO.lift` or `Try.lift` around the throwing call alone. Each raising package declares one error record holding the subject and a reason as fields, the reason a smart enum with items holding their message text, a fact some failures lack is an `Option` field. Findings a check collects into a report without failing are a data union, one case per finding kind rendering its message. Records extend `Expected` with code 0 and a `<reason>: <subject>` message that reads whole for the rejected values and for the generated message `Create` receives. Records hold only fields, one `Unless` factory returning `Fin` (`flag ? unit : new <Record>(…)`), and the `Create(string)` `IValidationError` requires, a limit or other operation sits in the raising class. `Unless` takes the rejected values as its subject, one value or a tuple, named from their call text through `[CallerArgumentExpression]`:
+Expected failures are data in return types, and exceptions signal developer defects, initialization failures, or third-party calls a boundary converts with `IO.lift` or `Try.lift`. Each raising package declares an error record retaining rejected values and a typed reason. Optional facts take `Option` fields, findings collected without failing take union cases. Records extend `Expected` with code 0 and derive `Message` from current fields. `Unless` returns `Fin`, and `Create(string)` implements `IValidationError`. Rejected values keep their call text through `[CallerArgumentExpression]`:
 
 ```csharp
 [SmartEnum]
@@ -275,12 +273,20 @@ public sealed partial class Reason {
     public string Message { get; }
 }
 
-public sealed record Fault(string Subject, Reason Reason, Option<int> Index = default, Option<Error> Inner = default)
-    : Expected(Index.Match(at => string.Create(CultureInfo.InvariantCulture, $"{Reason.Message}: {Subject} at index {at}"), () => $"{Reason.Message}: {Subject}"), 0, Inner), IValidationError<Fault> {
+public sealed record Fault(object? Subject, Reason Reason, Option<int> Index = default, Option<Error> Inner = default)
+    : Expected(Reason.Message, 0, Inner), IValidationError<Fault> {
+    public object? Subject { get; } = Subject;
+    public Reason Reason { get; } = Reason;
+    public Option<int> Index { get; } = Index;
+
+    public override string Message => Index.Match(
+        at => string.Create(CultureInfo.InvariantCulture, $"{Reason.Message}: {Subject} at index {at}"),
+        () => string.Create(CultureInfo.InvariantCulture, $"{Reason.Message}: {Subject}"));
+
     public static Fault Create(string message) => new(message, Reason.Stated);
 
     public static Fin<Unit> Unless<T>(bool flag, Reason reason, T rejected, Option<int> index = default, [CallerArgumentExpression(nameof(rejected))] string names = "") =>
-        flag ? unit : new Fault(string.Create(CultureInfo.InvariantCulture, $"{names} = {rejected}"), reason, index);
+        flag ? unit : new Fault((names, rejected), reason, index);
 }
 ```
 
@@ -297,16 +303,16 @@ Model each valid state a consumer inspects as a distinct case. States differing 
 ```csharp
 [Union]
 internal abstract partial record Shape {
-    private Shape(double area) => Area = area;
+    public double Area => Switch(
+        circle: static circle => double.Pi * circle.Radius * circle.Radius,
+        rectangle: static rectangle => rectangle.Width * rectangle.Height);
 
-    public double Area { get; }
-
-    internal sealed record Circle(double Radius) : Shape(double.Pi * Radius * Radius);
-    internal sealed record Rectangle(double Width, double Height) : Shape(Width * Height);
+    internal sealed record Circle(double Radius) : Shape;
+    internal sealed record Rectangle(double Width, double Height) : Shape;
 }
 ```
 
-- Cases pass shared data and each fact they derive (a function, bounds, a linear part) to the base constructor, consumers read one base member
+- Shared derived members read current case data, record copies preserve stored base-constructor results unchanged
 - Call `Switch` only where behavior depends on the case, and pass the union onward elsewhere
 - Treat a case as an alternative to its siblings, name each case's data in its own terms, and hold mixed cases in one `Seq` of the base type
 - Unions fit a growing set of operations, abstract members fit a growing set of cases
@@ -326,7 +332,7 @@ internal abstract partial record Shape {
 |  [06]   | `Run` inside a pipeline performs the effect before the host runs it       | Keep the `IO` and `Bind` the next step                      |
 |  [07]   | `Some` as a null guard                                                    | `Optional` at the null boundary                             |
 |  [08]   | Separate result and error fields, or `default` on failure                 | One result type with mutually exclusive cases               |
-|  [09]   | Flag with fields that are meaningful for one flag value                   | One union case per valid state                              |
+|  [09]   | Fields present together or meaningful under one flag                      | One `Option` of a record or one union case                  |
 |  [10]   | Union case that extends a sibling case                                    | Sibling cases with their own data                           |
 |  [11]   | `from` chain or `ToValidation` round trip over independent checks         | Tuple `Apply` or `Traverse` over `Fin` checks               |
 
@@ -361,7 +367,7 @@ internal static class Validators {
 }
 ```
 
-Hosts read the date once from a `TimeProvider` argument (`time.ToZonedClock().GetCurrentDate()`), request handling supplies each command later, and tests supply a date without a fake clock. `TimeProvider` supplies elapsed time through `GetTimestamp()` and `GetElapsedTime(start).ToDuration()`, each read inside its consuming `IO`, and the composition root alone names `TimeProvider.System`. `Duration` compares and scales as a value (`a - b < step * n`) and is the one time type model fields hold, a `TimeSpan`, tick, or second count appears only at an API taking one. Hosts log through `ILogger` with `[LoggerMessage]` members from one `LoggerFactory` per session, a sink interface over `(Error, Type, string)` restates it. Pair acquisition and release in one scope with `use` for an `IDisposable` or `Bracket(Use:, Fin:)` for a named release action, a commit is a step after the work, outside its release action.
+Hosts read the date once from a `TimeProvider` argument (`time.ToZonedClock().GetCurrentDate()`), request handling supplies each command later, and tests supply a date without a fake clock. `TimeProvider` supplies elapsed time through `GetTimestamp()` and `GetElapsedTime(start).ToDuration()`, each read inside its consuming `IO`, and the composition root alone names `TimeProvider.System`. `Duration` compares and scales as a value (`a - b < step * n`) and is the one time type model fields hold, a `TimeSpan`, tick, or second count appears only at an API taking one. Hosts log through `ILogger` with `[LoggerMessage]` members from one `LoggerFactory` per session, a sink interface over `(Error, Type, string)` restates it. Pair acquisition and release through `use`, closing its resource scope with `Bracket()`. Release functions return `void` or `IO<Unit>`, a commit follows successful work outside release.
 
 ### [05.2]-[POLICIES]
 
@@ -395,8 +401,8 @@ Delivery shape selects the construct:
 Numeric facts come from the package that states them. Sample loops read only spans and SIMD lanes, with `Matrix<double>`, quantities, and `BigInteger` outside the loop:
 - Roots, quadrature, splines, fits, quantiles, factorizations, antiderivatives, and gradients are members of the referenced numerics packages
 - Hand loops that converge, bisect, or sum a series are a defect
-- `TryFindRoot` takes a signed margin, measured bracket, caller accuracy, and halvings from bracket width to `double.Epsilon`, a missed root fails
-- Per-sample passes lift a matrix or curve once into `Vector256<double>` or `Vector4` lanes and allocate nothing
+- `TryFindRoot` receives a signed margin, bracket, caller accuracy, and iteration limit, a missed root stays a typed failure
+- Per-sample passes prepare native transforms once, bulk kernels or runtime-supported vectors consume allocation-free samples
 - Conversions every pass needs (a host buffer's 2D view, a matrix to lanes) sit once at the type that owns them
 - Exact integer-plus-fraction arithmetic on a hot path is fixed-point on `long` or `Int128`, a shift for the cell and a mask for the local part
 - `Length` and `Angle` name parameters, bounds, and presentation units, a `float` holds samples and a host unit scale enters once at the boundary

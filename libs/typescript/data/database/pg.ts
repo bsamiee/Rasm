@@ -18,7 +18,7 @@ const codecs = [
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const pool = (config: PgClient.PgPoolConfig) => {
+const pgPool = (config: PgClient.PgPoolConfig) => {
     const types = PgTypes.makeRegistry();
     codecs.forEach(({ oid, binary }) => types.register(oid, { decode: binary, encode: (value: unknown) => PgTypes.encode(value, oid) }));
     return PgClient.layer({ ...config, types });
@@ -27,4 +27,4 @@ const pglite = (config: PgliteClient.PgliteClientConfig.Create) => PgliteClient.
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { pglite, pool };
+export { pglite, pgPool };

@@ -1,17 +1,19 @@
 """RNA property definitions, their kinds, stored values, native writes, and write order."""
 
+from collections import deque
 from collections.abc import Callable, Iterable, Mapping
-from functools import partial
+from functools import partial, reduce
 import inspect
 from itertools import pairwise
 import math
+import operator
 import os
 from pathlib import Path
 from types import MappingProxyType
-from typing import Annotated, Final, Generic, TYPE_CHECKING, TypeVar
+from typing import Annotated, Final, Generic, TypeVar
 
 import bpy
-from expression import Nothing, Ok, Option, Result, Some
+from expression import Option, Result, Some
 from expression.extra.result import catch
 from idprop.types import IDPropertyGroup
 import msgspec
@@ -21,17 +23,7 @@ from typing_extensions import TypeForm
 
 from blender.bpy.data.ids.store import IdName
 from blender.bpy.data.rna.paths import defined, definition, definition_at, Native, rna, RnaPath, root_in, Struct, struct_at
-from blender.records.faults import Fault, Outcome, Reason, typed
-
-if TYPE_CHECKING:
-
-    class _UncoercedMember(bpy.types.Property):
-        """Uncoerced host member `path_resolve(name, False)` returns, which the stubs type as a plain `Property`."""
-
-        def __len__(self) -> int: ...
-
-        def foreach_get(self, seq: NDArray[np.generic], /) -> None: ...
-
+from blender.records.faults import Error, Fault, Nothing, Ok, Outcome, Reason, typed
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -76,7 +68,7 @@ DTYPES: Final[Mapping[type[bpy.types.Property], type[np.bool | np.int32 | np.flo
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Descriptor(msgspec.Struct, Generic[_P_co], frozen=True, kw_only=True):
+class Descriptor(msgspec.Struct, Generic[_P_co], frozen=True, kw_only=True):  # ruff: ignore[non-pep695-generic-class]
     """Property definition from root type, no live data."""
 
     root: type[Native]
@@ -102,15 +94,18 @@ class Descriptor(msgspec.Struct, Generic[_P_co], frozen=True, kw_only=True):
         return Some(self.coordinates).filter(bool).map(lambda at: int(np.ravel_multi_index(at, self.dimensions(self.prop))))
 
     @staticmethod
-    def split(path: RnaPath, coordinates: tuple[int, ...] = (), /) -> Option[tuple[RnaPath, str, tuple[int, ...]]]:
+    def split(path: RnaPath, /) -> Option[tuple[RnaPath, str, tuple[int, ...]]]:
         """Splits a member path at its last identifier into owner path, identifier, and trailing coordinates."""
-        match path:
-            case (*owner, str(identifier)):
-                return Some((tuple(owner), identifier, coordinates))
-            case (*rest, int(coordinate)):
-                return Descriptor.split(tuple(rest), (coordinate, *coordinates))
-            case _:
-                return Nothing
+        coordinates: deque[int] = deque()
+        for index in range(len(path) - 1, -1, -1):
+            match path[index]:
+                case int(coordinate):
+                    coordinates.appendleft(coordinate)
+                case str(identifier):
+                    return Some((path[:index], identifier, tuple(coordinates)))
+                case _:
+                    return Nothing
+        return Nothing
 
     @staticmethod
     def resolve[K: bpy.types.Property](root: type[Struct] | Native, path: RnaPath, kind: type[K]) -> Outcome["Descriptor[K]"]:
@@ -136,20 +131,11 @@ class Descriptor(msgspec.Struct, Generic[_P_co], frozen=True, kw_only=True):
         return (
             Descriptor
             .split(path)
-            .bind(lambda split: owned(split[0]).bind(lambda owner: Option.of_optional(owner.properties.get(split[1]))).map(lambda prop: (split, prop)))
+            .bind(lambda split: owned(split[0]).bind(lambda owner: catch(lambda: owner.properties[split[1]], exception=KeyError)().to_option()).map(lambda prop: (split, prop)))
             .filter(lambda found: within(found[1], found[0][2]))
             .to_result_with(lambda: Fault.of(Reason.ABSENT, repr(root), member=rna(path)))
             .bind(lambda found: typed(kind, rna(path), found[1]).map(lambda prop: Descriptor[K](root=stated, owner=found[0][0], prop=prop, coordinates=found[0][2])))
         )
-
-    @staticmethod
-    def declared[K: bpy.types.Property](root: type[Struct], path: RnaPath, kind: type[K]) -> "Descriptor[K]":
-        """Resolves path of a declaration over the pinned host, a missing member raising as a defect."""
-        match Descriptor.resolve(root, path, kind):
-            case Result(tag="ok", ok=descriptor):
-                return descriptor
-            case Result(error=faults):
-                raise LookupError(path, faults)
 
     @staticmethod
     def located(root: Native, path: RnaPath) -> "Outcome[tuple[Native, Descriptor]]":
@@ -167,7 +153,9 @@ class Descriptor(msgspec.Struct, Generic[_P_co], frozen=True, kw_only=True):
         )
 
     @staticmethod
-    def saved(root: type[Struct] | Native, where: Callable[[bpy.types.Property], bool] = lambda _: True, *, owned: Callable[[str], bool] = lambda _: False) -> "tuple[Descriptor, ...]":
+    def saved(
+        root: type[Struct] | Native, where: Callable[[bpy.types.Property], bool] = lambda _: True, *, owned: Callable[[str], bool] = lambda _: False, inactive: bool = False
+    ) -> "tuple[Descriptor, ...]":
         """Returns host-declared members a saved file stores, without ID, name, hidden, and registered members and members a live struct's governor disables.
 
         Script properties assigned onto an existing class hold their definition as a class attribute, unlike host members and group annotations.
@@ -178,6 +166,7 @@ class Descriptor(msgspec.Struct, Generic[_P_co], frozen=True, kw_only=True):
             root: Struct type, or live struct whose refined definition applies.
             where: Members kept beyond the saved rule.
             owned: Whether the reading extension declares a script property by its identifier, kept beside the host's own.
+            inactive: Whether saved members disabled by their current governor remain included.
 
         Returns:
             Descriptors of root's own members in declaration order.
@@ -188,7 +177,7 @@ class Descriptor(msgspec.Struct, Generic[_P_co], frozen=True, kw_only=True):
         def declared(prop: bpy.types.Property) -> bool:
             match getattr(kind, prop.identifier, None):
                 case bpy.props._PropertyDeferred(keywords={"type": type() as group}):
-                    return owned(prop.identifier) or catch(inspect.getfile, exception=TypeError)(group).map(lambda file: Path(file).is_relative_to(_SCRIPTS)).default_value(False)
+                    return owned(prop.identifier) or catch(inspect.getfile, exception=TypeError)(group).map(lambda file: Path(file).is_relative_to(_SCRIPTS)).default_value(value=False)
                 case bpy.props._PropertyDeferred():
                     return owned(prop.identifier)
                 case _:
@@ -200,11 +189,11 @@ class Descriptor(msgspec.Struct, Generic[_P_co], frozen=True, kw_only=True):
             if not (prop.is_hidden or prop.is_skip_save or prop.is_deprecated or prop.is_registered or prop.is_registered_optional or prop == held.name_property or prop in base)
             and declared(prop)
             and not (isinstance(root, bpy.types.bpy_struct) and isinstance(prop, bpy.types.PointerProperty) and prop.is_runtime and not stored(root, prop.identifier))
-            and not any(isinstance(root, owner) and prop.identifier == member.identifier and getattr(root, governor.identifier) != value for owner, member, governor, value in _GATED)
+            and (inactive or not any(isinstance(root, owner) and prop.identifier == member.identifier and getattr(root, governor.identifier) != value for owner, member, governor, value in _GATED))
             and where(prop)
         )
 
-    def owner_of(self, context: Native, item: Option[Native] = Nothing) -> Option[Native]:
+    def owner_of(self, context: Native, item: Option[Native] = Nothing, *, inactive: bool = False) -> Option[Native]:
         """Returns live property owner from item, root, or context."""
         match item.filter(lambda value: isinstance(value, self.root)).default_value(context):
             case start if isinstance(start, self.root):
@@ -213,7 +202,9 @@ class Descriptor(msgspec.Struct, Generic[_P_co], frozen=True, kw_only=True):
                 found = root_in(self.root, start)
             case _:
                 found = Nothing
-        return found.bind(lambda value: struct_at(value, self.owner)).filter(lambda owner: defined(owner).filter(lambda held: self.prop in held.properties.values()).is_some() and effective(owner))
+        return found.bind(lambda value: struct_at(value, self.owner)).filter(
+            lambda owner: defined(owner).filter(lambda held: self.prop in held.properties.values()).is_some() and (inactive or effective(owner))
+        )
 
     def leaves(self, compound: tuple[type[Struct], ...] = (), entered: frozenset[str] = frozenset()) -> "tuple[Descriptor, ...]":
         """Expands a setting into the leaf members a snapshot captures, `compound` pointers kept whole, a nested member kept when valued and structs in `entered` left out."""
@@ -271,34 +262,44 @@ class Descriptor(msgspec.Struct, Generic[_P_co], frozen=True, kw_only=True):
         """Returns declared numeric array dimensions, empty for other properties."""
         match prop:
             case bpy.types.BoolProperty() | bpy.types.IntProperty() | bpy.types.FloatProperty() as array:
-                return tuple(size for size in np.asarray(array.array_dimensions).tolist() if size)
+                return tuple(int(size) for size in np.asarray(array.array_dimensions) if size)
             case _:
                 return ()
 
     def shape(self, owner: Struct) -> tuple[int, ...]:
         """Returns live array dimensions, outer length read from the owner's uncoerced array, a flat `MATRIX` array keeping its flat length."""
-        return (len(_uncoerced(owner, self.prop.identifier)), *self.dimensions(definition(owner).properties[self.prop.identifier])[1:])
+        array: bpy.types.bpy_prop_array = owner.path_resolve(self.prop.identifier, False)  # type: ignore[assignment]  # ty: ignore[invalid-assignment]  # ruff: ignore[boolean-positional-value-in-call]
+        return (len(array), *self.dimensions(definition(owner).properties[self.prop.identifier])[1:])  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
 
     def read(self, owner: Native) -> Value:
         """Returns scalar, flat array, element, enum identifiers, `IdName`, struct identifier, or None."""
         name = self.prop.identifier
         match self.prop, owner:
             case bpy.types.EnumProperty(is_enum_flag=True), _:
-                return tuple(sorted(getattr(owner, name)))
+                identifiers: set[str] = getattr(owner, name)  # ty: ignore[unsound-assignment]
+                return tuple(sorted(identifiers))
             case bpy.types.PointerProperty(fixed_type=bpy.types.ID()), _:
                 return Option.of_optional(getattr(owner, name)).map(IdName.of).to_optional()  # type: ignore[unreachable]
             case bpy.types.PointerProperty(), _:
                 return Option.of_optional(getattr(owner, name)).map(lambda struct: definition(struct).identifier).to_optional()
+            case bpy.types.BoolProperty(is_array=True) | bpy.types.IntProperty(is_array=True) | bpy.types.FloatProperty(is_array=True), bpy.types.bpy_struct() if self.coordinates:
+                scalar: Scalar = owner.path_resolve(rna((name, *self.coordinates)))  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+                return scalar
             case bpy.types.IntProperty(is_array=True) | bpy.types.FloatProperty(is_array=True) as prop, bpy.types.bpy_struct():
                 shape = self.shape(owner)
-                buffer = np.empty(math.prod(shape), DTYPES[type(prop)])
-                _uncoerced(owner, name).foreach_get(buffer)
-                return buffer.reshape(shape)[self.coordinates].item() if self.coordinates else tuple(buffer.tolist())
+                buffer: np.ndarray[tuple[int], np.dtype[np.bool | np.int32 | np.float32]] = np.empty(math.prod(shape), DTYPES[type(prop)])
+                array: bpy.types.bpy_prop_array = owner.path_resolve(name, False)  # type: ignore[assignment]  # ty: ignore[invalid-assignment]  # ruff: ignore[boolean-positional-value-in-call]
+                array.foreach_get(buffer)
+                return tuple[bool | int | float, ...](buffer.tolist())
             case bpy.types.BoolProperty(is_array=True), _:
                 flags = np.asarray(getattr(owner, name), np.bool)
-                return flags[self.coordinates].item() if self.coordinates else tuple(flags.ravel().tolist())
+                return bool(flags[self.coordinates]) if self.coordinates else tuple(map(bool, flags.ravel()))
+            case bpy.types.StringProperty(subtype="BYTE_STRING"), _:
+                encoded: str = msgspec.to_builtins(getattr(owner, name))  # ty: ignore[unsound-assignment]
+                return encoded
             case _:
-                return msgspec.convert(msgspec.to_builtins(getattr(owner, name)), bool | int | float | str)
+                value: Scalar = getattr(owner, name)  # ty: ignore[unsound-assignment]
+                return value
 
     def equal(self, held: Value | Struct, desired: object) -> bool:
         """Compares floats by float32 bits, other values exactly."""
@@ -308,7 +309,7 @@ class Descriptor(msgspec.Struct, Generic[_P_co], frozen=True, kw_only=True):
             return (
                 _converted(desired, float | tuple[float, ...], repr(self.prop))
                 .map(lambda number: np.array_equal(np.asarray(held, np.float32).view(np.uint32), np.asarray(number, np.float32).view(np.uint32)))
-                .default_value(False)
+                .default_value(value=False)
             )
         return held == desired
 
@@ -323,18 +324,18 @@ class Descriptor(msgspec.Struct, Generic[_P_co], frozen=True, kw_only=True):
             Prior value, outside fault outside a range the host clamps, refused fault holding the host's error.
         """
         name = self.prop.identifier
-        prior = getattr(owner, name) if isinstance(self.prop, bpy.types.PointerProperty) else self.read(owner)
+        prior: Value | Struct = getattr(owner, name) if isinstance(self.prop, bpy.types.PointerProperty) else self.read(owner)  # ty: ignore[unsound-assignment]
         held = IdName.of(prior) if isinstance(prior, bpy.types.ID) and isinstance(value, IdName) else prior
 
         def published(_: object) -> Option[Value | Struct]:
             if self.prop.is_runtime and isinstance(owner, bpy.types.bpy_struct):
-                bpy.msgbus.publish_rna(key=_uncoerced(owner, name))
+                bpy.msgbus.publish_rna(key=owner.path_resolve(name, False))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]  # ruff: ignore[boolean-positional-value-in-call]
             return Some(prior)
 
         def stored() -> Outcome[object]:
             match self.prop, value:
                 case bpy.types.FloatProperty() as real, _:
-                    return _converted(value, float | tuple[float, ...], repr(real)).bind(partial(self.quantized, real)).map(lambda held: tuple(held.tolist()) if held.ndim else float(held))
+                    return _converted(value, float | tuple[float, ...], repr(real)).bind(partial(self.quantized, real)).map(lambda held: held if held.ndim else float(held))
                 case bpy.types.IntProperty() as integer, _:
                     bounded = Annotated[int, self.meta]
                     return _converted(value, bounded | tuple[bounded, ...], repr(integer))
@@ -347,14 +348,6 @@ class Descriptor(msgspec.Struct, Generic[_P_co], frozen=True, kw_only=True):
 
         def hosted(stored: object) -> Outcome[object]:
             match self.prop, stored:
-                case bpy.types.BoolProperty(is_array=True) | bpy.types.IntProperty(is_array=True) | bpy.types.FloatProperty(is_array=True), _ if self.coordinates and isinstance(
-                    owner, bpy.types.bpy_struct
-                ):
-                    buffer = np.array(msgspec.structs.replace(self, coordinates=()).read(owner)).reshape(self.shape(owner))
-                    buffer[self.coordinates] = stored
-                    return Ok(buffer.tolist())
-                case bpy.types.BoolProperty(is_array=True) | bpy.types.IntProperty(is_array=True) | bpy.types.FloatProperty(is_array=True), tuple() if isinstance(owner, bpy.types.bpy_struct):
-                    return Ok(np.asarray(stored).reshape(self.shape(owner)).tolist())
                 case bpy.types.EnumProperty(is_enum_flag=True), tuple(chosen):
                     return Ok(set(chosen))
                 case bpy.types.PointerProperty(fixed_type=bpy.types.ID() as pointed), IdName() as identity:
@@ -362,11 +355,22 @@ class Descriptor(msgspec.Struct, Generic[_P_co], frozen=True, kw_only=True):
                 case _:
                     return Ok(stored)
 
-        return (
-            Ok(Nothing)
-            if self.equal(held, value)
-            else stored().bind(hosted).bind(lambda native: assign(owner, name, native).map_error(partial(Fault.of, Reason.REFUSED, rna(self.path)))).map(published)
-        )
+        def placed(native: object) -> Outcome[None]:
+            try:
+                match self.prop, owner:
+                    case bpy.types.BoolProperty(is_array=True) | bpy.types.IntProperty(is_array=True) | bpy.types.FloatProperty(is_array=True), bpy.types.bpy_struct():
+                        array: bpy.types.bpy_prop_array = owner.path_resolve(name, False)  # type: ignore[assignment]  # ty: ignore[invalid-assignment]  # ruff: ignore[boolean-positional-value-in-call]
+                        if self.coordinates:
+                            operator.setitem(reduce(operator.getitem, self.coordinates[:-1], array), self.coordinates[-1], native)  # type: ignore[call-overload, arg-type]  # ty: ignore[invalid-argument-type]
+                        else:
+                            array[:] = np.asarray(native).reshape(self.shape(owner)).tolist()  # type: ignore[index]  # ty: ignore[invalid-assignment]
+                    case _:
+                        setattr(owner, name, native)
+                return Ok(None)
+            except (AttributeError, TypeError, ValueError, ReferenceError) as error:
+                return Error(Fault.of(Reason.REFUSED, rna(self.path), error))
+
+        return Ok(Nothing) if self.equal(held, value) else stored().bind(hosted).bind(placed).map(published)
 
     @staticmethod
     @np.errstate(over="ignore")
@@ -388,7 +392,10 @@ class Descriptor(msgspec.Struct, Generic[_P_co], frozen=True, kw_only=True):
         """Returns enum label or display text of stored value."""
         match self.prop, value:
             case bpy.types.EnumProperty() as prop, str():
-                return Option.of_optional(prop.enum_items.get(value)).map(lambda item: item.name).default_value(value)
+                try:
+                    return prop.enum_items[value].name
+                except KeyError:
+                    return value
             case _, bool():
                 return "on" if value else "off"
             case bpy.types.StringProperty(subtype="BYTE_STRING"), str():
@@ -408,18 +415,33 @@ class Descriptor(msgspec.Struct, Generic[_P_co], frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 # --- [READS]
 
-custom_read: Final[Callable[[Struct, str], Result[object, TypeError | ReferenceError]]] = catch(catch(bpy.types.bpy_struct.get, exception=ReferenceError), exception=TypeError)
+
+def custom_read(struct: Struct, name: str) -> Result[object, TypeError | ReferenceError]:
+    """Returns an existing custom value or None, preserving native lookup failures."""
+    try:
+        return Result[object, TypeError | ReferenceError].Ok(struct.get(name))
+    except (TypeError, ReferenceError) as error:
+        return Error(error)
 
 
 def _kept(value: object) -> bool:
     """Whether a stored value holds a written leaf: a scalar, array, ID, or collection item, at any depth of its groups."""
-    match value:
-        case bpy.types.PropertyGroup() | IDPropertyGroup():
-            return any(map(_kept, value.values()))
-        case list():
-            return bool(value)
-        case _:
-            return value is not None
+    pending = [iter((value,))]
+    while pending:
+        for current in pending[-1]:
+            match current:
+                case bpy.types.PropertyGroup() | IDPropertyGroup():
+                    pending.append(iter(current.values()))
+                    break
+                case None:
+                    pass
+                case list() if not current:
+                    pass
+                case _:
+                    return True
+        else:
+            pending.pop()
+    return False
 
 
 def stored(struct: Struct, name: str) -> bool:
@@ -470,9 +492,14 @@ def differing[K: RnaPath | Descriptor](root: Native, members: Mapping[K, Value])
 
 # --- [WRITES]
 
-assign: Final[Callable[[object, str, object], Result[object, AttributeError | TypeError | ValueError]]] = catch(
-    catch(catch(setattr, exception=AttributeError), exception=TypeError), exception=ValueError
-)
+
+def assign(owner: object, name: str, value: object) -> Result[None, AttributeError | TypeError | ValueError | ReferenceError]:
+    """Assigns a native member, preserving its lookup, value, and lifetime failures."""
+    try:
+        setattr(owner, name, value)
+        return Result[None, AttributeError | TypeError | ValueError | ReferenceError].Ok(None)
+    except (AttributeError, TypeError, ValueError, ReferenceError) as error:
+        return Error(error)
 
 
 def written(struct: Native, path: RnaPath, value: Value | bytes | Struct) -> Outcome[Option[Value | Struct]]:
@@ -509,16 +536,13 @@ def sequenced[W](writes: Iterable[tuple[RnaPath, Native, Descriptor, W]]) -> tup
 # --- [READERS]
 
 
-def _uncoerced(owner: Struct, name: str) -> "_UncoercedMember":
-    """Returns a member's uncoerced host property, the msgbus key of its value and, for an array, its live length and buffer read."""
-    held: _UncoercedMember = owner.path_resolve(name, False)  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-    return held
-
-
 def _converted[T](value: object, kind: TypeForm[T], subject: str) -> Outcome[T]:
     """Returns value converted to kind, outside fault naming the refused constraint."""
-    held: Outcome[T] = catch(msgspec.convert, exception=msgspec.ValidationError)(value, kind).map_error(lambda error: Fault.of(Reason.OUTSIDE, subject, str(value), member=str(error)))
-    return held
+    try:
+        held: T = msgspec.convert(value, kind)  # ty: ignore[unsound-assignment]
+    except msgspec.ValidationError as error:
+        return Error(Fault.of(Reason.OUTSIDE, subject, error, member=repr(kind)))
+    return Ok(held)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

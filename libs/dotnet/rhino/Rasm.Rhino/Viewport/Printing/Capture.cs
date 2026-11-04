@@ -14,11 +14,6 @@ public sealed record CaptureRequest(double Density, Seq<Step<ViewCaptureSettings
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ViewCaptures {
     // --- [SETTINGS]
-    private static readonly Stage<ViewCaptureSettings> Scratch = new(
-        Copy: IO.pure,
-        Unchanged: static (_, _) => false,
-        Commit: static (_, staged) => Products.Accepted(() => staged.IsValid).Map(_ => staged));
-
     public static IO<ViewCaptureSettings> Settings(ViewportRef row, CaptureRequest request) =>
         from settings in Products.Of(() => row.View is RhinoPageView page && row.Viewport.ViewportType is ViewportType.PageViewMainViewport
             ? new ViewCaptureSettings(page, request.Density)
@@ -29,7 +24,7 @@ public static class ViewCaptures {
             if (row.Viewport.ParentView is null)
                 settings.Document = row.View.Document;
         })
-        from applied in Edits.Apply(Scratch, settings, request.Steps)
+        from applied in Edits.Apply(Stages.InPlace<ViewCaptureSettings>(), settings, request.Steps)
         select applied;
 
     // --- [STEPS]

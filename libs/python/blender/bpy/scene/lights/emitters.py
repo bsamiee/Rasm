@@ -7,7 +7,7 @@ from typing import ClassVar, Final
 
 from bl_ui.space_view3d import VIEW3D_MT_light_add
 import bpy
-from expression import Nothing, Ok, Option, Some
+from expression import Option, Some
 from expression.collections import Block
 from expression.extra.result import catch
 import msgspec
@@ -21,7 +21,7 @@ from blender.bpy.data.rna.paths import rooted
 from blender.bpy.data.rna.properties import reconciling, redeclared
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Identity
-from blender.bpy.extension.registration import Acquisitions
+from blender.bpy.extension.registration import acquired, Acquisitions
 from blender.bpy.nodes import changes, functions
 from blender.bpy.nodes.desired import Graph
 from blender.bpy.nodes.graphs import Expr, mixed
@@ -30,15 +30,15 @@ from blender.bpy.scene.objects import ObjectState, reconciled, shaped, spawned, 
 from blender.bpy.settings.attachments import Attachment
 from blender.bpy.ui.elements.menus import Append
 from blender.bpy.ui.layout.members import Member
-from blender.bpy.ui.layout.rows import acquired, OperatorButton
+from blender.bpy.ui.layout.rows import OperatorButton
 from blender.bpy.ui.layout.sections import Section
 from blender.bpy.ui.layout.values import Store
-from blender.records.faults import accumulated, Fault, Outcome, paired, Reason, typed
+from blender.records.faults import accumulated, Fault, Nothing, Outcome, paired, Reason, typed
 from blender.records.fields import Retention
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-TEMPERATURE: Final = Descriptor.declared(bpy.types.Light, ("temperature",), bpy.types.FloatProperty)
+TEMPERATURE: Final = Descriptor[bpy.types.FloatProperty](root=bpy.types.Light, prop=bpy.types.Light.bl_rna.properties["temperature"])  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -78,9 +78,9 @@ class MeshLights(msgspec.Struct, frozen=True, kw_only=True):
     light: ClassVar[Ownership[bpy.types.Object]] = Ownership(kind=bpy.types.Object, key="mesh_light", saved=Saved.USED, single=False)
     material: ClassVar[Ownership[bpy.types.Material]] = Ownership(kind=bpy.types.Material, key="mesh_light", saved=Saved.USED)
 
-    def acquisitions(self, _identity: Identity) -> Outcome[Acquisitions]:
+    def acquisitions(self, _identity: Identity) -> Acquisitions:
         """Returns attachment, ownerships, add operator, its Add Light menu entry, and section."""
-        return Ok((MeshLights.attachment, MeshLights.light, MeshLights.material, Append(target=VIEW3D_MT_light_add, rows=(OperatorButton(target=mesh_light_add),)), *acquired((self.section(),))))
+        return MeshLights.attachment, MeshLights.light, MeshLights.material, Append(target=VIEW3D_MT_light_add, rows=(OperatorButton(target=mesh_light_add),)), *acquired((self.section(),))
 
     def section(self) -> Section[MeshLight]:
         """Returns mesh light section of active object."""
@@ -125,8 +125,8 @@ def strengths(material: bpy.types.Material) -> tuple[tuple[bpy.types.NodeSocketF
         following = tuple(dict.fromkeys(state for states, _ in expansions for state in states if state not in reached))
         return Some((tuple(strength for _, found in expansions for strength in found), (following, reached))) if level else Nothing
 
-    start: Frontier = (tuple((output, socket, ()) for tree in roots for output in Option.of_optional(tree.get_output_node("CYCLES")).to_list() for socket in output.inputs), frozenset())
-    return tuple((strength, strength in fed) for strength in dict.fromkeys(strength for found in Block.unfold(step, start) for strength in found))
+    start: Frontier = (tuple((output, socket, ()) for tree in roots for output in Option.of_optional(tree.get_output_node("CYCLES")).to_list() for socket in output.inputs), frozenset[State]())
+    return tuple((strength, strength in fed) for strength in dict.fromkeys(strength for found in Block[tuple[bpy.types.NodeSocketFloat, ...]].unfold(step, start) for strength in found))
 
 
 def emitting(item: bpy.types.Object) -> bool:

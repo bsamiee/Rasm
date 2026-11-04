@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Globalization;
 using Grasshopper2;
 using Grasshopper2.Data;
@@ -33,13 +32,16 @@ public sealed class Preference<T> {
         select Write(prior);
 
     public IO<Unit> Changed(Func<T, IO<Unit>> react) =>
-        from held in use(static () => Atom(Option<EnvIO>.None), static held => held.Value.Iter(static scope => scope.Dispose()))
+        from parent in envIO
+        from held in use(static () => Ref(Option<EnvIO>.None), static held => held.Value.Iter(static scope => scope.Dispose()))
         from followed in follow.IfNone(notify => Hooks.On(h => Written += h, h => Written -= h, notify))(
             from value in Read
-            from scope in IO.lift(static () => EnvIO.New(token: CancellationToken.None))
-            from prior in IO.lift(() => held.Value)
-            from swapped in IO.lift(() => held.Swap(_ => Some(scope)))
-            from released in IO.lift(() => prior.Iter(static stale => stale.Dispose()))
+            from scope in IO.lift(() => {
+                EnvIO current = parent.Local;
+                Option<EnvIO> prior = atomic(() => (Prior: held.Value, Next: held.Swap(_ => Some(current))).Prior);
+                _ = prior.Iter(static stale => stale.Dispose());
+                return current;
+            })
             from reacted in IO.liftVAsync(() => react(value).RunAsync(scope))
             select unit)
         select unit;
@@ -54,11 +56,11 @@ public static class Preferences {
             value => IO.lift(() => { setting.Value = value; }),
             Some<Func<IO<Unit>, IO<Unit>>>(notify => Hooks.On<EventArgs>(h => setting.Changed += h, h => setting.Changed -= h, _ => notify)));
 
-    public static Preference<T> Property<T>(Func<T> read, Action<T> write, Action<EventHandler>? add = null, Action<EventHandler>? remove = null) =>
+    public static Preference<T> Property<T>(Func<T> read, Action<T> write, Option<(Action<EventHandler> Add, Action<EventHandler> Remove)> changed = default) =>
         new(
             IO.lift(read),
             value => IO.lift(() => write(value)),
-            add is { } adding && remove is { } removing ? Some<Func<IO<Unit>, IO<Unit>>>(notify => Hooks.On(adding, removing, notify)) : None);
+            changed.Map<Func<IO<Unit>, IO<Unit>>>(static subscription => notify => Hooks.On(subscription.Add, subscription.Remove, notify)));
 
     // --- [STORES]
     public static Preference<T> Plugin<T>(GrasshopperIO.Name key, T fallback) where T : notnull =>
@@ -73,26 +75,22 @@ public static class Preferences {
                 })),
                 None: () => IO.lift(set))));
 
-    private static Preference<T> Keyed<T>(Func<KeyedValues> values, GrasshopperIO.Name key, T fallback, Func<Action, IO<Unit>> commit) where T : notnull =>
-        new(
-            IO.lift(() => Unpacked<T>(values().Get(key.ToString(), NTuple.Empty)).IfNone(fallback)),
-            value => IO.lift(() => Packed(value)).Bind(tuple => commit(() => values().Set(key.ToString(), tuple))),
+    private static Preference<T> Keyed<T>(Func<KeyedValues> values, GrasshopperIO.Name key, T fallback, Func<Action, IO<Unit>> commit) where T : notnull {
+        string name = key.ToString();
+        return new(
+            IO.lift(() => Unpacked<T>(values().Get(name, NTuple.Empty)).IfNone(fallback)),
+            value => commit(() => values().Set(name, Packed(value))),
             Some<Func<IO<Unit>, IO<Unit>>>(notify => IO.lift(values).Bind(held => Hooks.On<KeyValueEventArgs>(
                 h => held.ValueChanged += h,
                 h => held.ValueChanged -= h,
-                args => when(string.Equals(args.Key, key.ToString(), StringComparison.OrdinalIgnoreCase), notify).As()))));
+                args => when(string.Equals(args.Key, name, StringComparison.OrdinalIgnoreCase), notify).As()))));
+    }
 
     // --- [CODEC]
     private const string Element = "Value";
 
-    private static Fin<NTuple> Packed<T>(T value) where T : notnull =>
-        new NTuple((Element, typeof(T).IsEnum ? Garden.IPear(Convert.ToInt32(value, CultureInfo.InvariantCulture)) : Garden.Pear(value))) switch {
-            var tuple => GrasshopperFault.Unless(
-                    Unpacked<T>(GrasshopperIO.IO.ReadStorableFromByteArray<NTuple>(GrasshopperIO.IO.WriteStorableToByteArray(tuple))).Exists(stored => EqualityComparer<T>.Default.Equals(stored, value)),
-                    GrasshopperReason.Unreadable,
-                    value)
-                .Map(_ => tuple),
-        };
+    private static NTuple Packed<T>(T value) where T : notnull =>
+        new((Element, typeof(T).IsEnum ? Garden.IPear(Convert.ToInt32(value, CultureInfo.InvariantCulture)) : Garden.Pear(value)));
 
     private static Option<T> Unpacked<T>(NTuple tuple) where T : notnull =>
         typeof(T).IsEnum

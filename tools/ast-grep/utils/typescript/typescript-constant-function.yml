@@ -1,13 +1,20 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: typescript-constant-function
-language: tsx
+language: tsxlang
 arguments: [result]
 rule:
     kind: arrow_function, function_expression
     all:
-        - not: {regex: '^async\b'}
+        - not: {has: {regex: '^async$', not: {kind: identifier}}}
         - not: {has: {field: parameters, has: {pattern: $_, not: {kind: required_parameter, has: {field: pattern, kind: identifier}, not: {has: {field: value, pattern: $_}}}}}}
         - not: {has: {field: parameters, has: {nthChild: 2}}}
+        - has:
+            field: body
+            any:
+                - matches: result
+                - kind: statement_block
+                  has: {kind: return_statement, has: {matches: result}}
+                  not: {has: {nthChild: 2}}
         - not:
             all:
                 - any:
@@ -36,10 +43,3 @@ rule:
                         stopBy: end
                         pattern: $FUNCTION
                         kind: identifier, shorthand_property_identifier
-        - has:
-            field: body
-            any:
-                - matches: result
-                - kind: statement_block
-                  has: {kind: return_statement, has: {matches: result}}
-                  not: {has: {nthChild: 2}}

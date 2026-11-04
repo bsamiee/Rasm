@@ -19,6 +19,11 @@ test    = false
 doctest = false
 bench   = false
 
+# --- [TEST]
+[[test]]
+name = "export"
+path = "../../../../tests/rust/documents/typeset/export.rs"
+
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
 # --- [RUNTIME]
@@ -28,6 +33,7 @@ thiserror                          = { workspace = true }
 validated                          = { workspace = true }
 derive_more                        = { workspace = true }
 itertools                          = { workspace = true }
+indexmap                           = { workspace = true }
 cap-std                            = { workspace = true }
 rmp-serde                          = { workspace = true }
 serde                              = { workspace = true }
@@ -48,6 +54,10 @@ typst-layout                       = { workspace = true }
 typst-pdf                          = { workspace = true }
 typst-render                       = { workspace = true }
 typst-svg                          = { workspace = true }
+
+# --- [TESTING]
+[dev-dependencies]
+nonempty-collections = { workspace = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

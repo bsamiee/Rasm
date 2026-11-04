@@ -16,14 +16,12 @@ utils:
             - not: {has: {kind: lambda_parameter, nthChild: 2}}
     called-member:
         kind: 'navigation_expression, call_expression'
-        pattern: $READ
         all:
             - matches: chain-root
             - has: {stopBy: end, kind: call_suffix}
             - not: {has: {stopBy: end, kind: call_suffix, has: {stopBy: end, kind: simple_identifier, pattern: $P}}}
     key-path-member:
         kind: navigation_expression
-        pattern: $KEY
         regex: '^\\\.'
         matches: chain-root
     calling-closure:
@@ -47,18 +45,5 @@ rule:
         - has: {nthChild: 1, kind: navigation_expression, all: [{has: {field: target, pattern: $X}}, {has: {field: suffix, has: {field: suffix, regex: '^flatMap$'}}}]}
         - has: {kind: call_suffix, has: {matches: reader}}
         - matches: optional-context
-rewriters:
-    - id: root
-      rule:
-        kind: simple_identifier
-        pattern: $P
-        any:
-            - inside: {kind: navigation_expression, field: target}
-            - {nthChild: 1, inside: {kind: call_expression}}
-      fix: ''
-transform:
-    CALLED: {rewrite: {source: $READ, rewriters: [root]}}
-    KEYED: {replace: {source: $KEY, replace: '^\\', by: ''}}
-fix: $X?$CALLED$KEYED
 message: '`$X.flatMap` reads one member of an optional'
 note: 'Read `<optional>?.<member>`'

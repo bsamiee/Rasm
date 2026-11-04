@@ -1,31 +1,29 @@
 """Scene-linear colorimetry ahead of grading: white balance between two white points, primaries remapped by channel mixing or colorspace conversion, and ACES gamut compression toward a colorspace's boundary."""
 
 from functools import partial
-from typing import Final
+from typing import Final, override
 
 import bpy
-from expression import Error, Ok, Some
+from expression import Some
 import numpy as np
-import numpy.typing as npt
 import PyOpenColorIO
 
 from blender.bpy.extension.identity import Identity
-from blender.bpy.nodes.desired import MenuItem, MenuItems
+from blender.bpy.nodes.desired import MenuItem
 from blender.bpy.nodes.graphs import Expr, xyz
 from blender.bpy.nodes.interfaces import Interface, InterfacePanel, Socket, StockInput
-from blender.bpy.render.color.spaces import tint_of
+from blender.bpy.render.color.spaces import ColorSpace, tint_of
 from blender.bpy.render.compositor import grades
 from blender.bpy.render.compositor.colors import space_item
-from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect
+from blender.bpy.render.compositor.effects import CompositorEffect, CompositorRecord, Mix
 from blender.bpy.render.compositor.grades import matrixed
 from blender.bpy.render.compositor.inputs import entered, GraphInputs
 from blender.bpy.render.compositor.viewers import READ
 from blender.imaging.analysis.metering import Samples
 from blender.imaging.color.colorimetry import WhitePoint
-from blender.imaging.color.processors import basis, ColorSpace
+from blender.imaging.color.processors import basis
 from blender.imaging.files.images import ImageFile
-from blender.records.faults import Fault, Faults, Outcome, paired, Reason
-from blender.records.fields import Case
+from blender.records.faults import Fault, Faults, Ok, Outcome, paired, Reason
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -48,9 +46,7 @@ MIXER: Final = InterfacePanel.of(
     description="Linear channel mixing with signed weights and unclamped output",
 )
 _CONVERSION: Final = MenuItem(name="Conversion", description="Colorspace interpretation and conversion through the OCIO config")
-REMAP: Final = Socket(
-    key="remap", kind=bpy.types.NodeSocketMenu, description="Channel mixing or colorspace interpretation", default_value=MIXER.item.name, items=Some(MenuItems(items=(MIXER.item, _CONVERSION)))
-)
+REMAP: Final = Socket(key="remap", kind=bpy.types.NodeSocketMenu, description="Channel mixing or colorspace interpretation", default_value=MIXER.item.name, items=(MIXER.item, _CONVERSION))
 _HALF: Final = float(np.finfo(np.float16).max)
 _POWER: Final = Socket(key="power", kind=bpy.types.NodeSocketFloat, description="Curve sharpness between threshold and limit", min_value=1.0, max_value=_HALF, default_value=1.2)
 _CHANNELS: Final = tuple(
@@ -74,21 +70,65 @@ _CHANNELS: Final = tuple(
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class WhiteBalance(Case, frozen=True, kw_only=True):
+class WhiteBalance(CompositorRecord, frozen=True, kw_only=True):
     """Adapts the source white to the target white through Bradford cone response."""
 
+    @override
+    def graph(self, shell: GraphInputs) -> Outcome[Expr]:
+        """Adapts straight scene-linear color between the white points through the Color Balance node's white point mode."""
+        return Ok(
+            Expr(
+                kind=bpy.types.CompositorNodeColorBalance,
+                inputs=(("Image", shell.color), ("Type", "White Point"), *((stock.input, shell.input(socket)) for panel in _WHITES for socket in panel.inputs for stock in socket.stock.to_list())),
+                socket="Image",
+                socket_type=bpy.types.NodeSocketColor,
+            )
+        )
 
-class Primaries(Case, frozen=True, kw_only=True):
+
+class Primaries(CompositorRecord, frozen=True, kw_only=True):
     """Remaps scene-linear channels before gamut compression, the conversion between the colorspaces values read as and convert to."""
 
     source: ColorSpace = PyOpenColorIO.ROLE_SCENE_LINEAR
     target: ColorSpace = PyOpenColorIO.ROLE_SCENE_LINEAR
 
+    @override
+    def graph(self, shell: GraphInputs) -> Outcome[Expr]:
+        """Switches at the remap menu between the matrix form of the mixer weights and a colorspace conversion of the record's spaces."""
+        red, green, blue = map(shell.input, MIXER.inputs)
+        return paired(space_item(shell.config, self.source), space_item(shell.config, self.target)).map(
+            lambda named: shell.menu(
+                REMAP,
+                cases={
+                    MIXER.item: matrixed(shell.color, (red, green, blue), xyz()),
+                    _CONVERSION: Expr(
+                        kind=bpy.types.CompositorNodeConvertColorSpace,
+                        inputs=(("Image", shell.color),),
+                        members={"from_color_space": named[0], "to_color_space": named[1]},
+                        socket="Image",
+                        socket_type=bpy.types.NodeSocketColor,
+                    ),
+                },
+            )
+        )
 
-class GamutCompression(Case, frozen=True, kw_only=True):
+
+class GamutCompression(CompositorRecord, frozen=True, kw_only=True):
     """Compresses scene-linear excursions toward the gamut boundary of the target colorspace."""
 
     space: ColorSpace = PyOpenColorIO.ROLE_SCENE_LINEAR
+
+    @override
+    def graph(self, shell: GraphInputs) -> Outcome[Expr]:
+        """Binds each channel's limit and threshold and the power to the node form of OCIO's gamut compression."""
+        cyan, magenta, yellow = (tuple(map(shell.input, panel.inputs)) for panel in _CHANNELS)
+        return Ok(grades.gamut_compression(shell.color, limits=(cyan[0], magenta[0], yellow[0]), thresholds=(cyan[1], magenta[1], yellow[1]), power=shell.input(_POWER)))
+
+    @property
+    @override
+    def operation_space(self) -> str:
+        """Colorspace in which this effect operates."""
+        return self.space
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -99,70 +139,23 @@ def unread(entry: bpy.types.SceneCompositorEffect) -> Faults:
     return Fault.of(Reason.ABSENT, f"Region of frame entering {entry.name}", member="value its effect reads")
 
 
-def finite_mean(config: PyOpenColorIO.Config, entry: bpy.types.SceneCompositorEffect, file: ImageFile) -> Outcome[npt.NDArray[np.float64]]:
-    """Returns the mean of the entering frame's covered finite pixels, the `unread` fault without one."""
-    return Samples.of(config, file.pixels).bind(lambda samples: Ok(samples.color[samples.finite].mean(axis=0, dtype=np.float64)) if samples.finite.any() else Error(unread(entry)))
-
-
 def white_pick(identity: Identity, _scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, file: ImageFile) -> Outcome[bool]:
     """Measure the source white from the stage input's covered mean."""
     config = PyOpenColorIO.GetCurrentConfig()
     temperature, tint = _WHITES[0].inputs
     return (
-        paired(finite_mean(config, entry, file), basis(config, PyOpenColorIO.ROLE_SCENE_LINEAR))
+        paired(Samples.of(config, file.pixels).bind(lambda samples: samples.mean().to_result_with(partial(unread, entry))), basis(config, PyOpenColorIO.ROLE_SCENE_LINEAR))
         .bind(lambda pair: WhitePoint.of(pair[1] @ pair[0]).to_result_with(partial(unread, entry)))
         .bind(lambda white: entered(identity, entry, {temperature.key: white.temperature, tint.key: tint_of(white)}))
     )
 
 
-def _white_balance(shell: GraphInputs[WhiteBalance]) -> Outcome[Expr]:
-    """Adapts straight scene-linear color between the white points through the Color Balance node's white point mode."""
-    return Ok(
-        Expr(
-            kind=bpy.types.CompositorNodeColorBalance,
-            inputs=(("Image", shell.color), ("Type", "White Point"), *((stock.input, shell.input(socket)) for panel in _WHITES for socket in panel.inputs for stock in socket.stock.to_list())),
-            socket="Image",
-            socket_type=bpy.types.NodeSocketColor,
-        )
-    )
-
-
-def _primaries(shell: GraphInputs[Primaries]) -> Outcome[Expr]:
-    """Switches at the remap menu between the matrix form of the mixer weights and a colorspace conversion of the record's spaces."""
-    red, green, blue = map(shell.input, MIXER.inputs)
-    return paired(space_item(shell.config, shell.record.source), space_item(shell.config, shell.record.target)).map(
-        lambda named: shell.menu(
-            REMAP,
-            cases={
-                MIXER.item: matrixed(shell.color, (red, green, blue), xyz()),
-                _CONVERSION: Expr(
-                    kind=bpy.types.CompositorNodeConvertColorSpace,
-                    inputs=(("Image", shell.color),),
-                    members={"from_color_space": named[0], "to_color_space": named[1]},
-                    socket="Image",
-                    socket_type=bpy.types.NodeSocketColor,
-                ),
-            },
-        )
-    )
-
-
-def _gamut_compression(shell: GraphInputs[GamutCompression]) -> Outcome[Expr]:
-    """Binds each channel's limit and threshold and the power to the node form of OCIO's gamut compression."""
-    cyan, magenta, yellow = (tuple(map(shell.input, panel.inputs)) for panel in _CHANNELS)
-    return Ok(grades.gamut_compression(shell.color, limits=(cyan[0], magenta[0], yellow[0]), thresholds=(cyan[1], magenta[1], yellow[1]), power=shell.input(_POWER)))
-
-
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-white_balance: Final = CompositorEffect(
-    _white_balance, record=WhiteBalance, mix=Blended(alpha=Alpha.STRAIGHT), interface=Interface(panels=_WHITES), pointwise=True, registers=(READ.measuring(white_pick, icon=Some("EYEDROPPER")),)
-)
-primaries: Final = CompositorEffect(_primaries, record=Primaries, mix=Blended(alpha=Alpha.STRAIGHT), interface=Interface(inputs=(REMAP,), panels=(MIXER,)), pointwise=True)
-gamut_compression: Final = CompositorEffect(
-    _gamut_compression, record=GamutCompression, mix=Blended(alpha=Alpha.STRAIGHT), interface=Interface(inputs=(_POWER,), panels=_CHANNELS), pointwise=True, space=Some(lambda record: record.space)
-)
+white_balance: Final = CompositorEffect(record=WhiteBalance, mix=Mix.STRAIGHT, interface=Interface(panels=_WHITES), pointwise=True, registers=(READ.measuring(white_pick, icon=Some("EYEDROPPER")),))
+primaries: Final = CompositorEffect(record=Primaries, mix=Mix.STRAIGHT, interface=Interface(inputs=(REMAP,), panels=(MIXER,)), pointwise=True)
+gamut_compression: Final = CompositorEffect(record=GamutCompression, mix=Mix.STRAIGHT, interface=Interface(inputs=(_POWER,), panels=_CHANNELS), pointwise=True)
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["MIXER", "REMAP", "GamutCompression", "Primaries", "WhiteBalance", "finite_mean", "gamut_compression", "primaries", "unread", "white_balance"]
+__all__ = ["MIXER", "REMAP", "GamutCompression", "Primaries", "WhiteBalance", "gamut_compression", "primaries", "unread", "white_balance"]

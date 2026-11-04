@@ -1,18 +1,18 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-redundant-conversion-tsx
-language: tsx
+language: tsxlang
 severity: error
 utils:
-    declares:
-        matches: typescript-function-boundary
-        has: {field: parameters, has: {kind: 'required_parameter, optional_parameter', has: {field: pattern, pattern: $X}}}
     string-parameter:
-        kind: identifier
+        kind: identifier, undefined
         pattern: $X
-        inside:
-            stopBy: {matches: declares}
-            matches: declares
-            has: {field: parameters, has: {kind: required_parameter, all: [{has: {field: pattern, pattern: $X}}, {has: {field: type, has: {kind: predefined_type, regex: '^string$'}}}]}}
+        all:
+            - inside:
+                stopBy: end
+                matches: typescript-function-boundary
+                pattern: $OWNER
+                has: {field: parameters, has: {kind: required_parameter, all: [{has: {field: pattern, pattern: $X}}, {has: {field: type, has: {kind: predefined_type, regex: '^string$'}}}]}}
+            - matches: {typescript-local-binding: {owner: {pattern: $OWNER}}}
 rule:
     kind: template_string
     pattern: $CONVERSION

@@ -14,13 +14,16 @@ public sealed partial class DrawingScale {
     public static Fin<DrawingScale> Validated(QuantityValue ratio) =>
         DraftingFault.Unless(QuantityValue.IsFinite(ratio) && ratio > QuantityValue.Zero, DraftingReason.ScaleRatio, ratio).Map(_ => new DrawingScale(ratio));
 
-    public static Fin<DrawingScale> Parse(string text) =>
-        toSeq(text.Split(':'))
-            .Traverse(term => Term(text, term))
-            .As()
-            .Bind(terms => terms.Count is 2 ? Validated(QuantityValue.FromTerms(terms[0], terms[1])) : new DraftingFault(text, DraftingReason.ScaleRatio));
+    public static Fin<DrawingScale> Parse(string text) {
+        const int TermCount = 2;
+        Span<System.Range> tokens = stackalloc System.Range[TermCount + 1];
+        ReadOnlySpan<char> source = text;
+        return source.Split(tokens, ':') == TermCount
+            ? (Term(text, source[tokens[0]]), Term(text, source[tokens[1]])).Apply(static (paper, model) => QuantityValue.FromTerms(paper, model)).As().Bind(Validated)
+            : new DraftingFault(text, DraftingReason.ScaleRatio);
+    }
 
-    private static Fin<BigInteger> Term(string text, string term) =>
+    private static Fin<BigInteger> Term(string text, ReadOnlySpan<char> term) =>
         BigInteger.TryParse(term, NumberStyles.None, CultureInfo.InvariantCulture, out BigInteger value) && !value.IsZero ? value : new DraftingFault(text, DraftingReason.ScaleRatio);
 
     public override string ToString() => Terms switch { var (paper, model) => string.Create(CultureInfo.InvariantCulture, $"{paper}:{model}") };
@@ -41,7 +44,8 @@ public sealed partial class ScaleSeries {
     [UseDelegateFromConstructor]
     public partial Option<string> Notation(DrawingScale scale);
 
-    public Option<DrawingScale> Read(string text) => Members.Find(member => Notation(member).Exists(notation => string.Equals(notation, text.Trim(), StringComparison.OrdinalIgnoreCase)));
+    public Option<DrawingScale> Read(string text) =>
+        text.Trim() switch { var notation => Members.Find(member => Notation(member).Exists(value => string.Equals(value, notation, StringComparison.OrdinalIgnoreCase))) };
 
     public Option<DrawingScale> Nearest(double ratio, double tolerance) =>
         Members.Map(member => (Member: member, Error: double.Abs(double.Log(((QuantityValue)member).ToDouble() / ratio))))

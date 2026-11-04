@@ -175,8 +175,7 @@ pub fn linear(notation: &Linear, length: Length, sign: Sign) -> String {
         Linear::Imperial { inches: Inches::Fractional(denominator), feet } => {
             let value = length.get::<inch>();
             let parts = denominator.into_inner();
-            let Some((count, (whole, numerator))) = rounded(value * f64::from(parts.get()), rust_decimal::Decimal::ONE).and_then(|count| Some((count, split(count.abs(), parts.get().into())?)))
-            else {
+            let Some((count, (whole, numerator))) = rounded(value * f64::from(parts.get()), rust_decimal::Decimal::ONE).and_then(|count| Some((count, split(count.abs(), parts.get().into())?))) else {
                 return value.to_string();
             };
             let fraction = numerator.to_u16().and_then(NonZero::new).map(|numerator| {

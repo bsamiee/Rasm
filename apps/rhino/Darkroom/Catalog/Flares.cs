@@ -19,7 +19,7 @@ public sealed partial class FlareAnchor {
     public static readonly FlareAnchor Sun = new("sun", [GuideChannel.Depth], static (_, _, context) =>
         context.Lights.ToFin(new DarkroomFault("Sun flare anchor", DarkroomReason.Lights)).Map(lights => lights.Sun.Bind(direction => Distant(direction, context))));
     public static readonly FlareAnchor Light = new("light", [GuideChannel.Depth], static (_, light, context) =>
-        light.Traverse(target => context.Lights.ToFin(new DarkroomFault($"Light flare anchor {target}", DarkroomReason.Lights)).Map(lights =>
+        light.Traverse(target => context.Lights.ToFin(new DarkroomFault((FormattableString)$"Light flare anchor {target}", DarkroomReason.Lights)).Map(lights =>
             (from point in lights.Points.Find(target) from camera in context.Camera from located in camera.Pixel(point) select (located.Point, Depth: Some(located.Depth)))
             | lights.Directions.Find(target).Bind(direction => Distant(direction, context)))).As().Map(static located => located.Flatten()));
 
@@ -52,7 +52,7 @@ public sealed record LensFlare(
     Seq<RampStop> BarColors, ShortSideLength BarLength, ShortSideLength BarThickness, Angle BarAngle,
     Seq<RampStop> RingColors, ShortSideLength RingRadius, ShortSideLength RingWidth, ShortSideLength RingSoftness, float RingMagnification,
     Seq<RampStop> GhostColors, ShortSideLength GhostSize, int GhostCount, float GhostFirst, float GhostLast, float GhostVariation, float GhostSoftness,
-    Iris Aperture, float Fringe, GeneratedLayer Layer, Seed Seed, Timing Timing) : IPixelStage<LensFlare> {
+    Iris Aperture, float Fringe, GeneratedLayer Layer, int Seed, Timing Timing) : IPixelStage<LensFlare> {
     private static readonly ShortSideLength SourceRadius = ShortSideLength.Create(0.2f * 0.3f / 2f * ReferenceFrame.GreaterSide);
 
     public Option<float> Hotspot { get; init; }
@@ -66,7 +66,7 @@ public sealed record LensFlare(
         Presets.White, ShortSideLength.Create(0.5f), NoiseBasis.Perlin.Default with { Octaves = NoiseBasis.Perlin.Default.Octaves with { Roughness = 0.563f } }, 30f, 3f, 0f, Hold.MinValue,
         Presets.White, ShortSideLength.Create(0.972f / 2f * ReferenceFrame.GreaterSide), ShortSideLength.Create(0.004f * ReferenceFrame.GreaterSide), Angle.Zero,
         Presets.White, ShortSideLength.Create(1f / 2.1f), ShortSideLength.Create(0.02f * ReferenceFrame.GreaterSide), ShortSideLength.Create(0.02f * ReferenceFrame.GreaterSide), 0f,
-        Presets.White, SourceRadius, 5, 0.6f, -1f, 0.5f, 0.3f, Iris.Create(6, double.Pi / 3d, 0d, 0d, 1d), 0f, GeneratedLayer.Added, Seed.MinValue, Timing.Default) {
+        Presets.White, SourceRadius, 5, 0.6f, -1f, 0.5f, 0.3f, Iris.Create(6, double.Pi / 3d, 0d, 0d, 1d), 0f, GeneratedLayer.Added, 0, Timing.Default) {
         Hotspot = 0f, Starburst = 0f, Bar = 0f, Ring = 0f, Ghosts = 0f,
     };
 
@@ -82,24 +82,28 @@ public sealed record LensFlare(
 
     public static Fin<Option<PixelPass>> Pass(LensFlare state, PassContext context) =>
         state.Source.Pass(context, (point, occlusion) => (frame, progress) =>
-            state.Basis.Sampler.Map(basis => Terms(state, context, point, basis)).Bind(terms => terms is [] ? unit
+            Terms(state, context, point).Bind(terms => terms is [] ? unit
                 : occlusion.Map(occluder => occluder.Visible(point, (float)state.HotspotSize.Pixels(context.Extent))).IfNone(1f) switch {
-                    var visible => state.Layer.Run(DistanceField.Fill(FieldPlacement.Default.Frame(context.Extent), q =>
-                        new Vector4(visible * terms.Aggregate(Vector3.Zero, (light, term) => light + term(q)), 1f)), frame, progress),
+                    var visible => state.Layer.Run(DistanceField.Fill(FieldPlacement.Default.Frame(context.Extent), q => {
+                        Vector3 light = Vector3.Zero;
+                        foreach (Func<Vector2, Vector3> term in terms)
+                            light += term(q);
+                        return new Vector4(visible * light, 1f);
+                    }), frame, progress),
                 }));
 
-    private static Func<Vector2, Vector3>[] Terms(LensFlare state, PassContext context, Vector2 source, Func<Vector4, uint, (float Value, Vector4 Site)> basis) {
+    private static Fin<Func<Vector2, Vector3>[]> Terms(LensFlare state, PassContext context, Vector2 source) {
         (float side, Iris iris, PixelExtent extent) = (context.Extent.ShortSide, state.Aperture, context.Extent);
         Vector2 at = Vector2.Transform(source - new Vector2(0.5f), FieldPlacement.Default.Frame(extent));
-        (uint draws, uint field) = (state.Seed.Field(19u, 1u), state.Seed.Field(19u, 0u));
+        (uint draws, uint field) = (CoordinateHash.Branch(state.Seed, 1u, 19u), CoordinateHash.Branch(state.Seed, 0u, 19u));
         (float hotspot, float edge, float burst, float density) = (state.HotspotSize, DistanceField.Band(state.HotspotSoftness, extent), state.StarburstLength, state.StarburstDensity / float.Tau);
-        float shimmer = state.Shimmer * state.Hold.Held(state.Timing.At(context));
+        float shimmer = state.Shimmer * (float)state.Hold.Held(state.Timing.At(context)).TotalSeconds;
         (Matrix3x2 turn, Vector2 halo, float width, float rim) =
             (Matrix3x2.CreateRotation((float)state.BarAngle.Radians), state.RingMagnification * at, state.RingWidth, DistanceField.Band(state.RingSoftness, extent));
         (float barLength, float barThickness) = (state.BarLength, (float)state.BarThickness.Pixels(extent));
-        RampLight ghostTable = RampLight.Of(state.GhostColors, context);
         (Vector2 Center, float Flip, double Radius, double Ramp, double Bound, Vector3 Color)[] ghosts = [..
-            from k in state.Ghosts.IsNone ? [] : Enumerable.Range(0, state.GhostCount)
+            from ghostTable in state.Ghosts.Map(_ => RampLight.Of(state.GhostColors, context)).AsEnumerable()
+            from k in Enumerable.Range(0, state.GhostCount)
             let u = CoordinateHash.Uniforms(Vector128.Create(k, 0, 0, 0), draws)
             let position = (k + 0.5f + (state.GhostVariation * (u.Y - 0.5f))) / state.GhostCount
             let m = float.Lerp(state.GhostFirst, state.GhostLast, position)
@@ -108,27 +112,27 @@ public sealed record LensFlare(
             let ramp = (state.GhostSoftness * radius) + 1d
             let color = ghostTable.Sample(position)
             select (m * at, float.CopySign(1f, m), radius, ramp, (iris.Circumradius * radius) + (ramp / 2d), color.AsVector3() * (color.W / (shrink * shrink)))];
-        Seq<(Option<float> Gain, Seq<RampStop> Colors, Func<Vector2, (float Tone, Vector3 Weight)> Shape)> elements =
-            [(state.Hotspot, state.HotspotColors, Disc), (state.Starburst, state.StarburstColors, Streaks), (state.Bar, state.BarColors, Anamorphic), (state.Ring, state.RingColors, Halo)];
-        return [..
-            from element in elements
-            from gain in element.Gain.ToSeq()
-            let table = RampLight.Of(element.Colors, context)
-            select new Func<Vector2, Vector3>(q => element.Shape(q) switch { var (tone, weight) => float.Exp2(gain) * weight * (table.Sample(tone) switch { var color => color.AsVector3() * color.W }) }),
-            .. from gain in state.Ghosts.ToSeq() select new Func<Vector2, Vector3>(q => float.Exp2(gain) * Chain(q))];
+        Seq<(Option<float> Gain, Seq<RampStop> Colors, Func<Fin<Func<Vector2, (float Tone, Vector3 Weight)>>> Shape)> elements = [
+            (state.Hotspot, state.HotspotColors, () => Fin.Succ(Disc)),
+            (state.Starburst, state.StarburstColors, () => state.Basis.Sampler.Map(basis => new Func<Vector2, (float, Vector3)>(q => Streaks(q, basis)))),
+            (state.Bar, state.BarColors, () => Fin.Succ(Anamorphic)),
+            (state.Ring, state.RingColors, () => Fin.Succ(Halo))];
+        return elements.Traverse(element => element.Gain.Traverse(gain => element.Shape().Map(shape => RampLight.Of(element.Colors, context) switch {
+            var table => new Func<Vector2, Vector3>(q => shape(q) switch { var (tone, weight) => float.Exp2(gain) * weight * (table.Sample(tone) switch { var color => color.AsVector3() * color.W }) }),
+        })).As()).As().Map<Func<Vector2, Vector3>[]>(terms => [.. terms.Bind(static term => term.ToSeq()), .. from gain in state.Ghosts.ToSeq() select new Func<Vector2, Vector3>(q => float.Exp2(gain) * Chain(q))]);
 
         (float, Vector3) Disc(Vector2 q) => Vector2.Distance(q, at) switch {
             var r => (float.Min(r / hotspot, 1f), new Vector3(float.Min(DistanceField.Coverage((r - hotspot) * side, edge), 2f * hotspot * side / edge))),
         };
 
-        (float, Vector3) Streaks(Vector2 q) => (q - at) switch {
+        (float, Vector3) Streaks(Vector2 q, Func<Vector4, uint, (float Value, Vector4 Site)> basis) => (q - at) switch {
             var d => float.Min(d.Length() / burst, 1f) switch {
-                < 1f and var u => (u, new Vector3(float.Pow(float.Max(0f, (2f * Noise(d)) - 1f), state.StarburstSharpness) * (1f - u) * (1f - u))),
+                < 1f and var u => (u, new Vector3(float.Pow(float.Max(0f, (2f * Noise(d, basis)) - 1f), state.StarburstSharpness) * (1f - u) * (1f - u))),
                 var u => (u, Vector3.Zero),
             },
         };
 
-        float Noise(Vector2 d) => float.SinCos(float.Atan2(d.Y, d.X)) switch { var (sin, cos) => basis(new Vector4(density * cos, density * sin, shimmer, 0f), field).Value };
+        float Noise(Vector2 d, Func<Vector4, uint, (float Value, Vector4 Site)> basis) => float.SinCos(float.Atan2(d.Y, d.X)) switch { var (sin, cos) => basis(new Vector4(density * cos, density * sin, shimmer, 0f), field).Value };
 
         (float, Vector3) Anamorphic(Vector2 q) => (q - at) switch {
             var d => float.Min(float.Abs((d.X * turn.M11) + (d.Y * turn.M21)) / barLength, 1f) switch {
@@ -156,10 +160,10 @@ public sealed record LensFlare(
 
 public sealed record LightRays(
     float Threshold, float Softness, FlareSource Source, ShortSideLength Size, float Jitter, Unicolour Tint,
-    GeneratedLayer Layer, Seed Seed, Timing Timing) : IPixelStage<LightRays> {
+    GeneratedLayer Layer, int Seed, Timing Timing) : IPixelStage<LightRays> {
     public static LightRays Default { get; } = new(
         1f, 0.1f, FlareSource.Default, ShortSideLength.Create(0.5f * float.Hypot(ReferenceFrame.GreaterSide, 1f)), 0f, new Unicolour(ColourSpace.Rgb, 1d, 1d, 1d),
-        GeneratedLayer.Added, Seed.MinValue, Timing.Default);
+        GeneratedLayer.Added, 0, Timing.Default);
 
     public static Seq<GuideChannel> Channels(LightRays state) => state.Source.Channels;
 
@@ -186,7 +190,7 @@ public sealed record LightRays(
 
     private static Action<Span<Vector4>, int, int> Rays(LightRays state, PassContext context, Vector2 source, PixelFrame key) {
         (float reach, float jitter, PixelExtent extent) = (float.Truncate(state.Size * context.Extent.ShortSide), state.Jitter, context.Extent);
-        uint field = state.Seed.Field(20u, BitConverter.SingleToUInt32Bits(state.Timing.At(context)));
+        uint field = CoordinateHash.Branch(state.Seed, BitConverter.SingleToUInt32Bits((float)state.Timing.At(context).TotalSeconds), 20u);
         Vector3 tint = RampLight.Light(state.Tint, context).AsVector3() * float.Exp2(state.Layer.Exposure);
         Func<int, int, float> shift = jitter is 0f ? static (_, _) => 0f : (x, y) => CoordinateHash.Uniforms(Vector128.Create(x, y, 0, 0), field).X;
         return (row, x, y) => {

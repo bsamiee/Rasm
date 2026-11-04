@@ -1,28 +1,24 @@
-"""Render queue service: dispatch and run commands, the background commands a queue run starts, packs, Manager setup, and the queue's sections."""
+"""Render queue registration, dispatch, progress, controls, and farm setup."""
 
-from collections.abc import Callable, Generator
-from contextlib import contextmanager, ExitStack
+from collections.abc import Callable
 import datetime
 from functools import cached_property, partial
 import importlib.resources
 from pathlib import Path
 import shutil
-from typing import ClassVar, Final, TYPE_CHECKING
+from typing import ClassVar, TYPE_CHECKING
 
 import bpy
-from expression import Error, Nothing, Ok, Option, Result, Some
+from expression import Option, Some
 from expression.extra.result import catch
 import msgspec
 
 from blender.bpy.commands.invocations import Popup
-from blender.bpy.commands.operators import BoundBody, Call, called, confirmed, Done, Empty, NoUndo, Operator
-from blender.bpy.data.rna.conditions import Setting
-from blender.bpy.data.rna.descriptors import Descriptor
+from blender.bpy.commands.operators import BoundBody, Call, called, confirmed, Done, Empty, Operator
 from blender.bpy.data.rna.paths import rooted
 from blender.bpy.data.rna.snapshots import assigned
-from blender.bpy.extension.events import Handler, Timer
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.extension.registration import Acquisitions, CliCommand, Declaration
+from blender.bpy.extension.registration import Acquisitions, CliCommand, Declaration, Handler, Timer
 from blender.bpy.files.sessions import Pack, packed, saved
 from blender.bpy.render.outputs.framing import FrameSize
 from blender.bpy.render.outputs.results import RENDER_ORIGINS
@@ -36,8 +32,7 @@ from blender.bpy.settings.attachments import TextRecord
 from blender.bpy.ui.elements.panels import Preference
 from blender.bpy.ui.layout import rows
 from blender.bpy.ui.layout.sections import Section
-from blender.bpy.ui.screens.areas import AreaQuery, EditorState
-from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, Reason
+from blender.records.faults import accumulated, Error, Fault, Nothing, Ok, Outcome, paired, Reason
 from blender.records.stores import content_hash, RecordFile
 from blender.rendering.batch import supervision
 from blender.rendering.batch.notices import Cancelled, Test
@@ -48,10 +43,6 @@ from blender.rendering.batch.targets import Flamenco, Manager
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
 
-# --- [CONSTANTS] ------------------------------------------------------------------------
-
-_PAUSABLE: Final = Setting(descriptor=Descriptor.declared(bpy.types.SpaceView3D, ("region_3d", "support_pause_render"), bpy.types.BoolProperty))
-
 # --- [SERVICES] -------------------------------------------------------------------------
 
 
@@ -61,6 +52,7 @@ class QueueRun[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, dic
     sets: RenderSet[C]
     render: Render = native
     planning: Option[Callable[[Identity, Plan], Outcome[Plan]]] = Nothing
+    preparing: Option[Callable[[Identity, Plan], Outcome[Plan]]] = Nothing
     record: ClassVar[TextRecord[Queued]] = TextRecord(key="queue", form=Queued)
     key: ClassVar[Key] = "render_queue"
 
@@ -76,13 +68,15 @@ class QueueRun[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, dic
                     lambda counts: (type(preferences.target).__name__, f"{len(plan.scopes)} jobs, {sum(counts)} frames")
                 )
 
-            return paired(dispatcher.planned(context, properties, datetime.datetime.now(datetime.UTC)), dispatcher.preference.read(dispatcher.identity)).bind(lambda pair: counted(*pair))
+            return paired(dispatcher.planned(context, properties, datetime.datetime.now(datetime.UTC), revising=dispatcher.planning), dispatcher.preference.read(dispatcher.identity)).bind(
+                lambda pair: counted(*pair)
+            )
 
         return Operator.of(
             Dispatch,
             icon=Some("RENDER_ANIMATION"),
             condition=Some(Preflight.condition),
-            undo=NoUndo(),
+            options=frozenset(),
             invoke=Some(Popup(partial(bpy.types.WindowManager.invoke_props_dialog))),
             draw=Some(partial(confirmed, self.bound, summary, ("scope",))),
         )(BoundBody(self.bound, dispatch))
@@ -97,13 +91,13 @@ class QueueRun[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, dic
             (cancel_shutdown, "QUIT"),
             (pack, "PACKAGE"),
         )
-        return tuple(Operator.of(Empty, icon=Some(icon), undo=NoUndo())(BoundBody(self.bound, step)) for step, icon in steps)
+        return tuple(Operator.of(Empty, icon=Some(icon), options=frozenset())(BoundBody(self.bound, step)) for step, icon in steps)
 
     @cached_property
     def setup(self) -> tuple[Operator[Empty], ...]:
         """Manager reads, job type install, and notice test in preferences order."""
         steps: tuple[tuple[Callable[[Dispatcher, Call[Empty]], Outcome[Done]], rna_enums.IconItems], ...] = ((read_manager, "FILE_REFRESH"), (install_job_type, "IMPORT"), (post_test_notice, "INFO"))
-        return tuple(Operator.of(Empty, icon=Some(icon), undo=NoUndo())(BoundBody(self.bound, step)) for step, icon in steps)
+        return tuple(Operator.of(Empty, icon=Some(icon), options=frozenset())(BoundBody(self.bound, step)) for step, icon in steps)
 
     # --- [BINDING]
 
@@ -114,11 +108,9 @@ class QueueRun[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, dic
 
     def bound(self, identity: Identity) -> Outcome[Dispatcher]:
         """Binds dispatcher to identity stores, render sets, routing, render, planning, and queue preference."""
-        host = accumulated(identity.identifier(command) for command in RunCommand).map(
-            lambda names: HostCommands(binary=bpy.app.binary_path, folder=str(identity.folder), commands=dict(zip(RunCommand, names)))
-        )
-        return paired(host, self.sets.bound(identity), FrameSize().bound(identity), RoutingRow.bound(identity), QueueRun.record.attachment.bound(identity)).map(
-            lambda parts: Dispatcher(identity, *parts, self.render, self.planning, self.preference)
+        host = HostCommands(binary=bpy.app.binary_path, folder=str(identity.folder), commands={command: identity.identifier(command) for command in RunCommand})
+        return paired(self.sets.bound(identity), FrameSize().bound(identity), RoutingRow.bound(identity), QueueRun.record.attachment.bound(identity)).map(
+            lambda parts: Dispatcher(identity, QUEUES[identity], host, *parts, self.render, self.planning, self.preparing.or_else(self.planning), self.preference)
         )
 
     @staticmethod
@@ -148,12 +140,12 @@ class QueueRun[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, dic
                 lambda sent: held.progress.map(lambda pair: local(sent, *pair, stale)).default_with(
                     lambda: (" ".join((type(sent.target).__name__, *sent.issued)), 0.0 if isinstance(sent.target, LocalMachine) else 1.0)
                 )
-            ).default_with(lambda: (" ".join(held.refused) or bpy.app.translations.pgettext_iface("Preparing"), 0.0))
+            ).default_with(lambda: (" ".join(fault.message if isinstance(fault, Fault) else fault for fault in held.refused) or bpy.app.translations.pgettext_iface("Preparing"), 0.0))
 
         runs = (
             self.preference
             .read(identity)
-            .map(lambda preferences: tuple(work(held, preferences.stale) for held in identity.resources[QUEUES].observed.to_list()))
+            .map(lambda preferences: tuple(work(held, preferences.stale) for held in QUEUES[identity].observed.to_list()))
             .default_with(lambda faults: tuple((fault.message, 0.0) for fault in faults))
         )
         return tuple({"text": text, "factor": done} for text, done in runs)
@@ -165,7 +157,7 @@ class QueueRun[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, dic
             key=self.key,
             rows=(
                 rows.OperatorButton(target=self.dispatching),
-                rows.Layout(rows=lambda identity: Ok((rows.Label(text=partial(self.progressed, identity), function=rows.FUNCTIONS["progress"]),)), prerequisites=(self,)),
+                rows.Layout(builder=Some(lambda identity: Ok((rows.Label(text=partial(self.progressed, identity), function=rows.FUNCTIONS["progress"]),))), prerequisites=(self,)),
                 rows.Status(),
                 rows.Layout(rows=tuple(rows.OperatorButton(target=command, keywords={"text": ""}) for command in self.controls), container=Some(rows.aligned)),
             ),
@@ -178,25 +170,20 @@ class QueueRun[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, dic
 
     # --- [REGISTRATION]
 
-    @contextmanager
-    def acquisitions(self, identity: Identity) -> Generator[Outcome[Acquisitions]]:
-        """Registers the queue commands, observing a run dispatched before registration or a file load, and restores paused viewports at scope exit."""
-        with ExitStack() as scope:
-
-            def joined(dispatcher: Dispatcher) -> Outcome[Acquisitions]:
-                scope.callback(identity.reports.reported(dispatcher.restored))
-                return Ok((
-                    QUEUES,
-                    *self.cli(dispatcher),
-                    self.dispatching,
-                    *self.controls,
-                    *self.setup,
-                    self.preference,
-                    Timer(body=dispatcher.watched),
-                    Handler(handlers=bpy.app.handlers.load_post, body=lambda: dispatcher.watched().map(lambda _: None)),
-                ))
-
-            yield self.bound(identity).bind(joined)
+    def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
+        """Registers commands and native queue observation across file loads."""
+        return self.bound(identity).map(
+            lambda dispatcher: (
+                QUEUES,
+                *self.cli(dispatcher),
+                self.dispatching,
+                *self.controls,
+                *self.setup,
+                self.preference,
+                Timer(body=dispatcher.watched),
+                Handler(handlers=bpy.app.handlers.load_post, body=lambda: dispatcher.watched().map(lambda _: None)),
+            )
+        )
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -213,14 +200,6 @@ def dispatch(dispatcher: Dispatcher, call: Call[Dispatch]) -> Outcome[Done]:
     def gated(plan: Plan, preferences: QueuePreferences) -> Outcome[None]:
         return paired(checked(pathed, plan.scopes, day), Dispatcher.connected() if isinstance(preferences.target, Flamenco) else Ok(None)).map(lambda _: None)
 
-    def paused(manager: bpy.types.WindowManager) -> Outcome[None]:
-        def applied(state: EditorState) -> Outcome[None]:
-            return accumulated(state.applied(at.area).map(lambda prior: (at, prior)) for at in AreaQuery(space=bpy.types.SpaceView3D, shows=Some(_PAUSABLE)).located(manager.windows)).map(
-                dispatcher.state.pausing
-            )
-
-        return EditorState.of(bpy.types.SpaceView3D, {("region_3d", "pause_render"): True}).bind(applied)
-
     def written(plan: Plan, preferences: QueuePreferences, manager: bpy.types.WindowManager) -> Outcome[Done]:
         stem = content_hash(Plan, plan).hex()
         return (
@@ -234,13 +213,13 @@ def dispatch(dispatcher: Dispatcher, call: Call[Dispatch]) -> Outcome[Done]:
                     dispatcher.host.argv(RunCommand.PREPARE, PrepareArguments(plan=stem, target=preferences.target), Some(str(source))), dispatcher.host.path(stem, RunFile.PLAN_LOG)
                 )
             )
-            .map(dispatcher.state.started)
+            .map(partial(dispatcher.state.started, stem))
             .map(lambda _: dispatcher.host.path(stem, RunFile.PLAN_LOG))
-            .map(lambda log: Done(notes=(("INFO", f"{len(plan.scopes)} jobs preparing, log at {log}"),), skipped=paused(manager).swap().default_value(())))
+            .map(lambda log: Done(notes=(("INFO", f"{len(plan.scopes)} jobs preparing, log at {log}"),)))
         )
 
     return (
-        paired(dispatcher.planned(context, call.properties, moment), dispatcher.preference.read(identity), rooted(bpy.types.WindowManager, context))
+        paired(dispatcher.planned(context, call.properties, moment, revising=dispatcher.preparing), dispatcher.preference.read(identity), rooted(bpy.types.WindowManager, context))
         .bind(lambda parts: gated(parts[0], parts[1]).map(lambda _: parts))
         .bind(lambda parts: written(*parts))
         .bind(lambda done: dispatcher.watched().map(lambda _: done))
@@ -275,8 +254,7 @@ def stop(dispatcher: Dispatcher, call: Call[Empty]) -> Outcome[Done]:
             persisted = RecordFile(path=dispatcher.host.path(run.queue.stem, RunFile.PROGRESS), form=Progress).revised(lambda held: msgspec.structs.replace(held, ending=Ending.CANCELLED))
             return paired(persisted, dispatcher.posted(preferences.listener, Cancelled(frames=len(run.progress.marks)))).map(lambda _: Done(notes=(("INFO", f"Stopped {run.queue.stem}"),)))
 
-        stopped: Outcome[None] = supervision.stop(run.progress)
-        return Result[None, Faults].bind(stopped, ended)
+        return supervision.stop(run.progress).bind(ended)
 
     return paired(dispatcher.local_run(), dispatcher.preference.read(call.identity)).bind(lambda pair: halted(*pair))
 

@@ -52,7 +52,7 @@ pub struct Layout {
 
 ## [03]-[TRAIT_ALIASES]
 
-Traits implemented only by a blanket `impl` over their supertraits are aliases, valid in every bound position including `dyn` and return `impl`:
+Memberless traits implemented only by a blanket `impl` over their supertraits are aliases, valid in every bound position including `dyn` and return `impl`:
 
 ```rust
 pub trait Rule = Fn(&Order) -> Option<Discount> + Send + Sync + 'static;
@@ -128,5 +128,5 @@ pub fn improves<const SIDE: Side>(quote: &Quote<SIDE>, best: &Quote<SIDE>) -> bo
 ```
 
 - `adt_const_params` enables the parameter, and a variant in argument position sits in braces (`Quote<{ Side::Bid }>`)
-- Each instantiation compiles one arm of `match SIDE`, and a bid passed where an ask belongs fails to compile
+- Each instantiation fixes the selected arm of `match SIDE`, and a bid passed where an ask belongs fails to compile
 - Kinds holding data of their own are one struct per kind in a type parameter's position

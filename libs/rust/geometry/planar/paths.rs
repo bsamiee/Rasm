@@ -82,7 +82,7 @@ pub fn pieces<const CLOSURE: Closure>(polyline: &Polyline<CLOSURE>, region: &Reg
         .bounds()
         .into_iter()
         .flat_map(|bounds| shape.plines_index.query_iter(bounds.min_x, bounds.min_y, bounds.max_x, bounds.max_y))
-        .filter_map(|index| boundary(shape, index))
+        .map(|index| boundary(shape, index))
         .flat_map(|boundary| {
             let PlineIntersectsCollection { basic_intersects: crossings, overlapping_intersects: overlaps } =
                 path.find_intersects_opt(&boundary.polyline, &FindIntersectsOptions { pline1_aabb_index: Some(spatial_index), pos_equal_eps: reach });
@@ -125,10 +125,9 @@ pub fn clearance(region: &Region, point: Point2<f64>, tolerance: Tolerance) -> O
         if best.is_some_and(|(_, _, _, nearest)| squared > nearest) {
             Control::Break(())
         } else {
-            if let Some(outline) = boundary(shape, index)
-                && let (closest, near, distance) = nearest(outline, at, tolerance)
-                && best.is_none_or(|(_, _, _, nearest)| distance < nearest)
-            {
+            let outline = boundary(shape, index);
+            let (closest, near, distance) = nearest(outline, at, tolerance);
+            if best.is_none_or(|(_, _, _, nearest)| distance < nearest) {
                 best = Some((outline, closest, near, distance));
             }
             Control::Continue
@@ -166,7 +165,7 @@ fn nearest(outline: &IndexedPolyline<f64>, at: Vector2<f64>, tolerance: Toleranc
 fn along<const CLOSURE: Closure>(polyline: &Polyline<CLOSURE>, index: usize, point: Vector2<f64>, tolerance: Tolerance) -> (f64, UnitVector2<f64>) {
     let (start, end) = segment(&polyline.outline.polyline, index);
     let SplitResult { updated_start: _, split_vertex } = polyline::seg_split_at_point(start, end, point, tolerance.into_inner());
-    (polyline.lengths.get(index).copied().unwrap_or_default() - polyline::seg_length(split_vertex, end), tangent((start, end), point))
+    (polyline.lengths[index] - polyline::seg_length(split_vertex, end), tangent((start, end), point))
 }
 
 fn tangent((start, end): (PlineVertex<f64>, PlineVertex<f64>), point: Vector2<f64>) -> UnitVector2<f64> {
@@ -182,7 +181,7 @@ fn located<const CLOSURE: Closure>(polyline: &Polyline<CLOSURE>, length: f64, to
         Closure::Closed => length.rem_euclid(total),
     };
     let index = lengths.partition_point(|end| *end < target);
-    let before = index.checked_sub(1).and_then(|previous| lengths.get(previous)).copied().unwrap_or_default();
+    let before = index.checked_sub(1).map_or_default(|previous| lengths[previous]);
     let (start, end) = segment(path, index);
     let point = PlineViewData::create_on_single_segment(path, index, start, end.pos(), tolerance.into_inner())
         .and_then(|view| view.view(path).find_point_at_path_length(target - before).ok())

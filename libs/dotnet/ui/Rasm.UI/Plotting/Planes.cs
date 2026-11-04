@@ -1,7 +1,7 @@
-using System.Buffers;
 using System.Globalization;
 using System.Numerics;
 using System.Numerics.Tensors;
+using CommunityToolkit.HighPerformance.Buffers;
 using MathNet.Numerics;
 using ProjNet.CoordinateSystems.Transformations;
 using Rasm.UI.Motion;
@@ -22,10 +22,10 @@ public abstract partial record PlotPlane : IInterpolated<PlotPlane> {
     public virtual Option<Factor> Aspect => None;
 
     public Option<Factor> Proportion =>
-        Aspect | (from x in Dimension(PhysicalAxis.Horizontal)
-                  from y in Dimension(PhysicalAxis.Vertical)
-                  from ratio in Factor.Validated(MathF.Abs(x.Domain.Span / y.Domain.Span)).ToOption()
-                  select ratio);
+        Aspect || (from x in Dimension(PhysicalAxis.Horizontal)
+                   from y in Dimension(PhysicalAxis.Vertical)
+                   from ratio in Factor.Validated(MathF.Abs(x.Domain.Span / y.Domain.Span)).ToOption()
+                   select ratio);
 
     public Vector2 Center => Value(new SKPoint(0.5f, 0.5f));
 
@@ -144,8 +144,8 @@ public abstract partial record PlotPlane : IInterpolated<PlotPlane> {
         internal override Option<Vector2> Rotated(Vector2 value, float radians) => Some(value with { X = Angle.Constrained(value.X + (radians / MathF.Tau * Angle.Domain.Span)) });
 
         internal override void Projected(Span<float> x, Span<float> y) {
-            using IMemoryOwner<float> sine = MemoryPool<float>.Shared.Rent(x.Length);
-            Span<float> held = sine.Memory.Span[..x.Length];
+            using SpanOwner<float> sine = SpanOwner<float>.Allocate(x.Length);
+            Span<float> held = sine.Span;
             TensorPrimitives.Multiply(x, 2f, x);
             TensorPrimitives.SinCosPi(x, held, x);
             TensorPrimitives.Multiply(y, 0.5f, y);
@@ -201,14 +201,13 @@ public abstract partial record PlotPlane : IInterpolated<PlotPlane> {
     }
 
     public sealed record Mapped : PlotPlane {
-        private const int Lattice = 32;
-
         private readonly Action<Span<double>, Span<double>> forward;
         private readonly Action<Span<double>, Span<double>> inverse;
+        private readonly Func<AxisRange, AxisRange, SKRect> bounds;
         private readonly SKRect world;
 
-        private Mapped(Axis x, Axis y, Action<Span<double>, Span<double>> forward, Action<Span<double>, Span<double>> inverse, SKRect world) =>
-            (X, Y, this.forward, this.inverse, this.world) = (x, y, forward, inverse, world);
+        private Mapped(Axis x, Axis y, Action<Span<double>, Span<double>> forward, Action<Span<double>, Span<double>> inverse, Func<AxisRange, AxisRange, SKRect> bounds, SKRect world) =>
+            (X, Y, this.forward, this.inverse, this.bounds, this.world) = (x, y, forward, inverse, bounds, world);
 
         public Axis X { get; }
         public Axis Y { get; }
@@ -217,18 +216,19 @@ public abstract partial record PlotPlane : IInterpolated<PlotPlane> {
 
         public override Option<Axis> Dimension(PhysicalAxis along) => Some(along.Map(horizontal: X, vertical: Y));
 
-        public static Fin<Mapped> Validated(Axis x, Axis y, Func<Vector2, Vector2> place, Func<Vector2, Vector2> unplace) => Bounded(x, y, Spanned(place), Spanned(unplace));
+        public static Fin<Mapped> Validated(Axis x, Axis y, Func<Vector2, Vector2> place, Func<Vector2, Vector2> unplace, Func<AxisRange, AxisRange, SKRect> bounds) =>
+            Bounded(x, y, Spanned(place), Spanned(unplace), bounds);
 
-        public static Fin<Mapped> Validated(Axis longitude, Axis latitude, MathTransform projection) =>
-            projection.Inverse() switch { var inverted => Bounded(longitude, latitude, (x, y) => projection.Transform(x, y), (x, y) => inverted.Transform(x, y)) };
+        public static Fin<Mapped> Validated(Axis longitude, Axis latitude, MathTransform projection, Func<AxisRange, AxisRange, SKRect> bounds) =>
+            projection.Inverse() switch { var inverted => Bounded(longitude, latitude, (x, y) => projection.Transform(x, y), (x, y) => inverted.Transform(x, y), bounds) };
 
         internal override bool Separable => false;
 
         internal override void Projected(Span<float> x, Span<float> y) {
-            using IMemoryOwner<double> across = MemoryPool<double>.Shared.Rent(x.Length);
-            using IMemoryOwner<double> down = MemoryPool<double>.Shared.Rent(y.Length);
-            Span<double> placedX = across.Memory.Span[..x.Length];
-            Span<double> placedY = down.Memory.Span[..y.Length];
+            using SpanOwner<double> across = SpanOwner<double>.Allocate(x.Length);
+            using SpanOwner<double> down = SpanOwner<double>.Allocate(y.Length);
+            Span<double> placedX = across.Span;
+            Span<double> placedY = down.Span;
             for (int index = 0; index < x.Length; index++) (placedX[index], placedY[index]) = (X.Value(x[index]), Y.Value(y[index]));
             forward(placedX, placedY);
             TensorPrimitives.ConvertTruncating(placedX, x);
@@ -258,18 +258,14 @@ public abstract partial record PlotPlane : IInterpolated<PlotPlane> {
         private protected override Option<PlotPlane> Over(Func<PhysicalAxis, Axis, Option<Axis>> map) =>
             from x in map(PhysicalAxis.Horizontal, X)
             from y in map(PhysicalAxis.Vertical, Y)
-            from mapped in Bounded(x, y, forward, inverse).ToOption()
+            from mapped in Bounded(x, y, forward, inverse, bounds).ToOption()
             select (PlotPlane)mapped;
 
-        private static Fin<Mapped> Bounded(Axis x, Axis y, Action<Span<double>, Span<double>> forward, Action<Span<double>, Span<double>> inverse) {
-            double[] lattice = Generate.LinearSpaced(Lattice, 0d, 1d);
-            double[] across = [.. from up in lattice from along in lattice select (double)x.Value((float)along)];
-            double[] down = [.. from up in lattice from along in lattice select (double)y.Value((float)up)];
-            forward(across, down);
-            SKRect bounds = new((float)TensorPrimitives.Min(across), (float)TensorPrimitives.Min(down), (float)TensorPrimitives.Max(across), (float)TensorPrimitives.Max(down));
-            return UIFault.Unless(float.IsFinite(bounds.Width) && float.IsFinite(bounds.Height) && bounds.Width > 0f && bounds.Height > 0f, UIReason.Range, bounds)
-                .Map(_ => new Mapped(x, y, forward, inverse, bounds));
-        }
+        private static Fin<Mapped> Bounded(Axis x, Axis y, Action<Span<double>, Span<double>> forward, Action<Span<double>, Span<double>> inverse, Func<AxisRange, AxisRange, SKRect> bounds) =>
+            bounds(x.Domain, y.Domain) switch {
+                var world => UIFault.Unless(float.IsFinite(world.Width) && float.IsFinite(world.Height) && world.Width > 0f && world.Height > 0f, UIReason.Range, world)
+                    .Map(_ => new Mapped(x, y, forward, inverse, bounds, world)),
+            };
 
         private static Action<Span<double>, Span<double>> Spanned(Func<Vector2, Vector2> map) =>
             (x, y) => {

@@ -12,29 +12,38 @@ utils:
     use-argument:
         kind: attribute_argument
         has: {field: name, regex: '^Use$'}
+        inside:
+            kind: attribute_argument_list
+            inside:
+                kind: attribute
+                has: {field: name, regex: '^((global::)?Riok\.Mapperly\.Abstractions\.)?Map(Property(FromSource)?|Value)(Attribute)?$'}
     use-helper:
         all:
             - has: {field: name, pattern: $HELPER}
-            - inside: {kind: compilation_unit, stopBy: end, regex: '\bUse\b'}
-            - any:
-                - inside:
-                    kind: declaration_list
-                    inside:
-                        kind: class_declaration
+            - inside:
+                kind: declaration_list
+                inside:
+                    kind: class_declaration
+                    matches: mapperly-mapper-class
+                    has:
+                        field: body
                         has:
-                            stopBy: {kind: 'block, arrow_expression_clause'}
+                            stopBy: {kind: 'class_declaration, struct_declaration, record_declaration, interface_declaration, block, arrow_expression_clause'}
                             matches: use-argument
                             has:
                                 any:
-                                    - {matches: csharp-nameof-call, has: {field: arguments, has: {kind: argument, has: {kind: identifier, pattern: $HELPER}}}}
-                                    - {kind: string_literal, has: {kind: string_literal_content, pattern: $HELPER}}
-                - inside:
-                    kind: compilation_unit
-                    stopBy: end
-                    has:
-                        stopBy: {kind: 'block, arrow_expression_clause'}
-                        matches: use-argument
-                        has: {matches: csharp-nameof-call, has: {field: arguments, has: {kind: argument, has: {kind: member_access_expression, has: {field: name, pattern: $HELPER}}}}}
+                                    - matches: csharp-nameof-call
+                                      has:
+                                          field: arguments
+                                          has:
+                                              kind: argument
+                                              has:
+                                                  any:
+                                                      - {kind: identifier, pattern: $HELPER}
+                                                      - {kind: member_access_expression, not: {regex: '^@'}, has: {field: name, pattern: $HELPER}}
+                                    - kind: string_literal
+                                      has: {kind: string_literal_content, pattern: $HELPER}
+                                      not: {has: {kind: escape_sequence}}
 rule:
     kind: method_declaration
     any:

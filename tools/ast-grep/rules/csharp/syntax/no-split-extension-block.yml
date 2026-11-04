@@ -4,22 +4,13 @@ language: csharplang
 severity: error
 utils:
     block:
-        kind: constructor_declaration
+        kind: extension_declaration
         all:
-            - has: {field: name, regex: '^extension$'}
-            - has:
-                field: parameters
-                has:
-                    kind: parameter
-                    any:
-                        - has: {field: type, pattern: $RECEIVER}
-                        - all:
-                            - not: {has: {field: type, pattern: $_}}
-                            - has: {field: name, pattern: $RECEIVER}
+            - not: {has: {kind: type_parameter_list}}
+            - has: {kind: receiver_parameter, pattern: $RECEIVER}
 rule:
-    kind: constructor_declaration
     all:
         - matches: block
-        - follows: {stopBy: end, matches: block}
+        - follows: {stopBy: end, kind: extension_declaration, matches: block}
 message: '`extension` block repeats receiver `$RECEIVER` an earlier block of the class declares'
 note: 'Move its members into the earlier `extension` block of `<receiver>`, one subsection divider per family'

@@ -50,18 +50,23 @@ utils:
                 - all: [{has: {field: lhs, kind: simple_identifier, pattern: $ACC}}, {has: {field: rhs, kind: array_literal}}]
                 - all: [{has: {field: lhs, kind: array_literal}}, {has: {field: rhs, kind: simple_identifier, pattern: $ACC}}]
 rule:
-    matches: copied
-    any:
-        - all:
-            - has: {kind: simple_identifier, pattern: $ACC, inside: {kind: lambda_literal, stopBy: end, has: {kind: lambda_function_type, has: {stopBy: end, kind: lambda_parameter, has: {field: name, pattern: $ACC}}}}}
-            - inside: {stopBy: end, matches: fold-closure}
-        - has: {field: lhs, kind: array_literal}
-          inside:
-            kind: assignment
-            field: result
-            all:
-                - has: {field: operator, regex: '^=$'}
-                - has: {field: target, has: {pattern: $ACC}}
-                - inside: {stopBy: {matches: swift-function-scope}, kind: 'for_statement, while_statement, repeat_while_statement'}
+    all:
+        - matches: copied
+        - any:
+            - inside:
+                stopBy: {matches: swift-function-scope}
+                matches: fold-closure
+                any:
+                    - has: {field: type, has: {kind: lambda_function_type_parameters, has: {kind: lambda_parameter, nthChild: {position: 1, ofRule: {kind: lambda_parameter}}, has: {field: name, pattern: $ACC}}}}
+                    - not: {has: {field: type, kind: lambda_function_type}}
+                      has: {stopBy: {kind: lambda_literal}, kind: simple_identifier, pattern: $ACC, regex: '^\$0$'}
+            - has: {field: lhs, kind: array_literal}
+              inside:
+                kind: assignment
+                field: result
+                all:
+                    - has: {field: operator, regex: '^=$'}
+                    - has: {field: target, has: {pattern: $ACC}}
+                    - inside: {stopBy: {matches: swift-function-scope}, kind: 'for_statement, while_statement, repeat_while_statement'}
 message: 'Each pass copies `$ACC` whole to add elements, quadratic in input length'
 note: 'Append in `reduce(into:)` or to a loop buffer (reversed once for a prepend), or derive the elements in one `map`, `flatMap`, or `compactMap`'

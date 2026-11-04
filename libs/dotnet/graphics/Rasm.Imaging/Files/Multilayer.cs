@@ -4,7 +4,6 @@ using System.Numerics.Tensors;
 using System.Runtime.InteropServices;
 using CommunityToolkit.HighPerformance;
 using CommunityToolkit.HighPerformance.Buffers;
-using CommunityToolkit.HighPerformance.Enumerables;
 using Rasm.Imaging.Color;
 using Rasm.Imaging.Pixels;
 using TinyEXR;
@@ -46,14 +45,15 @@ public abstract partial record ImageFile {
         return Mapped(ids, (pixel, _) => keyed.TryGetValue(pixel.X, out Vector4 color) ? color : Vector4.Zero);
     }
 
-    internal static PixelFrame Mapped(PixelFrame source, Func<Vector4, Vector2, Vector4> map) =>
-        new(source.Origin, source.Size, source.Extent, block => {
-            Span2D<Vector4> mapped = MemoryMarshal.Cast<float, Vector4>(block).AsSpan2D(source.Size.Height, source.Size.Width);
-            ReadOnlySpan2D<Vector4> input = source.View.Span;
-            for (int y = 0; y < mapped.Height; y++)
-                for (int x = 0; x < mapped.Width; x++)
-                    mapped[y, x] = map(input[y, x], new Vector2(source.Origin.X + x + 0.5f, source.Origin.Y + y + 0.5f));
+    internal static PixelFrame Mapped(PixelFrame source, Func<Vector4, Vector2, Vector4> map) {
+        PixelFrame mapped = new(source.Origin, source.Size, source.Extent);
+        mapped.Rows((row, x, y) => {
+            ReadOnlySpan<Vector4> input = source.View.Span.GetRowSpan(y - source.Origin.Y);
+            for (int column = 0; column < row.Length; column++)
+                row[column] = map(input[column], new Vector2(x + column + 0.5f, y + 0.5f));
         });
+        return mapped;
+    }
 
     public sealed record Exr(Seq<ExrLayer> Layers, PixelType Sample, Compression Compression, Option<Gamut> Gamut, bool Multipart) : ImageFile {
         public override IO<Unit> Write(FileMetadata metadata, Stream stream) =>
@@ -84,19 +84,23 @@ public abstract partial record ImageFile {
 
         private Seq<ChannelBuffer> Buffers(ExrLayer layer) {
             int count = layer.Frame.Size.Width * layer.Frame.Size.Height;
-            using SpanOwner<Vector4> pixels = SpanOwner<Vector4>.Allocate(count);
-            if (Colored(layer))
-                PixelFrame.Associated(MemoryMarshal.Cast<float, Vector4>(layer.Frame.Block), pixels.Span);
-            else
-                MemoryMarshal.Cast<float, Vector4>(layer.Frame.Block).CopyTo(pixels.Span);
-            Span2D<float> samples = MemoryMarshal.Cast<Vector4, float>(pixels.Span).AsSpan2D(count, 4);
+            bool colored = Colored(layer);
+            using SpanOwner<Vector4> associated = colored ? SpanOwner<Vector4>.Allocate(count) : default;
+            ReadOnlySpan<Vector4> pixels = MemoryMarshal.Cast<float, Vector4>(layer.Frame.Block);
+            if (colored) {
+                PixelFrame.Associated(pixels, associated.Span);
+                pixels = associated.Span;
+            }
+            ReadOnlySpan2D<float> samples = MemoryMarshal.Cast<Vector4, float>(pixels).AsSpan2D(count, 4);
+            using SpanOwner<float> plane = SpanOwner<float>.Allocate(count);
             ChannelBuffer[] buffers = new ChannelBuffer[layer.Channels.Count];
             for (int component = 0; component < buffers.Length; component++) {
                 string name = layer.Name.Length is 0 ? layer.Channels[component] : $"{layer.Name}.{layer.Channels[component]}";
-                buffers[component] = (Colored(layer) ? Sample : PixelType.Float) switch {
-                    PixelType.Half => Buffer<Half>(name, PixelType.Half, samples.GetColumn(component)),
-                    PixelType.UInt => Buffer<uint>(name, PixelType.UInt, samples.GetColumn(component)),
-                    _ => Buffer<float>(name, PixelType.Float, samples.GetColumn(component)),
+                samples.GetColumn(component).CopyTo(plane.Span);
+                buffers[component] = (colored ? Sample : PixelType.Float) switch {
+                    PixelType.Half => Buffer<Half>(name, PixelType.Half, plane.Span),
+                    PixelType.UInt => Buffer<uint>(name, PixelType.UInt, plane.Span),
+                    _ => new ChannelBuffer(name, PixelType.Float, MemoryMarshal.AsBytes(plane.Span)),
                 };
             }
             return toSeq(buffers);
@@ -104,11 +108,9 @@ public abstract partial record ImageFile {
 
         private static bool Colored(ExrLayer layer) => layer.Channels.ForAll(static channel => channel is "R" or "G" or "B" or "A");
 
-        private static ChannelBuffer Buffer<T>(string name, PixelType type, RefEnumerable<float> column) where T : unmanaged, INumberBase<T> {
-            using SpanOwner<float> plane = SpanOwner<float>.Allocate(column.Length);
-            using SpanOwner<T> stored = SpanOwner<T>.Allocate(column.Length);
-            column.CopyTo(plane.Span);
-            TensorPrimitives.ConvertSaturating(plane.Span, stored.Span);
+        private static ChannelBuffer Buffer<T>(string name, PixelType type, ReadOnlySpan<float> samples) where T : unmanaged, INumberBase<T> {
+            using SpanOwner<T> stored = SpanOwner<T>.Allocate(samples.Length);
+            TensorPrimitives.ConvertSaturating(samples, stored.Span);
             return new ChannelBuffer(name, type, MemoryMarshal.AsBytes(stored.Span));
         }
     }

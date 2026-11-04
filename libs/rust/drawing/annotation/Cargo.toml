@@ -19,14 +19,19 @@ test    = false
 doctest = false
 bench   = false
 
+# --- [TESTS]
+[[test]]
+name = "operations"
+path = "../../../../tests/rust/drawing/annotation/operations.rs"
+
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
 # --- [RUNTIME]
 [dependencies]
 nonempty-collections       = { workspace = true }
-thiserror                  = { workspace = true }
 validated                  = { workspace = true }
 derive_more                = { workspace = true }
+stacksafe                  = { workspace = true }
 enum-map                   = { workspace = true }
 itertools                  = { workspace = true }
 nutype                     = { workspace = true }

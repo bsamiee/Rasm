@@ -1,8 +1,17 @@
-import { Effect, Exit, flow, type Types } from 'effect';
+import { Effect, Exit, Function, Predicate, type Types } from 'effect';
+
+// --- [TYPES] ---------------------------------------------------------------------------
+
+interface Options {
+    readonly concurrency?: Types.Concurrency;
+}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const accumulate = <A, E, R>(items: Iterable<A>, f: (item: A) => Effect.Effect<unknown, E, R>, options?: { readonly concurrency?: Types.Concurrency }): Effect.Effect<void, E, R> => Effect.forEach(items, flow(f, Effect.exit), options).pipe(Effect.flatMap(Exit.asVoidAll));
+const accumulate = Function.dual<<A, E, R>(f: (item: A) => Effect.Effect<unknown, E, R>, options?: Options) => (items: Iterable<A>) => Effect.Effect<void, E, R>, <A, E, R>(items: Iterable<A>, f: (item: A) => Effect.Effect<unknown, E, R>, options?: Options) => Effect.Effect<void, E, R>>(
+    (args) => Predicate.isFunction(args[1]),
+    (items, f, options) => Effect.forEach(items, (item) => Effect.exit(f(item)), options).pipe(Effect.flatMap(Exit.asVoidAll)),
+);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

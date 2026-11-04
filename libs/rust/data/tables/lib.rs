@@ -1,4 +1,4 @@
-#![feature(array_try_map, default_field_values, error_reporter, try_blocks_heterogeneous)]
+#![feature(array_try_map, default_field_values, error_reporter, option_get_or_try_insert_with, try_blocks_heterogeneous)]
 
 use core::{iter, time::Duration};
 use std::{error::Report, fmt, sync::Arc};
@@ -177,9 +177,9 @@ where T: DeserializeOwned {
         .iter()
         .map(|field| {
             column(batch.schema_ref().fields(), batch.columns(), batch.num_rows(), field, &options)
-                .and_then(|column| match (field.is_nullable(), column.logical_null_count()) {
-                    (true, _) | (false, 0) => Ok(column),
-                    (false, nulls) => Err(ArrowError::InvalidArgumentError(format!("required column holds nulls in {nulls} rows"))),
+                .and_then(|column| match (!field.is_nullable()).then(|| column.logical_null_count()) {
+                    None | Some(0) => Ok(column),
+                    Some(nulls) => Err(ArrowError::InvalidArgumentError(format!("required column holds nulls in {nulls} rows"))),
                 })
                 .map_err(|source| (Arc::clone(field), source))
         })

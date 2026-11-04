@@ -13,14 +13,9 @@ use crate::{Evaluation, at, compact, dense, entries, pass};
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-#[must_use]
-pub fn topological<N, E, K>(evaluation: &Evaluation<N, E>, mut key: impl FnMut(NodeIndex) -> K, direction: Direction) -> Vec<NodeIndex>
+pub fn topological<N, E, K>(evaluation: &Evaluation<N, E>, mut key: impl FnMut(NodeIndex) -> K, direction: Direction) -> Result<Vec<NodeIndex>, TopologicalSortError<!>>
 where K: Ord {
-    match lexicographical_topological_sort(evaluation.inner(), |node| Ok::<K, !>(key(node)), direction == Direction::Incoming, None) {
-        Ok(order) => order,
-        Err(TopologicalSortError::KeyError(never)) => never,
-        Err(TopologicalSortError::CycleOrBadInitialState) => Vec::new(),
-    }
+    lexicographical_topological_sort(evaluation.inner(), |node| Ok::<K, !>(key(node)), direction == Direction::Incoming, None)
 }
 
 #[must_use]

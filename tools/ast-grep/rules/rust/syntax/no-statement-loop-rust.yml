@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-statement-loop-rust
-language: rust
+language: rustlang
 severity: error
 utils:
     state-write:
@@ -84,4 +84,4 @@ labels:
     STATE: {style: secondary, message: 'Written each pass'}
     FOUND: {style: secondary, message: 'Returned from inside the loop'}
 message: '`$HEAD` computes its result statement by statement'
-note: 'Build the value through one iterator chain, with a named adapter or reduction (`collect`, `Itertools::unique_by`, `Itertools::coalesce`) in place of a `fold`, a `fold` holding a reduction whose each step reads the state it builds, and collect a fallible traversal over independent elements into `validated::Validated`'
+note: 'Use iterator adapters and collect independent failures into `validated::Validated`; reserve `fold` for steps that read accumulated state'

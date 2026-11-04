@@ -20,31 +20,31 @@ use crate::{
 pub fn edges(view: &View) -> Result<Vec<Edge>, NEVec<ViewsError>> {
     let Lines { vertices, pieces } = &view.lines;
     let key = |point: Point| [point.x.to_bits(), point.y.to_bits()];
-    EnumMap::<Class, Vec<(Line, f64)>>::from_fn(|class| {
-        pieces
-            .iter()
-            .filter(|piece| piece.kind == Some(class.kind) && piece.visibility == class.visibility)
-            .filter_map(|&Piece { ends: [start, end], depths: [head, tail], kind: _, visibility: _ }| Some((Line::new(*vertices.get(start)?, *vertices.get(end)?), head.min(tail))))
-            .collect()
-    })
-    .into_iter()
-    .collect::<Vec<_>>()
-    .into_par_iter()
-    .flat_map_iter(move |(class, group)| {
-        let ends = group.iter().flat_map(|&(Line { p0, p1 }, least)| [(key(p1), (p0, least)), (key(p0), (p1, least))]).into_group_map();
-        let depth = move |from: Point, to: Point| {
-            ends.get(&key(to))?
-                .iter()
-                .min_by(|(left, left_least), (right, right_least)| left.distance_squared(from).total_cmp(&right.distance_squared(from)).then(left_least.total_cmp(right_least)))
-                .map(|&(_, least)| least)
-        };
-        cleanup::chain(group.into_iter().map(|(line, _)| PathSeg::Line(line)), view.tolerance).into_iter().filter_map(move |run| {
-            let nearest = run.elements().iter().filter_map(PathEl::end_point).tuple_windows().filter_map(|(from, to)| depth(from, to)).min_by(f64::total_cmp)?;
-            Some(Path::try_new(run).map(|path| Edge { path, class, depth: nearest }).map_err(|source| ViewsError::Path { class, source }))
+    pieces
+        .iter()
+        .filter_map(|&Piece { ends: [start, end], depths: [head, tail], kind, visibility }| Some((Class { kind: kind?, visibility }, (Line::new(vertices[start], vertices[end]), head.min(tail)))))
+        .fold(EnumMap::<Class, Vec<(Line, f64)>>::default(), |mut groups, (class, piece)| {
+            groups[class].push(piece);
+            groups
         })
-    })
-    .collect::<Validated<Vec<_>, _>>()
-    .ok()
+        .into_iter()
+        .collect::<Vec<_>>()
+        .into_par_iter()
+        .flat_map_iter(move |(class, group)| {
+            let ends = group.iter().flat_map(|&(Line { p0, p1 }, least)| [(key(p1), (p0, least)), (key(p0), (p1, least))]).into_group_map();
+            let depth = move |from: Point, to: Point| {
+                ends.get(&key(to))?
+                    .iter()
+                    .min_by(|(left, left_least), (right, right_least)| left.distance_squared(from).total_cmp(&right.distance_squared(from)).then(left_least.total_cmp(right_least)))
+                    .map(|&(_, least)| least)
+            };
+            cleanup::chain(group.into_iter().map(|(line, _)| PathSeg::Line(line)), view.tolerance).into_iter().filter_map(move |run| {
+                let nearest = run.elements().iter().filter_map(PathEl::end_point).tuple_windows().filter_map(|(from, to)| depth(from, to)).min_by(f64::total_cmp)?;
+                Some(Path::try_new(run).map(|path| Edge { path, class, depth: nearest }).map_err(|source| ViewsError::Path { class, source }))
+            })
+        })
+        .collect::<Validated<Vec<_>, _>>()
+        .ok()
 }
 
 pub fn strokes(edges: impl IntoIterator<Item = Edge>, styles: &EnumMap<Class, (Pen, Option<Linetype>)>, tolerance: Tolerance) -> Result<Vec<Element>, NEVec<ViewsError>> {
@@ -65,41 +65,42 @@ pub(super) fn features(frame: &Frame, prepared: &Prepared, crease: Deflection) -
     let Prepared { body: _, mesh, sources, surface: _ } = prepared;
     let viewpoint = frame.inverse * Vector4::new(0.0, 0.0, -1.0, 0.0);
     let noise = f64::EPSILON.sqrt();
-    let point = |vertex: u32| mesh.vertices().get(vertex as usize).map(|&position| Point3::from(position));
+    let point = |vertex: u32| Point3::from(mesh.vertices()[vertex as usize]);
     let facet = |face: u32| {
         let triangle = mesh.triangle(face);
         let scaled = triangle.robust_scaled_normal();
         let [first, second, third] = triangle.edges_scaled_directions().map(Vector::length_squared);
-        Some((*sources.get(face as usize)?, scaled.try_normalize().filter(|_| scaled.length() > noise * first.max(second).max(third)).map(Vector3::from)))
+        (sources[face as usize], scaled.try_normalize().filter(|_| scaled.length() > noise * first.max(second).max(third)).map(Vector3::from))
     };
     mesh.topology().map_or_default(|topology| {
         let half_edges = &topology.half_edges;
-        let span = |half: &TopoHalfEdge| Some([point(half.vertex)?, point(half_edges.get(half.next as usize)?.vertex)?]);
+        let span = |half: &TopoHalfEdge| [point(half.vertex), point(half_edges[half.next as usize].vertex)];
         let side = |half: &TopoHalfEdge| {
-            let own = facet(half.face)?;
+            let own = facet(half.face);
             match own {
-                (_, Some(_)) => Some(own),
-                (_, None) => Some(
-                    iter::successors(Some(half), |turn| half_edges.get(turn.next as usize))
-                        .take(3)
-                        .filter_map(|turn| span(turn).map(|[start, end]| (turn, distance_squared(&start, &end))))
-                        .max_by(|(_, left), (_, right)| left.total_cmp(right))
-                        .and_then(|(longest, _)| facet(half_edges.get(longest.twin as usize)?.face))
-                        .unwrap_or(own),
-                ),
+                (_, Some(_)) => own,
+                (_, None) => iter::successors(Some(half), |turn| Some(&half_edges[turn.next as usize]))
+                    .take(3)
+                    .map(|turn| {
+                        let [start, end] = span(turn);
+                        (turn, distance_squared(&start, &end))
+                    })
+                    .max_by(|(_, left), (_, right)| left.total_cmp(right))
+                    .and_then(|(longest, _)| half_edges.get(longest.twin as usize).map(|partner| facet(partner.face)))
+                    .unwrap_or(own),
             }
         };
         half_edges
             .par_iter()
             .enumerate()
             .filter_map(|(index, half)| {
-                let ends @ [start, _] = span(half).filter(|_| index < half.twin as usize)?;
+                let ends @ [start, _] = (index < half.twin as usize).then(|| span(half))?;
                 let Some(partner) = half_edges.get(half.twin as usize) else {
                     return Some(Feature { ends, kind: Some(EdgeKind::Boundary) });
                 };
                 let toward = viewpoint.xyz() - start.coords.scale(viewpoint.w);
                 let facing = |normal: &Vector3<f64>| normal.dot(&toward) > noise * toward.norm();
-                let kind = match [side(half)?, side(partner)?] {
+                let kind = match [side(half), side(partner)] {
                     [(None, _), (None, _)] => None,
                     [(None, _), (Some(_), _)] | [(Some(_), _), (None, _)] => Some(Some(EdgeKind::Cut)),
                     [(Some(_), Some(left)), (Some(_), Some(right))] if facing(&left) != facing(&right) => Some(Some(EdgeKind::Silhouette)),

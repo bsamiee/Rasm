@@ -1,9 +1,11 @@
 use core::{borrow::Borrow, convert, iter};
 use std::{
-    collections::{BTreeMap, HashMap, HashSet},
+    collections::{HashMap, HashSet},
     sync::Arc,
 };
 
+use indexmap::{IndexMap, map::Entry};
+use itertools::Either;
 use lopdf::{
     Dictionary, Object, ObjectId,
     content::{Content, Operation},
@@ -43,43 +45,50 @@ pub struct Group {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub fn groups(document: &Document) -> Result<Vec<Group>, PdfError> {
-    crate::structure(document).and_then(|structure| entries(&structure)).map(|held| held.into_iter().map(|(_, group)| group).collect())
-}
+pub fn groups(document: &Document) -> Result<Vec<(ObjectId, Group)>, PdfError> { crate::structure(document).and_then(|structure| entries(&structure)) }
 
 pub fn set<I>(document: &Document, groups: I) -> Result<Document, PdfError>
-where I: IntoIterator<Item: Borrow<Group>> {
+where I: IntoIterator<Item: Borrow<(ObjectId, Group)>> {
     let mut structure = crate::structure(document)?;
     let held = entries(&structure)?;
     let requested = groups.into_iter().collect::<Vec<_>>();
-    let wanted = requested.iter().map(Borrow::<Group>::borrow).collect::<Vec<_>>();
-    let present = held.iter().map(|(_, group)| &*group.name).collect::<HashSet<_>>();
-    wanted.iter().find(|group| !present.contains(&*group.name)).map_or(Ok(()), |missing| Err(PdfError::Named { name: Arc::clone(&missing.name), refusal: Refusal::Group }))?;
+    let present = held.iter().map(|&(id, _)| id).collect::<HashSet<_>>();
+    requested.iter().map(Borrow::<(ObjectId, Group)>::borrow).find(|(id, _)| !present.contains(id)).map_or(Ok(()), |&(id, _)| Err(PdfError::Group(id)))?;
     if held.is_empty() {
         return Ok(document.clone());
     }
-    let named = wanted.iter().map(|&group| (&*group.name, group)).collect::<HashMap<_, _>>();
-    let ocgs = held.into_iter().map(|(id, stated)| (id, named.get(&*stated.name).map_or(stated, |&group| group.clone()))).collect::<Vec<_>>();
-    let forbids = conformance::declared(&structure)?.0.iter().any(|standard| match standard {
+    let requested = requested.iter().map(Borrow::<(ObjectId, Group)>::borrow).map(|(id, group)| (*id, group)).collect::<HashMap<_, _>>();
+    let ocgs = held.into_iter().map(|(id, stated)| (id, requested.get(&id).map_or(stated, |&group| group.clone()))).collect::<Vec<_>>();
+    apply(&mut structure, &ocgs)?;
+    crate::saved(structure)
+}
+
+pub(crate) fn apply(structure: &mut lopdf::Document, ocgs: &[(ObjectId, Group)]) -> Result<(), PdfError> {
+    let forbids = conformance::declared(structure)?.0.iter().any(|standard| match standard {
         Standard::Archival(_) | Standard::Accessibility(_) => true,
         Standard::Press(_) => false,
     });
     permitted(ocgs.iter().map(|(_, group)| group), forbids)?;
-    ocgs.iter().try_for_each(|(id, group)| stamp(&mut structure, *id, group))?;
-    configure(&mut structure, &ocgs, forbids)?;
-    crate::saved(structure)
+    ocgs.iter().try_for_each(|(id, group)| stamp(structure, *id, group))?;
+    configure(structure, ocgs, forbids).map_err(PdfError::from)
 }
 
 pub(crate) fn bind(structure: &mut lopdf::Document, pages: &[Vec<Group>], forbids: bool) -> Result<(), PdfError> {
     permitted(pages.iter().flatten(), forbids)?;
-    let mut registered = HashMap::<&Group, ObjectId>::new();
+    let mut registered = IndexMap::<&Group, ObjectId>::new();
     let bound = pages
         .iter()
         .map(|layers| {
-            layers.iter().map(|group| *registered.entry(group).or_insert_with(|| structure.add_object(dictionary! { "Type" => "OCG", NAME => text_string(&group.name) }))).collect::<Vec<_>>()
+            layers
+                .iter()
+                .map(|group| match registered.entry(group) {
+                    Entry::Occupied(held) => Ok(*held.get()),
+                    Entry::Vacant(slot) => structure.try_add_object(dictionary! { "Type" => "OCG", NAME => text_string(&group.name) }).map(|id| *slot.insert(id)),
+                })
+                .try_collect::<Vec<_>>()
         })
-        .collect::<Vec<_>>();
-    let ocgs = registered.into_iter().map(|(group, id)| (id, group.clone())).collect::<BTreeMap<_, _>>().into_iter().collect::<Vec<_>>();
+        .try_collect::<Vec<_>>()?;
+    let ocgs = registered.into_iter().map(|(group, id)| (id, group.clone())).collect::<Vec<_>>();
     ocgs.iter().try_for_each(|(id, group)| stamp(structure, *id, group))?;
     let resource = |id: ObjectId| format!("oc{}", id.0);
     let sheets = structure.page_iter().collect::<Vec<_>>();
@@ -90,8 +99,8 @@ pub(crate) fn bind(structure: &mut lopdf::Document, pages: &[Vec<Group>], forbid
             .operations
             .into_iter()
             .flat_map(|operation| match pending.next_if(|_| operation.operator == "Do") {
-                Some(id) => vec![Operation::new("BDC", vec![Object::from("OC"), Object::from(resource(id))]), operation, Operation::new("EMC", Vec::new())],
-                None => vec![operation],
+                Some(id) => Either::Left([Operation::new("BDC", vec![Object::from("OC"), Object::from(resource(id))]), operation, Operation::new("EMC", Vec::new())].into_iter()),
+                None => Either::Right(iter::once(operation)),
             })
             .collect::<Vec<_>>();
         structure.change_page_content(page, Content { operations }.encode()?)?;
@@ -107,7 +116,7 @@ fn permitted<'group>(groups: impl IntoIterator<Item = &'group Group>, forbids: b
     groups.into_iter().find(|group| forbids && group.print != group.view).map_or(Ok(()), |group| Err(PdfError::Named { name: Arc::clone(&group.name), refusal: Refusal::Usage }))
 }
 
-fn entries(structure: &lopdf::Document) -> Result<Vec<(ObjectId, Group)>, PdfError> {
+pub(crate) fn entries(structure: &lopdf::Document) -> Result<Vec<(ObjectId, Group)>, PdfError> {
     let Some(properties) = entry(structure, structure.catalog()?, PROPERTIES)?.map(Object::as_dict).transpose()? else {
         return Ok(Vec::new());
     };
@@ -183,7 +192,10 @@ fn stamp(structure: &mut lopdf::Document, id: ObjectId, group: &Group) -> Result
             Ok::<_, lopdf::Error>(usage)
         },
     )?;
-    structure.get_dictionary_mut(id).map(|ocg| ocg.set(USAGE, usage))
+    structure.get_dictionary_mut(id).map(|ocg| {
+        ocg.set(NAME, text_string(&group.name));
+        ocg.set(USAGE, usage);
+    })
 }
 
 fn configure(structure: &mut lopdf::Document, ocgs: &[(ObjectId, Group)], forbids: bool) -> Result<(), lopdf::Error> {

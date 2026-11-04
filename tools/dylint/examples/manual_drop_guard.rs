@@ -61,6 +61,18 @@ where F: FnMut()
     fn drop(&mut self) {}
 }
 
+struct Dormant<F>(F)
+where F: FnMut();
+
+impl<F> Drop for Dormant<F>
+where F: FnMut()
+{
+    fn drop(&mut self) {
+        let deferred = || (self.0)();
+        black_box(deferred);
+    }
+}
+
 enum Pending<F>
 where F: FnMut()
 {
@@ -96,6 +108,7 @@ fn main() {
     drop(Manual(ManuallyDrop::new(|| ())));
     drop(Boxed(Box::new(|| ())));
     drop(Kept(|| ()));
+    drop(Dormant(|| ()));
     drop(Pending::Run(|| ()));
     black_box(&(Repeat(|| 1).next(), Repeat(|| 2).next()));
 }

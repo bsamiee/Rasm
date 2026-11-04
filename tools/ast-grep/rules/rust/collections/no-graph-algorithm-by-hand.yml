@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-graph-algorithm-by-hand
-language: rust
+language: rustlang
 severity: error
 utils:
     relax-write:
@@ -137,4 +137,4 @@ transform:
     UNION: {replace: {source: $P, replace: '(?s)^.+$', by: 'union-find path compression'}}
     TRAVERSAL: {replace: {source: $V, replace: '(?s)^.+$', by: 'a visited-set graph traversal'}}
 message: '`$SITE` runs $SHORTEST$ORDER$UNION$TRAVERSAL by hand'
-note: 'Call `petgraph::algo::dijkstra` or `toposort` over a `Graph`, walk it through `visit::Bfs` or `Dfs`, or merge sets through `unionfind::UnionFind`'
+note: 'Use `petgraph::algo::dijkstra`, `toposort`, `visit::Bfs`, or `Dfs`, and `unionfind::UnionFind` for disjoint sets'

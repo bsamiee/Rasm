@@ -3,12 +3,11 @@ use std::{collections::HashMap, sync::Arc};
 
 use color::{AlphaColor, OpaqueColor, Srgb};
 use indexmap::IndexMap;
-use itertools::Itertools as _;
 use nalgebra::{Affine3, Matrix4, Point3};
 use nonempty_collections::NEVec;
 use parry3d_f64::{
     math::Vector,
-    shape::{Polyline, Segment, TriMesh, TriMeshBuilderError, TriMeshFlags},
+    shape::{Polyline, TriMesh, TriMeshBuilderError, TriMeshFlags},
 };
 use pcd_rs::{DataKind, DynReader, DynRecord, Field, Rgb};
 use serde::{Deserialize, Serialize};
@@ -225,7 +224,11 @@ pub fn instances(model: &Model, scope: Option<&[Path]>, flags: TriMeshFlags) -> 
         let refused = |reason| IfcError::Attribute { node: node.path.clone(), attribute: PointBase64::ID.into(), reason };
         let (words, []) = bytes.as_chunks::<4>() else { return Err(refused(Fault::Partial { count: bytes.len() })) };
         let (vectors, []) = words.as_chunks::<3>() else { return Err(refused(Fault::Partial { count: words.len() })) };
-        vectors.iter().map(|vector| vector.map(f32::from_le_bytes)).map(|triple| triple.iter().find(|component| !component.is_finite()).map_or(Ok(triple), |&outside| Err(refused(Fault::Range { value: f64::from(outside) })))).collect::<Result<Vec<_>, _>>()
+        vectors
+            .iter()
+            .map(|vector| vector.map(f32::from_le_bytes))
+            .map(|triple| triple.iter().find(|component| !component.is_finite()).map_or(Ok(triple), |&outside| Err(refused(Fault::Range { value: f64::from(outside) }))))
+            .try_collect::<Vec<_>>()
     };
     let point_cloud = |node: &Composed, PointCloud(bytes): PointCloud| {
         let failed = |source| IfcError::Cloud { node: node.path.clone(), source };
@@ -252,11 +255,8 @@ pub fn instances(model: &Model, scope: Option<&[Path]>, flags: TriMeshFlags) -> 
                 coordinate(&fields, x).map4(coordinate(&fields, y), coordinate(&fields, z), tint, |east, north, up, shade| (Point3::new(east, north, up), shade))
             };
             bind(column("x").map3(column("y"), column("z"), |x, y, z| [x, y, z]), |axes| {
-                let records = reader.map(|record| bind(Validated::from(record.map_err(failed)), |fields| point(fields, axes))).collect::<Validated<Vec<_>, _>>();
-                bind(records, |records| {
-                    let (positions, colors): (Vec<_>, Vec<_>) = records.into_iter().unzip();
-                    Validated::from(cloud(node, PointCloud::ID, positions, colors.into_iter().collect()))
-                })
+                let records = reader.map(|record| bind(Validated::from(record.map_err(failed)), |fields| point(fields, axes))).collect::<Validated<(Vec<_>, Vec<_>), _>>();
+                bind(records, |(positions, colors)| Validated::from(cloud(node, PointCloud::ID, positions, colors.into_iter().collect())))
             })
         })
     };
@@ -264,14 +264,14 @@ pub fn instances(model: &Model, scope: Option<&[Path]>, flags: TriMeshFlags) -> 
         (Mesh::ID, &|node: &Composed| {
             form::<Mesh>(node, |Mesh { points, face_vertex_indices }| {
                 let refused = |reason| IfcError::Attribute { node: node.path.clone(), attribute: Mesh::ID.into(), reason };
-                let (triangles, []) = face_vertex_indices.as_chunks::<3>() else { return Validated::fail(refused(Fault::Partial { count: face_vertex_indices.len() })) };
+                let (_, []) = face_vertex_indices.as_chunks::<3>() else { return Validated::fail(refused(Fault::Partial { count: face_vertex_indices.len() })) };
                 if let Some(&index) = face_vertex_indices.iter().find(|index| !usize::try_from(**index).is_ok_and(|vertex| vertex < points.len())) {
                     return Validated::fail(refused(Fault::Face { index, points: points.len() }));
                 }
-                match triangles {
+                match &face_vertex_indices {
                     [] => Validated::Good(None),
                     [_, ..] => Validated::from(
-                        TriMesh::new(points.into_iter().map(Vector::from_array).collect(), triangles.to_vec())
+                        TriMesh::new(points.into_iter().map(Vector::from_array).collect(), face_vertex_indices.into_chunks::<3>())
                             .and_then(|mut mesh| mesh.set_flags(flags).map_err(TriMeshBuilderError::TopologyError).map(|()| Some(Shape::Mesh(Arc::new(mesh)))))
                             .map_err(|source| IfcError::Mesh { node: node.path.clone(), source }),
                     ),
@@ -283,27 +283,32 @@ pub fn instances(model: &Model, scope: Option<&[Path]>, flags: TriMeshFlags) -> 
                 let vertices = points.into_iter().map(Vector::from_array).collect::<Vec<_>>();
                 let indices = match curve_vertex_counts {
                     None => None,
-                    Some(counts) if counts.iter().try_fold(0_u32, |stated, &count| stated.checked_add(count)).is_some_and(|stated| usize::try_from(stated).is_ok_and(|stated| stated == vertices.len())) => Some(
-                        counts
-                            .iter()
-                            .scan(0_u32, |start, &count| {
-                                let first = *start;
-                                *start = first.strict_add(count);
-                                Some(first..start.saturating_sub(1))
-                            })
-                            .flatten()
-                            .map(|from| [from, from.strict_add(1)])
-                            .collect::<Vec<_>>(),
-                    ),
+                    Some(counts)
+                        if counts.iter().try_fold(0_u32, |stated, &count| stated.checked_add(count)).is_some_and(|stated| usize::try_from(stated).is_ok_and(|stated| stated == vertices.len())) =>
+                        Some(
+                            counts
+                                .iter()
+                                .scan(0_u32, |start, &count| {
+                                    let first = *start;
+                                    *start = first.strict_add(count);
+                                    Some(first..start.saturating_sub(1))
+                                })
+                                .flatten()
+                                .map(|from| [from, from.strict_add(1)])
+                                .collect::<Vec<_>>(),
+                        ),
                     Some(_) => return Validated::fail(IfcError::Attribute { node: node.path.clone(), attribute: Curves::ID.into(), reason: Fault::Counts { points: vertices.len() } }),
                 };
                 Validated::Good(indices.as_ref().map_or(vertices.len() > 1, |segments| !segments.is_empty()).then(|| Shape::Curve(Arc::new(Polyline::new(vertices, indices)))))
             })
         }),
-        (PointArray::ID, &|node: &Composed| form::<PointArray>(node, |PointArray { positions, colors }| Validated::from(cloud(node, PointArray::ID, positions.into_iter().map(Point3::from).collect(), colors)))),
+        (PointArray::ID, &|node: &Composed| {
+            form::<PointArray>(node, |PointArray { positions, colors }| Validated::from(cloud(node, PointArray::ID, positions.into_iter().map(Point3::from).collect(), colors)))
+        }),
         (PointBase64::ID, &|node: &Composed| {
             form::<PointBase64>(node, |PointBase64 { positions: position_bytes, colors: color_bytes }| {
-                let decoded = Validated::from(triples(node, &position_bytes)).map2(Validated::from(color_bytes.as_deref().map(|colors| triples(node, colors)).transpose()), |positions, colors| (positions, colors));
+                let decoded = Validated::from(triples(node, &position_bytes))
+                    .map2(Validated::from(color_bytes.as_deref().map(|colors| triples(node, colors)).transpose()), |positions, colors| (positions, colors));
                 bind(decoded, |(positions, colors)| Validated::from(cloud(node, PointBase64::ID, positions.into_iter().map(|position| Point3::from(position.map(f64::from))).collect(), colors)))
             })
         }),
@@ -312,7 +317,11 @@ pub fn instances(model: &Model, scope: Option<&[Path]>, flags: TriMeshFlags) -> 
     let own = |node: &Composed| {
         let local = attribute::<Transform>(node).and_then(|record| {
             record.map_or(Ok(Affine3::identity()), |Transform { transform }| {
-                nalgebra::try_convert::<Matrix4<f64>, Affine3<f64>>(Matrix4::from(transform)).ok_or_else(|| IfcError::Attribute { node: node.path.clone(), attribute: Transform::ID.into(), reason: Fault::Singular })
+                nalgebra::try_convert::<Matrix4<f64>, Affine3<f64>>(Matrix4::from(transform)).ok_or_else(|| IfcError::Attribute {
+                    node: node.path.clone(),
+                    attribute: Transform::ID.into(),
+                    reason: Fault::Singular,
+                })
             })
         });
         let color = attribute::<DiffuseColor>(node).and_then(|diffuse| {
@@ -321,7 +330,8 @@ pub fn instances(model: &Model, scope: Option<&[Path]>, flags: TriMeshFlags) -> 
             })
         });
         let shown = attribute::<Visibility>(node).map(|record| record.is_none_or(|Visibility { visibility }| matches!(visibility, VisibilityToken::Inherited)));
-        Validated::from(local).map4(Validated::from(color), Validated::from(attribute::<Material>(node)), Validated::from(shown), |local, color, material, shown| (local, color, material.map(Arc::new), shown))
+        Validated::from(local)
+            .map4(Validated::from(color), Validated::from(attribute::<Material>(node)), Validated::from(shown), |local, color, material, shown| (local, color, material.map(Arc::new), shown))
     };
     let chains = match scope {
         None => model.roots.iter().map(|root| Ok((root.path.clone(), Vec::from([root])))).collect::<Validated<Vec<_>, IfcError>>(),
@@ -365,10 +375,8 @@ pub fn instances(model: &Model, scope: Option<&[Path]>, flags: TriMeshFlags) -> 
         .collect::<Validated<HashMap<_, _>, _>>();
     let (placements, shapes) = placements.map2(shapes, |placements, shapes| (placements, shapes)).ok()?;
     let placed = |inherited: &Placement, node: &Arc<Composed>| {
-        placements.get(&Arc::as_ptr(node)).map_or_else(
-            || inherited.clone(),
-            |(local, color, material, shown)| Placement { world: inherited.world * local, color: color.or(inherited.color), material: material.clone().or_else(|| inherited.material.clone()), visible: inherited.visible && *shown },
-        )
+        let (local, color, material, shown) = &placements[&Arc::as_ptr(node)];
+        Placement { world: inherited.world * local, color: color.or(inherited.color), material: material.clone().or_else(|| inherited.material.clone()), visible: inherited.visible && *shown }
     };
     let origin = Placement { world: Affine3::identity(), color: None, material: None, visible: true };
     let (placed, shapes, forms) = (&placed, &shapes, &forms);
@@ -385,7 +393,12 @@ pub fn instances(model: &Model, scope: Option<&[Path]>, flags: TriMeshFlags) -> 
             }
         })
         .flat_map(|(path, node, placement)| {
-            forms.iter().filter_map(move |&(id, _)| node.attributes.get(id).and_then(|value| shapes.get(&Arc::as_ptr(value)).cloned().flatten())).map(move |shape| Instance { path: path.clone(), node: node.path.clone(), shape, placement: placement.clone() })
+            forms.iter().filter_map(move |&(id, _)| node.attributes.get(id).and_then(|value| shapes[&Arc::as_ptr(value)].clone())).map(move |shape| Instance {
+                path: path.clone(),
+                node: node.path.clone(),
+                shape,
+                placement: placement.clone(),
+            })
         })
         .collect())
 }
@@ -396,26 +409,25 @@ pub fn shape_attribute(node: &Path, shape: &Shape) -> Result<(Box<str>, Option<V
     match shape {
         Shape::Mesh(mesh) => encoded(node, &Mesh { points: mesh.vertices().iter().map(Vector::to_array).collect(), face_vertex_indices: mesh.indices().as_flattened().to_vec() }),
         Shape::Curve(curve) => {
-            let runs = iter::zip(curve.indices(), curve.segments())
-                .map(|(&[from, to], Segment { a: head, b: tail })| (from, to, Vec::from([head.to_array(), tail.to_array()])))
-                .coalesce(|(start, end, mut run), (from, to, next)| {
-                    if end == from {
-                        run.extend(next.into_iter().skip(1));
-                        Ok((start, to, run))
-                    } else {
-                        Err(((start, end, run), (from, to, next)))
-                    }
-                })
-                .map(|(_, _, run)| run)
-                .collect::<Vec<_>>();
-            let curve_vertex_counts = runs.iter().map(|run| u32::try_from(run.len()).map_err(|source| IfcError::Vertices { node: node.clone(), count: run.len(), source })).collect::<Result<Vec<_>, _>>()?;
-            let points = runs.into_iter().flatten().collect();
-            encoded(node, &Curves { points, curve_vertex_counts: matches!(curve_vertex_counts.as_slice(), [_, _, ..]).then_some(curve_vertex_counts) })
+            let mut segments = curve.segments();
+            let (points, curve_vertex_counts) = curve.indices().chunk_by(|left, right| left[1] == right[0]).try_fold((Vec::new(), Vec::new()), |(mut points, mut counts), run| {
+                let count = run.len().strict_add(1);
+                counts.push(u32::try_from(count).map_err(|source| IfcError::Vertices { node: node.clone(), count, source })?);
+                let mut run = segments.by_ref().take(run.len()).peekable();
+                points.extend(run.peek().map(|segment| segment.a.to_array()));
+                points.extend(run.map(|segment| segment.b.to_array()));
+                Ok::<_, IfcError>((points, counts))
+            })?;
+            encoded(node, &Curves { points, curve_vertex_counts: matches!(&curve_vertex_counts, [_, _, ..]).then_some(curve_vertex_counts) })
         }
-        Shape::Points(points) => encoded(node, &match points {
-            Points::Plain(positions) => PointArray { positions: positions.iter().map(|position| position.coords.into()).collect(), colors: None },
-            Points::Colored(colored) => PointArray { positions: colored.iter().map(|(position, _)| position.coords.into()).collect(), colors: Some(colored.iter().map(|(_, color)| color.components).collect()) },
-        }),
+        Shape::Points(points) => encoded(
+            node,
+            &match points {
+                Points::Plain(positions) => PointArray { positions: positions.iter().map(|position| position.coords.into()).collect(), colors: None },
+                Points::Colored(colored) =>
+                    PointArray { positions: colored.iter().map(|(position, _)| position.coords.into()).collect(), colors: Some(colored.iter().map(|(_, color)| color.components).collect()) },
+            },
+        ),
     }
 }
 

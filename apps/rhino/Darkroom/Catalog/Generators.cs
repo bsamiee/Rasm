@@ -1,4 +1,3 @@
-using System.Globalization;
 using System.Numerics;
 using CommunityToolkit.HighPerformance.Buffers;
 using Darkroom.Chain;
@@ -15,39 +14,35 @@ public static class ReferenceFrame {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-[ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public sealed partial class Seed {
-    public static Seed MinValue { get; } = Create(0);
-
-    public uint Field(uint stream, uint term) => CoordinateHash.Branch((uint)_value, term, stream);
-}
-
 [ValueObject<Duration>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
 [ValidationError<DarkroomFault>]
 public sealed partial class Hold {
-    private const double Slack = 1d + (1d / (1 << 22));
     private static readonly Duration Shortest = Duration.FromMilliseconds(1);
     private static readonly Duration Longest = Duration.FromSeconds(8);
 
-    public static Hold MinValue { get; } = Create(Shortest);
+    public static Hold MinValue { get; } = new(Shortest);
 
-    public uint Period(float clock) => (uint)double.Floor((Duration.FromSeconds(clock) + Duration.Epsilon) / _value * Slack);
+    public Int128 Period(Duration clock) =>
+        Int128.DivRem(clock.ToInt128Nanoseconds(), _value.ToInt128Nanoseconds()) switch {
+            var (period, remainder) => remainder < 0 ? period - 1 : period,
+        };
 
-    public float Held(float clock) => (float)(_value * Period(clock)).TotalSeconds;
+    public Duration Held(Duration clock) => Duration.FromNanoseconds(_value.ToInt128Nanoseconds() * Period(clock));
 
     public static Fin<Hold> Validated(Duration value) => TryCreate(value, out Hold? hold, out DarkroomFault? fault) ? hold : fault;
 
     static partial void ValidateFactoryArguments(ref DarkroomFault? validationError, ref Duration value) =>
         validationError = value >= Shortest && value <= Longest ? null
-            : new DarkroomFault(string.Create(CultureInfo.InvariantCulture, $"hold = {value}"), DarkroomReason.Invalid);
+            : new DarkroomFault(value, DarkroomReason.Invalid, Expression: "hold");
 }
 
 public sealed record Timing(Duration Clock, float Pace) {
-    private const double Wrap = 1 << 14;
+    private const long Wrap = (1 << 14) * NodaConstants.NanosecondsPerSecond;
 
     public static Timing Default { get; } = new(Duration.Zero, 1f);
 
-    public float At(PassContext context) => (float)((Clock + context.Time.Map(time => time * Pace).IfNone(Duration.Zero)).TotalSeconds % Wrap);
+    public Duration At(PassContext context) =>
+        Duration.FromNanoseconds((Clock + context.Time.Map(time => time * Pace).IfNone(Duration.Zero)).ToInt128Nanoseconds() % Wrap);
 }
 
 public sealed record FieldPlacement(Vector2 Center, Angle Rotation) {

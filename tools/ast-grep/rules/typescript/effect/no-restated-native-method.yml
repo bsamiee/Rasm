@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-restated-native-method
-language: tsx
+language: tsxlang
 severity: error
 utils:
     array-module:
@@ -31,20 +31,22 @@ utils:
                 - kind: readonly_type
                   has: {kind: array_type}
                 - kind: generic_type
-                  has: {field: name, regex: '^(Readonly)?Array$|^(\w+\.)?NonEmpty(Readonly)?Array$'}
-    array-value:
+                  has:
+                    field: name
+                    any:
+                        - matches: {typescript-global-type-reference: {name: {regex: '^(Readonly)?Array$'}}}
+                        - kind: nested_type_identifier
+                          all:
+                            - has: {field: name, regex: '^NonEmptyArray$'}
+                            - has: {field: module, matches: {effect-module: {name: {regex: '\bArray$'}}}}
+    array-base:
         any:
             - kind: array
-            - matches: typescript-expression-wrapper
-              has: {nthChild: 1, matches: array-value}
             - kind: call_expression
               has:
                 field: function
                 kind: member_expression
                 any:
-                    - all:
-                        - has: {field: property, regex: '^(map|filter|flatMap|flat|toSorted|toReversed|toSpliced|with)$'}
-                        - has: {field: object, matches: array-receiver}
                     - all:
                         - has:
                             field: property
@@ -66,23 +68,56 @@ utils:
                     - all:
                         - has: {field: property, regex: '^(keys|values|entries)$'}
                         - has: {field: object, regex: '^Object$', matches: typescript-global-reference}
+    array-construction:
+        any:
+            - matches: array-base
+            - kind: call_expression
+              has:
+                field: function
+                kind: member_expression
+                all:
+                    - has: {field: property, regex: &array-method '^(map|filter|flatMap|flat|toSorted|toReversed|toSpliced|with)$'}
+                    - has: {field: object, matches: array-construction}
+            - matches: typescript-expression-wrapper
+              has: {nthChild: 1, matches: array-construction}
+    array-value:
+        any:
+            - matches: array-base
+            - kind: call_expression
+              has:
+                field: function
+                kind: member_expression
+                all:
+                    - has: {field: property, regex: *array-method}
+                    - has: {field: object, matches: array-receiver}
+            - matches: typescript-expression-wrapper
+              has: {nthChild: 1, matches: array-value}
     array-receiver:
         any:
             - matches: array-value
             - kind: identifier
               pattern: $ARRAY
-              inside:
-                kind: program
-                stopBy: end
-                has:
+              all:
+                - matches: {typescript-local-binding: {owner: {pattern: $ARRAY_OWNER}}}
+                - inside:
+                    pattern: $ARRAY_OWNER
                     stopBy: end
-                    any:
-                        - kind: variable_declarator
-                          all:
-                            - has: {field: name, pattern: $ARRAY}
-                            - any: [{has: {field: type, matches: array-type}}, {has: {field: value, matches: array-value}}]
-                        - kind: required_parameter, optional_parameter
-                          all: [{has: {field: pattern, pattern: $ARRAY}}, {has: {field: type, matches: array-type}}]
+                    has:
+                        stopBy: {any: [{matches: typescript-function-boundary}, {kind: 'class, class_declaration, abstract_class_declaration, class_static_block, internal_module'}]}
+                        any:
+                            - kind: variable_declarator
+                              all:
+                                - has: {field: name, pattern: $ARRAY}
+                                - any:
+                                    - has: {field: type, matches: array-type}
+                                    - has: {field: value, matches: array-construction}
+                                      inside: {kind: lexical_declaration, has: {field: kind, regex: '^const$'}}
+                                - has: {field: name, matches: {typescript-local-binding: {owner: {pattern: $ARRAY_OWNER}}}}
+                            - kind: required_parameter, optional_parameter
+                              all:
+                                - has: {field: pattern, pattern: $ARRAY}
+                                - has: {field: type, matches: array-type}
+                                - has: {field: pattern, matches: {typescript-local-binding: {owner: {pattern: $ARRAY_OWNER}}}}
 rule:
     kind: call_expression
     all:

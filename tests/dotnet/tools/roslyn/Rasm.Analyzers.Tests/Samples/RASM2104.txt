@@ -14,6 +14,12 @@ internal static class ToggledConduit {
     internal static void Disable(DisplayConduit conduit) {
         {|#1:conduit.Enabled = false|};
     }
+
+    internal static int Deconstructed(DisplayConduit conduit) {
+        int count;
+        {|#2:(conduit.Enabled, count) = (true, 1)|};
+        return count;
+    }
 }
 
 internal static class ReadConduit {

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-untyped-json
-language: rust
+language: rustlang
 severity: error
 utils:
     json-macro:
@@ -57,10 +57,9 @@ rule:
     pattern: $DOCUMENT
     all:
         - any:
-            - matches: json-macro
-              not: {has: {stopBy: end, matches: rust-geometry-format-text}}
-            - matches: json-format
-              not: {has: {stopBy: end, matches: rust-geometry-format-text}}
+            - all:
+                - any: [{matches: json-macro}, {matches: json-format}]
+                - not: {has: {stopBy: end, matches: rust-geometry-format-text}}
             - matches: keyed-entry
             - matches: keyed-insert
             - matches: json-text

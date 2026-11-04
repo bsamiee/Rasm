@@ -11,14 +11,14 @@ utils:
                 kind: call_suffix
                 any:
                     - all:
-                        - has: {kind: lambda_literal, pattern: $TEST}
+                        - has: {kind: lambda_literal}
                         - not: {has: {kind: value_arguments}}
                     - all:
                         - not: {has: {kind: lambda_literal}}
                         - has:
                             kind: value_arguments
                             all:
-                                - has: {kind: value_argument, not: {has: {kind: value_argument_label}}, has: {field: value, pattern: $TEST}}
+                                - has: {kind: value_argument, not: {has: {kind: value_argument_label}}, has: {field: value, pattern: $_}}
                                 - not: {has: {kind: value_argument, nthChild: 2}}
     zero-test:
         any:
@@ -33,10 +33,7 @@ rule:
             field: target
             any:
                 - matches: filter-call
-                - {kind: try_expression, all: [{has: {kind: try_operator, pattern: $TRY}}, {has: {field: expr, matches: filter-call}}]}
+                - {kind: try_expression, has: {field: expr, matches: filter-call}}
         - not: {inside: {matches: zero-test}}
-transform:
-    TRIED: {replace: {source: $TRY, replace: '(?s)^(.+)$', by: '$1 '}}
-fix: '$TRIED$C.count(where: $TEST)'
 message: '`$C.filter` builds a collection only to count its elements'
 note: 'Call `<sequence>.count(where: <test>)`'

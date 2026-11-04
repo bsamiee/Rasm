@@ -1,6 +1,6 @@
-use core::{iter, num::NonZero};
+use core::num::NonZero;
 use std::{
-    collections::HashSet,
+    collections::{HashMap, HashSet},
     sync::Arc,
 };
 
@@ -9,12 +9,13 @@ use acadrust::{
     entities::{Entity as _, EntityType, Viewport, ViewportStatusFlags},
     objects::{Layout, ObjectType, PlotPaperUnits},
     sheet_set::{CUSTOM_SHEET_PROP, LayoutReference, SheetSetDatabase, custom_properties, set_custom_property},
+    tables::normalize_name,
 };
 use kurbo::{Affine, Point, Rect, Shape as _, Size, Vec2};
 use linesweeper::FillRule;
 use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
 use rasm_linework::{
-    Element, GlyphRun, LineworkError, Pattern, Placement, Region, Target, Text,
+    Placement, Region,
     pages::{self, Page},
 };
 use uom::si::{f64::Length, length::millimeter};
@@ -36,7 +37,19 @@ pub fn pages(document: &mut CadDocument, projection: &Projection, sheets: Option
     let code = document.header.insertion_units;
     let model = Length::from(projection.unit.or_else(|| Unit::from_repr(code)).ok_or(CadError::Unit { code }).map_err(NEVec::new)?).get::<millimeter>();
     let space = document.header.model_space_block_handle;
-    let mut layouts = document.objects.values().filter_map(|object| if let ObjectType::Layout(layout) = object && layout.block_record != space { Some(layout.clone()) } else { None }).collect::<Vec<_>>();
+    let mut layouts = document
+        .objects
+        .values()
+        .filter_map(|object| {
+            if let ObjectType::Layout(layout) = object
+                && layout.block_record != space
+            {
+                Some(layout.clone())
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<_>>();
     layouts.sort_by_key(|layout| layout.tab_order);
     let mut paged = |layout: &Layout| -> Result<(Arc<str>, Page), NEVec<CadError>> {
         let unit = match PlotPaperUnits::from_code(layout.plot_paper_units) {
@@ -57,7 +70,19 @@ pub fn pages(document: &mut CadDocument, projection: &Projection, sheets: Option
         };
         let block = document.block_records.iter().find(|record| record.handle == layout.block_record).map(|record| record.name.clone());
         let ports = block.as_deref().map_or_default(|block| {
-            document.entities_in_block(block).filter_map(|entity| if let EntityType::Viewport(viewport) = entity && viewport.id > 1 && viewport.is_on() { Some(viewport.clone()) } else { None }).collect::<Vec<_>>()
+            document
+                .entities_in_block(block)
+                .filter_map(|entity| {
+                    if let EntityType::Viewport(viewport) = entity
+                        && viewport.id > 1
+                        && viewport.is_on()
+                    {
+                        Some(viewport.clone())
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<_>>()
         });
         let sheet = sheets
             .and_then(|(database, drawing)| database.sheet_for(drawing, Some(&layout.name)))
@@ -77,13 +102,15 @@ pub fn pages(document: &mut CadDocument, projection: &Projection, sheets: Option
             let nominal = |geometric: f64| -> pages::Scale {
                 let whole = |value: f64| NonZero::new(value.to_int_saturating::<u32>()).filter(|whole| f64::from(whole.get()).total_cmp(&value).is_eq());
                 let nearest = |ratio: f64| NonZero::<u32>::MIN.saturating_add(ratio.round().to_int_saturating::<u32>().saturating_sub(1));
-                let geometric_scale = || if geometric >= 1.0 { pages::Scale { paper: nearest(geometric), model: NonZero::<u32>::MIN } } else { pages::Scale { paper: NonZero::<u32>::MIN, model: nearest(geometric.recip()) } };
                 document
                     .viewport_annotation_scale(viewport.common.handle)
                     .and_then(|handle| if let Some(ObjectType::Scale(scale)) = document.objects.get(&handle) { Some(scale) } else { None })
                     .filter(|scale| (scale.paper_units / scale.drawing_units - geometric).abs() <= f64::EPSILON * 64.0 * geometric)
                     .and_then(|scale| whole(scale.paper_units).zip(whole(scale.drawing_units)))
-                    .map_or_else(geometric_scale, |(paper_units, drawing_units)| pages::Scale { paper: paper_units, model: drawing_units })
+                    .map_or_else(
+                        || pages::Scale { paper: nearest(geometric), model: nearest(geometric.recip()) },
+                        |(paper_units, drawing_units)| pages::Scale { paper: paper_units, model: drawing_units },
+                    )
             };
             let Vector3 { x: across, y: up, z: toward } = viewport.view_direction;
             let mapped = (across == 0.0 && up == 0.0 && toward > 0.0)
@@ -102,13 +129,16 @@ pub fn pages(document: &mut CadDocument, projection: &Projection, sheets: Option
                     let scale = nominal(mapped.determinant().abs().sqrt());
                     Placement::try_new(*mapped * Affine::scale(f64::from(scale.model.get()) / f64::from(scale.paper.get()))).map(|placement| (placement, scale)).map_err(misshapen)
                 });
-            let boundary = match document.get_entity(viewport.clip_boundary_handle) {
-                Some(clip) => curves::path(clip, paper.frame, projection.tolerance)
+            let boundary = if let Some(clip) = document.get_entity(viewport.clip_boundary_handle) {
+                curves::path(clip, paper.frame, projection.tolerance)
                     .and_then(|outline| outline.ok_or(Refusal::Unsupported))
-                    .map_err(|reason| CadError::Refused { subject: Subject::Record { handle: clip.common().handle, kind: clip.as_entity().entity_type() }, reason }),
-                None => Ok(paper.frame * Rect::from_center_size((viewport.center.x, viewport.center.y), (viewport.width, viewport.height)).to_path(0.0)),
+                    .map_err(|reason| CadError::Refused { subject: Subject::Record { handle: clip.common().handle, kind: clip.as_entity().entity_type() }, reason })
+            } else {
+                let mut path = Rect::from_center_size((viewport.center.x, viewport.center.y), (viewport.width, viewport.height)).to_path(0.0);
+                path.apply_affine(paper.frame);
+                Ok(path)
             }
-            .and_then(|outline| Region::new(&outline, FillRule::NonZero, projection.tolerance).map_err(misshapen));
+            .and_then(|outline| Region::new(outline, FillRule::NonZero, projection.tolerance).map_err(misshapen));
             let inner = Context {
                 frame: Affine::scale(model),
                 viewport: Some(viewport),
@@ -126,22 +156,15 @@ pub fn pages(document: &mut CadDocument, projection: &Projection, sheets: Option
 }
 
 pub fn drawing(pages: Vec<(Arc<str>, Page)>, authoring: &Authoring) -> Result<CadDocument, NEVec<CadError>> {
-    fn drafted(element: Element, factor: f64) -> Result<Element, LineworkError> {
-        let placed = |placement: Placement, target: Target| match target {
-            Target::Model => Ok(placement),
-            Target::Drafting => Placement::try_new(*placement * Affine::scale(factor.recip())),
-        };
-        match element {
-            Element::Text { text, color, opacity } => placed(text.placement, text.target).map(|placement| Element::Text { text: Text { placement, target: Target::Model, ..text }, color, opacity }),
-            Element::Glyphs { run, color, opacity } => placed(run.placement, run.target).map(|placement| Element::Glyphs { run: GlyphRun { placement, target: Target::Model, ..run }, color, opacity }),
-            Element::Hatch { region, pattern, placement, pen } => {
-                placed(placement, pattern.target).map(|placement| Element::Hatch { region, pattern: Pattern { target: Target::Model, ..pattern }, placement, pen })
-            }
-            Element::Clip { region, keep, elements } => elements.into_iter().map(|clipped| drafted(clipped, factor)).try_collect::<Vec<_>>().map(|elements| Element::Clip { region, keep, elements }),
-            Element::Stroke { path: _, pen: _, linetype: _ } | Element::Fill { region: _, color: _, opacity: _ } | Element::Placed { content: _, placement: _, opacity: _ } => Ok(element),
-        }
-    }
-    fn ported(document: &mut CadDocument, key: &Arc<str>, index: usize, size: Size, unit: f64, (boundary, affine): (Option<Region>, Placement), frozen: impl IntoIterator<Item = Handle>) -> Result<(), NEVec<CadError>> {
+    fn ported(
+        document: &mut CadDocument,
+        key: &Arc<str>,
+        index: usize,
+        size: Size,
+        unit: f64,
+        (boundary, affine): (Option<Region>, Placement),
+        frozen: impl IntoIterator<Item = Handle>,
+    ) -> Result<(), NEVec<CadError>> {
         let subject = Subject::Viewport { layout: Arc::clone(key), index };
         let refused = |reason| NEVec::new(CadError::Refused { subject: subject.clone(), reason });
         let authored = |source| NEVec::new(CadError::Drawing { operation: Operation::Layout(Arc::clone(key)), source });
@@ -150,14 +173,13 @@ pub fn drawing(pages: Vec<(Arc<str>, Page)>, authoring: &Authoring) -> Result<Ca
         let [across, up, sideways, upright, _, _] = mapped.as_coeffs();
         let (scale, twist) = (Vec2::new(across, up).hypot(), up.atan2(across));
         let reach = f64::EPSILON * 64.0 * scale;
-        let crop = match boundary.as_deref() {
+        let crop = match boundary.as_ref() {
             None => Ok(Some((Rect::from_origin_size(Point::ORIGIN, size), None))),
-            Some([]) => Ok(None),
-            Some([contour]) => {
-                let bounds = contour.path.bounding_box();
-                Ok(Some((bounds, ((contour.path.area().abs() - bounds.area()).abs() > f64::EPSILON * 64.0 * bounds.area()).then_some(&contour.path))))
-            }
-            Some([_, _, ..]) => Err(refused(Refusal::Boundary)),
+            Some(region) => match &**region {
+                [] => Ok(None),
+                [contour] => Ok(Some(region.as_rect().map_or_else(|| (contour.path.bounding_box(), Some(&contour.path)), |bounds| (bounds, None)))),
+                [_, _, ..] => Err(refused(Refusal::Boundary)),
+            },
         }?;
         match (scale.is_normal() && (across - upright).abs() <= reach && (up + sideways).abs() <= reach, crop) {
             (false, _) => Err(refused(Refusal::View)),
@@ -167,14 +189,14 @@ pub fn drawing(pages: Vec<(Arc<str>, Page)>, authoring: &Authoring) -> Result<Ca
                 let center = frame.center();
                 let clip = outline
                     .map(|outline| {
-                        <[EntityType; 1]>::try_from(curves::curves(&(paper * outline.clone())))
+                        <[EntityType; 1]>::try_from(curves::curves(&(paper * outline)))
                             .map_err(|Vec { .. }| refused(Refusal::Boundary))
                             .and_then(|[entity]| document.add_entity_to_layout(entity, key).map_err(authored))
                     })
                     .transpose()?;
                 let view = Affine::rotate(twist) * mapped.inverse() * center;
                 let mut viewport = Viewport {
-                    id: i16::try_from(index.strict_add(2)).unwrap_or(i16::MAX),
+                    id: i16::try_from(index.strict_add(2)).map_err(|source| refused(Refusal::from(source)))?,
                     status: ViewportStatusFlags { non_rectangular_clipping: clip.is_some(), ..ViewportStatusFlags::default_on() },
                     view_center: Vector3::new(view.x, view.y, 0.0),
                     twist_angle: twist,
@@ -192,12 +214,14 @@ pub fn drawing(pages: Vec<(Arc<str>, Page)>, authoring: &Authoring) -> Result<Ca
     let modeled = |viewport: pages::Viewport, subject: &Subject| -> Result<(Option<Region>, Placement, Vec<pages::Layer>), NEVec<CadError>> {
         let misshapen = |source| CadError::Geometry { subject: subject.clone(), source };
         let affine = pages::affine(&viewport).map_err(|source| NEVec::new(misshapen(source)))?;
-        let factor = affine.determinant().abs().sqrt();
         let pages::Viewport { boundary, placement: _, scale: _, layers } = viewport;
         layers
             .into_iter()
             .map(|pages::Layer { name, print, view, elements }| {
-                elements.into_iter().map(|element| Validated::from(drafted(element, factor).map_err(misshapen))).collect::<Validated<Vec<_>, _>>().map(|elements| pages::Layer { name, print, view, elements })
+                rasm_linework::rebase(elements, affine)
+                    .map_err(|errors| errors.into_nonempty_iter().map(misshapen).collect())
+                    .map_or_else(Validated::Fail, Validated::Good)
+                    .map(|elements| pages::Layer { name, print, view, elements })
             })
             .collect::<Validated<Vec<_>, _>>()
             .ok()
@@ -217,7 +241,19 @@ pub fn drawing(pages: Vec<(Arc<str>, Page)>, authoring: &Authoring) -> Result<Ca
         .ok()?;
     let mut laid = |index: usize, key: &Arc<str>, size: Size| -> Result<(), CadError> {
         let (paper, dictionary) = (document.header.paper_space_block_handle, document.header.acad_layout_dict_handle);
-        let first = document.objects.values().find_map(|object| if let ObjectType::Layout(layout) = object && layout.block_record == paper { Some(layout.handle) } else { None }).filter(|_| index == 0);
+        let first = (index == 0)
+            .then(|| {
+                document.objects.values().find_map(|object| {
+                    if let ObjectType::Layout(layout) = object
+                        && layout.block_record == paper
+                    {
+                        Some(layout.handle)
+                    } else {
+                        None
+                    }
+                })
+            })
+            .flatten();
         let handle = first.map_or_else(|| document.add_layout(key).map_err(|source| CadError::Drawing { operation: Operation::Layout(Arc::clone(key)), source }), Ok)?;
         if let Some(ObjectType::Dictionary(layouts)) = document.objects.get_mut(&dictionary)
             && let Some((name, _)) = layouts.entries.iter_mut().find(|(_, entry)| *entry == handle)
@@ -239,30 +275,42 @@ pub fn drawing(pages: Vec<(Arc<str>, Page)>, authoring: &Authoring) -> Result<Ca
         Ok(())
     };
     sheets.iter().enumerate().map(|(index, (key, size, _, _))| laid(index, key, *size)).collect::<Validated<(), _>>().ok()?;
-    let every = sheets.iter().flat_map(|(_, _, _, viewports)| viewports.iter().flat_map(|(_, _, layers)| layers)).collect::<Vec<_>>();
-    let distinct = every.iter().enumerate().filter(|&(position, layer)| !every.iter().take(position).any(|earlier| earlier == layer)).map(|(_, layer)| *layer).collect::<Vec<_>>();
-    let shown = sheets
-        .iter()
-        .map(|(_, _, _, viewports)| viewports.iter().map(|(_, _, layers)| layers.iter().filter_map(|layer| distinct.iter().position(|kept| *kept == layer)).collect::<Vec<_>>()).collect::<Vec<_>>())
-        .collect::<Vec<_>>();
-    let mut taken = distinct.iter().map(|layer| Arc::clone(&layer.name)).collect::<HashSet<_>>();
+    let (sheets, distinct) = {
+        let mut distinct = Vec::<pages::Layer>::new();
+        let mut candidates = HashMap::<_, Vec<usize>>::new();
+        let mut indexed = |layer: pages::Layer| {
+            let positions = candidates.entry((Arc::clone(&layer.name), layer.print, layer.view)).or_default();
+            positions.iter().copied().find(|&position| distinct[position] == layer).unwrap_or_else(|| {
+                let position = distinct.len();
+                distinct.push(layer);
+                positions.push(position);
+                position
+            })
+        };
+        let sheets = sheets
+            .into_iter()
+            .map(|(key, size, paper, viewports)| {
+                (key, size, paper, viewports.into_iter().map(|(boundary, affine, model)| (boundary, affine, model.into_iter().map(&mut indexed).collect::<HashSet<_>>())).collect::<Vec<_>>())
+            })
+            .collect::<Vec<_>>();
+        (sheets, distinct)
+    };
+    let mut taken = distinct.iter().map(|layer| normalize_name(&layer.name)).collect::<HashSet<_>>();
+    let mut seen = HashSet::new();
     let named = distinct
-        .iter()
-        .enumerate()
-        .map(|(position, layer)| pages::Layer {
-            name: if distinct.iter().take(position).any(|earlier| earlier.name == layer.name) {
+        .into_iter()
+        .map(|mut layer| {
+            if !seen.insert(normalize_name(&layer.name)) {
                 let mut repeat = 1_usize;
-                loop {
+                layer.name = loop {
                     repeat = repeat.strict_add(1);
                     let name = Arc::<str>::from(format!("{} {repeat}", layer.name));
-                    if taken.insert(Arc::clone(&name)) {
+                    if taken.insert(normalize_name(&name)) {
                         break name;
                     }
-                }
-            } else {
-                Arc::clone(&layer.name)
-            },
-            ..(*layer).clone()
+                };
+            }
+            layer
         })
         .collect::<Vec<_>>();
     let handles = linework::written(&mut document, "Model", named, authoring)?;
@@ -287,12 +335,14 @@ pub fn drawing(pages: Vec<(Arc<str>, Page)>, authoring: &Authoring) -> Result<Ca
             .collect::<Validated<Vec<_>, _>>()
             .ok()
     };
-    let outcome = iter::zip(sheets, shown)
-        .map(|((key, size, layers, viewports), shown)| {
+    let outcome = sheets
+        .into_iter()
+        .map(|(key, size, layers, viewports)| {
             let paper = flipped(layers, size, &key).and_then(|layers| linework::written(&mut document, &key, layers, authoring)).map_or_else(Validated::Fail, Validated::Good);
-            let ports = iter::zip(viewports, shown)
+            let ports = viewports
+                .into_iter()
                 .enumerate()
-                .map(|(index, ((boundary, affine, _), shown))| {
+                .map(|(index, (boundary, affine, shown))| {
                     let frozen = handles.iter().enumerate().filter(|(position, _)| !shown.contains(position)).map(|(_, handle)| *handle);
                     ported(&mut document, &key, index, size, unit, (boundary, affine), frozen).map_or_else(Validated::Fail, Validated::Good)
                 })
@@ -309,7 +359,15 @@ pub fn set(document: &CadDocument, name: &str, drawing: &str, pages: &[(Arc<str>
     let parent = database.sheet_set().id().to_owned();
     pages.iter().fold(database, |mut database, (key, page)| {
         let [number, title, description] = STATED.map(|field| page.fields.get(field).map_or("", |value| &**value));
-        let handle = document.objects.values().find_map(|object| if let ObjectType::Layout(layout) = object && *layout.name == **key { Some(layout.handle) } else { None });
+        let handle = document.objects.values().find_map(|object| {
+            if let ObjectType::Layout(layout) = object
+                && *layout.name == **key
+            {
+                Some(layout.handle)
+            } else {
+                None
+            }
+        });
         let reference = LayoutReference { file_name: drawing.to_owned(), name: key.to_string(), handle: handle.map_or_default(|handle| format!("{handle:X}")) };
         if let Some(sheet) = database.add_sheet(&parent, number, title, description)
             && database.set_layout_reference(&sheet, REFERENCE, &reference)

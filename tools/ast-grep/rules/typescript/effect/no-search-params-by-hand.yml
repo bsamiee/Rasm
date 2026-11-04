@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-search-params-by-hand
-language: tsx
+language: tsxlang
 severity: error
 utils:
     search-params:
@@ -32,4 +32,4 @@ rule:
                 - has: {field: property, regex: '^(get|getAll|has)$'}
                 - has: {field: object, matches: held-params}
 message: '`$HAND` reads or builds search parameters by hand'
-note: 'Decode request parameters through `HttpServerRequest.schemaSearchParams(<struct>)`, other parameters through a module-scope `Schema.fromURLSearchParams(<struct>)` with `Schema.decodeOption` and `Schema.encodeOption`'
+note: 'Use `HttpServerRequest.schemaSearchParams` for requests, a module-scope `Schema.fromURLSearchParams` codec for other parameters'

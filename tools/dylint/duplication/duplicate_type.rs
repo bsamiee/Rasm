@@ -1,73 +1,73 @@
-use core::iter;
-use std::collections::VecDeque;
+use core::{cell::RefCell, cmp::Ordering, iter};
+use std::{collections::VecDeque, rc::Rc};
 
 use clippy_utils::{
     diagnostics::span_lint_hir_and_then,
-    fn_def_id, is_lint_allowed, last_path_segment, peel_blocks, peel_hir_expr_while, peel_hir_pat_refs,
+    fn_def_id, is_lint_allowed, peel_blocks, peel_hir_expr_while, peel_hir_pat_refs,
     res::{MaybeDef as _, MaybeResPath as _},
-    str_utils::to_camel_case,
     sym,
-    ty::implements_trait_with_env,
+    ty::implements_trait_with_env_from_iter,
 };
 use itertools::Itertools as _;
 use rustc_ast::tokenstream::TokenTree;
 use rustc_attr_ir::{AttrArgs, AttrItem, Attribute};
-use rustc_data_structures::fx::{FxHashMap, FxHashSet, FxIndexMap, FxIndexSet};
+use rustc_data_structures::{
+    fx::{FxHashMap, FxHashSet, FxIndexMap, FxIndexSet},
+    sorted_map::SortedIndexMultiMap,
+};
 use rustc_errors::listify;
 use rustc_hir::{
-    Arm, Expr, ExprKind, MatchSource, PatExpr, PatExprKind, PatKind,
-    def::{CtorKind, DefKind},
-    def_id::{DefId, LocalDefId},
+    Arm, Expr, ExprKind, ImplItemImplKind, MatchSource, PatExpr, PatExprKind, PatKind,
+    def::{CtorKind, DefKind, Res},
+    def_id::{DefId, LocalDefId, ModId},
 };
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_middle::ty::{
-    self, AdtDef, AssocKind, EarlyBinder, GenericArgKind, GenericArgs, GenericArgsRef, Ty, TyCtxt, TypeFoldable, TypeVisitableExt as _, TypeckResults, TypingEnv, VariantDef, VariantDiscr,
+use rustc_middle::{
+    middle::privacy::Level,
+    ty::{
+        self, AdtDef, AssocKind, EarlyBinder, GenericArg, GenericArgKind, GenericArgs, GenericArgsRef, Ty, TyCtxt, TypeFoldable, TypeVisitableExt as _, TypeckResults, TypingEnv, Unnormalized,
+        VariantDef,
+    },
 };
 use rustc_span::{ExpnKind, MacroKind, Span, Symbol};
+use rustc_trait_selection::{
+    regions::test_region_obligations,
+    traits::{Obligation, ObligationCause, ObligationCtxt},
+};
 
-use super::{equal_bodies, substitute_types};
-use crate::{accessed_field, constructed, derived_impl, expanded_externally, signature, trait_impls};
+use super::{Bodies, canonical, declaration, normalized, owner, substitute_types};
+use crate::{accessed_field, associated_trait, constructed, expanded_externally, pattern_fields, signature, trait_impls};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-#[derive(Clone, Copy)]
-struct Field<'tcx> {
-    name: Symbol,
-    ty: Ty<'tcx>,
-    default: Option<DefId>,
-}
-
 struct Case<'tcx> {
-    key: Option<Symbol>,
-    name: Option<Symbol>,
-    ctor: Option<CtorKind>,
-    fields: Vec<Field<'tcx>>,
+    variant: &'tcx VariantDef,
+    fields: Vec<(&'tcx ty::FieldDef, Ty<'tcx>)>,
     discriminant: Option<u128>,
 }
 
 struct Shape<'tcx> {
     item: DefId,
-    explicit: bool,
     cases: Vec<Case<'tcx>>,
 }
 
-struct MirroredMatch<'tcx> {
+struct Behavior<'tcx> {
+    implementations: Vec<(DefId, LocalDefId)>,
+    inherent: SortedIndexMultiMap<u32, Symbol, LocalDefId>,
+    attributes: Vec<&'tcx AttrItem>,
+}
+
+struct MatchedArm<'tcx> {
     target: AdtDef<'tcx>,
     source: DefId,
     built: DefId,
-    retyped: bool,
+    copied_payload: Option<bool>,
 }
 
 struct Conversion {
-    pairs: Vec<(DefId, DefId)>,
+    pairs: Option<FxHashMap<DefId, DefId>>,
     retyped: bool,
     spans: Vec<Span>,
-}
-
-#[derive(PartialEq, Eq, Hash)]
-enum Key {
-    Record(Vec<Symbol>),
-    Cases(Vec<Option<Symbol>>),
 }
 
 enum Duplicate {
@@ -79,45 +79,66 @@ enum Duplicate {
 }
 
 impl Shape<'_> {
-    const fn record(&self) -> bool { matches!(self.cases.as_slice(), [case] if case.name.is_none() && case.ctor.is_none()) }
+    fn record(&self) -> bool { matches!(&self.cases, [case] if case.variant.def_id == self.item) }
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-#[derive(Default)]
-pub(crate) struct Pass {
+pub(crate) struct Pass<'tcx> {
+    bodies: Rc<Bodies<'tcx>>,
     matches: FxIndexMap<(DefId, DefId), Conversion>,
     copies: FxIndexMap<(DefId, DefId), Conversion>,
 }
 
-lint!(default Pass; DUPLICATE_TYPE: "local types and variants that repeat another type's fields or variants, and variants that repeat each other's fields");
+impl<'tcx> Pass<'tcx> {
+    pub(crate) fn new(_: TyCtxt<'tcx>, bodies: Rc<Bodies<'tcx>>) -> Self { Self { bodies, matches: FxIndexMap::default(), copies: FxIndexMap::default() } }
+}
 
-impl<'tcx> LateLintPass<'tcx> for Pass {
+lint!(Pass<'_>; DUPLICATE_TYPE: "local types and variants that repeat another type's fields or variants, and variants that repeat each other's fields");
+
+impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
-        fn matched<'tcx>(cx: &LateContext<'tcx>, arm: &'tcx Arm<'tcx>, source: AdtDef<'tcx>) -> Option<MirroredMatch<'tcx>> {
+        fn matched<'tcx>(cx: &LateContext<'tcx>, arm: &'tcx Arm<'tcx>, source: AdtDef<'tcx>) -> Option<MatchedArm<'tcx>> {
             let typeck = cx.typeck_results();
             let pattern = peel_hir_pat_refs(arm.pat).0;
-            let (PatKind::TupleStruct(qpath, ..) | PatKind::Struct(qpath, ..) | PatKind::Expr(&PatExpr { kind: PatExprKind::Path(qpath), .. })) = pattern.kind else { return None };
-            let variant = source.variants().iter().find(|variant| variant.name == last_path_segment(&qpath).ident.name)?;
-            let mut bound = FxHashSet::default();
-            pattern.each_binding(|_, binding, _, _| {
-                bound.insert(binding);
-            });
+            let (qpath, node) = match pattern.kind {
+                PatKind::TupleStruct(qpath, ..) | PatKind::Struct(qpath, ..) => (qpath, pattern.hir_id),
+                PatKind::Expr(&PatExpr { kind: PatExprKind::Path(qpath), hir_id, .. }) => (qpath, hir_id),
+                _ => return None,
+            };
+            let resolved = typeck.qpath_res(&qpath, node);
+            let Res::Def(DefKind::Variant | DefKind::Ctor(..), _) = resolved else { return None };
+            let variant = source.variant_of_res(resolved);
+            let bound = pattern_fields(typeck, pattern)
+                .filter_map(|(field, pattern)| match peel_hir_pat_refs(pattern).0.kind {
+                    PatKind::Binding(_, binding, _, None) => Some((binding, field)),
+                    _ => None,
+                })
+                .collect::<FxHashMap<_, _>>();
             let body = peel_blocks(arm.body);
             let (built, fields) = constructed(typeck, body)?;
             let target = typeck.expr_ty(body).ty_adt_def().filter(|adt| adt.is_enum())?;
-            let reads = fields.iter().map(|&(_, value)| (value, converted(cx, value))).collect::<Vec<_>>();
-            (arm.guard.is_none() && reads.iter().all(|&(_, read)| read.res_local_id().is_some_and(|binding| bound.contains(&binding)))).then(|| MirroredMatch {
+            let reads = fields.map(|(field, value)| (field.did, (value, converted(cx, value)))).collect::<FxHashMap<_, _>>();
+            (arm.guard.is_none() && reads.values().all(|&(_, read)| read.res_local_id().is_some_and(|binding| bound.contains_key(&binding)))).then(|| MatchedArm {
                 target,
                 source: variant.def_id,
                 built: built.def_id,
-                retyped: reads.iter().any(|&(value, read)| typeck.expr_ty(value) != typeck.expr_ty(read)),
+                copied_payload: (built.fields.len() == variant.fields.len()
+                    && reads.len() == built.fields.len()
+                    && iter::zip(&built.fields, &variant.fields).all(|(target_field, source_field)| {
+                        reads.get(&target_field.did).and_then(|&(_, read)| read.res_local_id()).and_then(|binding| bound.get(&binding)) == Some(&source_field.did)
+                    }))
+                .then(|| reads.values().any(|&(value, read)| typeck.expr_ty(value) != typeck.expr_ty(read))),
             })
         }
 
         let typeck = cx.typeck_results();
-        let record = |conversion: &mut FxIndexMap<(DefId, DefId), Conversion>, key: (DefId, DefId), pairs: Vec<(DefId, DefId)>, retyped: bool| {
-            let held = conversion.entry(key).or_insert_with(|| Conversion { pairs, retyped: false, spans: Vec::new() });
+        let record = |conversion: &mut FxIndexMap<(DefId, DefId), Conversion>, key: (DefId, DefId), pairs: FxHashMap<DefId, DefId>, retyped: bool| {
+            let held = conversion.entry(key).and_modify(|held| held.pairs = held.pairs.take().filter(|earlier| *earlier == pairs)).or_insert_with(|| Conversion {
+                pairs: Some(pairs),
+                retyped: false,
+                spans: Vec::new(),
+            });
             held.retyped |= retyped;
             held.spans.push(expr.span);
         };
@@ -132,19 +153,19 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             && first.target.did() != source.did()
             && first.target.variants().len() == arms.len()
             && rest.iter().all(|other| other.target == first.target)
+            && (first.target.all_fields().next().is_none() || mapped.iter().all(|arm| arm.copied_payload.is_some()))
             && mapped.iter().map(|arm| arm.source).all_unique()
             && mapped.iter().map(|arm| arm.built).all_unique()
         {
             let pairs = mapped.iter().map(|arm| (arm.built, arm.source)).collect();
-            record(&mut self.matches, (source.did(), first.target.did()), pairs, mapped.iter().any(|arm| arm.retyped));
+            record(&mut self.matches, (source.did(), first.target.did()), pairs, mapped.iter().any(|arm| arm.copied_payload == Some(true)));
         }
         if let Some((variant, assigned)) = constructed(typeck, expr)
             && let Some(built) = typeck.expr_ty(expr).ty_adt_def().filter(|adt| adt.is_struct())
-            && !assigned.is_empty()
-            && assigned.len() == variant.fields.len()
+            && !variant.fields.is_empty()
+            && assigned.clone().count() == variant.fields.len()
             && let Some(reads) = assigned
-                .iter()
-                .map(|&(field, value)| {
+                .map(|(field, value)| {
                     let read = converted(cx, value);
                     let ExprKind::Field(base, _) = read.kind else { return None };
                     Some((field.did, accessed_field(typeck, read)?, base.res_local_id()?, typeck.expr_ty_adjusted(base).peel_refs(), typeck.expr_ty(value) != typeck.expr_ty(read)))
@@ -160,11 +181,19 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
     }
 
     fn check_crate_post(&mut self, cx: &LateContext<'tcx>) {
+        fn nameable_visibility(tcx: TyCtxt<'_>, item: DefId) -> ty::Visibility<ModId> {
+            let Some(local) = item.as_local() else { return tcx.visibility(item) };
+            tcx.effective_visibilities(())
+                .effective_vis(local)
+                .map_or_else(|| ty::Visibility::Restricted(tcx.parent_module_from_def_id(local)), |visibility| *visibility.at_level(Level::Reexported))
+                .to_mod_id()
+        }
+
         struct ShapeUnifier<'tcx> {
             tcx: TyCtxt<'tcx>,
-            pair: (DefId, DefId),
-            bound: FxHashMap<u32, Ty<'tcx>>,
-            differences: Option<Vec<(Ty<'tcx>, Ty<'tcx>)>>,
+            pair: (LocalDefId, DefId),
+            bound: FxHashMap<u32, GenericArg<'tcx>>,
+            differences: Option<(FxIndexMap<Ty<'tcx>, Ty<'tcx>>, FxHashMap<Ty<'tcx>, Ty<'tcx>>)>,
             shared: bool,
         }
 
@@ -187,141 +216,158 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         fn unit(shape: &Shape<'_>) -> bool { !shape.record() && shape.cases.iter().all(|case| case.fields.is_empty()) }
 
         fn shape(tcx: TyCtxt<'_>, item: DefId) -> Option<Shape<'_>> {
-            fn count<'tcx>(tcx: TyCtxt<'tcx>, ty: Ty<'tcx>, open: &[DefId]) -> Option<u128> {
-                match ty.kind() {
-                    ty::Bool => Some(2),
-                    ty::Tuple(items) => items.iter().try_fold(1_u128, |product, item| product.checked_mul(count(tcx, item, open)?)),
-                    ty::Adt(adt, args) if !adt.is_union() && !open.contains(&adt.did()) => {
-                        let nested = [open, &[adt.did()]].concat();
-                        adt.variants()
-                            .iter()
-                            .map(|variant| variant.fields.iter().try_fold(1_u128, |product, field| product.checked_mul(count(tcx, field.ty(tcx, args).skip_normalization(), &nested)?)))
-                            .try_fold(0_u128, |sum, product| sum.checked_add(product?))
-                    }
-                    _ => None,
-                }
-            }
-
             let adt = tcx.adt_def(item);
-            let explicit = adt.variants().iter().any(|variant| matches!(variant.discr, VariantDiscr::Explicit(_)));
+            if adt.variant_list_has_applicable_non_exhaustive() || adt.variants().iter().any(VariantDef::field_list_has_applicable_non_exhaustive) {
+                return None;
+            }
             let mut cases = if adt.is_enum() && !adt.variants().is_empty() {
                 adt.discriminants(tcx)
                     .map(|(index, discriminant)| {
                         let variant = adt.variant(index);
-                        Case { key: Some(variant.name), name: Some(variant.name), ctor: variant.ctor_kind(), fields: fields(tcx, item, variant), discriminant: Some(discriminant.val) }
+                        Some(Case { variant, fields: fields(tcx, item, variant)?, discriminant: Some(discriminant.val) })
                     })
-                    .collect::<Vec<_>>()
+                    .collect::<Option<Vec<_>>>()?
             } else if adt.is_struct()
                 && let variant = adt.non_enum_variant()
                 && variant.ctor.is_none()
                 && variant.fields.len() > 1
                 && (item.is_local() || variant.fields.iter().all(|field| field.vis.is_public()))
             {
-                return Some(Shape { item, explicit: false, cases: vec![Case { key: None, name: None, ctor: None, fields: fields(tcx, item, variant), discriminant: None }] });
-            } else if adt.is_struct() {
-                let own = tcx.type_of(item).instantiate_identity().skip_normalization();
-                let constants = tcx
-                    .inherent_impls(item)
-                    .iter()
-                    .flat_map(|&implementation| tcx.associated_items(implementation).in_definition_order())
-                    .filter_map(|associated| if let AssocKind::Const { name } = associated.kind { Some((associated.def_id, name)) } else { None })
-                    .filter(|&(constant, _)| tcx.visibility(constant).is_public() && tcx.type_of(constant).instantiate_identity().skip_normalization() == own)
-                    .map(|(_, name)| Case { key: Some(Symbol::intern(&to_camel_case(&name.as_str().to_lowercase()))), name: None, ctor: Some(CtorKind::Const), fields: Vec::new(), discriminant: None })
-                    .collect::<Vec<_>>();
-                (!constants.is_empty() && count(tcx, own, &[]) == u128::try_from(constants.len()).ok()).then_some(constants)?
+                return Some(Shape { item, cases: vec![Case { variant, fields: fields(tcx, item, variant)?, discriminant: None }] });
             } else {
                 return None;
             };
-            cases.sort_by(|left, right| left.key.as_ref().map(Symbol::as_str).cmp(&right.key.as_ref().map(Symbol::as_str)));
-            Some(Shape { item, explicit, cases })
+            cases.sort_by(|left, right| left.variant.name.as_str().cmp(right.variant.name.as_str()));
+            Some(Shape { item, cases })
         }
 
-        fn unifier(tcx: TyCtxt<'_>, pair: (DefId, DefId), lenient: bool) -> ShapeUnifier<'_> {
-            ShapeUnifier { tcx, pair, bound: FxHashMap::default(), differences: lenient.then(Vec::new), shared: false }
+        fn unifier(tcx: TyCtxt<'_>, pair: (LocalDefId, DefId), lenient: bool) -> ShapeUnifier<'_> {
+            ShapeUnifier { tcx, pair, bound: FxHashMap::default(), differences: lenient.then(Default::default), shared: false }
         }
 
-        fn unified_ty<'tcx>(unifier: &mut ShapeUnifier<'tcx>, left: Ty<'tcx>, right: Ty<'tcx>) -> bool {
+        fn unified_ty<'tcx>(unifier: &mut ShapeUnifier<'tcx>, pair: (Ty<'tcx>, Ty<'tcx>)) -> Option<bool> {
             let identity = |item: DefId| GenericArgs::identity_for_item(unifier.tcx, item);
-            match (left.kind(), right.kind()) {
-                _ if left == right && !right.has_param() => true,
-                (_, ty::Param(param)) => *unifier.bound.entry(param.index).or_insert(left) == left,
-                (ty::Adt(left_adt, left_args), ty::Adt(right_adt, right_args)) if left_adt == right_adt =>
-                    iter::zip(*left_args, *right_args).all(|(left_arg, right_arg)| match (left_arg.kind(), right_arg.kind()) {
-                        (GenericArgKind::Type(left_inner), GenericArgKind::Type(right_inner)) => unified_ty(unifier, left_inner, right_inner),
-                        (GenericArgKind::Lifetime(_), GenericArgKind::Lifetime(_)) => true,
-                        (left_kind, right_kind) => left_kind == right_kind,
-                    }),
-                (ty::Adt(left_adt, left_args), ty::Adt(right_adt, right_args)) if (left_adt.did(), right_adt.did()) == unifier.pair =>
-                    *left_args == identity(left_adt.did()) && *right_args == identity(right_adt.did()),
-                (&ty::Ref(_, left_inner, left_mutability), &ty::Ref(_, right_inner, right_mutability)) | (&ty::RawPtr(left_inner, left_mutability), &ty::RawPtr(right_inner, right_mutability))
-                    if left_mutability == right_mutability =>
-                    unified_ty(unifier, left_inner, right_inner),
-                (&ty::Slice(left_inner), &ty::Slice(right_inner)) => unified_ty(unifier, left_inner, right_inner),
-                (&ty::Array(left_inner, left_length), &ty::Array(right_inner, right_length)) if left_length == right_length => unified_ty(unifier, left_inner, right_inner),
-                (ty::Tuple(left_items), ty::Tuple(right_items)) if left_items.len() == right_items.len() =>
-                    iter::zip(*left_items, *right_items).all(|(left_item, right_item)| unified_ty(unifier, left_item, right_item)),
-                _ => unifier.differences.as_mut().is_some_and(|differences| {
-                    let consistent = differences.iter().all(|&(from, to)| (from == left) == (to == right));
-                    differences.push((left, right));
-                    consistent
-                }),
+            let mut pending = vec![(GenericArg::from(pair.0), GenericArg::from(pair.1))];
+            let mut shared = true;
+            while let Some((left, right)) = pending.pop() {
+                let matched = match (left.kind(), right.kind()) {
+                    _ if left == right && !right.has_param() => true,
+                    (GenericArgKind::Type(_), GenericArgKind::Type(right_ty)) if let ty::Param(param) = right_ty.kind() => *unifier.bound.entry(param.index).or_insert(left) == left,
+                    (GenericArgKind::Lifetime(_), GenericArgKind::Lifetime(right_region)) if let ty::ReEarlyParam(param) = right_region.kind() =>
+                        *unifier.bound.entry(param.index).or_insert(left) == left,
+                    (GenericArgKind::Const(_), GenericArgKind::Const(right_constant)) if let ty::ConstKind::Param(param) = right_constant.kind() =>
+                        *unifier.bound.entry(param.index).or_insert(left) == left,
+                    (GenericArgKind::Type(left_ty), GenericArgKind::Type(right_ty)) => match (left_ty.kind(), right_ty.kind()) {
+                        (ty::Adt(left_adt, left_args), ty::Adt(right_adt, right_args)) if left_adt == right_adt => {
+                            pending.extend(iter::zip(*left_args, *right_args).rev());
+                            true
+                        }
+                        (ty::Adt(left_adt, left_args), ty::Adt(right_adt, right_args)) if (left_adt.did(), right_adt.did()) == (unifier.pair.0.to_def_id(), unifier.pair.1) =>
+                            *left_args == identity(left_adt.did()) && *right_args == identity(right_adt.did()),
+                        (&ty::Ref(left_region, left_inner, left_mutability), &ty::Ref(right_region, right_inner, right_mutability)) if left_mutability == right_mutability => {
+                            pending.extend([(left_inner.into(), right_inner.into()), (left_region.into(), right_region.into())]);
+                            true
+                        }
+                        (&ty::RawPtr(left_inner, left_mutability), &ty::RawPtr(right_inner, right_mutability)) if left_mutability == right_mutability => {
+                            pending.push((left_inner.into(), right_inner.into()));
+                            true
+                        }
+                        (&ty::Slice(left_inner), &ty::Slice(right_inner)) => {
+                            pending.push((left_inner.into(), right_inner.into()));
+                            true
+                        }
+                        (&ty::Array(left_inner, left_length), &ty::Array(right_inner, right_length)) => {
+                            pending.extend([(left_inner.into(), right_inner.into()), (left_length.into(), right_length.into())]);
+                            true
+                        }
+                        (ty::Tuple(left_items), ty::Tuple(right_items)) if left_items.len() == right_items.len() => {
+                            pending.extend(left_items.iter().map(GenericArg::from).zip(right_items.iter().map(GenericArg::from)).rev());
+                            true
+                        }
+                        _ => unifier.differences.as_mut().is_some_and(|(forward, backward)| {
+                            shared = false;
+                            *forward.entry(left_ty).or_insert(right_ty) == right_ty && *backward.entry(right_ty).or_insert(left_ty) == left_ty
+                        }),
+                    },
+                    _ => left == right,
+                };
+                if !matched {
+                    return None;
+                }
             }
+            Some(shared)
         }
 
-        fn unified_fields<'tcx>(unifier: &mut ShapeUnifier<'tcx>, left: &[Field<'tcx>], right: &[Field<'tcx>]) -> bool {
+        fn unified_field<'tcx>(unifier: &mut ShapeUnifier<'tcx>, (left_field, left_ty): (&ty::FieldDef, Ty<'tcx>), (right_field, right_ty): (&ty::FieldDef, Ty<'tcx>)) -> bool {
             let tcx = unifier.tcx;
             let defaulted = |left_default: Option<DefId>, right_default: Option<DefId>| match (left_default, right_default) {
                 (None, None) => true,
                 (Some(left_value), Some(right_value)) => matches!((tcx.const_eval_poly(left_value), tcx.const_eval_poly(right_value)), (Ok(left_value), Ok(right_value)) if left_value == right_value),
                 (Some(_), None) | (None, Some(_)) => false,
             };
-            left.len() == right.len()
-                && iter::zip(left, right).all(|(left_field, right_field)| {
-                    let before = unifier.differences.as_ref().map_or_default(Vec::len);
-                    let matched = left_field.name == right_field.name && defaulted(left_field.default, right_field.default) && unified_ty(unifier, left_field.ty, right_field.ty);
-                    unifier.shared |= matched && unifier.differences.as_ref().map_or_default(Vec::len) == before;
-                    matched
+            right_field.vis.partial_cmp(left_field.vis, tcx).is_some_and(Ordering::is_ge)
+                && left_field.safety == right_field.safety
+                && left_field.mut_restriction == right_field.mut_restriction
+                && defaulted(left_field.value, right_field.value)
+                && unified_ty(unifier, (left_ty, right_ty)).is_some_and(|shared| {
+                    unifier.shared |= shared;
+                    true
                 })
         }
 
-        fn unified_shapes<'tcx>(unifier: &mut ShapeUnifier<'tcx>, left: &Shape<'tcx>, right: &Shape<'tcx>) -> bool {
-            left.record() == right.record()
+        fn unified_fields<'tcx>(unifier: &mut ShapeUnifier<'tcx>, left: &[(&ty::FieldDef, Ty<'tcx>)], right: &[(&ty::FieldDef, Ty<'tcx>)]) -> bool {
+            left.len() == right.len() && iter::zip(left, right).all(|(&left, &right)| left.0.name == right.0.name && unified_field(unifier, left, right))
+        }
+
+        fn unified_shapes<'tcx>(unifier: &mut ShapeUnifier<'tcx>, left: &Shape<'tcx>, right: &Shape<'tcx>) -> Option<Ty<'tcx>> {
+            (left.record() == right.record()
+                && nameable_visibility(unifier.tcx, right.item).partial_cmp(nameable_visibility(unifier.tcx, left.item), unifier.tcx).is_some_and(Ordering::is_ge)
+                && unifier.tcx.adt_def(left.item).repr().equal_up_to_seed(&unifier.tcx.adt_def(right.item).repr())
+                && unifier.tcx.adt_def(left.item).is_variant_list_non_exhaustive() == unifier.tcx.adt_def(right.item).is_variant_list_non_exhaustive()
                 && left.cases.len() == right.cases.len()
                 && iter::zip(&left.cases, &right.cases).all(|(left_case, right_case)| {
-                    left_case.key == right_case.key
-                        && (left_case.name == right_case.name || left_case.name.is_none() || right_case.name.is_none())
-                        && left_case.ctor == right_case.ctor
-                        && (!left.explicit || left_case.discriminant.is_some() && left_case.discriminant == right_case.discriminant)
+                    (left.record() || left_case.variant.name == right_case.variant.name)
+                        && left_case.variant.ctor_kind() == right_case.variant.ctor_kind()
+                        && left_case.variant.is_field_list_non_exhaustive() == right_case.variant.is_field_list_non_exhaustive()
+                        && left_case.discriminant == right_case.discriminant
                         && unified_fields(unifier, &left_case.fields, &right_case.fields)
-                })
+                }))
+            .then(|| well_formed(unifier))?
         }
 
-        fn instance<'tcx>(unifier: &ShapeUnifier<'tcx>, item: DefId) -> Ty<'tcx> {
+        fn well_formed<'tcx>(unifier: &ShapeUnifier<'tcx>) -> Option<Ty<'tcx>> {
             let tcx = unifier.tcx;
-            let args = GenericArgs::for_item(tcx, item, |param, _| match (param.kind.is_ty_or_const(), unifier.bound.get(&param.index)) {
-                (false, _) => tcx.lifetimes.re_erased.into(),
-                (true, Some(&ty)) => ty.into(),
-                (true, None) => tcx.mk_param_from_def(param),
-            });
-            Ty::new_adt(tcx, tcx.adt_def(item), args)
+            let (source, target) = unifier.pair;
+            let declared = tcx.generics_of(target);
+            let args = declared.own_params.iter().try_fold(Vec::with_capacity(declared.count()), |mut args, param| {
+                args.push(unifier.bound.get(&param.index).copied().or_else(|| param.default_value(tcx).map(|default| default.instantiate(tcx, args.as_slice()).skip_normalization()))?);
+                Some(args)
+            })?;
+            let held = Ty::new_adt(tcx, tcx.adt_def(target), tcx.mk_args(&args));
+            let param_env = tcx.param_env(source);
+            let implied = tcx.assumed_wf_types(source).iter().map(|&(ty, _)| ty).collect();
+            test_region_obligations(tcx, source, param_env, &implied, |infcx| {
+                let ocx = ObligationCtxt::new(infcx);
+                ocx.register_obligation(Obligation::new(tcx, ObligationCause::dummy(), param_env, ty::Binder::dummy(ty::ClauseKind::WellFormed(held.into()))));
+                ocx.evaluate_obligations_error_on_ambiguity().no_errors().ok_or(())
+            })
+            .then_some(held)
         }
 
-        fn text<'tcx>(tcx: TyCtxt<'tcx>, instance: Ty<'tcx>) -> Option<String> {
-            let ty::Adt(adt, args) = instance.kind() else { return None };
-            let named = path(tcx, adt.did())?;
-            Some(if args.types().next().is_none() { named } else { format!("{named}<{}>", args.types().join(", ")) })
-        }
-
-        fn payloads<'tcx>(cx: &LateContext<'tcx>, item: LocalDefId, shape: &Shape<'tcx>, index: &FxIndexMap<Key, Vec<&Shape<'tcx>>>) {
+        fn payloads<'tcx>(cx: &LateContext<'tcx>, item: LocalDefId, shape: &Shape<'tcx>, index: &FxIndexMap<(DefKind, Vec<Symbol>), Vec<&Shape<'tcx>>>) {
             let tcx = cx.tcx;
-            let adt = tcx.adt_def(item);
-            let held = shape.cases.iter().filter(|case| case.ctor.is_none() && case.fields.len() > 1).filter_map(|case| {
-                let records = index.get(&Key::Record(case.fields.iter().map(|field| field.name).collect()))?;
-                let (record, held) = records.iter().find_map(|record| {
-                    let mut unifier = unifier(tcx, (shape.item, record.item), false);
-                    unified_fields(&mut unifier, &case.fields, record.cases.first().map_or(&[], |held| &held.fields)).then(|| Some((record, text(tcx, instance(&unifier, record.item))?)))?
+            let held = shape.cases.iter().filter(|case| case.variant.ctor_kind().is_none() && case.fields.len() > 1).filter_map(|case| {
+                let records = index.get(&(DefKind::Struct, case.fields.iter().map(|(field, _)| field.name).collect()))?;
+                let (record, held) = records.iter().flat_map(|record| record.cases.iter().map(move |held| (record, held))).find_map(|(record, held)| {
+                    let mut unifier = unifier(tcx, (item, record.item), false);
+                    (nameable_visibility(tcx, record.item).partial_cmp(nameable_visibility(tcx, item.to_def_id()), tcx).is_some_and(Ordering::is_ge)
+                        && !tcx.adt_def(record.item).has_dtor(tcx)
+                        && case.variant.is_field_list_non_exhaustive() == held.variant.is_field_list_non_exhaustive()
+                        && unified_fields(&mut unifier, &case.fields, &held.fields))
+                    .then(|| well_formed(&unifier))?
+                    .map(|held| (record, held.to_string()))
                 })?;
-                let variant = adt.variants().iter().find(|variant| Some(variant.name) == case.name)?;
+                let variant = case.variant;
                 Some((variant.def_id.as_local()?, variant.name, path(tcx, record.item)?, held))
             });
             for (variant, variant_name, record_name, record_type) in held {
@@ -337,16 +383,15 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 );
             }
             let alike = |left: &Case<'tcx>, right: &Case<'tcx>| {
-                left.ctor == right.ctor
-                    && unified_fields(&mut unifier(tcx, (shape.item, shape.item), false), &left.fields, &right.fields)
-                    && unified_fields(&mut unifier(tcx, (shape.item, shape.item), false), &right.fields, &left.fields)
+                left.variant.ctor_kind() == right.variant.ctor_kind()
+                    && unified_fields(&mut unifier(tcx, (item, shape.item), false), &left.fields, &right.fields)
+                    && unified_fields(&mut unifier(tcx, (item, shape.item), false), &right.fields, &left.fields)
             };
             let transparent = sym::transparent;
             let forwarding = |case: &Case<'tcx>| {
-                adt.variants()
-                    .iter()
-                    .find(|variant| Some(variant.name) == case.name)
-                    .and_then(|variant| variant.def_id.as_local())
+                case.variant
+                    .def_id
+                    .as_local()
                     .into_iter()
                     .flat_map(|variant| tcx.hir_attrs(tcx.local_def_id_to_hir_id(variant)))
                     .filter_map(|attribute| match attribute {
@@ -356,10 +401,10 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                             Some(delimited.tokens.iter().collect::<Vec<_>>()),
                         Attribute::DeriveHelper(_) | Attribute::Tool(_) | Attribute::Parsed(_) => None,
                     })
-                    .any(|tokens| matches!(tokens.as_slice(), [TokenTree::Token(token, _)] if token.is_ident_named(transparent)))
+                    .any(|tokens| matches!(&tokens, [TokenTree::Token(token, _)] if token.is_ident_named(transparent)))
             };
-            let every = matches!(shape.cases.as_slice(), [first, rest @ ..]
-                if !rest.is_empty() && (first.ctor != Some(CtorKind::Fn) && !first.fields.is_empty() || first.fields.len() > 1) && rest.iter().all(|case| alike(case, first)));
+            let every = matches!(&shape.cases, [first, rest @ ..]
+                if !rest.is_empty() && (first.variant.ctor_kind() != Some(CtorKind::Fn) && !first.fields.is_empty() || first.fields.len() > 1) && rest.iter().all(|case| alike(case, first)));
             if every {
                 span_lint_hir_and_then(
                     cx,
@@ -378,14 +423,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                     .cases
                     .iter()
                     .filter(|case| !case.fields.is_empty() && !forwarding(case))
-                    .map(|case| {
-                        shape
-                            .cases
-                            .iter()
-                            .filter(|other| !other.fields.is_empty() && !forwarding(other) && alike(other, case))
-                            .filter_map(|other| adt.variants().iter().find(|variant| Some(variant.name) == other.name))
-                            .collect::<Vec<_>>()
-                    })
+                    .map(|case| shape.cases.iter().filter(|other| !other.fields.is_empty() && !forwarding(other) && alike(other, case)).map(|other| other.variant).collect::<Vec<_>>())
                     .find(|group| group.len() > 1)
                 && let Some(listed) = listify(&group, |variant| format!("`{}`", variant.name))
             {
@@ -462,6 +500,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         }
 
         let tcx = cx.tcx;
+        let bodies = &self.bodies;
         let items = tcx.hir_crate_items(());
         let locals = items.definitions().filter(|&item| matches!(tcx.def_kind(item), DefKind::Struct | DefKind::Enum)).collect::<Vec<_>>();
         let unchecked = |item: LocalDefId| expanded_externally(cx, tcx.def_span(item)) || is_lint_allowed(cx, DUPLICATE_TYPE, tcx.local_def_id_to_hir_id(item));
@@ -481,17 +520,21 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             .filter(|shape| shape.item.is_local() || path(tcx, shape.item).is_some())
             .collect::<Vec<_>>();
         let key = |shape: &Shape<'_>| {
-            if shape.record() { Key::Record(shape.cases.iter().flat_map(|case| &case.fields).map(|field| field.name).collect()) } else { Key::Cases(shape.cases.iter().map(|case| case.key).collect()) }
+            (
+                tcx.def_kind(shape.item),
+                if shape.record() { shape.cases.iter().flat_map(|case| &case.fields).map(|(field, _)| field.name).collect() } else { shape.cases.iter().map(|case| case.variant.name).collect() },
+            )
         };
-        let index = shapes.iter().fold(FxIndexMap::<Key, Vec<&Shape<'tcx>>>::default(), |mut index, shape| {
+        let index = shapes.iter().fold(FxIndexMap::<(DefKind, Vec<Symbol>), Vec<&Shape<'tcx>>>::default(), |mut index, shape| {
             index.entry(key(shape)).or_default().push(shape);
             index
         });
         let owned = shapes.iter().filter(|shape| shape.item.is_local()).map(|shape| (shape.item, shape)).collect::<FxHashMap<_, _>>();
+        let by_item = shapes.iter().map(|shape| (shape.item, shape)).collect::<FxHashMap<_, _>>();
         let position = locals.iter().enumerate().map(|(order, &item)| (item.to_def_id(), order)).collect::<FxHashMap<_, _>>();
         let impls = trait_impls(tcx);
         let projects = |source: DefId, kind: &Shape<'tcx>| {
-            shape(tcx, source).is_some_and(|full| !full.record() && !unit(&full) && full.cases.iter().map(|case| case.name).eq(kind.cases.iter().map(|case| case.name)))
+            by_item.get(&source).is_some_and(|full| !full.record() && !unit(full) && full.cases.iter().map(|case| case.variant.name).eq(kind.cases.iter().map(|case| case.variant.name)))
         };
         let tool_attributes = |item: LocalDefId| {
             let adt = tcx.adt_def(item);
@@ -506,107 +549,172 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 })
                 .collect::<Vec<&AttrItem>>()
         };
-        let distinct = |left: LocalDefId, right: LocalDefId| {
-            let by_hand = |item: LocalDefId| {
-                let mut traits = impls
-                    .get(&item)
-                    .into_iter()
-                    .flatten()
-                    .filter(|&&(_, implementation)| !derived_impl(tcx, implementation.to_def_id()))
-                    .map(|&(implemented, implementation)| (implemented, implementation.to_def_id()))
-                    .collect::<Vec<_>>();
-                traits.sort_unstable_by_key(|&(implemented, _)| tcx.def_path_hash(implemented));
-                traits
-            };
-            let (left_impls, right_impls) = (by_hand(left), by_hand(right));
-            let (left_tools, right_tools) = (tool_attributes(left), tool_attributes(right));
-            let same_tools = left_tools.len() == right_tools.len()
-                && iter::zip(&left_tools, &right_tools).all(|(left_tool, right_tool)| {
-                    left_tool.path.segments == right_tool.path.segments
-                        && match (&left_tool.args, &right_tool.args) {
-                            (AttrArgs::Empty, AttrArgs::Empty) => true,
-                            (AttrArgs::Delimited(left_args), AttrArgs::Delimited(right_args)) =>
-                                left_args.delim == right_args.delim
-                                    && left_args.tokens.len() == right_args.tokens.len()
-                                    && iter::zip(left_args.tokens.iter(), right_args.tokens.iter()).all(|(left_token, right_token)| left_token.eq_unspanned(right_token)),
-                            (AttrArgs::Eq { expr: left_value, .. }, AttrArgs::Eq { expr: right_value, .. }) => left_value.kind == right_value.kind,
-                            (AttrArgs::Empty | AttrArgs::Delimited(_) | AttrArgs::Eq { .. }, _) => false,
-                        }
-                });
-            let differ = |left_typeck: &TypeckResults<'tcx>, left_expr: &Expr<'_>, right_typeck: &TypeckResults<'tcx>, right_expr: &Expr<'_>| {
-                let (left_ty, right_ty) = (tcx.erase_and_anonymize_regions(left_typeck.expr_ty(left_expr)), tcx.erase_and_anonymize_regions(right_typeck.expr_ty(right_expr)));
-                matches!((left_expr.kind, right_expr.kind), (ExprKind::Path(_), ExprKind::Path(_)))
-                    && left_ty != right_ty
-                    && substituted(tcx, right_ty, right.to_def_id(), |args| Ty::new_adt(tcx, tcx.adt_def(left), args)) == left_ty
-            };
-            let alike = |left_implementation: DefId, right_implementation: DefId| {
-                let implemented = tcx.impl_item_implementor_ids(right_implementation);
-                tcx.associated_items(left_implementation).in_definition_order().filter(|associated| associated.is_fn()).all(|associated| {
-                    associated
-                        .trait_item_def_id()
-                        .and_then(|declared| implemented.get(&declared))
-                        .and_then(|counterpart| counterpart.as_local().zip(associated.def_id.as_local()))
-                        .is_some_and(|(right_function, left_function)| equal_bodies(cx, left_function, right_function, &differ).is_some())
+        let inherent = items
+            .impl_items()
+            .map(|item| tcx.hir_impl_item(item))
+            .filter(|item| matches!(item.impl_kind, ImplItemImplKind::Inherent { .. }))
+            .filter_map(|item| {
+                let implementation = tcx.local_parent(item.owner_id.def_id);
+                let adt = tcx.type_of(implementation).instantiate_identity().skip_normalization().ty_adt_def()?.did().as_local()?;
+                Some((adt, (item.ident.name, item.owner_id.def_id)))
+            })
+            .fold(FxHashMap::<LocalDefId, Vec<(Symbol, LocalDefId)>>::default(), |mut inherent, (adt, member)| {
+                inherent.entry(adt).or_default().push(member);
+                inherent
+            });
+        let metadata = RefCell::new(FxHashMap::default());
+        let behavior = |item: LocalDefId| {
+            Rc::clone(metadata.borrow_mut().entry(item).or_insert_with(|| {
+                Rc::new(Behavior {
+                    implementations: impls.get(&item).into_iter().flatten().copied().filter(|&(_, implementation)| !tcx.is_builtin_derived(implementation.to_def_id())).collect(),
+                    inherent: inherent.get(&item).into_iter().flatten().copied().collect(),
+                    attributes: tool_attributes(item),
                 })
+            }))
+        };
+        let member_cache = RefCell::new(FxHashMap::default());
+        let associated = |implementation: LocalDefId| {
+            Rc::clone(member_cache.borrow_mut().entry(implementation).or_insert_with(|| {
+                Rc::new(
+                    tcx.hir_expect_item(implementation)
+                        .expect_impl()
+                        .items
+                        .iter()
+                        .map(|&item| tcx.hir_impl_item(item))
+                        .map(|item| (item.ident.name, item.owner_id.def_id))
+                        .collect::<SortedIndexMultiMap<u32, Symbol, LocalDefId>>(),
+                )
+            }))
+        };
+        let clause_cache = RefCell::new(FxHashMap::default());
+        let clauses = |item: LocalDefId, owner: Option<Ty<'tcx>>| {
+            Rc::clone(clause_cache.borrow_mut().entry((item, owner)).or_insert_with(|| {
+                Rc::new(tcx.clauses_of(item).instantiate_identity(tcx).clauses.into_iter().map(|clause| declaration(tcx, clause.skip_normalization(), owner)).collect::<FxHashSet<_>>())
+            }))
+        };
+        let equivalent = |first, second| first == second;
+        let same_member = |first: LocalDefId, second: LocalDefId, first_owner: Option<Ty<'tcx>>, second_owner: Option<Ty<'tcx>>| {
+            let [first_item, second_item] = [first, second].map(|item| tcx.associated_item(item));
+            let differ = |first_typeck: &TypeckResults<'tcx>, first_expr: &Expr<'_>, second_typeck: &TypeckResults<'tcx>, second_expr: &Expr<'_>| {
+                let (first_type, second_type) = (first_typeck.expr_ty(first_expr), second_typeck.expr_ty(second_expr));
+                matches!((first_expr.kind, second_expr.kind), (ExprKind::Path(_), ExprKind::Path(_)))
+                    && first_type != second_type
+                    && canonical(tcx, first_type, first_owner) == canonical(tcx, second_type, second_owner)
             };
-            left_impls.iter().map(|&(implemented, _)| implemented).ne(right_impls.iter().map(|&(implemented, _)| implemented))
-                || !same_tools
-                || iter::zip(&left_impls, &right_impls).any(|(&(_, left_implementation), &(_, right_implementation))| !alike(left_implementation, right_implementation))
+            first_item.tag() == second_item.tag()
+                && tcx.visibility(first) == tcx.visibility(second)
+                && first_item.defaultness(tcx) == second_item.defaultness(tcx)
+                && clauses(first, first_owner) == clauses(second, second_owner)
+                && declaration(tcx, tcx.type_of(tcx.local_parent(first)).instantiate_identity().skip_normalization(), first_owner)
+                    == declaration(tcx, tcx.type_of(tcx.local_parent(second)).instantiate_identity().skip_normalization(), second_owner)
+                && match first_item.kind {
+                    AssocKind::Fn { .. } =>
+                        declaration(tcx, first_owner, None) == declaration(tcx, owner(tcx, first), None)
+                            && declaration(tcx, second_owner, None) == declaration(tcx, owner(tcx, second), None)
+                            && bodies.callable(tcx, first).zip(bodies.callable(tcx, second)).is_some_and(|(first, second)| first == second)
+                            && bodies.equal(cx, first, second, &differ, equivalent).is_some(),
+                    AssocKind::Const { .. } | AssocKind::Type { .. } =>
+                        declaration(tcx, tcx.type_of(first).instantiate_identity().skip_normalization(), first_owner)
+                            == declaration(tcx, tcx.type_of(second).instantiate_identity().skip_normalization(), second_owner)
+                            && (!matches!(first_item.kind, AssocKind::Const { .. }) || bodies.equal(cx, first, second, &differ, equivalent).is_some()),
+                }
+        };
+        let comparisons = RefCell::new(FxHashMap::default());
+        let distinct = |left: LocalDefId, right: LocalDefId| {
+            *comparisons.borrow_mut().entry((left, right)).or_insert_with(|| {
+                let [left_owner, right_owner] = [left, right].map(|item| Some(tcx.type_of(item).instantiate_identity().skip_normalization()));
+                let (left_behavior, right_behavior) = (behavior(left), behavior(right));
+                let (left_impls, right_impls) = (&left_behavior.implementations, &right_behavior.implementations);
+                let (left_tools, right_tools) = (&left_behavior.attributes, &right_behavior.attributes);
+                let same_tools = left_tools.len() == right_tools.len()
+                    && iter::zip(left_tools, right_tools).all(|(left_tool, right_tool)| {
+                        left_tool.path.segments == right_tool.path.segments
+                            && match (&left_tool.args, &right_tool.args) {
+                                (AttrArgs::Empty, AttrArgs::Empty) => true,
+                                (AttrArgs::Delimited(left_args), AttrArgs::Delimited(right_args)) =>
+                                    left_args.delim == right_args.delim
+                                        && left_args.tokens.len() == right_args.tokens.len()
+                                        && iter::zip(left_args.tokens.iter(), right_args.tokens.iter()).all(|(left_token, right_token)| left_token.eq_unspanned(right_token)),
+                                (AttrArgs::Eq { expr: left_value, .. }, AttrArgs::Eq { expr: right_value, .. }) => left_value.kind == right_value.kind,
+                                (AttrArgs::Empty | AttrArgs::Delimited(_) | AttrArgs::Eq { .. }, _) => false,
+                            }
+                    });
+                let alike = |left_implementation: LocalDefId, right_implementation: LocalDefId| {
+                    let [left_header, right_header] = [left_implementation, right_implementation].map(|item| tcx.impl_trait_header(item));
+                    let (left_members, right_members) = (associated(left_implementation), associated(right_implementation));
+                    declaration(tcx, left_header.trait_ref.instantiate_identity(), left_owner) == declaration(tcx, right_header.trait_ref.instantiate_identity(), right_owner)
+                        && left_header.polarity == right_header.polarity
+                        && left_header.safety == right_header.safety
+                        && left_header.constness == right_header.constness
+                        && tcx.defaultness(left_implementation) == tcx.defaultness(right_implementation)
+                        && clauses(left_implementation, left_owner) == clauses(right_implementation, right_owner)
+                        && left_members.len() == right_members.len()
+                        && left_members.iter().all(|(&name, &member)| right_members.get_by_key(name).any(|&counterpart| same_member(member, counterpart, left_owner, right_owner)))
+                };
+                !same_tools
+                    || left_impls.len() != right_impls.len()
+                    || left_impls.iter().any(|&(implemented, implementation)| !right_impls.iter().any(|&(other, counterpart)| implemented == other && alike(implementation, counterpart)))
+                    || left_behavior.inherent.len() != right_behavior.inherent.len()
+                    || left_behavior.inherent.iter().any(|(&name, &member)| !right_behavior.inherent.get_by_key(name).any(|&counterpart| same_member(member, counterpart, left_owner, right_owner)))
+            })
         };
         let duplicate = |item: LocalDefId, left: &Shape<'tcx>| {
             let has_no_own_behavior = |owner: Ty<'tcx>| {
-                tool_attributes(item).is_empty()
-                    && tcx.inherent_impls(item).is_empty()
+                let behavior = behavior(item);
+                behavior.attributes.is_empty()
+                    && behavior.inherent.is_empty()
+                    && behavior.implementations.is_empty()
                     && impls.get(&item).into_iter().flatten().all(|&(_, implementation)| {
                         let trait_ref = tcx.impl_trait_ref(implementation).instantiate_identity().skip_normalization();
                         let replaced = substituted(tcx, trait_ref, item.to_def_id(), |args| EarlyBinder::bind(tcx, owner).instantiate(tcx, args).skip_normalization());
-                        trait_ref.def_id.is_local()
-                            || replaced
-                                .args
-                                .get(1..)
-                                .is_some_and(|rest| implements_trait_with_env(tcx, TypingEnv::non_body_analysis(tcx, implementation), replaced.self_ty(), replaced.def_id, None, rest))
+                        implements_trait_with_env_from_iter(tcx, TypingEnv::non_body_analysis(tcx, implementation), replaced.self_ty(), replaced.def_id, None, replaced.args.iter().skip(1))
                     })
             };
             let candidates = || index.get(&key(left)).into_iter().flatten().filter(|right| right.item != left.item);
             let earlier = |right: &Shape<'_>| position.get(&right.item) < position.get(&left.item);
             let dependency = candidates().filter(|right| !right.item.is_local()).find_map(|right| {
-                let mut unifier = unifier(tcx, (left.item, right.item), false);
-                (unified_shapes(&mut unifier, left, right) && has_no_own_behavior(instance(&unifier, right.item)))
-                    .then(|| Some(Duplicate::Same(right.item, text(tcx, instance(&unifier, right.item))?)))?
+                let mut unifier = unifier(tcx, (item, right.item), false);
+                unified_shapes(&mut unifier, left, right).filter(|&held| has_no_own_behavior(held)).map(|held| Duplicate::Same(right.item, held.to_string()))
             });
             let local = || {
                 candidates().filter_map(|right| Some((right, right.item.as_local()?))).find_map(|(right, other)| {
-                    let mut forward = unifier(tcx, (left.item, right.item), false);
-                    let same_shape = unified_shapes(&mut forward, left, right) && !distinct(item, other);
-                    let general = unified_shapes(&mut unifier(tcx, (right.item, left.item), false), right, left);
-                    (same_shape && (!general || earlier(right))).then(|| Some(Duplicate::Same(right.item, text(tcx, instance(&forward, right.item))?)))?
+                    let mut forward = unifier(tcx, (item, right.item), false);
+                    let held = unified_shapes(&mut forward, left, right).filter(|_| !distinct(item, other))?;
+                    let general = unified_shapes(&mut unifier(tcx, (other, left.item), false), right, left).is_some();
+                    (!general || earlier(right)).then(|| Duplicate::Same(right.item, held.to_string()))
                 })
             };
             let generalized = || {
                 candidates().filter(|right| right.item.is_local() && earlier(right)).find_map(|right| {
-                    let mut unifier = unifier(tcx, (left.item, right.item), true);
-                    (unified_shapes(&mut unifier, left, right) && unifier.shared && right.item.as_local().is_some_and(|other| !distinct(item, other)))
+                    let mut unifier = unifier(tcx, (item, right.item), true);
+                    (unified_shapes(&mut unifier, left, right).is_some() && unifier.shared && right.item.as_local().is_some_and(|other| !distinct(item, other)))
                         .then_some(unifier.differences)
                         .flatten()
-                        .and_then(|differences| listify(&differences.into_iter().unique().collect::<Vec<_>>(), |(from, to)| format!("`{from}` in place of `{to}`")))
+                        .and_then(|(differences, _)| listify(&differences.into_iter().collect::<Vec<_>>(), |(from, to)| format!("`{from}` in place of `{to}`")))
                         .map(|varied| Duplicate::Generalized(right.item, varied))
                 })
             };
             let subset = || {
                 self.copies.iter().filter(|&(&(copy, _), conversion)| copy == left.item && left.record() && !conversion.retyped).find_map(|(&(_, source), conversion)| {
-                    let held = fields(tcx, source, tcx.adt_def(source).non_enum_variant());
-                    let mut unifier = unifier(tcx, (left.item, source), false);
+                    let pairs = conversion.pairs.as_ref()?;
+                    let held = fields(tcx, source, tcx.adt_def(source).non_enum_variant())?;
+                    let mut unifier = unifier(tcx, (item, source), false);
                     let copied = left.cases.iter().flat_map(|case| &case.fields).collect::<Vec<_>>();
-                    let within = copied.iter().all(|field| held.iter().find(|other| other.name == field.name).is_some_and(|other| unified_fields(&mut unifier, &[**field], &[*other])));
+                    let within =
+                        copied.iter().all(|field| held.iter().find(|other| pairs.get(&field.0.did) == Some(&other.0.did)).is_some_and(|other| unified_fields(&mut unifier, &[**field], &[*other])));
                     (copied.len() < held.len() && within)
-                        .then(|| Some(Duplicate::Subset(source, path(tcx, source)?, listify(&copied, |field| format!("`{}`", field.name))?, conversion.spans.clone())))?
+                        .then(|| Some(Duplicate::Subset(source, path(tcx, source)?, listify(&copied, |field| format!("`{}`", field.0.name))?, conversion.spans.clone())))?
                 })
             };
             let kind = || {
-                self.matches
-                    .iter()
-                    .filter(|&(&(source, target), _)| target == left.item && unit(left) && projects(source, left))
-                    .find_map(|(&(source, _), conversion)| Some(Duplicate::Kind(source, path(tcx, source)?, conversion.spans.clone())))
+                self.matches.iter().filter(|&(&(source, target), _)| target == left.item && unit(left) && projects(source, left)).find_map(|(&(source, _), conversion)| {
+                    conversion
+                        .pairs
+                        .as_ref()?
+                        .iter()
+                        .all(|(&target_variant, &source_variant)| tcx.item_name(target_variant) == tcx.item_name(source_variant))
+                        .then(|| Some(Duplicate::Kind(source, path(tcx, source)?, conversion.spans.clone())))?
+                })
             };
             dependency.or_else(local).or_else(generalized).or_else(subset).or_else(kind)
         };
@@ -616,12 +724,45 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 if adt.is_enum() { adt.variants().iter().map(|variant| variant.def_id).collect::<FxHashSet<_>>() } else { adt.all_fields().map(|field| field.did).collect() }
             };
             let copies = self.copies.iter().map(|(&(target, source), conversion)| (target, source, conversion));
-            copies.chain(self.matches.iter().map(|(&(source, target), conversion)| (target, source, conversion))).find_map(|(target, source, conversion)| {
-                let (built, read) = conversion.pairs.iter().copied().unzip::<_, _, FxHashSet<_>, FxHashSet<_>>();
-                let local = source.as_local().filter(|&local| !distinct(item, local));
-                (target == item.to_def_id() && local.is_some() && built == members(target) && read == members(source) && read.len() == conversion.pairs.len())
-                    .then(|| Duplicate::Parallel(source, conversion.retyped, conversion.spans.clone()))
-            })
+            copies.chain(self.matches.iter().map(|(&(source, target), conversion)| (target, source, conversion))).filter(|&(target, _, _)| target == item.to_def_id()).find_map(
+                |(target, source, conversion)| {
+                    let pairs = conversion.pairs.as_ref()?;
+                    source.as_local().filter(|&local| !distinct(item, local))?;
+                    let built = members(target);
+                    let read = pairs.values().copied().collect::<FxHashSet<_>>();
+                    if !(pairs.len() == built.len() && pairs.keys().all(|field| built.contains(field)) && read == members(source) && read.len() == pairs.len()) {
+                        return None;
+                    }
+                    if conversion.retyped {
+                        return Some(Duplicate::Parallel(source, true, conversion.spans.clone()));
+                    }
+                    let (target_adt, source_adt) = (tcx.adt_def(target), tcx.adt_def(source));
+                    if !(target_adt.repr().equal_up_to_seed(&source_adt.repr())
+                        && nameable_visibility(tcx, source).partial_cmp(nameable_visibility(tcx, target), tcx).is_some_and(Ordering::is_ge)
+                        && target_adt.is_variant_list_non_exhaustive() == source_adt.is_variant_list_non_exhaustive())
+                    {
+                        return None;
+                    }
+                    let mut unifier = unifier(tcx, (item, source), false);
+                    let mut corresponding = |target_variant: &'tcx VariantDef, source_variant: &'tcx VariantDef| {
+                        target_variant.is_field_list_non_exhaustive() == source_variant.is_field_list_non_exhaustive()
+                            && fields(tcx, target, target_variant)
+                                .zip(fields(tcx, source, source_variant))
+                                .is_some_and(|(left, right)| left.len() == right.len() && iter::zip(left, right).all(|(left, right)| unified_field(&mut unifier, left, right)))
+                    };
+                    let same_fields = if target_adt.is_enum() {
+                        pairs
+                            .iter()
+                            .map(|(&target_case, &source_case)| (target_adt.variant_index_with_id(target_case), source_adt.variant_index_with_id(source_case)))
+                            .map(|(left, right)| (target_adt.discriminant_for_variant(tcx, left), source_adt.discriminant_for_variant(tcx, right), target_adt.variant(left), source_adt.variant(right)))
+                            .all(|(left, right, target_variant, source_variant)| (left.val, left.ty) == (right.val, right.ty) && corresponding(target_variant, source_variant))
+                    } else {
+                        let (target_variant, source_variant) = (target_adt.non_enum_variant(), source_adt.non_enum_variant());
+                        target_variant.fields.iter().zip(source_variant.fields.iter()).all(|(left, right)| pairs.get(&left.did) == Some(&right.did)) && corresponding(target_variant, source_variant)
+                    };
+                    (same_fields && well_formed(&unifier).is_some()).then(|| Duplicate::Parallel(source, false, conversion.spans.clone()))
+                },
+            )
         };
         let kind = |item: DefId| owned.get(&item).is_some_and(|generated| unit(generated) && owned.values().any(|other| projects(other.item, generated)));
         let conversion = |item: DefId| {
@@ -658,7 +799,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 fn converted<'tcx>(cx: &LateContext<'tcx>, value: &'tcx Expr<'tcx>) -> &'tcx Expr<'tcx> {
-    let conversion = |item: Option<DefId>| matches!(item.opt_parent(cx).opt_diag_name(cx), Some(sym::Clone | sym::From | sym::Into | sym::ToOwned));
+    let conversion = |item: Option<DefId>| matches!(item.and_then(|item| associated_trait(cx.tcx, item)).opt_diag_name(cx), Some(sym::Clone | sym::From | sym::Into | sym::ToOwned));
     peel_hir_expr_while(value, |inner| match inner.kind {
         ExprKind::MethodCall(_, receiver, [], _) if conversion(cx.typeck_results().type_dependent_def_id(inner.hir_id)) => Some(receiver),
         ExprKind::Call(_, [argument]) if conversion(fn_def_id(cx, inner)) => Some(argument),
@@ -666,11 +807,11 @@ fn converted<'tcx>(cx: &LateContext<'tcx>, value: &'tcx Expr<'tcx>) -> &'tcx Exp
     })
 }
 
-fn fields<'tcx>(tcx: TyCtxt<'tcx>, owner: DefId, variant: &VariantDef) -> Vec<Field<'tcx>> {
-    let (env, args) = (TypingEnv::non_body_analysis(tcx, owner), GenericArgs::identity_for_item(tcx, owner));
-    let mut fields = variant.fields.iter().map(|field| Field { name: field.name, ty: tcx.normalize_erasing_regions(env, field.ty(tcx, args)), default: field.value }).collect::<Vec<_>>();
-    fields.sort_by(|left, right| left.name.as_str().cmp(right.name.as_str()));
-    fields
+fn fields<'tcx>(tcx: TyCtxt<'tcx>, owner: DefId, variant: &'tcx VariantDef) -> Option<Vec<(&'tcx ty::FieldDef, Ty<'tcx>)>> {
+    let args = GenericArgs::identity_for_item(tcx, owner);
+    let declared = tcx.mk_type_list_from_iter(variant.fields.iter().map(|field| field.ty(tcx, args).skip_normalization()));
+    let held = normalized(tcx, owner, Unnormalized::new(declared))?;
+    Some(iter::zip(variant.fields.iter(), held.iter()).collect())
 }
 
 fn current(tcx: TyCtxt<'_>, item: DefId) -> bool {

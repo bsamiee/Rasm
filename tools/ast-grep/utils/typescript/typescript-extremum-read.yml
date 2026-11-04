@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: typescript-extremum-read
-language: tsx
+language: tsxlang
 rule:
     any:
         - inside: {kind: subscript_expression, field: object, has: {field: index, regex: '^0$'}}

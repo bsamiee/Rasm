@@ -1,11 +1,23 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-annotated-effect-fn
-language: tsx
+language: tsxlang
 severity: error
 rule:
     kind: variable_declarator
     all:
-        - has: {field: type, has: {kind: function_type, has: {field: return_type, regex: '^Effect\.Effect\b'}}}
+        - has:
+            field: type
+            has:
+                kind: function_type
+                has:
+                    field: return_type
+                    kind: generic_type
+                    has:
+                        field: name
+                        kind: nested_type_identifier
+                        all:
+                            - has: {field: name, regex: '^Effect$'}
+                            - has: {field: module, matches: {effect-module: {name: {regex: '\bEffect$'}}}}
         - has: {field: name, pattern: $NAME}
         - has:
             field: value

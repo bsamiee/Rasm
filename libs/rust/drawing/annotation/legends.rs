@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use color::{AlphaColor, Srgb};
 use colorgrad::Gradient;
+use itertools::Itertools as _;
 use kurbo::{Affine, Line, Point, Rect, Shape as _, Size, Vec2};
 use linesweeper::FillRule;
 use nonempty_collections::NEVec;
@@ -77,19 +78,24 @@ pub(crate) fn draw(typesetter: &mut Typesetter, style: &crate::Style, placement:
             let depth = entries.len().get().div_ceil(NonZero::<usize>::from(*columns).get());
             let lefts = edges(sizes.chunks(depth).map(|column| swatch.width + gap + column.iter().map(|size| size.width).fold(0.0, f64::max))).flat_map(|left| iter::repeat_n(left + origin.x, depth));
             let middles = sizes.chunks(depth).flat_map(|column| {
-                let heights = column.iter().map(|size| swatch.height.max(gap.mul_add(-2.0, size.height))).collect::<Vec<_>>();
-                let tops = edges(heights.iter().map(|height| height + gap)).collect::<Vec<_>>();
-                iter::zip(tops, heights).map(|(top, height)| height.mul_add(0.5, origin.y + top))
+                column.iter().scan(0.0, move |top, size| {
+                    let height = swatch.height.max(gap.mul_add(-2.0, size.height));
+                    let middle = height.mul_add(0.5, origin.y + *top);
+                    *top += height + gap;
+                    Some(middle)
+                })
             });
-            let rects = iter::zip(lefts, middles).map(|(left, middle)| Rect::from_center_size((swatch.width.mul_add(0.5, left), middle), *swatch)).collect::<Vec<_>>();
+            let rects = iter::zip(lefts, middles).map(|(left, middle)| Rect::from_center_size((swatch.width.mul_add(0.5, left), middle), *swatch));
             let mut entered = |Entry { swatches, outline, label: _ }: &Entry, set: Result<Graphics, NEVec<AnnotationError>>, rect: Rect| {
-                let clearance = Region::new(&rect.inflate(gap, gap).to_path(accuracy), FillRule::NonZero, style.tolerance).map(|region| Graphics { masks: vec![region], .. }).map_err(|error| NEVec::from(AnnotationError::from(error)));
+                let clearance = Region::new(rect.inflate(gap, gap), FillRule::NonZero, style.tolerance)
+                    .map(|region| Graphics { masks: vec![region], .. })
+                    .map_err(|error| NEVec::from(AnnotationError::from(error)));
                 let samples = swatches.iter().map(|sample| swatched(typesetter, style, placement, sample, rect));
                 let boxed = outline.as_ref().map(|pen| joined([stroked(rect.to_path(accuracy), pen, None)], []));
                 let text = set.and_then(|graphics| transformed(graphics, Affine::translate((rect.x1 + gap, rect.center().y))));
                 joined([], iter::once(clearance).chain(samples).chain(boxed).chain(iter::once(text)))
             };
-            indexed(iter::zip(entries.iter(), labels).zip(rects).map(|((entry, set), rect)| entered(entry, set, rect))).map(Graphics::from_iter)
+            indexed(iter::zip(entries.iter(), labels).zip(rects).map(|((entry, set), rect)| entered(entry, set, rect)))
         }
         Layout::Ramp(Ramp { gradient, bands, ticks, decimal, extent }) => {
             let [low, high] = <[_; 2]>::from(gradient.domain()).map(f64::from);
@@ -102,13 +108,22 @@ pub(crate) fn draw(typesetter: &mut Typesetter, style: &crate::Style, placement:
                 (Affine::rotate(-FRAC_PI_2).then_translate(Vec2::new(origin.x, origin.y + extent.height)), extent.height, extent.width, Anchor::Start, Baseline::Middle)
             };
             let count = bands.get();
-            let positions = (0..=count).map(|band| length * f64::from(band) / f64::from(count)).collect::<Vec<_>>();
-            let fills = positions.array_windows().map(|&[near, far]| {
+            let fills = (0..=count).map(|band| length * f64::from(band) / f64::from(count)).tuple_windows().map(|(near, far)| {
                 colored(AlphaColor::<Srgb>::new(gradient.at(span.mul_add(near.midpoint(far) / length, low).cast::<f32>()).clamp().to_array()))
-                    .and_then(|(color, opacity)| filled(&(basis * Rect::new(near, 0.0, far, thickness).to_path(accuracy)), FillRule::NonZero, color, opacity, style.tolerance))
+                    .and_then(|(color, opacity)| filled(basis * Rect::new(near, 0.0, far, thickness).to_path(accuracy), FillRule::NonZero, color, opacity, style.tolerance))
             });
             let along = |value: f64| length * (value - low) / span;
-            joined(fills, [graduated(typesetter, style, basis, Size::new(length, thickness), ticks.iter().map(|&value| (along(value), Some(notation::decimal(decimal, value, Sign::Negative)))), (Vec2::new(1.0, 0.0), anchor, baseline))])
+            joined(
+                fills,
+                [graduated(
+                    typesetter,
+                    style,
+                    basis,
+                    Size::new(length, thickness),
+                    ticks.iter().map(|&value| (along(value), Some(notation::decimal(decimal, value, Sign::Negative)))),
+                    (Vec2::new(1.0, 0.0), anchor, baseline),
+                )],
+            )
         }
     }
 }
@@ -121,8 +136,8 @@ pub(crate) fn swatched(typesetter: &mut Typesetter, style: &crate::Style, placem
             let middle = rect.center().y;
             stroked(Line::new((rect.x0, middle), (rect.x1, middle)).to_path(accuracy), pen, linetype.clone()).map(single).map_err(NEVec::from)
         }
-        Swatch::Fill { color, opacity } => filled(&rect.to_path(accuracy), FillRule::NonZero, color.clone(), *opacity, style.tolerance).map(single).map_err(NEVec::from),
-        Swatch::Hatch { pattern, pen } => Region::new(&rect.to_path(accuracy), FillRule::NonZero, style.tolerance)
+        Swatch::Fill { color, opacity } => filled(rect, FillRule::NonZero, color.clone(), *opacity, style.tolerance).map(single).map_err(NEVec::from),
+        Swatch::Hatch { pattern, pen } => Region::new(rect, FillRule::NonZero, style.tolerance)
             .map(|region| {
                 single(Element::Hatch {
                     region,

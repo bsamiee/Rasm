@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-predicate-branch-chain
-language: tsx
+language: tsxlang
 severity: error
 utils:
     option-member:
@@ -46,4 +46,4 @@ rule:
                     - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^pipe$'}}, {has: {field: object, matches: lifted}}]}
                     - has: {field: arguments, has: {pattern: $ALT}}
 message: '`Option.orElse` tests `$X` against one more predicate in a nested branch'
-note: 'Lift once through `Option.liftPredicate(<value>, Predicate.or(<p1>, <p2>))`, or for arms that map, `Match.value(<value>).pipe(Match.when(<predicate>, <f>), ..., Match.option)`'
+note: 'Use `Option.liftPredicate` with `Predicate.or`, or `Match.when` arms ending in `Match.option` when each branch maps'

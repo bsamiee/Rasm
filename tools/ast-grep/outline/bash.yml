@@ -1,29 +1,172 @@
 id: bash-function
-language: bash
+language: bashlang
 role: item
 symbolType: function
-rule:
-    kind: function_definition
-    pattern: $DEFINITION
-    has: {field: name, pattern: $NAME}
-    not: {inside: {kind: function_definition, stopBy: end}}
-transform:
-    SIGNATURE: {replace: {source: $DEFINITION, replace: '^((?:function\s+)?[^\s(]+(?:\s*\(\s*\))?)[\s\S]*$', by: '$1'}}
+rule: {kind: function_definition, has: {field: name, pattern: $NAME}}
 name: $NAME
-signature: $SIGNATURE
+signature: $NAME()
+isExported: {not: {inside: {any: [{kind: 'subshell, process_substitution, pipeline'}, {kind: command_substitution, not: {has: {field: operator, pattern: $$_OP}}}], stopBy: end}}}
+---
+id: bash-member-function
+language: bashlang
+role: member
+parentRuleIds: [bash-function]
+symbolType: function
+rule: {kind: function_definition, has: {field: name, pattern: $NAME}}
+name: $NAME
+signature: $NAME()
+isPublic: {not: {inside: {any: [{kind: 'subshell, process_substitution, pipeline'}, {kind: command_substitution, not: {has: {field: operator, pattern: $$_OP}}}], stopBy: {kind: function_definition}}}}
+---
+id: bash-source
+language: bashlang
+role: item
+symbolType: module
+utils:
+    argument: {not: {kind: 'command_name, variable_assignment, file_redirect, herestring_redirect, heredoc_redirect, comment'}}
+    option:
+        any:
+            - follows: {kind: command_name}
+            - follows: {kind: 'word, string, raw_string', regex: '^["'']?-p[^"'']+(["''])?$', matches: option}
+            - follows: {matches: argument, follows: {kind: 'word, string, raw_string', regex: '^["'']?-p["'']?$', matches: option}}
+rule:
+    kind: command
+    pattern: $DECLARATION
+    all:
+        - has: {field: name, regex: '^(source|\.)$'}
+        - has:
+              matches: argument
+              pattern: $NAME
+              any:
+                  - {not: {regex: '^["'']?-'}, matches: option}
+                  - follows: {kind: 'word, string, raw_string', regex: '^["'']?--["'']?$', matches: option}
+name: $NAME
+signature: $DECLARATION
+isImport: true
+isExported: false
+---
+id: bash-member-source
+language: bashlang
+role: member
+parentRuleIds: [bash-function]
+symbolType: module
+utils:
+    argument: {not: {kind: 'command_name, variable_assignment, file_redirect, herestring_redirect, heredoc_redirect, comment'}}
+    option:
+        any:
+            - follows: {kind: command_name}
+            - follows: {kind: 'word, string, raw_string', regex: '^["'']?-p[^"'']+(["''])?$', matches: option}
+            - follows: {matches: argument, follows: {kind: 'word, string, raw_string', regex: '^["'']?-p["'']?$', matches: option}}
+rule:
+    kind: command
+    pattern: $DECLARATION
+    all:
+        - has: {field: name, regex: '^(source|\.)$'}
+        - has:
+              matches: argument
+              pattern: $NAME
+              any:
+                  - {not: {regex: '^["'']?-'}, matches: option}
+                  - follows: {kind: 'word, string, raw_string', regex: '^["'']?--["'']?$', matches: option}
+name: $NAME
+signature: $DECLARATION
+isPublic: false
 ---
 id: bash-variable
-language: bash
+language: bashlang
 role: item
 symbolType: variable
+utils:
+    reply-binding:
+        any:
+            - {kind: variable_name, regex: '^REPLY$'}
+            - kind: variable_assignment
+              has: {field: name, any: [{kind: variable_name, regex: '^REPLY$'}, {kind: subscript, has: {field: name, regex: '^REPLY$'}}]}
 rule:
-    kind: variable_assignment, variable_name
     any:
-        - inside: {kind: program}
-          has: {field: name, kind: variable_name, pattern: $NAME}
-        - inside: {kind: declaration_command, pattern: $DECLARATION, inside: {kind: program}}
-          any: [{has: {field: name, pattern: $NAME}}, {pattern: $NAME}]
+        - kind: variable_assignment, variable_assignments
+          not: {inside: {kind: 'variable_assignments, declaration_command, command, expansion, arithmetic_expansion, binary_expression'}}
+        - kind: declaration_command
+          has: {kind: 'variable_assignment, variable_name'}
+          not:
+              any:
+                  - has: {kind: 'word, string, raw_string', regex: '^["'']?[-+][a-zA-Z]*[fF]'}
+                  - all:
+                      - has: {regex: '^(declare|typeset|local)$'}
+                      - has: {kind: 'word, string, raw_string', regex: '^["'']?[-+][a-zA-Z]*p'}
+        - kind: variable_name
+          inside: {kind: for_statement, field: variable}
+    pattern: $DECLARATION
+rewriters:
+    - id: binding
+      rule:
+          any:
+              - kind: variable_assignment
+                has:
+                    field: name
+                    any:
+                        - {kind: variable_name, pattern: $BINDING_NAME}
+                        - {kind: subscript, has: {field: name, pattern: $BINDING_NAME}}
+              - {kind: variable_name, pattern: $BINDING_NAME}
+      fix: $BINDING_NAME
 transform:
-    KEYWORD: {replace: {source: $DECLARATION, replace: '^(\S+(?:\s+-\S+)*)[\s\S]*$', by: '$1 '}}
-name: $NAME
-signature: $KEYWORD$NAME
+    NAMES: {rewrite: {source: $DECLARATION, rewriters: [binding], joinBy: ', '}}
+    HEADER: rewrite($DECLARATION, rewriters=[binding])
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s+', by: ' '}}
+name: $NAMES
+signature: $SIGNATURE
+isExported:
+    not:
+        any:
+            - inside: {any: [{kind: 'function_definition, subshell, process_substitution, pipeline'}, {kind: command_substitution, not: {has: {field: operator, pattern: $$_OP}}}], stopBy: end}
+            - kind: declaration_command
+              all:
+                  - has: {regex: '^(local|declare|typeset)$'}
+                  - not: {has: {kind: 'word, string, raw_string', regex: '^["'']?-[a-zA-Z]*g'}}
+                  - inside: {kind: command_substitution, has: {field: operator, pattern: $$_OP}, stopBy: end}
+            - all:
+                  - inside: {kind: command_substitution, has: {field: operator, regex: '\|$'}, stopBy: end}
+                  - not: {all: [{kind: declaration_command}, {has: {regex: '^(declare|typeset)$'}}, {has: {kind: 'word, string, raw_string', regex: '^["'']?-[a-zA-Z]*g'}}]}
+                  - any:
+                        - matches: reply-binding
+                        - kind: variable_assignments, declaration_command
+                          not: {has: {kind: 'variable_assignment, variable_name', not: {matches: reply-binding}}}
+---
+id: bash-member-variable
+language: bashlang
+role: member
+parentRuleIds: [bash-function]
+symbolType: variable
+rule:
+    any:
+        - kind: variable_assignment, variable_assignments
+          not: {inside: {kind: 'variable_assignments, declaration_command, command, expansion, arithmetic_expansion, binary_expression'}}
+        - kind: declaration_command
+          has: {kind: 'variable_assignment, variable_name'}
+          not:
+              any:
+                  - has: {kind: 'word, string, raw_string', regex: '^["'']?[-+][a-zA-Z]*[fF]'}
+                  - all:
+                      - has: {regex: '^(declare|typeset|local)$'}
+                      - has: {kind: 'word, string, raw_string', regex: '^["'']?[-+][a-zA-Z]*p'}
+        - kind: variable_name
+          inside: {kind: for_statement, field: variable}
+    pattern: $DECLARATION
+rewriters:
+    - id: binding
+      rule:
+          any:
+              - kind: variable_assignment
+                has:
+                    field: name
+                    any:
+                        - {kind: variable_name, pattern: $BINDING_NAME}
+                        - {kind: subscript, has: {field: name, pattern: $BINDING_NAME}}
+              - {kind: variable_name, pattern: $BINDING_NAME}
+      fix: $BINDING_NAME
+transform:
+    NAMES: {rewrite: {source: $DECLARATION, rewriters: [binding], joinBy: ', '}}
+    HEADER: rewrite($DECLARATION, rewriters=[binding])
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s+', by: ' '}}
+name: $NAMES
+signature: $SIGNATURE
+isPublic: false

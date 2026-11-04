@@ -1,3 +1,7 @@
 #0 `new Grow(Factor.Create(1f))` restates `Grow.Fill`, read `Grow.Fill`
 #1 `Factor.Create(1f)` restates `Factor.Unit`, read `Factor.Unit`
 #2 `Factor.Create(1f)` restates `Factor.Unit`, read `Factor.Unit`
+#4 `new Factor(1)` restates `Factor.Unit`, read `Factor.Unit`
+#3 `new Dimensions(Height: 2, Width: 1)` restates `Dimensions.Unit`, read `Dimensions.Unit`
+#5 `new(1)` restates `ReadonlyFactor.Unit`, read `ReadonlyFactor.Unit`
+#6 `ReadonlyFactor.Create(1)` restates `ReadonlyFactor.Unit`, read `ReadonlyFactor.Unit`

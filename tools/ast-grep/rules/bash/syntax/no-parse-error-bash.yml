@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-parse-error-bash
-language: bash
+language: bashlang
 severity: error
 utils:
     unreported:
@@ -10,8 +10,13 @@ rule:
         - kind: ERROR
           not: {matches: unreported}
         - kind: program
-          has: {stopBy: end, pattern: $$MISSING, regex: '^$', not: {matches: unreported}}
+          has:
+            stopBy: end
+            all:
+                - regex: '^$'
+                - pattern: $$MISSING
+                - not: {matches: unreported}
 labels:
     MISSING: {style: primary, message: Token the grammar inserted to recover}
 message: Grammar failed to parse the span
-note: Write a form tree-sitter-bash parses
+note: Correct invalid syntax or add its missing grammar production

@@ -32,5 +32,5 @@ public sealed class ClayMeshProvider : DefinedMeshProvider {
 
     protected override IO<MeshBuild> Build(MeshRequest request, RhinoDoc document, Guid objectId, Seq<InstanceObject> ancestry, Seq<Instance> previous) =>
         IO.lift(() => previous.Iter(instance => (instance.Material, instance.IsForcedMaterial) = (clay, true)))
-            .Map(_ => new MeshBuild(previous, ContentKey.Of<ClayMeshProvider>(stream => stream.Integer(clay.RenderHash)), request.Flags));
+            .Map(_ => new MeshBuild(previous, ContentKeys.Of<ClayMeshProvider>(stream => stream.Integer(clay.RenderHash)), request.Flags));
 }

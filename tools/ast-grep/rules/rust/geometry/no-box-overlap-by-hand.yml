@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-box-overlap-by-hand
-language: rust
+language: rustlang
 severity: error
 utils:
     comparison:
@@ -19,7 +19,7 @@ utils:
                 all:
                     - has: {field: field, pattern: $X}
                     - has: {field: value, kind: field_expression, all: [{has: {field: field, regex: '^maxs?$'}}, {has: {field: value, pattern: $B, not: {pattern: $A}}}]}
-    nested-mirror:
+    nested-swapped-boxes:
         matches: comparison
         all:
             - has: {kind: field_expression, all: [{has: {field: field, pattern: $X}}, {has: {field: value, kind: field_expression, all: [{has: {field: field, regex: '^mins?$'}}, {has: {field: value, pattern: $B}}]}}]}
@@ -29,7 +29,7 @@ utils:
         all:
             - has: {kind: field_expression, all: [{has: {field: field, regex: '^(min_?[xyz]|[xyz]_?min|left|top)$', pattern: $LO}}, {has: {field: value, pattern: $A}}]}
             - has: {kind: field_expression, all: [{has: {field: field, regex: '^(max_?[xyz]|[xyz]_?max|right|bottom)$', pattern: $HI}}, {has: {field: value, pattern: $B, not: {pattern: $A}}}]}
-    flat-mirror:
+    flat-swapped-boxes:
         matches: comparison
         all:
             - has: {kind: field_expression, all: [{has: {field: field, pattern: $LO}}, {has: {field: value, pattern: $B}}]}
@@ -82,10 +82,10 @@ rule:
           any:
             - all:
                 - has: {field: right, matches: nested}
-                - has: {field: left, any: [{matches: nested-mirror}, {matches: joined, has: {field: right, matches: nested-mirror}}]}
+                - has: {field: left, any: [{matches: nested-swapped-boxes}, {matches: joined, has: {field: right, matches: nested-swapped-boxes}}]}
             - all:
                 - has: {field: right, matches: flat}
-                - has: {field: left, any: [{matches: flat-mirror}, {matches: joined, has: {field: right, matches: flat-mirror}}]}
+                - has: {field: left, any: [{matches: flat-swapped-boxes}, {matches: joined, has: {field: right, matches: flat-swapped-boxes}}]}
         - matches: interval
 message: 'Overlap test compares extents of boxes `$A` and `$B` by hand'
 note: 'Hold the boxes as `parry3d_f64::bounding_volume::Aabb`, `rstar::AABB`, or `geo::Rect` and call `intersects`'

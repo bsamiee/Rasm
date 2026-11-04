@@ -1,6 +1,10 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: python-single-statement-block
-language: python
+language: pythonlang
 rule:
     kind: block
-    not: {has: {nthChild: {position: 2, ofRule: {not: {matches: python-docstring-or-comment}}}}}
+    not:
+        has:
+            all:
+                - &statement {pattern: $_, not: {matches: python-docstring-or-comment}}
+                - follows: {stopBy: end, all: [*statement]}

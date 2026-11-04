@@ -78,6 +78,12 @@ internal sealed class DirectCallbacks {
 
     internal static bool Added(nint type, nint selector) => Eto.Mac.ObjCExtensions.AddMethod(type, selector, Deliver, "v@:@");
 
+    internal static bool Reassigned(nint type, nint selector) {
+        Frame callback = static (_, _, _) => { };
+        callback = static (_, _, link) => {|#7:Ticked(link)|};
+        return Eto.Mac.ObjCExtensions.AddMethod(type, selector, callback, "v@:@");
+    }
+
     private static Option<int> Ticked(nint link) => link == 0 ? None : Some(1);
 
     [Export("frame:")]
@@ -92,6 +98,17 @@ internal sealed class EagerControl : Drawable {
 
     protected override void OnMouseMove(MouseEventArgs e) {
         {|#5:Session.Run(Move(Size, ParentWindow.LogicalPixelSize, e))|};
+        base.OnMouseMove(e);
+    }
+}
+
+internal sealed class WrappedControl : Drawable {
+    private static IO<Unit> Move(SizeF size, MouseEventArgs args) => IO.pure(unit);
+
+    private static void Wrap(SizeF size, MouseEventArgs args) => Session.Run(Move(size, args));
+
+    protected override void OnMouseMove(MouseEventArgs e) {
+        {|#6:Wrap(Size, e)|};
         base.OnMouseMove(e);
     }
 }

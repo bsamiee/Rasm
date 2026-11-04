@@ -9,7 +9,7 @@ use hayro::{
     RenderCache, RenderSettings,
     hayro_interpret::InterpreterSettings,
     render_into,
-    vello_cpu::{Pixmap, RasterizerSettings, RenderContext, Resources, TargetInit, peniko::ImageAlphaType},
+    vello_cpu::{Pixmap, RasterizerSettings, RenderContext, Resources, TargetInit},
 };
 use hayro_svg::SvgRenderSettings;
 use image::{FlatSamples, GenericImage as _, ImageError, Pixel, RgbImage, Rgba, RgbaImage, buffer::ConvertBuffer as _, flat::SampleLayout};
@@ -18,6 +18,7 @@ use kurbo::Affine;
 use moxcms::{ColorProfile, Layout, RenderingIntent, TransformOptions};
 use uom::si::linear_number_density::per_millimeter;
 use validated::Validated;
+use vello_common::pixmap::unpremultiply_rgba8;
 
 use crate::{Document, OutputIntent, PdfError, Resolution, Subject, page};
 
@@ -49,8 +50,10 @@ pub fn render(document: &Document, index: usize, raster: &Raster) -> Result<Rgba
     let density = raster.resolution.get::<per_millimeter>();
     let [width, height] = [paper.width, paper.height].map(|side| (side * density).ceil().to_int_saturating::<u64>());
     let (columns, rows) = match (u32::try_from(width), u32::try_from(height)) {
-        (Ok(columns), Ok(rows)) if alloc::Layout::array::<Rgba<u8>>(usize::try_from(u64::from(columns).strict_mul(u64::from(rows))).unwrap_or(usize::MAX)).is_ok() => (columns, rows),
-        (Ok(_) | Err(TryFromIntError { .. }), Ok(_) | Err(TryFromIntError { .. })) => return Err(PdfError::Raster { width, height }),
+        (Ok(columns), Ok(rows)) => alloc::Layout::array::<Rgba<u8>>(u64::from(columns).strict_mul(u64::from(rows)).saturating_cast())
+            .map(|_| (columns, rows))
+            .map_err(|alloc::LayoutError { .. }| PdfError::Raster { width, height })?,
+        (Ok(_), Err(TryFromIntError { .. })) | (Err(TryFromIntError { .. }), Ok(_) | Err(TryFromIntError { .. })) => return Err(PdfError::Raster { width, height }),
     };
     let (background, proof) = match &raster.appearance {
         None => (palette::css::WHITE, None),
@@ -67,12 +70,13 @@ pub fn render(document: &Document, index: usize, raster: &Raster) -> Result<Rgba
         }
     };
     let tile = raster.tile.get();
-    let side = |origin: u32, extent: u32| u16::try_from(extent.strict_sub(origin)).unwrap_or(u16::MAX).min(tile);
+    let side = |origin: u32, extent: u32| extent.strict_sub(origin).saturating_cast::<u16>().min(tile);
     let cache = RenderCache::new();
     let interpreter_settings = raster.interpreter_settings.clone().unwrap_or_default();
     let render_settings = raster.render_settings.unwrap_or_default();
     let placement = Affine::scale(density) * frame;
-    let mut context = RenderContext::new(tile, tile);
+    let mut context = RenderContext::new(side(0, columns), side(0, rows));
+    let mut pixmap = Pixmap::new(context.width(), context.height());
     let mut resources = Resources::new();
     let mut image = RgbaImage::new(columns, rows);
     let mut inks = Vec::new();
@@ -81,13 +85,16 @@ pub fn render(document: &Document, index: usize, raster: &Raster) -> Result<Rgba
         context.reset_and_resize(across, down);
         render_into(page, &cache, &interpreter_settings, &render_settings, &mut context, Affine::translate((-f64::from(x), -f64::from(y))) * placement);
         context.flush();
-        let mut pixmap = Pixmap::new(across, down);
+        pixmap.resize(across, down);
         context.render_with(&mut pixmap, &mut resources, RasterizerSettings { target_init: TargetInit::Clear(background), ..RasterizerSettings::default() });
-        let mut pixels = pixmap.take_rgba8(ImageAlphaType::Alpha);
+        if pixmap.may_have_transparency() {
+            unpremultiply_rgba8(pixmap.data_as_u8_slice_mut());
+        }
+        let pixels = pixmap.data_as_u8_slice_mut();
         if let Some([forward, back]) = &proof {
             inks.resize(pixels.len(), 0);
-            forward.transform(&pixels, &mut inks)?;
-            back.transform(&inks, &mut pixels)?;
+            forward.transform(pixels, &mut inks)?;
+            back.transform(&inks, pixels)?;
         }
         let samples = FlatSamples { samples: pixels, layout: SampleLayout::row_major_packed(<Rgba<u8> as Pixel>::CHANNEL_COUNT, across.into(), down.into()), color_hint: None };
         image.copy_from(&samples.as_view::<Rgba<u8>>().map_err(ImageError::from)?, x, y).map_err(PdfError::from)

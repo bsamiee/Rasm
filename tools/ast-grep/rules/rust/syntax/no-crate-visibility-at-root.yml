@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-crate-visibility-at-root
-language: rust
+language: rustlang
 severity: error
 files: ["libs/rust/**/lib.rs", "tools/**/lib.rs", "tools/**/main.rs"]
 rule:

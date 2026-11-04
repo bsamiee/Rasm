@@ -64,7 +64,7 @@ impl Provenance {
     where P: IntoIterator<Item: Borrow<Segment>> + Copy {
         self.layers
             .iter()
-            .map(|(file, text)| {
+            .filter_map(|(file, text)| {
                 let (table, _) = DeTable::parse_recoverable(text);
                 let root = Spanned::new(table.span(), DeValue::Table(table.into_inner()));
                 let held = path
@@ -80,10 +80,10 @@ impl Provenance {
                     })
                     .enumerate()
                     .last();
-                (held, file, text)
+                held.map(|held| (held, file, text))
             })
-            .max_by_key(|(held, _, _)| held.as_ref().map(|(depth, _)| *depth))
-            .map(|(held, file, text)| Origin { path: Utf8PathBuf::clone(file), text: Arc::clone(text), span: held.map(|(_, span)| span) })
+            .max_by_key(|((depth, _), _, _)| *depth)
+            .map(|((_, span), file, text)| Origin { path: Utf8PathBuf::clone(file), text: Arc::clone(text), span: Some(span) })
     }
 }
 

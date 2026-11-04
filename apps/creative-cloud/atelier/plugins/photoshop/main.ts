@@ -1,6 +1,6 @@
-import { linked } from '@rasm/photoshop/host';
-import { Plugin } from '@rasm/uxp/plugin';
+import { photoshopPeer } from '@rasm/photoshop/uxp';
+import { UxpPlugin } from '@rasm/uxp/uxp';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-Plugin.serve({ link: linked });
+UxpPlugin.serve({ link: photoshopPeer });

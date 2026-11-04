@@ -33,11 +33,9 @@ public static class UnitText {
              : new RhinoFault(text, RhinoReason.Unreadable))
          from paper in Whole(sides.Paper, settings)
          from model in Whole(sides.Model, settings)
-         from scale in use(() => ScaleValue.Create(text, settings))
-         from parsed in IO.lift(() => RhinoFault.Unless(!scale.IsUnset(), RhinoReason.Unreadable, text)
-             .Bind(_ => (Read(paper, spaceUnit, text), Read(model, spaceUnit, text))
-                 .Apply((paperLength, modelLength) => Quantities.From(paperLength, spaceUnit) / Quantities.From(modelLength, spaceUnit)).As())
-             .Bind(DrawingScale.Validated))
+         from lengths in IO.lift(() => (Read(paper, spaceUnit, text), Read(model, spaceUnit, text)).Apply(static (left, right) => (Paper: left, Model: right)).As())
+         from positive in IO.lift(() => RhinoFault.Unless(lengths.Paper > 0d && lengths.Model > 0d, RhinoReason.Unreadable, text))
+         from parsed in IO.lift(() => DrawingScale.Validated(Quantities.From(lengths.Paper, spaceUnit) / Quantities.From(lengths.Model, spaceUnit)))
          select parsed).Bracket();
 
     // --- [ANGLES]

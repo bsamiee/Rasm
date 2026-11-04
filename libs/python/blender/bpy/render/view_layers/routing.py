@@ -8,7 +8,7 @@ from types import MappingProxyType
 from typing import ClassVar, Final
 
 import bpy
-from expression import Nothing, Ok, Option, Some
+from expression import Option, Some
 from expression.collections import Block, Map
 import mathutils
 import msgspec
@@ -18,11 +18,11 @@ from blender.bpy.commands.operators import Answer, Call, Done, Empty, Operator, 
 from blender.bpy.data.ids.ownership import Ownership, Saved
 from blender.bpy.data.ids.store import IdName
 from blender.bpy.data.rna.paths import rooted, Struct
-from blender.bpy.data.rna.properties import EnumItem, flagged, held_choices
+from blender.bpy.data.rna.properties import choices, EnumItem, flagged
 from blender.bpy.data.rna.snapshots import assigned, Snapshot
-from blender.bpy.extension.events import Handler, runtime, Subscription
+from blender.bpy.extension.events import runtime
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.extension.registration import Acquisitions, Registrable
+from blender.bpy.extension.registration import Acquisitions, Handler, Registrable, Subscription
 from blender.bpy.nodes.addressing import owned
 from blender.bpy.nodes.changes import Changes, made, reconciled
 from blender.bpy.nodes.desired import FrameNode, Link
@@ -30,33 +30,19 @@ from blender.bpy.nodes.functions import built, lowered
 from blender.bpy.nodes.graphs import Expr, group_input
 from blender.bpy.nodes.interfaces import Interface, NodeGroup, Socket
 from blender.bpy.render.outputs.exports import Layering
-from blender.bpy.render.outputs.formats import extension
-from blender.bpy.render.outputs.paths import NodePaths, OutputPath, Outputs, Pathed, ScenePaths, today
+from blender.bpy.render.outputs.formats import FileItems
+from blender.bpy.render.outputs.paths import file_output_path, OutputPath, Outputs, Pathed, ScenePaths, today
 from blender.bpy.render.outputs.results import Written
 from blender.bpy.render.view_layers.layers import LAYER_TAG, LayerTag, Role
 from blender.bpy.render.view_layers.passes import CryptomatteKind, Derived, EMISSION, ENVIRONMENT, Family, Flags, layer_of, listed, OCCLUSION, PassFlags, PassRequest, required, synced, used
-from blender.bpy.render.view_layers.sources import (
-    document,
-    file_node,
-    file_outputs,
-    FileOutput,
-    FileSocket,
-    FileSplit,
-    ids_recolor,
-    layer_name,
-    lobe,
-    NUKE_CHANNELS,
-    Recoloring,
-    ROUTING,
-    Routing,
-    sources,
-)
+from blender.bpy.render.view_layers.sources import document, file_node, file_outputs, FileOutput, FileSocket, FileSplit, ids_recolor, lobe, NUKE_CHANNELS, Recoloring, ROUTING, Routing, sources
+from blender.bpy.scene.cameras import render_views
 from blender.bpy.settings.attachments import Attached
 from blender.bpy.settings.presets import Preset
 from blender.bpy.ui.layout.rows import ConditionalRow, FUNCTIONS, Layout, OperatorButton, realized, RowDraw
 from blender.bpy.ui.layout.sections import Section
 from blender.bpy.ui.layout.values import Listing, Store
-from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
+from blender.records.faults import accumulated, Fault, Nothing, Ok, Outcome, paired, Reason
 from blender.records.fields import Retention
 from blender.records.trees import transfer
 
@@ -112,10 +98,9 @@ class PassRouting(msgspec.Struct, frozen=True, kw_only=True):
         return layer_of(scene, view).bind(lambda layer: self.pathed.path(scene, today()).bind(lambda path: file_node(self.pathed, path, view, file_output, key, nuke=self.routing.struct(layer).nuke)))
 
     def framed(
-        self, scene: bpy.types.Scene, held: dict[Key, bpy.types.Node], path: Outcome[OutputPath], index: int, layer: bpy.types.ViewLayer
+        self, scene: bpy.types.Scene, held: dict[Key, bpy.types.Node], path: Outcome[OutputPath], prefix: Key, layer: bpy.types.ViewLayer
     ) -> Outcome[tuple[FrameNode, tuple[Link, ...], LayerPlan]]:
         """Plans frame, Render Layers node, sources, and File Output nodes of one used layer, the output path read only by File Output nodes."""
-        prefix = f"layer_{index}"
         render_key = f"{prefix}_render"
         rendered = Expr(kind=bpy.types.CompositorNodeRLayers, members={"scene": IdName.of(scene), "layer": layer.name}, key=Some(render_key))
         routing, record = self.routing.struct(layer), self.layers.struct(layer)
@@ -146,7 +131,7 @@ class PassRouting(msgspec.Struct, frozen=True, kw_only=True):
         """Plans scene routing group, reading offered sockets from held tree."""
         held = tree.map(lambda found: owned(found, self.identity)).default_value({})
         layers = used(scene)
-        return accumulated(self.framed(scene, held, path, index, layer) for index, layer in enumerate(layers)).bind(
+        return accumulated(self.framed(scene, held, path, f"layer_{index}", layer) for index, layer in enumerate(layers)).bind(
             lambda frames: grouped(frames).map(lambda group: (group, {layer: plan for layer, (_, _, plan) in zip(layers, frames)}))
         )
 
@@ -250,45 +235,54 @@ class RoutingRow(ConditionalRow, frozen=True):
             lambda parts: PassRouting(identity=identity, routing=parts[0], pathed=parts[1], layers=parts[2], lobe=parts[3])
         )
 
-    def written(self, scene: bpy.types.Scene, frame: int, identity: Identity, *, path: Option[OutputPath] = Nothing) -> Outcome[tuple[Written, ...]]:
-        """Returns files the File Output nodes of the scene's routing tree wrote for a frame at `path` or scene path, the finishing files callable, none without a routing tree."""
+    def written(self, scene: bpy.types.Scene, frame: int, identity: Identity, animation: Option[bool]) -> Outcome[tuple[Written, ...]]:
+        """Reads routed native filenames and formats under the producing call's animation mode, none without a routing tree."""
 
-        def files(routing: PassRouting, layer: bpy.types.ViewLayer, live: bpy.types.CompositorNodeOutputFile, file_output: FileOutput, path: OutputPath) -> Outcome[tuple[Written, ...]]:
+        def files(routing: PassRouting, layer: bpy.types.ViewLayer, live: bpy.types.CompositorNodeOutputFile, file_output: FileOutput) -> Outcome[tuple[Written, ...]]:
             nuke = routing.routing.struct(layer).nuke
-            names = tuple(layer_name(source.name, nuke=nuke) for source in file_output.sources)
 
-            def targeted(paths: NodePaths) -> tuple[tuple[bpy.types.ImageFormatSettings, Option[str], Map[str, str]], ...]:
-                if file_output.format.layered:
-                    return tuple((settings, Nothing, Map.of_seq(zip(paths.items, (source.name for source in file_output.sources)))) for settings in Option.of_optional(live.format).to_list())
-                stored = {item.name: item for item in live.file_output_items}
-                return tuple(
-                    (settings, Some(name), Map.of_seq((("", source.name),)))
-                    for name, source, kept in zip(names, file_output.sources, paths.items)
-                    for item in Option.of_optional(stored.get(kept)).to_list()
-                    for settings in Option.of_optional(item.format if item.override_node_format else live.format).to_list()
-                )
+            def targeted() -> tuple[tuple[bpy.types.ImageFormatSettings, Option[bpy.types.NodeCompositorFileOutputItem], Map[str, str]], ...]:
+                stored = FileItems.held(live, identity)
+                settings: bpy.types.ImageFormatSettings = live.format  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+                if settings.file_format == "OPEN_EXR_MULTILAYER":
+                    return ((settings, Nothing, Map.of_seq((item.name, source.name) for source in file_output.sources for item in Option.of_optional(stored.get(source.key)).to_list())),)
 
-            def written_at(settings: bpy.types.ImageFormatSettings, item: Option[str], passes: Map[str, str], suffix: str) -> Outcome[Option[Written]]:
-                return path.written(layer.name, file_output.output, item, frame, suffix).map(
-                    lambda file: Written.of(str(file), settings, file_output.output, NUKE_CHANNELS if nuke else MappingProxyType({}), layer.name, passes)
-                )
+                def formatted(item: bpy.types.NodeCompositorFileOutputItem) -> bpy.types.ImageFormatSettings:
+                    held: bpy.types.ImageFormatSettings = item.format if item.override_node_format else settings  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+                    return held
 
-            return (
-                routing.pathed
-                .node(path, layer.name, file_output.output, names, layered=file_output.format.layered)
-                .bind(lambda paths: accumulated(written_at(settings, item, passes, suffix) for settings, item, passes in targeted(paths) for suffix in extension(settings).to_list()))
-                .map(lambda found: tuple(file for option in found for file in option.to_list()))
-            )
+                return tuple((formatted(item), Some(item), Map.of_seq((("", source.name),))) for source in file_output.sources for item in Option.of_optional(stored.get(source.key)).to_list())
+
+            def written_at(settings: bpy.types.ImageFormatSettings, item: Option[bpy.types.NodeCompositorFileOutputItem], passes: Map[str, str]) -> Outcome[tuple[Written, ...]]:
+                individual = settings.views_format == "INDIVIDUAL" or (settings.file_format == "OPEN_EXR_MULTILAYER" and settings.views_format != "MULTIVIEW")
+                views = tuple(map(Some, render_views(scene.render))) if scene.render.use_multiview and individual else (Nothing,)
+                return accumulated(
+                    file_output_path(scene, live, settings, frame, animation=animation, item=item, view=view).map(
+                        lambda file: Written.of(
+                            str(file), settings, file_output.output, NUKE_CHANNELS if nuke else MappingProxyType({}), Some(layer.name), passes, view=view.map(lambda held: held.name)
+                        )
+                    )
+                    for view in views
+                ).map(lambda found: tuple(file for held in found for file in held.to_list()))
+
+            return accumulated(itertools.starmap(written_at, targeted())).map(lambda found: tuple(file for files in found for file in files))
 
         def collected(routing: PassRouting, tree: bpy.types.NodeTree) -> Outcome[tuple[Written, ...]]:
-            held, chosen = owned(tree, identity), path.map(Ok).default_with(lambda: routing.pathed.path(scene, today()))
+            held = owned(tree, identity)
+            keys = {node: key for key, node in held.items()}
+            current = routing.pathed.path(scene, today())
             return (
-                routing
-                .planned(scene, Some(tree), chosen)
+                accumulated(
+                    layer_of(scene, source.layer).bind(lambda layer: routing.framed(scene, held, current, prefix, layer).map(lambda frame: (layer, frame[2])))
+                    for source in held.values()
+                    if isinstance(source, bpy.types.CompositorNodeRLayers)
+                    for parent in Option.of_optional(source.parent).to_list()
+                    for prefix in Option.of_optional(keys.get(parent)).to_list()
+                )
                 .bind(
-                    lambda planned: accumulated(
-                        chosen.bind(functools.partial(files, routing, layer, live, file_output))
-                        for layer, plan in planned[1].items()
+                    lambda plans: accumulated(
+                        files(routing, layer, live, file_output)
+                        for layer, plan in plans
                         for key, file_output in plan.file_outputs.items()
                         for live in (held.get(key),)
                         if isinstance(live, bpy.types.CompositorNodeOutputFile)
@@ -406,7 +400,7 @@ def _adding(package: str) -> Operator[bpy.types.PropertyGroup]:
 
     def items(_owner: Struct, context: bpy.types.Context | None) -> tuple[EnumItem, ...]:
         found = Option.of_optional(context).map(lambda held: Identity.read(package).bind(lambda identity: unlisted(identity, held)).default_value(())).default_value(())
-        return held_choices(tuple((source.name, source.name, f"{source.output.name.title()} pass") for source in found))
+        return choices((source.name, source.name, f"{source.output.name.title()} pass") for source in found)
 
     form: type[bpy.types.PropertyGroup] = type(
         "PassName",

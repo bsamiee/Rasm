@@ -6,10 +6,10 @@ use rand::{Rng, RngExt as _, SeedableRng};
 use rayon::iter::{IntoParallelIterator as _, ParallelIterator as _};
 use statrs::{
     distribution::{ContinuousCDF as _, Normal, StudentsT},
-    statistics::{Data, OrderStatistics as _},
+    statistics::Data,
 };
 
-use crate::{Sample, StatsError};
+use crate::{Sample, StatsError, descriptive::quantile_data};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -66,7 +66,15 @@ where
             || Vec::with_capacity(count),
             |resample, mut fork| {
                 resample.clear();
-                resample.extend(iter::repeat_with(|| fork.random_range(0..count)).flat_map(|start| (start..).take(block.get())).take(count).map(|index| sample[index % sample.len()].clone()));
+                resample.extend(
+                    iter::repeat_with(|| fork.random_range(0..count))
+                        .flat_map(|start| {
+                            let (before, after) = sample.as_ref().split_at(start);
+                            iter::chain(after, before).take(block.get())
+                        })
+                        .take(count)
+                        .cloned(),
+                );
                 statistic(resample)
             },
         )
@@ -114,6 +122,6 @@ where
         }
     };
     let mut ordered = Data::new(estimates);
-    let [start, last] = levels.map(|level| ordered.quantile(level));
+    let [start, last] = levels.map(|level| quantile_data(&mut ordered, level));
     Ok(RangeInclusive { start, last })
 }

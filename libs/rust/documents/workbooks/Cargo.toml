@@ -19,6 +19,11 @@ test    = false
 doctest = false
 bench   = false
 
+# --- [TEST]
+[[test]]
+name = "boundaries"
+path = "../../../../tests/rust/documents/workbooks/boundaries.rs"
+
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
 # --- [RUNTIME]

@@ -7,31 +7,6 @@ utils:
         kind: 'throw_expression, throw_statement'
         has: {kind: object_creation_expression, has: {field: type, matches: {csharp-type-name: {name: {regex: '^UnreachableException$'}}}}}
         not: {inside: {kind: switch_expression_arm, stopBy: &function {kind: 'lambda_expression, anonymous_method_expression, local_function_statement'}}}
-    throwing-helper:
-        kind: 'method_declaration, local_function_statement'
-        has: {field: body, has: {stopBy: *function, matches: unreachable}}
-    helper-group:
-        matches: {csharp-simple-name: {name: {pattern: $HELPER}}}
-        inside:
-            stopBy: end
-            kind: compilation_unit
-            has:
-                stopBy: end
-                kind: 'method_declaration, local_function_statement'
-                all:
-                    - has: {field: name, pattern: $HELPER}
-                    - matches: throwing-helper
-    arm:
-        any:
-            - kind: 'lambda_expression, anonymous_method_expression'
-              has:
-                stopBy: *function
-                any:
-                    - matches: unreachable
-                    - matches: {csharp-file-method-call: {declaration: {matches: throwing-helper}}}
-            - matches: helper-group
-            - kind: member_access_expression
-              has: {field: name, matches: helper-group}
     arm-name:
         any:
             - kind: identifier
@@ -51,6 +26,6 @@ rule:
             inside:
                 kind: invocation_expression
                 has: {field: function, pattern: $CALL, matches: arm-call}
-        - has: {matches: arm}
+        - has: {kind: 'lambda_expression, anonymous_method_expression', has: {stopBy: *function, matches: unreachable}}
 message: 'Arm of `$CALL` throws `UnreachableException` for a case its value can hold'
 note: 'Narrow the value to a union or request type holding only cases its call handles'

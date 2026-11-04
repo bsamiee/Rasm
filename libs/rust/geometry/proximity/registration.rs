@@ -8,7 +8,7 @@ use faer::{
 use itertools::{Either, Itertools as _};
 use nalgebra::{Isometry3, Matrix3, Matrix6, Point3, Rotation3, Translation3, Unit, UnitQuaternion, Vector3, Vector6};
 use nonempty_collections::{NESlice, NEVec};
-use rayon::iter::{IndexedParallelIterator as _, IntoParallelRefIterator as _, ParallelIterator as _};
+use rayon::iter::{IntoParallelIterator as _, IntoParallelRefIterator as _, ParallelIterator as _};
 
 use crate::{
     Assembly, Distance, ProximityError, Shortfall,
@@ -53,7 +53,7 @@ pub struct Icp {
 }
 
 impl Icp {
-    const TOLERANCE: Fraction = Fraction::try_new(1e-6_f64).ok().unwrap();
+    const TOLERANCE: Fraction = Fraction::try_new(1.0e-6_f64).ok().unwrap();
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -66,9 +66,9 @@ pub struct Registration {
 }
 
 #[derive(Debug, Clone, Copy)]
-struct Correspondence {
-    point: Point3<f64>,
-    moved: Point3<f64>,
+struct Correspondence<'point> {
+    point: &'point Point3<f64>,
+    moved: &'point Point3<f64>,
     corresponding: Point3<f64>,
     normal: Option<Unit<Vector3<f64>>>,
     weight: Weight,
@@ -108,7 +108,7 @@ pub fn register(
     initial: Isometry3<f64>,
     Icp { iterations, tolerance, max_correspondence_distance, overlap, kernel, metric }: Icp,
 ) -> impl Iterator<Item = Result<Registration, NEVec<ProximityError>>> {
-    let kept = overlap.map(|overlap| nalgebra::convert_unchecked::<f64, usize>((overlap.into_inner() * nalgebra::convert::<usize, f64>(source.len().get())).ceil()));
+    let kept = overlap.map(|overlap| (overlap.into_inner() * nalgebra::convert::<usize, f64>(source.len().get())).ceil().to_int_saturating::<usize>());
     let normals = iter::repeat_with(OnceLock::<Option<Unit<Vector3<f64>>>>::new)
         .take(match (target, metric) {
             (Target::Cloud(cloud), Metric::Plane(_)) => cloud.as_ref().size(),
@@ -122,7 +122,7 @@ pub fn register(
         Some(Kernel::Huber(scale)) => (scale.into_inner() / residual).min(1.0),
         Some(Kernel::Tukey(scale)) => (residual / scale.into_inner()).mul_add(-(residual / scale.into_inner()), 1.0).max(0.0).powi(2),
     };
-    let planar = move |pose: &Isometry3<f64>, pairs: &[Correspondence]| {
+    let planar = move |pose: &Isometry3<f64>, pairs: &[Correspondence<'_>]| {
         let (hessian, gradient) = pairs
             .iter()
             .flat_map(|&Correspondence { point: _, moved, corresponding, normal, weight }| {
@@ -143,34 +143,32 @@ pub fn register(
         let candidates = match target {
             Target::Cloud(cloud) => {
                 let found = match max_correspondence_distance {
-                    None => Either::Left(points::nearest(cloud, &transformed).map_err(NEVec::new)?.into_iter().map(Some)),
+                    None => Either::Left(points::nearest(cloud, &transformed).map_err(NEVec::new)?.into_par_iter().map(Some)),
                     Some(radius) => Either::Right(
                         points::neighbors(cloud, &transformed, Neighborhood::NearestWithin { max_qty: NonZero::<usize>::MIN, radius })
                             .map_err(NEVec::new)?
-                            .into_iter()
+                            .into_par_iter()
                             .map(|group| group.into_iter().next()),
                     ),
-                }
-                .collect::<Vec<_>>();
-                source
-                    .as_ref()
-                    .par_iter()
-                    .zip(&transformed)
-                    .zip(found)
-                    .filter_map(|((&point, &moved), neighbor)| {
-                        let Neighbor { point: corresponding, item, distance } = neighbor?;
-                        let normal = match metric {
-                            Metric::Point => None,
-                            Metric::Plane(neighborhood) => normals.get(item).and_then(|normal| {
-                                *normal.get_or_init(|| points::search(cloud, &[corresponding], neighborhood).first().and_then(|group| points::normal(group, None)))
-                            }),
-                        };
-                        Some((point, moved, corresponding, normal, distance))
-                    })
+                };
+                (source.as_ref(), &transformed, found)
+                    .into_par_iter()
+                    .map_init(
+                        || None,
+                        |scratch, (point, moved, neighbor)| {
+                            let Neighbor { point: corresponding, item, distance } = neighbor?;
+                            let normal = match metric {
+                                Metric::Point => None,
+                                Metric::Plane(neighborhood) => *normals[item].get_or_init(|| points::normal(&points::search(cloud, &[corresponding], neighborhood)[0], None, scratch)),
+                            };
+                            Some((point, moved, corresponding, normal, distance))
+                        },
+                    )
+                    .flatten()
                     .collect::<Vec<_>>()
             }
             Target::Assembly(assembly) => itertools::izip!(source.as_ref(), &transformed, distances::project(assembly, &transformed, max_correspondence_distance)?)
-                .filter_map(|(&point, &moved, projection)| {
+                .filter_map(|(point, moved, projection)| {
                     projection.map(|Projection { element: _, subshape: _, point: corresponding, distance }| {
                         (point, moved, corresponding, matches!(metric, Metric::Plane(_)).then(|| Unit::try_new(moved - corresponding, 0.0)).flatten(), distance.abs())
                     })
@@ -185,18 +183,18 @@ pub fn register(
             Ok(weight) => Some(Correspondence { point, moved, corresponding, normal, weight }),
             Err(WeightError::GreaterViolated | WeightError::FiniteViolated) => None,
         })
-        .collect::<Vec<Correspondence>>();
+        .collect::<Vec<Correspondence<'_>>>();
         let shortfall = |shortfall| NEVec::new(ProximityError::Unfitted { iteration, shortfall });
         let (matched, fitted) = NonZero::new(pairs.len()).ok_or_else(|| shortfall(Shortfall::Unmatched)).and_then(|matched| {
             match metric {
                 Metric::Point =>
-                    fit(pairs.iter().map(|&Correspondence { point, moved: _, corresponding, normal: _, weight }| (point, corresponding, weight))).ok_or_else(|| shortfall(Shortfall::Degenerate)),
+                    fit(pairs.iter().map(|&Correspondence { point, moved: _, corresponding, normal: _, weight }| (*point, corresponding, weight))).ok_or_else(|| shortfall(Shortfall::Degenerate)),
                 Metric::Plane(_) => planar(&pose, &pairs).map_err(|LltError::NonPositivePivot { index: _ }| shortfall(Shortfall::Degenerate)),
             }
             .map(|fitted| (matched, fitted))
         })?;
         let [squared, total] = pairs.iter().fold([0.0_f64; 2], |[squared, total], &Correspondence { point, moved: _, corresponding, normal, weight }| {
-            let offset = fitted.transform_point(&point) - corresponding;
+            let offset = fitted.transform_point(point) - corresponding;
             [directions(normal).map(|direction| offset.dot(&direction).powi(2)).sum::<f64>().mul_add(weight.into_inner(), squared), total + weight.into_inner()]
         });
         Ok(Registration { pose: fitted, rms: (squared / total).sqrt(), matched, iterations: iteration, converged: false })

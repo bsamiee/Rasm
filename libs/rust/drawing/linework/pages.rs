@@ -2,7 +2,8 @@ use core::num::NonZero;
 use std::{collections::BTreeMap, sync::Arc};
 
 use kurbo::{Affine, Rect, Size};
-use nonempty_collections::{NEVec, nev};
+use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _, nev};
+use stacksafe::StackSafe;
 use validated::Validated;
 
 use crate::{Element, LineworkError, Placement, Region, Side, Visibility};
@@ -64,14 +65,16 @@ pub fn paper(viewport: Viewport) -> Result<Vec<Layer>, NEVec<LineworkError>> {
     layers
         .into_iter()
         .map(|Layer { name, print, view, elements }| {
-            crate::transform(elements, model).map_err(|errors| LineworkError::Layer { name: Arc::clone(&name), errors }).map(|placed| Layer {
-                name,
-                print,
-                view,
-                elements: match boundary.clone() {
-                    Some(region) => vec![Element::Clip { region, keep: Side::Inside, elements: placed }],
-                    None => placed,
-                },
+            crate::transform(elements, model).map_err(|errors| LineworkError::Layer { name: Arc::clone(&name), errors: errors.into_nonempty_iter().map(StackSafe::new).collect() }).map(|placed| {
+                Layer {
+                    name,
+                    print,
+                    view,
+                    elements: match boundary.clone() {
+                        Some(region) => vec![Element::Clip { region, keep: Side::Inside, elements: placed.into() }],
+                        None => placed,
+                    },
+                }
             })
         })
         .collect::<Validated<Vec<_>, _>>()

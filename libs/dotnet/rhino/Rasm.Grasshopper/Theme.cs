@@ -26,17 +26,9 @@ public sealed record GrasshopperTheme(string Name) {
             SkinDefinition definition = SkinDefinition.Default;
             Seq<(PropertyId Id, Binding Binding)> chosen = toSeq(SkinProperties.All).Choose(id => Skin(id).Map(binding => (id, binding))).Strict();
             _ = chosen.Iter(row => definition.Unbind(row.Id));
-            Fin<Seq<Unit>> bound = chosen.Traverse(row => Try.lift(fun(() => definition.Bind(row.Id, row.Binding))).Run()
-                .MapFail(error => new GrasshopperFault(SkinProperties.ToToken(row.Id), GrasshopperReason.Invalid, Inner: error))).As();
-            Fin<Seq<Skin>> evaluated = Seq(PropertyId.Lit, PropertyId.Dim).Traverse(mode => Try.lift(() => definition.ToSkin(mode)).Run()
-                .MapFail(error => new GrasshopperFault($"{Name} {mode}", GrasshopperReason.Invalid, Inner: error))).As();
-            string text = definition.ToText();
-            SkinDefinition parsed = SkinDefinition.Parse(text, out string[] errors);
-            Fin<Unit> read = errors is []
-                ? GrasshopperFault.Unless(string.Equals(parsed.ToText(), text, StringComparison.Ordinal), GrasshopperReason.Unreadable, Name)
-                : Error.Many(toSeq(errors).Map(static error => (Error)new GrasshopperFault(error, GrasshopperReason.Unreadable)));
-            return (GrasshopperFault.Unless(SkinServer.IsValidName(Name), GrasshopperReason.Invalid, Name), bound, evaluated, read)
-                .Apply((_, _, _, _) => definition).As();
+            return chosen.Traverse(row => Try.lift(fun(() => definition.Bind(row.Id, row.Binding))).Run()
+                    .MapFail(error => new GrasshopperFault(SkinProperties.ToToken(row.Id), GrasshopperReason.Invalid, Inner: error)))
+                .As().Map(_ => definition);
         }
     }
 
@@ -56,7 +48,7 @@ public sealed record GrasshopperTheme(string Name) {
             from styled in Preview.Map(static preview => preview(Defaults.GrasshopperDefault)).Traverse(guises => Path.Combine(Folders.DisplayStylesFolder, Name + StyleExtension) switch {
                 var style => Refreshed(style, GrasshopperIO.IO.WriteStorableToByteArray(guises, "Value"), File.ReadAllBytes, IO.lift(() => GrasshopperIO.IO.WriteStorableToFile(guises, style))),
             }).As()
-            let listed = fun(static (string[] lines) => Encoding.UTF8.GetBytes(string.Join('\n', lines.Skip(1))))
+            let listed = fun(static (string[] lines) => Encoding.UTF8.GetBytes(string.Join('\n', lines.Where(static line => !line.StartsWith('#')))))
             let swatches = Path.Combine(Folders.ResourceFolder(ResourceFolder.Colours), Name + PaletteExtension)
             let palette = new NamedPalette(toSeq(definition.BoundProperties)
                 .Filter(id => SkinProperties.KindOf(id) is PropertyType.Colour && !definition[id].IsInherited)
@@ -74,7 +66,9 @@ public sealed record GrasshopperTheme(string Name) {
 
     private static IO<Unit> Refreshed(string path, byte[] content, Func<string, byte[]> read, IO<Unit> write) =>
         from values in IO.lift(static () => Hooks.Session.Values)
-        from present in IO.lift(() => File.Exists(path) ? Some(read(path)) : Option<byte[]>.None)
+        from present in IO.lift(() => Some(read(path))).Catch(
+            static error => error.HasException<FileNotFoundException>() || error.HasException<DirectoryNotFoundException>(),
+            static _ => IO.pure(Option<byte[]>.None))
         from recorded in IO.lift(() => values.Get(path, ""))
         let stamp = Convert.ToHexString(SHA256.HashData(content))
         let same = present.Exists(bytes => bytes.AsSpan().SequenceEqual(content))
@@ -121,8 +115,8 @@ public sealed record GrasshopperTheme(string Name) {
                 .Swap(preview(Defaults.GrasshopperDefault))).ToSeq()
                 .Concat(Overrides))
             .TraverseM(static swap => use(swap, static restore => restore)).As().BracketFail()
-        select (from outcome in restores.Rev().Map<K<IO, Unit>>(static restore => restore).PartitionFallible().As()
-                from restored in guard(outcome.Fails.IsEmpty, Error.Many(outcome.Fails))
+        select (from errors in restores.Rev().Map<K<IO, Unit>>(static restore => restore).Fails().As()
+                from restored in guard(errors.IsEmpty, Error.Many(errors))
                 select unit);
 
     // --- [SIGNAL]

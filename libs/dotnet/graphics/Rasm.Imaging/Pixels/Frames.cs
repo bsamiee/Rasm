@@ -91,14 +91,21 @@ public sealed class PixelFrame {
     public PixelExtent Size { get; }
     public PixelExtent Extent { get; }
     public ReadOnlySpan<float> Block => MemoryMarshal.Cast<Vector4, float>(pixels.AsSpan());
-    public nint Address => Marshal.UnsafeAddrOfPinnedArrayElement(pixels, 0);
     public Memory2D<Vector4> View => new(pixels, Size.Height, Size.Width);
     public Rectangle Window => new(Origin, new Size(Size.Width, Size.Height));
     public bool Whole => Origin == Point.Empty && Size == Extent;
 
     public PixelFrame Copy() => new(Origin, Size, Extent, destination => Block.CopyTo(destination));
 
-    public Mat Header() => new(Size.Height, Size.Width, DepthType.Cv32F, 4, Address, step: 0);
+    public Mat Header() => new PixelHeader(pixels, Size);
+
+    public static unsafe PixelFrame From<TPixel>(nint address, int stride, Point origin, PixelExtent size, PixelExtent extent) where TPixel : unmanaged, IPixel<TPixel> {
+        PixelFrame frame = new(origin, size, extent);
+        Span2D<Vector4> target = frame.View.Span;
+        for (int y = 0; y < size.Height; y++)
+            PixelOperations<TPixel>.Instance.ToVector4(SixLabors.ImageSharp.Configuration.Default, new ReadOnlySpan<TPixel>((void*)(address + ((nint)y * stride)), size.Width), target.GetRowSpan(y));
+        return frame;
+    }
 
     public Mat Premultiplied() {
         Mat associated = new(Size.Height, Size.Width, DepthType.Cv32F, 4);
@@ -166,6 +173,13 @@ public sealed class PixelFrame {
             row(frame.pixels.AsSpan(i * frame.Size.Width, frame.Size.Width), frame.Origin.X, frame.Origin.Y + i);
             if (progress.Case is IProgress<int> report)
                 report.Report(Interlocked.Increment(ref finished.Value));
+        }
+    }
+
+    private sealed class PixelHeader(Vector4[] pixels, PixelExtent size) : Mat(size.Height, size.Width, DepthType.Cv32F, 4, Marshal.UnsafeAddrOfPinnedArrayElement(pixels, 0), step: 0) {
+        protected override void DisposeObject() {
+            base.DisposeObject();
+            GC.KeepAlive(pixels);
         }
     }
 }

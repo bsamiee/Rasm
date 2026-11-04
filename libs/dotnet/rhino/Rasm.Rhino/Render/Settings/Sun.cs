@@ -146,7 +146,13 @@ public sealed partial class SunWindow {
 
     public AnimationProperties.CaptureTypes CaptureType => Step.HasTimeComponent ? AnimationProperties.CaptureTypes.DaySunStudy : AnimationProperties.CaptureTypes.SeasonalSunStudy;
 
-    public Seq<LocalDateTime> Frames => toSeq(LanguageExt.List.unfold(Start, at => at <= End ? Some((at, at.Plus(Step))) : None));
+    public Seq<LocalDateTime> Frames {
+        get {
+            Int128 step = Step.ToDuration().ToInt128Nanoseconds() / NodaConstants.NanosecondsPerTick;
+            long span = Period.Between(Start, End, PeriodUnits.Ticks).Ticks;
+            return toSeq(Enumerable.Range(0, int.CreateChecked(span / step) + 1).Select(index => Start.PlusTicks(long.CreateChecked(index * step))));
+        }
+    }
 
     // --- [WINDOWS]
     public static Fin<SunWindow> Day(LocalDate date, LocalTime from, LocalTime until, Period step) =>

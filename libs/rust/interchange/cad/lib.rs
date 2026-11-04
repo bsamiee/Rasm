@@ -1,4 +1,4 @@
-#![feature(const_result_trait_fn, const_trait_impl, default_field_values, deref_patterns, float_conversions, iterator_try_collect)]
+#![feature(const_result_trait_fn, const_trait_impl, default_field_values, deref_patterns, f128, float_conversions)]
 
 use core::num::TryFromIntError;
 use std::{
@@ -13,7 +13,10 @@ use nonempty_collections::{IntoIteratorExt as _, NEVec, NonEmptyIterator};
 use rasm_linework::LineworkError;
 use uom::si::{
     f64::Length,
-    length::{angstrom, astronomical_unit, centimeter, decameter, decimeter, foot, gigameter, hectometer, inch, kilometer, light_year, meter, microinch, micron, mil, mile, millimeter, nanometer, parsec, yard},
+    length::{
+        angstrom, astronomical_unit, centimeter, decameter, decimeter, foot, gigameter, hectometer, inch, kilometer, light_year, meter, microinch, micron, mil, mile, millimeter, nanometer, parsec,
+        yard,
+    },
 };
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -91,7 +94,7 @@ pub enum Format {
 
 #[derive(Debug, Clone, PartialEq, Eq, derive_more::Display)]
 pub enum Operation {
-    #[display("read the drawing")]
+    #[display("read drawing")]
     Read,
     #[display("write {_0}")]
     Write(Format),
@@ -131,7 +134,7 @@ pub enum Refusal {
     Content,
     #[error("sits under a clip DXF cannot hold")]
     Clipped,
-    #[error("crops by several contours")]
+    #[error("crops by more than one contour")]
     Boundary,
 }
 
@@ -172,7 +175,7 @@ pub enum CadError {
         AuditLocation::Reference { owner, target } => write!(formatter, "\nreference {owner} to {target}: {message}"),
     })))]
     Audit { issues: NEVec<AuditIssue> },
-    #[error("a DXF save drops architecture records{}", fmt::from_fn(|formatter| .records.iter().try_for_each(|record| write!(formatter, "\n{} {}: {}", record.name, record.handle, record.reason))))]
+    #[error("DXF save drops architecture records{}", fmt::from_fn(|formatter| .records.iter().try_for_each(|record| write!(formatter, "\n{} {}: {}", record.name, record.handle, record.reason))))]
     Omitted { records: NEVec<DxfOmission> },
     #[error("{subject} {reason}")]
     Refused { subject: Subject, reason: Refusal },

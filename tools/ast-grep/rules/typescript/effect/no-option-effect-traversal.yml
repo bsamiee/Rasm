@@ -1,11 +1,11 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-option-effect-traversal
-language: tsx
+language: tsxlang
 severity: error
 rule:
     kind: call_expression
     all:
-        - has: {field: arguments, has: {nthChild: 1, kind: call_expression, pattern: $ARRAY, has: {field: function, any: [{matches: {effect-module-member: {module: {regex: '\bOption$'}, member: {regex: '^toArray$'}}}}, {matches: {effect-module-member: {module: {regex: '\bArray$'}, member: {regex: '^fromOption$'}}}}]}}}
         - has: {field: function, pattern: $EACH, matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^forEach$'}}}}
+        - has: {field: arguments, has: {nthChild: 1, kind: call_expression, pattern: $ARRAY, has: {field: function, any: [{matches: {effect-module-member: {module: {regex: '\bOption$'}, member: {regex: '^toArray$'}}}}, {matches: {effect-module-member: {module: {regex: '\bArray$'}, member: {regex: '^fromOption$'}}}}]}}}
 message: '`$EACH` traverses `$ARRAY`, an `Option` made a list of one element or none'
 note: 'Call `Effect.transposeOption(Option.map(<option>, <f>))` to keep the `Option`'

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-map-then-all
-language: tsx
+language: tsxlang
 severity: error
 utils:
     all-member:
@@ -14,12 +14,12 @@ utils:
         kind: call_expression
         all:
             - has: {field: function, matches: array-map}
-            - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $XS}}, {has: {nthChild: 2, pattern: $F}}, {not: {has: {nthChild: 3}}}]}
+            - has: {field: arguments, all: [{has: {nthChild: 1}}, {has: {nthChild: 2}}, {not: {has: {nthChild: 3}}}]}
     mapping-step:
         kind: call_expression
         all:
             - has: {field: function, matches: array-map}
-            - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $F}}, {not: {has: {nthChild: 2}}}]}
+            - has: {field: arguments, all: [{has: {nthChild: 1}}, {not: {has: {nthChild: 2}}}]}
     method-pipe:
         kind: call_expression
         has: {field: function, kind: member_expression, has: {field: property, regex: '^pipe$'}}
@@ -30,60 +30,20 @@ utils:
             - all:
                 - has: {field: arguments, has: {nthChild: {position: 1, reverse: true}, matches: mapping-step}}
                 - any: [{matches: method-pipe}, {has: {field: function, matches: effect-pipe-function}}]
-    traversable-list:
-        kind: call_expression
-        any:
-            - matches: module-mapped
-            - all:
-                - has: {field: arguments, all: [{has: {nthChild: 1, matches: mapping-step}}, {not: {has: {nthChild: 2}}}]}
-                - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^pipe$'}}, {has: {field: object, pattern: $XS}}]}
-            - all:
-                - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $XS}}, {has: {nthChild: 2, matches: mapping-step}}, {not: {has: {nthChild: 3}}}]}
-                - has: {field: function, matches: effect-pipe-function}
-    traversal-options:
-        not: {kind: object, has: {kind: pair, has: {field: key, regex: '^mode$'}}}
 rule:
     kind: call_expression
     any:
         - all:
             - has: {field: function, matches: all-member, pattern: $ALL}
             - has: {field: arguments, has: {nthChild: 1, matches: mapped-list}}
-            - any:
-                - pattern: $FIXABLE
-                  all:
-                    - has: {field: arguments, has: {nthChild: 1, matches: traversable-list}}
-                    - has: {field: arguments, not: {has: {nthChild: 2, not: {matches: traversal-options}}}}
-                    - not: {has: {kind: comment, stopBy: end}}
-                - pattern: $KEPT
         - all:
             - matches: method-pipe
             - has: {field: arguments, has: {nthChild: 1, matches: all-member, pattern: $ALL}}
             - has: {field: function, has: {field: object, matches: module-mapped}}
-            - any:
-                - pattern: $FIXABLE
-                  all:
-                    - has: {field: arguments, not: {has: {nthChild: 2}}}
-                    - not: {has: {kind: comment, stopBy: end}}
-                - pattern: $KEPT
-        - pattern: $KEPT
-          has:
+        - has:
             field: arguments
             has:
                 matches: mapping-step
                 precedes: {matches: all-member, pattern: $ALL, stopBy: {not: {regex: '^,$'}}}
-rewriters:
-    - id: piped
-      rule: {kind: call_expression, pattern: '$MAPPED.pipe($M.all)'}
-      fix: '$M.forEach($XS, $F)'
-    - id: traverse
-      rule: {kind: call_expression, pattern: '$M.all($LIST, $$$OPTIONS)'}
-      transform: {LISTED: {replace: {source: $$$OPTIONS, replace: '(?s),\s*$', by: ''}}}
-      fix: '$M.forEach($XS, $F, $LISTED)'
-    - id: traverse-plain
-      rule: {kind: call_expression, pattern: '$M.all($LIST)'}
-      fix: '$M.forEach($XS, $F)'
-transform:
-    FIXED: rewrite($FIXABLE, rewriters=[piped, traverse, traverse-plain])
-fix: $FIXED$KEPT
 message: '`$ALL` runs a list built by mapping each element to an effect'
 note: 'Call `Effect.forEach(<list>, <f>, <options>)`, or `Effect.partition` or `Effect.validate` in place of `mode: "result"`'

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: python-evaluated-subscript
-language: python
+language: pythonlang
 arguments: [value]
 utils:
     type-checking-flag:
@@ -8,11 +8,6 @@ utils:
             - matches: {python-member-use: {module: {regex: '^typing$'}, name: {regex: '^TYPE_CHECKING$'}}}
             - kind: parenthesized_expression
               has: {matches: type-checking-flag}
-    type-checking-block:
-        inside:
-            kind: block
-            stopBy: end
-            inside: {kind: 'if_statement, elif_clause', field: consequence, has: {field: condition, matches: type-checking-flag}}
 rule:
     kind: identifier, attribute
     all:
@@ -24,5 +19,15 @@ rule:
         - not:
             any:
                 - inside: {kind: assignment, field: type, stopBy: end, inside: {kind: function_definition, stopBy: {kind: 'function_definition, class_definition'}}}
-                - matches: type-checking-block
+                - all:
+                      - any:
+                            - inside: {kind: 'typed_parameter, typed_default_parameter, assignment', field: type, stopBy: end}
+                            - inside: {kind: function_definition, field: return_type, stopBy: end}
+                      - inside: {kind: module, stopBy: end, has: {kind: future_import_statement, has: {stopBy: end, kind: dotted_name, regex: '^annotations$'}}}
+                - inside: {kind: 'function_definition, class_definition', field: type_parameters, stopBy: end}
+                - inside: {kind: type_alias_statement, field: left, stopBy: end}
+                - inside:
+                      kind: block
+                      stopBy: end
+                      inside: {kind: 'if_statement, elif_clause', field: consequence, has: {field: condition, matches: type-checking-flag}}
                 - inside: {kind: type_alias_statement, field: right, stopBy: end}

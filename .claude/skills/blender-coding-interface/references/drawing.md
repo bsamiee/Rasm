@@ -18,8 +18,7 @@ Handlers receive what they draw and draw over editor state they restore:
 - `preferences.system.use_region_overlap` lays toolbar, sidebar, asset shelf, and tool header over 3D View, Image Editor, and node `WINDOW` regions
 - Drawings in an overlapped `WINDOW` region inset by each overlapping region
 - Blending restores the mode `gpu.state.blend_get()` read on entry
-- Handlers enabling the scissor test disable it before returning, `gpu.state` holding no read for it
-- Nested clips intersect their box with `gpu.state.scissor_get()` and restore the box they read
+- Clips intersect enabled parent clips and restore entry box/test state; their caller supplies the test state `gpu.state` cannot read
 - `POST_VIEW` bodies call `gpu.state.depth_test_set('LESS_EQUAL')` to hide geometry behind objects and restore the prior test after
 
 ## [02]-[COORDINATES]
@@ -75,8 +74,9 @@ Shader and batch calls refuse or crash by input:
 - `viewportSize` reads `gpu.state.viewport_get()[2:]` in regions and offscreen buffers alike
 - `UNIFORM_COLOR`, `FLAT_COLOR`, and `SMOOTH_COLOR` draw lines one pixel wide past `line_width_set` with a `DeprecationWarning`
 - `gpu.state.point_size_set` overwrites the `size` uniform unless `gpu.state.program_point_size_set(True)`
-- `gpu.texture.from_image` returns the image's cached texture of scene-linear texels, byte images sampling through `SRGB8_A8`
-- `from_image` textures draw through a `SCENE_LINEAR_TO_REC709_SRGB` shader or `draw_texture_2d(..., is_scene_linear_with_rec709_srgb_target=True)`
+- `gpu.texture.from_image` shares cached GPU storage under the image texture size and bit-depth limits
+- Float image uploads preserve color space; byte `SRGB8_A8` textures decode sRGB during shader sampling
+- Scene-linear textures draw through `SCENE_LINEAR_TO_REC709_SRGB` or `draw_texture_2d(..., is_scene_linear_with_rec709_srgb_target=True)`
 - `gpu_extras.presets.draw_circle_2d` and `draw_texture_2d` build a batch per call
 - `batch_for_shader` content keys match shader attributes, extra keys raising `ValueError`, missing ones `KeyError`, and unequal lengths `ValueError`
 - Batch content takes `float32` numpy arrays shaped `(N, k)`, `k` the attribute width, and `indices=` shares vertices between triangles
@@ -163,37 +163,43 @@ def framed(rows: NDArray[np.void], /) -> gpu.types.GPUBatch:
 
 Offscreen buffers draw outside a window:
 - `gpu.types.GPUOffScreen(<width>, <height>, format=<format>)` takes `RGBA8`, `RGBA16`, `RGBA16F`, or `RGBA32F`
-- Sizes past `gpu.capabilities.max_texture_size_get()` construct and abort Blender at the buffer's first bind
+- Allocations clamp dimensions to at least one; reads and pixel extents take the allocated buffer's `width` and `height`
+- Buffer dimensions stay within `gpu.capabilities.max_texture_size_get()`
+- `GPUOffScreen` construction binds the default framebuffer; allocate before entering another framebuffer's drawing scope
+- Framebuffer scopes restore binding; save and restore viewport and scissor rectangles across backend bind resets
 - Offscreen buffers bind in any window's GPU context, outliving the window that made them, and access after `free()` raises `ReferenceError`
 - Offscreen framebuffers are no sRGB target, `srgbTarget` reading `False` and colors writing as given
 - `read_color(<x>, <y>, <width>, <height>, <channels>, <slot>, "FLOAT")` returns a `[height, width, channels]` float buffer bottom row first
-- `"FLOAT"` reads normalize every format, `texture_color.read()` returning `RGBA8` texels as bytes
+- `"FLOAT"` reads normalize integer formats and retain floating values; `texture_color.read()` returns `RGBA8` texels as bytes
 - `draw_view3d(scene, view_layer, view3d, region, view_matrix, projection_matrix, do_color_management=<bool>)` uses `view3d` shading and overlays
 - Camera views take `camera.calc_matrix_camera(depsgraph, x=<width>, y=<height>)` as projection and `matrix_world.normalized().inverted()` as view
+- `gpu.types.Buffer` borrows buffer-protocol storage and retains its owner; sequences copy, and borrowed dtype matches GPU format
 
-Panels show a custom drawing as a preview icon rendered offscreen once at Blender's preview render size, pixels bottom row first as preview buffers store them:
+Panels render previews through owned color and depth textures attached to a framebuffer, pixels bottom row first as preview buffers store them:
 
 ```python
 def rendered(draw: Callable[[], None], extent: float, size: int, /) -> NDArray[np.float32]:
-    offscreen = gpu.types.GPUOffScreen(size, size)
+    color = gpu.types.GPUTexture((size, size), format="RGBA8")
+    depth = gpu.types.GPUTexture((color.width, color.height), format="DEPTH32F_STENCIL8")
+    framebuffer = gpu.types.GPUFrameBuffer(depth_slot=depth, color_slots=color)
     with ExitStack() as scope:
-        scope.callback(offscreen.free)
-        scope.enter_context(offscreen.bind())  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+        scope.callback(gpu.state.viewport_set, *gpu.state.viewport_get())
+        scope.callback(gpu.state.scissor_set, *gpu.state.scissor_get())
+        scope.enter_context(framebuffer.bind())  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
         scope.enter_context(gpu.matrix.push_pop())  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
         scope.enter_context(gpu.matrix.push_pop_projection())  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-        framebuffer = gpu.state.active_framebuffer_get()
-        framebuffer.clear(color=(0.0, 0.0, 0.0, 0.0))
+        framebuffer.clear(color=(0.0, 0.0, 0.0, 0.0), depth=1.0)
         gpu.matrix.load_identity()
         gpu.matrix.load_projection_matrix(Matrix.Translation((-1.0, -1.0, 0.0)) @ Matrix.Diagonal((2.0 / extent, 2.0 / extent, 1.0, 1.0)))
         draw()
-        return np.asarray(framebuffer.read_color(0, 0, size, size, 4, 0, "FLOAT"), np.float32).ravel()
+        return np.asarray(framebuffer.read_color(0, 0, color.width, color.height, 4, 0, "FLOAT"), np.float32)
 
 
 def pictured(previews: bpy.utils.previews.ImagePreviewCollection, name: str, draw: Callable[[], None], extent: float, /) -> int:
     preview: bpy.types.ImagePreview = previews.get(name) or previews.new(name)
-    size = bpy.app.render_preview_size
-    pixels = rendered(draw, extent, size)
-    preview.image_size = preview.icon_size = (size, size)  # type: ignore[assignment]
+    pixels = rendered(draw, extent, bpy.app.render_preview_size)
+    preview.image_size = preview.icon_size = (pixels.shape[1], pixels.shape[0])  # type: ignore[assignment]
+    pixels = pixels.ravel()
     preview.image_pixels_float.foreach_set(pixels)  # type: ignore[arg-type]
     preview.icon_pixels_float.foreach_set(pixels)  # type: ignore[arg-type]
     return preview.icon_id

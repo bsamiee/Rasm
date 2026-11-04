@@ -9,7 +9,7 @@ public static class HostTheme {
     public static HostEvent<Unit> Changed =>
         Subscriptions.Merged(
             Subscriptions.On<EventHandler, EventArgs>(static h => ThemeSettings.ThemeChanged += h, static h => ThemeSettings.ThemeChanged -= h, static handler => handler.Invoke).Choose(static _ => Some(unit)),
-            HostPlatform.Current.Changed);
+            IHostPlatform.Current.Changed);
 
     // --- [APPLICATION]
     public static IO<Unit> Applied(IO<Unit> apply) => apply >> Changed.Attach(_ => apply);

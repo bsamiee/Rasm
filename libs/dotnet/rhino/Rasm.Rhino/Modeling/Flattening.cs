@@ -36,14 +36,13 @@ public static class Flattening {
             created.AddFollowingGeometry(dots);
             return created;
         })
-        from unrolled in IO.lift(() => (Breps: unroller.PerformUnroll(out Curve[] curves, out Point3d[] points, out TextDot[] dots), Curves: curves, Points: points, Dots: dots))
-        from flat in Products.Many(() => unrolled.Breps)
-        from flatCurves in Products.Many(() => unrolled.Curves, required: false)
-        from flatDots in Products.Many(() => unrolled.Dots, required: false)
+        from unrolled in Products.Many(() => (unroller.PerformUnroll(out Curve[] curves, out Point3d[] points, out TextDot[] dots), (Curves: curves, Points: points, Dots: dots)))
+        from flatCurves in Products.Many(() => unrolled.Out.Curves, required: false)
+        from flatDots in Products.Many(() => unrolled.Out.Dots, required: false)
         select new UnrollResult(
-            flat,
+            unrolled.Values,
             flatCurves.Map(curve => (Curve: curve, Source: Conversions.Present(unroller.FollowingGeometryIndex(curve)))).Strict(),
-            Conversions.Rows(unrolled.Points),
+            Conversions.Rows(unrolled.Out.Points),
             flatDots.Map(dot => (Dot: dot, Source: Conversions.Present(unroller.FollowingGeometryIndex(dot)))).Strict());
 
     // --- [SQUISH]
@@ -74,7 +73,7 @@ public static class Flattening {
 
     // --- [UNWRAP]
     public static IO<Seq<Mesh>> Unwrap(Seq<Mesh> meshes, MeshUnwrapMethod method, Option<Plane> symmetry) =>
-        from copies in meshes.TraverseM(static mesh => Products.Of(mesh.DuplicateMesh)).As()
+        from copies in Products.Each(meshes.Map(static mesh => Products.Of(mesh.DuplicateMesh)))
         from unwrapped in (from unwrapper in use(() => new MeshUnwrapper(copies))
                            from configured in IO.lift(() => symmetry.Iter(plane => unwrapper.SymmetryPlane = plane))
                            from applied in Products.Accepted(() => unwrapper.Unwrap(method))

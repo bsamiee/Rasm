@@ -1,5 +1,4 @@
 using System.Drawing;
-using System.Globalization;
 using System.Numerics;
 using System.Runtime.Intrinsics;
 using Darkroom.Chain;
@@ -35,7 +34,7 @@ public sealed partial class VideoStandard {
 [ValidationError<DarkroomFault>]
 public sealed partial class ScanLines {
     static partial void ValidateFactoryArguments(ref DarkroomFault? validationError, ref int value) =>
-        validationError = value >= 1 ? null : new DarkroomFault(string.Create(CultureInfo.InvariantCulture, $"lines = {value}"), DarkroomReason.Invalid);
+        validationError = value >= 1 ? null : new DarkroomFault(value, DarkroomReason.Invalid, Expression: "lines");
 }
 
 public sealed record CrtDisplay(
@@ -85,7 +84,7 @@ public sealed record CrtDisplay(
         [(new Vector2((float)sigma), NearShare), (new Vector2(float.Sqrt(17f), float.Sqrt(2f)) * (float)sigma, 1f - NearShare)];
 
     private static PixelPass Raster(CrtDisplay state, PassContext context) =>
-        Video.Raster(context.Extent, state.Lines, state.Interlaced, TelevisionSystem.Ntsc.Frame(state.Timing.At(context)), state.Scales, state.Mask,
+        Video.Raster(context.Extent, state.Lines, state.Interlaced, TelevisionSystem.Ntsc.Frame((float)state.Timing.At(context).TotalSeconds), state.Scales, state.Mask,
             state.Pitch.Pixels(context.Extent), state.MaskStrength, state.ScanlineDepth);
 
     private Fin<CoordinateMap> Glass(PixelExtent extent) =>
@@ -98,12 +97,12 @@ public sealed record CrtDisplay(
 public sealed record AnalogVideo(
     VideoStandard Matrix, ScanLines Lines, float ChromaDelay, float SmearMix, float Ringing, float RingingDelay, float Emboss, float Ghost, float GhostDelay, float CrossColor,
     float LumaNoise, float ChromaNoise, ShortSideLength NoiseLength, float Snow, float SnowDensity, ShortSideLength SnowLength, float Interlace, ShortSideLength JitterPeriod,
-    float Wrinkle, ShortSideLength WrinkleHeight, float WrinkleRate, float HeadSwitch, ShortSideLength HeadSwitchHeight, float RollRate, float Hum, float HumRate, Seed Seed,
+    float Wrinkle, ShortSideLength WrinkleHeight, float WrinkleRate, float HeadSwitch, ShortSideLength HeadSwitchHeight, float RollRate, float Hum, float HumRate, int Seed,
     Timing Timing) : IPixelStage<AnalogVideo> {
     public static AnalogVideo Default { get; } = new(
         VideoStandard.Rec601, ScanLines.Create(480), 0f, 0.3f * 0.25f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, 0f, ShortSideLength.Create(ReferenceFrame.GreaterSide / 40f), 0f, 0f,
         ShortSideLength.Create(0.04f * ReferenceFrame.GreaterSide), 0f, ShortSideLength.Create(1f / 65f), 0f, ShortSideLength.Create(0.15f), 0f, 0f,
-        ShortSideLength.Create(0.31f / (32f - (28.8f * 0.5f))), 0f, 0f, 60f / 1001f, Seed.MinValue, Timing.Default);
+        ShortSideLength.Create(0.31f / (32f - (28.8f * 0.5f))), 0f, 0f, 60f / 1001f, 0, Timing.Default);
 
     public static AnalogVideo ChromaBlur { get; } =
         Default with { ChromaBandwidth = ShortSideLength.Create(128f / ReferenceFrame.Height / 3f), ChromaVertical = ShortSideLength.Create(12.8f / ReferenceFrame.Height / 3f) };
@@ -130,8 +129,8 @@ public sealed record AnalogVideo(
         state.Moves || state.Filters(context.Extent) || state.Speckled ? Some<PixelPass>(new PixelPass.Frame((frame, progress) => Kernel(state, context, frame, progress))) : None;
 
     private static Fin<Unit> Kernel(AnalogVideo state, PassContext context, PixelFrame frame, Option<IProgress<int>> progress) {
-        (PixelExtent extent, float now) = (context.Extent, state.Timing.At(context));
-        uint field = state.Seed.Field(2u, BitConverter.SingleToUInt32Bits(now));
+        (PixelExtent extent, float now) = (context.Extent, (float)state.Timing.At(context).TotalSeconds);
+        uint field = CoordinateHash.Branch(state.Seed, BitConverter.SingleToUInt32Bits(now), 2u);
         return from synced in state.Moves ? Sync(state, extent, now, field, frame, progress) : unit
                from signaled in state.Filters(extent)
                    ? state.Matrix.Decomposed(frame, context, (luma, blue, red) => Signal(state, extent, now, field, frame, (luma, blue, red))).Map(_ => progress.Iter(report => report.Report(frame.Size.Height)))

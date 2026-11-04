@@ -1,5 +1,5 @@
-import { Unmatched } from '@rasm/search/unmatched';
-import { Array, Effect, Option, Schema, Struct } from 'effect';
+import { Unmatched } from '@rasm/search';
+import { Array, Effect, flow, Option, Schema, String, Struct } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -71,7 +71,7 @@ class Terms extends Schema.Class<Terms, { readonly brand: unique symbol }>('Term
 
     static readonly script = Effect.fnUntraced(function* ({ command }: Terms, { direct, values = [], language = 'JSLg' }: { readonly direct: AppleEventValue; readonly values?: readonly AppleEventValue[]; readonly language?: string }) {
         const { name, parameters } = yield* Effect.fromOption(
-            Array.findFirst(['DjxM', 'dosc'], (event) => Array.findFirst(command, ({ code }) => code.endsWith(event))),
+            Array.findFirst(['DjxM', 'dosc'], (event) => Array.findFirst(command, flow(Struct.get('code'), String.endsWith(event)))),
             () => Unmatched.make({ subject: 'script command', candidates: Array.map(command, Struct.get('name')) }),
         );
         const passed = Array.isReadonlyArrayEmpty(values) ? {} : { [(yield* Unmatched.single(parameters, `parameter of ${name}`, Option.some('with arguments'), (parameter) => [parameter.name, parameter.code])).code]: values };

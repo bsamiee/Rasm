@@ -6,9 +6,8 @@ from itertools import chain
 from typing import ClassVar, Final
 
 import bpy
-from expression import Nothing, Ok, Option, Result, Some
+from expression import Option, Result, Some
 from expression.collections import Block
-from expression.extra.result import catch
 from mathutils import Matrix
 import msgspec
 
@@ -28,7 +27,7 @@ from blender.bpy.scene.objects import active_object, ObjectState, reconciled, sp
 from blender.bpy.ui.layout.members import Member
 from blender.bpy.ui.layout.rows import OperatorButton, Property
 from blender.bpy.ui.layout.sections import Section
-from blender.records.faults import accumulated, Fault, Faults, Outcome, Reason
+from blender.records.faults import accumulated, Error, Fault, Faults, Nothing, Ok, Outcome, Reason
 from blender.records.fields import Case, Name
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -61,19 +60,9 @@ class Lobe(StrEnum):
 class Kept(Case, frozen=True, kw_only=True):
     """Holders keep their groups."""
 
-    @staticmethod
-    def named(_holder: bpy.types.Object | bpy.types.World) -> Option[str]:
-        """Returns no group name, the holder's group left as it is."""
-        return Nothing
-
 
 class PerEmitter(Case, frozen=True, kw_only=True):
     """Group per holder, named after holder."""
-
-    @staticmethod
-    def named(holder: bpy.types.Object | bpy.types.World) -> Option[str]:
-        """Returns the holder's name as a light group name."""
-        return Some(light_group(holder.name))
 
 
 class Shared(Case, frozen=True, kw_only=True):
@@ -81,18 +70,9 @@ class Shared(Case, frozen=True, kw_only=True):
 
     name: Name = "Emission"
 
-    def named(self, _holder: bpy.types.Object | bpy.types.World) -> Option[str]:
-        """Returns the shared group name as a light group name."""
-        return Some(light_group(self.name))
-
 
 class Ungrouped(Case, frozen=True, kw_only=True):
     """No group, holder reaching Combined alone."""
-
-    @staticmethod
-    def named(_holder: bpy.types.Object | bpy.types.World) -> Option[str]:
-        """Returns the empty group name."""
-        return Some("")
 
 
 class Split(bpy.types.PropertyGroup):
@@ -111,11 +91,13 @@ class LightGroupEdits(msgspec.Struct, frozen=True, kw_only=True):
     """Light group operators and section."""
 
     children: ClassVar[Ownership[bpy.types.Object]] = Ownership(kind=bpy.types.Object, key="split_child", saved=Saved.USED)
-    cycles: ClassVar[Option[Setting]] = Some(Setting(descriptor=Descriptor.declared(bpy.types.Context, ("scene", "render", "engine"), bpy.types.EnumProperty), accepted=("CYCLES",)))
+    cycles: ClassVar[Option[Setting]] = Some(
+        Setting(descriptor=Descriptor(root=bpy.types.Context, owner=("scene", "render"), prop=bpy.types.RenderSettings.bl_rna.properties["engine"]), accepted=("CYCLES",))
+    )
 
-    def acquisitions(self, _identity: Identity) -> Outcome[Acquisitions]:
+    def acquisitions(self, _identity: Identity) -> Acquisitions:
         """Returns lobe child ownerships and section."""
-        return Ok((LightGroupEdits.children, self.section()))
+        return LightGroupEdits.children, self.section()
 
     @staticmethod
     def section() -> Section:
@@ -143,7 +125,7 @@ class Assignment(bpy.types.PropertyGroup):
     lights: bpy.props.EnumProperty(name="Lights", description="Group of each light object", items=GROUPINGS, default=PerEmitter.__name__)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     emissive: bpy.props.EnumProperty(name="Emissive", description="Group of each emissive object", items=GROUPINGS, default=Shared.__name__)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     world: bpy.props.EnumProperty(name="World", description="World light group", items=GROUPINGS, default=PerEmitter.__name__)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    shared: bpy.props.StringProperty(name="Shared Group", description="Group every holder of a shared rule joins", default="Emission")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    shared: bpy.props.StringProperty(name="Shared Group", description="Group every holder of a shared rule joins", default=Shared().name)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     scope: scope_choice(Scenes)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     collection: SCOPE_COLLECTION  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
@@ -158,9 +140,24 @@ def light_group(name: str, /) -> str:
 
 def grouping(choice: str, shared: str) -> Outcome[Grouping]:
     """Returns the rule a `GROUPINGS` choice names, a shared rule under its group name."""
-    return catch(msgspec.convert, exception=msgspec.ValidationError)({"kind": choice, "name": shared}, Grouping).map_error(
-        lambda error: Fault.of(Reason.OUTSIDE, "Shared Group", repr(shared), member=f"a group name ({error})")
-    )
+    try:
+        held: Grouping = msgspec.convert({"kind": choice, "name": shared}, Grouping)  # ty: ignore[unsound-assignment]
+    except msgspec.ValidationError as error:
+        return Error(Fault.of(Reason.OUTSIDE, "Shared Group", error, member="a group name"))
+    return Ok(held)
+
+
+def named(grouping: Grouping, holder: bpy.types.Object | bpy.types.World) -> Option[str]:
+    """Returns the rule's native light-group name, `Nothing` when the holder keeps its group."""
+    match grouping:
+        case Kept():
+            return Nothing
+        case PerEmitter():
+            return Some(light_group(holder.name))
+        case Shared(name=name):
+            return Some(light_group(name))
+        case Ungrouped():
+            return Some("")
 
 
 def assigned(scope: Scope, context: bpy.types.Context, *, lights: Grouping, emissive: Grouping, world: Grouping) -> Outcome[Option[frozenset[str]]]:
@@ -178,7 +175,7 @@ def assigned(scope: Scope, context: bpy.types.Context, *, lights: Grouping, emis
     """
 
     def wrote(grouping: Grouping, holder: bpy.types.Object | bpy.types.World) -> Outcome[Option[str]]:
-        return grouping.named(holder).map(lambda name: written(holder, ("lightgroup",), name).map(lambda prior: prior.map(lambda _: name))).default_value(Ok(Nothing))
+        return named(grouping, holder).map(lambda name: written(holder, ("lightgroup",), name).map(lambda prior: prior.map(lambda _: name))).default_value(Ok(Nothing))
 
     def worlds(reached: tuple[bpy.types.Scene | bpy.types.ViewLayer | bpy.types.Object, ...]) -> tuple[bpy.types.World, ...]:
         return tuple(dict.fromkeys(world for owner in reached if isinstance(scene := owner.id_data, bpy.types.Scene) for world in Option.of_optional(scene.world).to_list()))
@@ -370,6 +367,7 @@ __all__ = [
     "lights",
     "lobed",
     "members",
+    "named",
     "split",
     "splits",
     "toggled",

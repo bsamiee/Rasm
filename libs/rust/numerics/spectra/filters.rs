@@ -8,6 +8,7 @@ use core::{
 };
 
 use biquad::{Biquad as _, Coefficients, DirectForm2Transposed, Errors, Hertz, ToHertz as _, Type};
+use itertools::Itertools as _;
 use nalgebra::convert;
 use ndarray::{Array1, Axis, Slice};
 use num_complex::Complex;
@@ -160,42 +161,6 @@ fn cascade<I>(rate: Rate, stages: I) -> Result<Vec<Coefficients<f64>>, SpectraEr
 where I: IntoIterator<Item: Borrow<Stage>> {
     const REFERENCE: f64 = 1000.0;
     const POLES: [f64; 4] = [20.6, 107.7, 737.9, 12_194.0];
-    const LIMITS: [[f64; 2]; 34] = [
-        [f64::NEG_INFINITY, 3.0],
-        [f64::NEG_INFINITY, 2.5],
-        [-4.0, 2.0],
-        [-2.0, 2.0],
-        [-1.5, 2.0],
-        [-1.5, 1.5],
-        [-1.0, 1.0],
-        [-1.0, 1.0],
-        [-1.0, 1.0],
-        [-1.0, 1.0],
-        [-1.0, 1.0],
-        [-1.0, 1.0],
-        [-1.0, 1.0],
-        [-1.0, 1.0],
-        [-1.0, 1.0],
-        [-1.0, 1.0],
-        [-1.0, 1.0],
-        [-1.0, 1.0],
-        [-1.0, 1.0],
-        [-1.0, 1.0],
-        [-0.7, 0.7],
-        [-1.0, 1.0],
-        [-1.0, 1.0],
-        [-1.0, 1.0],
-        [-1.0, 1.0],
-        [-1.0, 1.0],
-        [-1.0, 1.0],
-        [-1.5, 1.5],
-        [-2.0, 1.5],
-        [-2.5, 1.5],
-        [-3.0, 2.0],
-        [-5.0, 2.0],
-        [-16.0, 2.5],
-        [f64::NEG_INFINITY, 3.0],
-    ];
     let fs = rate.get::<hertz>();
     let sampling: Hertz<f64> = fs.hz();
     let bilinear = 2.0 * fs;
@@ -205,7 +170,6 @@ where I: IntoIterator<Item: Borrow<Stage>> {
     };
     let scaled = |Coefficients { a1, a2, b0, b1, b2 }: Coefficients<f64>, gain: f64| Coefficients { a1, a2, b0: b0 * gain, b1: b1 * gain, b2: b2 * gain };
     let complement = |low: Coefficients<f64>| Coefficients { b0: 1.0 - low.b0, b1: low.a1 - low.b1, ..low };
-    let decibels = |amplitude: f64| 20.0 * amplitude.log10();
     stages
         .into_iter()
         .enumerate()
@@ -223,7 +187,7 @@ where I: IntoIterator<Item: Borrow<Stage>> {
             let odd = |order: NonZero<u8>| !order.get().is_multiple_of(2);
             let prototype = |pair: Type<f64>, cutoff: Frequency, order: NonZero<u8>, real: fn(Coefficients<f64>) -> Coefficients<f64>| {
                 let f0 = cutoff.get::<hertz>();
-                poles(order).map(|pole| designed(pair, f0, -0.5 / pole.re, 1.0)).chain(odd(order).then(|| designed(Type::SinglePoleLowPass, f0, 0.5, 1.0).map(real))).try_collect::<Vec<_>>()
+                poles(order).map(|pole| designed(pair, f0, -0.5 / pole.re, 1.0)).chain(odd(order).then(|| designed(Type::SinglePoleLowPass, f0, 0.5, 1.0).map(real))).collect::<Result<Vec<_>, _>>()
             };
             let resonances = |band: Band, order: NonZero<u8>, mapped: fn(Complex<f64>) -> Complex<f64>| {
                 let [low, high] = [band.start, band.last].map(|edge| bilinear * (PI * edge.get::<hertz>() / fs).tan());
@@ -272,22 +236,11 @@ where I: IntoIterator<Item: Borrow<Stage>> {
                     let base = designed(Type::HighPass, low, 0.5, 1.0)?;
                     let rest = iter::once(designed(Type::LowPass, high, 0.5, 1.0))
                         .chain(singles.iter().map(|&pole| designed(Type::SinglePoleLowPass, pole, 0.5, 1.0).map(complement)))
-                        .try_collect::<Vec<_>>()?;
-                    let sections = iter::once(scaled(base, gain(iter::once(&base).chain(&rest), REFERENCE / fs).norm().recip())).chain(rest).collect::<Vec<_>>();
-                    let analog = |frequency: f64| {
-                        frequency.powi(2) / frequency.mul_add(frequency, low * low) * high * high / frequency.mul_add(frequency, high * high)
-                            * singles.iter().map(|&pole| frequency / frequency.hypot(pole)).product::<f64>()
-                    };
-                    iter::zip((10..=43).map(|band| 10.0_f64.powf(f64::from(band) / 10.0)), LIMITS)
-                        .take_while(|&(frequency, _)| frequency < fs / 2.0)
-                        .try_for_each(|(frequency, [lower, upper])| {
-                            let deviation = decibels(gain(&sections, frequency / fs).norm()) - decibels(analog(frequency) / analog(REFERENCE));
-                            (lower..=upper).contains(&deviation).ok_or(SpectraError::Weighting { stage, frequency: Frequency::new::<hertz>(frequency), deviation, rate })
-                        })
-                        .map(|()| sections)
+                        .collect::<Result<Vec<_>, _>>()?;
+                    Ok(iter::once(scaled(base, gain(iter::once(&base).chain(&rest), REFERENCE / fs).norm().recip())).chain(rest).collect())
                 }
             }
         })
-        .try_collect::<Vec<_>>()
-        .map(|cascade| cascade.concat())
+        .flatten_ok()
+        .collect()
 }

@@ -1,8 +1,6 @@
-using System.Collections.Generic;
 using Eto.Drawing;
 using Eto.Forms;
 using Grasshopper2.Doc;
-using Grasshopper2.Eto.Forms;
 using Grasshopper2.Extensions;
 using Grasshopper2.UI;
 using Grasshopper2.UI.Canvas;
@@ -40,7 +38,7 @@ public static class Chrome {
 
     private static Unit Shown(Nomen face, IO<Unit> effect) =>
         Hooks.Run(
-            effect.Catch(
+            effect | @catch(
                 static error => !(error.Count is 1 && error.Is(Errors.Cancelled)),
                 error => IO.lift(() => (error.IsExceptional
                     ? new Grasshopper2.UI.ErrorFeedback.Error("Unhandled Error", error.ToException()) { Origin = face.Name }
@@ -51,12 +49,11 @@ public static class Chrome {
     private static bool Allowed(Command command, FlexControl control) =>
         Optional(command.DelegatedCommand).Match(Some: delegated => delegated.CanExecute(control), None: () => command.Enabled);
 
-    private static Unit Execute(Command command, FlexControl control) =>
-        Optional(command.DelegatedCommand).Match(
-            Some: delegated => delegated.Execute(control),
-            None: () => {
-                if (command.Enabled) command.Execute();
-            });
+    private static Unit Execute(Command command, FlexControl control) {
+        command.CommandParameter = control;
+        if (Allowed(command, control)) command.Execute();
+        return unit;
+    }
 
     private static bool Refreshed(CheckCommand toggle) =>
         toggle.Tag is Preference<bool> state ? (toggle.Checked = Hooks.Run(state.Read, toggle.Checked)) : toggle.Checked;
@@ -68,18 +65,10 @@ public static class Chrome {
             else if (command.DelegatedCommand is RelayCommand<Canvas>) command.Enabled = true;
         });
 
-    private static LanguageExt.HashSet<Keys> Accelerators(IEnumerable<MenuItem> items) =>
-        toHashSet(toSeq(items).Bind(static item => (item.Shortcut is Keys.None ? Seq<Keys>() : Seq(item.Shortcut)) + (item is SubMenuItem nested ? toSeq(Accelerators(nested.Items)) : Seq<Keys>())));
-
     // --- [MENUS]
     public static IO<Unit> Menu(Seq<Command> commands) =>
         unless(commands.IsEmpty, Hooks.Editor(editor =>
             from host in IO.lift(() => (EditorMainMenu)editor.Menu)
-            from free in IO.lift(() => Accelerators(host.Items) switch {
-                var taken => commands.Filter(static command => command.Shortcut is not Keys.None)
-                    .Traverse(command => GrasshopperFault.Unless(!taken.Contains(command.Shortcut), GrasshopperReason.Taken, (command.MenuText, command.Shortcut)))
-                    .As(),
-            })
             from menu in use(IO.lift(() => {
                 SubMenuItem submenu = new() { Text = Hooks.Session.Plugin.Name };
                 _ = commands.Iter(command => {
@@ -101,35 +90,29 @@ public static class Chrome {
                 ? rows(pick)
                 : Seq<Command>();
             _ = commands.Head.Iter(_ => args.Menu.AddSeparator());
-            _ = commands.Iter(command => args.Menu.AddItem(command is CheckCommand toggle
-                ? Cmd.CreateCheck(toggle.MenuText, toggle.ToolTip, Refreshed(toggle), (_, _) => Execute(command, canvas))
-                : Cmd.Create(command.MenuText, command.ToolTip, (_, _) => Execute(command, canvas))).Enabled = Allowed(command, canvas));
+            _ = Opened(commands, open: true);
+            _ = commands.Iter(command => {
+                command.CommandParameter = canvas;
+                args.Menu.Items.Add(command.CreateMenuItem());
+            });
         }));
 
     public static IO<Unit> Floating(FlexControl control, FloatingPosition position, Seq<Command> commands) =>
-        from free in IO.lift(() => toHashMap(commands.GroupBy(static command => command.MenuText, StringComparer.Ordinal).Select(static named => (named.Key, named.Count()))) switch {
-            var counts => commands
-                .Traverse(command => GrasshopperFault.Unless(
-                    !control.FloatingButtons.IsDefined(command.MenuText) && counts[command.MenuText] is 1,
-                    GrasshopperReason.Taken,
-                    command.MenuText))
-                .As(),
-        })
-        from added in use(IO.lift(() => commands.Iter(command => {
-            Color rest = default;
+        commands.TraverseM(command => use(IO.lift(() => {
+            Memo<Color> rest = memo(() => control.FloatingButtons[command.MenuText].Colour);
             control.FloatingButtons.Add(position, command.MenuText, command.ToolTip, click: (button, _) => Clicked(button));
-            rest = control.FloatingButtons[command.MenuText].Colour;
+            _ = rest.Value;
             _ = Shaded(control.FloatingButtons[command.MenuText]);
+            return command.MenuText;
 
-            Unit Shaded(FloatingButton button) => Optional(command as CheckCommand).Iter(toggle => button.ModifyColour(Refreshed(toggle) ? SystemColors.Highlight : rest));
+            Unit Shaded(FloatingButton button) => Optional(command as CheckCommand).Iter(toggle => button.ModifyColour(Refreshed(toggle) ? SystemColors.Highlight : rest.Value));
 
             Response Clicked(FloatingButton button) {
                 _ = Execute(command, control);
                 _ = Shaded(button);
                 return Response.Handled;
             }
-        })), _ => IO.lift(() => control.FloatingButtons.Close([.. commands.Map(static command => command.MenuText)])))
-        select unit;
+        }), name => IO.lift(() => control.FloatingButtons.Close(name)))).As().Map(unit);
 
     public static IO<Unit> Shortcuts(Canvas canvas, Seq<Command> commands) =>
         Hooks.On<KeyEventArgs>(h => canvas.KeyDown += h, h => canvas.KeyDown -= h, args => IO.lift(() =>

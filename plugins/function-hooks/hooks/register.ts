@@ -1,7 +1,8 @@
 import type { EngineInterface, NextBudget, Register } from 'claude-code';
 import { Option } from '../monads.ts';
-import { type AppInstance, applyChange, bundleId, type Change, createdPids, logInstances, outputChange, storedInstances } from '../policies/apps.ts';
-import { commandDecision, policyFailure, type Request, type System, WATCHER, WORKTREE } from '../policies/policies.ts';
+import { type CommandRequest, commandDecision, policyFailure, type System } from '../policies/command-decision.ts';
+import { type AppInstance, applyChange, bundleId, type Change, createdPids, logInstances, outputChange, storedInstances, WATCHER } from '../policies/internal/apps.ts';
+import { WORKTREE } from '../policies/internal/git.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -99,7 +100,7 @@ const quitSessionInstances = async ($: EngineInterface, session: string, budget:
 
 const register: Register = (on, options) => {
     const project = String(options.project);
-    const scanners = new Map<string, string>();
+    const scanners = new Map<string, Promise<string>>();
     on('tool.call', { tool: 'EnterWorktree' }, (_$, e) => ({ deny: `${e.tool} ${WORKTREE}` }));
     on('tool.call', { tool: 'Agent', isolation: 'worktree' }, (_$, e) => ({ deny: `${e.tool} with isolation ${e.isolation} ${WORKTREE}` }));
     on('tool.call', { tool: 'Workflow' }, async ($, e, next) => (WORKTREE_ISOLATION.test(e.scriptPath === undefined ? (e.script ?? '') : await $.fs.read(e.scriptPath)) ? { deny: `${e.tool} agent with isolation worktree ${WORKTREE}` } : next(e)));
@@ -113,9 +114,7 @@ const register: Register = (on, options) => {
         if (e.command === undefined) {
             return next(e);
         }
-        const scanner = scanners.get($.plugin.root) ?? (await scannerPath($));
-        scanners.set($.plugin.root, scanner);
-        const [repo, cwd, home] = await Promise.all([$.session.repo(), $.session.cwd(), $.env.get('HOME')]);
+        const [scanner, repo, cwd, home] = await Promise.all([scanners.getOrInsertComputed($.plugin.root, () => scannerPath($)), $.session.repo(), $.session.cwd(), $.env.get('HOME')]);
         const system: System = {
             run: (argv, init) => $.process.run(argv, init),
             exists: (path) => $.fs.exists(path),
@@ -130,7 +129,7 @@ const register: Register = (on, options) => {
             cwd,
             home: Option.fromNullable(home),
         };
-        const request: Request = e.tool === 'Bash' && e.run_in_background !== true ? { kind: 'foreground', timeout: Option.fromNullable(e.timeout) } : { kind: e.tool === 'Bash' ? 'background' : 'monitor' };
+        const request: CommandRequest = e.tool === 'Bash' && e.run_in_background !== true ? { kind: 'foreground', timeout: Option.fromNullable(e.timeout) } : { kind: e.tool === 'Bash' ? 'background' : 'monitor' };
         const decision = await commandDecision(system, e.command, project, request);
         if (decision.kind === 'deny') {
             return { deny: decision.reason };

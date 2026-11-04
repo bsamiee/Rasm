@@ -60,9 +60,6 @@ utils:
             - any:
                 - has: {matches: constant, pattern: $CONSTANT}
                 - has: {pattern: $LAZY, not: {any: [{matches: constant}, {kind: comment}]}}
-            - any:
-                - has: {matches: static-constant, pattern: $STATIC}
-                - not: {has: {matches: static-constant}}
             - not: {has: {stopBy: end, kind: identifier, pattern: $ERROR}}
     reject-block:
         kind: block

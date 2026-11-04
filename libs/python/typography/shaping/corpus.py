@@ -2,7 +2,6 @@
 
 from functools import partial
 from typing import Annotated
-lazy from collections.abc import Iterable
 lazy from itertools import product
 lazy from pathlib import Path
 lazy from unicodedata import category
@@ -40,7 +39,7 @@ class Corpus(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=Tr
     @property
     def languages(self) -> tuple[str, ...]:
         """Language of each prose kind and the empty language of the font's default system, the languages every run shapes under."""
-        return (*self.prose, "")
+        return tuple(dict.fromkeys((*self.prose, "")))
 
     @property
     def plain(self) -> tuple[str, ...]:
@@ -63,7 +62,7 @@ class Corpus(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=Tr
         return tuple(
             dict.fromkeys(
                 " ".join(words[max(index - 1, 0) : index + 2]) if all(category(character) == "Mn" for character in word) else word
-                for words in (line.split(" ") for line in (*self.marked, *self.annotated, *self.words))
+                for words in (line.split() for line in (*self.marked, *self.annotated, *self.words))
                 for index, word in enumerate(words)
             )
         )
@@ -97,7 +96,7 @@ class Corpus(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=Tr
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _runs(letters: Iterable[int], count: int, marks: Iterable[str], contexts: Iterable[tuple[str, str]], /) -> tuple[str, ...]:
+def _runs(letters: tuple[int, ...], count: int, marks: tuple[str, ...], contexts: tuple[tuple[str, str], ...], /) -> tuple[str, ...]:
     """Every run of `count` letters, each letter followed by each mark sequence, between each context pair, the first letter outermost."""
     clusters = tuple(f"{chr(code)}{mark}" for code in letters for mark in marks)
     return tuple(f"{before}{''.join(chosen)}{after}" for chosen in product(clusters, repeat=count) for before, after in contexts)
@@ -112,7 +111,7 @@ def corpus(path: Path, /) -> Outcome[Corpus]:
     return (
         catch(Path.read_bytes, exception=OSError)(path)
         .map_error(partial(Fault.of, Reason.UNREADABLE, str(path)))
-        .bind(lambda raw: catch(partial(msgspec.toml.decode, type=Corpus), exception=msgspec.DecodeError)(raw).map_error(partial(Fault.of, Reason.INVALID, str(path))))
+        .bind(lambda raw: catch(lambda: msgspec.toml.decode(raw, type=Corpus), exception=msgspec.DecodeError)().map_error(partial(Fault.of, Reason.INVALID, str(path))))
     )
 
 

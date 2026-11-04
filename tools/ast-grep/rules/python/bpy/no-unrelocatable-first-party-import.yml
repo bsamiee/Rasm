@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-unrelocatable-first-party-import
-language: python
+language: pythonlang
 severity: error
 files:
     - libs/python/**

@@ -14,6 +14,18 @@ internal interface IReplayed {
 
 internal sealed record Recorded<TState>(TState Record) where TState : Stage;
 
+internal abstract record Branch<T> {
+    internal sealed record Label(T Value) : Branch<T>;
+
+    internal sealed record Check(bool Value) : Branch<T>;
+
+    internal bool Labeled => this is Label;
+
+    internal Label? AsLabel() => this as Label;
+
+    internal string Kind() => this switch { Label => nameof(Label), Check => nameof(Check), _ => nameof(Branch<T>) };
+}
+
 internal static class ConcreteTests {
     internal static bool Dithered<TState>(Recorded<TState> value) where TState : Stage => {|#0:value.Record is Dither|};
 
@@ -21,7 +33,14 @@ internal static class ConcreteTests {
 
     internal static Exposure? Exposed<TState>(TState state) where TState : Stage => {|#2:state as Exposure|};
 
-    internal static bool Kind(Type state) => {|#3:state != typeof(Dither)|};
+    internal static bool Kind<TState>() where TState : Stage => {|#3:typeof(TState) == typeof(Dither)|};
+
+    internal static bool Reversed<TState>() where TState : Stage => {|#4:typeof(Dither) != typeof(TState)|};
+
+    internal static bool Aliased<TState>() where TState : Stage {
+        Type kind = typeof(TState);
+        return {|#5:kind == typeof(Dither)|};
+    }
 }
 
 internal static class StatedBehavior {
@@ -30,6 +49,16 @@ internal static class StatedBehavior {
     internal static bool Staged(Stage stage) => stage is Dither;
 
     internal static bool Abstract<TState>(TState state) => state is Stage;
+
+    internal static bool Runtime(Type state) => state != typeof(Dither);
+
+    internal static bool Closed() => typeof(Stage) == typeof(Dither);
+
+    internal static bool Reassigned<TState>() where TState : Stage {
+        Type kind = typeof(TState);
+        kind = typeof(Stage);
+        return kind == typeof(Dither);
+    }
 
     internal static int Held<TState>(Recorded<TState> value) where TState : Stage => value switch { var held => held.GetHashCode() };
 }

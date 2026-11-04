@@ -1,87 +1,51 @@
 # [RULE_BUILDING]
 
-Derive rules from a refactor diff, existing code, or a project principle, and integrate each with the existing rules and utils.
+Derive each rule from one correction and the contracts deciding where the correction applies.
 
-## [01]-[SOURCES]
+## [01]-[EVIDENCE]
 
-Read the supplied evidence, then the dependencies deciding the correction:
-1. Git diff with its before and after context, the named code, or the stated principle with one conforming and one violating form
-2. Language skills, project files, resolved versions, and installed sources of the packages the correction uses
-3. Exported functions and types of the internal packages the scope depends on
-4. Scoped checker rules (ruff, biome, analyzers)
-5. Surrounding logic and callers, enough to establish the correction's behavior and scope
+Read original code and its consumers before selecting a matcher:
+1. Before and after forms with the original diff, or conforming and violating forms of a stated policy
+2. Language semantics, configured grammar, resolved package declarations, and implementation deciding the correction
+3. Callers and internal APIs establishing intended behavior and supported forms
+4. Configured checkers establishing which tool owns the violation
 
-## [02]-[SMELLS]
+## [02]-[APPLICABILITY]
 
-Structural search locates candidates, language and package contracts judge the correction. Matching shapes alone establish no redundant type, repeated effect, unused declaration, or interchangeable library call.
+Diagnostics require a violation established by syntax and its contract. Fixes implement the stated correction and preserve unrelated behavior.
 
-- Repeated string spelling establishes no shared fact
-- Library families derive from installed exports and overloads, positional arguments in documented order and keyword arguments by name
-- Every branch's return is known before a fold becomes map or bind
-- Package operations import from their documented submodule
+- State the violated contract, required change, deciding preconditions, and conforming near misses
+- Use semantic tooling for type resolution, control and data flow, constant propagation, and ownership or lifetime claims
+- Nullable and optional types state representable values, not the role of an error field
+- Repeated text establishes spelling alone; declarations, native decoding and normalization, or explicit policy establish meaning
+- Unused bound values do not prove independent operations; earlier success can establish a later precondition
+- Policy rules name the restriction without claiming the supported API or syntax is defective
+- Recurrence follows the accepted grammar or API contract, occurrence counts alone decide no rule's validity
+- Keep facts in their owning declaration, rules enforce consumers' required use of that owner
 
-Categories a package member decides need package source beside code, searches find call sites once the member is named.
+Use `manage-repo` for checker integration.
 
-## [03]-[FIX]
+## [03]-[CONSTRUCTION]
 
-Rewrites edit only selections where the fix keeps behavior, other forms violating the rule stay findings, an invalid rule is deleted unweakened:
-- `<ids>` joins with `|` the id of each rule the round edits, places, or collapses and of each caller of a util it edits
-- `<globs>` joins in one brace glob the round language's extensions, `sgconfig.yml` `languageGlobs`, and each host injecting it
-- `<state>` is `before` or `after` under the run's private directory, `<excludes>` the `--globs '!<glob>'` flags of `lint:ast-grep`
-- Rows grouped by `ruleId` count each rule, `comm -3` over both `<state>.keys` files lists gained and lost rows
-- Counts locate unnecessary structure and justify no deletion of an invariant or hiding of complexity in another file
-- Resolve warnings from scoped checkers before deriving a rule
+Choose a matched construct that identifies the violation and contains the required edit. Related syntax supplies evidence without enlarging that construct.
 
-Scans record a state, `jq` reads its scan lines into keys and per-rule counts:
+- Report a shared declaration once when one edit corrects every dependent use
+- Report uses separately when each requires an independent correction
+- Select whole statements for statement removal, expression matches keep enclosing statement syntax
+- Labels pinpoint captured causes without changing match or replacement ranges
+- Parse patterns and targets with the configured grammar, explicit context selects ambiguous fragments
+- Match modifier and wrapper differences that change the correction's applicability
+- Count control flow within its callable owner; a nested callable starts its own depth
+- `finally` alone establishes neither a handler nor error recovery
 
-```bash
-nx run rasm:lint:ast-grep --output-style=static -- --filter '^(<ids>)$' --globs '<globs>' --json=stream > <state>.jsonl
-jq -rR 'fromjson? | [.ruleId, .file, (.range.start.line + 1 | tostring)] | join(":")' <state>.jsonl | sort > <state>.keys
-jq -rR 'fromjson? | .ruleId' <state>.jsonl | sort | uniq -c
-```
+- Use [rule-hardening.md](rule-hardening.md) for correction families and utility composition
+- Use [performance.md](performance.md) for matcher cost and scan comparisons
 
-Placed rules hold single-thread user CPU within twice `no-parse-error-<language>` over `<globs>`, `<rule ids>` the `<ids>` joined by `,`:
+## [04]-[REWRITES]
 
-```bash
-hyperfine -N -i -r 3 -L id 'no-parse-error-<language>,<rule ids>' --export-json <state>-cost.json \
-    "ast-grep scan -j 1 --custom-languages allow --no-ignore hidden --filter '^{id}$' --globs '<globs>' <excludes> --json=stream ."
-jq -r '.results[] | [.parameters.id, .user] | @tsv' <state>-cost.json
-```
-
-`-i` keeps timing past an `error` match's exit 1.
-
-## [04]-[BAR]
-
-Corrections earn a rule by one criterion and are refused by one, each a verdict token with `earns` 1 or 0, a correction under the bar ends as findings:
-
-| [INDEX] | [VERDICT]         | [EARNS] | [CRITERION]                                                               |
-| :-----: | :---------------- | :-----: | :------------------------------------------------------------------------ |
-|  [01]   | `newest-form`     |    1    | Newest-language form a configured checker lacks                           |
-|  [02]   | `bad-logic`       |    1    | Bad logic pattern                                                         |
-|  [03]   | `indirection`     |    1    | Indirection layer                                                         |
-|  [04]   | `library-op`      |    1    | Hand-written counterpart of an installed library's operation              |
-|  [05]   | `repository-fact` |    0    | Repository fact, the project file or owner file states it once            |
-|  [06]   | `misparse`        |    0    | Form tree-sitter parses wrong, matched by the enclosing statement pattern |
-|  [07]   | `option-grammar`  |    0    | One tool's option grammar                                                 |
-|  [08]   | `accepted-form`   |    0    | Accepted form, rewrite adds members, lines, or changes behavior           |
-
-- Patterns with one instance and no sibling are findings, width alone earns no rule
-- Use `manage-repo` for the checker each correction belongs to
-
-## [05]-[DERIVATION]
-
-Findings group by correction and reason, instances with both in common become siblings under one rule:
-- Shared shapes split when corrections differ, or when different reasons change which near misses are valid
-- Diff supplies instances, language and package contracts decide the rest of the family
-- Siblings enumerate per module function, exporting module, overload, container kind, spelling, position, and callback form
-- Siblings are real when the after form, written once per sibling, is the same
-- Siblings include each form that silences the rule and keeps its cause (declaration relaying the value, restated type, rename, wrapper)
-- Criterion derives from the diff's forms, package overloads, and near misses
-- Fixed predicates with one caller stay in the rule, repeated predicates share a util refined at each caller
-- Default-parameter corrections preserve evaluation timing and argument-binding errors, repeated positional, keyword, and unpacked values included
-- Guards over a position drop when the shape fixes the position
-- Returns in both arms make every later statement dead
-- Notes state every operation a fix selects by shape, the map and the bind of one match
-- Messages interpolate captures and transform outputs, notes and label messages print as written and name forms by placeholder
-- Absence rules derive from an operation returning Option and reconstructing its result by hand
-- Direct boolean conditionals over plain values stay, a match combinator adds value when it removes existing structure
+Replacement preconditions follow the language and owning API contracts:
+- Preserve evaluation count, order, timing, short-circuiting, and argument-binding behavior outside the intended correction
+- Preserve types, null behavior, collation, and numeric association when refactoring expressions
+- Preserve substitution precedence, literal contents, delimiters, and comments owned by edited syntax
+- Use native narrow matches or range edits, omit unsafe fixes or separate fixed forms from other violations
+- Messages name the violation, notes state the required form and deciding contract

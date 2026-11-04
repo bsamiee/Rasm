@@ -41,9 +41,10 @@ internal sealed class ObjectBody<TState, TGeometry>(ObjectDefinition<TState, TGe
                 select decoded.Swap(_ => Some(state)).IfNone(state));
 
     private Fin<TGeometry> Built(TState state) =>
-        from geometry in definition.Build(state)
-        from stamped in Stamped(geometry, state)
-        select geometry;
+        definition.Build(state).Bind(geometry => Stamped(geometry, state).Map(_ => geometry).MapFail(error => {
+            geometry.Dispose();
+            return error;
+        }));
 
     private Fin<Unit> Stamped(GeometryBase geometry, TState state) =>
         definition.Codec.ToDictionary(state).Bind(encoded => RhinoFault.Unless(geometry.UserDictionary.Set(definition.Codec.Name, encoded), RhinoReason.Unwritable, definition.Codec.Name));

@@ -85,23 +85,12 @@ utils:
                     - matches: option-parameter
                     - kind: invocation_expression
                       has: {field: function, regex: '(^|\.)From(<.+>)?$'}
-            - pattern: $WRAPPER
-              matches:
-                csharp-file-method-call:
-                    declaration:
-                        not: {matches: mapperly-mapping-method}
-                        has:
-                            stopBy: end
-                            any:
-                                - matches: failure
-                                - kind: invocation_expression
-                                  has: {field: function, matches: unwrap-callee}
 rule:
     any:
         - matches: wrapper-type
         - kind: invocation_expression, throw_expression, throw_statement, cast_expression
           all:
-            - matches: mapping-body
             - matches: unwrap
+            - matches: mapping-body
 message: 'Mapping method builds or unwraps a result through `$WRAPPER`'
 note: 'Declare mapping over success types and call it inside `Map`, `Bind`, or a traversal at the boundary'

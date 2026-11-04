@@ -19,7 +19,7 @@ use fidget::{
     types::{Grad, Interval},
     var::Var,
 };
-use itertools::{iproduct, izip};
+use itertools::{Itertools as _, iproduct, izip};
 use nalgebra::{Isometry3, Point3, Unit, Vector3, Vector4};
 use parry3d_f64::shape::TriMeshBuilderError;
 use rayon::{
@@ -178,8 +178,8 @@ pub fn project(
     (0..iterations.get())
         .try_fold(points.into_iter().map(|point| ControlFlow::Continue(*point.borrow())).collect::<Vec<_>>(), |mut steps, _| {
             let samples = sample::<(f64, Vector3<f64>)>(shape, evaluation, steps.iter().copied().filter_map(ControlFlow::continue_value)).map_err(|error| match error {
-                ImplicitError::NotFinite { index } =>
-                    steps.iter().enumerate().filter(|(_, step)| step.is_continue()).nth(index).map_or(error, |(point, _)| ImplicitError::NotFinite { index: point }),
+                #[expect(clippy::needless_collect, reason = "Suggested nth requires unwrapping a guaranteed sample index")]
+                ImplicitError::NotFinite { index } => ImplicitError::NotFinite { index: steps.iter().positions(ControlFlow::is_continue).collect::<Vec<_>>()[index] },
                 unmapped @ (ImplicitError::Evaluation(_)
                 | ImplicitError::Singular { cell: _ }
                 | ImplicitError::Resolution { size: _, extent: _ }
@@ -188,10 +188,11 @@ pub fn project(
                 | ImplicitError::Mesh(_)) => unmapped,
             })?;
             steps.iter_mut().filter(|step| step.is_continue()).zip(samples).for_each(|(step, (value, gradient))| {
-                *step = match *step {
-                    ControlFlow::Continue(point) if value.abs() > tolerance =>
-                        ControlFlow::Continue(Unit::try_new_and_get(gradient, 0.0).map_or(point, |(normal, norm)| point - normal.into_inner() * (value / norm))),
-                    settled => ControlFlow::Break(settled.into_value()),
+                let point = (*step).into_value();
+                *step = if value.abs() > tolerance {
+                    ControlFlow::Continue(Unit::try_new_and_get(gradient, 0.0).map_or(point, |(normal, norm)| point - normal.into_inner() * (value / norm)))
+                } else {
+                    ControlFlow::Break(point)
                 };
             });
             Ok(steps)
@@ -244,7 +245,7 @@ where S: Sample {
         .into_iter()
         .enumerate()
         .map(|(index, position)| position.iter().copied().all(f32::is_finite).then(|| <(_, _, _)>::from(S::seed(position))).ok_or(ImplicitError::NotFinite { index }))
-        .try_collect::<(Vec<_>, Vec<_>, Vec<_>)>()?;
+        .collect::<Result<(Vec<_>, Vec<_>, Vec<_>), _>>()?;
     let size = evaluation.batch.get();
     let batch = |evaluator: &mut ShapeBulkEval<S::Eval>,
                  chunk: usize,
@@ -258,7 +259,7 @@ where S: Sample {
     match evaluation.threads {
         None => {
             let mut evaluator = ShapeBulkEval::default();
-            izip!(xs.chunks(size), ys.chunks(size), zs.chunks(size)).enumerate().map(|(chunk, (x, y, z))| batch(&mut evaluator, chunk, x, y, z)).try_collect::<Vec<_>>()
+            izip!(xs.chunks(size), ys.chunks(size), zs.chunks(size)).enumerate().map(|(chunk, (x, y, z))| batch(&mut evaluator, chunk, x, y, z)).flatten_ok().collect()
         }
         Some(pool) => pool.run(|| {
             (xs.par_chunks(size), ys.par_chunks(size), zs.par_chunks(size))
@@ -266,9 +267,9 @@ where S: Sample {
                 .enumerate()
                 .map_init(ShapeBulkEval::default, |evaluator, (chunk, (x, y, z))| batch(evaluator, chunk, x, y, z))
                 .collect::<Result<Vec<_>, _>>()
+                .map(|batches| batches.into_iter().flatten().collect())
         }),
     }
-    .map(|batches| batches.into_iter().flatten().collect())
 }
 
 fn cancellation_point(cancel: Option<&CancelToken>) -> Result<(), ImplicitError> { cancel.is_none_or(|token| !token.is_cancelled()).ok_or(ImplicitError::Cancelled) }

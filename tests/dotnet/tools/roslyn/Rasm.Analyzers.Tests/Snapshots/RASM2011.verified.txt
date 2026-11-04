@@ -1,2 +1,4 @@
 #0 `view.Floating = false` destroys a floated view on macOS in place of docking it, delete the assignment
 #1 `view.Floating = false` destroys a floated view on macOS in place of docking it, delete the assignment
+#2 `((view.Floating, first), second) = ((false, 1), 2)` destroys a floated view on macOS in place of docking it, delete the assignment
+#3 `(first.Floating, second.Floating) = (false, false)` destroys a floated view on macOS in place of docking it, delete the assignment

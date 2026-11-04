@@ -2,6 +2,8 @@
 
 ## [01]-[CAPABILITIES]
 
+Foreign traits can use `&mut State` for local state and return borrowed compound values without a separate adapter type.
+
 `where Self: Sized` keeps a generic default method off the vtable:
 
 ```rust

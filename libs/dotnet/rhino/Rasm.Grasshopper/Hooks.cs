@@ -24,22 +24,22 @@ public static partial class Hooks {
 
     internal static IO<Unit> Bind(ILoggerFactory loggers, Plugin plugin) =>
         from settings in IO.lift(() => new SettingsFolder($"Plugins.{plugin.Id:N}").GetSettings("Preferences"))
-        from bound in IO.lift(() => Bound.Swap(prior => prior | Some((
+        from candidate in IO.lift(() => (
             Logger: loggers.CreateLogger(plugin.GetType()),
             Plugin: plugin,
             Settings: settings,
             Values: new KeyedValues() switch {
                 var empty => settings.Get(ValuesKey, empty) as KeyedValues ?? empty,
-            }))))
+            }))
+        from bound in IO.lift(() => Bound.Swap(prior => prior | Some(candidate)))
         from held in IO.lift(() => GrasshopperFault.Unless(bound.Exists(session => ReferenceEquals(session.Plugin, plugin)), GrasshopperReason.Taken, plugin.Name))
         select unit;
 
     internal static IO<Unit> Saved =>
-        IO.lift(static () => {
-            SettingsFile settings = Session.Settings;
-            settings.Set(ValuesKey, Session.Values);
-            return GrasshopperFault.Unless(Settings.SandBox || settings.TrySaveSettingsToFile(), GrasshopperReason.Declined, settings.File);
-        });
+        IO.lift(static () => Session).Bind(static session => IO.lift(() => {
+            session.Settings.Set(ValuesKey, session.Values);
+            return GrasshopperFault.Unless(Settings.SandBox || session.Settings.TrySaveSettingsToFile(), GrasshopperReason.Declined, session.Settings.File);
+        }));
 
     // --- [EVENTS]
     public static IO<Unit> On(Action<EventHandler> add, Action<EventHandler> remove, IO<Unit> react, [CallerArgumentExpression(nameof(add))] string label = "") =>

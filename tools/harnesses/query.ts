@@ -1,5 +1,5 @@
 import { Array, type Config, Console, DateTime, Effect, FileSystem, Formatter, Option, Order, Path, Predicate, Record, Schema, String, Struct } from 'effect';
-import { HarnessError } from '#/error';
+import { HarnessError } from '#/harness-error';
 import { printed } from '#/instance';
 import { Field, partition, RECORDS, Signed } from '#/log';
 import { KINDS, type Linked, system } from '#/report';

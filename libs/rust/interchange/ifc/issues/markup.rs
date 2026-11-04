@@ -1,11 +1,12 @@
 use indexmap::{IndexMap, IndexSet};
 use itertools::{Either, EitherOrBoth};
 use jiff::Timestamp;
+use uuid::Uuid;
 use validated::Validated;
 use xot::Node;
 
 use super::{
-    CommentUuid, DocumentReferenceUuid, DocumentUuid, FILE, GUID, IS_EXTERNAL, Image, NodeUuid, REFERENCE, TOPIC, Text, TopicUuid, ViewpointUuid,
+    CommentUuid, DocumentReferenceUuid, DocumentUuid, FILE, GUID, IS_EXTERNAL, Image, REFERENCE, TOPIC, Text, TopicUuid, ViewpointUuid,
     visualization::Visualization,
     xml::{Codec, Keyed, Reader, Writer, codec, document, local_name, required, resolve, sides, stated, stored},
 };
@@ -54,8 +55,8 @@ pub struct Topic {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct File {
-    pub ifc_project: Option<NodeUuid>,
-    pub ifc_spatial_structure_element: Option<NodeUuid>,
+    pub ifc_project: Option<Uuid>,
+    pub ifc_spatial_structure_element: Option<Uuid>,
     pub filename: Option<Text>,
     pub date: Option<Timestamp>,
     pub reference: Option<Resource>,
@@ -77,7 +78,9 @@ pub struct Resource {
 impl Codec for Resource {
     fn read(reader: &Reader<'_>, node: Node) -> Validated<Self, IfcError> {
         let holder = reader.xot.parent(node).unwrap_or(node);
-        let stated_external = reader.attribute::<Option<bool>>(holder, &[], IS_EXTERNAL).map2(Text::read(reader, node), |external, reference| (external.unwrap_or_else(|| local_name(reader.xot, holder) == FILE), reference));
+        let stated_external = reader
+            .attribute::<Option<bool>>(holder, &[], IS_EXTERNAL)
+            .map2(Text::read(reader, node), |external, reference| (external.unwrap_or_else(|| local_name(reader.xot, holder) == FILE), reference));
         bind(stated_external, |(external, reference)| Validated::from(if external { Ok(None) } else { reader.file(&reference).map(Some) }.map(|content| Self { reference, content })))
     }
 
@@ -184,9 +187,13 @@ impl Codec for Remark {
     fn read(reader: &Reader<'_>, node: Node) -> Validated<Self, IfcError> { sides(reader, reader.element(node, &[], COMMENT), reader.attribute(node, &[VIEWPOINT], GUID), COMMENT) }
 
     fn write(&self, writer: &mut Writer<'_>, node: Node) -> Result<(), IfcError> {
-        let (text, viewpoint) = self.clone().left_and_right();
-        writer.element(node, &[], COMMENT, &text)?;
-        writer.attribute(node, &[VIEWPOINT], GUID, &viewpoint)
+        if let Some(text) = self.as_ref().left() {
+            writer.element(node, &[], COMMENT, text)?;
+        }
+        if let Some(viewpoint) = self.as_ref().right() {
+            writer.attribute(node, &[VIEWPOINT], GUID, viewpoint)?;
+        }
+        Ok(())
     }
 }
 

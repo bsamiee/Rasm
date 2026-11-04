@@ -4,19 +4,20 @@ from collections.abc import Mapping
 import colorsys
 from contextlib import ExitStack
 from enum import auto, Enum
-from functools import partial
+from functools import partial, reduce
 import itertools
 from types import MappingProxyType
 from typing import Final
 
 import bpy
-from expression import Ok, Option, Result, Some
+from expression import Option, Result, Some
 from expression.collections import Block
 from expression.extra.result import catch
 import mathutils
+import networkx as nx
 import numpy as np
 
-from blender.bpy.commands.operators import Answer, answered, Call, Done, Empty, NoUndo, Operator, Placement, Unchanged
+from blender.bpy.commands.operators import Answer, answered, Call, Done, Empty, Operator, Placement, Unchanged
 from blender.bpy.data.rna.conditions import Scenes, ViewLayers
 from blender.bpy.data.rna.descriptors import Descriptor, Value, written
 from blender.bpy.data.rna.paths import rooted
@@ -32,7 +33,7 @@ from blender.bpy.ui.layout.members import Member
 from blender.bpy.ui.layout.rows import FUNCTIONS, Layout, operator_button, OperatorButton, Property, RowContent
 from blender.bpy.ui.layout.sections import Section
 from blender.bpy.ui.layout.tables import Branch, SettingsTable, TreeTable
-from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, Reason
+from blender.records.faults import accumulated, Fault, Faults, Ok, Outcome, paired, Reason
 from blender.rendering.outputs.naming import Fields, NumberKey, OutputName, TextKey
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -96,9 +97,7 @@ class PasteScope(Enum):
 _SATURATION: Final = 0.7
 _VALUE: Final = 0.36
 RESTRICTIONS: Final[Mapping[str, Descriptor[bpy.types.BoolProperty]]] = MappingProxyType({
-    prop.identifier: Descriptor.declared(bpy.types.LayerCollection, (prop.identifier,), bpy.types.BoolProperty)
-    for prop in bpy.types.LayerCollection.bl_rna.properties
-    if isinstance(prop, bpy.types.BoolProperty) and not prop.is_readonly
+    prop.identifier: Descriptor(root=bpy.types.LayerCollection, prop=prop) for prop in bpy.types.LayerCollection.bl_rna.properties if isinstance(prop, bpy.types.BoolProperty) and not prop.is_readonly
 })
 _FLAGS: Final = choices((member.prop.identifier, member.prop.name, member.prop.description) for member in RESTRICTIONS.values())
 
@@ -171,15 +170,14 @@ def applied(scene: bpy.types.Scene, *, layer: str, collection: int, flag: Descri
     """Writes a restriction value onto the collection with session identifier in the named layer, returning changed layer collection count."""
 
     def written(held: bpy.types.ViewLayer, target: bpy.types.LayerCollection, ancestors: tuple[bpy.types.LayerCollection, ...]) -> Outcome[int]:
-        inside = tuple(node for node, _ in walked(target))
         writes: tuple[tuple[bpy.types.LayerCollection, bool], ...]
         match extent:
             case Extent.ONE:
                 writes = ((target, value),)
             case Extent.CHILDREN:
-                writes = tuple((node, value) for node in inside)
+                writes = tuple((node, value) for node, _ in walked(target))
             case Extent.ISOLATE:
-                kept = (*inside, *ancestors[1:])
+                kept = frozenset(node for node, _ in walked(target)) | frozenset(ancestors)
                 writes = tuple((node, value == (node in kept)) for node, parents in walked(held.layer_collection) if parents)
         return accumulated(flag.write(node, state) for node, state in writes if node != held.layer_collection).map(lambda prior: sum(each.is_some() for each in prior))
 
@@ -230,23 +228,40 @@ def tinted(scene: bpy.types.Scene, attached: Attached[LayerTag], chosen: tuple[t
 
 
 def renamed(scene: bpy.types.Scene, grammar: OutputName) -> Outcome[int]:
-    """Names each layer from list position and base name, returning renamed count."""
+    """Names layers from frozen positions and base names, freeing occupied targets before assignment and breaking cycles with one temporary name."""
+    layers = tuple(scene.view_layers)
 
-    def named(index: int, layer: bpy.types.ViewLayer) -> Outcome[bool]:
+    def named(index: int, layer: bpy.types.ViewLayer) -> Outcome[str]:
         base = grammar.parse(layer.name).to_option().bind(lambda fields: Option.of_optional(fields.texts.get(TextKey.LAYER))).default_value(layer.name)
-        wanted: Outcome[str] = grammar.compose(Fields(texts={TextKey.LAYER: base}, numbers={NumberKey.ORDER: index + 1}))
-        return Result[str, Faults].bind(wanted, lambda value: written(layer, ("name",), value)).map(Option.is_some)
+        return grammar.compose(Fields(texts={TextKey.LAYER: base}, numbers={NumberKey.ORDER: index + 1}))
 
-    return accumulated(itertools.starmap(named, enumerate(scene.view_layers))).map(sum)
+    def written_all(names: tuple[str, ...]) -> Outcome[int]:
+        occupied = {layer.name: index for index, layer in enumerate(layers)}
+        graph: nx.DiGraph[int, dict[str, object], dict[str, object]] = nx.DiGraph()
+        graph.add_nodes_from(range(len(layers)))
+        graph.add_edges_from((holder, index) for index, name in enumerate(names) for holder in (occupied.get(name),) if holder is not None and holder != index)
+        groups = tuple(nx.strongly_connected_components(graph))
+
+        def group(indices: set[int]) -> Outcome[int]:
+            first = min(indices)
+            order = tuple(nx.dfs_preorder_nodes(graph.subgraph(indices), first))
+            return reduce(
+                lambda done, index: done.bind(lambda count: written(layers[index], ("name",), names[index]).map(lambda prior: count + prior.is_some())),
+                (*order[1:], first),
+                written(layers[first], ("name",), "." if layers[first].name.startswith("_") else "_").map(lambda _: 0) if len(order) > 1 else Ok(0),
+            )
+
+        return reduce(lambda done, index: done.bind(lambda count: group(groups[index]).map(lambda added: count + added)), nx.topological_sort(nx.condensation(graph, groups)), Ok(0))
+
+    return accumulated(itertools.starmap(named, enumerate(layers))).bind(written_all)
 
 
 def split(scene: bpy.types.Scene, flag: Descriptor[bpy.types.BoolProperty]) -> Outcome[tuple[str, ...]]:
     """Adds one layer per top-level collection no layer isolates, the others under flag, removing every added layer on fault."""
-    lone = tuple(
-        collection
-        for collection in scene.collection.children
-        if not any(all(flag.read(child) == (child.collection != collection) for child in layer.layer_collection.children) for layer in scene.view_layers)
+    isolated = frozenset(
+        only.collection for layer in scene.view_layers for active in (tuple(child for child in layer.layer_collection.children if flag.read(child) is False),) if len(active) == 1 for only in active
     )
+    lone = tuple(collection for collection in scene.collection.children if collection not in isolated)
     with ExitStack() as rollback:
 
         def made(collection: bpy.types.Collection) -> Outcome[str]:
@@ -282,7 +297,7 @@ def _seeded(_properties: CollectionState, event: bpy.types.Event, _identity: Ide
     return {"extent": (Extent.ISOLATE if event.ctrl else Extent.CHILDREN if event.shift else Extent.ONE).name}
 
 
-@Operator.of(CollectionState, options=frozenset({"INTERNAL"}), seed=Some(_seeded))
+@Operator.of(CollectionState, options=frozenset({"INTERNAL", "UNDO"}), seed=Some(_seeded))
 def collection_state(call: Call[CollectionState]) -> Outcome[Answer]:
     """Set collection restriction, Ctrl to isolate, Shift to include children."""
     held = call.properties
@@ -293,7 +308,7 @@ def collection_state(call: Call[CollectionState]) -> Outcome[Answer]:
     )
 
 
-@Operator.of(Clipboard, undo=NoUndo())
+@Operator.of(Clipboard, options=frozenset())
 def view_layer_copy(call: Call[Clipboard]) -> Outcome[Answer]:
     """Copy active view layer settings or its collection states."""
     part = Part[call.properties.part]
@@ -330,9 +345,7 @@ def view_layer_paste(call: Call[Clipboard]) -> Outcome[Answer]:
 @Operator.of(Empty)
 def view_layer_solo(call: Call[Empty]) -> Outcome[Answer]:
     """Render active view layer alone."""
-    return paired(rooted(bpy.types.Scene, call.context), rooted(bpy.types.ViewLayer, call.context)).map(
-        lambda pair: Done() if soloed(pair[0], pair[1].name) else Unchanged(reason=f"{pair[1].name} renders alone")
-    )
+    return rooted(bpy.types.ViewLayer, call.context).map(lambda layer: Done() if soloed(layer) else Unchanged(reason=f"{layer.name} renders alone"))
 
 
 @Operator.of(Renaming)
@@ -347,7 +360,8 @@ def view_layer_rename(call: Call[Renaming]) -> Outcome[Answer]:
     return (
         paired(OutputName.of(call.properties.template), scenes)
         .bind(lambda pair: accumulated(renamed(scene, pair[0]) for scene in pair[1]))
-        .map(lambda counts: Done(notes=(("INFO", f"Renamed {sum(counts)} view layers"),)) if sum(counts) else Unchanged(reason="View layers hold their composed names"))
+        .map(sum)
+        .map(lambda count: Done(notes=(("INFO", f"Renamed {count} view layers"),)) if count else Unchanged(reason="View layers hold their composed names"))
     )
 
 
@@ -398,11 +412,6 @@ def _restrictions(identity: Identity) -> Outcome[tuple[RowContent, ...]]:
     return Ok((TreeTable(tree=grid, cell=toggled, marks=(Property(target=Member(root=bpy.types.Collection, path=("hide_render",)), keywords={"text": "", "icon_only": True}),)),))
 
 
-def _enumerated(command: Operator[Clipboard] | Operator[Overriding], member: str) -> OperatorButton:
-    """One button per item of the command's enum property, under the item's label."""
-    return OperatorButton(target=command, function=FUNCTIONS["operator_enum"], keywords={"property": member})
-
-
 LAYER_TAG: Final = Attachment(key="layer", form=LayerTag, owner=bpy.types.ViewLayer)
 LAYERS: Final = Section(
     key="layers",
@@ -412,7 +421,6 @@ LAYERS: Final = Section(
             rows=(
                 ItemList(
                     key="layers",
-                    item=bpy.types.ViewLayer,
                     collection=Member(root=bpy.types.Scene, path=("view_layers",)),
                     active=Some(Member(root=bpy.types.Window, path=("view_layer",))),
                     attachment=Some(LAYER_TAG),
@@ -426,9 +434,10 @@ LAYERS: Final = Section(
         Layout(
             rows=(
                 *(OperatorButton(target=command) for command in (view_layer_solo, view_layer_rename, view_layer_tint, view_layer_split)),
-                _enumerated(view_layer_override, "setup"),
-                _enumerated(view_layer_copy, "part"),
-                _enumerated(view_layer_paste, "scope"),
+                *(
+                    OperatorButton(target=command, function=FUNCTIONS["operator_enum"], keywords={"property": member})
+                    for command, member in ((view_layer_override, "setup"), (view_layer_copy, "part"), (view_layer_paste, "scope"))
+                ),
             ),
             container=Some(lambda layout: layout.grid_flow(row_major=True, even_columns=True)),
         ),
@@ -455,7 +464,7 @@ OVERRIDES: Final = Section(
         SettingsTable(scope=Scenes(), settings=(("cycles", "samples"),)),
     ),
 )
-COLLECTIONS: Final = Section(key="collection_states", title=Some("Collections"), rows=(Layout(rows=_restrictions, prerequisites=(collection_state,)),))
+COLLECTIONS: Final = Section(key="collection_states", title=Some("Collections"), rows=(Layout(builder=Some(_restrictions), prerequisites=(collection_state,)),))
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

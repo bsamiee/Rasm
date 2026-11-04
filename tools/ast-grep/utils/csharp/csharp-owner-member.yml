@@ -8,13 +8,13 @@ utils:
             - kind: identifier
               matches: member
             - kind: generic_name
-              has: {kind: identifier, nthChild: 1, matches: member}
+              has: {kind: identifier, matches: member}
     type-leaf:
         any:
             - kind: identifier, predefined_type
               matches: type
             - kind: generic_name
-              has: {kind: identifier, nthChild: 1, matches: type}
+              has: {kind: identifier, matches: type}
 rule:
     any:
         - kind: member_access_expression

@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using MathNet.Numerics.Integration;
 using Rasm.Imaging.Color;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Quantization;
@@ -48,7 +49,7 @@ public sealed record SceneLights(Option<Vector3> Sun, HashMap<Guid, Vector3> Poi
 
 public sealed record PassContext(
     PixelExtent Extent, Gamut Working, DisplayDevice Display, Option<OutputDepth> Depth, Transfer Signal, double Exposure,
-    Option<Camera> Camera, HashMap<GuideChannel, PixelFrame> Guides, Option<Duration> Time, Option<SceneLights> Lights, Derivations Derivations) {
+    Option<Camera> Camera, HashMap<GuideChannel, PixelFrame> Guides, Option<Duration> Time, Option<SceneLights> Lights, Derivations Derivations, GaussLegendreRule Integration) {
     public bool Rendering { get; init; }
     public bool Formed => Signal is not Transfer.Linear;
 }
@@ -61,10 +62,7 @@ public sealed partial class DarkroomReason {
     public static readonly DarkroomReason Unchained = new("absent from the chain");
     public static readonly DarkroomReason Staged = new("runs in another stage");
     public static readonly DarkroomReason Unmixed = new("takes no mix");
-    public static readonly DarkroomReason Octaves = new("octaves do not advance in scale");
     public static readonly DarkroomReason Lights = new("no scene lights");
-    public static readonly DarkroomReason Lattice = new("no 3D lattice");
-    public static readonly DarkroomReason Curve = new("no channel curve");
     public static readonly DarkroomReason Empty = new("no entry");
     public static readonly DarkroomReason Unviewed = new("no such view in the document");
     public static readonly DarkroomReason Overscan = new("overscan needs the active viewport");
@@ -90,11 +88,18 @@ public sealed partial class DarkroomReason {
     public string Message { get; }
 }
 
-public sealed record DarkroomFault(string Subject, DarkroomReason Reason, Option<int> Index = default, Option<Error> Inner = default)
-    : Expected(Index.Match(at => string.Create(CultureInfo.InvariantCulture, $"{Reason.Message}: {Subject} at index {at}"), () => $"{Reason.Message}: {Subject}"), 0, Inner),
+public sealed record DarkroomFault(object? Subject, DarkroomReason Reason, Option<int> Index = default, Option<Error> Inner = default, string Expression = "")
+    : Expected(Reason.Message, 0, Inner),
     IValidationError<DarkroomFault> {
+    public object? Subject { get; } = Subject;
+    public DarkroomReason Reason { get; } = Reason;
+    public string Expression { get; } = Expression;
+
+    public override string Message => string.Create(CultureInfo.InvariantCulture,
+        $"{Reason.Message}: {Expression}{(Expression.Length is 0 ? "" : " = ")}{Subject}{Index.Map(static at => string.Create(CultureInfo.InvariantCulture, $" at index {at}")).IfNone("")}");
+
     public static DarkroomFault Create(string message) => new(message, DarkroomReason.Stated);
 
     public static Fin<Unit> Unless<T>(bool flag, DarkroomReason reason, T rejected, Option<int> index = default, [CallerArgumentExpression(nameof(rejected))] string names = "") =>
-        flag ? unit : new DarkroomFault(string.Create(CultureInfo.InvariantCulture, $"{names} = {rejected}"), reason, index);
+        flag ? unit : new DarkroomFault(rejected, reason, index, Expression: names);
 }

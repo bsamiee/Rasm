@@ -1,20 +1,11 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-coerced-rna-array-read
-language: python
+language: pythonlang
 severity: error
 files:
     - libs/python/blender/**
     - apps/blender/**
 utils:
-    reader:
-        kind: 'identifier, attribute'
-        all: [{matches: {builtins-attribute-function: {name: {regex: '^getattr$'}}}}]
-    length:
-        kind: 'identifier, attribute'
-        all: [{matches: {python-builtin-name: {name: {regex: '^len$'}}}}]
-    converter:
-        kind: 'identifier, attribute'
-        all: [{matches: {python-member-use: {module: {regex: '^numpy$'}, name: {regex: '^(asarray|array)$'}}}}]
     identifier-read:
         kind: attribute
         has: {field: attribute, regex: '^identifier$'}
@@ -27,9 +18,14 @@ utils:
         kind: call
         any:
             - all:
-                - has: {field: function, matches: reader}
                 - has: {field: arguments, kind: argument_list, has: {nthChild: 2, matches: member-name}}
                 - not: {has: {field: arguments, kind: argument_list, has: {nthChild: 3}}}
+                - has:
+                    field: function
+                    kind: 'identifier, attribute'
+                    any:
+                        - &getattr {matches: {python-builtin-name: {name: {regex: '^getattr$'}}}}
+                        - matches: {python-assigned-name: {value: *getattr}}
             - all:
                 - has: {field: function, kind: attribute, has: {field: attribute, regex: '^path_resolve$'}}
                 - has: {field: arguments, kind: argument_list, has: {nthChild: 1}}
@@ -38,8 +34,8 @@ rule:
     kind: call
     any:
         - all:
-            - has: {field: function, matches: length}
             - has: {field: arguments, kind: argument_list, has: {nthChild: 1, pattern: $VALUE, matches: coerced}}
+            - has: {field: function, kind: 'identifier, attribute', matches: {python-builtin-name: {name: {regex: '^len$'}}}}
         - all:
             - has: {field: function, kind: attribute, has: {field: attribute, regex: '^(ravel|flatten)$'}}
             - has:
@@ -49,7 +45,7 @@ rule:
                     field: object
                     kind: call
                     all:
-                        - has: {field: function, matches: converter}
                         - has: {field: arguments, kind: argument_list, has: {nthChild: 1, pattern: $VALUE, matches: coerced}}
+                        - has: {field: function, kind: 'identifier, attribute', matches: {python-member-use: {module: {regex: '^numpy$'}, name: {regex: '^(asarray|array)$'}}}}
 message: '`$VALUE` coerces an RNA array, a `MATRIX` one to `Matrix` rows transposed from stored order'
 note: 'Read `<owner>.path_resolve(<member>, False)` for an uncoerced array in stored order'

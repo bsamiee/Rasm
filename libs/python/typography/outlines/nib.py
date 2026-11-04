@@ -1,13 +1,14 @@
 """Broad-nib sweeps, extrusions and round-pen strokes along quadratic skeletons and outlines."""
 
-lazy import math
+lazy from math import remainder
 
 lazy from fontTools.misc.bezierTools import splitQuadraticAtT
 lazy from fontTools.misc.transform import Offset
 lazy import pathops
+lazy from scipy.special import cosdg, sindg
 
-lazy from typography.faces.glyphs import Outline, Point
-lazy from typography.outlines.paths import Segment, segments, trace, traced, transformed, union
+lazy from typography.faces.glyphs import Outline, Point, traced
+lazy from typography.outlines.paths import Segment, segments, trace, transformed, union
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -16,7 +17,7 @@ def _unfolded(segment: Segment, nib: tuple[float, float], /) -> tuple[Segment, .
     """Splits a quadratic where its tangent runs parallel to the nib, at the root of their linear cross product, leaving no swept piece folded."""
     match segment:
         case ((x0, y0), (x1, y1), (x2, y2)) if (bend := (x2 - 2 * x1 + x0) * nib[1] - (y2 - 2 * y1 + y0) * nib[0]) and 0.0 < (at := ((y1 - y0) * nib[0] - (x1 - x0) * nib[1]) / bend) < 1.0:
-            return tuple(tuple(piece) for piece in splitQuadraticAtT(*segment, at))
+            return tuple(tuple(piece) for piece in splitQuadraticAtT(*segment, at))  # type: ignore[no-untyped-call]  # ty: ignore[unsound-return-statement]
         case _:
             return (segment,)
 
@@ -38,7 +39,8 @@ def _ribbons(outline: Outline, start: tuple[float, float], end: tuple[float, flo
 
 def swept(skeleton: Outline, width: float, angle: float, /, *, closed: bool = False) -> Outline:
     """Returns the ink of a broad nib `width` units wide held at `angle` degrees and drawn along each skeleton contour."""
-    half = (math.cos(math.radians(angle)) * width / 2, math.sin(math.radians(angle)) * width / 2)
+    degrees = remainder(angle, 360.0)
+    half = (cosdg(degrees) * width / 2, sindg(degrees) * width / 2)  # ty: ignore[no-matching-overload]
     return union(*_ribbons(skeleton, (-half[0], -half[1]), half, closed=closed))
 
 

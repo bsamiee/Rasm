@@ -14,12 +14,12 @@ internal static class Stages {
             .Map(Second)
             .Map(Third);
 
-        return pending.ToSeq();
+        return pending.ToSeq().Strict();
     }
 }
 ```
 
-Until enumeration every transformation stays pending, during enumeration each input passes through `First`, `Second`, and `Third` before the next input begins, and no intermediate collection exists after a stage. `ToSeq()` forces enumeration and stores the result. Materializing after every stage completes each stage before the next and stores a collection per stage. Delaying materialization avoids work that is never demanded. Enumerating the same lazy query repeatedly repeats all of its work, materialize when execution must happen at that point or when the sequence is read more than once. Long deferred or recursive compositions have memory and performance costs.
+Until enumeration every transformation stays pending, during enumeration each input passes through `First`, `Second`, and `Third` before the next input begins, and no intermediate collection exists after a stage. `ToSeq()` wraps this iterable in a lazy memoizing sequence; `Strict()` forces enumeration. Materializing after every stage completes each stage before the next and stores a collection per stage. Delaying materialization avoids work that is never demanded. Enumerating the same lazy query repeatedly repeats all of its work, materialize when execution must happen at that point or when the sequence is read more than once. Long deferred or recursive compositions have memory and performance costs.
 
 ## [02]-[STAGES]
 
@@ -52,18 +52,14 @@ internal static class Totals {
 }
 ```
 
-Tuple seeds compute more than one result in one pass, and each step returns a new accumulated value with no external running total. No median operator exists, sorting and reading the middle element or pair expresses it without an accumulator, `At` reads the middle as an `Option`, and an empty sequence has no middle:
+Tuple seeds compute more than one result in one pass, and each step returns a new accumulated value with no external running total. MathNet.Numerics supplies median selection without sorting every sample. Empty input has no median:
 
 ```csharp
+using MathNet.Numerics.Statistics;
+
 internal static class Medians {
-    public static Option<decimal> Median(Seq<int> values) {
-        Seq<int> sorted = toSeq(values.Order());
-        int middle = sorted.Count / 2;
-        return sorted.Count % 2 is 1
-            ? sorted.At(middle).Map(static value => (decimal)value)
-            : sorted.At(middle).Bind(right =>
-                sorted.At(middle - 1).Map(left => (left + right) / 2m));
-    }
+    public static Option<decimal> Median(Seq<int> values) =>
+        values.IsEmpty ? None : (decimal)Enumerable.Select(values, static value => (double)value).Median();
 }
 ```
 
@@ -94,20 +90,22 @@ internal static class Replacement {
 
 ## [05]-[ADJACENCY]
 
-`Window(2, selector)` over `AsIterable()` reads each element beside its successor as one span, and a quantifier over the results decides the answer: `Exists` whether one window matches, `ForAll` whether no window disproves the condition. Fewer than 2 elements produce no windows, `Exists` then returns `false` and `ForAll` `true`:
+Reference `SuperLinq` directly and import its namespace for `Window(2, selector)`, which projects each adjacent pair from a span. LINQ `Any` and `All` short-circuit over the projected results. Fewer than 2 elements produce no windows, so `Any` returns `false` and `All` returns `true`:
 
 ```csharp
+using SuperLinq;
+
 internal static class Adjacency {
-    public static bool AnyAdjacent<A>(Seq<A> source, Func<A, A, bool> matches) =>
-        toSeq(source.AsIterable().Window(2, window => matches(window[0], window[1]))).Exists(identity);
-    public static bool AllAdjacent<A>(Seq<A> source, Func<A, A, bool> matches) =>
-        toSeq(source.AsIterable().Window(2, window => matches(window[0], window[1]))).ForAll(identity);
+    public static bool AnyAdjacent<A>(IEnumerable<A> source, Func<A, A, bool> matches) =>
+        source.Window(2, window => matches(window[0], window[1])).Any(identity);
+    public static bool AllAdjacent<A>(IEnumerable<A> source, Func<A, A, bool> matches) =>
+        source.Window(2, window => matches(window[0], window[1])).All(identity);
 }
 ```
 
 Sorting first and then testing whether any adjacent pair differs by one answers a gap question without a loop.
 
-Runs cut where an element and its predecessor disagree are `Segment((current, previous, index) => …)`, runs of one key are `GroupAdjacent`, n-wide neighbors are `Window(n, …)`, and a `Fold` over `Last` and `Init` or a `Zip` with `Tail` restates them.
+SuperLinq also owns `Segment((current, previous, index) => …)` for cuts between neighbors, `GroupAdjacent` for runs of one key, and `Window(n, selector)` for n-wide neighbors. A `Fold` over `Last` and `Init` or a `Zip` with `Tail` restates them.
 
 ## [06]-[PIPELINE]
 

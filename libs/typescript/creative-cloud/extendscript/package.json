@@ -8,8 +8,8 @@
         "#/*": "./*.ts"
     },
     "exports": {
-        "./handle": "./handle.ts",
-        "./runtime": "./runtime.ts"
+        ".": "./index.ts",
+        "./extendscript": "./extendscript.ts"
     },
     "dependencies": {
         "@rasm/cep": "workspace:*"

@@ -3,11 +3,11 @@
 from array import array
 import ast
 import base64
-import builtins
+from collections import defaultdict
 from collections.abc import Callable, Generator, Iterable, Iterator, Mapping
 from contextlib import ExitStack
 from dataclasses import dataclass
-from functools import cache, partial, reduce
+from functools import cache, partial
 import glob
 from importlib.machinery import EXTENSION_SUFFIXES
 from itertools import starmap
@@ -19,11 +19,13 @@ import re
 import sys
 import time
 import traceback
-from types import CodeType, FunctionType, ModuleType
+from types import CodeType, FunctionType, MappingProxyType, ModuleType
 from typing import IO, Literal, NotRequired, Protocol, runtime_checkable, TypedDict
 import warnings
 
+from _bpy import rna_enum_items_static  # type: ignore[import-not-found]  # ty: ignore[unresolved-import]  # ruff: ignore[import-private-name]
 import addon_utils
+from bl_pkg.cli.blender_ext import PKG_MANIFEST_FILENAME_TOML  # type: ignore[import-not-found]  # ty: ignore[unresolved-import]
 import bpy
 import gpu
 import mathutils
@@ -34,21 +36,17 @@ type Json = bool | int | float | str | list[Json] | dict[str, Json] | None
 type Namespace = dict[str, object]
 type Struct = bpy.types.bpy_struct[object]
 type Collection = bpy.types.bpy_prop_collection[Struct]
-type Timers = list[tuple[Callable[[], float | None], float]]
-type Updates = list[tuple[str, frozenset[str]]]
+type Updates = defaultdict[str, set[str]]
 type Steps = Generator[float]
+type Walk[T] = Generator[Walk[T], T, T]
 type Interface = type[bpy.types.Header | bpy.types.Menu | bpy.types.Panel]
 
 
 @runtime_checkable
 class Extended(Protocol):
-    """Draw function `append` or `prepend` put on an interface class, calling the functions it holds in order."""
+    """Draw callbacks an interface's append and prepend methods manage."""
 
     _draw_funcs: list[Callable[[bpy.types.Context], None]]
-
-    def __call__(self, owner: object, context: bpy.types.Context, /) -> None:
-        """Draws the interface through each held function."""
-        ...
 
 
 @runtime_checkable
@@ -59,10 +57,10 @@ class Drawing(Protocol):
 
 
 class Callee(Protocol):
-    """Original function or operator a call case runs."""
+    """Authored function or native operator accepting case arguments."""
 
     def __call__(self, *args: object, **keywords: object) -> object:
-        """Runs the original on decoded arguments."""
+        """Calls the source value with decoded positional and keyword arguments."""
         ...
 
 
@@ -88,17 +86,16 @@ class Items(Protocol):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-SPECIAL: Mapping[str, float] = {"NaN": math.nan, "Infinity": math.inf, "-Infinity": -math.inf, "-0": -0.0}
-TAGS: Mapping[str, str] = {repr(special): tag for tag, special in SPECIAL.items()}
+SPECIAL = MappingProxyType({"NaN": math.nan, "Infinity": math.inf, "-Infinity": -math.inf, "-0": -0.0})
+TAGS = MappingProxyType({repr(special): tag for tag, special in SPECIAL.items()})
 SAFE = 2**sys.float_info.mant_dig - 1
 REPOSITORY = "harness"
-MANIFEST: str = addon_utils._ext_manifest_filename_toml  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 STDOUT = "stdout.txt"
 PASS = 0.0
 LOGGED = re.compile(r"^\S+\s+(?P<category>\S+)\s+\| (?P<message>.*)$")
-COLUMNS: Mapping[str, str] = {"FLOAT": "d", "INT": "i", "BOOLEAN": "b"}
+COLUMNS = MappingProxyType({"FLOAT": "f", "INT": "i", "BOOLEAN": "b"})
 UPDATED = "is_updated_"
-FLAGS = tuple(prop.identifier.removeprefix(UPDATED) for prop in bpy.types.DepsgraphUpdate.bl_rna.properties if prop.identifier.startswith(UPDATED))
+FLAGS = MappingProxyType({prop.identifier.removeprefix(UPDATED): prop.identifier for prop in bpy.types.DepsgraphUpdate.bl_rna.properties if prop.identifier.startswith(UPDATED)})
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -160,6 +157,7 @@ class Shared(TypedDict):
     confirms: NotRequired[list[bool]]
     files: NotRequired[list[str | None]]
     keywords: NotRequired[dict[str, Json]]
+    until: NotRequired[str]
 
 
 class Probe(Shared):
@@ -250,13 +248,9 @@ def manager() -> bpy.types.WindowManager:
 
 @cache
 def jobs() -> tuple[str, ...]:
-    """Returns the job types `bpy.app.is_job_running` accepts, read from its refusal of an empty type."""
-    try:
-        bpy.app.is_job_running("")  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-    except (TypeError, ValueError) as error:
-        kinds: tuple[str, ...] = ast.literal_eval(str(error).rpartition(" not found in ")[2])
-        return kinds
-    return ()
+    """Returns job identifiers from Blender's static RNA enum registry."""
+    enums: dict[str, tuple[bpy.types.EnumPropertyItem, ...]] = rna_enum_items_static()  # ty: ignore[unsound-assignment]
+    return tuple(item.identifier for item in enums["rna_enum_wm_job_type_items"] if item.identifier)
 
 
 def owned() -> Path:
@@ -271,7 +265,7 @@ def owned() -> Path:
 def host() -> dict[str, Json]:
     """Returns the host state beside the version that decides answers."""
     options = bpy.app.build_options
-    ocio: tuple[int, ...] = bpy.app.ocio.version  # type: ignore[attr-defined]
+    ocio: tuple[int, ...] = bpy.app.ocio.version  # type: ignore[attr-defined]  # ty: ignore[unsound-assignment]
     return {
         "gpu": {"backend": gpu.platform.backend_type_get(), "vendor": gpu.platform.vendor_get(), "renderer": gpu.platform.renderer_get(), "version": gpu.platform.version_get()},
         "ocio": list(ocio),
@@ -292,11 +286,37 @@ def items(owner: type[Struct], member: str, /) -> list[Json]:
 # --- [VALUES]
 
 
+def _walked[T](root: Walk[T], /) -> T:
+    """Returns a generator tree's value without Python stack recursion."""
+    pending = [root]
+    step: Callable[[], Walk[T]] = pending[-1].__next__
+    try:
+        while True:
+            try:
+                pending.append(step())
+                step = pending[-1].__next__
+            except StopIteration as completed:
+                pending.pop()
+                result: T = completed.value  # ty: ignore[unsound-assignment]
+                if not pending:
+                    return result
+                step = partial(pending[-1].send, result)
+            except Exception as error:
+                pending.pop()
+                if not pending:
+                    raise
+                step = partial(pending[-1].throw, error)
+    finally:
+        for frame in reversed(pending):
+            frame.close()
+
+
 def buried(value: object, /) -> Json:
     """Returns the JSON form of a host value, its structs walked through RNA and IDs referenced."""
     seen: dict[tuple[int, type], str] = {}
+    active: dict[int, tuple[object, str]] = {}
 
-    def walked(item: object, at: str, /, *, top: bool = False) -> Json:
+    def walked(item: object, at: str, /, *, top: bool = False) -> Walk[Json]:
         match item:
             case bool() | str() | None:
                 return item
@@ -316,38 +336,66 @@ def buried(value: object, /) -> Json:
                 return {"$": located(item, f"seen:{seen[item.as_pointer(), type(item)]}", "path:")}
             case bpy.types.bpy_struct():
                 seen[item.as_pointer(), type(item)] = at
-                return {prop.identifier: member(item, prop.identifier, f"{at}.{prop.identifier}") for prop in item.bl_rna.properties if prop.identifier != "rna_type"}
-            case bpy.types.bpy_prop_collection() if (keys := item.keys()) and len(keys) == len(item) == len(set(keys)):
-                return dict(zip(keys, rows(item, [f"{at}.{key}" for key in keys]), strict=True))
-            case bpy.types.bpy_prop_collection():
-                return rows(item, [f"{at}[{index}]" for index in range(len(item))])
-            case Mapping():
-                return {str(key): walked(entry, f"{at}.{key}") for key, entry in item.items()}
-            case set() | frozenset():
-                return [walked(entry, f"{at}[{index}]") for index, entry in enumerate(sorted(item, key=repr))]
-            case mathutils.Vector() | mathutils.Color() | mathutils.Euler() | mathutils.Quaternion() | mathutils.Matrix():
-                return walked(item[:], at)
-            case Iterable():
-                return [walked(entry, f"{at}[{index}]") for index, entry in enumerate(item)]
+                values: dict[str, Json] = {}
+                for prop in item.bl_rna.properties:
+                    if prop.identifier != "rna_type":
+                        values[prop.identifier] = yield member(item, prop.identifier, f"{at}.{prop.identifier}")
+                return values
+
             case _:
-                return {"$": f"repr:{item!r}"}
+                if (identity := id(item)) in active:
+                    return {"$": f"seen:{active[identity][1]}"}
+                active[identity] = item, at
+                try:
+                    match item:
+                        case bpy.types.bpy_prop_collection() if (keys := item.keys()) and len(keys) == len(item) == len(set(keys)):
+                            return dict(zip(keys, (yield from rows(item, [f"{at}.{key}" for key in keys])), strict=True))
+                        case bpy.types.bpy_prop_collection():
+                            return (yield from rows(item, [f"{at}[{index}]" for index in range(len(item))]))
+                        case Mapping():
+                            mapped: dict[str, Json] = {}
+                            for key, entry in item.items():
+                                mapped[str(key)] = yield walked(entry, f"{at}.{key}")
+                            return mapped
+                        case set() | frozenset():
+                            unordered: list[Json] = []
+                            for index, entry in enumerate(sorted(item, key=repr)):
+                                unordered.append((yield walked(entry, f"{at}[{index}]")))
+                            return unordered
+                        case mathutils.Vector() | mathutils.Color() | mathutils.Euler() | mathutils.Quaternion() | mathutils.Matrix():
+                            return (yield walked(item[:], at))
+                        case Iterable():
+                            ordered: list[Json] = []
+                            for index, entry in enumerate(item):
+                                ordered.append((yield walked(entry, f"{at}[{index}]")))
+                            return ordered
+                        case _:
+                            return {"$": f"repr:{item!r}"}  # ruff: ignore[return-in-generator]
+                finally:
+                    del active[identity]
 
-    def member(owner: Struct, name: str, at: str, /) -> Json:
+    def member(owner: Struct, name: str, at: str, /) -> Walk[Json]:
         try:
-            return walked(getattr(owner, name), at)
-        except Exception as error:
-            return {"$": f"unreadable:{error}"}
+            return (yield walked(getattr(owner, name), at))
+        except Exception as error:  # ruff: ignore[blind-except]
+            return {"$": f"unreadable:{error}"}  # ruff: ignore[return-in-generator]
 
-    def rows(collection: Collection, labels: list[str], /) -> list[Json]:
+    def rows(collection: Collection, labels: list[str], /) -> Generator[Walk[Json], Json, list[Json]]:
         match tuple({type(entry) for entry in collection}):
             case (kind,) if issubclass(kind, bpy.types.bpy_struct) and not issubclass(kind, bpy.types.ID) and not any((entry.as_pointer(), kind) in seen for entry in collection):
                 seen.update({(entry.as_pointer(), kind): label for entry, label in zip(collection, labels, strict=True)})
-                values = {prop.identifier: column(collection, prop, labels) for prop in kind.bl_rna.properties if prop.identifier != "rna_type"}
+                values: dict[str, list[Json]] = {}
+                for prop in kind.bl_rna.properties:
+                    if prop.identifier != "rna_type":
+                        values[prop.identifier] = yield from column(collection, prop, labels)
                 return [{name: held[index] for name, held in values.items()} for index in range(len(labels))]
             case _:
-                return list(starmap(walked, zip(collection, labels, strict=True)))
+                values_list: list[Json] = []
+                for entry, label in zip(collection, labels, strict=True):
+                    values_list.append((yield walked(entry, label)))
+                return values_list  # ruff: ignore[return-in-generator]
 
-    def column(collection: Collection, prop: bpy.types.Property, labels: list[str], /) -> list[Json]:
+    def column(collection: Collection, prop: bpy.types.Property, labels: list[str], /) -> Generator[Walk[Json], Json, list[Json]]:
         dimensions: list[int] = [size for size in prop.array_dimensions if size] if prop.type in COLUMNS else [0, 0]  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         width = math.prod(dimensions)
         match gathered(collection, prop, len(labels) * width) if len(dimensions) <= 1 else None:
@@ -356,9 +404,12 @@ def buried(value: object, /) -> Json:
                 read = list(map(cast, buffer))
                 return [read[index * width : (index + 1) * width] for index in range(len(labels))] if dimensions else read
             case _:
-                return [member(entry, prop.identifier, f"{label}.{prop.identifier}") for entry, label in zip(collection, labels, strict=True)]
+                values: list[Json] = []
+                for entry, label in zip(collection, labels, strict=True):
+                    values.append((yield member(entry, prop.identifier, f"{label}.{prop.identifier}")))
+                return values  # ruff: ignore[return-in-generator]
 
-    return walked(value, "", top=True)
+    return _walked(walked(value, "", top=True))
 
 
 def gathered(collection: Collection, prop: bpy.types.Property, size: int, /) -> array[int] | array[float] | None:
@@ -403,15 +454,25 @@ def decoded(tag: str, made: Namespace, /) -> object:
 
 def unburied(value: Json, made: Namespace, /) -> object:
     """Returns the host value a JSON form names."""
-    match value:
-        case {"$": str(tag), **rest} if not rest:
-            return decoded(tag, made)
-        case list():
-            return [unburied(item, made) for item in value]
-        case dict():
-            return {key: unburied(item, made) for key, item in value.items()}
-        case _:
-            return value
+
+    def walked(item: Json, /) -> Walk[object]:
+        match item:
+            case {"$": str(tag), **rest} if not rest:
+                return decoded(tag, made)
+            case list():
+                sequence: list[object] = []
+                for entry in item:
+                    sequence.append((yield walked(entry)))  # ruff: ignore[manual-list-comprehension]
+                return sequence
+            case dict():
+                members: dict[str, object] = {}
+                for key, entry in item.items():
+                    members[key] = yield walked(entry)
+                return members
+            case _:
+                return item  # ruff: ignore[return-in-generator]
+
+    return _walked(walked(value))
 
 
 def written(owner: Struct, record: Mapping[str, Json], made: Namespace, /) -> None:
@@ -419,10 +480,8 @@ def written(owner: Struct, record: Mapping[str, Json], made: Namespace, /) -> No
     members = owner.bl_rna.properties
     if unknown := sorted(record.keys() - members.keys()):
         raise AttributeError(f"{type(owner).__name__} has no members {unknown}")
-    for prop in members:
-        match record.get(prop.identifier):
-            case None:
-                pass
+    for prop in (prop for prop in members if prop.identifier in record):
+        match record[prop.identifier]:
             case dict(nested) if prop.type == "POINTER" and "$" not in nested:
                 written(getattr(owner, prop.identifier), nested, made)
             case value:
@@ -446,20 +505,23 @@ def assigned(path: str, /) -> CodeType:
 
 def evaluated(expression: str, names: Namespace, /) -> object:
     """Evaluates a case expression over its namespace."""
-    return eval(compile(expression, f"<{expression}>", "eval"), names)
+    return eval(compile(expression, f"<{expression}>", "eval"), names)  # ruff: ignore[suspicious-eval-usage]
 
 
-def module(script: str, code: str, name: str, /) -> Namespace:
-    """Runs a prepared source as the module `name`, its frames naming `script`, and returns the namespace it built."""
-    namespace: Namespace = {"__name__": name, "__file__": script, "__builtins__": builtins}
-    exec(compile(code, script, "exec"), namespace)
-    return namespace
+def module(script: str, code: str, namespace: Namespace, /) -> None:
+    """Runs prepared source in its native module namespace with frames naming `script`."""
+    exec(compile(code, script, "exec"), namespace)  # ruff: ignore[exec-builtin]
 
 
 def described(error: BaseException, /) -> str:
     """Returns the traceback without engine frames."""
     report = traceback.TracebackException.from_exception(error)
-    report.stack = traceback.StackSummary.from_list([frame for frame in report.stack if frame.filename != __file__])
+    pending = [report]
+    while pending:
+        held = pending.pop()
+        held.stack = traceback.StackSummary.from_list([frame for frame in held.stack if frame.filename != __file__])
+        pending.extend(chained for chained in (held.__cause__, held.__context__) if chained is not None)
+        pending.extend(held.exceptions or ())
     return "".join(report.format())
 
 
@@ -479,7 +541,7 @@ def thrown(error: BaseException, script: str | None, /) -> dict[str, Json]:
 
 def recorded(stream: IO[str], line: Mapping[str, Json], /) -> None:
     """Appends one records line and syncs it to disk, so a crash keeps every line written before it."""
-    stream.write(f"{json.dumps(line, allow_nan=False)}\n")
+    stream.write(f"{json.dumps(line, allow_nan=False)}\n")  # ruff: ignore[banned-api]
     stream.flush()
     os.fsync(stream.fileno())
 
@@ -487,7 +549,7 @@ def recorded(stream: IO[str], line: Mapping[str, Json], /) -> None:
 def replaced(target: Path, line: Mapping[str, Json], /) -> None:
     """Writes one JSON file beside its target and moves it into place, readers seeing the file whole or not at all."""
     staged = target.with_name(f".{target.name}")
-    staged.write_text(json.dumps(line, allow_nan=False), encoding="utf-8")
+    staged.write_text(json.dumps(line, allow_nan=False), encoding="utf-8")  # ruff: ignore[banned-api]
     staged.replace(target)
 
 
@@ -501,24 +563,21 @@ def offsets(instance: Instance, /) -> tuple[int, ...]:
 def printed(instance: Instance, start: tuple[int, ...], /) -> dict[str, Json]:
     """Returns what the process wrote to its output, error, and log files since `start`, C-level output included, log lines without their clock."""
 
-    def tail(name: Path, at: int, /) -> list[Json]:
+    def tail(name: Path, at: int, /) -> str:
         with name.open("rb") as source:
             source.seek(at)
-            return list[Json](source.read().decode(errors="replace").splitlines())
+            return source.read().decode(errors="replace")
 
-    def logged(lines: tuple[Json, ...], line: str, /) -> tuple[Json, ...]:
-        match LOGGED.match(line), lines:
-            case re.Match() as hit, _:
-                return (*lines, {"category": hit["category"], "message": hit["message"]})
-            case None, (*rest, {"category": str(category), "message": str(message)}):
-                return (*rest, {"category": category, "message": f"{message}\n{line}"})
-            case _:
-                return lines
-
-    offsets(instance)
+    sys.stdout.flush()
+    sys.stderr.flush()
     console, errors, log = starmap(tail, zip(instance.streams, start, strict=True))
-    folded: tuple[Json, ...] = reduce(logged, [str(line) for line in log], ())
-    return {"console": console, "stderr": errors, "log": list(folded)}
+    folded: list[tuple[str, list[str]]] = []
+    for line in log.splitlines():
+        if (hit := LOGGED.match(line)) is not None:
+            folded.append((hit["category"], [hit["message"]]))
+        elif folded:
+            folded[-1][1].append(line)
+    return {"console": list[Json](console.splitlines()), "stderr": list[Json](errors.splitlines()), "log": [{"category": category, "message": "\n".join(lines)} for category, lines in folded]}
 
 
 # --- [ISOLATION]
@@ -528,7 +587,7 @@ def entries(collection: Items, /) -> list[tuple[object, str, Struct]]:
     """Returns each collection item with its identity and label: its key where every item has a unique one, else its pointer and index."""
     keys = collection.keys()
     keyed = len(set(keys)) == len(collection)
-    return [(keys[index], json.dumps(keys[index]), item) if keyed else (item.as_pointer(), str(index), item) for index, item in enumerate(collection)]
+    return [(keys[index], json.dumps(keys[index]), item) if keyed else (item.as_pointer(), str(index), item) for index, item in enumerate(collection)]  # ruff: ignore[banned-api]
 
 
 def settings() -> dict[str, object]:
@@ -590,19 +649,21 @@ def named(function: object, /) -> str:
 
 
 def interfaces() -> Iterator[Interface]:
-    """Yields every Menu, Panel, and Header class Python defines, subclasses of subclasses included."""
+    """Yields each Menu, Panel, and Header subclass once through multiple inheritance."""
     pending: list[Interface] = [bpy.types.Menu, bpy.types.Panel, bpy.types.Header]
+    seen: set[Interface] = set()
     while pending:
-        held = pending.pop()
-        yield held
-        pending.extend(held.__subclasses__())
+        if (held := pending.pop()) not in seen:
+            seen.add(held)
+            yield held
+            pending.extend(held.__subclasses__())
 
 
 def drawn(owner: object, /) -> tuple[object, ...]:
     """Returns the draw functions an interface class resolves, none where no namespace declares `draw`."""
     match owner:
         case Drawing(draw=Extended() as draw):
-            return tuple(draw._draw_funcs)
+            return tuple(draw._draw_funcs)  # ruff: ignore[private-member-access]
         case Drawing(draw=draw):
             return (draw,)
         case _:
@@ -615,14 +676,11 @@ def keymaps() -> bpy.types.KeyMaps:
     return held.keymaps
 
 
-def leftover(timers: Timers, held: Held, expected: frozenset[str], /) -> list[str]:
-    """Undoes every timer, handler, class, keymap, draw function, import path, module, and preference the case left, returning each one."""
-    left = [f"timers.{named(function)}" for function, _ in timers if bpy.app.timers.is_registered(function)]
-    for function, _ in timers:
-        if bpy.app.timers.is_registered(function):
-            bpy.app.timers.unregister(function)
+def leftover(held: Held, expected: frozenset[str], /) -> list[str]:
+    """Restores handlers, classes, keymaps, draws, imports, and preferences, returning changed paths."""
+    left: list[str] = []
     for name, before in held.handlers.items():
-        callbacks: list[object] = getattr(bpy.app.handlers, name)
+        callbacks: list[object] = getattr(bpy.app.handlers, name)  # ty: ignore[unsound-assignment]
         for callback in [callback for callback in callbacks if callback not in before]:
             callbacks.remove(callback)
             left.append(f"handlers.{name}.{named(callback)}")
@@ -642,7 +700,7 @@ def leftover(timers: Timers, held: Held, expected: frozenset[str], /) -> list[st
     for owner, before in held.draws.items():
         match vars(owner):
             case {"draw": Extended() as draw}:
-                for appended in [entry for entry in draw._draw_funcs if entry not in before]:
+                for appended in [entry for entry in draw._draw_funcs if entry not in before]:  # ruff: ignore[private-member-access]
                     owner.remove(appended)
                     left.append(f"draws.{owner.__name__}.{named(appended)}")
             case _:
@@ -674,7 +732,7 @@ def raised(error: BaseException, /) -> None:
 def packaged(script: Path, /) -> Path | None:
     """Returns the extension or `bl_info` add-on folder an `__init__.py` source belongs to, nothing for a plain script."""
     declares = script.name == "__init__.py" and (
-        (script.parent / MANIFEST).is_file()
+        (script.parent / PKG_MANIFEST_FILENAME_TOML).is_file()
         or any(isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == "bl_info" for target in node.targets) for node in ast.parse(script.read_bytes()).body)
     )
     return script.parent if declares else None
@@ -682,7 +740,7 @@ def packaged(script: Path, /) -> Path | None:
 
 def addon(folder: Path, repository: Path, stack: ExitStack, /) -> str:
     """Links an add-on folder where Blender finds it and returns the module Blender lists for it."""
-    link = repository / folder.name if (folder / MANIFEST).is_file() else Path(bpy.utils.user_resource("SCRIPTS", path="addons", create=True), folder.name)
+    link = repository / folder.name if (folder / PKG_MANIFEST_FILENAME_TOML).is_file() else Path(bpy.utils.user_resource("SCRIPTS", path="addons", create=True), folder.name)
     link.symlink_to(folder)
     stack.callback(link.unlink)
     if link.parent == repository:
@@ -690,7 +748,8 @@ def addon(folder: Path, repository: Path, stack: ExitStack, /) -> str:
     else:
         addon_utils.modules_refresh()
     modules: Iterable[ModuleType] = addon_utils.modules()  # type: ignore[assignment, func-returns-value]  # ty: ignore[invalid-assignment]
-    match [held.__name__ for held in modules if held.__file__ is not None and Path(held.__file__).resolve().is_relative_to(folder.resolve())]:
+    root = folder.resolve()
+    match [held.__name__ for held in modules if held.__file__ is not None and Path(held.__file__).resolve().is_relative_to(root)]:
         case [name]:
             return name
         case listed:
@@ -709,39 +768,21 @@ def enabled(folder: Path, repository: Path, stack: ExitStack, /) -> Namespace:
     module_name = addon(folder, repository, stack)
     stack.callback(disabled, module_name)
     addon_utils.enable(module_name, default_set=True, handle_error=raised)
-    return vars(sys.modules[module_name])
+    return vars(sys.modules[module_name])  # ty: ignore[unsound-return-statement]
 
 
 def installed(owner: Path, name: str, /) -> Path:
     """Returns the folder of one extension installed in the owner's repositories."""
-    match sorted(owner.glob(f"extensions/*/{glob.escape(name)}/{glob.escape(MANIFEST)}")):
+    match sorted(owner.glob(f"extensions/*/{glob.escape(name)}/{glob.escape(PKG_MANIFEST_FILENAME_TOML)}")):
         case [found]:
             return found.parent
         case found:
             raise FileNotFoundError(f"{name} names {len(found)} extensions in {owner / 'extensions'}: {[str(path.parent) for path in found]}")
 
 
-def timed(stack: ExitStack, /) -> Timers:
-    """Records each timer the case registers with the instant it first falls due, restoring `bpy.app.timers.register` when the case ends."""
-    held: Timers = []
-    original = bpy.app.timers.register
-
-    def register(function: Callable[[], float | None], *, first_interval: float | None = 0, persistent: bool | None = False) -> None:
-        held.append((function, time.monotonic() + (first_interval or 0)))
-        original(function, first_interval=first_interval, persistent=persistent)
-
-    bpy.app.timers.register = register  # ty: ignore[invalid-assignment]
-    stack.callback(setattr, bpy.app.timers, "register", original)
-    return held
-
-
 def sourced(case: Case, /) -> Source | None:
     """Returns a case's script path and prepared source, nothing for a case naming no script."""
-    match case:
-        case {"source": {"script": str(script), "code": str(code)}}:
-            return {"script": script, "code": code}
-        case _:
-            return None
+    return None if case["_tag"] == "Probe" else case.get("source")
 
 
 # --- [PRECONDITIONS]
@@ -809,7 +850,7 @@ def prepared(precondition: Precondition, override: Override, names: Namespace, m
             if isinstance(created, bpy.types.Object):
                 window.scene.collection.objects.link(created)
         for path, value in precondition.get("set", []):
-            exec(assigned(path), {**names, "__value__": unburied(value, made)})
+            exec(assigned(path), {**names, "__value__": unburied(value, made)})  # ruff: ignore[exec-builtin]
         if (selected := precondition.get("select")) is not None:
             chosen = [evaluated(expression, names) for expression in selected]
             for item in window.view_layer.objects:
@@ -820,7 +861,7 @@ def prepared(precondition: Precondition, override: Override, names: Namespace, m
         if (frame := precondition.get("frame")) is not None:
             window.scene.frame_set(frame)
         for statement in precondition.get("steps", []):
-            exec(compile(statement, "<step>", "exec"), names)
+            exec(compile(statement, "<step>", "exec"), names)  # ruff: ignore[exec-builtin]
         if precondition.get("edited", False):
             bpy.ops.ed.undo_push(message="precondition")
 
@@ -854,18 +895,17 @@ def documented(override: Override, /) -> Json:
 # --- [CASES]
 
 
-def reads(case: Case, override: Override, names: Namespace, /) -> tuple[dict[str, Json], dict[str, Json]]:
-    """Evaluates each read under the case override, splitting values from refusals."""
-
-    def read(expression: str, /) -> tuple[bool, Json]:
+def reads(case: Case, override: Override, product: Namespace, names: Namespace, /) -> tuple[dict[str, Json], dict[str, Json]]:
+    """Evaluates reads over source globals and case names, splitting values from refusals."""
+    values: dict[str, Json] = {}
+    refusals: dict[str, Json] = {}
+    for key, expression in case["read"].items():
         try:
             with bpy.context.temp_override(**override):
-                return True, buried(evaluated(expression, names))
-        except (Exception, SystemExit) as error:
-            return False, described(error)
-
-    answers = {key: read(expression) for key, expression in case["read"].items()}
-    return {key: value for key, (ok, value) in answers.items() if ok}, {key: value for key, (ok, value) in answers.items() if not ok}
+                values[key] = buried(evaluated(expression, {**product, **names}))
+        except (Exception, SystemExit) as error:  # ruff: ignore[blind-except]
+            refusals[key] = described(error)
+    return values, refusals
 
 
 def executed(case: Case, product: Namespace, names: Namespace, made: Namespace, /) -> dict[str, Json]:
@@ -878,7 +918,7 @@ def executed(case: Case, product: Namespace, names: Namespace, made: Namespace, 
             keywords = {key: unburied(value, made) for key, value in case.get("keywords", {}).items()}
             return {"value": buried(callee(*[unburied(arg, made) for arg in args], **keywords))}
         case {"_tag": "Run", "source": {"script": str(script), "code": str(code)}} if packaged(Path(script)) is None:
-            module(script, code, "__main__")
+            module(script, code, product)
             return {}
         case _:
             return {}
@@ -892,7 +932,7 @@ def ran(case: Case, product: Namespace, names: Namespace, made: Namespace, overr
             return {"completion": {"_tag": "Ran"}, **executed(case, product, names, made)}
     except SystemExit as error:
         return {"completion": {"_tag": "Exited"}, "value": buried(error.code)}
-    except Exception as error:
+    except Exception as error:  # ruff: ignore[blind-except]
         return {"completion": thrown(error, source["script"] if source is not None else None)}
 
 
@@ -903,11 +943,19 @@ def pressed(window: bpy.types.Window, kind: str, /) -> Steps:
     yield PASS
 
 
-def settled(timers: Timers, window: bpy.types.Window, /) -> Steps:
-    """Evaluates the view layer, then passes a windowed event loop until no job runs and every case timer ran once."""
-    window.view_layer.update()
-    due = max((at for _, at in timers), default=0.0)
-    while not bpy.app.background and (any(bpy.app.is_job_running(job) for job in jobs()) or time.monotonic() < due):  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+def settled(expression: str | None, override: Override, product: Namespace, names: Namespace, /) -> Steps:
+    """Evaluates the view layer and passes the event loop until native jobs and an optional condition finish."""
+    manager().windows[0].view_layer.update()
+    condition = compile(expression, f"<{expression}>", "eval") if expression is not None else None
+    while True:
+        if not bpy.app.background and any(bpy.app.is_job_running(job) for job in jobs()):  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+            yield PASS
+            continue
+        if condition is None:
+            break
+        with bpy.context.temp_override(**override):
+            if eval(condition, {**product, **names}):  # ruff: ignore[suspicious-eval-usage]
+                break
         yield PASS
     yield PASS
 
@@ -939,7 +987,7 @@ def picked(rows: list[str | None], /) -> Generator[float, None, tuple[list[Json]
             yield from answered(window, area, space, next(answers, None))
     yield PASS
     closed()
-    return windows, pickers
+    return windows, pickers  # ruff: ignore[return-in-generator]
 
 
 def closed() -> None:
@@ -957,13 +1005,10 @@ def pushed() -> list[str]:
 def changed(before: Mapping[int, str], steps: int, updates: Updates, /, *, dirty: bool) -> dict[str, Json]:
     """Returns the IDs, depsgraph updates, undo steps, and edited state the case changed, each member present where it changed."""
     after = {item.session_uid: item for item in bpy.data.all_ids}
-    updated: dict[str, frozenset[str]] = {}
-    for path, flags in updates:
-        updated[path] = updated.get(path, frozenset()) | flags
     members: dict[str, list[Json] | dict[str, Json]] = {
         "created": [*sorted(after[uid].path_from_module() for uid in after.keys() - before.keys())],
         "removed": [*sorted(before[uid] for uid in before.keys() - after.keys())],
-        "updated": {path: [flag for flag in FLAGS if flag in flags] for path, flags in sorted(updated.items())},
+        "updated": {path: [flag for flag in FLAGS if flag in flags] for path, flags in sorted(updates.items())},
         "undo": [*pushed()[steps:]],
     }
     return {**{key: value for key, value in members.items() if value}, **({"dirty": bpy.data.is_dirty} if bpy.data.is_dirty != dirty else {})}
@@ -974,42 +1019,54 @@ def arranged(case: Case, instance: Instance, folder: Path, stack: ExitStack, /) 
     precondition, made = case["precondition"], dict[str, object]()
     for name in precondition.get("extensions", []):
         enabled(installed(instance.owner, name), instance.repository, stack)
-    source = sourced(case)
-    package = packaged(Path(source["script"])) if source is not None else None
-    product = enabled(package, instance.repository, stack) if package is not None else {}
+    if (package := packaged(Path(source["script"])) if (source := sourced(case)) is not None else None) is not None:
+        product = enabled(package, instance.repository, stack)
+    elif source is None:
+        product = {}
+    else:
+        imported = ModuleType("__main__" if case["_tag"] == "Run" else f"_{Path(__file__).stem}_{os.fsencode(folder).hex()}")
+        imported.__file__ = source["script"]
+        try:
+            previous = sys.modules[imported.__name__]
+        except KeyError:
+            stack.callback(sys.modules.pop, imported.__name__, None)
+        else:
+            stack.callback(sys.modules.__setitem__, imported.__name__, previous)
+        sys.modules[imported.__name__] = imported
+        product = vars(imported)
     stack.callback(closed)
     yield from loaded(precondition, folder, made)
     override = overridden(precondition.get("area"))
     names: Namespace = {"bpy": bpy, "context": bpy.context, "scene": override["window"].scene, "made": made}
     prepared(precondition, override, names, made)
     if case["_tag"] == "Call" and source is not None and package is None:
-        product = module(source["script"], source["code"], Path(source["script"]).stem)
+        module(source["script"], source["code"], product)
     yield PASS
-    return override, names, made, product
+    return override, names, made, product  # ty: ignore[unsound-return-statement]  # ruff: ignore[return-in-generator]
 
 
-def acted(case: Case, instance: Instance, stack: ExitStack, timers: Timers, ready: tuple[Override, Namespace, Namespace, Namespace], /) -> Generator[float, None, dict[str, Json]]:
+def acted(case: Case, instance: Instance, stack: ExitStack, ready: tuple[Override, Namespace, Namespace, Namespace], /) -> Generator[float, None, dict[str, Json]]:
     """Runs, answers, settles, and reads one arranged case, recording every warning it raised and every ID the depsgraph updated."""
     override, names, made, product = ready
     state = documented(override)
     caught = stack.enter_context(warnings.catch_warnings(record=True))
     warnings.simplefilter("always")
     instance.updates.clear()
-    before, unread = reads(case, override, names)
+    before, unread = reads(case, override, product, names)
     ids, steps, dirty = {item.session_uid: item.path_from_module() for item in bpy.data.all_ids}, len(pushed()), bpy.data.is_dirty
     completion = ran(case, product, names, made, override)
     for answer in case.get("confirms", []):
         yield from pressed(manager().windows[0], "RET" if answer else "ESC")
-    yield from settled(timers, manager().windows[0])
+    yield from settled(case.get("until") if completion["completion"] == {"_tag": "Ran"} else None, override, product, names)
     modal: list[Json] = [operator.bl_idname for window in manager().windows for operator in window.modal_operators]
     windows, pickers = yield from picked(case.get("files", []))
     if not bpy.app.background:
         yield from pressed(manager().windows[0], "ESC")
     names["depsgraph"] = manager().windows[0].view_layer.depsgraph
-    after, failed = reads(case, override, names)
+    after, failed = reads(case, override, product, names)
     readings: dict[str, Json] = {"before": before, "read": after} if case["read"] else {}
     refusals: dict[str, Json] = {**({"beforeFailed": unread} if unread else {}), **({"readFailed": failed} if failed else {})}
-    return {
+    return {  # ruff: ignore[return-in-generator]
         **completion,
         **readings,
         **refusals,
@@ -1037,15 +1094,14 @@ def stepped(instance: Instance, index: int, case: Case, stream: IO[str], /) -> S
     start = offsets(instance)
     body: dict[str, Json]
     with ExitStack() as stack:
-        timers = timed(stack)
         try:
             ready = yield from arranged(case, instance, Path(case["folder"]), stack)
             start = offsets(instance)
-            body = yield from acted(case, instance, stack, timers, ready)
-        except (Exception, SystemExit) as error:
+            body = yield from acted(case, instance, stack, ready)
+        except (Exception, SystemExit) as error:  # ruff: ignore[blind-except]
             body = {"completion": {"_tag": "Failed", "reason": described(error)}}
     expected = frozenset(f"view.{name}" for name in translated(case["precondition"]["language"])) if "language" in case["precondition"] else frozenset()
-    leaked: list[Json] = [*leftover(timers, held, expected)]
+    leaked: list[Json] = [*leftover(held, expected)]
     recorded(stream, {"_tag": "Finished", "outcome": {"name": case["name"], **body, **printed(instance, start), "leaked": leaked}})
 
 
@@ -1059,15 +1115,16 @@ def batch(instance: Instance, session: Session, /) -> Steps:
         with Path(session["records"]).open("a", encoding="utf-8") as stream:
             for index, case in enumerate(session["cases"]):
                 yield from stepped(instance, index, case, stream)
-        survey: dict[str, Json] = {
-            "host": host(),
-            "collections": [prop.identifier for prop in bpy.types.BlendData.bl_rna.properties if prop.type == "COLLECTION"],
-            "modes": items(bpy.types.Object, "mode"),
-            "areas": items(bpy.types.Area, "type"),
-            "regions": items(bpy.types.Region, "type"),
-        }
-        reply = {"application": Path(bpy.app.binary_path).stem, "version": bpy.app.version_string, **({"survey": survey} if session["survey"] else {})}
-    except (Exception, SystemExit) as error:
+        reply = {"application": Path(bpy.app.binary_path).stem, "version": bpy.app.version_string}
+        if session["survey"]:
+            reply["survey"] = {
+                "host": host(),
+                "collections": [prop.identifier for prop in bpy.types.BlendData.bl_rna.properties if prop.type == "COLLECTION"],
+                "modes": items(bpy.types.Object, "mode"),
+                "areas": items(bpy.types.Area, "type"),
+                "regions": items(bpy.types.Region, "type"),
+            }
+    except (Exception, SystemExit) as error:  # ruff: ignore[blind-except]
         reply = {"failed": described(error)}
     replaced(Path(session["reply"]), reply)
 
@@ -1080,7 +1137,7 @@ def batches(instance: Instance, noted: Callable[[bpy.types.Scene, bpy.types.Deps
         pending = sorted(path for path in instance.scratch.glob(f"*/{glob.escape(instance.session.name)}") if path not in seen)
         seen.update(pending)
         for path in pending:
-            yield from batch(instance, json.loads(path.read_text(encoding="utf-8")))
+            yield from batch(instance, json.loads(path.read_text(encoding="utf-8")))  # ruff: ignore[banned-api]
         yield 0.1
     bpy.app.handlers.depsgraph_update_post.remove(noted)
     preferences().filepaths.temporary_directory = str(instance.scratch)
@@ -1105,23 +1162,23 @@ def main() -> None:
     scratch, written, errors, session, ended = map(Path, sys.argv[sys.argv.index("--") + 1 :])
     streams = (scratch / STDOUT, scratch / errors, Path(sys.argv[sys.argv.index("--log-file") + 1]))
     for descriptor, stream in enumerate(streams[:2], start=1):
-        os.dup2(os.open(stream, os.O_WRONLY | os.O_CREAT | os.O_APPEND), descriptor)
+        with stream.open("ab", buffering=0) as output:
+            os.dup2(output.fileno(), descriptor)
     sys.pycache_prefix = os.environ.get("PYTHONPYCACHEPREFIX")
     held = preferences()
     held.view.show_splash = False
     held.filepaths.use_auto_save_temporary_files = False
     repository = scratch / "repository"
-    repository.mkdir(exist_ok=True)
+    repository.mkdir()
     held.extensions.repos.new(name=REPOSITORY, module=REPOSITORY, custom_directory=str(repository), source="USER")
-    updates: Updates = []
+    updates: Updates = defaultdict(set)
 
     @bpy.app.handlers.persistent  # type: ignore[untyped-decorator]  # ty: ignore[dynamic-function-decorator-return]
     def noted(_scene: bpy.types.Scene, depsgraph: bpy.types.Depsgraph, /) -> None:
-        updates.extend(
-            (located(origin, repr(origin)), frozenset(flag for flag in FLAGS if getattr(update, f"{UPDATED}{flag}")))
-            for update in depsgraph.updates
-            if (source := update.id) is not None and (origin := source.original) is not None
-        )
+        for update in depsgraph.updates:
+            source: bpy.types.ID = update.id  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            origin: bpy.types.ID = source.original  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            updates[located(origin, repr(origin))].update(flag for flag, member in FLAGS.items() if getattr(update, member))
 
     if bpy.app.background:
         gpu.init()
@@ -1129,7 +1186,7 @@ def main() -> None:
     steps = batches(Instance(scratch=scratch, session=session, ended=scratch / ended, streams=streams, repository=repository, owner=owned(), updates=updates), noted)
     if bpy.app.background:
         for pause in steps:
-            time.sleep(pause)
+            time.sleep(pause)  # ruff: ignore[banned-api]
     else:
         bpy.app.timers.register(partial(stepping, steps), persistent=True)
 

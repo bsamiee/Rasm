@@ -20,13 +20,13 @@ use rmcp::{
         ArgumentInfo, CallToolRequestParams, CallToolResponse, CancelTaskParams, CompleteRequestMethod, CompleteRequestParams, CompleteResult, CompletionContext, CompletionInfo, Cursor,
         GetPromptRequestMethod, GetPromptRequestParams, GetPromptResponse, GetTaskParams, GetTaskResult, ListPromptsResult, ListResourceTemplatesResult, ListResourcesResult, ListToolsResult,
         PaginatedRequestParams, PromptListChangedNotification, PromptReference, ReadResourceRequestMethod, ReadResourceRequestParams, ReadResourceResponse, ReadResourceResult, Reference,
-        ResourceListChangedNotification, ResourceTemplateReference, ResourceUpdatedNotification, ResourceUpdatedNotificationParam, ServerCapabilities, ServerConfig, Tool, ToolListChangedNotification,
-        UpdateTaskParams,
+        ResourceListChangedNotification, ResourceTemplateReference, ResourceUpdatedNotification, ResourceUpdatedNotificationParam, ServerCapabilities, ServerConfig, ServerNotification, Tool,
+        ToolListChangedNotification, UpdateTaskParams,
     },
     service::RequestContext,
     task_manager::TaskManager,
 };
-use tokio::sync::watch;
+use tokio::sync::{broadcast, watch};
 use tokio_util::{sync::CancellationToken, task::TaskTracker};
 use validated::Validated;
 
@@ -34,7 +34,7 @@ use self::{
     resources::{ResourceRouter, Resources},
     tools::{Ledger, Parked},
 };
-use crate::{Endpoint, Failure, McpError, Notifier, host::Host, internal};
+use crate::{Endpoint, Failure, McpError, host::Host, internal};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -51,7 +51,7 @@ trait Completer<A> = Fn(A, ArgumentInfo, Option<CompletionContext>) -> BoxFuture
 #[derive(Debug, Clone)]
 pub struct Settings {
     pub instructions: Option<String> = None,
-    pub page: NonZero<usize> = NonZero::<usize>::saturating_add(NonZero::<usize>::MIN, 1023),
+    pub page: NonZero<usize> = NonZero::new(1024).unwrap(),
     pub retention: Duration = Duration::from_hours(1),
 }
 
@@ -76,7 +76,7 @@ where A: 'static
 
 #[derive_where(Clone, Debug)]
 pub struct Registry<A> {
-    notifier: Notifier,
+    notifier: broadcast::Sender<ServerNotification>,
     ledger: Ledger,
     #[derive_where(skip(Debug))]
     tools: Arc<ArcSwapOption<ToolRouter<A>>>,
@@ -93,34 +93,39 @@ where A: App
 {
     pub fn tools(&self, mut router: ToolRouter<A>) -> Result<(), McpError> {
         router.map = mem::take(&mut router.map).into_values().map(tools::validated).collect::<Validated<_, _>>().ok().map_err(|errors| McpError::Declarations { errors })?;
-        let notifier = self.notifier.clone();
-        router.set_notifier(move || notifier.notify(ToolListChangedNotification::default()));
+        router.clear_notifier();
         self.tools.store(Some(Arc::new(router)));
-        self.notifier.notify(ToolListChangedNotification::default());
+        drop(self.notifier.send(ToolListChangedNotification::default().into()));
         Ok(())
     }
 
     pub fn enable(&self, tool: &str) {
-        drop(self.tools.rcu(|held| {
+        let previous = self.tools.rcu(|held| {
             held.as_deref().cloned().map(|mut router| {
                 router.enable_route(tool);
                 Arc::new(router)
             })
-        }));
+        });
+        if previous.as_deref().is_some_and(|router| router.is_disabled(tool)) {
+            drop(self.notifier.send(ToolListChangedNotification::default().into()));
+        }
     }
 
     pub fn disable(&self, tool: &str) {
-        drop(self.tools.rcu(|held| {
+        let previous = self.tools.rcu(|held| {
             held.as_deref().cloned().map(|mut router| {
                 router.disable_route(tool.to_owned());
                 Arc::new(router)
             })
-        }));
+        });
+        if previous.as_deref().is_some_and(|router| router.has_route(tool)) {
+            drop(self.notifier.send(ToolListChangedNotification::default().into()));
+        }
     }
 
     pub fn prompts(&self, router: PromptRouter<A>) {
         self.prompts.store(Some(Arc::new(router)));
-        self.notifier.notify(PromptListChangedNotification::default());
+        drop(self.notifier.send(PromptListChangedNotification::default().into()));
     }
 
     pub fn resources(&self, router: ResourceRouter<A>) -> Result<(), McpError> {
@@ -135,16 +140,16 @@ where A: App
             .prompts
             .keys()
             .map(|prompt| prompts.as_deref().is_some_and(|declared| declared.has_route(prompt)).ok_or_else(|| McpError::Completion { prompt: prompt.clone() }))
-            .collect::<Validated<Vec<()>, _>>()
+            .collect::<Validated<(), _>>()
             .ok()
             .map_err(|errors| McpError::Declarations { errors })?;
         self.completions.store(Some(Arc::new(router)));
         Ok(())
     }
 
-    pub fn resources_list_changed(&self) { self.notifier.notify(ResourceListChangedNotification::default()); }
+    pub fn resources_list_changed(&self) { drop(self.notifier.send(ResourceListChangedNotification::default().into())); }
 
-    pub fn resource_updated(&self, uri: impl Into<String>) { self.notifier.notify(ResourceUpdatedNotification::new(ResourceUpdatedNotificationParam::new(uri.into()))); }
+    pub fn resource_updated(&self, uri: impl Into<String>) { drop(self.notifier.send(ResourceUpdatedNotification::new(ResourceUpdatedNotificationParam::new(uri.into())).into())); }
 }
 
 #[derive_where(Debug)]
@@ -171,6 +176,7 @@ where A: App
         async move |args: P, Host { identity, filter, notifier }: Host| {
             let registry = Registry { notifier, ledger: watch::Sender::default(), tools: Arc::default(), prompts: Arc::default(), resources: Arc::default(), completions: Arc::default() };
             let app = build(args, registry.clone(), filter).await?;
+            let (tools, resources) = (registry.tools.load().is_some(), registry.resources.load().is_some());
             let mut capabilities = ServerCapabilities::builder()
                 .enable_completions()
                 .enable_prompts()
@@ -179,14 +185,12 @@ where A: App
                 .enable_resources_list_changed()
                 .enable_resources_subscribe()
                 .enable_tools()
-                .enable_tool_list_changed()
-                .enable_tasks()
-                .build();
-            capabilities.completions = capabilities.completions.filter(|_| registry.completions.load().is_some() || registry.resources.load().is_some());
-            capabilities.tools = capabilities.tools.filter(|_| registry.tools.load().is_some());
-            capabilities.extensions = capabilities.extensions.filter(|_| registry.tools.load().is_some());
+                .enable_tool_list_changed();
+            capabilities.completions = capabilities.completions.filter(|_| registry.completions.load().is_some() || resources);
+            capabilities.tools = capabilities.tools.filter(|_| tools);
             capabilities.prompts = capabilities.prompts.filter(|_| registry.prompts.load().is_some());
-            capabilities.resources = capabilities.resources.filter(|_| registry.resources.load().is_some());
+            capabilities.resources = capabilities.resources.filter(|_| resources);
+            let capabilities = if tools { capabilities.enable_tasks() } else { capabilities }.build();
             let info = instructions.into_iter().fold(ServerConfig::new(capabilities).with_server_info(identity), ServerConfig::with_instructions);
             Ok(Self { app, info, registry, page, retention, parked: Arc::default(), tracker: TaskTracker::new(), halted: CancellationToken::new(), tasks: TaskManager::default() })
         }

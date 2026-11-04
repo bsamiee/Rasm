@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-control-flow-value-by-hand
-language: rust
+language: rustlang
 severity: error
 utils:
     break-binding:
@@ -54,4 +54,4 @@ rule:
                     - precedes: {stopBy: end, matches: other-arm}
                     - follows: {stopBy: end, matches: other-arm}
 message: '`Break` and `Continue` arms return the value each `ControlFlow` variant holds'
-note: 'Call `<control flow>.into_value()` (`#![feature(control_flow_into_value)]`), after `map_continue` or `map_break` wraps one side''s value (`map_continue(Ok)`), through `.map(ControlFlow::into_value)` under a `Result` or `Option`'
+note: 'Call `into_value()`, aligning variant types through `map_break` or `map_continue`, and mapping outer `Result` or `Option`'

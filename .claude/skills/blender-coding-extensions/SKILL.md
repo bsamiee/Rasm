@@ -98,7 +98,8 @@ Attachments follow host rules:
 Registered classes take the forms Blender checks at `register_class` and at each call:
 - Operator `bl_idname` is `<category>.<name>` within 60 lowercase letters, digits, and underscores, else registration raises `RuntimeError`
 - Panel, menu, header, list, asset shelf, file handler idnames hold `_PT_`, `_MT_`, `_HT_`, `_UL_`, `_AST_`, `_FH_` mid-name, else registration warns
-- Panel, menu, list, and render engine idnames register cut to 63 bytes, and a class under a taken idname replaces the earlier one with an `Info` line
+- Panel, menu, list, and render engine idnames register cut to 63 bytes; scene engine names store at most 31 UTF-8 bytes
+- Classes under a taken idname replace the earlier class with an `Info` line
 - Callbacks with a positional parameter count other than the host's raise `ValueError` at registration, `*args` counting none (Panel `draw` takes 2)
 - Panels and menus build a new instance per draw, and state between draws goes in a property
 - Classes without `bl_idname` register under their class name, and code reads it from `cls.bl_rna.identifier`

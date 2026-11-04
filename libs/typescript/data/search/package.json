@@ -8,9 +8,7 @@
         "#/*": "./*.ts"
     },
     "exports": {
-        "./digits": "./digits.ts",
-        "./rank": "./rank.ts",
-        "./unmatched": "./unmatched.ts"
+        ".": "./index.ts"
     },
     "dependencies": {
         "@leeoniya/ufuzzy": "catalog:",

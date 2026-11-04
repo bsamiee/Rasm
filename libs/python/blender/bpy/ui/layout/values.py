@@ -2,16 +2,15 @@
 
 from collections.abc import Callable, Mapping
 import datetime
-from enum import Enum, unique
+from enum import Enum
 from functools import cached_property, partial
 from pathlib import Path
 from types import MappingProxyType
-from typing import Final, TYPE_CHECKING
+from typing import Final, Generic, TYPE_CHECKING, TypeVar
 
 from bl_operators.presets import AddPresetBase
 import bpy
-from expression import Error, Nothing, Ok, Option, Some, try_downcast
-from expression.collections import Block
+from expression import Option, Result, Some, try_downcast
 import msgspec
 
 from blender.bpy.commands import invocations, operators
@@ -28,40 +27,40 @@ from blender.bpy.settings.attachments import Attached, Attachment, Host
 from blender.bpy.settings.presets import Preset
 from blender.bpy.ui.layout.members import Member
 from blender.bpy.ui.layout.rows import ConditionalRow, Keywords, operator_button, OperatorButton, realized, RowContent, RowDraw
-from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
+from blender.records.faults import accumulated, Error, Fault, Faults, Nothing, Ok, Outcome, paired, Reason
 from blender.records.fields import Retention
 from blender.records.stores import removed
 
 if TYPE_CHECKING:
-    from bpy.stub_internal.rna_enums import IconItems
+    from bpy.stub_internal.rna_enums import IconItems, OperatorTypeFlagItems
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type Replacement = Callable[[Member], RowContent]
+_T_co = TypeVar("_T_co", bound=bpy.types.PropertyGroup, covariant=True, default=bpy.types.PropertyGroup)
 
 
-@unique
 class StoreCommand(Enum):
     """Store or preset command with the icon its buttons share and the undo step of its runs, none for a command writing outside the blend file alone, each operator keyed `<command>_<stem>`."""
 
-    RESET = ("LOOP_BACK", operators.UndoStep())
-    COPY = ("COPYDOWN", operators.NoUndo())
-    PASTE = ("PASTEDOWN", operators.UndoStep())
-    RESTORE = ("RECOVER_LAST", operators.UndoStep())
-    FORGET = ("X", operators.UndoStep())
-    LOCK = ("LOCKED", operators.UndoStep())
-    APPLY = ("PRESET", operators.UndoStep())
-    STEP = ("FORWARD", operators.UndoStep())
-    SAVE = ("ADD", operators.NoUndo())
-    DELETE = ("X", operators.NoUndo())
-    IMPORT = ("IMPORT", operators.NoUndo())
-    EXPORT = ("EXPORT", operators.NoUndo())
-    REPLACE = ("FILE_REFRESH", operators.NoUndo())
-    RENAME = ("GREASEPENCIL", operators.NoUndo())
+    RESET = ("LOOP_BACK", ("UNDO",))
+    COPY = ("COPYDOWN", ())
+    PASTE = ("PASTEDOWN", ("UNDO",))
+    RESTORE = ("RECOVER_LAST", ("UNDO",))
+    FORGET = ("X", ("UNDO",))
+    LOCK = ("LOCKED", ("UNDO",))
+    APPLY = ("PRESET", ("UNDO",))
+    STEP = ("FORWARD", ("UNDO",))
+    SAVE = ("ADD", ())
+    DELETE = ("X", ())
+    IMPORT = ("IMPORT", ())
+    EXPORT = ("EXPORT", ())
+    REPLACE = ("FILE_REFRESH", ())
+    RENAME = ("GREASEPENCIL", ())
 
-    def __init__(self, icon: "IconItems", undo: operators.Undo) -> None:
-        """Holds the command's icon and the undo step of its runs."""
-        self.icon, self.undo = icon, undo
+    def __init__(self, icon: "IconItems", options: "tuple[OperatorTypeFlagItems, ...]") -> None:
+        """Holds the command's icon and native operator options."""
+        self.icon, self.options = icon, frozenset(options)
 
     def command[T: bpy.types.PropertyGroup](
         self,
@@ -72,12 +71,11 @@ class StoreCommand(Enum):
         seed: Option[Callable[[T, bpy.types.Event, Identity], Mapping[str, Value]]] = Nothing,
     ) -> operators.Operator[T]:
         """Builds the internal operator over a store or preset stem under the command's undo step."""
-        return operators.Operator(icon=Some(self.icon), options=frozenset({"INTERNAL"}), undo=self.undo, form=form, run=run, invoke=invoke, seed=seed, named=Some(f"{self.name.lower()}_{stem}"))
+        return operators.Operator(icon=Some(self.icon), options=frozenset((*self.options, "INTERNAL")), form=form, run=run, invoke=invoke, seed=seed, named=Some(f"{self.name.lower()}_{stem}"))
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_AS_FILENAME: Final[Callable[[str], str]] = AddPresetBase.as_filename  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
 _NAME: Final = AddPresetBase.__annotations__["name"]
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -243,9 +241,9 @@ class Listing[T: msgspec.Struct](ConditionalRow, frozen=True, kw_only=True, dict
         layout.separator()
         footer(layout.row(align=True), holder, context)
 
-    def acquisitions(self, _identity: Identity, /) -> Outcome[Acquisitions]:
+    def acquisitions(self, _identity: Identity, /) -> Acquisitions:
         """Acquires the command operators."""
-        return Ok(tuple(self.commands.values()))
+        return tuple(self.commands.values())
 
 
 class Captured(msgspec.Struct, frozen=True, kw_only=True):
@@ -294,24 +292,18 @@ class Captured(msgspec.Struct, frozen=True, kw_only=True):
 # --- [STORES]
 
 
-class Store[T: bpy.types.PropertyGroup](ConditionalRow, frozen=True, kw_only=True, dict=True):
+class Store(ConditionalRow, Generic[_T_co], frozen=True, kw_only=True, dict=True):  # ruff: ignore[non-pep695-generic-class]
     """Value sets of an attached form group held as snapshots, its host read through `host` at the section holder, drawn as the values popover.
 
     `fields` replace the property rows a section draws for the named form members.
     """
 
-    attachment: Attachment[T]
+    attachment: Attachment[_T_co]
     host: Option[Member] = Nothing
     retention: Option[Callable[[Identity], Outcome[Retention]]] = Nothing
     presets: Option[Preset[Snapshot]] = Nothing
     scope: Option[Scoped[Host]] = Nothing
     fields: Mapping[str, Replacement] = MappingProxyType({})
-
-    def __post_init__(self) -> None:
-        """Refuses a scope whose owners never hold the attachment."""
-        owner = self.attachment.owner
-        for scope in self.scope.filter(lambda scope: not issubclass(scope.owner_type, owner)).to_list():
-            raise ValueError(f"{scope.owner_type.__name__} scope holds no {owner.__name__} attachment {self.attachment.key}")
 
     @property
     def panel(self) -> Key:
@@ -349,7 +341,7 @@ class Store[T: bpy.types.PropertyGroup](ConditionalRow, frozen=True, kw_only=Tru
             field = bpy.props.EnumProperty(name="Member", description="Member to lock or unlock", items=tuple((name, name, "") for name in annotated(form)), options={"HIDDEN"})
             return type(f"{form.__name__}Lock", (_Lock,), {"__annotations__": {"field": field}})
 
-        locking = self.presets.map(lambda _: {StoreCommand.LOCK: StoreCommand.LOCK.command(stem, locked(), self.lock_value)}).default_value({})
+        locking = self.presets.map(lambda _: {StoreCommand.LOCK: StoreCommand.LOCK.command(stem, locked(), self.lock_value)}).default_value(dict[StoreCommand, Command]())
         return MappingProxyType({
             StoreCommand.RESET: StoreCommand.RESET.command(stem, operators.Empty, self.reset_values),
             StoreCommand.COPY: StoreCommand.COPY.command(stem, operators.Empty, self.copy_values),
@@ -360,10 +352,10 @@ class Store[T: bpy.types.PropertyGroup](ConditionalRow, frozen=True, kw_only=Tru
         })
 
     def reset_values(self, call: operators.Call[operators.Empty]) -> Outcome[operators.Answer]:
-        """Unsets every set and editable member the form declares, running each member's update, unchanged while the values after equal the values before."""
+        """Unsets explicitly set editable form members and runs their updates, changed while any member was set."""
         inherited = bpy.types.PropertyGroup.bl_rna.properties
 
-        def reset(attached: Attached[T], host: Host) -> Outcome[Option[operators.Done]]:
+        def reset(attached: Attached[_T_co], host: Host) -> Outcome[Option[operators.Done]]:
             group = attached.struct(host)
             held = tuple(
                 prop.identifier
@@ -371,13 +363,10 @@ class Store[T: bpy.types.PropertyGroup](ConditionalRow, frozen=True, kw_only=Tru
                 if prop.identifier not in inherited and not group.is_property_readonly(prop.identifier) and group.is_property_set(prop.identifier)
             )
 
-            def unset(before: Snapshot) -> Outcome[Option[operators.Done]]:
-                for identifier in held:
-                    group.property_unset(identifier)
-                    group.path_resolve(identifier, False).update()
-                return Snapshot.capture(group).map(lambda after: Some(operators.Done()).filter(lambda _: after != before))
-
-            return Snapshot.capture(group).bind(unset)
+            for identifier in held:
+                group.property_unset(identifier)
+                group.path_resolve(identifier, False).update()  # ruff: ignore[boolean-positional-value-in-call]
+            return Ok(Some(operators.Done()) if held else Nothing)
 
         return self._recorded(call.identity, call.context, reset)
 
@@ -393,7 +382,7 @@ class Store[T: bpy.types.PropertyGroup](ConditionalRow, frozen=True, kw_only=Tru
         """Pastes clipboard values over every scope owner, the host alone while no scope is stated."""
         context = call.context
 
-        def pasted(attached: Attached[T], host: Host) -> Outcome[Option[operators.Done]]:
+        def pasted(attached: Attached[_T_co], host: Host) -> Outcome[Option[operators.Done]]:
             return (
                 paired(self.scope.map(lambda scope: scope.owners(context)).default_value(Ok((host,))), rooted(bpy.types.WindowManager, context))
                 .bind(lambda pair: Snapshot.pasted(pair[1], tuple(map(attached.struct, pair[0]))))
@@ -420,7 +409,7 @@ class Store[T: bpy.types.PropertyGroup](ConditionalRow, frozen=True, kw_only=Tru
 
     # --- [STEPS]
 
-    def _held(self, identity: Identity, context: bpy.types.Context) -> Outcome[tuple[Attached[T], Host]]:
+    def _held(self, identity: Identity, context: bpy.types.Context) -> Outcome[tuple[Attached[_T_co], Host]]:
         """Binds the attachment and reads the host the context pointer names."""
         return self.attachment.bound(identity).bind(lambda attached: hosted(attached.name, context).map(lambda host: (attached, host)))
 
@@ -428,7 +417,7 @@ class Store[T: bpy.types.PropertyGroup](ConditionalRow, frozen=True, kw_only=Tru
         """History retention the store reads, the default while it states none."""
         return self.retention.map(lambda read: read(identity)).default_with(lambda: Ok(Retention()))
 
-    def _recorded(self, identity: Identity, context: bpy.types.Context, write: Callable[[Attached[T], Host], Outcome[Option[operators.Done]]]) -> Outcome[operators.Answer]:
+    def _recorded(self, identity: Identity, context: bpy.types.Context, write: Callable[[Attached[_T_co], Host], Outcome[Option[operators.Done]]]) -> Outcome[operators.Answer]:
         """Runs an edit, adding the prior value set to history when it changes a value."""
         return (
             paired(self._held(identity, context), self._kept(identity))
@@ -448,7 +437,16 @@ class Store[T: bpy.types.PropertyGroup](ConditionalRow, frozen=True, kw_only=Tru
         listing = self.listing(identity).bind(lambda found: found.map(lambda held: realized((held,), identity).map(Some)).default_value(Ok(Nothing)))
         return paired(self.attachment.bound(identity), listing, lines).map(lambda parts: partial(self.shown, identity, *parts))
 
-    def shown(self, identity: Identity, attached: Attached[T], listing: Option[RowDraw], lines: tuple[RowDraw, ...], layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
+    def shown(
+        self,
+        identity: Identity,
+        attached: Attached[bpy.types.PropertyGroup],
+        listing: Option[RowDraw],
+        lines: tuple[RowDraw, ...],
+        layout: bpy.types.UILayout,
+        holder: Struct,
+        context: bpy.types.Context,
+    ) -> None:
         """Draws the catalog and member locks, the clipboard and history step lines, then one restore and forget line per history entry, times untranslated."""
         commands, found = self.commands, hosted(attached.name, context)
         for draw in listing.to_list():
@@ -515,8 +513,9 @@ def _asked(template: str, _context: bpy.types.Context, properties: _Named, /) ->
 
 def _claimed[T: msgspec.Struct](preset: Preset[T], identity: Identity, name: str) -> Option[tuple[str, T | Path]]:
     """Returns the listed preset whose file name the name takes, compared case-folded."""
-    normalized = _AS_FILENAME(name).casefold()
-    return Block.of_seq(preset.listed(identity).items()).filter(lambda pair: pair[0].casefold() == normalized).try_head()
+    filename: str = AddPresetBase.as_filename(name)  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    normalized = filename.casefold()
+    return Option.of_optional(next((pair for pair in preset.listed(identity).items() if pair[0].casefold() == normalized), None))
 
 
 def _user[T: msgspec.Struct](preset: Preset[T], identity: Identity, stem: str) -> Outcome[Path]:
@@ -529,7 +528,8 @@ def _user[T: msgspec.Struct](preset: Preset[T], identity: Identity, stem: str) -
 
 def hosted(name: str, context: bpy.types.Context) -> Outcome[Host]:
     """Returns the host a layout's context pointer names, absent fault when unset."""
-    return Option.of_optional(getattr(context, name, None)).to_result_with(partial(Fault.of, Reason.ABSENT, "bpy.context", member=name))
+    host: Host | None = getattr(context, name, None)  # ty: ignore[unsound-assignment]
+    return Result[Host, Faults](ok=host) if host is not None else Error(Fault.of(Reason.ABSENT, "bpy.context", member=name))
 
 
 def _concluded[V](change: Option[V]) -> operators.Answer:

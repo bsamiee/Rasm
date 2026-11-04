@@ -9,6 +9,13 @@ using Rasm.Imaging.Pixels;
 namespace Rasm.Imaging.Filtering;
 
 // --- [TYPES] ---------------------------------------------------------------------------
+public enum DenoiseQuality {
+    Default = 0,
+    Fast = 4,
+    Balanced = 5,
+    High = 6,
+}
+
 internal enum OidnError {
     None = 0,
     Unknown = 1,
@@ -20,13 +27,6 @@ internal enum OidnError {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-[SmartEnum<int>]
-public sealed partial class DenoiseQuality {
-    public static readonly DenoiseQuality High = new(6);
-    public static readonly DenoiseQuality Balanced = new(5);
-    public static readonly DenoiseQuality Fast = new(4);
-}
-
 public sealed record DenoiseGuides(PixelFrame Albedo, Option<PixelFrame> Normal, bool Clean);
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -50,14 +50,15 @@ public sealed partial class Denoiser : IDisposable {
     private sealed class BufferHandle() : Handle(oidnReleaseBuffer);
 
     [LibraryImport(Library)] private static partial DeviceHandle oidnNewDevice(int type = 0);
-    [LibraryImport(Library, StringMarshalling = StringMarshalling.Utf8)] private static partial void oidnSetDeviceInt(DeviceHandle device, string name, int value);
+    [LibraryImport(Library, StringMarshalling = StringMarshalling.Utf8)] private static partial void oidnSetDeviceBool(DeviceHandle device, string name, [MarshalAs(UnmanagedType.U1)] bool value);
     [LibraryImport(Library)] private static partial void oidnCommitDevice(DeviceHandle device);
     [LibraryImport(Library)] private static partial OidnError oidnGetDeviceError(DeviceHandle device, out nint outMessage);
     [LibraryImport(Library, StringMarshalling = StringMarshalling.Utf8)] private static partial FilterHandle oidnNewFilter(DeviceHandle device, string type);
     [LibraryImport(Library, StringMarshalling = StringMarshalling.Utf8)]
     private static partial void oidnSetFilterImage(
         FilterHandle filter, string name, BufferHandle buffer, int format, nuint width, nuint height, nuint byteOffset, nuint pixelByteStride, nuint rowByteStride);
-    [LibraryImport(Library, StringMarshalling = StringMarshalling.Utf8)] private static partial void oidnSetFilterInt(FilterHandle filter, string name, int value);
+    [LibraryImport(Library, StringMarshalling = StringMarshalling.Utf8)] private static partial void oidnSetFilterBool(FilterHandle filter, string name, [MarshalAs(UnmanagedType.U1)] bool value);
+    [LibraryImport(Library, StringMarshalling = StringMarshalling.Utf8)] private static partial void oidnSetFilterInt(FilterHandle filter, string name, DenoiseQuality value);
     [LibraryImport(Library)] private static partial void oidnSetFilterProgressMonitorFunction(FilterHandle filter, nint func, nint userPtr);
     [LibraryImport(Library)] private static partial void oidnCommitFilter(FilterHandle filter);
     [LibraryImport(Library)] private static partial void oidnExecuteFilter(FilterHandle filter);
@@ -83,7 +84,7 @@ public sealed partial class Denoiser : IDisposable {
 
     public static Fin<Denoiser> Open() {
         DeviceHandle created = oidnNewDevice();
-        oidnSetDeviceInt(created, "setAffinity", 0);
+        oidnSetDeviceBool(created, "setAffinity", value: false);
         oidnCommitDevice(created);
         return Status(created).Map(_ => new Denoiser(created)).MapFail(fault => {
             created.Dispose();
@@ -96,17 +97,17 @@ public sealed partial class Denoiser : IDisposable {
     // --- [RUN]
     public IO<PixelFrame> Run(PixelFrame color, Option<DenoiseGuides> guides, DenoiseQuality quality, Option<IProgress<int>> progress = default) =>
         Denoised("RT", ("color", color), guides.ToSeq().Bind(static set => ("albedo", set.Albedo).Cons(set.Normal.Map(static normal => ("normal", normal)).ToSeq())),
-            [("hdr", 1), ("cleanAux", guides.Exists(static set => set.Clean) ? 1 : 0)], quality, progress);
+            [("hdr", true), ("cleanAux", guides.Exists(static set => set.Clean))], quality, progress);
 
     public IO<PixelFrame> Lightmap(PixelFrame color, bool directional, DenoiseQuality quality, Option<IProgress<int>> progress = default) =>
-        Denoised("RTLightmap", ("color", color), [], [("directional", directional ? 1 : 0)], quality, progress);
+        Denoised("RTLightmap", ("color", color), [], [("directional", directional)], quality, progress);
 
     public IO<DenoiseGuides> Prefiltered(DenoiseGuides guides, DenoiseQuality quality, Option<IProgress<int>> progress = default) =>
         from albedo in Denoised("RT", ("albedo", guides.Albedo), [], [], quality, progress)
         from normal in guides.Normal.Traverse(normal => Denoised("RT", ("normal", normal), [], [], quality, progress)).As()
         select new DenoiseGuides(albedo, normal, Clean: true);
 
-    private IO<PixelFrame> Denoised(string type, (string Role, PixelFrame Frame) main, Seq<(string Role, PixelFrame Frame)> guides, Seq<(string Name, int Value)> parameters, DenoiseQuality quality, Option<IProgress<int>> progress) =>
+    private IO<PixelFrame> Denoised(string type, (string Role, PixelFrame Frame) main, Seq<(string Role, PixelFrame Frame)> guides, Seq<(string Name, bool Value)> parameters, DenoiseQuality quality, Option<IProgress<int>> progress) =>
         from covered in IO.lift(guides.Map((guide, index) => ImagingFault.Unless(
             guide.Frame.Extent == main.Frame.Extent && guide.Frame.Window.Contains(main.Frame.Window), ImagingReason.Mismatch, (guide.Frame.Window, main.Frame.Window), index)).Traverse(identity).As())
         from token in cancelToken
@@ -128,13 +129,13 @@ public sealed partial class Denoiser : IDisposable {
                 filter, image.Role, buffer, Float3, (nuint)target.Size.Width, (nuint)target.Size.Height,
                 image.Offset + ((((nuint)(target.Origin.Y - image.Frame.Origin.Y) * (nuint)image.Frame.Size.Width) + (nuint)(target.Origin.X - image.Frame.Origin.X)) * stride),
                 stride, (nuint)image.Frame.Size.Width * stride));
-            _ = parameters.Add(("quality", quality.Key)).Iter(parameter => oidnSetFilterInt(filter, parameter.Name, parameter.Value));
+            _ = parameters.Iter(parameter => oidnSetFilterBool(filter, parameter.Name, parameter.Value));
+            oidnSetFilterInt(filter, "quality", quality);
             oidnSetFilterProgressMonitorFunction(filter, Marshal.GetFunctionPointerForDelegate(monitor), 0);
             oidnCommitFilter(filter);
             oidnExecuteFilter(filter);
             GC.KeepAlive(monitor);
-            PixelFrame denoised = new(target.Origin, target.Size, target.Extent, block => oidnReadBuffer(buffer, 0, Bytes(target), block));
-            return Status(device).Map(_ => denoised);
+            return Status(device).Map(_ => new PixelFrame(target.Origin, target.Size, target.Extent, block => oidnReadBuffer(buffer, 0, Bytes(target), block)));
         })
         select output;
 

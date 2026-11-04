@@ -25,7 +25,7 @@ impl CommandFactory for Upstream {
                 .required(true)
                 .trailing_var_arg(true)
                 .value_hint(ValueHint::CommandWithArguments)
-                .help("Stdio MCP server executable and its arguments, every token after the executable passed to it"),
+                .help("Stdio MCP server executable, all following tokens passed as arguments"),
         )
     }
 
@@ -35,14 +35,9 @@ impl CommandFactory for Upstream {
 impl FromArgMatches for Upstream {
     fn from_arg_matches(matches: &ArgMatches) -> Result<Self, clap::Error> {
         let mut words = matches.get_many::<OsString>(COMMAND).into_iter().flatten();
-        words
-            .next()
-            .map(|program| {
-                let mut command = Command::new(program);
-                command.args(words);
-                Self(command)
-            })
-            .ok_or_else(|| clap::Error::new(ErrorKind::MissingRequiredArgument))
+        let mut command = Command::new(words.next().ok_or_else(|| clap::Error::new(ErrorKind::MissingRequiredArgument))?);
+        command.args(words);
+        Ok(Self(command))
     }
 
     fn update_from_arg_matches(&mut self, matches: &ArgMatches) -> Result<(), clap::Error> {
@@ -55,4 +50,4 @@ impl FromArgMatches for Upstream {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-fn main() -> ExitCode { host::run(Defaults { .. }, Identity::new(), async |Upstream(command), host| Proxy::spawn(command, host)) }
+fn main() -> ExitCode { host::run(Defaults { .. }, Identity::new(), |Upstream(command), host| Proxy::spawn(command, host)) }

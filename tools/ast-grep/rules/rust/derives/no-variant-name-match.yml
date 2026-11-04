@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-variant-name-match
-language: rust
+language: rustlang
 severity: error
 utils:
     constant-arm:
@@ -17,9 +17,7 @@ utils:
 rule:
     kind: match_expression
     all:
-        - inside: {kind: function_item, stopBy: {kind: 'function_item, closure_expression'}, has: {field: name, pattern: $METHOD}}
-        - inside: {kind: impl_item, stopBy: end, has: {field: type, pattern: $T}}
-        - matches: rust-variant-name-match
+        - matches: {rust-variant-name-match: {type: {pattern: $T}, method: {pattern: $METHOD}}}
         - not: {inside: {kind: impl_item, stopBy: end, has: {field: body, has: {matches: constant-table}}}}
 message: '`$METHOD` of `$T` spells one string literal per variant'
-note: 'Derive `strum::IntoStaticStr` with `#[strum(serialize = "<text>")]` or `derive_more::Display` with `#[display("<text>")]` per variant'
+note: 'Derive `strum::IntoStaticStr` with `serialize` and `const_into_str` for const methods, or `derive_more::Display` with `display`'

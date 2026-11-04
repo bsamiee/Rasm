@@ -1,12 +1,17 @@
 use core::slice;
-use std::path::Path;
+use std::{
+    io::{self, ErrorKind},
+    path::{self, Path},
+    sync::Arc,
+};
 
 use clippy_utils::{diagnostics::span_lint_hir_and_then, is_entrypoint_fn, peel_blocks, peel_hir_expr_refs, tokenize_with_text};
-use itertools::Itertools as _;
+use itertools::{Either, Itertools as _};
+use litrs::StringLit;
 use rustc_attr_ir::find_attr;
-use rustc_data_structures::fx::{FxHashMap, FxHashSet, FxIndexMap, FxIndexSet};
+use rustc_data_structures::fx::{FxHashMap, FxHashSet, FxIndexMap};
 use rustc_hir::{
-    Block, Expr, ExprKind, HirId, ImplItem, Item, Node, Pat, PatExprKind, PatKind, TraitItem,
+    Block, Expr, ExprKind, HirId, ImplItem, Item, ItemKind, Node, Pat, PatExprKind, PatKind, TraitItem,
     def::DefKind,
     def_id::{CRATE_DEF_ID, DefId, LocalDefId},
     intravisit::{self, Visitor},
@@ -16,7 +21,7 @@ use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::{hir::nested_filter, ty::TyCtxt};
 use rustc_span::{BytePos, FileName, Ident, Pos as _, RelativeBytePos, Span, Symbol, kw, sym};
 
-use crate::{expanded_externally, exported, fn_item_value, generated, parameter, signature};
+use crate::{expanded_externally, exported, fn_item_value, generated, parameter};
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -26,14 +31,15 @@ pub(crate) struct Pass {
     pinned: FxHashSet<LocalDefId>,
 }
 
-lint!(default Pass; SINGLE_READER: "crate-private functions, constants, and statics with one reader in their module, other than the entry point and the operations of a type two functions there take");
+lint!(default Pass; SINGLE_READER: "crate-private free functions, constants, and statics with one reader in their module, other than the entry point");
 
 impl Pass {
     fn reference(&mut self, cx: &LateContext<'_>, target: Option<DefId>, node: HirId, span: Span) {
         let tcx = cx.tcx;
         if let Some(target) = target
             .and_then(DefId::as_local)
-            .filter(|&target| matches!(tcx.def_kind(target), DefKind::Fn | DefKind::AssocFn | DefKind::Const | DefKind::AssocConst | DefKind::Static { nested: false, .. }))
+            .filter(|&target| matches!(tcx.def_kind(target), DefKind::Fn | DefKind::Const | DefKind::Static { nested: false, .. }) && tcx.def_kind(tcx.local_parent(target)) == DefKind::Mod)
+            .filter(|target| !self.pinned.contains(target))
         {
             let owner = tcx.hir_enclosing_body_owner(node);
             let reader = match tcx.def_kind(owner) {
@@ -69,6 +75,8 @@ impl Pass {
     }
 }
 
+// --- [COMPOSITION] ---------------------------------------------------------------------
+
 impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
         let target = match expr.kind {
@@ -89,9 +97,11 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
 
     fn check_crate_post(&mut self, cx: &LateContext<'tcx>) {
         const LEVELS: usize = 3;
+        const RAW_IDENTIFIER_PREFIX: &str = "r#";
         struct Walk<'tcx> {
             tcx: TyCtxt<'tcx>,
             seen: FxHashSet<BytePos>,
+            paths: FxHashSet<BytePos>,
             outermost: Option<LocalDefId>,
             depth: usize,
             enclosing: FxHashMap<LocalDefId, usize>,
@@ -114,7 +124,16 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
 
             fn visit_ident(&mut self, ident: Ident) { self.seen.insert(ident.span.lo()); }
 
-            fn visit_item(&mut self, i: &'tcx Item<'tcx>) { self.owned(i.owner_id.def_id, |walk| intravisit::walk_item(walk, i)); }
+            fn visit_item(&mut self, i: &'tcx Item<'tcx>) {
+                if let ItemKind::Mod(_, module) = i.kind
+                    && find_attr!(self.tcx, i.hir_id(), Path(..))
+                    && let file = self.tcx.sess.source_map().lookup_source_file(module.spans.inner_span.lo())
+                    && !file.contains(i.span.lo())
+                {
+                    self.paths.insert(file.start_pos);
+                }
+                self.owned(i.owner_id.def_id, |walk| intravisit::walk_item(walk, i));
+            }
 
             fn visit_impl_item(&mut self, ii: &'tcx ImplItem<'tcx>) { self.owned(ii.owner_id.def_id, |walk| intravisit::walk_impl_item(walk, ii)); }
 
@@ -131,21 +150,58 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             }
         }
         let tcx = cx.tcx;
+        let mut walk = Walk { tcx, seen: FxHashSet::default(), paths: FxHashSet::default(), outermost: None, depth: 0, enclosing: FxHashMap::default(), deepest: FxHashMap::default() };
+        tcx.hir_walk_toplevel_module(&mut walk);
         let map = tcx.sess.source_map();
         let root = map.lookup_source_file(tcx.def_span(CRATE_DEF_ID).lo());
         let local = |name: &FileName| if let FileName::Real(real) = name { real.local_path().map(Path::to_path_buf) } else { None };
-        let mut pending = map.files().iter().filter(|file| file.is_real_file() && !file.is_imported()).cloned().collect::<Vec<_>>();
-        let mut known = pending.iter().filter_map(|file| local(&file.name)).collect::<FxHashSet<_>>();
+        let identity = |file: &Path, siblings: bool| {
+            let absolute = path::absolute(file)?;
+            let resolved = fs_err::canonicalize(&absolute)?;
+            let directory = absolute.parent().map(fs_err::canonicalize).transpose()?;
+            Ok::<_, io::Error>((
+                dunce::simplified(&resolved).to_owned(),
+                directory.as_deref().map(dunce::simplified).map(Path::to_path_buf),
+                if siblings { None } else { absolute.file_stem().map(ToOwned::to_owned) },
+            ))
+        };
+        let mod_file = |file: &Path| file.file_stem().is_some_and(|stem| stem == kw::Mod.as_str());
+        let mut pending = map
+            .files()
+            .iter()
+            .filter(|file| file.is_real_file() && !file.is_imported())
+            .filter_map(|file| {
+                let path = local(&file.name)?;
+                let siblings = walk.paths.contains(&file.start_pos) || file.start_pos == root.start_pos || mod_file(&path);
+                Some((Arc::clone(file), path, siblings))
+            })
+            .collect::<Vec<_>>();
+        let mut known = FxHashSet::default();
         let mut opaque = false;
-        let mut mentions = FxHashMap::<Symbol, Vec<BytePos>>::default();
-        while let Some(file) = pending.pop() {
-            let (Some(source), Some(path)) = (file.src.as_deref(), local(&file.name)) else { continue };
+        for (_, path, siblings) in &pending {
+            if let Ok(id) = identity(path, *siblings) {
+                known.insert(id);
+            } else {
+                opaque = true;
+                break;
+            }
+        }
+        if opaque {
+            return;
+        }
+        let mut unseen = FxHashSet::default();
+        while let Some((source_file, source_path, sibling_modules)) = pending.pop() {
+            let Some(source) = &source_file.src else { continue };
             let tokens = tokenize_with_text(source).filter(|(kind, ..)| !matches!(kind, TokenKind::Whitespace | TokenKind::LineComment { .. } | TokenKind::BlockComment { .. })).collect::<Vec<_>>();
-            let directory = path.parent().map_or_default(Path::to_path_buf);
-            let nested = if file.start_pos == root.start_pos || path.file_stem().is_some_and(|stem| stem == kw::Mod.as_str()) { directory.clone() } else { path.with_extension("") };
+            let directory = source_path.parent().map_or_default(Path::to_path_buf);
+            let nested = if sibling_modules { directory.clone() } else { source_path.with_extension("") };
             let mut renamed = None;
-            let mut declared = FxIndexSet::default();
+            let mut declared = FxIndexMap::default();
+            let mut scopes = Vec::new();
+            let mut depth = 0_usize;
+            let mut entering = None;
             for rest in (0..tokens.len()).filter_map(|start| tokens.get(start..)) {
+                let (directory, nested) = scopes.last().map_or((&directory, &nested), |(_, path)| (path, path));
                 match rest {
                     [
                         (TokenKind::Pound, ..),
@@ -155,41 +211,69 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                         (TokenKind::Literal { .. }, literal, _),
                         (TokenKind::CloseBracket, ..),
                         ..,
-                    ] if *attribute == sym::path.as_str() => renamed = Some(literal.trim_matches('"').to_owned()),
-                    [(TokenKind::Ident, keyword, _), (TokenKind::Ident, name, _), (TokenKind::Semi, ..), ..] if *keyword == kw::Mod.as_str() =>
-                        declared.extend(renamed.take().map_or_else(|| vec![nested.join(format!("{name}.rs")), nested.join(name).join("mod.rs")], |renamed| vec![directory.join(renamed)])),
+                    ] if *attribute == sym::path.as_str() => {
+                        renamed = StringLit::parse(*literal).inspect_err(|_| opaque = true).ok().map(StringLit::into_value);
+                    }
+                    [(TokenKind::Ident, keyword, _), (TokenKind::Ident | TokenKind::RawIdent, name, _), (TokenKind::Semi, ..), ..] if *keyword == kw::Mod.as_str() => declared.extend(
+                        renamed
+                            .take()
+                            .map_or_else(
+                                || {
+                                    Either::Left([
+                                        (nested.join(format!("{}.rs", name.trim_prefix(RAW_IDENTIFIER_PREFIX))), false),
+                                        (nested.join(name.trim_prefix(RAW_IDENTIFIER_PREFIX)).join("mod.rs"), false),
+                                    ])
+                                },
+                                |renamed| Either::Right([(directory.join(&*renamed), true)]),
+                            )
+                            .into_iter(),
+                    ),
+                    [(TokenKind::Ident, keyword, _), (TokenKind::Ident | TokenKind::RawIdent, name, _), (TokenKind::OpenBrace, ..), ..] if *keyword == kw::Mod.as_str() =>
+                        entering = Some(renamed.take().map_or_else(|| nested.join(name.trim_prefix(RAW_IDENTIFIER_PREFIX)), |renamed| directory.join(&*renamed))),
                     [(TokenKind::Ident, attribute, _), (TokenKind::OpenParen, ..), arguments @ ..] if *attribute == sym::cfg_attr.as_str() =>
                         opaque |=
                             arguments.iter().take_while(|(kind, ..)| !matches!(kind, TokenKind::CloseBracket)).any(|&(kind, text, _)| matches!(kind, TokenKind::Ident) && text == sym::path.as_str()),
-                    [(TokenKind::Semi | TokenKind::OpenBrace | TokenKind::CloseBrace, ..), ..] => renamed = None,
+                    [(TokenKind::OpenBrace, ..), ..] => {
+                        depth = depth.strict_add(1);
+                        scopes.extend(entering.take().map(|path| (depth, path)));
+                        renamed = None;
+                    }
+                    [(TokenKind::CloseBrace, ..), ..] if let Some(outer) = depth.checked_sub(1) => {
+                        scopes.pop_if(|(entered, _)| *entered == depth);
+                        depth = outer;
+                        renamed = None;
+                    }
+                    [(TokenKind::CloseBrace, ..), ..] => {
+                        opaque = true;
+                        break;
+                    }
+                    [(TokenKind::Semi, ..), ..] => renamed = None,
                     _ => {}
                 }
             }
-            for candidate in declared.into_iter().filter(|candidate| map.file_exists(candidate) && !known.contains(candidate)).collect::<Vec<_>>() {
-                match map.load_file(&candidate) {
-                    Ok(loaded) => {
-                        known.insert(candidate);
-                        pending.push(loaded);
+            pending.extend(declared.into_iter().filter_map(|(candidate, overridden)| {
+                let siblings = overridden || mod_file(&candidate);
+                let loaded = identity(&candidate, siblings).and_then(|id| if known.insert(id) { map.load_file(&candidate).map(Some) } else { Ok(None) });
+                match loaded {
+                    Ok(Some(file)) => Some((file, candidate, siblings)),
+                    Ok(None) => None,
+                    Err(error) if error.kind() == ErrorKind::NotFound => None,
+                    Err(_) => {
+                        opaque = true;
+                        None
                     }
-                    Err(_) => opaque = true,
                 }
-            }
+            }));
             for (_, text, span) in tokens.iter().filter(|(kind, ..)| matches!(kind, TokenKind::Ident | TokenKind::RawIdent)) {
-                let name = text.trim_prefix("r#");
-                mentions.entry(Symbol::intern(name)).or_default().push(file.absolute_position(RelativeBytePos::from_usize(span.start.strict_add(text.len().strict_sub(name.len())))));
+                let name = text.trim_prefix(RAW_IDENTIFIER_PREFIX);
+                if !walk.seen.contains(&source_file.absolute_position(RelativeBytePos::from_usize(span.start.strict_add(text.len().strict_sub(name.len()))))) {
+                    unseen.insert(Symbol::intern(name));
+                }
             }
         }
         if opaque {
             return;
         }
-        let mut walk = Walk { tcx, seen: FxHashSet::default(), outermost: None, depth: 0, enclosing: FxHashMap::default(), deepest: FxHashMap::default() };
-        tcx.hir_walk_toplevel_module(&mut walk);
-        let operands = |item: LocalDefId| {
-            let module = tcx.parent_module_from_def_id(item);
-            signature(tcx, item.to_def_id()).inputs().iter().filter_map(|input| input.peel_refs().ty_adt_def()?.did().as_local()).filter(|&held| tcx.parent_module_from_def_id(held) == module).unique().collect::<Vec<_>>()
-        };
-        let operation = |owner: LocalDefId| tcx.def_kind(owner) == DefKind::Fn && tcx.def_kind(tcx.local_parent(owner)) == DefKind::Mod;
-        let operations = tcx.hir_body_owners().filter(|&owner| operation(owner)).flat_map(&operands).counts();
         for (&target, sites) in &self.sites {
             let outside = || sites.iter().filter(move |&&(caller, _)| caller != target);
             if let Ok(caller) = outside().map(|&(caller, _)| caller).all_equal_value()
@@ -199,21 +283,16 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 && !exported(cx, target)
                 && tcx.parent_module_from_def_id(caller) == tcx.parent_module_from_def_id(target)
                 && !is_entrypoint_fn(cx, target.to_def_id())
-                && !(tcx.def_kind(target) == DefKind::Fn && operands(target).iter().any(|held| operations.get(held).is_some_and(|&count| count > 1_usize.strict_add(usize::from(operation(caller) && operands(caller).contains(held))))))
                 && !find_attr!(tcx, target, Used { .. })
-                && !(tcx.def_kind(target) == DefKind::AssocConst && tcx.generics_of(target).requires_monomorphization(tcx))
-                && let parent = tcx.local_parent(target)
-                && (tcx.def_kind(parent) == DefKind::Mod || matches!(tcx.def_kind(parent), DefKind::Impl { of_trait: false }) && tcx.def_kind(tcx.local_parent(parent)) == DefKind::Mod)
                 && let name = tcx.item_name(target)
-                && mentions.get(&name).is_some_and(|positions| positions.iter().all(|position| walk.seen.contains(position)))
+                && !unseen.contains(&name)
                 && walk.enclosing.get(&caller).is_some_and(|&enclosing| walk.deepest.get(&target).copied().unwrap_or_default().strict_add(enclosing) <= LEVELS)
             {
                 let caller_name = tcx.item_name(caller);
                 let generic = |item: LocalDefId| tcx.generics_of(item).requires_monomorphization(tcx);
                 let form = match tcx.def_kind(target) {
-                    DefKind::Fn | DefKind::AssocFn if sites.iter().any(|&(reader, _)| reader == target) || generic(target) && !generic(caller) || tcx.is_const_fn(target.to_def_id()) =>
-                        "a nested `fn`",
-                    DefKind::Fn | DefKind::AssocFn => "a closure",
+                    DefKind::Fn if sites.iter().any(|&(reader, _)| reader == target) || generic(target) && !generic(caller) || tcx.is_const_fn(target.to_def_id()) => "a nested `fn`",
+                    DefKind::Fn => "a closure",
                     _ => "a nested item",
                 };
                 span_lint_hir_and_then(cx, SINGLE_READER, tcx.local_def_id_to_hir_id(target), tcx.def_span(target), format!("`{name}` has one reader, `{caller_name}`"), |diag| {

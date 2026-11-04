@@ -1,5 +1,5 @@
 import { RegistryProvider } from '@effect/atom-react';
-import { Shell } from '@rasm/hosting/page/shell';
+import { Shell } from '@rasm/hosting';
 import { Option, String } from 'effect';
 import { details } from '#/media/labels.ts';
 import { Bootstrap } from '#/model/api.ts';

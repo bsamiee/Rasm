@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-numbered-struct-tag
-language: python
+language: pythonlang
 severity: error
 rule:
     kind: keyword_argument
@@ -8,6 +8,6 @@ rule:
     all:
         - has: {field: name, regex: '^tag$'}
         - has: {field: value, kind: integer}
-        - inside: {kind: argument_list, inside: {kind: class_definition}}
+        - inside: {kind: argument_list, inside: {kind: class_definition, matches: msgspec-struct-class}}
 message: '`$TAG` numbers a union case by hand'
 note: 'Declare `tag=True` on each case class'

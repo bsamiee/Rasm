@@ -1,4 +1,4 @@
-import { Array, Data, Equal, Filter, flow, Match, Option, Record, Schema, SchemaAST, SchemaGetter, SchemaRepresentation, String, Struct } from 'effect';
+import { Array, Data, Equal, Filter, flow, Match, Option, Predicate, Record, Schema, SchemaAST, SchemaGetter, SchemaRepresentation, String, Struct } from 'effect';
 import type { RelationOptions } from '#/relation';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -6,9 +6,9 @@ import type { RelationOptions } from '#/relation';
 interface Fields extends Schema.Struct.Fields {
     readonly [field: PropertyKey]: Schema.ConstraintCodec<unknown, string | number | Uint8Array | readonly number[] | null>;
 }
-type Field<F> = keyof F & string;
+type FieldName<F> = keyof F & string;
 type Constants<S extends Fields[string]> = Array.NonEmptyReadonlyArray<Extract<S['Encoded'], string | number>>;
-type Where<F extends Fields> = { readonly [K in Field<F>]?: null | Constants<F[K]> | { readonly not: null | Constants<F[K]> } };
+type Where<F extends Fields> = { readonly [K in FieldName<F>]?: null | Constants<F[K]> | { readonly not: null | Constants<F[K]> } };
 type Kind = 'text' | 'uuid' | 'json' | 'instant' | 'integer' | 'decimal' | 'real' | 'boolean' | 'blob';
 type Projection = Data.TaggedEnum<{
     Path: { readonly from: string; readonly path: Array.NonEmptyReadonlyArray<string>; readonly jsonPath: string };
@@ -51,17 +51,15 @@ class Column extends Data.Class<{
     static readonly Bytes = Schema.Union([Schema.Uint8Array, Schema.Array(Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 0xff })))]).pipe(Schema.decodeTo(Schema.Uint8Array, { decode: SchemaGetter.transform((bytes) => new Uint8Array(bytes)), encode: SchemaGetter.passthroughSubtype() }));
     static readonly Uuid = Schema.String.check(Schema.isUUID(uuidVersion), Schema.isLowercased());
     static readonly conditions = (where: Where<Fields>) =>
-        Record.collect(where, (field, predicate) =>
-            Option.toArray(Option.fromUndefinedOr(predicate)).map((rule) => ({
-                column: String.camelToSnake(field),
-                ...Match.value(rule).pipe(
-                    Match.when({ not: null }, () => ({ negated: true, values: Option.none() })),
-                    Match.when({ not: Match.defined }, ({ not }) => ({ negated: true, values: Option.some(not) })),
-                    Match.orElse((values) => ({ negated: false, values: Option.fromNullOr(values) })),
-                ),
-            })),
-        ).flat();
-    static readonly make = <F extends Fields>(field: Field<F>, schema: F[Field<F>], { defaults, projections, renamed, retype }: Pick<RelationOptions<F>, 'defaults' | 'projections' | 'renamed' | 'retype'>, retired: readonly string[]) => {
+        Record.collect(Record.filter(where, Predicate.isNotUndefined), (field, rule) => ({
+            column: String.camelToSnake(field),
+            ...Match.value(rule).pipe(
+                Match.when({ not: null }, () => ({ negated: true, values: Option.none() })),
+                Match.when({ not: Match.defined }, ({ not }) => ({ negated: true, values: Option.some(not) })),
+                Match.orElse((values) => ({ negated: false, values: Option.fromNullOr(values) })),
+            ),
+        }));
+    static readonly make = <F extends Fields>(field: FieldName<F>, schema: F[FieldName<F>], { defaults, projections, renamed, retype }: Pick<RelationOptions<F>, 'defaults' | 'projections' | 'renamed' | 'retype'>, retired: readonly string[]) => {
         const flat = (node: SchemaRepresentation.Representation): readonly SchemaRepresentation.Representation[] => (node._tag === 'Union' ? node.types.flatMap(flat) : [node]);
         const walk = (ast: SchemaAST.AST) => Array.partition(flat(SchemaRepresentation.toRepresentation(ast, { referencePolicy: () => undefined }).representation), Filter.tagged<SchemaRepresentation.Representation>()('Null'));
         const [nulls, values] = walk(schema.ast);
@@ -142,8 +140,9 @@ class Column extends Data.Class<{
                 ...stored(SchemaRepresentation.isUppercasedReviver).map(() => Column.Bound.Cased({ case: 'upper' })),
             ],
             default: Schema.decodeUnknownOption(Default)(defaults?.[field]),
-            projection: Option.map(Option.fromUndefinedOr(projections?.[field]), (projection: NonNullable<NonNullable<RelationOptions<Fields>['projections']>[string]>) =>
-                Match.value(projection).pipe(
+            projection: Option.map(
+                Option.fromUndefinedOr(projections?.[field]),
+                Match.type<NonNullable<NonNullable<RelationOptions<Fields>['projections']>[string]>>().pipe(
                     Match.when({ where: Match.defined }, ({ where }) => Column.Projection.Where({ where: Column.conditions(where) })),
                     Match.orElse(({ from, path }) => Column.Projection.Path({ from: String.camelToSnake(from), path, jsonPath: ['$', ...path.map((part) => JSON.stringify(part))].join('.') })),
                 ),
@@ -157,4 +156,4 @@ class Column extends Data.Class<{
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Column, type Field, type Fields, type Kind, type Projection, type Where };
+export { Column, type FieldName, type Fields, type Kind, type Projection, type Where };

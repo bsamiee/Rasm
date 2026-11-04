@@ -16,6 +16,7 @@
     </ItemGroup>
 
     <ItemGroup Label="Algorithms and Data Structures">
+        <PackageReference Include="GraphShape" />
         <PackageReference Include="QuikGraph" />
         <PackageReference Include="QuikGraph.Graphviz" />
         <PackageReference Include="SuperLinq" />

@@ -9,7 +9,7 @@ use std::{borrow::Cow, collections::HashMap, sync::Arc};
 use fontdb::{Database, Source};
 use fontique::{Attributes, Collection, CollectionOptions, FallbackKey, QueryFamily, SourceCache, Synthesis};
 use itertools::Itertools as _;
-use kurbo::{Affine, BezPath, Circle, Line, Point, Rect, Shape as _, Triangle, Vec2};
+use kurbo::{Affine, BezPath, Circle, Line, PathEl, Point, Rect, Shape as _, Triangle, Vec2};
 use linebender_resource_handle::{Blob, FontData};
 use linesweeper::FillRule;
 use nonempty_collections::NEVec;
@@ -72,18 +72,21 @@ struct Face {
     font: Font,
 }
 
-struct Outline(BezPath);
+struct Outline<'path> {
+    path: &'path mut BezPath,
+    affine: Affine,
+}
 
-impl PathSink for Outline {
-    fn move_to(&mut self, x: f32, y: f32) { self.0.move_to((x, y)); }
+impl PathSink for Outline<'_> {
+    fn move_to(&mut self, x: f32, y: f32) { self.path.push(self.affine * PathEl::MoveTo((x, y).into())); }
 
-    fn line_to(&mut self, x: f32, y: f32) { self.0.line_to((x, y)); }
+    fn line_to(&mut self, x: f32, y: f32) { self.path.push(self.affine * PathEl::LineTo((x, y).into())); }
 
-    fn quad_to(&mut self, cx0: f32, cy0: f32, x: f32, y: f32) { self.0.quad_to((cx0, cy0), (x, y)); }
+    fn quad_to(&mut self, cx0: f32, cy0: f32, x: f32, y: f32) { self.path.push(self.affine * PathEl::QuadTo((cx0, cy0).into(), (x, y).into())); }
 
-    fn curve_to(&mut self, cx0: f32, cy0: f32, cx1: f32, cy1: f32, x: f32, y: f32) { self.0.curve_to((cx0, cy0), (cx1, cy1), (x, y)); }
+    fn curve_to(&mut self, cx0: f32, cy0: f32, cx1: f32, cy1: f32, x: f32, y: f32) { self.path.push(self.affine * PathEl::CurveTo((cx0, cy0).into(), (cx1, cy1).into(), (x, y).into())); }
 
-    fn close(&mut self) { self.0.close_path(); }
+    fn close(&mut self) { self.path.close_path(); }
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -177,7 +180,8 @@ impl Typesetter {
 
     pub fn typeset(&mut self, text: &Text) -> Result<Block, NEVec<AnnotationError>> {
         let (index, ratio) = em(self, text)?;
-        let size = FontSize::try_new(text.size.into_inner() * ratio).map_err(|(FontSizeError::FiniteViolated | FontSizeError::GreaterViolated)| AnnotationError::Face { index, defect: Defect::CapHeight })?;
+        let size =
+            FontSize::try_new(text.size.into_inner() * ratio).map_err(|(FontSizeError::FiniteViolated | FontSizeError::GreaterViolated)| AnnotationError::Face { index, defect: Defect::CapHeight })?;
         let clustered = |cluster: &Cluster<'_, ()>| {
             let range = cluster.text_range();
             let end = if cluster.is_ligature_start() {
@@ -254,7 +258,8 @@ impl Typesetter {
                 let font = run.font();
                 let synthesis = run.synthesis();
                 let skew = synthesis.skew().map_or(Affine::IDENTITY, |angle| Affine::skew(-f64::from(angle).to_radians().tan(), 0.0));
-                let placement = Placement::try_new(*text.placement * origin * Affine::translate((f64::from(glyph_run.offset()), f64::from(glyph_run.baseline()))) * skew).map_err(AnnotationError::from);
+                let placement =
+                    Placement::try_new(*text.placement * origin * Affine::translate((f64::from(glyph_run.offset()), f64::from(glyph_run.baseline()))) * skew).map_err(AnnotationError::from);
                 Validated::from(registered(faces, font)).map2(Validated::from(placement), |face, placement| GlyphRun {
                     font: font.clone(),
                     family: Arc::clone(&face.family),
@@ -282,13 +287,14 @@ impl Typesetter {
         Ok(Block { runs, extent: origin.transform_rect_bbox(extent) })
     }
 
+    #[stacksafe::stacksafe]
     pub fn shape(&mut self, elements: Vec<Element>, output: Output) -> Result<Vec<Element>, NEVec<AnnotationError>> {
         fn outlined(faces: &HashMap<(u64, u32), Face>, run: &GlyphRun, tolerance: Tolerance) -> Result<Region, NEVec<AnnotationError>> {
             let font = instance(&registered(faces, &run.font)?.font, &run.variations);
             let em = run.size.into_inner() / f64::from(font.units_per_em());
             let scaler = ScalerFont::unhinted(font, None);
-            let glyphs = run
-                .glyphs
+            let mut path = BezPath::new();
+            run.glyphs
                 .iter()
                 .scan(Affine::IDENTITY, |pen, glyph| {
                     let origin = pen.then_translate(glyph.offset);
@@ -297,30 +303,33 @@ impl Typesetter {
                 })
                 .map(|(glyph, origin)| {
                     let id = GlyphId::new(glyph.id);
-                    let mut sink = Outline(BezPath::new());
+                    let start = path.elements().len();
                     scaler
                         .outline(id)
                         .ok_or(ScaleError::GlyphNotFound(id))
-                        .and_then(|outline| outline.draw(DrawMemory::default(), &mut sink))
-                        .map(|_metrics| *run.placement * origin * Affine::scale_non_uniform(em, -em) * sink.0)
-                        .map_err(|source| AnnotationError::Outline { glyph: glyph.id, source })
+                        .and_then(|outline| outline.draw(DrawMemory::default(), &mut Outline { path: &mut path, affine: *run.placement * origin * Affine::scale_non_uniform(em, -em) }))
+                        .map(|_metrics| ())
+                        .map_err(|source| {
+                            path.truncate(start);
+                            AnnotationError::Outline { glyph: glyph.id, source }
+                        })
                 })
-                .collect::<Validated<Vec<_>, _>>()
+                .collect::<Validated<(), _>>()
                 .ok()?;
-            Region::new(&glyphs.into_iter().flatten().collect::<BezPath>(), FillRule::NonZero, tolerance).map_err(|error| AnnotationError::from(error).into())
+            Region::new(path, FillRule::NonZero, tolerance).map_err(|error| AnnotationError::from(error).into())
         }
 
         let painted = |faces: &HashMap<(u64, u32), Face>, run: GlyphRun, color: Color, opacity: Opacity| match output {
             Output::Glyphs => Validated::Good(Element::Glyphs { run, color, opacity }),
             Output::Outlines(tolerance) => validated(outlined(faces, &run, tolerance)).map(|region| Element::Fill { region, color, opacity }),
         };
-        indexed(elements.into_iter().map(|element| match element {
+        indexed::<_, Vec<_>, _>(elements.into_iter().map(|element| match element {
             Element::Text { text, color, opacity } => {
                 let Block { runs, extent: _ } = self.typeset(&text)?;
                 runs.into_iter().map(|run| painted(&self.faces, run, color.clone(), opacity)).collect::<Validated<Vec<_>, _>>().ok()
             }
             Element::Glyphs { run, color, opacity } => painted(&self.faces, run, color, opacity).ok().map(|drawn| vec![drawn]),
-            Element::Clip { region, keep, elements: grouped } => self.shape(grouped, output).map(|shaped| vec![Element::Clip { region, keep, elements: shaped }]),
+            Element::Clip { region, keep, elements: grouped } => self.shape(grouped.into_inner(), output).map(|shaped| vec![Element::Clip { region, keep, elements: shaped.into() }]),
             kept @ (Element::Stroke { path: _, pen: _, linetype: _ }
             | Element::Fill { region: _, color: _, opacity: _ }
             | Element::Hatch { region: _, pattern: _, placement: _, pen: _ }
@@ -384,11 +393,7 @@ pub(crate) fn labelled(typesetter: &mut Typesetter, style: &Style, label: &Label
         (true, Baseline::Middle | Baseline::Alphabetic) | (false, Baseline::Top | Baseline::Middle | Baseline::Alphabetic | Baseline::Bottom) => baseline,
     };
     let placement = Placement::try_new(oriented(at, upright)).map_err(AnnotationError::from)?;
-    set(typesetter, style, label.lettering.as_ref().unwrap_or(&style.lettering), label, placement, anchor, baseline)
-}
-
-pub(crate) fn set(typesetter: &mut Typesetter, style: &Style, lettering: &Lettering, label: &Label, placement: Placement, anchor: Anchor, baseline: Baseline) -> Result<Graphics, NEVec<AnnotationError>> {
-    let Lettering { family, size, weight, width, style: slant, line_height, features, color, opacity } = lettering;
+    let Lettering { family, size, weight, width, style: slant, line_height, features, color, opacity } = label.lettering.as_ref().unwrap_or(&style.lettering);
     let block = typesetter.typeset(&Text {
         content: Arc::clone(&label.content),
         family: family.clone(),
@@ -410,7 +415,10 @@ pub(crate) fn set(typesetter: &mut Typesetter, style: &Style, lettering: &Letter
         Some(ratio) => {
             let squeeze = Affine::scale_non_uniform(ratio, 1.0);
             let compression = *placement * squeeze * placement.inverse();
-            (block.runs.into_iter().map(|run| Placement::try_new(compression * *run.placement).map(|moved| GlyphRun { placement: moved, ..run })).collect::<Result<Vec<_>, _>>(), squeeze.transform_rect_bbox(block.extent))
+            (
+                block.runs.into_iter().map(|run| Placement::try_new(compression * *run.placement).map(|moved| GlyphRun { placement: moved, ..run })).collect::<Result<Vec<_>, _>>(),
+                squeeze.transform_rect_bbox(block.extent),
+            )
         }
     };
     let accuracy = style.tolerance.into_inner();
@@ -445,7 +453,7 @@ pub(crate) fn set(typesetter: &mut Typesetter, style: &Style, lettering: &Letter
     };
     Validated::from(rule.map(|outline| stroked(*placement * outline, &style.pen, None)).transpose())
         .map3(
-            Validated::from(Region::new(&(*placement * boundary), FillRule::NonZero, style.tolerance).map_err(AnnotationError::from)),
+            Validated::from(Region::new(*placement * boundary, FillRule::NonZero, style.tolerance).map_err(AnnotationError::from)),
             Validated::from(runs.map_err(AnnotationError::from)),
             |stroke, mask, runs| Graphics { elements: runs.into_iter().map(|run| Element::Glyphs { run, color: color.clone(), opacity: *opacity }).chain(stroke).collect(), masks: vec![mask] },
         )

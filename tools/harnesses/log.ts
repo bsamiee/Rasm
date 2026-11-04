@@ -1,7 +1,7 @@
-import type { State } from '@rasm/automation/applications';
+import type { State } from '@rasm/automation';
 import { Array, Cause, Config, Context, DateTime, Duration, Effect, FileSystem, Filter, type LogLevel, Match, MutableRef, Option, Path, Predicate, Record, Result, Schema, Stdio, String, Struct } from 'effect';
 import { SecureRandom } from 'effect/crypto';
-import { HarnessError } from '#/error';
+import { HarnessError } from '#/harness-error';
 import { printed, System, sampled } from '#/instance';
 import { Halted } from '#/results';
 import type { Live } from '#/session';

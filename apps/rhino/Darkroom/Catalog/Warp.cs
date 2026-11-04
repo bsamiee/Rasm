@@ -54,31 +54,31 @@ public sealed partial class WaveFront {
 
 public sealed record WaveWarp(
     WaveFront Front, WaveProfile Profile, int Count, ShortSideLength MinWavelength, ShortSideLength MaxWavelength, float MinAmplitude, float MaxAmplitude, Vector2 Amount,
-    Angle Direction, Angle Spread, Angle Phase, ShortSideLength Radius, Vector2 Center, float Rate, Seed Seed, Timing Timing, Hold Hold, Resampling Resampling) : IPixelStage<WaveWarp> {
+    Angle Direction, Angle Spread, Angle Phase, ShortSideLength Radius, Vector2 Center, float Rate, int Seed, Timing Timing, Hold Hold, Resampling Resampling) : IPixelStage<WaveWarp> {
     public static WaveWarp Default { get; } = new(
         WaveFront.Linear, WaveProfile.Sine, 5, ShortSideLength.Create(10f / ReferenceFrame.Height), ShortSideLength.Create(120f / ReferenceFrame.Height), 5f / 35f, 1f, Vector2.Zero,
-        Angle.Zero, Angle.Zero, Angle.Zero, ShortSideLength.Create(0.5f), new Vector2(0.5f), 0f, Seed.MinValue, Timing.Default, Hold.MinValue, Resampling.Default);
+        Angle.Zero, Angle.Zero, Angle.Zero, ShortSideLength.Create(0.5f), new Vector2(0.5f), 0f, 0, Timing.Default, Hold.MinValue, Resampling.Default);
 
     public static Fin<Option<PixelPass>> Pass(WaveWarp state, PassContext context) =>
         state.Amount == Vector2.Zero || state is { MinAmplitude: 0f, MaxAmplitude: 0f } ? None
             : Some<PixelPass>(new PixelPass.Frame((frame, progress) => CoordinateMap.Field.Wave(
                     state.Profile, state.Count, (state.MinWavelength, state.MaxWavelength), (state.MinAmplitude, state.MaxAmplitude), state.Amount,
-                    (float)state.Direction.Radians, (float)state.Spread.Radians, (float)state.Phase.Revolutions - (state.Rate * state.Hold.Held(state.Timing.At(context))),
-                    state.Front.Ring.Map(turn => (turn, state.Radius)), state.Seed.Field(8u, 0u), state.Center, state.Resampling.Sampling, state.Resampling.Edges)
+                    (float)state.Direction.Radians, (float)state.Spread.Radians, (float)state.Phase.Revolutions - (state.Rate * (float)state.Hold.Held(state.Timing.At(context)).TotalSeconds),
+                    state.Front.Ring.Map(turn => (turn, state.Radius)), CoordinateHash.Branch(state.Seed, 0u, 8u), state.Center, state.Resampling.Sampling, state.Resampling.Edges)
                 .Bind(map => map.Apply(frame, progress))));
 }
 
 public sealed record Turbulence(
-    NoiseBasis Basis, ShortSideLength ScaleX, ShortSideLength ScaleY, Vector2 Amount, float Rate, Seed Seed, Timing Timing, Hold Hold, Resampling Resampling) : IPixelStage<Turbulence> {
+    NoiseBasis Basis, ShortSideLength ScaleX, ShortSideLength ScaleY, Vector2 Amount, float Rate, int Seed, Timing Timing, Hold Hold, Resampling Resampling) : IPixelStage<Turbulence> {
     public static Turbulence Default { get; } = new(
         NoiseBasis.Perlin.Default, ShortSideLength.Create(ReferenceFrame.GreaterSide / 2f), ShortSideLength.Create(ReferenceFrame.GreaterSide / 2f), Vector2.Zero, 0f,
-        Seed.MinValue, Timing.Default, Hold.MinValue, Resampling.Default with { Wrap = WrapMode.Clamp });
+        0, Timing.Default, Hold.MinValue, Resampling.Default with { Wrap = WrapMode.Clamp });
 
     public static Fin<Option<PixelPass>> Pass(Turbulence state, PassContext context) =>
         state.Amount == Vector2.Zero ? None
             : Some<PixelPass>(new PixelPass.Frame((frame, progress) => state.Basis.Sampler.Bind(sampler => CoordinateMap.Field.Turbulence(
-                (at, hash) => sampler(at, hash).Value, (state.ScaleX, state.ScaleY), state.Amount, state.Rate * state.Hold.Held(state.Timing.At(context)),
-                state.Seed.Field(9u, 0u), new Vector2(0.5f), state.Resampling.Sampling, state.Resampling.Edges).Apply(frame, progress))));
+                (at, hash) => sampler(at, hash).Value, (state.ScaleX, state.ScaleY), state.Amount, state.Rate * (float)state.Hold.Held(state.Timing.At(context)).TotalSeconds,
+                CoordinateHash.Branch(state.Seed, 0u, 9u), new Vector2(0.5f), state.Resampling.Sampling, state.Resampling.Edges).Apply(frame, progress))));
 }
 
 public sealed record MapDisplacement(ShortSideLength Softness, Vector2 Amount, Angle Rotation, Resampling Resampling) : IPixelStage<MapDisplacement> {
@@ -150,10 +150,10 @@ public abstract partial record GlassTexture {
 }
 
 public sealed record Glass(
-    GlassTexture Texture, ShortSideLength Scale, float Strength, ShortSideLength Smoothness, Seed Seed, Timing Timing, Hold Hold, Resampling Resampling) : IPixelStage<Glass> {
+    GlassTexture Texture, ShortSideLength Scale, float Strength, ShortSideLength Smoothness, int Seed, Timing Timing, Hold Hold, Resampling Resampling) : IPixelStage<Glass> {
     public static Glass Default { get; } = new(
         GlassTexture.Raindrops.Default, ShortSideLength.Create(ReferenceFrame.GreaterSide / 2f / 3.8f), 0f, ShortSideLength.Create(3f / ReferenceFrame.Height),
-        Seed.MinValue, Timing.Default, Hold.MinValue, Resampling.Default) {
+        0, Timing.Default, Hold.MinValue, Resampling.Default) {
         Blur = Some(ShortSideLength.Create(14.6f / ReferenceFrame.Height)),
     };
 
@@ -161,7 +161,7 @@ public sealed record Glass(
 
     public static Fin<Option<PixelPass>> Pass(Glass state, PassContext context) =>
         state.Texture.Rests(state) ? None
-            : Some<PixelPass>(Refraction.Pass(state.Texture.Surface(state.Hold.Held(state.Timing.At(context)), state.Seed.Field(10u, 0u)), state.Scale, state.Strength, state.Smoothness, state.Blur,
+            : Some<PixelPass>(Refraction.Pass(state.Texture.Surface((float)state.Hold.Held(state.Timing.At(context)).TotalSeconds, CoordinateHash.Branch(state.Seed, 0u, 10u)), state.Scale, state.Strength, state.Smoothness, state.Blur,
                 state.Resampling.Sampling, state.Resampling.Wrap));
 }
 
@@ -268,13 +268,13 @@ public sealed record Kaleidoscope(int Mirrors, Angle Rotation, Vector2 Center, f
                 .Bind(map => map.Apply(frame, progress))));
 }
 
-public sealed record Shake(Vector2 Amplitude, Angle Rotation, float Zoom, float Rate, Octaves Octaves, Seed Seed, Timing Timing, Hold Hold) {
-    public static Shake Default { get; } = new(Vector2.Zero, Angle.Zero, 1f, 5f, NoiseBasis.Perlin.Default.Octaves, Seed.MinValue, Timing.Default, Hold.MinValue);
+public sealed record Shake(Vector2 Amplitude, Angle Rotation, float Zoom, float Rate, Octaves Octaves, int Seed, Timing Timing, Hold Hold) {
+    public static Shake Default { get; } = new(Vector2.Zero, Angle.Zero, 1f, 5f, NoiseBasis.Perlin.Default.Octaves, 0, Timing.Default, Hold.MinValue);
 
     public bool Still => (Amplitude, Rotation, Zoom) == (Default.Amplitude, Default.Rotation, Default.Zoom);
 
     public Fin<Matrix3x2> Inverse(PixelExtent extent, float time) =>
-        Pose.Shaken(extent, time, Rate, Amplitude, (float)Rotation.Radians, Zoom, Octaves, Seed.Field(11u, 0u)).Map(static pose => pose.Inverse);
+        Pose.Shaken(extent, time, Rate, Amplitude, (float)Rotation.Radians, Zoom, Octaves, CoordinateHash.Branch(Seed, 0u, 11u)).Map(static pose => pose.Inverse);
 }
 
 public sealed record ShutterMotion(Shake Shake, Duration Shutter, float Position) {
@@ -283,7 +283,7 @@ public sealed record ShutterMotion(Shake Shake, Duration Shutter, float Position
     public bool Open => Shutter != Duration.Zero;
 
     public Func<float, Fin<Matrix3x2>> Path(Pose motion, Matrix3x2 placed, PassContext context) =>
-        ((float)Shutter.TotalSeconds, Shake.Hold.Held(Shake.Timing.At(context))) switch {
+        ((float)Shutter.TotalSeconds, (float)Shake.Hold.Held(Shake.Timing.At(context)).TotalSeconds) switch {
             var (duration, held) => share => Shake.Inverse(context.Extent, held - (duration * Position) + (duration * share)).Map(shaken => motion.Partial(share - Position).Inverse * shaken * placed),
         };
 }
@@ -302,12 +302,10 @@ public sealed record AffineTransform(
         state.Swept || state.Placed || !state.Motion.Shake.Still
             ? Some<PixelPass>(new PixelPass.Frame((frame, progress) =>
                 from path in state.Path(context)
-                from still in path(0f)
                 from applied in state.Swept
-                    ? CoordinateMap.Integrated(share => path((float)share).Match(
-                        Succ: matrix => (state.Planar(matrix), Vector4.One),
-                        Fail: _ => (state.Planar(still), Vector4.Zero))).Run(frame, progress)
-                    : state.Planar(still).Apply(frame, progress)
+                    ? CoordinateMap.Integrated(context.Integration, share => path((float)share)
+                        .Map<(CoordinateMap Map, Vector4 Gains)>(matrix => (state.Planar(matrix), Vector4.One))).Run(frame, progress)
+                    : path(0f).Bind(matrix => state.Planar(matrix).Apply(frame, progress))
                 select applied))
             : None;
 

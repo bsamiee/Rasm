@@ -9,6 +9,8 @@ use rustc_span::{Ident, MacroKind};
 
 lint!(RENAMED_FUNCTION_PARAMS_IN_MACRO: "trait impl methods a local `macro_rules!` expands with parameters the trait names differently");
 
+// --- [COMPOSITION] ---------------------------------------------------------------------
+
 impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_impl_item(&mut self, cx: &LateContext<'tcx>, item: &'tcx ImplItem<'tcx>) {
         if let ImplItemKind::Fn(_, body) = item.kind

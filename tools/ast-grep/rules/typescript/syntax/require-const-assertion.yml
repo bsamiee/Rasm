@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: require-const-assertion
-language: tsx
+language: tsxlang
 severity: error
 utils:
     literal-value:
@@ -21,6 +21,5 @@ rule:
     not: {has: {nthChild: 2, any: [{matches: mutable-sequence-type}, {has: {stopBy: end, matches: mutable-sequence-type}}]}}
 constraints:
     VALUE: {matches: literal-value}
-fix: $VALUE as const satisfies $TYPE
 message: '`satisfies $TYPE` alone widens literal types of a module constant'
 note: 'Write `as const satisfies <type>`'

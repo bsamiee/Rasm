@@ -1,11 +1,10 @@
 """Compositor motion: clocks per second with frame holds over the derived scene frame rate, seeded uniforms and decorrelated noise origins, the scene shutter and the poses it samples, and trails between shutter endpoints."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from types import MappingProxyType
 from typing import Annotated, Final, Self
 
 import bpy
-from expression import Ok
 import msgspec
 import numpy as np
 
@@ -19,14 +18,14 @@ from blender.bpy.nodes.graphs import Expr, math, Scalar, vector, xyz
 from blender.bpy.nodes.interfaces import InterfacePanel, Socket
 from blender.bpy.render.compositor.colors import with_alpha
 from blender.bpy.render.compositor.coordinates import dimensions
-from blender.bpy.render.compositor.inputs import DerivedInputs, entry_input, entry_value
-from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
-from blender.records.fields import Case, Count, NonNegative, SEED_BOUND
+from blender.bpy.render.compositor.inputs import addressed, DerivedInputs, entry_values, keyed
+from blender.records.faults import accumulated, Fault, Ok, Outcome, paired, Reason
+from blender.records.fields import Count, NonNegative, SEED_BOUND
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_FPS: Final = Descriptor.declared(bpy.types.RenderSettings, ("fps",), bpy.types.IntProperty).prop
-_FPS_BASE: Final = Descriptor.declared(bpy.types.RenderSettings, ("fps_base",), bpy.types.FloatProperty).prop
+_FPS: Final[bpy.types.IntProperty] = bpy.types.RenderSettings.bl_rna.properties["fps"]  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+_FPS_BASE: Final[bpy.types.FloatProperty] = bpy.types.RenderSettings.bl_rna.properties["fps_base"]  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
 RATE: Final = Socket(key="frame_rate", kind=bpy.types.NodeSocketFloat, description="Scene frames per second", hide_in_modifier=True, default_value=_FPS.default / _FPS_BASE.default)
 SEED: Final = Socket(key="seed", kind=bpy.types.NodeSocketInt, description="Number selecting the pattern", min_value=0, max_value=SEED_BOUND)
 LENGTH: Final = Socket(key="length", kind=bpy.types.NodeSocketFloat, description="Shutter length in frames", hide_in_modifier=True)
@@ -90,35 +89,38 @@ class ShutterPoses(msgspec.Struct, frozen=True, kw_only=True):
 
     def posed(self, identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect) -> Outcome[dict[Key, Value]]:
         """Returns the scene shutter with both endpoint poses held at the entry's input values."""
-        return accumulated(entry_value(identity, entry, socket.key).map(lambda value: (socket.key, value)) for socket in self.sockets).map(
-            lambda values: {**Shutter.of(scene).values, **{self.key(side, key): value for side in range(2) for key, value in values}}
+        return entry_values(identity, entry, (socket.key for socket in self.sockets), lambda _key, value: Ok(value)).map(
+            lambda values: {**Shutter.of(scene).values, **{self.key(side, key): value for side in range(2) for key, value in values.items()}}
         )
 
     def keyed(self, identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect) -> Outcome[tuple[Animation, ...]]:
         """Keys every pose component at its socket channel sampled at both fractional shutter endpoints of every rendered frame."""
-        frames = tuple(range(scene.frame_start, scene.frame_end + 1))
+        frames = tuple(map(float, range(scene.frame_start, scene.frame_end + 1)))
+        lengths = animation.sampled(scene.render, ("motion_blur_shutter",), frames)
         opening = Shutter.of(scene).opening
 
-        def components(socket: Socket) -> tuple[int | None, ...]:
-            sizes = Descriptor.dimensions(socket.refined.bl_rna.properties["default_value"])
-            return tuple(range(sizes[0])) if sizes else (None,)
+        def baked(parts: tuple[tuple[float, ...], Mapping[Key, str]]) -> Outcome[tuple[Animation, ...]]:
+            lengths, identifiers = parts
+            moments = tuple(tuple(frame + (opening + side) * length for frame, length in zip(frames, lengths)) for side in range(2))
+            sources = {socket.key: addressed(entry, identifiers, socket.key) for socket in self.sockets}
 
-        def component(lengths: tuple[float, ...], socket: Socket, side: int, index: int | None) -> Outcome[Animation]:
-            member: RnaPath = ("value",) if index is None else ("value", index)
-
-            def samples(source: Struct, target: RnaPath) -> Outcome[Animation]:
-                return animation.sampled(source, member, (frame + (opening + side) * length for frame, length in zip(frames, lengths))).map(
-                    lambda values: Animation(path=(*target, *member), source=Keys(points=tuple(zip(map(float, frames), values))))
+            def sampled(source: Struct, target: RnaPath, side: int) -> Outcome[tuple[Animation, ...]]:
+                sizes = Descriptor.dimensions(source.bl_rna.properties["value"])
+                members: tuple[RnaPath, ...] = tuple(("value", index) for index in range(sizes[0])) if sizes else (("value",),)
+                return accumulated(
+                    animation.sampled(source, member, moments[side]).map(lambda values: Animation(path=(*target, *member), source=Keys(points=tuple(zip(frames, values))))) for member in members
                 )
 
-            return paired(
-                entry_input(identity, entry, socket.key),
-                entry_input(identity, entry, self.key(side, socket.key)).bind(lambda held: id_path(held).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(held), member="value"))),
-            ).bind(lambda values: samples(*values))
+            return accumulated(
+                paired(
+                    sources[socket.key],
+                    addressed(entry, identifiers, self.key(side, socket.key)).bind(lambda target: id_path(target).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(target), member="value"))),
+                ).bind(lambda held: sampled(*held, side))
+                for socket in self.sockets
+                for side in range(2)
+            ).map(lambda channels: tuple(channel for held in channels for channel in held))
 
-        return animation.sampled(scene.render, ("motion_blur_shutter",), frames).bind(
-            lambda lengths: accumulated(component(lengths, socket, side, index) for socket in self.sockets for side in range(2) for index in components(socket))
-        )
+        return paired(lengths, keyed(identity, entry).map(lambda held: held[1])).bind(baked) if self.sockets else lengths.map(lambda _: ())
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -160,7 +162,7 @@ def clock(speed: Scalar, hold: Scalar, rate: Scalar) -> Expr:
 
 
 def hashed(seed: Scalar, noise: Scalar, pattern: Scalar = 0, instance: Scalar = 0) -> Expr:
-    """Builds the seeded uniform of one noise, each component in [0, 1).
+    """Builds the seeded uniform of one noise, each component in [0, 1].
 
     Args:
         seed: `SEED` operand.
@@ -232,11 +234,9 @@ def trailed(image: Expr, source: Scalar, opened: Expr, stepped: Expr) -> Expr:
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 CLOCK: Final = InterfacePanel.of("clock", Clock())
-timing: Final = DerivedInputs[Case](
-    of=lambda _identity, scene, _entry, _record: Ok({RATE.key: rate(scene)}), sockets=(RATE,), reads=((bpy.types.RenderSettings, _FPS), (bpy.types.RenderSettings, _FPS_BASE))
-)
-shutter: Final = DerivedInputs[Case](
-    of=lambda _identity, scene, _entry, _record: Ok(Shutter.of(scene).values),
+timing: Final = DerivedInputs(of=lambda _identity, scene, _entry: Ok({RATE.key: rate(scene)}), sockets=(RATE,), reads=((bpy.types.RenderSettings, _FPS), (bpy.types.RenderSettings, _FPS_BASE)))
+shutter: Final = DerivedInputs(
+    of=lambda _identity, scene, _entry: Ok(Shutter.of(scene).values),
     sockets=SHUTTER,
     reads=tuple((bpy.types.RenderSettings, bpy.types.RenderSettings.bl_rna.properties[name]) for name in ("motion_blur_shutter", "motion_blur_position")),
 )

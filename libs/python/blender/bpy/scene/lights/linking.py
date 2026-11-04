@@ -5,7 +5,7 @@ from types import MappingProxyType
 from typing import ClassVar, Final
 
 import bpy
-from expression import Nothing, Ok, Option, Some
+from expression import Option, Some
 import msgspec
 
 from blender.bpy.commands.operators import Answer, Call, called, Done, Operation, Operator, Placement, Unchanged
@@ -18,13 +18,13 @@ from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.scene.collections import created, entry, Member, relinked
 from blender.bpy.scene.objects import active_object
 from blender.bpy.ui.layout import members, rows
-from blender.records.faults import accumulated, Outcome, paired
+from blender.records.faults import accumulated, Nothing, Ok, Outcome, paired
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-LINK_STATE: Final = Descriptor.declared(bpy.types.CollectionLightLinking, ("link_state",), bpy.types.EnumProperty)
-RECEIVERS: Final = Descriptor.declared(bpy.types.ObjectLightLinking, ("receiver_collection",), bpy.types.PointerProperty)
-BLOCKERS: Final = Descriptor.declared(bpy.types.ObjectLightLinking, ("blocker_collection",), bpy.types.PointerProperty)
+LINK_STATE: Final = Descriptor[bpy.types.EnumProperty](root=bpy.types.CollectionLightLinking, prop=bpy.types.CollectionLightLinking.bl_rna.properties["link_state"])  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+RECEIVERS: Final = Descriptor[bpy.types.PointerProperty](root=bpy.types.ObjectLightLinking, prop=bpy.types.ObjectLightLinking.bl_rna.properties["receiver_collection"])  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+BLOCKERS: Final = Descriptor[bpy.types.PointerProperty](root=bpy.types.ObjectLightLinking, prop=bpy.types.ObjectLightLinking.bl_rna.properties["blocker_collection"])  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
 _LINKERS: Final[Mapping[Descriptor[bpy.types.PointerProperty], Operation]] = MappingProxyType({
     RECEIVERS: bpy.ops.object.light_linking_receivers_link,
     BLOCKERS: bpy.ops.object.light_linking_blockers_link,
@@ -47,15 +47,15 @@ class LightLinks(msgspec.Struct, frozen=True, kw_only=True):
         link: Ownership(kind=bpy.types.Collection, key=link.prop.identifier, saved=Saved.USED) for link in _LINKERS
     })
 
-    def acquisitions(self, _identity: Identity) -> Outcome[Acquisitions]:
+    def acquisitions(self, _identity: Identity) -> Acquisitions:
         """Returns set ownerships and the unlink operator."""
-        return Ok((*self.sets.values(), light_linking_unlink))
+        return *self.sets.values(), light_linking_unlink
 
     def drawn(self, identity: Identity, /) -> Outcome[rows.RowDraw]:
         """Returns each set's linking template with its stock buttons, then the selection unlink button of each set apart from them."""
 
         def reach(context: bpy.types.Context) -> Option[Struct]:
-            return root_in(bpy.types.ViewLayer, context).bind(lambda layer: Option.of_optional(layer.objects.active)).map(lambda item: item.light_linking)
+            return root_in(bpy.types.ViewLayer, context).bind(lambda layer: Option.of_optional(layer.objects.active)).map(lambda item: item.light_linking)  # ty: ignore[unsound-return-statement]
 
         def linking(link: Descriptor[bpy.types.PointerProperty]) -> Outcome[rows.RowDraw]:
             stock = (rows.OperatorButton(target=Placement(_LINKERS[link])), rows.OperatorButton(target=Placement(bpy.ops.object.light_linking_unlink_from_collection)))

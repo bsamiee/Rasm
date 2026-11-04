@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-fail-wrapped-error
-language: tsx
+language: tsxlang
 severity: error
 rule:
     kind: call_expression
@@ -22,6 +22,5 @@ rule:
             kind: program
             stopBy: end
             has: {stopBy: end, kind: class_declaration, all: [{has: {field: name, pattern: $CLASS}}, {has: {kind: class_heritage, has: {matches: effect-error-heritage}}}]}
-fix: $ERROR
 message: '`Effect.fail` wraps `$ERROR`, an error that fails as an effect itself'
 note: 'Return or `yield*` the error instance, `Effect.fail` stays for a value that is no yieldable error'

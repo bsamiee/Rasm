@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-collected-pairs-before-filter
-language: rust
+language: rustlang
 severity: error
 utils:
     pair-method:
@@ -42,4 +42,4 @@ labels:
     PAIR: {style: secondary, message: 'Enumerates the pairs'}
     FILTER: {style: primary, message: 'Discards pairs after every pair is stored'}
 message: '`$PAIR` pairs collect into a `Vec` before `$ITER().$FILTER` discards the pairs it rejects'
-note: 'Chain `$FILTER` on the pair stream before `collect`, or test the pair inside the stream''s own check (the `leaf_pairs` node predicate), so memory holds only kept pairs; a `par_iter` over the collected pairs stays as the parallel narrow phase'
+note: 'Filter pairs or `leaf_pairs` nodes before collecting, keeping collected `par_iter` work for its parallel phase'

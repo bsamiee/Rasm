@@ -1,16 +1,17 @@
 """RNA path steps, the host text of a path, and the structs, definitions, subclasses, and context roots RNA reaches."""
 
 import ast
+from collections import deque
 from collections.abc import Callable, Iterable, Iterator
 from functools import partial
-from typing import Final, overload
+from typing import overload
 
 import bpy
-from expression import Error, Nothing, Ok, Option, Result, Some, try_downcast
+from expression import Option, Some, try_downcast
 from expression.collections import Block
 from expression.extra.result import catch
 
-from blender.records.faults import Fault, Outcome, Reason
+from blender.records.faults import Error, Fault, Nothing, Ok, Outcome, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -18,10 +19,6 @@ type Struct = bpy.types.bpy_struct[object]
 type Native = Struct | bpy.types.bpy_prop_collection[Struct]
 type _Step = str | int | tuple[str]
 type RnaPath = tuple[_Step, ...]
-
-# --- [CONSTANTS] ------------------------------------------------------------------------
-
-_resolved: Final[Callable[[Struct, str, bool], Result[object, ValueError | ReferenceError]]] = catch(catch(bpy.types.bpy_struct.path_resolve, exception=ReferenceError), exception=ValueError)
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 # --- [PATHS]
@@ -35,7 +32,7 @@ def rna(path: RnaPath) -> str:
             case str():
                 return f".{step}"
             case int():
-                return f"[{step}]"
+                return f"[{step:d}]"
             case (key,):
                 return f'["{bpy.utils.escape_identifier(key)}"]'
 
@@ -107,11 +104,12 @@ def struct_at(root: Native, path: RnaPath, kind: type[object] = object) -> Optio
 
     Collection root resolves through its holder and the collection member holding it.
     """
+    if not path:
+        return Option.of_optional(try_downcast(kind, root))
     match root:
-        case bpy.types.bpy_struct():
-            start: Option[tuple[Struct, RnaPath]] = Some((root, ()))
-        case _:
-            start = Option.of_optional(root.data).bind(
+        case bpy.types.bpy_prop_collection():
+            data: Struct | None = root.data  # ty: ignore[unsound-assignment]
+            start: Option[tuple[Struct, RnaPath]] = Option.of_optional(data).bind(
                 lambda holder: (
                     Block
                     .of_seq(definition(holder).properties)
@@ -120,35 +118,41 @@ def struct_at(root: Native, path: RnaPath, kind: type[object] = object) -> Optio
                     .map(lambda prop: (holder, (prop.identifier,)))
                 )
             )
-    found: Option[object] = (
-        Some(root)
-        if not path
-        else start.bind(lambda held: _resolved(held[0], rna((*held[1], *path)), False).to_option()).filter(lambda value: isinstance(value, bpy.types.bpy_struct | bpy.types.bpy_prop_collection))
-    )
-    return found.bind(lambda held: Option.of_optional(try_downcast(kind, held)))
+        case _:
+            start = Some((root, ()))
+    for holder, prefix in start.to_list():
+        try:
+            found = holder.path_resolve(rna((*prefix, *path)), False)  # ruff: ignore[boolean-positional-value-in-call]
+        except (ValueError, ReferenceError):
+            return Nothing
+        return Option.of_optional(try_downcast(kind, found)).filter(lambda value: isinstance(value, bpy.types.bpy_struct | bpy.types.bpy_prop_collection))
+    return Nothing
 
 
 def definition_at(held: bpy.types.Struct, steps: RnaPath) -> Option[bpy.types.Struct]:
     """Returns the definition a path reaches through pointers, collection elements, and a collection's own definition, Nothing past a value."""
-
-    def entered(prop: bpy.types.Property, rest: RnaPath) -> Option[bpy.types.Struct]:
-        match prop, rest:
-            case bpy.types.CollectionProperty(), (int() | tuple(), *inner):
-                return Option.of_optional(prop.fixed_type).bind(lambda fixed: definition_at(fixed, tuple(inner)))
-            case bpy.types.CollectionProperty(), _:
-                return Option.of_optional(prop.srna).bind(lambda own: definition_at(own, rest))
-            case bpy.types.PointerProperty(), _:
-                return Option.of_optional(prop.fixed_type).bind(lambda fixed: definition_at(fixed, rest))
+    remaining = deque(steps)
+    while remaining:
+        name = remaining.popleft()
+        if not isinstance(name, str):
+            return Nothing
+        try:
+            prop = held.properties[name]
+        except KeyError:
+            return Nothing
+        match prop, remaining[0] if remaining else None:
+            case bpy.types.CollectionProperty(fixed_type=target), int() | tuple():
+                remaining.popleft()
+            case bpy.types.CollectionProperty(srna=target), _:
+                pass
+            case bpy.types.PointerProperty(fixed_type=target), _:
+                pass
             case _:
                 return Nothing
-
-    match steps:
-        case ():
-            return Some(held)
-        case (str(name), *rest):
-            return Option.of_optional(held.properties.get(name)).bind(lambda prop: entered(prop, tuple(rest)))
-        case _:
+        if target is None:
             return Nothing
+        held = target
+    return Some(held)
 
 
 # --- [CONTEXT]
@@ -165,7 +169,10 @@ def subclass[T: Struct](base: type[T], identifier: str) -> Outcome[type[T]]:
 
 def addon_preferences(preferences: bpy.types.Preferences, package: str) -> Option[bpy.types.AddonPreferences]:
     """Returns the preferences of the enabled add-on or extension package, Nothing when disabled or holding none."""
-    return Option.of_optional(preferences.addons.get(package)).bind(lambda addon: Option.of_optional(addon.preferences))
+    try:
+        return Option.of_optional(preferences.addons[package].preferences)
+    except KeyError:
+        return Nothing
 
 
 def preferred[T](preferences: bpy.types.Preferences, package: str, write: Callable[[bpy.types.AddonPreferences], Outcome[T]]) -> Outcome[T]:
@@ -204,17 +211,20 @@ def _expression(text: str) -> ast.expr:
 
 def _stepped(node: ast.expr) -> Option[RnaPath]:
     """Reads an attribute and subscript chain over the `_` root as steps, Nothing for any other expression."""
-    match node:
-        case ast.Name(id="_"):
-            return Some(())
-        case ast.Attribute(value=inner, attr=name):
-            return _stepped(inner).map(lambda steps: (*steps, name))
-        case ast.Subscript(value=inner, slice=ast.Constant(value=int(index))):
-            return _stepped(inner).map(lambda steps: (*steps, index))
-        case ast.Subscript(value=inner, slice=ast.Constant(value=str(key))):
-            return _stepped(inner).map(lambda steps: (*steps, (key,)))
-        case _:
-            return Nothing
+    steps: deque[_Step] = deque()
+    while True:
+        match node:
+            case ast.Name(id="_"):
+                return Some(tuple(steps))
+            case ast.Attribute(value=inner, attr=name):
+                steps.appendleft(name)
+            case ast.Subscript(value=inner, slice=ast.Constant(value=index)) if type(index) is int:
+                steps.appendleft(index)
+            case ast.Subscript(value=inner, slice=ast.Constant(value=str(key))):
+                steps.appendleft((key,))
+            case _:
+                return Nothing
+        node = inner
 
 
 def _held(struct: Struct, parent: Struct) -> Option[RnaPath]:

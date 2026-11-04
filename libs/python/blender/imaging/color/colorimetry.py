@@ -6,7 +6,7 @@ from typing import Annotated, ClassVar, Self
 import colour
 from colour.hints import NDArrayFloat
 from colour.temperature.robertson1968 import DATA_ISOTEMPERATURE_LINES_ROBERTSON1968
-from expression import Error, Ok, Option, Some
+from expression import Option, Some
 from expression.extra.result import catch
 import msgspec
 import numpy as np
@@ -14,7 +14,7 @@ import numpy.typing as npt
 import PyOpenColorIO
 
 from blender.imaging.color.processors import basis, converted, xyz
-from blender.records.faults import Fault, Outcome, Reason
+from blender.records.faults import Error, Fault, Ok, Outcome, Reason
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -38,7 +38,7 @@ class WhitePoint(msgspec.Struct, frozen=True, kw_only=True):
 
         def solved(ucs: NDArrayFloat) -> Option[Self]:
             temperature, duv = colour.temperature.uv_to_CCT_Robertson1968(colour.UCS_to_uv(ucs)).tolist()
-            return catch(msgspec.convert, exception=msgspec.ValidationError)({"temperature": temperature, "duv": duv}, type=cls).to_option()
+            return catch(lambda: msgspec.convert({"temperature": temperature, "duv": duv}, type=cls), exception=msgspec.ValidationError)().to_option()
 
         return Some(colour.XYZ_to_UCS(tristimulus)).filter(lambda ucs: float(ucs.sum()) > 0.0).bind(solved).filter(lambda white: white.temperature < cls.hottest)
 
@@ -52,7 +52,7 @@ class WhitePoint(msgspec.Struct, frozen=True, kw_only=True):
 def observer() -> npt.NDArray[np.float64]:
     """Returns read-only float64 rows (λ, x̄, ȳ, z̄) at every nanometer from 360 to 830 nm."""
     matching = colour.MSDS_CMFS["CIE 1931 2 Degree Standard Observer"]
-    rows = np.column_stack((matching.wavelengths, matching.values)).astype(np.float64)
+    rows = np.column_stack((matching.wavelengths, matching.values)).astype(np.float64, copy=False)
     rows.setflags(write=False)
     return rows
 
@@ -119,7 +119,7 @@ def matching(config: PyOpenColorIO.Config, space: str, tristimulus: npt.NDArray[
     def normalized(weights: npt.NDArray[np.float64]) -> Outcome[npt.NDArray[np.float64]]:
         integral = weights.sum(axis=0)
         held = np.isfinite(weights).all() and np.isfinite(integral).all() and (integral != 0.0).all()
-        return Ok(weights / integral) if held else Error(Fault.of(Reason.INVALID, space, f"spectral matching cannot normalize RGB integrals {integral}"))
+        return Ok(weights / integral) if held else Error(Fault.of(Reason.INVALID, space, integral, member="finite spectral weights with nonzero finite RGB integrals"))
 
     return rgb(config, space, tristimulus).bind(normalized)
 

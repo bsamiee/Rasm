@@ -119,7 +119,7 @@ public abstract class DefinedRealtimeEngine<TSelf> : RealtimeDisplayMode where T
     private readonly Ref<Option<Owned<RealtimeRun>>> sessions = Ref(Option<Owned<RealtimeRun>>.None);
     private readonly Atom<Option<DisplayPipelineAttributes>> attributes = Atom(Option<DisplayPipelineAttributes>.None);
 
-    private sealed record RealtimeRun(RealtimeSession Session, DefinedChangeFeed Feed);
+    private sealed record RealtimeRun(Ref<RealtimeSession> Session, DefinedChangeFeed Feed);
 
     // --- [ROWS]
     protected abstract IO<Unit> Start(RealtimeStart start);
@@ -172,9 +172,9 @@ public abstract class DefinedRealtimeEngine<TSelf> : RealtimeDisplayMode where T
              from passes in IO.lift(() => MaxPasses)
              from attached in Attached
              from feed in DefinedChangeFeed.Of(doc, view, attributes.Value, target.ForCapture ? QueuePolicy.Capture : QueuePolicy.Viewport, Wake)
-             select new RealtimeRun(RealtimeSession.Of(target, now, Conversions.Present(target.ForCapture && passes > 0, passes)), feed)).Scoped()
+             select new RealtimeRun(Ref(RealtimeSession.Of(target, now, Conversions.Present(target.ForCapture && passes > 0, passes))), feed)).Scoped()
          from world in opened.Feed.World
-         from started in Start(new RealtimeStart(opened.Session.Target, doc, view, viewport, opened.Feed))
+         from started in Start(new RealtimeStart(opened.Session.Value.Target, doc, view, viewport, opened.Feed))
          select unit)
         .Catch(error => Products.Each(Seq(IO.lift(Stop).Bind(static stop => stop), Closed)).Map(static _ => unit) >> IO.fail<Unit>(error)).As();
 
@@ -246,7 +246,7 @@ public abstract class DefinedRealtimeEngine<TSelf> : RealtimeDisplayMode where T
     private IO<Unit> Delivered(HudEvent hudEvent) => Hud.TraverseM(deliver => deliver(hudEvent)).As().Map(static _ => unit);
 
     // --- [REPORTS]
-    protected Option<RealtimeSession> Running => sessions.Value.Map(static owned => owned.Value.Session);
+    protected Option<RealtimeSession> Running => sessions.Value.Map(static owned => owned.Value.Session.Value);
 
     protected IO<Unit> FrameRendered(int pass, ViewInfo view) =>
         IO.lift(() => ComputeViewportCrc(view)).Bind(frame => Changed((session, _) => session.Locked ? session : session with { Pass = pass, Frame = Some(frame) }));
@@ -259,7 +259,7 @@ public abstract class DefinedRealtimeEngine<TSelf> : RealtimeDisplayMode where T
 
     private IO<Unit> Changed(Func<RealtimeSession, Instant, RealtimeSession> change) =>
         from now in IO.lift(TSelf.Definition.Clock.GetCurrentInstant)
-        from swapped in atomicIO(() => sessions.Swap(state => state.Map(owned => owned with { Value = owned.Value with { Session = change(owned.Value.Session, now) } })))
+        from swapped in atomicIO(() => sessions.Value.Iter(owned => owned.Value.Session.Value = change(owned.Value.Session.Value, now)))
         from redrawn in IO.lift(SignalRedraw)
         select unit;
 }

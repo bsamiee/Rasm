@@ -16,7 +16,7 @@ Every `SK*` object wraps a native handle, and its ownership family decides who d
 |  [06]   | `SKAutoCanvasRestore`, `SKRuntimeEffectUniforms`, `SKRuntimeEffectChildren`   | Single owner, scoped | One per scope or build           |
 |  [07]   | `SKImageInfo`, `SKMatrix`, `SKColorSpaceXyz`, `SKColorF`, `SKSamplingOptions` | Struct               | Copied by value, no disposal     |
 
-- Storing a reference-counted handle in a paint, an `SKImageInfo`, or a recording adds Skia's own reference, the creating scope disposes its handle
+- Paints and recordings retain assigned handles, `SKImageInfo` borrows its `SKColorSpace` wrapper for every native call
 - `SKColorSpace.CreateSrgb()`, `CreateSrgbLinear()`, `SKFontManager.Default`, `SKTypeface.Default`, `SKData.Empty` are dispose-protected singletons
 - `SKColorSpace.CreateRgb`, `CreateIcc`, and `CreateCicp` return owned handles, one static per fixed space holds them for the process
 - `SKSurface.Canvas` belongs to the surface and dies with it, `new SKCanvas(bitmap)` is the one canvas a scope owns
@@ -96,7 +96,7 @@ One draw assembles one program (geometry coverage, clip coverage, shader tree, c
 - Layer paints apply alpha, color filter, image filter, and blend on `Restore`
 - Path effects and mask filters on a layer paint are ignored at restore, they belong on the draws inside
 - `SKCanvasSaveLayerRec.Flags`: `InitializeWithPrevious` copies prior pixels, `PreserveLcdText` keeps LCD glyphs, `F16ColorType` makes the layer F16
-- Filtered layers are sized by the filter's reach, a user bound clips them
+- Filtered layers follow filter reach and canvas clipping; non-null `SKCanvasSaveLayerRec.Bounds` marshals a dangling pointer
 - `ClipRoundRect` and `ClipPath` take `antialias`, `ClipRegion` is aliased
 - `LocalClipBounds` is outset by one pixel under an antialiased clip, `DeviceClipBounds` is exact
 - Image filters take `input`, `null` reads the layer or the image under `ApplyImageFilter`
@@ -142,9 +142,9 @@ internal sealed record Shadow(float X, float Y, float Sigma, float Spread, SKCol
 }
 
 internal static class Layers {
-    public static int Backdrop(SKCanvas canvas, SKRect bounds, float sigma) {
+    public static int Backdrop(SKCanvas canvas, float sigma) {
         using SKImageFilter blur = SKImageFilter.CreateBlur(sigma, sigma, SKShaderTileMode.Clamp);
-        return canvas.SaveLayer(new SKCanvasSaveLayerRec { Bounds = bounds, Backdrop = blur });
+        return canvas.SaveLayer(new SKCanvasSaveLayerRec { Backdrop = blur });
     }
 }
 ```
@@ -311,7 +311,7 @@ Skia rasterizes glyphs and draws blobs, a shaping engine supplies glyph ids and 
 - `SKFontManager.Default.MatchCharacter(familyName, style, bcp47, character)` finds a fallback face holding one code point in one language
 - `SKFontManager.MatchFamily(name)` resolves a family
 - `SKTypeface.FromFamilyName`, `FromFile`, `FromStream`, and `FromData` construct typefaces, `OpenStream(out ttcIndex)` hands the bytes to a shaper
-- `SKTypeface.VariationDesignPosition` lists the axis values a variable typeface paints with
+- `SKTypeface.Clone(arguments)` can return its input wrapper, which stays borrowed; `VariationDesignPosition` lists the axis values the returned face paints with
 
 ```csharp
 internal static class Glyphs {

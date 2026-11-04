@@ -8,11 +8,11 @@ from types import MappingProxyType
 from typing import override, Protocol, Self, TYPE_CHECKING
 
 import bpy
-from expression import Nothing, Ok, Option, Some
+from expression import Option, Some
 import msgspec
 from structlog.typing import FilteringBoundLogger
 
-from blender.records.faults import Fault, Outcome, Reason
+from blender.records.faults import Fault, Nothing, Ok, Outcome, Reason
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -30,18 +30,18 @@ class Pending(Protocol):
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class _Write(msgspec.Struct, frozen=True, kw_only=True):
+class _Write(msgspec.Struct, frozen=True, kw_only=True):  # type: ignore[explicit-any]
     """One deferred write call, equal to another call of the same write and scope with equal arguments, applying nothing once its scope closed."""
 
-    applied: Callable[..., Outcome[Option[str]]]
+    applied: Callable[..., Outcome[Option[str]]]  # type: ignore[explicit-any]
     scope: Event
     args: tuple[object, ...]
     kwargs: Mapping[str, object]
 
     def advanced(self) -> Outcome[Option[Self]]:
-        """Runs the write while its scope is open, pushing the undo step it names."""
+        """Runs the scoped write, pushing its undo step in GUI sessions."""
         applied = self.applied(*self.args, **self.kwargs) if self.scope.is_set() else Ok(Nothing)
-        for message in applied.default_value(Nothing).to_list():
+        for message in () if bpy.app.background else applied.default_value(Nothing).to_list():
             bpy.ops.ed.undo_push(message=message)
         return applied.map(lambda _: Nothing)
 
@@ -59,7 +59,7 @@ class Reports(AbstractContextManager["Reports"]):
     def __init__(self, logger: FilteringBoundLogger) -> None:
         """Initializes empty reports and queue, opening the deferred redraw, the logger receiving each new entry with its report type."""
         self.logger = logger
-        self._entries: dict[tuple[rna_enums.WmReportItems, str], None] = {}
+        self._entries: list[Fault] = []
         self._pending: list[Pending] = []
         self._lock = RLock()
 
@@ -85,14 +85,14 @@ class Reports(AbstractContextManager["Reports"]):
     @override
     def __enter__(self) -> Self:
         """Clears queued requests and held faults after every file load until scope exit."""
-        loads: list[Callable[..., None]] = bpy.app.handlers.load_post
+        loads: list[Callable[..., None]] = bpy.app.handlers.load_post  # type: ignore[explicit-any]
         loads.append(self._loaded)
         return self
 
     @override
     def __exit__(self, *_: object) -> None:
         """Closes deferred redraw, drops queued requests, and unregisters the queue timer and load handler."""
-        loads: list[Callable[..., None]] = bpy.app.handlers.load_post
+        loads: list[Callable[..., None]] = bpy.app.handlers.load_post  # type: ignore[explicit-any]
         loads.remove(self._loaded)
         self._scope.close()
         with self._lock:
@@ -104,16 +104,18 @@ class Reports(AbstractContextManager["Reports"]):
 
     @property
     def entries(self) -> tuple[tuple["rna_enums.WmReportItems", str], ...]:
-        """Report type and text per distinct held fault, in hold order."""
-        return tuple(self._entries)
+        """Current report type and translated text per distinct held fault."""
+        with self._lock:
+            return tuple(dict.fromkeys(rendered(tuple(self._entries))))
 
     def hold(self, faults: tuple[Fault, ...], /) -> None:
         """Holds each distinct entry of a callback's faults once, logging and redrawing new ones."""
         with self._lock:
-            fresh = tuple(entry for entry in dict.fromkeys(rendered(faults)) if entry not in self._entries)
-            self._entries.update(dict.fromkeys(fresh))
-        for kind, text in fresh:
-            self.logger.error(text, report=kind)
+            existing = dict.fromkeys(self.entries)
+            fresh = {entry: fault for entry, fault in zip(rendered(faults), faults) if entry not in existing}
+            self._entries.extend(fresh.values())
+        for kind, text in fresh:  # ruff: ignore[dict-iter-missing-items]
+            self.logger.error("callback_failed", report=kind, message=text)
         if fresh:
             self._redraw()
 

@@ -1,4 +1,4 @@
-import { Array, Cause, Effect, Equal, flow, HashMap, HashSet, Number, Option, Predicate, Record, Ref, Schema, SchemaAST, Stream, Struct, SubscriptionRef, UndefinedOr } from 'effect';
+import { Array, Cause, Effect, Equal, Function, flow, HashMap, HashSet, Number, Option, Predicate, Record, Ref, Schema, SchemaAST, Stream, Struct, SubscriptionRef, UndefinedOr } from 'effect';
 import { McpSchema, McpServer } from 'effect/ai';
 import { Route } from '#/route';
 import { Server } from '#/server';
@@ -18,6 +18,7 @@ interface Entry<A> {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const encodeJsonText = Schema.encodeEffect(Schema.fromJsonString(Schema.Json));
+const updatedUris = <A>(last: HashMap.HashMap<string, Entry<A>>, current: HashMap.HashMap<string, Entry<A>>) => Array.flatMap([...last], ([key, entry]) => (Option.contains(Option.map(HashMap.get(current, key), Struct.get('value')), entry.value) ? [] : [...entry.uris]));
 const make = Effect.fnUntraced(function* <A, I, R, D extends { readonly mimeType?: string | undefined; readonly description?: string | undefined }>({ schema, changes, mimeType, description, ...descriptor }: D & { readonly schema: Schema.Codec<A, I>; readonly changes: Stream.Stream<unknown, never, R> }) {
     const [server, store, watched] = yield* Effect.all([McpServer.McpServer, SubscriptionRef.make(HashMap.empty<string, Entry<A>>()), Ref.make(HashMap.empty<string, number>())]);
     const codec = Schema.toCodecJson(schema);
@@ -25,24 +26,22 @@ const make = Effect.fnUntraced(function* <A, I, R, D extends { readonly mimeType
     const media = SchemaAST.isString(SchemaAST.toEncoded(codec.ast)) ? mimeType : 'application/json';
     const observe = (key: string, read: Effect.Effect<A, Error>, at: string = key) =>
         read.pipe(
-            Effect.tap((value) => SubscriptionRef.update(store, (entries) => HashMap.set(entries, key, { read, value, uris: HashSet.add(Option.match(HashMap.get(entries, key), { onNone: () => HashSet.make(key), onSome: Struct.get('uris') }), at) }))),
+            Effect.tap((value) => SubscriptionRef.update(store, HashMap.modifyAt(key, Option.match({ onNone: () => Option.some({ read, value, uris: HashSet.make(key, at) }), onSome: ({ uris }) => Option.some({ read, value, uris: HashSet.add(uris, at) }) })))),
             Effect.tapCauseIf(flow(Cause.findErrorOption, Option.exists(Cause.isNoSuchElementError)), () => SubscriptionRef.update(store, HashMap.remove(key))),
         );
     const cached = ({ key, content }: { readonly key: string; readonly content: Effect.Effect<A, Error> }) => Effect.flatMap(SubscriptionRef.get(store), flow(HashMap.get(key), Option.match({ onNone: () => observe(key, content), onSome: ({ value }) => Effect.succeed(value) })));
     const matchingEntry = (at: string, holds: Predicate.Predicate<A>) =>
         flow(
             Option.filter(holds),
-            Option.map((value: A) => Effect.map(encoded(value), (json) => [at, json] as const)),
+            Option.map(
+                flow(
+                    encoded,
+                    Effect.map((json) => [at, json] as const),
+                ),
+            ),
             Effect.transposeOption,
         );
-    const watch = (at: string) =>
-        Effect.acquireRelease(
-            Ref.update(
-                watched,
-                HashMap.modifyAt(at, (count) => Option.some(Option.getOrElse(count, () => 0) + 1)),
-            ),
-            () => Ref.update(watched, HashMap.modifyAt(at, flow(Option.map(Number.decrement), Option.filter(Number.isGreaterThan(0))))),
-        );
+    const watch = (at: string) => Effect.acquireRelease(Ref.update(watched, HashMap.modifyAt(at, flow(Option.map(Number.increment), Option.orElseSome(Function.constant(1))))), () => Ref.update(watched, HashMap.modifyAt(at, flow(Option.map(Number.decrement), Option.filter(Number.isGreaterThan(0))))));
     const reply = (at: string, value: A) =>
         value instanceof Uint8Array
             ? Effect.succeed(McpSchema.ReadResourceResult.make({ contents: [McpSchema.BlobResourceContents.make({ uri: at, mimeType: media, blob: value })] }))
@@ -58,7 +57,7 @@ const make = Effect.fnUntraced(function* <A, I, R, D extends { readonly mimeType
             Effect.fnUntraced(
                 function* ([key, entry]: readonly [string, Entry<A>]) {
                     const [value, watching] = yield* Effect.all([Effect.catchNoSuchElement(entry.read), Ref.get(watched)]);
-                    const kept = Option.filter(value, (next) => HashMap.has(watching, key) || Equal.equals(next, entry.value));
+                    const kept = HashMap.has(watching, key) ? value : Option.filter(value, Equal.equals(entry.value));
                     yield* SubscriptionRef.update(store, Option.match(kept, { onNone: () => HashMap.remove(key), onSome: (next) => HashMap.modify(key, Struct.assign({ value: next })) }));
                 },
                 Effect.ignoreCause({ log: 'Error' }),
@@ -69,7 +68,7 @@ const make = Effect.fnUntraced(function* <A, I, R, D extends { readonly mimeType
         Effect.forkScoped,
     );
     yield* SubscriptionRef.changes(store).pipe(
-        Stream.mapAccum(HashMap.empty<string, Entry<A>>, (last, current) => [current, Array.flatMap([...last], ([key, entry]) => (Option.contains(Option.map(HashMap.get(current, key), Struct.get('value')), entry.value) ? [] : [...entry.uris]))]),
+        Stream.mapAccum(HashMap.empty<string, Entry<A>>, (last, current) => [current, updatedUris(last, current)]),
         Stream.runForEach((uri) => server.notifications['notifications/resources/updated']({ uri })),
         Effect.forkScoped,
     );
@@ -85,22 +84,18 @@ const make = Effect.fnUntraced(function* <A, I, R, D extends { readonly mimeType
                 return {
                     refusal: UndefinedOr.match(refuse, {
                         onUndefined: () => Stream.empty,
-                        onDefined: (holds) =>
-                            Stream.unwrap(
-                                Effect.gen(function* () {
-                                    const located = yield* source;
-                                    yield* Effect.andThen(watch(located.key), current(located));
-                                    return SubscriptionRef.changes(store).pipe(Stream.map(flow(HashMap.get(located.key), Option.map(Struct.get('value')))), Stream.changes, Stream.mapEffect(matchingEntry(located.key, holds)));
-                                }),
-                            ),
+                        onDefined: Effect.fnUntraced(function* (holds: Predicate.Predicate<A>) {
+                            const located = yield* source;
+                            yield* Effect.andThen(watch(located.key), current(located));
+                            return SubscriptionRef.changes(store).pipe(Stream.map(flow(HashMap.get(located.key), Option.map(Struct.get('value')))), Stream.changes, Stream.mapEffect(matchingEntry(located.key, holds)));
+                        }, Stream.unwrap),
                     }),
                     report: UndefinedOr.match(report, {
                         onUndefined: () => Effect.succeedNone,
-                        onDefined: (holds) =>
-                            Effect.gen(function* () {
-                                const located = yield* source;
-                                return yield* matchingEntry(located.key, holds)(yield* current(located));
-                            }),
+                        onDefined: Effect.fnUntraced(function* (holds: Predicate.Predicate<A>) {
+                            const located = yield* source;
+                            return yield* matchingEntry(located.key, holds)(yield* current(located));
+                        }),
                     }),
                 };
             },
@@ -121,7 +116,7 @@ const register = Effect.fnUntraced(function* <A, I, E extends Error, R>({
     yield* McpServer.registerResource({ ...store.descriptor, uri, content: store.read(uri, uri, read) });
     return store.depend(Effect.succeed({ key: uri, content: read }));
 });
-const template = <const Schemas extends readonly Schema.Codec<unknown, unknown, never, never>[]>(path: TemplateStringsArray, ...schemas: Schemas) =>
+const template = <const Schemas extends readonly Schema.Codec<unknown, unknown>[]>(path: TemplateStringsArray, ...schemas: Schemas) =>
     Effect.fnUntraced(function* <A, I, E extends Error, R>({
         schema,
         content,
@@ -152,7 +147,7 @@ const template = <const Schemas extends readonly Schema.Codec<unknown, unknown, 
         });
         return (...params: Params<Schemas>) => store.depend(Effect.map(keyed(params), (key) => ({ key, content: reading(params, key) })));
     });
-const Resource = { make, register, template };
+const Resource = Object.assign(make, { register, template });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

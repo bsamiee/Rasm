@@ -2,23 +2,28 @@
 
 from collections import OrderedDict
 from collections.abc import Generator, Hashable
-from contextlib import closing, contextmanager, nullcontext
+from contextlib import closing, contextmanager
 from functools import partial
+from itertools import count, islice
 from typing import Final, Self
 
 import bpy
 import bpy.utils.previews
-from expression import Nothing, Ok, Option, Some
+from expression import Option, Some
 from expression.extra.result import catch
 import gpu
 import msgspec
 import numpy as np
 import numpy.typing as npt
 
-from blender.bpy.extension.identity import Resource
+from blender.bpy.extension.registration import Resource
 from blender.bpy.extension.reports import redrawn
 from blender.bpy.ui.resources.theme import Checker, Metrics
-from blender.records.faults import Fault, Outcome, Reason
+from blender.records.faults import Fault, Nothing, Ok, Outcome, Reason
+
+# --- [TYPES] ----------------------------------------------------------------------------
+
+type Texture[M] = tuple[gpu.types.GPUTexture, M]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -26,6 +31,11 @@ _FORMAT: Final = "RGBA16F"
 _COMPONENT: Final = np.dtype(np.float16)
 
 # --- [MODELS] ---------------------------------------------------------------------------
+
+
+class _Slot(msgspec.Struct, frozen=True, kw_only=True):
+    serial: Option[int]
+    finished: Hashable
 
 
 class PreviewKey(msgspec.Struct, frozen=True, kw_only=True):
@@ -55,12 +65,13 @@ class PreviewKey(msgspec.Struct, frozen=True, kw_only=True):
 class Previews:
     """Preview collection of one extension and the finished request per slot, pixelless requests included."""
 
-    __slots__ = ("collection", "drawn")
+    __slots__ = ("_serials", "collection", "held")
 
     def __init__(self, collection: bpy.utils.previews.ImagePreviewCollection) -> None:
         """Holds the collection with no finished request."""
         self.collection = collection
-        self.drawn: dict[str, Hashable] = {}
+        self.held: dict[Hashable, _Slot] = {}
+        self._serials = count()
 
     @classmethod
     @contextmanager
@@ -75,52 +86,57 @@ class Previews:
 
     # --- [READING]
 
-    def icon_id(self, slot: str) -> Option[int]:
-        """Returns slot icon ID, Nothing while slot holds no pixels."""
-        return Option.of_optional(self.collection.get(slot)).map(lambda preview: preview.icon_id)
+    def get(self, slot: Hashable) -> Option[bpy.types.ImagePreview]:
+        """Returns the slot's native preview, Nothing while it holds no pixels."""
+        return Option.of_optional(self.held.get(slot)).bind(lambda held: held.serial).map(lambda serial: self.collection[str(serial)])
 
-    def current(self, slot: str, key: Hashable) -> bool:
-        """Returns whether the slot finished the request."""
-        return self.drawn.get(slot) == key
+    def read(self, slot: Hashable, key: Hashable) -> Option[Option[bpy.types.ImagePreview]]:
+        """Returns the finished request's preview or pixelless result, Nothing for an absent or stale request."""
+        return Some(held.serial.map(lambda serial: self.collection[str(serial)])) if (held := self.held.get(slot)) is not None and held.finished == key else Nothing
 
     # --- [WRITING]
 
-    def written(self, slot: str, key: Hashable, plane: Option[npt.NDArray[np.float32]]) -> Outcome[Option[int]]:
+    def written(self, slot: Hashable, key: Hashable, plane: Option[npt.NDArray[np.float32]]) -> Outcome[Option[int]]:
         """Writes top-first RGBA into the slot's image and icon buffers at full size, or drops the slot for no pixels, then records the finished request."""
         match plane:
             case Option(tag="some", some=pixels):
                 height, width, _ = pixels.shape
-                preview = Option.of_optional(self.collection.get(slot)).default_with(lambda: self.collection.new(slot))
+                serial, preview = (
+                    Option
+                    .of_optional(self.held.get(slot))
+                    .bind(lambda held: held.serial)
+                    .map(lambda serial: (serial, self.collection[str(serial)]))
+                    .default_with(lambda: ((serial := next(self._serials)), self.collection.new(str(serial))))
+                )
                 filled(preview, np.ascontiguousarray(pixels[::-1]).reshape(-1), (width, height))
-                self.drawn[slot] = key
+                self.held[slot] = _Slot(serial=Some(serial), finished=key)
                 return redrawn().map(lambda _: Some(preview.icon_id))
             case _:
                 dropped = self.dropped(slot)
-                self.drawn[slot] = key
+                self.held[slot] = _Slot(serial=Nothing, finished=key)
                 return dropped.map(lambda _: Nothing)
 
-    def dropped(self, slot: str) -> Outcome[None]:
+    def dropped(self, slot: Hashable) -> Outcome[None]:
         """Clears slot and its finished request, redrawing when a preview was removed."""
-        self.drawn.pop(slot, None)
-        if slot in self.collection:
-            del self.collection[slot]
+        for serial in Option.of_optional(self.held.pop(slot, None)).bind(lambda held: held.serial).to_list():
+            del self.collection[str(serial)]
             return redrawn().map(lambda _: None)
         return Ok(None)
 
 
-class Textures:
-    """Preview textures of one extension, least recently shown first."""
+class Textures[M]:
+    """Preview textures and their metadata, least recently shown first."""
 
     __slots__ = ("held",)
 
     def __init__(self) -> None:
         """Holds no texture."""
-        self.held: OrderedDict[Hashable, gpu.types.GPUTexture] = OrderedDict()
+        self.held: OrderedDict[Hashable, Texture[M]] = OrderedDict()
 
     @property
     def memory(self) -> int:
         """Estimated base-level pixel bytes in the upload format."""
-        return sum(texture.width * texture.height for texture in self.held.values()) * 4 * _COMPONENT.itemsize
+        return sum(texture.width * texture.height for texture, _ in self.held.values()) * 4 * _COMPONENT.itemsize
 
     def cleared(self) -> int:
         """Releases every held texture, answering how many it held."""
@@ -128,13 +144,13 @@ class Textures:
         self.held.clear()
         return count
 
-    def shown(self, key: Hashable) -> Option[gpu.types.GPUTexture]:
-        """Reads texture by content digest or request key, marking it most recent."""
-        if key in self.held:
+    def shown(self, key: Hashable) -> Option[Texture[M]]:
+        """Reads texture and metadata by key, marking them most recent."""
+        if (entry := self.held.get(key)) is not None:
             self.held.move_to_end(key)
-        return Option.of_optional(self.held.get(key))
+        return Option.of_optional(entry)
 
-    def stored(self, key: Hashable, plane: npt.NDArray[np.float32], limit: int, kept: frozenset[Hashable]) -> Outcome[gpu.types.GPUTexture]:
+    def stored(self, key: Hashable, plane: npt.NDArray[np.float32], limit: int, kept: frozenset[Hashable], *, metadata: M) -> Outcome[Texture[M]]:
         """Uploads associated display colors drawn under `ALPHA_PREMULT` blending, evicting oldest unpinned textures past limit.
 
         Args:
@@ -142,18 +158,19 @@ class Textures:
             plane: Top-first RGBA with associated display colors.
             limit: Texture count past which eviction starts.
             kept: Keys open editors pin.
+            metadata: Value retained and evicted with the texture.
 
         Returns:
-            Uploaded texture, even when evicted, or GPU fault.
+            Uploaded texture and metadata, even when evicted, or GPU fault.
         """
 
-        def published(texture: gpu.types.GPUTexture) -> gpu.types.GPUTexture:
+        def published(texture: gpu.types.GPUTexture) -> Texture[M]:
             """Caches upload, evicting entries past limit."""
-            self.held[key] = texture
+            entry = self.held[key] = texture, metadata
             self.held.move_to_end(key)
-            for victim in [held for held in self.held if held not in kept][: max(0, len(self.held) - limit)]:
+            for victim in tuple(islice((held for held in self.held if held not in kept), max(0, len(self.held) - limit))):
                 del self.held[victim]
-            return texture
+            return entry
 
         return uploaded(plane).map(published)
 
@@ -185,8 +202,7 @@ def uploaded(plane: npt.NDArray[np.float32]) -> Outcome[gpu.types.GPUTexture]:
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 PREVIEWS: Final = Resource[Previews](made=lambda _identity: Previews.opened())
-TEXTURES: Final = Resource[Textures](made=lambda _identity: nullcontext(Textures()))
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["PREVIEWS", "TEXTURES", "PreviewKey", "Previews", "Textures", "filled", "uploaded"]
+__all__ = ["PREVIEWS", "PreviewKey", "Previews", "Texture", "Textures", "filled", "uploaded"]

@@ -1,0 +1,58 @@
+using System;
+using LanguageExt;
+using LanguageExt.Common;
+using LanguageExt.Traits;
+
+internal static class ValidationRoundTrip {
+    internal static Fin<int> Positive(int value) => value > 0 ? value : Error.New("negative");
+    internal static Fin<int> Sum(int left, int right) =>
+        (Positive(left), Positive(right))
+            .Apply(static (first, second) => first + second)
+            .As();
+    internal static Fin<Seq<int>> All(Seq<int> values) => values.Traverse(static value => Positive(value)).As();
+    internal static Fin<int> Nested(Seq<int> values, int last) =>
+        (values.Traverse(static value => Positive(value)).As(), Positive(last)).Apply(static (all, one) => all.Count + one).As();
+    internal static Fin<int> Single(int value) => Positive(value);
+    internal static Fin<int> Grouped(bool held, int value) => held ? Positive(value) : Positive(-value);
+    internal static Fin<Seq<int>> Queried(Seq<int> values) =>
+        values.Traverse(value =>
+            from first in Positive(value)
+            from second in Positive(first)
+            select second).As();
+    internal static Fin<int> Paired(bool held, int left, int right) =>
+        (held ? Positive(left) : Positive(right), Positive(right)).Apply(static (first, second) => first + second).As();
+
+    internal static Fin<int> Repeated(int value) => Positive(value);
+
+    internal static Fin<int> Static(int value) => Positive(value);
+
+    internal static Fin<int> Commented(Fin<int> value) => value /* conversion */;
+}
+
+internal static class ValidationKept {
+    internal static Fin<int> Positive(int value) => value > 0 ? value : Error.New("negative");
+    internal static Validation<Error, int> Kept(int left, int right) => (Positive(left).ToValidation(), Positive(right).ToValidation()).Apply(static (first, second) => first + second).As();
+    internal static Fin<int> Mixed(Validation<Error, int> held, int right) => (held, Positive(right).ToValidation()).Apply(static (first, second) => first + second).As().ToFin();
+}
+
+internal static class CustomConversions {
+    internal static Fin<int> Preserve(Fin<int> value) => ToFin(ToValidation(value));
+
+    internal static Validation<Error, int> ToValidation(Fin<int> value) => value.Map(static held => held + 1).ToValidation();
+
+    internal static Fin<int> ToFin(Validation<Error, int> value) => value.ToFin().Map(static held => held * 2);
+}
+
+internal static class CustomComposition {
+    internal static Fin<int> Paired(Fin<int> left, Fin<int> right) =>
+        (left.ToValidation(), right.ToValidation()).Pretend(static (first, second) => first + second).As().ToFin();
+
+    internal static Fin<Seq<int>> Traversed(Seq<int> values) =>
+        values.Pretend(static value => ValidationRoundTrip.Positive(value).ToValidation()).As().ToFin();
+
+    internal static K<Validation<Error>, int> Pretend(this (Validation<Error, int>, Validation<Error, int>) values, Func<int, int, int> apply) =>
+        Validation.Success<Error, int>(apply(0, 0));
+
+    internal static K<Validation<Error>, Seq<int>> Pretend(this Seq<int> values, Func<int, K<Validation<Error>, int>> apply) =>
+        Validation.Success<Error, Seq<int>>(values);
+}

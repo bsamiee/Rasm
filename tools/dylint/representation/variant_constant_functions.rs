@@ -10,9 +10,9 @@ use rustc_hir::{
     def_id::{DefId, LocalDefId},
 };
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_middle::ty::AdtDef;
+use rustc_middle::ty::{self, AdtDef};
 
-use super::{fieldless_local_enum, variant_collection};
+use super::fieldless_local_enum;
 use crate::{expanded_externally, generated};
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -25,14 +25,16 @@ pub(crate) struct Pass {
 
 lint!(default Pass; VARIANT_CONSTANT_FUNCTIONS: "functions that each match every variant of a fieldless local enum to one constant");
 
+// --- [COMPOSITION] ---------------------------------------------------------------------
+
 impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
         let typeck = cx.typeck_results();
-        if generated(cx, expr.hir_id) {
-            return;
-        }
         match expr.kind {
-            ExprKind::Match(scrutinee, arms, _) if let Some(keyed) = fieldless_local_enum(typeck.expr_ty_adjusted(scrutinee)) => {
+            ExprKind::Match(scrutinee, arms, _)
+                if let Some(keyed) = fieldless_local_enum(typeck.expr_ty_adjusted(scrutinee))
+                    && !generated(cx, expr.hir_id) =>
+            {
                 let owner = cx.tcx.hir_enclosing_body_owner(expr.hir_id);
                 let tabled = !expanded_externally(cx, expr.span)
                     && matches!(cx.tcx.def_kind(owner), DefKind::Fn | DefKind::AssocFn)
@@ -53,9 +55,16 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 }
             }
             ExprKind::Binary(operator, compared, _) if matches!(operator.node, BinOpKind::Eq | BinOpKind::Ne) =>
-                self.reads.extend(fieldless_local_enum(typeck.expr_ty_adjusted(compared)).map(AdtDef::did)),
-            ExprKind::Let(binding) => self.reads.extend(fieldless_local_enum(typeck.expr_ty_adjusted(binding.init)).map(AdtDef::did)),
-            _ => self.reads.extend(variant_collection(cx, expr).map(|(_, keyed)| keyed.did())),
+                self.reads.extend(fieldless_local_enum(typeck.expr_ty_adjusted(compared)).filter(|_| !generated(cx, expr.hir_id)).map(AdtDef::did)),
+            ExprKind::Let(binding) => self.reads.extend(fieldless_local_enum(typeck.expr_ty_adjusted(binding.init)).filter(|_| !generated(cx, expr.hir_id)).map(AdtDef::did)),
+            _ => self.reads.extend(
+                match typeck.expr_ty(expr).kind() {
+                    ty::Array(element, _) => fieldless_local_enum(*element).map(AdtDef::did),
+                    ty::Adt(_, arguments) => arguments.types().next().and_then(fieldless_local_enum).map(AdtDef::did),
+                    _ => None,
+                }
+                .filter(|_| !generated(cx, expr.hir_id)),
+            ),
         }
     }
 

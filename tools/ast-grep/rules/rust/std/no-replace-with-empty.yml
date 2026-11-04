@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-replace-with-empty
-language: rust
+language: rustlang
 severity: error
 rule:
     kind: assignment_expression
@@ -8,6 +8,5 @@ rule:
         - any:
             - pattern: $S = $S.replace($P, "")
             - pattern: '*$S = $S.replace($P, "")'
-fix: $S.remove_matches($P)
 message: '`replace` of `$P` with an empty replacement rebuilds `$S`'
 note: 'Call `<string>.remove_matches(<pattern>)` (`#![feature(string_remove_matches)]`)'

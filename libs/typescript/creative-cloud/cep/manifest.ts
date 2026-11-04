@@ -1,4 +1,4 @@
-import { Manifest } from '@rasm/uxp/manifest';
+import { UxpManifest } from '@rasm/uxp';
 import { Schema } from 'effect';
 import Builder from 'fast-xml-builder';
 
@@ -11,8 +11,8 @@ const XML = new Builder({ ignoreAttributes: false, format: true, indentBy: '    
 class ExtensionManifest extends Schema.Class<ExtensionManifest, { readonly brand: unique symbol }>('ExtensionManifest')({
     id: Schema.String,
     name: Schema.String,
-    version: Manifest.Version,
-    host: Schema.Struct({ app: Schema.Literals(['ILST', 'AEFT', 'PHXS', 'IDSN', 'PPRO', 'AUDT', 'FLPR', 'DRWV', 'KBRG', 'AME']), minVersion: Manifest.Version, maxVersion: Schema.optionalKey(Manifest.Version) }),
+    version: UxpManifest.Version,
+    host: Schema.Struct({ app: Schema.Literals(['ILST', 'AEFT', 'PHXS', 'IDSN', 'PPRO', 'AUDT', 'FLPR', 'DRWV', 'KBRG', 'AME']), minVersion: UxpManifest.Version, maxVersion: Schema.optionalKey(UxpManifest.Version) }),
 }) {
     static readonly target = 'es3';
     static readonly chromium = 'chrome99';

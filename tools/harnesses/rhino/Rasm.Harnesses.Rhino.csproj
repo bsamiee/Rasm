@@ -1,6 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>Rhino and Grasshopper 2 proof engine loaded into the host for one batch of cases</Description>
+        <Description>Rhino and Grasshopper 2 cases loaded into the host for one batch</Description>
+        <EnableDynamicLoading>true</EnableDynamicLoading>
+        <MSBuildWarningsAsMessages>$(MSBuildWarningsAsMessages);BC0202</MSBuildWarningsAsMessages>
     </PropertyGroup>
 
     <PropertyGroup Label="Install Runtime" Condition="'$(RhinoInstallPath)' != ''">
@@ -12,13 +14,25 @@
         <PublicizerRuntimeStrategies>Unsafe</PublicizerRuntimeStrategies>
     </PropertyGroup>
 
+    <ItemGroup Label="Core">
+        <PackageReference Include="Namotion.Reflection" />
+    </ItemGroup>
+
     <ItemGroup Label="Batch">
         <Compile Include="$(HarnessCases)" Condition="'$(HarnessCases)' != ''" />
-        <Compile Include="$(HarnessRebuilt)" Condition="'$(HarnessRebuilt)' != ''" />
-        <Reference Include="$(HarnessPlugIn)" Private="false" Condition="'$(HarnessPlugIn)' != ''" />
-        <PackageReference Include="Krafs.Publicizer" PrivateAssets="all" ExcludeAssets="contentfiles" Condition="'$(HarnessPlugIn)' != ''" />
-        <Publicize Include="$([System.IO.Path]::GetFileNameWithoutExtension('$(HarnessPlugIn)'))" Condition="'$(HarnessPlugIn)' != ''" />
     </ItemGroup>
+
+    <ItemGroup Label="Plug-In" Condition="'$(HarnessPlugIn)' != ''">
+        <Reference Include="$(HarnessPlugIn)" Private="false" />
+        <PackageReference Include="Krafs.Publicizer" PrivateAssets="all" ExcludeAssets="contentfiles" />
+        <Publicize Include="$([System.IO.Path]::GetFileNameWithoutExtension('$(HarnessPlugIn)'))" />
+    </ItemGroup>
+
+    <Target Name="ReferencePlugInDependencies" AfterTargets="ResolveAssemblyReferences" Condition="'$(HarnessPlugIn)' != ''">
+        <ItemGroup>
+            <ReferencePath Include="@(ReferenceDependencyPaths->WithMetadataValue('OriginalItemSpec', '$(HarnessPlugIn)'))" />
+        </ItemGroup>
+    </Target>
 
     <Target Name="ReferenceRhinoInstall" AfterTargets="ResolveLockFileReferences" DependsOnTargets="ResolveRhinoMacHost" Condition="'$(TargetPlatformIdentifier)' != 'Windows'">
         <ItemGroup>

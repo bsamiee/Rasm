@@ -6,5 +6,8 @@
     "dependencies": {
         "@rasm/cep": "workspace:*",
         "@rasm/illustrator": "workspace:*"
+    },
+    "devDependencies": {
+        "@rasm/atelier": "workspace:*"
     }
 }

@@ -8,12 +8,8 @@
         "#/*": "./*.ts"
     },
     "exports": {
-        "./apple-events": "./apple-events.ts",
-        "./applications": "./applications.ts",
-        "./automation": "./automation.ts",
-        "./available-face": "./available-face.ts",
-        "./requests": "./requests.ts",
-        "./typesetting": "./typesetting.ts"
+        ".": "./index.ts",
+        "./node": "./node.ts"
     },
     "dependencies": {
         "@rasm/search": "workspace:*",

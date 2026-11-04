@@ -68,7 +68,7 @@ Declaration rules the analyzer enforces:
 | :-----: | :----------------------------------- | :-------------------------------------------------------------------------------------- |
 |  [01]   | `Create(value)`                      | Validates and returns instance, or throws `ValidationException` with error text         |
 |  [02]   | `TryCreate(value, out obj)`          | Returns `false` on rejection, 3-parameter overload returns the error                    |
-|  [03]   | `Validate(value, provider, out obj)` | Returns error or `null` and never throws, complex form has no provider                  |
+|  [03]   | `Validate(value, provider, out obj)` | Returns error or `null`, complex form has no provider                                   |
 |  [04]   | Equality, `GetHashCode`, `==`, `!=`  | Run through the configured comparer                                                     |
 |  [05]   | `ToString()`                         | Key's `ToString()`, or `{ Lower = 1.23, Upper = 2.57 }` for the complex form            |
 |  [06]   | `IComparable<T>`, `IFormattable`     | Present when the key is comparable or formattable, simple form only                     |
@@ -387,14 +387,14 @@ internal sealed partial class TextOrCount {
 
 ## [06]-[VALIDATED_RESULTS]
 
-Generated members return no result type and take no rule delegate, `Validate` returns the error beside an `out` value, `TryCreate` a `bool`, and `Create` throws. Each type a `Fin` caller constructs declares one `Validated`, with `Fault` the package error record dotnet-coding declares:
+Generated `Validate` returns an error beside an `out` value, `TryCreate` returns `bool`, and `Create` throws. Domain factories returning `Fin` preserve native typed errors, with `Fault` the error record dotnet-coding declares:
 - Types no serializer, binder, `TypeConverter`, or `Parse` reads set `SkipFactoryMethods = true` and drop `[ValidationError<Fault>]` with the hook
 - Their `Validated(members)` states the rule once, a numeric range included, as `Fault.Unless(rule, reason, members).Map(_ => new X(members))` over private constructor
 - Members pass as the subject, one value or a tuple, and the message names each with its value, no type writes message text
 - Independent rules join under the tuple `Apply`, a rule per element traverses with its index
 - Types a serializer, binder, `TypeConverter`, or `Parse` reads keep the hook, and `Validated` is `TryCreate(members, out X? x, out Fault? fault) ? x : fault`
 - `[ObjectFactory]` converters on a `SkipFactoryMethods` type cost a `Validate` converting `Fin` back and change a complex type's wire shape
-- Consumers and successors cross through `Validated`, a `Validate` or `TryCreate` call outside the type is a defect
+- Generic consumers reach `Validate` through `IObjectFactory<T, TValue, TValidationError>`, retaining its nullable error and value contract
 - Ranges a relative change reaches implement `IMinMaxValue<TSelf>`, the change saturates into `MinValue` and `MaxValue` before `Validated`
 - Absence as the meaning is `X.Validated(raw).ToOption()`
 - Literal defaults pass to private constructor inside the type, outside it a hook type's to `Create` and a skipped type's to `Validated(…).ThrowIfFail()`
@@ -429,8 +429,8 @@ internal static class Crossings {
 ## [07]-[CONVENIENCE_MEMBERS]
 
 Plain static members the package supplies beside its generators stay at the BCL boundary, code behind it uses `Seq<A>()`, `Seq(x)`, `Set(x)`, and `toSeq` in their place:
-- `Thinktecture.Empty.Action` converts to every `Action` delegate up to 16 parameters
-- `Empty.Disposable()` and `Empty.AsyncDisposable()` return cached no-op instances
+- `Thinktecture.Empty.Action` converts to `Action` delegates through arity 16
+- `Empty.Disposable()` and `Empty.AsyncDisposable()` return cached no-op resources
 - `Empty.Collection<T>()`, `Empty.Dictionary<TKey, TValue>()`, `Empty.Lookup<TKey, TValue>()`, and `Empty.Set<T>()` return cached read-only empties
 - Empties follow the argument rules of the BCL collections, a `null` key throws on the dictionary
 - `SingleItem.Set` and `SingleItem.Dictionary` build a read-only collection around one item with an optional comparer

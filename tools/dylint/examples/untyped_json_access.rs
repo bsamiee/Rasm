@@ -126,10 +126,14 @@ fn main() {
         black_box(&(&Carrier(&object)[NAME], Flags(&object)[NAME]));
         streamed(text).transpose()?;
         head(&listed(&tool.size.to_string())?);
-        bound_key(&document);
+        black_box((bound_key(&document), indirect_key(&document)));
         taken(&mut document);
         rendered(&counts("[1, 2]")?)?;
         Ok(())
     };
     black_box(&(run(), NAME));
 }
+
+fn transformed(key: &str) -> String { format!("prefix-{key}") }
+
+fn indirect_key(document: &Value) -> Option<&Value> { document.get(transformed("name")) }

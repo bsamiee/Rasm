@@ -1,10 +1,11 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: typescript-local-binding
-language: tsx
+language: tsxlang
+arguments: [owner]
 utils:
     binding:
         any:
-            - kind: identifier, shorthand_property_identifier_pattern
+            - kind: identifier, undefined, shorthand_property_identifier_pattern
               pattern: $NAME
             - kind: object_pattern, array_pattern, rest_pattern
               has: {matches: binding}
@@ -14,31 +15,39 @@ utils:
               has: {field: value, matches: binding}
     declaration:
         any:
-            - kind: lexical_declaration, variable_declaration
+            - kind: lexical_declaration, using_declaration
               has: {kind: variable_declarator, has: {field: name, matches: binding}}
             - kind: function_declaration, generator_function_declaration, class_declaration, abstract_class_declaration, enum_declaration, internal_module
               has: {field: name, pattern: $NAME}
             - kind: expression_statement
               has: {kind: internal_module, has: {field: name, pattern: $NAME}}
+            - kind: import_alias
+              has: {kind: 'identifier, undefined', nthChild: 1, pattern: $NAME}
+            - kind: import_statement
+              has: {kind: import_require_clause, has: {kind: 'identifier, undefined', nthChild: 1, pattern: $NAME}}
             - kind: export_statement
               has: {matches: declaration}
 rule:
-    kind: identifier
+    kind: identifier, undefined, shorthand_property_identifier
     pattern: $NAME
     inside:
         stopBy: end
+        pattern: $SCOPE
         any:
             - kind: function_declaration, generator_function_declaration, function_expression, generator_function, class
               has: {field: name, pattern: $NAME}
             - matches: typescript-function-boundary
               any:
-                - has: {field: parameter, kind: identifier, pattern: $NAME}
+                - has: {field: parameter, kind: 'identifier, undefined', pattern: $NAME}
                 - has: {field: parameters, has: {has: {field: pattern, matches: binding}}}
             - kind: for_in_statement
-              has: {field: left, matches: binding}
+              all:
+                - has: {field: kind, pattern: $$_, not: {regex: '^var$'}}
+                - has: {field: left, matches: binding}
             - kind: for_statement
               has:
                 field: initializer
+                kind: lexical_declaration, using_declaration
                 has:
                     kind: variable_declarator
                     has: {field: name, matches: binding}
@@ -47,4 +56,16 @@ rule:
             - kind: statement_block, program
               has: {matches: declaration}
             - kind: switch_body
-              has: {kind: switch_case, has: {matches: declaration}}
+              has: {kind: 'switch_case, switch_default', has: {matches: declaration}}
+            - all:
+                - any: [{kind: 'program, class_static_block, internal_module'}, {matches: typescript-function-boundary}]
+                - regex: '\bvar\b'
+                - has:
+                    stopBy: {kind: 'function_declaration, generator_function_declaration, method_definition, arrow_function, function_expression, generator_function, class, class_declaration, abstract_class_declaration, class_static_block, internal_module'}
+                    any:
+                        - kind: variable_declaration
+                          has: {kind: variable_declarator, has: {field: name, matches: binding}}
+                        - kind: for_in_statement
+                          all: [{has: {field: kind, regex: '^var$'}}, {has: {field: left, matches: binding}}]
+constraints:
+    SCOPE: {matches: owner}

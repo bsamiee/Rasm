@@ -1,11 +1,13 @@
 """Joins: one join band with its foot on the baseline, every joining edge extending the band into its neighbor, and the kashida drawn as the band."""
 
+lazy from graphlib import TopologicalSorter
+
 import msgspec
-lazy from expression import Error, Ok
+lazy from fontTools.misc.transform import Identity, Offset, Transform
 
 from typography.faces.declaration import Em
 from typography.rules.measures import Rule
-lazy from typography.faces.faults import Fault, Outcome, Reason
+lazy from typography.faces.faults import Error, Fault, Ok, Outcome, Reason
 lazy from typography.faces.glyphs import Glyph, Letter, Ligature, Source
 lazy from typography.outlines.paths import Box, strip, union
 lazy from typography.rules.measures import band, mapped
@@ -44,12 +46,22 @@ def joined(source: Source, rule: Joins, /) -> Outcome[Source]:
     match band(source):
         case (low, high):
             thickness, reach, length, kashida = high - low, rule.overlap * source.upm, rule.length * source.upm, rule.kashida
-            moved = tuple(
-                _bridged(mapped(glyph, (1.0, 0.0, 0.0, 1.0, 0.0, -low)), thickness, reach) for glyph in source.glyphs if isinstance(glyph.role, Letter | Ligature) and glyph.name.codes != (kashida,)
-            )
+            matrices: dict[str, Transform] = {}
+            for name in TopologicalSorter({name: tuple(part.name for part in glyph.components) for name, glyph in source.named.items()}).static_order():
+                glyph = source.named[name]
+                match glyph:
+                    case Glyph(role=Letter() | Ligature()):
+                        matrices[name] = Offset(0.0, -low)
+                    case Glyph(contours=(), components=(part,)):
+                        target = matrices[part.name]
+                        matrices[name] = Offset(*Transform(*part.transform).transformVector((target.dx, target.dy)))  # type: ignore[no-untyped-call]
+                    case _:
+                        matrices[name] = Identity
+            placed = mapped(source, matrices)
+            moved = tuple(_bridged(glyph, thickness, reach) for glyph in placed.glyphs if isinstance(glyph.role, Letter | Ligature) and glyph.name.codes != (kashida,))
             bar = Box(xmin=-reach, ymin=0.0, xmax=length + reach, ymax=thickness).contour
-            drawn = tuple(msgspec.structs.replace(mapped(glyph, (1.0, 0.0, 0.0, 1.0, 0.0, -low)), advance=length, contours=(bar,)) for glyph in source.glyphs if glyph.name.codes == (kashida,))
-            return Ok(source.replaced(*moved, *drawn))
+            drawn = tuple(msgspec.structs.replace(glyph, advance=length, contours=(bar,)) for glyph in placed.glyphs if glyph.name.codes == (kashida,))
+            return Ok(placed.replaced(*moved, *drawn))
         case _:
             return Error(Fault.of(Reason.ABSENT, source.face.stem, member="medial forms for a join band"))
 

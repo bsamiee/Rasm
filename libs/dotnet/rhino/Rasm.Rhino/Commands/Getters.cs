@@ -118,7 +118,7 @@ public sealed record StageKit<TStage, TValue>(
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record StageStep<TStage, TValue> {
     internal static IO<Next<StageTrail<TStage>, TValue>> Transition(StageTrail<TStage> trail, Func<TStage, StageKit<TStage, TValue>, IO<StageStep<TStage, TValue>>> prompt) =>
-        from step in prompt(trail.Current, Kit(trail)).Catch(Getters.Retried, static error => IO.pure<StageStep<TStage, TValue>>(new Retry(error)))
+        from step in prompt(trail.Current, Kit(trail)) | @catch(Getters.Retried, static error => IO.pure<StageStep<TStage, TValue>>(new Retry(error)))
         from next in step.Switch(
             trail,
             advance: static (at, advance) => IO.pure(Next.Loop<StageTrail<TStage>, TValue>(advance.Undoable ? new StageTrail<TStage>(advance.Stage, at.Current.Cons(at.Earlier)) : at with { Current = advance.Stage })),
@@ -179,7 +179,7 @@ public static class Getters {
             GetResult.Cancel or GetResult.Timeout => Errors.Cancelled,
             GetResult.Nothing => new RhinoFault(prompt, RhinoReason.Nothing),
             GetResult.ExitRhino => new RhinoFault(prompt, RhinoReason.Exited),
-            _ => new RhinoFault(prompt, RhinoReason.Declined, Inner: Error.New(result.ToString())),
+            _ => new RhinoFault((prompt, result), RhinoReason.Declined),
         }))
         select answer;
 
@@ -218,7 +218,7 @@ public static class Getters {
         from answer in value is Error error ? IO.fail<T>(error) : message(value)
         select answer;
 
-    private static IO<T> Unhandled<T>(object value) => IO.fail<T>(new RhinoFault(value.GetType().Name, RhinoReason.Mismatched));
+    private static IO<T> Unhandled<T>(object value) => IO.fail<T>(new RhinoFault(value.GetType(), RhinoReason.Mismatched));
 
     // --- [POINTS]
     public static IO<T> Point<T>(RhinoDoc doc, PointRequest<T> request, Func<WorldPick, IO<T>> picked) =>

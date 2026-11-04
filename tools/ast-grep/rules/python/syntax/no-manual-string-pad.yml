@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-manual-string-pad
-language: python
+language: pythonlang
 severity: error
 utils:
     count:
@@ -89,28 +89,8 @@ utils:
                     - any: [{follows: {matches: derived-interpolation}}, {precedes: {matches: derived-interpolation}}]
     padded:
         any: [{matches: left-padded}, {matches: right-padded}, {matches: field-padded}, {matches: centered}]
-    compound-text:
-        has:
-            stopBy: end
-            pattern: $TEXT
-            kind: binary_operator, boolean_operator, comparison_operator, not_operator, unary_operator, conditional_expression, await, lambda
 rule:
-    any:
-        - kind: string_start
-          pattern: $UNFIXED
-          inside:
-            kind: string
-            regex: '\n'
-            any: [{matches: padded}, {inside: {stopBy: end, matches: padded}}]
-        - not: {matches: python-multiline-string}
-          any:
-            - all:
-                - not: {has: {stopBy: end, kind: comment}}
-                - any:
-                    - all: [{matches: left-padded}, {pattern: $LEFT_JUSTIFIED}, {not: {matches: compound-text}}]
-                    - all: [{matches: right-padded}, {pattern: $RIGHT_JUSTIFIED}, {not: {matches: compound-text}}]
-                    - all: [{matches: field-padded}, {pattern: $FIELDS}, {not: {matches: compound-text}}]
-            - all: [{matches: padded}, {pattern: $UNFIXED}]
+    matches: padded
 constraints:
     FILL:
         kind: string
@@ -119,39 +99,5 @@ constraints:
                 (?i:[bu])?(?:"(?:[^"\\\n]|\\(?:[\\'"abfnrtv]|[0-7]{1,3}|x[0-9a-fA-F]{2}))"|'(?:[^'\\\n]|\\(?:[\\'"abfnrtv]|[0-7]{1,3}|x[0-9a-fA-F]{2}))')
                 |(?i:r|rb|br)(?:"[^"\\\n]"|'[^'\\\n]')
             )$
-rewriters:
-    - id: ljust
-      rule: {kind: binary_operator}
-      transform: &arguments
-        JOINED: {replace: {source: $HEAD, replace: '(?s)^(.+)$', by: '${1} + '}}
-        LISTED: {replace: {source: $FILL, replace: '^(.+)$', by: ', ${1}'}}
-        ARGUMENT: {replace: {source: $LISTED, replace: '^, (?i:[bur]|rb|br)?(?:" "|'' '')$', by: ''}}
-      fix: $JOINED$TEXT.ljust($WIDTH$ARGUMENT)
-    - id: ljust-in-place
-      rule: {kind: augmented_assignment}
-      transform: *arguments
-      fix: $TEXT = $TEXT.ljust($WIDTH$ARGUMENT)
-    - id: rjust
-      rule: {kind: binary_operator}
-      transform: *arguments
-      fix: $JOINED$TEXT.rjust($WIDTH$ARGUMENT)
-    - id: ljust-field
-      rule: {matches: text-interpolation, precedes: {matches: fill-interpolation}}
-      transform: *arguments
-      fix: '{$TEXT.ljust($WIDTH$ARGUMENT)}'
-    - id: rjust-field
-      rule: {matches: text-interpolation, follows: {matches: fill-interpolation, not: {follows: {matches: text-interpolation}}}}
-      transform: *arguments
-      fix: '{$TEXT.rjust($WIDTH$ARGUMENT)}'
-    - id: dropped-run
-      rule:
-        matches: fill-interpolation
-        any: [{follows: {matches: text-interpolation}}, {precedes: {matches: text-interpolation}}]
-      fix: ''
-transform:
-    LEFT_OUT: rewrite($LEFT_JUSTIFIED, rewriters=[ljust-in-place, ljust])
-    RIGHT_OUT: rewrite($RIGHT_JUSTIFIED, rewriters=[rjust])
-    FIELD_OUT: rewrite($FIELDS, rewriters=[ljust-field, rjust-field, dropped-run])
-fix: $LEFT_OUT$RIGHT_OUT$FIELD_OUT$UNFIXED
 message: 'Repeated `$FILL` pads `$TEXT` by hand'
-note: 'Call `<text>.ljust(<width>, <fill>)`, `<text>.rjust(<width>, <fill>)`, or `<text>.center(<width>, <fill>)`'
+note: 'Use string padding methods with equivalent operand evaluation and builtin ownership'

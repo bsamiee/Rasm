@@ -19,6 +19,11 @@ test    = false
 doctest = false
 bench   = false
 
+# --- [TEST]
+[[test]]
+name = "series"
+path = "../../../../tests/rust/geospatial/weather/series.rs"
+
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
 # --- [RUNTIME]
@@ -28,7 +33,9 @@ nonempty-collections = { workspace = true }
 thiserror            = { workspace = true }
 validated            = { workspace = true }
 derive_more          = { workspace = true }
+dashu                = { workspace = true }
 bounded-integer      = { workspace = true }
+indexmap             = { workspace = true }
 itertools            = { workspace = true }
 csv                  = { workspace = true }
 serde                = { workspace = true }
@@ -43,11 +50,16 @@ uom                  = { workspace = true }
 grib                 = { workspace = true }
 solar-positioning    = { workspace = true }
 thermalcomfort       = { workspace = true }
+twofloat             = { workspace = true }
 rasm-proximity       = { workspace = true }
 rasm-stats           = { workspace = true }
 rasm-site            = { workspace = true }
 rasm-solar           = { workspace = true }
 rasm-analysis        = { workspace = true }
+
+# --- [TESTING]
+[dev-dependencies]
+approx = { workspace = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

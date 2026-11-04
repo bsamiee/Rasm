@@ -226,9 +226,9 @@ fn split(decay: &Decay, early: Time) -> Result<[f64; 2], SpectraError> {
 fn regression(levels: ArrayView1<'_, f64>, range: RangeInclusive<f64>) -> Option<Regression> {
     let first = levels.iter().position(|level| *level <= range.start)?;
     let run = levels.iter().skip(first).take_while(|level| **level >= range.last).copied().collect::<Col<f64>>();
-    let design = (run.nrows() > 1).then(|| Mat::from_fn(run.nrows(), 2, |row, power| convert::<usize, f64>(row).powf(convert::<usize, f64>(power))))?;
+    let design = (run.nrows() > 1).then(|| Mat::from_fn(run.nrows(), 2, |row, power| if power == 0 { 1.0 } else { convert::<usize, f64>(row) }))?;
     let fit = design.qr().solve_lstsq(&run);
-    let &[intercept, slope] = fit.try_as_col_major()?.as_slice().first_chunk::<2>()?;
+    let (intercept, slope) = (fit[0], fit[1]);
     let residual = (&run - &design * &fit).squared_norm_l2();
     let spread = (&run - Col::full(run.nrows(), run.sum() / convert::<usize, f64>(run.nrows()))).squared_norm_l2();
     (slope < 0.0).then_some(Regression { first, intercept, slope, nonlinearity: residual / spread })

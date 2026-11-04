@@ -34,14 +34,14 @@ public static class Environments {
             select texture, string.Create(CultureInfo.InvariantCulture, $"gain {intensity}"));
 
     // --- [LIGHTING]
-    public static IO<ContentKey> LightingKey(RhinoDoc doc) =>
+    public static IO<UInt128> LightingKey(RhinoDoc doc) =>
         from lights in IO.lift(() => Conversions.Rows(doc.Lights).Filter(static row => !row.IsDeleted).Map(static row => (row.Id, Crc: row.LightGeometry.DataCRC(0))).Strict())
         from sky in RenderSettingsSources.Read(doc, static scope =>
             (from sun in use(() => scope.Settings.Sun)
              from skylight in use(() => scope.Settings.Skylight)
              select (Sun: sun.Hash, Skylight: skylight.Enabled, Shadow: skylight.ShadowIntensity)).Bracket())
         from environment in Current(doc, RenderSettings.EnvironmentUsage.Skylighting).Map(static held => held.Map(static lit => lit.RenderHash))
-        select ContentKey.Of<RenderEnvironment>(stream => stream
+        select ContentKeys.Of<RenderEnvironment>(stream => stream
             .Rows(lights, static (row, light) => row.Id(light.Id).Integer(light.Crc))
             .Integer(sky.Sun)
             .Integer(sky.Skylight ? 1 : 0)

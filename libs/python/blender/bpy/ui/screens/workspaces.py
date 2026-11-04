@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Self, TYPE_CHECKING
 
 import bpy
-from expression import Nothing, Ok, Option, Some
+from expression import Option, Some
 from expression.collections import Block
 from expression.extra.result import catch
 import msgspec
@@ -15,11 +15,10 @@ from blender.bpy.commands.operators import called, Operation
 from blender.bpy.data.ids.ownership import kept, Ownership, Saved
 from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.descriptors import written
-from blender.bpy.extension.events import Startup
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.extension.registration import Acquisitions
+from blender.bpy.extension.registration import Acquisitions, Startup
 from blender.bpy.files.libraries import blocks_loaded
-from blender.records.faults import accumulated, Fault, Outcome, Reason
+from blender.records.faults import accumulated, Fault, Nothing, Ok, Outcome, Reason
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -67,9 +66,9 @@ class WorkspaceSetup(msgspec.Struct, frozen=True, kw_only=True):
         """Workspace ownership, fake user keeping screens and marks in saved file."""
         return Ownership(kind=bpy.types.WorkSpace, key=self.key, saved=Saved.ALWAYS)
 
-    def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
+    def acquisitions(self, identity: Identity) -> Acquisitions:
         """Declares ownership and add-on filters applied after registration and every file load."""
-        return Ok((self.ownership, *(Startup(body=partial(self.filtered, identity)) for _ in self.owners.to_list())))
+        return (self.ownership, *(Startup(body=partial(self.filtered, identity)) for _ in self.owners.to_list()))
 
     # --- [FILTERING]
 

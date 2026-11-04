@@ -4,6 +4,7 @@
     </PropertyGroup>
 
     <ItemGroup Label="Core">
+        <PackageReference Include="CommunityToolkit.HighPerformance" />
         <PackageReference Include="NodaTime" />
     </ItemGroup>
 
@@ -15,6 +16,7 @@
     <ItemGroup Label="Algorithms and Data Structures">
         <PackageReference Include="QuikGraph" />
         <PackageReference Include="RBush.Signed" />
+        <PackageReference Include="Singulink.Collections.Weak" />
         <PackageReference Include="SuperLinq" />
     </ItemGroup>
 

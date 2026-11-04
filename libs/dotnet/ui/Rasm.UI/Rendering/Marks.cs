@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Numerics;
 using System.Numerics.Tensors;
 using System.Runtime.InteropServices;
@@ -26,10 +27,10 @@ internal static class Marks {
     private static readonly SKRuntimeShaderBuilder Lookup = SKRuntimeEffect.BuildShader($$"""
         uniform shader values;
         uniform shader ramp;
-        uniform half4 weights;
+        uniform float4 weights;
         half4 main(float2 p) {
-            half v = dot(values.eval(p), weights);
-            return v < 0.0 ? half4(0.0) : ramp.eval(float2((v * {{Steps - 1}}.0) + 0.5, 0.5));
+            float v = dot(float4(values.eval(p)), weights);
+            return v >= 0.0 && !isinf(v) ? ramp.eval(float2((v * {{Steps - 1}}.0) + 0.5, 0.5)) : half4(0.0);
         }
         """);
 
@@ -48,10 +49,10 @@ internal static class Marks {
         }
         Seq<SKPaint> paints = Edged(pass, layout, context, points, key.Frame, key.Pen);
         canvas.DrawPicture(pass.Cache.Dots.GetOrAdd((key, paints), () => {
-            Seq<SKPoint> at = points.At.Map(key.Frame.Point).Strict();
+            SKPoint[] at = [.. points.At.Map(key.Frame.Point)];
             using SKPictureRecorder recorder = new();
             SKCanvas recording = recorder.BeginRecording(Reach(at, key.Pen.Stroke));
-            _ = paints.Iter(paint => recording.DrawPoints(SKPointMode.Points, [.. at], paint));
+            _ = paints.Iter(paint => recording.DrawPoints(SKPointMode.Points, at, paint));
             return recorder.EndRecording();
         }));
     }
@@ -104,8 +105,8 @@ internal static class Marks {
         })));
     }
 
-    private static SKRect Reach(Seq<SKPoint> points, float radius) {
-        SKRect bounds = points.Fold(new SKRect(float.PositiveInfinity, float.PositiveInfinity, float.NegativeInfinity, float.NegativeInfinity),
+    private static SKRect Reach(IEnumerable<SKPoint> points, float radius) {
+        SKRect bounds = points.Aggregate(new SKRect(float.PositiveInfinity, float.PositiveInfinity, float.NegativeInfinity, float.NegativeInfinity),
             static (held, at) => new SKRect(float.Min(held.Left, at.X), float.Min(held.Top, at.Y), float.Max(held.Right, at.X), float.Max(held.Bottom, at.Y)));
         return SKRect.Inflate(bounds, radius, radius);
     }
@@ -141,8 +142,6 @@ internal static class Marks {
         using SKShader colors = owned.ToShader(SKShaderTileMode.Clamp, SKShaderTileMode.Clamp, new SKSamplingOptions(SKFilterMode.Linear));
         if (!frame.Plane.Separable) return new SKPaint { IsAntialias = true, Shader = colors };
         float[] fractions = Fractions(field);
-        foreach (ref float fraction in fractions.AsSpan())
-            if (!float.IsFinite(fraction)) fraction = -1f;
         Half[] cells = new Half[fractions.Length];
         TensorPrimitives.ConvertToHalf(fractions, cells);
         using SKImage values = SKImage.FromPixelCopy(new SKImageInfo(field.Columns, field.Rows, SKColorType.AlphaF16, SKAlphaType.Premul), MemoryMarshal.AsBytes(cells.AsSpan()));
@@ -181,24 +180,24 @@ internal static class Marks {
         float[] fractions = Fractions(field);
         Seq<int> shown = toSeq(Range(0, fractions.Length)).Filter(index => float.IsFinite(fractions[index])).Strict();
         return toSeq(shown.Chunk(CellsPerMesh)).Map(cells => SKVertices.CreateCopy(SKVertexMode.Triangles,
-            [.. cells.SelectMany(cell => Vertices(field, frame, cell))],
+            [.. frame.Projected(toSeq(cells.SelectMany(cell => Vertices(field, cell))))],
             [.. cells.SelectMany(cell => Enumerable.Repeat(new SKPoint((fractions[cell] * (Steps - 1)) + 0.5f, 0.5f), 4))],
             colors: null,
             [.. from cell in Enumerable.Range(0, cells.Length) from corner in Quad select (ushort)((cell * 4) + corner)])).Strict();
     }
 
-    private static Seq<SKPoint> Vertices(Figure.Field field, PlotFrame frame, int cell) {
+    private static Seq<Vector2> Vertices(Figure.Field field, int cell) {
         (int row, int column) = int.DivRem(cell, field.Columns);
         (float left, float right) = ((float)column / field.Columns, (float)(column + 1) / field.Columns);
         (float top, float bottom) = ((float)row / field.Rows, (float)(row + 1) / field.Rows);
-        return [frame.Projected(new Vector2(left, top)), frame.Projected(new Vector2(right, top)), frame.Projected(new Vector2(right, bottom)), frame.Projected(new Vector2(left, bottom))];
+        return [new(left, top), new(right, top), new(right, bottom), new(left, bottom)];
     }
 
     private static Option<SKImage> Ramp(Func<Fraction, Option<SKColorF>> at) {
         Seq<Option<SKColorF>> stops = Fraction.Partition(Steps).Map(at).Strict();
         if (!stops.Exists(static stop => stop.IsSome)) return None;
-        float[] channels = [.. stops.Map(static stop => stop.IfNone(SKColors.Transparent)).Bind(static color => Seq(color.Red, color.Green, color.Blue, color.Alpha))];
-        return SKImage.FromPixelCopy(new SKImageInfo(Steps, 1, SKColorType.RgbaF32, SKAlphaType.Unpremul, SKColorSpace.Srgb), MemoryMarshal.AsBytes(channels.AsSpan()));
+        SKColorF[] colors = [.. stops.Map(static stop => stop.IfNone(SKColors.Transparent))];
+        return SKImage.FromPixelCopy(new SKImageInfo(Steps, 1, SKColorType.RgbaF32, SKAlphaType.Unpremul, SKColorSpace.CreateSrgb()), MemoryMarshal.AsBytes(colors.AsSpan()));
     }
 
     // --- [LABELS]

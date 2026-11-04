@@ -4,7 +4,7 @@ import math
 from typing import ClassVar, Self
 
 import colour
-from expression import Nothing, Ok, Option, Some
+from expression import Option, Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -14,7 +14,7 @@ from blender.imaging.color.colorimetry import chromaticities, coordinates
 from blender.imaging.color.processors import converted, DisplayView, GRAY, luma, xyz
 from blender.imaging.files.buffers import unassociated
 from blender.imaging.geometry.frames import Region
-from blender.records.faults import Outcome, paired
+from blender.records.faults import Nothing, Ok, Outcome, paired
 from blender.records.fields import Frozen, Percent, Unit
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -55,15 +55,27 @@ class Samples(Frozen, frozen=True, kw_only=True, eq=False):
     def peak(self) -> Option[float]:
         """Returns covered percentile PQ peak in cd/m² through the SMPTE ST 2084 EOTF, absent without covered samples."""
         found = (greatest := self.color.max(axis=-1))[self.covered & np.isfinite(greatest)]
-        return Some(found).filter(lambda held: held.size > 0).map(lambda held: float(colour.models.eotf_ST2084(np.clip(np.percentile(held, Extent.percentile, method="inverted_cdf"), 0.0, 1.0))))
+        return (
+            Some(found)
+            .filter(lambda held: held.size > 0)
+            .map(lambda held: float(colour.models.eotf_ST2084(np.clip(np.percentile(held, Extent.percentile, overwrite_input=True, method="inverted_cdf"), 0.0, 1.0))))
+        )
 
     def percentile(self, rank: float) -> Option[float]:
         """Returns covered luminance at `rank` percentile."""
-        return Some(self.luminance[self.finite]).filter(lambda found: found.size > 0).map(lambda found: float(np.percentile(found, rank, method="inverted_cdf")))
+        return Some(self.luminance[self.finite]).filter(lambda found: found.size > 0).map(lambda found: float(np.percentile(found, rank, overwrite_input=True, method="inverted_cdf")))
+
+    def mean(self) -> Option[npt.NDArray[np.float64]]:
+        """Returns mean RGB of covered pixels with finite luminance, absent without samples."""
+        return Some(self.color[self.finite]).filter(lambda found: found.shape[0] > 0).map(lambda found: found.mean(axis=0, dtype=np.float64))
 
     def extent(self) -> Option[Extent]:
         """Returns covered luminance extent."""
-        return self.percentile(Extent.percentile).map(lambda white: Extent(low=float(self.luminance[self.finite].min()), white=white))
+        return (
+            Some(self.luminance[self.finite])
+            .filter(lambda found: found.size > 0)
+            .map(lambda found: Extent(low=float(found.min()), white=float(np.percentile(found, Extent.percentile, overwrite_input=True, method="inverted_cdf"))))
+        )
 
     def log_statistics(self) -> Option[tuple[float, float, float]]:
         """Returns mean, maximum, and minimum covered log luminance."""
@@ -135,7 +147,8 @@ class Histogram(Frozen, frozen=True, kw_only=True, eq=False):
     @classmethod
     def mask(cls, values: npt.NDArray[np.float32] | npt.NDArray[np.float64], first: int, last: int) -> npt.NDArray[np.bool]:
         """Selects non-NaN values in inclusive bin interval."""
-        return np.asarray(np.isin(np.digitize(values, cls.edges()), np.arange(first, last + 1)) & ~np.isnan(values), dtype=np.bool)
+        bins = np.searchsorted(cls.edges(), values, side="right")
+        return (bins >= first) & (bins <= last) & ~np.isnan(values)  # type: ignore[no-any-return]
 
 
 class Vectorscope(Frozen, frozen=True, kw_only=True, eq=False):

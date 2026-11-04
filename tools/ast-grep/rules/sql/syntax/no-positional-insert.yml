@@ -7,6 +7,6 @@ rule:
     all:
         - has: {field: source, kind: 'values_clause, select_clause'}
         - not: {has: {field: columns, kind: column_name_list}}
-        - has: {field: target, pattern: _TABLE}
+        - has: {field: target, pattern: $TABLE}
 message: 'Insert into `$TABLE` assigns values by column position'
 note: 'Name the columns in `insert into <table> (<column>, ...)`'

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: typescript-complementary-filter
-language: tsx
+language: tsxlang
 utils:
     list-module:
         matches: {effect-module: {name: {regex: '\b(Array|Chunk)$'}}}

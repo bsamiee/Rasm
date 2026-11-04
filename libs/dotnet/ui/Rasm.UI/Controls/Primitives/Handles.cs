@@ -12,11 +12,9 @@ namespace Rasm.UI.Controls.Primitives;
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record HandlePoint(Key Key, Vector2 At);
 
-public sealed record Dragged<TValue>(TValue Value, Seq<Key> Keys) where TValue : notnull;
-
-public sealed record Points<TValue>(Func<TValue, Seq<HandlePoint>> Read, Func<TValue, Seq<HandlePoint>, KeyModifiers, Dragged<TValue>> Moved) where TValue : notnull {
-    public Func<TValue, Vector2, Option<Key>, Option<Dragged<TValue>>> Placed { get; init; } = static (_, _, _) => None;
-    public Func<TValue, Seq<Key>, Option<TValue>> Removed { get; init; } = static (_, _) => None;
+public sealed record Points<TValue>(Func<TValue, Seq<HandlePoint>> Read, Func<TValue, Seq<HandlePoint>, KeyModifiers, (TValue Value, HashMap<Key, Option<Key>> Renames)> Moved) where TValue : notnull {
+    public Func<TValue, Vector2, Option<Key>, Option<(TValue Value, Key Key)>> Placed { get; init; } = static (_, _, _) => None;
+    public Func<TValue, Seq<Key>, Option<(TValue Value, HashMap<Key, Option<Key>> Renames)>> Removed { get; init; } = static (_, _) => None;
     public bool DraggedOut { get; init; }
     public Func<TValue, Key, float, Option<TValue>> Spread { get; init; } = static (_, _, _) => None;
     public Func<TValue, Key, int, Option<TValue>> Incremented { get; init; } = static (_, _, _) => None;
@@ -25,50 +23,48 @@ public sealed record Points<TValue>(Func<TValue, Seq<HandlePoint>> Read, Func<TV
         HashMap<Key, Lens<TValue, Vector2>> keyed = toHashMap(lenses.Map(static (lens, index) => ((Key)Keyed(index), lens)));
         return new Points<TValue>(
             value => lenses.Map((lens, index) => new HandlePoint(Keyed(index), lens.Get(value))),
-            (value, targets, _) => new Dragged<TValue>(targets.Fold(value, (held, target) => keyed.Find(target.Key).Map(lens => lens.Set(target.At, held)).IfNone(held)), targets.Map(static target => target.Key))) {
-            Placed = (value, at, nearest) =>
-                from key in nearest
-                from lens in keyed.Find(key)
-                select new Dragged<TValue>(lens.Set(at, value), [key]),
+            (value, targets, _) => (targets.Fold(value, (held, target) => keyed[target.Key].Set(target.At, held)), [])) {
+            Placed = (value, at, nearest) => nearest.Map(key => (keyed[key].Set(at, value), key)),
         };
     }
 
     public static Points<TValue> Listed<TItem>(
-        Func<TValue, Seq<TItem>> items, Func<TItem, Vector2> at, Func<TItem, Vector2, Option<TItem>> moved, Func<TValue, Seq<TItem>, Option<TValue>> rebuilt, Func<TValue, Vector2, Option<TItem>> made) =>
-        new(value => items(value).Map((item, index) => new HandlePoint(Keyed(index), at(item))),
-            (value, targets, _) =>
-                items(value).Map((item, index) => targets.Find(target => Ordinal(target.Key) == Some(index)).Map(target => moved(item, target.At)).IfNone(Some(item))).Traverse(static item => item).As()
-                    .Bind(shifted => rebuilt(value, shifted))
-                    .Match(
-                        Some: edited => new Dragged<TValue>(edited, Rekeyed(items(edited).Map(at), targets)),
-                        None: () => new Dragged<TValue>(value, targets.Map(static target => target.Key)))) {
+        Func<TValue, Seq<TItem>> items, Func<TItem, Vector2> at, Func<TItem, Vector2, Option<TItem>> moved,
+        Func<TValue, Seq<(Key Key, TItem Item)>, Option<(TValue Value, Seq<Key> Order)>> rebuilt, Func<TValue, Vector2, Option<TItem>> made,
+        Option<Comparison<TItem>> order = default) {
+        return new(value => KeyedItems(value).Map(held => new HandlePoint(held.Key, at(held.Item))),
+            (value, targets, _) => toHashMap(targets.Map(static target => (target.Key, target.At))) switch {
+                var positions => KeyedItems(value).Traverse(held => positions.Find(held.Key).Map(target => moved(held.Item, target)).IfNone(Some(held.Item)).Map(item => (held.Key, Item: item))).As()
+                    .Bind(shifted => Rebuilt(value, shifted)).IfNone((value, [])),
+            }) {
             Placed = (value, to, _) =>
                 from item in made(value, to)
-                from placed in rebuilt(value, items(value).Add(item))
-                select new Dragged<TValue>(placed, Rekeyed(items(placed).Map(at), [new HandlePoint(Keyed(items(value).Count), at(item))])),
-            Removed = (value, keys) => rebuilt(value, items(value).Map(static (item, index) => (Item: item, Index: index)).Filter(held => !keys.Exists(key => Ordinal(key) == Some(held.Index))).Map(static held => held.Item)),
+                let held = KeyedItems(value)
+                let key = Keyed(held.Count)
+                from placed in Rebuilt(value, held.Add((key, item)))
+                from leading in placed.Renames[key]
+                select (placed.Value, leading),
+            Removed = (value, keys) => toHashSet(keys) switch { var removed => Rebuilt(value, KeyedItems(value).Filter(held => !removed.Contains(held.Key))) },
             DraggedOut = true,
         };
 
+        Seq<(Key Key, TItem Item)> KeyedItems(TValue value) => items(value).Map(static (item, index) => ((Key)Keyed(index), item));
+
+        Option<(TValue Value, HashMap<Key, Option<Key>> Renames)> Rebuilt(TValue value, Seq<(Key Key, TItem Item)> changed) {
+            Seq<(Key Key, TItem Item)> ordered = order.Map(compare => toSeq(changed.OrderBy(static held => held.Item, System.Collections.Generic.Comparer<TItem>.Create(compare)))).IfNone(changed).Strict();
+            return rebuilt(value, ordered).Map(edited => toHashMap(edited.Order.Map(static (key, index) => (key, (Key)Keyed(index)))) switch {
+                var renamed => (edited.Value, toHashMap(KeyedItems(value).Map(static held => held.Key).Concat(changed.Map(static held => held.Key)).Distinct().Map(key => (key, renamed.Find(key))))),
+            });
+        }
+    }
+
     public static Points<TValue> Indexed(Lens<TValue, Seq<Vector2>> points) =>
-        Listed(points.Get, static at => at, static (_, to) => Some(to), (value, held) => Some(points.Set(held, value)), static (_, at) => Some(at));
+        Listed(points.Get, static at => at, static (_, to) => Some(to), (value, held) => Some((points.Set(held.Map(static item => item.Item), value), held.Map(static item => item.Key))), static (_, at) => Some(at));
 
     public static Points<TValue> Scalar(PlotPlane.Track plane, Lens<TValue, float> value) =>
         Fixed([lens(value, Lens<float, Vector2>.New(along => plane.Along.With(new Vector2(0.5f), along), at => _ => plane.Along.Of(at)))]);
 
     private static Key.Ordinal Keyed(int index) => new((uint)index);
-
-    private static Option<int> Ordinal(Key key) => key is Key.Ordinal ordinal ? Some((int)ordinal.Index) : None;
-
-    private static Seq<Key> Rekeyed(Seq<Vector2> read, Seq<HandlePoint> targets) =>
-        targets.Fold((Claimed: HashSet<int>(), Keys: Seq<Key>()), (held, target) =>
-            toSeq(read.Map(static (at, index) => (At: at, Index: index)).Filter(point => !held.Claimed.Contains(point.Index))
-                    .OrderBy(point => Vector2.DistanceSquared(point.At, target.At))
-                    .ThenBy(point => Math.Abs(point.Index - Ordinal(target.Key).IfNone(point.Index))))
-                .Head.Match(
-                    Some: point => (held.Claimed.Add(point.Index), held.Keys.Add(Keyed(point.Index))),
-                    None: () => (held.Claimed, held.Keys.Add(target.Key))))
-        .Keys;
 }
 
 [SmartEnum]
@@ -110,7 +106,7 @@ public sealed record Handles<TValue>(TValue Value, Points<TValue> Points, Func<E
     public Option<Func<Edit<Selection>, IO<Unit>>> Selected { get; init; }
     public Option<Marquee> Marquee { get; init; }
     public Option<CursorShape> BackgroundCursor { get; init; }
-    public Func<Key, Vector2, View> Handle { get; init; } = static (_, at) => new View.Pin(at, new View.Box()) { Role = Role.Handle, Align = UnitPoint.Center };
+    public Func<Key, Vector2, View> Handle { get; init; } = static (_, at) => new View.Pin(at, new View.Box()) { Role = Roles.Handle, Align = UnitPoint.Center };
     public Option<TValue> Rest { get; init; }
     public Option<float> Gearing { get; init; }
     public bool Snaps { get; init; }
@@ -129,7 +125,7 @@ public sealed record Handles<TValue>(TValue Value, Points<TValue> Points, Func<E
     private static View HandleNode(View node, HandlePoint point, PlotPlane plane, Option<PlaneAxis> track) =>
         node with {
             Key = point.Key,
-            Role = node.Role | Some(Role.Handle),
+            Role = node.Role | Some(Roles.Handle),
             Accessible = node.Accessible.Combine(new Accessible {
                 Role = track.IsSome ? AccessRole.Slider : AccessRole.Handle,
                 Value = track.Match(
@@ -167,7 +163,7 @@ public sealed record Handles<TValue>(TValue Value, Points<TValue> Points, Func<E
                 increment: static state => state.Handles.Incrementing(state.Aim, state.Frame, state.Modifiers, 1),
                 decrement: static state => state.Handles.Incrementing(state.Aim, state.Frame, state.Modifiers, -1),
                 reset: static state => state.Handles.Stepped(start => state.Handles.Rest.Map(rest => start with { Value = rest })),
-                delete: static state => state.Handles.Stepped(start => state.Handles.Points.Removed(start.Value, state.Handles.Deleted(state.Aim)).Map(value => start with { Value = value })),
+                delete: static state => state.Handles.Stepped(start => state.Handles.Points.Removed(start.Value, state.Handles.Deleted(state.Aim)).Map(start.Rebuilt)),
                 selectAll: static state => state.Handles.Selected.Bind(_ => state.Handles.Stepped(start => Some(start with { Selection = start.Selection.All(state.Handles.Keys(start.Value)) }))))));
 
     private Session<State> Session(CursorShape cursor) =>
@@ -185,18 +181,17 @@ public sealed record Handles<TValue>(TValue Value, Points<TValue> Points, Func<E
             Some: key => (from rest in restored
                           from point in Points.Read(rest).Find(point => point.Key == key)
                           select Session(DragCursor(frame)) with { Step = (start, gesture) => gesture is Gesture.Press ? Some(Moved(start, [point], press.Modifiers)) : None })
-                | Some(Session(DragCursor(frame)) with { Step = (start, gesture) => gesture is Gesture.Press moved ? Some(Dragged(Spread(start, key, moved, aim), key, moved, aim, frame)) : None }),
+                || Some(Session(DragCursor(frame)) with { Step = (start, gesture) => gesture is Gesture.Press moved ? Some(Dragged(Spread(start, key, moved, aim), key, moved, aim, frame)) : None }),
             None: () => restored.Map(rest => background with { Step = (start, gesture) => gesture is Gesture.Press ? Some(start with { Value = rest }) : None })
-                | Marquee.Filter(_ => Selected.IsSome).Map(marquee => Session(CursorShape.Crosshair) with {
+                || Marquee.Filter(_ => Selected.IsSome).Map(marquee => Session(CursorShape.Crosshair) with {
                     Step = (start, gesture) => gesture is Gesture.Press moved
                         ? Some(start with { Selection = start.Selection.Enclosed(Keys(start.Value), Covered(marquee, frame, moved, Points.Read(start.Value)), moved.Modifiers), Outline = marquee.Outlined(frame, moved) })
                         : None,
                 })
-                | frame.At(press.From).Map(target => background with {
+                || frame.At(press.From).Map(target => background with {
                     Step = (start, gesture) => gesture is Gesture.Press moved
                         ? from placed in Points.Placed(start.Value, target, Nearest(start.Value, target, frame))
-                          from key in placed.Keys.Head
-                          select Dragged(start with { Value = placed.Value }, key, moved, aim, frame)
+                          select Dragged(start with { Value = placed.Value }, placed.Key, moved, aim, frame)
                         : None,
                 }));
     }
@@ -211,14 +206,14 @@ public sealed record Handles<TValue>(TValue Value, Points<TValue> Points, Func<E
         start.Selection.Pressed(Keys(start.Value), key, press.Modifiers, press.Clicked) switch {
             var selection when press.Dragged.IsNone => start with { Selection = selection },
             var selection => (Points.DraggedOut && Outside(frame, press, Metrics(aim.Owner.Layout, key)[Metric.Reach]) ? Points.Removed(start.Value, [key]) : None).Match(
-                Some: remaining => new State(remaining, selection),
+                Some: removed => (start with { Selection = selection }).Rebuilt(removed),
                 None: () => Translated(start with { Selection = selection }, key, press, aim, frame)),
         };
 
     private State Translated(State start, Key key, Gesture.Press press, HitTarget aim, PlotFrame frame) {
         bool fine = press.Modifiers.Primary;
         HashMap<Metric, float> metrics = Metrics(aim.Owner.Layout, key);
-        float spacing = aim.Owner.Layout.Styled(Role.Grid).Metrics[Metric.Spacing];
+        float spacing = aim.Owner.Layout.Styled(Roles.Grid).Metrics[Metric.Spacing];
         Seq<HandlePoint> read = Points.Read(start.Value);
         HashSet<Key> moving = toHashSet(read.Map(static point => point.Key).Filter(held => start.Selection.Holds(key) ? start.Selection.Holds(held) : held == key));
         Vector2 travel = Gearing.Match(Some: gearing => Geared(frame, press, gearing), None: () => frame.Delta(press.From, press.At).IfNone(Vector2.Zero)) * (fine ? metrics[Metric.Fine] : 1f);
@@ -233,10 +228,7 @@ public sealed record Handles<TValue>(TValue Value, Points<TValue> Points, Func<E
     private static Vector2 Geared(PlotFrame frame, Gesture.Press press, float gearing) =>
         frame.Plane.Dimensions.Fold(Vector2.Zero, (travel, free) => free.Along.With(travel, free.Along.Of((Vector2)(press.At - press.From)) * gearing * frame.Sign(free.Along)));
 
-    private State Moved(State start, Seq<HandlePoint> targets, KeyModifiers modifiers) {
-        Dragged<TValue> moved = Points.Moved(start.Value, targets, modifiers);
-        return new State(moved.Value, start.Selection.Renamed(toHashMap(targets.Map(static target => target.Key).Zip(moved.Keys))));
-    }
+    private State Moved(State start, Seq<HandlePoint> targets, KeyModifiers modifiers) => start.Rebuilt(Points.Moved(start.Value, targets, modifiers));
 
     private Option<Session<State>> Moving(HitTarget aim, PlotFrame frame) =>
         Aimed(aim).Filter(_ => !aim.Scene.Owners(aim.Owner.Layout.Path.Init).Exists(static owner => owner.Part is Viewport)).Map(point => Session(DragCursor(frame)) with {
@@ -270,13 +262,13 @@ public sealed record Handles<TValue>(TValue Value, Points<TValue> Points, Func<E
     private Option<Reply> Incrementing(HitTarget aim, PlotFrame frame, KeyModifiers modifiers, int sign) =>
         Aimed(aim).Bind(point => Stepped(start =>
             Points.Incremented(start.Value, point.Key, sign).Map(value => start with { Value = value })
-            | Some(Moved(start, [point with { At = Incremented(aim, frame, point, sign) }], modifiers))));
+            || Some(Moved(start, [point with { At = Incremented(aim, frame, point, sign) }], modifiers))));
 
     private static Vector2 Incremented(HitTarget aim, PlotFrame frame, HandlePoint point, int sign) =>
         frame.Plane.Dimensions.Head.Map(first => frame.Stepped(point.At, first.Along, sign, Extent(aim, point.Key))).IfNone(point.At);
 
     private static Vector2 Navigated(HitTarget aim, PlotFrame frame, Bearing toward, HandlePoint point) =>
-        toward.Granularity.Distance(Extent(aim, point.Key), aim.Owner.Layout.Styled(Role.Grid).Metrics[Metric.Spacing]).Match(
+        toward.Granularity.Distance(Extent(aim, point.Key), aim.Owner.Layout.Styled(Roles.Grid).Metrics[Metric.Spacing]).Match(
             Some: stride => frame.Stepped(point.At, toward.Along, toward.Sign * frame.Sign(toward.Along), stride),
             None: () => frame.Ended(point.At, toward.Along, toward.Sign));
 
@@ -292,7 +284,7 @@ public sealed record Handles<TValue>(TValue Value, Points<TValue> Points, Func<E
         (from plot in Child(layout, Layer)
          from drawn in Child(plot, key)
          select drawn.Style.Metrics)
-        .IfNone(() => layout.Styled(Role.Handle).Metrics);
+        .IfNone(() => layout.Styled(Roles.Handle).Metrics);
 
     private static Option<PlotFrame> Framed(LayoutNode layout, SKRect bounds) =>
         from plot in Child(layout, Layer)
@@ -308,8 +300,10 @@ public sealed record Handles<TValue>(TValue Value, Points<TValue> Points, Func<E
 
     private Seq<Key> Keys(TValue value) => Points.Read(value).Map(static point => point.Key);
 
-    private Option<HandlePoint> Aimed(HitTarget aim) =>
-        (HitKey(aim) | Selection.Lead | (Points.Read(Value) is [var only] ? Some(only.Key) : None)).Bind(key => Points.Read(Value).Find(point => point.Key == key));
+    private Option<HandlePoint> Aimed(HitTarget aim) {
+        Seq<HandlePoint> points = Points.Read(Value);
+        return (HitKey(aim) || Selection.Lead || (points is [var only] ? Some(only.Key) : None)).Bind(key => points.Find(point => point.Key == key));
+    }
 
     private Seq<Key> Deleted(HitTarget aim) =>
         Keys(Value).Filter(Selection.Holds) switch {
@@ -327,5 +321,7 @@ public sealed record Handles<TValue>(TValue Value, Points<TValue> Points, Func<E
     private sealed record State(TValue Value, Selection Selection) {
         internal Option<Vector2> Detent { get; init; }
         internal Option<Figure> Outline { get; init; }
+
+        internal State Rebuilt((TValue Value, HashMap<Key, Option<Key>> Renames) changed) => new(changed.Value, Selection.Renamed(changed.Renames));
     }
 }

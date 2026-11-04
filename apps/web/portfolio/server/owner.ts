@@ -1,12 +1,11 @@
-import { Relation } from '@rasm/database/relation';
-import { unavailable } from '@rasm/hosting/unavailable';
-import { User } from '@rasm/hosting/user';
-import { Array, Context, Effect, Layer, Option } from 'effect';
+import { Relation } from '@rasm/database';
+import { User, unavailable } from '@rasm/hosting';
+import { Array, Context, Effect, Layer, Option, Struct } from 'effect';
 import { HttpMethod, HttpServerRequest, HttpServerResponse } from 'effect/http';
 import { HttpApiError } from 'effect/http-api';
 import { Owner } from '#/model/api.ts';
 import { sites } from '#/model/sites.ts';
-import { owner } from '#/server/store/catalog.ts';
+import { owner } from '#/server/catalog.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -20,8 +19,8 @@ class OwnerAccount extends Context.Service<OwnerAccount, { readonly email: strin
         return yield* Option.match(user, {
             onNone: () => Effect.succeed('signedOut' as const),
             onSome: Effect.fnUntraced(function* (signed) {
-                const enrolled = Option.map(Array.head(yield* Relation.select(owner, { email: [email] })), ({ userId }) => userId);
-                const ownerId = Option.isNone(enrolled) && Option.exists(signed.email, (value) => address.compare(value, email) === 0) ? Option.some((yield* Relation.ensure(owner, [{ email, userId: signed.id }]))[0].userId) : enrolled;
+                const enrolled = Option.map(Array.head(yield* Relation.select(owner, { email: [email] })), Struct.get('userId'));
+                const ownerId = Option.isNone(enrolled) && Option.isSome(signed.email) && address.compare(signed.email.value, email) === 0 ? Option.some((yield* Relation.ensure(owner, [{ email, userId: signed.id }]))[0].userId) : enrolled;
                 return Option.contains(ownerId, signed.id) ? ('owner' as const) : ('signedIn' as const);
             }),
         });

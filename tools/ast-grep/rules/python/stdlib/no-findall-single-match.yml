@@ -1,21 +1,16 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-findall-single-match
-language: python
+language: pythonlang
 severity: error
 utils:
     compile-call:
         kind: call
         has: {field: function, matches: {python-member-use: {module: {regex: '^(re|regex)$'}, name: {regex: '^compile$'}}}}
     compiled-pattern:
+        kind: identifier
         any:
-            - kind: identifier
-              any:
-                - matches: {python-assigned-name: {value: {matches: compile-call}}}
-                - matches: {python-typed-parameter: {type: {regex: '^((re|regex)\.)?Pattern(\[.*\])?$'}}}
-            - kind: attribute
-              pattern: $RX
-              has: {field: object, regex: '^self$'}
-              inside: {kind: class_definition, stopBy: end, has: {stopBy: end, kind: assignment, all: [{has: {field: left, pattern: $RX}}, {has: {field: right, matches: compile-call}}]}}
+            - matches: {python-assigned-name: {value: {matches: compile-call}}}
+            - matches: {python-typed-parameter: {type: {kind: type, has: {stopBy: {not: {kind: 'generic_type, parenthesized_expression, type'}}, matches: {python-member-use: {module: {regex: '^(re|regex)$'}, name: {regex: '^Pattern$'}}}}}}}
     regex-callee:
         any:
             - matches: {python-member-use: {module: {regex: '^(re|regex)$'}, name: {regex: '^(findall|finditer)$'}}}
@@ -26,13 +21,6 @@ utils:
     every-match:
         kind: call
         has: {field: function, regex: '(^|\.)(findall|finditer)$', matches: regex-callee}
-    searched:
-        matches: every-match
-        all:
-            - has: {field: function, kind: attribute, pattern: $CALLEE}
-            - has: {field: arguments, pattern: $ARGS, not: {has: {kind: keyword_argument, has: {field: name, regex: '^overlapped$'}}}}
-    search:
-        any: [{matches: searched}, {has: {stopBy: end, matches: searched}}]
     iterated:
         matches: every-match
         has: {field: function, regex: 'finditer$'}
@@ -90,43 +78,14 @@ rule:
     pattern: $CALL
     regex: '\b(findall|finditer)\b'
     any:
+        - matches: {python-first-item: {source: {matches: every-match}}}
         - kind: call
-          all:
-            - has: {field: arguments, all: [{has: {nthChild: 1, matches: iterated}}, {has: {nthChild: 2, kind: none}}, {not: {has: {nthChild: 3}}}]}
-            - has: {field: function, matches: {python-builtin-name: {name: {regex: '^next$'}}}}
-            - matches: search
-        - kind: call
-          all:
-            - matches: match-list
-            - matches: truth
-            - matches: search
-        - kind: call
-          all:
-            - matches: present
-            - matches: search
-            - pattern: $PRESENT
-        - kind: comparison_operator
-          all:
-            - matches: presence
-            - matches: search
-            - any:
-                - {has: {field: operators, regex: '^(>|!=|>=)$'}, pattern: $PRESENT}
-                - pattern: $ABSENT
-        - pattern: $KEPT
+          matches: match-list
           any:
-            - matches: {python-first-item: {source: {matches: every-match}}}
-            - kind: call
-              matches: match-list
-              any:
-                - inside: {kind: match_statement, field: subject}
-                - inside: {matches: bound-list, field: right}
-                - matches: truth
-            - matches: present
-            - matches: presence
-transform:
-    SEARCH: {replace: {source: $CALLEE, replace: '(findall|finditer)$', by: 'search'}}
-    FOUND: {replace: {source: $PRESENT, replace: '(?s)^.*$', by: ' is not None'}}
-    MISSED: {replace: {source: $ABSENT, replace: '(?s)^.*$', by: ' is None'}}
-fix: $SEARCH$ARGS$FOUND$MISSED$KEPT
+            - inside: {kind: match_statement, field: subject}
+            - inside: {matches: bound-list, field: right}
+            - matches: truth
+        - matches: present
+        - matches: presence
 message: '`$CALL` collects every match to read or test one'
 note: 'Call `search`, `match`, or `fullmatch` for one `Match` or `None`'

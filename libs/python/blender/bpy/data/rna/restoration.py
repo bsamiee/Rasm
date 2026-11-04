@@ -1,18 +1,21 @@
 """Restoration: native value captures, operation before and after values stored by ID, decoded against current IDs, and restored where live values still match."""
 
+# ruff: file-ignore[return-in-generator]
+
+from collections import defaultdict, deque
+from collections.abc import Callable, Generator
 from functools import partial
 from itertools import islice
 
 import bpy
-from expression import Error, Nothing, Ok, Option, Some
-from expression.collections import Block
+from expression import Option, Some
 from expression.extra.result import catch
 import msgspec
 
 from blender.bpy.data.rna.descriptors import Descriptor, sequenced, Value, written
 from blender.bpy.data.rna.paths import Native, rna, RnaPath, Struct, struct_at
 from blender.bpy.data.rna.snapshots import Applied, applied, Capture, referenced
-from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
+from blender.records.faults import accumulated, Error, Fault, Nothing, Ok, Outcome, paired, Reason
 from blender.records.trees import Owner, revert, transfer, Tree
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -40,9 +43,10 @@ class BeforeAfter(msgspec.Struct, frozen=True, kw_only=True, array_like=True):
 
         def live(before: NativeTree) -> Outcome[NativeTree]:
             return accumulated(
-                native(root, Some(tuple(descriptor for name in held.values for descriptor in Descriptor.resolve(root, (*path, *name), bpy.types.Property).to_option().to_list())))
+                native(root, Some(tuple(descriptor for name in values for descriptor in Descriptor.resolve(root, (*path, *name), bpy.types.Property).to_option().to_list())))
                 for held in before.owners.values()
-                for (root, path), _ in islice(held.values.values(), 1)
+                for values in (held.values,)
+                for (root, path), _ in islice(values.values(), 1)
             ).map(Tree[NativeValue, RnaPath, RnaPath].joined)
 
         return decoded(self.before).bind(lambda before: Option.of_optional(self.after).map(decoded).default_with(lambda: live(before)).bind(lambda after: restore(before, after).outcome))
@@ -61,40 +65,69 @@ def native(owner: Native, selection: Option[tuple[Descriptor, ...]] = Nothing, p
         prior: Tree whose values the capture keeps, adding paths it lacks.
 
     Returns:
-        Native tree, outside fault for an undecodable value.
+        Native tree, refused fault for a removed struct.
     """
-    return catch(Capture.tree, exception=msgspec.ValidationError)(Capture(owner, partial(_native_read, owner), selection, prior=prior, native=True)).map_error(
-        partial(Fault.of, Reason.OUTSIDE, repr(owner), member=Value.__name__)
+    return catch(Capture[NativeValue](owner, partial(_native_read, owner), selection, prior=prior, native=True, inactive=True).tree, exception=ReferenceError)().map_error(
+        partial(Fault.of, Reason.REFUSED, repr(owner))
     )
 
 
-def _native_read(owner: Native, descriptor: Descriptor, struct: Native, enclosing: frozenset[tuple[int, str]]) -> Option[NativeValue]:
+def _native_read(owner: Native, descriptor: Descriptor, struct: Native, _enclosing: frozenset[tuple[int, str]], compound: Option[NativeTree]) -> Option[NativeValue]:
     """Reads one member for restoration under owner: compounds walked whole, pointers held, values as read."""
     prop, target = descriptor.prop, referenced(owner, struct, descriptor.owner)
-    if descriptor.compound:
-        return Some((target, Capture(owner, partial(_native_read, owner), nested=Some((struct, Descriptor(root=type(struct), prop=prop), enclosing))).tree()))
-    return Some((target, getattr(struct, prop.identifier) if isinstance(prop, bpy.types.PointerProperty) else descriptor.read(struct)))
+    match compound:
+        case Option(tag="some", some=tree):
+            return Some((target, tree))
+        case _:
+            value: Value | Struct = getattr(struct, prop.identifier) if isinstance(prop, bpy.types.PointerProperty) else descriptor.read(struct)  # ty: ignore[unsound-assignment]
+            return Some((target, value))
 
 
 # --- [STORAGE]
 
 
+def _fold[K, V](steps: Generator[K, Outcome[V], Outcome[V]], descend: Callable[[K], Generator[K, Outcome[V], Outcome[V]]]) -> Outcome[V]:
+    """Returns a completed outcome after depth-first child folds."""
+    pending = [steps]
+    answer: Option[Outcome[V]] = Nothing
+    while True:
+        try:
+            child = answer.map(pending[-1].send).default_with(lambda: next(pending[-1]))
+        except StopIteration as finished:
+            pending.pop()
+            result: Outcome[V] = finished.value  # ty: ignore[unsound-assignment]
+            if not pending:
+                return result
+            answer = Some(result)
+        else:
+            pending.append(descend(child))
+            answer = Nothing
+
+
 def persisted(tree: NativeTree) -> Outcome[_Persisted]:
     """Converts native restoration tree to ID-keyed stored form."""
 
-    def member(row: NativeValue) -> Outcome[tuple[tuple[object, RnaPath], object]]:
+    def member(row: NativeValue) -> Generator[NativeTree, Outcome[_Persisted], Outcome[tuple[tuple[object, RnaPath], object]]]:
         target, value = row
         if not isinstance(target[0], bpy.types.ID):
             return Error(Fault.of(Reason.OUTSIDE, repr(target[0]), type(target[0]).__name__, member=bpy.types.ID.__name__))
         if isinstance(value, Tree):
-            return persisted(value).map(lambda held: (target, held))
+            return (yield value).map(lambda held: (target, held))  # ty: ignore[unsound-yield]
         if isinstance(value, bpy.types.bpy_struct) and not isinstance(value, bpy.types.ID):
             return Error(Fault.of(Reason.OUTSIDE, repr(target), type(value).__name__, member=bpy.types.ID.__name__))
         return Ok((target, value))
 
-    return accumulated(
-        accumulated(member(value).map(lambda row: (name, row)) for name, value in held.rows).map(lambda rows: (key, Owner(rows=rows, children=held.children))) for key, held in tree.rows
-    ).map(lambda rows: Tree(roots=tree.roots, rows=rows))
+    def folded(source: NativeTree) -> Generator[NativeTree, Outcome[_Persisted], Outcome[_Persisted]]:
+        owners: list[Outcome[tuple[RnaPath, Owner[tuple[tuple[object, RnaPath], object], RnaPath, RnaPath]]]] = []
+        for key, held in source.rows:
+            values: list[Outcome[tuple[RnaPath, tuple[tuple[object, RnaPath], object]]]] = []
+            for name, value in held.rows:
+                result = yield from member(value)
+                values.append(result.map(lambda row: (name, row)))
+            owners.append(accumulated(values).map(lambda rows: (key, Owner(rows=rows, children=held.children))))
+        return accumulated(owners).map(lambda rows: Tree(roots=source.roots, rows=rows))
+
+    return _fold(folded(tree), folded)
 
 
 def decoded(tree: _Persisted, *, compound: bool = False) -> Outcome[NativeTree]:
@@ -108,23 +141,26 @@ def decoded(tree: _Persisted, *, compound: bool = False) -> Outcome[NativeTree]:
         Native tree, outside fault for a stored value no member accepts.
     """
 
-    def value_of(descriptor: Descriptor, value: object) -> Outcome[Value | Struct | NativeTree]:
+    def value_of(descriptor: Descriptor, value: object) -> Generator[_Persisted, Outcome[NativeTree], Outcome[Value | Struct | NativeTree]]:
         subject = rna(descriptor.path)
-        match descriptor.prop:
-            case _ if descriptor.compound:
-                nested: Outcome[_Persisted] = catch(msgspec.convert, exception=msgspec.ValidationError)(value, type=_Persisted).map_error(
-                    partial(Fault.of, Reason.OUTSIDE, subject, member=Value.__name__)
-                )
-                return nested.bind(partial(decoded, compound=True))
-            case bpy.types.PointerProperty() if value is None or isinstance(value, bpy.types.ID):
-                return Ok(value)
-            case bpy.types.PointerProperty():
-                return Error(Fault.of(Reason.OUTSIDE, subject, type(value).__name__, member=bpy.types.ID.__name__))
-            case _:
-                held: Outcome[Value] = catch(msgspec.convert, exception=msgspec.ValidationError)(value, Value).map_error(partial(Fault.of, Reason.OUTSIDE, subject, member=Value.__name__))
-                return held
+        try:
+            match descriptor.prop:
+                case _ if descriptor.compound:
+                    source: _Persisted = msgspec.convert(value, type=_Persisted)  # ty: ignore[unsound-assignment]
+                    return (yield source)
+                case bpy.types.PointerProperty() if value is None or isinstance(value, bpy.types.ID):
+                    return Ok(value)  # ty: ignore[unsound-return-statement]
+                case bpy.types.PointerProperty():
+                    return Error(Fault.of(Reason.OUTSIDE, subject, type(value).__name__, member=bpy.types.ID.__name__))
+                case _:
+                    held: Value = msgspec.convert(value, Value)  # ty: ignore[unsound-assignment]
+                    return Ok(held)
+        except msgspec.ValidationError as error:
+            return Error(Fault.of(Reason.OUTSIDE, subject, error, member=Value.__name__))
 
-    def member(key: RnaPath, name: RnaPath, row: tuple[tuple[object, RnaPath], object]) -> Outcome[Option[tuple[RnaPath, RnaPath, NativeValue]]]:
+    def member(
+        key: RnaPath, name: RnaPath, row: tuple[tuple[object, RnaPath], object], *, compound: bool
+    ) -> Generator[_Persisted, Outcome[NativeTree], Outcome[Option[tuple[RnaPath, RnaPath, NativeValue]]]]:
         (block, path), value = row
         match block:
             case None:
@@ -135,29 +171,69 @@ def decoded(tree: _Persisted, *, compound: bool = False) -> Outcome[NativeTree]:
                     if compound
                     else struct_at(block, path).bind(lambda struct: Descriptor.resolve(struct, name, bpy.types.Property).to_option())
                 )
-                return found.map(lambda descriptor: value_of(descriptor, value).map(lambda held: Some((key if compound else (block.session_uid, *path), name, ((block, path), held))))).default_value(
-                    Ok(Nothing)
-                )
             case _:
                 return Error(Fault.of(Reason.OUTSIDE, rna(path), type(block).__name__, member=bpy.types.ID.__name__))
+        for descriptor in found.to_list():
+            result = yield from value_of(descriptor, value)
+            return result.map(lambda held: Some((key if compound else (block.session_uid, *path), name, ((block, path), held))))  # ty: ignore[unsound-return-statement]
+        return Ok(Nothing)
 
-    def rebuilt(rows: tuple[tuple[RnaPath, RnaPath, NativeValue], ...]) -> NativeTree:
-        keys = tuple(tree.owners) if compound else tuple(dict.fromkeys(at for at, _, _ in rows))
+    def rebuilt(source: _Persisted, rows: tuple[tuple[RnaPath, RnaPath, NativeValue], ...], *, compound: bool) -> NativeTree:
+        grouped: defaultdict[RnaPath, list[tuple[RnaPath, NativeValue]]] = defaultdict(list)
+        for key, name, value in rows:
+            grouped[key].append((name, value))
+        owners = source.owners
+        keys = tuple(owners) if compound else tuple(grouped)
         return Tree(
-            roots=tree.roots if compound else keys,
-            rows=tuple(
-                (key, Owner[NativeValue, RnaPath, RnaPath](rows=tuple((name, value) for at, name, value in rows if at == key), children=tree.owners[key].children if compound else ())) for key in keys
-            ),
+            roots=source.roots if compound else keys,
+            rows=tuple((key, Owner[NativeValue, RnaPath, RnaPath](rows=tuple(grouped[key]), children=owners[key].children if compound else ())) for key in keys),
         )
 
-    return accumulated(member(key, name, row) for key, held in tree.rows for name, row in held.rows).map(lambda found: rebuilt(tuple(row for each in found for row in each.to_list())))
+    def folded(source: _Persisted, *, compound: bool) -> Generator[_Persisted, Outcome[NativeTree], Outcome[NativeTree]]:
+        rows: list[Outcome[Option[tuple[RnaPath, RnaPath, NativeValue]]]] = []
+        for key, held in source.rows:
+            for name, row in held.rows:
+                rows.append((yield from member(key, name, row, compound=compound)))
+        return accumulated(rows).map(lambda found: rebuilt(source, tuple(row for each in found for row in each.to_list()), compound=compound))
+
+    return _fold(folded(tree, compound=compound), partial(folded, compound=True))
 
 
 # --- [RESTORE]
 
 
+def equal(left: NativeValue, right: NativeValue) -> bool:
+    """Compares native targets and ordered compound values without recursive tree equality."""
+    pending = deque(((left, right),))
+    while pending:
+        (left_target, left_value), (right_target, right_value) = pending.popleft()
+        if left_target != right_target:
+            return False
+        if left_value is right_value:
+            continue
+        match left_value, right_value:
+            case Tree() as first, Tree() as second:
+                rows = tuple(zip(first.rows, second.rows))
+                if (
+                    first.roots != second.roots
+                    or len(first.rows) != len(second.rows)
+                    or any(
+                        (first_key, first_owner.children, tuple(name for name, _ in first_owner.rows)) != (second_key, second_owner.children, tuple(name for name, _ in second_owner.rows))
+                        for (first_key, first_owner), (second_key, second_owner) in rows
+                    )
+                ):
+                    return False
+                pending.extend((before, after) for (_, first_owner), (_, second_owner) in rows for (_, before), (_, after) in zip(first_owner.rows, second_owner.rows))
+            case _:
+                if left_value != right_value:
+                    return False
+    return True
+
+
 def restore(before: NativeTree, after: NativeTree) -> Applied:
     """Restores live values still at after state."""
+    before_values = {key: held.values for key, held in before.owners.items()}
+    after_values = {key: held.values for key, held in after.owners.items()}
 
     def resolved(target: NativeOwner, name: RnaPath) -> tuple[tuple[Native, Descriptor], ...]:
         return tuple(found for struct in struct_at(*target).to_list() for found in Descriptor.located(struct, name).to_option().to_list())
@@ -167,27 +243,28 @@ def restore(before: NativeTree, after: NativeTree) -> Applied:
 
     missing = tuple(
         Applied(outcome=Error(Fault.of(Reason.ABSENT, repr(struct), member=rna(descriptor.path))))
-        for key, held in before.owners.items()
-        for name, (target, _) in held.values.items()
-        if key not in after.owners or name not in after.owners[key].values
+        for key, values in before_values.items()
+        for name, (target, _) in values.items()
+        if key not in after_values or name not in after_values[key]
         for struct, descriptor in resolved(target, name)
     )
     captures = {
-        (key, name): native(root, Some((descriptor,))).map(lambda tree: Block.of_seq(row for held in tree.owners.values() for row in held.values.values()).try_head())
-        for key, held in after.owners.items()
-        for name, ((root, path), _) in held.values.items()
+        (key, name): native(root, Some((descriptor,))).map(lambda tree: Option.of_optional(next((row for held in tree.owners.values() for row in held.values.values()), None)))
+        for key, values in after_values.items()
+        for name, ((root, path), _) in values.items()
         for descriptor in Descriptor.resolve(root, (*path, *name), bpy.types.Property).to_option().to_list()
     }
     current = msgspec.structs.replace(
         after,
         rows=tuple(
-            (key, msgspec.structs.replace(held, rows=tuple((name, value) for name in held.values if (key, name) in captures for value in captures[key, name].default_value(Nothing).to_list())))
+            (key, msgspec.structs.replace(held, rows=tuple((name, value) for name in values if (key, name) in captures for value in captures[key, name].default_value(Nothing).to_list())))
             for key, held in after.rows
+            for values in (held.values,)
         ),
     )
     ordered = sequenced(
         (edit.key, struct, descriptor, ((*edit.key, *name), value))
-        for edit in revert(current, transfer(before, after))
+        for edit in revert(current, transfer(before, after, equal=equal), equal=equal)
         for name, (target, value) in edit.after.items()
         for struct, descriptor in resolved(target, name)
     )
@@ -196,11 +273,11 @@ def restore(before: NativeTree, after: NativeTree) -> Applied:
         curve.update()
     return Applied.join((
         *missing,
-        *(Applied(outcome=result.map(lambda _: None), skipped=((*key, *name),) if result.map(Option.is_none).default_value(False) else ()) for (key, name), result in captures.items()),
+        *(Applied(outcome=result.map(lambda _: None), skipped=((*key, *name),) if result.map(Option.is_none).default_value(value=False) else ()) for (key, name), result in captures.items()),
         *(report for _, report in writes),
     ))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["BeforeAfter", "NativeOwner", "NativeTree", "NativeValue", "decoded", "native", "persisted", "restore"]
+__all__ = ["BeforeAfter", "NativeOwner", "NativeTree", "NativeValue", "decoded", "equal", "native", "persisted", "restore"]

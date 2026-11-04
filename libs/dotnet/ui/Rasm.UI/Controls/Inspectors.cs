@@ -18,25 +18,23 @@ public abstract record Field {
 
     // --- [STATE]
     public string Label { get; init; }
-    public Option<Key> Key { get; init; }
+    public required Key Key { get; init; }
     public Option<string> Help { get; init; }
     public bool ReadOnly { get; init; }
     public bool Enabled { get; init; } = true;
     public bool Visible { get; init; } = true;
     public bool Overridden { get; init; }
 
-    internal Key Keyed => Key.IfNone(() => new Key.Named(Label));
-
     internal virtual bool Modified => false;
 
     internal virtual Option<IO<Unit>> Reset => None;
 
-    private protected static View Mixed { get; } = new View.Flex(PhysicalAxis.Horizontal, [new View.Box { Role = Role.Checkmark, Conditions = [Condition.Mixed] }]) { Role = Role.Field, Width = Sizing.Grow.Unit, Conditions = [Condition.Mixed] };
+    private protected static View Mixed { get; } = new View.Flex(PhysicalAxis.Horizontal, [new View.Box { Role = Roles.Checkmark, Conditions = [Condition.Mixed] }]) { Role = Roles.Field, Width = Sizing.Grow.Unit, Conditions = [Condition.Mixed] };
 
     // --- [DRAW]
     public abstract View Drawn(CultureInfo culture);
 
-    internal virtual View Caption(Seq<Span> marked) => new View.Text(marked) { Role = Role.Label, MaxLines = 1 };
+    internal virtual View Caption(Seq<Span> marked) => new View.Text(marked) { Role = Roles.Label, MaxLines = 1 };
 
     internal virtual Option<string> Readout(CultureInfo culture) => None;
 
@@ -67,7 +65,7 @@ public abstract record Field {
 
         private protected virtual View Shown(T value, CultureInfo culture) =>
             Spoken(value, culture).Match(
-                Some: static text => new View.Text([text]) { Role = Role.Field, MaxLines = 1, Width = Sizing.Grow.Unit },
+                Some: static text => new View.Text([text]) { Role = Roles.Field, MaxLines = 1, Width = Sizing.Grow.Unit },
                 None: () => Editor(culture).Conditioned(Condition.Disabled));
 
         private protected View Marked(View node) => Edit.Marked(Rest, Value) switch { var marks => node with { Conditions = node.Conditions.Union(Value.IsNone ? marks.TryAdd(Condition.Mixed) : marks) } };
@@ -80,7 +78,7 @@ public abstract record Field {
         public Option<AxisRange> SoftRange { get; init; }
         public Option<float> Step { get; init; }
         public Option<float> Gearing { get; init; }
-        public Role Role { get; init; } = Role.Field;
+        public Key Role { get; init; } = Roles.Field;
         public bool Scrubs { get; init; }
 
         private Option<Scrub> Scrubbed => Value.Filter(_ => !ReadOnly && Scrubs).Map(value => new Scrub(Label, Domain, value, Edited) { Gearing = Gearing, Track = Track, Rest = Rest });
@@ -112,12 +110,14 @@ public abstract record Field {
             new View.Flex(PhysicalAxis.Horizontal,
                 Components.Map((component, index) => Coupled(component, index) switch {
                     var held => (View)new View.Flex(PhysicalAxis.Horizontal, [held.Caption([held.Label]), held.Drawn(culture)]) {
-                        Key = held.Keyed,
+                        Key = held.Key,
                         Width = Sizing.Grow.Unit,
                         Accessible = new Accessible { Label = held.Label, Help = held.Help },
                     },
                 })
-                + Linked.Map(linked => (linked.Content.IsEmpty ? linked with { Kind = ToggleKind.Button, Content = [new View.Box { Role = Role.Lock }] } : linked).Drawn(culture)).ToSeq()) {
+                + Linked.Map(linked => (linked with { ReadOnly = linked.ReadOnly || ReadOnly }) switch {
+                    var held => (held.Content.IsEmpty ? held with { Kind = ToggleKind.Button, Content = [new View.Box { Role = Roles.Lock }] } : held).Drawn(culture),
+                }).ToSeq()) {
                 Width = Sizing.Grow.Unit,
             };
 
@@ -130,12 +130,12 @@ public abstract record Field {
             };
 
         private IO<Unit> Scaled(int index, Edit<float> edit) =>
-            Components.Map((component, at) => at == index
+            Components.Map((component, at) => component.ReadOnly ? Option<IO<Unit>>.None : at == index
                     ? Some(component.Edited(edit))
                     : edit.Value.Match(
                         Some: to => from start in Components[index].Value.Filter(static start => start is not 0f)
                                     from held in component.Value
-                                    select component.Edited(Edit.Of(edit.Phase, held * to / start)),
+                                    select component.Edited(Edit.Of(edit.Phase, (float)((double)held * to / start))),
                         None: () => Some(component.Edited(edit))))
                 .Somes()
                 .Iter(static effect => effect).As();
@@ -170,7 +170,7 @@ public abstract record Field {
 
         private protected override Option<string> Spoken(string value, CultureInfo culture) => value;
 
-        private protected override View Shown(string value, CultureInfo culture) => new View.Text([value]) { Role = Role.Field, MaxLines = MaxLines, Width = Sizing.Grow.Unit };
+        private protected override View Shown(string value, CultureInfo culture) => new View.Text([value]) { Role = Roles.Field, MaxLines = MaxLines, Width = Sizing.Grow.Unit };
     }
 
     public sealed record Color(string Label, Option<Unicolour> Value, Func<Edit<Unicolour>, IO<Unit>> Edited) : Bound<Unicolour>(Label, Value, Edited) {
@@ -179,7 +179,7 @@ public abstract record Field {
         private protected override View Editor(CultureInfo culture) =>
             Faced(static colour => Swatch.Patch(colour)) switch {
                 var face => (Value | Rest).Match(
-                    Some: shown => Picker.Dropdown(face, new View.Flex(PhysicalAxis.Vertical, [new ColorPicker(shown, Edited) { Alpha = Alpha, Rest = Rest }.Drawn(culture)]) { Role = Role.Popover }) with {
+                    Some: shown => Picker.Dropdown(face, new View.Flex(PhysicalAxis.Vertical, [new ColorPicker(shown, Edited) { Alpha = Alpha, Rest = Rest }.Drawn(culture)]) { Role = Roles.Popover }) with {
                         Width = Sizing.Grow.Unit,
                     },
                     None: () => face),
@@ -208,19 +208,21 @@ public abstract record Field {
         private protected override View Shown(T value, CultureInfo culture) => Face(value);
 
         private View Face(T value) =>
-            Marked(new View.Flex(PhysicalAxis.Horizontal, [
-                new View.Text([Named(value)]) { MaxLines = 1, Truncation = Truncation.Middle, Width = Sizing.Grow.Unit },
-                new View.Box { Role = Role.Overflow },
+            Named(value) switch {
+                var name => Marked(new View.Flex(PhysicalAxis.Horizontal, [
+                new View.Text([name]) { MaxLines = 1, Truncation = Fraction.Half, Width = Sizing.Grow.Unit },
+                new View.Box { Role = Roles.Overflow },
             ]) {
-                Role = Role.Field,
-                Width = Sizing.Grow.Unit,
-                Accessible = new Accessible { Value = new AccessValue.Text(Named(value)) },
-            });
+                    Role = Roles.Field,
+                    Width = Sizing.Grow.Unit,
+                    Accessible = new Accessible { Value = new AccessValue.Text(name) },
+                }),
+            };
     }
 
     public sealed record Button(string Label, Func<SKRect, IO<Unit>> Run) : Field(Label) {
         public override View Drawn(CultureInfo culture) =>
-            new Part.Press(Run).Drawn(new View.Flex(PhysicalAxis.Horizontal, [new View.Text([Label]) { MaxLines = 1 }]) { Role = Role.Button, Width = Sizing.Grow.Unit });
+            new Part.Press(Run).Drawn(new View.Flex(PhysicalAxis.Horizontal, [new View.Text([Label]) { MaxLines = 1 }]) { Role = Roles.Button, Width = Sizing.Grow.Unit });
 
         internal override View Caption(Seq<Span> marked) => new View.Box();
     }
@@ -256,11 +258,11 @@ public sealed record Inspector(Seq<Field> Fields) {
     public View Drawn(CultureInfo culture) {
         Search query = Search.Of(Filter);
         Seq<Field> kept = Kept(Fields, query, culture);
-        Seq<Field> pinned = Row<Field>.Flatten(kept.Filter(static field => field.Visible), static field => (field is Field.Group group ? group.Fields : []).Filter(static held => held.Visible), static field => field.Keyed, static _ => true, static _ => true)
-            .Map(static row => row.Item).Filter(field => Pinned.Contains(field.Keyed));
+        Seq<Field> pinned = Row<Field>.Flatten(kept.Filter(static field => field.Visible), static field => (field is Field.Group group ? group.Fields : []).Filter(static held => held.Visible), static field => field.Key, static _ => true, static _ => true)
+            .Map(static row => row.Item).Filter(field => Pinned.Contains(field.Key));
         View body = new View.Flex(PhysicalAxis.Vertical,
             (pinned.IsEmpty ? [] : Seq<View>(new View.Flex(PhysicalAxis.Vertical, [
-                new View.Flex(PhysicalAxis.Horizontal, [new View.Box { Role = Role.Pin, Conditions = [Condition.Selected] }]) { Role = Role.Header, Width = Sizing.Grow.Unit },
+                new View.Flex(PhysicalAxis.Horizontal, [new View.Box { Role = Roles.Pin, Conditions = [Condition.Selected] }]) { Role = Roles.Header, Width = Sizing.Grow.Unit },
                 Grid(pinned, query, culture),
             ]) { Width = Sizing.Grow.Unit }))
             + Seq<View>(Grid(kept, query, culture) with { Key = Unpinned })) {
@@ -270,7 +272,7 @@ public sealed record Inspector(Seq<Field> Fields) {
             Some: resized => Split.Divided(new Handles<float>((float)LabelWidth, Points<float>.Scalar(Divider, Lens.identity<float>()),
                 edit => resized(edit.Choose(static at => Fraction.Validated(at).ToOption()))), Divider, body),
             None: () => body))) {
-            Role = Role.Section,
+            Role = Roles.Section,
             Width = Sizing.Grow.Unit,
             Accessible = new Accessible { Role = AccessRole.Group },
         };
@@ -287,7 +289,7 @@ public sealed record Inspector(Seq<Field> Fields) {
                     var control => Seq(
                         caption with { Accessible = caption.Accessible.Combine(new Accessible { Help = field.Help }) },
                         new View.Flex(PhysicalAxis.Horizontal, Seq(control) + (control.Width.Exists(static width => width.Stretches) ? [] : Seq<View>(new View.Box { Width = Sizing.Grow.Unit })) + Decor(field)) {
-                            Key = field.Keyed,
+                            Key = field.Key,
                             Width = Sizing.Grow.Unit,
                             Accessible = new Accessible { Label = field.Label, Help = field.Help },
                         }),
@@ -305,14 +307,14 @@ public sealed record Inspector(Seq<Field> Fields) {
             group.Expanded) {
             Edited = group.Edited,
         }.Drawn with {
-            Key = group.Keyed,
+            Key = group.Key,
         };
 
     private Seq<View> Decor(Field field) =>
-        (field.Overridden ? Seq<View>(new View.Box { Role = Role.Indicator }) : [])
-        + field.Reset.Map(static reset => new Part.Press(_ => reset).Drawn(new View.Box { Role = Role.Revert })).ToSeq()
-        + Pinning.Map(pinning => new Part.Press(_ => pinning(Edit.Of(EditPhase.Commit, Pinned.SymmetricExcept([field.Keyed])))).Drawn(
-            new View.Box { Role = Role.Pin, Conditions = Pinned.Contains(field.Keyed) ? [Condition.Selected] : [] })).ToSeq();
+        (field.Overridden ? Seq<View>(new View.Box { Role = Roles.Indicator }) : [])
+        + field.Reset.Map(static reset => new Part.Press(_ => reset).Drawn(new View.Box { Role = Roles.Revert })).ToSeq()
+        + Pinning.Map(pinning => new Part.Press(_ => pinning(Edit.Of(EditPhase.Commit, Pinned.SymmetricExcept([field.Key])))).Drawn(
+            new View.Box { Role = Roles.Pin, Conditions = Pinned.Contains(field.Key) ? [Condition.Selected] : [] })).ToSeq();
 
     // --- [QUERY]
     private static Seq<Field> Kept(Seq<Field> fields, Search query, CultureInfo culture) =>

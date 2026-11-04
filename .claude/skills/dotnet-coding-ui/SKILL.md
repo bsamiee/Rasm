@@ -5,7 +5,7 @@ description: "Use when drawing or hosting .NET UI, covering Skia surfaces, shape
 
 # [DOTNET_CODING_UI]
 
-Drawn and hosted .NET UI over SkiaSharp, HarfBuzzSharp, RichTextKit, Svg.Skia, Unicolour, and Eto.Forms, from a surface's pixel contract to the handler seam a platform fills. Eto members come from the `Eto` assembly RhinoCommon installs.
+Drawn and hosted .NET UI over SkiaSharp, HarfBuzzSharp, RichTextKit, Svg.Skia, Unicolour, and Eto.Forms, from pixel contracts to platform handlers. Resolve Eto members from the assembly loaded by the host.
 
 [REFERENCES]:
 - [01]-[SKIA](references/skia.md): SkiaSharp ownership, color management, layers and filters, effects, pictures, GPU surfaces, text, and documents
@@ -205,33 +205,6 @@ Vector art loads once into an `SKPicture` and draws at any scale, tint and theme
 - Art loads while the scene is retained, the paint pass finds every picture present and parses none
 - Host icons rasterize once per (asset, scale, theme) into an Eto `Icon(scale, bitmap)`, the previous icon is disposed on retheme, no PNG round trip
 
-```csharp
-internal sealed record ArtKey(Assembly Assembly, string Resource, SKColor Current);
-
-internal sealed class Art {
-    private readonly SkiaModel model;
-    private readonly SkiaSvgAssetLoader loader;
-    private readonly AtomHashMap<ArtKey, Fin<SKPicture>> loaded = AtomHashMap<ArtKey, Fin<SKPicture>>();
-
-    public Art(SKColorSpace display) {
-        model = new SkiaModel(new SKSvgSettings { Srgb = display });
-        loader = new SkiaSvgAssetLoader(model);
-    }
-
-    public Fin<SKPicture> Picture(ArtKey key) => loaded.FindOrAdd(key, () => Recorded(key));
-
-    private Fin<SKPicture> Recorded(ArtKey key) {
-        using Stream? stream = key.Assembly.GetManifestResourceStream(key.Resource);
-        SvgParameters parameters = new(Entities: null, Css: null, Color.FromArgb(key.Current.Alpha, key.Current.Red, key.Current.Green, key.Current.Blue));
-        return
-            from source in Optional(stream).ToFin(new Fault(key.Resource, Reason.Missing))
-            from document in Optional(SvgService.Open(source, parameters)).ToFin(new Fault(key.Resource, Reason.Unparsed))
-            from picture in Optional(SKSvg.ToPicture(document, model, loader)).ToFin(new Fault(key.Resource, Reason.Empty))
-            select picture;
-    }
-}
-```
-
 ## [05]-[COLOR]
 
 Unicolour states every color fact at design scale (swatch, palette, theme color, LUT bake) under one `Configuration`. Skia receives `SKColorF` with an `SKColorSpace`, a pixel pass bakes a matrix or curve once:
@@ -277,7 +250,7 @@ internal static class Swatches {
 
 Text becomes pixels through one measured block per text, sealed style, and width. RichTextKit itemizes, shapes, breaks, lays out, and paints, HarfBuzz shapes a run that needs features or axes, `SKFont` rasterizes:
 - Laid `TextBlock` instances cache per key and paint per frame, a block is device-free and survives a scale change
-- Max-content is `MeasuredWidth` at `MaxWidth = null`, min-content the widest span between UAX #14 line-break opportunities from ICU4N `BreakIterator.GetLineInstance`, measured as carets on one unbounded block
+- Max-content is `MeasuredWidth` at `MaxWidth = null`, min-content uses UAX #14 line breaks, word boundaries and bidi caret distances give different measures
 - Every `Layout` reshapes every run, the wrapped block replaces the unbounded one when the resolved width differs, none lays out twice at one width
 - `Style.Seal()` fixes a style for sharing across blocks and as a cache key, `StyleManager.FromStyle` dedupes equal styles into one instance
 - `TextPaintOptions` (`Edging`, `Hinting`, `SubpixelPositioning`, `Selection`) derives from surface properties and changes no layout
@@ -285,9 +258,8 @@ Text becomes pixels through one measured block per text, sealed style, and width
 - Animated or contrast-adjusted text draws through a layer paint or color filter
 - RichTextKit indexes are code points
 - Word, caret, and line stops come from `WordBoundaryIndicies`, `CaretIndicies`, and `LineIndicies`
-- `IStyle` holds no OpenType feature or axis, a featured run reshapes through HarfBuzz into `FontRun.Glyphs`, `GlyphPositions`, `Clusters`, `Width`
-- Reshaped blocks paint themselves through `TextBlock.Paint`, a second painter over copied glyphs restates halo, underline, and selection
-- Reshapes add the block's code points with the run as item (`AddUtf32(underlying, start, length)`), the run keeps its paragraph context
+- Features, axes, and language enter shaping before line breaking, RichTextKit exposes no supported shaping hook
+- `TextBlock.Paint` owns halo, underline, and selection, changing completed runs leaves wrapping and caret metrics stale
 - Blocks hold one paragraph of one `Alignment`, the host culture decides `BaseDirection`
 - `TextBlock.MeasuredOverhang` grows the invalidation rect, glyphs past the advance box repaint with it
 - One `Font` per face and axis set, scaled at `UnitsPerEm`, serves every size through one multiply by `Size / UnitsPerEm`
@@ -313,12 +285,7 @@ internal sealed class Blocks(SKSurfaceProperties raster) {
         });
     }
 
-    public static float MinContent(TextBlock block) =>
-        toSeq(block.WordBoundaryIndicies.Window(2)).Fold(0f, (widest, stops) => float.Max(widest, Caret(block, stops[1]) - Caret(block, stops[0])));
-
     public void Paint(SKCanvas canvas, TextBlock block, SKPoint origin) => block.Paint(canvas, origin, options);
-
-    private static float Caret(TextBlock block, int index) => block.GetCaretInfo(new CaretPosition(index)).CaretXCoord;
 }
 ```
 
@@ -400,7 +367,7 @@ internal sealed class SceneCanvas(Action<SKCanvas> draw) : Drawable {
 |  [24]   | `TextBlock` laid out per paint, or one block per candidate width    | Laid block cached by text, sealed style, and width               |
 |  [25]   | `Copy` and `ApplyStyle` to recolor text per frame                   | Layer paint or color filter over the laid block                  |
 |  [26]   | Whitespace scan or `Split(' ')` for wrap and word points            | `WordBoundaryIndicies`, `LineIndicies`                           |
-|  [27]   | Glyph records copied out of `FontRun` into a second run model       | Reshaped glyphs written into `FontRun.Glyphs`, `GlyphPositions`  |
+|  [27]   | Glyphs or widths replaced after `TextBlock.Layout`                  | Shaping inputs supplied before line breaking and caret layout    |
 |  [28]   | `Blob`, `Face`, `Font`, or `Buffer` built per paint or weakly held  | One `Font` per face and axis set in a scene-owned cache          |
 |  [29]   | `SKShaper.Shape` followed by a second shape for features            | One `Font.Shape(buffer, features)`                               |
 |  [30]   | `Platform.Add<TDelegate>` per fact, `Find<T>()` at each call site   | One `IHandler` per capability, `CreateShared<T>()` once          |

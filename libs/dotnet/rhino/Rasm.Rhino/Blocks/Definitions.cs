@@ -68,11 +68,11 @@ public static class Definitions {
         public Option<int> Nesting(InstanceDefinition inner) =>
             definition.Index == inner.Index ? None : Some(definition.UsesDefinition(inner.Index)).Filter(static level => level > 0);
 
-        public IO<ContentKey> Key() =>
+        public IO<UInt128> Key() =>
             from members in IO.lift(() => Conversions.Rows(definition.GetObjects()).Map(static member => member.Geometry).Strict())
             from archive in IO.lift(() => definition.IsLinkedType ? ContentHash.CreateFromFile(definition.SourceArchive).Sha1ContentHash : [])
             let metadata = DefinitionMetadata.Of(definition)
-            select ContentKey.Of<InstanceDefinition>(stream => stream
+            select ContentKeys.Of<InstanceDefinition>(stream => stream
                 .Text(metadata.Name)
                 .Rows(metadata.Description.ToSeq(), static (row, text) => row.Text(text))
                 .Rows(metadata.Link.ToSeq(), static (row, link) => row.Text(link.Address).Rows(link.Tag.ToSeq(), static (tag, text) => tag.Text(text)))
@@ -111,15 +111,20 @@ public static class Definitions {
             Watching.Value = true;
             return watching;
         }).Bind(static watching => unless(watching,
-            (Products.Released(static () => Evicted(static _ => true))
+            (Products.Released(static () => {
+                _ = atomic(static () => Watching.Value = false);
+                _ = Evicted(static _ => true);
+            })
+             >> Subscriptions.Inline<DocumentEventArgs>(static h => RhinoDoc.CloseDocument += h, static h => RhinoDoc.CloseDocument -= h)
+                 .Attach(static args => IO.lift(() => Evicted(key => key.Document == args.DocumentSerialNumber)))
              >> Subscriptions.Inline<InstanceDefinitionTableEventArgs>(static h => RhinoDoc.InstanceDefinitionTableEvent += h, static h => RhinoDoc.InstanceDefinitionTableEvent -= h)
                  .Attach(static args => IO.lift(() => Evicted(key => key.Document == args.Document.RuntimeSerialNumber && key.Definition == args.InstanceDefinitionIndex))))
             .Scoped()).As());
 
     private static Unit Evicted(Func<(uint Document, int Definition, Guid Mode, DefinedViewportProjection Projection, IsometricCamera Camera, bool Decorations, Size Pixels), bool> stale) =>
         atomic(() => {
-            HashMap<(uint Document, int Definition, Guid Mode, DefinedViewportProjection Projection, IsometricCamera Camera, bool Decorations, Size Pixels), Bitmap> held = Previews.Value;
-            Previews.Value = held.Filter((key, _) => !stale(key));
-            return held.Filter((key, _) => stale(key));
+            HashMap<(uint Document, int Definition, Guid Mode, DefinedViewportProjection Projection, IsometricCamera Camera, bool Decorations, Size Pixels), Bitmap> removed = Previews.Value.Filter((key, _) => stale(key));
+            Previews.Value = Previews.Value.RemoveRange(removed.Keys);
+            return removed;
         }).Values.Iter(static bitmap => bitmap.Dispose());
 }

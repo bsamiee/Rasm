@@ -47,6 +47,10 @@
         <PackageReference Include="Wacton.Unicolour" />
     </ItemGroup>
 
+    <ItemGroup Label="Parsing">
+        <PackageReference Include="ini-parser-netstandard" />
+    </ItemGroup>
+
     <ItemGroup Label="Application Hosting">
         <PackageReference Include="Microsoft.Extensions.Logging" />
         <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />

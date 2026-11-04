@@ -561,4 +561,404 @@ fn main() {
         [ServeError::Runtime(io::Error::from(io::ErrorKind::NotFound)), ServeError::Serve(io::Error::from(io::ErrorKind::AddrInUse)), ServeError::Endpoint(fmt::Error)].map(|error| error.to_string()),
         [SettingsError::File(io::Error::from(io::ErrorKind::NotFound)), SettingsError::Runtime(io::Error::from(io::ErrorKind::OutOfMemory))].map(|error| error.to_string()),
     ));
+    black_box(distinct_behavior::values());
+    black_box(contracts::values());
+    black_box(mapped_fields::values());
+}
+
+mod contracts {
+    // --- [MODELS] ----------------------------------------------------------------------
+
+    #[derive(Debug)]
+    struct Forward<T> {
+        first: T,
+        last: T,
+    }
+
+    #[derive(Debug)]
+    struct Reverse<T> {
+        last: T,
+        first: T,
+    }
+
+    #[derive(Debug)]
+    struct Plain {
+        item: u32,
+        active: bool,
+    }
+
+    #[derive(Debug)]
+    #[repr(C, align(32))]
+    struct Aligned {
+        item: u32,
+        active: bool,
+    }
+
+    #[derive(Debug)]
+    enum Rising {
+        Low,
+        High,
+    }
+
+    #[derive(Debug)]
+    enum Falling {
+        High,
+        Low,
+    }
+
+    #[derive(Debug)]
+    #[repr(i8)]
+    enum NativeOrder {
+        Less = -1,
+        Equal,
+        Greater,
+    }
+
+    #[derive(Debug)]
+    struct Packet<const N: usize> {
+        data: [u8; N],
+        stamp: u8,
+    }
+
+    #[derive(Debug)]
+    struct Echo<const N: usize> {
+        data: [u8; N],
+        stamp: u8,
+    }
+
+    #[derive(Debug)]
+    struct Numbered<const N: usize> {
+        level: u16,
+        ready: bool,
+    }
+
+    #[derive(Debug)]
+    struct Unnumbered {
+        level: u16,
+        ready: bool,
+    }
+
+    #[derive(Debug)]
+    struct Defaulted<const N: usize = 4> {
+        level: u16,
+        ready: bool,
+    }
+
+    #[derive(Debug)]
+    struct Strict<T: Clone> {
+        payload: T,
+        rank: u8,
+    }
+
+    #[derive(Debug)]
+    struct Loose<T> {
+        payload: T,
+        rank: u8,
+    }
+
+    #[derive(Debug)]
+    struct Fixed {
+        text: &'static str,
+        count: u8,
+    }
+
+    #[derive(Debug)]
+    struct Borrowed<'a> {
+        text: &'a str,
+        count: u8,
+    }
+
+    #[derive(Debug)]
+    struct Joined<'a> {
+        first: &'a str,
+        last: &'a str,
+    }
+
+    #[derive(Debug)]
+    struct Split<'a, 'b> {
+        first: &'a str,
+        last: &'b str,
+    }
+
+    // --- [OPERATIONS] ------------------------------------------------------------------
+
+    pub(super) fn values() -> usize {
+        let (forward, reverse) = (Forward { first: String::from("first"), last: String::from("last") }, Reverse { last: String::from("last"), first: String::from("first") });
+        let (plain, aligned) = (Plain { item: 1, active: true }, Aligned { item: 2, active: false });
+        let (packet, echo) = (Packet { data: [1, 2], stamp: 3 }, Echo { data: [4, 5], stamp: 6 });
+        let (numbered, unnumbered, defaulted) = (Numbered::<3> { level: 1, ready: true }, Unnumbered { level: 2, ready: false }, Defaulted::<4> { level: 3, ready: true });
+        let (strict, loose) = (Strict { payload: String::from("strict"), rank: 1 }, Loose { payload: String::from("loose"), rank: 2 });
+        let text = String::from("borrowed");
+        let (fixed, borrowed) = (Fixed { text: "fixed", count: 3 }, Borrowed { text: &text, count: 4 });
+        let (joined, split) = (Joined { first: &text, last: &text }, Split { first: &text, last: "split" });
+        super::black_box((Rising::Low, Rising::High, Falling::High, Falling::Low, NativeOrder::Less, NativeOrder::Equal, NativeOrder::Greater));
+        super::black_box((plain.item, plain.active, aligned.item, aligned.active, packet.data, packet.stamp, echo.data, echo.stamp, strict.rank, loose.rank, fixed.count, borrowed.count));
+        super::black_box((numbered.level, numbered.ready, unnumbered.level, unnumbered.ready, defaulted.level, defaulted.ready));
+        [forward.first, forward.last, reverse.first, reverse.last, strict.payload, loose.payload]
+            .iter()
+            .map(String::len)
+            .sum::<usize>()
+            .strict_add([fixed.text, borrowed.text, joined.first, joined.last, split.first, split.last].iter().map(|text| text.len()).sum::<usize>())
+            .strict_add(first::values())
+            .strict_add(last::values())
+    }
+
+    // --- [COMPOSITION] -----------------------------------------------------------------
+
+    mod first {
+        // --- [MODELS] ------------------------------------------------------------------
+
+        #[derive(Debug)]
+        pub(super) struct Record {
+            secret: u16,
+            enabled: bool,
+        }
+
+        // --- [OPERATIONS] --------------------------------------------------------------
+
+        pub(super) fn values() -> usize {
+            let record = Record { secret: 1, enabled: true };
+            usize::from(record.secret).strict_add(usize::from(record.enabled))
+        }
+    }
+
+    mod last {
+        // --- [MODELS] ------------------------------------------------------------------
+
+        #[derive(Debug)]
+        pub(super) struct Record {
+            secret: u16,
+            enabled: bool,
+        }
+
+        // --- [OPERATIONS] --------------------------------------------------------------
+
+        pub(super) fn values() -> usize {
+            let record = Record { secret: 2, enabled: false };
+            usize::from(record.secret).strict_add(usize::from(record.enabled))
+        }
+    }
+}
+
+mod distinct_behavior {
+    // --- [TYPES] -----------------------------------------------------------------------
+
+    trait Code {
+        const CODE: u8;
+    }
+
+    trait Output {
+        type Value;
+    }
+
+    trait Format<T> {}
+
+    // --- [MODELS] ----------------------------------------------------------------------
+
+    #[derive(Debug)]
+    struct FirstCode {
+        major: u8,
+        minor: u8,
+    }
+
+    #[derive(Debug)]
+    struct LastCode {
+        major: u8,
+        minor: u8,
+    }
+
+    #[derive(Debug)]
+    struct ByteOutput {
+        major: u8,
+        minor: u8,
+    }
+
+    #[derive(Debug)]
+    struct WordOutput {
+        major: u8,
+        minor: u8,
+    }
+
+    #[derive(Debug)]
+    struct ByteFormat {
+        major: u8,
+        minor: u8,
+    }
+
+    #[derive(Debug)]
+    struct WordFormat {
+        major: u8,
+        minor: u8,
+    }
+
+    #[derive(Debug)]
+    struct FirstMethod {
+        major: u8,
+        minor: u8,
+    }
+
+    #[derive(Debug)]
+    struct LastMethod {
+        major: u8,
+        minor: u8,
+    }
+
+    // --- [OPERATIONS] ------------------------------------------------------------------
+
+    impl Code for FirstCode {
+        const CODE: u8 = 1;
+    }
+
+    impl Code for LastCode {
+        const CODE: u8 = 2;
+    }
+
+    impl Output for ByteOutput {
+        type Value = u8;
+    }
+
+    impl Output for WordOutput {
+        type Value = u16;
+    }
+
+    impl Format<u8> for ByteFormat {}
+
+    impl Format<u16> for WordFormat {}
+
+    impl FirstMethod {
+        fn value(&self) -> u8 { self.major.strict_add(1) }
+    }
+
+    impl LastMethod {
+        fn value(&self) -> u8 { self.major.strict_add(2) }
+    }
+
+    pub(super) fn values() -> [u8; 12] {
+        let (first, last) = (FirstCode { major: 1, minor: 2 }, LastCode { major: 3, minor: 4 });
+        let (byte, word) = (ByteOutput { major: 5, minor: 6 }, WordOutput { major: 7, minor: 8 });
+        let (byte_format, word_format) = (ByteFormat { major: 9, minor: 10 }, WordFormat { major: 11, minor: 12 });
+        let (first_method, last_method) = (FirstMethod { major: 13, minor: 14 }, LastMethod { major: 15, minor: 16 });
+        let _: Option<<ByteOutput as Output>::Value> = None;
+        let _: Option<<WordOutput as Output>::Value> = None;
+        let _: &dyn Format<u8> = &byte_format;
+        let _: &dyn Format<u16> = &word_format;
+        [
+            first.major,
+            last.minor,
+            byte.major,
+            word.minor,
+            byte_format.major,
+            word_format.minor,
+            FirstCode::CODE,
+            LastCode::CODE,
+            first_method.value(),
+            last_method.value(),
+            first_method.minor,
+            last_method.minor,
+        ]
+    }
+}
+
+mod mapped_fields {
+    // --- [TYPES] -----------------------------------------------------------------------
+
+    trait Mode {
+        fn mode(&self) -> bool;
+    }
+
+    // --- [MODELS] ----------------------------------------------------------------------
+
+    #[derive(Debug)]
+    enum Source {
+        Pair(u8, u8),
+        Empty,
+    }
+
+    #[derive(Debug)]
+    enum Reordered {
+        Swapped(u8, u8),
+        Done,
+    }
+
+    #[derive(Debug)]
+    enum Repeated {
+        Duplicated(u8, u8),
+        End,
+    }
+
+    #[derive(Debug)]
+    enum Renamed {
+        Values(u8, u8),
+        Finished,
+    }
+
+    #[derive(Debug)]
+    enum Projected {
+        Pair,
+        Empty,
+    }
+
+    #[derive(Debug)]
+    struct DomainRange {
+        start: u32,
+        end: u32,
+    }
+
+    // --- [OPERATIONS] ------------------------------------------------------------------
+
+    impl Mode for DomainRange {
+        fn mode(&self) -> bool { self.start < self.end }
+    }
+
+    impl Mode for core::ops::Range<u32> {
+        fn mode(&self) -> bool { self.start > self.end }
+    }
+
+    const fn reordered(source: Source) -> Reordered {
+        match source {
+            Source::Pair(first, last) => Reordered::Swapped(last, first),
+            Source::Empty => Reordered::Done,
+        }
+    }
+
+    const fn repeated(source: Source) -> Repeated {
+        match source {
+            Source::Pair(first, _) => Repeated::Duplicated(first, first),
+            Source::Empty => Repeated::End,
+        }
+    }
+
+    const fn renamed(source: Source) -> Renamed {
+        match source {
+            Source::Pair(first, last) => Renamed::Values(first, last),
+            Source::Empty => Renamed::Finished,
+        }
+    }
+
+    const fn projected(source: Source) -> Projected {
+        match source {
+            Source::Pair(_, _) => Projected::Empty,
+            Source::Empty => Projected::Pair,
+        }
+    }
+
+    pub(super) fn values() -> ([[[u8; 2]; 2]; 3], [bool; 4]) {
+        (
+            [
+                [reordered(Source::Pair(1, 2)), reordered(Source::Empty)].map(|value| match value {
+                    Reordered::Swapped(first, last) => [first, last],
+                    Reordered::Done => [0, 0],
+                }),
+                [repeated(Source::Pair(3, 4)), repeated(Source::Empty)].map(|value| match value {
+                    Repeated::Duplicated(first, last) => [first, last],
+                    Repeated::End => [0, 0],
+                }),
+                [renamed(Source::Pair(5, 6)), renamed(Source::Empty)].map(|value| match value {
+                    Renamed::Values(first, last) => [first, last],
+                    Renamed::Finished => [0, 0],
+                }),
+            ],
+            [DomainRange { start: 7, end: 8 }.mode(), (9_u32..10).mode(), matches!(projected(Source::Pair(11, 12)), Projected::Pair), matches!(projected(Source::Empty), Projected::Empty)],
+        )
+    }
 }

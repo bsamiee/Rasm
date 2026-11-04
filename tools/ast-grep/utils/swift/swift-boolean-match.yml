@@ -6,14 +6,19 @@ utils:
     literal-body:
         kind: statements
         all:
+            - not:
+                has:
+                    all:
+                        - &statement {pattern: $_, not: {kind: 'comment, multiline_comment'}}
+                        - follows: {stopBy: end, all: [*statement]}
             - has:
-                nthChild: 1
-                any:
-                    - kind: boolean_literal
-                    - kind: control_transfer_statement
-                      regex: '^return\b'
-                      has: {field: result, kind: boolean_literal}
-            - not: {has: {nthChild: 2}}
+                all:
+                    - *statement
+                    - any:
+                        - kind: boolean_literal
+                        - kind: control_transfer_statement
+                          regex: '^return\b'
+                          has: {field: result, kind: boolean_literal}
     matched-body:
         matches: literal-body
         has: {stopBy: end, kind: boolean_literal, pattern: µMATCHED, matches: matched}

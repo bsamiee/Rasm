@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-decode-for-literal
-language: tsx
+language: tsxlang
 severity: error
 utils:
     codec:
@@ -35,4 +35,4 @@ rule:
                 stopBy: {kind: 'program, statement_block'}
                 has: {stopBy: end, kind: call_expression, all: [{has: {field: function, kind: identifier, pattern: $CODEC}}, {has: {field: arguments, matches: literal-argument}}]}
 message: '`$M.$FN` runs a codec over a literal'
-note: 'Call `<schema>.make(<Type value>)`, `makeOption` or `makeEffect` for an `Option` or `Effect` result, and write an encode as its `Encoded` literal'
+note: 'Call `<schema>.make`, `makeOption`, or `makeEffect` with a `Type` value; write an encode as its `Encoded` literal'

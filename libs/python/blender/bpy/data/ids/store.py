@@ -1,17 +1,17 @@
 """Session handles, BlendData collections, and collision-checked renames."""
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, MutableMapping
 from functools import partial
 from types import MappingProxyType
 from typing import Final, Self
 
 import bpy
-from expression import Error, Ok, Option, Some, try_downcast
+from expression import Option, Some, try_downcast
 from expression.collections import Block
 from expression.extra.result import catch
 import msgspec
 
-from blender.records.faults import accumulated, Fault, Outcome, Reason
+from blender.records.faults import accumulated, Error, Fault, Nothing, Ok, Outcome, Reason
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -64,7 +64,7 @@ class Handle[T: bpy.types.ID](msgspec.Struct, frozen=True, kw_only=True):
         held: T = block.original  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
         return cls(kind=type(block), uid=holder(held).default_value(held).session_uid, embedded=held.is_embedded_data)
 
-    def resolve(self) -> Outcome[T]:
+    def resolve(self: "Handle[T]") -> Outcome[T]:
         """Returns live original, absent fault once expired."""
         return resolved((self,)).map(lambda found: found[0])
 
@@ -84,21 +84,25 @@ def blocks[T: bpy.types.ID](kind: type[T]) -> tuple[T, ...]:
 
 def resolved[T: bpy.types.ID](handles: Iterable[Handle[T]]) -> Outcome[tuple[T, ...]]:
     """Returns live originals in order, accumulating expired-handle faults."""
-    live = {block.session_uid: block for block in bpy.data.all_ids}
+    held = tuple(handles)
+    live = _joined(held, bpy.data.all_ids)
+    return accumulated(Option.of_optional(live.get(handle)).to_result_with(partial(Fault.of, Reason.ABSENT, handle.kind.__name__, member=str(handle.uid))) for handle in held)
 
-    def reached(handle: Handle[T]) -> Option[bpy.types.ID]:
-        found: Option[bpy.types.ID] = Option.of_optional(live.get(handle.uid))
-        return found.bind(embedded) if handle.embedded else found
 
-    return accumulated(
-        reached(handle).bind(lambda block: Option.of_optional(try_downcast(handle.kind, block))).to_result_with(partial(Fault.of, Reason.ABSENT, handle.kind.__name__, member=str(handle.uid)))
-        for handle in handles
-    )
+def retained[T: bpy.types.ID, V](values: MutableMapping[Handle[T], V], originals: Iterable[bpy.types.ID], /) -> dict[Handle[T], T]:
+    """Removes absent entries and returns their live originals from one native ID join."""
+    live = _joined(values, originals)
+    for handle in values.keys() - live.keys():
+        del values[handle]
+    return live
 
 
 def embedded(block: bpy.types.ID) -> Option[bpy.types.NodeTree]:
     """Returns block's embedded node tree."""
-    return Block.of_seq(type(block).__mro__).choose(lambda parent: Option.of_optional(_TREES.get(parent))).try_head().bind(lambda tree: Option.of_optional(getattr(block, tree)))
+    for member in Block.of_seq(type(block).__mro__).choose(lambda parent: Option.of_optional(_TREES.get(parent))).try_head().to_list():
+        tree: bpy.types.NodeTree | None = getattr(block, member)  # ty: ignore[unsound-assignment]
+        return Option.of_optional(tree)
+    return Nothing
 
 
 def holder(block: bpy.types.ID) -> Option[bpy.types.ID]:
@@ -123,6 +127,18 @@ def named[T: bpy.types.ID](block: T, name: str) -> Outcome[T]:
     return catch(block.rename, exception=RuntimeError)(name, mode="NEVER").map_error(refused).bind(answered)
 
 
+def _joined[T: bpy.types.ID](handles: Iterable[Handle[T]], originals: Iterable[bpy.types.ID]) -> dict[Handle[T], T]:
+    """Joins handles to current originals through one native ID index."""
+    held = tuple(handles)
+    live = {block.session_uid: block for block in originals} if held else {}
+
+    def reached(handle: Handle[T]) -> Option[bpy.types.ID]:
+        found: Option[bpy.types.ID] = Option.of_optional(live.get(handle.uid))
+        return found.bind(embedded) if handle.embedded else found
+
+    return {handle: block for handle in held for block in reached(handle).bind(lambda block: Option.of_optional(try_downcast(handle.kind, block))).to_list()}
+
+
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["STORES", "Handle", "IdName", "blocks", "embedded", "holder", "member", "named", "resolved"]
+__all__ = ["STORES", "Handle", "IdName", "blocks", "embedded", "holder", "member", "named", "resolved", "retained"]

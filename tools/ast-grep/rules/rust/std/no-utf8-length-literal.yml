@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-utf8-length-literal
-language: rust
+language: rustlang
 severity: error
 utils:
     utf8-call:
@@ -13,16 +13,33 @@ utils:
         inside: {kind: reference_expression, inside: {kind: arguments, inside: {matches: utf8-call}}}
     inline-utf16:
         inside: {kind: reference_expression, inside: {kind: arguments, inside: {matches: utf16-call}}}
+    shadowed-buffer:
+        follows:
+            stopBy: end
+            kind: let_declaration
+            all:
+                - has: {field: pattern, pattern: $BUF}
+                - follows: {stopBy: end, pattern: $BINDING}
     bound-utf8:
         inside:
             kind: let_declaration
+            pattern: $BINDING
             has: {field: pattern, pattern: $BUF}
-            precedes: {stopBy: {kind: let_declaration, has: {field: pattern, pattern: $BUF}}, has: {stopBy: end, matches: utf8-call, has: {field: arguments, has: {kind: reference_expression, has: {pattern: $BUF}}}}}
+            precedes:
+                stopBy: end
+                all:
+                    - has: {stopBy: end, matches: utf8-call, has: {field: arguments, has: {kind: reference_expression, has: {pattern: $BUF}}}}
+                    - not: {matches: shadowed-buffer}
     bound-utf16:
         inside:
             kind: let_declaration
+            pattern: $BINDING
             has: {field: pattern, pattern: $BUF}
-            precedes: {stopBy: {kind: let_declaration, has: {field: pattern, pattern: $BUF}}, has: {stopBy: end, matches: utf16-call, has: {field: arguments, has: {kind: reference_expression, has: {pattern: $BUF}}}}}
+            precedes:
+                stopBy: end
+                all:
+                    - has: {stopBy: end, matches: utf16-call, has: {field: arguments, has: {kind: reference_expression, has: {pattern: $BUF}}}}
+                    - not: {matches: shadowed-buffer}
 rule:
     kind: integer_literal
     pattern: $LEN

@@ -1,7 +1,11 @@
-#![feature(array_try_map, default_field_values, deref_patterns, error_reporter, float_conversions, gen_blocks, iterator_try_collect)]
+#![feature(array_try_map, default_field_values, deref_patterns, error_reporter, float_conversions, gen_blocks, integer_casts, iterator_try_collect)]
 
 use core::{borrow::Borrow, fmt, str::Utf8Error};
-use std::{collections::BTreeMap, error::Report, sync::Arc};
+use std::{
+    collections::{BTreeMap, HashSet},
+    error::Report,
+    sync::Arc,
+};
 
 use hayro::hayro_interpret::TransformExt as _;
 use hayro_syntax::{
@@ -28,6 +32,11 @@ use pdf_oxide::{
     ocr::OcrError,
 };
 use rasm_linework::{LineworkError, WidthError};
+use rasn::{
+    error::{DecodeError, EncodeError},
+    types::Enumerated as _,
+};
+use rasn_cms::tsp::PkiStatus;
 use secrecy::{ExposeSecret as _, SecretString};
 use uom::si::{
     f64::{Length, LinearNumberDensity},
@@ -64,8 +73,10 @@ impl Document {
         } else {
             bytes
         };
-        Pdf::new(plain).map(|pdf| Self(Arc::new(pdf))).map_err(PdfError::Load)
+        Self::from_plain_bytes(plain)
     }
+
+    fn from_plain_bytes(bytes: Vec<u8>) -> Result<Self, PdfError> { Pdf::new(bytes).map(|pdf| Self(Arc::new(pdf))).map_err(PdfError::Load) }
 }
 
 #[nutype::nutype(validate(predicate = |density: &LinearNumberDensity| density.is_normal() && density.is_sign_positive()), derive(Debug, Clone, Copy, PartialEq, Deref))]
@@ -77,14 +88,14 @@ pub struct OutputIntent {
     data: Arc<[u8]>,
     #[as_ref(ColorProfile)]
     profile: Arc<ColorProfile>,
+    icc: ICCProfile<4>,
 }
 
 impl OutputIntent {
     pub fn new(data: Arc<[u8]>) -> Result<Self, PdfError> {
         let profile = ColorProfile::new_from_slice(&data)?;
-        (profile.profile_class == ProfileClass::OutputDevice && profile.color_space == DataColorSpace::Cmyk && ICCProfile::<4>::new(&data).is_some())
-            .ok_or(PdfError::Intent)
-            .map(|()| Self { data, profile: Arc::new(profile) })
+        (profile.profile_class == ProfileClass::OutputDevice && profile.color_space == DataColorSpace::Cmyk).ok_or(PdfError::Intent)?;
+        ICCProfile::new(&data).ok_or(PdfError::Intent).map(|icc| Self { data, profile: Arc::new(profile), icc })
     }
 }
 
@@ -139,8 +150,6 @@ pub enum Refusal {
     Unit,
     #[display("layer prints and views differently under a standard forbidding usage application")]
     Usage,
-    #[display("document holds no layer")]
-    Group,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -184,11 +193,17 @@ pub enum PdfError {
     #[error(transparent)]
     Resize(#[from] fast_image_resize::ResizeError),
     #[error(transparent)]
+    ImageBuffer(#[from] fast_image_resize::ImageBufferError),
+    #[error(transparent)]
     Profile(#[from] CmsError),
     #[error(transparent)]
     Compare(#[from] image_compare::CompareError),
     #[error(transparent)]
     Xml(#[from] xot::Error),
+    #[error(transparent)]
+    Decode(#[from] DecodeError),
+    #[error(transparent)]
+    Encode(#[from] EncodeError),
     #[error(transparent)]
     Text(#[from] Utf8Error),
     #[error(transparent)]
@@ -203,6 +218,10 @@ pub enum PdfError {
     Area(Rect),
     #[error("font data of {family} holds no face {index}")]
     Font { family: Arc<str>, index: u32 },
+    #[error("document holds no optional content group {} {} R", .0.0, .0.1)]
+    Group(ObjectId),
+    #[error("PDF metadata cannot represent year {0}")]
+    Year(i16),
     #[error("profile describes no CMYK output device")]
     Intent,
     #[error("{0} needs output the writer cannot produce")]
@@ -214,10 +233,10 @@ pub enum PdfError {
     #[error("page label range at page {0} numbers from zero, where ISO 32000 starts at one")]
     Numbering(usize),
     #[error("timestamp authority answered {}", fmt::from_fn(|formatter| match .0 {
-        Some(status) => write!(formatter, "status {status}"),
-        None => formatter.write_str("no status and token"),
+        Some(status) => write!(formatter, "status {}", status.discriminant()),
+        None => formatter.write_str("no RFC 3161 token"),
     }))]
-    Timestamp(Option<u8>),
+    Timestamp(Option<PkiStatus>),
     #[error("timestamp token stamps other bytes")]
     Imprint,
     #[error("raster of {width} by {height} pixels exceeds addressable memory")]
@@ -283,7 +302,7 @@ fn editor(document: &Document) -> Result<DocumentEditor, PdfError> { DocumentEdi
 fn saved(mut structure: lopdf::Document) -> Result<Document, PdfError> {
     let mut bytes = Vec::new();
     structure.save_to(&mut bytes).map_err(lopdf::Error::from)?;
-    Document::new(bytes, None)
+    Document::from_plain_bytes(bytes)
 }
 
 fn extent(size: Size) -> Result<geom::Size, PdfError> { geom::Size::from_wh(size.width.cast::<f32>(), size.height.cast::<f32>()).ok_or(PdfError::Area(size.to_rect())) }
@@ -317,24 +336,45 @@ fn resolved<'held>(structure: &'held lopdf::Document, object: &'held Object) -> 
 }
 
 fn entry<'held>(structure: &'held lopdf::Document, holder: &'held Dictionary, key: impl AsRef<[u8]>) -> Result<Option<&'held Object>, lopdf::Error> {
-    let key = key.as_ref();
-    Ok(holder.has(key).then(|| holder.get(key).and_then(|value| resolved(structure, value))).transpose()?.filter(|value| !value.is_null()))
+    Ok(holder.as_hashmap().get(key.as_ref()).map(|value| resolved(structure, value)).transpose()?.filter(|value| !value.is_null()))
 }
 
 fn nested<'held>(structure: &'held lopdf::Document, holder: &'held Dictionary, path: &[&[u8]]) -> Result<Option<&'held Dictionary>, lopdf::Error> {
     path.iter().try_fold(Some(holder), |found, key| found.map(|parent| entry(structure, parent, key)?.map(Object::as_dict).transpose()).transpose().map(Option::flatten))
 }
 
-fn leaves<K, F>(structure: &lopdf::Document, node: &Dictionary, list: &str, key: &F, ancestors: &[ObjectId]) -> Result<Vec<(K, Object)>, lopdf::Error>
+fn leaves<K, F>(structure: &lopdf::Document, root: &Dictionary, list: &str, key: &F) -> Result<Vec<(K, Object)>, lopdf::Error>
 where F: Fn(&Object) -> Result<K, lopdf::Error> {
-    let own =
-        entry(structure, node, list)?.map(Object::as_array).transpose()?.into_iter().flat_map(|pairs| pairs.as_chunks::<2>().0).map(|[name, value]| key(name).map(|name| vec![(name, value.clone())]));
-    let kids = entry(structure, node, b"Kids")?.map(Object::as_array).transpose()?.into_iter().flatten().map(|kid| {
-        let id = kid.as_reference()?;
-        (!ancestors.contains(&id)).ok_or(lopdf::Error::ReferenceCycle(id))?;
-        leaves(structure, structure.get_dictionary(id)?, list, key, &[ancestors, &[id]].concat())
-    });
-    own.chain(kids).try_collect::<Vec<_>>().map(|found| found.into_iter().flatten().collect())
+    enum Step<'node> {
+        Node(&'node Dictionary),
+        Child(&'node Object),
+        Leave(ObjectId),
+    }
+    let mut found = Vec::new();
+    let mut active = HashSet::new();
+    let mut pending = vec![Step::Node(root)];
+    while let Some(step) = pending.pop() {
+        match step {
+            Step::Node(node) => {
+                entry(structure, node, list)?
+                    .map(Object::as_array)
+                    .transpose()?
+                    .into_iter()
+                    .flat_map(|pairs| pairs.as_chunks::<2>().0)
+                    .try_for_each(|[name, value]| key(name).map(|name| found.push((name, value.clone()))))?;
+                pending.extend(entry(structure, node, b"Kids")?.map(Object::as_array).transpose()?.into_iter().flatten().rev().map(Step::Child));
+            }
+            Step::Child(child) => {
+                let id = child.as_reference()?;
+                active.insert(id).ok_or(lopdf::Error::ReferenceCycle(id))?;
+                pending.extend([Step::Leave(id), Step::Node(structure.get_dictionary(id)?)]);
+            }
+            Step::Leave(id) => {
+                active.remove(&id);
+            }
+        }
+    }
+    Ok(found)
 }
 
 fn write_fields(structure: &mut lopdf::Document, page: ObjectId, fields: &Fields, modified: &Zoned) -> Result<(), lopdf::Error> {

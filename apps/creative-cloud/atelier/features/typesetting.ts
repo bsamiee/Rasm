@@ -1,16 +1,10 @@
-import { Automation } from '@rasm/automation/automation';
-import { AvailableFace } from '@rasm/automation/available-face';
-import { Kerns, type Runs, Typeset } from '@rasm/automation/typesetting';
-import { progress } from '@rasm/mcp/progress';
-import { Route } from '@rasm/mcp/route';
-import { registerTool } from '@rasm/mcp/tool';
-import { Unmatched } from '@rasm/search/unmatched';
-import { Face } from '@rasm/typography/face';
-import { Kerning } from '@rasm/typography/kerning';
+import { AvailableFace, Kerns, type Runs, Typeset } from '@rasm/automation';
+import { Automation } from '@rasm/automation/node';
+import { progress, Route, registerTool } from '@rasm/mcp';
+import { Unmatched } from '@rasm/search';
+import { Settings, Symbols } from '@rasm/typography';
 import { Quran } from '@rasm/typography/quran';
-import { Settings } from '@rasm/typography/settings';
-import { Symbols } from '@rasm/typography/symbols';
-import { Word } from '@rasm/typography/word';
+import { Face, Kerning, Word } from '@rasm/typography/shaping';
 import { Array, Cause, Effect, Equal, FileSystem, Number, Option, Order, Record, Schema, Stream, Struct } from 'effect';
 import { Tool } from 'effect/ai';
 import { AbsolutePath } from '#/absolute-path';
@@ -140,8 +134,8 @@ const typesetting = Effect.fnUntraced(function* ({ serving }: Effect.Success<Ret
         Csv: ({ ayahs, surahs, columns, riwayah }) => Effect.flatMap(Effect.all({ ayahs: files.readFileString(ayahs), surahs: files.readFileString(surahs) }), (csv) => Quran.decode(csv, columns, riwayah)),
         Mushaf: ({ file, render }) => Effect.flatMap(Effect.transposeOption(Option.map(file, (path) => files.readFileString(path))), (json) => Quran.mushaf(json, render)),
     });
-    yield* Route.register(serving('kerns'))(KerningTool, (parameters, { client }) => kerned(client, parameters));
-    yield* Route.register(serving('typeset'))(TypesetTool, (parameters, { client }) => typeset(client, parameters));
+    yield* Route(serving('kerns'))(KerningTool, (parameters, { client }) => kerned(client, parameters));
+    yield* Route(serving('typeset'))(TypesetTool, (parameters, { client }) => typeset(client, parameters));
     yield* registerTool(
         QuranTool,
         Effect.fnUntraced(function* ({ source, selection, face: name, numberingSystem, separator }) {

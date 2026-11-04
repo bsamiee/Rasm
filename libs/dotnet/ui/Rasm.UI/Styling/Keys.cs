@@ -32,8 +32,8 @@ public sealed partial class Condition {
 
 [SmartEnum]
 public sealed partial class Interaction {
-    public static readonly Interaction Hover = new(emphasis: Fraction.Validated(0.16f).ThrowIfFail());
-    public static readonly Interaction Pressed = new(emphasis: Fraction.Validated(0.24f).ThrowIfFail());
+    public static readonly Interaction Hover = new(emphasis: new Fraction(0.16f));
+    public static readonly Interaction Pressed = new(emphasis: new Fraction(0.24f));
     public static readonly Interaction Focused = new(emphasis: None);
 
     internal Option<Fraction> Emphasis { get; }

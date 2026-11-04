@@ -17,14 +17,6 @@ public sealed partial class Check {
     internal static Check Of(Option<bool> value) => value.Match(Some: static on => on ? On : Off, None: static () => Mixed);
 }
 
-[SmartEnum]
-public sealed partial class Live {
-    public static readonly Live Polite = new(interrupts: false);
-    public static readonly Live Assertive = new(interrupts: true);
-
-    public bool Interrupts { get; }
-}
-
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class AccessRole {
     public static readonly AccessRole Text = new(namedByContents: true);
@@ -87,7 +79,7 @@ public abstract partial record AccessValue {
         public Option<Axis> Axis { get; private init; }
 
         public override string Spoken(CultureInfo culture) =>
-            Axis.Match(Some: axis => axis.Spoken((float)Value, culture), None: () => string.Create(culture, $"{(Value - Min) / double.Max(Max - Min, double.Epsilon):P0}"));
+            Axis.Match(Some: axis => axis.Spoken((float)Value, culture), None: () => string.Create(culture, $"{(Value - Min) / (Max - Min):P0}"));
     }
 
     public sealed record Point(PlotPlane Plane, Vector2 At) : AccessValue {
@@ -115,7 +107,7 @@ public sealed record Accessible : Monoid<Accessible> {
     public Option<AccessValue> Value { get; init; }
     public Option<bool> Expanded { get; init; }
     public Option<PhysicalAxis> Orientation { get; init; }
-    public Option<Live> Live { get; init; }
+    public Option<bool> Interrupts { get; init; }
     public Option<ChartDescription> Chart { get; init; }
 
     public Accessible Combine(Accessible rhs) =>
@@ -127,7 +119,7 @@ public sealed record Accessible : Monoid<Accessible> {
             Value = Value | rhs.Value,
             Expanded = Expanded | rhs.Expanded,
             Orientation = Orientation | rhs.Orientation,
-            Live = Live | rhs.Live,
+            Interrupts = Interrupts | rhs.Interrupts,
             Chart = Chart | rhs.Chart,
         };
 

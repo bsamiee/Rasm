@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-vector-struct-by-hand
-language: rust
+language: rustlang
 severity: error
 utils:
     float:
@@ -26,12 +26,9 @@ utils:
     positional-fields:
         kind: ordered_field_declaration_list
         all:
-            - has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment, attribute_item, visibility_modifier'}}}, matches: float}
-            - not: {has: {nthChild: {position: 5, ofRule: {not: {kind: 'line_comment, block_comment, attribute_item, visibility_modifier'}}}}}
-            - not: {has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment, attribute_item, visibility_modifier'}}}, not: {matches: float}}}
-            - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment, attribute_item, visibility_modifier'}}}, not: {matches: float}}}
-            - not: {has: {nthChild: {position: 3, ofRule: {not: {kind: 'line_comment, block_comment, attribute_item, visibility_modifier'}}}, not: {matches: float}}}
-            - not: {has: {nthChild: {position: 4, ofRule: {not: {kind: 'line_comment, block_comment, attribute_item, visibility_modifier'}}}, not: {matches: float}}}
+            - has: {nthChild: {position: 2, ofRule: &field {not: {kind: 'line_comment, block_comment, attribute_item, visibility_modifier'}}}}
+            - not: {has: {nthChild: {position: 5, ofRule: *field}}}
+            - not: {has: {pattern: $_, all: [*field, {not: {matches: float}}]}}
 rule:
     kind: struct_item
     all:

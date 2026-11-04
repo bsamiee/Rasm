@@ -28,17 +28,16 @@ public sealed partial class SortDirection {
     private readonly bool transposed;
 
     public PixelPass Sorted(SortMetric metric, GradingStyle style, Vector3 luminance, float low, float high) {
+        (float lower, float upper, float sign) = descending ? (-high, -low, -1f) : (low, high, 1f);
         PixelPass.Point rows = new(row => {
-            using SpanOwner<float> owner = SpanOwner<float>.Allocate(row.Length);
-            Span<float> keys = owner.Span;
+            using SpanOwner<(float Key, int Position)> owner = SpanOwner<(float Key, int Position)>.Allocate(row.Length);
+            Span<(float Key, int Position)> keys = owner.Span;
             for (int x = 0; x < row.Length; x++)
-                keys[x] = Vector3.Dot(metric.Axis, style.ToHsy(row[x].AsVector3(), luminance));
+                keys[x] = (sign * Vector3.Dot(metric.Axis, style.ToHsy(row[x].AsVector3(), luminance)), x);
             for (int x = 0, start = 0; x <= row.Length; x++) {
-                if (x < row.Length && row[x].W > 0f && (low <= high ? keys[x] >= low && keys[x] <= high : keys[x] >= low || keys[x] <= high))
+                if (x < row.Length && row[x].W > 0f && (lower <= upper ? keys[x].Key >= lower && keys[x].Key <= upper : keys[x].Key >= lower || keys[x].Key <= upper))
                     continue;
                 keys[start..x].Sort(row[start..x]);
-                if (descending)
-                    row[start..x].Reverse();
                 start = x + 1;
             }
         });

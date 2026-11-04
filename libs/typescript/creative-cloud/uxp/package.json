@@ -8,10 +8,9 @@
         "#/*": "./*.ts"
     },
     "exports": {
-        "./link": "./link.ts",
-        "./manifest": "./manifest.ts",
-        "./plugin": "./plugin.ts",
-        "./runtime": "./runtime.ts"
+        ".": "./index.ts",
+        "./peer": "./peer.ts",
+        "./uxp": "./uxp/index.ts"
     },
     "dependencies": {
         "@rasm/automation": "workspace:*",
@@ -20,6 +19,7 @@
     },
     "devDependencies": {
         "@adobe-uxp-types/uxp": "catalog:",
-        "@types/node": "catalog:"
+        "@types/node": "catalog:",
+        "vite": "catalog:"
     }
 }

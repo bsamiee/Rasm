@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Drawing;
-using System.Globalization;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -55,7 +54,7 @@ public sealed record DictionaryCodec<T>(string Name, int Version, Func<T, Fin<Ar
                 None: static () => new StoredRecord<T>.Absent());
 
     public Error Refusal(ArchivableDictionary stored) =>
-        new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"{Name} version {stored.Version} over {Version}"), RhinoReason.Unreadable);
+        new RhinoFault((Name, Stored: stored.Version, Current: Version), RhinoReason.Unreadable);
 
     private static StoredRecord<T> Hold(T value) => new StoredRecord<T>.Decoded(value);
 }
@@ -194,7 +193,7 @@ public static class ArchivableDictionaries {
     public static IO<Option<T>> Read<T>(DictionaryOwner owner, DictionaryCodec<T> codec) =>
         from source in owner.Read
         from stored in IO.lift(() => Stored(source, codec))
-        from pending in owner.Document.Filter(_ => stored.Older).Traverse(doc => IO.lift(() => Rewrites(doc).AddOrUpdate(codec.Name, Rewritten(owner, codec)))).As()
+        from pending in owner.Document.Filter(_ => stored.Older).Traverse(doc => IO.lift(() => Rewrites(doc).AddOrUpdate((source, codec.Name), Rewritten(owner, codec)))).As()
         select stored.Record.Present;
 
     public static IO<Unit> Write<T>(DictionaryOwner owner, DictionaryCodec<T> codec, T value) =>
@@ -234,8 +233,8 @@ public static class ArchivableDictionaries {
             newer: static (_, _) => IO.pure(unit))).As()
         select written;
 
-    private static AtomHashMap<string, IO<Unit>> Rewrites(RhinoDoc doc) =>
-        doc.RuntimeData.GetValue(typeof(DictionaryOwner), static _ => AtomHashMap<string, IO<Unit>>());
+    private static AtomHashMap<(ArchivableDictionary Dictionary, string Name), IO<Unit>> Rewrites(RhinoDoc doc) =>
+        doc.RuntimeData.GetValue(typeof(DictionaryOwner), static _ => AtomHashMap<(ArchivableDictionary Dictionary, string Name), IO<Unit>>());
 
     // --- [CODECS]
     private const string JsonKey = "Json";

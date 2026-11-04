@@ -43,10 +43,10 @@ public static class Mappings {
 
     // --- [EVALUATION]
     public static IO<Seq<(Point3d Texture, int Side)>> Evaluate(TextureMapping mapping, Seq<(Point3d Point, Vector3d Normal)> samples, Transform objectTransform) =>
-        from moved in IO.lift(() => !objectTransform.IsIdentity && objectTransform.TryGetInverse(out Transform inverse) ? Some((Points: inverse, Normals: objectTransform.Transpose())) : None)
-        from result in IO.lift(() => Products.Each(samples, (sample, index) => moved.Match(
-            Some: xforms => Mapped(mapping.Evaluate(sample.Point, sample.Normal, out Point3d texture, xforms.Points, xforms.Normals), texture, index),
-            None: () => Mapped(mapping.Evaluate(sample.Point, sample.Normal, out Point3d texture), texture, index))))
+        from inverse in Products.Accepted(() => (objectTransform.TryGetInverse(out Transform points), points))
+        let normals = objectTransform.Transpose()
+        from result in IO.lift(() => Products.Each(samples, (sample, index) =>
+            Mapped(mapping.Evaluate(sample.Point, sample.Normal, out Point3d texture, inverse, normals), texture, index)))
         select result;
 
     private static Fin<(Point3d Texture, int Side)> Mapped(int side, Point3d texture, int index, [CallerArgumentExpression(nameof(side))] string call = "") =>

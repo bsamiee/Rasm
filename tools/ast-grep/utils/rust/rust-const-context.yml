@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: rust-const-context
-language: rust
+language: rustlang
 rule:
     inside:
         stopBy: {kind: 'function_item, closure_expression, const_item, static_item, const_block'}

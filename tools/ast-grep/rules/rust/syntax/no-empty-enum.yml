@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-empty-enum
-language: rust
+language: rustlang
 severity: error
 utils:
     named:
@@ -34,9 +34,8 @@ rule:
             - pattern: $KIND
               matches: entity-kind
             - pattern: $STATE
-              all: [{not: {matches: entity-kind}}, {matches: state-marker}]
+              matches: state-marker
             - pattern: $NEVER
-              not: {any: [{matches: entity-kind}, {matches: state-marker}]}
 transform:
     KIND_TEXT: {replace: {source: $KIND, replace: '(?s)^.*?\benum\s+(\w+).*$', by: '`$1` declares an entity kind by hand, one `impl_typed_uuid_kinds!` row derives it with its tag and `Uuid` alias'}}
     STATE_TEXT: {replace: {source: $STATE, replace: '(?s)^.*?\benum\s+(\w+).*$', by: '`$1` marks a typestate state with no variant, a state record holding that state''s data marks it'}}

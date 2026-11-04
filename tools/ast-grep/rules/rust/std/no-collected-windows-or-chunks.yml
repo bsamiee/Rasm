@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-collected-windows-or-chunks
-language: rust
+language: rustlang
 severity: error
 utils:
     collected:
@@ -18,4 +18,4 @@ rule:
             - has: {field: function, kind: generic_function, has: {field: function, matches: collected}}
             - has: {field: arguments, not: {has: {nthChild: 1}}}
 message: '`$R` collects into a `Vec` only to read its windows or chunks'
-note: 'When the output borrows nothing from the slice, call `<iterator>.map_windows(|window: &[_; <n>]| <value>)` (`#![feature(iter_map_windows)]`) for windows or `<iterator>.array_chunks::<n>()` (`#![feature(iter_array_chunks)]`) for chunks'
+note: 'Use `map_windows(|window: &[_; N]| ..)` or `array_chunks::<N>()` when outputs borrow nothing from the source slice'

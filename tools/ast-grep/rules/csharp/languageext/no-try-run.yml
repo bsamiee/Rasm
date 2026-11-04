@@ -34,7 +34,7 @@ utils:
                 - matches: csharp-argumentless-call
     direct:
         any:
-            - matches: {languageext-tried-run: {effect: {pattern: $EFFECT}}}
+            - matches: {languageext-tried-run: {effect: {pattern: $_}}}
             - kind: invocation_expression
               all:
                 - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^As$'}}, {has: {field: expression, matches: direct}}]}
@@ -53,21 +53,9 @@ utils:
 rule:
     kind: invocation_expression
     all:
-        - pattern: {context: 'class C { object F() => $IO.$RUN($$$ENV); }', selector: invocation_expression, strictness: cst}
-        - any:
-            - all:
-                - has: {field: function, has: {field: expression, matches: direct}}
-                - has: {field: function, has: {field: name, pattern: $DIRECT}}
-            - all:
-                - has: {field: function, has: {field: expression, matches: kept}}
-                - has: {field: function, has: {field: name, pattern: $KEPT}}
-                - has: {field: function, has: {field: expression, pattern: $KEPT_IO}}
+        - pattern: {context: 'class C { object F() => $IO.$RUN($$$_ENV); }', selector: invocation_expression, strictness: cst}
+        - has: {field: function, has: {field: expression, any: [{matches: direct}, {matches: kept}]}}
 constraints:
     RUN: {regex: '^Run(Async)?$'}
-transform:
-    SAFE: {replace: {source: $DIRECT, replace: '^Run', by: 'RunSafe'}}
-    RECEIVER: {replace: {source: $EFFECT, replace: '(?s)^(.+)$', by: '${1}.'}}
-    KEPT_RECEIVER: {replace: {source: $KEPT_IO, replace: '(?s)^(.+)$', by: '${1}.'}}
-fix: $RECEIVER$SAFE$KEPT_RECEIVER$KEPT($$$ENV)
 message: '`$IO.$RUN` spells `RunSafe` through `Try` and `Run`'
 note: 'Call `RunSafe` or `RunSafeAsync` on the effect with same environment argument'

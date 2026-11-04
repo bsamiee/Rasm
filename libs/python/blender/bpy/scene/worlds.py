@@ -1,6 +1,6 @@
 """World environments, graphs, swaps, sun-following nodes, and studio worlds."""
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from contextlib import ExitStack
 from enum import Enum
 from functools import partial, reduce
@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import ClassVar, Final
 
 import bpy
-from expression import Nothing, Ok, Option, Some
+from expression import Option, Some
 from expression.extra.result import catch
 import msgspec
 import numpy as np
@@ -34,7 +34,7 @@ from blender.bpy.ui.layout.members import Member
 from blender.bpy.ui.layout.rows import OperatorButton, Property
 from blender.bpy.ui.layout.sections import Section
 from blender.bpy.ui.layout.values import Store
-from blender.records.faults import Fault, Outcome, Reason
+from blender.records.faults import Fault, Nothing, Ok, Outcome, Reason
 from blender.records.fields import Retention
 from blender.rendering.lighting.solar import SunPosition
 
@@ -67,8 +67,8 @@ class RaySlot(Enum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_SKY_TYPE: Final = Descriptor.declared(bpy.types.ShaderNodeTexSky, ("sky_type",), bpy.types.EnumProperty)
-_PROJECTION: Final = Descriptor.declared(bpy.types.ShaderNodeTexEnvironment, ("projection",), bpy.types.EnumProperty)
+_SKY_TYPE: Final[bpy.types.EnumProperty] = bpy.types.ShaderNodeTexSky.bl_rna.properties["sky_type"]  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+_PROJECTION: Final[bpy.types.EnumProperty] = bpy.types.ShaderNodeTexEnvironment.bl_rna.properties["projection"]  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
 _SKY: Final = tuple(
     prop
     for prop in bpy.types.ShaderNodeTexSky.bl_rna.properties
@@ -76,7 +76,7 @@ _SKY: Final = tuple(
 )
 _FOLLOWED: Final = frozenset(("sun_elevation", "sun_rotation"))
 _DISC: Final = "sun_disc"
-_MODES: Final = choices((*_SKY_TYPE.prop.enum_items, *((source.name, *source.value) for source in BackdropSource)))
+_MODES: Final = choices((*_SKY_TYPE.enum_items, *((source.name, *source.value) for source in BackdropSource)))
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -97,7 +97,7 @@ class Backdrop(bpy.types.PropertyGroup):
     top: bpy.props.FloatVectorProperty(name="Top", description="Gradient color at frame top", subtype="COLOR", size=3, default=(0.2, 0.2, 0.2))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     bottom: bpy.props.FloatVectorProperty(name="Bottom", description="Gradient color at frame bottom", subtype="COLOR", size=3, default=(0.02, 0.02, 0.02))  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     path: bpy.props.StringProperty(name="Image", description="Image file", subtype="FILE_PATH")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
-    projection: redeclared(_PROJECTION.prop)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
+    projection: redeclared(_PROJECTION)  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     rotation: bpy.props.FloatProperty(name="Rotation", description="Fixed image rotation", subtype="ANGLE")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     heading: bpy.props.FloatProperty(name="Sun Heading", description="Heading of the image sun turned onto scene sun", subtype="ANGLE")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
     use_sun: bpy.props.BoolProperty(name="Follow Sun", description="Sky sun and image rotation follow the scene sun light")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
@@ -133,9 +133,9 @@ class WorldEnvironment(msgspec.Struct, frozen=True, kw_only=True):
     attachment: ClassVar[Attachment[Environment]] = Attachment(key="environment", form=Environment, owner=bpy.types.NodeTree, changed=Some(partial(reconciling, bpy.types.World, refreshed)))
     ownership: ClassVar[Ownership[bpy.types.World]] = Ownership(kind=bpy.types.World, key="environment", saved=Saved.USED)
 
-    def acquisitions(self, _identity: Identity) -> Outcome[Acquisitions]:
+    def acquisitions(self, _identity: Identity) -> Acquisitions:
         """Returns attachment, ownership, and operators."""
-        return Ok((self.attachment, self.ownership, environment_place, environment_restore))
+        return self.attachment, self.ownership, environment_place, environment_restore
 
     def section(self) -> Section[Environment]:
         """Returns environment, world settings, and place and restore buttons."""
@@ -153,8 +153,22 @@ class WorldEnvironment(msgspec.Struct, frozen=True, kw_only=True):
 
 def _slots(environment: Environment) -> tuple[tuple[RaySlot, Backdrop], ...]:
     """Returns lighting, then switched-on glossy and camera slots."""
-    slots = ((RaySlot.LIGHTING, True, environment.lighting), (RaySlot.GLOSSY, environment.use_glossy, environment.glossy), (RaySlot.CAMERA, environment.use_camera, environment.camera))
+    lighting: Backdrop = environment.lighting  # ty: ignore[unsound-assignment]
+    glossy: Backdrop = environment.glossy  # ty: ignore[unsound-assignment]
+    camera: Backdrop = environment.camera  # ty: ignore[unsound-assignment]
+    slots = ((RaySlot.LIGHTING, True, lighting), (RaySlot.GLOSSY, environment.use_glossy, glossy), (RaySlot.CAMERA, environment.use_camera, camera))
     return tuple((slot, backdrop) for slot, shown, backdrop in slots if shown)
+
+
+def shaders(lighting: Term, overrides: tuple[tuple[RaySlot, Term], ...] = ()) -> Outcome[Graph]:
+    """Builds an active world output from a lighting shader and ordered ray-specific shader overrides."""
+
+    def joined(shader: Term, slot: tuple[RaySlot, Term]) -> Expr:
+        ray = Expr(kind=bpy.types.ShaderNodeLightPath, socket=slot[0].value)
+        return Expr(kind=bpy.types.ShaderNodeMixShader, inputs=(("Fac", ray), ("Shader", shader), ("Shader_001", slot[1])), socket="Shader")
+
+    surface = reduce(joined, overrides, lighting)
+    return functions.lowered(bpy.types.ShaderNodeTree, Expr(kind=bpy.types.ShaderNodeOutputWorld, inputs=(("Surface", surface),), members={"is_active_output": True}))
 
 
 def world_graph(environment: Environment) -> Outcome[Graph]:
@@ -172,11 +186,14 @@ def world_graph(environment: Environment) -> Outcome[Graph]:
         )
 
     def sourced(key: Key, backdrop: Backdrop) -> Term:
-        match BackdropSource.__members__.get(backdrop.source):
+        source: str = backdrop.source  # ty: ignore[unsound-assignment]
+        match BackdropSource.__members__.get(source):
             case BackdropSource.COLOR:
-                return (*backdrop.color, 1.0)
+                color: Sequence[float] = backdrop.color  # ty: ignore[unsound-assignment]
+                return (*color, 1.0)
             case BackdropSource.HDRI:
-                rotated: Members = {} if backdrop.use_sun else {("texture_mapping", "rotation"): (0.0, 0.0, backdrop.rotation)}
+                rotation: float = backdrop.rotation  # ty: ignore[unsound-assignment]
+                rotated: dict[str | RnaPath, Value] = dict[str | RnaPath, Value]() if backdrop.use_sun else {("texture_mapping", "rotation"): (0.0, 0.0, rotation)}
                 return image(bpy.types.ShaderNodeTexEnvironment, key, backdrop.path, (), {"projection": backdrop.projection, **rotated})
             case BackdropSource.GRADIENT:
                 window = Expr(kind=bpy.types.ShaderNodeTexCoord, socket="Window", socket_type=bpy.types.NodeSocketVector)
@@ -186,22 +203,17 @@ def world_graph(environment: Environment) -> Outcome[Graph]:
             case None:
                 still, sky = not backdrop.use_sun, backdrop.sky
                 toward = SunPosition.toward(np.asarray(sky.sun_rotation, dtype=np.float64), np.asarray(sky.sun_elevation, dtype=np.float64))
-                scattering: Members = {prop.identifier: getattr(sky, prop.identifier) for prop in _SKY if prop.identifier != _DISC and (still or prop.identifier not in _FOLLOWED)}
-                direction: Members = {"sun_direction": tuple(float(value) for value in toward)} if still else {}
-                members: Members = {"sky_type": backdrop.source, ("texture_mapping", "rotation"): (0.0, 0.0, 0.0), **scattering, _DISC: sky.sun_disc and still, **direction}
+                scattering = dict[str | RnaPath, Value]((prop.identifier, Descriptor(root=Sky, prop=prop).read(sky)) for prop in _SKY if still or prop.identifier not in _FOLLOWED)
+                direction: dict[str | RnaPath, Value] = {"sun_direction": tuple(float(value) for value in toward)} if still else dict[str | RnaPath, Value]()
+                members: Members = {"sky_type": source, ("texture_mapping", "rotation"): (0.0, 0.0, 0.0), **scattering, _DISC: scattering[_DISC] and still, **direction}
                 return Expr(kind=bpy.types.ShaderNodeTexSky, members=members, socket="Color", socket_type=bpy.types.NodeSocketColor, key=Some(key))
 
     def background(source: Key, backdrop: Backdrop) -> Expr:
         tinted = mixed(1.0, sourced(source, backdrop), (*backdrop.tint, 1.0), blend="MULTIPLY")
         return Expr(kind=bpy.types.ShaderNodeBackground, inputs=(("Color", tinted), ("Strength", backdrop.strength)), socket="Background")
 
-    def joined(shader: Expr, slot: tuple[RaySlot, Backdrop]) -> Expr:
-        ray = Expr(kind=bpy.types.ShaderNodeLightPath, socket=slot[0].value)
-        return Expr(kind=bpy.types.ShaderNodeMixShader, inputs=(("Fac", ray), ("Shader", shader), ("Shader_001", background(slot[0].source, slot[1]))), socket="Shader")
-
     (first, lighting), *overrides = _slots(environment)
-    surface = reduce(joined, overrides, background(first.source, lighting))
-    return functions.lowered(bpy.types.ShaderNodeTree, Expr(kind=bpy.types.ShaderNodeOutputWorld, inputs=(("Surface", surface),), members={"is_active_output": True}))
+    return shaders(background(first.source, lighting), tuple((slot, background(slot.source, backdrop)) for slot, backdrop in overrides))
 
 
 # --- [HOLDERS]
@@ -264,7 +276,8 @@ def followers(tree: bpy.types.NodeTree, identity: Identity) -> Outcome[tuple[Fol
             case bpy.types.ShaderNodeTexSky() as sky if backdrop.source == sky.sky_type and backdrop.use_sun:
                 return ((sky, 0.0),)
             case bpy.types.ShaderNodeTexEnvironment() as picture if backdrop.source == BackdropSource.HDRI.name and backdrop.use_sun:
-                return ((picture, backdrop.heading),)
+                heading: float = backdrop.heading  # ty: ignore[unsound-assignment]
+                return ((picture, heading),)
             case _:
                 return ()
 
@@ -281,7 +294,8 @@ def followers(tree: bpy.types.NodeTree, identity: Identity) -> Outcome[tuple[Fol
 def studio(name: str, preferences: bpy.types.Preferences) -> Outcome[str]:
     """Returns path of WORLD studio light by name."""
     lights = preferences.studio_lights
-    return Option.of_optional(lights.get(name)).filter(lambda light: light.type == "WORLD").map(lambda light: light.path).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(lights), member=name))
+    absent = partial(Fault.of, Reason.ABSENT, repr(lights), member=name)
+    return catch(lambda: lights[name], exception=KeyError)().map_error(absent).filter_with(lambda light: light.type == "WORLD", lambda _: absent()).map(lambda light: light.path)
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
@@ -316,6 +330,7 @@ __all__ = [
     "environment_restore",
     "followers",
     "reverted",
+    "shaders",
     "studio",
     "swapped",
     "world_graph",

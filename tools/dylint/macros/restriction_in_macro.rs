@@ -7,18 +7,23 @@ use clippy_utils::{
     sym,
 };
 use rustc_attr_ir::lang_items::LangItem;
-use rustc_data_structures::fx::FxHashMap;
-use rustc_hir::{Expr, ExprKind, def_id::DefId};
+use rustc_data_structures::fx::{FxHashMap, FxHashSet};
+use rustc_hir::{
+    Body, Expr, ExprKind, LetStmt,
+    def_id::{DefId, LocalDefId},
+};
 use rustc_lint::{LateContext, LateLintPass, Lint};
 use rustc_middle::ty::TyCtxt;
-use rustc_span::Span;
+use rustc_span::{ExpnId, Span};
 
-use crate::{expanded_externally, impl_owner, item_path, resolve};
+use crate::{expanded_externally, impl_owner, item_path, paths, resolve};
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
 pub(crate) struct Pass {
     methods: FxHashMap<DefId, (&'static Lint, (&'static str, &'static str))>,
+    pins: FxHashSet<DefId>,
+    pin_sites: FxHashMap<LocalDefId, FxHashSet<ExpnId>>,
 }
 
 lint! {
@@ -28,6 +33,7 @@ lint! {
     PANIC_IN_MACRO: "`panic!`, `todo!`, `unimplemented!`, and `unreachable!` inside a local `macro_rules!` expansion",
     PRINT_IN_MACRO: "`print!`, `println!`, `eprint!`, and `eprintln!` inside a local `macro_rules!` expansion",
     USE_DEBUG_IN_MACRO: "`{:?}` in `print!`, `println!`, `eprint!`, `eprintln!`, `write!`, and `writeln!` inside a local `macro_rules!` expansion",
+    TOKIO_PIN: "Tokio pinning macros with the standard `core::pin::pin!` replacement outside external macro output",
 }
 
 impl Pass {
@@ -48,20 +54,47 @@ impl Pass {
                     ("core::result::Result::expect_err", (EXPECT_USED_IN_MACRO, ON_OK)),
                 ],
             ),
+            pins: paths(tcx, PathNS::Macro, &["tokio::pin"]),
+            pin_sites: FxHashMap::default(),
         }
     }
 }
 
+// --- [COMPOSITION] ---------------------------------------------------------------------
+
 impl<'tcx> LateLintPass<'tcx> for Pass {
+    fn check_local(&mut self, cx: &LateContext<'tcx>, local: &'tcx LetStmt<'tcx>) {
+        if !self.pins.is_empty()
+            && let Some(call) = macro_backtrace(local.span).find(|call| self.pins.contains(&call.def_id) && !expanded_externally(cx, call.span))
+            && self.pin_sites.entry(cx.tcx.hir_enclosing_body_owner(local.hir_id)).or_default().insert(call.expn)
+        {
+            span_lint_hir_and_then(cx, TOKIO_PIN, local.hir_id, call.span, format!("`{}!` duplicates standard pinning", cx.tcx.def_path_str(call.def_id)), |diag| {
+                diag.help("bind pinned values with `core::pin::pin!`");
+            });
+        }
+    }
+
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
+        if !expr.span.from_expansion() {
+            return;
+        }
         let local = |span: Span| span.from_expansion() && !expanded_externally(cx, span);
-        let called = fn_def_id(cx, expr);
+        let called = match expr.kind {
+            ExprKind::Call(..) | ExprKind::MethodCall(..) => fn_def_id(cx, expr),
+            _ => None,
+        };
         let found = match expr.kind {
-            ExprKind::MethodCall(segment, ..)
+            ExprKind::Call(..) | ExprKind::MethodCall(..)
                 if local(expr.span)
                     && let Some(method) = called
                     && let Some(&(lint, (failure, help))) = self.methods.get(&method) =>
-                Some((lint, segment.ident.span.to(expr.span.shrink_to_hi()), format!("`{}` in a local macro expansion panics on {failure}", item_path(cx, method)), String::from(help))),
+            {
+                let span = match expr.kind {
+                    ExprKind::MethodCall(segment, ..) => segment.ident.span.to(expr.span.shrink_to_hi()),
+                    _ => expr.span,
+                };
+                Some((lint, span, format!("`{}` in a local macro expansion panics on {failure}", item_path(cx, method)), String::from(help)))
+            }
             ExprKind::Call(..) if called.is_some_and(|function| cx.tcx.item_name(function) == sym::new_debug && impl_owner(cx.tcx, function).is_lang_item(cx, LangItem::FormatArgument)) =>
                 macro_backtrace(expr.span)
                     .find(|call| local(call.span))
@@ -101,4 +134,6 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             });
         }
     }
+
+    fn check_body_post(&mut self, cx: &LateContext<'tcx>, body: &Body<'tcx>) { self.pin_sites.remove(&cx.tcx.hir_body_owner_def_id(body.id())); }
 }

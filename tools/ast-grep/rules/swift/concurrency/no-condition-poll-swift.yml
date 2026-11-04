@@ -8,10 +8,7 @@ utils:
         pattern: $SLEEP
         any:
             - matches: swift-blocking-wait
-            - pattern: $_.sleep($$$)
-            - pattern: Task.yield()
-            - pattern: '$_.wait(timeout: $$$)'
-            - pattern: '$_.wait(wallTimeout: $$$)'
+            - matches: {swift-task-call: {member: {regex: '^(sleep|yield)$'}}}
     tested-state:
         pattern: $_
         not:
@@ -37,25 +34,25 @@ rule:
                 all:
                     - has: {field: bound_identifier, kind: simple_identifier}
                     - has: {any: [{pattern: $_.next()}, {kind: 'await_expression, try_expression', has: {stopBy: end, pattern: $_.next()}}]}
-            - has: {stopBy: end, matches: timed-wait}
+            - has: {stopBy: &function {kind: function_declaration}, matches: timed-wait}
             - any:
                 - has: {matches: tested-state}
                 - has: {matches: loop-exit}
         - kind: for_statement
           all:
             - not: {regex: '^for\s+(try\s+)?await\b'}
-            - has: {stopBy: end, matches: timed-wait}
+            - has: {stopBy: *function, matches: timed-wait}
             - has: {matches: loop-exit}
         - kind: function_declaration
           all:
             - has: {field: name, pattern: $F}
             - has:
-                stopBy: end
+                stopBy: *function
                 any:
                     - kind: switch_entry
                     - matches: tested-branch
                 all:
-                    - has: {stopBy: end, matches: timed-wait}
-                    - has: {stopBy: end, kind: call_expression, has: {nthChild: 1, pattern: $F}}
-message: '`$SLEEP` re-tests a condition on a timer in place of awaiting its change'
+                    - has: {stopBy: *function, matches: timed-wait}
+                    - has: {stopBy: *function, kind: call_expression, has: {nthChild: 1, pattern: $F}}
+message: '`$SLEEP` polls state instead of awaiting a change'
 note: 'Await change events of the state''s source (`Observations { <state> }`, `notifications(named:)`), and end a periodic loop on cancellation alone'

@@ -1,4 +1,3 @@
-using System.Globalization;
 using QuikGraph;
 using QuikGraph.Algorithms;
 using QuikGraph.Algorithms.Condensation;
@@ -15,7 +14,7 @@ public sealed record MemberReference(Guid Container, Guid Member, Guid Definitio
 
 public sealed record DefinitionGraph {
     private DefinitionGraph(ArrayBidirectionalGraph<Guid, SEquatableEdge<Guid>> nesting, HashMap<Guid, Seq<Guid>> placements, HashMap<Guid, string> emptyLinked, Seq<MemberReference> dangling) =>
-        (Nesting, Placements, EmptyLinked, Dangling, Components) = (nesting, placements, emptyLinked, dangling, nesting.Condensed);
+        (Nesting, Placements, EmptyLinked, Dangling) = (nesting, placements, emptyLinked, dangling);
 
     public ArrayBidirectionalGraph<Guid, SEquatableEdge<Guid>> Nesting { get; }
 
@@ -25,15 +24,17 @@ public sealed record DefinitionGraph {
 
     public Seq<MemberReference> Dangling { get; }
 
-    public IMutableBidirectionalGraph<AdjacencyGraph<Guid, SEquatableEdge<Guid>>, CondensedEdge<Guid, SEquatableEdge<Guid>, AdjacencyGraph<Guid, SEquatableEdge<Guid>>>> Components { get; }
+    public IMutableBidirectionalGraph<AdjacencyGraph<Guid, SEquatableEdge<Guid>>, CondensedEdge<Guid, SEquatableEdge<Guid>, AdjacencyGraph<Guid, SEquatableEdge<Guid>>>> Components => Nesting.Condensed;
 
     // --- [ORDER]
     public Seq<Guid> Removable(HashSet<Guid> stale) =>
-        toSeq(Components.SourceFirstBidirectionalTopologicalSort(TopologicalSortDirection.Backward)).Fold(
-            (Components: HashSet<AdjacencyGraph<Guid, SEquatableEdge<Guid>>>(), Vertices: Seq<Guid>()), (removable, component) =>
-                component.Vertices.All(id => stale.Contains(id) && !Placements.ContainsKey(id)) && Components.OutEdges(component).All(edge => removable.Components.Contains(edge.Target))
-                    ? (removable.Components.Add(component), removable.Vertices + toSeq(component.Vertices))
-                    : removable).Vertices;
+        Components switch {
+            var components => toSeq(components.SourceFirstBidirectionalTopologicalSort(TopologicalSortDirection.Backward)).Fold(
+                (Components: HashSet<AdjacencyGraph<Guid, SEquatableEdge<Guid>>>(), Vertices: Seq<Guid>()), (removable, component) =>
+                    component.Vertices.All(id => stale.Contains(id) && !Placements.ContainsKey(id)) && components.OutEdges(component).All(edge => removable.Components.Contains(edge.Target))
+                        ? (removable.Components.Add(component), removable.Vertices + toSeq(component.Vertices))
+                        : removable).Vertices,
+        };
 
     // --- [SOURCES]
     public static IO<DefinitionGraph> Read(RhinoDoc doc) =>
@@ -92,7 +93,7 @@ public static class Graphs {
         public Fin<Seq<TVertex>> SourceFirst =>
             components.Cycles switch {
                 { IsEmpty: true } => toSeq(components.SourceFirstBidirectionalTopologicalSort()).Bind(static component => toSeq(component.Vertices)).Strict(),
-                var cycles => Error.Many(cycles.Map(static cycle => (Error)new RhinoFault(string.Join(", ", cycle.Map(static vertex => Convert.ToString(vertex, CultureInfo.InvariantCulture))), RhinoReason.Repeated))),
+                var cycles => Error.Many(cycles.Map(static cycle => (Error)new RhinoFault(cycle, RhinoReason.Repeated))),
             };
     }
 
@@ -100,21 +101,24 @@ public static class Graphs {
     public static IO<(ArrayBidirectionalGraph<TVertex, TEdge> Graph, HashMap<TVertex, Fin<TRead>> Readings)> Reached<TVertex, TRead, TEdge>(
         TVertex root, Func<TVertex, IO<TRead>> read, Func<TRead, Seq<TEdge>> edges) where TVertex : notnull where TEdge : IEdge<TVertex> =>
         from first in read(root)
-        from walked in Walked(Across(root, edges(first)), Seq(root), HashMap((root, Fin.Succ(first))), read, edges)
+        from walked in Monad.recur<IO, Reach<TVertex, TRead>, Reach<TVertex, TRead>>(
+            new(new Que<TVertex>(Across(root, edges(first))), Seq(root), HashMap((root, Fin.Succ(first)))),
+            state => state.Pending.TryDequeue() switch {
+                var (rest, next) => next.Match(
+                    Some: vertex => state.Readings.ContainsKey(vertex)
+                        ? IO.pure(Next.Loop<Reach<TVertex, TRead>, Reach<TVertex, TRead>>(state with { Pending = rest }))
+                        : (read(vertex).Map(Fin.Succ) | @catch(static error => error.IsExpected && !Session.Cancellation(error), static error => IO.pure(Fin.Fail<TRead>(error))))
+                            .Map(reading => Next.Loop<Reach<TVertex, TRead>, Reach<TVertex, TRead>>(new(
+                                reading.ToSeq().Bind(held => Across(vertex, edges(held))).Fold(rest, static (queue, neighbor) => queue.Enqueue(neighbor)),
+                                state.Order.Add(vertex), state.Readings.Add(vertex, reading)))),
+                    None: () => IO.pure(Next.Done<Reach<TVertex, TRead>, Reach<TVertex, TRead>>(state))),
+            }).As()
         select (walked.Order.ToBidirectionalGraph(
-                vertex => walked.Readings[vertex].ToSeq().Bind(edges).Filter(edge => System.Collections.Generic.EqualityComparer<TVertex>.Default.Equals(edge.Source, vertex)), allowParallelEdges: true)
+                vertex => walked.Readings[vertex].ToSeq().Bind(edges).Filter(edge => System.Collections.Generic.EqualityComparer<TVertex>.Default.Equals(edge.Source, vertex) || walked.Readings[edge.Source].IsFail), allowParallelEdges: true)
             .ToArrayBidirectionalGraph(), walked.Readings);
-
-    private static IO<(Seq<TVertex> Order, HashMap<TVertex, Fin<TRead>> Readings)> Walked<TVertex, TRead, TEdge>(
-        Seq<TVertex> pending, Seq<TVertex> order, HashMap<TVertex, Fin<TRead>> readings, Func<TVertex, IO<TRead>> read, Func<TRead, Seq<TEdge>> edges)
-        where TVertex : notnull where TEdge : IEdge<TVertex> =>
-        pending.Match(
-            Empty: () => IO.pure((Order: order, Readings: readings)),
-            Tail: (next, rest) => readings.ContainsKey(next)
-                ? Walked(rest, order, readings, read, edges)
-                : read(next).Map(Fin.Succ).Catch(static error => error.IsExpected && !Session.Cancellation(error), static error => IO.pure(Fin.Fail<TRead>(error)))
-                    .Bind(reading => Walked(rest + reading.ToSeq().Bind(held => Across(next, edges(held))), order.Add(next), readings.Add(next, reading), read, edges)));
 
     private static Seq<TVertex> Across<TVertex, TEdge>(TVertex vertex, Seq<TEdge> edges) where TVertex : notnull where TEdge : IEdge<TVertex> =>
         edges.Map(edge => System.Collections.Generic.EqualityComparer<TVertex>.Default.Equals(edge.Source, vertex) ? edge.Target : edge.Source);
+
+    private sealed record Reach<TVertex, TRead>(Que<TVertex> Pending, Seq<TVertex> Order, HashMap<TVertex, Fin<TRead>> Readings) where TVertex : notnull;
 }

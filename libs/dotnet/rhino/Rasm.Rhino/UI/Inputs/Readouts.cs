@@ -46,7 +46,7 @@ public sealed record ReadoutRow<TValue>(ReadoutSource<TValue> Source, Func<TValu
         from live in first.Source.Live(
             state =>
                 from made in use(() => new Label { Text = first.Format(state), TextAlignment = TextAlignment.Right, VerticalAlignment = VerticalAlignment.Center, Wrap = WrapMode.None })
-                from digits in HostTheme.Applied(made, HostPlatform.Current.Digits(made))
+                from digits in HostTheme.Applied(made, IHostPlatform.Current.Digits(made))
                 select made,
             (made, state) => latest.Bind(current => IO.lift(() => { made.Text = current.Format(state); })), scope)
         select new RowCells(live, IO.pure(unit));
@@ -78,12 +78,12 @@ public sealed record ComputedRow<TRequest, TValue>(TRequest Request, Func<TReque
     public RowShape Shape { get; init; } = RowShape.Block;
 
     public static IO<RowCells> Realize(IO<ComputedRow<TRequest, TValue>> latest, LocalizeStringPair label, RowScope scope) =>
-        from held in IO.lift(static () => Ref(Option<(TRequest Request, Loading<TValue> Content)>.None))
-        from frame in Containers.Frame(static () => new Panel())
-        from owned in use(static () => EnvIO.New(token: CancellationToken.None))
-        from kept in IO.lift(static () => Ref(Option<Owned<TValue>>.None))
+        Products.Serialized(run =>
+        from owned in IO.env
+        from held in IO.lift(static () => Ref(Option<(TRequest Request, Guid Run, Loading<TValue> Content)>.None))
         from body in IO.lift(static () => Ref(Option<Owned<Control>>.None))
         from working in IO.lift(static () => Ref(Option<Owned<ForkIO<Unit>>>.None))
+        from frame in Containers.Frame(static () => new Panel())
         let shown =
             from row in latest
             from current in atomicIO(() => held.Value)
@@ -91,23 +91,26 @@ public sealed record ComputedRow<TRequest, TValue>(TRequest Request, Func<TReque
                 LocalText.Of("{0} unavailable", label.Local).Local)).Scoped(owned)
             from placed in IO.lift(() => { frame.Content = control; })
             select unit
-        from received in Mailboxes.Idle<TRequest, Loading<TValue>>(arrived => Received(held, kept, owned, latest, arrived).Bind(_ => shown))
-        select new RowCells(frame,
+        from received in Mailboxes.Idle<Guid, Loading<TValue>>(arrived => run(
+            atomicIO(() => held.Swap(prior => prior.Map(state => arrived.Find(state.Run).Map(content => state with { Content = content }).IfNone(state))))
+                .Bind(_ => shown)))
+        select (new RowCells(frame, run(
             from row in latest
-            from fresh in atomicIO(() => {
-                Option<(TRequest Request, Loading<TValue> Content)> prior = held.Value;
-                bool changed = !prior.Exists(current => EqualityComparer<TRequest>.Default.Equals(current.Request, row.Request));
-                held.Value = changed ? Some((row.Request, (Loading<TValue>)new Loading<TValue>.Pending(None))) : prior;
-                return changed;
-            })
-            from forked in when(fresh, Products.Clear(working).Bind(_ => Products.Replace(working, use(
-                row.Compute(row.Request).Map(static value => (Loading<TValue>)new Loading<TValue>.Ready(value))
-                    .Catch(static error => !error.Is(Errors.Cancelled), static error => IO.pure<Loading<TValue>>(new Loading<TValue>.Failed(error)))
-                    .Bind(content => received(row.Request, content))
-                    .Fork(),
-                static fork => fork.Cancel))).Scoped(owned).Map(unit)).As()
+            from fresh in atomicIO(() => !held.Value.Exists(current => EqualityComparer<TRequest>.Default.Equals(current.Request, row.Request)))
+            from forked in when(fresh,
+                from id in IO.lift(Guid.NewGuid)
+                from pending in atomicIO(() => held.Value = Some((row.Request, id, (Loading<TValue>)new Loading<TValue>.Pending(None))))
+                from stopped in (IO.lift(() => { frame.Content = null; }) >> Products.Clear(body).Scoped(owned))
+                    .Finally(Products.Clear(working).Scoped(owned))
+                from started in Products.Replace(working, Products.Forked(
+                    (Products.Acquired(row.Compute(row.Request), row.Release).Map(static value => (Loading<TValue>)new Loading<TValue>.Ready(value))
+                        | @catch(static error => !Session.Cancellation(error), static error => IO.pure<Loading<TValue>>(new Loading<TValue>.Failed(error))))
+                    .Bind(content => received(id, content)))).Scoped(owned)
+                select unit).As()
             from redrawn in shown
-            select unit);
+            select unit)),
+            (atomicIO(() => { held.Value = None; }) >> IO.lift(() => { frame.Content = null; }) >> Products.Clear(body))
+                .Finally(Products.Clear(working))));
 
     private static IO<Control> Placed(Loading<TValue> content, Func<TValue, IO<Control>> shown, string unavailable) =>
         content.Switch(
@@ -119,18 +122,4 @@ public sealed record ComputedRow<TRequest, TValue>(TRequest Request, Func<TReque
             ready: static (at, ready) => at.Shown(ready.Value),
             failed: static (at, _) => use(() => new Label { Text = at.Unavailable, TextColor = SystemColors.DisabledText }).Map(static label => (Control)label));
 
-    private static IO<Unit> Received(
-        Ref<Option<(TRequest Request, Loading<TValue> Content)>> held, Ref<Option<Owned<TValue>>> kept, EnvIO owned, IO<ComputedRow<TRequest, TValue>> latest, HashMap<TRequest, Loading<TValue>> arrived) =>
-        toSeq(arrived.AsIterable()).TraverseM(entry =>
-            from current in atomicIO(() => {
-                Option<(TRequest Request, Loading<TValue> Content)> prior = held.Value;
-                bool matched = prior.Exists(state => EqualityComparer<TRequest>.Default.Equals(state.Request, entry.Key));
-                held.Value = matched ? prior.Map(state => state with { Content = entry.Value }) : prior;
-                return matched;
-            })
-            from row in latest
-            from placed in current
-                ? entry.Value.Held.Traverse(value => Products.Clear(kept).Bind(_ => Products.Replace(kept, use(IO.pure(value), stored => latest.Bind(last => last.Release(stored))))).Scoped(owned)).As().Map(unit)
-                : entry.Value.Held.Traverse(row.Release).As().Map(unit)
-            select unit).As().Map(unit);
 }

@@ -2,6 +2,7 @@ using Rhino.Render;
 using Rhino.Render.DataSources;
 using Rhino.UI.Controls;
 using Rhino.UI.Controls.DataSource;
+using EventArgs = Rhino.UI.Controls.DataSource.EventArgs;
 
 namespace Rasm.Rhino.Render.Views;
 
@@ -49,7 +50,7 @@ public static class SectionModels {
              select value).Bracket());
 
     public static HostEvent<Guid> DataChanged(EtoCollapsibleSection section) =>
-        Subscriptions.On<global::Rhino.UI.Controls.DataSource.EventArgs>(h => section.DataChanged += h, h => section.DataChanged -= h).Choose(static args => Some(args.DataType));
+        Subscriptions.On<EventArgs>(h => section.DataChanged += h, h => section.DataChanged -= h).Choose(static args => Some(args.DataType));
 
     private static IO<IRdkViewModel> Model(ICollapsibleSection section) =>
         Products.Of(() => section.ViewModel);

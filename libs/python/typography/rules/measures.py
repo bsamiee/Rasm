@@ -1,18 +1,23 @@
 """Measurements rules share: glyphs by code point, the original's placement in source units, glyph maps, ink strips, and nuqta groups."""
 
+# mypy: disable-error-code="no-untyped-call"
+
 from statistics import median
+lazy from collections.abc import Mapping
+lazy from functools import cache
 lazy import unicodedata
 
 import msgspec
-lazy from expression import Option
+lazy from expression import Option, Result
+lazy from expression.extra.result import catch
 lazy from fontTools.misc.transform import Transform
 
 from typography.faces.names import Form
 lazy from typography.faces.faults import Fault, Outcome, paired, Reason
 lazy from typography.faces.glyphs import Anchor, Component, Glyph, Letter, Outline, role, Source
 lazy from typography.faces.names import GlyphName
-lazy from typography.outlines.paths import area, bounds, Box, Matrix, pieces, strip, transformed, union
-lazy from typography.shaping.runs import Binary, drawn, encoded, outline, shaped
+lazy from typography.outlines.paths import area, bounds, Box, pieces, strip, transformed, union
+lazy from typography.shaping.runs import Binary
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -27,53 +32,78 @@ class Rule(msgspec.Struct, frozen=True, kw_only=True, tag_field="kind", tag=str.
 
 def key(code: int, form: Form = Form.ISOL, /) -> str:
     """Returns the glyph key of a code point in a form."""
-    return GlyphName(codes=(code,), form=form).text
+    return GlyphName(stem=(code,), form=form).text
 
 
 def made(name: GlyphName, advance: float, /, *, contours: Outline = (), components: tuple[Component, ...] = ()) -> Glyph:
     """Returns a glyph of a name in the role its name states."""
-    return Glyph(name=name, role=role(name), advance=advance, contours=contours, components=components)
+    return Glyph(
+        name=name,
+        role=role(name),
+        advance=advance,
+        codes=frozenset(name.codes) if len(name.codes) == 1 and name.form is Form.ISOL and not name.variant else frozenset(),
+        contours=contours,
+        components=components,
+    )
 
 
 def inked(source: Source, code: int, /) -> Outcome[tuple[Glyph, Box]]:
     """Returns the isolated glyph of a code point with its ink extent, `ABSENT` naming the key the face lacks or draws blank."""
     return (
         source
-        .glyph(key(code))
+        .glyph(source.key(code))
+        .map(lambda glyph: source.drawn(glyph.name.text))
         .bind(lambda glyph: Option.of_optional(bounds(glyph.contours)).map(lambda box: (glyph, box)))
         .to_result_with(lambda: Fault.of(Reason.ABSENT, source.face.stem, member=f"ink of {key(code)}"))
     )
 
 
-def mapped(glyph: Glyph, matrix: Matrix, /) -> Glyph:
-    """Maps a glyph's contours, anchors, and advance through an affine matrix, and its component offsets through the matrix's linear part, the component glyphs taking the full map themselves."""
-    xx, xy, yx, yy, dx, dy = matrix
-    return msgspec.structs.replace(
-        glyph,
-        advance=glyph.advance * xx,
-        contours=transformed(glyph.contours, matrix),
-        anchors=tuple(Anchor(name=anchor.name, x=xx * anchor.x + yx * anchor.y + dx, y=xy * anchor.x + yy * anchor.y + dy) for anchor in glyph.anchors),
-        components=tuple(
-            Component(name=part.name, transform=(*part.transform[:4], xx * part.transform[4] + yx * part.transform[5], xy * part.transform[4] + yy * part.transform[5])) for part in glyph.components
-        ),
-    )
+def mapped(source: Source, matrices: Mapping[str, Transform], /) -> Source:
+    """Maps glyphs and their references together, retaining native components wherever the target map is invertible."""
+    inverse = cache(catch(Transform.inverse, exception=ZeroDivisionError))
+
+    def changed(glyph: Glyph, /) -> Glyph:
+        matrix = matrices[glyph.name.text]
+        kept: list[Component] = []
+        for part in glyph.components:
+            match inverse(matrices[part.name]):
+                case Result(tag="ok", ok=backward):
+                    kept.append(Component(name=part.name, transform=matrix.transform(part.transform).transform(backward)))
+                case Result(error=_):
+                    contours = source.drawn(glyph.name.text).contours
+                    kept.clear()
+                    break
+        else:
+            contours = glyph.contours
+        return msgspec.structs.replace(
+            glyph,
+            advance=glyph.advance * matrix.xx,
+            contours=transformed(contours, matrix),
+            anchors=tuple(Anchor(name=anchor.name, x=x, y=y) for anchor in glyph.anchors for x, y in (matrix.transformPoint((anchor.x, anchor.y)),)),
+            components=tuple(kept),
+        )
+
+    return msgspec.structs.replace(source, glyphs=tuple(map(changed, source.glyphs)))
 
 
 # --- [PLACEMENT]
 
 
-def placement(source: Source, original: Binary, stem: int, /) -> Outcome[Transform]:
-    """Returns the map from original font units onto the source, fitted on the stem letter's ink height and foot."""
+def placement(source: Source, original: Binary, stem: int, /) -> Outcome[tuple[Glyph, Box, Transform]]:
+    """Acquires the source stem, its ink box and the map from its original height and foot together."""
     return paired(
-        inked(source, stem).map(lambda held: held[1]),
-        Option.of_optional(bounds(outline(original, encoded(original).get(stem, ".notdef")))).to_result_with(lambda: Fault.of(Reason.ABSENT, "original", member=f"ink of {key(stem)}")),
-    ).map(lambda boxes: Transform(scale := boxes[0].height / boxes[1].height, 0, 0, scale, 0, boxes[0].ymin - scale * boxes[1].ymin))
+        inked(source, stem),
+        Option
+        .of_optional(original.encoded.get(stem))
+        .bind(lambda name: Option.of_optional(original.extent(name)))
+        .to_result_with(lambda: Fault.of(Reason.ABSENT, "original", member=f"ink of {key(stem)}")),
+    ).map(lambda pair: (*pair[0], Transform(scale := pair[0][1].height / pair[1].height, 0, 0, scale, 0, pair[0][1].ymin - scale * pair[1].ymin)))
 
 
 def text_ink(original: Binary, text: str, /) -> Outline:
     """Returns the ink of text shaped on a binary, `.notdef` glyphs left out."""
-    run = shaped(original, text)
-    return union(*(contours for placed, contours in zip(run.placed, drawn(original, run), strict=True) if placed.glyph != original.order[0]))
+    run = original.shaped(text)
+    return union(*(contours for placed, contours in zip(run.placed, original.drawn(run), strict=True) if placed.glyph != original.order[0]))
 
 
 # --- [INK]
@@ -83,8 +113,9 @@ def band(source: Source, /) -> tuple[float, float] | None:
     """Returns the join band, the median ink extent at the joining edges of the medial forms, `None` for a face without them."""
     edges = tuple(
         box
-        for glyph in source.glyphs
-        if isinstance(glyph.role, Letter) and glyph.role.form is Form.MEDI
+        for own in source.glyphs
+        if isinstance(own.role, Letter) and own.role.form is Form.MEDI
+        for glyph in (source.drawn(own.name.text),)
         for low, high in ((glyph.advance - source.upm / 100, glyph.advance), (0.0, source.upm / 100))
         if (box := bounds(strip(glyph.contours, low, high)))
     )
@@ -94,8 +125,8 @@ def band(source: Source, /) -> tuple[float, float] | None:
 def centred(contours: Outline, advance: float, /) -> Outline:
     """Returns contours moved to center their ink across an advance."""
     match bounds(contours):
-        case Box(xmin=xmin, width=width):
-            return transformed(contours, (1.0, 0.0, 0.0, 1.0, (advance - width) / 2 - xmin, 0.0))
+        case Box() as box:
+            return transformed(contours, box.centered(advance))
         case _:
             return contours
 
@@ -112,7 +143,8 @@ def dotted(glyph: Glyph, nuqta: float, /) -> tuple[Outline, tuple[Outline, ...]]
 
 def nuqta(source: Source, dotted: int, /) -> Outline:
     """Returns the face's one nuqta, the smallest piece of a one-dot letter, empty where it draws none."""
-    held = pieces(source.named[key(dotted)].contours) if key(dotted) in source.named else ()
+    name = source.key(dotted)
+    held = pieces(source.drawn(name).contours) if name in source.named else ()
     return min(held, key=area) if len(held) > 1 else ()
 
 

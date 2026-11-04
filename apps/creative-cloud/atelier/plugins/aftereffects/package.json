@@ -6,5 +6,8 @@
     "dependencies": {
         "@rasm/aftereffects": "workspace:*",
         "@rasm/cep": "workspace:*"
+    },
+    "devDependencies": {
+        "@rasm/atelier": "workspace:*"
     }
 }

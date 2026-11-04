@@ -4,19 +4,19 @@ using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.Render;
-using Rhino.Render.ChangeQueue;
+using Queue = Rhino.Render.ChangeQueue;
 
 namespace Rasm.Rhino.Render.Sessions;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record QueuePolicy(bool RespectDisplayAttributes, bool NotifyChanges, bool OriginalObjects, Option<ChangeQueue.BakingFunctions> Bake) {
+public sealed record QueuePolicy(bool RespectDisplayAttributes, bool NotifyChanges, bool OriginalObjects, Option<Queue.ChangeQueue.BakingFunctions> Bake) {
     public static QueuePolicy Viewport { get; } = new(RespectDisplayAttributes: true, NotifyChanges: true, OriginalObjects: false, Bake: None);
     public static QueuePolicy Capture { get; } = Viewport with { NotifyChanges = false };
     public static QueuePolicy Render { get; } = Capture with { RespectDisplayAttributes = false };
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
-public sealed class DefinedChangeFeed : ChangeQueue {
+public sealed class DefinedChangeFeed : Queue.ChangeQueue {
     // --- [ACQUISITION]
     private readonly QueuePolicy policy;
     private readonly Option<IO<Unit>> wake;
@@ -80,10 +80,10 @@ public sealed class DefinedChangeFeed : ChangeQueue {
     protected override void ApplyLinearWorkflowChanges(LinearWorkflow lw) =>
         Collect(use(() => new LinearWorkflow(lw)).Map(static workflow => new SceneBatch { Workflow = Some(workflow) }));
 
-    protected override void ApplyDynamicObjectTransforms(List<DynamicObjectTransform> dynamicObjectTransforms) =>
+    protected override void ApplyDynamicObjectTransforms(List<Queue.DynamicObjectTransform> dynamicObjectTransforms) =>
         Collect(IO.lift(() => new SceneBatch { Transforms = new(toSeq(dynamicObjectTransforms).Map(static moved => (moved.MeshInstanceId, moved.Transform)), tryAdd: false) }));
 
-    protected override void ApplyDynamicLightChanges(List<global::Rhino.Geometry.Light> dynamicLightChanges) =>
+    protected override void ApplyDynamicLightChanges(List<Light> dynamicLightChanges) =>
         Collect(toSeq(dynamicLightChanges).TraverseM(static lent => Products.Copied(lent)).As()
             .Map(static copies => new SceneBatch { DynamicLights = new(copies.Map(static copy => (copy.Id, copy)), tryAdd: false) }));
 
@@ -94,16 +94,16 @@ public sealed class DefinedChangeFeed : ChangeQueue {
                 .Map(usage => (usage, Conversions.Present(settings.RenderEnvironmentId(usage, RenderSettings.EnvironmentPurpose.ForRendering)))), tryAdd: false),
         }));
 
-    protected override void ApplySkylightChanges(global::Rhino.Render.ChangeQueue.Skylight skylight) =>
+    protected override void ApplySkylightChanges(Queue.Skylight skylight) =>
         Collect(IO.lift(() => new SceneBatch { Skylight = Some(new SceneSkylight(skylight.Enabled, skylight.UsesCustomEnvironment, skylight.ShadowIntensity)) }));
 
-    protected override void ApplySunChanges(global::Rhino.Geometry.Light sun) =>
+    protected override void ApplySunChanges(Light sun) =>
         Collect(Products.Copied(sun).Map(static copy => new SceneBatch { Sun = Some(copy) }));
 
-    protected override void ApplyLightChanges(List<global::Rhino.Render.ChangeQueue.Light> lightChanges) =>
+    protected override void ApplyLightChanges(List<Queue.Light> lightChanges) =>
         Collect(
             from view in Products.Maybe(GetQueueView)
-            from rows in toSeq(lightChanges).TraverseM(light => light.ChangeType is global::Rhino.Render.ChangeQueue.Light.Event.Deleted
+            from rows in toSeq(lightChanges).TraverseM(light => light.ChangeType is Queue.Light.Event.Deleted
                 ? IO.pure((light.Id, Option<SceneLight>.None))
                 : from data in Products.Of(() => light.Data)
                   from converted in IO.lift(() => view.Filter(_ => data.CoordinateSystem is CoordinateSystem.Camera).Iter(held => ConvertCameraBasedLightToWorld(this, light, held)))
@@ -111,10 +111,10 @@ public sealed class DefinedChangeFeed : ChangeQueue {
                   select (light.Id, Some(new SceneLight(copy, Conversions.Present(light.MaterialId))))).As()
             select new SceneBatch { Lights = new(rows, tryAdd: false) });
 
-    protected override void ApplyMaterialChanges(List<global::Rhino.Render.ChangeQueue.Material> mats) =>
+    protected override void ApplyMaterialChanges(List<Queue.Material> mats) =>
         Collect(IO.lift(() => new SceneBatch { Materials = new(toSeq(mats).Map(static material => (material.MeshInstanceId, material.Id)), tryAdd: false) }));
 
-    protected override void ApplyMeshChanges(Guid[] deleted, List<global::Rhino.Render.ChangeQueue.Mesh> added) =>
+    protected override void ApplyMeshChanges(Guid[] deleted, List<Queue.Mesh> added) =>
         Collect(toSeq(added).TraverseM(static source =>
                 from meshes in toSeq(source.GetMeshes()).TraverseM(static lent => Products.Copied(lent)).As()
                 from mappings in toSeq(source.Mappings).TraverseM(static channel => Products.Of(() => channel.Mapping).Map(mapping => new SceneMapping(channel.Channel, channel.Local, mapping))).As()
@@ -125,7 +125,7 @@ public sealed class DefinedChangeFeed : ChangeQueue {
                 Meshes = new(toSeq(deleted).Map(static id => (id, Option<SceneMesh>.None)).Concat(meshes.Map(static mesh => (mesh.Id, Some(mesh.Mesh)))), tryAdd: false),
             }));
 
-    protected override void ApplyMeshInstanceChanges(List<uint> deleted, List<MeshInstance> addedOrChanged) =>
+    protected override void ApplyMeshInstanceChanges(List<uint> deleted, List<Queue.MeshInstance> addedOrChanged) =>
         Collect(toSeq(addedOrChanged).TraverseM(static instance =>
                 from attributes in Products.Maybe(() => instance.ObjectAttributes)
                 from ancestry in toSeq(instance.Ancestry).TraverseM(static record =>
@@ -138,24 +138,24 @@ public sealed class DefinedChangeFeed : ChangeQueue {
                 }))).As()
             .Map(instances => new SceneBatch { Instances = new(toSeq(deleted).Map(static id => (id, Option<SceneInstance>.None)).Concat(instances), tryAdd: false) }));
 
-    protected override void ApplyGroundPlaneChanges(global::Rhino.Render.ChangeQueue.GroundPlane gp) =>
+    protected override void ApplyGroundPlaneChanges(Queue.GroundPlane gp) =>
         Collect(IO.lift(() => new SceneBatch {
             Ground = Some(new SceneGround(gp.Enabled, gp.Altitude, gp.IsShadowOnly, gp.ShowUnderside, Conversions.Present(gp.MaterialId), gp.TextureScale, gp.TextureOffset, gp.TextureRotation)),
         }));
 
-    protected override void ApplyClippingPlaneChanges(Guid[] deleted, List<ClippingPlane> addedOrModified) =>
+    protected override void ApplyClippingPlaneChanges(Guid[] deleted, List<Queue.ClippingPlane> addedOrModified) =>
         Collect(Clipped(addedOrModified).Map(clips => new SceneBatch {
             ClippingPlanes = new(toSeq(deleted).Map(static id => (id, Option<SceneClip>.None)).Concat(clips), tryAdd: false),
         }));
 
-    protected override void ApplyDynamicClippingPlaneChanges(List<ClippingPlane> changed) =>
+    protected override void ApplyDynamicClippingPlaneChanges(List<Queue.ClippingPlane> changed) =>
         Collect(Clipped(changed).Map(static clips => new SceneBatch { ClippingPlanes = new(clips, tryAdd: false) }));
 
     protected override void ApplyDisplayPipelineAttributesChanges(DisplayPipelineAttributes displayPipelineAttributes) =>
         Collect(IO.lift(() => new SceneBatch { Display = Some(new SceneDisplay(displayPipelineAttributes.Id, displayPipelineAttributes.RealtimeRenderPasses)) }));
 
     // --- [COPIES]
-    private static IO<Seq<(Guid, Option<SceneClip>)>> Clipped(List<ClippingPlane> planes) =>
+    private static IO<Seq<(Guid, Option<SceneClip>)>> Clipped(List<Queue.ClippingPlane> planes) =>
         toSeq(planes).TraverseM(static plane => Products.Maybe(() => plane.Attributes?.Duplicate())
             .Map(attributes => (plane.Id, Some(new SceneClip(plane.IsEnabled, plane.Plane, toSeq(plane.ViewIds), attributes))))).As();
 

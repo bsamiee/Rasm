@@ -95,7 +95,16 @@
                         "noExcessiveLinesPerFile": "off",
                         "noJsxLiterals": "off",
                         "noParameterAssign": { "level": "error", "options": { "propertyAssignment": "deny" } },
-                        "noRestrictedImports": { "level": "error", "options": { "paths": { "smol-toml": "Parse TOML through `Toml.parse` from `effect/encoding`", "yaml": { "importNames": [ "parse" ], "message": "Parse YAML through `Yaml.parse` from `effect/encoding`" } } } },
+                        "noRestrictedImports": {
+                            "level": "error",
+                            "options": {
+                                "paths": {
+                                    "@effect/platform-node": "Import the module subpath (`@effect/platform-node/NodeRuntime`), the package entry evaluates every Node service module",
+                                    "smol-toml": "Parse TOML through `Toml.parse` from `effect/encoding`",
+                                    "yaml": { "importNames": [ "parse" ], "message": "Parse YAML through `Yaml.parse` from `effect/encoding`" }
+                                }
+                            }
+                        },
                         "noTernary": "off",
                         "useConsistentMemberAccessibility": { "level": "error", "options": { "accessibility": "none" } },
                         "useDomQuerySelector": "off",
@@ -117,6 +126,7 @@
             }
         },
         { "includes": [ "**/*.tsx" ], "linter": { "domains": { "react": "all" } } },
+        { "includes": [ "**/index.ts" ], "linter": { "rules": { "performance": { "noBarrelFile": "off" } } } },
         { "includes": [ "**/*.config.ts", "**/server/worker.ts", "tools/nx/release.ts", "**/.storybook/*.{ts,tsx}", "tools/ast-grep/grammars/*/grammar.js" ], "linter": { "rules": { "style": { "noDefaultExport": "off" } } } },
         {
             "includes": [ "**/*.config.ts" ],
@@ -126,7 +136,11 @@
                         "noRestrictedImports": {
                             "level": "error",
                             "options": {
-                                "paths": { "smol-toml": "Parse TOML through `Toml.parse` from `effect/encoding`", "yaml": { "importNames": [ "parse" ], "message": "Parse YAML through `Yaml.parse` from `effect/encoding`" } },
+                                "paths": {
+                                    "@effect/platform-node": "Import the module subpath (`@effect/platform-node/NodeRuntime`), the package entry evaluates every Node service module",
+                                    "smol-toml": "Parse TOML through `Toml.parse` from `effect/encoding`",
+                                    "yaml": { "importNames": [ "parse" ], "message": "Parse YAML through `Yaml.parse` from `effect/encoding`" }
+                                },
                                 "patterns": [ { "group": [ "**/package.json", "#/package.json" ], "message": "Build helpers read the project manifest from the directory they take" } ]
                             }
                         }
@@ -145,7 +159,6 @@
             }
         },
         { "includes": [ "**/.storybook/*.stories.tsx" ], "linter": { "rules": { "style": { "useComponentExportOnlyModules": "off" } } } },
-        { "includes": [ "**/index.ts" ], "linter": { "rules": { "performance": { "noBarrelFile": "off" } } } },
         { "includes": [ "tests/typescript/support/playwright.ts" ], "linter": { "rules": { "style": { "useConsistentTestIt": "off" } } } },
         { "includes": [ "plugins/function-hooks/**" ], "linter": { "rules": { "correctness": { "noUndeclaredDependencies": "off" } } } },
         { "includes": [ "biome.json", "nx.json", "package.json" ], "json": { "formatter": { "expand": "never" } } }

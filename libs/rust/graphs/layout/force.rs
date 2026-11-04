@@ -1,4 +1,4 @@
-use core::{iter, num::NonZero};
+use core::{cell::OnceCell, iter, num::NonZero};
 use std::collections::HashMap;
 
 use itertools::{Either, Itertools as _};
@@ -107,6 +107,7 @@ where
             .into_grouping_map()
             .reduce(|whole, _, rect| whole.union(rect)),
     };
+    let global_start_bounds = OnceCell::new();
     let start_center = |index: NodeIndex| match &options.start {
         Start::Spectral { node_separation: _ } => Point::ORIGIN,
         Start::Centers(starts) => start_bounds
@@ -120,7 +121,7 @@ where
                     .reduce(|whole, rect| whole.union(rect))
             })
             .or_else(|| ancestors(&parents, index).find_map(|cluster| start_bounds.get(&cluster).copied()))
-            .unwrap_or_else(|| starts.values().copied().map(bounds).reduce(|whole, rect| whole.union(rect)))
+            .unwrap_or_else(|| *global_start_bounds.get_or_init(|| starts.values().copied().map(bounds).reduce(|whole, rect| whole.union(rect))))
             .center(),
     };
     let (leaves, compounds): (Vec<_>, Vec<_>) = nodes.iter().map(|(&index, &record)| (index, record)).partition(|&(index, _)| !is_cluster(&parents, index));

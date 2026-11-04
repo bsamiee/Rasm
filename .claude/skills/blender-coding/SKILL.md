@@ -95,7 +95,8 @@ Identity and lookup follow host keys:
 - Collection struct type tests (`ObjectModifiers`) never match a `bpy_prop_collection` value, and code binds the collection's own member
 - RNA members of a class test through `name in T.bl_rna.properties` or `T.bl_rna.functions`
 - `bpy.ops.<module>.<name>.get_rna_type()` raises `KeyError` for an operator the build lacks, its struct listing parameters in `properties`
-- Dynamic enums (engine, color management, OCIO views) list a placeholder in `enum_items` (`BLENDER_EEVEE`, `NONE`)
+- `enum_items` invokes context-free providers and exposes declared items for context-dependent enums
+- `enum_items_static` lists declared items without calling a dynamic provider
 - Bad dynamic enum values raise `TypeError` listing live items
 - `UILayout.enum_item_name(data, prop, identifier)` reads a dynamic enum's live label and `""` for an identifier outside the live items
 - Collections can hold `None` items (`texture_slots`), and iteration enumerates before skipping `None` to keep host indices
@@ -193,22 +194,22 @@ def imported(importer: Callable[..., Returns], source: Path, /) -> Outcome[froze
 
 Original geometry holds no modifier result, and each read or write takes its path:
 
-| [INDEX] | [NEED]                                         | [PATH]                                                                                  |
-| :-----: | :--------------------------------------------- | :-------------------------------------------------------------------------------------- |
-|  [01]   | Modified or animated state                     | `evaluated_get` on one `view_layer.depsgraph` per operation after `view_layer.update()` |
-|  [02]   | Selection, identity, any write                 | Evaluated ID's `.original`                                                              |
-|  [03]   | Constraint, parent, and rigid body placement   | Original `matrix_world` after `view_layer.update()`, `location` keeping its channel     |
-|  [04]   | `dimensions`, `bound_box`                      | `view_layer.update()` after data write                                                  |
-|  [05]   | Keyed F-curve value at other frames            | `fcurve.evaluate(frame)`                                                                |
-|  [06]   | Evaluated state at another frame               | `frame_set` on window scene, frame restored after                                       |
-|  [07]   | Instances                                      | `depsgraph.object_instances`                                                            |
-|  [08]   | Evaluated mesh                                 | `evaluated_get(depsgraph).to_mesh()`                                                    |
-|  [09]   | Evaluated attributes, instance references      | `obj.evaluated_get(depsgraph).evaluated_geometry()`                                     |
-|  [10]   | Persistent evaluated mesh                      | `new_from_object(evaluated, preserve_all_data_layers=True, depsgraph=depsgraph)`        |
-|  [11]   | Result after a write that tags nothing         | `id.update_tag()` on written ID, then evaluation                                        |
-|  [12]   | Result after a modifier input write            | `obj.update_tag()`, then evaluation                                                     |
-|  [13]   | Original mesh read in Edit Mode                | `obj.update_from_editmode()` first                                                      |
-|  [14]   | `view_layer.objects` after a link or `exclude` | `view_layer.update()` first                                                             |
+| [INDEX] | [NEED]                                         | [PATH]                                                                              |
+| :-----: | :--------------------------------------------- | :---------------------------------------------------------------------------------- |
+|  [01]   | Modified or animated state                     | `evaluated_get(context.evaluated_depsgraph_get())` under its scene/layer override   |
+|  [02]   | Selection, identity, any write                 | Evaluated ID's `.original`                                                          |
+|  [03]   | Constraint, parent, and rigid body placement   | Original `matrix_world` after `view_layer.update()`, `location` keeping its channel |
+|  [04]   | `dimensions`, `bound_box`                      | `view_layer.update()` after data write                                              |
+|  [05]   | Keyed F-curve value at other frames            | `fcurve.evaluate(frame)`                                                            |
+|  [06]   | Evaluated state at another frame               | `frame_set` on window scene, frame restored after                                   |
+|  [07]   | Instances                                      | `depsgraph.object_instances`                                                        |
+|  [08]   | Evaluated mesh                                 | `evaluated_get(depsgraph).to_mesh()`                                                |
+|  [09]   | Evaluated attributes, instance references      | `obj.evaluated_get(depsgraph).evaluated_geometry()`                                 |
+|  [10]   | Persistent evaluated mesh                      | `new_from_object(evaluated, preserve_all_data_layers=True, depsgraph=depsgraph)`    |
+|  [11]   | Result after a write that tags nothing         | `id.update_tag()` on written ID, then evaluation                                    |
+|  [12]   | Result after a modifier input write            | `obj.update_tag()`, then evaluation                                                 |
+|  [13]   | Original mesh read in Edit Mode                | `obj.update_from_editmode()` first                                                  |
+|  [14]   | `view_layer.objects` after a link or `exclude` | `view_layer.update()` first                                                         |
 
 - Writes to an evaluated ID succeed with no raise and drop at the next evaluation
 - Evaluated IDs hold a `session_uid` of their own, and keys read it from `.original`
@@ -218,7 +219,8 @@ Original geometry holds no modifier result, and each read or write takes its pat
 - Frame changes write animated values into original members, and a script write to an animated member holds until the next frame change
 - Rigid bodies advance one step per consecutive `frame_set` from `point_cache.frame_start`, a jump past uncached frames keeping the last cached state
 - `rigidbody_world.collection` starts `None` after `world_add`, and members joining it gain an `ACTIVE` `CONVEX_HULL` `rigid_body` at the next update
-- `view_layer.update()` and `view_layer.depsgraph` serve every scene's layers, and `evaluated_depsgraph_get()` returns the active layer's depsgraph
+- `view_layer.update()` ensures its owner's graph; `view_layer.depsgraph` reads it after evaluation
+- `evaluated_depsgraph_get()` ensures and updates the context scene/layer graph, selected through `temp_override`
 - `evaluated_depsgraph_get()` uses viewport settings, render exports passing `evaluation_mode` (USD, Alembic, PLY, STL) or `export_eval_mode` (OBJ)
 - `evaluated_geometry()` raises `TypeError` on an original or an object without geometry, and `instances_pointcloud()` reads `None` with no instances
 - Instances stay out of the evaluated mesh and `dimensions`
@@ -264,7 +266,7 @@ class Lamp(bpy.types.PropertyGroup):
     reach: light("cutoff_distance")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 ```
 
-`kind` starts at `POINT` and stores `AREA` as its `Light.type` value 4, where 3-tuples store position 3. `copied(<class>, <member>)` copies any RNA enum, boolean, or scalar float, and `light` binds owner and callback once.
+`kind` starts at `POINT` and stores `AREA` as its `Light.type` value 4, where 3-tuples store position 3. `copied(<class>, <member>)` copies static or context-free RNA enum items, booleans, and scalar floats; `light` binds owner and callback once.
 
 `bpy.props` definitions take the form the host registers:
 - `poll` and `update` take function objects with exact positional arity, defaulted parameters counted, and a factory returns the closure
@@ -279,12 +281,14 @@ class Lamp(bpy.types.PropertyGroup):
 - `set_transform(self, new_value, stored_raw_value, is_set)` results clamp to hard bounds
 - `get` and `get_transform(self, stored_value, is_set)` results stay unclamped
 - `update`, `get`, `set`, and transform callbacks can run in a threaded context per data-block, call no operator, and touch their own ID alone
-- Dynamic `items` callbacks keep their strings referenced, accept a `None` context, and number items stably per identifier, with an integer `default`
+- Dynamic `items` callbacks accept a `None` context and number items stably per identifier, with an integer `default`
+- Callback closures retain canonical identifier, label, and description strings for each registered property's lifetime
+- Native RNA owns callback references; numeric icons, values, and past row tuples need no retention
 - `FILE_PATH` and `DIR_PATH` properties accepting `//` declare `PATH_SUPPORTS_BLEND_RELATIVE`
 - Operator property update callbacks receive properties alone as `self`, with the window manager as `id_data`
 
 Registered values read and write through the host:
-- Values read and write as attributes and sit in system properties outside `ID.keys()`, `bl_system_properties_get()` listing them
+- Registered properties on IDs use system storage outside `ID.keys()`; nested `PropertyGroup` members share the group's storage
 - `ob["prop"] = value` on a registered name creates a separate custom property
 - `property_unset` resets a value, and `is_property_set(name)` counts a value reused from the last run as unset, `ghost=False` counting it as set
 - Captures name members, writable-member walks reach view state (`cursor_location`, `is_dirty`) and `PASSWORD` tokens (`auth_token`, `access_token`)
@@ -365,7 +369,7 @@ Host calls that raise nothing decide the result through their return:
 - `None` returns and invalid results (false `NodeLink.is_valid`, targetless `Constraint.is_valid`) are faults at the call
 - `CANCELLED` keeps the writes a body made before its fault outside undo, and dependent steps roll back through the body's `ExitStack` scope
 - Python raises inside `RenderEngine.render` complete the render as `FINISHED`, and `error_set` cancels nothing
-- `modifiers.move` past a pinned modifier keeps the order with no raise or report, and code reads the order after the call
+- Modifier reorder plans keep `use_pin_to_last` modifiers after unpinned ones
 
 Values cross the boundary in host units and axes:
 - Lengths are Blender units scaled by `unit_settings.scale_length` and angles radians, and decoded values hold SI quantities

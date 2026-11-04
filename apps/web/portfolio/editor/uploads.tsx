@@ -1,9 +1,8 @@
 import { useAtom, useAtomMount, useAtomValue } from '@effect/atom-react';
-import { MenuButton } from '@rasm/ui/collection/menu-button';
-import { Choice } from '@rasm/ui/form/choice';
+import { Choice, MenuButton } from '@rasm/ui';
 import { useUppyState } from '@uppy/react';
 import Dashboard from '@uppy/react/dashboard';
-import { Predicate, String, Struct } from 'effect';
+import { Array, Option, Predicate, Result, String, Struct } from 'effect';
 import { useState } from 'react';
 import '@uppy/core/css/style.min.css';
 import '@uppy/dashboard/css/style.min.css';
@@ -28,11 +27,11 @@ const Uploads = ({ assets, entries, onPlace }: { assets: typeof Assets.Service; 
         ...option,
         id: key(option.target),
     }));
-    const documents = files.flatMap((file) => {
+    const documents = Array.filterMap(files, (file) => {
         const asset = file.meta.prepared === undefined ? undefined : assets[file.meta.prepared.asset.id];
         const { destination } = file.meta;
         const entry = entries.find((item) => Destination.$is('Entry')(destination) && item.id === destination.id);
-        return file.progress.uploadComplete === true && Asset.guards.pdf(asset) && entry !== undefined ? [{ id: file.id, label: details([asset.name, entryTitle(entry)]), entryId: entry.id, assetId: asset.id }] : [];
+        return file.progress.uploadComplete === true && Asset.guards.pdf(asset) && entry !== undefined ? Result.succeed({ id: file.id, label: details([asset.name, entryTitle(entry)]), entryId: entry.id, assetId: asset.id }) : Result.failVoid;
     });
     const selectedFile = files.find((file) => file.id === selected);
     return (
@@ -55,7 +54,16 @@ const Uploads = ({ assets, entries, onPlace }: { assets: typeof Assets.Service; 
                             value={key(selectedFile.meta.destination)}
                         />
                     ) : (
-                        <p className="hint">{details(['Destination', options.find((option) => option.id === key(selectedFile.meta.destination))?.label ?? 'Removed entry', selectedFile.progress.uploadComplete === true ? 'Uploaded' : 'Locked after processing starts'])}</p>
+                        <p className="hint">
+                            {details([
+                                'Destination',
+                                Array.findFirst(options, (option) => option.id === key(selectedFile.meta.destination)).pipe(
+                                    Option.map(Struct.get('label')),
+                                    Option.getOrElse(() => 'Removed entry'),
+                                ),
+                                selectedFile.progress.uploadComplete === true ? 'Uploaded' : 'Locked after processing starts',
+                            ])}
+                        </p>
                     )}
                 </div>
             )}

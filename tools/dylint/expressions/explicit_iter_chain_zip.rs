@@ -1,11 +1,11 @@
-use clippy_utils::{diagnostics::span_lint_hir_and_then, fn_def_id, paths::PathNS, res::MaybeDef as _, source::snippet_with_context, sugg::Sugg, sym, ty::make_normalized_projection};
+use clippy_utils::{diagnostics::span_lint_hir_and_then, fn_def_id, paths::PathNS, source::snippet_with_context, sugg::Sugg, sym, ty::make_normalized_projection};
 use rustc_data_structures::fx::FxHashSet;
 use rustc_errors::Applicability;
 use rustc_hir::{Expr, ExprKind, Mutability, def_id::DefId};
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_middle::ty::{self, Ty, TyCtxt};
+use rustc_middle::ty::{self, Instance, Ty, TyCtxt};
 
-use crate::{expanded_externally, paths, suggest};
+use crate::{associated_trait, expanded_externally, paths, suggest};
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -19,22 +19,33 @@ impl Pass {
     pub(crate) fn new(tcx: TyCtxt<'_>) -> Self { Self { adapters: paths(tcx, PathNS::Value, &["core::iter::Iterator::chain", "core::iter::Iterator::zip"]) } }
 }
 
+// --- [COMPOSITION] ---------------------------------------------------------------------
+
 impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
         let (tcx, typeck) = (cx.tcx, cx.typeck_results());
+        let standard = |item: DefId| matches!(tcx.crate_name(item.krate), sym::core | sym::alloc | sym::std) && tcx.lookup_stability(item.krate.as_def_id()).is_some();
         if let ExprKind::MethodCall(adapter, converted, [other], _) = expr.kind
             && !expanded_externally(cx, expr.span)
             && fn_def_id(cx, expr).is_some_and(|called| self.adapters.contains(&called))
             && let ExprKind::MethodCall(conversion, source, [], _) = converted.kind
+            && let Some(converting) = fn_def_id(cx, converted)
             && let Some(into_iterator) = tcx.get_diagnostic_item(sym::IntoIterator)
+            && let consumes = associated_trait(tcx, converting) == Some(into_iterator)
             && let written = typeck.expr_ty(source)
+            && (consumes || standard(converting))
+            && (!consumes || !written.has_significant_drop(tcx, cx.typing_env()))
             && let Some((passed, borrow)) = match (conversion.ident.name, written.kind()) {
-                (sym::into_iter, _) if fn_def_id(cx, converted).opt_parent(cx) == Some(into_iterator) && typeck.expr_adjustments(source).is_empty() => Some((written, None)),
+                (sym::into_iter, _) if consumes && typeck.expr_adjustments(source).is_empty() => Some((written, None)),
                 (sym::iter, ty::Ref(_, _, Mutability::Not)) => Some((written, None)),
                 (sym::iter, _) if !written.is_ref() => Some((Ty::new_imm_ref(tcx, tcx.lifetimes.re_erased, written), Some(Mutability::Not))),
                 (sym::iter_mut, _) if !written.is_ref() => Some((Ty::new_mut_ref(tcx, tcx.lifetimes.re_erased, written), Some(Mutability::Mut))),
                 _ => None,
             }
+            && tcx
+                .lang_items()
+                .into_iter_fn()
+                .is_some_and(|into_iter| matches!(Instance::try_resolve(tcx, cx.typing_env(), into_iter, tcx.mk_args(&[passed.into()])), Ok(Some(instance)) if standard(instance.def_id())))
             && make_normalized_projection(tcx, cx.typing_env(), into_iterator, sym::IntoIter, [passed])
                 .is_some_and(|iterator| tcx.erase_and_anonymize_regions(iterator) == tcx.erase_and_anonymize_regions(typeck.expr_ty(converted)))
         {

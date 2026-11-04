@@ -25,12 +25,12 @@ public abstract partial record LensDirt {
             context.Derivations.Derived(Path, static path => ImageFile.Read(path).RunSafe()).Map(static read => read.Frame);
     }
 
-    public sealed record Specks(float Coverage, ShortSideLength Scale, Seed Seed) : LensDirt {
-        public static Specks Default { get; } = new(0.2f, ShortSideLength.Create(0.05f * ReferenceFrame.GreaterSide), Seed.MinValue);
+    public sealed record Specks(float Coverage, ShortSideLength Scale, int Seed) : LensDirt {
+        public static Specks Default { get; } = new(0.2f, ShortSideLength.Create(0.05f * ReferenceFrame.GreaterSide), 0);
 
         public override Fin<PixelFrame> Soil(PassContext context) =>
             context.Derivations.Derived((Specks: this, context.Extent), static key =>
-                NoiseDimensions.Spectral(key.Extent, 2d, key.Specks.Scale.Pixels(key.Extent), key.Specks.Coverage, key.Specks.Seed.Field(21u, 0u)));
+                NoiseDimensions.Spectral(key.Extent, 2d, key.Specks.Scale.Pixels(key.Extent), key.Specks.Coverage, CoordinateHash.Branch(key.Specks.Seed, 0u, 21u)));
     }
 }
 
@@ -48,15 +48,6 @@ public sealed record Bloom(float Size, float Strength, float DirtGain) : IPixelS
                     Glare.Dirt(light, frame, soil, state.DirtGain);
             }, BlendingMode.Normal, state.Strength, [], progress)
             select spread));
-}
-
-public sealed record VeilingGlare(float Size) : IPixelStage<VeilingGlare> {
-    public static VeilingGlare Default { get; } = new(0.5f);
-
-    public static Fin<Option<PixelPass>> Pass(VeilingGlare state, PassContext context) =>
-        Some<PixelPass>(new PixelPass.Frame((frame, progress) => context.Derivations.Held((state.Size, context.Extent, Window: frame.Size),
-            static key => Fin.Succ(PointSpread.Veiling(key.Window, double.Lerp(180d, 10d, double.Cbrt(key.Size)) / int.Max(key.Extent.Width, key.Extent.Height))),
-            spread => frame.Spread(0f, 0f, light => spread.Convolve(light), BlendingMode.Normal, 1f, [], progress))));
 }
 
 public sealed record StarGlare(Iris Aperture, ShortSideLength Radius) : IPixelStage<StarGlare> {
@@ -143,7 +134,7 @@ public sealed record LensProfile(LensDistortion Lens, double Dispersion, LensDir
         select (PixelPass)new PixelPass.Frame((frame, progress) => state.Dispersion is 0d
             ? state.Map(rendering).Bind(map => map.Apply(frame, progress))
             : state.Placed(rendering).Bind(placed =>
-                CoordinateMap.Reprojection.Dispersed(placed.Output, placed.Input, state.Dispersion, state.Resampling.Sampling, state.Resampling.Edges).Run(frame, progress)));
+                CoordinateMap.Reprojection.Dispersed(context.Integration, placed.Output, placed.Input, state.Dispersion, state.Resampling.Sampling, state.Resampling.Edges).Run(frame, progress)));
 
     public Fin<CoordinateMap> Map(Projection.Rectilinear rendering) =>
         Placed(rendering).Map(placed => (CoordinateMap)new CoordinateMap.Reprojection(placed.Output, placed.Input, System.Numerics.Quaternion.Identity, Resampling.Sampling, Resampling.Edges));

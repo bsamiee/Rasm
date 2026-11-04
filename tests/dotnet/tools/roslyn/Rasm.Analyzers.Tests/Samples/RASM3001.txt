@@ -160,3 +160,128 @@ internal static class Pointers {
         fixed (int* start = values) return *start;
     }
 }
+
+internal static class ScopedNames {
+    private const int {|#8:Count|} = 2;
+
+    internal static int Changed() => Take(Count) + Other.Count;
+
+    internal static int Take(int count) => count;
+}
+
+internal static class Other {
+    internal const int Count = 1;
+}
+
+internal static class NamedArguments {
+    internal static int Changed(int left, int right) {
+        int difference = Difference(right: right, left: left);
+        return difference;
+    }
+
+    private static int {|#9:Difference|}(int left, int right) => left - right;
+}
+
+internal static class StaticContains {
+    private static readonly string[] {|#10:Extensions|} = ["png", "jpg"];
+
+    internal static bool Found(string value) => Enumerable.Contains(value: value, source: Extensions);
+}
+
+internal static class RecursiveMembers {
+    private static int Read(int value) => ReadRead(value);
+
+    private static int ReadRead(int value) => Read(value);
+}
+
+internal static class RecursiveProperties {
+    private static int Read => ReadRead;
+
+    private static int ReadRead => Read;
+}
+
+internal static class ReadEnteredProperties {
+    internal static int Value => Read;
+
+    private static int Read => ReadRead;
+
+    private static int {|#13:ReadRead|} => Read;
+}
+
+internal static class ReadReadEnteredProperties {
+    internal static int Value => ReadRead;
+
+    private static int {|#14:Read|} => ReadRead;
+
+    private static int ReadRead => Read;
+}
+
+internal static class ComparedSets {
+    private static readonly FrozenSet<string> Frozen = new[] { "a" }.ToFrozenSet(StringComparer.OrdinalIgnoreCase);
+    private static readonly HashSet<string> Hashed = new[] { "a" }.ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+    internal static bool FrozenContains(string value) => Frozen.Contains(value);
+
+    internal static bool HashedContains(string value) => Hashed.Contains(value);
+}
+
+internal sealed class CustomSet : HashSet<string> {
+    internal new bool Contains(string value) => false;
+}
+
+internal static class CustomSets {
+    private static readonly CustomSet Values = new() { "a" };
+
+    internal static bool Found(string value) => Values.Contains(value);
+}
+
+internal static class NamedMethod {
+    internal static int Changed(int value) {
+        int twice = Twice(value);
+        return twice;
+    }
+
+    internal static string Name => nameof(Twice);
+
+    private static int Twice(int value) => value * 2;
+}
+
+namespace Custom {
+    internal static class Membership {
+        internal static bool Contains(this string[] values, string value) => false;
+    }
+
+    internal static class Values {
+        private static readonly string[] Names = ["a"];
+
+        internal static bool Found(string value) => Names.Contains(value);
+    }
+}
+
+internal static class UnderscoreParameter {
+    internal static int Changed(int value) {
+        int kept = Kept(value);
+        return kept;
+    }
+
+    private static int {|#11:Kept|}(int _) => _ + 1;
+}
+
+internal static class EvaluationOrder {
+    private static int count;
+
+    internal static int Run(int divisor) {
+        int readRead = ReadRead(10 / divisor);
+        return readRead;
+    }
+
+    internal static int Log() => ++count;
+
+    private static int ReadRead(int value) => Log() + value;
+}
+
+internal static class WidenedMembership {
+    private static readonly long[] {|#12:Counts|} = [1L, 2L];
+
+    internal static bool Found(int value) => Counts.Contains(value);
+}

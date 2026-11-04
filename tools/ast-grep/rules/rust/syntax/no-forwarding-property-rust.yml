@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-forwarding-property-rust
-language: rust
+language: rustlang
 severity: error
 utils:
     inherent-method:
@@ -33,23 +33,36 @@ utils:
         any:
             - regex: '^pub$'
             - pattern: $VIS
-              inside: {stopBy: end, kind: source_file, has: {stopBy: end, kind: function_item, all: [{has: {field: name, pattern: $NAME}}, {has: {kind: visibility_modifier, pattern: $VIS}}]}}
+              inside:
+                kind: 'source_file, declaration_list, block'
+                stopBy: {kind: 'source_file, declaration_list, block'}
+                has:
+                    kind: impl_item
+                    all:
+                        - has: {field: type, any: [{kind: generic_type, has: {field: type, pattern: $TYPE}}, {pattern: $TYPE}]}
+                        - has: {field: body, has: {kind: function_item, all: [{has: {field: name, pattern: $NAME}}, {has: {kind: visibility_modifier, pattern: $VIS}}]}}
     public-field:
         inside:
-            kind: source_file
-            stopBy: end
-            has:
-                stopBy: end
-                kind: struct_item
-                all:
-                    - has: {field: name, pattern: $TYPE}
-                    - has:
-                        field: body
-                        any:
-                            - has: {kind: field_declaration, all: [{has: {field: name, pattern: $F}}, {has: {matches: reachable-visibility}}]}
-                            - all:
-                                - kind: ordered_field_declaration_list
-                                - has: {nthChild: 1, matches: reachable-visibility}
+            kind: declaration_list
+            inside:
+                kind: impl_item
+                inside:
+                    kind: 'source_file, declaration_list, block'
+                    has:
+                        kind: struct_item
+                        all:
+                            - has: {field: name, pattern: $TYPE}
+                            - has:
+                                field: body
+                                any:
+                                    - has: {kind: field_declaration, all: [{has: {field: name, pattern: $F}}, {has: {matches: reachable-visibility}}]}
+                                    - kind: ordered_field_declaration_list
+                                      not:
+                                        has:
+                                            pattern: $_
+                                            all:
+                                                - not: {kind: 'visibility_modifier, attribute_item, line_comment, block_comment'}
+                                                - not: {follows: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, matches: reachable-visibility}}
     assigned-parameter:
         kind: expression_statement
         has:
@@ -62,18 +75,84 @@ utils:
             - has: {kind: self_parameter, has: {kind: mutable_specifier}}
             - has: {kind: parameter, has: {field: pattern, pattern: $P}}
             - not: {has: {kind: parameter, nthChild: {position: 2, ofRule: {kind: parameter}}}}
+    tuple-field:
+        not: {kind: 'visibility_modifier, attribute_item, line_comment, block_comment'}
+    newtype:
+        kind: struct_item
+        all:
+            - has: {field: name, pattern: $WRAPPER}
+            - has:
+                field: body
+                any:
+                    - kind: field_declaration_list
+                      all: [{has: {kind: field_declaration}}, {not: {has: {nthChild: {position: 2, ofRule: {kind: field_declaration}}}}}]
+                    - kind: ordered_field_declaration_list
+                      all: [{has: {matches: tuple-field}}, {not: {has: {nthChild: {position: 2, ofRule: {matches: tuple-field}}}}}]
+    forwarded-field:
+        any:
+            - {kind: field_expression, has: {field: value, kind: self}}
+            - {kind: reference_expression, has: {field: value, kind: field_expression, has: {field: value, kind: self}}}
+    passed-argument:
+        any:
+            - kind: identifier
+            - {kind: reference_expression, has: {field: value, kind: identifier}}
+    same-name-call:
+        kind: call_expression
+        any:
+            - all:
+                - has: {field: function, kind: field_expression, all: [{has: {field: field, pattern: $FORWARDED}}, {has: {field: value, matches: forwarded-field}}]}
+                - has: {field: arguments, not: {has: {pattern: $_, not: {matches: passed-argument}}}}
+            - all:
+                - has: {field: function, kind: scoped_identifier, has: {field: name, pattern: $FORWARDED}}
+                - has: {field: arguments, all: [{has: {nthChild: 1, matches: forwarded-field}}, {not: {has: {pattern: $_, not: {any: [{matches: passed-argument}, {matches: forwarded-field}]}}}}]}
+    same-name-forward:
+        kind: function_item
+        all:
+            - has: {field: name, pattern: $FORWARDED}
+            - has: {field: body, matches: sole, has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, any: [{matches: same-name-call}, {kind: expression_statement, has: {matches: same-name-call}}]}}
+    constructor:
+        kind: function_item
+        all:
+            - not: {has: {field: parameters, has: {kind: self_parameter}}}
+            - has:
+                field: body
+                matches: sole
+                has:
+                    nthChild: {position: 1, ofRule: {matches: rust-statement}}
+                    any:
+                        - pattern: Self($ARGUMENT)
+                        - pattern: $WRAPPER($ARGUMENT)
+                        - {kind: struct_expression, has: {field: name, regex: '^Self$'}}
+                        - {kind: struct_expression, has: {field: name, pattern: $WRAPPER}}
+    wrapper-type:
+        any:
+            - {kind: type_identifier, pattern: $WRAPPER}
+            - {kind: generic_type, has: {field: type, pattern: $WRAPPER}}
+    trait-impl-method:
+        kind: impl_item
+        all:
+            - has: {field: trait, pattern: $_}
+            - has: {field: type, matches: wrapper-type}
+            - has: {field: body, has: {kind: function_item}}
+    forwarding-newtype-impl:
+        kind: impl_item
+        all:
+            - not: {has: {field: trait, pattern: $_}}
+            - has: {field: type, matches: wrapper-type}
+            - has: {field: body, all: [{not: {has: {kind: function_item, not: {any: [{matches: same-name-forward}, {matches: constructor}]}}}}, {has: {kind: function_item, matches: same-name-forward}}]}
+            - inside: {kind: 'source_file, declaration_list, block', all: [{has: {matches: newtype}}, {not: {has: {matches: trait-impl-method}}}]}
 rule:
     kind: function_item
     all:
         - has: {field: name, pattern: $NAME}
         - matches: inherent-method
-        - not: {matches: rust-trait-or-extern-function}
+        - not: {matches: rust-trait-impl-or-extern-function}
         - any:
             - all:
                 - has: {field: parameters, has: {kind: self_parameter, not: {has: {kind: mutable_specifier}}}, not: {has: {kind: parameter}}}
                 - has: {field: body, matches: sole, has: {matches: field-read}}
                 - matches: public-field
-                - not: {inside: {kind: declaration_list, inside: {kind: impl_item, matches: rust-forwarding-newtype-impl}}}
+                - not: {inside: {kind: declaration_list, inside: {kind: impl_item, matches: forwarding-newtype-impl}}}
             - all:
                 - has: {field: parameters, matches: setter-parameters}
                 - has: {field: body, matches: sole, has: {matches: assigned-parameter}}

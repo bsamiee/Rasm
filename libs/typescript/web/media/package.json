@@ -8,11 +8,9 @@
         "#/*": "./*.ts"
     },
     "exports": {
-        "./inspection": "./inspection.ts",
-        "./pdf/document": "./pdf/document.ts",
-        "./pdf/viewer": "./pdf/viewer.tsx",
-        "./pdf/vite": "./pdf/vite.ts",
-        "./uploads": "./uploads.ts"
+        ".": "./index.ts",
+        "./pdf": "./pdf/index.ts",
+        "./vite": "./vite.ts"
     },
     "dependencies": {
         "@uppy/core": "catalog:",

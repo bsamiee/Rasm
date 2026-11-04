@@ -5,6 +5,7 @@ use clippy_utils::{
     diagnostics::span_lint_and_help,
     expr_or_init, fn_def_id, get_parent_expr, last_path_segment,
     paths::PathNS,
+    peel_hir_expr_while,
     res::{MaybeDef as _, MaybeResPath as _},
     source::snippet,
     sym,
@@ -15,7 +16,8 @@ use rustc_hir::{Expr, ExprKind, Node, Pat, PatExpr, PatExprKind, PatKind, def_id
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty::{Ty, TyCtxt, print::with_forced_trimmed_paths};
 
-use crate::{expanded_externally, fn_item_value, is_text, item_path, paths, resolve, signature};
+use super::text_view;
+use crate::{expanded_externally, fn_item_value, item_path, paths, resolve, signature};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -78,24 +80,23 @@ impl Pass {
     }
 }
 
+// --- [COMPOSITION] ---------------------------------------------------------------------
+
 impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
-        fn fixed(cx: &LateContext<'_>, key: &Expr<'_>) -> Option<String> {
-            let key = expr_or_init(cx, key.peel_borrows());
-            if let ExprKind::MethodCall(_, operand, [], _) | ExprKind::Call(_, [operand]) = key.kind
-                && is_text(cx, cx.typeck_results().expr_ty(key))
-            {
-                fixed(cx, operand)
-            } else {
-                Some(match ConstEvalCtxt::new(cx).eval(key)? {
-                    Constant::Str(text) => format!("{text:?}"),
-                    Constant::Int(index) => index.to_string(),
-                    _ => snippet(cx, key.span, "..").into_owned(),
-                })
-            }
+        fn fixed<'tcx>(cx: &LateContext<'tcx>, key: &'tcx Expr<'tcx>) -> Option<String> {
+            let key = peel_hir_expr_while(key, |key| {
+                let initialized = expr_or_init(cx, key.peel_borrows());
+                if initialized.hir_id == key.hir_id { text_view(cx, key) } else { Some(initialized) }
+            });
+            Some(match ConstEvalCtxt::new(cx).eval(key)? {
+                Constant::Str(text) => format!("{text:?}"),
+                Constant::Int(index) => index.to_string(),
+                _ => snippet(cx, key.span, "..").into_owned(),
+            })
         }
 
-        let accessed = |method: Option<DefId>, arguments: &[Expr<'_>], operand: Option<&Expr<'_>>| {
+        let accessed = |method: Option<DefId>, arguments: &'tcx [Expr<'tcx>], operand: Option<&Expr<'tcx>>| {
             let method = method?;
             let kind = *self.methods.get(&method)?;
             let access = match kind {

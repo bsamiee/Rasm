@@ -9,10 +9,6 @@ utils:
         kind: value_argument
         nthChild: 1
         has: {field: name, regex: '^of$'}
-    literal-needle:
-        kind: value_argument
-        nthChild: 1
-        has: {field: value, kind: line_string_literal, has: {field: text, kind: line_str_text}, not: {has: {kind: interpolated_expression}}}
     searched:
         kind: value_arguments
         all:
@@ -43,10 +39,6 @@ utils:
         kind: 'property_declaration, parameter'
         regex: '\b(NS(Mutable)?(Attributed)?String|Attributed(String|Substring))\b'
         has: {stopBy: end, kind: simple_identifier, pattern: $R}
-    substring-receiver:
-        any:
-            - inside: {stopBy: end, matches: scope, has: {stopBy: end, kind: 'property_declaration, parameter', regex: '\bSubstring\b', has: {stopBy: end, kind: simple_identifier, pattern: $R}}}
-            - inside: {stopBy: end, matches: string-extension, has: {field: name, regex: 'Substring$'}}
     data-needle:
         kind: value_argument
         all:
@@ -69,29 +61,5 @@ rule:
                 - any: [{kind: simple_identifier}, {kind: navigation_expression, has: {field: target, kind: self_expression}}]
                   inside: {stopBy: end, matches: string-extension}
         - not: {inside: {stopBy: end, matches: scope, has: {stopBy: end, matches: bridged-binding}}}
-rewriters:
-    - id: first-range
-      rule:
-        matches: search-call
-        all:
-            - has: {nthChild: 1, pattern: $F}
-            - has: {kind: call_suffix, has: {kind: value_arguments, pattern: $ARGS, has: {matches: literal-needle}}}
-      transform:
-        NAME: {replace: {source: $F, replace: 'range$', by: firstRange}}
-      fix: $NAME$ARGS
-    - id: native-replacing
-      rule:
-        matches: replace-call
-        all:
-            - has: {nthChild: 1, pattern: $F}
-            - has: {kind: call_suffix, has: {kind: value_arguments, pattern: $ARGS, has: {matches: literal-needle}}}
-            - not: {matches: substring-receiver}
-      transform:
-        NAME: {replace: {source: $F, replace: 'replacingOccurrences$', by: replacing}}
-        UNLABELED: {replace: {source: $ARGS, replace: '^\(\s*of:\s*', by: '('}}
-      fix: $NAME$UNLABELED
-transform:
-    NATIVE: {rewrite: {source: $SITE, rewriters: [first-range, native-replacing]}}
-fix: $NATIVE
 message: '`$SITE` searches through a bridged `NSString` member'
 note: 'Call `firstRange(of:)` or `replacing(_:with:)` after guarding an empty needle, with `String(_:)` around a `Substring` receiver''s `replacing` result'

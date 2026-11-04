@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-forwarding-function-bash
-language: bash
+language: bashlang
 severity: error
 utils:
     positional-parameter: {kind: string, regex: '^"\$(@|[1-9]|\{(@|[1-9])\})"$'}
@@ -17,19 +17,18 @@ rule:
         - has: {field: name, pattern: $NAME}
         - has:
             field: body
-            kind: compound_statement, subshell
+            kind: compound_statement
             not:
                 any:
                     - has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}
                     - has: {regex: '^&$'}
             has:
                 kind: command
-                pattern: $CALL
                 all:
                     - has: {field: name, regex: '^[A-Za-z0-9_./-]+$'}
                     - not: {matches: bash-program-lookup}
                     - has: {matches: positional-parameter}
                     - not: {has: {not: {matches: literal}}}
                     - not: {has: {matches: positional-parameter, follows: {matches: positional-parameter, stopBy: end}}}
-message: '`$NAME` forwards its arguments unchanged to `$CALL`'
-note: Call `<command> <words>` at each call site and move each fixed option the tool reads from configuration into its configuration file
+message: 'Function `$NAME` only forwards a command'
+note: Call the command directly and move supported fixed options into its configuration

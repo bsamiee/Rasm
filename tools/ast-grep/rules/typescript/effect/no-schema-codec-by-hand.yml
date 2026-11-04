@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-schema-codec-by-hand
-language: tsx
+language: tsxlang
 severity: error
 utils:
     schema-member:
@@ -13,7 +13,7 @@ utils:
         has: {field: function, matches: schema-member, has: {field: property, regex: '^decodeTo$'}}
     scalar:
         matches: decode-to
-        pattern: $S.decodeTo($S.$TARGET, $ST.$T)
+        pattern: $S.decodeTo($S.$_TARGET, $_ST.$_T)
         has:
             field: arguments
             all:
@@ -23,7 +23,6 @@ utils:
                 - has:
                     nthChild: 2
                     all:
-                        - has: {field: object, matches: transformation}
                         - has:
                             field: property
                             regex: |-
@@ -35,21 +34,22 @@ utils:
                                   | uint8ArrayFromBase64String | stringFromBase64String | stringFromBase64UrlString | stringFromHexString | stringFromUriComponent
                                   | timeZoneNamedFromString | timeZoneFromString
                                 )$
+                        - has: {field: object, matches: transformation}
     option:
         kind: call_expression
-        pattern: $S.$WRAP($X).pipe($S.decodeTo($S.Option($_), $ST.$OPTION()))
+        pattern: $S.$_WRAP($_X).pipe($S.decodeTo($S.Option($_), $_ST.$_OPTION()))
         all:
             - has: {field: function, has: {field: object, has: {field: function, matches: schema-member, has: {field: property, regex: '^(NullOr|UndefinedOr|NullishOr|optionalKey|optional)$'}}}}
-            - has: {field: arguments, has: {matches: decode-to, has: {field: arguments, has: {nthChild: 2, has: {field: function, all: [{has: {field: object, matches: transformation}}, {has: {field: property, regex: '^optionFrom(NullOr|UndefinedOr|NullishOr|OptionalKey|Optional)$'}}]}}}}}
+            - has: {field: arguments, has: {matches: decode-to, has: {field: arguments, has: {nthChild: 2, has: {field: function, all: [{has: {field: property, regex: '^optionFrom(NullOr|UndefinedOr|NullishOr|OptionalKey|Optional)$'}}, {has: {field: object, matches: transformation}}]}}}}}
     container:
         kind: call_expression
         any:
-            - pattern: $S.String.pipe($S.decodeTo($X, $ST.fromJsonString($$$OPTIONS)))
-            - pattern: $S.FormData.pipe($S.decodeTo($X, $ST.fromFormData))
-            - pattern: $S.URLSearchParams.pipe($S.decodeTo($X, $ST.fromURLSearchParams))
-            - pattern: $X.pipe($S.encodeTo($S.String, $ST.fromJsonString($$$OPTIONS)))
-            - pattern: $X.pipe($S.encodeTo($S.FormData, $ST.fromFormData))
-            - pattern: $X.pipe($S.encodeTo($S.URLSearchParams, $ST.fromURLSearchParams))
+            - pattern: $S.String.pipe($S.decodeTo($_X, $_ST.fromJsonString($$$_OPTIONS)))
+            - pattern: $S.FormData.pipe($S.decodeTo($_X, $_ST.fromFormData))
+            - pattern: $S.URLSearchParams.pipe($S.decodeTo($_X, $_ST.fromURLSearchParams))
+            - pattern: $_X.pipe($S.encodeTo($S.String, $_ST.fromJsonString($$$_OPTIONS)))
+            - pattern: $_X.pipe($S.encodeTo($S.FormData, $_ST.fromFormData))
+            - pattern: $_X.pipe($S.encodeTo($S.URLSearchParams, $_ST.fromURLSearchParams))
         has:
             field: arguments
             has:
@@ -57,38 +57,11 @@ utils:
                 all:
                     - has: {field: function, matches: schema-member}
                     - has: {field: arguments, has: {nthChild: 2, any: [{has: {field: object, matches: transformation}}, {has: {field: function, has: {field: object, matches: transformation}}}]}}
-rewriters:
-    - id: option-codec
-      rule: {matches: option}
-      transform:
-        WRAPPER: {convert: {source: $WRAP, toCase: pascalCase}}
-        CODEC: {replace: {source: $WRAPPER, replace: '^', by: OptionFrom}}
-      fix: $S.$CODEC($X)
-    - id: scalar-codec
-      rule: {matches: scalar}
-      transform:
-        SOURCE: {replace: {source: $T, replace: '^[a-z][A-Za-z0-9]*?(From[A-Za-z0-9]+?)(?:String)?$', by: '$1'}}
-      fix: $S.decodeTo($S.$TARGET$SOURCE)
-    - id: container-codec
-      rule:
-        matches: container
-        any:
-            - pattern: $S.$_.pipe($S.decodeTo($X, $_ST.$T($$$OPTIONS)))
-            - pattern: $X.pipe($S.encodeTo($S.$_, $_ST.$T($$$OPTIONS)))
-            - pattern: $S.$_.pipe($S.decodeTo($X, $_ST.$T))
-            - pattern: $X.pipe($S.encodeTo($S.$_, $_ST.$T))
-      transform:
-        TAIL: {replace: {source: $$$OPTIONS, replace: '(?s)^(.+)$', by: ', $1'}}
-      fix: $S.$T($X$TAIL)
 rule:
     kind: call_expression
-    pattern: $HAND
     any:
         - matches: option
         - matches: scalar
         - matches: container
-transform:
-    CODEC: {rewrite: {source: $HAND, rewriters: [option-codec, scalar-codec, container-codec]}}
-fix: $CODEC
-message: '`$HAND` restates `$CODEC`'
+message: '`Schema` composition restates a codec constructor'
 note: 'Pass the `Schema` codec in place of its `decodeTo` or `encodeTo` composition'

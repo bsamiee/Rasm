@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-program-lookup-test
-language: bash
+language: bashlang
 severity: error
 utils:
     lookup:
@@ -14,42 +14,29 @@ utils:
             - {kind: redirected_statement, has: {field: body, matches: lookup}}
     output:
         any:
-            - {kind: command_substitution, has: {matches: statement}}
-            - {kind: 'string, concatenation', has: {kind: command_substitution, has: {matches: statement}}}
+            - kind: command_substitution
+              has: {matches: statement}
+              not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+            - kind: string
+              has: {matches: output, follows: {regex: '^"$'}, precedes: {regex: '^"$'}}
     assignment:
-        any:
-            - {kind: variable_assignment, has: {field: value, matches: output}}
-            - {kind: declaration_command, has: {kind: variable_assignment, has: {field: value, matches: output}}}
+        kind: variable_assignment
+        has: {field: value, matches: output}
     status-read:
         any:
             - inside: {kind: 'list, negated_command'}
             - inside: {kind: 'if_statement, while_statement', field: condition}
             - {nthChild: 1, inside: {kind: elif_clause}}
             - precedes: {stopBy: {not: {regex: '^;$'}}, has: {kind: special_variable_name, regex: '^\?$', stopBy: end}}
-    discarded:
-        kind: redirected_statement
-        all:
-            - has: {field: body, matches: lookup}
-            - has: {field: redirect, kind: file_redirect, regex: '^(?:1?(?:>>?|>\||>&)|&>>?)\s*(?:/dev/null|-)$'}
     emptiness-test:
         matches: output
         any:
             - inside: {kind: test_command}
             - inside: {kind: unary_expression, has: {field: operator, regex: '^-[nz]$'}}
             - inside: {kind: binary_expression, all: [{has: {field: operator, regex: '^(==?|!=)$'}}, {has: {field: right, regex: '^(""|'''')$'}}]}
-    path-test:
-        kind: 'word, string, raw_string, concatenation'
-        all:
-            - regex: '/bin/[^/\s"'']+["'']?$'
-            - pattern: $PROGRAM
-            - any:
-                - inside: {kind: unary_expression, has: {field: operator, regex: '^-[efx]$'}, inside: {kind: test_command, stopBy: end}}
-                - {follows: {regex: '^-[efx]$'}, inside: {kind: command, has: {field: name, regex: '^(test|\[)$'}}}
 rule:
     any:
-        - {matches: discarded}
         - {any: [{matches: statement}, {matches: assignment}], matches: status-read}
         - {matches: emptiness-test}
-        - {matches: path-test}
-message: '`$PROGRAM` lookup decides whether the script runs it'
-note: Call `<program>` by name in place of the lookup and its branch
+message: '`$PROGRAM` lookup controls a status or emptiness check'
+note: Declare required programs as dependencies and call them directly

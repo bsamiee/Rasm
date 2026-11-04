@@ -4,7 +4,7 @@ import math
 import sys
 from typing import Annotated, ClassVar, Self
 
-from expression import Nothing, Option, Some
+from expression import Option, Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -13,6 +13,7 @@ from scipy.spatial.transform import RigidTransform, Rotation
 
 from blender.imaging.geometry.arithmetic import Elementwise, Namespace
 from blender.imaging.geometry.frames import Quad
+from blender.records.faults import Nothing
 from blender.records.fields import Bearing, Case, Finite, Inclination, NonNegative, Positive, Unit
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -295,7 +296,7 @@ class PanoramaView(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def rotation(self) -> Rotation[tuple[()]]:
         """Rotation taking view rays to panorama rays."""
-        return Rotation.from_euler("YXZ", (-self.heading, self.elevation, self.roll))
+        return Rotation.from_euler("YXZ", (-self.heading, self.elevation, self.roll))  # ty: ignore[unsound-return-statement]
 
     @property
     def frame(self) -> tuple[float, npt.NDArray[np.float64]]:

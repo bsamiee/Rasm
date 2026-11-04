@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: itertools-chain-callee
-language: python
+language: pythonlang
 rule:
     all:
         - inside: {kind: module, stopBy: end, regex: '\bitertools\b'}

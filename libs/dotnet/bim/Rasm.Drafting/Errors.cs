@@ -19,11 +19,22 @@ public sealed partial class DraftingReason {
     public string Message { get; }
 }
 
-public sealed record DraftingFault(string Subject, DraftingReason Reason, Option<int> Index = default, Option<Error> Inner = default)
-    : Expected(Index.Match(at => string.Create(CultureInfo.InvariantCulture, $"{Reason.Message}: {Subject} at index {at}"), () => $"{Reason.Message}: {Subject}"), 0, Inner),
+public sealed record DraftingFault(object? Subject, DraftingReason Reason, Option<int> Index = default, Option<Error> Inner = default, string Expression = "")
+    : Expected(Reason.Message, 0, Inner),
     IValidationError<DraftingFault> {
+    public object? Subject { get; } = Subject;
+    public DraftingReason Reason { get; } = Reason;
+    public string Expression { get; } = Expression;
+
+    public override string Message {
+        get {
+            string subject = Expression.Length is 0 ? string.Create(CultureInfo.InvariantCulture, $"{Subject}") : string.Create(CultureInfo.InvariantCulture, $"{Expression} = {Subject}");
+            return Index.Match(at => string.Create(CultureInfo.InvariantCulture, $"{Reason.Message}: {subject} at index {at}"), () => $"{Reason.Message}: {subject}");
+        }
+    }
+
     public static DraftingFault Create(string message) => new(message, DraftingReason.Stated);
 
     public static Fin<Unit> Unless<T>(bool flag, DraftingReason reason, T rejected, Option<int> index = default, [CallerArgumentExpression(nameof(rejected))] string names = "") =>
-        flag ? unit : new DraftingFault(string.Create(CultureInfo.InvariantCulture, $"{names} = {rejected}"), reason, index);
+        flag ? unit : new DraftingFault(rejected, reason, index, Expression: names);
 }

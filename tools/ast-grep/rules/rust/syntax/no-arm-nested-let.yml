@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-arm-nested-let
-language: rust
+language: rustlang
 severity: error
 utils:
     statement:
@@ -9,12 +9,7 @@ utils:
         kind: if_expression
         all:
             - has: {field: condition, kind: let_condition, pattern: $COND}
-            - has:
-                field: consequence
-                kind: block
-                any:
-                    - all: [{has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, not: {matches: statement}, pattern: $A}}, {not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}}]
-                    - pattern: $AB
+            - has: {field: consequence, kind: block}
             - has:
                 field: alternative
                 kind: else_clause
@@ -53,9 +48,6 @@ rule:
         - precedes: {matches: fallback, pattern: $FALLBACK}
         - not: {has: {field: value, any: [{matches: binding-test}, {has: {stopBy: end, matches: binding-test}}]}}
         - not: {matches: rust-else-reads-arm-binding}
-transform:
-    COMMA: {replace: {source: $A, replace: '^[\s\S]+$', by: ','}}
-fix: '$P if $COND => $A$AB$COMMA'
 labels:
     P: {style: primary, message: 'Arm nesting the `if let`'}
     FALLBACK: {style: secondary, message: 'Catch-all arm the `else` repeats'}

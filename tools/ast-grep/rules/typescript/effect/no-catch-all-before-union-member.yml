@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-catch-all-before-union-member
-language: tsx
+language: tsxlang
 severity: error
 utils:
     union:
@@ -27,4 +27,4 @@ rule:
         - matches: open-record
           inside: {kind: array, has: {matches: tagged}, inside: {kind: arguments, inside: {matches: union}}}
 message: '`$MEMBER` accepts values meant for another union member'
-note: 'Move `Schema.Any`, `Schema.Unknown`, or `Schema.Void` last, and refuse tags in an open record as `Schema.StructWithRest(Schema.Struct({ _tag: Schema.optionalKey(Schema.Never) }), [<record>])`'
+note: 'Place catch-all schemas last; exclude `_tag` with `Schema.StructWithRest` and `Schema.optionalKey(Schema.Never)` in open records'

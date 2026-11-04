@@ -7,7 +7,7 @@ from itertools import starmap
 import os
 from pathlib import Path, PurePath, PurePosixPath
 from types import MappingProxyType
-from typing import Final, Literal, override, Self
+from typing import Final, Literal, Never, override, Self
 
 from blender_asset_tracer.blendfile.exceptions import BlendFileError
 from blender_asset_tracer.file_usage import FileInfo, Options
@@ -15,7 +15,7 @@ from blender_asset_tracer.hashing import get_hasher
 from blender_asset_tracer.pack import BATPacker, BATPackReporter, FileTransferProtocol
 from blender_asset_tracer.path_rewriting_process import BackgroundProcessNotRunningError
 import bpy
-from expression import Error, Nothing, Ok, Option, Result, Some
+from expression import Option, Result, Some
 from expression.extra.result import catch
 import msgspec
 import numpy as np
@@ -27,7 +27,7 @@ from blender.bpy.data.rna.descriptors import Value
 from blender.bpy.data.rna.paths import RnaPath
 from blender.bpy.data.rna.snapshots import assigned
 from blender.bpy.extension.identity import Identity
-from blender.records.faults import accumulated, Fault, Faults, Outcome, Reason
+from blender.records.faults import accumulated, Error, Fault, Faults, Nothing, Ok, Outcome, Reason
 from blender.records.stores import folder_made
 from blender.rendering.batch.queue import PackedFile
 
@@ -189,7 +189,7 @@ class Packing(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     def drained(self) -> Outcome[Pack]:
         """Runs every remaining step in one call, the form a background run takes, aborting at a refusal."""
         return (
-            _bat_called(lambda: tuple(iter(self.packer.step, False)))
+            _bat_called(lambda: tuple(iter(self.packer.step, False)))  # ruff: ignore[boolean-positional-value-in-call]
             .map_error(partial(Fault.of, Reason.UNREADABLE, str(self.packer.project_root)))
             .or_else_with(partial(_released, self.release))
             .map(lambda _: self.pack)
@@ -200,16 +200,11 @@ class FarmTransfer(FileTransferProtocol):
     """blender-asset-tracer transfer placing each traced file on disk at its pack path with its SHA-256, copying nothing for a farm upload to send."""
 
     __slots__ = ("_placed",)
-
-    def __init__(self) -> None:
-        """Holds no placement before the packer starts the transfer."""
-        self._placed: tuple[PackedFile, tuple[PackedFile, ...]] | None = None
+    _placed: tuple[PackedFile, tuple[PackedFile, ...]]
 
     @property
     def placed(self) -> tuple[PackedFile, tuple[PackedFile, ...]]:
         """Placement of the session blend and of every traced file, which exist once the packer started the transfer."""
-        if self._placed is None:
-            raise ValueError(self)
         return self._placed
 
     @override
@@ -217,22 +212,15 @@ class FarmTransfer(FileTransferProtocol):
         """Places the session blend and every traced file present on disk, reporting each missing one."""
         hasher = get_hasher()
 
-        def packed_at(info: FileInfo) -> PurePath:
-            """Returns the path a traced file takes in the pack, which the trace sets on every file it hands a transfer."""
-            match info.relpath_in_pack:
-                case PurePath() as held:
-                    return held
-                case None:
-                    raise ValueError(info)
-
         def placement(info: FileInfo) -> PackedFile:
-            return PackedFile(source=str(info.path_to_pack), path=packed_at(info).as_posix(), digest=bytes.fromhex(hasher(info.path_to_pack)))
+            relative: PurePath = info.relpath_in_pack  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            return PackedFile(source=str(info.path_to_pack), path=relative.as_posix(), digest=bytes.fromhex(hasher(info.path_to_pack)))
 
-        infos = tuple(batpacker.all_files_to_copy().values())
-        for info in infos:
-            if not info.path_to_pack.exists():
-                batpacker.reporter.on_missing_file(info.path_to_pack, packed_at(info))
-        self._placed = (placement(batpacker.source_file_info()), tuple(placement(info) for info in infos if info.path_to_pack.exists()))
+        infos = tuple((info, info.path_to_pack.exists()) for info in batpacker.all_files_to_copy().values())
+        for info, present in infos:
+            if not present:
+                batpacker.reporter.on_missing_file(info.path_to_pack, info.relpath_in_pack)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+        self._placed = (placement(batpacker.source_file_info()), tuple(placement(info) for info, present in infos if present))
 
     @override
     def step(self) -> bool:
@@ -341,9 +329,12 @@ def _released[T](release: ExitStack, faults: Faults) -> Outcome[T]:
     return Error(faults)
 
 
-def _bat_called(step: Callable[[], object]) -> Result[object, OSError | BlendFileError | BackgroundProcessNotRunningError]:
+def _bat_called[T](step: Callable[[], T]) -> Result[T, OSError | BlendFileError | BackgroundProcessNotRunningError]:
     """Runs one blender-asset-tracer call, which raises for an unreadable file, an unparsable blend file, and a stopped rewrite process."""
-    return catch(catch(catch(step, exception=OSError), exception=BlendFileError), exception=BackgroundProcessNotRunningError)()
+    try:
+        return Result[Never, Never].Ok(step())
+    except (OSError, BlendFileError, BackgroundProcessNotRunningError) as error:
+        return Error(error)
 
 
 def _started(target: Path | FileTransferProtocol, project: Path, options: Options, finished: Callable[[Outcome[Pack]], Outcome[object]], /) -> Outcome[Packing]:

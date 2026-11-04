@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-frame-constant-divisor
-language: python
+language: pythonlang
 severity: error
 files:
     - libs/python/**/imaging/**

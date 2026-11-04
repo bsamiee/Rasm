@@ -1,9 +1,65 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: rust-test-attribute
-language: rust
+language: rustlang
+utils:
+    attribute-name:
+        kind: 'identifier, scoped_identifier'
+        not: {inside: {kind: attribute, field: value}}
+    test-option:
+        kind: identifier
+        regex: '^(r#)?(test|doctest)$'
+        not:
+            precedes:
+                stopBy: &token {not: {kind: 'line_comment, block_comment'}}
+                any: [{kind: token_tree}, {regex: '^=$'}]
+    cfg-operand:
+        any:
+            - kind: 'token_tree, boolean_literal, string_literal, raw_string_literal'
+            - kind: identifier
+              not: {precedes: {stopBy: *token, kind: token_tree}}
+    cfg-false:
+        any:
+            - matches: test-option
+            - kind: boolean_literal
+              regex: '^false$'
+            - kind: token_tree
+              any:
+                - all:
+                    - follows: {stopBy: *token, kind: identifier, regex: '^(r#)?all$'}
+                    - has: {matches: cfg-false}
+                - all:
+                    - follows: {stopBy: *token, kind: identifier, regex: '^(r#)?any$'}
+                    - not: {has: {matches: cfg-operand, not: {matches: cfg-false}}}
+                - all:
+                    - follows: {stopBy: *token, kind: identifier, regex: '^(r#)?not$'}
+                    - has: {matches: cfg-true}
+    cfg-true:
+        any:
+            - kind: boolean_literal
+              regex: '^true$'
+            - kind: token_tree
+              any:
+                - all:
+                    - follows: {stopBy: *token, kind: identifier, regex: '^(r#)?all$'}
+                    - not: {has: {matches: cfg-operand, not: {matches: cfg-true}}}
+                - all:
+                    - follows: {stopBy: *token, kind: identifier, regex: '^(r#)?any$'}
+                    - has: {matches: cfg-true}
+                - all:
+                    - follows: {stopBy: *token, kind: identifier, regex: '^(r#)?not$'}
+                    - has: {matches: cfg-false}
 rule:
     kind: attribute_item
-    any:
-        - regex: '^#\[\s*cfg\s*\(.*\b(test|doctest)\b'
-          not: {regex: '^#\[\s*cfg\s*\(\s*not\s*\(\s*test\b'}
-        - regex: '^#\[\s*(::)?(((tokio|sqlx)::)?test|bench|(rstest::)?(rstest|fixture)|(proptest::)?property_test)\s*(\(|\]|$)'
+    has:
+        kind: attribute
+        any:
+            - all:
+                - has: {matches: attribute-name, regex: '^(r#)?cfg$'}
+                - has:
+                    field: arguments
+                    all:
+                        - has: {matches: cfg-false}
+                        - has: {stopBy: end, matches: test-option}
+            - has:
+                matches: attribute-name
+                regex: '^(::)?(((r#)?(tokio|sqlx)::)?(r#)?test|(r#)?bench|((r#)?rstest::)?(r#)?(rstest|fixture)|((r#)?proptest::)?(r#)?property_test)$'

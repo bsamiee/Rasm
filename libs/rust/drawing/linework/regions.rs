@@ -40,7 +40,7 @@ pub fn offset(region: &Region, distance: Width, side: Side, join: Join, miter_li
         Join::Bevel => LineJoin::Bevel,
     };
     Region::new(
-        &crate::path(crate::polygons(region, tolerance).buffer_with_style(BufferStyle::new(distance).line_join(line_join)).into_iter().flat_map(|polygon| {
+        crate::path(crate::polygons(region, tolerance).buffer_with_style(BufferStyle::new(distance).line_join(line_join)).into_iter().flat_map(|polygon| {
             let (exterior, interiors) = polygon.into_inner();
             iter::chain(iter::once(exterior), interiors)
         })),

@@ -45,7 +45,7 @@ public sealed partial class PatchBoundary {
     static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref PatchOuter outer, ref Seq<Curve> holes) =>
         validationError = (Closed: outer.Switch(outline: static of => of.Boundary.IsClosed, perimeter: static _ => true), Open: holes.Count(static hole => !hole.IsClosed)) switch {
             (Closed: true, Open: 0) => null,
-            var held => new RhinoFault(held.ToString(), RhinoReason.Invalid),
+            var held => new RhinoFault(held, RhinoReason.Invalid),
         };
 }
 
@@ -76,9 +76,8 @@ public static class MeshConstruction {
         select wrapped;
 
     public static IO<(Mesh Hull, Seq<Seq<int>> Facets)> Hull(Tolerances tolerances, Seq<Point3d> points, HullMethod method) =>
-        from answered in IO.lift(() => method.Build(points, tolerances))
-        from hull in Products.Of(() => answered.Hull)
-        select (Hull: hull, Facets: Conversions.Rows(answered.Facets).Map(static facet => toSeq(facet)).Strict());
+        from answered in Products.Of(() => method.Build(points, tolerances))
+        select (Hull: answered.Value, Facets: Conversions.Rows(answered.Out).Map(static facet => toSeq(facet)).Strict());
 
     public static IO<Mesh> CreatePatch(Tolerances tolerances, PatchBoundary boundary, Seq<Curve> innerBothSides, Seq<Point3d> innerPoints) =>
         Products.Of(() => boundary.Outer.Switch(
@@ -107,9 +106,8 @@ public static class MeshConstruction {
 
     // --- [DERIVED]
     public static IO<(Mesh Mesh, Seq<int> WallFaces)> Offset(Mesh source, double distance, bool solidify, Option<Vector3d> direction) =>
-        from answered in IO.lift(() => (Mesh: source.Offset(distance, solidify, Conversions.Unset(direction), out List<int> walls), Walls: walls))
-        from offset in Products.Of(() => answered.Mesh, nameof(Mesh.Offset))
-        select (Mesh: offset, WallFaces: toSeq(answered.Walls));
+        from answered in Products.Of(() => (source.Offset(distance, solidify, Conversions.Unset(direction), out List<int> walls), walls))
+        select (Mesh: answered.Value, WallFaces: toSeq(answered.Out));
 
     public static IO<(Mesh Mesh, Seq<ComponentIndex> Components, Seq<int> WallFaces)> Extrude(Mesh source, Seq<ComponentIndex> components, Action<MeshExtruder> configure) =>
         from held in IO.lift(() => source.Within(components))

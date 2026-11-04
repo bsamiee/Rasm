@@ -1,7 +1,9 @@
 import process from 'node:process';
-import { NodeCrypto } from '@effect/platform-node';
-import { Automation } from '@rasm/automation/automation';
-import { main } from '@rasm/mcp/node';
+import { layerDigest } from '@effect/platform-node/NodeCrypto';
+import { runMain } from '@effect/platform-node/NodeRuntime';
+import { layer } from '@effect/platform-node/NodeServices';
+import { Automation } from '@rasm/automation/node';
+import { serve } from '@rasm/mcp/node';
 import { Array, Config, Duration, Effect, identity, Layer, Result, ScopedRef, Sink, Stream, SubscriptionRef } from 'effect';
 import { command, dictionaries } from '#/features/apple-events';
 import { applications, launch, perform, screenshot } from '#/features/applications';
@@ -34,8 +36,8 @@ const served = Effect.gen(function* () {
     yield* Effect.forkScoped(Stream.runForEach(Stream.merge(rest, Stream.drop(links.changes, 1)), () => ScopedRef.set(generation, round)));
 });
 
-main(
+serve(
     manifest,
     { retention: Duration.hours(1), instructions: ['Specifiers come from results', 'State-changing calls return early when a dialog requires an answer', 'No tool changes frontmost application'] },
-    Layer.effectDiscard(served).pipe(Layer.provide(Automation.layer(Config.String('ATELIER_PATH'))), Layer.provide(NodeCrypto.layer)),
-);
+    Layer.effectDiscard(served).pipe(Layer.provide(Automation.layer(Config.String('ATELIER_PATH'))), Layer.provide(layerDigest)),
+).pipe(Effect.provide(layer), runMain({ teardown: serve.teardown }));

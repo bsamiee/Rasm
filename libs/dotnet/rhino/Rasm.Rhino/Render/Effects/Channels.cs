@@ -1,22 +1,10 @@
 using System.Buffers;
 using System.Drawing;
-using System.Globalization;
 using CommunityToolkit.HighPerformance;
 using Rhino.Render;
 using Rhino.Render.PostEffects;
 
 namespace Rasm.Rhino.Render.Effects;
-
-// --- [MODELS] --------------------------------------------------------------------------
-[SmartEnum<int>(SkipIParsable = true, SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-internal sealed partial class ChannelLayout {
-    public static readonly ChannelLayout Scalar = new(sizeof(float), ComponentOrders.Irrelevant);
-    public static readonly ChannelLayout Triple = new(3 * sizeof(float), ComponentOrders.RGB);
-    public static readonly ChannelLayout Rgba = new(4 * sizeof(float), ComponentOrders.RGBA);
-
-    public ComponentOrders Order { get; }
-    public int Components => Key / sizeof(float);
-}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Channels {
@@ -26,15 +14,35 @@ public static class Channels {
     public static Guid[] Required(Seq<RenderWindow.StandardChannels> channels) =>
         [.. RenderWindow.StandardChannels.RGBA.Cons(channels).Distinct().Map(RenderWindow.ChannelId)];
 
+    public static Seq<RenderWindow.StandardChannels> Components(RenderWindow.StandardChannels channel) =>
+        channel switch {
+            RenderWindow.StandardChannels.None => [],
+            RenderWindow.StandardChannels.RGBA => [RenderWindow.StandardChannels.Red, RenderWindow.StandardChannels.Green, RenderWindow.StandardChannels.Blue, RenderWindow.StandardChannels.Alpha],
+            RenderWindow.StandardChannels.RGB => [RenderWindow.StandardChannels.Red, RenderWindow.StandardChannels.Green, RenderWindow.StandardChannels.Blue],
+            RenderWindow.StandardChannels.NormalXYZ => [RenderWindow.StandardChannels.NormalX, RenderWindow.StandardChannels.NormalY, RenderWindow.StandardChannels.NormalZ],
+            RenderWindow.StandardChannels.AlbedoRGB => [RenderWindow.StandardChannels.AlbedoRed, RenderWindow.StandardChannels.AlbedoGreen, RenderWindow.StandardChannels.AlbedoBlue],
+            _ => [channel],
+        };
+
     // --- [PIXELS]
-    public static Fin<Memory2D<float>> Read(RenderWindow.Channel cpu, Rectangle rect) =>
-        from layout in cpu.PixelSize() switch { var size => ChannelLayout.TryGet(size, out ChannelLayout? found) ? Fin.Succ(found) : new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"channel pixel size {size}"), RhinoReason.Unsupported) }
-        from inside in Inside(cpu, rect, layout.Components)
-        select Copied(cpu, rect, layout);
+    public static Fin<Memory2D<float>> Read(RenderWindow.Channel cpu, Rectangle rect) {
+        int size = cpu.PixelSize();
+        int components = size / sizeof(float);
+        return from order in size switch {
+            sizeof(float) => Fin.Succ(ComponentOrders.Irrelevant),
+            3 * sizeof(float) => ComponentOrders.RGB,
+            4 * sizeof(float) => ComponentOrders.RGBA,
+            _ => new RhinoFault(size, RhinoReason.Unsupported),
+        }
+               from accepted in (Inside(cpu, rect, components),
+                       RhinoFault.Unless(rect.Width <= int.MaxValue / (components * sizeof(float)), RhinoReason.Outside, rect))
+                   .Apply(static (_, _) => unit).As()
+               select Copied(cpu, rect, components, order);
+    }
 
     public static Fin<Unit> Put(RenderWindow.Channel cpu, Rectangle rect, ReadOnlyMemory2D<float> rgba) =>
-        (RhinoFault.Unless(rgba.Height == rect.Height && rgba.Width == 4 * rect.Width, RhinoReason.Mismatched, (rgba.Height, rgba.Width, rect)),
-         rgba.TryGetMemory(out ReadOnlyMemory<float> block) ? Fin.Succ(block) : new RhinoFault($"pitched block of {rect}", RhinoReason.Unsupported),
+        (RhinoFault.Unless(rgba.Height == rect.Height && rgba.Width == 4L * rect.Width, RhinoReason.Mismatched, (rgba.Height, rgba.Width, rect)),
+         rgba.TryGetMemory(out ReadOnlyMemory<float> block) ? Fin.Succ(block) : new RhinoFault(rect, RhinoReason.Unsupported),
          Inside(cpu, rect, 4))
             .Apply((_, packed, _) => Pinned(cpu, rect, packed)).As();
 
@@ -60,13 +68,13 @@ public static class Channels {
 
     private static Fin<Unit> Inside(RenderWindow.Channel cpu, Rectangle rect, int components) =>
         RhinoFault.Unless(
-            rect is { X: >= 0, Y: >= 0, Width: > 0, Height: > 0 } && rect.Right <= cpu.Width && rect.Bottom <= cpu.Height && (long)rect.Width * rect.Height * components <= System.Array.MaxLength,
+            rect is { X: >= 0, Y: >= 0, Width: > 0, Height: > 0 } && (long)rect.X + rect.Width <= cpu.Width && (long)rect.Y + rect.Height <= cpu.Height && (long)rect.Width * rect.Height <= System.Array.MaxLength / components,
             RhinoReason.Outside, (rect, cpu.Width, cpu.Height));
 
-    private static Memory2D<float> Copied(RenderWindow.Channel cpu, Rectangle rect, ChannelLayout layout) {
-        float[] block = GC.AllocateUninitializedArray<float>(layout.Components * rect.Width * rect.Height);
-        cpu.GetValues(rect, rect.Width * layout.Key, layout.Order, ref block);
-        return new Memory2D<float>(block, rect.Height, layout.Components * rect.Width);
+    private static Memory2D<float> Copied(RenderWindow.Channel cpu, Rectangle rect, int components, ComponentOrders order) {
+        float[] block = GC.AllocateUninitializedArray<float>(components * rect.Width * rect.Height);
+        cpu.GetValues(rect, rect.Width * components * sizeof(float), order, ref block);
+        return new Memory2D<float>(block, rect.Height, components * rect.Width);
     }
 
     private static unsafe Unit Pinned(RenderWindow.Channel cpu, Rectangle rect, ReadOnlyMemory<float> rgba) {
@@ -89,7 +97,7 @@ public static class Channels {
             select unit);
 
     public static IO<T> Opened<T>(Func<Guid, PostEffectChannel?> open, Guid channel, Func<PostEffectChannel, RenderWindow.Channel, IO<T>> body) =>
-        Available(open, channel, body).Bind(found => IO.lift(found.ToFin(new RhinoFault(channel.ToString("D"), RhinoReason.Missing))));
+        Available(open, channel, body).Bind(found => IO.lift(found.ToFin(new RhinoFault(channel, RhinoReason.Missing))));
 
     public static IO<Option<T>> Available<T>(Func<Guid, PostEffectChannel?> open, Guid channel, Func<PostEffectChannel, RenderWindow.Channel, IO<T>> body) =>
         (from opened in Products.Maybe(() => open(channel))

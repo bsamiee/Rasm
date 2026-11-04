@@ -1,0 +1,96 @@
+using System;
+using LanguageExt;
+using Rhino;
+using Rhino.Geometry;
+using Id = System.Guid;
+
+internal sealed record Entry(Id Key);
+internal sealed record DateEntry(DateTime Date);
+internal sealed record OffsetEntry(DateTimeOffset Date);
+internal sealed record NumericEntry(double Number);
+internal sealed record TextEntry(string Text);
+internal sealed record LiteralEntry(string Text);
+internal sealed record CountEntry(int Count);
+internal sealed record Callback<T>(Func<T> Value);
+internal sealed record WideEntry(int First, int Second, int Third, int Fourth, int Fifth, int Sixth, int Seventh, int Eighth, Id Key);
+
+internal sealed record ReplacedText(string {|CS8907:Text|}) {
+    public string Text { get; init; } = "display";
+    internal bool Missing => Text == "";
+}
+
+internal sealed record StoredText(string Text) {
+    public string Text { get; init; } = Text;
+    internal bool Missing => Text == "";
+}
+
+internal readonly record struct PresentKey(Id Value) {
+    public static implicit operator PresentKey(Id value) => new(Id.NewGuid());
+}
+
+internal sealed record ConvertedEntry(PresentKey Key);
+
+internal static class Entries {
+    private static readonly Id Missing = Id.Empty;
+    private const double Unsettled = 3d;
+    private static double {|RASM3012:MissingNumber|} => RhinoMath.UnsetValue;
+    internal static Entry Empty() => {|#0:new(Id.Empty)|};
+    internal static Entry Default() => {|#1:new(default)|};
+    internal static Entry Constructed() => {|#2:new(new Id())|};
+    internal static Entry Aliased() => {|#3:new(Missing)|};
+    internal static DateEntry Minimum() => {|#4:new(DateTime.MinValue)|};
+    internal static DateEntry DefaultDate() => {|#5:new(new DateTime())|};
+    internal static NumericEntry Unknown() => {|#6:new(double.NaN)|};
+    internal static WideEntry Positional() => {|#7:new(1, 2, 3, 4, 5, 6, 7, 8, default)|};
+    internal static WideEntry Named() => {|#8:new(Key: default, First: 1, Second: 2, Third: 3, Fourth: 4, Fifth: 5, Sixth: 6, Seventh: 7, Eighth: 8)|};
+    internal static TextEntry EmptyText() => {|#9:new("")|};
+    internal static TextEntry MissingText(string? text) => {|#10:new(text ?? "")|};
+    internal static TextEntry OptionalText(Option<string> text) => {|#11:new(text.IfNone(""))|};
+    internal static Entry Replaced(Entry entry) => {|#12:entry with { Key = Id.Empty }|};
+    internal static Entry Initialized(Id key) => {|#13:new(key) { Key = Id.Empty }|};
+    internal static bool MissingValue(TextEntry entry) => string.IsNullOrEmpty(entry.Text);
+    internal static LiteralEntry Literal() => new("");
+    internal static LiteralEntry DefaultedDisplay(string? text) => new(text ?? "");
+    internal static LiteralEntry OptionalDisplay(Option<string> text) => new(text.IfNone(""));
+    internal static LiteralEntry MatchedDisplay(Option<string> text) => new(text.Match(None: () => "", Some: value => value.Trim()));
+    internal static CountEntry Zero() => new(0);
+    internal static Callback<double> DeferredNumber() => new(() => double.NaN);
+    internal static Callback<Id> DeferredKey() => new(() => Id.Empty);
+    internal static Entry Present(Id key) => new(key);
+    internal static OffsetEntry Offset() => {|#14:new(DateTimeOffset.MinValue)|};
+    internal static NumericEntry SingleUnknown() => {|#15:new(float.NaN)|};
+    internal static TextEntry Matched(Option<string> text) => {|#16:new(text.Match(None: () => "", Some: value => value.Trim()))|};
+    internal static Entry Conditional(bool present, Id key) => {|#17:new(present ? key : Id.Empty)|};
+    internal static NumericEntry Unset() => {|#18:new(Point3d.Unset.X)|};
+    internal static NumericEntry Ordinary() => new(Unsettled);
+    internal static Entry Reassigned() {
+        Id held = Id.Empty;
+        held = Id.NewGuid();
+        return new(held);
+    }
+    internal static Entry StoredBefore() {
+        Id held = Id.Empty;
+        Entry first = {|#19:new(held)|};
+        held = Id.NewGuid();
+        return first;
+    }
+    internal static ReplacedText Unstored() => new("");
+    internal static StoredText Stored() => {|#20:new("")|};
+    internal static NumericEntry UnsetNumber() => {|#21:new(RhinoMath.UnsetValue)|};
+    internal static NumericEntry NativeAlias() => {|#22:new(MissingNumber)|};
+    internal static ConvertedEntry Converted() => new(Id.Empty);
+    internal static Entry Finalized(bool returned) {
+        Id held = Id.NewGuid();
+        Id selected;
+        try {
+            if (returned) {
+                held = Id.Empty;
+                return new(Id.NewGuid());
+            }
+        }
+        finally {
+            selected = held;
+        }
+        return new(selected);
+    }
+}

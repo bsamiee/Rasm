@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-calendar-by-hand
-language: rust
+language: rustlang
 severity: error
 rule:
     kind: 'binary_expression, call_expression, array_expression, match_pattern, compound_assignment_expr, string_literal, raw_string_literal, const_item, static_item, let_declaration'

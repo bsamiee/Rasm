@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-binary-header-by-hand
-language: rust
+language: rustlang
 severity: error
 utils:
     magic-bytes:
@@ -42,19 +42,11 @@ utils:
               has: {field: function, kind: generic_function, all: [{has: {field: function, kind: field_expression, has: {field: field, regex: '^read_(u|i|f)(16|32|64|128)$'}}}, {has: {field: type_arguments, regex: '(LittleEndian|BigEndian|NetworkEndian|LE|BE)'}}]}
             - kind: call_expression
               has: {field: function, kind: scoped_identifier, all: [{has: {field: path, regex: '(^|::)(LittleEndian|BigEndian|NetworkEndian|LE|BE)$'}}, {has: {field: name, regex: '^read_(u|i|f)(16|32|64|128)$'}}]}
-    magic-site:
-        all:
-            - matches: magic-test
-            - matches: magic
-            - inside: {kind: function_item, stopBy: {kind: function_item}, has: {field: body, has: {stopBy: end, matches: endian-read}}}
-    header-read:
-        any:
-            - matches: magic-site
-            - matches: endian-read
-              inside: {kind: function_item, stopBy: {kind: function_item}, has: {field: body, has: {stopBy: end, matches: magic-site}}}
 rule:
-    kind: 'string_literal, array_expression, identifier, call_expression, scoped_identifier'
-    pattern: $SITE
-    matches: header-read
-message: '`$SITE` decodes a binary header by hand through a magic number test and endian reads'
+    kind: function_item
+    all:
+        - has: {field: name, pattern: $FUNCTION}
+        - has: {field: body, has: {stopBy: &scope {kind: function_item}, matches: endian-read}}
+        - has: {field: body, has: {stopBy: *scope, all: [{matches: magic-test}, {matches: magic}]}}
+message: '`$FUNCTION` decodes a binary header through a magic number test and endian reads'
 note: 'Declare the header as a record deriving `binrw::BinRead` with `#[br(<endian>, magic = <bytes>)]` and read it through `BinReaderExt`'

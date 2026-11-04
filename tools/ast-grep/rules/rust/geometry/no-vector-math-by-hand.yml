@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-vector-math-by-hand
-language: rust
+language: rustlang
 severity: error
 utils:
     cross-term:
@@ -99,8 +99,9 @@ rule:
     pattern: $SITE
     any:
         - matches: cross-sum
-        - matches: cross-term
-          not: {inside: {stopBy: end, matches: cross-sum}}
+        - all:
+            - matches: cross-term
+            - not: {inside: {stopBy: end, matches: cross-sum}}
         - matches: local-cross-term
         - matches: dot
 constraints:
@@ -117,4 +118,4 @@ constraints:
     AY: {regex: '(y|1)$'}
     BY: {regex: '(y|1)$'}
 message: '`$SITE` computes a dot product, cross product, length, or distance over vector components by hand'
-note: 'Hold the components in a vector type (`glam::DVec2`, `nalgebra::Vector3`) and call its method, `geo::Area::signed_area` for a polygon area'
+note: 'Use vector methods (`glam`, `nalgebra`) or `geo::Area::signed_area` for polygon area'

@@ -7,7 +7,7 @@ namespace Rasm.UI.Layout;
 
 // --- [MODELS] --------------------------------------------------------------------------
 internal sealed record PlacedLayer(LayoutNode Layout, View.Layer Layer) {
-    internal Option<Seq<Key>> Anchor { get; } = Layer.Anchor.Map(relative => Layout.Path.Init + relative);
+    internal Option<Seq<Key>> Anchor => Layer.Anchor.Map(relative => Layout.Path.Init + relative);
     internal Seq<Act> Acts => Layer.Trigger.Map(static trigger => trigger.Acts).IfNone([]);
     internal Option<Duration> Delay => Layer.Trigger.Bind(static trigger => trigger.Hovered);
     internal bool Dismisses => Layer.Dismissed.IsSome || !Acts.IsEmpty;

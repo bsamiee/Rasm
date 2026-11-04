@@ -1,17 +1,17 @@
 import { pathToFileURL } from 'node:url';
-import { Automation } from '@rasm/automation/automation';
+import { Automation } from '@rasm/automation/node';
 import { parse } from 'acorn';
 import { findNodeAt } from 'acorn-walk';
 import { Array, Effect, Option, Result, Schema, String, Struct } from 'effect';
 import { crashes, HOME, REPORTER, uxp } from '#/adobe';
-import { HarnessError, thrown } from '#/error';
-import { ENGINES, Encoded, Engine, HostCase, HostOutcome, type Placed, Reply, Survey } from '#/indesign/contract';
+import { HarnessError, thrown } from '#/harness-error';
+import { ENGINES, Encoded, Engine, HostCase, HostOutcome, Reply, Survey } from '#/indesign/contract';
 import { precondition } from '#/indesign/precondition';
 import uxpscript from '#/indesign/uxpscript/script.config';
 import { checked, Launched, plist, printed } from '#/instance';
 import { copied } from '#/precondition';
 import type { Rule } from '#/report';
-import { type Batch, type Host as Harness, type Instance, installation, type Live } from '#/session';
+import { type Batch, Harness, type Instance, installation, type Live } from '#/session';
 import { assembled, engineOf } from '#/source';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -87,7 +87,7 @@ const send = Effect.fn('send')(function* (live: Live, batch: Batch<typeof Survey
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const Host = {
+const indesign = Harness({
     Engine,
     assembled: ENGINE,
     bundle,
@@ -104,8 +104,8 @@ const Host = {
     quit: (live) => Effect.flatMap(Automation, (automation) => Effect.asVoid(automation.execute({ pid: live.pid, command: 'quit', arguments: { saving: { _tag: 'enumerator', name: 'no' } } }))),
     canonical: (file, bytes) => (file.endsWith('.idml') ? unpacked(file) : Effect.succeed([bytes])),
     logs,
-} as const satisfies Harness<typeof Survey.Type, typeof HostCase.Type, typeof Engine.Type, typeof Placed.Type>;
+});
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Host };
+export { indesign };

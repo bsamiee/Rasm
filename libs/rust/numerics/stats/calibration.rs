@@ -1,15 +1,21 @@
-use core::{fmt::Debug, iter, ops::ControlFlow};
+use core::{
+    cell::LazyCell,
+    fmt::Debug,
+    iter,
+    ops::{ControlFlow, Range},
+};
 use std::collections::HashMap;
 
 use average::{Mean, Variance};
 use itertools::Itertools as _;
-use nalgebra::{DMatrix, DMatrixView};
+use nalgebra::{DMatrix, DMatrixView, DVector, DVectorView};
 use nonempty_collections::{NEBTreeMap, NEVec, NonEmptyIterator as _};
+use num_complex::Complex64;
 use num_dual::{Dual64, DualNum as _};
-use nuts_rs::{Chain as _, CpuLogpFunc, CpuMath, CpuMathError, EuclideanAdaptOptions, HasDims, NutsError, NutsSettings, Progress, Settings};
-use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
+use nuts_rs::{Chain as _, CpuLogpFunc, CpuMath, CpuMathError, EuclideanAdaptOptions, HasDims, NutsSettings, Progress, Settings};
 use rand::{Rng, SeedableRng as _, rngs::ChaCha8Rng};
 use rayon::iter::{IntoParallelIterator as _, ParallelIterator as _};
+use rustfft::FftPlanner;
 use serde::Serialize;
 use statrs::{
     distribution::{ContinuousCDF as _, Normal},
@@ -17,7 +23,7 @@ use statrs::{
 };
 use validated::Validated;
 
-use crate::{Bounds, Moment, Sample, Space, StatsError};
+use crate::{Bounds, Moment, Sample, Space, StatsError, descriptive::quantile_data};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -103,10 +109,7 @@ where
     M: Debug + Default + Copy + Serialize,
     NutsSettings<EuclideanAdaptOptions<M>>: Settings,
 {
-    Settings::validate(settings).map_err(|report| {
-        tracing::error!({ EXCEPTION_MESSAGE } = %report, "sampler settings refused");
-        NEVec::new(StatsError::Settings)
-    })?;
+    Settings::validate(settings).map_err(|source| NEVec::new(StatsError::Settings(source)))?;
     let dimensions = space.len().get();
     let chains = settings.num_chains();
     Validated::from((starts.nrows() == dimensions).ok_or(StatsError::Shape { expected: dimensions, found: starts.nrows() }))
@@ -126,16 +129,7 @@ where
         .into_par_iter()
         .map(|index| -> Result<Trace, StatsError> {
             let chain = nalgebra::convert::<usize, u64>(index);
-            let failed = |error: anyhow::Error| StatsError::Sampler {
-                chain,
-                source: error.downcast::<NutsError>().map_or_else(
-                    |report| {
-                        tracing::error!({ EXCEPTION_MESSAGE } = %report, chain, "sampler raised a report with no typed source");
-                        None
-                    },
-                    Some,
-                ),
-            };
+            let failed = |source| StatsError::Sampler { chain, source };
             let mut rng = ChaCha8Rng::seed_from_u64(settings.seed());
             rng.set_stream(chain);
             let mut sampler = settings
@@ -144,12 +138,15 @@ where
             sampler
                 .set_position(&iter::zip(starts.column(index).iter(), space.values()).map(|(&x, bounds)| (x - bounds.start).ln() - (bounds.last - x).ln()).collect::<Box<[f64]>>())
                 .map_err(failed)?;
-            let (draws, progress): (Vec<Box<[f64]>>, Vec<Progress>) = iter::repeat_with(|| sampler.draw().map_err(failed))
-                .take(settings.hint_num_tune().strict_add(settings.hint_num_draws()))
-                .process_results(|drawn| drawn.take_while_inclusive(|(_, progress)| stop(progress).is_continue()).filter(|(_, progress)| !progress.tuning).unzip())?;
-            Ok(Trace {
-                draws: DMatrix::from_iterator(dimensions, draws.len(), draws.iter().flat_map(|draw| iter::zip(draw, space.values()).map(|(&z, bounds)| bounded(Dual64::from(z), bounds).0.re))),
-                progress,
+            iter::repeat_with(|| sampler.draw().map_err(failed)).take(settings.hint_num_tune().strict_add(settings.hint_num_draws())).process_results(|drawn| {
+                drawn.take_while_inclusive(|(_, progress)| stop(progress).is_continue()).filter(|(_, progress)| !progress.tuning).fold(
+                    Trace { draws: DMatrix::zeros(dimensions, 0), progress: Vec::new() },
+                    |mut trace, (draw, progress)| {
+                        trace.draws.extend(iter::zip(draw, space.values()).map(|(z, bounds)| bounded(Dual64::from(z), bounds).0.re));
+                        trace.progress.push(progress);
+                        trace
+                    },
+                )
             })
         })
         .collect::<Validated<Vec<Trace>, StatsError>>()
@@ -175,6 +172,31 @@ where K: Ord {
     (half >= 2).ok_or(StatsError::Degenerate { found: length, sample: Sample::Draws })?;
     let normal = Normal::standard();
     let draws = nalgebra::convert::<usize, f64>(half);
+    let padded = half.strict_mul(2).strict_sub(1).next_power_of_two();
+    let stages = nalgebra::convert::<u32, usize>(padded.ilog2());
+    let mut transforms = LazyCell::new(|| {
+        let mut planner = FftPlanner::<f64>::new();
+        let (forward, inverse) = (planner.plan_fft_forward(padded), planner.plan_fft_inverse(padded));
+        let scratch = vec![Complex64::default(); forward.get_inplace_scratch_len().max(inverse.get_inplace_scratch_len())];
+        (forward, inverse, Vec::with_capacity(padded), scratch)
+    });
+    let mut autocovariance = |centered: DMatrixView<'_, f64>| {
+        let (forward, inverse, buffer, scratch) = LazyCell::force_mut(&mut transforms);
+        let mut lagged = centered.column_iter().fold(DVector::<f64>::zeros(half), |mut lagged, chain| {
+            buffer.clear();
+            buffer.extend(chain.iter().copied().map(Complex64::from));
+            buffer.resize(padded, Complex64::default());
+            forward.process_with_scratch(buffer, scratch);
+            for value in &mut *buffer {
+                *value = Complex64::from(value.norm_sqr());
+            }
+            inverse.process_with_scratch(buffer, scratch);
+            lagged.zip_apply(&DVectorView::from_slice(buffer, half), |sum, value| *sum += value.re);
+            lagged
+        });
+        lagged.unscale_mut(nalgebra::convert::<usize, f64>(padded) * draws * nalgebra::convert::<usize, f64>(centered.ncols()));
+        lagged
+    };
     let scores = |data: &mut Data<Vec<f64>>| {
         let count = nalgebra::convert::<usize, f64>(data.len());
         data.ranks(RankTieBreaker::Average).into_iter().map(|rank| normal.inverse_cdf((rank - 0.375) / (count + 0.25))).collect::<Vec<_>>()
@@ -185,18 +207,18 @@ where K: Ord {
         let plus = within.mul_add((draws - 1.0) / draws, moments.iter().map(Variance::mean).collect::<Variance>().sample_variance());
         (moments, within, plus)
     };
-    let rhat = |values: &[f64]| {
-        let (_, within, plus) = split(values);
-        (plus / within).sqrt()
-    };
-    let ess = |values: &[f64]| {
-        let (moments, within, plus) = split(values);
+    let rhat = |(_, within, plus): &(Vec<Variance>, f64, f64)| (plus / within).sqrt();
+    let mut ess = |mut values: Vec<f64>, (moments, within, plus): &(Vec<Variance>, f64, f64)| {
         let size = nalgebra::convert::<usize, f64>(values.len());
+        nalgebra::DMatrixViewMut::from_slice(&mut values, half, moments.len()).column_iter_mut().zip(moments).for_each(|(mut chain, moments)| chain.add_scalar_mut(-moments.mean()));
+        let centered = DMatrixView::from_slice(&values, half, moments.len());
+        let transformed = LazyCell::new(|| autocovariance(centered));
         let autocorrelation = |lag: usize| {
-            let lagged = iter::zip(values.chunks_exact(half), &moments)
-                .map(|(chain, moments)| iter::zip(chain, chain.iter().skip(lag)).map(|(early, late)| (early - moments.mean()) * (late - moments.mean())).sum::<f64>() / draws)
-                .collect::<Mean>()
-                .mean();
+            let lagged = if lag <= stages {
+                centered.column_iter().map(|chain| chain.rows_range(..half.strict_sub(lag)).dot(&chain.rows_range(lag..)) / draws).collect::<Mean>().mean()
+            } else {
+                transformed.row(lag).x
+            };
             1.0 - (within - lagged) / plus
         };
         let pairs = iter::once(1.0 + autocorrelation(1))
@@ -209,25 +231,28 @@ where K: Ord {
             .sum::<f64>();
         size / 2.0_f64.mul_add(pairs, -1.0).max(size.log10().recip())
     };
-    Ok(space
+    space
         .keys()
         .enumerate()
         .map(|(dimension, key)| {
-            let values = traces
-                .iter()
-                .flat_map(|trace| {
-                    let row = trace.draws.row(dimension);
-                    iter::chain(row.columns_range(..half), row.columns_range(length.strict_sub(half)..length)).copied().collect::<Vec<_>>()
-                })
-                .collect::<Vec<_>>();
+            let values = Iterator::try_collect::<Vec<_>>(&mut traces.iter().enumerate().flat_map(|(index, trace)| {
+                let indexed = |range: Range<usize>| iter::zip(range.clone(), trace.draws.view_range(dimension, range));
+                iter::chain(indexed(0..half), indexed(length.strict_sub(half)..length))
+                    .map(move |(draw, &value)| value.is_finite().then_some(value).ok_or(StatsError::Draw { trace: index, dimension, draw }))
+            }))?;
             let mut ordered = Data::new(values.clone());
             let bulk = scores(&mut ordered);
-            let [low, median, high] = [0.05, 0.5, 0.95].map(|tail| ordered.quantile(tail));
-            let folded = scores(&mut Data::new(values.iter().map(|value| (value - median).abs()).collect()));
-            let [below, above] = [low, high].map(|quantile| values.iter().map(|&value| if value <= quantile { 1.0 } else { 0.0 }).collect::<Vec<_>>());
-            (key, Convergence { rhat: rhat(&bulk).max(rhat(&folded)), ess_bulk: ess(&bulk), ess_tail: ess(&below).min(ess(&above)) })
+            let [low, median, high] = [0.05, 0.5, 0.95].map(|tail| quantile_data(&mut ordered, tail));
+            let folded = split(&scores(&mut Data::new(values.iter().map(|value| (value - median).abs()).collect())));
+            let [below, above] = [low, high].map(|quantile| {
+                let indicators = values.iter().map(|&value| if value <= quantile { 1.0 } else { 0.0 }).collect::<Vec<_>>();
+                let moments = split(&indicators);
+                ess(indicators, &moments)
+            });
+            let moments = split(&bulk);
+            Ok((key, Convergence { rhat: rhat(&moments).max(rhat(&folded)), ess_bulk: ess(bulk, &moments), ess_tail: below.min(above) }))
         })
-        .collect())
+        .collect()
 }
 
 // --- [GRADING]

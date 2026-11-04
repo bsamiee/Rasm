@@ -6,7 +6,7 @@ from functools import partial
 from typing import Self
 
 import bpy
-from expression import Nothing, Option, Result, Some
+from expression import Option, Result, Some
 from expression.extra.result import catch
 from mathutils import Vector
 import msgspec
@@ -14,7 +14,7 @@ import numpy as np
 
 from blender.bpy.data.ids.store import Handle
 from blender.bpy.extension.events import Change
-from blender.records.faults import Fault, Outcome, Reason
+from blender.records.faults import Fault, Nothing, Outcome, Reason
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -93,12 +93,9 @@ def instances(depsgraph: bpy.types.Depsgraph) -> tuple[Instance, ...]:
 
 
 def evaluated(view_layer: bpy.types.ViewLayer) -> Outcome[bpy.types.Depsgraph]:
-    """Returns updated layer depsgraph, refused fault while evaluation runs."""
-    return (
-        catch(view_layer.update, exception=RuntimeError)()
-        .map_error(partial(Fault.of, Reason.REFUSED, repr(view_layer)))
-        .bind(lambda _: Option.of_optional(view_layer.depsgraph).to_result_with(partial(Fault.of, Reason.ABSENT, repr(view_layer), member="depsgraph")))
-    )
+    """Returns the layer's ensured, updated dependency graph, refused fault while evaluation runs."""
+    with bpy.context.temp_override(scene=view_layer.id_data, view_layer=view_layer):
+        return catch(bpy.context.evaluated_depsgraph_get, exception=RuntimeError)().map_error(partial(Fault.of, Reason.REFUSED, repr(view_layer)))
 
 
 @contextmanager

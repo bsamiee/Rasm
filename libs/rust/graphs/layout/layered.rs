@@ -117,9 +117,13 @@ where
     for (Size { width, height }, title) in iter::zip(titles.values(), title_ids.values()).map(|(extent, title)| (extent.into_inner(), title)) {
         layered.set_node(title.as_str(), NodeLabel { width, height, ..NodeLabel::default() });
     }
-    for (child, parent) in parents.all_edges().map(|(child, parent, ())| (id(child), id(parent))).chain(title_ids.iter().map(|(&cluster, title)| (title.clone(), id(cluster)))) {
-        layered.set_parent(child, parent);
-    }
+    let assignments = parents
+        .all_edges()
+        .map(|(child, parent, ())| (id(child), id(parent)))
+        .chain(title_ids.iter().map(|(&cluster, title)| (title.clone(), id(cluster))))
+        .filter_map(|(child, parent)| layered.node_ix(&child).zip(layered.node_ix(&parent)))
+        .collect::<Vec<_>>();
+    layered.try_set_unparented_parents_ix(&assignments)?;
     for (title, member) in
         titled(&nodes, &parents, &titles).filter_map(|((cluster, _), (member, _))| title_ids.get(&cluster).map(|title| (title, title_ids.get(&member).cloned().unwrap_or_else(|| id(member)))))
     {

@@ -19,6 +19,15 @@ test    = false
 doctest = false
 bench   = false
 
+# --- [TEST]
+[[test]]
+name = "conic"
+path = "../../../../tests/rust/numerics/optimize/conic.rs"
+
+[[test]]
+name = "pareto"
+path = "../../../../tests/rust/numerics/optimize/pareto.rs"
+
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
 # --- [RUNTIME]
@@ -45,6 +54,11 @@ clarabel = { workspace = true, features = ["sdp-openblas"] }
 
 [target."cfg(windows)".dependencies]
 clarabel = { workspace = true, features = ["sdp-mkl"] }
+
+# --- [TESTING]
+[dev-dependencies]
+approx = { workspace = true }
+claims = { workspace = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

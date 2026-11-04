@@ -4,7 +4,7 @@ language: sql
 severity: error
 rule:
     kind: function_call
-    pattern: _CALL
-    has: {field: name, regex: '(?i)^(changes|total_changes|last_insert_rowid)$'}
+    pattern: $CALL
+    has: {field: name, regex: '(?i-u)^["`\[]?(changes|total_changes|last_insert_rowid)["`\]]?$'}
 message: '`$CALL` reads the change count or rowid an earlier write left on the connection'
 note: 'Add `returning <columns>` to the write and read its rows, an empty result means no row changed'

@@ -1,16 +1,17 @@
-"""Runs Blender in a fresh user base under `.artifacts/blender/evaluate/<name>/` with repository modules."""
+"""Runs Blender with an isolated profile and locked Python requirements."""
 
 lazy from functools import partial
 lazy from itertools import chain, takewhile
 lazy import os
 lazy from pathlib import Path
+lazy import shutil
 lazy import subprocess
 lazy import sys
 lazy from typing import Annotated
 
 lazy from cyclopts import Parameter
 lazy from expression.extra.result import catch
-lazy import msgspec
+lazy import pathvalidate
 
 lazy from blender.records.faults import Fault, Outcome, Reason
 lazy from eng.python.blender.assembly import BACKGROUND, Blender, reset, site
@@ -18,74 +19,51 @@ lazy from eng.python.blender.assembly import BACKGROUND, Blender, reset, site
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _instances(line: bytes, /) -> dict[str, object] | None:
-    """Reads the instances of one `watch-apps` line keyed by process ID, None for a `system` or `fail` line."""
-    held = msgspec.json.decode(line, type=dict[str, dict[str, object]])
-    return next((states for key, states in held.items() if key != "system" and all(pid.isdigit() for pid in states)), None)
-
-
-def _ended(state: object, /) -> int | None:
-    """Reads an instance's exit status from its state, 1 for a signal, an unread status, or an instance no longer listed, None while it runs."""
-    match state:
-        case {"exited": {"status": int(status)}}:
-            return status
-        case {"exited": dict()} | None:
-            return 1
-        case _:
-            return None
-
-
-def _exited(app: Path, pid: str, /) -> int:
-    """Reads `watch-apps watch` lines until the instance exits or leaves the listing, returning its exit status."""
-    reading, writing = os.pipe()
-    with subprocess.Popen(("watch-apps", "watch", app), stdin=subprocess.DEVNULL, stdout=writing) as watch, os.fdopen(reading, "rb") as lines:
-        os.close(writing)
-        status = next((code for line in lines if (states := _instances(line)) is not None and (code := _ended(states.get(pid))) is not None), 1)
-        watch.terminate()
-        return status
-
-
-def run(name: str, /, *arguments: str, blender: Blender, pycache: Annotated[Path, Parameter(env_var="PYTHONPYCACHEPREFIX")]) -> Outcome[int]:
-    """Runs Blender with `--python-use-system-env` in a fresh user base, headless on a background flag before any `--`, else as GUI.
+def run(name: str, /, *arguments: str, blender: Blender, pycache: Annotated[Path, Parameter(env_var="PYTHONPYCACHEPREFIX")], package: str | None = None, groups: tuple[str, ...] = ()) -> Outcome[int]:
+    """Runs Blender in a fresh profile; a background flag before `--` selects headless mode.
 
     Blender resolves every user folder under `BLENDER_USER_RESOURCES`, lookups failing with no profile fallback.
-    macOS GUIs start as a new hidden instance through `watch-apps launch`, and the run returns once that instance exits, which the runner's own quit call ends.
+    macOS GUIs start hidden through `watch-apps launch --wait`, which returns the runner's exit status.
 
     Args:
         name: Folder under `.artifacts/blender/evaluate/`.
         arguments: Blender arguments, after `--` when one opens with `-`.
         blender: Blender executable.
         pycache: Bytecode cache folder.
+        package: Workspace member selecting locked runtime requirements, workspace root when omitted.
+        groups: Additional uv dependency group selectors.
 
     Returns:
         Blender's exit status with output printed, or fault of a failed folder reset, package sync, or launch.
     """
-    folder = Path(".artifacts/blender/evaluate", name).resolve()
-    scripts = Path(".cache/blender/scripts").resolve()
-    environment = frozendict(
-        BLENDER_USER_RESOURCES=str(folder), TMPDIR=str(folder), PYTHONPYCACHEPREFIX=str(pycache), BLENDER_SYSTEM_SCRIPTS=str(scripts), PYTHONPATH=str(Path("libs/python").resolve())
-    )
+    folder = Path(".artifacts/blender/evaluate").resolve() / name
 
     @catch(exception=OSError)
-    def launched() -> int:
+    def launched(userbase: Path) -> int:
+        environment = frozendict(BLENDER_USER_RESOURCES=str(folder), TMPDIR=str(folder), PYTHONPYCACHEPREFIX=str(pycache), PYTHONUSERBASE=str(userbase))
         log = folder / "blender.log"
-        written = f"import os; os.dup2(os.open({str(log)!r}, os.O_WRONLY | os.O_APPEND | os.O_CREAT), 1); os.dup2(1, 2)"
-        variables = chain.from_iterable(("--environment", f"{key}={value}") for key, value in environment.items())
-        relayed = chain.from_iterable(("--arguments", argument) for argument in ("--python-use-system-env", "--python-expr", written, *arguments))
-        app = blender.parents[2]
+        command: tuple[str | Path, ...]
         if sys.platform != "darwin" or not BACKGROUND.isdisjoint(takewhile(lambda argument: argument != "--", arguments)):
-            with log.open("ab") as sink:
-                code = subprocess.run((blender, "--python-use-system-env", *arguments), env=os.environ | environment, stdout=sink, stderr=subprocess.STDOUT, check=False).returncode
+            command, process_environment = (blender, "--python-use-system-env", *arguments), os.environ | environment
         else:
-            opened = subprocess.run(("watch-apps", "launch", app, "--new", *variables, *relayed), stdin=subprocess.DEVNULL, capture_output=True, check=False)
-            with log.open("ab") as sink:
-                sink.write(opened.stdout + opened.stderr)
-            started = [pid for line in opened.stdout.splitlines() if (states := _instances(line)) is not None for pid in states]
-            code = _exited(app, started[-1]) if opened.returncode == 0 and started else max(opened.returncode, 1)
-        sys.stdout.buffer.write(log.read_bytes())
-        return code
+            written = f"import os\nwith open({str(log)!r}, 'ab', buffering=0) as sink:\n    os.dup2(sink.fileno(), 1)\n    os.dup2(1, 2)\nos.chdir({str(Path.cwd())!r})"
+            variables = chain.from_iterable(("--environment", f"{key}={value}") for key, value in environment.items())
+            option = "--arguments"
+            relayed = chain.from_iterable((f"{option}={argument}",) if argument else (option, argument) for argument in ("--python-use-system-env", "--python-expr", written, *arguments))
+            command, process_environment = ("watch-apps", "launch", blender.parents[2], "--new", "--wait", *variables, *relayed), None
+        with log.open("a+b") as sink:
+            code = subprocess.run(command, env=process_environment, stdout=sink, stderr=subprocess.STDOUT, check=False).returncode
+            sink.seek(0)
+            shutil.copyfileobj(sink, sys.stdout.buffer)
+            return code
 
-    return reset(folder, Path.mkdir).bind(lambda _: site(scripts / "modules", blender=blender)).bind(lambda _: launched().map_error(partial(Fault.of, Reason.FAILED, str(blender))))
+    return (
+        catch(pathvalidate.validate_filename, exception=pathvalidate.ValidationError)(name, platform="auto", additional_reserved_names=(os.curdir, os.pardir), max_len=0)
+        .map_error(partial(Fault.of, Reason.INVALID, name))
+        .bind(lambda _: reset(folder, Path.mkdir))
+        .bind(lambda _: site(blender=blender, package=package, groups=groups))
+        .bind(lambda userbase: launched(userbase).map_error(partial(Fault.of, Reason.FAILED, str(blender))))
+    )
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

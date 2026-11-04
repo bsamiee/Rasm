@@ -1,104 +1,79 @@
-"""Background Blender session installing the fixture extension, observing each area while it is enabled and after it is disabled, and writing the observations as JSON to the path after `--`."""
+"""Installs the fixture extension and runs native pytest with its registration scopes."""
 
-from collections.abc import Iterable, Mapping
-from enum import Enum
-import importlib
+from collections.abc import Callable, Generator
+from contextlib import AbstractContextManager, contextmanager, ExitStack
 from pathlib import Path
 import shutil
 import sys
-import traceback
-from types import FunctionType, ModuleType
-from typing import Final
+from tempfile import TemporaryDirectory
 
 import bpy
-from expression import Option, Result
-from expression.extra.result import catch
-import msgspec
-import numpy as np
+from expression import Result
+import pytest
 
 from blender.bpy.extension.identity import Identity
-from blender.records.faults import Fault
+from blender.bpy.extension.registration import Declarations, Registration
 
-# --- [CONSTANTS] ------------------------------------------------------------------------
+# --- [TYPES] ----------------------------------------------------------------------------
 
-ID: Final = "fixture"
-PACKAGE: Final = f"bl_ext.user_default.{ID}"
-MANIFEST: Final = f"""schema_version = "1.0.0"
-id = "{ID}"
+type Acquired = Callable[[Declarations], AbstractContextManager[Identity]]
+
+# --- [COMPOSITION] ----------------------------------------------------------------------
+
+
+@contextmanager
+def fixture() -> Generator[Acquired]:
+    """Holds an isolated native extension repository and provides declaration scopes."""
+
+    @contextmanager
+    def opened(rows: Declarations, /) -> Generator[Identity]:
+        with Registration(package, rows).opened() as outcome:
+            match outcome:
+                case Result(tag="ok", ok=identity):
+                    yield identity
+                case Result(error=_):
+                    pytest.fail(repr(outcome))
+
+    source = Path(__file__).with_name("fixture")
+    manifest = f"""schema_version = "1.0.0"
+id = "{source.name}"
 version = "1.0.0"
 name = "Fixture"
 tagline = "Rows of every kind the bpy library declares"
 maintainer = "Rasm"
 type = "add-on"
-blender_version_min = "5.4.0"
+blender_version_min = "{".".join(map(str, bpy.app.version))}"
 license = ["SPDX:MIT"]
 website = "https://docs.example.org/fixture/"
 """
-
-# --- [OPERATIONS] -----------------------------------------------------------------------
-
-
-def plain(value: object) -> object:
-    """Returns a JSON value: results and options as one-key objects, faults as their reason names, sets sorted, arrays as lists."""
-    match value:
-        case Result(tag="ok", ok=held):
-            return {"ok": plain(held)}
-        case Result(error=held):
-            return {"error": plain(held)}
-        case Option(tag="some", some=held):
-            return {"some": plain(held)}
-        case Option():
-            return {"nothing": None}
-        case Fault(reason=reason):
-            return reason.name
-        case msgspec.Struct():
-            return plain(msgspec.structs.asdict(value))
-        case Enum():
-            return value.name
-        case Path():
-            return value.as_posix()
-        case np.ndarray() | np.generic():
-            return value.tolist()
-        case frozenset() | set():
-            return sorted(map(plain, value), key=repr)
-        case tuple() | list():
-            return [plain(item) for item in value]
-        case Mapping():
-            return {str(key): plain(item) for key, item in value.items()}
-        case _:
-            return value
+    preferences: bpy.types.Preferences = bpy.context.preferences  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    with TemporaryDirectory() as directory, ExitStack() as release:
+        repos = preferences.extensions.repos
+        repository = repos.new(name=source.name, module=source.name, custom_directory=directory)
+        release.callback(repos.remove, repository)
+        folder = shutil.copytree(source, Path(repository.directory) / source.name, ignore=shutil.ignore_patterns("__pycache__"))
+        (folder / "blender_manifest.toml").write_text(manifest, encoding="utf-8")
+        package = f"bl_ext.{repository.module}.{source.name}"
+        bpy.ops.preferences.addon_enable(module=package)
+        yield opened
 
 
-def observed(probes: Iterable[tuple[ModuleType, tuple[FunctionType, ...]]], *arguments: object) -> dict[str, dict[str, object]]:
-    """Runs each probe of each area, keyed by area and probe name, keeping a raised exception's traceback as its observation."""
-
-    def ran(probe: FunctionType) -> object:
-        return catch(lambda: plain(probe(*arguments)), exception=Exception)().default_with(lambda error: {"raised": "".join(traceback.format_exception(error))})
-
-    return {area.__name__.rpartition(".")[2]: {probe.__name__: ran(probe) for probe in listed} for area, listed in probes}
+@pytest.fixture(scope="session")
+def acquired() -> Generator[Acquired]:
+    """Supplies declaration scopes from one extension for the native test session."""
+    with fixture() as opened:
+        yield opened
 
 
-def installed() -> None:
-    """Copies the fixture package into the user extension repository beside its manifest."""
-    folder = Path(bpy.utils.user_resource("EXTENSIONS", path="user_default", create=True)) / ID
-    shutil.copytree(Path(__file__).parent / "fixture", folder, ignore=shutil.ignore_patterns("__pycache__"))
-    (folder / "blender_manifest.toml").write_text(MANIFEST, encoding="utf-8")
-
-
-# --- [COMPOSITION] ----------------------------------------------------------------------
-
-
-def main(target: Path) -> None:
-    """Enables the fixture, observes every area, disables it, observes the releases, and writes the observations."""
-    installed()
-    bpy.ops.preferences.addon_enable(module=PACKAGE)
-    fixture = importlib.import_module(PACKAGE)
-    identity: Identity = fixture.extension.RECORDER.identity.value
-    enabled = observed(((area, area.PROBES) for area in fixture.AREAS), identity)
-    bpy.ops.preferences.addon_disable(module=PACKAGE)
-    released = observed((area, area.RELEASED) for area in fixture.AREAS)
-    target.write_bytes(msgspec.json.encode({"enabled": enabled, "released": released}))
+def main(arguments: list[str], /) -> int:
+    """Runs pytest with Blender's subnormal warning exception until bundled NumPy reaches 2.4."""
+    return pytest.main(["-W", "ignore:The value of the smallest subnormal for:UserWarning:numpy._core.getlimits", *arguments], plugins=(sys.modules[__name__],))
 
 
 if __name__ == "__main__":
-    main(Path(sys.argv[sys.argv.index("--") + 1]))
+    raise SystemExit(main(sys.argv[sys.argv.index("--") + 1 :]))
+
+
+# --- [EXPORTS] --------------------------------------------------------------------------
+
+__all__ = ["Acquired", "acquired", "fixture", "main"]

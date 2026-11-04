@@ -34,15 +34,11 @@ utils:
                             any:
                                 - matches: unmergeable-link
                                 - has: {stopBy: {not: {kind: 'call_expression, navigation_expression'}}, matches: unmergeable-link}
-    argument-swap:
-        not: {inside: {kind: if_statement}}
-        any:
-            - pattern: 'if $C { $V($L: $A) } else { $V($L: $B) }'
-            - pattern: 'if $C { $V($A) } else { $V($B) }'
 rule:
     kind: 'if_statement, switch_statement'
     all:
         - not: {inside: {kind: if_statement}}
+        - inside: {matches: swiftui-view-builder, stopBy: end}
         - has: {stopBy: {not: {kind: 'if_statement, switch_entry'}}, kind: statements, matches: view-arm, pattern: $FIRST}
         - has: {stopBy: {not: {kind: 'if_statement, switch_entry'}}, kind: statements, not: {pattern: $FIRST}}
         - not: {has: {stopBy: {not: {kind: 'if_statement, switch_entry'}}, kind: statements, not: {matches: view-arm}}}
@@ -52,35 +48,5 @@ rule:
             any:
                 - has: {nthChild: 1, kind: simple_identifier, pattern: $VIEW}
                 - has: {stopBy: end, kind: call_expression, has: {nthChild: 1, kind: simple_identifier, pattern: $VIEW, regex: '^[A-Z]'}}
-        - inside: {matches: swiftui-view-builder, stopBy: end}
-        - pattern: $BRANCH
-rewriters:
-    - id: string-argument
-      rule: {matches: argument-swap}
-      constraints:
-        A: {regex: '^"[^"\\]*"$'}
-        B: {regex: '^"[^"\\]*"$'}
-      transform:
-        LABEL: {replace: {source: $L, replace: '^(.+)$', by: '$1: '}}
-      fix: '$V($LABEL$C ? $A : $B)'
-    - id: member-argument
-      rule: {matches: argument-swap}
-      constraints:
-        A: {regex: '^\.\w+$'}
-        B: {regex: '^\.\w+$'}
-      transform:
-        LABEL: {replace: {source: $L, replace: '^(.+)$', by: '$1: '}}
-      fix: '$V($LABEL$C ? $A : $B)'
-    - id: number-argument
-      rule: {matches: argument-swap}
-      constraints:
-        A: {regex: '^-?\d[\d_]*(\.\d[\d_]*)?$'}
-        B: {regex: '^-?\d[\d_]*(\.\d[\d_]*)?$'}
-      transform:
-        LABEL: {replace: {source: $L, replace: '^(.+)$', by: '$1: '}}
-      fix: '$V($LABEL$C ? $A : $B)'
-transform:
-    MERGED: {rewrite: {source: $BRANCH, rewriters: [string-argument, member-argument, number-argument]}}
-fix: $MERGED
 message: '`$VIEW` repeats per branch with other arguments or modifiers and resets its state at each condition change'
 note: 'Keep one `<view>` and pass the condition as a ternary argument or modifier value (`.tint`, `.disabled`, `.opacity`)'

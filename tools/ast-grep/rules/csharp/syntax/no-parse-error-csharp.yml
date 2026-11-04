@@ -2,26 +2,17 @@
 id: no-parse-error-csharp
 language: csharplang
 severity: error
-utils:
-    file-directives:
-        kind: ERROR
-        regex: '^#:[^\n]*(\n(#:[^\n]*|[ \t]*))*$'
-        inside: {kind: compilation_unit}
-    file-directives-head:
-        kind: global_statement
-        regex: '^\w+[^\n]*(\n(#:[^\n]*|[ \t]*))*\nusing [^;\n]*;$'
-        follows: {matches: file-directives}
-    unreported:
-        any:
-            - inside: {kind: ERROR, stopBy: end}
-            - matches: file-directives
-            - inside: {matches: file-directives-head, stopBy: end}
 rule:
     any:
         - kind: ERROR
-          not: {matches: unreported}
+          not: {inside: {kind: ERROR, stopBy: end}}
         - kind: compilation_unit
-          has: {stopBy: end, pattern: $$MISSING, regex: '^$', not: {matches: unreported}}
+          has:
+            stopBy: end
+            all:
+                - regex: '^$'
+                - pattern: $$MISSING
+                - not: {inside: {kind: ERROR, stopBy: end}}
 labels:
     MISSING: {style: primary, message: Token the grammar inserted to recover}
 message: Grammar failed to parse the span

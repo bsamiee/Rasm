@@ -7,6 +7,7 @@ using Darkroom.Output;
 using Rasm.Rhino;
 using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.Persistence;
+using Rasm.Rhino.Render.Settings;
 using Rhino;
 using Rhino.Render;
 
@@ -63,7 +64,7 @@ internal sealed record QueueJob(int RhinoVersion, string Copy, Seq<QueueJob.Entr
 
     // --- [INBOUND]
     internal IO<RenderBatch> Batch(RhinoDoc doc) =>
-        from settings in RenderOverride.Current(doc)
+        from settings in use(RenderSettingsSources.Snapshot(doc))
         from entries in IO.lift(Entries.Map(static (entry, index) => (Entry: entry, Index: index))
             .Traverse(held => Planned(held.Entry, settings).MapFail(error => new DarkroomFault("render queue job entry", DarkroomReason.Invalid, held.Index, error)))
             .As()
@@ -80,7 +81,7 @@ internal sealed record QueueJob(int RhinoVersion, string Copy, Seq<QueueJob.Entr
                         held.Output.Version.Match<OutputVersioning>(Some: static pinned => new OutputVersioning.Pinned(pinned), None: static () => new OutputVersioning.Unversioned()),
                         held.Output.Parts, frames.Named(held.Output.Frame), held.Output.Target.FileFormat.Extension), unit)))
             .As()
-        select new QueueEntry<Unit>(entry.Queued, new RenderOverride(settings, entry.Queued.Clay), entry.Folder, entry.Stem, entry.Overwrite, frames, outputs);
+        select new QueueEntry<Unit>(entry.Queued, settings, entry.Folder, entry.Stem, entry.Overwrite, frames, outputs);
 
     internal static IO<QueueJob> Read(string path) =>
         from found in FilePublication.Read(path, Info, static job => Fin.Succ(job))

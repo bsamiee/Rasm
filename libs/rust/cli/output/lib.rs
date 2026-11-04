@@ -1,6 +1,6 @@
-#![feature(control_flow_into_value, try_blocks_heterogeneous)]
+#![feature(control_flow_into_value, deref_patterns, try_blocks_heterogeneous)]
 
-use core::pin::pin;
+use core::{fmt::Display, pin::pin};
 use std::{io, panic, process};
 
 use clap::{CommandFactory, FromArgMatches};
@@ -14,7 +14,7 @@ use minus::MinusError;
 use nonempty_collections::NEVec;
 use rasm_command::{Augmented, CommandError, Process};
 use rasm_telemetry::{Defaults, Failure, Handle, Layer};
-use serde::Serialize;
+use serde::{Serialize, ser};
 use sysexits::ExitCode;
 use tokio::task;
 use tracing_indicatif::{
@@ -23,15 +23,31 @@ use tracing_indicatif::{
     suspend_tracing_indicatif,
 };
 use tracing_subscriber::fmt::format::DefaultFields;
+use validated::Validated;
 
 // --- [ERRORS] --------------------------------------------------------------------------
+
+#[derive(Debug, thiserror::Error)]
+pub enum EncodingError {
+    #[error(transparent)]
+    Json(#[from] serde_json::Error),
+    #[error(transparent)]
+    Value(#[from] serde_content::Error),
+}
+
+impl ser::Error for EncodingError {
+    fn custom<T>(msg: T) -> Self
+    where T: Display {
+        Self::Json(serde_json::Error::custom(msg))
+    }
+}
 
 #[derive(Debug, thiserror::Error)]
 pub enum OutputError {
     #[error("cannot write rows")]
     Write { source: io::Error },
     #[error("cannot encode row {row}")]
-    Encode { row: usize, source: serde_json::Error },
+    Encode { row: usize, source: EncodingError },
     #[error("cannot write row {row}, column `{name}` is outside the CSV header")]
     Column { row: usize, name: String },
     #[error(transparent)]
@@ -90,15 +106,11 @@ where
                     Either::Left((started, next)) => started.and_then(|items| formats::written(options, header, stdout, Box::pin(items).take_until(next))),
                     Either::Right(_) => Ok(ExitCode::TempFail),
                 };
-                let cooked = terminal::is_raw_mode_enabled().and_then(|raw| if raw { terminal::disable_raw_mode() } else { Ok(()) });
-                match (outcome, cooked.map_err(|source| E::from(OutputError::Prompt(InquireError::IO(source))))) {
-                    (outcome, Ok(())) => outcome,
-                    (Ok(_), Err(failure)) => Err(NEVec::new(failure)),
-                    (Err(mut failures), Err(failure)) => {
-                        failures.push(failure);
-                        Err(failures)
-                    }
-                }
+                let cooked = cfg_select! {
+                    windows => terminal::is_raw_mode_enabled().and_then(|raw| if raw { terminal::disable_raw_mode() } else { Ok(()) }),
+                    _ => terminal::disable_raw_mode(),
+                };
+                outcome.map_or_else(Validated::Fail, Validated::Good).map2(Validated::from(cooked.map_err(|source| E::from(OutputError::Prompt(InquireError::IO(source))))), |status, ()| status).ok()
             })
             .await
             .unwrap_or_else(|failure| panic::resume_unwind(failure.into_panic()))

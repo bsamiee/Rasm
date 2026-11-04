@@ -1,8 +1,10 @@
+#![feature(const_convert, const_trait_impl, float_conversions, gen_blocks, iterator_try_collect)]
+
 use core::{num::NonZero, range::RangeInclusive};
 
 use datasketches::error::Error;
 use nonempty_collections::NEBTreeMap;
-use nuts_rs::{LogpError, NutsError};
+use nuts_rs::LogpError;
 use statrs::distribution::StudentsTError;
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -24,7 +26,7 @@ pub enum Sample {
     Bias,
     #[display("groups all hold a non-finite output")]
     Groups,
-    #[display("draws per chain split into halves under two")]
+    #[display("draws per chain are insufficient for split diagnostics")]
     Draws,
 }
 
@@ -49,18 +51,20 @@ pub enum StatsError {
     #[error("log density or its gradient is not finite")]
     NotFinite,
     #[error("chain {chain} failed")]
-    Sampler { chain: u64, source: Option<NutsError> },
+    Sampler { chain: u64, source: anyhow::Error },
     #[error("start of chain {chain} lies outside the open bounds of dimension {dimension}")]
     Start { chain: u64, dimension: usize },
     #[error("sampler settings refused")]
-    Settings,
+    Settings(#[source] anyhow::Error),
     #[error("{found} entries along an axis of {expected}")]
     Shape { expected: usize, found: usize },
+    #[error("draw {draw} of trace {trace} is not finite in dimension {dimension}")]
+    Draw { trace: usize, dimension: usize, draw: usize },
     #[error("{levels} levels over {dimensions} dimensions overflow a factorial design")]
     Factorial { levels: NonZero<u16>, dimensions: NonZero<usize> },
-    #[error("{found} observations admit no interval")]
+    #[error("interval undefined for {found} observations")]
     Observations { found: u64, source: StudentsTError },
-    #[error("{found} finite pairs grade no fit of {parameters} parameters")]
+    #[error("fit statistics require more than {parameters} finite pairs, found {found}")]
     Pairs { found: u64, parameters: u32 },
     #[error("{found} {sample}")]
     Degenerate { found: usize, sample: Sample },

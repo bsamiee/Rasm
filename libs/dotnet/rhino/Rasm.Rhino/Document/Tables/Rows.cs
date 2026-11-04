@@ -26,7 +26,9 @@ public sealed record TableKind<T>(
     Func<RhinoDoc, T, int> Add,
     Func<RhinoDoc, T, int, bool> Modify,
     Func<RhinoDoc, string> FreeName) where T : ModelComponent {
-    public Func<RhinoDoc, Seq<T>> Live { get; init; } = doc => Conversions.Rows(Table(doc)).Filter(static row => !row.IsDeleted).Strict();
+    public Option<Func<RhinoDoc, Seq<T>>> Listing { get; init; }
+
+    public Seq<T> Live(RhinoDoc doc) => Listing.Match(Some: list => list(doc), None: () => Conversions.Rows(Table(doc)).Filter(static row => !row.IsDeleted).Strict());
 
     public Func<T, string> Key { get; init; } = static row => row.Name;
 
@@ -34,7 +36,7 @@ public sealed record TableKind<T>(
 
     public Func<T, Option<Guid>> Parent { get; init; } = static _ => None;
 
-    public Func<Seq<string>, Seq<string>> Arrange { get; init; } = static keys => keys;
+    public Func<Seq<string>, Fin<Seq<string>>> Arrange { get; init; } = static keys => keys;
 
     public Func<RhinoDoc, Option<T>, string, Fin<Seq<RowEdit<T>>>> Place { get; init; } = static (_, _, key) =>
         RhinoFault.Unless(ModelComponent.IsValidComponentName(key), RhinoReason.Unqualified, key)
@@ -68,11 +70,11 @@ public abstract partial record RowPlan<TRow, TSpec> {
 
 [SmartEnum]
 public sealed partial class Prune {
-    public static readonly Prune Keep = new(removes: false);
-    public static readonly Prune Delete = new(removes: true);
-    public static readonly Prune Purge = new(removes: true);
+    public static readonly Prune Keep = new();
+    public static readonly Prune Delete = new();
+    public static readonly Prune Purge = new();
 
-    public bool Removes { get; }
+    public bool Removes => this != Keep;
 }
 
 // --- [TABLES] --------------------------------------------------------------------------
@@ -132,7 +134,7 @@ public static class Rows {
                             RhinoReason.Unsupported, rows.ComponentType)
                         .Map(_ => Optional(rows.Document.Manifest.FindName<T>(byName.Name, Guid.Empty))))
             .Bind(found => found.Filter(row => includeDeleted || !row.IsDeleted)
-                .ToFin(new RhinoFault($"{address} in {table.ComponentType}", RhinoReason.Missing))));
+                .ToFin(new RhinoFault((address, table.ComponentType), RhinoReason.Missing))));
 
     public static IO<int> Index<T>(RhinoDocCommonTable<T> table, Option<ComponentRef<T>> address) where T : ModelComponent =>
         address.Traverse(row => Find(table, row)).As().Map(static found => Conversions.Unset(found.Map(static row => row.Index)));
@@ -165,7 +167,7 @@ public static class Rows {
     public static IO<T> Add<T>(RhinoDoc doc, TableKind<T> kind, Option<string> key, Seq<RowEdit<T>> edits) where T : ModelComponent =>
         (from fresh in use(kind.Fresh)
          from placed in IO.lift(() => kind.Place(doc, None, key.IfNone(() => kind.FreeName(doc))))
-         from added in Edits.Apply(Added(doc, kind, placed + edits), fresh, (placed + edits).Map(static edit => edit.Write))
+         from added in Edits.Apply(Added(doc, kind), fresh, (placed + edits).Map(static edit => edit.Write))
          select added).Bracket();
 
     // --- [STAGES]
@@ -173,29 +175,27 @@ public static class Rows {
         new(
             Copy: live => use(() => kind.Copy(live)),
             Unchanged: (live, _) => Satisfied(edits, live),
-            Commit: (live, staged) => Products.Accepted(() => kind.Modify(doc, staged, live.Index)) >> Verified(kind.Table(doc), new ComponentRef<T>.ById(live.Id), edits));
+            Commit: (live, staged) => Products.Accepted(() => kind.Modify(doc, staged, live.Index)).Map(_ => live));
 
-    private static Stage<T> Added<T>(RhinoDoc doc, TableKind<T> kind, Seq<RowEdit<T>> edits) where T : ModelComponent =>
+    private static Stage<T> Added<T>(RhinoDoc doc, TableKind<T> kind) where T : ModelComponent =>
         new(
             Copy: static fresh => IO.pure(fresh),
             Unchanged: static (_, _) => false,
             Commit: (_, staged) => IO.lift(() => Conversions.Required(Conversions.Present(kind.Add(doc, staged))))
-                .Bind(index => Verified(kind.Table(doc), new ComponentRef<T>.ByIndex(index), edits)));
+                .Bind(index => Find(kind.Table(doc), new ComponentRef<T>.ByIndex(index))));
 
     private static bool Satisfied<T>(Seq<RowEdit<T>> edits, T row) where T : class =>
         edits.ForAll(edit => edit.Holds.Exists(holds => holds(row)));
 
-    private static IO<T> Verified<T>(RhinoDocCommonTable<T> table, ComponentRef<T> address, Seq<RowEdit<T>> edits) where T : ModelComponent =>
-        Find(table, address).Bind(live => IO.lift(() => Products.Each(edits, (edit, index) =>
-            edit.Holds.ForAll(holds => holds(live)) ? Fin.Succ(unit) : new RhinoFault(edit.Write.Member, RhinoReason.Declined, index)).Map(_ => live)));
-
     // --- [PLANS]
     public static Fin<Seq<RowPlan<TRow, TSpec>>> Plan<TRow, TSpec>(
-        Seq<TRow> rows, Seq<TSpec> specs, Func<TRow, string> rowKey, Func<TSpec, string> key, IEqualityComparer<string> names, Prune prune) =>
+        Seq<TRow> rows, Seq<TSpec> specs, Func<TRow, string> rowKey, Func<TSpec, string> key, IEqualityComparer<string> names, Prune prune,
+        Option<Func<Seq<TSpec>, Fin<Seq<TSpec>>>> arrange = default) =>
         from unique in Conversions.Unique(specs, key, names)
+        from arranged in arrange.Match(Some: order => order(unique), None: () => unique)
         let held = rows.ToLookup(rowKey, names)
-        let wanted = unique.Map(key).ToHashSet(names)
-        select unique.Map(spec => toSeq(held[key(spec)]).Head.Match<RowPlan<TRow, TSpec>>(
+        let wanted = arranged.Map(key).ToHashSet(names)
+        select arranged.Map(spec => toSeq(held[key(spec)]).Head.Match<RowPlan<TRow, TSpec>>(
                 Some: row => new RowPlan<TRow, TSpec>.Change(row, spec),
                 None: () => new RowPlan<TRow, TSpec>.Create(spec)))
             + (prune.Removes ? rows.Filter(row => !wanted.Contains(rowKey(row))).Map<RowPlan<TRow, TSpec>>(row => new RowPlan<TRow, TSpec>.Remove(row, prune)) : []);
@@ -203,9 +203,16 @@ public static class Rows {
     public static IO<Seq<RowPlan<T, RowSpec<T>>>> Plan<T>(RhinoDoc doc, TableKind<T> kind, Seq<RowSpec<T>> specs, Prune prune) where T : ModelComponent =>
         from rows in IO.lift(() => kind.Live(doc))
         let owned = rows.Filter(static row => !row.IsReference)
-        let declared = toHashMap(specs.Map(static spec => (spec.Key, spec)))
-        let arranged = kind.Arrange(specs.Map(static spec => spec.Key)).Map(key => declared.Find(key).IfNone(() => new RowSpec<T>(key, [])))
-        from matched in IO.lift(() => Plan(owned, arranged, kind.Key, static spec => spec.Key, kind.Names, prune))
+        from matched in IO.lift(() => Plan(owned, specs, kind.Key, static spec => spec.Key, kind.Names, prune,
+            Some(fun((Seq<RowSpec<T>> unique) => unique.ToLookup(static spec => spec.Key, kind.Names) switch {
+                var declared => kind.Arrange(unique.Map(static spec => spec.Key))
+                    .Map(keys => keys.Map(key => toSeq(declared[key]).Head.IfNone(() => new RowSpec<T>(key, [])))),
+            }))))
+        let arranged = matched.Choose(static step => step.Switch(
+            create: static create => Some(create.Spec.Key),
+            change: static change => Some(change.Spec.Key),
+            remove: static _ => None,
+            order: static _ => None))
         let removed = toHashSet(matched.Choose(static step => step.Switch(
             create: static _ => Option<Guid>.None,
             change: static _ => None,
@@ -217,7 +224,7 @@ public static class Rows {
             change: static (state, change) => !state.Kind.Place(state.Document, Some(change.Row), change.Spec.Key).ToOption().Exists(placed => Satisfied(placed + change.Spec.Edits, change.Row)),
             remove: static (state, remove) => !state.Kind.Parent(remove.Row).Exists(state.Removed.Contains),
             order: static (_, _) => true))
-        let order = arranged.Map(static spec => spec.Key) + (prune.Removes ? [] : owned.Map(kind.Key).Filter(key => !arranged.Exists(spec => kind.Names.Equals(spec.Key, key))))
+        let order = arranged + (prune.Removes ? [] : owned.Map(kind.Key).Filter(key => !arranged.Exists(wanted => kind.Names.Equals(wanted, key))))
         let sorted = kind.Sort.IsSome && !order.SequenceEqual(owned.Map(kind.Key), kind.Names)
         select sorted ? pending.Add(new RowPlan<T, RowSpec<T>>.Order(order)) : pending;
 
@@ -243,14 +250,14 @@ public static class Rows {
 
     public static IO<Unit> Remove<T>(RhinoDoc doc, TableKind<T> kind, T row, Prune prune) where T : ModelComponent =>
         from removal in IO.lift(() => prune == Prune.Purge
-            ? kind.Purge.ToFin(new RhinoFault($"{nameof(kind.Purge)} of {row.ComponentType}", RhinoReason.Unsupported)).Map(purge => purge(doc, row))
+            ? kind.Purge.ToFin(new RhinoFault((nameof(kind.Purge), row.ComponentType), RhinoReason.Unsupported)).Map(purge => purge(doc, row))
             : kind.Table(doc).Delete(row))
-        from gone in IO.lift(() => RhinoFault.Unless(Optional(kind.Table(doc).FindId(row.Id)).ForAll(static held => held.IsDeleted), RhinoReason.Declined, kind.Key(row)))
+        from gone in IO.lift(() => RhinoFault.Unless(removal, RhinoReason.Declined, kind.Key(row)))
         select unit;
 
     private static IO<Unit> Sorted<T>(RhinoDoc doc, TableKind<T> kind, Seq<string> keys) where T : ModelComponent =>
         from rows in IO.lift(() => kind.Live(doc))
-        from sort in IO.lift(() => kind.Sort.ToFin(new RhinoFault($"order of {kind.Table(doc).ComponentType}", RhinoReason.Unsupported)))
+        from sort in IO.lift(() => kind.Sort.ToFin(new RhinoFault((nameof(kind.Sort), typeof(T)), RhinoReason.Unsupported)))
         let listed = keys.Choose(key => rows.Find(row => !row.IsReference && kind.Names.Equals(kind.Key(row), key)))
         let ids = toHashSet(listed.Map(static row => row.Id))
         from sorted in IO.lift(() => sort(doc, (listed + rows.Filter(row => !ids.Contains(row.Id))).Map(static row => row.Index)))

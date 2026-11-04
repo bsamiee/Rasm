@@ -4,14 +4,11 @@ language: sql
 severity: error
 rule:
     kind: insert_statement, update_statement, column_constraint, table_constraint
-    pattern: _STATEMENT
     any:
-        - has: {field: kind, regex: '(?i)^replace$'}
-        - has: {field: conflict_resolution, regex: '(?i)^replace$'}
+        - has: {field: kind, regex: '(?i-u)^replace$'}
+        - has: {field: conflict_resolution, regex: '(?i-u)^replace$'}
         - all:
             - kind: column_constraint, table_constraint
-            - has: {regex: '(?i)^replace$'}
-transform:
-    HEAD: {replace: {source: $STATEMENT, replace: '(?is)^(.*?\breplace\b).*$', by: '$1'}}
-message: '`$HEAD` deletes the conflicting row and its `on delete` children without a delete trigger'
-note: 'Write `on conflict (<key>) do update set <column> = excluded.<column> where <table>.<column> is distinct from excluded.<column>`'
+            - has: {regex: '(?i-u)^replace$'}
+message: '`REPLACE` can delete conflicting rows or substitute defaults for NULL'
+note: 'Handle conflicts explicitly while preserving trigger, default, and foreign key behavior'

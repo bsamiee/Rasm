@@ -38,7 +38,6 @@ utils:
                             - has: {kind: base_list, has: {matches: first-base, all: [{matches: host-type}]}}
 rule:
     kind: class_declaration
-    pattern: $DECL
     all:
         - has: {field: name, pattern: $NAME}
         - not: {has: {kind: modifier, regex: '^abstract$'}}
@@ -48,12 +47,5 @@ rule:
                 - has: {kind: declaration_list, has: {kind: constructor_declaration, has: {kind: parameter_list, has: {kind: parameter}}}}
                 - not: {has: {kind: declaration_list, has: {kind: constructor_declaration, has: {kind: parameter_list, not: {has: {kind: parameter}}}}}}
         - has: {kind: base_list, has: {matches: first-base, all: [{matches: host-base}]}}
-transform:
-    ABSTRACT:
-        replace:
-            source: $DECL
-            replace: '^((?:\[(?:[^\[\]"]|"(?:[^"\\]|\\.)*"|\[[^\]]*\])*\]\s*)*(?:(?:public|internal|protected|private|file|unsafe|new)\s+)*)(?:sealed\s+)?'
-            by: '${1}abstract '
-fix: $ABSTRACT
 message: 'Library class `$NAME` derives from `$HOST` and stays instantiable'
 note: 'Declare `<name>` `abstract` and give its application subclass the public parameterless constructor Rhino calls'

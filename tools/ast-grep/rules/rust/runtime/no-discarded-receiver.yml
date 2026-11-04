@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-discarded-receiver
-language: rust
+language: rustlang
 severity: error
 utils:
     channel-path:
@@ -10,16 +10,12 @@ utils:
             - regex: '(^|::)(broadcast|watch)::channel$'
     channel-call:
         kind: call_expression
-        all:
-            - has:
-                field: function
-                any:
-                    - matches: channel-path
-                    - kind: generic_function
-                      all:
-                        - has: {field: function, matches: channel-path}
-                        - has: {field: type_arguments, pattern: $TYPES}
-            - has: {field: arguments, pattern: $ARGS}
+        has:
+            field: function
+            any:
+                - matches: channel-path
+                - kind: generic_function
+                  has: {field: function, matches: channel-path}
     unread-receiver:
         any:
             - not: {has: {nthChild: 2, kind: identifier}}
@@ -29,10 +25,10 @@ utils:
     tuple-binding:
         kind: let_declaration
         all:
-            - has: {field: pattern, kind: tuple_pattern, all: [{regex: '^\(\s*(mut\s+)?\w+\s*,\s*_\w*\s*,?\s*\)$'}, {has: {nthChild: 1, pattern: $SENDER}}, {matches: unread-receiver}]}
             - has: {field: value, matches: channel-call}
+            - has: {field: pattern, kind: tuple_pattern, all: [{regex: '^\(\s*(mut\s+)?\w+\s*,\s*_\w*\s*,?\s*\)$'}, {matches: unread-receiver}]}
             - any:
-                - has: {field: type, kind: tuple_type, has: {nthChild: 1, pattern: $SENDER_TYPE}}
+                - has: {field: type, kind: tuple_type}
                 - not: {has: {field: type, pattern: $_}}
     sender-field:
         kind: field_expression
@@ -40,25 +36,8 @@ utils:
             - has: {field: field, regex: '^0$'}
             - has: {field: value, matches: channel-call}
 rule:
-    pattern: $SITE
     any:
         - matches: tuple-binding
         - matches: sender-field
-rewriters:
-    - id: binding-form
-      rule: {matches: tuple-binding, has: {field: pattern, regex: '^\(\s*(mut\s+)?\w+\s*,\s*_\s*,?\s*\)$'}}
-      transform:
-        TURBOFISH: replace($TYPES, replace='^<', by='::<')
-        ANNOTATION:
-            replace: {source: $SENDER_TYPE, replace: '^(.+)$', by: ': $1'}
-      fix: let $SENDER$ANNOTATION = $MODULE::Sender$TURBOFISH::new$ARGS;
-    - id: field-form
-      rule: {matches: sender-field}
-      transform:
-        TURBOFISH: replace($TYPES, replace='^<', by='::<')
-      fix: $MODULE::Sender$TURBOFISH::new$ARGS
-transform:
-    FIXED: rewrite($SITE, rewriters=[binding-form, field-form])
-fix: $FIXED
 message: '`$MODULE::channel` builds a receiver that no code reads'
-note: 'Build the sender through `<module>::Sender::new`, call `subscribe` per consumer, and replace each watch `send` with `send_replace`'
+note: 'Construct `<module>::Sender::new`, `subscribe` per consumer, and replace watch `send` with `send_replace`'

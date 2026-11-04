@@ -17,7 +17,10 @@ pub fn open(bytes: Vec<u8>, password: Option<&SecretString>) -> Result<Sheets<Cu
 }
 
 pub fn records<D, H>(mut range: Range<Data>, headers: &RangeDeserializerBuilder<'_, H>) -> Result<Vec<D>, WorkbooksError>
-where D: DeserializeOwned, H: AsRef<str> + Clone {
+where
+    D: DeserializeOwned,
+    H: AsRef<str> + Clone,
+{
     let moments = crate::cells(&range)
         .filter(|&(_, _, cell)| matches!(cell, Data::DateTime(_)))
         .map(|(_, at, cell)| {

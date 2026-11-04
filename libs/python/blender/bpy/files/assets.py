@@ -8,9 +8,9 @@ from types import MappingProxyType
 from typing import Annotated, Final, Protocol, Self, TYPE_CHECKING
 from uuid import NAMESPACE_URL, uuid5
 
-from _bpy_internal.assets.remote_library.listing_asset_catalogs import parse_catalogs
+from _bpy_internal.assets.remote_library.listing_asset_catalogs import parse_catalogs  # ruff: ignore[import-private-name]
 import bpy
-from expression import Error, Nothing, Ok, Option, Result, Some, try_downcast
+from expression import Option, Result, Some, try_downcast
 from expression.collections import Block
 from expression.extra.result import catch
 import msgspec
@@ -20,7 +20,7 @@ from blender.bpy.data.rna.snapshots import assigned
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Tier
 from blender.bpy.files.libraries import blocks_loaded, library_written, listed
-from blender.records.faults import accumulated, Fault, Outcome, Reason
+from blender.records.faults import accumulated, Error, Fault, Nothing, Ok, Outcome, Reason
 from blender.records.stores import folder_made
 
 if TYPE_CHECKING:
@@ -41,7 +41,7 @@ class _Catalog(Protocol):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_PARSED: Final[Callable[[Path], Result[list[_Catalog], OSError | UnicodeError]]] = catch(catch(parse_catalogs, exception=OSError), exception=UnicodeError)  # type: ignore[arg-type]  # ty: ignore[invalid-assignment]
+_PARSED: Final[Callable[[Path], Result[list[_Catalog], OSError | UnicodeError]]] = catch(exception=UnicodeError)(catch(parse_catalogs, exception=OSError))  # type: ignore[arg-type]  # ty: ignore[invalid-assignment]
 _ESSENTIALS: Final = frozenset({"ESSENTIALS", "ONLINE_ESSENTIALS"})
 _LOADS: Final[Mapping[str, Mapping[str, bool]]] = MappingProxyType({
     "LINK": MappingProxyType({"link": True}),
@@ -79,7 +79,7 @@ class AssetMark(msgspec.Struct, frozen=True, kw_only=True):
             uid: Catalog UUID publication read or created.
 
         Returns:
-            Marked block, invalid fault for a catalog path outside its bound, refused fault for unmarkable block, faults per refused member write.
+            Marked block, absent fault for an unmarkable block, or faults per refused member write.
         """
 
         def applied(data: bpy.types.AssetMetaData) -> Outcome[T]:
@@ -102,13 +102,10 @@ class AssetMark(msgspec.Struct, frozen=True, kw_only=True):
                 },
             ).map(lambda _: block)
 
-        def mark(_: str) -> Outcome[T]:
-            block.asset_mark()
-            if block.preview is None:
-                block.asset_generate_preview()
-            return Option.of_optional(block.asset_data).map(applied).default_with(lambda: Error(Fault.of(Reason.ABSENT, repr(block), member="asset_data")))
-
-        return catch(msgspec.convert, exception=msgspec.ValidationError)(self.catalog, CatalogPath).map_error(partial(Fault.of, Reason.INVALID, self.catalog)).bind(mark)
+        block.asset_mark()
+        if block.preview is None:
+            block.asset_generate_preview()
+        return Option.of_optional(block.asset_data).map(applied).default_with(lambda: Error(Fault.of(Reason.ABSENT, repr(block), member="asset_data")))
 
 
 class UserLibrary(msgspec.Struct, frozen=True, kw_only=True):
@@ -122,9 +119,9 @@ class UserLibrary(msgspec.Struct, frozen=True, kw_only=True):
         """Returns library folder under extension user folder."""
         return identity.folder / "assets" / self.folder
 
-    def acquisitions(self, identity: Identity, /) -> Outcome[Acquisitions]:
+    def acquisitions(self, identity: Identity, /) -> Acquisitions:
         """Returns row acquisition."""
-        return Ok(((Tier.RESOURCES, self.acquired(identity)),))
+        return ((Tier.RESOURCES, self.acquired(identity)),)
 
     @contextmanager
     def acquired(self, identity: Identity) -> Generator[Outcome[None]]:
@@ -289,7 +286,7 @@ def bundled[T: bpy.types.ID](kind: type[T], name: str) -> Outcome[T]:
     Returns:
         Imported block, absent fault for missing name.
     """
-    folder: str = bpy.utils.system_resource("DATAFILES", path="assets")  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    folder: str = bpy.utils.system_resource("DATAFILES", path="assets")  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute, unsound-assignment]
     root = Path(folder)
     return (
         _blends(root)

@@ -67,6 +67,6 @@ rule:
                         all:
                             - has: {field: parameters, any: [{kind: implicit_parameter, pattern: $VALUE}, {kind: parameter_list, has: {kind: parameter, has: {field: name, pattern: $VALUE}}}]}
                             - has: {field: body, matches: bound-check}
-    not: {inside: {stopBy: end, matches: thinktecture-factory-validation}}
+    not: {inside: {stopBy: end, kind: method_declaration, matches: thinktecture-factory-validation}}
 message: 'Text parse into `$VALUE` checks its bounds'
 note: 'Parse through a `[ValueObject<T>]` generated `TryParse` or `Validate`, bounds in `ValidateFactoryArguments`'

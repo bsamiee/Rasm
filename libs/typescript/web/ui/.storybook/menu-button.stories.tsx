@@ -1,6 +1,6 @@
 import { fn } from 'storybook/test';
 import preview from '#/.storybook/preview';
-import { MenuButton } from '#/collection/menu-button';
+import { MenuButton } from '#/menu-button';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

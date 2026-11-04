@@ -29,15 +29,15 @@ public sealed class Preference<T> {
 
     public IO<T> Read { get; }
 
-    public IO<Unit> Write(T value) =>
-        from held in Read
-        from written in unless(same(held, value), write(value) >> when(signal.IsNone, IO.lift(() => Written?.Invoke(this, EventArgs.Empty))).As()).As()
-        select unit;
+    public IO<Unit> Write(T value) => Read.Bind(held => Replaced(held, value));
 
     public IO<IO<Unit>> Swap(T value) =>
         from prior in Read
-        from written in Write(value)
+        from written in Replaced(prior, value)
         select Write(prior);
+
+    private IO<Unit> Replaced(T prior, T value) =>
+        unless(same(prior, value), write(value) >> when(signal.IsNone, IO.lift(() => Written?.Invoke(this, EventArgs.Empty))).As()).As();
 
     public IO<Unit> Changed(Func<T, IO<Unit>> react) =>
         signal.IfNone(() => Subscriptions.Inline<EventHandler, EventArgs>(handler => Written += handler, handler => Written -= handler, static handler => handler.Invoke).Choose(static _ => Some(unit)))
@@ -94,7 +94,7 @@ public static class Preferences {
 
     public static Preference<T> Document<T>(RhinoDoc doc, DocumentKey key, T fallback) where T : notnull =>
         new(
-            UserStrings.Value(doc, key).Map(text => Decoded(key.Text, text, fallback)),
+            UserStrings.Value(doc, key).Bind(text => IO.lift(Decoded(key.Text, text, fallback))),
             value => UserStrings.Write(doc, key, Encoded(value, fallback)).Map(static _ => unit),
             Some(Subscriptions.On<RhinoDoc.UserStringChangedArgs>(static h => RhinoDoc.UserStringChanged += h, static h => RhinoDoc.UserStringChanged -= h)
                 .Documents(static args => args.Document).In(doc.RuntimeSerialNumber).Choose(static _ => Some(unit))));
@@ -108,13 +108,13 @@ public static class Preferences {
     public static Preference<T> Object<T>(RhinoObject owner, string key, T fallback) where T : notnull =>
         (Doc: owner.Document, owner.Id) switch {
             var (doc, id) => new(
-                IO.lift(() => Conversions.Required(doc.Objects.FindId(id))).Map(found => Decoded(key, Conversions.Present(found.Attributes.GetUserString(key)), fallback)),
+                IO.lift(() => Conversions.Required(doc.Objects.FindId(id))).Bind(found => IO.lift(Decoded(key, Conversions.Present(found.Attributes.GetUserString(key)), fallback))),
                 value =>
-                    from found in IO.lift(() => Conversions.Required(doc.Objects.FindId(id)))
-                    from staged in IO.lift(() => found.Attributes.Duplicate())
-                    from strung in UserStrings.Write(UserStrings.Of(staged.GetUserStrings()), staged.SetUserString, toHashMap<EqStringOrdinalIgnoreCase, string, Option<string>>(Seq((key, Encoded(value, fallback)))))
-                    from modified in Products.Accepted(() => doc.Objects.ModifyAttributes(found, staged, quiet: true))
-                    select unit,
+                    (from found in IO.lift(() => Conversions.Required(doc.Objects.FindId(id)))
+                     from staged in use(() => found.Attributes.Duplicate())
+                     from strung in UserStrings.Write(UserStrings.Of(staged.GetUserStrings()), staged.SetUserString, toHashMap<EqStringOrdinalIgnoreCase, string, Option<string>>(Seq((key, Encoded(value, fallback)))))
+                     from modified in Products.Accepted(() => doc.Objects.ModifyAttributes(found, staged, quiet: true))
+                     select unit).Bracket(),
                 Some(Subscriptions.On<RhinoModifyObjectAttributesEventArgs>(static h => RhinoDoc.ModifyObjectAttributes += h, static h => RhinoDoc.ModifyObjectAttributes -= h)
                     .Choose(args => Conversions.Present(args.RhinoObject.Id == id && args.Document.RuntimeSerialNumber == doc.RuntimeSerialNumber, unit)))),
         };
@@ -128,13 +128,13 @@ public static class Preferences {
             .Map(Restored);
 
     public static IO<Unit> Hold(params Seq<IO<IO<Unit>>> swaps) =>
-        Swap(swaps).Bind(static restore => Products.Released(() => Session.Run(restore))).Scoped();
+        Swap(swaps).Bind(Products.Released).Scoped();
 
     private static IO<Unit> Restored(Seq<IO<Unit>> restores) => Products.Each(restores).Map(static _ => unit);
 
     // --- [CODEC]
-    private static T Decoded<T>(string key, Option<string> text, T fallback) where T : notnull =>
-        text.Bind(held => ArchivableDictionaries.Decoded(key, () => JsonSerializer.Deserialize<T>(held, ArchivableDictionaries.Options)).ToOption()).IfNone(fallback);
+    private static Fin<T> Decoded<T>(string key, Option<string> text, T fallback) where T : notnull =>
+        text.Match(Some: held => ArchivableDictionaries.Decoded(key, () => JsonSerializer.Deserialize<T>(held, ArchivableDictionaries.Options)), None: () => fallback);
 
     private static Option<string> Encoded<T>(T value, T fallback) where T : notnull =>
         (JsonSerializer.Serialize(value, ArchivableDictionaries.Options), JsonSerializer.Serialize(fallback, ArchivableDictionaries.Options)) switch {

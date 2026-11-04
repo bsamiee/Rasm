@@ -134,7 +134,7 @@ where P: IntoIterator<Item = usize> {
             }
             (outside, layered)
         });
-        let declared = groups.iter().filter_map(|group| layered.remove(&*group.name).map(|members| (group.clone(), members))).collect::<Vec<_>>();
+        let declared = groups.iter().filter_map(|(_, group)| layered.remove(&*group.name).map(|members| (group.clone(), members))).collect::<Vec<_>>();
         let undeclared = layered.into_iter().map(|(name, members)| (Group { name: Arc::from(name), print: Visibility::Visible, view: Visibility::Visible }, members));
         let grouped = iter::chain(declared, undeclared)
             .map(|(Group { name, print, view }, members)| drawn(&name, &members).map(|elements| Layer { name, print, view, elements }))

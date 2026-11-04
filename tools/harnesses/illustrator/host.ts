@@ -1,17 +1,17 @@
 import { matchesGlob } from 'node:path';
-import { Automation } from '@rasm/automation/automation';
+import { Automation } from '@rasm/automation/node';
 import { parse } from 'acorn';
 import { findNodeAt } from 'acorn-walk';
 import { Array, DateTime, Effect, FileSystem, Number, Option, Path, Record, Result, Schema, Struct } from 'effect';
 import jsesc from 'jsesc';
 import { crashes, HOME, REPORTER, uxp } from '#/adobe';
-import { HarnessError, thrown } from '#/error';
-import { Engine, HostCase, HostOutcome, type Install, PASTEBOARD, type Placed, Reply, Sent, Survey } from '#/illustrator/contract';
+import { HarnessError, thrown } from '#/harness-error';
+import { Engine, HostCase, HostOutcome, type Install, PASTEBOARD, Reply, Sent, Survey } from '#/illustrator/contract';
 import { precondition } from '#/illustrator/precondition';
 import { checked, Launched, output, plist } from '#/instance';
 import { copied } from '#/precondition';
 import { failing, lifetime, lined, local, type Rule } from '#/report';
-import { type Batch, type Host as Harness, type Installed, type Instance, installation, type Live } from '#/session';
+import { type Batch, Harness, type Installed, type Instance, installation, type Live } from '#/session';
 import { assembled, EXTENDSCRIPT, engineOf } from '#/source';
 import { JsonObject } from '#/values';
 
@@ -59,12 +59,6 @@ const installed = Effect.gen(function* () {
         rows.filter((row) => row.scriptable && row.identifier.startsWith('com.adobe.illustrator')),
         (row) => installation(row, rows, [REPORTER]),
     );
-});
-const launch = Effect.fn('launch')(function* (_: Installed, scratch: string) {
-    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-    const owned = path.join(scratch, 'owned.svg');
-    yield* fs.writeFileString(owned, '<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"/>');
-    return new Launched({ documents: [owned] });
 });
 
 // --- [INSTANCE]
@@ -185,7 +179,7 @@ const quit = Effect.fn('quit')(function* (live: Live) {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const Host = {
+const illustrator = Harness({
     Engine,
     assembled: ENGINE,
     survey: { question: 'Enumerations, startup presets, readonly application members, methods, open options, build, locale, feature flags, and outside plug-ins the installation holds', Schema: Survey },
@@ -196,15 +190,15 @@ const Host = {
     placed: copied,
     refusal,
     installed,
-    launch,
+    launch: () => Effect.succeed(new Launched({})),
     opened,
     send,
     quit,
     logs: (instance) =>
         Effect.map(crashes(instance), (found): readonly Rule[] => [{ kind: 'host', pattern: `Library/Logs/Adobe/${logFolder(instance.chosen.version)}/{AIGeneral.log,AIHangMonitor.log,Illustrator*Session_*_PID${instance.pid}.log}`, root: HOME, text: lined(sessions) }, uxp(logFolder(instance.chosen.version)), ...found]),
     canonical: (file, bytes) => Effect.succeed([VOLATILE.extensions.some((extension) => file.endsWith(extension)) ? VOLATILE.patterns.reduce((text, pattern) => text.replace(pattern, ''), new TextDecoder('latin1').decode(bytes)) : bytes]),
-} as const satisfies Harness<typeof Survey.Type, typeof HostCase.Type, typeof Engine.Type, typeof Placed.Type>;
+});
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Host };
+export { illustrator };

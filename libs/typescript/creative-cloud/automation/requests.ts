@@ -1,7 +1,12 @@
-import { Unmatched } from '@rasm/search/unmatched';
+import { Unmatched } from '@rasm/search';
 import { Array, Cause, Context, Effect, Option, Schema, SchemaTransformation, String, Struct } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
 import { LongestSide } from '#/applications';
+import { HostError } from '#/host-error';
+
+// --- [TYPES] ---------------------------------------------------------------------------
+
+type Requests = RpcGroup.Rpcs<typeof Requests>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -10,7 +15,6 @@ const BODY = 'function body() {';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Messaged = Schema.Struct({ message: Schema.String });
 const Member = Schema.Struct({
     name: Schema.String,
     type: Schema.OptionFromOptionalKey(Schema.String),
@@ -89,19 +93,6 @@ class ObjectModel extends Schema.Class<ObjectModel, { readonly brand: unique sym
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-class HostError extends Schema.TaggedError<HostError, { readonly brand: unique symbol }>()('HostError', {
-    reason: Schema.TaggedUnion({ Refused: {}, Unavailable: {}, Cancelled: {}, Thrown: { line: Schema.OptionFromOptionalKey(Schema.Int.annotate({ description: 'Body line that threw' })) } }),
-    subject: Schema.String,
-    cause: Schema.optionalKey(Schema.Defect()),
-}) {
-    static readonly refused = (subject: string) => (cause?: unknown) => HostError.make({ reason: { _tag: 'Refused' }, subject, ...(cause === undefined ? {} : { cause }) });
-    static readonly thrown = (subject: string, line: Option.Option<number>) => (cause: unknown) => HostError.make({ reason: { _tag: 'Thrown', line }, subject, cause });
-
-    override get message(): string {
-        const said = Schema.is(Messaged)(this.cause) ? [this.cause.message] : [];
-        return HostError.fields.reason.guards.Thrown(this.reason) ? [...Option.toArray(this.reason.line).map((at) => `line ${at}`), this.subject].join(': ') : [`${this.subject} ${String.toLowerCase(this.reason._tag)}`, ...said].join(': ');
-    }
-}
 const IllegalArgument = Schema.declare(Cause.isIllegalArgumentError, {
     expected: 'IllegalArgumentError',
     toCodecJson: () => Schema.link<Cause.IllegalArgumentError>()(Schema.TaggedStruct('IllegalArgumentError', { message: Schema.String }), SchemaTransformation.transform({ decode: ({ message }) => new Cause.IllegalArgumentError(message), encode: ({ message }) => ({ _tag: 'IllegalArgumentError' as const, message }) })),
@@ -119,4 +110,4 @@ const Requests = RpcGroup.make(request(EXECUTE_SCRIPT, ExecuteScript), request('
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ExecuteScript, HostError, ObjectModel, Open, Reference, Render, Requests, request };
+export { ExecuteScript, ObjectModel, Open, Reference, Render, Requests, request };

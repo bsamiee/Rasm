@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-collect-by-entries
-language: tsx
+language: tsxlang
 severity: error
 utils:
     entries:
@@ -32,4 +32,4 @@ rule:
             - has: {field: function, matches: record-values}
             - has: {field: arguments, all: [{has: {nthChild: 1, matches: record-map}}, {not: {has: {nthChild: 2}}}]}
 message: '`$ENTRIES` builds an intermediate collection to map record entries to an array'
-note: 'Call `Record.collect(<record>, (<key>, <value>) => <element>)` over a `Record.filter` for a filtered map, `Record.keys` or `Record.values` for keys or values alone, `Record.mapEntries` to build a record'
+note: 'Call `Record.collect`, `Record.keys`, or `Record.values` for an array, `Record.mapEntries` for a record'

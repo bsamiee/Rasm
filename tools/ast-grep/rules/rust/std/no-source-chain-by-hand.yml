@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-source-chain-by-hand
-language: rust
+language: rustlang
 severity: error
 utils:
     source-step:
@@ -18,7 +18,6 @@ utils:
             - has: {field: arguments, all: [{has: {nthChild: 1, pattern: Some($E)}}, {has: {nthChild: 2, matches: source-step}}, {not: {has: {nthChild: 3}}}]}
     cursor-loop:
         kind: while_expression
-        pattern: $LOOP
         all:
             - has: {field: condition, kind: let_condition, all: [{has: {field: pattern, kind: tuple_struct_pattern, all: [{has: {field: type, regex: '^Some$'}}, {has: {nthChild: 2, kind: identifier, pattern: $CAUSE}}]}}, {has: {field: value, kind: identifier, pattern: $CURRENT}}]}
             - has:
@@ -34,9 +33,5 @@ rule:
     any:
         - matches: successors
         - matches: cursor-loop
-transform:
-    RECEIVER: {replace: {source: $E, replace: '^([&*][\s\S]*|[\s\S]*\sas\s[\s\S]*)$', by: '($1)'}}
-    SOURCES: {replace: {source: $E, replace: '^[\s\S]+$', by: '.sources()'}}
-fix: $RECEIVER$SOURCES$LOOP
 message: '`$E$CURRENT` walks its error source chain by hand'
 note: 'Iterate `<error>.sources()` on the `&dyn Error` (`#![feature(error_iter)]`)'

@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Runtime.CompilerServices;
 using Rasm.Rhino;
+using Rasm.Rhino.Modeling.Curves;
 
 namespace Arches;
 
@@ -26,16 +27,24 @@ internal sealed record ArchSpan {
 [SmartEnum]
 internal sealed partial class ArchReason {
     public static readonly ArchReason Planeless = new("baseline and normal spanning no plane");
-    public static readonly ArchReason SpanNarrow = new("span admitting no rise ratio of the arch type");
-    public static readonly ArchReason RiseOutside = new("rise outside the rises the span admits");
-    public static readonly ArchReason LobesOutside = new("lobe count outside the counts the arch admits");
+    public static readonly ArchReason SpanNarrow = new("span has no usable rise ratio");
+    public static readonly ArchReason RiseOutside = new("rise outside the span's range");
+    public static readonly ArchReason LobesOutside = new("lobe count outside the arch's set");
 
     public string Message { get; }
 }
 
-internal sealed record ArchFault(string Subject, ArchReason Reason) : Expected($"{Reason.Message}: {Subject}", 0) {
+internal sealed record ArchFault(object? Subject, ArchReason Reason, string Expression = "") : Expected(Reason.Message, 0) {
+    public object? Subject { get; } = Subject;
+    public ArchReason Reason { get; } = Reason;
+    public string Expression { get; } = Expression;
+
+    public override string Message => Expression.Length is 0
+        ? string.Create(CultureInfo.InvariantCulture, $"{Reason.Message}: {Subject}")
+        : string.Create(CultureInfo.InvariantCulture, $"{Reason.Message}: {Expression} = {Subject}");
+
     public static Fin<Unit> Unless<T>(bool flag, ArchReason reason, T rejected, [CallerArgumentExpression(nameof(rejected))] string names = "") =>
-        flag ? unit : new ArchFault(string.Create(CultureInfo.InvariantCulture, $"{names} = {rejected}"), reason);
+        flag ? unit : new ArchFault(rejected, reason, names);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -155,9 +164,8 @@ internal static class ArchGeometry {
         Products.Many<Curve>(() => [NurbsCurve.CreateParabolaFromVertex(apex, span.Baseline.From, span.Baseline.To)]);
 
     internal static IO<Seq<Curve>> Elliptical(ArchSpan span, Point3d apex) =>
-        from ellipse in Products.Of(() => new Ellipse(new Plane(span.Midpoint, -span.Frame.XAxis, apex - span.Midpoint), span.Baseline.Length / 2, span.Midpoint.DistanceTo(apex)).ToNurbsCurve())
-        from half in Products.Many<Curve>(() => [ellipse.Trim(0d, double.Pi)])
-        select half;
+        new Ellipse(new Plane(span.Midpoint, -span.Frame.XAxis, apex - span.Midpoint), span.Baseline.Length / 2, span.Midpoint.DistanceTo(apex))
+            .ToNurbs(new Interval(0d, double.Pi)).Map(static curve => Seq<Curve>(curve));
 
     private static IO<Seq<Curve>> FourCentered(ArchSpan span, Plane frame, double haunchRadius, Point3d crown) {
         Point3d haunch = span.Baseline.To - (frame.XAxis * haunchRadius);
@@ -176,15 +184,17 @@ internal static class ArchGeometry {
     }
 
     internal static IO<Seq<Curve>> Foils(ArchSpan span, bool pointed, int lobes, bool pointedCrown) {
-        double divisions = lobes - 1;
+        int divisions = lobes - 1;
         Arc guide = FoilGuide(span, pointed, divisions);
-        Func<double, Point3d> at = index => guide.PointAt(guide.AngleDomain.ParameterAt(index / divisions));
-        Line crownLine = new(Transform.Mirror(guide.EndPoint, span.Frame.XAxis) * at(divisions - 1), at(divisions - 1));
-        return Symmetric(span, FoilSpringing(span.Frame, at(0), at(1))
-            .Cons(Range(1, (lobes - 2) / 2, 2).ToSeq().Map(index => FoilLobe(span.Frame, at(index + 1), at(index), at(index + 2))))
+        Seq<Point3d> points = Range(0, divisions).ToSeq().Map(index => guide.PointAt(guide.AngleDomain.ParameterAt((double)index / divisions))).Strict();
+        Point3d guideEnd = guide.EndPoint;
+        Point3d crownStart = points[^1];
+        Line crownLine = new(Transform.Mirror(guideEnd, span.Frame.XAxis) * crownStart, crownStart);
+        return Symmetric(span, FoilSpringing(span.Frame, points[0], points[1])
+            .Cons(Range(1, (lobes - 2) / 2, 2).ToSeq().Map(index => FoilLobe(span.Frame, points[index + 1], points[index], points[index + 2])))
             .Add(pointedCrown
                 ? new Arc(new Plane(crownLine.From, crownLine.Direction, Vector3d.CrossProduct(span.Frame.ZAxis, crownLine.Direction)), crownLine.Length, double.Pi / 3)
-                : new Arc(new Circle(span.Frame, at(divisions), at(divisions).DistanceTo(at(divisions - 1))), new Interval(-Vector3d.VectorAngle(span.Frame.XAxis, at(divisions - 1) - at(divisions)), double.Pi / 2))));
+                : new Arc(new Circle(span.Frame, guideEnd, guideEnd.DistanceTo(crownStart)), new Interval(-Vector3d.VectorAngle(span.Frame.XAxis, crownStart - guideEnd), double.Pi / 2))));
     }
 
     private static Arc FoilGuide(ArchSpan span, bool pointed, double divisions) {
@@ -202,8 +212,13 @@ internal static class ArchGeometry {
     // --- [SYMMETRY]
     private static IO<Seq<Curve>> Symmetric(ArchSpan span, Seq<Arc> arcs) =>
         Transform.Mirror(span.Midpoint, span.Frame.XAxis) switch {
-            var mirror => Products.Many(() => arcs.Bind(arc => Seq(
-                new Arc(mirror * arc.StartPoint, mirror * arc.MidPoint, mirror * arc.EndPoint),
-                new Arc(arc.EndPoint, arc.MidPoint, arc.StartPoint))).Map(static arc => (Curve)new ArcCurve(arc))),
+            var mirror => Products.Each(arcs.Map(arc => Products.Accepted(() => {
+                Arc reflected = arc;
+                return (reflected.Transform(mirror), reflected);
+            }).Map(reflected => {
+                Arc reversed = arc;
+                reversed.Reverse();
+                return Seq(reflected, reversed);
+            }))).Bind(static pairs => Products.Many(() => pairs.Flatten().Map(static arc => (Curve)new ArcCurve(arc)))),
         };
 }

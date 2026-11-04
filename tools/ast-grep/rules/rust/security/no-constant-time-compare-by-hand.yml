@@ -1,14 +1,33 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-constant-time-compare-by-hand
-language: rust
+language: rustlang
 severity: error
 utils:
+    left-byte:
+        any: [{kind: identifier, pattern: $LEFT}, {kind: unary_expression, pattern: '*$LEFT'}]
+    right-byte:
+        any: [{kind: identifier, pattern: $RIGHT}, {kind: unary_expression, pattern: '*$RIGHT'}]
     xor:
         any:
             - kind: binary_expression
-              has: {field: operator, regex: '^\^$'}
+              all:
+                - has: {field: operator, regex: '^\^$'}
+                - inside:
+                    kind: closure_expression
+                    stopBy: {kind: closure_expression}
+                    has:
+                        field: parameters
+                        has:
+                            kind: tuple_pattern
+                            all:
+                                - has: {nthChild: 1, any: [{kind: identifier, pattern: $LEFT}, {kind: reference_pattern, has: {kind: identifier, pattern: $LEFT}}]}
+                                - has: {nthChild: 2, any: [{kind: identifier, pattern: $RIGHT}, {kind: reference_pattern, has: {kind: identifier, pattern: $RIGHT}}]}
+                                - not: {has: {nthChild: 3}}
+                - any:
+                    - all: [{has: {field: left, matches: left-byte}}, {has: {field: right, matches: right-byte}}]
+                    - all: [{has: {field: right, matches: left-byte}}, {has: {field: left, matches: right-byte}}]
             - kind: parenthesized_expression
-              has: {kind: binary_expression, has: {field: operator, regex: '^\^$'}}
+              has: {matches: xor}
     zero:
         kind: integer_literal
         regex: '^0(_?[ui](8|16|32|64|128|size))?$'
@@ -48,8 +67,8 @@ utils:
                         - has: {field: parameters, has: {nthChild: 1, kind: identifier, pattern: $ACC}}
                         - has: {field: parameters, has: {nthChild: 2, kind: tuple_pattern}}
                         - has: {field: body, any: [{matches: or-of-xor}, {kind: block, has: {matches: or-of-xor}}]}
-            - matches: fold-call
-              all:
+            - all:
+                - matches: fold-call
                 - has: {field: function, has: {field: value, matches: xor-map}}
                 - has:
                     field: arguments
@@ -60,8 +79,8 @@ utils:
                             - has: {field: parameters, has: {nthChild: 1, kind: identifier, pattern: $ACC}}
                             - has: {field: parameters, has: {nthChild: 2, kind: identifier, pattern: $ITEM}}
                             - has: {field: body, any: [{matches: or-of-item}, {kind: block, has: {matches: or-of-item}}]}
-            - matches: fold-call
-              all:
+            - all:
+                - matches: fold-call
                 - has: {field: function, has: {field: value, matches: xor-map}}
                 - has: {field: arguments, has: {nthChild: 2, matches: bit-or-path}}
             - kind: call_expression
@@ -78,39 +97,73 @@ utils:
                                 - has: {field: parameters, has: {nthChild: 1, kind: identifier, pattern: $ACC}}
                                 - has: {field: parameters, has: {nthChild: 2, kind: identifier, pattern: $ITEM}}
                                 - has: {field: body, any: [{matches: or-of-item}, {kind: block, has: {matches: or-of-item}}]}
-            - kind: compound_assignment_expr
-              all:
-                - has: {field: operator, regex: '^\|=$'}
-                - has: {field: right, matches: xor}
-                - matches: loop-statement
-            - kind: assignment_expression
-              all:
-                - has: {field: left, pattern: $ACC}
-                - has: {field: right, matches: or-of-xor}
-                - matches: loop-statement
     bit-or-path:
         kind: scoped_identifier
         regex: '^((::)?(std|core)::)?(ops::)?BitOr::bitor$|^(u8|u16|u32|u64|u128|usize)::bitor$'
-    for-each-body:
-        inside:
-            kind: closure_expression
-            field: body
-            inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, kind: field_expression, has: {field: field, regex: '^for_each$'}}}}
-    loop-statement:
+    paired-iterator:
+        kind: call_expression
         any:
-            - matches: for-each-body
-            - inside:
-                kind: expression_statement
-                inside:
-                    kind: block
-                    all:
-                        - any:
-                            - inside: {kind: 'for_expression, while_expression, loop_expression', field: body}
-                            - matches: for-each-body
-                        - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}
+            - pattern: $A.iter().zip($B.iter())
+            - pattern: $A.iter().zip($B)
+            - pattern: iter::zip($A, $B)
+            - pattern: std::iter::zip($A, $B)
+            - pattern: core::iter::zip($A, $B)
+    comparison-value:
+        any:
+            - pattern: $COMPARE
+            - kind: parenthesized_expression
+              has: {matches: comparison-value}
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^unwrap_or$'}}, {has: {field: value, matches: comparison-value}}]}
+                - has: {field: arguments, has: {nthChild: 1, matches: zero}, not: {has: {nthChild: 2}}}
+    byte-slice:
+        kind: reference_type
+        has: {field: type, kind: array_type, has: {field: element, kind: primitive_type, regex: '^u8$'}}
+    length-test:
+        kind: binary_expression
+        all:
+            - has: {field: operator, pattern: $$OP}
+            - any:
+                - all: [{has: {field: left, pattern: $A.len()}}, {has: {field: right, pattern: $B.len()}}]
+                - all: [{has: {field: left, pattern: $B.len()}}, {has: {field: right, pattern: $A.len()}}]
 rule:
-    kind: 'call_expression, compound_assignment_expr, assignment_expression'
+    kind: call_expression
     pattern: $COMPARE
-    matches: xor-or-fold
-message: '`$COMPARE` compares two byte sequences through an XOR-OR fold by hand'
+    all:
+        - matches: xor-or-fold
+        - has:
+            field: function
+            has:
+                field: value
+                any:
+                    - matches: paired-iterator
+                    - matches: xor-map
+                      has: {field: function, has: {field: value, matches: paired-iterator}}
+        - inside:
+            kind: binary_expression
+            stopBy: {kind: 'function_item, closure_expression, block'}
+            all:
+                - has: {field: operator, pattern: $$OP, regex: '^(==|!=)$'}
+                - has: {matches: zero}
+                - has: {matches: comparison-value}
+        - inside:
+            kind: function_item
+            stopBy: {kind: function_item}
+            has:
+                field: parameters
+                all:
+                    - has: {kind: parameter, all: [{has: {field: pattern, pattern: $A}}, {has: {field: type, matches: byte-slice}}]}
+                    - has: {kind: parameter, all: [{has: {field: pattern, pattern: $B}}, {has: {field: type, matches: byte-slice}}]}
+        - inside:
+            kind: binary_expression
+            stopBy: {kind: 'function_item, closure_expression, block'}
+            any:
+                - all:
+                    - has: {field: operator, regex: '^&&$'}
+                    - has: {matches: length-test, has: {field: operator, regex: '^==$'}}
+                - all:
+                    - has: {field: operator, regex: '^\|\|$'}
+                    - has: {matches: length-test, has: {field: operator, regex: '^!=$'}}
+message: '`$COMPARE` compares byte slices `$A` and `$B` through an XOR-OR reduction'
 note: 'Call `aws_lc_rs::constant_time::verify_slices_are_equal(<a>, <b>)` and treat `Err` as unequal bytes or lengths'

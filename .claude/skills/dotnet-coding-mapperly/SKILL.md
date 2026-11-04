@@ -7,7 +7,7 @@ description: "Use when writing or reviewing a Mapperly mapper, covering mapping 
 
 Covers mapping at the host boundary with `Riok.Mapperly`.
 
-Mapperly generates each mapping at build time as ordinary member assignments, with no reflection, expression compilation, or hidden allocation:
+Mapperly generates member assignments at build time. New targets and converted collections allocate, generated assignments need no runtime reflection or expression compilation:
 - Unmapped members report a diagnostic
 - Mapperly sees no member another source generator emits into the same compilation, a referenced assembly exposes generated members as metadata
 - `ImplicitCast` and `MapNestedProperties` miss the operators generated for a value object in the mapper's compilation
@@ -86,7 +86,7 @@ MSBuild property, `[assembly: MapperDefaults]`, `[Mapper]`, and the per-method a
 External mappings stay local to the mapper that consumes them, and assembly-wide registrations expose only disjoint pairs:
 - Configuration inclusion copies configuration alone and needs identical direction, member meaning, null policy, and omissions
 - Additional parameters hold immutable values the boundary resolved and fill the same-named target member ahead of a source member
-- Additional parameters forward by name to the parameters of nested user mappings and `Use` methods
+- Additional parameters flow into nested mappings and `Use` methods by normalized name, pass culture and policy once at the root mapping
 - Type pairs shared between mappers belong in one `internal static class` reached through `[UseStaticMapper(typeof(T))]`
 - `UseStaticMapperAttribute<T>` over a static class fails with CS0718
 - Private `[UserMapping]` methods stay for a mapper-local pair

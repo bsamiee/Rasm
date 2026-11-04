@@ -6,8 +6,7 @@ import msgspec
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type _Feature = Annotated[str, msgspec.Meta(pattern=r"^[a-z0-9]{4}$")]
-type _LanguageSystem = Annotated[str, msgspec.Meta(pattern=r"^[A-Za-z]{4}/[A-Za-z ]{4}$")]
+type Tag = Annotated[str, msgspec.Meta(min_length=4, max_length=4, pattern=r"\A[!-~]+ *\Z")]
 type _GlyphClass = tuple[str, ...]
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -22,53 +21,25 @@ class Adjustment(msgspec.Struct, frozen=True, kw_only=True):
     advance: int = 0
 
 
-class _Chain(msgspec.Struct, frozen=True, kw_only=True):
-    """Chaining rule context: backtrack, input, and lookahead glyph classes."""
+class Chain[T](msgspec.Struct, frozen=True, kw_only=True):
+    """Chaining context with each input glyph class paired with its replacement or adjustment."""
 
     backtrack: tuple[_GlyphClass, ...] = ()
-    input: tuple[_GlyphClass, ...]
+    input: tuple[tuple[_GlyphClass, T], ...]
     lookahead: tuple[_GlyphClass, ...] = ()
-
-
-class Context(_Chain, frozen=True, kw_only=True):
-    """Chaining substitution rule, one replacement glyph per input position."""
-
-    replacement: tuple[str, ...]
-
-    def __post_init__(self) -> None:
-        """Refuses a replacement count other than the input count.
-
-        Raises:
-            ValueError: If replacement and input differ in length.
-        """
-        if len(self.replacement) != len(self.input):
-            raise ValueError(self)
-
-
-class Lift(_Chain, frozen=True, kw_only=True):
-    """Chaining positioning rule, one optional adjustment per input position, the first input a letter."""
-
-    adjustments: tuple[Adjustment | None, ...]
-
-    def __post_init__(self) -> None:
-        """Refuses an adjustment count other than the input count.
-
-        Raises:
-            ValueError: If adjustments and input differ in length.
-        """
-        if len(self.adjustments) != len(self.input):
-            raise ValueError(self)
 
 
 # --- [LOOKUPS]
 
 
 class _Lookup(msgspec.Struct, frozen=True, kw_only=True, tag_field="kind", tag=str.lower):
-    """Lookup under a feature tag, its language systems (empty for every registered one), and its emission order."""
+    """Lookup shared by feature tags and their language systems, with native order and mark qualifiers."""
 
-    feature: _Feature
-    languages: tuple[_LanguageSystem, ...] = ()
+    features: frozendict[Tag, frozendict[tuple[Tag, Tag], bool]]
     order: int = 0
+    flags: int = 0
+    mark_attachment: frozenset[str] | None = None
+    mark_filtering: frozenset[str] | None = None
 
 
 class Single(_Lookup, frozen=True, kw_only=True):
@@ -78,7 +49,7 @@ class Single(_Lookup, frozen=True, kw_only=True):
 
 
 class Ligatures(_Lookup, frozen=True, kw_only=True):
-    """GSUB ligature substitution from component sequences."""
+    """Ordered GSUB ligature substitutions, first matching component sequence applied."""
 
     rules: tuple[tuple[tuple[str, ...], str], ...]
 
@@ -86,7 +57,7 @@ class Ligatures(_Lookup, frozen=True, kw_only=True):
 class Contextual(_Lookup, frozen=True, kw_only=True):
     """GSUB chaining contextual substitution."""
 
-    rules: tuple[Context, ...]
+    rules: tuple[Chain[str], ...]
 
 
 class Positions(_Lookup, frozen=True, kw_only=True):
@@ -96,19 +67,19 @@ class Positions(_Lookup, frozen=True, kw_only=True):
 
 
 class Pairs(_Lookup, frozen=True, kw_only=True):
-    """GPOS pair adjustment, `kern` pairs written as kerning groups."""
+    """Native GPOS pair placement and advance, retaining independent coordinates and lookup stages."""
 
     values: frozendict[tuple[str, str], Adjustment]
 
 
 class Lifts(_Lookup, frozen=True, kw_only=True):
-    """GPOS chaining contextual positioning, emitted in `mark` ahead of the generated mark lookups."""
+    """GPOS chaining contextual positioning, emitted in `mark` after generated attachment lookups."""
 
-    rules: tuple[Lift, ...]
+    rules: tuple[Chain[Adjustment | None], ...]
 
 
 type Lookups = Single | Ligatures | Contextual | Positions | Pairs | Lifts
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Adjustment", "Context", "Contextual", "Lift", "Lifts", "Ligatures", "Lookups", "Pairs", "Positions", "Single"]
+__all__ = ["Adjustment", "Chain", "Contextual", "Lifts", "Ligatures", "Lookups", "Pairs", "Positions", "Single", "Tag"]

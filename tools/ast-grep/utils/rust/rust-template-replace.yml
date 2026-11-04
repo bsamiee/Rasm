@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: rust-template-replace
-language: rust
+language: rustlang
 utils:
     placeholder:
         kind: string_literal

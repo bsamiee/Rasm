@@ -1,12 +1,12 @@
-"""Checks and fixes markdown pages and source comments."""
+"""Checks and fixes Markdown and source comments."""
 
-from functools import cache
 from pathlib import Path
 from typing import override
 lazy from bisect import bisect_right
 lazy from collections.abc import Callable, Iterable, Iterator
 lazy from functools import reduce
 lazy from itertools import accumulate, groupby, pairwise, starmap, takewhile
+lazy import shlex
 lazy import subprocess
 lazy import sys
 
@@ -17,33 +17,34 @@ from markdown_it.tree import SyntaxTreeNode
 from mdit_py_plugins.front_matter import front_matter_plugin
 import msgspec
 import regex
-lazy from editorconfig import get_properties
-lazy from expression.extra.result import catch
 lazy from markdown_it.helpers import parseLinkDestination, parseLinkLabel, parseLinkTitle
 lazy from markdown_it.rules_block.table import escapedSplit
 lazy from markdown_it.rules_inline import StateInline
 lazy from markdown_it.token import Token
-lazy from pygments.lexers import find_lexer_class_by_name, get_lexer_for_filename
-lazy from pygments.lexers.special import TextLexer
+lazy from pygments.lexers import get_lexer_for_filename
 lazy from pygments.token import Comment, is_token_subtype
-lazy from pygments.util import ClassNotFound
 lazy from wcwidth import wcswidth
+
+# --- [TYPES] ----------------------------------------------------------------------------
+
+type _Comments = tuple[_Directive | _Divider, ...]
+type _MappedNode = tuple[SyntaxTreeNode, tuple[int, int]]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _LEADER = regex.compile(r"(?P<chain>\[[^\]]*\](?:-\[[^\]]*\])*)(?:\((?P<path>[^)]*)\):|:?) ")
-_DIVIDER = regex.compile(r"--- (?P<tok>\[[^\]]+\]).*?(?P<fill> -+)?")
+_DIVIDER = regex.compile(r"--- (?P<label>\[[^\]]+\]).*?(?P<fill> -+)?")
 _DIRECTIVE = regex.compile(r"@?[a-z][a-z0-9-]*(?::|-(?:ignore|disable|enable|expect-error|nocheck)\b| (?:disable|enable)\b)|noqa\b")
-_LEAVES = frozenset({"paragraph", "heading", "fence", "code_block", "table", "html_block", "hr", "front_matter"})
+_LEAVES = frozenset({"paragraph", "heading", "fence", "code_block", "table", "html_block", "hr", "front_matter", "definition"})
 _ALIGNS = frozendict({"text-align:center": (":-:", "^"), "text-align:right": ("-:", ">")})
 _WIDTH = 150
-_MARKDOWN = MarkdownIt("commonmark").enable("table").use(front_matter_plugin).disable(["text_join", "reference"])
+_MARKDOWN = MarkdownIt("commonmark", {"inline_definitions": True, "store_labels": True}).enable("table").use(front_matter_plugin).disable("text_join")
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class _Edit(msgspec.Struct, frozen=True, order=True):
-    """0-based line range and the lines replacing it."""
+    """0-based half-open line range and replacement lines."""
 
     start: int
     stop: int
@@ -51,7 +52,7 @@ class _Edit(msgspec.Struct, frozen=True, order=True):
 
 
 class _Text(msgspec.Struct, frozen=True):
-    """Text unit at a 0-based line, raw text after any leader, its prose outside code spans, and whether it must open with a capital."""
+    """Prose unit at a 0-based line, source after its leader, code spans excluded from prose, and capitalization rule."""
 
     line: int
     raw: str
@@ -59,40 +60,36 @@ class _Text(msgspec.Struct, frozen=True):
     capital: bool
 
 
-class _Note(msgspec.Struct, frozen=True):
-    """Full-line comment at a 0-based line, `head` its indent, a tool directive unless a case below."""
-
+class _Comment(msgspec.Struct, frozen=True):
     line: int
-    head: str
+    indent: str
     marker: str
+
+
+class _Directive(_Comment, frozen=True):
     body: str
 
     def fixed(self) -> str:
-        """Directive as written."""
-        return f"{self.head}{self.marker} {self.body}"
+        return f"{self.indent}{self.marker} {self.body}"
 
 
-class _Remark(_Note, frozen=True):
+class _Remark(_Directive, frozen=True):
     @override
     def fixed(self) -> str:
-        """Prose comment without emoji and closing punctuation."""
-        return f"{self.head}{self.marker} {_unpunctuated(_emoji(self.body))}"
+        return f"{self.indent}{self.marker} {_unpunctuated(_strip_emoji(self.body))}"
 
 
-class _Divider(_Note, frozen=True):
-    tok: str
+class _Divider(_Comment, frozen=True):
+    label: str
     full: bool
 
-    @override
     def fixed(self) -> str:
-        """Divider as `<marker> --- [TOKEN]` of label `tok`, filled to column 90 when `full` at file level, else unfilled."""
-        line = f"{self.head}{self.marker} --- {_token(self.tok)}"
-        return f"{line} ".ljust(90, "-") if self.full and not self.head else line
+        """File-level full dividers end at column 90; other dividers omit fill."""
+        line = f"{self.indent}{self.marker} --- {_label(self.label)}"
+        return f"{line} ".ljust(90, "-") if self.full and not self.indent else line
 
 
 class _Doc[T](msgspec.Struct, frozen=True):
-    """File lines, the parts its grammar parsed from them, and the count of edits that changed lines."""
-
     path: Path
     lines: tuple[str, ...]
     parts: T
@@ -100,22 +97,20 @@ class _Doc[T](msgspec.Struct, frozen=True):
 
 
 class _Grammar[T](msgspec.Struct, frozen=True):
-    """Parse, text units, fixes, and each report's message template of one file grammar."""
-
     parse: Callable[[Path, tuple[str, ...]], T]
     texts: Callable[[_Doc[T]], Iterable[_Text]]
     fixes: tuple[Callable[[_Doc[T]], Iterable[_Edit]], ...]
     reports: frozendict[Callable[[_Doc[T]], Iterable[tuple[int, str]]], str]
 
     def lint(self, path: Path) -> _Doc[tuple[str, ...]]:
-        """Lines of `path` after every fix, the count of edits that changed lines, and as parts each `path:line: message` the reports and `_TEXTS` make, in line order."""
+        """Returns normalized file lines, edit count, and `path:line: message` findings in line order."""
 
         def edited(doc: _Doc[T], fix: Callable[[_Doc[T]], Iterable[_Edit]]) -> _Doc[T]:
-            match sorted((edit for edit in fix(doc) if edit.lines != doc.lines[edit.start : edit.stop]), reverse=True):
+            match sorted(edit for edit in fix(doc) if edit.lines != doc.lines[edit.start : edit.stop]):
                 case []:
                     return doc
                 case changed:
-                    lines = reduce(lambda done, edit: (*done[: edit.start], *edit.lines, *done[edit.stop :]), changed, doc.lines)
+                    lines = (*(*(*doc.lines[start : edit.start], *edit.lines) for start, edit in zip((0, *(edit.stop for edit in changed)), changed)), *doc.lines[changed[-1].stop :])
                     return msgspec.structs.replace(doc, lines=lines, parts=self.parse(doc.path, lines), edits=doc.edits + len(changed))
 
         with path.open(encoding="utf-8") as file:
@@ -132,25 +127,24 @@ class _Grammar[T](msgspec.Struct, frozen=True):
 # --- [TEXT]
 
 
-def _token(word: str) -> str:
-    """`[NN]` for a number, `[UPPER_SNAKE]` for words, outer brackets dropped."""
+def _label(word: str) -> str:
+    """Numeric labels use `[NN]`, other labels use `[UPPER_SNAKE]`."""
     inner = regex.sub(r"\W+", "_", word.strip("[] ")).strip("_").upper()
     return f"[{int(inner):02}]" if inner.isdecimal() else f"[{inner}]"
 
 
-def _emoji(s: str) -> str:
+def _strip_emoji(s: str) -> str:
     """Text without emoji and one space beside each."""
     pictograph = "(?:\\p{Extended_Pictographic}[\\p{Emoji_Modifier}\ufe0f]*\u200d?)+"
     return regex.sub(rf" {pictograph}|{pictograph} ?", "", s)
 
 
 def _unpunctuated(s: str) -> str:
-    """Text without closing sentence punctuation."""
     return regex.sub(r"(?<=[^\s.,;!?])[.,;!?]+$", "", s)
 
 
-def _pieces(inline: SyntaxTreeNode) -> list[tuple[Token, str]]:
-    """Inline tokens with their source slices, the content partitioned in token order."""
+def _token_sources(inline: SyntaxTreeNode) -> list[tuple[Token, str, bool]]:
+    """Token/source slices in order; reference regions retain identifier spelling."""
     text, children = inline.content, [*child.to_tokens() for child in inline.children]
 
     def closed(label: int) -> int:
@@ -160,152 +154,173 @@ def _pieces(inline: SyntaxTreeNode) -> list[tuple[Token, str]]:
         title = parseLinkTitle(text, after, len(text))
         return text.index(")", title.pos if title.ok else after) + 1
 
-    def end(at: int, pair: tuple[Token | None, Token]) -> int:
-        match pair:
+    def referenced(label: int) -> int:
+        if not text.startswith("[", label + 1):
+            return label + 1
+        ending = parseLinkLabel(StateInline(text, _MARKDOWN, {}, []), label + 1)
+        return label + 1 if ending < 0 else ending + 1
+
+    at = 0
+    previous: Token | None = None
+    references: list[bool] = []
+    sources: list[tuple[Token, str, bool]] = []
+    for child in children:
+        own_reference = "label" in child.meta
+        if child.type == "link_open":
+            references.append(own_reference)
+        reference = any(references) or (child.type == "image" and own_reference)
+        match previous, child:
             case Token(type="link_open", markup="autolink"), Token(type="text"):
-                return at
+                stop = at
             case _, Token(type="code_inline", markup=run):
                 _, rest = regex.split(rf"(?<!`){run}(?!`)", text[text.index(run, at) + len(run) :], maxsplit=1)
-                return len(text) - len(rest)
+                stop = len(text) - len(rest)
             case _, Token(type="link_open", markup="autolink"):
-                return text.index(">", at)
+                stop = text.index(">", at)
             case _, Token(type="link_close", markup="autolink"):
-                return text.index(">", at) + 1
+                references.pop()
+                stop = text.index(">", at) + 1
             case _, Token(type="link_open"):
-                return text.index("[", at) + 1
+                stop = text.index("[", at) + 1
             case _, Token(type="link_close"):
-                return closed(text.index("]", at))
+                label = text.index("]", at)
+                stop = referenced(label) if references.pop() else closed(label)
             case _, Token(type="image"):
-                return closed(parseLinkLabel(StateInline(text, _MARKDOWN, {}, []), text.index("![", at) + 1))
+                label = parseLinkLabel(StateInline(text, _MARKDOWN, {}, []), text.index("![", at) + 1)
+                stop = referenced(label) if own_reference else closed(label)
             case _, Token(type="text" | "html_inline", content=content):
-                return text.index(content, at) + len(content)
+                stop = text.index(content, at) + len(content)
             case _, Token(type="softbreak" | "hardbreak"):
-                return text.index("\n", at) + 1
+                stop = text.index("\n", at) + 1
             case _, Token(markup=mark):
-                return text.index(mark, at) + len(mark)
-
-    return [*zip(children, (text[a:b] for a, b in pairwise(accumulate(zip((None, *children), children), end, initial=0))))]
+                stop = text.index(mark, at) + len(mark)
+        sources.append((child, text[at:stop], reference))
+        at, previous = stop, child
+    return sources
 
 
 def _prose(inline: SyntaxTreeNode) -> str:
     """Inline content without code spans."""
-    return "".join(s for child, s in _pieces(inline) if child.type != "code_inline")
+    return "".join(s for child, s, _ in _token_sources(inline) if child.type != "code_inline")
 
 
 # --- [MARKDOWN]
 
 
-def _span(node: SyntaxTreeNode) -> tuple[int, int]:
-    """0-based line range of a block node."""
-    match node.map:
-        case (start, stop):
-            return start, stop
-        case None:
-            raise TypeError(f"{node.type} node holds no line range")
-
-
 def _parsed(_path: Path, lines: tuple[str, ...]) -> SyntaxTreeNode:
-    """Syntax tree of a page."""
     return SyntaxTreeNode(_MARKDOWN.parse("\n".join(lines)))
 
 
-def _inlines(root: SyntaxTreeNode) -> Iterator[tuple[SyntaxTreeNode, SyntaxTreeNode]]:
-    """Block and inline child of every block holding text, in page order."""
-    return ((block, inline) for block in root.walk() for inline in block.children if inline.type == "inline")
+def _ranged(nodes: Iterable[SyntaxTreeNode]) -> Iterator[_MappedNode]:
+    """Native mapped nodes and line ranges in selection order."""
+    return ((node, span) for node in nodes if (span := node.map) is not None)
 
 
-def _opens(block: SyntaxTreeNode) -> bool:
-    """Whether `block` opens a list item."""
+def _inlines(root: SyntaxTreeNode) -> Iterator[tuple[SyntaxTreeNode, *_MappedNode]]:
+    """Blocks, inline children and native line ranges in page order."""
+    return ((block, inline, span) for block in root.walk() for inline, span in _ranged(child for child in block.children if child.type == "inline"))
+
+
+def _starts_item(block: SyntaxTreeNode) -> bool:
     return block.previous_sibling is None and block.parent is not None and block.parent.type == "list_item"
 
 
+def _leader(inline: SyntaxTreeNode) -> regex.Match[str] | None:
+    """Prose leader match whose prefix contains no native reference."""
+    matched = _LEADER.match(inline.content)
+    return matched if matched is not None and sum(len(source) for _, source, _ in takewhile(lambda piece: not piece[2], _token_sources(inline))) >= matched.end() else None
+
+
 def _grid(table: SyntaxTreeNode) -> list[list[SyntaxTreeNode]]:
-    """Inline node of each cell by row, header row first."""
+    """Cell inlines by row, header first."""
     return [[*cell.children for cell in row.children] for part in table.children for row in part.children]
 
 
-def _retexted(doc: _Doc[SyntaxTreeNode], inline: SyntaxTreeNode, text: str) -> _Edit:
-    """Edit replacing the inline's line range with one line, the first line's prefix and the last line's suffix kept around `text`."""
-    start, stop = _span(inline)
+def _inline_edit(doc: _Doc[SyntaxTreeNode], inline: SyntaxTreeNode, span: tuple[int, int], text: str) -> _Edit:
+    """Single-line replacement preserving the first line's prefix and last line's suffix."""
+    start, stop = span
     first, last, opening, closing = doc.lines[start], doc.lines[stop - 1], inline.content.partition("\n")[0], inline.content.rpartition("\n")[2]
     return _Edit(start, stop, (f"{first[: first.rfind(opening)]}{text}{last[last.rfind(closing) + len(closing) :]}",))
 
 
 def _plain_text(inline: SyntaxTreeNode, *, item: bool) -> str:
     """Inline source without emphasis markers and emoji, an item ending in text without closing punctuation."""
-    pieces = _pieces(inline)
-    out = "".join("" if child.tag in {"em", "strong"} else _emoji(s) if child.type == "text" else s for child, s in pieces)
+    pieces = _token_sources(inline)
+    out = "".join(s if reference else "" if child.tag in {"em", "strong"} else _strip_emoji(s) if child.type == "text" else s for child, s, reference in pieces)
     return _unpunctuated(out) if item and pieces and pieces[-1][0].type == "text" else out
 
 
 def _trimmed(doc: _Doc[SyntaxTreeNode]) -> Iterator[_Edit]:
-    """Lines outside code blocks without trailing whitespace."""
-    code = {n for node in doc.parts.walk() if node.type in {"fence", "code_block"} for n in range(*_span(node))}
-    return (_Edit(n, n + 1, (line.rstrip(),)) for n, line in enumerate(doc.lines) if n not in code)
+    """Trims trailing prose whitespace, preserving code and reference definitions."""
+    verbatim = {*range(*span) for _, span in _ranged(node for node in doc.parts.walk() if node.type in {"fence", "code_block", "definition"})}
+    return (_Edit(n, n + 1, (line.rstrip(),)) for n, line in enumerate(doc.lines) if n not in verbatim)
 
 
 def _joined(doc: _Doc[SyntaxTreeNode]) -> Iterator[_Edit]:
-    """Paragraphs as one line, content lines joined by one space."""
-    return (_retexted(doc, inline, " ".join(line.strip() for line in inline.content.split("\n"))) for block, inline in _inlines(doc.parts) if block.type == "paragraph")
+    """Joins paragraph continuation lines with one space."""
+    return (_inline_edit(doc, inline, span, " ".join(line.strip() for line in inline.content.split("\n"))) for block, inline, span in _inlines(doc.parts) if block.type == "paragraph")
 
 
 def _plain(doc: _Doc[SyntaxTreeNode]) -> Iterator[_Edit]:
-    """Inlines outside tables without emphasis markers and emoji, list items without closing punctuation."""
-    return (_retexted(doc, inline, _plain_text(inline, item=_opens(block))) for block, inline in _inlines(doc.parts) if block.type not in {"th", "td"})
+    return (_inline_edit(doc, inline, span, _plain_text(inline, item=_starts_item(block))) for block, inline, span in _inlines(doc.parts) if block.type not in {"th", "td"})
 
 
 def _leaders(doc: _Doc[SyntaxTreeNode]) -> Iterator[_Edit]:
-    """List items with leader tokens joined by `-` before `: `, link cards numbered from 01 among siblings with the path stem as token."""
-
-    def led(inline: SyntaxTreeNode, n: int) -> str:
-        match _LEADER.match(inline.content):
-            case None:
-                return inline.content
-            case m if m["path"] is not None:
-                return f"[{n:02}]-{_token(Path(m['path']).stem)}({m['path']}): {inline.content[m.end() :]}"
-            case m:
-                return f"{'-'.join(map(_token, regex.findall(r'\[[^\]]*\]', m['chain'])))}: {inline.content[m.end() :]}"
-
-    def renumbered(items: list[SyntaxTreeNode]) -> Iterator[_Edit]:
-        cards = accumulate(int(bool((m := _LEADER.match(inline.content)) and m["path"] is not None)) for inline in items)
-        return (_retexted(doc, inline, led(inline, n)) for inline, n in zip(items, cards))
-
-    lists = (node for node in doc.parts.walk() if node.type in {"bullet_list", "ordered_list"})
-    return (*renumbered([*block.children for item in node.children for block in item.children[:1] if block.type == "paragraph"]) for node in lists)
+    """Number cards from `[01]` among siblings with target stems; normalize other bracket leaders."""
+    for node in (node for node in doc.parts.walk() if node.type in {"bullet_list", "ordered_list"}):
+        n = 0
+        for inline, span in _ranged(*block.children for item in node.children for block in item.children[:1] if block.type == "paragraph"):
+            match _leader(inline):
+                case None:
+                    continue
+                case m if m["path"] is not None:
+                    n += 1
+                    text = f"[{n:02}]-{_label(Path(m['path']).stem)}({m['path']}): {inline.content[m.end() :]}"
+                case m:
+                    text = f"{'-'.join(map(_label, regex.findall(r'\[[^\]]*\]', m['chain'])))}: {inline.content[m.end() :]}"
+            yield _inline_edit(doc, inline, span, text)
 
 
 def _headings(doc: _Doc[SyntaxTreeNode]) -> Iterator[_Edit]:
-    """`##` headings with a title numbered from 01 and `###` restarting under each `##`, as the number then title tokens joined by `-`."""
-    headings = [node for node in doc.parts.children if node.type == "heading" and node.tag in {"h2", "h3"} and any(inline.content for inline in node.children)]
-
-    def numbered(heading: SyntaxTreeNode, h2: int, h3: int) -> _Edit:
+    """Number `##` headings as `[NN]` and `###` headings as `[NN.N]` within their parent."""
+    h2 = h3 = 0
+    for heading, span in _ranged(node for node in doc.parts.children if node.type == "heading" and node.tag in {"h2", "h3"} and any(inline.content for inline in node.children)):
+        h2, h3 = (h2 + 1, 0) if heading.tag == "h2" else (h2, h3 + 1)
         title = regex.sub(r"^\[[\d.]+\]-", "", "".join(inline.content for inline in heading.children))
-        tokens = "-".join(regex.findall(r"\[[^\]]+\]", title) or [_token(title)])
-        return _Edit(*_span(heading), (f"{'#' * int(heading.tag[1])} [{h2:02}{f'.{h3}' if h3 else ''}]-{tokens}",))
-
-    numbers = accumulate(headings, lambda number, heading: (number[0] + 1, 0) if heading.tag == "h2" else (number[0], number[1] + 1), initial=(0, 0))
-    return (numbered(heading, *number) for heading, number in zip(headings, [*numbers][1:]))
+        tokens = title if any(child.type in {"link", "image"} for child in heading.walk()) else "-".join(regex.findall(r"\[[^\]]+\]", title) or [_label(title)])
+        yield _Edit(*span, (f"{'#' * int(heading.tag[1])} [{h2:02}{f'.{h3}' if h3 else ''}]-{tokens}",))
 
 
 def _labels(doc: _Doc[SyntaxTreeNode]) -> Iterator[_Edit]:
     """`[TOKEN]` label paragraphs closed with `:` before a list or table."""
-    labels = (node for node in doc.parts.walk() if node.type == "paragraph" and node.next_sibling is not None and node.next_sibling.type in {"bullet_list", "ordered_list", "table"})
-    return (_retexted(doc, inline, f"{inline.content}:") for node in labels for inline in node.children if regex.fullmatch(r"\[[A-Z_]+\]", inline.content))
+    return (
+        _inline_edit(doc, inline, span, f"{inline.content}:")
+        for block, inline, span in _inlines(doc.parts)
+        if block.type == "paragraph"
+        and block.next_sibling is not None
+        and block.next_sibling.type in {"bullet_list", "ordered_list", "table"}
+        and regex.fullmatch(r"\[[A-Z_]+\]", inline.content)
+        and not any(child.type == "link" for child in inline.children)
+    )
 
 
-def _crowded(doc: _Doc[SyntaxTreeNode], table: SyntaxTreeNode) -> list[int]:
-    """0-based lines of table rows splitting into more cells than the header row, the cells past it dropped by the parser."""
-    head, *body = (_span(row)[0] for row in table.walk() if row.type == "tr")
-    return [n for n in body if len(escapedSplit(doc.lines[n].strip())) > len(escapedSplit(doc.lines[head].strip()))]
+def _overflow_rows(doc: _Doc[SyntaxTreeNode], table: SyntaxTreeNode) -> list[int]:
+    """Parser drops excess cells; source rows retain overflow diagnostics."""
+    head, *body = (span[0] for _, span in _ranged(row for row in table.walk() if row.type == "tr"))
+    columns = len(escapedSplit(doc.lines[head].strip()))
+    return [n for n in body if len(escapedSplit(doc.lines[n].strip())) > columns]
 
 
 def _tables(doc: _Doc[SyntaxTreeNode]) -> Iterator[_Edit]:
-    """Tables holding no crowded row with `[UPPER_SNAKE]` headers, an `[INDEX]` column over two or more rows, and cells without closing punctuation, padded to column width."""
+    """Formats non-overflowing tables with bracket headers, aligned cells, and an index for multiple rows or an existing index column."""
 
-    def rendered(table: SyntaxTreeNode) -> _Edit:
-        start, stop = _span(table)
+    def rendered(table: SyntaxTreeNode, span: tuple[int, int]) -> _Edit:
+        start, stop = span
         head, *rows = _grid(table)
-        names = ["".join("" if child.tag in {"em", "strong"} else _token(s) if child.type == "text" and s.strip() else s for child, s in _pieces(inline)) for inline in head]
+        names = [
+            "".join(s if reference else "" if child.tag in {"em", "strong"} else _label(s) if child.type == "text" and s.strip() else s for child, s, reference in _token_sources(inline))
+            for inline in head
+        ]
         body = [[_plain_text(inline, item=True) for inline in row] for row in rows]
         aligns = [_ALIGNS.get(str(cell.attrGet("style")), (":-", "<")) for cell in table.walk() if cell.type == "th"]
         match names:
@@ -321,21 +336,21 @@ def _tables(doc: _Doc[SyntaxTreeNode]) -> Iterator[_Edit]:
         rule = f"{indent}| {' | '.join(mark.replace('-', '-' * (w - len(mark) + 1)) for (mark, _), w in zip(marks, widths))} |"
         return _Edit(start, stop, (named, rule, *piped))
 
-    return (rendered(node) for node in doc.parts.walk() if node.type == "table" and not _crowded(doc, node))
+    return (rendered(node, span) for node, span in _ranged(node for node in doc.parts.walk() if node.type == "table") if not _overflow_rows(doc, node))
 
 
 def _spacing(doc: _Doc[SyntaxTreeNode]) -> Iterator[_Edit]:
-    """Blank runs between leaf blocks, one after heading or around table, none after `:` before list item, else at most one, none at file ends."""
-    leaves = [node for node in doc.parts.walk() if node.type in _LEAVES]
+    """One blank follows headings and surrounds tables; labels touch their lists, other gaps keep at most one blank, and file ends keep none."""
+    leaves = [*_ranged(node for node in doc.parts.walk() if node.type in _LEAVES)]
 
-    def gap(a: SyntaxTreeNode | None, b: SyntaxTreeNode | None) -> _Edit:
-        start, stop = _span(a)[1] if a else 0, _span(b)[0] if b else len(doc.lines)
-        match a, b:
+    def gap(a: _MappedNode | None, b: _MappedNode | None) -> _Edit:
+        start, stop = a[1][1] if a else 0, b[1][0] if b else len(doc.lines)
+        match a[0] if a else None, b[0] if b else None:
             case (None, _) | (_, None):
                 need = 0
             case (SyntaxTreeNode(type="heading" | "table"), _) | (_, SyntaxTreeNode(type="table")):
                 need = 1
-            case _, SyntaxTreeNode() as item if _opens(item) and doc.lines[start - 1].endswith(":"):
+            case _, SyntaxTreeNode() as item if _starts_item(item) and doc.lines[start - 1].endswith(":"):
                 need = 0
             case _:
                 need = min(stop - start, 1)
@@ -345,77 +360,51 @@ def _spacing(doc: _Doc[SyntaxTreeNode]) -> Iterator[_Edit]:
 
 
 def _markdown_texts(doc: _Doc[SyntaxTreeNode]) -> Iterator[_Text]:
-    """Text units of headings, paragraphs, list items, and table cells."""
 
-    def text(block: SyntaxTreeNode, inline: SyntaxTreeNode) -> _Text:
-        lead = _LEADER.match(inline.content) if block.type == "paragraph" else None
-        return _Text(_span(inline)[0], inline.content[lead.end() if lead else 0 :], _prose(inline), capital=block.type in {"th", "td"} or _opens(block))
+    def text(block: SyntaxTreeNode, inline: SyntaxTreeNode, span: tuple[int, int]) -> _Text:
+        lead = _leader(inline) if block.type == "paragraph" else None
+        return _Text(span[0], inline.content[lead.end() if lead else 0 :], _prose(inline), capital=block.type in {"th", "td"} or _starts_item(block))
 
     return starmap(text, _inlines(doc.parts))
 
 
 def _h1s(doc: _Doc[SyntaxTreeNode]) -> list[tuple[int, str]]:
-    """Every later H1, and the first H1 when its title is not one `[TOKEN]`."""
-    ones = [(_span(node)[0], inline.content) for node in doc.parts.children if node.type == "heading" and node.tag == "h1" for inline in node.children]
-    return [(n, doc.lines[n]) for k, (n, title) in enumerate(ones) if k or title != _token(title)]
+    """Reports repeated H1s and titles outside `[TOKEN]` form."""
+    ones = [(span[0], inline.content) for node, span in _ranged(node for node in doc.parts.children if node.type == "heading" and node.tag == "h1") for inline in node.children]
+    return [(n, doc.lines[n]) for k, (n, title) in enumerate(ones) if k or title != _label(title)]
 
 
 def _ordinals(doc: _Doc[SyntaxTreeNode]) -> list[tuple[int, str]]:
     """Paragraph lines opening with a dotted number marker."""
-    paragraphs = (node for node in doc.parts.walk() if node.type == "paragraph")
-    return [(n, m[0]) for node in paragraphs for n in range(*_span(node)) if (m := regex.match(r"\d+(?:\.\w+)+\.(?= )", doc.lines[n].lstrip()))]
+    paragraphs = _ranged(node for node in doc.parts.walk() if node.type == "paragraph")
+    return [(n, m[0]) for _, span in paragraphs for n in range(*span) if (m := regex.match(r"\d+(?:\.\w+)+\.(?= )", doc.lines[n].lstrip()))]
 
 
-def _dead(doc: _Doc[SyntaxTreeNode]) -> list[tuple[int, str]]:
-    """Relative link and image targets naming no file."""
-
-    def targets(node: SyntaxTreeNode) -> list[str]:
-        match node:
-            case SyntaxTreeNode(type="link", attrs={"href": str(target)}) | SyntaxTreeNode(type="image", attrs={"src": str(target)}):
-                return [_MARKDOWN.normalizeLinkText(target).partition("#")[0]]
-            case _:
-                return []
-
-    found = ((_span(inline)[0], target) for _, inline in _inlines(doc.parts) for node in inline.walk() for target in targets(node))
-    return [(n, target) for n, target in found if target and ":" not in target and not (doc.path.parent / target).exists()]
+def _dead_links(doc: _Doc[SyntaxTreeNode]) -> Iterator[tuple[int, str]]:
+    for _, inline, span in _inlines(doc.parts):
+        for node in inline.walk():
+            match node:
+                case SyntaxTreeNode(type="link", attrs={"href": str(target)}) | SyntaxTreeNode(type="image", attrs={"src": str(target)}) if (
+                    (target := _MARKDOWN.normalizeLinkText(target).partition("#")[0]) and ":" not in target and not (doc.path.parent / target).exists()
+                ):
+                    yield span[0], target
 
 
 def _overflows(doc: _Doc[SyntaxTreeNode]) -> list[tuple[int, str]]:
-    """Table rows holding cells past the header row's columns."""
-    return [(n, "") for node in doc.parts.walk() if node.type == "table" for n in _crowded(doc, node)]
+    return [(n, "") for node in doc.parts.walk() if node.type == "table" for n in _overflow_rows(doc, node)]
 
 
 def _wide(doc: _Doc[SyntaxTreeNode]) -> list[tuple[int, str]]:
-    """List items past column `_WIDTH` outside code spans, then tables with a line past column `_WIDTH`, each named by its kind."""
-    items = [(n, "List item") for block, inline in _inlines(doc.parts) if _opens(block) and wcswidth(doc.lines[n := _span(inline)[0]]) - wcswidth(inline.content) + wcswidth(_prose(inline)) > _WIDTH]
-    return [*items, *((_span(node)[0], "Table") for node in doc.parts.walk() if node.type == "table" and any(wcswidth(line) > _WIDTH for line in doc.lines[slice(*_span(node))]))]
+    """Code spans do not count toward list widths; complete table rows do."""
+    items = [
+        (n, "List item") for block, inline, span in _inlines(doc.parts) if _starts_item(block) and wcswidth(doc.lines[n := span[0]]) - wcswidth(inline.content) + wcswidth(_prose(inline)) > _WIDTH
+    ]
+    tables = _ranged(node for node in doc.parts.walk() if node.type == "table")
+    return [*items, *((span[0], "Table") for _, span in tables if any(wcswidth(line) > _WIDTH for line in doc.lines[slice(*span)]))]
 
 
-@cache
-def _steps(path: Path, info: str) -> range:
-    """Indent steps below the `.editorconfig` space indent size of the `info` language at `path`, none for an unknown language."""
-    patterns = catch(find_lexer_class_by_name, exception=ClassNotFound)(info).map(lambda lexer: () if lexer is TextLexer else lexer.filenames).default_value(())
-    props = get_properties(str(path.with_name(patterns[0].replace("*", path.stem)))) if patterns else {}
-    return range(2, int(props["indent_size"])) if props.get("indent_style") == "space" else range(0)
-
-
-def _shallow(doc: _Doc[SyntaxTreeNode]) -> list[tuple[int, str]]:
-    """Fence lines stepping past the nearest line at or below their depth by 2 to under indent size columns, list item depth from content after `- `."""
-
-    def opened(fence: SyntaxTreeNode) -> list[tuple[int, str]]:
-        allowed = _steps(doc.path.resolve(), fence.info.partition(" ")[0])
-        solid = [
-            (_span(fence)[0] + 1 + k, body.strip(), (n := len(line) - len(body)), n + 2 if body.startswith("- ") else n)
-            for k, line in enumerate(fence.content.split("\n"))
-            if (body := line.lstrip(" ")).strip()
-        ]
-        return [(at, text) for i, (at, text, n, _) in enumerate(solid) if n - next((depth for *_, depth in reversed(solid[:i]) if depth <= n), 0) in allowed]
-
-    return [*opened(fence) for fence in doc.parts.walk() if fence.type == "fence"]
-
-
-def _words(root: SyntaxTreeNode) -> list[str]:
-    """Code span words of each table row whose `[CATEGORY]` cell is `Enumeration`, read from its `[WORDS]` cell."""
+def _enumerations(root: SyntaxTreeNode) -> list[str]:
+    """Code spans from `[WORDS]` cells whose `[CATEGORY]` is `Enumeration`."""
 
     def words(head: list[SyntaxTreeNode], row: list[SyntaxTreeNode]) -> list[str]:
         match {name.content: cell for name, cell in zip(head, row)}:
@@ -430,90 +419,91 @@ def _words(root: SyntaxTreeNode) -> list[str]:
 # --- [SOURCE]
 
 
-def _noted(path: Path, lines: tuple[str, ...]) -> tuple[_Note, ...]:
-    """Full-line single-line comments the lexer of `path` finds, the comment tokens of one line joined, each as a divider, directive, or remark."""
+def _comments(path: Path, lines: tuple[str, ...]) -> _Comments:
+    """Full-line single-line comments at 0-based source lines, classified by the filename's lexer as directive, remark, or divider."""
     starts = [*accumulate((len(line) + 1 for line in lines), initial=0)]
 
-    def note(line: int, at: int, value: str) -> list[_Note]:
-        head = lines[line][: at - starts[line]]
-        match regex.fullmatch(r"(?P<marker>\p{P}+) (?P<body>\S.*?)\s*", value) if not head.strip() else None:
+    def classified(line: int, at: int, value: str) -> _Comments:
+        indent = lines[line][: at - starts[line]]
+        match regex.fullmatch(r"(?P<marker>\p{P}+) (?P<body>\S.*?)\s*", value) if not indent.strip() else None:
             case None:
-                return []
+                return ()
             case comment if divider := _DIVIDER.fullmatch(comment["body"]):
-                return [_Divider(line, head, comment["marker"], comment["body"], divider["tok"], full=divider["fill"] is not None)]
+                return (_Divider(line, indent, comment["marker"], divider["label"], full=divider["fill"] is not None),)
             case comment:
-                return [(_Note if _DIRECTIVE.match(comment["body"]) else _Remark)(line, head, comment["marker"], comment["body"])]
+                return ((_Directive if _DIRECTIVE.match(comment["body"]) else _Remark)(line, indent, comment["marker"], comment["body"]),)
 
     tokens = get_lexer_for_filename(path.name, stripnl=False, ensurenl=False).get_tokens_unprocessed("".join(f"{line}\n" for line in lines))
     runs = groupby(tokens, key=lambda token: (is_token_subtype(token[1], Comment.Single), bisect_right(starts, token[0]) - 1))
-    return tuple(*note(line, min(offsets), "".join(values)) for (comment, line), run in runs if comment for offsets, _, values in [zip(*run)])
+    return tuple(*classified(line, min(offsets), "".join(values)) for (comment, line), run in runs if comment for offsets, _, values in [zip(*run)])
 
 
-def _comments(doc: _Doc[tuple[_Note, ...]]) -> Iterator[_Edit]:
-    """Comment lines in the form each comment case fixes."""
+def _comment_edits(doc: _Doc[_Comments]) -> Iterator[_Edit]:
     return (_Edit(note.line, note.line + 1, (note.fixed(),)) for note in doc.parts)
 
 
-def _unlabeled(doc: _Doc[tuple[_Note, ...]]) -> Iterator[_Edit]:
-    """Dividers lacking comment or code before the next divider at or above their level, with the blank lines after them, and trailing blank lines once any drops."""
-    dividers = [note for note in doc.parts if isinstance(note, _Divider)]
-    marks = {divider.line for divider in dividers}
-
-    def empty(divider: _Divider) -> bool:
-        stop = next((d.line for d in dividers if d.line > divider.line and (d.full or not divider.full)), len(doc.lines))
-        return not any(doc.lines[n].strip() and n not in marks for n in range(divider.line + 1, stop))
-
-    drops = {n for divider in dividers if empty(divider) for n in range(divider.line, next((k for k in range(divider.line + 1, len(doc.lines)) if doc.lines[k].strip()), len(doc.lines)))}
+def _empty_sections(doc: _Doc[_Comments]) -> Iterator[_Edit]:
+    """Delete dividers with no content before the next equal/higher divider, following blanks, and trailing blanks after a deletion."""
+    dividers = {note.line: note for note in doc.parts if isinstance(note, _Divider)}
+    content = section = following = solid = len(doc.lines)
+    drops: set[int] = set()
+    for n in (n for n in reversed(range(len(doc.lines))) if doc.lines[n].strip()):
+        match dividers.get(n):
+            case _Divider(full=full):
+                if content >= (section if full else following):
+                    drops.update(range(n, solid))
+                section = n if full else section
+                following = solid = n
+            case None:
+                content = solid = n
     tail = {*takewhile(lambda n: n in drops or not doc.lines[n].strip(), reversed(range(len(doc.lines))))} if drops else set()
     return (_Edit(n, n + 1, ()) for n in drops | tail)
 
 
-def _source_texts(doc: _Doc[tuple[_Note, ...]]) -> Iterator[_Text]:
-    """Text units of prose comments."""
+def _comment_texts(doc: _Doc[_Comments]) -> Iterator[_Text]:
     return (_Text(note.line, note.body, _prose(SyntaxTreeNode(_MARKDOWN.parseInline(note.body))[0]), capital=True) for note in doc.parts if isinstance(note, _Remark))
 
 
-def _repeats(doc: _Doc[tuple[_Note, ...]]) -> list[tuple[int, str]]:
-    """Full dividers with a token an earlier full divider used."""
-    fulls = [note for note in doc.parts if isinstance(note, _Divider) and note.full]
-    return [(divider.line, divider.tok) for i, divider in enumerate(fulls) if any(earlier.tok == divider.tok for earlier in fulls[:i])]
+def _repeated_labels(doc: _Doc[_Comments]) -> list[tuple[int, str]]:
+    """Only full dividers share a file-wide label namespace."""
+    first: dict[str, int] = {}
+    return [(note.line, note.label) for note in doc.parts if isinstance(note, _Divider) and note.full and first.setdefault(note.label, note.line) != note.line]
 
 
-def _orphans(doc: _Doc[tuple[_Note, ...]]) -> list[tuple[int, str]]:
-    """Sub dividers before the first full divider."""
-    return [(note.line, note.tok) for note in takewhile(lambda note: not note.full, (note for note in doc.parts if isinstance(note, _Divider)))]
+def _orphan_dividers(doc: _Doc[_Comments]) -> list[tuple[int, str]]:
+    """Subdividers require a preceding full divider."""
+    return [(note.line, note.label) for note in takewhile(lambda note: not note.full, (note for note in doc.parts if isinstance(note, _Divider)))]
 
 
 # --- [REGISTRY] -------------------------------------------------------------------------
 
 _COUNTED = regex.compile(
-    rf"(?i)(?<!\ba )\b(?:{'|'.join(map(regex.escape, _words(SyntaxTreeNode(_MARKDOWN.parse((Path(__file__).parents[1] / 'references' / 'word-map.md').read_text(encoding='utf-8'))))))})\b(?!-\w)"
+    rf"(?i)(?<!\ba )\b(?:{'|'.join(map(regex.escape, _enumerations(SyntaxTreeNode(_MARKDOWN.parse((Path(__file__).parents[1] / 'references' / 'word-map.md').read_text(encoding='utf-8'))))))})\b(?!-\w)"
 )
 _TEXTS: frozendict[Callable[[_Text], list[str]], str] = frozendict({
-    (lambda t: regex.findall(r"(?i)\A(?:a|an|the)\s+\S", t.raw)): "Text opens with an article",
-    (lambda t: regex.findall(r"\A\p{Ll}", t.raw) if t.capital else []): "Text opens with a lowercase letter",
-    (lambda t: _COUNTED.findall(t.prose)): "Text counts visible items with `{}`",
+    (lambda t: regex.findall(r"(?i)\A(?:a|an|the)\s+\S", t.raw)): "Article opener",
+    (lambda t: regex.findall(r"\A\p{Ll}", t.raw) if t.capital else []): "Lowercase opener",
+    (lambda t: _COUNTED.findall(t.prose)): "Visible item count `{}`",
 })
 _PAGES = _Grammar(
     _parsed,
     _markdown_texts,
     (_trimmed, _joined, _plain, _leaders, _headings, _labels, _tables, _spacing),
     frozendict({
-        _h1s: "`{}` is not the one `[TOKEN]` H1",
-        _ordinals: "Marker `{}` opens no Markdown list item",
-        _dead: "`{}` resolves to no file",
-        _overflows: "Table row holds cells past its header columns",
-        _wide: f"{{}} runs past column {_WIDTH}",
-        _shallow: "Fence line `{}` indents by fewer columns than `.editorconfig` sets for its language",
+        _h1s: "Extra or malformed H1 `{}`",
+        _ordinals: "Invalid list marker `{}`",
+        _dead_links: "Missing target `{}`",
+        _overflows: "Table row has excess cells",
+        _wide: f"{{}} exceeds {_WIDTH} columns",
     }),
 )
-_CODE = _Grammar(_noted, _source_texts, (_comments, _unlabeled), frozendict({_repeats: "Divider `{}` repeats an earlier full divider", _orphans: "Sub divider `{}` precedes first full divider"}))
+_CODE = _Grammar(_comments, _comment_texts, (_comment_edits, _empty_sections), frozendict({_repeated_labels: "Repeated section label `{}`", _orphan_dividers: "Subsection `{}` precedes any section"}))
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
 def _linted(paths: tuple[Path, ...]) -> list[_Doc[tuple[str, ...]]]:
-    """Linted named files and unignored non-symlink files under named folders or the working directory, markdown first."""
+    """Lint named files or Git-visible folder contents, Markdown first, excluding symlinks; no paths selects the working directory."""
     named, folders = [p for p in paths if p.is_file()], [p for p in paths if p.is_dir()]
     listed = subprocess.check_output(["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--deduplicate", "--", *folders], text=True) if folders or not named else ""
     found = [f for f in sorted({*named, *(Path(f) for f in listed.split("\0") if f)}) if f.is_file() and not f.is_symlink()]
@@ -524,16 +514,20 @@ def _linted(paths: tuple[Path, ...]) -> list[_Doc[tuple[str, ...]]]:
 
 
 def check(*paths: ExistingPath) -> int:
-    """Prints fix command per fixable file, then each report as `path:line: message`, exiting 1 on any."""
+    """Report fix commands and remaining findings; exit 1 for either."""
     linted = _linted(paths)
     found = [*d.parts for d in linted]
     total = sum(d.edits for d in linted)
-    sys.stdout.writelines((*(f"{d.path}: {d.edits} fixable, python {sys.argv[0]} fix {d.path}\n" for d in linted if d.edits), *found, f"Found {len(found) + total} findings, {total} fixable\n"))
+    sys.stdout.writelines((
+        *(f"{d.path}: {d.edits} fixable, {shlex.join((sys.executable, sys.argv[0], 'fix', str(d.path)))}\n" for d in linted if d.edits),
+        *found,
+        f"Found {len(found) + total} findings, {total} fixable\n",
+    ))
     return int(bool(found or total))
 
 
 def fix(*paths: ExistingPath) -> int:
-    """Writes fixed files and prints remaining reports, exiting 1 on any."""
+    """Write fixes and report remaining findings; exit 1 when findings remain."""
     linted = _linted(paths)
     for d in (d for d in linted if d.edits):
         d.path.write_text("".join(f"{line}\n" for line in d.lines), encoding="utf-8")

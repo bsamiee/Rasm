@@ -112,7 +112,7 @@ extension Integration {
                 let first: WatchAppsLine = try await iterator.next { line in line.entry.instances?.isEmpty == false }
                 let pid: Int32 = try #require(first.entry.instances?.keys.first)
                 expectNoDifference(kill(pid, SIGUSR1), 0)
-                _ = await iterator.collect { _ in false }
+                while await iterator.next() != nil {}
                 return pid
             }
             let launchPhases: [Phase] = phases(of: launched.outcome, in: launched.lines)
@@ -122,26 +122,26 @@ extension Integration {
             expectNoDifference(titles.contains("Fixture 0"), true, "\(titles)")
         }
 
-        @Test(.application(FixtureApplication.self, launches: false), .timeLimit(.minutes(1)))
-        func launchTerminatedWhileLaunchingExitsZeroLeavingInstanceRunning() async throws {
+        @Test(.application(FixtureApplication.self, launches: false), .timeLimit(.minutes(1)), arguments: [false, true])
+        func interruptedLaunchLeavesApplicationRunning(wait: Bool) async throws {
             let fixture: Fixture = try Fixture()
             let settings: Settings = Settings(scenario: .slowLaunch)
-            let ended: (outcome: Int32, lines: [WatchAppsLine], status: TerminationStatus) = try await streamingJSONLines(
+            let ended: (outcome: WatchAppsLine, lines: [WatchAppsLine], status: TerminationStatus) = try await streamingJSONLines(
                 of: .product(named: "watch-apps"),
-                arguments: ["launch", fixture.identifier] + settings.arguments.flatMap { argument in ["--arguments", argument] },
+                arguments: Array([["launch", fixture.identifier], wait ? ["--wait"] : [], settings.arguments.flatMap { argument in ["--arguments", argument] }].joined()),
                 as: WatchAppsLine.self,
             ) { lines in
                 var iterator: AsyncStream<WatchAppsLine>.Iterator = lines.makeAsyncIterator()
-                let first: WatchAppsLine = try await iterator.next { line in line.entry.instances?.isEmpty == false }
-                return try #require(first.entry.instances?.keys.first)
+                return try await iterator.next { line in line.key == fixture.identifier && line.entry.instances?.isEmpty == false }
             }
-            expectNoDifference(ended.status, .exited(0))
+            let pid: Int32 = try #require(ended.outcome.entry.instances?.keys.first)
+            expectNoDifference(ended.status.isSuccess, !wait)
             expectNoDifference(phases(in: ended.lines), [.launching])
             _ = try await watching([fixture.identifier]) { lines in
-                expectNoDifference(kill(ended.outcome, SIGUSR1), 0)
-                _ = try await lines.next { line in line.entry.instances?[ended.outcome]?.phase == .responding }
+                expectNoDifference(kill(pid, SIGUSR1), 0)
+                _ = try await lines.next { line in line.entry.instances?[pid]?.phase == .responding }
             }
-            let titles: [String] = try await read(fixture, pid: ended.outcome).compactMap(\.title)
+            let titles: [String] = try await read(fixture, pid: pid).compactMap(\.title)
             expectNoDifference(titles.contains("Fixture 0"), true, "\(titles)")
         }
 
@@ -174,6 +174,90 @@ extension Integration {
             expectNoDifference(phases(of: pid, in: watched.outcome.lines).filter { phase in phase != .launching }, [.answering])
             expectNoDifference(watchedPhases, [.answering, .responding])
             expectNoDifference(window?.title, "Fixture 0")
+        }
+
+        @Test(.application(FixtureApplication.self, launches: false))
+        func launchWaitObservesDialogAndReturnsApplicationExitStatus() async throws {
+            let fixture: Fixture = try Fixture()
+            let settings: Settings = Settings(scenario: .launchModal, status: 7)
+            let ended: (outcome: Int32, lines: [WatchAppsLine], status: TerminationStatus) = try await streamingJSONLines(
+                of: .product(named: "watch-apps"),
+                arguments: ["launch", fixture.identifier, "--wait", "--new"] + settings.arguments.flatMap { argument in ["--arguments", argument] },
+                as: WatchAppsLine.self,
+            ) { lines in
+                var iterator: AsyncStream<WatchAppsLine>.Iterator = lines.makeAsyncIterator()
+                let asking: WatchAppsLine = try await iterator.next { line in line.entry.instances?.values.contains { instance in instance.phase == .answering } == true }
+                let pid: Int32 = try #require(asking.entry.instances?.keys.first)
+                let dialog: WatchAppsLine.Element = try #require(asking.elements(of: pid)?.answers.first)
+                let button: WatchAppsLine.Control = try #require(dialog.control("action-button-1"))
+                try await perform(button)
+                _ = try await iterator.next { line in line.entry.instances?[pid]?.phase == .responding }
+                try await press(.exit, in: fixture, pid: pid)
+                while await iterator.next() != nil {}
+                return pid
+            }
+            expectNoDifference(ended.status, .exited(settings.status))
+            expectNoDifference(ended.lines.last?.entry.instances?[ended.outcome]?.exited.map(Ended.init), Ended(status: settings.status))
+        }
+
+        @Test(.application(FixtureApplication.self, launches: false))
+        func launchWaitReportsNativeSignalAndReturnsShellSignalStatus() async throws {
+            let fixture: Fixture = try Fixture()
+            let ended: (outcome: Int32, lines: [WatchAppsLine], status: TerminationStatus) = try await streamingJSONLines(
+                of: .product(named: "watch-apps"),
+                arguments: ["launch", fixture.identifier, "--wait", "--new"],
+                as: WatchAppsLine.self,
+            ) { lines in
+                var iterator: AsyncStream<WatchAppsLine>.Iterator = lines.makeAsyncIterator()
+                let ready: WatchAppsLine = try await iterator.next { line in line.entry.instances?.values.contains { instance in instance.phase == .responding } == true }
+                let pid: Int32 = try #require(ready.entry.instances?.keys.first)
+                expectNoDifference(kill(pid, SIGKILL), 0)
+                while await iterator.next() != nil {}
+                return pid
+            }
+            expectNoDifference(ended.status, .exited(128 + SIGKILL))
+            expectNoDifference(ended.lines.last?.entry.instances?[ended.outcome]?.exited.map(Ended.init), Ended(signal: SIGKILL))
+        }
+
+        @Test(.application(FixtureApplication.self, launches: false), arguments: [Int32(0), 7])
+        func launchWaitCapturesExitDuringApplicationStartup(status: Int32) async throws {
+            let fixture: Fixture = try Fixture()
+            let settings: Settings = Settings(scenario: .exit, status: status)
+            let ended: (lines: [WatchAppsLine], status: TerminationStatus, standardError: String) = try await jsonLines(
+                of: .product(named: "watch-apps"),
+                arguments: ["launch", fixture.identifier, "--wait", "--new"] + settings.arguments.flatMap { argument in ["--arguments", argument] },
+                as: WatchAppsLine.self,
+            )
+            let exits: [Ended] = ended.lines.compactMap(\.entry.instances).flatMap { instances in instances.values.compactMap { instance in instance.exited.map(Ended.init) } }
+            expectNoDifference(ended.status, .exited(settings.status))
+            expectNoDifference(exits, [Ended(status: settings.status)])
+        }
+
+        @Test(.application(FixtureApplication.self, launches: false))
+        func launchWaitReusesInstanceAndContinuesPastSystemPrompt() async throws {
+            let fixture: Fixture = try Fixture()
+            let settings: Settings = Settings(status: 7)
+            let pid: Int32 = try await launch(fixture, settings).pid
+            let ended: (outcome: Void, lines: [WatchAppsLine], status: TerminationStatus) = try await streamingJSONLines(
+                of: .product(named: "watch-apps"),
+                arguments: ["launch", fixture.identifier, "--wait"],
+                as: WatchAppsLine.self,
+            ) { lines in
+                var iterator: AsyncStream<WatchAppsLine>.Iterator = lines.makeAsyncIterator()
+                let ready: WatchAppsLine = try await iterator.next { line in line.entry.instances?[pid]?.phase == .responding }
+                expectNoDifference(ready.entry.instances?[pid]?.running?.created, false)
+                let header: [CFString: String] = [kCFUserNotificationAlertHeaderKey: fixture.name]
+                let created: CFUserNotification? = CFUserNotificationCreate(nil, 0, kCFUserNotificationPlainAlertLevel, nil, header as CFDictionary)
+                let alert: CFUserNotification = try #require(created)
+                defer { CFUserNotificationCancel(alert) }
+                let prompt: WatchAppsLine = try await iterator.next { line in line.prompts(besides: fixture.identifier) }
+                CFUserNotificationCancel(alert)
+                _ = try await iterator.next { line in line.key == prompt.key && line.entry == .instances([:]) }
+                try await press(.exit, in: fixture, pid: pid)
+                while await iterator.next() != nil {}
+            }
+            expectNoDifference(ended.status, .exited(settings.status))
+            expectNoDifference(ended.lines.last?.entry.instances?[pid]?.exited.map(Ended.init), Ended(status: settings.status))
         }
 
         @Test(.application(FixtureApplication.self, launches: false))
@@ -307,7 +391,7 @@ extension Integration {
                 _ = try await iterator.next { line in line.key == fixture.identifier }
                 let writer: FileDescriptor = try FileDescriptor.open(FilePath(release), .writeOnly)
                 _ = try writer.closeAfter { try writer.writeAll("\n".utf8) }
-                _ = await iterator.collect { _ in false }
+                while await iterator.next() != nil {}
             }
             expectNoDifference(parent.status, .exited(0))
             expectNoDifference(parent.lines.filter { line in line.key == fixture.identifier }.map(\.entry), [.instances([:])])

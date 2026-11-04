@@ -1,5 +1,5 @@
 use core::num::NonZero;
-use std::borrow::Cow;
+use std::{borrow::Cow, collections::HashSet};
 
 use itertools::Itertools as _;
 use manifold_rust::{cancel::CancelToken, linalg};
@@ -34,7 +34,8 @@ pub fn trim<'solid>(solid: &'solid Solid, plane: &Isometry3<f64>, token: Option<
     match solid.0.as_impl().vert_pos.iter().map(|&vertex| linalg::dot(normal, vertex) - bias).minmax_by(f64::total_cmp).into_option() {
         Some((nearest, _)) if nearest >= -epsilon => Ok(Some(Trim { solid: Cow::Borrowed(solid), cap: None })),
         Some((_, farthest)) if farthest > epsilon => Ok(Solid::checked(Operation::Trim, solid.0.trim_by_plane(normal, bias), token)?.map(|trimmed| {
-            let cap = originals(&trimmed).find(|cap| !originals(solid).contains(cap)).and_then(crate::original_id);
+            let retained = originals(solid).collect::<HashSet<_>>();
+            let cap = originals(&trimmed).find(|cap| !retained.contains(cap)).and_then(crate::original_id);
             Trim { solid: Cow::Owned(trimmed), cap }
         })),
         Some(_) | None => Ok(None),

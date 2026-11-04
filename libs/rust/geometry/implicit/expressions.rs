@@ -109,12 +109,7 @@ pub fn truss(kind: Truss, cell: UnitCell, radius: impl Into<Tree>, fillet: f64) 
         let [wrapped_x, wrapped_y, wrapped_z] = [(&x, middle.x), (&y, middle.y), (&z, middle.z)].map(|(axis, at)| (axis.clone() + (half_turn - at)).modulo(turn) - half_turn);
         norm([x.clone() - along.clone() * half.x, y.clone() - along.clone() * half.y, z.clone() - along * half.z]).remap_affine(cell.world).remap_xyz(wrapped_x, wrapped_y, wrapped_z)
     };
-    struts
-        .into_iter()
-        .map(segment)
-        .fold(Tree::constant(f32::INFINITY), |nearest, strut| Tree::from(Blend { a: nearest, b: strut, radius: fillet.cast::<f32>() }))
-        .remap_affine(cell.phase)
-        - radius
+    struts.into_iter().map(segment).fold(Tree::constant(f32::INFINITY), |nearest, strut| Tree::from(Blend { a: nearest, b: strut, radius: fillet.cast::<f32>() })).remap_affine(cell.phase) - radius
 }
 
 #[must_use]

@@ -12,7 +12,7 @@ Covers LanguageExt types and operations, from result types and conversions to sh
 - [02]-[STREAMS](references/streams.md): Stream API from sources to pipes, with the buffer policies and their forking order
 - [03]-[API](references/api.md): Public types and members by scope, with the notes each scope needs
 
-Result, effect, and collection types come from `LanguageExt.Core`, the runtimes with their `ConsoleIO` and `FileIO` traits from `LanguageExt.Sys`, and `Source`, `Conduit`, and the pipes from `LanguageExt.Streaming`. Static global using of `LanguageExt.Prelude` in `Directory.Build.targets` binds constructors and module functions as unqualified names (`Some`, `None`, `Seq`, `toSeq`, `Range`, `parseInt`, `Pure`, `guard`, `use`, `atomic`, `memo`). Declarations take a name no `Prelude` member holds (`unit`, `None`, `identity`).
+Result, effect, and collection types come from `LanguageExt.Core`, host runtimes from `LanguageExt.Sys`, streams from `LanguageExt.Streaming`, and JSON converters from `LanguageExt.Json`. `using static LanguageExt.Prelude` brings constructors and module functions into scope. Resolve name collisions where imports and declarations meet.
 
 ## [01]-[RESULT_TYPES]
 
@@ -196,17 +196,19 @@ internal static class Construction {
 
 `use(Func<A>)` acquires an `IDisposable` inside the effect and disposes it when the scope ends on either path:
 - `use(Func<A>, Action<A>)` names the release step and runs it on every exit
-- `Bracket(Use:, Fin:)` runs `Fin` after `Use` on both paths
+- `Bracket(Use:, Fin:)` attaches `Finally` to the effect returned by `Use`
 - `Finally` attaches an effect that runs after a deferred receiver on both paths, an `IO.fail` receiver returns itself without it
 - `Bracket()` with no arguments releases every `use` inside its receiver and sits on the expression that starts at the scope's first `use`
 
 ```csharp
 internal static class Leases {
     public static IO<int> Released =>
-        from connection in use(static () => new Connection(), static c => c.Dispose())
-        select connection.Query();
+        (from connection in use(static () => new Connection())
+         select connection.Query()).Bracket();
     public static IO<int> Audited(IO<int> work, Atom<int> closed) =>
-        work.Finally(IO.lift(() => closed.Swap(static n => n + 1)));
+        (from _ in use(static () => unit, _ => IO.lift(() => ignore(closed.Swap(static n => n + 1))))
+         from value in work
+         select value).Bracket();
 }
 ```
 
@@ -222,7 +224,7 @@ internal static class Leases {
 - Effects built with `IO.liftAsync` overlap without a bound, effects built with `IO.lift` run in order on the calling thread until the first failure
 - Bounded parallelism chunks the collection and traverses the chunks with `TraverseM`
 - Exclusive writes to one resource go through a `Conduit` reduced under `Fork`
-- Host APIs that demand a thread take `AsyncSemaphore.EnterAsync()` under `use`
+- `AsyncSemaphore.EnterAsync()` under `use` serializes access, host dispatchers supply thread affinity
 
 ```csharp
 internal static class Concurrency {
@@ -377,16 +379,20 @@ Collection types, their purpose, and their construction:
 |  [05]   | `HashMap<K, V>` | Keyed, hashed                   | `HashMap(("a", 1))`, `toHashMap(pairs)`        |
 |  [06]   | `Set<A>`        | Unique, ordered                 | `Set(3, 1, 2)`, `toSet(items)`                 |
 |  [07]   | `HashSet<A>`    | Unique, hashed                  | `HashSet(3, 1, 2)`                             |
-|  [08]   | `Iterable<A>`   | Lazy over `IEnumerable`         | `source.AsIterable()`, `ToSeq()` forces it     |
+|  [08]   | `Iterable<A>`   | Lazy over `IEnumerable`         | `source.AsIterable()`                          |
 |  [09]   | `IterableNE<A>` | Non-empty, `Head` is a value    | `IterableNE.create(1, 2, 3)`, `AsIterableNE()` |
 
-- `Seq<A>` reads its source once and memoizes every item, `toSeq` copies an array, list, or collection eagerly
-- `Map` and `Filter` on a `Seq` defer until enumeration
+- `toSeq` copies arrays, lists, and collections eagerly, preserves an existing `Seq`, and memoizes other enumerables as consumed
+- Strict `Seq` values store an array slice, lazy values combine an array prefix with a memoized source
+- `Cons` and `Add` reuse unclaimed capacity, branching from one version or exhausting capacity copies the backing array
+- `Add` forces a lazy source, `Count` consumes its remainder, `Map` and `Filter` defer evaluation
+- `AsSpan` views strict storage or materializes lazy input; retain `Strict()` for reuse, and use `ToArray()` to flatten concatenations
+- `Lst<A>` uses a balanced indexed tree, indexed reads and edits take `O(log n)` and edits share unchanged subtrees
 - `Iterable<A>` does not memoize and reruns its source on each enumeration
 - `AsIterableNE` returns `Option<IterableNE<A>>`, `None` for an empty source
 - `Range(from, count)` takes a count, `Range(1, 3)` yields `1, 2, 3`
 - `Range<A>` implements `Foldable`, folds, searches, counts, and aggregates read it without `toSeq`
-- Declared type of a hash set is `LanguageExt.HashSet<A>`, the simple name collides with the BCL type
+- `LanguageExt.HashSet<A>.TryAdd(value)` keeps an existing member unchanged, while `Add(value)` rejects a duplicate
 
 `Fold` folds left to right with a seed and `FoldBack` right to left:
 - `FoldWhile` and `FoldUntil` read the state and the next element before each step, both predicates receive a `(State, Value)` tuple
@@ -426,7 +432,7 @@ Forms the compiler rejects:
 `Lens<A, B>.New` takes a getter and a curried setter for a focus no record property states, LanguageExt.Core generates no lens, and each one is a static member beside its record:
 - `Get` reads the focus, `Set` writes a value and `Update` applies a function to it, both return a new `A`
 - `lens(outer, inner)` composes lenses into one that focuses on the inner focus of the outer one
-- `Lens.identity<A>()` focuses on the whole value, and a record property path is `with` at the edit (`RASM1010`)
+- `Lens.identity<A>()` focuses on the whole value, and a record property path is `with` at the edit
 
 ```csharp
 internal sealed record Extent(double Start, double End) {
@@ -450,7 +456,7 @@ internal static class Lenses {
 - `AtomHashMap<K, V>` updates in place, `TryAdd` ignores a present key
 - `SwapKey(key, Func<V, V>)` updates a present key, `SwapKey(key, Func<Option<V>, Option<V>>)` inserts, updates, and removes
 - `Find` reads, `FindOrAdd` adds a missing value or returns the existing one in one atomic step
-- Computed values enter `FindOrAdd` through its `Func<V>` overload to run on a miss alone
+- `FindOrAdd` factories run on a miss and can rerun after CAS conflicts, resource acquisition needs serialized ownership
 - `Ref<A>` updates run inside `atomic(Func<R>)`, and `atomic` returns the function result from the transaction
 - `Ref<A>` and CommunityToolkit.HighPerformance `Ref<T>` are ambiguous in a file importing both namespaces (CS0104)
 - `swap` reads the transactional value
@@ -469,6 +475,12 @@ internal static class Lenses {
 internal static class SharedState {
     public static int Capped(Atom<int> counter, int limit) => counter.SwapMaybe(n => n < limit ? Some(n + 1) : Option<int>.None);
     public static Unit BumpOrStart(AtomHashMap<string, int> registry, string key) => registry.SwapKey(key, static n => n.Map(static v => v + 1) | Some(1));
+    public static Option<A> Take<A>(Ref<Option<A>> held) =>
+        atomic(() => {
+            Option<A> previous = held.Value;
+            held.Value = None;
+            return previous;
+        });
     public static decimal Move(Ref<decimal> source, Ref<decimal> target, decimal amount) =>
         atomic(() => {
             _ = swap(source, balance => balance - amount);

@@ -42,7 +42,7 @@ public static class ConstructionPlanes {
         Hold = static (doc, viewport) => Held(doc, viewport.Match(
             Some: static id => new ViewportSet.One(new ViewportTarget.Id(id)),
             None: static () => (ViewportSet)new ViewportSet.One(new ViewportTarget.Active()))),
-        Transform = Some(Transform),
+        TransformEntry = Some(Transform),
         Import = Some(Import),
         Archive = Some<Func<RhinoDoc, Seq<NamedEntry>, File3dm, IO<Unit>>>(static (doc, entries, archive) =>
             entries.TraverseM(entry => Found(doc, entry.Name).Bind(plane => IO.lift(() => archive.AllNamedConstructionPlanes.Add(plane)))).As().Map(static _ => unit)),

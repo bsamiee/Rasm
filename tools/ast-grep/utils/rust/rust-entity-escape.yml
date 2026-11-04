@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: rust-entity-escape
-language: rust
+language: rustlang
 utils:
     entity:
         kind: string_literal

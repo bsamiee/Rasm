@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -29,7 +30,7 @@ public static class Scopes {
 
     public static IEnumerable<IdentifierNameSyntax> Referenced(SyntaxNode node) {
         ImmutableHashSet<string> own = [.. Declared(node)];
-        return node.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>().Where(used => !own.Contains(used.Identifier.ValueText) && used.Identifier.ValueText is not "_"
+        return node.DescendantNodesAndSelf().OfType<IdentifierNameSyntax>().Where(used => !own.Contains(used.Identifier.ValueText)
             && used.Parent switch { MemberAccessExpressionSyntax access => access.Name != used, MemberBindingExpressionSyntax or NameColonSyntax or NameEqualsSyntax => false, _ => true });
     }
 }
@@ -38,7 +39,7 @@ public static class Scopes {
 public abstract class RasmAnalyzer : DiagnosticAnalyzer {
     public sealed override void Initialize(AnalysisContext context) {
         context.EnableConcurrentExecution();
-        context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
+        context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.Analyze);
         context.RegisterCompilationStartAction(Start);
     }
 
@@ -51,17 +52,35 @@ public abstract class RasmAnalyzer : DiagnosticAnalyzer {
     protected static void Report<T>(CompilationStartAnalysisContext context, ImmutableArray<OperationKind> kinds, Func<T, OperationAnalysisContext, IEnumerable<Diagnostic>> found) where T : IOperation =>
         context.RegisterOperationAction(
             analysis => {
-                foreach (Diagnostic diagnostic in found((T)analysis.Operation, analysis)) analysis.ReportDiagnostic(diagnostic);
+                if (analysis.IsGeneratedCode) return;
+                foreach (Diagnostic diagnostic in found((T)analysis.Operation, analysis)) {
+                    analysis.CancellationToken.ThrowIfCancellationRequested();
+                    analysis.ReportDiagnostic(diagnostic);
+                }
             },
             kinds);
 
     protected static void Report<T>(CompilationStartAnalysisContext context, ImmutableArray<OperationKind> kinds, DiagnosticDescriptor rule, Func<T, OperationAnalysisContext, bool> found) where T : IOperation =>
         Report<T>(context, kinds, (operation, analysis) => found(operation, analysis) ? [Diagnostic.Create(rule, operation.Syntax.GetLocation(), operation.Syntax)] : []);
 
-    protected static void Writes(CompilationStartAnalysisContext context, ISymbol? written, DiagnosticDescriptor rule, Func<IAssignmentOperation, OperationAnalysisContext, bool> wrong) {
+    protected static void Writes(CompilationStartAnalysisContext context, ISymbol? written, DiagnosticDescriptor rule, Func<IAssignmentOperation, IOperation?, OperationAnalysisContext, bool> wrong) {
         if (written is null) return;
-        Report<IAssignmentOperation>(context, [OperationKind.SimpleAssignment, OperationKind.CompoundAssignment, OperationKind.CoalesceAssignment], rule, (assignment, analysis) =>
-            assignment.Target is IPropertyReferenceOperation reference && Same(reference.Property, written) && wrong(assignment, analysis));
+        bool Found(IAssignmentOperation assignment, OperationAnalysisContext analysis) {
+            if (assignment.Target is not ITupleOperation)
+                return assignment.Target is IPropertyReferenceOperation direct && Same(direct.Property, written) && wrong(assignment, assignment.Value, analysis);
+            Queue<(IOperation Target, IOperation? Value)> pending = new([(assignment.Target, assignment.Value)]);
+            while (pending.Count is > 0) {
+                analysis.CancellationToken.ThrowIfCancellationRequested();
+                (IOperation target, IOperation? value) = pending.Dequeue();
+                if (target is IPropertyReferenceOperation reference && Same(reference.Property, written) && wrong(assignment, value, analysis)) return true;
+                if (target is not ITupleOperation tuple) continue;
+                ImmutableArray<IOperation> values = value is not null && Stripped(value) is ITupleOperation supplied ? supplied.Elements : [];
+                for (int index = 0; index < tuple.Elements.Length; index++)
+                    pending.Enqueue((tuple.Elements[index], index < values.Length ? values[index] : null));
+            }
+            return false;
+        }
+        Report<IAssignmentOperation>(context, [OperationKind.SimpleAssignment, OperationKind.CompoundAssignment, OperationKind.CoalesceAssignment, OperationKind.DeconstructionAssignment], rule, Found);
     }
 
     protected static Location Named(IInvocationOperation call) =>
@@ -77,13 +96,23 @@ public abstract class RasmAnalyzer : DiagnosticAnalyzer {
         [.. names.SelectMany(name => owner?.GetMembers(name) ?? []).OfType<IMethodSymbol>()];
 
     protected static bool Same(ISymbol? symbol, ISymbol? other) =>
-        SymbolEqualityComparer.Default.Equals(symbol?.OriginalDefinition, other?.OriginalDefinition);
+        symbol is not null && other is not null && SymbolEqualityComparer.Default.Equals(Declaration(symbol), Declaration(other));
 
-    protected static bool Among<T>(ISymbol? symbol, ImmutableArray<T> members) where T : class, ISymbol => members.Any(member => Same(symbol, member));
+    protected static bool Among<T>(ISymbol? symbol, ImmutableArray<T> members) where T : class, ISymbol {
+        if (symbol is null || members.IsEmpty) return false;
+        ISymbol declaration = Declaration(symbol);
+        foreach (T member in members)
+            if (SymbolEqualityComparer.Default.Equals(declaration, Declaration(member))) return true;
+        return false;
+    }
 
-    protected static IEnumerable<ISymbol> Containers(ISymbol? symbol) => symbol is null ? [] : Containers(symbol.ContainingSymbol).Prepend(symbol);
+    protected static IEnumerable<ISymbol> Containers(ISymbol? symbol) {
+        for (ISymbol? held = symbol; held is not null; held = held.ContainingSymbol) yield return held;
+    }
 
-    protected static IEnumerable<ITypeSymbol> Bases(ITypeSymbol? type) => type is null ? [] : Bases(type.BaseType).Prepend(type);
+    protected static IEnumerable<ITypeSymbol> Bases(ITypeSymbol? type) {
+        for (ITypeSymbol? held = type; held is not null; held = held.BaseType) yield return held;
+    }
 
     protected static bool Within(ISymbol? symbol, ISymbol? owner) => owner is not null && Containers(symbol).Any(held => Same(held, owner));
 
@@ -112,8 +141,14 @@ public abstract class RasmAnalyzer : DiagnosticAnalyzer {
 
     protected static ISymbol Member(ISymbol symbol) => symbol is IMethodSymbol { AssociatedSymbol: { } associated } ? associated : symbol;
 
-    protected static IEnumerable<ISymbol> Overridden(ISymbol? member) =>
-        member is null ? [] : Overridden(member switch { IMethodSymbol method => method.OverriddenMethod, IPropertySymbol property => property.OverriddenProperty, _ => null }).Prepend(member);
+    protected static IEnumerable<ISymbol> Overridden(ISymbol? member) {
+        for (ISymbol? held = member; held is not null; held = held switch {
+            IMethodSymbol method => method.OverriddenMethod,
+            IPropertySymbol property => property.OverriddenProperty,
+            IEventSymbol notification => notification.OverriddenEvent,
+            _ => null,
+        }) yield return held;
+    }
 
     protected static string Label(IMethodSymbol method) =>
         method.MethodKind is MethodKind.Constructor ? $"new {method.ContainingType.Name}" : $"{method.ContainingType.Name}.{method.Name}";
@@ -121,25 +156,32 @@ public abstract class RasmAnalyzer : DiagnosticAnalyzer {
     protected static string Label(IInvocationOperation call) =>
         call.TargetMethod.MethodKind is MethodKind.DelegateInvoke && call.Instance is { } handed ? handed.Syntax.ToString() : Label(call.TargetMethod);
 
+    private static ISymbol Declaration(ISymbol value) =>
+        (value is IMethodSymbol method ? method.AssociatedExtensionImplementation ?? method.ReducedFrom ?? method : value).OriginalDefinition;
+
     // --- [OPERATIONS]
-    protected static T? Ancestor<T>(IOperation operation, Func<T, bool> wanted) where T : class, IOperation =>
-        operation.Parent switch {
-            null => null,
-            T held when wanted(held) => held,
-            var parent => Ancestor(parent, wanted),
-        };
+    protected static T? Ancestor<T>(IOperation operation, Func<T, bool> wanted) where T : class, IOperation {
+        for (IOperation? parent = operation.Parent; parent is not null; parent = parent.Parent)
+            if (parent is T held && wanted(held)) return held;
+        return null;
+    }
 
     protected static bool Inside<T>(IOperation operation) where T : class, IOperation => Ancestor<T>(operation, static _ => true) is not null;
 
-    protected static IOperation? Consumer(IOperation operation) =>
-        operation.Parent is IConversionOperation { IsImplicit: true } conversion ? Consumer(conversion) : operation.Parent;
+    protected static IOperation? Consumer(IOperation operation) {
+        IOperation? parent = operation.Parent;
+        while (parent is IConversionOperation { IsImplicit: true, OperatorMethod: null } conversion) parent = conversion.Parent;
+        return parent;
+    }
 
-    protected static IOperation Stripped(IOperation operation) =>
-        operation is IConversionOperation { IsImplicit: true } conversion ? Stripped(conversion.Operand) : operation;
+    protected static IOperation Stripped(IOperation operation) {
+        while (operation is IConversionOperation { IsImplicit: true, OperatorMethod: null } conversion) operation = conversion.Operand;
+        return operation;
+    }
 
     protected static IAnonymousFunctionOperation? Lambda(IOperation value) => Stripped(value) is IDelegateCreationOperation { Target: IAnonymousFunctionOperation function } ? function : null;
 
-    protected static ISymbol? Variable(IOperation reference) =>
+    protected internal static ISymbol? Variable(IOperation reference) =>
         reference switch {
             IParameterReferenceOperation parameter => parameter.Parameter,
             ILocalReferenceOperation local => local.Local,
@@ -147,28 +189,30 @@ public abstract class RasmAnalyzer : DiagnosticAnalyzer {
         };
 
     protected static ImmutableArray<IOperation> Steps(IBlockOperation body) =>
-        [.. body.Operations.Where(static step => step is not IReturnOperation { ReturnedValue: null, IsImplicit: true }).Select(Unwrapped)];
-
-    protected static IOperation? Sole(IBlockOperation body) => Steps(body) is { Length: 1 } steps ? steps[0] : null;
-
-    private static IOperation Unwrapped(IOperation step) =>
-        step switch {
+        [.. body.Operations.Where(static step => step is not IReturnOperation { ReturnedValue: null, IsImplicit: true }).Select(static step => step switch {
             IReturnOperation { ReturnedValue: { } returned } => Stripped(returned),
             IExpressionStatementOperation statement => Stripped(statement.Operation),
             _ => step,
-        };
+        })];
+
+    protected static IOperation? Sole(IBlockOperation body) => Steps(body) is { Length: 1 } steps ? steps[0] : null;
 
     protected static IOperation? Receiver(IInvocationOperation call) =>
-        call.Instance ?? (call.Arguments.IsEmpty ? null : call.Arguments[0].Value);
+        call.Instance ?? call.Arguments.FirstOrDefault(static argument => argument.Parameter?.Ordinal is 0)?.Value;
 
-    protected static IOperation Root(IOperation operation) => operation.Parent is { } parent ? Root(parent) : operation;
+    protected static IOperation Root(IOperation operation) {
+        while (operation.Parent is { } parent) operation = parent;
+        return operation;
+    }
 
-    protected static bool Written(IOperation reference) =>
-        reference.Parent switch {
+    protected static bool Written(IOperation reference) {
+        while (reference.Parent is ITupleOperation tuple) reference = tuple;
+        return reference.Parent switch {
             IAssignmentOperation assignment => assignment.Target == reference,
             IIncrementOrDecrementOperation or IArgumentOperation { Parameter.RefKind: RefKind.Ref or RefKind.Out } => true,
             _ => false,
         };
+    }
 
     protected static ISymbol? Target(IOperation operation) =>
         operation switch {
@@ -178,23 +222,51 @@ public abstract class RasmAnalyzer : DiagnosticAnalyzer {
         };
 
     private protected static IEnumerable<IOperation> Declarations(ISymbol symbol, Reading reading) =>
-        symbol.DeclaringSyntaxReferences.Where(declared => declared.SyntaxTree == reading.Model.SyntaxTree)
-            .Select(declared => reading.Model.GetOperation(declared.GetSyntax(reading.Token), reading.Token)).OfType<IOperation>();
+        symbol.DeclaringSyntaxReferences.Where(declared => reading.Model.Compilation.ContainsSyntaxTree(declared.SyntaxTree)).Select(declared =>
+            reading.For(declared.SyntaxTree).GetOperation(declared.GetSyntax(reading.Token), reading.Token)).OfType<IOperation>();
 
-    private protected static IEnumerable<IOperation> References(ISymbol symbol, IOperation within, Reading reading) =>
-        Root(within).Syntax.DescendantNodes().OfType<IdentifierNameSyntax>()
-            .Where(name => string.Equals(name.Identifier.ValueText, symbol.Name, StringComparison.Ordinal)
-                && SymbolEqualityComparer.Default.Equals(reading.Model.GetSymbolInfo(name, reading.Token).Symbol, symbol))
-            .Select(name => reading.Model.GetOperation(name, reading.Token))
-            .OfType<IOperation>();
+    private protected static IEnumerable<IMethodSymbol> Calls(IInvocationOperation call, Reading reading, ControlFlow flow, ImmutableArray<IMethodSymbol> callbacks) {
+        IEnumerable<IMethodSymbol> invoked = call is { TargetMethod.MethodKind: MethodKind.DelegateInvoke, Instance: { } instance }
+            ? flow.Targets(ControlFlow.At(instance), reading.Token).OfType<IMethodSymbol>() : [call.TargetMethod];
+        return invoked.Concat(call.Arguments.Where(argument => argument.Parameter is { Type.TypeKind: TypeKind.Delegate } parameter
+            && flow.Invoked(parameter, method => Declarations(method, reading), native => native.Type.TypeKind is TypeKind.Delegate && Among(native.ContainingSymbol, callbacks), reading.Token))
+            .SelectMany(argument => flow.Targets(ControlFlow.At(argument.Value), reading.Token).OfType<IMethodSymbol>()));
+    }
 
-    private protected static QueryClauseSyntax? Clause(SyntaxNode syntax) =>
-        syntax.Parent switch {
-            ParenthesizedExpressionSyntax parenthesized => Clause(parenthesized),
+    private protected static IEnumerable<IOperation> References(ISymbol symbol, IOperation within, Reading reading) {
+        IOperation root = Root(within);
+        if (symbol is IRangeVariableSymbol) {
+            if (!reading.Ranges.TryGetValue(root, out ILookup<ISymbol?, IOperation>? ranges)) {
+                SemanticModel model = reading.For(root.Syntax.SyntaxTree);
+                ranges = root.Syntax.DescendantNodes().OfType<IdentifierNameSyntax>().Select(name => {
+                    reading.Token.ThrowIfCancellationRequested();
+                    return (name, model.GetSymbolInfo(name, reading.Token).Symbol);
+                }).Where(static reference => reference.Symbol is IRangeVariableSymbol)
+                    .Select(reference => (reference.Symbol, Operation: model.GetOperation(reference.name, reading.Token)))
+                    .Where(static reference => reference.Operation is not null)
+                    .ToLookup(static reference => reference.Symbol, static reference => reference.Operation!, SymbolEqualityComparer.Default);
+                reading.Ranges.Add(root, ranges);
+            }
+            return ranges[symbol];
+        }
+        if (!reading.References.TryGetValue(root, out ILookup<ISymbol?, IOperation>? references)) {
+            references = root.DescendantsAndSelf().Where(operation => {
+                reading.Token.ThrowIfCancellationRequested();
+                return operation is ILocalReferenceOperation or IParameterReferenceOperation && operation.Syntax is IdentifierNameSyntax;
+            }).ToLookup(Variable, SymbolEqualityComparer.Default);
+            reading.References.Add(root, references);
+        }
+        return references[symbol];
+    }
+
+    private protected static QueryClauseSyntax? Clause(SyntaxNode syntax) {
+        while (syntax.Parent is ParenthesizedExpressionSyntax parenthesized) syntax = parenthesized;
+        return syntax.Parent switch {
             FromClauseSyntax from when from.Expression == syntax => from,
             LetClauseSyntax let when let.Expression == syntax => let,
             _ => null,
         };
+    }
 
     // --- [SWITCHES]
     protected static (IOperation Subject, ImmutableArray<(IOperation Arm, IOperation? Test, IOperation? Guard)> Arms)? Dispatch(IOperation operation) =>
@@ -211,29 +283,95 @@ public abstract class RasmAnalyzer : DiagnosticAnalyzer {
             _ => null,
         };
 
-    protected static bool CatchesAll((IOperation Arm, IOperation? Test, IOperation? Guard) arm) =>
-        arm is { Guard: null, Test: null or IPatternOperation } && (arm.Test is not IPatternOperation pattern || Open(pattern));
+    protected static bool CatchesAll((IOperation Arm, IOperation? Test, IOperation? Guard) arm, CancellationToken cancellation) =>
+        arm is { Guard: null, Test: null or IPatternOperation } && (arm.Test is not IPatternOperation pattern || Open(pattern, cancellation));
 
-    private static bool Open(IPatternOperation pattern) =>
-        pattern switch {
+    private static bool Open(IPatternOperation pattern, CancellationToken cancellation) {
+        static bool Whole(ITypeSymbol? matched, IPatternOperation tested) =>
+            matched is null or { SpecialType: SpecialType.System_Object } || SymbolEqualityComparer.Default.Equals(matched, tested.InputType);
+        static bool Leaf(IPatternOperation tested) => tested switch {
             IDiscardPatternOperation => true,
             IDeclarationPatternOperation declaration => Whole(declaration.MatchedType, declaration),
             ITypePatternOperation type => Whole(type.MatchedType, type),
             INegatedPatternOperation { Pattern: IConstantPatternOperation { Value.ConstantValue: { HasValue: true, Value: null } } } => true,
-            IRecursivePatternOperation recursive => Whole(recursive.MatchedType, recursive) && recursive.PropertySubpatterns.IsEmpty && recursive.DeconstructionSubpatterns.All(Open),
-            IBinaryPatternOperation { OperatorKind: BinaryOperatorKind.Or } either => Open(either.LeftPattern) || Open(either.RightPattern),
-            IBinaryPatternOperation { OperatorKind: BinaryOperatorKind.And } both => Open(both.LeftPattern) && Open(both.RightPattern),
             _ => false,
         };
-
-    private static bool Whole(ITypeSymbol? matched, IPatternOperation pattern) =>
-        matched is null or { SpecialType: SpecialType.System_Object } || SymbolEqualityComparer.Default.Equals(matched, pattern.InputType);
+        if (pattern is not (IBinaryPatternOperation or IRecursivePatternOperation)) return Leaf(pattern);
+        Dictionary<IPatternOperation, bool> results = [];
+        Stack<(IPatternOperation Pattern, bool Expanded)> pending = new([(pattern, false)]);
+        while (pending.Count is > 0) {
+            cancellation.ThrowIfCancellationRequested();
+            (IPatternOperation held, bool expanded) = pending.Pop();
+            switch (held) {
+                case IBinaryPatternOperation binary when !expanded:
+                    pending.Push((held, true));
+                    pending.Push((binary.RightPattern, false));
+                    pending.Push((binary.LeftPattern, false));
+                    break;
+                case IBinaryPatternOperation binary:
+                    results[held] = binary.OperatorKind is BinaryOperatorKind.Or
+                        ? results[binary.LeftPattern] || results[binary.RightPattern]
+                        : results[binary.LeftPattern] && results[binary.RightPattern];
+                    break;
+                case IRecursivePatternOperation recursive when Whole(recursive.MatchedType, recursive) && recursive.PropertySubpatterns.IsEmpty && !expanded:
+                    pending.Push((held, true));
+                    foreach (IPatternOperation child in recursive.DeconstructionSubpatterns) pending.Push((child, false));
+                    break;
+                case IRecursivePatternOperation recursive:
+                    results[held] = Whole(recursive.MatchedType, recursive) && recursive.PropertySubpatterns.IsEmpty && recursive.DeconstructionSubpatterns.All(child => results[child]);
+                    break;
+                default:
+                    results[held] = Leaf(held);
+                    break;
+            }
+        }
+        return results[pattern];
+    }
 
     // --- [READING]
-    private protected sealed class Reading(SemanticModel model, CancellationToken token) {
+    private protected sealed class Reading(SemanticModel model, ImmutableDictionary<SyntaxTree, SemanticModel> models, CancellationToken token) {
         public SemanticModel Model { get; } = model;
 
         public CancellationToken Token { get; } = token;
+
+        public Dictionary<IOperation, ILookup<ISymbol?, IOperation>> References { get; } = [];
+
+        public Dictionary<IOperation, ILookup<ISymbol?, IOperation>> Ranges { get; } = [];
+
+        public SemanticModel For(SyntaxTree tree) => tree == Model.SyntaxTree ? Model : models[tree];
+    }
+
+    private protected sealed class SemanticModels {
+        private readonly CompilationStartAnalysisContext context;
+        private readonly List<Action<CompilationAnalysisContext, ImmutableDictionary<SyntaxTree, SemanticModel>>> completed = [];
+        private readonly ConcurrentDictionary<SemanticModel, Reading> readings = [];
+
+        public SemanticModels(CompilationStartAnalysisContext context) {
+            this.context = context;
+            ConcurrentDictionary<SyntaxTree, SemanticModel> models = [];
+            context.RegisterSemanticModelAction(analysis => models[analysis.SemanticModel.SyntaxTree] = analysis.SemanticModel);
+            context.RegisterCompilationEndAction(end => {
+                ImmutableDictionary<SyntaxTree, SemanticModel> snapshot = models.ToImmutableDictionary();
+                foreach (Action<CompilationAnalysisContext, ImmutableDictionary<SyntaxTree, SemanticModel>> action in completed) action(end, snapshot);
+            });
+        }
+
+        public void Complete(Action<CompilationAnalysisContext, ImmutableDictionary<SyntaxTree, SemanticModel>> action) => completed.Add(action);
+
+        public void Report<T>(ImmutableArray<OperationKind> kinds, Func<T, ISymbol, Reading, IEnumerable<Diagnostic>> found) where T : IOperation {
+            ConcurrentBag<(T Operation, ISymbol Owner)> operations = [];
+            context.RegisterOperationAction(analysis => {
+                if (!analysis.IsGeneratedCode) operations.Add(((T)analysis.Operation, analysis.ContainingSymbol));
+            }, kinds);
+            Complete((end, models) => {
+                Func<SemanticModel, Reading> read = model => new Reading(model, models, end.CancellationToken);
+                foreach ((T operation, ISymbol owner) in operations)
+                    foreach (Diagnostic diagnostic in found(operation, owner, readings.GetOrAdd(models[operation.Syntax.SyntaxTree], read))) {
+                        end.CancellationToken.ThrowIfCancellationRequested();
+                        end.ReportDiagnostic(diagnostic);
+                    }
+            });
+        }
     }
 
     // --- [PACKAGES]
@@ -244,11 +382,6 @@ public abstract class RasmAnalyzer : DiagnosticAnalyzer {
         public INamedTypeSymbol? Thunk { get; } = compilation.GetTypeByMetadataName("System.Func`1");
 
         public INamedTypeSymbol? Flags { get; } = compilation.GetTypeByMetadataName("System.FlagsAttribute");
-
-        public ImmutableArray<INamedTypeSymbol> Sets { get; } =
-            [.. new[] { "System.Collections.Generic.ISet`1", "System.Collections.Generic.IReadOnlySet`1" }.Select(compilation.GetTypeByMetadataName).OfType<INamedTypeSymbol>()];
-
-        public ImmutableArray<ISymbol> Collections { get; } = Declared(compilation, "N:System.Linq", "N:System.Collections.Frozen", "N:System.Collections.Immutable");
 
         public ISymbol? IsMacOS { get; } = Declared(compilation, "M:System.OperatingSystem.IsMacOS").FirstOrDefault();
 
@@ -268,111 +401,178 @@ public abstract class RasmAnalyzer : DiagnosticAnalyzer {
         public INamedTypeSymbol? Type { get; } = compilation.GetTypeByMetadataName("System.Type");
     }
 
-    private protected sealed class LanguageExtSymbols(Compilation compilation) {
-        public INamedTypeSymbol? Fin { get; } = compilation.GetTypeByMetadataName("LanguageExt.Fin`1");
+    private protected sealed class LanguageExtSymbols {
+        public LanguageExtSymbols(Compilation compilation) {
+            Fin = compilation.GetTypeByMetadataName("LanguageExt.Fin`1");
+            Validation = compilation.GetTypeByMetadataName("LanguageExt.Validation`2");
+            Error = compilation.GetTypeByMetadataName("LanguageExt.Common.Error");
+            ManyErrors = compilation.GetTypeByMetadataName("LanguageExt.Common.ManyErrors");
+            IO = compilation.GetTypeByMetadataName("LanguageExt.IO");
+            IO1 = compilation.GetTypeByMetadataName("LanguageExt.IO`1");
+            Seq = compilation.GetTypeByMetadataName("LanguageExt.Seq`1");
+            K = compilation.GetTypeByMetadataName("LanguageExt.Traits.K`2");
+            Option = compilation.GetTypeByMetadataName("LanguageExt.Option`1");
+            Namespace = Declared(compilation, "N:LanguageExt").FirstOrDefault();
+            INamedTypeSymbol? prelude = compilation.GetTypeByMetadataName("LanguageExt.Prelude");
+            Lifts = Members(IO, "lift", "liftAsync", "liftVAsync", "pure");
+            Optional = Members(prelude, "Optional");
+            Uses = Members(prelude, "use");
+            Releases = Members(prelude, "release");
+            Conversions = Members(Option, "ToFin");
+            Lenses = Members(compilation.GetTypeByMetadataName("LanguageExt.Lens`2"), "New");
+            Maps = Members(Option, "Map");
+            Nullable = Members(compilation.GetTypeByMetadataName("LanguageExt.OptionExtensions"), "ToNullable").SingleOrDefault();
+            Unsafe = Members(compilation.GetTypeByMetadataName("LanguageExt.UnsafeValueAccess.UnsafeValueAccessExtensions"), "ValueUnsafe")
+                .FirstOrDefault(method => Same(method.Parameters[0].Type, Option));
+            Applies = Members(compilation.GetTypeByMetadataName("LanguageExt.ApplicativeExtensions"), "Apply");
+            Matches = [.. Members(Fin, "Match"), .. Members(Option, "Match")];
+            Factories = Declared(
+                compilation,
+                "M:LanguageExt.Fin.Succ``1(``0)",
+                "M:LanguageExt.Fin.Fail``1(LanguageExt.Common.Error)",
+                "M:LanguageExt.Validation.Success``2(``1)",
+                "M:LanguageExt.Validation.Fail``2(``0)",
+                "M:LanguageExt.Prelude.FinSucc``1(``0)",
+                "M:LanguageExt.Prelude.FinFail``1(LanguageExt.Common.Error)",
+                "M:LanguageExt.Prelude.Pure``1(``0)",
+                "M:LanguageExt.Prelude.Fail``1(``0)",
+                "M:LanguageExt.Prelude.Success``2(``1)",
+                "M:LanguageExt.Prelude.Fail``2(``0)");
+            Leaves = Declared(
+                compilation,
+                "P:LanguageExt.Common.Error.Head",
+                "M:LanguageExt.Common.Error.AsIterable",
+                "M:LanguageExt.Common.Error.FoldM``2(System.Func{LanguageExt.Common.Error,LanguageExt.Traits.K{``0,``1}})",
+                "M:LanguageExt.Common.Error.ForAllM``2(System.Func{LanguageExt.Common.Error,LanguageExt.Traits.K{``0,``1}})");
+            Identity = Declared(compilation, "M:LanguageExt.Prelude.identity``1(``0)").FirstOrDefault();
+            Case = Declared(compilation, "P:LanguageExt.Option`1.Case").FirstOrDefault();
+            IsSome = Declared(compilation, "P:LanguageExt.Option`1.IsSome").FirstOrDefault();
+            IsNone = Declared(compilation, "P:LanguageExt.Option`1.IsNone").FirstOrDefault();
+        }
 
-        public INamedTypeSymbol? Validation { get; } = compilation.GetTypeByMetadataName("LanguageExt.Validation`2");
+        public INamedTypeSymbol? Fin { get; }
 
-        public INamedTypeSymbol? Error { get; } = compilation.GetTypeByMetadataName("LanguageExt.Common.Error");
+        public INamedTypeSymbol? Validation { get; }
 
-        public INamedTypeSymbol? ManyErrors { get; } = compilation.GetTypeByMetadataName("LanguageExt.Common.ManyErrors");
+        public INamedTypeSymbol? Error { get; }
 
-        public INamedTypeSymbol? IO { get; } = compilation.GetTypeByMetadataName("LanguageExt.IO");
+        public INamedTypeSymbol? ManyErrors { get; }
 
-        public INamedTypeSymbol? IO1 { get; } = compilation.GetTypeByMetadataName("LanguageExt.IO`1");
+        public INamedTypeSymbol? IO { get; }
 
-        public INamedTypeSymbol? Seq { get; } = compilation.GetTypeByMetadataName("LanguageExt.Seq`1");
+        public INamedTypeSymbol? IO1 { get; }
 
-        public INamedTypeSymbol? K { get; } = compilation.GetTypeByMetadataName("LanguageExt.Traits.K`2");
+        public INamedTypeSymbol? Seq { get; }
 
-        public INamedTypeSymbol? Option { get; } = compilation.GetTypeByMetadataName("LanguageExt.Option`1");
+        public INamedTypeSymbol? K { get; }
 
-        public INamedTypeSymbol? Prelude { get; } = compilation.GetTypeByMetadataName("LanguageExt.Prelude");
+        public INamedTypeSymbol? Option { get; }
 
-        public INamedTypeSymbol? Lens { get; } = compilation.GetTypeByMetadataName("LanguageExt.Lens`2");
+        public ISymbol? Namespace { get; }
 
-        public ISymbol? Namespace { get; } = Declared(compilation, "N:LanguageExt").FirstOrDefault();
+        public ImmutableArray<IMethodSymbol> Lifts { get; }
 
-        public ImmutableArray<IMethodSymbol> Lifts => Members(IO, "lift", "pure");
+        public ImmutableArray<IMethodSymbol> Optional { get; }
 
-        public ImmutableArray<IMethodSymbol> Optional => Members(Prelude, "Optional");
+        public ImmutableArray<IMethodSymbol> Uses { get; }
 
-        public ImmutableArray<IMethodSymbol> Uses => Members(Prelude, "use");
+        public ImmutableArray<IMethodSymbol> Releases { get; }
 
-        public ImmutableArray<IMethodSymbol> Releases => Members(Prelude, "release");
+        public ImmutableArray<IMethodSymbol> Conversions { get; }
 
-        public ImmutableArray<IMethodSymbol> Conversions => Members(Option, "ToFin");
+        public ImmutableArray<IMethodSymbol> Lenses { get; }
 
-        public ImmutableArray<ISymbol> Factories { get; } = Declared(
-            compilation,
-            "M:LanguageExt.Fin.Succ``1(``0)",
-            "M:LanguageExt.Fin.Fail``1(LanguageExt.Common.Error)",
-            "M:LanguageExt.Validation.Success``2(``1)",
-            "M:LanguageExt.Validation.Fail``2(``0)",
-            "M:LanguageExt.Prelude.FinSucc``1(``0)",
-            "M:LanguageExt.Prelude.FinFail``1(LanguageExt.Common.Error)",
-            "M:LanguageExt.Prelude.Pure``1(``0)",
-            "M:LanguageExt.Prelude.Fail``1(``0)",
-            "M:LanguageExt.Prelude.Success``2(``1)",
-            "M:LanguageExt.Prelude.Fail``2(``0)");
+        public ImmutableArray<IMethodSymbol> Maps { get; }
 
-        public ImmutableArray<ISymbol> Leaves { get; } = Declared(
-            compilation,
-            "P:LanguageExt.Common.Error.Head",
-            "M:LanguageExt.Common.Error.AsIterable",
-            "M:LanguageExt.Common.Error.FoldM``2(System.Func{LanguageExt.Common.Error,LanguageExt.Traits.K{``0,``1}})",
-            "M:LanguageExt.Common.Error.ForAllM``2(System.Func{LanguageExt.Common.Error,LanguageExt.Traits.K{``0,``1}})");
+        public IMethodSymbol? Nullable { get; }
 
-        public ISymbol? Identity { get; } = Declared(compilation, "M:LanguageExt.Prelude.identity``1(``0)").FirstOrDefault();
+        public IMethodSymbol? Unsafe { get; }
 
-        public ISymbol? Case { get; } = Declared(compilation, "P:LanguageExt.Option`1.Case").FirstOrDefault();
+        public ImmutableArray<IMethodSymbol> Applies { get; }
 
-        public ISymbol? IsSome { get; } = Declared(compilation, "P:LanguageExt.Option`1.IsSome").FirstOrDefault();
+        public ImmutableArray<IMethodSymbol> Matches { get; }
 
-        public ISymbol? IsNone { get; } = Declared(compilation, "P:LanguageExt.Option`1.IsNone").FirstOrDefault();
+        public ImmutableArray<ISymbol> Factories { get; }
+
+        public ImmutableArray<ISymbol> Leaves { get; }
+
+        public ISymbol? Identity { get; }
+
+        public ISymbol? Case { get; }
+
+        public ISymbol? IsSome { get; }
+
+        public ISymbol? IsNone { get; }
     }
 
-    private protected sealed class ThinktectureSymbols(Compilation compilation) {
-        public INamedTypeSymbol? ValidationError { get; } = compilation.GetTypeByMetadataName("Thinktecture.ValidationError");
+    private protected sealed class ThinktectureSymbols {
+        public ThinktectureSymbols(Compilation compilation) {
+            ValidationError = compilation.GetTypeByMetadataName("Thinktecture.ValidationError");
+            ObjectFactory = compilation.GetTypeByMetadataName("Thinktecture.IObjectFactory`3");
+            SmartEnum = compilation.GetTypeByMetadataName("Thinktecture.ISmartEnum`3");
+            UnionAttributeBase = compilation.GetTypeByMetadataName("Thinktecture.UnionAttributeBase");
+            SmartEnumAttribute1 = compilation.GetTypeByMetadataName("Thinktecture.SmartEnumAttribute`1");
+            UnionAttribute = compilation.GetTypeByMetadataName("Thinktecture.UnionAttribute");
+            SmartEnumAttribute = compilation.GetTypeByMetadataName("Thinktecture.SmartEnumAttribute");
+            SmartEnums = [.. new[] { SmartEnumAttribute, SmartEnumAttribute1 }.OfType<INamedTypeSymbol>()];
+            Marks = [.. new[] { UnionAttributeBase, UnionAttribute }.OfType<INamedTypeSymbol>(), .. SmartEnums];
+            Validated = [
+                .. new[] {
+                    compilation.GetTypeByMetadataName("Thinktecture.ValueObjectAttribute`1"),
+                    compilation.GetTypeByMetadataName("Thinktecture.ComplexValueObjectAttribute"),
+                }.OfType<INamedTypeSymbol>(),
+                .. SmartEnums,
+            ];
+            Validate = Declared(compilation, "M:Thinktecture.IObjectFactory`3.Validate(`1,System.IFormatProvider,`0@)").FirstOrDefault();
+            Message = Declared(compilation, "P:Thinktecture.ValidationError.Message").FirstOrDefault();
+        }
 
-        public INamedTypeSymbol? ObjectFactory { get; } = compilation.GetTypeByMetadataName("Thinktecture.IObjectFactory`3");
+        public INamedTypeSymbol? ValidationError { get; }
 
-        public INamedTypeSymbol? SmartEnum { get; } = compilation.GetTypeByMetadataName("Thinktecture.ISmartEnum`3");
+        public INamedTypeSymbol? ObjectFactory { get; }
 
-        public INamedTypeSymbol? UnionAttributeBase { get; } = compilation.GetTypeByMetadataName("Thinktecture.UnionAttributeBase");
+        public INamedTypeSymbol? SmartEnum { get; }
 
-        public INamedTypeSymbol? SmartEnumAttribute1 { get; } = compilation.GetTypeByMetadataName("Thinktecture.SmartEnumAttribute`1");
+        public INamedTypeSymbol? UnionAttributeBase { get; }
 
-        public INamedTypeSymbol? UnionAttribute { get; } = compilation.GetTypeByMetadataName("Thinktecture.UnionAttribute");
+        public INamedTypeSymbol? SmartEnumAttribute1 { get; }
 
-        public INamedTypeSymbol? SmartEnumAttribute { get; } = compilation.GetTypeByMetadataName("Thinktecture.SmartEnumAttribute");
+        public INamedTypeSymbol? UnionAttribute { get; }
 
-        public INamedTypeSymbol? ValueObjectAttribute1 { get; } = compilation.GetTypeByMetadataName("Thinktecture.ValueObjectAttribute`1");
+        public INamedTypeSymbol? SmartEnumAttribute { get; }
 
-        public INamedTypeSymbol? ComplexValueObjectAttribute { get; } = compilation.GetTypeByMetadataName("Thinktecture.ComplexValueObjectAttribute");
+        public ImmutableArray<INamedTypeSymbol> Marks { get; }
 
-        public ImmutableArray<INamedTypeSymbol> Marks => [.. new[] { UnionAttributeBase, SmartEnumAttribute1, UnionAttribute, SmartEnumAttribute }.OfType<INamedTypeSymbol>()];
+        public ImmutableArray<INamedTypeSymbol> SmartEnums { get; }
 
-        public ImmutableArray<INamedTypeSymbol> SmartEnums => [.. new[] { SmartEnumAttribute, SmartEnumAttribute1 }.OfType<INamedTypeSymbol>()];
+        public ImmutableArray<INamedTypeSymbol> Validated { get; }
 
-        public ImmutableArray<INamedTypeSymbol> Validated => [.. new[] { ValueObjectAttribute1, ComplexValueObjectAttribute, SmartEnumAttribute1, SmartEnumAttribute }.OfType<INamedTypeSymbol>()];
+        public ISymbol? Validate { get; }
 
-        public ISymbol? Validate { get; } = Declared(compilation, "M:Thinktecture.IObjectFactory`3.Validate(`1,System.IFormatProvider,`0@)").FirstOrDefault();
-
-        public ISymbol? Message { get; } = Declared(compilation, "P:Thinktecture.ValidationError.Message").FirstOrDefault();
+        public ISymbol? Message { get; }
     }
 
-    private protected sealed class LoggingSymbols(Compilation compilation) {
-        public ImmutableArray<IMethodSymbol> Define { get; } = Members(compilation.GetTypeByMetadataName("Microsoft.Extensions.Logging.LoggerMessage"), "Define");
+    private protected sealed class LoggingSymbols {
+        public LoggingSymbols(Compilation compilation) {
+            Define = Members(compilation.GetTypeByMetadataName("Microsoft.Extensions.Logging.LoggerMessage"), "Define");
+            Logger = compilation.GetTypeByMetadataName("Microsoft.Extensions.Logging.ILogger");
+            Extensions = compilation.GetTypeByMetadataName("Microsoft.Extensions.Logging.LoggerExtensions");
+            Calls = Members(Logger, "Log", "BeginScope");
+            Message = compilation.GetTypeByMetadataName("Microsoft.Extensions.Logging.LoggerMessageAttribute");
+        }
 
-        public INamedTypeSymbol? Logger { get; } = compilation.GetTypeByMetadataName("Microsoft.Extensions.Logging.ILogger");
+        public ImmutableArray<IMethodSymbol> Define { get; }
 
-        public ImmutableArray<IMethodSymbol> Calls => Members(Logger, "Log", "BeginScope");
+        public INamedTypeSymbol? Logger { get; }
 
-        public INamedTypeSymbol? Message { get; } = compilation.GetTypeByMetadataName("Microsoft.Extensions.Logging.LoggerMessageAttribute");
+        public INamedTypeSymbol? Extensions { get; }
+
+        public ImmutableArray<IMethodSymbol> Calls { get; }
+
+        public INamedTypeSymbol? Message { get; }
     }
 
-    private protected sealed class RhinoCommonSymbols(Compilation compilation) {
+    private protected sealed class RhinoCommonSymbols {
         private static readonly ImmutableArray<(string Owner, string Member)> Counts = [
             ("Rhino.DocObjects.Tables.ObjectTable", "Delete"),
             ("Rhino.DocObjects.Tables.ObjectTable", "DeleteGrips"),
@@ -388,65 +588,78 @@ public abstract class RasmAnalyzer : DiagnosticAnalyzer {
             ("Rhino.DocObjects.Worksession", "Attach"),
         ];
 
-        public INamedTypeSymbol? Document { get; } = compilation.GetTypeByMetadataName("Rhino.RhinoDoc");
+        public RhinoCommonSymbols(Compilation compilation) {
+            Document = compilation.GetTypeByMetadataName("Rhino.RhinoDoc");
+            ActiveDoc = Declared(compilation, "P:Rhino.RhinoDoc.ActiveDoc").FirstOrDefault();
+            RenderSettings = Declared(compilation, "P:Rhino.RhinoDoc.RenderSettings").FirstOrDefault();
+            Counted = [.. Counts.SelectMany(row => Members(compilation.GetTypeByMetadataName(row.Owner), row.Member))];
+            Command = compilation.GetTypeByMetadataName("Rhino.Commands.Command");
+            CommandStyle = compilation.GetTypeByMetadataName("Rhino.Commands.CommandStyleAttribute");
+            ScriptRunner = Declared(compilation, "F:Rhino.Commands.Style.ScriptRunner").FirstOrDefault();
+            RunScript = [.. Members(compilation.GetTypeByMetadataName("Rhino.RhinoApp"), "RunScript")];
+            SetDisplayModeOverride = [.. Members(compilation.GetTypeByMetadataName("Rhino.DocObjects.ObjectAttributes"), "SetDisplayModeOverride")];
+            RestoreWithAspectRatio = Members(compilation.GetTypeByMetadataName("Rhino.DocObjects.Tables.NamedViewTable"), "RestoreWithAspectRatio");
+            GrayscaleDib = Declared(compilation, "M:Rhino.Display.ZBufferCapture.GrayscaleDib").FirstOrDefault();
+            ObjectPropertiesPage = compilation.GetTypeByMetadataName("Rhino.UI.ObjectPropertiesPage");
+            PageControl = Declared(compilation, "P:Rhino.UI.ObjectPropertiesPage.PageControl").FirstOrDefault();
+            DisplayModeDescription = compilation.GetTypeByMetadataName("Rhino.Display.DisplayModeDescription");
+            OwnedModes = [
+                .. Members(DisplayModeDescription, "GetDisplayMode", "FindByName"),
+                .. Declared(compilation, "P:Rhino.Display.RhinoViewport.DisplayMode"),
+            ];
+            PersistentSettings = compilation.GetTypeByMetadataName("Rhino.PersistentSettings");
+            Redraws = [
+                .. Members(compilation.GetTypeByMetadataName("Rhino.DocObjects.Tables.ViewTable"), "Redraw", "EnableRedraw"),
+                .. Members(compilation.GetTypeByMetadataName("Rhino.Display.RhinoView"), "Redraw"),
+                .. Declared(compilation, "P:Rhino.DocObjects.Tables.ViewTable.RedrawEnabled"),
+            ];
+            Duplicates = [.. Members(compilation.GetTypeByMetadataName("Rhino.Geometry.GeometryBase"), "Duplicate", "DuplicateShallow")];
+            Floating = Declared(compilation, "P:Rhino.Display.RhinoView.Floating").FirstOrDefault();
+            ConduitEnabled = Declared(compilation, "P:Rhino.Display.DisplayConduit.Enabled").FirstOrDefault();
+            ExceptionReport = Members(compilation.GetTypeByMetadataName("Rhino.Runtime.HostUtils"), "ExceptionReport");
+        }
 
-        public ISymbol? ActiveDoc { get; } = Declared(compilation, "P:Rhino.RhinoDoc.ActiveDoc").FirstOrDefault();
+        public INamedTypeSymbol? Document { get; }
 
-        public ISymbol? RenderSettings { get; } = Declared(compilation, "P:Rhino.RhinoDoc.RenderSettings").FirstOrDefault();
+        public ISymbol? ActiveDoc { get; }
 
-        public ImmutableArray<IMethodSymbol> Counted { get; } = [.. Counts.SelectMany(row => Members(compilation.GetTypeByMetadataName(row.Owner), row.Member))];
+        public ISymbol? RenderSettings { get; }
 
-        public INamedTypeSymbol? Command { get; } = compilation.GetTypeByMetadataName("Rhino.Commands.Command");
+        public ImmutableArray<IMethodSymbol> Counted { get; }
 
-        public INamedTypeSymbol? CommandStyle { get; } = compilation.GetTypeByMetadataName("Rhino.Commands.CommandStyleAttribute");
+        public INamedTypeSymbol? Command { get; }
 
-        public ISymbol? ScriptRunner { get; } = Declared(compilation, "F:Rhino.Commands.Style.ScriptRunner").FirstOrDefault();
+        public INamedTypeSymbol? CommandStyle { get; }
 
-        public ImmutableArray<ISymbol> RunScript { get; } = Declared(
-            compilation,
-            "M:Rhino.RhinoApp.RunScript(System.String,System.Boolean)",
-            "M:Rhino.RhinoApp.RunScript(System.String,System.String,System.Boolean)",
-            "M:Rhino.RhinoApp.RunScript(System.UInt32,System.String,System.Boolean)",
-            "M:Rhino.RhinoApp.RunScript(System.UInt32,System.String,System.String,System.Boolean)");
+        public ISymbol? ScriptRunner { get; }
 
-        public ImmutableArray<ISymbol> SetDisplayModeOverride { get; } = Declared(
-            compilation,
-            "M:Rhino.DocObjects.ObjectAttributes.SetDisplayModeOverride(Rhino.Display.DisplayModeDescription)",
-            "M:Rhino.DocObjects.ObjectAttributes.SetDisplayModeOverride(Rhino.Display.DisplayModeDescription,System.Guid)");
+        public ImmutableArray<ISymbol> RunScript { get; }
 
-        public ImmutableArray<IMethodSymbol> RestoreWithAspectRatio { get; } = Members(compilation.GetTypeByMetadataName("Rhino.DocObjects.Tables.NamedViewTable"), "RestoreWithAspectRatio");
+        public ImmutableArray<ISymbol> SetDisplayModeOverride { get; }
 
-        public ISymbol? GrayscaleDib { get; } = Declared(compilation, "M:Rhino.Display.ZBufferCapture.GrayscaleDib").FirstOrDefault();
+        public ImmutableArray<IMethodSymbol> RestoreWithAspectRatio { get; }
 
-        public INamedTypeSymbol? ObjectPropertiesPage { get; } = compilation.GetTypeByMetadataName("Rhino.UI.ObjectPropertiesPage");
+        public ISymbol? GrayscaleDib { get; }
 
-        public ISymbol? PageControl { get; } = Declared(compilation, "P:Rhino.UI.ObjectPropertiesPage.PageControl").FirstOrDefault();
+        public INamedTypeSymbol? ObjectPropertiesPage { get; }
 
-        public INamedTypeSymbol? DisplayModeDescription { get; } = compilation.GetTypeByMetadataName("Rhino.Display.DisplayModeDescription");
+        public ISymbol? PageControl { get; }
 
-        public ImmutableArray<ISymbol> OwnedModes { get; } = Declared(
-            compilation,
-            "M:Rhino.Display.DisplayModeDescription.GetDisplayMode(System.Guid)",
-            "M:Rhino.Display.DisplayModeDescription.FindByName(System.String)",
-            "P:Rhino.Display.RhinoViewport.DisplayMode");
+        public INamedTypeSymbol? DisplayModeDescription { get; }
 
-        public INamedTypeSymbol? PersistentSettings { get; } = compilation.GetTypeByMetadataName("Rhino.PersistentSettings");
+        public ImmutableArray<ISymbol> OwnedModes { get; }
 
-        public ImmutableArray<ISymbol> Redraws { get; } = Declared(
-            compilation,
-            "M:Rhino.DocObjects.Tables.ViewTable.Redraw",
-            "M:Rhino.DocObjects.Tables.ViewTable.Redraw(System.Boolean)",
-            "M:Rhino.DocObjects.Tables.ViewTable.EnableRedraw(System.Boolean,System.Boolean,System.Boolean)",
-            "M:Rhino.Display.RhinoView.Redraw",
-            "P:Rhino.DocObjects.Tables.ViewTable.RedrawEnabled");
+        public INamedTypeSymbol? PersistentSettings { get; }
 
-        public ImmutableArray<ISymbol> Duplicates { get; } = Declared(compilation, "M:Rhino.Geometry.GeometryBase.Duplicate", "M:Rhino.Geometry.GeometryBase.DuplicateShallow");
+        public ImmutableArray<ISymbol> Redraws { get; }
 
-        public ISymbol? Floating { get; } = Declared(compilation, "P:Rhino.Display.RhinoView.Floating").FirstOrDefault();
+        public ImmutableArray<ISymbol> Duplicates { get; }
 
-        public ISymbol? ConduitEnabled { get; } = Declared(compilation, "P:Rhino.Display.DisplayConduit.Enabled").FirstOrDefault();
+        public ISymbol? Floating { get; }
 
-        public ImmutableArray<IMethodSymbol> ExceptionReport { get; } = Members(compilation.GetTypeByMetadataName("Rhino.Runtime.HostUtils"), "ExceptionReport");
+        public ISymbol? ConduitEnabled { get; }
+
+        public ImmutableArray<IMethodSymbol> ExceptionReport { get; }
     }
 
     private protected sealed class EtoSymbols(Compilation compilation) {
@@ -483,36 +696,58 @@ public abstract class RasmAnalyzer : DiagnosticAnalyzer {
         public INamedTypeSymbol? Export { get; } = compilation.GetTypeByMetadataName("Foundation.ExportAttribute");
     }
 
-    private protected sealed class RasmRhinoSymbols(Compilation compilation) {
-        public INamedTypeSymbol? Products { get; } = compilation.GetTypeByMetadataName("Rasm.Rhino.Products");
+    private protected sealed class RasmRhinoSymbols {
+        public RasmRhinoSymbols(Compilation compilation) {
+            INamedTypeSymbol? products = compilation.GetTypeByMetadataName("Rasm.Rhino.Products");
+            Transfer = Members(products, "Transfer");
+            Acquire = [.. Members(products, "Of", "Many", "Maybe"), .. Transfer];
+            Required = Members(compilation.GetTypeByMetadataName("Rasm.Rhino.Conversions"), "Required");
+            Release = Members(products, "Released");
+            Retain = Members(products, "Replace");
+            Session = compilation.GetTypeByMetadataName("Rasm.Rhino.Session");
+            Boundaries = Members(Session, "Run", "Start", "RunSafe");
+            Conduits = compilation.GetTypeByMetadataName("Rasm.Rhino.Display.Conduits");
+            RenderSettingsSources = compilation.GetTypeByMetadataName("Rasm.Rhino.Render.Settings.RenderSettingsSources");
+            Commits = compilation.GetTypeByMetadataName("Rasm.Rhino.Document.Commits");
+            UI = Declared(compilation, "N:Rasm.Rhino.UI").FirstOrDefault();
+        }
 
-        public INamedTypeSymbol? Conversions { get; } = compilation.GetTypeByMetadataName("Rasm.Rhino.Conversions");
+        public ImmutableArray<IMethodSymbol> Acquire { get; }
 
-        public ImmutableArray<IMethodSymbol> Acquire => Members(Products, "Of", "Many", "Maybe", "Transfer");
+        public ImmutableArray<IMethodSymbol> Required { get; }
 
-        public ImmutableArray<IMethodSymbol> Required => Members(Conversions, "Required");
+        public ImmutableArray<IMethodSymbol> Release { get; }
 
-        public ImmutableArray<IMethodSymbol> Release => Members(Products, "Released");
+        public ImmutableArray<IMethodSymbol> Transfer { get; }
 
-        public ImmutableArray<IMethodSymbol> Transfer => Members(Products, "Transfer");
+        public ImmutableArray<IMethodSymbol> Retain { get; }
 
-        public ImmutableArray<IMethodSymbol> Retain => Members(Products, "Replace");
+        public INamedTypeSymbol? Session { get; }
 
-        public INamedTypeSymbol? Session { get; } = compilation.GetTypeByMetadataName("Rasm.Rhino.Session");
+        public ImmutableArray<IMethodSymbol> Boundaries { get; }
 
-        public ImmutableArray<IMethodSymbol> Boundaries => Members(Session, "Run", "Start", "RunSafe");
+        public INamedTypeSymbol? Conduits { get; }
 
-        public INamedTypeSymbol? Conduits { get; } = compilation.GetTypeByMetadataName("Rasm.Rhino.Display.Conduits");
+        public INamedTypeSymbol? RenderSettingsSources { get; }
 
-        public INamedTypeSymbol? RenderSettingsSources { get; } = compilation.GetTypeByMetadataName("Rasm.Rhino.Render.Settings.RenderSettingsSources");
+        public INamedTypeSymbol? Commits { get; }
 
-        public INamedTypeSymbol? Commits { get; } = compilation.GetTypeByMetadataName("Rasm.Rhino.Document.Commits");
-
-        public ISymbol? UI { get; } = Declared(compilation, "N:Rasm.Rhino.UI").FirstOrDefault();
+        public ISymbol? UI { get; }
     }
 
     // --- [LIFETIMES]
     private protected sealed class Lifetimes {
+        private sealed class PathComparer<T>(IEqualityComparer<T> values) : IEqualityComparer<(T Value, ImmutableArray<int> Path)> where T : notnull {
+            public bool Equals((T Value, ImmutableArray<int> Path) x, (T Value, ImmutableArray<int> Path) y) =>
+                values.Equals(x.Value, y.Value) && x.Path.SequenceEqual(y.Path);
+
+            public int GetHashCode((T Value, ImmutableArray<int> Path) obj) {
+                int hash = values.GetHashCode(obj.Value);
+                foreach (int index in obj.Path) hash = (hash, index).GetHashCode();
+                return hash;
+            }
+        }
+
         private Lifetimes(SystemSymbols system, RasmRhinoSymbols rasm, LanguageExtSymbols languageExt, IMethodSymbol dispose) {
             bool Acquiring(IMethodSymbol method) =>
                 method.TypeParameters.Length > 0 && method.Parameters.Length > 0
@@ -554,40 +789,77 @@ public abstract class RasmAnalyzer : DiagnosticAnalyzer {
 
         public static IEnumerable<IParameterSymbol> Handed(IInvocationOperation call, ITypeSymbol held) =>
             call.Arguments.Select(static argument => Lambda(argument.Value)).OfType<IAnonymousFunctionOperation>()
-                .Select(static function => function.Symbol.Parameters.FirstOrDefault()).OfType<IParameterSymbol>().Where(parameter => Same(parameter.Type, held));
+                .Select(static function => function.Symbol.Parameters.FirstOrDefault()).OfType<IParameterSymbol>().Where(parameter => SymbolEqualityComparer.Default.Equals(parameter.Type, held));
 
-        public IEnumerable<string> Released(IOperation value, ITypeSymbol held, Reading reading) => Released(value, held, reading, []);
-
-        private IEnumerable<string> Released(IOperation value, ITypeSymbol held, Reading reading, ImmutableHashSet<ISymbol> seen) =>
-            !value.IsImplicit && Clause(value.Syntax) is { } clause && reading.Model.GetDeclaredSymbol(clause, reading.Token) is { } range
-                ? Followed(range, value, held, reading, seen)
-                : Consumer(value) switch {
-                    IInvocationOperation call when Disposes(call.TargetMethod) => [call.TargetMethod.Name],
-                    IInvocationOperation call when Among(call.TargetMethod, Conversions) => Released(call, held, reading, seen),
-                    IInvocationOperation call => Passed(call, held, reading, seen),
-                    IMethodReferenceOperation reference when Disposes(reference.Method) => [reference.Method.Name],
-                    IArgumentOperation { Parent: IInvocationOperation call, Parameter: { } parameter } => Argued(call, parameter, held, reading, seen),
-                    IReturnOperation { Parent: IBlockOperation { Parent: IAnonymousFunctionOperation function } } => Released(function, held, reading, seen),
-                    IDelegateCreationOperation creation => Released(creation, held, reading, seen),
-                    IVariableInitializerOperation { Parent: IVariableDeclaratorOperation declarator } =>
-                        declarator.Parent?.Parent is IVariableDeclarationGroupOperation { Parent: IUsingDeclarationOperation or IUsingOperation } ? ["using"] : Followed(declarator.Symbol, value, held, reading, seen),
-                    ISimpleAssignmentOperation { Target: ILocalReferenceOperation local } assignment when Stripped(assignment.Value) == value => Followed(local.Local, value, held, reading, seen),
-                    IUsingOperation => ["using"],
-                    ICoalesceOperation or IConditionalOperation or ICollectionExpressionOperation or IArrayInitializerOperation or IArrayCreationOperation or ISpreadOperation =>
-                        Released(Consumer(value)!, held, reading, seen),
+        public IEnumerable<string> Released(IOperation value, ITypeSymbol held, Reading reading) {
+            Queue<(IOperation Value, ImmutableArray<int> Path, ITypeSymbol Carrier)> pending = new([(value, [], held)]);
+            HashSet<(IOperation Value, ImmutableArray<int> Path)> visited = new(new PathComparer<IOperation>(EqualityComparer<IOperation>.Default));
+            HashSet<(ISymbol Value, ImmutableArray<int> Path)> carriers = new(new PathComparer<ISymbol>(SymbolEqualityComparer.Default));
+            IEnumerable<IOperation> Follow(ISymbol carrier, IOperation site, ImmutableArray<int> path) =>
+                carriers.Add((carrier, path)) ? References(carrier, site, reading) : [];
+            IEnumerable<IOperation> Pass(IInvocationOperation call, ImmutableArray<int> path, ITypeSymbol carried) =>
+                Handed(call, path.IsEmpty ? held : carried).SelectMany(parameter => Follow(parameter, call, path));
+            while (pending.Count is > 0) {
+                reading.Token.ThrowIfCancellationRequested();
+                (IOperation current, ImmutableArray<int> path, ITypeSymbol carried) = pending.Dequeue();
+                if (!visited.Add((current, path))) continue;
+                ISymbol? range = !current.IsImplicit && Clause(current.Syntax) is { } clause ? reading.For(clause.SyntaxTree).GetDeclaredSymbol(clause, reading.Token) : null;
+                IOperation? consumer = range is null ? Consumer(current) : null;
+                string? release = consumer switch {
+                    IInvocationOperation call when path.IsEmpty && Disposes(call.TargetMethod) => call.TargetMethod.Name,
+                    IMethodReferenceOperation reference when path.IsEmpty && Disposes(reference.Method) => reference.Method.Name,
+                    IArgumentOperation { Parent: IInvocationOperation call, Parameter: { } parameter } when path.IsEmpty
+                        && ((Among(call.TargetMethod, Acquires) && parameter.Ordinal is 0) || Among(call.TargetMethod, Releases) || Retaining(call, parameter)) => Label(call),
+                    IUsingOperation or IVariableInitializerOperation { Parent: IVariableDeclaratorOperation { Parent.Parent: IVariableDeclarationGroupOperation { Parent: IUsingDeclarationOperation or IUsingOperation } } } when path.IsEmpty => "using",
+                    _ => null,
+                };
+                if (release is not null) {
+                    yield return release;
+                    continue;
+                }
+                IEnumerable<IOperation> next = consumer switch {
+                    null when range is { } bound => Follow(bound, current, path),
+                    IInvocationOperation call when Among(call.TargetMethod, Conversions) => [call],
+                    IInvocationOperation call => Pass(call, path, carried),
+                    IArgumentOperation { Parent: IInvocationOperation call, Parameter: not null } when Among(call.TargetMethod, Lifts) || Among(call.TargetMethod, Conversions) => [call],
+                    IArgumentOperation { Parent: IInvocationOperation { TargetMethod.IsExtensionMethod: true } call, Parameter.Ordinal: 0 } => Pass(call, path, carried),
+                    IReturnOperation { Parent: IBlockOperation { Parent: IAnonymousFunctionOperation function } } => [function],
+                    IDelegateCreationOperation creation => [creation],
+                    IConversionOperation { Conversion: { IsIdentity: true } or { IsReference: true } } conversion => [conversion],
+                    IConditionalAccessOperation conditional when conditional.Operation.Syntax == current.Syntax =>
+                        conditional.WhenNotNull.DescendantsAndSelf().OfType<IConditionalAccessInstanceOperation>().Where(instance => instance.Syntax == conditional.Operation.Syntax),
+                    IVariableInitializerOperation { Parent: IVariableDeclaratorOperation declarator } => Follow(declarator.Symbol, current, path),
+                    ISimpleAssignmentOperation { Target: ILocalReferenceOperation local } assignment when Stripped(assignment.Value) == current => Follow(local.Local, current, path),
+                    IOperation aggregate when aggregate is ICoalesceOperation or IConditionalOperation or ICollectionExpressionOperation or IArrayInitializerOperation or IArrayCreationOperation or ISpreadOperation => [aggregate],
                     _ => [],
                 };
-
-        private IEnumerable<string> Followed(ISymbol carrier, IOperation value, ITypeSymbol held, Reading reading, ImmutableHashSet<ISymbol> seen) =>
-            seen.Contains(carrier) ? [] : References(carrier, value, reading).SelectMany(reference => Released(reference, held, reading, seen.Add(carrier)));
-
-        private IEnumerable<string> Passed(IInvocationOperation call, ITypeSymbol held, Reading reading, ImmutableHashSet<ISymbol> seen) =>
-            Handed(call, held).SelectMany(parameter => Followed(parameter, call, held, reading, seen));
-
-        private IEnumerable<string> Argued(IInvocationOperation call, IParameterSymbol parameter, ITypeSymbol held, Reading reading, ImmutableHashSet<ISymbol> seen) =>
-            (Among(call.TargetMethod, Acquires) && parameter.Ordinal is 0) || Among(call.TargetMethod, Releases) || Retaining(call, parameter) ? [Label(call)]
-            : Among(call.TargetMethod, Lifts) || Among(call.TargetMethod, Conversions) ? Released(call, held, reading, seen)
-            : call.TargetMethod.IsExtensionMethod && parameter.Ordinal is 0 ? Passed(call, held, reading, seen)
-            : [];
+                foreach (IOperation reference in next) pending.Enqueue((reference, path, carried));
+                if (consumer is ITupleOperation { Type: { IsTupleType: true } type } tuple && (path.IsEmpty || SymbolEqualityComparer.Default.Equals(current.Type, carried))) {
+                    IOperation element = current;
+                    while (element.Parent is IConversionOperation { IsImplicit: true, OperatorMethod: null } conversion) element = conversion;
+                    pending.Enqueue((tuple, path.Insert(0, tuple.Elements.IndexOf(element)), type));
+                    continue;
+                }
+                if (consumer is IFieldReferenceOperation { Field: { CorrespondingTupleField: { } field, ContainingType.TupleElements: var elements } } projected
+                    && !path.IsEmpty && path[0] < elements.Length && Same(elements[path[0]].CorrespondingTupleField, field)) {
+                    ImmutableArray<int> remainder = path.RemoveAt(0);
+                    pending.Enqueue((projected, remainder, remainder.IsEmpty ? held : projected.Field.Type));
+                    continue;
+                }
+                if (consumer is not IDeconstructionAssignmentOperation deconstruction || path.IsEmpty || Stripped(deconstruction.Value) != current) continue;
+                IOperation target = deconstruction.Target;
+                ImmutableArray<int> remaining = path;
+                while (target is IDeclarationExpressionOperation || (target is ITupleOperation && !remaining.IsEmpty)) {
+                    reading.Token.ThrowIfCancellationRequested();
+                    if (target is IDeclarationExpressionOperation declaration) target = declaration.Expression;
+                    else if (target is ITupleOperation targets && remaining[0] < targets.Elements.Length) {
+                        target = targets.Elements[remaining[0]];
+                        remaining = remaining.RemoveAt(0);
+                    } else break;
+                }
+                if (Variable(target) is { } assigned && (remaining.IsEmpty ? held : target.Type) is { } extracted)
+                    foreach (IOperation reference in Follow(assigned, current, remaining)) pending.Enqueue((reference, remaining, extracted));
+            }
+        }
     }
 }

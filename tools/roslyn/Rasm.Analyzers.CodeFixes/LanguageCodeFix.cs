@@ -1,148 +1,136 @@
 using System.Collections.Immutable;
-using System.Composition;
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CodeActions;
 using Microsoft.CodeAnalysis.CodeFixes;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Editing;
 using Microsoft.CodeAnalysis.Formatting;
+using Microsoft.CodeAnalysis.Operations;
 using Microsoft.CodeAnalysis.Simplification;
+using QuikGraph;
+using QuikGraph.Algorithms.TopologicalSort;
 
 namespace Rasm.Analyzers.CodeFixes;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 [ExportCodeFixProvider(LanguageNames.CSharp)]
-[Shared]
-public sealed class LanguageCodeFix() : RasmCodeFix((LanguageAnalyzer.Covered, static site => site.FirstAncestorOrSelf<SwitchExpressionArmSyntax>() is { } arm ? FormattableString.Invariant($"Delete `{arm}`") : null, Delete)) {
-    private static void Delete(DocumentEditor editor, SyntaxNode site, Diagnostic diagnostic, CancellationToken cancellation) {
-        if (site.FirstAncestorOrSelf<SwitchExpressionArmSyntax>() is { Parent: SwitchExpressionSyntax dispatch } arm)
-            editor.ReplaceNode(dispatch, dispatch.WithArms(dispatch.Arms.Remove(arm)).WithAdditionalAnnotations(Formatter.Annotation));
-    }
-}
+public sealed class LanguageCodeFix() : DocumentEditorCodeFix((
+    LanguageAnalyzer.Covered,
+    static (site, _) => FormattableString.Invariant($"Delete `{site.FirstAncestorOrSelf<SwitchExpressionArmSyntax>()!}`"),
+    static (editor, site, _, _) => editor.RemoveNode(site.FirstAncestorOrSelf<SwitchExpressionArmSyntax>()!, SyntaxRemoveOptions.KeepExteriorTrivia | SyntaxRemoveOptions.KeepUnbalancedDirectives | SyntaxRemoveOptions.AddElasticMarker)));
 
 [ExportCodeFixProvider(LanguageNames.CSharp)]
-[Shared]
-public sealed class SingleReaderCodeFix : CodeFixProvider {
-    public override ImmutableArray<string> FixableDiagnosticIds => [LanguageAnalyzer.Reader.Id];
-
-    public override FixAllProvider GetFixAllProvider() =>
-        FixAllProvider.Create(static (context, document, diagnostics) => InlinedAsync(document, diagnostics, context.CancellationToken));
-
-    public override async Task RegisterCodeFixesAsync(CodeFixContext context) {
-        if (await context.Document.GetSyntaxRootAsync(context.CancellationToken).ConfigureAwait(false) is not { } root) return;
-        foreach (Diagnostic diagnostic in context.Diagnostics)
-            context.RegisterCodeFix(
-                CodeAction.Create(
-                    $"Inline `{root.FindToken(diagnostic.Location.SourceSpan.Start).ValueText}`",
-                    async token => await InlinedAsync(context.Document, [diagnostic], token).ConfigureAwait(false) ?? context.Document,
-                    nameof(SingleReaderCodeFix)),
-                diagnostic);
-    }
-
-    private static async Task<Document?> InlinedAsync(Document document, ImmutableArray<Diagnostic> diagnostics, CancellationToken cancellation) {
-        if (await document.GetSyntaxRootAsync(cancellation).ConfigureAwait(false) is not { } root) return null;
-        ImmutableArray<(SyntaxNode Declaration, SyntaxNode Site, SyntaxAnnotation Declared, SyntaxAnnotation Read)> moves = [
-            .. diagnostics.Where(static diagnostic => diagnostic.AdditionalLocations.Count is 1).Select(diagnostic => (
-                root.FindToken(diagnostic.Location.SourceSpan.Start).Parent ?? root,
-                root.FindNode(diagnostic.AdditionalLocations[0].SourceSpan, getInnermostNodeForTie: true),
-                new SyntaxAnnotation(),
-                new SyntaxAnnotation())),
+public sealed class SingleReaderCodeFix() : RasmCodeFix((LanguageAnalyzer.Reader, static (site, generator) => $"Inline `{generator.GetName(site)}`")) {
+    protected override async Task<Document> ChangedAsync(Document document, ImmutableArray<Diagnostic> diagnostics, CancellationToken cancellation) {
+        SyntaxNode root = (await document.GetSyntaxRootAsync(cancellation).ConfigureAwait(false))!;
+        SemanticModel model = (await document.GetSemanticModelAsync(cancellation).ConfigureAwait(false))!;
+        ImmutableArray<(SyntaxNode Declaration, SyntaxNode Site)> moves = [
+            .. diagnostics.OrderBy(static diagnostic => diagnostic.Location.SourceSpan.Start).Select(diagnostic => (
+                root.FindToken(diagnostic.Location.SourceSpan.Start).Parent!,
+                root.FindNode(diagnostic.AdditionalLocations[0].SourceSpan, getInnermostNodeForTie: true))),
         ];
-        ILookup<SyntaxNode, SyntaxAnnotation> marks = moves.SelectMany(static move => new[] { (Node: move.Declaration, Mark: move.Declared), (Node: move.Site, Mark: move.Read) })
-            .ToLookup(static held => held.Node, static held => held.Mark);
-        int Rank(SyntaxNode declaration, int depth) =>
-            depth < moves.Length ? moves.Where(other => declaration.Span.Contains(other.Site.Span)).Select(other => Rank(other.Declaration, depth + 1) + 1).DefaultIfEmpty().Max() : 0;
-        SyntaxNode inlined = moves.OrderBy(move => Rank(move.Declaration, 0)).ThenBy(static move => move.Site.SpanStart).Aggregate(
-            root.ReplaceNodes(marks.Select(static group => group.Key), (original, rewritten) => rewritten.WithAdditionalAnnotations(marks[original])),
-            static (current, move) => Inlined(current, move.Declared, move.Read));
-        Document simplified = await Simplifier.ReduceAsync(document.WithSyntaxRoot(inlined), Simplifier.Annotation, cancellationToken: cancellation).ConfigureAwait(false);
-        Document formatted = await Formatter.FormatAsync(simplified, Formatter.Annotation, cancellationToken: cancellation).ConfigureAwait(false);
-        return await Formatter.FormatAsync(formatted, SyntaxAnnotation.ElasticAnnotation, cancellationToken: cancellation).ConfigureAwait(false);
+        ImmutableDictionary<SyntaxNode, ImmutableDictionary<SyntaxNode, ExpressionSyntax>> bindings = moves.ToImmutableDictionary(
+            static move => move.Declaration,
+            move => {
+                cancellation.ThrowIfCancellationRequested();
+                if (move.Declaration is not MethodDeclarationSyntax || model.GetOperation(move.Site, cancellation) is not IInvocationOperation call) return [];
+                ILookup<IParameterSymbol, SyntaxNode> uses = model.GetOperation(move.Declaration, cancellation)!.DescendantsAndSelf().OfType<IParameterReferenceOperation>()
+                    .ToLookup<IParameterReferenceOperation, IParameterSymbol, SyntaxNode>(static reference => reference.Parameter, static reference => reference.Syntax, SymbolEqualityComparer.Default);
+                return call.Arguments.SelectMany(argument => uses[argument.Parameter!].Select(use => (Use: use, Value: (ExpressionSyntax)argument.Value.Syntax)))
+                    .ToImmutableDictionary(static binding => binding.Use, static binding => binding.Value);
+            });
+        ImmutableDictionary<SyntaxNode, SyntaxNode> declarations = moves.ToImmutableDictionary(static move => move.Declaration, static move => move.Site);
+        AdjacencyGraph<SyntaxNode, SEdge<SyntaxNode>> dependencies = moves.Select(static move => move.Declaration).ToAdjacencyGraph<SyntaxNode, SEdge<SyntaxNode>>(
+            declaration => {
+                cancellation.ThrowIfCancellationRequested();
+                return declarations[declaration].AncestorsAndSelf().FirstOrDefault(declarations.ContainsKey) is { } reader ? [new SEdge<SyntaxNode>(declaration, reader)] : [];
+            },
+            allowParallelEdges: false);
+        SourceFirstTopologicalSortAlgorithm<SyntaxNode, SEdge<SyntaxNode>> order = new(dependencies, dependencies.VertexCount);
+        order.VertexAdded += _ => cancellation.ThrowIfCancellationRequested();
+        order.Compute();
+        cancellation.ThrowIfCancellationRequested();
+        SyntaxGenerator generator = SyntaxGenerator.GetGenerator(document);
+        SyntaxNode inlined = order.SortedVertices.Aggregate(
+            root.TrackNodes(moves.SelectMany(static move => new[] { move.Declaration, move.Site }).Concat(bindings.Values.SelectMany(static bound => bound.Keys.Concat(bound.Values)))),
+            (current, declaration) => {
+                cancellation.ThrowIfCancellationRequested();
+                return Inlined(current, declaration, declarations[declaration], bindings[declaration], generator, model, cancellation);
+            });
+        return document.WithSyntaxRoot(inlined);
     }
 
-    private static SyntaxNode Inlined(SyntaxNode root, SyntaxAnnotation declared, SyntaxAnnotation read) {
-        if (root.GetAnnotatedNodes(declared).FirstOrDefault() is not { } declaration || root.GetAnnotatedNodes(read).FirstOrDefault() is not { } site) return root;
+    private static SyntaxNode Inlined(SyntaxNode root, SyntaxNode original, SyntaxNode read, ImmutableDictionary<SyntaxNode, ExpressionSyntax> bindings, SyntaxGenerator generator, SemanticModel model, CancellationToken cancellation) {
+        SyntaxNode declaration = root.GetCurrentNode(original)!;
+        SyntaxNode site = root.GetCurrentNode(read)!;
+        static ExpressionSyntax Placed(ExpressionSyntax expression, SyntaxNode site) =>
+            expression.WithLeadingTrivia(site.GetLeadingTrivia().Concat(expression.GetLeadingTrivia()))
+                .WithTrailingTrivia(expression.GetTrailingTrivia().Concat(site.GetTrailingTrivia()))
+                .WithAdditionalAnnotations(Formatter.Annotation);
         ExpressionSyntax Grouped(ExpressionSyntax expression) =>
-            site.Parent is ExpressionStatementSyntax
-                ? expression.WithTriviaFrom(site).WithAdditionalAnnotations(Formatter.Annotation)
-                : SyntaxFactory.ParenthesizedExpression(expression.WithoutTrivia()).WithTriviaFrom(site).WithAdditionalAnnotations(Simplifier.Annotation, Formatter.Annotation);
+            Placed(site.Parent is ExpressionStatementSyntax ? expression : Parenthesized(expression), site);
         static ImmutableArray<ExpressionSyntax> Elements(ExpressionSyntax value) =>
-            value switch {
-                CollectionExpressionSyntax collection => [.. collection.Elements.OfType<ExpressionElementSyntax>().Select(static element => element.Expression)],
-                ArrayCreationExpressionSyntax { Initializer: { } initializer } => [.. initializer.Expressions],
-                ImplicitArrayCreationExpressionSyntax { Initializer: var initializer } => [.. initializer.Expressions],
-                BaseObjectCreationExpressionSyntax { Initializer: { } initializer } => [.. initializer.Expressions],
-                InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax access } => Elements(access.Expression),
-                _ => [],
-            };
+            value.DescendantNodesAndSelf(static node => node is InvocationExpressionSyntax or MemberAccessExpressionSyntax or ParenthesizedExpressionSyntax)
+                .First(static node => node is not (InvocationExpressionSyntax or MemberAccessExpressionSyntax or ParenthesizedExpressionSyntax)) switch {
+                    CollectionExpressionSyntax collection => [.. collection.Elements.OfType<ExpressionElementSyntax>().Select(static element => element.Expression)],
+                    ArrayCreationExpressionSyntax { Initializer: { } initializer } => [.. initializer.Expressions],
+                    ImplicitArrayCreationExpressionSyntax { Initializer: var initializer } => [.. initializer.Expressions],
+                    BaseObjectCreationExpressionSyntax { Initializer: { } initializer } => [.. initializer.Expressions],
+                    _ => [],
+                };
         static ExpressionSyntax Tested(ExpressionSyntax operand, PatternSyntax pattern, SyntaxNode replaced) =>
-            SyntaxFactory.ParenthesizedExpression(SyntaxFactory.IsPatternExpression(SyntaxFactory.ParenthesizedExpression(operand.WithoutTrivia()).WithAdditionalAnnotations(Simplifier.Annotation), pattern))
+            Parenthesized(SyntaxFactory.IsPatternExpression(Parenthesized(operand.WithoutTrivia()), Punctuation(SyntaxKind.IsKeyword), pattern))
                 .WithTriviaFrom(replaced)
                 .WithAdditionalAnnotations(Simplifier.Annotation, Formatter.Annotation);
-        static (SyntaxNode Replaced, SyntaxNode Replacement)? Matched(SyntaxNode site, ImmutableArray<ExpressionSyntax> elements) {
+        (SyntaxNode Replaced, SyntaxNode Replacement) Matched(SyntaxNode site, ImmutableArray<ExpressionSyntax> elements) {
             PatternSyntax pattern = elements.Select(static element => (PatternSyntax)SyntaxFactory.ConstantPattern(element.WithoutTrivia()))
-                .Aggregate(static (left, right) => SyntaxFactory.BinaryPattern(SyntaxKind.OrPattern, left, right));
-            (InvocationExpressionSyntax Call, ExpressionSyntax Operand)? contained = site.Parent switch {
-                MemberAccessExpressionSyntax { Parent: InvocationExpressionSyntax { ArgumentList.Arguments: { Count: 1 } arguments } call } access when access.Expression == site => (call, arguments[0].Expression),
-                ArgumentSyntax { Parent: ArgumentListSyntax { Arguments: { Count: 2 } arguments, Parent: InvocationExpressionSyntax call } } when arguments[0] == site.Parent => (call, arguments[1].Expression),
-                _ => null,
-            };
-            return contained is { } found
-                ? found.Call.Parent is PrefixUnaryExpressionSyntax negated && negated.IsKind(SyntaxKind.LogicalNotExpression)
-                    ? (negated, Tested(found.Operand, SyntaxFactory.UnaryPattern(SyntaxFactory.Token(SyntaxKind.NotKeyword), elements.Length is 1 ? pattern
-                        : SyntaxFactory.ParenthesizedPattern(SyntaxFactory.Token(default, SyntaxKind.OpenParenToken, default), pattern, SyntaxFactory.Token(default, SyntaxKind.CloseParenToken, default))), negated))
-                    : (found.Call, Tested(found.Operand, pattern, found.Call))
-                : null;
+                .Aggregate(static (left, right) => SyntaxFactory.BinaryPattern(SyntaxKind.OrPattern, left, Punctuation(SyntaxKind.OrKeyword), right));
+            InvocationExpressionSyntax call = site.Ancestors().OfType<InvocationExpressionSyntax>().First();
+            ExpressionSyntax operand = call.ArgumentList.Arguments.Select(static argument => argument.Expression).Single(expression => !expression.Span.Contains(site.Span));
+            IInvocationOperation invoked = (IInvocationOperation)model.GetOperation(read.Ancestors().OfType<InvocationExpressionSyntax>().First(), cancellation)!;
+            if (invoked.Arguments.Single(argument => !argument.Syntax.Span.Contains(read.Span)).Value is IConversionOperation { IsImplicit: true, Type: { } type })
+                operand = SyntaxFactory.CastExpression(Punctuation(SyntaxKind.OpenParenToken), TypeExpression(generator, type), Punctuation(SyntaxKind.CloseParenToken), Parenthesized(operand));
+            SyntaxNode grouped = call.AncestorsAndSelf().First(static node => node.Parent is not ParenthesizedExpressionSyntax);
+            return grouped.Parent is PrefixUnaryExpressionSyntax negated && negated.IsKind(SyntaxKind.LogicalNotExpression)
+                    ? (negated, Tested(operand, SyntaxFactory.UnaryPattern(Punctuation(SyntaxKind.NotKeyword), elements.Length is 1 ? pattern
+                        : SyntaxFactory.ParenthesizedPattern(Punctuation(SyntaxKind.OpenParenToken), pattern, Punctuation(SyntaxKind.CloseParenToken))), negated))
+                    : (call, Tested(operand, pattern, call));
         }
-        static ExpressionSyntax Substituted(ExpressionSyntax body, ParameterListSyntax parameters, SeparatedSyntaxList<ArgumentSyntax> arguments) {
-            ImmutableDictionary<string, ExpressionSyntax> bound = arguments
-                .Select((argument, index) => (Name: argument.NameColon?.Name.Identifier.ValueText ?? parameters.Parameters[index].Identifier.ValueText, argument.Expression))
-                .ToImmutableDictionary(static pair => pair.Name, static pair => pair.Expression, StringComparer.Ordinal);
-            return body.ReplaceNodes(
-                Scopes.Referenced(body).Where(used => bound.ContainsKey(used.Identifier.ValueText)),
-                (original, _) => SyntaxFactory.ParenthesizedExpression(bound[original.Identifier.ValueText].WithoutTrivia()).WithTriviaFrom(original).WithAdditionalAnnotations(Simplifier.Annotation));
+        ExpressionSyntax Substituted(ExpressionSyntax body) {
+            ImmutableDictionary<SyntaxNode, ExpressionSyntax> bound = bindings.SelectMany(binding =>
+                root.GetCurrentNodes(binding.Key).Select(use => (Use: use, Value: root.GetCurrentNode(binding.Value)!)))
+                .ToImmutableDictionary(static binding => binding.Use, static binding => binding.Value);
+            return body.ReplaceNodes(bound.Keys,
+                (original, _) => original.CopyAnnotationsTo(Placed(Parenthesized(bound[original]), original)));
         }
         static ExpressionSyntax Lambda(MethodDeclarationSyntax method, ExpressionSyntax body) =>
-            (method.Modifiers.Any(SyntaxKind.StaticKeyword) ? SyntaxFactory.TokenList(SyntaxFactory.Token(SyntaxKind.StaticKeyword)) : default) is var modifiers
+            (method.Modifiers.Any(SyntaxKind.StaticKeyword) ? SyntaxFactory.TokenList(Punctuation(SyntaxKind.StaticKeyword)) : default) is var modifiers
             && method.ParameterList.Parameters is { Count: 1 } single
-                ? SyntaxFactory.SimpleLambdaExpression(SyntaxFactory.Parameter(single[0].Identifier.WithoutTrivia()), body.WithoutTrivia()).WithModifiers(modifiers)
-                : SyntaxFactory.ParenthesizedLambdaExpression(
-                        SyntaxFactory.ParameterList(SyntaxFactory.SeparatedList(method.ParameterList.Parameters.Select(static parameter => SyntaxFactory.Parameter(parameter.Identifier.WithoutTrivia())))),
-                        body.WithoutTrivia())
-                    .WithModifiers(modifiers);
-        (SyntaxNode Replaced, SyntaxNode Replacement)? replaced = (declaration, site) switch {
-            (VariableDeclaratorSyntax { Initializer.Value: var value }, _) when Elements(value) is { IsEmpty: false } elements => Matched(site, elements),
-            (VariableDeclaratorSyntax { Initializer.Value: var value }, _) when value is LiteralExpressionSyntax or PrefixUnaryExpressionSyntax or MemberAccessExpressionSyntax or IdentifierNameSyntax =>
-                (site, value.WithTriviaFrom(site).WithAdditionalAnnotations(Formatter.Annotation)),
-            (PropertyDeclarationSyntax { ExpressionBody.Expression: var body }, _) => (site, Grouped(body)),
-            (PropertyDeclarationSyntax { AccessorList.Accessors: { Count: 1 } accessors }, _) when accessors[0].ExpressionBody?.Expression is { } body => (site, Grouped(body)),
-            (MethodDeclarationSyntax { ExpressionBody.Expression: var body } method, InvocationExpressionSyntax { ArgumentList.Arguments: var arguments }) =>
-                (site, Grouped(Substituted(body, method.ParameterList, arguments))),
-            (MethodDeclarationSyntax { ExpressionBody.Expression: var body } method, _) => (site, Grouped(Lambda(method, body))),
-            _ => null,
+                ? SyntaxFactory.SimpleLambdaExpression(default, modifiers, SyntaxFactory.Parameter(single[0].Identifier.WithoutTrivia()), Punctuation(SyntaxKind.EqualsGreaterThanToken), block: null, body.WithoutTrivia())
+                : SyntaxFactory.ParenthesizedLambdaExpression(default, modifiers, returnType: null,
+                    SyntaxFactory.ParameterList(Punctuation(SyntaxKind.OpenParenToken), Separated(method.ParameterList.Parameters.Select(static parameter => SyntaxFactory.Parameter(parameter.Identifier.WithoutTrivia()))), Punctuation(SyntaxKind.CloseParenToken)),
+                    Punctuation(SyntaxKind.EqualsGreaterThanToken), block: null, body.WithoutTrivia());
+        ExpressionSyntax body = declaration switch {
+            PropertyDeclarationSyntax { ExpressionBody: null, AccessorList.Accessors: var accessors } => accessors[0].ExpressionBody!.Expression,
+            _ => (ExpressionSyntax)generator.GetExpression(declaration)!,
         };
-        if (replaced is not { } pair) return root;
-        SyntaxNode placed = root.ReplaceNode(pair.Replaced, pair.Replacement);
-        static bool Commented(SyntaxTriviaList trivia) => trivia.Any(SyntaxKind.SingleLineCommentTrivia) || trivia.Any(SyntaxKind.MultiLineCommentTrivia);
-        SyntaxNode Removed(MemberDeclarationSyntax member) {
-            if (member.Parent is not TypeDeclarationSyntax { Members: var members } type || (members.IndexOf(member) is var index && index + 1 >= members.Count))
-                return placed.RemoveNode(member, SyntaxRemoveOptions.KeepNoTrivia) ?? placed;
-            SyntaxTriviaList leading = member.GetLeadingTrivia();
-            MemberDeclarationSyntax next = members[index + 1];
-            SyntaxTriviaList after = next.GetLeadingTrivia();
-            bool movesComment = Commented(leading) && !Commented(after);
-            IEnumerable<SyntaxTrivia> kept = movesComment ? leading.Reverse().SkipWhile(static trivia => !trivia.IsKind(SyntaxKind.EndOfLineTrivia)).Reverse()
-                : index is 0 || (after.Count is not 0 && after[0].IsKind(SyntaxKind.EndOfLineTrivia)) ? []
-                : leading.TakeWhile(static trivia => trivia.IsKind(SyntaxKind.EndOfLineTrivia));
-            IEnumerable<SyntaxTrivia> following = movesComment || index is 0 ? after.SkipWhile(static trivia => trivia.IsKind(SyntaxKind.EndOfLineTrivia)) : after;
-            return placed.ReplaceNode(type, type.WithMembers(members.Replace(next, next.WithLeadingTrivia(kept.Concat(following))).RemoveAt(index)));
+        ImmutableArray<ExpressionSyntax> elements = declaration is VariableDeclaratorSyntax ? Elements(body) : [];
+        (SyntaxNode replaced, SyntaxNode replacement) = !elements.IsEmpty ? Matched(site, elements)
+            : (site, Grouped(declaration is MethodDeclarationSyntax method
+                ? site is InvocationExpressionSyntax ? Substituted(body) : Lambda(method, body)
+                : body));
+        SyntaxNode placed = root.ReplaceNode(replaced, replaced.CopyAnnotationsTo(replacement));
+        SyntaxNode removed = placed.GetCurrentNode(original)! switch {
+            VariableDeclaratorSyntax { Parent: VariableDeclarationSyntax { Variables.Count: 1, Parent: FieldDeclarationSyntax field } } => field,
+            var node => node,
+        };
+        SyntaxRemoveOptions options = (Relocated(removed.GetLeadingTrivia().Concat(removed.GetTrailingTrivia())).Count is 0 ? SyntaxRemoveOptions.KeepNoTrivia : SyntaxRemoveOptions.KeepExteriorTrivia)
+            | SyntaxRemoveOptions.KeepUnbalancedDirectives;
+        if (removed is MemberDeclarationSyntax member && member.Parent is TypeDeclarationSyntax { Members.Count: >= 2 } parent && parent.Members[0] == member) {
+            MemberDeclarationSyntax next = parent.Members[1];
+            TypeDeclarationSyntax prepared = parent.WithMembers(parent.Members.Replace(next, next.WithLeadingTrivia(Relocated(next.GetLeadingTrivia())).WithAdditionalAnnotations(Formatter.Annotation)));
+            return placed.ReplaceNode(parent, prepared.RemoveNode(prepared.Members[0], options)!);
         }
-        return placed.GetAnnotatedNodes(declared).FirstOrDefault() switch {
-            VariableDeclaratorSyntax { Parent: VariableDeclarationSyntax { Variables.Count: 1, Parent: FieldDeclarationSyntax field } } => Removed(field),
-            MemberDeclarationSyntax member => Removed(member),
-            { } node => placed.RemoveNode(node, SyntaxRemoveOptions.KeepNoTrivia) ?? placed,
-            null => placed,
-        };
+        return placed.RemoveNode(removed, options)!;
     }
 }

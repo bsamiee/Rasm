@@ -43,29 +43,23 @@ utils:
         any:
             - has: {field: body, has: {matches: sole-declared}}
             - has: {kind: computed_property, not: {has: {kind: 'computed_setter, computed_modify'}}, any: [{has: {matches: sole-declared}}, {has: {kind: computed_getter, has: {matches: sole-declared}}}]}
-    declaration:
-        kind: 'function_declaration, init_declaration, subscript_declaration'
     unforwarded-parameter:
         kind: parameter
         all:
             - has: {field: name, kind: simple_identifier, pattern: $P}
-            - not: {inside: {matches: declaration, has: {stopBy: end, kind: value_argument, has: {field: value, pattern: $P}}}}
+            - not: {inside: {kind: &declaration 'function_declaration, init_declaration, subscript_declaration', has: {stopBy: end, kind: value_argument, has: {field: value, pattern: $P}}}}
     fixed-argument:
         kind: value_argument
         all:
             - has: {field: value, pattern: $V}
-            - not: {inside: {stopBy: {matches: declaration}, matches: declaration, has: {kind: parameter, has: {field: name, kind: simple_identifier, pattern: $V}}}}
+            - not: {inside: {stopBy: {kind: *declaration}, kind: *declaration, has: {kind: parameter, has: {field: name, kind: simple_identifier, pattern: $V}}}}
     copy-with:
         kind: call_expression
         all:
             - has: {nthChild: 1, kind: simple_identifier, regex: '^[A-Z]'}
             - has: {stopBy: end, matches: fixed-argument, has: {field: value, kind: 'simple_identifier, navigation_expression'}}
-    forwarded-read:
-        kind: statements
-        matches: swift-forwarded-member
-        has: {stopBy: end, kind: navigation_expression, pattern: $F}
     plain-parameters:
-        matches: declaration
+        kind: *declaration
         not:
             any:
                 - has: {field: default_value, pattern: $_}
@@ -170,7 +164,7 @@ rule:
           all:
             - not: {has: {kind: parameter}}
             - any:
-                - has: {field: body, has: {matches: forwarded-read}}
-                - has: {kind: computed_property, not: {has: {kind: 'computed_setter, computed_modify'}}, any: [{has: {matches: forwarded-read}}, {has: {kind: computed_getter, has: {matches: forwarded-read}}}]}
+                - has: {field: body, has: {matches: &read {swift-forwarded-member: {read: {pattern: $F}}}}}
+                - has: {kind: computed_property, not: {has: {kind: 'computed_setter, computed_modify'}}, any: [{has: {matches: *read}}, {has: {kind: computed_getter, has: {matches: *read}}}]}
 message: 'Declaration passes its parameters and fixed values unchanged to `$F`'
 note: 'Call `<callee>` or read `<value>.<member>` at each use, keep one memberwise init, move a conformance the declaration satisfies to the forwarded type'

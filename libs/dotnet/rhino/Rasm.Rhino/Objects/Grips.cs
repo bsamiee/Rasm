@@ -25,19 +25,16 @@ public sealed record GripPoint(Point3d Location) {
 
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record GripControl {
-    private GripControl(ObjectGripsType type, Option<NurbsCurve> curve, Option<NurbsSurface> surface) => (Type, Curve, Surface) = (type, curve, surface);
+    internal (ObjectGripsType Type, Option<NurbsCurve> Curve, Option<NurbsSurface> Surface) Host => Switch<(ObjectGripsType, Option<NurbsCurve>, Option<NurbsSurface>)>(
+        free: static free => (free.DragLine ? ObjectGripsType.Custom : ObjectGripsType.CustomNoDragLine, None, None),
+        curveControlPoints: static curve => (ObjectGripsType.CurveControlPoint, Some(curve.Points), None),
+        surfaceControlPoints: static surface => (ObjectGripsType.SurfaceControlPoint, None, Some(surface.Points)));
 
-    internal ObjectGripsType Type { get; }
+    public sealed record Free(bool DragLine) : GripControl;
 
-    internal Option<NurbsCurve> Curve { get; }
+    public sealed record CurveControlPoints(NurbsCurve Points) : GripControl;
 
-    internal Option<NurbsSurface> Surface { get; }
-
-    public sealed record Free(bool DragLine) : GripControl(DragLine ? ObjectGripsType.Custom : ObjectGripsType.CustomNoDragLine, None, None);
-
-    public sealed record CurveControlPoints(NurbsCurve Points) : GripControl(ObjectGripsType.CurveControlPoint, Some(Points), None);
-
-    public sealed record SurfaceControlPoints(NurbsSurface Points) : GripControl(ObjectGripsType.SurfaceControlPoint, None, Some(Points));
+    public sealed record SurfaceControlPoints(NurbsSurface Points) : GripControl;
 }
 
 public sealed record GripDefinition(GripControl Control, Seq<GripPoint> Points, Func<Seq<GripPoint>, Fin<GeometryBase>> Rebuild) {
@@ -101,7 +98,7 @@ internal sealed class GripBody(GripDefinition definition) {
     // --- [STATE]
     internal Seq<DefinedGripObject> Points { get; } = definition.Points.Map(static point => new DefinedGripObject(point)).Strict();
 
-    private readonly Atom<Option<GeometryBase>> preview = Atom(Option<GeometryBase>.None);
+    private readonly Ref<Option<GeometryBase>> preview = Ref(Option<GeometryBase>.None);
 
     // --- [GEOMETRY]
     internal Option<GeometryBase> Rebuilt() =>
@@ -116,12 +113,18 @@ internal sealed class GripBody(GripDefinition definition) {
     internal void Draw(CustomObjectGrips grips, GripsDrawEventArgs args) {
         if (args.DrawDynamicStuff && grips.NewLocation) {
             grips.NewLocation = false;
-            Option<GeometryBase> rebuilt = Rebuilt();
-            _ = preview.Swap(_ => rebuilt);
+            ReplacePreview(Rebuilt());
         }
         if (args.DrawDynamicStuff) _ = preview.Value.Bind(geometry => Drawn(args.Display, geometry)).Iter(static draw => draw());
         _ = definition.Polygon.Iter(edge => args.DrawControlPolygonLine(new Line(Points[edge.From].CurrentLocation, Points[edge.To].CurrentLocation), edge.From, edge.To));
     }
+
+    internal void ReplacePreview(Option<GeometryBase> next) =>
+        _ = atomic(() => {
+            Option<GeometryBase> prior = preview.Value;
+            preview.Value = next;
+            return prior;
+        }).Iter(static geometry => geometry.Dispose());
 
     private static Option<Action> Drawn(DisplayPipeline display, GeometryBase geometry) =>
         geometry switch {
@@ -151,7 +154,7 @@ public abstract class DefinedObjectGrips : CustomObjectGrips {
     private readonly GripControl control;
     private readonly GripBody body;
 
-    protected DefinedObjectGrips(GripDefinition definition) : base(definition.Control.Type) {
+    protected DefinedObjectGrips(GripDefinition definition) : base(definition.Control.Host.Type) {
         (control, body) = (definition.Control, new GripBody(definition));
         _ = body.Points.Iter(AddGrip);
     }
@@ -164,11 +167,26 @@ public abstract class DefinedObjectGrips : CustomObjectGrips {
         base.OnDraw(args);
     }
 
+    protected override void OnReset() {
+        body.ReplacePreview(None);
+        base.OnReset();
+    }
+
+    protected override void OnResetMeshes() {
+        body.ReplacePreview(None);
+        base.OnResetMeshes();
+    }
+
+    protected override void Dispose(bool disposing) {
+        body.ReplacePreview(None);
+        base.Dispose(disposing);
+    }
+
     protected sealed override GripObject? NeighborGrip(int gripIndex, int dr, int ds, int dt, bool wrap) => dt is 0 ? body.Neighbor(gripIndex, dr, ds, wrap) : null;
 
-    protected sealed override NurbsCurve? NurbsCurve() => control.Curve.ValueUnsafe();
+    protected sealed override NurbsCurve? NurbsCurve() => control.Host.Curve.ValueUnsafe();
 
-    protected sealed override NurbsSurface? NurbsSurface() => control.Surface.ValueUnsafe();
+    protected sealed override NurbsSurface? NurbsSurface() => control.Host.Surface.ValueUnsafe();
 
     protected sealed override GripObject? NurbsCurveGrip(int i) => body.Curve(i);
 

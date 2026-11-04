@@ -1,8 +1,7 @@
-"""Fixture running repository refurb checks over a sample module and returning the findings one check reports."""
+"""Native diagnostics from source compiled once per interpreter and sample."""
 
-import re
 lazy from collections.abc import Callable
-lazy from pathlib import Path
+lazy from functools import cache
 
 import pytest
 lazy from refurb.error import Error
@@ -12,19 +11,22 @@ lazy from tools.refurb.__main__ import checked
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Findings = Callable[[type[Error], str], list[tuple[int, str]]]
+type Findings = Callable[[type[Error], str], tuple[Error, ...]]
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
-@pytest.fixture(params=["3.15"])
-def findings(request: pytest.FixtureRequest, tmp_path: Path) -> Findings:
-    """Returns line and message of each finding of one error class over a sample module at the requested Python version, and each mypy compile message at line 0."""
+@pytest.fixture(scope="session", params=["3.15"])
+def findings(request: pytest.FixtureRequest, tmp_path_factory: pytest.TempPathFactory) -> Findings:
+    """Returns native findings by class, sharing one compiled answer across queries and reporting compiler failures directly."""
+    path = tmp_path_factory.mktemp("refurb") / "sample.py"
 
-    def reported(kind: type[Error], source: str) -> list[tuple[int, str]]:
-        module = re.sub(r"\W+", "_", f"{tmp_path.parent.name}_{request.node.name}")
-        (path := tmp_path / f"{module}.py").write_text(source, encoding="utf-8")
+    @cache
+    def analyzed(source: str) -> tuple[Error, ...]:
+        path.write_text(source, encoding="utf-8")
         found = checked(load_settings([str(path), "--python-version", request.param]))
-        return [(error.line, error.msg) if isinstance(error, Error) else (0, error) for error in found if not isinstance(error, Error) or isinstance(error, kind)]
+        if messages := tuple(error for error in found if isinstance(error, str)):
+            pytest.fail("\n".join(messages), pytrace=False)
+        return tuple(error for error in found if isinstance(error, Error))
 
-    return reported
+    return lambda kind, source: tuple(error for error in analyzed(source) if isinstance(error, kind))

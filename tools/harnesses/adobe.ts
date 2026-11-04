@@ -1,6 +1,6 @@
 import { homedir } from 'node:os';
 import { Effect, FileSystem, Path } from 'effect';
-import { HarnessError } from '#/error';
+import { HarnessError } from '#/harness-error';
 import { lined, type Rule } from '#/report';
 import type { Instance } from '#/session';
 

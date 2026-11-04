@@ -1,22 +1,21 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-schema-decode-by-hand
-language: tsx
+language: tsxlang
 severity: error
 rule:
     kind: call_expression
     all:
-        - has: {field: arguments, has: {kind: call_expression, has: {field: function, matches: {effect-module-member: {module: {regex: '\bSchema$'}, member: {regex: '^(de|en)codeTo$'}}}}}}
         - any:
-            - pattern: $SRC.pipe($S.decodeTo($S.$TYPE($SRC), $T))
-            - pattern: $S.$TYPE($SRC).pipe($S.encodeTo($SRC, $T))
-            - pattern: $SRC.pipe($S.encodeTo($S.$ENCODED($SRC), $T))
-            - pattern: $S.$ENCODED($SRC).pipe($S.decodeTo($SRC, $T))
+            - pattern: $SRC.pipe($S.decodeTo($S.$TYPE($SRC), $_T))
+            - pattern: $S.$TYPE($SRC).pipe($S.encodeTo($SRC, $_T))
+            - pattern: $SRC.pipe($S.encodeTo($S.$ENCODED($SRC), $_T))
+            - pattern: $S.$ENCODED($SRC).pipe($S.decodeTo($SRC, $_T))
+        - has: {field: arguments, has: {kind: call_expression, has: {field: function, matches: {effect-module-member: {module: {regex: '\bSchema$'}, member: {regex: '^(de|en)codeTo$'}}}}}}
 constraints:
     TYPE: {regex: '^toType$'}
     ENCODED: {regex: '^toEncoded$'}
 transform:
     DECODE: replace($TYPE, replace='^toType$', by='decode')
     ENCODE: replace($ENCODED, replace='^toEncoded$', by='encode')
-fix: $SRC.pipe($S.$DECODE$ENCODE($T))
 message: '`$S.$TYPE$ENCODED` composition over `$SRC` restates `$S.$DECODE$ENCODE`'
 note: 'Pipe `<source>` through `Schema.decode(<transformation>)` for its `toType` side, `Schema.encode(<transformation>)` for its `toEncoded` side'

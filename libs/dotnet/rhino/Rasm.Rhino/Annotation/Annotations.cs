@@ -74,7 +74,7 @@ public static class Annotations {
              AngularDimension angular => angular.GetAngleDisplayText(style),
              RadialDimension radial => radial.GetDistanceDisplayText(units, style),
              OrdinateDimension ordinate => ordinate.GetDistanceDisplayText(units, style),
-             var other => new RhinoFault(other.AnnotationType.ToString(), RhinoReason.Unsupported),
+             var other => new RhinoFault(other.AnnotationType, RhinoReason.Unsupported),
          })
          select text).Bracket();
 
@@ -84,7 +84,7 @@ public static class Annotations {
              (Dimension dimension, ViewportInfo view) => dimension.GetTextTransform(view, style, scale, style.DrawForward),
              (TextEntity text, ViewportInfo view) => text.GetTextTransform(view, scale, style),
              (TextEntity text, _) => text.GetTextTransform(scale, style),
-             var (other, _) => new RhinoFault(other.AnnotationType.ToString(), RhinoReason.Unsupported),
+             var (other, _) => new RhinoFault(other.AnnotationType, RhinoReason.Unsupported),
          })
          select xform).Bracket();
 
@@ -125,7 +125,7 @@ public static class Annotations {
             RadialDimension radial => Shown(radial.GetTextRectangle(out Point3d[] corners), corners, radial.GetDisplayLines(style, scale, out IEnumerable<Line> lines), lines, []),
             OrdinateDimension ordinate => Shown(ordinate.GetTextRectangle(out Point3d[] corners), corners, ordinate.GetDisplayLines(style, scale, out IEnumerable<Line> lines), lines, []),
             AngularDimension angular => Shown(angular.GetTextRectangle(out Point3d[] corners), corners, angular.GetDisplayLines(style, scale, out Line[] lines, out Arc[] arcs), lines, arcs),
-            var other => new RhinoFault(other.AnnotationType.ToString(), RhinoReason.Unsupported),
+            var other => new RhinoFault(other.AnnotationType, RhinoReason.Unsupported),
         });
 
     private static Fin<(Seq<Line> Lines, Seq<Arc> Arcs, Seq<Point3d> Text)> Shown(bool texted, Point3d[] corners, bool lined, IEnumerable<Line> lines, IEnumerable<Arc> arcs) =>

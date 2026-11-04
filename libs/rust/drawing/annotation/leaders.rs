@@ -66,18 +66,19 @@ pub(crate) fn draw(typesetter: &mut Typesetter, style: &crate::Style, placement:
     let landing = if underlined { Line::new(elbow, Point::new(far + reach, end.y)) } else { Line::new(elbow, end) };
     let paths = iter::zip(legs.iter(), tips)
         .map(|(Leg { tip: _, vertices, head: _ }, tip)| {
-            let points = vertices.iter().map(|vertex| *placement * *vertex).collect::<Vec<_>>();
+            let points = vertices.iter().map(|vertex| *placement * *vertex);
             match curve {
                 Curve::Straight => polyline(iter::once(tip).chain(points).chain(iter::once(elbow))),
                 Curve::Spline => {
-                    let approach = along(-0.5 * points.last().copied().unwrap_or(tip).distance(elbow));
+                    let approach = along(-0.5 * points.clone().next_back().unwrap_or(tip).distance(elbow));
                     BezPath::from_path_segments(QuadSpline::new(iter::once(tip).chain(points).chain([approach, elbow]).collect()).to_quads().map(PathSeg::Quad))
                 }
             }
         })
         .collect::<Vec<_>>();
     let terminator = &style.leader.terminator;
-    let heads = indexed(iter::zip(legs.iter(), &paths).map(|(leg, path)| tipped(terminator, leg.head.unwrap_or(terminator.head), path.segments(), style.tolerance).map_err(NEVec::from))).map(|elements| Graphics { elements, .. });
+    let heads = indexed(iter::zip(legs.iter(), &paths).map(|(leg, path)| tipped(terminator, leg.head.unwrap_or(terminator.head), path.segments(), style.tolerance).map_err(NEVec::from)))
+        .map(|elements| Graphics { elements, .. });
     let outline = landing.path_elements(style.tolerance.into_inner()).chain(paths.iter().flat_map(BezPath::iter)).collect::<BezPath>();
     joined([stroked(outline, &style.pen, None)], [heads, transformed(drawn, Affine::translate((reach, 0.0)))])
 }

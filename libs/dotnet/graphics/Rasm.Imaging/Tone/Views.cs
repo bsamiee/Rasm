@@ -126,10 +126,13 @@ public sealed partial record ViewTransform(ColorEncoding Scene, Seq<Action<Span<
     public static ViewTransform Lattice(LutSpace shaper, LutTable table, ColorEncoding signal) => new(shaper.Encoding, [shaper.Into.Apply, table.Apply], Some(signal));
 
     public static ViewTransform Curve(Gamut basis, Func<float, float> curve, float preserveHue = 1f, float purity = 0f, Vector3 inset = default, Vector3 rotation = default) =>
+        Curve(basis, ToneCurve.Graded(color => new Vector3(curve(color.X), curve(color.Y), curve(color.Z)), preserveHue), 0f, purity, inset, rotation);
+
+    public static ViewTransform Curve(Gamut basis, Action<Span<Vector4>> curve, float preserveHue = 1f, float purity = 0f, Vector3 inset = default, Vector3 rotation = default) =>
         Shaped(
             basis,
             new LutTable.Affine(basis.Inset(inset, rotation).MatrixTo(basis)).Apply,
-            ToneCurve.Graded(color => new Vector3(curve(color.X), curve(color.Y), curve(color.Z)), preserveHue),
+            ToneCurve.Graded(curve, preserveHue),
             new LutTable.Affine(basis.MatrixTo(basis.Inset(purity * inset, rotation))).Apply);
 
     public static Fin<ViewTransform> Photoreceptor(Gamut working, PixelFrame frame, float intensity, Option<float> contrast, float light, float chromatic) =>

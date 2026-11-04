@@ -22,17 +22,17 @@ public sealed record ChartFit {
             from solved in (ImagingFault.Unless(source.Chart == target.Chart, ImagingReason.Mismatch, (source.Chart, target.Chart)), ImagingFault.Unless(fitted.Rank is 3, ImagingReason.Degenerate, fitted.Rank))
                 .Apply((_, _) => fitted.Solve(Rows(target))).As()
             let decomposed = solved.Svd()
-            from transform in ImagingFault.Unless(decomposed.Rank is 3, ImagingReason.Degenerate, decomposed.Rank).Map(_ => Lowered(solved.ToRowMajorArray()))
+            from transform in ImagingFault.Unless(decomposed.Rank is 3, ImagingReason.Degenerate, decomposed.Rank).Map(_ => Lowered(solved))
             let neutrals = (Source: Neutral(source), Target: Neutral(target))
             select new ChartFit(new(transform, 0f), decomposed.ConditionNumber, neutrals.Source > 0f && neutrals.Target > 0f
                 ? new ChartTransform(Matrix4x4.CreateScale(neutrals.Source / neutrals.Target) * transform, float.Log2(neutrals.Target / neutrals.Source))
                 : ImagingFault.Of(ImagingReason.Range, neutrals));
     }
 
-    private static Matrix<double> Rows(ChartSamples samples) => Matrix<double>.Build.DenseOfRowArrays(samples.Patches.Map(static patch => new double[] { patch.X, patch.Y, patch.Z }));
+    private static Matrix<double> Rows(ChartSamples samples) => Matrix<double>.Build.Dense(samples.Patches.Count, 3, (row, channel) => samples.Patches[row][channel]);
 
     private static float Neutral(ChartSamples samples) => Vector3.Dot(samples.Gamut.Luminance, samples.Patches[samples.Chart.Neutral]);
 
-    private static Matrix4x4 Lowered(double[] m) =>
-        new((float)m[0], (float)m[1], (float)m[2], 0f, (float)m[3], (float)m[4], (float)m[5], 0f, (float)m[6], (float)m[7], (float)m[8], 0f, 0f, 0f, 0f, 1f);
+    private static Matrix4x4 Lowered(Matrix<double> m) =>
+        new((float)m[0, 0], (float)m[0, 1], (float)m[0, 2], 0f, (float)m[1, 0], (float)m[1, 1], (float)m[1, 2], 0f, (float)m[2, 0], (float)m[2, 1], (float)m[2, 2], 0f, 0f, 0f, 0f, 1f);
 }

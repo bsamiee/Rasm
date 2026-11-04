@@ -1,24 +1,24 @@
 """Region draw callbacks and the refresh sources their reads follow."""
 
 from collections.abc import Callable, Generator
-from contextlib import AbstractContextManager, contextmanager, ExitStack, nullcontext
-from functools import cache, partial
-from typing import ClassVar, Final, Protocol, TYPE_CHECKING
+from contextlib import AbstractContextManager, contextmanager, ExitStack
+from functools import partial
+from typing import Protocol, TYPE_CHECKING
 
 import bpy
-from expression import Nothing, Ok, Option, Result, Some
+from expression import Option, Some
 import msgspec
 
 from blender.bpy.data.rna.conditions import AllOf, Setting
 from blender.bpy.data.rna.descriptors import Descriptor
 from blender.bpy.data.rna.paths import definition, Struct
-from blender.bpy.extension.events import Change, Handler, Subscription, updated
-from blender.bpy.extension.identity import Identity, Resource
-from blender.bpy.extension.registration import Acquisitions, scoped, Tier
+from blender.bpy.extension.events import Change, updated
+from blender.bpy.extension.identity import Identity
+from blender.bpy.extension.registration import Acquisitions, Handler, scoped, Subscription, Tier
 from blender.bpy.ui.drawing.canvas import Canvas, DrawType, PROGRAMS
 from blender.bpy.ui.resources.theme import Metrics
 from blender.bpy.ui.screens.areas import AreaQuery
-from blender.records.faults import accumulated, Fault, Faults, Outcome, Reason
+from blender.records.faults import accumulated, Nothing, Ok, Outcome
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -29,22 +29,17 @@ if TYPE_CHECKING:
 class Part[S](Protocol):
     """Scale-dependent read and draw of a part, in the draw phase an overlay places it."""
 
-    draw_type: ClassVar[DrawType]
+    @property
+    def draw_type(self) -> DrawType:
+        """Region draw phase."""
+        ...
 
     def read(self, metrics: Metrics, /) -> Outcome[Option[S]]:
         """Returns draw state, Nothing while none exists."""
         ...
 
-    def drawn(self, canvas: Canvas, state: S, /) -> None:
+    def drawn(self, state: S, canvas: Canvas, /) -> None:
         """Draws state on canvas."""
-        ...
-
-
-class _Drawn(Protocol):
-    """State drawing itself on a canvas."""
-
-    def drawn(self, canvas: Canvas, /) -> None:
-        """Draws on canvas."""
         ...
 
 
@@ -54,24 +49,20 @@ type Refresh = tuple[type[Struct], str] | HandlerRefresh | Signal
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class HandlerRefresh(msgspec.Struct, frozen=True, kw_only=True):
-    """App handler list invalidating the cached read on each call, on depsgraph updates of `ids` types and `changes` kinds alone while `ids` names a type."""
+class HandlerRefresh(msgspec.Struct, frozen=True, kw_only=True):  # type: ignore[explicit-any]
+    """App handler list requesting redraw on each call or depsgraph changes matching `ids` and `changes`."""
 
-    handlers: list[Callable[..., None]]
+    handlers: list[Callable[..., None]]  # type: ignore[explicit-any]
     ids: tuple[type[bpy.types.ID], ...] = ()
     changes: Option[Change] = Nothing
 
 
-class SelfDrawnPart[S: _Drawn](msgspec.Struct, frozen=True, kw_only=True):
-    """Part whose read state draws itself in region pixels."""
+class DrawingPart[S](msgspec.Struct, frozen=True, kw_only=True):
+    """Read and draw callbacks with their region draw phase."""
 
-    draw_type: ClassVar[DrawType] = "POST_PIXEL"
     read: Callable[[Metrics], Outcome[Option[S]]]
-
-    @staticmethod
-    def drawn(canvas: Canvas, state: S, /) -> None:
-        """Draws state on canvas through its own draw."""
-        state.drawn(canvas)
+    drawn: Callable[[S, Canvas], None]
+    draw_type: DrawType = "POST_PIXEL"
 
 
 class Drawing[S](msgspec.Struct, frozen=True, kw_only=True):
@@ -82,34 +73,29 @@ class Drawing[S](msgspec.Struct, frozen=True, kw_only=True):
     refreshes: tuple[Refresh, ...] = ()
 
     def acquired(self, identity: Identity) -> tuple[Acquisitions, DrawCallback]:
-        """Builds refresh acquisitions and the draw callback taking its draw phase and pointer, rereading after each refresh, scale change, and file load."""
+        """Builds refresh sources and the callback reading state in each native draw context."""
         reported = identity.reports.reported(self.part.read)
 
-        @cache
-        def current(metrics: Metrics, _loads: int) -> Option[S]:
-            """Reads state once per interface metrics and file load count."""
-            return reported(metrics).bind(lambda state: state)
-
         def refreshed() -> Outcome[None]:
-            """Drops held reads and redraws matching areas."""
+            """Redraws matching areas."""
             manager: bpy.types.WindowManager = bpy.context.window_manager  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-            current.cache_clear()
             for located in self.area.located(manager.windows):
                 located.area.tag_redraw()
             return Ok(None)
 
         def callback(phase: DrawType, pointer: Option[tuple[int, int]]) -> None:
-            """Draws the read current for the canvas metrics and file load count."""
-            match bpy.context.area, bpy.context.region:
+            """Reads and draws the part in the host's current region."""
+            context = bpy.context
+            match context.area, context.region:
                 case bpy.types.Area() as area, bpy.types.Region() as region if self.area.matches(area):
                     canvas = Canvas.of(area, region, phase, pointer)
-                    for state in current(canvas.metrics, identity.resources[_LOADS]).to_list():
+                    for state in reported(canvas.metrics).bind(lambda state: state).to_list():
                         with canvas.drawn():
-                            self.part.drawn(canvas, state)
+                            self.part.drawn(state, canvas)
                 case _:
                     pass
 
-        return (_LOADS, PROGRAMS, (Tier.DRAW_HANDLERS, refreshing(identity, self.refreshes, refreshed))), callback
+        return (PROGRAMS, (Tier.DRAW_HANDLERS, refreshing(identity, self.refreshes, refreshed))), callback
 
 
 class Overlay[S](msgspec.Struct, frozen=True, kw_only=True):
@@ -119,7 +105,7 @@ class Overlay[S](msgspec.Struct, frozen=True, kw_only=True):
     respect_overlays: bool = True
     region: "rna_enums.RegionTypeItems" = "WINDOW"
 
-    def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
+    def acquisitions(self, identity: Identity) -> Acquisitions:
         """Owns region draw handle, hiding the drawing while the editor's overlays are off."""
         space, draw_type = self.drawing.area.space, self.drawing.part.draw_type
         switch = (
@@ -132,7 +118,7 @@ class Overlay[S](msgspec.Struct, frozen=True, kw_only=True):
         )
         shown = AllOf(conditions=(*self.drawing.area.shows.to_list(), *switch.map(lambda descriptor: Setting(descriptor=descriptor)).to_list()))
         held, callback = msgspec.structs.replace(self.drawing, area=msgspec.structs.replace(self.drawing.area, shows=Some(shown))).acquired(identity)
-        return Ok((*held, (Tier.DRAW_HANDLERS, draw_handler(space, partial(callback, draw_type, Nothing), self.region, draw_type))))
+        return (*held, (Tier.DRAW_HANDLERS, draw_handler(space, partial(callback, draw_type, Nothing), self.region, draw_type)))
 
 
 class Cursor[S](msgspec.Struct, frozen=True, kw_only=True):
@@ -142,7 +128,7 @@ class Cursor[S](msgspec.Struct, frozen=True, kw_only=True):
     space: "rna_enums.SpaceTypeItems"
     region: "rna_enums.RegionTypeItems" = "WINDOW"
 
-    def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
+    def acquisitions(self, identity: Identity) -> Acquisitions:
         """Owns the paint cursor drawing at each pointer position the window manager passes."""
         held, callback = self.drawing.acquired(identity)
         cursor = scoped(
@@ -151,7 +137,7 @@ class Cursor[S](msgspec.Struct, frozen=True, kw_only=True):
             bpy.types.WindowManager.draw_cursor_remove,
             exception=TypeError,
         )
-        return Ok((*held, (Tier.DRAW_HANDLERS, cursor)))
+        return (*held, (Tier.DRAW_HANDLERS, cursor))
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
@@ -172,7 +158,7 @@ class Signal:
         with ExitStack() as stack:
             self.refreshes.append(refresh)
             stack.callback(self.refreshes.remove, refresh)
-            yield Result[None, Faults](ok=None)
+            yield Ok(None)
 
     def fired(self) -> Outcome[None]:
         """Refreshes every following drawing, accumulating failures."""
@@ -205,11 +191,11 @@ def refreshing(identity: Identity, refreshes: tuple[Refresh, ...], refreshed: Ca
 
     Args:
         identity: Extension owning the sources.
-        refreshes: Sources invalidating the drawing.
-        refreshed: Invalidation run once per source event.
+        refreshes: Sources requesting redraw.
+        refreshed: Redraw request per source event.
 
     Yields:
-        Ok(None) while every source holds, absent fault per msgbus key naming a member its type lacks once registered.
+        Ok(None) while every source holds, or acquisition faults.
     """
     with identity.reports.deferred(lambda: refreshed().map(lambda _: Nothing)) as later, ExitStack() as stack:
 
@@ -218,30 +204,21 @@ def refreshing(identity: Identity, refreshes: tuple[Refresh, ...], refreshed: Ca
             later()
             return Ok(None)
 
-        def held(refresh: Refresh) -> Outcome[AbstractContextManager[Outcome[None]]]:
+        def held(refresh: Refresh) -> AbstractContextManager[Outcome[None]]:
             """Builds the scope of one source."""
             match refresh:
                 case HandlerRefresh(handlers=handlers, ids=()):
-                    return Ok(Handler(handlers=handlers, body=deferring).held(identity))
+                    return Handler(handlers=handlers, body=deferring).held(identity)
                 case HandlerRefresh(handlers=handlers, ids=ids, changes=changes):
-                    return Ok(Handler(handlers=handlers, body=partial(updated, ids, deferring, changes=changes)).held(identity))
+                    return Handler(handlers=handlers, body=partial(updated, ids, deferring, changes=changes)).held(identity)
                 case Signal() as signal:
-                    return Ok(signal.followed(refreshed))
+                    return signal.followed(refreshed)
                 case (owner, member):
-                    return (
-                        Option
-                        .of_optional(definition(owner).properties.get(member))
-                        .map(lambda setting: Subscription(owner=owner, setting=setting, body=refreshed).held(identity))
-                        .to_result_with(partial(Fault.of, Reason.ABSENT, owner.__name__, member=member))
-                    )
+                    return Subscription(owner=owner, setting=definition(owner).properties[member], body=refreshed).held(identity)
 
-        yield accumulated(map(held, refreshes)).bind(lambda scopes: accumulated(map(stack.enter_context, scopes))).map(lambda _: None)
+        yield accumulated(stack.enter_context(held(refresh)) for refresh in refreshes).map(lambda _: None)
 
-
-# --- [COMPOSITION] ----------------------------------------------------------------------
-
-_LOADS: Final = Resource[int](made=lambda _identity: nullcontext(0), renewed=Some(lambda count: count + 1))
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Cursor", "DrawCallback", "Drawing", "HandlerRefresh", "Overlay", "Part", "Refresh", "SelfDrawnPart", "Signal", "draw_handler", "refreshing"]
+__all__ = ["Cursor", "DrawCallback", "Drawing", "DrawingPart", "HandlerRefresh", "Overlay", "Part", "Refresh", "Signal", "draw_handler", "refreshing"]

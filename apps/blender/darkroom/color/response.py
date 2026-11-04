@@ -1,14 +1,15 @@
 """Darkroom tone response: the render-enabled tone and formation entries sampled through the compositor at middle gray across the compositing log window, charted over the Viewer image under a header switch."""
 
+# ruff: file-ignore[relative-imports]
 from collections.abc import Generator
-from contextlib import contextmanager, ExitStack, nullcontext
+from contextlib import contextmanager, nullcontext
 from functools import partial
 import math
 from typing import ClassVar, Final
 
 from bl_ui.space_image import IMAGE_HT_header
 import bpy
-from expression import Nothing, Ok, Option, Some, try_downcast
+from expression import Option, Some, try_downcast
 from expression.collections import Block
 import msgspec
 import numpy as np
@@ -16,28 +17,34 @@ import numpy.typing as npt
 import PyOpenColorIO
 
 from blender.bpy.data.ids.images import fingerprinted
+from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.paths import root_in
-from blender.bpy.extension.events import Handler, updated
-from blender.bpy.extension.identity import Identity, Key, Resource
-from blender.bpy.extension.registration import Acquisitions
+from blender.bpy.extension.identity import Identity, Key
+from blender.bpy.extension.registration import Acquisitions, Resource
+from blender.bpy.render.compositor.motion import rate
 from blender.bpy.render.previews.queue import Job, Latest, PreviewFeed, Rank
 from blender.bpy.render.previews.scenes import PreviewScene
 from blender.bpy.settings.attachments import Attachment
 from blender.bpy.ui.drawing.charts import Chart, GRID, Label, Layer, ruled, TRACE
-from blender.bpy.ui.drawing.handlers import SelfDrawnPart, Signal
+from blender.bpy.ui.drawing.handlers import DrawingPart, Signal
 from blender.bpy.ui.elements.menus import Append
 from blender.bpy.ui.images.views import image_type, overlaid
 from blender.bpy.ui.layout.members import Member
 from blender.bpy.ui.layout.rows import Layout, Property
 from blender.bpy.ui.resources.theme import Metrics
-from blender.imaging.color.processors import GRAY
+from blender.bpy.ui.screens.areas import AreaQuery
+from blender.imaging.color.processors import DisplayView, GRAY
 from blender.imaging.files.buffers import applied
-from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
-from blender.records.stores import content_hash, ContentHash
+from blender.records.faults import accumulated, Fault, Nothing, Ok, Outcome, paired, Reason
+from blender.records.stores import ContentHash
 
 from ..catalog import tones
 from ..effects.formation.display import encoding, formation
-from .luts import formed, selected
+from .luts import closing, selected
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+_VIEWER: Final = image_type(("COMPOSITING",))
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -49,15 +56,17 @@ class ResponseChart(bpy.types.PropertyGroup):
 
 
 class _Request(msgspec.Struct, frozen=True, kw_only=True):
-    """Tone response sampling of entries at a scene frame across a stop window in plot columns, with the guide codes of its levels and the content it covers, `Nothing` where an entry's content holds no buffer."""
+    """Tone response sampling with scene, frame, plot dimensions, guide levels, OCIO configuration, and each entry's fingerprint."""
 
-    scene: bpy.types.Scene
-    entries: tuple[bpy.types.SceneCompositorEffect, ...]
-    frame: tuple[int, float]
+    scene: Handle[bpy.types.Scene]
+    entries: tuple[str, ...]
+    view: Option[DisplayView]
+    frame: tuple[float, float]
     columns: int
     window: tuple[float, float]
     codes: tuple[float, ...]
-    content: Option[ContentHash]
+    config: str
+    content: tuple[Option[ContentHash], ...]
 
     @property
     def centers(self) -> npt.NDArray[np.float32]:
@@ -67,7 +76,8 @@ class _Request(msgspec.Struct, frozen=True, kw_only=True):
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
-_LATEST: Final = Resource[Latest[_Request, npt.NDArray[np.float32]]](made=lambda _identity: nullcontext(Latest()))
+_LATEST: Final = Resource[Latest[tuple[int, int], _Request, Chart]](made=lambda _identity: nullcontext(Latest()))
+_COLUMNS: Final = Resource[dict[Handle[bpy.types.Screen], int]](made=lambda _identity: nullcontext({}), renewed=Some(lambda _columns: {}))
 
 
 class ToneResponse(msgspec.Struct, frozen=True, kw_only=True):
@@ -80,106 +90,115 @@ class ToneResponse(msgspec.Struct, frozen=True, kw_only=True):
     # --- [READOUT]
 
     @staticmethod
-    def columns(metrics: Metrics) -> int:
-        """Plot columns, ten widget units at the interface scale."""
-        return metrics.unit * 10
-
-    def chart(self, identity: Identity, metrics: Metrics) -> Outcome[Option[Chart]]:
+    def chart(identity: Identity, metrics: Metrics) -> Outcome[Option[Chart]]:
         """Charts the response of the wanted request at the plot columns the interface scale gives, while the context screen shows it."""
-        latest, columns = identity.resources[_LATEST], self.columns(metrics)
+        latest, columns = _LATEST[identity], metrics.unit * 10
 
-        def plotted(request: _Request, values: npt.NDArray[np.float32]) -> Chart:
-            return Chart(
-                width=float(columns),
-                height=columns * 0.5,
-                layers=(
-                    Layer.of("LINES", ruled((), request.codes), GRID),
-                    Layer.of("LINE_STRIP", np.column_stack((request.centers, values.mean(axis=1))).astype(np.float32), TRACE, blend="ADDITIVE", width=1.5),
-                ),
-                labels=tuple(Label(text=f"{level:.2%}", x=0.0, y=code) for level, code in zip(self.levels, request.codes)),
-                caption=(bpy.path.display_name(self.key),),
-            )
+        def shown(screen: bpy.types.Screen, held: ResponseChart) -> Option[Chart]:
+            if held.shown:
+                _COLUMNS[identity][Handle.of(screen)] = columns
+                return root_in(bpy.types.Scene, bpy.context).bind(lambda scene: latest.shown((scene.session_uid, columns))).map(lambda pair: pair[1])
+            return Nothing
 
-        shown = root_in(bpy.types.Screen, bpy.context).map(lambda screen: CHARTED.read(identity, screen).map(lambda held: held.shown)).default_value(Ok(False))
-        return shown.map(lambda showing: latest.wanted.filter(lambda request: showing and request.columns == columns).map2(plotted, latest.value))
+        return root_in(bpy.types.Screen, bpy.context).map(lambda screen: CHARTED.read(identity, screen).map(partial(shown, screen))).default_value(Ok(Nothing))
 
     # --- [DEMAND]
 
     def fed(self, signal: Signal, identity: Identity, context: bpy.types.Context) -> Outcome[tuple[Job, ...]]:
-        """Returns the sampling job of the current request while a window's screen shows the chart, an equal request keeping its response."""
-        latest, config = identity.resources[_LATEST], PyOpenColorIO.GetCurrentConfig()
+        """Returns sampling per actual scene and plot size demanded by chart-enabled windows, equal requests keeping their responses."""
+        latest, columns, config = _LATEST[identity], _COLUMNS[identity], PyOpenColorIO.GetCurrentConfig()
+        config_id = config.getCacheID()
         manager: bpy.types.WindowManager = context.window_manager  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        visible = tuple(dict.fromkeys(at.window for at in AreaQuery(space=bpy.types.SpaceImageEditor, ui_type=Some("IMAGE_EDITOR"), shows=Some(_VIEWER)).located(manager.windows)))
 
-        def requested(scene: bpy.types.Scene, entries: tuple[bpy.types.SceneCompositorEffect, ...], window: tuple[float, float], guide: PyOpenColorIO.Processor) -> Outcome[tuple[Job, ...]]:
+        def queued(request: _Request) -> Outcome[tuple[Job, ...]]:
+            slot = request.scene.uid, request.columns
+            changed, token, value = latest.wanting(slot, request, same=lambda prior, wanted: prior == wanted and all(key.is_some() for key in wanted.content))
+            return (signal.fired() if changed else Ok(None)).map(
+                lambda _: () if value.is_some() else (Job(place=slot, key=token, rank=Rank.SHOWN, run=partial(self.rendered, signal, identity, request, token)),)
+            )
+
+        def requested(
+            scene: bpy.types.Scene, entries: tuple[bpy.types.SceneCompositorEffect, ...], sizes: tuple[int, ...], window: tuple[float, float], guide: PyOpenColorIO.Processor
+        ) -> Outcome[tuple[Job, ...]]:
             codes = tuple(map(float, applied(guide.getDefaultCPUProcessor(), np.repeat(np.asarray(self.levels, dtype=np.float32)[:, None], 3, axis=1)).mean(axis=1)))
-            frame, columns = (scene.frame_current, scene.frame_subframe), self.columns(Metrics.read())
-
-            def keyed(keys: tuple[Option[ContentHash], ...]) -> Option[ContentHash]:
-                arrays = (np.asarray((scene.session_uid, *frame, columns, *window, *codes), dtype=np.float64),)
-                return (
-                    Some(content_hash(ToneResponse, *(key for held in keys for key in held.to_list()), config.getCacheID().encode(), arrays=arrays))
-                    if all(held.is_some() for held in keys)
-                    else Nothing
-                )
-
-            def queued(content: Option[ContentHash]) -> Outcome[tuple[Job, ...]]:
-                request = _Request(scene=scene, entries=entries, frame=frame, columns=columns, window=window, codes=codes, content=content)
-                changed = latest.wanting(request)
-                return (signal.fired() if changed else Ok(None)).map(
-                    lambda _: (
-                        ()
-                        if latest.value.is_some()
-                        else (Job(place=(self.key, identity.package), key=content.default_value(request), rank=Rank.SHOWN, run=partial(self.rendered, signal, identity, request)),)
+            source, names, view, frame = Handle.of(scene), tuple(entry.name for entry in entries), closing(identity, scene, entries), (scene.frame_current_final, rate(scene))
+            return (
+                fingerprinted(entries)
+                .bind(
+                    lambda content: accumulated(
+                        queued(_Request(scene=source, entries=names, view=view, frame=frame, columns=size, window=window, codes=codes, config=config_id, content=content)) for size in sizes
                     )
                 )
+                .map(lambda batches: tuple(job for jobs in batches for job in jobs))
+            )
 
-            return accumulated(map(fingerprinted, entries)).map(keyed).bind(queued)
+        def prepared(windows: tuple[bpy.types.Window, ...]) -> Outcome[tuple[Job, ...]]:
+            screens = frozenset(Handle.of(window.screen) for window in windows)
+            for screen in columns.keys() - screens:
+                del columns[screen]
+            sources: dict[bpy.types.Scene, dict[int, None]] = {}
+            for window in windows:
+                for size in Option.of_optional(columns.get(Handle.of(window.screen))).to_list():
+                    sources.setdefault(window.scene, {})[size] = None
+            active = tuple((scene, entries, tuple(sizes)) for scene, sizes in sources.items() for entries, left in (selected(identity, scene, Some(self.kinds)),) if entries and not left)
+            wanted = frozenset((Handle.of(scene), size) for scene, _, sizes in active for size in sizes)
+            return (signal.fired() if latest.cleared(lambda request: (request.scene, request.columns) not in wanted) else Ok(None)).bind(
+                lambda _: (
+                    paired(windowed(config), accumulated(encoding(identity, scene, config).map(lambda found: found[1]) for scene, _, _ in active)).bind(
+                        lambda parts: accumulated(requested(scene, entries, sizes, parts[0], guide) for (scene, entries, sizes), guide in zip(active, parts[1])).map(
+                            lambda batches: tuple(job for jobs in batches for job in jobs)
+                        )
+                    )
+                    if active
+                    else Ok(())
+                )
+            )
 
-        def prepared(scene: bpy.types.Scene) -> Outcome[tuple[Job, ...]]:
-            entries, left = selected(identity, scene, Some(self.kinds))
-            return paired(windowed(config), guided(identity, scene, config)).bind(lambda parts: requested(scene, entries, *parts)) if entries and not left else self.cleared(signal, identity)
-
-        shown = accumulated(CHARTED.read(identity, window.screen).map(lambda held: held.shown) for window in manager.windows).map(any)
-        return shown.bind(lambda showing: Option.of_optional(context.scene).filter(lambda _: showing).map(prepared).default_with(lambda: self.cleared(signal, identity)))
+        return accumulated(CHARTED.read(identity, window.screen).map(lambda held: held.shown) for window in visible).bind(
+            lambda shown: prepared(tuple(window for window, on in zip(visible, shown) if on))
+        )
 
     @staticmethod
-    def rendered(signal: Signal, identity: Identity, request: _Request) -> Outcome[None]:
+    def rendered(signal: Signal, identity: Identity, request: _Request, token: object) -> Outcome[None]:
         """Samples the request's levels through its entries and publishes the response while the request stays wanted."""
         low, high = request.window
         levels = (GRAY * np.exp2(low + (high - low) * request.centers)).astype(np.float32)
-        return formed(identity, request.scene, request.entries, np.repeat(levels[None, :, None], 3, axis=2)).bind(
-            lambda values: signal.fired() if identity.resources[_LATEST].published(request, values[0, :, :3]) else Ok(None)
+
+        def plotted(values: npt.NDArray[np.float32]) -> Chart:
+            return Chart(
+                width=float(request.columns),
+                height=request.columns * 0.5,
+                layers=(
+                    Layer.of("LINES", ruled((), request.codes), GRID),
+                    Layer.of("LINE_STRIP", np.column_stack((request.centers, values[0, :, :3].mean(axis=1))), TRACE, blend="ADDITIVE", width=1.5),
+                ),
+                labels=tuple(Label(text=f"{level:.2%}", x=0.0, y=code) for level, code in zip(ToneResponse.levels, request.codes)),
+                caption=(bpy.path.display_name(ToneResponse.key),),
+            )
+
+        return (
+            PreviewScene()
+            .sampled_from(identity, request.scene, request.entries, np.repeat(levels[None, :, None], 3, axis=2))
+            .bind(lambda values: request.view.map(lambda view: view.form(PyOpenColorIO.GetCurrentConfig(), values)).default_value(Ok(values)))
+            .map(plotted)
+            .bind(lambda chart: signal.fired() if _LATEST[identity].published((request.scene.uid, request.columns), token, chart) else Ok(None))
         )
 
     # --- [LIFETIME]
-
-    @staticmethod
-    def cleared(signal: Signal, identity: Identity) -> Outcome[tuple[Job, ...]]:
-        """Clears the wanted request and its response."""
-        return (signal.fired() if identity.resources[_LATEST].cleared() else Ok(None)).map(lambda _: ())
 
     @contextmanager
     def acquisitions(self, identity: Identity) -> Generator[Outcome[Acquisitions]]:
         """Holds the request cell, the screen switch, the queue feed, the chart over the Viewer image refreshed by its signal and switch, and the invalidations of requests covering no content."""
         signal = Signal()
-        with ExitStack() as scopes:
-
-            def invalidated() -> Outcome[Option[str]]:
-                return self.cleared(signal, identity).map(lambda _: Nothing)
-
-            later = scopes.enter_context(identity.reports.deferred(invalidated))
-
-            def edited(scene: bpy.types.Scene, _updates: tuple[bpy.types.DepsgraphUpdate, ...]) -> Outcome[None]:
-                return Ok(later() if identity.resources[_LATEST].wanted.filter(lambda request: request.scene == scene and request.content.is_none()).is_some() else None)
-
+        with Latest.invalidating(identity, _LATEST, lambda request, _scene: any(key.is_none() for key in request.content), signal.fired) as lifecycle:
             yield Ok((
-                _LATEST,
+                *lifecycle,
+                _COLUMNS,
                 CHARTED,
                 PreviewScene(),
                 PreviewFeed(feed=partial(self.fed, signal)),
-                overlaid(SelfDrawnPart(read=partial(self.chart, identity)), image_type(("COMPOSITING",)), (signal, (ResponseChart, "shown"))),
-                Handler(handlers=bpy.app.handlers.load_post, body=lambda: self.cleared(signal, identity).map(lambda _: None)),
-                Handler(handlers=bpy.app.handlers.depsgraph_update_post, body=partial(updated, (bpy.types.Scene, bpy.types.NodeTree, bpy.types.Image), edited)),
+                overlaid(DrawingPart(read=partial(self.chart, identity), drawn=Chart.drawn), _VIEWER, (signal, (ResponseChart, "shown"))),
             ))
 
 
@@ -206,23 +225,15 @@ def windowed(config: PyOpenColorIO.Config) -> Outcome[tuple[float, float]]:
     )
 
 
-def guided(identity: Identity, scene: bpy.types.Scene, config: PyOpenColorIO.Config) -> Outcome[PyOpenColorIO.Processor]:
-    """Returns the encoding view processor of the display the formation forms, the scene's without one."""
-    return encoding(identity, scene, config).map(lambda found: found[1])
-
-
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 CHARTED: Final = Attachment(key=ToneResponse.key, form=ResponseChart, owner=bpy.types.Screen)
-response: Final = ToneResponse(kinds=frozenset(row.kind for row in (*tones.members, formation)))
+response: Final = ToneResponse(kinds=frozenset(row.kind for row in (*tones, formation)))
 rows: Final = (
     response,
-    Append(
-        target=IMAGE_HT_header,
-        rows=(Layout(rows=(Property(target=Member(root=CHARTED, path=("shown",)), keywords={"icon_only": True}, icon=Some("GRAPH")),), visible=Some(image_type(("COMPOSITING",)))),),
-    ),
+    Append(target=IMAGE_HT_header, rows=(Layout(rows=(Property(target=Member(root=CHARTED, path=("shown",)), keywords={"icon_only": True}, icon=Some("GRAPH")),), visible=Some(_VIEWER)),)),
 )
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["CHARTED", "ResponseChart", "ToneResponse", "guided", "response", "rows", "windowed"]
+__all__ = ["CHARTED", "ResponseChart", "ToneResponse", "response", "rows", "windowed"]

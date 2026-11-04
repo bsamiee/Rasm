@@ -3,20 +3,10 @@ id: no-nested-independent-bind
 language: csharplang
 severity: error
 ignores: ['tools/roslyn/**']
-rewriters:
-    - id: continuation-receiver
-      rule:
-        kind: invocation_expression
-        pattern: $STEP_RECEIVER.$_NAME($_ARGUMENT)
-        any:
-            - inside: {kind: lambda_expression, field: body}
-            - inside: {kind: return_statement, inside: {kind: block, inside: {kind: 'lambda_expression, anonymous_method_expression'}}}
-      fix: $STEP_RECEIVER
 rule:
     kind: invocation_expression
     all:
-        - has: {field: function, kind: member_access_expression, all: [{has: {field: expression, pattern: $RECEIVER}}, {has: {field: name, pattern: $BIND}}]}
-        - has: {field: arguments, has: {kind: argument, pattern: $CALLBACK}}
+        - has: {field: function, kind: member_access_expression, has: {field: name, pattern: $BIND}}
         - matches:
             languageext-bind-callback:
                 value: {pattern: $VALUE}
@@ -33,23 +23,11 @@ rule:
                                     - not: {has: {kind: argument, nthChild: 2}}
                                     - has:
                                         kind: argument
-                                        pattern: $CONTINUATION
                                         has: {kind: 'lambda_expression, anonymous_method_expression, identifier, member_access_expression, generic_name'}
                                         not: {has: {stopBy: end, kind: identifier, pattern: $VALUE}}
                         - kind: block
                           all:
                             - has: {kind: return_statement, nthChild: 1, has: *step}
                             - not: {has: {nthChild: 2}}
-transform:
-    OUTER:
-        rewrite:
-            source: $CALLBACK
-            rewriters: [continuation-receiver]
-    BIND_NAME:
-        replace:
-            source: $BIND
-            replace: '\s*<.*>$'
-            by: ''
-fix: '$RECEIVER.$BIND_NAME($OUTER).$STEP($CONTINUATION)'
 message: '`$STEP` nests in the `$BIND` callback and its continuation reads nothing from `$VALUE`'
 note: 'Chain the step on outer bind result, one step per chain level'

@@ -5,7 +5,14 @@ import type { ReactNode } from 'react';
 
 const CustomProperties = ({ properties, children }: { readonly properties: Record.ReadonlyRecord<`--${string}`, number | string>; readonly children: (scope: { readonly 'data-properties': string }) => ReactNode }) => {
     const rules = Array.sort(
-        Record.collect(properties, (name, value) => `${name}:${`${value}`.replaceAll(/[\\{};]/gu, '\\$&').replaceAll('<', '\\3c ')}`),
+        Record.collect(
+            properties,
+            (name, value) =>
+                `${name}:${globalThis
+                    .String(value)
+                    .replaceAll(/[\\{};]/gu, '\\$&')
+                    .replaceAll('<', '\\3c ')}`,
+        ),
         String.Order,
     ).map((declaration) => ({ declaration, scope: encodeURIComponent(declaration) }));
     return (

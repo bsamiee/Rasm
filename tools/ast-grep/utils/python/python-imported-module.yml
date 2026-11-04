@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: python-imported-module
-language: python
+language: pythonlang
 utils:
     import-module:
         matches: {python-member-use: {module: {regex: '^importlib$'}, name: {regex: '^import_module$'}}}

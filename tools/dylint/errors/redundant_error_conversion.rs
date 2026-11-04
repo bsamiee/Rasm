@@ -2,11 +2,12 @@ use clippy_utils::{
     desugar_await,
     diagnostics::span_lint_hir_and_then,
     fn_def_id, is_from_proc_macro, peel_blocks,
-    res::{MaybeDef as _, MaybeResPath as _},
+    res::MaybeDef as _,
     source::walk_span_to_context,
     sym,
     ty::{implements_trait, same_type_modulo_regions},
 };
+use itertools::Itertools as _;
 use rustc_attr_ir::lang_items::LangItem;
 use rustc_errors::Applicability;
 use rustc_hir::{
@@ -17,11 +18,30 @@ use rustc_hir::{
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty::{self, FieldDef, TypeVisitableExt as _, VariantDef, print::with_forced_trimmed_paths};
 
-use crate::{awaited_output, constructed, derived_impl, derives, expanded_externally, is_error, parameter, result_parts, suggest};
+use crate::{associated_trait, awaited_output, constructed, derived_impl, derives, expanded_externally, impl_owner, is_error, parameter, result_parts, suggest};
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
 lint!(REDUNDANT_ERROR_CONVERSION: "`map_err` conversions that `?` applies, and hand-written `From` impls that a `#[from]` field replaces");
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+fn wrapped_variant<'tcx>(cx: &LateContext<'tcx>, implementation: DefId) -> Option<(&'tcx VariantDef, &'tcx FieldDef)> {
+    if let [from_fn] = cx.tcx.associated_item_def_ids(implementation)
+        && let Some(from_fn) = from_fn.as_local()
+        && let body = cx.tcx.hir_body_owned_by(from_fn)
+        && let Some((variant, fields)) = constructed(cx.tcx.typeck(from_fn), peel_blocks(body.value))
+        && variant.fields.len() == 1
+        && let Ok((field, value)) = fields.exactly_one()
+        && parameter(body, value) == Some(0)
+    {
+        Some((variant, field))
+    } else {
+        None
+    }
+}
+
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
 impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
@@ -36,32 +56,37 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         }
 
         let typeck = cx.typeck_results();
+        let forwarding_call = |handler: &Expr<'_>| match handler.kind {
+            ExprKind::Closure(closure)
+                if let body = cx.tcx.hir_body(closure.body)
+                    && matches!(body.params, [_])
+                    && let value = peel_blocks(body.value)
+                    && let ExprKind::Call(_, [argument]) | ExprKind::MethodCall(_, argument, [], _) = value.kind
+                    && parameter(body, argument) == Some(0) =>
+                fn_def_id(cx, value),
+            _ if let ty::FnDef(function, _) = *typeck.expr_ty(handler).kind() => Some(function),
+            _ => None,
+        };
         if let ExprKind::Match(branch, arms, MatchSource::TryDesugar(_)) = expr.kind
             && let ExprKind::Call(_, [converted]) = branch.kind
             && let ExprKind::MethodCall(segment, source, [conversion], _) = converted.kind
             && segment.ident.name == sym::map_err
+            && fn_def_id(cx, converted).and_then(|method| impl_owner(cx.tcx, method)).is_diag_item(cx, sym::Result)
             && !expanded_externally(cx, converted.span)
-            && let Some(conversion_fn) = match conversion.kind {
-                ExprKind::Closure(closure)
-                    if let body = cx.tcx.hir_body(closure.body)
-                        && let [parameter] = body.params
-                        && let value = peel_blocks(body.value)
-                        && let ExprKind::Call(_, [argument]) | ExprKind::MethodCall(_, argument, [], _) = value.kind
-                        && argument.res_local_id() == Some(parameter.pat.hir_id) =>
-                    fn_def_id(cx, value),
-                _ if let ty::FnDef(function, _) = *typeck.expr_ty(conversion).kind() => Some(function),
-                _ => None,
-            }
+            && fixed_error(cx, source)
+            && !inferred_return(cx, expr.hir_id)
+            && let Some(conversion_fn) = forwarding_call(conversion)
             && let Some((_, source_error)) = result_parts(cx, typeck.expr_ty(source))
             && let Some(returned) = arms.iter().find_map(|arm| if let ExprKind::Ret(Some(returned)) | ExprKind::Break(_, Some(returned)) = arm.body.kind { Some(returned) } else { None })
-            && let homogeneous = fn_def_id(cx, returned).is_lang_item(cx, LangItem::ResidualIntoTryType)
-            && (homogeneous || fn_def_id(cx, returned).is_lang_item(cx, LangItem::TryTraitFromResidual))
+            && let residual = fn_def_id(cx, returned)
+            && let homogeneous = residual.is_lang_item(cx, LangItem::ResidualIntoTryType)
+            && (homogeneous || residual.is_lang_item(cx, LangItem::TryTraitFromResidual))
             && let Some((_, target_error)) = result_parts(cx, typeck.expr_ty(returned))
             && !same_type_modulo_regions(source_error, target_error)
             && result_parts(cx, typeck.expr_ty(converted)).is_some_and(|(_, converted_error)| same_type_modulo_regions(converted_error, target_error))
             && let Some(from) = cx.tcx.get_diagnostic_item(sym::From)
             && implements_trait(cx, target_error, from, &[source_error.into()])
-            && (matches!(conversion_fn.opt_parent(cx).opt_diag_name(cx), Some(sym::From | sym::Into))
+            && (matches!(associated_trait(cx.tcx, conversion_fn).opt_diag_name(cx), Some(sym::From | sym::Into))
                 || matches!(cx.tcx.def_kind(conversion_fn), DefKind::Ctor(_, CtorKind::Fn))
                     && cx.tcx.non_blanket_impls_for_ty(from, target_error).any(|implementation| {
                         same_type_modulo_regions(cx.tcx.impl_trait_ref(implementation).instantiate_identity().skip_normalization().args.type_at(1), source_error)
@@ -71,14 +96,13 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             && !is_from_proc_macro(cx, converted)
         {
             let removed = converted.span.with_lo(receiver.hi());
-            let applicability = if fixed_error(cx, source) && !inferred_return(cx, expr.hir_id) { Applicability::MachineApplicable } else { Applicability::MaybeIncorrect };
             if homogeneous {
                 span_lint_hir_and_then(cx, REDUNDANT_ERROR_CONVERSION, converted.hir_id, removed, "`?` in a homogeneous `try` block applies no `From`, `map_err` converts by hand", |diag| {
                     diag.help("name the block's type with `try bikeshed <result> { .. }` and delete the `map_err` call, each `?` converting into it");
                 });
             } else {
                 span_lint_hir_and_then(cx, REDUNDANT_ERROR_CONVERSION, converted.hir_id, removed, "`map_err` repeats the `From` conversion `?` applies", |diag| {
-                    suggest(cx, converted.hir_id, diag, removed, "delete the `map_err` call", "", applicability);
+                    suggest(cx, converted.hir_id, diag, removed, "delete the `map_err` call", "", Applicability::MachineApplicable);
                 });
             }
         }
@@ -109,22 +133,5 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 },
             );
         }
-    }
-}
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-fn wrapped_variant<'tcx>(cx: &LateContext<'tcx>, implementation: DefId) -> Option<(&'tcx VariantDef, &'tcx FieldDef)> {
-    if let [from_fn] = cx.tcx.associated_item_def_ids(implementation)
-        && let Some(from_fn) = from_fn.as_local()
-        && let body = cx.tcx.hir_body_owned_by(from_fn)
-        && let Some((variant, fields)) = constructed(cx.tcx.typeck(from_fn), peel_blocks(body.value))
-        && variant.fields.len() == 1
-        && let [(field, value)] = *fields.as_slice()
-        && parameter(body, value) == Some(0)
-    {
-        Some((variant, field))
-    } else {
-        None
     }
 }

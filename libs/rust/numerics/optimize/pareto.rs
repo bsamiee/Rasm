@@ -33,25 +33,22 @@ pub fn rank(objectives: DMatrixView<'_, f64>, constraints: Option<DMatrixView<'_
         Ordering::Greater => false,
     };
     let crowding = |members: &[(usize, f64)]| {
+        let mut sorted = Vec::new();
         objectives.row_iter().fold(vec![0.0; members.len()], |mut crowding, row| {
-            let sorted = members
-                .iter()
-                .filter_map(|&(point, _)| row.get(point).copied())
-                .enumerate()
-                .filter(|&(_, value)| !value.is_nan())
-                .sorted_unstable_by(|&(_, left), &(_, right)| left.total_cmp(&right))
-                .collect::<Vec<_>>();
+            sorted.clear();
+            sorted.extend(members.iter().enumerate().map(|(slot, &(point, _))| (slot, row[point])).filter(|&(_, value)| !value.is_nan()));
+            sorted.sort_unstable_by(|&(left, value), &(right, against)| value.total_cmp(&against).then_with(|| left.cmp(&right)));
             let mut finite = sorted.iter().map(|&(_, value)| value).filter(|value| value.is_finite());
-            let span = finite.next().zip(finite.next_back()).map(|(low, high)| high - low).filter(|span| span.is_normal());
+            let span = finite.next().zip(finite.next_back()).filter(|(low, high)| low < high).map(|(low, high)| {
+                let scale = if (high - low).is_finite() { 1.0 } else { 0.5 };
+                (scale, low.mul_add(-scale, high * scale))
+            });
+            #[expect(clippy::float_cmp, reason = "Identical infinite or signed-zero objectives require exactly zero crowding gaps")]
             let gaps = iter::once(f64::INFINITY)
-                .chain(sorted.array_windows().map(|&[(_, before), _, (_, after)]| span.filter(|_| after != before).map_or_default(|span| (after - before) / span)))
+                .chain(sorted.array_windows().map(|&[(_, before), _, (_, after)]| span.filter(|_| after != before).map_or_default(|(scale, span)| before.mul_add(-scale, after * scale) / span)))
                 .chain(iter::once(f64::INFINITY))
                 .take(sorted.len());
-            iter::zip(&sorted, gaps).for_each(|(&(slot, _), gap)| {
-                if let Some(entry) = crowding.get_mut(slot) {
-                    *entry += gap;
-                }
-            });
+            iter::zip(&sorted, gaps).for_each(|(&(slot, _), gap)| crowding[slot] += gap);
             crowding
         })
     };
@@ -69,9 +66,7 @@ pub fn rank(objectives: DMatrixView<'_, f64>, constraints: Option<DMatrixView<'_
         .into_par_iter()
         .enumerate()
         .flat_map_iter(|(front, members)| {
-            iter::zip(crowding(&members), members)
-                .map(|(crowding, (point, violation))| Rank { point, front, violation, crowding })
-                .sorted_by(|left, right| right.crowding.total_cmp(&left.crowding))
+            iter::zip(crowding(&members), members).map(|(crowding, (point, violation))| Rank { point, front, violation, crowding }).sorted_by(|left, right| right.crowding.total_cmp(&left.crowding))
         })
         .collect())
 }

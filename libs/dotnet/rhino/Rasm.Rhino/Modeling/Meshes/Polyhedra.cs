@@ -1,36 +1,43 @@
 using MathNet.Numerics;
 using Rasm.Rhino.Document.Units;
-using Rhino;
+using SuperLinq;
 
 namespace Rasm.Rhino.Modeling.Meshes;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum]
 public sealed partial class PointGroup {
-    public static readonly PointGroup T = new(Closed([Turn(new(1d, 1d, 1d), 3), Turn(Vector3d.ZAxis, 2)]));
-    public static readonly PointGroup Td = new(Closed([Reflection(new(1d, -1d, 0d)), Turn(new(1d, 1d, 1d), 3), Turn(Vector3d.ZAxis, 2)]));
-    public static readonly PointGroup Th = new(Closed([Reflection(Vector3d.XAxis), Turn(new(1d, 1d, 1d), 3)]));
-    public static readonly PointGroup O = new(Closed([Turn(Vector3d.ZAxis, 4), Turn(new(1d, 1d, 1d), 3)]));
-    public static readonly PointGroup Oh = new(Closed([Reflection(Vector3d.XAxis), Turn(new(1d, 1d, 1d), 3), Reflection(new(1d, -1d, 0d))]));
-    public static readonly PointGroup I = new(Closed([Turn(Vector3d.XAxis, 2), Turn(new(1d, 1d, 1d), 3), Turn(new(0d, 1d, Constants.GoldenRatio), 5)]));
-    public static readonly PointGroup Ih = new(Closed([Reflection(Vector3d.XAxis), Turn(new(1d, 1d, 1d), 3), Turn(new(0d, 1d, Constants.GoldenRatio), 5)]));
+    private static readonly Seq<Seq<int>> Orders = toSeq(Enumerable.Range(0, 4).Permutations()).Map(static order => toSeq(order)).Strict();
+
+    public static readonly PointGroup T = new(Rotations([[1d, 0d, 0d, 0d], [0.5d, 0.5d, 0.5d, 0.5d]], Orders));
+    public static readonly PointGroup Td = new(Reflected(T.Elements, new(1d, -1d, 0d)));
+    public static readonly PointGroup Th = new(Reflected(T.Elements, Vector3d.XAxis));
+    public static readonly PointGroup O = new(T.Elements + Rotations([[Constants.Sqrt1Over2, Constants.Sqrt1Over2, 0d, 0d]], Orders));
+    public static readonly PointGroup Oh = new(Reflected(O.Elements, Vector3d.XAxis));
+    public static readonly PointGroup I = new(T.Elements + Rotations(
+        [[Constants.GoldenRatio / 2d, 0d, 1d / (2d * Constants.GoldenRatio), 0.5d]],
+        Orders.Filter(static order => new Permutation([.. order]).ToInversions().Where(static (to, from) => to != from).Count() % 2 is 0)));
+    public static readonly PointGroup Ih = new(Reflected(I.Elements, Vector3d.XAxis));
 
     public Seq<Transform> Elements { get; }
 
-    private static Transform Turn(Vector3d axis, int order) => Transform.Rotation(double.Tau / order, axis, Point3d.Origin);
+    private static Seq<Transform> Rotations(Seq<Seq<double>> seeds, Seq<Seq<int>> orders) =>
+        (from seed in seeds
+         from signs in seed.Traverse(static value => Seq(-value, value)).As()
+         from order in orders
+         let components = order.Map(index => signs[index]).Strict()
+         where components.Find(static component => component is not 0d).Exists(static component => component > 0d)
+         select new Quaternion(components[0], components[1], components[2], components[3]))
+        .Distinct()
+        .Map(static root => {
+            _ = root.GetRotation(out Transform rotation);
+            return rotation;
+        }).Strict();
 
-    private static Transform Reflection(Vector3d normal) => Transform.Mirror(Point3d.Origin, normal);
-
-    private static Seq<Transform> Closed(Seq<Transform> generators) => Grown(generators, [Transform.Identity], [Transform.Identity]);
-
-    private static Seq<Transform> Grown(Seq<Transform> generators, Seq<Transform> elements, Seq<Transform> frontier) =>
-        (from element in frontier from generator in generators select generator * element).Fold(elements, static (closed, product) =>
-            closed.Exists(known => toSeq(known.ToDoubleArray(rowDominant: true)).Zip(toSeq(product.ToDoubleArray(rowDominant: true))).ForAll(static pair => Math.Abs(pair.First - pair.Second) <= RhinoMath.SqrtEpsilon))
-                ? closed
-                : closed.Add(product)) switch {
-                    var closed when closed.Count == elements.Count => elements,
-                    var closed => Grown(generators, closed, closed.Skip(elements.Count)),
-                };
+    private static Seq<Transform> Reflected(Seq<Transform> rotations, Vector3d normal) =>
+        Transform.Mirror(Point3d.Origin, normal) switch {
+            var reflection => rotations + rotations.Map(rotation => reflection * rotation).Strict(),
+        };
 }
 
 public sealed record Hull {

@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-renamed-binding
+language: tsxlang
+severity: error
+rule:
+    kind: import_specifier, export_specifier
+    all:
+        - has: {field: name, pattern: $NAME}
+        - has: {field: alias, pattern: $ALIAS}
+message: '`$NAME` binds as `$ALIAS`'
+note: 'Name the value for what it is at its owner and import or export it by that name'

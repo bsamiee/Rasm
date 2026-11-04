@@ -1,15 +1,19 @@
 """Fixture fonts for the rules: an Arabic face with joining forms, a lam-alef ligature, vowel marks, digits, and mark anchors, and an ornament face."""
 
-from io import BytesIO
+lazy from itertools import accumulate, islice
 lazy from pathlib import Path
 
 import pytest
-lazy from fontTools.fontBuilder import FontBuilder
-lazy from fontTools.pens.ttGlyphPen import TTGlyphPen
+lazy from fontTools.ttLib import TTFont
+lazy import ufoLib2
 
+lazy from tests.python.libs.typography.fonts import encoded, rectangles
+lazy from typography.builds.pipeline import compiled, constructed
 lazy from typography.faces.declaration import Face, OrnamentFace, TextNaskh, Values
 lazy from typography.faces.glyphs import Source
 lazy from typography.faces.importing import imported
+lazy from typography.rules.metrics import Metrics, Records
+lazy from typography.rules.plans import applied, planned, Rules
 lazy from typography.shaping.corpus import Corpus
 lazy from typography.shaping.runs import Binary
 
@@ -19,7 +23,7 @@ type Box = tuple[int, int, int, int]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-DIGITS = {f"uni{code:04X}": ((40, 0, 260 + 20 * (code % 10), 500),) for code in (*range(0x06F0, 0x06FA), *range(0x0660, 0x066A))}
+DIGITS = {code: ((40, 0, 260 + 20 * (code % 10), 500),) for code in (*range(0x06F0, 0x06FA), *range(0x0660, 0x066A))}
 ARABIC: dict[str, tuple[int, tuple[Box, ...]]] = {
     ".notdef": (500, ((50, 0, 450, 700),)),
     "space": (26, ()),
@@ -49,7 +53,7 @@ ARABIC: dict[str, tuple[int, tuple[Box, ...]]] = {
     "smallmeem": (200, ((-40, 0, 40, 60),)),
     "tehmarbuta": (300, ((20, 0, 280, 250), (60, 300, 120, 360), (180, 300, 240, 360))),
     "theh": (500, ((0, 0, 500, 100), (200, 150, 260, 210), (300, 150, 360, 210), (250, 230, 310, 290))),
-    **{name: (600, boxes) for name, boxes in DIGITS.items()},
+    **{f"uni{code:04X}": (600, boxes) for code, boxes in DIGITS.items()},
 }
 CMAP = {
     0x0020: "space",
@@ -71,39 +75,8 @@ CMAP = {
     0x06E2: "smallmeem",
     0x0629: "tehmarbuta",
     0x062B: "theh",
-    **{int(name[3:], 16): name for name in DIGITS},
+    **{code: f"uni{code:04X}" for code in DIGITS},
 }
-
-# --- [OPERATIONS] -----------------------------------------------------------------------
-
-
-def _drawn(boxes: tuple[Box, ...], /) -> object:
-    pen = TTGlyphPen(None)
-    for xmin, ymin, xmax, ymax in boxes:
-        pen.moveTo((xmin, ymin))
-        pen.lineTo((xmin, ymax))
-        pen.lineTo((xmax, ymax))
-        pen.lineTo((xmax, ymin))
-        pen.closePath()
-    return pen.glyph()
-
-
-def _font(glyphs: dict[str, tuple[int, tuple[Box, ...]]], cmap: dict[int, str], features: str, family: str, /) -> bytes:
-    builder = FontBuilder(1000, isTTF=True)
-    builder.setupGlyphOrder(list(glyphs))
-    builder.setupCharacterMap(cmap)
-    builder.setupGlyf({name: _drawn(boxes) for name, (_, boxes) in glyphs.items()})
-    builder.setupHorizontalMetrics({name: (advance, min((box[0] for box in boxes), default=0)) for name, (advance, boxes) in glyphs.items()})
-    builder.setupHorizontalHeader(ascent=900, descent=-300)
-    builder.setupNameTable({"familyName": family, "styleName": "Regular", "copyright": "Test copyright", "designer": "Test designer"})
-    builder.setupOS2(achVendID="TEST", usWinAscent=900, usWinDescent=300)
-    builder.setupPost()
-    if features:
-        builder.addOpenTypeFeatures(features)
-    stream = BytesIO()
-    builder.save(stream)
-    return stream.getvalue()
-
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
@@ -133,14 +106,14 @@ def font(tmp_path_factory: pytest.TempPathFactory) -> Path:
     } mark;
     table GDEF { GlyphClassDef [alef alef.fina beh beh.init beh.medi beh.fina lam lam.init reh reh.fina dal waw seen seen.medi tatweel tehmarbuta theh], [lamalef], [fatha kasra damma shadda sukun fathatan hamzaabove smallmeem], ; } GDEF;
     """
-    path.write_bytes(_font(ARABIC, CMAP, features, "Test"))
+    path.write_bytes(encoded({name: (advance, rectangles(*boxes)) for name, (advance, boxes) in ARABIC.items()}, CMAP, features))
     return path
 
 
 @pytest.fixture(scope="session")
 def original(font: Path) -> Binary:
     """Fixture Arabic font read for shaping."""
-    return Binary.read(font).ok
+    return Binary.read(font).default_with(lambda faults: pytest.fail(str(faults)))
 
 
 @pytest.fixture(scope="session")
@@ -171,6 +144,28 @@ def sample() -> Corpus:
 
 
 @pytest.fixture(scope="session")
+def phases(source: Source, face: Face, original: Binary, sample: Corpus) -> frozendict[type[Rules], Source]:
+    """Executes the ordered rule sequence once and retains each immutable stage result."""
+    rules = tuple(rule for rule in planned(face) if not isinstance(rule, Metrics))
+    states = accumulate(rules, lambda held, rule: applied(held, rule, original=original, corpus=sample).default_with(lambda faults: pytest.fail(str(faults))), initial=source)
+    return frozendict((type(rule), state) for rule, state in zip(rules, islice(states, 1, None), strict=True))
+
+
+@pytest.fixture(scope="session")
+def product(phases: frozendict[type[Rules], Source], face: Face, sample: Corpus) -> tuple[Source, ufoLib2.Font, TTFont]:
+    """Constructs native layout once and derives final metrics from its actual placements."""
+    rule = next(rule for rule in planned(face) if isinstance(rule, Metrics))
+    return constructed(phases[Records], rule, sample).default_with(lambda faults: pytest.fail(str(faults)))
+
+
+@pytest.fixture(scope="session")
+def built(product: tuple[Source, ufoLib2.Font, TTFont]) -> Binary:
+    """Serializes the same native font whose layout supplied final metrics."""
+    source, _, font = product
+    return Binary(data=compiled(source, font).default_with(lambda faults: pytest.fail(str(faults))))
+
+
+@pytest.fixture(scope="session")
 def ornament(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, OrnamentFace]:
     """Ornament font with a Latin letter, two unmapped copies of one square, a tall piece, a tile overlapping its advance, a blank slot, and art at a Private Use code point, and its face."""
     glyphs: dict[str, tuple[int, tuple[Box, ...]]] = {
@@ -186,5 +181,5 @@ def ornament(tmp_path_factory: pytest.TempPathFactory) -> tuple[Path, OrnamentFa
     }
     cmap = {0x0020: "space", 0x0041: "A", 0xE010: "STAR"}
     path = tmp_path_factory.mktemp("ornaments") / "Orn-Symbols.ttf"
-    path.write_bytes(_font(glyphs, cmap, "", "Orn"))
+    path.write_bytes(encoded({name: (advance, rectangles(*boxes)) for name, (advance, boxes) in glyphs.items()}, cmap, "", family="Orn"))
     return (path, OrnamentFace(style="Regular", original=path.name, family="Orn"))

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-trunc-by-hand
-language: tsx
+language: tsxlang
 severity: error
 utils:
     zero:
@@ -100,6 +100,5 @@ rule:
             - any:
                 - all: [{has: {field: left, matches: sign}}, {has: {field: right, matches: floored-magnitude}}]
                 - all: [{has: {field: left, matches: floored-magnitude}}, {has: {field: right, matches: sign}}]
-fix: $MATH.trunc($N)
 message: 'Sign test with `floor` or `ceil` truncates `$N` toward zero by hand'
-note: 'Call `Math.trunc(<n>)`'
+note: 'Call `Math.trunc(<n>)` on a value evaluated once'

@@ -263,8 +263,8 @@ internal sealed class Drag(Control view) {
 One `Command` holds text, image, shortcut, and state for every menu and toolbar that shows it:
 - `Command` holds `MenuText`, `ToolBarText`, `ToolTip`, `Image`, `Shortcut`, `Enabled`, `CommandParameter`, and `Executed`, `Execute()` triggers it
 - Synchronous actions take `Command(execute)`, an async or cancellable action sets `DelegatedCommand` to a CommunityToolkit `AsyncRelayCommand`
-- Eto `RelayCommand(Action)` and `RelayCommand(Action, Func<bool>)` take no cancellation token
-- `DelegatedCommand` sets `Enabled` from `CanExecute` on each `CanExecuteChanged`, runs on `Executed`, and releases its subscriptions at `null`
+- `Command.Execute()` and Eto and Toolkit `RelayCommand.Execute` skip `CanExecute`; programmatic callers check it at invocation
+- `DelegatedCommand` projects `CanExecute(CommandParameter)` to `Enabled`, tracks `CanExecuteChanged`, runs on `Executed`, and unbinds at `null`
 - `AsyncRelayCommand` answers `CanExecute` false while it runs unless `AsyncRelayCommandOptions.AllowConcurrentExecutions` is set
 - Async commands run one composed `IO` through `RunSafeAsync` and match its `Fin` after the await
 - `RunSafeAsync` throws `OperationCanceledException` on cancellation, `ICommand.Execute` rethrows it unless a catch around that await converts it

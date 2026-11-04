@@ -75,7 +75,7 @@ utils:
                                 - kind: block
                                   matches: returned
     lifted-source:
-        pattern: {context: 'class C { object F() => from $VALUE in $IO.lift<$FIN>($THUNK) select 0; }', selector: from_clause, strictness: cst}
+        pattern: {context: 'class C { object F() => from $VALUE in $IO.lift<$FIN>($_THUNK) select 0; }', selector: from_clause, strictness: cst}
     relift-clause:
         kind: from_clause
         all:
@@ -114,17 +114,16 @@ utils:
 rule:
     any:
         - kind: invocation_expression
-          pattern: $HELD
           all:
             - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Bind$'}}, {has: {field: expression, matches: held-receiver}}]}
             - has: {field: arguments, not: {has: {kind: argument, nthChild: 2}}}
             - not: {not: {has: {field: arguments, has: {kind: argument, matches: held-bind}}}}
         - pattern:
-            context: 'class C { object F() => $IO.lift<$FIN>($THUNK).Bind($BIND); }'
+            context: 'class C { object F() => $IO.lift<$FIN>($_THUNK).Bind($BIND); }'
             selector: invocation_expression
             strictness: cst
         - pattern:
-            context: 'class C { object F() => $IO.lift<$FIN>($THUNK).As().Bind($BIND); }'
+            context: 'class C { object F() => $IO.lift<$FIN>($_THUNK).As().Bind($BIND); }'
             selector: invocation_expression
             strictness: cst
         - kind: query_expression
@@ -138,7 +137,6 @@ rule:
             - matches: lifted-source
             - precedes:
                 matches: relift-clause
-                has: {field: name, pattern: $NEXT}
                 not: {precedes: {stopBy: end, has: {stopBy: end, kind: identifier, pattern: $VALUE}}}
             - not:
                 all:
@@ -155,17 +153,5 @@ constraints:
                 csharp-unary-callback:
                     parameter: {pattern: $VALUE}
                     body: {matches: returned}
-transform:
-    VALUE_TYPE:
-        replace:
-            source: $FIN
-            replace: '(?s)^(?:(?:global::)?LanguageExt\.)?(?:Fin\s*<\s*(.+?)\s*>|Either\s*<\s*(?:(?:global::)?LanguageExt\.(?:Common\.)?)?Error\s*,\s*(.+?)\s*>)$'
-            by: '${1}${2}'
-    HEAD: {replace: {source: $NEXT, replace: '(?s)^(.*)$', by: 'from ${1} in '}}
-    LIFT: {replace: {source: $IO, replace: '(?s)^(.*)$', by: '${1}.lift<'}}
-    ARGUMENT: {replace: {source: $THUNK, replace: '(?s)^(.*)$', by: '>(${1})'}}
-fix:
-    template: '$HELD$HEAD$LIFT$VALUE_TYPE$ARGUMENT'
-    expandEnd: {kind: from_clause}
 message: '`IO.lift` of a `Fin` or `Either` result binds `IO.lift` again to unwrap it'
 note: 'Call `IO.lift<A>(<thunk>)` with the thunk returning `Fin<A>` or `Either<Error, A>`'

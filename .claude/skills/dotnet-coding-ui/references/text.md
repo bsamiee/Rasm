@@ -64,24 +64,24 @@ Native HarfBuzz objects reference-count, and a scene owns them for its lifetime:
 internal sealed record ShaperKey(SKTypeface Typeface, Seq<Variation> Axes);
 
 internal sealed class Shapers : IDisposable {
-    private readonly AtomHashMap<ShaperKey, Font> fonts = AtomHashMap<ShaperKey, Font>();
+    private readonly Dictionary<ShaperKey, Font> fonts = [];
 
     public HarfBuzzSharp.Buffer Buffer { get; } = new();
 
     public Font Shaper(SKTypeface typeface) {
         ShaperKey key = new(typeface, toSeq(typeface.VariationDesignPosition.Select(static at => new Variation { Tag = at.Axis, Value = at.Value })));
-        return fonts.FindOrAdd(key, () => {
-            using Blob blob = typeface.OpenStream(out int index).ToHarfBuzzBlob();
-            using Face face = new(blob, index);
-            Font font = new(face);
-            font.SetFunctionsOpenType();
-            font.SetVariations([.. key.Axes]);
+        if (fonts.TryGetValue(key, out Font? font))
             return font;
-        });
+        using Blob blob = typeface.OpenStream(out int index).ToHarfBuzzBlob();
+        using Face face = new(blob, index);
+        font = new Font(face);
+        font.SetVariations([.. key.Axes]);
+        return fonts[key] = font;
     }
 
     public void Dispose() {
-        _ = fonts.Values.Iter(static font => font.Dispose());
+        foreach (Font font in fonts.Values)
+            font.Dispose();
         Buffer.Dispose();
     }
 }
@@ -97,7 +97,7 @@ Buffers hold code points before `Shape` and glyphs after. Protocol around one sh
 - Itemizers set `Direction`, `Script`, and `Language` before `Shape`
 - `GuessSegmentProperties()` fills unset properties from content and the process locale, a fallback in place of an itemizer
 - `Shape` throws when `Direction` is `Invalid` or `ContentType` is not `Unicode`, a shaped buffer reads `ContentType.Glyphs` until `ClearContents()`
-- `ClearContents()` keeps `Direction`, `Script`, `Language`, `ClusterLevel`, and `Flags` for the next run, `Reset()` clears them
+- `ClearContents()` clears direction, script, and language, `Reset()` restores buffer policy defaults and Unicode functions
 - `ClusterLevel.MonotoneGraphemes` merges marks into their base, `Characters` never merges
 - `MonotoneCharacters` keeps one monotone cluster per character and serves a caret per character
 - `BufferFlags.BeginningOfText` and `EndOfText` mark a run that opens or closes its paragraph for initial and final forms
@@ -117,42 +117,12 @@ Buffers hold code points before `Shape` and glyphs after. Protocol around one sh
 - HarfBuzz y grows up and Skia y grows down, a glyph origin is `(pen + XOffset * s, baseline - YOffset * s)`
 - `SKFont.Size`, `ScaleX`, `SkewX`, and `Embolden` change rasterization alone, `SKFont.Hinting` stays `None` under a scaled canvas
 
-`Reshape` writes a featured run back into the laid block, the block's code points supply the paragraph context and the line supplies the baseline:
-
-```csharp
-internal static class Reshaping {
-    public static void Reshape(FontRun run, TextLine line, Font font, HarfBuzzSharp.Buffer buffer, Seq<Feature> features) {
-        buffer.ClearContents();
-        buffer.Direction = run.Direction is TextDirection.RTL ? Direction.RightToLeft : Direction.LeftToRight;
-        buffer.AddUtf32(run.CodePoints.Underlying, run.CodePoints.Start, run.CodePoints.Length);
-        buffer.GuessSegmentProperties();
-        font.Shape(buffer, [.. features]);
-        ReadOnlySpan<GlyphInfo> infos = buffer.GetGlyphInfoSpan();
-        ReadOnlySpan<GlyphPosition> at = buffer.GetGlyphPositionSpan();
-        float scale = run.Style.FontSize / run.Typeface.UnitsPerEm;
-        float baseline = line.YCoord + line.BaseLine;
-        ushort[] glyphs = new ushort[infos.Length];
-        SKPoint[] points = new SKPoint[infos.Length];
-        int[] clusters = new int[infos.Length];
-        float pen = run.XCoord;
-        for (int i = 0; i < infos.Length; i++) {
-            glyphs[i] = (ushort)infos[i].Codepoint;
-            clusters[i] = (int)infos[i].Cluster;
-            points[i] = new SKPoint(pen + (at[i].XOffset * scale), baseline - (at[i].YOffset * scale));
-            pen += at[i].XAdvance * scale;
-        }
-        run.Glyphs = new Slice<ushort>(glyphs);
-        run.GlyphPositions = new Slice<SKPoint>(points);
-        run.Clusters = new Slice<int>(clusters);
-        run.Width = pen - run.XCoord;
-    }
-}
-```
+Shaped advances and clusters feed line breaking, caret coordinates, and line placement. Replacing completed `FontRun` fields updates none of those derived values. RichTextKit's shaper is internal, with no supported pre-layout injection point. Choose a layout engine exposing required shaping inputs before wrapping, substitutions after layout cannot preserve that contract.
 
 ## [04]-[FEATURES_AND_VARIATIONS]
 
 Features select substitutions and positions per run, variations select a design per font:
-- `Feature.Parse` reads CSS grammar, `"tnum"` enables, `"liga=0"` or `"-liga"` disables
+- `Feature.Parse` reads HarfBuzz syntax, `"tnum"` enables, `"liga=0"` or `"-liga"` disables
 - `"aalt=2"` selects an alternate, `"ss01[3:5]"` bounds a feature to clusters 3 through 4
 - `Feature(tag, value, start, end)` ranges are cluster values in the indexes passed to `AddUtf32`, a run-relative or glyph index misplaces the feature
 - Overlapping same-tag features let a later feature win, one feature spans a whole run and a range serves one word
@@ -193,7 +163,7 @@ internal static class Axes {
 - `LineHeight` multiplies the natural height, `LetterSpacing` adds pixels per cluster
 - `TextPaintOptions` defaults to `Antialias` edging, `Normal` hinting, and `SubpixelPositioning`
 - `Selection` with `SelectionColor` paints a highlight behind a `TextRange`
-- `FontRun.Glyphs`, `GlyphPositions`, `Clusters`, `Width`, and `XCoord` are `Slice` and `float` fields a reshape assigns, `MoveGlyphs` shifts them
+- `FontRun.Glyphs`, `GlyphPositions`, `Clusters`, `Width`, and `XCoord` describe completed layout, `MoveGlyphs` shifts positions alone
 - `FontRun.CodePoints` is a `Slice<int>` over the block's code points, `Underlying`, `Start`, and `Length` address the run inside its paragraph
 - RichTextKit shapes each `FontRun` with one shaper per `SKTypeface` kept for the process, at scale 512 through `SetFunctionsOpenType`
 - RichTextKit's shaper adds the run's code points alone, guesses script and language, and passes no features

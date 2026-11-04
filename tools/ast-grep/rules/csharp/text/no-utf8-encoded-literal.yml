@@ -31,7 +31,7 @@ rule:
             field: function
             kind: member_access_expression
             all:
-                - has: {field: name, regex: '^(GetBytes|GetByteCount)$', pattern: $METHOD}
+                - has: {field: name, regex: '^(GetBytes|GetByteCount)$'}
                 - has: {field: expression, any: [{matches: utf8-encoding}, {matches: ascii-encoding}]}
         - has:
             field: arguments
@@ -41,11 +41,5 @@ rule:
         - any:
             - has: {field: function, has: {field: expression, matches: utf8-encoding}}
             - has: {field: arguments, has: {kind: argument, has: {matches: ascii-text}}}
-transform:
-    READ:
-        replace: {source: $METHOD, replace: '^GetBytes$', by: 'ToArray()'}
-    MEMBER:
-        replace: {source: $READ, replace: '^GetByteCount$', by: Length}
-fix: $TEXTu8.$MEMBER
 message: '`$CALL` encodes constant `$TEXT` at run time'
 note: 'Write `"<text>"u8.ToArray()`, or `"<text>"u8.Length` for a byte count'

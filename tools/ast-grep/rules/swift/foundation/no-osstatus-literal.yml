@@ -42,8 +42,8 @@ rule:
         - kind: 'equality_expression, infix_expression'
           all:
             - has: {field: op, regex: '^[!=]=$'}
-            - has: {matches: status-value}
             - has: {matches: status-literal}
+            - has: {matches: status-value}
         - kind: switch_statement
           all:
             - has: {field: expr, matches: status-value}

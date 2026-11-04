@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-spread-schema-fields
-language: tsx
+language: tsxlang
 severity: error
 rule:
     kind: spread_element

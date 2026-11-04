@@ -81,35 +81,35 @@ public sealed record ShapeStyle(Unicolour Outline, bool Inverted) {
     }
 }
 
-public sealed record Shapes(ShapePrimitive First, ShapePrimitive Second, float Progress, ShapeStyle Style, GeneratedLayer Layer, Seed Seed) : IPixelStage<Shapes> {
+public sealed record Shapes(ShapePrimitive First, ShapePrimitive Second, float Progress, ShapeStyle Style, GeneratedLayer Layer, int Seed) : IPixelStage<Shapes> {
     public const uint Stream = 16u;
 
     public Option<ShapeOperation> Operation { get; init; }
     public Option<ShortSideLength> Smoothing { get; init; }
 
     public static Shapes Default { get; } = new(
-        ShapePrimitive.Default, ShapePrimitive.Default with { Kind = ShapeKind.Box, Roundness = 0.3f }, 0f, ShapeStyle.Default, GeneratedLayer.Default, Seed.MinValue);
+        ShapePrimitive.Default, ShapePrimitive.Default with { Kind = ShapeKind.Box, Roundness = 0.3f }, 0f, ShapeStyle.Default, GeneratedLayer.Default, 0);
 
     public static Fin<Option<PixelPass>> Pass(Shapes state, PassContext context) {
         DistanceField first = state.First.Field(context.Extent);
         DistanceField field = state.Operation.Map(operation => operation.Join(first, state.Second.Field(context.Extent), state.Smoothing.Share, state.Progress)).IfNone(first);
-        return state.Layer.Pass(state.Style.Shading(field, context, state.Seed.Field(Stream, 0u)).Map(shade => DistanceField.Fill(FieldPlacement.Default.Frame(context.Extent), shade)));
+        return state.Layer.Pass(state.Style.Shading(field, context, CoordinateHash.Branch(state.Seed, 0u, Stream)).Map(shade => DistanceField.Fill(FieldPlacement.Default.Frame(context.Extent), shade)));
     }
 }
 
 public sealed record Lightning(
     FieldPlacement Placement, ShortSideLength Length, ShortSideLength Thickness, int Depth, float Displacement, int Branches, float Reach, Angle Spread, float Taper, float Speed,
-    ShapeStyle Style, GeneratedLayer Layer, Seed Seed, Timing Timing, Hold Hold) : IPixelStage<Lightning> {
+    ShapeStyle Style, GeneratedLayer Layer, int Seed, Timing Timing, Hold Hold) : IPixelStage<Lightning> {
     private const int Levels = 5;
     private const int Forks = 3;
 
     public static Lightning Default { get; } = new(
         FieldPlacement.Default, ShortSideLength.Create(1f / 2f), ShortSideLength.Create(0.01f / (5f - (4.5f * 0.5f)) * ReferenceFrame.GreaterSide), Levels, 0.5f, 3, 0.4f, Angle.FromRadians(0.5d), 0.5f,
-        1f / 0.05f, ShapeStyle.Default, GeneratedLayer.Added with { Exposure = 3f }, Seed.MinValue, Timing.Default, Hold.Create(Duration.FromMilliseconds(50)));
+        1f / 0.05f, ShapeStyle.Default, GeneratedLayer.Added with { Exposure = 3f }, 0, Timing.Default, Hold.Create(Duration.FromMilliseconds(50)));
 
     public static Fin<Option<PixelPass>> Pass(Lightning state, PassContext context) {
         (uint field, float clock, float chord, float thickness, float spread) =
-            (state.Seed.Field(17u, 0u), 2f * state.Speed * state.Hold.Held(state.Timing.At(context)), 2f * state.Length, state.Thickness, (float)state.Spread.Radians);
+            (CoordinateHash.Branch(state.Seed, 0u, 17u), 2f * state.Speed * (float)state.Hold.Held(state.Timing.At(context)).TotalSeconds, 2f * state.Length, state.Thickness, (float)state.Spread.Radians);
         Func<int, int, int, float> noise = (x, y, z) => 0.5f + (0.5f * NoiseDimensions.Four.Gradient(new Vector4((2f * x) + 0.5f, (2f * y) + 0.5f, (2f * z) + 0.5f, clock), field));
         Vector2[] channel = Path(new Vector2(0f, state.Length), -Vector2.UnitY, chord, Levels, state.Depth, state.Displacement, k => noise(k, 0, 0));
         DistanceField bolt = Enumerable.Range(1, state.Branches).Aggregate(Strokes(channel, _ => thickness / 2f), (joined, i) => (BitOperations.Log2((uint)i), (i % 2 is 0 ? 1f : -1f) * spread * (0.5f + noise(i, 0, 1))) switch {
@@ -136,12 +136,12 @@ public sealed record Lightning(
             DistanceField.Capsule(vertices[k], vertices[k + 1], radius(k / (vertices.Length - 1f)), radius((k + 1f) / (vertices.Length - 1f))), 0f));
 }
 
-public sealed record Letterbox(ShapeStyle Style, GeneratedLayer Layer, Seed Seed) : IPixelStage<Letterbox> {
+public sealed record Letterbox(ShapeStyle Style, GeneratedLayer Layer, int Seed) : IPixelStage<Letterbox> {
     public Option<float> Aspect { get; init; }
     public Option<ShortSideLength> Inset { get; init; }
     public Option<ShortSideLength> Radius { get; init; }
 
-    public static Letterbox Default { get; } = new(ShapeStyle.Default with { Fill = new Unicolour(ColourSpace.Rgb, 0d, 0d, 0d), Inverted = true }, GeneratedLayer.Default, Seed.MinValue) { Aspect = 2.39f };
+    public static Letterbox Default { get; } = new(ShapeStyle.Default with { Fill = new Unicolour(ColourSpace.Rgb, 0d, 0d, 0d), Inverted = true }, GeneratedLayer.Default, 0) { Aspect = 2.39f };
 
     public static Letterbox FilmGate { get; } = Default with {
         Aspect = None,
@@ -158,6 +158,6 @@ public sealed record Letterbox(ShapeStyle Style, GeneratedLayer Layer, Seed Seed
             - new Vector2(state.Inset.Share);
         float small = float.Min(half.X, half.Y);
         DistanceField window = small <= 0f ? DistanceField.Empty : DistanceField.Box(half, float.Min(state.Radius.Share, small) / small);
-        return state.Layer.Pass(state.Style.Shading(window, context, state.Seed.Field(Shapes.Stream, 0u)).Map(shade => DistanceField.Fill(FieldPlacement.Default.Frame(context.Extent), shade)));
+        return state.Layer.Pass(state.Style.Shading(window, context, CoordinateHash.Branch(state.Seed, 0u, Shapes.Stream)).Map(shade => DistanceField.Fill(FieldPlacement.Default.Frame(context.Extent), shade)));
     }
 }

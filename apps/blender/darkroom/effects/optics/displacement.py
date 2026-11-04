@@ -4,7 +4,7 @@ from enum import auto, Enum
 from functools import partial, reduce
 from math import pi, tau
 from operator import add
-from typing import Annotated, Final
+from typing import Annotated, Final, override
 
 import bpy
 from expression import Some
@@ -18,16 +18,15 @@ from blender.bpy.render.compositor import masks
 from blender.bpy.render.compositor.colors import with_alpha
 from blender.bpy.render.compositor.coordinates import Border, extended, FrameSpace
 from blender.bpy.render.compositor.editors import FilePath
-from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect, precise
+from blender.bpy.render.compositor.effects import CompositorEffect, CompositorRecord, Mix, precise
 from blender.bpy.render.compositor.inputs import GraphInputs
 from blender.bpy.render.compositor.motion import CLOCK, Clock, clocked, hashed, SEED, timing
 from blender.bpy.render.compositor.shapes import PROFILE, profiled, rotated
 from blender.imaging.geometry.arithmetic import smoothstep
 from blender.imaging.sampling.tiles import stream
 from blender.records.faults import Outcome, paired
-from blender.records.fields import Case
 
-from ..grade.exposure import LATER, later
+from ..grade.exposure import LATER, later  # ruff: ignore[relative-imports]
 from .bases import bases, Basis, Perlin, textured
 from .refraction import bubbled, BUBBLES, GLASS, lifted, LUMA, luminous, MAP, mapped, MapReading, RAINDROPS, rained, refracted
 
@@ -52,7 +51,7 @@ _FALLOFF: Final = Socket(key="falloff", kind=bpy.types.NodeSocketFloat, descript
 _ARMS: Final = Socket(key="arms", kind=bpy.types.NodeSocketInt, description="Angular turn lobes, uniform at zero", min_value=0)
 _ARM_OFFSET: Final = Socket(key="arm_offset", kind=bpy.types.NodeSocketFloatAngle, description="Angular lobe turn")
 _FRONT: Final = Socket(
-    key="front", kind=bpy.types.NodeSocketMenu, description="Wave front shape and displacement direction", default_value=MenuItem.of(Front.LINEAR).name, items=Some(MenuItems.of(Front))
+    key="front", kind=bpy.types.NodeSocketMenu, description="Wave front shape and displacement direction", default_value=MenuItem.of(Front.LINEAR).name, items=MenuItems.of(Front).items
 )
 _AMPLITUDE: Final = Socket(key="amplitude", kind=bpy.types.NodeSocketFloat, description="Farthest offset over greater frame side", min_value=0.0, default_value=0.02)
 _WAVELENGTH: Final = Socket(key="wavelength", kind=bpy.types.NodeSocketFloat, description="Distance between crests over greater frame side", min_value=0.0, default_value=tau / (20.0 * 2.0**0.5))
@@ -82,7 +81,7 @@ _SPHERE: Final = InterfacePanel.of("sphere", Interface(inputs=(_CENTER, _BULGE, 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Displacement(Case, frozen=True, kw_only=True):
+class Displacement(CompositorRecord, frozen=True, kw_only=True):
     """Composes geometric, image-driven, glass, and falling-drop displacement fields into one warp, holding the superposed wave count, the turbulence basis, the map file and reading, and the borders."""
 
     waves: Annotated[int, msgspec.Meta(ge=1, description="Waves superposed with equal total weight")] = 1
@@ -92,13 +91,47 @@ class Displacement(Case, frozen=True, kw_only=True):
     extension_x: Border = Border.CLAMP
     extension_y: Border = Border.CLAMP
 
+    @override
+    def graph(self, shell: GraphInputs) -> Outcome[Expr]:
+        """Samples the entry input at each point less the summed toggled displacement, drops mixing their inverted, blurred view over the glass view."""
+        frame, color = shell.space, shell.color
+
+        def sample(source: Expr, point: Expr, coverage: Scalar) -> Expr:
+            uv = frame.sampled(point / frame.extent)
+            return extended(source, xyz(uv["X"], uv["Y"], coverage), (self.extension_x, self.extension_y), clipped=True, interpolation=shell.input(_INTERPOLATION))
+
+        def composed(parts: tuple[Expr, tuple[Expr, Scalar]]) -> Expr:
+            luminance, (map_offset, map_coverage) = parts
+            height = lifted(luminance, shell.input(LATER))
+            glass_offset, glass_source = refracted(shell, frame)
+            drops, inside, drop_source = rained(shell, frame)
+            terms = (
+                (_TWIRL, _twirled(shell, frame)),
+                (_WAVE, _waved(self, shell, frame)),
+                (_TURBULENCE, _turbulent(self, shell, frame)),
+                (_SPHERE, _bulged(shell, frame)),
+                (LUMA, luminous(shell, frame, height)),
+                (BUBBLES, bubbled(shell, frame, height)),
+                (GLASS, glass_offset),
+                (MAP, map_offset),
+            )
+            offset = reduce(add, (switched(shell.input(panel), (0.0, 0.0, 0.0), term) for panel, term in terms))
+            coverage = switched(shell.input(MAP), 1.0, map_coverage)
+            seen = sample(switched(shell.input(GLASS), color, glass_source), frame.point - offset, coverage)
+            dropped = sample(drop_source, frame.point - offset - inside, coverage)
+            return switched(shell.input(RAINDROPS), seen, with_alpha(mixed(drops, seen, dropped), mixed(drops, seen["Alpha"], dropped["Alpha"])))
+
+        return paired(masks.luminance(shell.config, color), mapped(shell, frame, self.map_source, self.map_reading, shell.input(LATER))).map(composed)
+
+    requested = staticmethod(precise)
+
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 # --- [TERMS]
 
 
-def _twirled(shell: GraphInputs[Displacement], frame: FrameSpace) -> Expr:
+def _twirled(shell: GraphInputs, frame: FrameSpace) -> Expr:
     """Offset turning points about the center, the turn falling smoothly to zero at the radius and lobed by the arms."""
     read = partial(shell.input, _TWIRL)
     arm = frame.point - vector("MULTIPLY", read(_CENTER), frame.extent)
@@ -107,9 +140,9 @@ def _twirled(shell: GraphInputs[Displacement], frame: FrameSpace) -> Expr:
     return arm - rotated(arm, -read(_TURN) * falling * lobed)
 
 
-def _waved(shell: GraphInputs[Displacement], frame: FrameSpace) -> Expr:
+def _waved(record: Displacement, shell: GraphInputs, frame: FrameSpace) -> Expr:
     """Offsets of every superposed crest along its front's displacement axis at the held clock, one Menu Switch choosing profile and one choosing front."""
-    read, varied, count = partial(shell.input, _WAVE), partial(shell.input, _WAVE.panel(_VARIATION.key)), shell.record.waves
+    read, varied, count = partial(shell.input, _WAVE), partial(shell.input, _WAVE.panel(_VARIATION.key)), record.waves
     arm = frame.point - vector("MULTIPLY", read(_CENTER), frame.extent)
     travel = vector("LENGTH", arm)
     spoke = vector("NORMALIZE", arm)
@@ -130,9 +163,7 @@ def _waved(shell: GraphInputs[Displacement], frame: FrameSpace) -> Expr:
     crests = tuple(map(crest, range(count)))
     first, *rest = (cycles for held in crests for cycles in held[:2])
     waves = profiled(read, (first, *rest))
-    swings = tuple(
-        (amplitude * (straight * 2.0 - 1.0), amplitude * (round_ * 2.0 - 1.0) * envelope, normal) for straight, round_, (_, _, amplitude, normal) in zip(waves[::2], waves[1::2], crests, strict=True)
-    )
+    swings = tuple((amplitude * (straight * 2.0 - 1.0), amplitude * (round_ * 2.0 - 1.0) * envelope, normal) for straight, round_, (_, _, amplitude, normal) in zip(waves[::2], waves[1::2], crests))
     rounds = reduce(add, (round_ for _, round_, _ in swings))
     fronts = {
         Front.LINEAR: reduce(add, (vector("SCALE", normal, straight) for straight, _, normal in swings)),
@@ -143,13 +174,13 @@ def _waved(shell: GraphInputs[Displacement], frame: FrameSpace) -> Expr:
     return vector("MULTIPLY", shell.menu(_WAVE, _FRONT, cases={MenuItem.of(front): held for front, held in fronts.items()}), read(_AXES))
 
 
-def _turbulent(shell: GraphInputs[Displacement], frame: FrameSpace) -> Expr:
+def _turbulent(record: Displacement, shell: GraphInputs, frame: FrameSpace) -> Expr:
     """Offsets of one evolving noise per axis at the held clock."""
     read = partial(shell.input, _TURBULENCE)
     (across, _), (up, _) = textured(
         shell,
         _TURBULENCE.panel(_BASIS.key),
-        shell.record.turbulence,
+        record.turbulence,
         frame.point,
         clocked(shell.input, _TURBULENCE.panel(_TURBULENCE_CLOCK.key)),
         read(SEED),
@@ -158,7 +189,7 @@ def _turbulent(shell: GraphInputs[Displacement], frame: FrameSpace) -> Expr:
     return vector("MULTIPLY", xyz(across * 2.0 - 1.0, up * 2.0 - 1.0), read(_AXES)) * read(_AMPLITUDE)
 
 
-def _bulged(shell: GraphInputs[Displacement], frame: FrameSpace) -> Expr:
+def _bulged(shell: GraphInputs, frame: FrameSpace) -> Expr:
     """Offsets moving each point inside the circle along the hemisphere mapping, bulging above zero and pinching below."""
     read = partial(shell.input, _SPHERE)
     amount = read(_AMOUNT)
@@ -169,41 +200,6 @@ def _bulged(shell: GraphInputs[Displacement], frame: FrameSpace) -> Expr:
     return vector("SCALE", arm, -abs(amount) * ((target - bounded) / bounded) * (radial < 1.0))
 
 
-# --- [GRAPH]
-
-
-def _warped(shell: GraphInputs[Displacement]) -> Outcome[Expr]:
-    """Samples the entry input at each point less the summed toggled displacement, drops mixing their inverted, blurred view over the glass view."""
-    frame, record, color = shell.space, shell.record, shell.color
-
-    def sample(source: Expr, point: Expr, coverage: Scalar) -> Expr:
-        uv = frame.sampled(point / frame.extent)
-        return extended(source, xyz(uv["X"], uv["Y"], coverage), (record.extension_x, record.extension_y), clipped=True, interpolation=shell.input(_INTERPOLATION))
-
-    def composed(parts: tuple[Expr, tuple[Expr, Scalar]]) -> Expr:
-        luminance, (map_offset, map_coverage) = parts
-        height = lifted(luminance, shell.input(LATER))
-        glass_offset, glass_source = refracted(shell, frame)
-        drops, inside, drop_source = rained(shell, frame)
-        terms = (
-            (_TWIRL, _twirled(shell, frame)),
-            (_WAVE, _waved(shell, frame)),
-            (_TURBULENCE, _turbulent(shell, frame)),
-            (_SPHERE, _bulged(shell, frame)),
-            (LUMA, luminous(shell, frame, height)),
-            (BUBBLES, bubbled(shell, frame, height)),
-            (GLASS, glass_offset),
-            (MAP, map_offset),
-        )
-        offset = reduce(add, (switched(shell.input(panel), (0.0, 0.0, 0.0), term) for panel, term in terms))
-        coverage = switched(shell.input(MAP), 1.0, map_coverage)
-        seen = sample(switched(shell.input(GLASS), color, glass_source), frame.point - offset, coverage)
-        dropped = sample(drop_source, frame.point - offset - inside, coverage)
-        return switched(shell.input(RAINDROPS), seen, with_alpha(mixed(drops, seen, dropped), mixed(drops, seen["Alpha"], dropped["Alpha"])))
-
-    return paired(masks.luminance(shell.config, color), mapped(shell, frame, record.map_source, record.map_reading, shell.input(LATER))).map(composed)
-
-
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 _BASIS: Final = bases("basis", Displacement().turbulence, "Noise sampled per displacement axis")
@@ -211,11 +207,9 @@ _TURBULENCE: Final = InterfacePanel.of(
     "turbulence", Interface(inputs=(_AMPLITUDE, _AXES, SEED), panels=(_BASIS, _TURBULENCE_CLOCK)), description="Movement along evolving procedural noise", toggle=Some(False)
 )
 displacement: Final = CompositorEffect(
-    _warped,
     record=Displacement,
     interface=Interface(inputs=(LATER, _INTERPOLATION), panels=(_TWIRL, _WAVE, _TURBULENCE, _SPHERE, LUMA, BUBBLES, RAINDROPS, MAP, GLASS)),
-    mix=Blended(alpha=Alpha.RESULT),
-    request=Some(precise),
+    mix=Mix.RESULT,
     derives=(timing,),
     animates=Some(later),
 )

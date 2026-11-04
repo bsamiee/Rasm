@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-extendscript-absent-member
-language: tsx
+language: tsxlang
 severity: error
 rule:
     any:
@@ -40,4 +40,4 @@ rule:
                 - has: {field: body, has: {kind: method_definition, not: {has: {field: name, regex: '^constructor$'}}}}
     inside: {kind: program, stopBy: end, matches: extendscript-file}
 message: '`$MEMBER` compiles to a member ExtendScript lacks'
-note: 'Write the ES3 form: index loops and reads, `for...in` over own keys, `charAt` and `slice`, functions over a class, or `keys` and `assign` from `@rasm/extendscript/handle`'
+note: 'Use ES3 loops, own-key `for...in`, `charAt`, `slice`, and functions, or `keys` and `assign` from `@rasm/extendscript/handle`'

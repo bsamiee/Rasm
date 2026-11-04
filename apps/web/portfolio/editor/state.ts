@@ -40,7 +40,7 @@ const reloadRequest = PortfolioClient.runtime
 const deleteRequest = PortfolioClient.runtime
     .fn(
         Effect.fnUntraced(function* (id: typeof AssetId.Type, get) {
-            yield* PortfolioClient.use((api) => api.assets.delete({ params: { id } })).pipe(Effect.tapError(() => Effect.sync(() => get.refresh(recoveryRequest))));
+            yield* PortfolioClient.use((api) => api.assets.delete({ params: { id } })).pipe(Effect.tapError(() => Effect.sync(get.refresh.bind(get, recoveryRequest))));
             get.registry.update(draft, assets.modify(Record.remove(id)));
         }),
     )

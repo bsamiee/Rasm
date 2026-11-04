@@ -1,19 +1,28 @@
-#![feature(cmp_minmax, const_result_trait_fn, const_trait_impl, control_flow_into_value, default_field_values, deref_patterns)]
+#![feature(cmp_minmax, const_result_trait_fn, const_trait_impl, control_flow_into_value, default_field_values, deref_patterns, float_minimum_maximum, integer_casts)]
 
 use core::{borrow::Borrow, iter, range::RangeInclusive};
 
+use argmin::core::Error;
+use bilby::QuadratureError;
 use csaps::CsapsError;
 use itertools::Itertools as _;
 use nalgebra::{DMatrix, DVector, Dim, Matrix, RawStorage, Scalar};
 use ndarray::ShapeError;
 use nonempty_collections::NEVec;
 use rasm_optimize::OptimizeError;
-use rasm_stats::Tolerance;
+use rasm_stats::{BoundsError, Tolerance};
 use spade::InsertionError;
 use statrs::distribution::StudentsTError;
 use validated::Validated;
 
 // --- [TYPES] ---------------------------------------------------------------------------
+
+pub type SearchHooks<'hooks> = (
+    Option<&'hooks basin::CancellationToken>,
+    Option<
+        &'hooks (dyn Fn() -> (Box<dyn for<'state, 'solver, 'event> FnMut(&'state basin::PointState<f64>, &'solver basin::GoldenSection, basin::ObservationEvent<'event>)>, basin::ObserverMode) + Sync),
+    >,
+);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, derive_more::Display)]
 #[display(rename_all = "lowercase")]
@@ -104,6 +113,13 @@ impl Observations {
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
+#[derive(Debug, derive_more::Display, derive_more::Error)]
+pub enum RootSource {
+    Argmin(Error),
+    Bounds(BoundsError),
+    Basin(Box<basin::ConstraintSolveError<AnalysisError>>),
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum AnalysisError {
     #[error("{input} holds {found} entries where {expected} are needed")]
@@ -128,7 +144,7 @@ pub enum AnalysisError {
     Overflow { parameters: DMatrix<f64>, residual: f64 },
     #[error("influence of point {point} on response {response} is not finite")]
     Influence { response: usize, point: usize },
-    #[error("decomposition reached its iteration limit")]
+    #[error("numerical solver did not converge")]
     NoConvergence,
     #[error("polynomial is identically zero")]
     Zero,
@@ -137,8 +153,10 @@ pub enum AnalysisError {
     #[error("function is not finite over {}", .interval.iter().format_with(", ", |range, write| write(&format_args!("[{}, {}]", range.start, range.last))))]
     Function { interval: Vec<RangeInclusive<f64>> },
     #[error("root search over [{}, {}] failed", .bracket.start, .bracket.last)]
-    Root { bracket: RangeInclusive<f64> },
-    #[error("root {root} holds no parameter derivative where the equation's slope vanishes")]
+    Root { bracket: RangeInclusive<f64>, source: RootSource },
+    #[error("search stopped on [{}, {}]: {report:?}", .bracket.start, .bracket.last)]
+    SearchStopped { bracket: RangeInclusive<f64>, report: basin::TerminationReport<f64> },
+    #[error("root {root} has no finite parameter derivative")]
     Tangent { root: f64 },
     #[error("newton iteration stopped at residual {residual} at {point}")]
     System { point: DVector<f64>, residual: f64 },
@@ -150,6 +168,8 @@ pub enum AnalysisError {
     Drift { term: usize },
     #[error(transparent)]
     Optimize(#[from] OptimizeError),
+    #[error(transparent)]
+    Quadrature(#[from] QuadratureError),
     #[error(transparent)]
     Spline(#[from] CsapsError),
     #[error(transparent)]

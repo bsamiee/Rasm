@@ -1,20 +1,19 @@
 """Primary grades in OCIO's linear style: gain and offset wheels with contrast about gray, saturation with vibrance about working luminance, and tonal zones over blacks, shadows, midtones, highlights, and whites with s-contrast."""
 
-from typing import Final
+from typing import Final, override
 
 import bpy
-from expression import Ok, Some
+from expression import Some
 import PyOpenColorIO
 
 from blender.bpy.nodes.graphs import Expr, math, switched, vector, xyz
 from blender.bpy.nodes.interfaces import Interface, InterfacePanel, Socket
 from blender.bpy.render.compositor import grades
 from blender.bpy.render.compositor.colors import AXES
-from blender.bpy.render.compositor.effects import Alpha, Blended, CompositorEffect
+from blender.bpy.render.compositor.effects import CompositorEffect, CompositorRecord, Mix
 from blender.bpy.render.compositor.inputs import GraphInputs
 from blender.imaging.color.processors import luma
-from blender.records.faults import Outcome
-from blender.records.fields import Case
+from blender.records.faults import Ok, Outcome
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -80,71 +79,68 @@ _ZONE_PANELS: Final = tuple(
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Primary(Case, frozen=True, kw_only=True):
+class Primary(CompositorRecord, frozen=True, kw_only=True):
     """Applies scene-linear gain after an additive offset, each a color wheel with master, then a signed power about a gray pivot."""
 
+    @override
+    def graph(self, shell: GraphInputs) -> Outcome[Expr]:
+        """Binds the offset wheel to the primary form's offset, the gain wheel to its exposure in stops, and the slope to its contrast about the pivot."""
+        tint, stops = map(shell.input, _GAIN.inputs)
+        offset, added = map(shell.input, _OFFSET.inputs)
+        slope, pivot = map(shell.input, _CONTRAST.inputs)
+        return Ok(
+            grades.primary(
+                shell.color,
+                offset=vector("ADD", vector("SUBTRACT", offset, (1.0, 1.0, 1.0)), added),
+                exposure=xyz(*(math("LOGARITHM", tint[axis], 2.0) + stops for axis in AXES)),
+                contrast=xyz(slope, slope, slope),
+                pivot=Some(pivot),
+            )
+        )
 
-class Saturation(Case, frozen=True, kw_only=True):
+
+class Saturation(CompositorRecord, frozen=True, kw_only=True):
     """Scales chroma about working-space luminance with saturation-dependent vibrance."""
 
+    @override
+    def graph(self, shell: GraphInputs) -> Outcome[Expr]:
+        """Scales chroma about configured luminance by the saturation, raised for muted pixels and lowered for vivid ones by the vibrance."""
+        scale, vibrance = shell.input(_SCALE), shell.input(_VIBRANCE)
+        color = shell.color
+        red, green, blue = (color[axis] for axis in AXES)
+        sigma = 1.0 - math("MAXIMUM", math("MINIMUM", math("MINIMUM", red, green), blue), 0.0) / math("MAXIMUM", math("MAXIMUM", red, green), blue)
+        inverse = 1.0 - sigma
+        factor = scale * math("MULTIPLY_ADD", vibrance, switched(vibrance > 0.0, sigma * sigma * 0.5, inverse * inverse), 1.0)
 
-class Zones(Case, frozen=True, kw_only=True):
+        def built(weights: tuple[float, ...]) -> Expr:
+            luminance = vector("DOT_PRODUCT", color, weights)
+            return vector("MULTIPLY_ADD", vector("SUBTRACT", color, luminance), factor, luminance)
+
+        return luma(shell.config).map(lambda values: built(tuple(map(float, values))))
+
+
+class Zones(CompositorRecord, frozen=True, kw_only=True):
     """Grades five scene-linear tonal zones per channel and applies s-contrast."""
 
+    @override
+    def graph(self, shell: GraphInputs) -> Outcome[Expr]:
+        """Binds each zone's color over its adjustment range, master, and placement, and the s-contrast, to the node form of OCIO's tone transform."""
 
-# --- [OPERATIONS] -----------------------------------------------------------------------
+        def zone(panel: InterfacePanel, reach: float) -> grades.Zone:
+            color, master, start, width = map(shell.input, panel.inputs)
+            tint = vector("MULTIPLY_ADD", color, (reach,) * 3, (1.0 - reach,) * 3)
+            red, green, blue = (tint[axis] for axis in AXES)
+            return grades.Zone(rgb=(red, green, blue), master=master, start=start, width=width)
 
-
-def _primary(shell: GraphInputs[Primary]) -> Outcome[Expr]:
-    """Binds the offset wheel to the primary form's offset, the gain wheel to its exposure in stops, and the slope to its contrast about the pivot."""
-    tint, stops = map(shell.input, _GAIN.inputs)
-    offset, added = map(shell.input, _OFFSET.inputs)
-    slope, pivot = map(shell.input, _CONTRAST.inputs)
-    return Ok(
-        grades.primary(
-            shell.color,
-            offset=vector("ADD", vector("SUBTRACT", offset, (1.0, 1.0, 1.0)), added),
-            exposure=xyz(*(math("LOGARITHM", tint[axis], 2.0) + stops for axis in AXES)),
-            contrast=xyz(slope, slope, slope),
-            pivot=Some(pivot),
-        )
-    )
-
-
-def _saturation(shell: GraphInputs[Saturation]) -> Outcome[Expr]:
-    """Scales chroma about configured luminance by the saturation, raised for muted pixels and lowered for vivid ones by the vibrance."""
-    scale, vibrance = shell.input(_SCALE), shell.input(_VIBRANCE)
-    color = shell.color
-    red, green, blue = (color[axis] for axis in AXES)
-    sigma = 1.0 - math("MAXIMUM", math("MINIMUM", math("MINIMUM", red, green), blue), 0.0) / math("MAXIMUM", math("MAXIMUM", red, green), blue)
-    inverse = 1.0 - sigma
-    factor = scale * math("MULTIPLY_ADD", vibrance, switched(vibrance > 0.0, sigma * sigma * 0.5, inverse * inverse), 1.0)
-
-    def built(weights: tuple[float, ...]) -> Expr:
-        luminance = vector("DOT_PRODUCT", color, weights)
-        return vector("MULTIPLY_ADD", vector("SUBTRACT", color, luminance), factor, luminance)
-
-    return luma(shell.config).map(lambda values: built(tuple(map(float, values))))
-
-
-def _zones(shell: GraphInputs[Zones]) -> Outcome[Expr]:
-    """Binds each zone's color over its adjustment range, master, and placement, and the s-contrast, to the node form of OCIO's tone transform."""
-
-    def zone(panel: InterfacePanel, reach: float) -> grades.Zone:
-        color, master, start, width = map(shell.input, panel.inputs)
-        tint = vector("MULTIPLY_ADD", color, (reach,) * 3, (1.0 - reach,) * 3)
-        red, green, blue = (tint[axis] for axis in AXES)
-        return grades.Zone(rgb=(red, green, blue), master=master, start=start, width=width)
-
-    blacks, shadows, midtones, highlights, whites = (zone(panel, reach) for panel, (_, reach, _, _) in zip(_ZONE_PANELS, _ZONES, strict=True))
-    return grades.tone(shell.color, blacks=blacks, shadows=shadows, midtones=midtones, highlights=highlights, whites=whites, contrast=shell.input(_S_CONTRAST))
+        blacks, shadows, midtones, highlights, whites = (zone(panel, reach) for panel, (_, reach, _, _) in zip(_ZONE_PANELS, _ZONES))
+        return grades.tone(shell.color, blacks=blacks, shadows=shadows, midtones=midtones, highlights=highlights, whites=whites, contrast=shell.input(_S_CONTRAST))
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-primary: Final = CompositorEffect(_primary, record=Primary, mix=Blended(alpha=Alpha.STRAIGHT), interface=Interface(panels=(_GAIN, _OFFSET, _CONTRAST)), pointwise=True)
-saturation: Final = CompositorEffect(_saturation, record=Saturation, mix=Blended(alpha=Alpha.STRAIGHT), interface=Interface(inputs=(_SCALE, _VIBRANCE)), pointwise=True)
-zones: Final = CompositorEffect(_zones, record=Zones, mix=Blended(alpha=Alpha.STRAIGHT), interface=Interface(inputs=(_S_CONTRAST,), panels=_ZONE_PANELS), pointwise=True)
+primary: Final = CompositorEffect(record=Primary, mix=Mix.STRAIGHT, interface=Interface(panels=(_GAIN, _OFFSET, _CONTRAST)), pointwise=True)
+saturation: Final = CompositorEffect(record=Saturation, mix=Mix.STRAIGHT, interface=Interface(inputs=(_SCALE, _VIBRANCE)), pointwise=True)
+zones: Final = CompositorEffect(record=Zones, mix=Mix.STRAIGHT, interface=Interface(inputs=(_S_CONTRAST,), panels=_ZONE_PANELS), pointwise=True)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

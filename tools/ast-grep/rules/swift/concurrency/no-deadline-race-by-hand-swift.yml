@@ -13,7 +13,7 @@ utils:
     sleep-task:
         matches: group-call
         all:
-            - has: {stopBy: end, kind: call_expression, all: [{pattern: $SLEEP}, {pattern: $_.sleep($$$)}]}
+            - has: {stopBy: end, pattern: $SLEEP, matches: {swift-task-call: {member: {regex: '^sleep$'}}}}
             - not:
                 has:
                     stopBy: end
@@ -38,7 +38,7 @@ utils:
 rule:
     kind: call_expression
     all:
-        - has: {stopBy: {kind: call_suffix}, kind: simple_identifier, regex: '^with(Throwing)?TaskGroup$', pattern: $RACE}
+        - has: {nthChild: 1, kind: navigation_expression, regex: '^_Concurrency\.with(Throwing)?TaskGroup$', pattern: $RACE}
         - has:
             kind: call_suffix
             has:

@@ -6,7 +6,6 @@ import math
 from types import MappingProxyType
 from typing import Annotated, Final, Self
 
-from expression import Option
 from expression.extra.result import catch
 import msgspec
 import numpy as np
@@ -146,41 +145,44 @@ class ReferenceImage(msgspec.Struct, frozen=True, kw_only=True):
             @np.errstate(over="ignore", under="ignore")
             def glow(x: float, y: float, sharpness: float) -> npt.NDArray[np.float64]:
                 if sharpness == 0.0:
-                    return np.ones_like(xs)
+                    return np.ones_like(reach)
                 distance = np.hypot(across - x, along - y)
-                return np.exp(-((distance * math.sqrt(sharpness)) ** 2) * 4.0)
+                np.multiply(distance, math.sqrt(sharpness), out=distance)
+                np.square(distance, out=distance)
+                np.multiply(distance, -4.0, out=distance)
+                np.exp(distance, out=distance)
+                return distance
 
             centers = (np.arange(size, dtype=np.float64) + 0.5 - size / 2.0) / (size / 2.0)
-            xs, ys = np.meshgrid(centers, -centers)
+            xs, ys = np.meshgrid(centers, -centers, sparse=True)
             across, along = (xs + 1.0) / 2.0, (ys + 1.0) / 2.0
             reach, tint = np.hypot(xs, ys), np.array(self.tint)
-            floor = self.level * tint + np.maximum(self.gradient[0] * across + self.gradient[1] * along, 0.0)[..., None] * tint
-            lit = sum((spot.intensity * glow(*spot.position, spot.sharpness)[..., None] * np.array(spot.color) for spot in self.highlights), floor)
-            speckled = sum(
-                (
-                    dapple.intensity * envelope * tint + float(intensity) * dapple.intensity_spread * envelope * tint
-                    for dapple in Option.of_optional(self.dapple).to_list()
-                    for x, y, sharpness, intensity in rng(content_hash(Dapple), dapple.seed).random((dapple.count, 4))
-                    for envelope in ((glow(x, y, dapple.sharpness) * glow(x, y, float(sharpness * dapple.sharpness_spread)))[..., None],)
-                ),
-                lit,
-            )
-            rows = size - 2.0 * np.arange(size) - 1.0
-            shaded = (
-                Option
-                .of_optional(self.blinds)
-                .map(lambda blinds: (blinds, np.remainder((np.remainder(blinds.cycles, 2.0 * size) / size) * rows, 2.0)))
-                .map(lambda held: speckled * (held[0].shade + (1.0 - held[0].shade) * ((held[1] > 0.0) & (held[1] < 1.0)))[:, None, None])
-                .default_value(speckled)
-            )
-            rimmed = (
-                Option
-                .of_optional(self.rim)
-                .filter(lambda rim: rim.amount != 0.0)
-                .map(lambda rim: shaded + rim.amount * np.maximum(reach - rim.radius, 0.0)[..., None] ** rim.falloff * np.array(rim.color))
-                .default_value(shaded)
-            )
-            return np.ascontiguousarray(rimmed * (1.0 - self.vignette * np.minimum(reach**2, 1.0))[..., None], dtype=np.float32)
+            lit = self.level * tint + np.maximum(self.gradient[0] * across + self.gradient[1] * along, 0.0)[..., None] * tint
+            for spot in self.highlights:
+                envelope = glow(*spot.position, spot.sharpness)[..., None]
+                np.multiply(envelope, spot.intensity, out=envelope)
+                np.add(lit, envelope * spot.color, out=lit)
+            if (dapple := self.dapple) is not None:
+                for x, y, sharpness, intensity in rng(content_hash(Dapple), dapple.seed).random((dapple.count, 4)):
+                    envelope = glow(x, y, dapple.sharpness)[..., None]
+                    np.multiply(envelope, glow(x, y, float(sharpness * dapple.sharpness_spread))[..., None], out=envelope)
+                    np.add(lit, dapple.intensity * envelope * tint + float(intensity) * dapple.intensity_spread * envelope * tint, out=lit)
+            if (blinds := self.blinds) is not None:
+                rows = size - 2.0 * np.arange(size) - 1.0
+                phase = np.remainder((np.remainder(blinds.cycles, 2.0 * size) / size) * rows, 2.0)
+                np.multiply(lit, (blinds.shade + (1.0 - blinds.shade) * ((phase > 0.0) & (phase < 1.0)))[:, None, None], out=lit)
+            if (rim := self.rim) is not None and rim.amount != 0.0:
+                radial = reach - rim.radius
+                np.maximum(radial, 0.0, out=radial)
+                np.power(radial, rim.falloff, out=radial)
+                np.multiply(radial, rim.amount, out=radial)
+                np.add(lit, radial[..., None] * rim.color, out=lit)
+            np.square(reach, out=reach)
+            np.minimum(reach, 1.0, out=reach)
+            np.multiply(reach, self.vignette, out=reach)
+            np.subtract(1.0, reach, out=reach)
+            np.multiply(lit, reach[..., None], out=lit)
+            return np.ascontiguousarray(lit, dtype=np.float32)
 
         return formed().map_error(partial(Fault.of, Reason.FAILED, repr(self)))
 

@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: msgspec-struct-class
+language: pythonlang
+utils:
+    base:
+        any:
+            - matches: {python-member-use: {module: {regex: '^msgspec$'}, name: {regex: '^Struct$'}}}
+            - matches: {python-base-class: {superclasses: {has: {matches: base}}}}
+            - kind: subscript
+              has: {field: value, matches: base}
+            - kind: parenthesized_expression
+              has: {matches: base}
+rule:
+    kind: class_definition
+    has: {field: superclasses, has: {matches: base}}

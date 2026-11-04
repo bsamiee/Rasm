@@ -6,7 +6,7 @@ version         = "1.0.0"
 description     = "Repository Python environment and checker policy"
 requires-python = ">=3.13"
 
-dependencies = ["blender", "typography", "foundry"]
+dependencies = ["blender", "typography; python_version >= '3.15'", "foundry; python_version >= '3.15'"]
 
 # --- [DEPENDENCY_GROUPS] ----------------------------------------------------------------
 
@@ -28,6 +28,7 @@ workspace = [
     "keyring",                                                                    # OS keychain credential store
 
     # --- [OBSERVABILITY]
+    "opentelemetry-api",                                                          # Trace, metric, and context API
     "opentelemetry-exporter-otlp-proto-grpc",                                     # OTLP gRPC exporter beside proto-http default
     "opentelemetry-exporter-otlp-proto-http",                                     # OTLP HTTP exporter, default transport
     "opentelemetry-instrumentation-asgi",                                         # ASGI server spans and W3C context extraction per Connect request
@@ -41,6 +42,7 @@ workspace = [
     "opentelemetry-instrumentation-threading",                                    # Cross-thread trace-context propagation
     "opentelemetry-processor-baggage",                                            # Baggage entries copied to span attributes for tenant dimension
     "opentelemetry-resource-detector-containerid",                                # container.id resource detector
+    "opentelemetry-sdk",                                                          # Tracer provider, span processors, and in-memory span exporter
     "opentelemetry-semantic-conventions",                                         # Schema URL for telemetry
     "pyroscope-io",                                                               # Profiling agent feeding pyroscope-otel span-link exporter
     "pyroscope-otel",                                                             # Continuous-profiling span links beside OTLP exporters
@@ -64,7 +66,7 @@ workspace = [
     "asyncssh",                                                                   # SSH and SFTP client for remote workers
     "brotli",                                                                     # Brotli compression
     "cloudevents",                                                                # CloudEvents attribute validation and protocol bindings
-    "confluent-kafka[avro,json,protobuf,schemaregistry]",                         # Kafka client with Schema Registry serdes, built from sdist on Pixi's librdkafka where no cp315 wheel exists
+    "confluent-kafka[avro,json,protobuf,schemaregistry]<4",                       # Classic Kafka client and Schema Registry serdes, the Rust-core 4.x prerelease omits serializers and uses a different API
     "connectrpc",                                                                 # Connect, gRPC, and gRPC-Web ASGI services and typed clients
     "detools",                                                                    # Binary-delta engine
     "fastavro",                                                                   # Avro codec and .avsc validation
@@ -105,6 +107,7 @@ workspace = [
     "mpmath",                                                                     # Arbitrary-precision real and complex math
     "optax",                                                                      # First-order JAX optimizers for optimistix
     "optimistix",                                                                 # JAX nonlinear solvers and adjoint VJP
+    "pint",                                                                       # Unit registry and quantity arithmetic
     "python-flint",                                                               # Arb interval numerics
     "pywavelets",                                                                 # Discrete and continuous wavelet transforms
     "quadax",                                                                     # JAX adaptive quadrature
@@ -316,30 +319,34 @@ workspace = [
     "segno",                                                                      # QR and Micro-QR vector codes
     "zxing-cpp",                                                                  # 2D matrix code encode and decode
 ]
+test      = [
+    "anyio",                                                                      # Structured concurrency over asyncio and trio, a required pytest plugin
+    "coverage",                                                                   # Coverage engine pytest-cov drives
+    "fastapi",                                                                    # Native field declarations in typed checker integration tests
+    "hypothesis",                                                                 # Property-based tests, a required pytest plugin
+    "msgspec[toml]",                                                              # Struct types and JSON, MessagePack, and TOML test codecs
+    "pytest",                                                                     # Test runner of every Python test target
+    "pytest-benchmark",                                                           # Benchmark fixture, a required pytest plugin
+    "pytest-cov",                                                                 # Coverage collection, a required pytest plugin
+    "pytest-randomly",                                                            # Random test order and seeds, a required pytest plugin
+    "pytest-reportlog",                                                           # Flushed native pytest reports preserve completed failures across host crashes
+    "pytest-socket",                                                              # Socket blocking, a required pytest plugin
+    "pytest-timeout",                                                             # Per-test timeout, a required pytest plugin
+    "pytest-xdist",                                                               # Parallel test workers, a required pytest plugin
+    "sysexits",                                                                   # Portable process exit codes in CLI tests
+    "trio",                                                                       # AnyIO Trio backend and virtual-time clocks
+]
 dev       = [
+    { include-group = "test" },
+
     # --- [CHECKERS]
-    "deptry",                                                                     # Import-to-requirement checker over runtime code rasm:check runs
+    "deptry",                                                                     # Import-to-requirement checker for host packages
+    "fawltydeps",                                                                 # Native AST import-to-requirement checker for modern packages
     "mypy",                                                                       # Type checker rasm:check runs
     "refurb",                                                                     # Modernization checker over a mypy build rasm:check runs
     "ruff",                                                                       # Linter, formatter, and import graph source of Nx Python project edges
     "ty",                                                                         # Type checker rasm:check runs
     "yamllint",                                                                   # YAML linter rasm:check runs
-
-    # --- [TESTING]
-    "anyio",                                                                      # Structured concurrency over asyncio and trio, a required pytest plugin
-    "coverage",                                                                   # Coverage engine pytest-cov drives
-    "hypothesis",                                                                 # Property-based tests, a required pytest plugin
-    "opentelemetry-api",                                                          # Trace, metric, and context API
-    "opentelemetry-sdk",                                                          # Tracer provider, span processors, and in-memory span exporter
-    "pint",                                                                       # Unit registry and quantity arithmetic
-    "pytest",                                                                     # Test runner of every Python test target
-    "pytest-benchmark",                                                           # Benchmark fixture, a required pytest plugin
-    "pytest-cov",                                                                 # Coverage collection, a required pytest plugin
-    "pytest-randomly",                                                            # Random test order and seeds, a required pytest plugin
-    "pytest-socket",                                                              # Socket blocking, a required pytest plugin
-    "pytest-timeout",                                                             # Per-test timeout, a required pytest plugin
-    "pytest-xdist",                                                               # Parallel test workers, a required pytest plugin
-    "trio",                                                                       # AnyIO Trio backend and autojumping mock clock
 
     # --- [SCRIPTS]
     "asttokens",                                                                  # Source token ranges over `ast` nodes for in-place rewrites
@@ -352,10 +359,12 @@ dev       = [
     "markdown-it-py",                                                             # CommonMark tokens with source line ranges and GFM tables
     "mcp",                                                                        # MCP client over Streamable HTTP
     "mdit-py-plugins",                                                            # Front-matter and extension rules for markdown-it-py
-    "msgspec",                                                                    # Struct types with JSON, MessagePack, and TOML codecs
+    "more-itertools",                                                             # Iterator partitioning for host wheel assembly
     "numpy",                                                                      # N-dimensional arrays and vectorized math
     "packaging",                                                                  # Python requirement, version, and wheel filename parsing
+    "pathvalidate",                                                               # Native filename validation before resetting a Blender run folder
     "picosvg",                                                                    # SVG geometry normalization and path operations
+    "pip",                                                                        # Wheel builds under Blender's interpreter through `pip --python`
     "psutil",                                                                     # Process and host resource readings
     "pydantic",                                                                   # Validated models at protocol boundaries
     "pygments",                                                                   # Lexer aliases and filename patterns
@@ -403,21 +412,22 @@ no-build-package         = ["epdx", "numpy"]                                    
 extra-build-dependencies = { pyroscope-io = ["cmake"] }                                                                                                                                                                                                                                                                              # `pyroscope-io` build.rs runs cmake its sdist leaves undeclared
 
 [tool.uv.workspace]
-members = ["libs/python/blender", "libs/python/typography", "tools/foundry", "apps/blender/darkroom", "tests/python/libs/blender/bpy/background"]
+members = ["libs/python/blender", "tools/harnesses/blender", "apps/blender/darkroom", "tests/python/libs/blender/bpy", "tests/python/apps/blender/darkroom"]
 
 [tool.uv.sources]
-blender    = { workspace = true }
-typography = { workspace = true }
-foundry    = { workspace = true }
+blender           = { workspace = true }
+blender-bpy-tests = { workspace = true }
+darkroom          = { workspace = true }
+typography        = { path = "libs/python/typography", editable = true }
+foundry           = { path = "tools/foundry", editable = true }
 
 [tool.uv.dependency-groups]
 workspace = { requires-python = ">=3.15" }
 
 [tool.uv.extra-build-variables]
-cachebox    = { PYO3_USE_ABI3_FORWARD_COMPATIBILITY = "1", LIBRARY_PATH = "" }  # deepdiff caps `cachebox<6`, whose 5.x sdist pins PyO3 0.27 refusing Python 3.15, and links Pixi's `@rpath` libiconv maturin cannot repair
+cachebox    = { PYO3_USE_ABI3_FORWARD_COMPATIBILITY = "1", LIBRARY_PATH = "" } # deepdiff caps `cachebox<6`, whose 5.x sdist pins PyO3 0.27 refusing Python 3.15, and links Pixi's `@rpath` libiconv maturin cannot repair
 opencolorio = { CMAKE_ARGS = "-DOCIO_BUILD_APPS=OFF" }
 pyarrow     = { PYARROW_WITH_GANDIVA = "0" }
-pyicu       = { ICU_VERSION = "78", PYICU_LIBRARIES = "icui18n:icuuc:icudata" }
 
 [tool.uv.config-settings-package.manifold3d]
 "cmake.define.MANIFOLD_USE_BUILTIN_TBB" = "ON"
@@ -452,14 +462,14 @@ fontconfig   = "*"
 libglib      = "*"
 
 [tool.pixi.environments.default.target.unix.activation.env]
-SKBUILD_CMAKE_DEFINE = "PYARROW_CPP_HOME=$CONDA_PREFIX"
-PYICU_INCLUDES       = "$CONDA_PREFIX/include"
-PYICU_LFLAGS         = "-L$CONDA_PREFIX/lib"
-OpenMP_ROOT          = "$CONDA_PREFIX"
-PDAL_ROOT            = "$CONDA_PREFIX"
-CPATH                = "$CONDA_PREFIX/include"
-LIBRARY_PATH         = "$CONDA_PREFIX/lib"
-LDFLAGS              = "-Wl,-rpath,$CONDA_PREFIX/lib"
+CMAKE_PREFIX_PATH = "$CONDA_PREFIX"
+OpenMP_ROOT       = "$CONDA_PREFIX"
+CPATH             = "$CONDA_PREFIX/include"
+LIBRARY_PATH      = "$CONDA_PREFIX/lib"
+LDFLAGS           = "-Wl,-rpath,$CONDA_PREFIX/lib"
+
+[tool.pixi.environments.default.target.win.activation.env]
+ICU_VERSION = "78"
 
 [tool.pixi.environments.hdf5]
 no-default-feature = true
@@ -480,66 +490,64 @@ line-length    = 200
 src            = [".", "libs/python"]
 format         = { exclude = ["*.md"], line-ending = "lf", docstring-code-format = true, skip-magic-trailing-comma = true }
 
-[tool.ruff.per-file-target-version]
-"tools/harnesses/blender/**" = "py313" # Every installed Blender runs the engine on its bundled Python
-"libs/python/typography/**"  = "py315" # The member states the root floor so the lock keeps its 3.13 forks for Blender hosts, its code runs on the mise interpreter
-"tools/foundry/**"           = "py315" # The member states the root floor so the lock keeps its 3.13 forks for Blender hosts, its code runs on the mise interpreter
-
 [tool.ruff.lint]
 select                    = ["ALL"]
 ignore                    = [
-    "missing-trailing-comma",                                                                                                                                                                                            # `skip-magic-trailing-comma` removes commas COM812 adds
-    "too-many-public-methods",                                                                                                                                                                                           # Member counts push one-caller helper extraction
-    "too-many-return-statements",                                                                                                                                                                                        # Return counts push one-caller helper extraction, `match` arms return per case
-    "too-many-branches",                                                                                                                                                                                                 # Branch counts push one-caller helper extraction, ast-grep `no-fourth-nesting-level-python` bounds nesting
-    "too-many-locals",                                                                                                                                                                                                   # Local counts push one-caller helper extraction
-    "too-many-statements",                                                                                                                                                                                               # Statement counts push one-caller helper extraction
-    "complex-structure",                                                                                                                                                                                                 # Complexity scores push one-caller helper extraction, ast-grep `no-fourth-nesting-level-python` bounds nesting
-    "raw-string-in-exception",                                                                                                                                                                                           # Moves message into a local only the raise reads
-    "f-string-in-exception",                                                                                                                                                                                             # Moves message into a local only the raise reads
-    "raise-vanilla-args",                                                                                                                                                                                                # Pushes an exception class per message, raises stay for defects
-    "typing-only-first-party-import",                                                                                                                                                                                    # Fixes mark always-loaded modules `lazy`, multi-name `TYPE_CHECKING` imports raise `NameError` in cyclopts `App.command`
-    "typing-only-third-party-import",                                                                                                                                                                                    # Fixes mark always-loaded modules `lazy`, multi-name `TYPE_CHECKING` imports raise `NameError` in cyclopts `App.command`
-    "typing-only-standard-library-import",                                                                                                                                                                               # Fixes mark always-loaded modules `lazy`, multi-name `TYPE_CHECKING` imports raise `NameError` in cyclopts `App.command`
-    "suspicious-subprocess-import",                                                                                                                                                                                      # Reports every `subprocess` import, process boundaries call it
-    "implicit-namespace-package",                                                                                                                                                                                        # Packages outside extension roots hold no `__init__.py`
-    "missing-copyright-notice",                                                                                                                                                                                          # Files hold no license header
-    "commented-out-code",                                                                                                                                                                                                # Reads `# --- [<LABEL>]` section and subsection dividers as code
-    "float-equality-comparison",                                                                                                                                                                                         # Authored controls compare against exact identity values (`0.0`, `1.0`)
-    "zip-without-explicit-strict",                                                                                                                                                                                       # `strict=True` asserts lengths the code constructs
-    "batched-without-explicit-strict",                                                                                                                                                                                   # `strict=True` asserts lengths the code constructs
-    "subprocess-without-shell-equals-true",                                                                                                                                                                              # Reports every argument-vector `subprocess` call
-    "start-process-with-partial-path",                                                                                                                                                                                   # Commands name tools mise places on `PATH`
-    "os-path-abspath",                                                                                                                                                                                                   # `os.path.abspath` drops `..` without following symlinks, a combination no `pathlib` member has
-    "function-uses-loop-variable",                                                                                                                                                                                       # Reports closures `Result` and `Option` combinators call before the loop advances
-    "logging-string-format",                                                                                                                                                                                             # refurb RASM103 owns the form over structlog calls of any receiver name, `%`, `str()` and `join` included
-    "logging-percent-format",                                                                                                                                                                                            # refurb RASM103 owns the form over structlog calls of any receiver name, `%`, `str()` and `join` included
-    "logging-string-concat",                                                                                                                                                                                             # refurb RASM103 owns the form over structlog calls of any receiver name, `%`, `str()` and `join` included
-    "logging-f-string",                                                                                                                                                                                                  # refurb RASM103 owns the form over structlog calls of any receiver name, `%`, `str()` and `join` included
-    "reimplemented-operator",                                                                                                                                                                                            # Rewrites to `operator` functions typeshed types as returning `Any`, `banned-api` rejects the getters
-    "lambda-assignment",                                                                                                                                                                                                 # Pushes a `def` statement for a callback each `match` arm binds
-    "compare-with-tuple",                                                                                                                                                                                                # PLR1714 reports the form as a set membership PLR6201 accepts
-    "blocking-http-call-in-async-function",                                                                                                                                                                              # `banned-api` rejects every client it names
-    "blocking-http-call-httpx-in-async-function",                                                                                                                                                                        # `banned-api` rejects `httpx`
-    "blocking-sleep-in-async-function",                                                                                                                                                                                  # `banned-api` rejects `time.sleep`
-    "request-without-timeout",                                                                                                                                                                                           # `banned-api` rejects every client it names
-    "no-explicit-stacklevel",                                                                                                                                                                                            # `banned-api` rejects `warnings.warn`
-    "multiple-starts-ends-with",                                                                                                                                                                                         # refurb FURB102 covers attribute receivers
-    "repeated-append",                                                                                                                                                                                                   # refurb FURB113 covers attribute receivers
-    "len-test",                                                                                                                                                                                                          # refurb FURB115 reports every sized length test from its type
-    "for-loop-writes",                                                                                                                                                                                                   # refurb FURB122 covers `Path.open` handles
-    "readlines-in-for",                                                                                                                                                                                                  # refurb FURB129 covers `Path.open` handles
-    "delete-full-slice",                                                                                                                                                                                                 # refurb FURB131 covers attribute receivers
-    "check-and-remove-from-set",                                                                                                                                                                                         # refurb FURB132 covers attribute receivers
-    "for-loop-set-mutations",                                                                                                                                                                                            # refurb FURB142 covers attribute receivers
-    "slice-copy",                                                                                                                                                                                                        # refurb FURB145 covers attribute receivers
-    "unnecessary-enumerate",                                                                                                                                                                                             # refurb FURB148 covers comprehensions
-    "true-false-comparison",                                                                                                                                                                                             # refurb FURB149 reports `is` and `==` on bool-typed operands alone
-    "hashlib-digest-hex",                                                                                                                                                                                                # refurb FURB181 covers attribute receivers
-    "list-reverse-copy",                                                                                                                                                                                                 # refurb FURB187 covers attribute receivers
+    "missing-trailing-comma",                                                                                                                                                                                        # `skip-magic-trailing-comma` removes commas COM812 adds
+    "too-many-public-methods",                                                                                                                                                                                       # Member counts push one-caller helper extraction
+    "too-many-arguments",                                                                                                                                                                                            # Argument counts push one-caller parameter records and wrappers
+    "too-many-positional-arguments",                                                                                                                                                                                 # Positional counts do not establish a domain record or keyword contract
+    "too-many-return-statements",                                                                                                                                                                                    # Return counts push one-caller helper extraction, `match` arms return per case
+    "too-many-branches",                                                                                                                                                                                             # Branch counts push one-caller helper extraction, ast-grep `no-fourth-nesting-level-python` bounds nesting
+    "too-many-locals",                                                                                                                                                                                               # Local counts push one-caller helper extraction
+    "too-many-statements",                                                                                                                                                                                           # Statement counts push one-caller helper extraction
+    "too-many-statements-in-try-clause",                                                                                                                                                                             # Statement counts do not establish exception scope for native effects and typed refusals
+    "complex-structure",                                                                                                                                                                                             # Complexity scores push one-caller helper extraction, ast-grep `no-fourth-nesting-level-python` bounds nesting
+    "raw-string-in-exception",                                                                                                                                                                                       # Moves message into a local only the raise reads
+    "f-string-in-exception",                                                                                                                                                                                         # Moves message into a local only the raise reads
+    "raise-vanilla-args",                                                                                                                                                                                            # Pushes an exception class per message, raises stay for defects
+    "typing-only-first-party-import",                                                                                                                                                                                # Fixes mark always-loaded modules `lazy`, multi-name `TYPE_CHECKING` imports raise `NameError` in cyclopts `App.command`
+    "typing-only-third-party-import",                                                                                                                                                                                # Fixes mark always-loaded modules `lazy`, multi-name `TYPE_CHECKING` imports raise `NameError` in cyclopts `App.command`
+    "typing-only-standard-library-import",                                                                                                                                                                           # Fixes mark always-loaded modules `lazy`, multi-name `TYPE_CHECKING` imports raise `NameError` in cyclopts `App.command`
+    "suspicious-subprocess-import",                                                                                                                                                                                  # Reports every `subprocess` import, process boundaries call it
+    "implicit-namespace-package",                                                                                                                                                                                    # Packages outside extension roots hold no `__init__.py`
+    "non-empty-init-module",                                                                                                                                                                                         # Package entry points own registration and exports
+    "missing-copyright-notice",                                                                                                                                                                                      # Files hold no license header
+    "commented-out-code",                                                                                                                                                                                            # Reads `# --- [<LABEL>]` section and subsection dividers as code
+    "float-equality-comparison",                                                                                                                                                                                     # Authored controls compare against exact identity values (`0.0`, `1.0`)
+    "zip-without-explicit-strict",                                                                                                                                                                                   # `strict=True` asserts lengths the code constructs
+    "batched-without-explicit-strict",                                                                                                                                                                               # `strict=True` asserts lengths the code constructs
+    "subprocess-without-shell-equals-true",                                                                                                                                                                          # Reports every argument-vector `subprocess` call
+    "start-process-with-partial-path",                                                                                                                                                                               # Commands name tools mise places on `PATH`
+    "os-path-abspath",                                                                                                                                                                                               # `os.path.abspath` drops `..` without following symlinks, a combination no `pathlib` member has
+    "function-uses-loop-variable",                                                                                                                                                                                   # Reports closures `Result` and `Option` combinators call before the loop advances
+    "logging-string-format",                                                                                                                                                                                         # refurb RASM103 owns the form over structlog calls of any receiver name, `%`, `str()` and `join` included
+    "logging-percent-format",                                                                                                                                                                                        # refurb RASM103 owns the form over structlog calls of any receiver name, `%`, `str()` and `join` included
+    "logging-string-concat",                                                                                                                                                                                         # refurb RASM103 owns the form over structlog calls of any receiver name, `%`, `str()` and `join` included
+    "logging-f-string",                                                                                                                                                                                              # refurb RASM103 owns the form over structlog calls of any receiver name, `%`, `str()` and `join` included
+    "reimplemented-operator",                                                                                                                                                                                        # Rewrites to `operator` functions typeshed types as returning `Any`, `banned-api` rejects the getters
+    "lambda-assignment",                                                                                                                                                                                             # Pushes a `def` statement for a callback each `match` arm binds
+    "compare-with-tuple",                                                                                                                                                                                            # PLR1714 reports the form as a set membership PLR6201 accepts
+    "blocking-http-call-in-async-function",                                                                                                                                                                          # `banned-api` rejects every client it names
+    "blocking-http-call-httpx-in-async-function",                                                                                                                                                                    # `banned-api` rejects `httpx`
+    "blocking-sleep-in-async-function",                                                                                                                                                                              # `banned-api` rejects `time.sleep`
+    "request-without-timeout",                                                                                                                                                                                       # `banned-api` rejects every client it names
+    "no-explicit-stacklevel",                                                                                                                                                                                        # `banned-api` rejects `warnings.warn`
+    "multiple-starts-ends-with",                                                                                                                                                                                     # refurb FURB102 preserves receiver evaluation and prefix independence
+    "repeated-append",                                                                                                                                                                                               # Nominal receiver types do not prove exact builtin list mutation
+    "len-test",                                                                                                                                                                                                      # refurb FURB115 checks exact materialized builtin size tests
+    "for-loop-writes",                                                                                                                                                                                               # refurb FURB122 checks exact StringIO/BytesIO receivers and independent primitive writes
+    "readlines-in-for",                                                                                                                                                                                              # refurb FURB129 checks exact StringIO/BytesIO receivers
+    "delete-full-slice",                                                                                                                                                                                             # refurb FURB131 covers attribute receivers
+    "check-and-remove-from-set",                                                                                                                                                                                     # Nominal receiver types do not prove exact builtin mutation, hashing, or equality
+    "for-loop-set-mutations",                                                                                                                                                                                        # Nominal receiver types do not prove exact builtin set mutation
+    "slice-copy",                                                                                                                                                                                                    # refurb FURB145 checks exact list and bytearray source forms
+    "unnecessary-enumerate",                                                                                                                                                                                         # refurb FURB148 covers comprehensions
+    "true-false-comparison",                                                                                                                                                                                         # refurb FURB149 reports `is` and `==` on bool-typed operands alone
+    "hashlib-digest-hex",                                                                                                                                                                                            # refurb FURB181 covers attribute receivers
 ]
 flake8-bandit             = { check-typed-exception = true }
-flake8-boolean-trap       = { extend-allowed-calls = ["expression.Ok", "expression.Some"] }
+flake8-boolean-trap       = { extend-allowed-calls = ["expression.Result.Ok", "expression.Some"] }
 flake8-import-conventions = { extend-aliases = { "dask.array" = "da", "dask.dataframe" = "dd", datetime = "datetime", scipy = "sp", sympy = "sym", xarray = "xr" }, banned-from = ["builtins"] }
 flake8-pytest-style       = { parametrize-names-type = "csv", raises-extend-require-match-for = ["AttributeError", "KeyError", "RuntimeError", "TypeError", "msgspec.ValidationError", "pydantic.ValidationError"] }
 flake8-type-checking      = { runtime-evaluated-base-classes = ["msgspec.Struct"] }
@@ -547,27 +555,10 @@ isort                     = { combine-as-imports = true, force-sort-within-secti
 pycodestyle               = { max-line-length = 300 }
 pydocstyle                = { convention = "google" }
 pydoclint                 = { ignore-one-line-docstrings = true }
-pylint                    = { allow-dunder-method-names = ["__get_pydantic_core_schema__", "__get_pydantic_json_schema__", "__name__", "__version__"], allow-magic-value-types = ["str", "bytes", "int"], max-args = 9 } # Protocol properties type module attributes, which ty matches to a property alone, and Blender calls `UIList.draw_item` with the list and eight host values
+pylint                    = { allow-dunder-method-names = ["__get_pydantic_core_schema__", "__get_pydantic_json_schema__", "__name__", "__version__"], allow-magic-value-types = ["str", "bytes", "int"] }           # Protocol properties type module attributes, which ty matches to a property alone
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**"                                                                       = ["assert"]
-"{libs/python/blender,apps/blender,tests/python/libs/blender/bpy/background}/**" = [
-    "boolean-positional-value-in-call",                                                       # bpy, gpu, and RNA writes take booleans as values (`gpu.state.scissor_test_set(True)`)
-    "import-private-name",                                                                    # Blender supplies private modules (`_bpy_internal`, `_bpy_types`) with no public form
-    "non-pep695-generic-class",                                                               # ty reads frozen `msgspec.Struct` fields as invariant, covariant records keep `TypeVar` variance
-]
-"{apps/blender,tests/python/libs/blender/bpy/background/fixture}/**"             = [
-    "non-empty-init-module",                                                                  # Extension `__init__.py` composes the `register` and `unregister` entry points Blender imports
-    "relative-imports",                                                                       # Blender imports extensions under `bl_ext.<repository>.<id>`, folders reach each other through relative imports alone
-]
-"tools/harnesses/blender/**"                                                     = [
-    "banned-api",                                                                             # Blender's bundled Python holds the standard library alone, `json` in place of msgspec
-    "blind-except",                                                                           # Each case records whatever its original raised as its result
-    "exec-builtin",                                                                           # Cases run host statements a case file supplies
-    "private-member-access",                                                                  # Blender names the manifest file and lists appended draw functions on private members alone
-    "return-in-generator",                                                                    # Timer passes advance case steps, and `yield from` returns each step's result
-    "suspicious-eval-usage",                                                                  # Cases evaluate host expressions a case file supplies
-]
+"tests/**" = ["assert"]
 
 [tool.ruff.lint.flake8-tidy-imports]
 require-lazy = [
@@ -599,7 +590,6 @@ require-lazy = [
 "concurrent.futures".msg                 = "Use anyio.to_thread.run_sync or anyio.to_process.run_sync"
 "concurrent.interpreters".msg            = "Use anyio.to_interpreter.run_sync"
 "contextlib.suppress".msg                = "Return expression.Result"
-"dataclasses.dataclass".msg              = "Use frozen msgspec.Struct"
 "dataclasses.make_dataclass".msg         = "Use frozen msgspec.Struct"
 "expression.effect".msg                  = "Chain Result.bind and Result.map, builders return zero value on RuntimeError"
 "http.client".msg                        = "Use httpx2.Client or httpx2.AsyncClient"
@@ -673,16 +663,7 @@ require-lazy = [
 
 [tool.ty]
 environment = { python-version = "3.15", python-platform = "all", root = [".", "libs/python"] }
-rules       = { all = "error", unsound-assignment = "ignore", unsound-return-statement = "ignore" } # `expression` `Ok` and `Error` build `Result[T, Any]`, each return and assignment of one reads as unsound
-
-[[tool.ty.overrides]]
-include  = ["libs/python/blender/**", "apps/blender/**", "tests/python/libs/blender/bpy/background/**"]
-analysis = { replace-imports-with-any = ["cycles.**"] }                                                 # Blender supplies `cycles` with no typings package
-rules    = { unsupported-dynamic-base = "ignore" }                                                      # Invoke forms derive the registered operator class from the class each command builds at registration, a base no MRO resolves before it
-
-[[tool.ty.overrides]]
-include  = ["libs/python/typography/**", "tools/foundry/**", "tests/python/libs/typography/**", "tests/python/tools/foundry/**"]
-analysis = { replace-imports-with-any = ["uharfbuzz"] }                                                                          # uharfbuzz holds its API in a compiled module with no stub, so its values stay inside function bodies
+rules       = { all = "error" }
 
 # --- [MYPY] -----------------------------------------------------------------------------
 
@@ -697,9 +678,8 @@ exclude_gitignore       = true
 disallow_any_explicit   = true
 disallow_any_unimported = true
 plugins                 = ["pydantic.mypy"]
-untyped_calls_exclude   = ["_skimage2", "OpenImageIO", "fontTools.agl", "fontTools.feaLib", "fontTools.fontBuilder", "fontTools.misc.arrayTools", "fontTools.misc.bezierTools", "fontTools.pens", "fontTools.unicodedata", "ots", "picosvg", "skimage", "ufo2ft", "youseedee"]                                                                                                                                  # Packages without typed signatures, calls into them report as untyped
 enable_error_code       = ["exhaustive-match", "explicit-override", "ignore-without-code", "redundant-self", "truthy-bool", "truthy-iterable", "unused-awaitable"]
-overrides               = [{ module = ["fontTools.*", "ots.*", "pathops.*", "ttfautohint.*", "ufo2ft.*", "youseedee.*"], follow_untyped_imports = true }, { module = ["cycles.*", "uharfbuzz"], ignore_missing_imports = true }, { module = ["pathops"], implicit_reexport = true }, { module = ["blender.*", "apps.blender.*", "tests.python.libs.blender.bpy.background.*"], disallow_any_explicit = false }]
+overrides               = [{ module = ["fontTools.*", "ots.*", "pathops.*", "sysexits", "ttfautohint.*", "ufo2ft.*", "youseedee.*"], follow_untyped_imports = true }, { module = ["pathops"], implicit_reexport = true }]
 
 # --- [REFURB] ---------------------------------------------------------------------------
 
@@ -707,6 +687,7 @@ overrides               = [{ module = ["fontTools.*", "ots.*", "pathops.*", "ttf
 enable_all = true
 load       = ["tools.refurb"]
 disable    = [
+    "FURB100",                # Arbitrary slices of `str(path)` need not remove its suffix, `Path.with_suffix` changes the result
     "FURB101",                # Ruff runs FURB101
     "FURB103",                # Ruff runs FURB103
     "FURB104",                # Ruff PTH109 reports the form
@@ -718,6 +699,7 @@ disable    = [
     "FURB110",                # Ruff runs FURB110
     "FURB111",                # Ruff PLW0108 reports the form
     "FURB112",                # Ruff C408 reports the form
+    "FURB113",                # Named receiver types do not prove exact builtin list mutation
     "FURB114",                # Ruff SIM208 reports the form
     "FURB116",                # Ruff runs FURB116
     "FURB117",                # Ruff PTH123 reports the form
@@ -730,6 +712,7 @@ disable    = [
     "FURB126",                # Dropping a trailing `case _` arm fails mypy exhaustive-match
     "FURB128",                # Ruff PLR1712 reports the form
     "FURB130",                # Ruff SIM118 reports the form
+    "FURB132",                # Named receiver types do not prove exact builtin mutation, hashing, or equality
     "FURB134",                # Ruff UP033 reports the form
     "FURB135",                # Ruff PERF102 reports the form
     "FURB136",                # Ruff runs FURB136
@@ -737,6 +720,7 @@ disable    = [
     "FURB138",                # Ruff PERF401 reports the form
     "FURB140",                # Starmap suggestion ignores comprehension `if` filters, Ruff's FURB140 checks them
     "FURB141",                # Ruff PTH110 reports the form
+    "FURB142",                # Named receiver types do not prove exact builtin set mutation
     "FURB144",                # Ruff PTH107 and PTH108 report the form
     "FURB146",                # Ruff PTH112, PTH113, PTH114, and PTH117 report the form
     "FURB147",                # Ruff PTH118 reports the form, FURB147 rejects `posixpath.join` on archive and URL paths
@@ -764,9 +748,13 @@ disable    = [
     "FURB177",                # Ruff runs FURB177
     "FURB179",                # `chain.from_iterable` rewrite joins heterogeneous tuple elements to `object`, ast-grep `no-unpacked-chain-argument` and `no-chain-flattening` report hand flattening
     "FURB180",                # Ruff runs FURB180
+    "FURB183",                # `str(value)` calls `__str__`, formatting calls `__format__`
     "FURB184",                # Matches names with no type or binding check, chaining drops annotations and reused bindings
+    "FURB186",                # In-place sorting changes list identity and aliases, functional code retains `sorted`
+    "FURB187",                # In-place reversal changes list identity and aliases, Ruff's reverse-copy rule preserves a copied result
     "FURB188",                # Ruff runs FURB188
     "FURB189",                # Ruff runs FURB189
+    "FURB190",                # Unbound `str` methods lose receiver overrides and reject bytes accepted by an untyped lambda
     "FURB192",                # Ruff runs FURB192
 ]
 
@@ -789,7 +777,7 @@ addopts                  = [
     "-x",
     "--tb=short",
     "--import-mode=importlib",
-    "--benchmark-skip",
+    "--benchmark-disable",
     "--disable-socket",
     "--allow-unix-socket",
     "--benchmark-storage=file://.artifacts/python/benchmarks",
@@ -802,6 +790,7 @@ required_plugins         = [
     "pytest-benchmark",
     "pytest-cov",
     "pytest-randomly",
+    "pytest-reportlog",
     "pytest-socket",
     "pytest-timeout",
     "pytest-xdist",

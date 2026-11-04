@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-assembled-member-name
-language: tsx
+language: tsxlang
 severity: error
 utils:
     key-position:
@@ -60,4 +60,4 @@ rule:
                         - inside: {kind: variable_declarator, field: value, matches: record-declaration}
                         - inside: {matches: typescript-expression-wrapper, inside: {kind: variable_declarator, field: value, matches: record-declaration}}
 message: '`$NAME` assembles a member name from text'
-note: 'Read member names from `$.dictionary.getClass(<class>)` rows, an `as const` table keyed by their deciding value, or `Match.valueTags` over a tagged value'
+note: 'Read `$.dictionary.getClass(<class>)` rows, select an `as const` table by its deciding value, or call `Match.valueTags`'

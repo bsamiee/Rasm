@@ -5,11 +5,11 @@
     "type": "module",
     "imports": { "#/*": "./*.ts" },
     "exports": {
-        "./error": "./error.ts",
+        "./harness-error": "./harness-error.ts",
         "./indesign/contract": "./indesign/contract.ts",
-        "./results": "./results.ts",
         "./values": "./values.ts"
     },
+    "bin": { "harness": "./main.ts" },
     "dependencies": {
         "@effect/platform-node": "catalog:",
         "@rasm/automation": "workspace:*",

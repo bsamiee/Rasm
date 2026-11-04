@@ -28,7 +28,7 @@ public static class Drawings {
     // --- [HIDDEN_LINE]
     public static IO<HiddenLineDrawing> Draw(
         Tolerances tolerances, ViewportInfo viewport, Seq<DrawingSubject> subjects, Action<HiddenLineDrawingParameters> configure, bool multipleThreads, Option<IProgress<double>> progress) =>
-        from lowered in subjects.Map(static (subject, index) => (Subject: subject, Index: index)).TraverseM(static row => Lowered(row.Subject.Geometry, row.Index).Map(pieces => (row.Subject, Pieces: pieces))).As()
+        from lowered in Products.Each(subjects.Map(static (subject, index) => Lowered(subject.Geometry, index).Map(pieces => (Subject: subject, Pieces: pieces))))
         from camera in Products.Of(() => new ViewportInfo(viewport))
         from bounded in Products.Accepted(() => camera.SetFrustumNearFar((from row in lowered from piece in row.Pieces select piece.GetBoundingBox(row.Subject.Xform)).Fold(BoundingBox.Empty, BoundingBox.Union)))
         from parameters in IO.lift(() => new HiddenLineDrawingParameters { AbsoluteTolerance = tolerances.Absolute })
@@ -49,8 +49,8 @@ public static class Drawings {
                 select Seq<GeometryBase>(brep),
             TextDot dot => Products.Of<GeometryBase>(() => new Point(dot.Point)).Map(static point => Seq(point)),
             TextEntity text => Products.Many<GeometryBase>(text.Explode),
-            Dimension dimension => Products.Many(dimension.Explode).Bind(static pieces => pieces.TraverseM(static piece => Lowered(piece, 0)).As()).Map(static pieces => pieces.Bind(static held => held)),
-            AnnotationBase annotation => IO.fail<Seq<GeometryBase>>(new RhinoFault(annotation.ObjectType.ToString(), RhinoReason.Unsupported, index)),
+            Dimension dimension => Products.Many(dimension.Explode).Bind(pieces => Products.Each(pieces.Map(piece => Lowered(piece, index)))).Map(static pieces => pieces.Bind(static held => held)),
+            AnnotationBase annotation => IO.fail<Seq<GeometryBase>>(new RhinoFault(annotation.ObjectType, RhinoReason.Unsupported, index)),
             _ => IO.pure(Seq(geometry)),
         };
 

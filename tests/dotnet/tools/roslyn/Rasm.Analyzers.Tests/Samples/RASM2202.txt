@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Eto.Forms;
 using LanguageExt;
 using Rasm.Rhino;
@@ -37,7 +38,7 @@ internal static class PlainContainer {
         from control in use(static () => new TabControl())
         from pages in bodies.TraverseM(body =>
             from tab in {|#2:use(static () => new TabPage())|}
-            from seated in IO.lift(() => { tab.Content = body; control.Pages.Add(tab); })
+            from added in IO.lift(() => { tab.Content = body; control.Pages.Add(tab); })
             select unit).As()
         select (Control)control;
 
@@ -56,6 +57,21 @@ internal static class PlainContainer {
 
     internal static IO<Control> Bound(Control body) =>
         {|#6:use(static () => new Scrollable())|}.Bind(scroll => IO.lift(() => { scroll.Content = body; return (Control)scroll; }));
+
+    internal static IO<Control> Nested(Control body) =>
+        from frame in {|#7:use(static () => new NestedFrame())|}
+        from added in IO.lift(() => { frame.Rows.Add(new Slot<Slot<Control>> { Items = { new Slot<Control> { Items = { body } } } }); })
+        select (Control)frame;
+
+    internal static IO<Control> Expanding(Node<int> row) =>
+        from frame in use(static () => new ExpandingFrame())
+        from added in IO.lift(() => { frame.Rows.Add(row); })
+        select (Control)frame;
+
+    internal static IO<Control> Inherited(Control body) =>
+        from frame in {|#8:use(static () => new InheritedFrame())|}
+        from added in IO.lift(() => { frame.Rows.Add(new InheritedSlot<Control> { Items = { new Slot<Control> { Items = { body } } } }); })
+        select (Control)frame;
 }
 
 internal static class OrderedContainer {
@@ -71,7 +87,7 @@ internal static class OrderedContainer {
         from pages in captions.TraverseM(caption =>
             from tab in use(static () => new TabPage())
             from body in realize()
-            from seated in IO.lift(() => { tab.Text = caption; tab.Content = body; control.Pages.Add(tab); })
+            from added in IO.lift(() => { tab.Text = caption; tab.Content = body; control.Pages.Add(tab); })
             select unit).As()
         select (Control)control;
 }
@@ -94,4 +110,30 @@ internal static class FramedContainer {
             .Map(panel => { panel.Content = body; return panel.Width; });
 
     internal static void Childless(Action<IDisposable> retain) => retain(new Panel { Width = 10 });
+}
+
+internal sealed class Slot<T> {
+    internal List<T> Items { get; } = [];
+}
+
+internal sealed class NestedFrame : Panel {
+    internal List<Slot<Slot<Control>>> Rows { get; } = [];
+}
+
+internal sealed class Node<T> {
+    internal List<Node<List<T>>> Next { get; } = [];
+}
+
+internal sealed class ExpandingFrame : Panel {
+    internal List<Node<int>> Rows { get; } = [];
+}
+
+internal abstract class BaseSlot<T> {
+    internal List<T> Items { get; } = [];
+}
+
+internal sealed class InheritedSlot<T> : BaseSlot<Slot<T>>;
+
+internal sealed class InheritedFrame : Panel {
+    internal List<InheritedSlot<Control>> Rows { get; } = [];
 }

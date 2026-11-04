@@ -10,21 +10,21 @@ from pathlib import Path
 from types import FunctionType, MappingProxyType, MethodType
 from typing import ClassVar, override, Protocol, Self, TYPE_CHECKING, TypedDict, Unpack
 
-import _bpy_types
+import _bpy_types  # ruff: ignore[import-private-name]
 import bpy
-from expression import Error, Nothing, Ok, Option, Result, Some, try_downcast
+from expression import Option, Result, Some, try_downcast
 from expression.extra.result import catch
 import msgspec
 
 from blender.bpy.data.rna.conditions import Condition, polled
 from blender.bpy.data.rna.descriptors import Scalar, Value
 from blender.bpy.data.rna.paths import definition, rna, RnaPath, Struct
-from blender.bpy.data.rna.properties import annotated, nested
+from blender.bpy.data.rna.properties import annotated, Callbacks, nested, rebound
 from blender.bpy.data.rna.snapshots import Applied, assigned
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.extension.registration import Acquisitions, Tier
+from blender.bpy.extension.registration import acquired, Acquisitions, Declaration, Tier
 from blender.bpy.extension.reports import alerted, rendered
-from blender.records.faults import accumulated, Fault, Faults, Outcome, Reason
+from blender.records.faults import accumulated, Error, Fault, Nothing, Ok, Outcome, Reason
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -32,12 +32,11 @@ if TYPE_CHECKING:
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type Returns = set[rna_enums.OperatorReturnItems]
-type Operation = Callable[..., Returns]
+type Operation = Callable[..., Returns]  # type: ignore[explicit-any]
 type Setting = Scalar | tuple[Scalar, ...]
 type Pairs = tuple[tuple[str, Setting], ...]
 type Draw[T] = Callable[[bpy.types.UILayout, bpy.types.Context, T, Identity], None]
 type Answer = Done | Unchanged
-type Undo = NoUndo | UndoStep | UndoGroup
 type Notes = tuple[tuple[rna_enums.WmReportItems, str], ...]
 
 
@@ -60,8 +59,8 @@ class Invoke[T: bpy.types.PropertyGroup](Protocol):
 
     asks: ClassVar[bool]
 
-    def classed(self, body: "Body[T]", base: type[bpy.types.Operator], /) -> Outcome[Acquisitions]:
-        """Builds the class the form invokes over base, first among the acquisitions it holds, unregistered fault for a host call the form cannot make."""
+    def classed(self, body: "Body[T]", base: type[bpy.types.Operator], /) -> Acquisitions:
+        """Builds the invoked class first among the acquisitions it holds."""
         ...
 
 
@@ -69,9 +68,10 @@ class Options[T: bpy.types.PropertyGroup](TypedDict, total=False):
     """Operator fields besides the form and body, as `Operator.of` takes them."""
 
     condition: Option[Condition]
+    callbacks: Option[Callable[[Identity], Mapping[str, Callbacks[T]]]]
     icon: Option["rna_enums.IconItems"]
     options: frozenset["rna_enums.OperatorTypeFlagItems"]
-    undo: Undo
+    undo_group: Option[str]
     invoke: Option[Invoke[T]]
     seed: Option[Callable[[T, bpy.types.Event, Identity], Mapping[str, Value]]]
     draw: Option[Draw[T]]
@@ -88,40 +88,16 @@ class Empty(bpy.types.PropertyGroup):
     """Form of operator without properties."""
 
 
-class NoUndo(msgspec.Struct, frozen=True, kw_only=True):
-    """Operator pushing no undo step."""
-
-    flags: ClassVar[tuple["rna_enums.OperatorTypeFlagItems", ...]] = ()
-
-
-class UndoStep(msgspec.Struct, frozen=True, kw_only=True):
-    """Operator pushing one undo step per run."""
-
-    flags: ClassVar[tuple["rna_enums.OperatorTypeFlagItems", ...]] = ("UNDO",)
-
-
-class UndoGroup(msgspec.Struct, frozen=True, kw_only=True):
-    """Operator pushing one undo step across consecutive runs of a group."""
-
-    flags: ClassVar[tuple["rna_enums.OperatorTypeFlagItems", ...]] = ("UNDO_GROUPED",)
-    group: str
-
-
 class Command(msgspec.Struct, frozen=True, kw_only=True):
-    """Extension operator with poll condition, button icon, `bl_options` beside `REGISTER` and the undo flag, and undo declaration, its host name and title derived from its key.
+    """Extension operator with poll condition, button icon, and native flags, its host name and title derived from its key.
 
     Commands of one kind and key are one host operator and equal whatever callables they hold, a registration acquiring one twice registering it once.
     """
 
     condition: Option[Condition] = Nothing
     icon: Option["rna_enums.IconItems"] = Nothing
-    options: frozenset["rna_enums.OperatorTypeFlagItems"] = frozenset()
-    undo: Undo = UndoStep()
-
-    def __post_init__(self) -> None:
-        """Refuses an undo flag in `options`, which `undo` states."""
-        if stated := self.options & {"UNDO", "UNDO_GROUPED"}:
-            raise ValueError(f"options {sorted(stated)} restate the {type(self.undo).__name__} undo declaration")
+    options: frozenset["rna_enums.OperatorTypeFlagItems"] = frozenset({"UNDO"})
+    undo_group: Option[str] = Nothing
 
     # --- [IDENTITY]
 
@@ -160,19 +136,19 @@ class Command(msgspec.Struct, frozen=True, kw_only=True):
     # --- [REGISTRATION]
 
     @abstractmethod
-    def acquisitions(self, identity: Identity, /) -> Outcome[Acquisitions]:
+    def acquisitions(self, identity: Identity, /) -> Acquisitions:
         """Builds command registrations."""
 
     # --- [CLASS_MEMBERS]
 
     def namespace(self, name: str, /) -> dict[str, object]:
-        """Returns class members with `REGISTER` and the undo flag beside the options, an undo group's name, and the poll message of condition faults."""
+        """Returns class members with native flags, undo group, and poll messages."""
         return {
             "bl_idname": name,
             "bl_label": f"{self.title}..." if self.asks else self.title,
             "bl_description": self.description,
-            "bl_options": self.options | {"REGISTER", *self.undo.flags},
-            **({"bl_undo_group": self.undo.group} if isinstance(self.undo, UndoGroup) else {}),
+            "bl_options": self.options | {"REGISTER"},
+            **self.undo_group.map(lambda group: {"bl_undo_group": group}).default_with(dict[str, str]),
             **polled(self.condition),
         }
 
@@ -183,12 +159,6 @@ class PopupTarget(msgspec.Struct, frozen=True):
     target: type[bpy.types.Menu | bpy.types.Panel | bpy.types.AssetShelf | _bpy_types.Menu | _bpy_types.Panel | _bpy_types.AssetShelf] | Key
     kind: PopupKind
 
-    def __post_init__(self) -> None:
-        """Refuses a class outside the kind's host base."""
-        base = self.kind.base
-        if not isinstance(self.target, str) and not issubclass(self.target, base):
-            raise TypeError(f"{self.target.__name__} does not extend {base.__name__}")
-
 
 class Placement(msgspec.Struct, frozen=True):
     """Operator with property values in the host keymap-data form."""
@@ -196,19 +166,24 @@ class Placement(msgspec.Struct, frozen=True):
     operator: Command | Operation | PopupTarget
     values: Mapping[str, Setting] = MappingProxyType({})
 
+    @property
+    def prerequisites(self) -> tuple[Declaration, ...]:
+        """Declarations the placed operator registers."""
+        return acquired((self.operator,))
+
     @classmethod
     def context(cls, operator: Operation, path: RnaPath, /, **values: Setting) -> Self:
         """Places a stock `wm.context_*` operator over a context path with its other property values."""
         return cls(operator, MappingProxyType({"data_path": rna(path), **values}))
 
-    def resolved(self, identity: Identity, /) -> Outcome[tuple[str, Pairs]]:
+    def resolved(self, identity: Identity, /) -> tuple[str, Pairs]:
         """Resolves operator idname and property pairs, an opened popup's name leading its call operator's values."""
         values = tuple(self.values.items())
         match self.operator:
             case PopupTarget(kind=kind) as opened:
-                return idname(identity, opened).map(lambda name: (_dotted(kind.operator), (("name", name), *values)))
+                return _dotted(kind.operator), (("name", idname(identity, opened)), *values)
             case operator:
-                return idname(identity, operator).map(lambda name: (name, values))
+                return idname(identity, operator), values
 
 
 class Done(msgspec.Struct, frozen=True, kw_only=True):
@@ -250,7 +225,7 @@ class BoundBody[S, T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True):
 
 
 class Operator[T: bpy.types.PropertyGroup](Command, frozen=True, kw_only=True):
-    """Form group and body with invoke form, keyed by the body function name unless stated, described by its docstring's first paragraph.
+    """Form group, identity-bound callbacks, body, and invoke form, keyed by the body function name unless stated, described by its docstring's first paragraph.
 
     Body function is the def `run` wraps, read through `__wrapped__`, `functools.partial`, and the step of a `BoundBody`.
     `describe` computes the tooltip from context and properties in place of the docstring.
@@ -258,6 +233,7 @@ class Operator[T: bpy.types.PropertyGroup](Command, frozen=True, kw_only=True):
 
     form: type[T]
     run: Callable[[Call[T]], Outcome[Answer]]
+    callbacks: Option[Callable[[Identity], Mapping[str, Callbacks[T]]]] = Nothing
     invoke: Option[Invoke[T]] = Nothing
     seed: Option[Callable[[T, bpy.types.Event, Identity], Mapping[str, Value]]] = Nothing
     draw: Option[Draw[T]] = Nothing
@@ -265,13 +241,6 @@ class Operator[T: bpy.types.PropertyGroup](Command, frozen=True, kw_only=True):
     describe: Option[Callable[[bpy.types.Context, T], str]] = Nothing
     primary: Option[str] = Nothing
     named: Option[Key] = Nothing
-
-    @override
-    def __post_init__(self) -> None:
-        """Refuses an undo flag in `options` and a body holding no function name or docstring."""
-        super().__post_init__()
-        if _documented(self.run).is_none():
-            raise TypeError(f"{self.run!r} has no function name or docstring")
 
     @staticmethod
     def of[U: bpy.types.PropertyGroup](form: type[U], /, **options: Unpack[Options[U]]) -> Callable[[Callable[[Call[U]], Outcome[Answer]]], "Operator[U]"]:
@@ -284,13 +253,13 @@ class Operator[T: bpy.types.PropertyGroup](Command, frozen=True, kw_only=True):
     @override
     def key(self) -> Key:
         """Stated key, else the body function name."""
-        return self.named.default_with(lambda: _documented(self.run).map(lambda found: found[0]).default_with(lambda: repr(self.run)))
+        return self.named.default_with(lambda: _documented(self.run)[0])
 
     @property
     @override
     def description(self) -> str:
         """First paragraph of the body docstring."""
-        return _documented(self.run).map(lambda found: " ".join(found[1].split("\n\n")[0].split()).removesuffix(".")).default_value("")
+        return " ".join(_documented(self.run)[1].split("\n\n")[0].split()).removesuffix(".")
 
     @property
     @override
@@ -312,28 +281,25 @@ class Operator[T: bpy.types.PropertyGroup](Command, frozen=True, kw_only=True):
         return self.primary.or_else(Some(enums[0]) if len(enums) == 1 else Nothing)
 
     @override
-    def acquisitions(self, identity: Identity, /) -> Outcome[Acquisitions]:
+    def acquisitions(self, identity: Identity, /) -> Acquisitions:
         """Builds the form's property groups, then the operator class its invoke form derives with that form's release scopes."""
-        body = Body(command=self, identity=identity)
-
-        def classed(name: str) -> Outcome[Acquisitions]:
-            base: type[bpy.types.Operator] = type(
-                name,
-                (bpy.types.Operator,),
-                {
-                    "__annotations__": annotated(self.form),
-                    "execute": body.execute,
-                    **self.namespace(name),
-                    **self.bl_property.map(lambda member: {"bl_property": member}).default_value({}),
-                    **self.draw.map(lambda _: {"draw": body.draw}).default_value({}),
-                    **self.check.map(lambda callback: {"check": callback}).default_value({}),
-                    **self.describe.map(lambda describe: {"description": classmethod(lambda _cls, context, properties: describe(context, properties))}).default_value({}),
-                    **self.seed.map(lambda _: {"invoke": body.invoking(lambda operator, context, _event: Ok(body.execute(operator, context)))}).default_value({}),
-                },
-            )
-            return self.invoke.map(lambda form: form.classed(body, base)).default_value(Ok((base,))).map(lambda classes: (*nested(self.form), *classes))
-
-        return identity.name(bpy.types.Operator, self.key).bind(classed)
+        name, body = identity.name(bpy.types.Operator, self.key), Body(command=self, identity=identity)
+        form = self.callbacks.map(lambda callbacks: rebound(self.form, **callbacks(identity))).default_value(self.form)
+        base: type[bpy.types.Operator] = type(
+            name,
+            (bpy.types.Operator,),
+            {
+                "__annotations__": annotated(form),
+                "execute": body.execute,
+                **self.namespace(name),
+                **self.bl_property.map(lambda member: {"bl_property": member}).default_value({}),
+                **self.draw.map(lambda _: {"draw": body.draw}).default_value({}),
+                **self.check.map(lambda callback: {"check": callback}).default_value({}),
+                **self.describe.map(lambda describe: {"description": classmethod(lambda _cls, context, properties: describe(context, properties))}).default_value({}),
+                **self.seed.map(lambda _: {"invoke": body.invoking(lambda operator, context, _event: Ok(body.execute(operator, context)))}).default_value({}),
+            },
+        )
+        return (*nested(form), *self.invoke.map(lambda invoked: invoked.classed(body, base)).default_value((base,)))
 
 
 class Body[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True):
@@ -352,8 +318,7 @@ class Body[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True
 
     def derived(self, base: type[bpy.types.Operator], namespace: Mapping[str, object], /, *mixins: type) -> type[bpy.types.Operator]:
         """Returns the class an invoke form registers for base after the mixins, restating `bl_property` Blender reads from a class's own namespace."""
-        derived: type[bpy.types.Operator] = type(base.__name__, (*mixins, base), {**self.command.bl_property.map(lambda member: {"bl_property": member}).default_value({}), **namespace})
-        return derived
+        return type(base.__name__, (*mixins, base), {**self.command.bl_property.map(lambda member: {"bl_property": member}).default_value({}), **namespace})  # ty: ignore[unsound-return-statement]
 
     # --- [REPORTS]
 
@@ -394,15 +359,15 @@ class Body[T: bpy.types.PropertyGroup](msgspec.Struct, frozen=True, kw_only=True
 
         return execute
 
-    def modal_finished(self, operator: bpy.types.Operator, context: bpy.types.Context, release: Callable[[bool], Outcome[None]], /) -> Returns:
+    def modal_finished(self, operator: bpy.types.Operator, context: bpy.types.Context, release: Callable[[Option[bpy.types.Context]], Outcome[None]], /) -> Returns:
         """Runs the command after a modal run, releasing the run kept on Done and rolled back otherwise."""
         match self.performed(operator, context):
             case Result(tag="ok", ok=Done() as done):
-                return self.finished(operator, Ok(release(False).map(lambda _: done).default_with(lambda faults: msgspec.structs.replace(done, skipped=(*done.skipped, *faults)))))
+                return self.finished(operator, Ok(release(Nothing).map(lambda _: done).default_with(lambda faults: msgspec.structs.replace(done, skipped=(*done.skipped, *faults)))))
             case Result(tag="ok", ok=Unchanged() as unchanged):
-                return self.finished(operator, release(True).map(lambda _: unchanged))
+                return self.finished(operator, release(Some(context)).map(lambda _: unchanged))
             case Result(error=faults):
-                return self.noted(operator, (*rendered(faults), *release(True).map(lambda _: ()).default_with(rendered)), "CANCELLED")
+                return self.noted(operator, (*rendered(faults), *release(Some(context)).map(lambda _: ()).default_with(rendered)), "CANCELLED")
 
     # --- [DRAW]
 
@@ -445,38 +410,40 @@ class Macro(Command, frozen=True, kw_only=True):
     description: str = msgspec.field()
     steps: tuple[Placement, *tuple[Placement, ...]]
 
+    @property
+    def prerequisites(self) -> tuple[Declaration, ...]:
+        """Declarations the macro's steps register."""
+        return acquired(self.steps)
+
     @override
-    def acquisitions(self, identity: Identity, /) -> Outcome[Acquisitions]:
+    def acquisitions(self, identity: Identity, /) -> Acquisitions:
         """Builds macro class, defining its steps after class registration."""
+        name = identity.name(bpy.types.Operator, self.key)
+        kind: type[bpy.types.Macro] = type(name, (bpy.types.Macro,), self.namespace(name))
 
-        def built(name: str) -> Acquisitions:
-            kind: type[bpy.types.Macro] = type(name, (bpy.types.Macro,), self.namespace(name))
+        @contextmanager
+        def defined() -> Generator[Outcome[None]]:
+            yield accumulated(filled(placed, kind.define(placed[0]).properties) for step in self.steps for placed in (step.resolved(identity),)).map(lambda _: None)
 
-            @contextmanager
-            def defined() -> Generator[Outcome[None]]:
-                yield accumulated(step.resolved(identity).bind(lambda placed: filled(placed, kind.define(placed[0]).properties)) for step in self.steps).map(lambda _: None)
-
-            return kind, (Tier.OPERATORS, defined())
-
-        return identity.name(bpy.types.Operator, self.key).map(built)
+        return kind, (Tier.OPERATORS, defined())
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 # --- [CALLS]
 
 
-def idname(identity: Identity, target: Command | Operation | PopupTarget, /) -> Outcome[str]:
+def idname(identity: Identity, target: Command | Operation | PopupTarget, /) -> str:
     """Resolves an extension key under its host name form, a class's RNA identifier, or a stock operator's `bpy.ops` path."""
     match target:
         case PopupTarget(target=str(key), kind=kind):
             return identity.name(kind.base, key)
         case PopupTarget(target=opened):
             declared: type[Struct] = opened  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-            return Result[str, Faults].Ok(definition(declared).identifier)
+            return definition(declared).identifier
         case Command() as command:
             return identity.name(bpy.types.Operator, command.key)
         case _:
-            return Result[str, Faults].Ok(_dotted(target))
+            return _dotted(target)
 
 
 def operation(identity: Identity, target: Command | Operation, /) -> Outcome[Operation]:
@@ -488,7 +455,8 @@ def operation(identity: Identity, target: Command | Operation, /) -> Outcome[Ope
         rna_type(held)
         return held
 
-    return idname(identity, target).bind(lambda dotted: catch(found, exception=KeyError)(dotted).map_error(partial(Fault.of, Reason.ABSENT, "bpy.ops", member=dotted)))
+    dotted = idname(identity, target)
+    return catch(found, exception=KeyError)(dotted).map_error(partial(Fault.of, Reason.ABSENT, "bpy.ops", member=dotted))
 
 
 def filled(placed: tuple[str, Pairs], properties: object, /) -> Outcome[None]:
@@ -530,13 +498,13 @@ def called(
 
 def rna_type(operator: Operation, /) -> bpy.types.Struct:
     """Returns the RNA type definition of a `bpy.ops` operator, which the stubs type as a plain function."""
-    found: bpy.types.Struct = operator.get_rna_type()  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    found: bpy.types.Struct = operator.get_rna_type()  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute, unsound-assignment]
     return found
 
 
 def _dotted(operator: Operation, /) -> str:
     """Returns the `bpy.ops` path of an operator, which the stubs type as a plain function."""
-    identifier: str = operator.idname_py()  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    identifier: str = operator.idname_py()  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute, unsound-assignment]
     return identifier
 
 
@@ -584,22 +552,23 @@ def confirmed[S, T: bpy.types.PropertyGroup](
 # --- [BODIES]
 
 
-def _documented(run: Callable[..., object], /) -> Option[tuple[str, str]]:
-    """Returns the name and docstring of the def a body wraps through `__wrapped__`, `functools.partial`, and a `BoundBody` step, Nothing for a callable with neither."""
-    unwrapped: Callable[..., object] = inspect.unwrap(run)
-    match unwrapped:
-        case partial(func=func) | BoundBody(step=func):
-            return _documented(func)
-        case FunctionType() | MethodType() as found if (doc := inspect.getdoc(found)) is not None:
-            return Some((found.__name__, doc))
-        case _:
-            return Nothing
+def _documented(run: Callable[..., object], /) -> tuple[str, str]:  # type: ignore[explicit-any]
+    """Returns callable metadata through wrappers, partials, and bound bodies."""
+    while True:
+        unwrapped: Callable[..., object] = inspect.unwrap(run)  # type: ignore[explicit-any]
+        match unwrapped:
+            case partial(func=func) | BoundBody(step=func):
+                run = func
+            case FunctionType() | MethodType() as found:
+                return found.__name__, inspect.getdoc(found) or ""
+            case _:
+                return type(unwrapped).__name__, inspect.getdoc(unwrapped) or ""
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
-@Operator.of(Empty, icon=Some("X"), options=frozenset({"INTERNAL"}), undo=NoUndo())
+@Operator.of(Empty, icon=Some("X"), options=frozenset({"INTERNAL"}))
 def dismiss_reports(call: Call[Empty]) -> Outcome[Answer]:
     """Clears the extension's held callback reports."""
     return Ok(Done() if call.identity.reports.cleared() else Unchanged(reason="No reports are held"))
@@ -618,7 +587,6 @@ __all__ = [
     "Empty",
     "Invoke",
     "Macro",
-    "NoUndo",
     "Notes",
     "Operation",
     "Operator",
@@ -630,9 +598,6 @@ __all__ = [
     "Returns",
     "Setting",
     "Unchanged",
-    "Undo",
-    "UndoGroup",
-    "UndoStep",
     "answered",
     "called",
     "confirmed",

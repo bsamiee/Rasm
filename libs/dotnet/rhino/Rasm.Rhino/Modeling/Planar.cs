@@ -39,15 +39,14 @@ public sealed record PlanarGeometry {
 
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record ConcaveCriterion {
-    private ConcaveCriterion(bool valid) => Valid = valid;
+    public bool Valid => Switch(maximumEdgeLength: static criterion => double.IsFinite(criterion.Length) && criterion.Length >= 0d,
+        maximumEdgeLengthRatio: static criterion => criterion.Ratio is >= 0d and <= 1d, alpha: static criterion => double.IsFinite(criterion.Radius) && criterion.Radius >= 0d);
 
-    public bool Valid { get; }
+    public sealed record MaximumEdgeLength(double Length) : ConcaveCriterion;
 
-    public sealed record MaximumEdgeLength(double Length) : ConcaveCriterion(double.IsFinite(Length) && Length >= 0d);
+    public sealed record MaximumEdgeLengthRatio(double Ratio) : ConcaveCriterion;
 
-    public sealed record MaximumEdgeLengthRatio(double Ratio) : ConcaveCriterion(Ratio is >= 0d and <= 1d);
-
-    public sealed record Alpha(double Radius) : ConcaveCriterion(double.IsFinite(Radius) && Radius >= 0d);
+    public sealed record Alpha(double Radius) : ConcaveCriterion;
 }
 
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]

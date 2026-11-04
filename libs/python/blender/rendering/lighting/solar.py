@@ -1,4 +1,4 @@
-"""NOAA sun positions, solar days, sun paths, and studies."""
+"""NREL sun positions, solar days, sun paths, and studies."""
 
 import calendar
 import datetime
@@ -12,6 +12,7 @@ from expression.extra.result import catch
 import msgspec
 import numpy as np
 import numpy.typing as npt
+from pvlib import spa  # type: ignore[import-untyped]
 
 from blender.records.faults import Fault, Outcome, Reason
 from blender.records.fields import Bearing, Count, Frozen, Inclination
@@ -83,27 +84,9 @@ class SunPosition(Frozen, frozen=True, kw_only=True, eq=False):
 
     @staticmethod
     def equatorial(longitude: float, seconds: npt.NDArray[np.float64]) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
-        """Returns NOAA declination and hour angle."""
-        days = seconds / _DAY_SECONDS
-        t = (days - 10957.5) / 36525.0
-        mean = np.radians(np.mod(280.46646 + t * (36000.76983 + t * 0.0003032), 360.0))
-        anomaly = np.radians(357.52911 + t * (35999.05029 - t * 0.0001537))
-        anomaly_sine, double_anomaly_sine = np.sin(anomaly), np.sin(2.0 * anomaly)
-        eccentricity = 0.016708634 - t * (0.000042037 + t * 0.0000001267)
-        omega = np.radians(125.04 - 1934.136 * t)
-        apparent = mean + np.radians(
-            anomaly_sine * (1.914602 - t * (0.004817 + t * 0.000014)) + double_anomaly_sine * (0.019993 - t * 0.000101) + np.sin(3.0 * anomaly) * 0.000289 - 0.00569 - 0.00478 * np.sin(omega)
-        )
-        obliquity = np.radians(23.0 + (26.0 + (21.448 - t * (46.815 + t * (0.00059 - t * 0.001813))) / 60.0) / 60.0 + 0.00256 * np.cos(omega))
-        y = np.tan(obliquity / 2.0) ** 2
-        equation = (
-            y * np.sin(2.0 * mean)
-            - 2.0 * eccentricity * anomaly_sine
-            + 4.0 * eccentricity * y * anomaly_sine * np.cos(2.0 * mean)
-            - 0.5 * y**2 * np.sin(4.0 * mean)
-            - 1.25 * eccentricity**2 * double_anomaly_sine
-        )
-        return np.arcsin(np.sin(obliquity) * np.sin(apparent)), math.tau * np.mod(days, 1.0) - math.pi + longitude + equation
+        """Returns NREL declination and hour angle in the input shape."""
+        sidereal, ascension, declination = spa.solar_position(seconds.ravel(), 0.0, 0.0, 0.0, 0.0, 0.0, delta_t=0.0, atmos_refract=0.0, sst=True)
+        return np.radians(declination).reshape(seconds.shape), np.radians(spa.local_hour_angle(sidereal, math.degrees(longitude), ascension)).reshape(seconds.shape)
 
     @classmethod
     def of(cls, site: Site, declination: npt.NDArray[np.float64], hour: npt.NDArray[np.float64]) -> Self:
@@ -124,20 +107,11 @@ class SunPosition(Frozen, frozen=True, kw_only=True, eq=False):
     # --- [REFRACTION]
 
     def apparent(self) -> Self:
-        """Adds NOAA atmospheric refraction to elevation."""
+        """Adds NREL standard-atmosphere refraction above the apparent horizon."""
         degrees = np.degrees(self.elevation)
-        band = np.digitize(degrees, (-0.575, 5.0, 85.0), right=True)
-        arcseconds = np.piecewise(
-            degrees,
-            [band == index for index in range(3)],
-            [
-                lambda e: -20.774 / np.tan(np.radians(e)),
-                lambda e: 1735.0 + e * (-518.2 + e * (103.4 + e * (-12.79 + e * 0.711))),
-                lambda e: (cot := 1.0 / np.tan(np.radians(e))) * (58.1 + cot**2 * (-0.07 + cot**2 * 0.000086)),
-                0.0,
-            ],
-        )
-        return msgspec.structs.replace(self, elevation=self.elevation + np.radians(arcseconds / 3600.0))
+        refraction = 0.5667
+        correction = np.piecewise(degrees, [degrees >= -(0.26667 + refraction)], [functools.partial(spa.atmospheric_refraction_correction, 1013.25, 12.0, atmos_refract=refraction), 0.0])
+        return msgspec.structs.replace(self, elevation=self.elevation + np.radians(correction))
 
 
 class Daylight(msgspec.Struct, frozen=True, kw_only=True):
@@ -157,36 +131,24 @@ class SolarDay(msgspec.Struct, frozen=True, kw_only=True):
     def of(cls, site: Site, date: datetime.date) -> Outcome[Self]:
         """Solves solar noon and horizon crossings, `FAILED` fault on overflow."""
         zone = site.clock
-        side = np.array([0.0, -1.0, 1.0], dtype=np.float64)
-        latitude_sine, latitude_cosine = math.sin(site.latitude), math.cos(site.latitude)
-        horizon = math.cos(math.radians(90.833))
-
-        def reach(seconds: npt.NDArray[np.float64]) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
-            declination, hour = SunPosition.equatorial(site.longitude, seconds)
-            return hour, (horizon - latitude_sine * np.sin(declination)) / (latitude_cosine * np.cos(declination))
-
-        def step(seconds: npt.NDArray[np.float64], _: int) -> npt.NDArray[np.float64]:
-            hour, ratio = reach(seconds)
-            offset = hour - np.arccos(np.clip(ratio, -1.0, 1.0)) * side
-            return seconds - ((offset + math.pi) % math.tau - math.pi) * _DAY_SECONDS / math.tau
-
-        solved = functools.reduce(step, range(3), np.full(side.shape, datetime.datetime.combine(date, datetime.time(12), tzinfo=zone).timestamp(), dtype=np.float64))
+        middle = datetime.datetime.combine(date, datetime.time(12), tzinfo=zone).timestamp()
+        days = (math.floor(middle / _DAY_SECONDS) + np.arange(1, -2, -1, dtype=np.float64)) * _DAY_SECONDS
+        transit, sunrise, sunset = spa.transit_sunrise_sunset(days, math.degrees(site.latitude), math.degrees(site.longitude), delta_t=0.0, numthreads=1)
+        index = int(np.abs(transit - middle).argmin())
+        noon_stamp, sunrise_stamp, sunset_stamp = (float(values[index]) for values in (transit, sunrise, sunset))
         epoch = datetime.datetime(1970, 1, 1, tzinfo=datetime.UTC)
-        _, ratios = reach(solved)
-        ratio = float(ratios[0])
 
-        def lit(moments: tuple[datetime.datetime, ...]) -> Daylight | Polar:
-            match moments:
-                case [_, sunrise, sunset]:
-                    return Daylight(sunrise=sunrise, sunset=sunset)
-                case _:
-                    return Polar.DAY if ratio <= -1.0 else Polar.NIGHT
-
-        @catch(exception=OverflowError)
-        def crossed() -> tuple[datetime.datetime, ...]:
-            return tuple((epoch + datetime.timedelta(seconds=float(moment))).astimezone(zone) for moment in solved[: 3 if -1.0 < ratio < 1.0 else 1])
-
-        return crossed().map(lambda moments: cls(noon=moments[0], light=lit(moments))).map_error(functools.partial(Fault.of, Reason.FAILED, str(date)))
+        return catch(
+            lambda: cls(
+                noon=(epoch + datetime.timedelta(seconds=noon_stamp)).astimezone(zone),
+                light=(
+                    (Polar.DAY if float(SunPosition.at(site, transit[index : index + 1]).elevation[0]) > math.radians(-0.8333) else Polar.NIGHT)
+                    if math.isnan(sunrise_stamp)
+                    else Daylight(sunrise=(epoch + datetime.timedelta(seconds=sunrise_stamp)).astimezone(zone), sunset=(epoch + datetime.timedelta(seconds=sunset_stamp)).astimezone(zone))
+                ),
+            ),
+            exception=OverflowError,
+        )().map_error(functools.partial(Fault.of, Reason.FAILED, str(date)))
 
 
 class SunPaths(Frozen, frozen=True, kw_only=True, eq=False):
@@ -232,7 +194,7 @@ class SunPaths(Frozen, frozen=True, kw_only=True, eq=False):
 
 
 class Study(msgspec.Struct, frozen=True, kw_only=True):
-    """Moments stepped from a naive start on the zone clock, a sub-day remainder counting elapsed time and whole days keeping clock time."""
+    """Whole-day clock steps and other elapsed steps from a naive local start."""
 
     start: Annotated[datetime.datetime, msgspec.Meta(tz=False)]
     step: datetime.timedelta
@@ -241,10 +203,10 @@ class Study(msgspec.Struct, frozen=True, kw_only=True):
     def moments(self, zone: zoneinfo.ZoneInfo) -> Outcome[tuple[datetime.datetime, ...]]:
         """Returns study moments on the zone clock, `FAILED` fault on overflow."""
         first = self.start.replace(tzinfo=zone)
-        origin = first.astimezone(datetime.UTC) if self.step % _DAY else first
 
         @catch(exception=OverflowError)
         def stepped() -> tuple[datetime.datetime, ...]:
+            origin = first.astimezone(datetime.UTC) if self.step % _DAY else first
             return tuple((origin + frame * self.step).astimezone(zone) for frame in range(self.frames))
 
         return stepped().map_error(functools.partial(Fault.of, Reason.FAILED, f"{first} + {self.frames} x {self.step}"))

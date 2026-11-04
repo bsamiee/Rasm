@@ -4,7 +4,7 @@
 name                 = "rasm-site"
 version.workspace    = true
 edition.workspace    = true
-description          = "Where a site is and how its coordinates convert: validated latitude, longitude and elevation, time zone lookup, parcel boundaries with geodesic measures, coordinate reference systems with PROJ transformations, grid convergence and scale, and site frames anchored to a grid"
+description          = "Validated coordinates, time zones, geodesic parcel surveys, PROJ reference systems and transforms, grid factors, and frames"
 repository.workspace = true
 license.workspace    = true
 keywords             = ["geospatial", "crs", "georeference", "proj", "site"]
@@ -25,17 +25,21 @@ bench   = false
 [dependencies]
 nonempty-collections = { workspace = true }
 thiserror            = { workspace = true }
+validated            = { workspace = true }
 derive_more          = { workspace = true }
 serde                = { workspace = true }
 serde_json           = { workspace = true }
 serde_path_to_error  = { workspace = true }
 nutype               = { workspace = true }
+itertools            = { workspace = true }
 jiff                 = { workspace = true }
 nalgebra             = { workspace = true }
 uom                  = { workspace = true }
 geo                  = { workspace = true }
 geo-types            = { workspace = true }
+geographiclib-rs     = { workspace = true }
 proj                 = { workspace = true }
+projjson             = { workspace = true }
 tzf-rs               = { workspace = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------

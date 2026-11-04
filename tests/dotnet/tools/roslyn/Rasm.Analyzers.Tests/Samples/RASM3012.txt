@@ -1,0 +1,223 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.IO;
+using System.Runtime.CompilerServices;
+using LanguageExt;
+using Calendar = System.DateTime;
+
+internal sealed class FileReads(FileInfo file, FileInfo? optional) {
+    internal string Name => file.Name;
+
+    internal long Length {
+        get { return file.Length; }
+    }
+
+    internal string? Optional => optional?.Name;
+
+    internal string Upper => file.Name.ToUpperInvariant();
+
+    internal double Converted => file.Length;
+
+    [DisplayName("File name")]
+    internal string Displayed => file.Name;
+
+    internal long Measured {
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        get => file.Length;
+    }
+}
+
+internal sealed class PublicFileReads(FileInfo file, FileInfo? optional) {
+    public FileInfo File { get; } = file;
+
+    public FileInfo? OptionalFile { get; } = optional;
+
+    internal string {|#0:Name|} => File.Name;
+
+    internal long {|#1:Length|} {
+        get { return File.Length; }
+    }
+
+    internal string? {|#3:Optional|} => OptionalFile?.Name;
+}
+
+internal sealed class OwnedReads(FileInfo file) {
+    private readonly FileInfo Source = file;
+
+    public FileInfo File { get; } = file;
+
+    internal string {|#2:Owned|} => File.Name;
+
+    internal string Uppercase => Source.Name;
+
+    internal string Explicit => this.Source.Name;
+}
+
+internal static class StaticReads {
+    internal static DateTime {|#4:Utc|} => Calendar.UtcNow;
+
+    internal static int {|#5:Maximum|} => int.MaxValue;
+}
+
+internal sealed class ArrayReads(int[] values) {
+    internal int this[int index] => values[index];
+}
+
+internal sealed class MatrixReads(int[,] values) {
+    internal int this[int row, int column] {
+        get { return values[row, column]; }
+    }
+}
+
+internal sealed class ListReads(List<int> values) {
+    internal int this[int index] => values[index];
+
+    internal Action Clear => values.Clear;
+}
+
+internal sealed class PublicArrayReads(int[] values) {
+    public int[] Values { get; } = values;
+
+    internal int {|#6:this|}[int index] => Values[index];
+}
+
+internal sealed class PublicMatrixReads(int[,] values) {
+    public int[,] Values { get; } = values;
+
+    internal int {|#7:this|}[int row, int column] {
+        get { return Values[row, column]; }
+    }
+}
+
+internal sealed class PublicListReads(List<int> values) {
+    public List<int> Values { get; } = values;
+
+    internal int {|#8:this|}[int index] => Values[index];
+
+    internal Action {|#9:Clear|} => Values.Clear;
+}
+
+internal sealed class CollectionView(List<int> values) : IReadOnlyCollection<int> {
+    public int Count => values.Count;
+
+    public int Capacity => values.Capacity;
+
+    public IEnumerator<int> GetEnumerator() => values.GetEnumerator();
+
+    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+}
+
+internal sealed class PublicCollectionReads(List<int> values) {
+    public List<int> Values { get; } = values;
+
+    public int {|#10:Capacity|} => Values.Capacity;
+}
+
+internal sealed class HeldReads(Lazy<List<int>> delayed, Atom<List<int>> current) {
+    internal int Delayed => delayed.Value.Count;
+
+    internal int Current => current.Value.Count;
+}
+
+internal sealed class TransformedReads(List<int> values) {
+    internal int this[int index] => values[index + 1];
+
+    internal int First => values[0];
+}
+
+internal sealed class PermutedReads(int[,] values) {
+    internal int this[int row, int column] => values[column, row];
+}
+
+internal sealed class WritableReads(List<int> values) {
+    internal int this[int index] {
+        get => values[index];
+        set => values[index] = value;
+    }
+}
+
+internal abstract class LengthContract {
+    internal abstract long Length { get; }
+}
+
+internal sealed class OverriddenRead(FileInfo file) : LengthContract {
+    internal override long Length => file.Length;
+}
+
+internal class ExtensibleRead(List<int> values) {
+    internal virtual int Count => values.Count;
+}
+
+internal class CountContract {
+    internal int Count => 1;
+}
+
+internal sealed class HiddenRead(List<int> values) : CountContract {
+    internal new int Count => values.Count;
+}
+
+namespace UserDefined {
+    public sealed class {|RASM3006:Lazy|}<T>(T value) {
+        public T Value { get; } = value;
+    }
+
+    internal sealed class Read(Lazy<List<int>> value) {
+        public Lazy<List<int>> Source { get; } = value;
+
+        internal int {|#11:Count|} => Source.Value.Count;
+    }
+}
+
+internal sealed class PrivateAliases(FileInfo file) {
+    private readonly FileInfo Source = file;
+
+    private string {|#12:Name|} => Source.Name;
+
+    private long {|#13:Length|} => this.Source.Length;
+
+    private string ShadowedName => Source.Name;
+
+    private string NamedName => Source.Name;
+
+    internal string ReadName() => Name;
+
+    internal long ReadLength() => Length;
+
+    internal string ReadShadowed(FileInfo Source) => ShadowedName + Source.Name;
+
+    internal string ReadNamed() => NamedName + nameof(NamedName);
+}
+
+internal sealed class PrivateParameterAlias(FileInfo file) {
+    private string {|#14:Name|} => file.Name;
+
+    internal string Read() => Name;
+}
+
+internal class RestrictedReads(FileInfo file) {
+    internal FileInfo Shared { get; } = file;
+
+    protected FileInfo Protected { get; } = file;
+
+    public FileInfo Written { private get; set; } = file;
+
+    internal string SharedName => Shared.Name;
+
+    internal string ProtectedName => Protected.Name;
+
+    internal string WrittenName => Written.Name;
+}
+
+public static class GenericReads<T> {
+    public static int Count => typeof(T).GetFields().Length;
+}
+
+internal sealed class HiddenType;
+
+internal static class ConstructedReads {
+    internal static int {|#15:Public|} => GenericReads<string>.Count;
+
+    internal static int Hidden => GenericReads<HiddenType>.Count;
+}

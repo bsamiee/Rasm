@@ -22,24 +22,36 @@ use crate::{
 pub(crate) fn drawn<P>(frame: &mut Frame<'_>, program: &mut P, pane: Option<Pane>, logs: &TuiWidgetState, styles: &Styles)
 where P: Program {
     let rows = keymap::resolved(program.keys())
-        .unique_by(|row| KeyEvent::from(&**row))
-        .map(|row| (if row.modifiers.is_empty() { row.code.to_string() } else { format!("{}+{}", row.modifiers, row.code) }, row.action.to_string(), keymap::active(&row.action, pane)))
+        .map(|row| {
+            let active = keymap::active(&row.action, pane);
+            (row, active)
+        })
+        .filter(|(_, active)| *active || pane == Some(Pane::Keys))
+        .unique_by(|(row, active)| (KeyEvent::from(&**row), *active))
+        .map(|(row, active)| (if row.modifiers.is_empty() { row.code.to_string() } else { format!("{}+{}", row.modifiers, row.code) }, row.action.to_string(), active))
         .collect::<Vec<_>>();
     let toned = |active: bool, style: &anstyle::Style| if active { *style } else { *styles.get_placeholder() };
     let bordered = |shown: Pane| Block::bordered().title(Line::styled(shown.to_string(), *styles.get_header()));
     let gap = Span::raw("  ");
     let width = usize::from(frame.area().width);
-    let footer =
-        rows.iter()
-            .filter(|(_, _, active)| *active)
-            .map(|(key, action, _)| Line::from_iter([Span::styled(key.as_str(), *styles.get_literal()), Span::raw(" "), Span::styled(action.as_str(), *styles.get_context())]))
-            .coalesce(|line, hint| {
-                if line.width().saturating_add(gap.width()).saturating_add(hint.width()) <= width { Ok(iter::chain(line, iter::once(gap.clone())).chain(hint).collect()) } else { Err((line, hint)) }
-            })
-            .collect::<Text<'_>>();
+    let footer = rows
+        .iter()
+        .filter(|(_, _, active)| *active)
+        .map(|(key, action, _)| Line::from_iter([Span::styled(key.as_str(), *styles.get_literal()), Span::raw(" "), Span::styled(action.as_str(), *styles.get_context())]))
+        .map(|line| (line.width(), line))
+        .coalesce(|(occupied, mut line), (next, hint)| {
+            let joined = occupied.saturating_add(gap.width()).saturating_add(next);
+            if joined <= width {
+                line.extend(iter::once(gap.clone()).chain(hint));
+                Ok((joined, line))
+            } else {
+                Err(((occupied, line), (next, hint)))
+            }
+        })
+        .map(|(_, line)| line)
+        .collect::<Text<'_>>();
     let [body, lower, bottom] =
-        Layout::vertical([Constraint::Fill(2), pane.map_or(Constraint::Length(0), |_shown| Constraint::Fill(1)), Constraint::Length(u16::try_from(footer.height()).unwrap_or(u16::MAX))])
-            .areas(frame.area());
+        Layout::vertical([Constraint::Fill(2), pane.map_or(Constraint::Length(0), |_shown| Constraint::Fill(1)), Constraint::Length(footer.height().saturating_cast())]).areas(frame.area());
     program.view(frame, body, styles);
     match pane {
         Some(shown @ Pane::Logs) => frame.render_widget(

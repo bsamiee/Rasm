@@ -1,16 +1,17 @@
 """Effects an extension offers together over scene compositor entries: phases ranking them, rivals sharing a rank, placement, moves, removal, holds, refresh, the pointwise read, entry commands, the add menu the stock one opens, and the handlers keeping entries current."""
 
-from collections.abc import Generator, Mapping
+from collections.abc import Callable, Generator, Mapping
 from contextlib import contextmanager, ExitStack
 from enum import Enum
 from functools import cached_property, partial, reduce
+from itertools import chain, starmap
 from operator import or_
 from types import MappingProxyType
 from typing import Final, TYPE_CHECKING
 
 from bl_ui.properties_compositor import SCENE_MT_add_compositor_effect
 import bpy
-from expression import Error, Nothing, Ok, Option, Result, Some
+from expression import Option, Result, Some
 from expression.collections import Block
 from expression.extra.result import catch
 import msgspec
@@ -20,27 +21,27 @@ from blender.bpy.commands.invocations import Open
 from blender.bpy.commands.operators import Answer, Call, Done, Empty, Operator, Placement, PopupKind, PopupTarget, Unchanged
 from blender.bpy.data.ids.ownership import Mark, Ownership, retained
 from blender.bpy.data.ids.store import Handle
-from blender.bpy.data.rna.descriptors import Descriptor, Value, written
-from blender.bpy.data.rna.paths import rooted
+from blender.bpy.data.rna.descriptors import Value, written
+from blender.bpy.data.rna.paths import definition, rooted
 from blender.bpy.data.rna.properties import Callbacks, choices, rebound
 from blender.bpy.data.rna.snapshots import Snapshot
-from blender.bpy.extension.events import Handler, Subscription, updated
+from blender.bpy.extension.events import updated
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.extension.registration import Acquisitions, Declaration
+from blender.bpy.extension.registration import Acquisitions, Declaration, Handler, Subscription
 from blender.bpy.files.interchange import dropped_in, Interchange
 from blender.bpy.nodes.desired import item_key
-from blender.bpy.render.compositor.effects import CompositorEffect, Entry, FromFile, Named, Replaced
+from blender.bpy.render.compositor.effects import CompositorEffect, CompositorRecord, Entry, FromFile, Mix, Named
 from blender.bpy.render.compositor.entries import added_entry, EXECUTING, marked, Pinned, relocated, StackEnd
 from blender.bpy.render.compositor.inputs import captured, defaulted, FRAMING, hold, holding, PreviewFrame, valued, WORKING_SPACE
 from blender.bpy.render.compositor.masks import BLEND, MODE, OPACITY
 from blender.bpy.render.outputs.framing import FrameSize
-from blender.bpy.render.outputs.results import RENDER_ORIGINS, RenderOrigin
+from blender.bpy.render.outputs.results import RENDER_ORIGINS
 from blender.bpy.scene import cameras
 from blender.bpy.settings.attachments import Stored
 from blender.bpy.ui.elements.menus import Append, Menu, Submenus
 from blender.bpy.ui.layout.rows import Opens, OperatorButton
-from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, Reason, typed
-from blender.records.fields import Case
+from blender.imaging.geometry.frames import Raster
+from blender.records.faults import accumulated, Error, Fault, Faults, Nothing, Ok, Outcome, paired, Reason
 from blender.records.trees import Toward
 
 if TYPE_CHECKING:
@@ -64,7 +65,8 @@ class Move(Enum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_TREE_ICON: Final = Descriptor.declared(bpy.types.SpaceNodeEditor, ("tree_type",), bpy.types.EnumProperty).prop.enum_items[bpy.types.CompositorNodeTree.__name__].icon
+_TREE_TYPE: Final[bpy.types.EnumProperty] = bpy.types.SpaceNodeEditor.bl_rna.properties["tree_type"]  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+_TREE_ICON: Final = _TREE_TYPE.enum_items[definition(bpy.types.CompositorNodeTree).identifier].icon
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -83,17 +85,11 @@ class Shift(Named):
     )
 
 
-class Exclusive[R: Case](msgspec.Struct, frozen=True, kw_only=True):
-    """Effects of one rank a stack holds one entry of."""
-
-    members: tuple[CompositorEffect[R], ...]
-
-
-class Phase[R: Case](msgspec.Struct, frozen=True, kw_only=True):
+class Phase(msgspec.Struct, frozen=True, kw_only=True):
     """Run of ranked effects in processing order under its key, each member one rank, the add menu filing them under the key's display name."""
 
     key: Key
-    members: tuple[CompositorEffect[R] | Exclusive[R], ...]
+    members: tuple[CompositorEffect | tuple[CompositorEffect, ...], ...]
 
     @property
     def title(self) -> str:
@@ -101,90 +97,91 @@ class Phase[R: Case](msgspec.Struct, frozen=True, kw_only=True):
         return bpy.path.display_name(self.key)
 
     @property
-    def ranked(self) -> tuple[tuple[CompositorEffect[R], ...], ...]:
+    def ranked(self) -> tuple[tuple[CompositorEffect, ...], ...]:
         """Effects of each rank in order."""
-        return tuple(member.members if isinstance(member, Exclusive) else (member,) for member in self.members)
+        return tuple((member,) if isinstance(member, CompositorEffect) else member for member in self.members)
 
 
-class Owned[R: Case](msgspec.Struct, frozen=True, kw_only=True):
+class Owned(msgspec.Struct, frozen=True, kw_only=True):
     """Entry whose group holds the ownership mark of an offered effect."""
 
     entry: bpy.types.SceneCompositorEffect
-    row: CompositorEffect[R]
+    row: CompositorEffect
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
 
-class OfferedEffects[R: Case](msgspec.Struct, frozen=True, kw_only=True, dict=True):
+class OfferedEffects(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     """Effects an extension offers in phases, their pinned groups, the commands editing their entries, the add menu the stock add menu opens, and the handlers keeping entries current."""
 
-    phases: tuple[Phase[R], ...]
+    phases: tuple[Phase, ...]
     pinned: tuple[Pinned, ...] = ()
 
     # --- [OFFERED_ROWS]
 
     @cached_property
-    def rows(self) -> tuple[CompositorEffect[R], ...]:
+    def rows(self) -> tuple[CompositorEffect, ...]:
         """Offered effects in rank order."""
         return tuple(row for phase in self.phases for rank in phase.ranked for row in rank)
 
     @cached_property
-    def keyed(self) -> Mapping[Key, CompositorEffect[R]]:
+    def keyed(self) -> Mapping[Key, CompositorEffect]:
         """Offered effects by each ownership key of their groups."""
         return MappingProxyType({owner.key: row for row in self.rows for owner in row.ownerships})
 
     @cached_property
-    def _placed(self) -> Mapping[Key, tuple[int, Phase[R], bool]]:
+    def _placed(self) -> Mapping[Key, tuple[int, Phase, bool]]:
         """Rank across every phase, phase, and rank exclusivity of each offered effect by record key."""
         members = tuple((phase, member) for phase in self.phases for member in phase.members)
         return MappingProxyType({
-            row.kind: (index, phase, isinstance(member, Exclusive)) for index, (phase, member) in enumerate(members) for row in (member.members if isinstance(member, Exclusive) else (member,))
+            row.kind: (index, phase, isinstance(member, tuple)) for index, (phase, member) in enumerate(members) for row in ((member,) if isinstance(member, CompositorEffect) else member)
         })
 
-    def rank(self, row: CompositorEffect[R]) -> int:
+    def rank(self, row: CompositorEffect) -> int:
         """Position of the phase member holding the effect, across every phase."""
         return self._placed[row.kind][0]
 
-    def phase(self, row: CompositorEffect[R]) -> Phase[R]:
+    def phase(self, row: CompositorEffect) -> Phase:
         """Phase holding the effect."""
         return self._placed[row.kind][1]
 
-    def rivals(self, row: CompositorEffect[R], other: CompositorEffect[R]) -> bool:
+    def rivals(self, row: CompositorEffect, other: CompositorEffect) -> bool:
         """Whether two effects share an exclusive rank, a stack holding one entry of either."""
         return self._placed[row.kind][2] and self.rank(row) == self.rank(other)
 
-    @property
-    def form(self) -> TypeForm[R]:
+    @cached_property
+    def form(self) -> TypeForm[CompositorRecord]:
         """Union of offered record types."""
-        return reduce(or_, (row.record for row in self.rows))
+        return reduce(or_, (row.record for row in self.rows))  # ty: ignore[unsound-return-statement]
 
     @property
     def prerequisites(self) -> tuple[Declaration, ...]:
         """Frame size attachment camera frame derivation binds, and the cell of scenes under execution."""
         return (FrameSize.attachment, EXECUTING)
 
-    @property
-    def standalone(self) -> tuple[CompositorEffect[R], ...]:
-        """Effects needing neither render pass request nor file."""
-        return tuple(row for row in self.rows if row.request.is_none() and not isinstance(row.source, FromFile))
+    def standalone(self, scene: bpy.types.Scene) -> Outcome[tuple[CompositorEffect, ...]]:
+        """Effects whose scene-seeded records need neither render passes nor a chosen file."""
+        return accumulated(row.seeded(scene).map(lambda record: (row, record.requested)) for row in self.rows if not isinstance(row.source, FromFile)).map(
+            lambda found: tuple(row for row, request in found if request is None)
+        )
 
-    def offering(self, kind: Key | type[Case]) -> Outcome[CompositorEffect[R]]:
+    def offering(self, kind: Key | type[CompositorRecord]) -> Outcome[CompositorEffect]:
         """Finds the effect of a record key or exact record type."""
         key = kind if isinstance(kind, str) else item_key(kind)
         return Option.of_optional(self.keyed.get(key)).to_result_with(partial(Fault.of, Reason.ABSENT, repr(tuple(row.kind for row in self.rows)), member=key))
 
     # --- [ENTRIES]
 
-    def owned(self, identity: Identity, scene: bpy.types.Scene) -> tuple[Owned[R], ...]:
+    def owned(self, identity: Identity, scene: bpy.types.Scene) -> tuple[Owned, ...]:
         """Returns entries offered effects own, with their effects, in stack order."""
         return tuple(Owned(entry=entry, row=self.keyed[mark.key]) for entry, mark in marked(identity, scene) if mark.key in self.keyed)
 
-    def row(self, identity: Identity, entry: bpy.types.SceneCompositorEffect) -> Option[CompositorEffect[R]]:
+    def row(self, identity: Identity, entry: bpy.types.SceneCompositorEffect) -> Option[CompositorEffect]:
         """Returns the offered effect owning entry's group."""
         return Option.of_optional(entry.node_group).bind(lambda group: Mark.read(identity, group)).bind(lambda mark: Option.of_optional(self.keyed.get(mark.key)))
 
-    def found(self, identity: Identity, scene: bpy.types.Scene, name: str) -> Outcome[Owned[R]]:
+    def found(self, identity: Identity, scene: bpy.types.Scene, name: str) -> Outcome[Owned]:
         """Finds named owned entry, skipping user groups."""
         return (
             Option
@@ -193,20 +190,20 @@ class OfferedEffects[R: Case](msgspec.Struct, frozen=True, kw_only=True, dict=Tr
             .to_result_with(partial(Fault.of, Reason.ABSENT, repr(scene.compositor_effects), member=name))
         )
 
-    def held(self, identity: Identity, scene: bpy.types.Scene) -> tuple[CompositorEffect[R], ...]:
+    def held(self, identity: Identity, scene: bpy.types.Scene) -> tuple[CompositorEffect, ...]:
         """Returns effects holding an entry in the scene, in declaration order."""
         keys = frozenset(mark.key for _, mark in marked(identity, scene))
         return tuple(row for row in self.rows if any(owner.key in keys for owner in row.ownerships))
 
-    def pointwise(self, identity: Identity, entry: bpy.types.SceneCompositorEffect) -> Outcome[tuple[CompositorEffect[R], Entry[R], Mapping[Key, Value]]]:
+    def pointwise(self, identity: Identity, entry: bpy.types.SceneCompositorEffect) -> Outcome[tuple[CompositorEffect, Entry, Mapping[Key, Value]]]:
         """Reads an owned entry of a pointwise effect replacing its input or blending under no mask at the plain mode and full opacity, with its effect and input values by item key.
 
         Returns:
             `Ok` of the effect, entry record, and values. `Error` of `absent` for an entry no offered effect owns, and of `outside` for an effect reading neighbors or a blend that mixes.
         """
 
-        def plain(row: CompositorEffect[R], record: Entry[R], values: Mapping[Key, Value]) -> Outcome[tuple[CompositorEffect[R], Entry[R], Mapping[Key, Value]]]:
-            unmixed = isinstance(row.mix, Replaced) or (not record.blend.masks and all(values.get(item_key(BLEND, socket.key)) == socket.default_value for socket in (MODE, OPACITY)))
+        def plain(row: CompositorEffect, record: Entry, values: Mapping[Key, Value]) -> Outcome[tuple[CompositorEffect, Entry, Mapping[Key, Value]]]:
+            unmixed = row.mix is Mix.REPLACE or (not record.blend.masks and all(values.get(item_key(BLEND, socket.key)) == socket.default_value for socket in (MODE, OPACITY)))
             return paired(
                 Ok(None) if row.pointwise else Error(Fault.of(Reason.OUTSIDE, entry.name, row.kind, member="pointwise effects")),
                 Ok(None) if unmixed else Error(Fault.of(Reason.OUTSIDE, entry.name, repr(record.blend), member=f"plain {BLEND}")),
@@ -221,31 +218,33 @@ class OfferedEffects[R: Case](msgspec.Struct, frozen=True, kw_only=True, dict=Tr
 
     # --- [PLACEMENT]
 
-    def placed(self, identity: Identity, scene: bpy.types.Scene, row: CompositorEffect[R], record: Entry[R], *, preview: Option[PreviewFrame] = Nothing) -> Outcome[bpy.types.SceneCompositorEffect]:
+    def placed(
+        self, identity: Identity, scene: bpy.types.Scene, row: CompositorEffect, record: Entry, *, preview: Option[PreviewFrame] = Nothing, rasters: Option[tuple[Raster, Raster]] = Nothing
+    ) -> Outcome[bpy.types.SceneCompositorEffect]:
         """Places entry at rank under the preview frame, the held entry of a rival kept, applying holds and restoring the active entry."""
         prior = Option.of_optional(scene.compositor_effects.active)
         existing = Block.of_seq(self.owned(identity, scene)).filter(lambda held: self.rivals(row, held.row)).try_head().map(lambda held: held.entry)
 
         def added() -> Outcome[bpy.types.SceneCompositorEffect]:
-            return row.appended(identity, scene, record, preview=preview).bind(
+            return row.appended(identity, scene, record, preview=preview, rasters=rasters).bind(
                 lambda entry: (
                     hold(identity, scene, row.kind, row.holds)
                     .bind(lambda _: self.moved(identity, scene, entry.name, Nothing))
-                    .bind(lambda _: prior.map(lambda active: written(active, ("is_active",), True).map(lambda _: None)).default_value(Ok(None)))
+                    .bind(lambda _: prior.map(lambda active: written(active, ("is_active",), value=True).map(lambda _: None)).default_value(Ok(None)))
                     .map(lambda _: entry)
                 )
             )
 
         return existing.map(Ok).default_with(added)
 
-    def assigned(self, identity: Identity, scene: bpy.types.Scene, record: R) -> Outcome[bpy.types.SceneCompositorEffect]:
+    def assigned(self, identity: Identity, scene: bpy.types.Scene, record: CompositorRecord) -> Outcome[bpy.types.SceneCompositorEffect]:
         """Writes the earliest entry of the record's type or places a new one."""
 
-        def assigned(row: CompositorEffect[R]) -> Outcome[bpy.types.SceneCompositorEffect]:
+        def assigned(row: CompositorEffect) -> Outcome[bpy.types.SceneCompositorEffect]:
             return (
                 row
                 .earliest(identity, scene)
-                .map(lambda entry: row.revised(identity, scene, entry, lambda _: Ok(record)).map(lambda _: entry))
+                .map(lambda entry: row.revised(identity, scene, entry, lambda _: Ok(record), form=row.record).map(lambda _: entry))
                 .default_with(lambda: self.placed(identity, scene, row, Entry(record=record)))
             )
 
@@ -254,12 +253,11 @@ class OfferedEffects[R: Case](msgspec.Struct, frozen=True, kw_only=True, dict=Tr
     def moved(self, identity: Identity, scene: bpy.types.Scene, name: str, toward: Option[Toward]) -> Outcome[bool]:
         """Moves named owned entry alone one step, else into its rank, answering whether it moved."""
 
-        def moved(held: Owned[R]) -> Outcome[bool]:
+        def moved(held: Owned) -> Outcome[bool]:
             order = tuple(scene.compositor_effects)
             tail = frozenset(pinned.ownership.key for pinned in self.pinned if pinned.edge is StackEnd.TAIL)
-            above = frozenset(entry for entry, mark in marked(identity, scene) if mark.key in tail) | frozenset(
-                owned.entry for owned in self.owned(identity, scene) if self.rank(owned.row) > self.rank(held.row)
-            )
+            rank = self.rank(held.row)
+            above = frozenset(entry for entry, mark in marked(identity, scene) for row in (self.keyed.get(mark.key),) if mark.key in tail or (row is not None and self.rank(row) > rank))
             others = tuple(entry for entry in order if entry != held.entry)
             ranked = next((index for index, entry in enumerate(others) if entry in above), len(others))
             return relocated(scene, held.entry, toward.map(lambda step: step.stepped(order.index(held.entry), len(order))).default_value(ranked))
@@ -269,7 +267,7 @@ class OfferedEffects[R: Case](msgspec.Struct, frozen=True, kw_only=True, dict=Tr
     def removed(self, identity: Identity, scene: bpy.types.Scene, name: str) -> Outcome[None]:
         """Removes owned entry, unused groups, and last-entry holds."""
 
-        def removed(held: Owned[R]) -> Outcome[None]:
+        def removed(held: Owned) -> Outcome[None]:
             row = held.row
             return (
                 Result[None, Faults]
@@ -285,7 +283,7 @@ class OfferedEffects[R: Case](msgspec.Struct, frozen=True, kw_only=True, dict=Tr
 
     # --- [SCENE_SETTINGS]
 
-    def release(self, identity: Identity, scene: bpy.types.Scene, row: CompositorEffect[R]) -> Outcome[None]:
+    def release(self, identity: Identity, scene: bpy.types.Scene, row: CompositorEffect) -> Outcome[None]:
         """Restores held scene settings, reapplying camera holds of remaining effects."""
 
         def released(store: Stored[dict[Key, Snapshot]], values: dict[Key, Snapshot]) -> Outcome[None]:
@@ -307,12 +305,9 @@ class OfferedEffects[R: Case](msgspec.Struct, frozen=True, kw_only=True, dict=Tr
         """Separates per-entry groups, places missing pinned entries, and releases stale holds, answering whether an entry changed."""
 
         def separated(entry: bpy.types.SceneCompositorEffect, owner: Ownership[bpy.types.NodeTree], group: bpy.types.NodeTree) -> Outcome[bool]:
-            return (
-                typed(bpy.types.NodeTree, group.name, group.copy())
-                .bind(lambda copied: owner.owned(identity, copied, of=Some(scene)))
-                .bind(lambda owned: written(entry, ("node_group",), owned))
-                .map(lambda _: True)
-            )
+            with ExitStack() as rollback:
+                copied: bpy.types.NodeTree = group.copy()  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+                return retained(owner.owned(identity, copied, of=Some(scene), scope=Some(rollback)).bind(lambda owned: written(entry, ("node_group",), owned)).map(lambda _: True), rollback)
 
         def placed(pinned: Pinned, group: bpy.types.CompositorNodeTree) -> Outcome[bool]:
             with ExitStack() as rollback:
@@ -326,23 +321,24 @@ class OfferedEffects[R: Case](msgspec.Struct, frozen=True, kw_only=True, dict=Tr
             for group in Option.of_optional(owned.entry.node_group).to_list()
             if Mark.read(identity, group).filter(lambda mark: mark.key == owner.key).is_some()
         )
-        keeper = {group.session_uid: entry for entry, _, group in reversed(personal)}
+        keeper: dict[int, bpy.types.SceneCompositorEffect] = {}
+        for entry, _, group in personal:
+            keeper.setdefault(group.session_uid, entry)
         absent = (
             (pinned, groups[0])
             for pinned in self.pinned
             for groups in (tuple(group for group, mark in pinned.ownership.held(identity) if mark.of == Some(scene)),)
             if groups and not any(entry.node_group in groups for entry in scene.compositor_effects)
         )
+        changed = False
+        for result in chain((separated(entry, owner, group) for entry, owner, group in personal if keeper[group.session_uid] != entry), starmap(placed, absent)):
+            if result.is_error():
+                return Error(result.error)
+            changed = result.ok or changed
         return (
-            reduce(lambda done, shared: done.bind(lambda _: separated(*shared)), ((entry, owner, group) for entry, owner, group in personal if keeper[group.session_uid] != entry), Ok(False))
-            .bind(lambda changed: reduce(lambda done, missing: done.bind(lambda _: placed(*missing)), absent, Ok(changed)))
-            .bind(
-                lambda changed: (
-                    holding(identity, scene)
-                    .bind(lambda pair: accumulated(self.release(identity, scene, row) for row in self.rows if row.kind in pair[1] and not row.entries(identity, scene)))
-                    .map(lambda _: changed)
-                )
-            )
+            holding(identity, scene)
+            .bind(lambda pair: accumulated(self.release(identity, scene, row) for row in self.rows if row.kind in pair[1] and not row.entries(identity, scene)))
+            .map(lambda _: changed)
         )
 
     # --- [COMMANDS]
@@ -358,11 +354,11 @@ class OfferedEffects[R: Case](msgspec.Struct, frozen=True, kw_only=True, dict=Tr
         return Operator.of(self.choice)(self.add_effect)
 
     @cached_property
-    def opening(self) -> tuple[tuple[CompositorEffect[R], Operator[Empty]], ...]:
+    def opening(self) -> tuple[tuple[CompositorEffect, Operator[Empty]], ...]:
         """Per-row commands of effects opened from files, the drop handler's operators."""
 
-        def command(row: CompositorEffect[R], opened: FromFile[R]) -> Operator[Empty]:
-            return Operator.of(Empty, named=Some(f"add_{row.kind}"), invoke=Some(Open(extensions=lambda _: opened.extensions())))(partial(self.open_effect, row))
+        def command(row: CompositorEffect, opened: FromFile) -> Operator[Empty]:
+            return Operator(form=Empty, named=Some(f"add_{row.kind}"), invoke=Some(Open[Empty](extensions=lambda _: opened.extensions())), run=partial(self.open_effect, row, opened.of))
 
         return tuple((row, command(row, opened)) for row in self.rows for opened in (row.source,) if isinstance(opened, FromFile))
 
@@ -401,10 +397,9 @@ class OfferedEffects[R: Case](msgspec.Struct, frozen=True, kw_only=True, dict=Tr
             .map(lambda _: Done())
         )
 
-    def open_effect(self, row: CompositorEffect[R], call: Call[Empty]) -> Outcome[Answer]:
+    def open_effect(self, row: CompositorEffect, of: Callable[[str], CompositorRecord], call: Call[Empty]) -> Outcome[Answer]:
         """Add the effect at its rank, one entry per chosen file."""
-        opened = row.source
-        records = tuple(opened.of(str(path)) for path in call.paths) if isinstance(opened, FromFile) else ()
+        records = tuple(of(str(path)) for path in call.paths)
         return rooted(bpy.types.Scene, call.context).bind(lambda scene: accumulated(self.placed(call.identity, scene, row, Entry(record=record)) for record in records)).map(lambda _: Done())
 
     def reset_effect(self, call: Call[Named]) -> Outcome[Answer]:
@@ -436,30 +431,27 @@ class OfferedEffects[R: Case](msgspec.Struct, frozen=True, kw_only=True, dict=Tr
     # --- [LIFETIME]
 
     @contextmanager
-    def acquisitions(self, identity: Identity) -> Generator[Outcome[Acquisitions]]:
+    def acquisitions(self, identity: Identity) -> Generator[Acquisitions]:
         """Yields offered effects, commands, the add menu the stock add menu opens, handlers, and subscriptions with deferred refresh, and working-space conversion of entry colors."""
 
         def kept(scene: bpy.types.Scene, source: Option[bpy.types.Scene], groups: frozenset[int]) -> Outcome[bool]:
-            def rewritten(held: Owned[R]) -> Outcome[bool]:
+            def rewritten(held: Owned) -> Outcome[bool]:
                 reading = source.map(lambda evaluated: held.row.named(identity, evaluated, held.entry.name)).default_value(Ok(held.entry))
-                return reading.bind(lambda entry: held.row.read(identity, entry)).bind(lambda record: held.row.write(identity, scene, held.entry, record, source=source))
+                return reading.bind(lambda entry: held.row.read(identity, entry)).bind(
+                    lambda record: (
+                        held.row.write(identity, scene, held.entry, record, source=source)
+                        if source.is_some() or record.record.requested is not None or any(group.session_uid in groups for group in Option.of_optional(held.entry.node_group).to_list())
+                        else held.row.refreshed(identity, scene, held.entry)
+                    )
+                )
 
-            return (
-                Ok(False)
-                if scene.session_uid in identity.resources[EXECUTING]
-                else accumulated(
-                    rewritten(held)
-                    if source.is_some() or held.row.request.is_some() or any(group.session_uid in groups for group in Option.of_optional(held.entry.node_group).to_list())
-                    else held.row.refreshed(identity, scene, held.entry)
-                    for held in self.owned(identity, scene)
-                ).map(any)
-            )
+            return Ok(value=False) if scene.session_uid in EXECUTING[identity] else accumulated(rewritten(held) for held in self.owned(identity, scene)).map(any)
 
         def refreshed(handle: Handle[bpy.types.Scene], groups: tuple[int, ...]) -> Outcome[Option[str]]:
             def update(scene: bpy.types.Scene) -> Outcome[Option[str]]:
                 return (
                     Ok(Nothing)
-                    if scene.session_uid in identity.resources[EXECUTING]
+                    if scene.session_uid in EXECUTING[identity]
                     else self.refreshed(identity, scene).bind(lambda changed: kept(scene, Nothing, frozenset(groups)).map(lambda wrote: Some("Refresh Effects") if changed or wrote else Nothing))
                 )
 
@@ -493,14 +485,8 @@ class OfferedEffects[R: Case](msgspec.Struct, frozen=True, kw_only=True, dict=Tr
                     imaged(scene, frozenset(bpy.data.images))
                 return Ok(None)
 
-            def invalidated(_scene: bpy.types.Scene) -> Outcome[None]:
-                for image in bpy.data.images:
-                    if image.type in {"RENDER_RESULT", "COMPOSITING"}:
-                        RenderOrigin.recorded(identity, image, Nothing)
-                return Ok(None)
-
             spaces: frozenset[rna_enums.SpaceTypeItems] = frozenset({"NODE_EDITOR", "IMAGE_EDITOR"})
-            yield Ok((
+            yield (
                 RENDER_ORIGINS,
                 WORKING_SPACE,
                 *self.rows,
@@ -518,7 +504,6 @@ class OfferedEffects[R: Case](msgspec.Struct, frozen=True, kw_only=True, dict=Tr
                     if isinstance(opens, FromFile)
                 ),
                 Handler(handlers=bpy.app.handlers.load_post, body=loaded),
-                Handler(handlers=bpy.app.handlers.render_init, body=invalidated),
                 Handler(handlers=bpy.app.handlers.depsgraph_update_post, body=partial(updated, (bpy.types.Scene, bpy.types.Action, bpy.types.CompositorNodeTree, bpy.types.Image), edited)),
                 Handler(handlers=bpy.app.handlers.frame_change_post, body=lambda scene, graph: kept(scene, Some(graph.scene_eval), frozenset()).map(lambda _: None)),
                 *(
@@ -526,9 +511,9 @@ class OfferedEffects[R: Case](msgspec.Struct, frozen=True, kw_only=True, dict=Tr
                     for owner, setting in dict.fromkeys((*FRAMING.reads, *(read for row in self.rows for read in row.reads)))
                 ),
                 *(Subscription(owner=bpy.types.Image, setting=bpy.types.Image.bl_rna.properties[name], body=retagged) for name in ("alpha_mode", "use_half_precision")),
-            ))
+            )
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Choice", "Exclusive", "Move", "OfferedEffects", "Owned", "Phase", "Shift"]
+__all__ = ["Choice", "Move", "OfferedEffects", "Owned", "Phase", "Shift"]

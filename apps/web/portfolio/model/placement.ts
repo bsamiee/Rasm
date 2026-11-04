@@ -1,4 +1,4 @@
-import { Array, Effect, Match, Record, Schema, SchemaGetter, SchemaIssue, SchemaTransformation } from 'effect';
+import { Array, Effect, Match, Record, Result, Schema, type SchemaAST, SchemaGetter, SchemaIssue, SchemaTransformation } from 'effect';
 import { Asset, AssetId, Assets, defaulted, Sheet } from '#/model/asset.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -12,10 +12,11 @@ const reference = <K extends (typeof Asset.Type)['kind']>(kind: K) => {
     const target = Schema.toType(Asset.cases[kind]);
     return AssetId.pipe(
         Schema.decodeTo(target, {
-            decode: SchemaGetter.transformEffect((assetId, options) =>
-                Assets.use((assets) => Effect.fromOption(Record.get(assets, assetId), () => new SchemaIssue.InvalidValue({ message: `File ${assetId} missing from library` }, assetId, options))).pipe(
-                    Effect.filterOrFail(Schema.is(target), (asset) => new SchemaIssue.InvalidValue({ message: `${asset.name} is ${asset.kind}, placement needs ${kind}` }, assetId, options)),
-                ),
+            decode: SchemaGetter.transformEffect(
+                Effect.fnUntraced(function* (assetId: typeof AssetId.Type, options: SchemaAST.ParseOptions) {
+                    const asset = yield* Effect.fromOption(Record.get(yield* Assets, assetId), () => new SchemaIssue.InvalidValue({ message: `File ${assetId} missing from library` }, assetId, options));
+                    return yield* Effect.fromResult(Result.liftPredicate(asset, Asset.isAnyOf([kind]), (found) => new SchemaIssue.InvalidValue({ message: `${found.name} is ${found.kind}, placement needs ${kind}` }, assetId, options)));
+                }),
             ),
             encode: SchemaGetter.transform(({ id }) => id),
         }),
@@ -31,8 +32,8 @@ const placements = Schema.Union([
         Schema.decodeTo(Schema.Struct({ ...text, kind: Schema.Literal('pdf'), asset: Schema.toType(Asset.cases.pdf), page: Sheet }), {
             decode: SchemaGetter.transformEffect((placement, options) =>
                 Array.get(placement.asset.sheets, placement.page - 1).pipe(
-                    Effect.fromOption,
-                    Effect.mapBoth({ onFailure: () => new SchemaIssue.InvalidValue({ message: `${placement.asset.name} has ${placement.asset.pages.length} sheets, placement needs sheet ${placement.page}` }, placement, options), onSuccess: (page) => ({ ...placement, page }) }),
+                    Effect.fromOption(() => new SchemaIssue.InvalidValue({ message: `${placement.asset.name} sheet ${placement.page} is outside 1–${placement.asset.pages.length}` }, placement, options)),
+                    Effect.map((page) => ({ ...placement, page })),
                 ),
             ),
             encode: SchemaGetter.transform((placement) => ({ ...placement, page: placement.page.number })),
@@ -59,13 +60,15 @@ const Placement = Object.assign(placements, {
         return width / height;
     },
 });
+const Scale = Schema.Literals(['full', 'medium', 'small']);
+const Alignment = Schema.Literals(['left', 'center', 'right']);
 const Composition = Schema.Struct({
     id: CompositionId,
     items: Schema.Union([Schema.Tuple([Placement]), Schema.Tuple([Placement, Placement])]),
-    scale: defaulted(Schema.Literals(['full', 'medium', 'small']), 'full'),
-    align: defaulted(Schema.Literals(['left', 'center', 'right']), 'center'),
+    scale: defaulted(Scale, 'full'),
+    align: defaulted(Alignment, 'center'),
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Composition, CompositionId, Placement };
+export { Alignment, Composition, CompositionId, Placement, Scale };

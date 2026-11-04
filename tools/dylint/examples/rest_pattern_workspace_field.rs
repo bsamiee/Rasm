@@ -88,6 +88,16 @@ const fn external(range: Range<u8>) -> u8 {
     start
 }
 
+const fn raw_fields() -> (u8, u8) {
+    struct Fields {
+        kept: u8,
+        r#type: u8,
+    }
+    let fields = Fields { kept: 0, r#type: 1 };
+    let Fields { kept, .. } = fields;
+    (kept, fields.r#type)
+}
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 fn main() {
@@ -103,6 +113,7 @@ fn main() {
         external(0..1),
         passed(gesture),
         moving(gesture),
+        raw_fields(),
         Gesture::Tap,
         Gesture::Pinch(0, 1),
     ));

@@ -5,16 +5,16 @@ from functools import partial, wraps
 from typing import TYPE_CHECKING
 
 import bpy
-from expression import Error, Nothing, Ok, Option, Some
+from expression import Option, Some
 import msgspec
 
 from blender.bpy.commands.operators import Answer, Call, Empty, Operator, Placement, PopupKind, PopupTarget
 from blender.bpy.data.rna.conditions import Condition, polled
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.extension.registration import Acquisitions, Tier
+from blender.bpy.extension.registration import acquired, Acquisitions, Classes, Tier
 from blender.bpy.files.assets import AssetMark
-from blender.bpy.ui.layout.rows import acquired, realized, RowContent, RowDraw
-from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
+from blender.bpy.ui.layout.rows import realized, RowContent, RowDraw
+from blender.records.faults import Error, Fault, Nothing, Outcome, Reason
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -50,34 +50,24 @@ class Shelf(msgspec.Struct, frozen=True, kw_only=True):
         """Placement buttons and keymaps open the shelf through as a popover."""
         return Placement(PopupTarget(self.key, PopupKind.SHELF))
 
-    def acquisitions(self, identity: Identity, /) -> Outcome[Acquisitions]:
+    def acquisitions(self, identity: Identity, /) -> Acquisitions:
         """Returns the action operators and menu rows, then the shelf class built when the interface tier opens.
 
         Args:
             identity: Extension owning class names and asset marks.
 
         Returns:
-            Acquisitions, the class build faulting per refused name, absent filter, and failed menu row.
+            Acquisitions, the class build keeping menu row faults.
         """
         dragging = Nothing if isinstance(self.drag, bool) else Some(self.drag)
         actions = tuple(
-            (member, Operator(form=Empty, options=frozenset({"INTERNAL"}), run=wraps(use)(partial(_acted, use)), named=Some(f"{role}_{self.key}")))
+            (member, Operator(form=Empty, options=frozenset({"INTERNAL", "UNDO"}), run=wraps(use)(partial(_acted, use)), named=Some(f"{role}_{self.key}")))
             for role, member, offered in (("activate", "bl_activate_operator", self.activate), ("drag", "bl_drag_operator", dragging))
             for use in offered.to_list()
         )
 
         def classed() -> Outcome[tuple[type, ...]]:
-            """Builds the shelf class once its operator names, filters, and menu rows resolve."""
-            struct = bpy.types.AssetShelf.bl_rna
-            named = accumulated(identity.name(bpy.types.Operator, row.key).map(lambda name: (member, name)) for member, row in actions)
-            filtered = accumulated(
-                Option
-                .of_optional(struct.properties.get(key))
-                .filter(lambda prop: isinstance(prop, bpy.types.BoolProperty) and prop.is_registered_optional)
-                .map(lambda _: key)
-                .to_result_with(lambda: Fault.of(Reason.ABSENT, repr(bpy.types.AssetShelf), member=key))
-                for key in sorted(self.filters)
-            )
+            """Builds the shelf class once its menu rows resolve."""
 
             def listed(_cls: type[bpy.types.AssetShelf], asset: bpy.types.AssetRepresentation) -> bool:
                 """Whether the shelf lists the asset: one the extension marked under a named key, or one the predicate accepts."""
@@ -87,8 +77,8 @@ class Shelf(msgspec.Struct, frozen=True, kw_only=True):
                     case accepts:
                         return accepts(asset)
 
-            def built(parts: tuple[str, tuple[tuple[str, str], ...], tuple[str, ...], RowDraw]) -> tuple[type, ...]:
-                name, operators, filters, draw = parts
+            def built(draw: RowDraw) -> tuple[type, ...]:
+                name = identity.name(bpy.types.AssetShelf, self.key)
                 options = {
                     *(("STORE_ENABLED_CATALOGS_IN_PREFERENCES",) if self.catalogs_in_preferences else ()),
                     *(("DEFAULT_VISIBLE",) if self.visible else ()),
@@ -100,18 +90,18 @@ class Shelf(msgspec.Struct, frozen=True, kw_only=True):
                     "bl_space_type": self.space,
                     "bl_options": options,
                     "asset_poll": classmethod(listed),
-                    **dict.fromkeys(filters, True),
+                    **dict.fromkeys(self.filters, True),
                     **polled(self.condition),
                     **self.active.map(lambda active: {"get_active_asset": classmethod(lambda _cls: active(bpy.context).to_optional())}).default_value({}),
                     **({"draw_context_menu": classmethod(lambda _cls, context, asset, layout: draw(layout, asset, context))} if self.menu else {}),
-                    **dict(operators),
+                    **{member: identity.name(bpy.types.Operator, row.key) for member, row in actions},
                     **self.preview.map(lambda size: {"bl_default_preview_size": size}).default_value({}),
                 }
                 return (type(name, (bpy.types.AssetShelf,), native),)
 
-            return paired(identity.name(bpy.types.AssetShelf, self.key), named, filtered, realized(self.menu, identity)).map(built)
+            return realized(self.menu, identity).map(built)
 
-        return Ok((*(row for _, row in actions), *acquired(self.menu), (Tier.INTERFACE, classed)))
+        return (*(row for _, row in actions), *acquired(self.menu), (Tier.INTERFACE, Classes(build=classed)))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

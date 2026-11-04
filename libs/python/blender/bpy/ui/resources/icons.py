@@ -10,19 +10,19 @@ from typing import Final, Self, TYPE_CHECKING
 
 import bpy
 import bpy.utils.previews
-from expression import Nothing, Ok, Option, Some
+from expression import Option, Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
 
 from blender.bpy.data.rna.paths import definition
-from blender.bpy.extension.identity import Identity, Resource
-from blender.bpy.extension.registration import Acquisitions, Tier
+from blender.bpy.extension.identity import Identity
+from blender.bpy.extension.registration import Acquisitions, Resource, Tier
 from blender.bpy.extension.reports import redrawn
 from blender.bpy.ui.drawing.handlers import Refresh, refreshing
 from blender.bpy.ui.resources.previews import filled, PREVIEWS
 from blender.bpy.ui.resources.theme import Color, color, Metrics
-from blender.records.faults import Fault, Outcome, Reason
+from blender.records.faults import Fault, Nothing, Ok, Outcome, Reason
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -51,7 +51,7 @@ class IconSet:
     @classmethod
     def loaded(cls, identity: Identity) -> Self:
         """Loads every packaged SVG icon into the extension's preview collection, its icon buffer at the full rasterized size."""
-        collection = identity.resources[PREVIEWS].collection
+        collection = PREVIEWS[identity].collection
 
         def source(entry: Traversable) -> tuple[Path, tuple[npt.NDArray[np.float32], Option[Color]]]:
             icon = Path(entry.name)
@@ -93,17 +93,17 @@ class Icons(msgspec.Struct, frozen=True, kw_only=True):
     # --- [ACQUISITION]
 
     @contextmanager
-    def acquisitions(self, identity: Identity) -> Generator[Outcome[Acquisitions]]:
+    def acquisitions(self, identity: Identity) -> Generator[Acquisitions]:
         """Builds the icon set, its tints and brand held in the resources tier, and the watched sources each scheduling one deferred tint write."""
 
         def retinted() -> Outcome[Option[str]]:
             """Writes changed tints, redrawing when one changed."""
-            return redrawn() if identity.resources[ICONS].retinted(self.tint) else Ok(Nothing)
+            return redrawn() if ICONS[identity].retinted(self.tint) else Ok(Nothing)
 
         @contextmanager
         def tinted() -> Generator[Outcome[None]]:
             """Tints icons and records the brand icon."""
-            icons = identity.resources[ICONS]
+            icons = ICONS[identity]
             icons.retinted(self.tint)
             branded: Outcome[Option[int]] = self.brand.map(lambda source: icons.icon(identity, source).map(Some)).default_value(Ok(Nothing))
             for brand in branded.to_option().to_list():
@@ -111,7 +111,7 @@ class Icons(msgspec.Struct, frozen=True, kw_only=True):
             yield branded.map(lambda _: None)
 
         with identity.reports.deferred(retinted) as later:
-            yield Ok((ICONS, (Tier.RESOURCES, tinted()), (Tier.SUBSCRIPTIONS, refreshing(identity, self.watched, lambda: Ok(later())))))
+            yield (ICONS, (Tier.RESOURCES, tinted()), (Tier.SUBSCRIPTIONS, refreshing(identity, self.watched, lambda: Ok(later()))))
 
     # --- [READING]
 
@@ -125,11 +125,12 @@ class Icons(msgspec.Struct, frozen=True, kw_only=True):
         """Returns built-in icon value, packaged icon ID, or data-block preview icon, absent fault for an icon the host or the packaged set lacks."""
         match icon:
             case Path():
-                return identity.resources.get(ICONS).to_result_with(lambda: Fault.of(Reason.ABSENT, str(Icons.folder(identity)), member=icon.as_posix())).bind(lambda icons: icons.icon(identity, icon))
+                return ICONS.get(identity).to_result_with(lambda: Fault.of(Reason.ABSENT, str(Icons.folder(identity)), member=icon.as_posix())).bind(lambda icons: icons.icon(identity, icon))
             case bpy.types.ID():
                 return Ok(bpy.types.UILayout.icon(icon))
             case _:
-                return Option.of_optional(_ICON.enum_items.get(icon)).map(lambda item: item.value).to_result_with(partial(Fault.of, Reason.ABSENT, bpy.types.UILayout.__name__, member=icon))
+                item: bpy.types.EnumPropertyItem | None = _ICON.enum_items.get(icon)  # ty: ignore[unsound-assignment]
+                return Option.of_optional(item).map(lambda item: item.value).to_result_with(partial(Fault.of, Reason.ABSENT, bpy.types.UILayout.__name__, member=icon))
 
     @staticmethod
     def path(identity: Identity, source: Path) -> str:

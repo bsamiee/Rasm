@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
@@ -30,21 +31,20 @@ public sealed class LoggingAnalyzer : RasmAnalyzer {
         Category,
         "Failure reported twice, report once at host translation",
         "`{0}` reports failure `{1}` a second time, report once at the host translation",
-        "`IfFail`, `Catch`, and `|` fallbacks report through `ILogger`, `[LoggerMessage]`, or `HostUtils.ExceptionReport` on receiver or handler side alone");
+        "`IfFail`, `Catch`, and `|` fallbacks report through `ILogger`, `[LoggerMessage]`, or `HostUtils.ExceptionReport` on receiver or handler side alone",
+        WellKnownDiagnosticTags.CompilationEnd);
 
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Defined, Called, Twice];
 
     protected override void Start(CompilationStartAnalysisContext context) {
         LoggingSymbols symbols = new(context.Compilation);
-        if (symbols.Define is { IsEmpty: false } defines) Definitions(context, defines);
+        if (symbols.Define is { IsEmpty: false } defines)
+            Report<IInvocationOperation>(context, [OperationKind.Invocation], (invocation, _) =>
+                Among(invocation.TargetMethod, defines) ? [Diagnostic.Create(Defined, Named(invocation), invocation.TargetMethod.Name)] : []);
         if (symbols.Logger is { } logger) Calls(context, logger, symbols.Calls);
-        if (new LanguageExtSymbols(context.Compilation).Namespace is { } space) Fallbacks(context, symbols, new RhinoCommonSymbols(context.Compilation).ExceptionReport, space);
+        LanguageExtSymbols languageExt = new(context.Compilation);
+        if (languageExt.IO?.ContainingAssembly is { } assembly) Fallbacks(new SemanticModels(context), ControlFlow.For(context.Compilation), symbols, new RhinoCommonSymbols(context.Compilation).ExceptionReport, assembly, languageExt.Lifts);
     }
-
-    // --- [DEFINITIONS]
-    private static void Definitions(CompilationStartAnalysisContext context, ImmutableArray<IMethodSymbol> defines) =>
-        Report<IInvocationOperation>(context, [OperationKind.Invocation], (invocation, _) =>
-            Among(invocation.TargetMethod, defines) ? [Diagnostic.Create(Defined, Named(invocation), invocation.TargetMethod.Name)] : []);
 
     // --- [CALLS]
     private static void Calls(CompilationStartAnalysisContext context, INamedTypeSymbol logger, ImmutableArray<IMethodSymbol> members) {
@@ -61,16 +61,34 @@ public sealed class LoggingAnalyzer : RasmAnalyzer {
     }
 
     // --- [FALLBACKS]
-    private static void Fallbacks(CompilationStartAnalysisContext context, LoggingSymbols symbols, ImmutableArray<IMethodSymbol> crashes, ISymbol space) {
-        Compilation compilation = context.Compilation;
+    private static void Fallbacks(SemanticModels models, ControlFlow flow, LoggingSymbols symbols, ImmutableArray<IMethodSymbol> crashes, IAssemblySymbol assembly, ImmutableArray<IMethodSymbol> callbacks) {
+        ConcurrentDictionary<IMethodSymbol, ImmutableArray<IMethodSymbol>> calls = new(SymbolEqualityComparer.Default);
+        ConcurrentDictionary<IMethodSymbol, bool> reports = new(SymbolEqualityComparer.Default);
         bool Logs(IMethodSymbol method) =>
-            symbols.Logger is { } logger
-            && (logger.GetMembers().Any(member => Implements(method, member)) || (method is { IsExtensionMethod: true, Parameters: { IsEmpty: false } parameters } && Same(parameters[0].Type, logger)));
-        bool Reports(IMethodSymbol method, Reading reading, int depth) =>
-            Logs(method) || Marked(method, symbols.Message) is not null || Among(method, crashes)
-            || (depth > 0 && Declarations(method.OriginalDefinition, reading).Any(body => Reporter(body, reading, depth - 1) is not null));
-        IInvocationOperation? Reporter(IOperation tree, Reading reading, int depth) =>
-            tree.DescendantsAndSelf().OfType<IInvocationOperation>().FirstOrDefault(call => Reports(call.TargetMethod, reading, depth));
+            method.ReturnsVoid && (symbols.Calls.Any(member => Implements(method, member)) || Same(method.ContainingType, symbols.Extensions));
+        bool Reports(IMethodSymbol method, Reading reading) {
+            HashSet<IMethodSymbol> seen = new(SymbolEqualityComparer.Default);
+            Stack<IMethodSymbol> pending = new([method.OriginalDefinition]);
+            while (pending.Count is > 0) {
+                IMethodSymbol current = pending.Pop();
+                reading.Token.ThrowIfCancellationRequested();
+                if (!seen.Add(current)) continue;
+                if (reports.TryGetValue(current, out bool reported)) {
+                    if (reported) return true;
+                    continue;
+                }
+                if (Logs(current) || Marked(current, symbols.Message) is not null || Among(current, crashes)) return true;
+                foreach (IMethodSymbol called in calls.GetOrAdd(current, held => [
+                    .. Declarations(held, reading).SelectMany(body => ControlFlow.Operations(body, reading.Token)).OfType<IInvocationOperation>()
+                        .SelectMany(call => Calls(call, reading, flow, callbacks)).Select(static target => target.OriginalDefinition),
+                ])) pending.Push(called);
+            }
+            foreach (IMethodSymbol visited in seen) _ = reports.TryAdd(visited, value: false);
+            return false;
+        }
+        IInvocationOperation? Reporter(IOperation tree, Reading reading) =>
+            ControlFlow.Operations(Lambda(tree) ?? tree, reading.Token).OfType<IInvocationOperation>()
+                .FirstOrDefault(call => Calls(call, reading, flow, callbacks).Any(target => reports.GetOrAdd(target.OriginalDefinition, method => Reports(method, reading))));
         static (IOperation Receiver, ImmutableArray<IOperation> Handlers)? Fallback(IOperation operation) =>
             operation switch {
                 IInvocationOperation { TargetMethod.Name: "IfFail" or "Catch" } call when Receiver(call) is { } receiver =>
@@ -78,10 +96,10 @@ public sealed class LoggingAnalyzer : RasmAnalyzer {
                 IBinaryOperation { OperatorKind: BinaryOperatorKind.Or, OperatorMethod: not null } either => (either.LeftOperand, [either.RightOperand]),
                 _ => null,
             };
-        Report<IOperation>(context, [OperationKind.Invocation, OperationKind.Binary], (operation, analysis) =>
-            operation switch { IInvocationOperation call => call.TargetMethod, IBinaryOperation either => either.OperatorMethod, _ => null } is { } method && Namespaced(compilation, method, space) && Fallback(operation) is ( { } receiver, var handlers) && operation.SemanticModel is { } model
-            && new Reading(model, analysis.CancellationToken) is var reading && Reporter(receiver, reading, 1) is { } first
-            && handlers.Select(handler => Reporter(handler, reading, 1)).FirstOrDefault(static again => again is not null) is { } second
+        models.Report<IOperation>([OperationKind.Invocation, OperationKind.Binary], (operation, _, reading) =>
+            operation switch { IInvocationOperation call => call.TargetMethod, IBinaryOperation either => either.OperatorMethod, _ => null } is { } method && Same(method.ContainingAssembly, assembly) && Fallback(operation) is ( { } receiver, var handlers)
+            && Reporter(receiver, reading) is { } first
+            && handlers.Select(handler => Reporter(handler, reading)).FirstOrDefault(static again => again is not null) is { } second
                 ? [Diagnostic.Create(Twice, operation is IInvocationOperation fallback ? Named(fallback) : operation.Syntax.GetLocation(), Label(second), Label(first))]
                 : []);
     }

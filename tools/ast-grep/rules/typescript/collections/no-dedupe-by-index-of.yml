@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-dedupe-by-index-of
-language: tsx
+language: tsxlang
 severity: error
 utils:
     index-test:
@@ -56,4 +56,4 @@ transform:
     KEPT: {replace: {source: $$OP, replace: '^!==?$', by: every repeat}}
     KEEPS: {replace: {source: $KEPT, replace: '^===?$', by: one of each value}}
 message: '`$L.filter` keeps $KEEPS by an index scan per element and miscounts every `NaN`'
-note: 'Write `[...new Set(<list>)]` or `Array.dedupe(<list>)` for distinct values, repeats are `Array.groupBy(<list>, <key>)` keys holding two or more elements'
+note: 'Use `Set` or `Array.dedupe` for distinct values; repeats are `Array.groupBy` keys with at least two elements'

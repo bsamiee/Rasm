@@ -16,7 +16,7 @@ public static class ClippingPlanes {
 
     public static IO<Seq<Guid>> Edit(RhinoDoc doc, Seq<ClippingPlaneObject> planes, Func<ClippingPlaneObject, Seq<Step<ClippingPlaneSurface>>> steps) =>
         planes.Map((plane, index) => Edits.Apply(RhinoObjects.Replacement<ClippingPlaneSurface>(doc, plane.Id, ignoreModes: true), plane.ClippingPlaneGeometry, steps(plane)).Map(_ => plane.Id).Bracket()
-                .MapFail(error => new RhinoFault(plane.Id.ToString(), RhinoReason.Declined, index, error)))
+                .MapFail(error => new RhinoFault(plane.Id, RhinoReason.Declined, index, error)))
             .TraverseM(static edit => edit).As();
 
     public static IO<Seq<Guid>> Detach(RhinoDoc doc, Seq<RhinoViewport> viewports) =>

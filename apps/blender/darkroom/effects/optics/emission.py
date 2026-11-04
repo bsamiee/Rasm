@@ -5,7 +5,7 @@ from itertools import starmap
 from typing import Annotated, Final, get_args
 
 import bpy
-from expression import Nothing, Ok, Option, Some
+from expression import Option, Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -19,13 +19,13 @@ from blender.bpy.nodes.functions import sampled, W
 from blender.bpy.nodes.graphs import Expr, math, menus, mixed, Scalar, vector
 from blender.bpy.nodes.interfaces import decoded, Interface, InterfacePanel, Socket, StockInput
 from blender.bpy.render.compositor import masks
-from blender.bpy.render.compositor.inputs import GraphInputs, path_key, Step
+from blender.bpy.render.compositor.inputs import chosen, GraphInputs, path_key, Step
 from blender.imaging.color import colorimetry
 from blender.imaging.color.processors import Stops
-from blender.records.faults import accumulated, Outcome
+from blender.records.faults import accumulated, Nothing, Ok, Outcome
 from blender.records.fields import Case
 
-from .bases import cased, picked
+from .bases import cased
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -69,8 +69,8 @@ class Emission(msgspec.Struct, frozen=True, kw_only=True):
 
 # --- [INTERFACES] -----------------------------------------------------------------------
 
-_KINDS: Final[tuple[type[Spectrum], ...]] = get_args(Spectrum.__value__)
-_COLOR: Final = Socket(key="color", kind=bpy.types.NodeSocketMenu, description="Spectrum coloring each tone", items=Some(MenuItems.of(Spectrum)))
+_KINDS: Final[tuple[type[Spectrum], ...]] = get_args(Spectrum.__value__)  # ty: ignore[unsound-assignment]
+_COLOR: Final = Socket(key="color", kind=bpy.types.NodeSocketMenu, description="Spectrum coloring each tone", items=MenuItems.of(Spectrum).items)
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -93,7 +93,7 @@ def emission(key: Key, light: Emission, description: str, toggle: Option[bool] =
 # --- [NODES]
 
 
-def emitted[R: Case](shell: GraphInputs[R], panel: InterfacePanel, light: Emission, tones: tuple[Scalar, *tuple[Scalar, ...]]) -> Outcome[tuple[Expr, ...]]:
+def emitted(shell: GraphInputs, panel: InterfacePanel, light: Emission, tones: tuple[Scalar, *tuple[Scalar, ...]]) -> Outcome[tuple[Expr, ...]]:
     """Returns scene-linear emitted light at each tone through the one color menu of an emission panel.
 
     Args:
@@ -134,18 +134,18 @@ def emitted[R: Case](shell: GraphInputs[R], panel: InterfacePanel, light: Emissi
 # --- [EVALUATION]
 
 
-def colored(values: Mapping[Key, Value], chosen: Spectrum, /, *path: Step) -> Outcome[Spectrum]:
-    """Returns the spectrum entry input values hold under the spectrum panel a path ends at: the case its color menu names, decoded, the gradient's ramp as `chosen` holds it.
+def colored(values: Mapping[Key, Value], current: Spectrum, /, *path: Step) -> Outcome[Spectrum]:
+    """Returns the selected spectrum under a panel path, retaining its current ramp.
 
     Args:
         values: Entry input values by item key.
-        chosen: Record spectrum, its ramp kept.
+        current: Spectrum whose ramp stays with its case.
         *path: Path to a panel `spectra` declared, such as `(panel,)`.
 
     Returns:
         `Ok` of the held spectrum. `Error` of `absent` for no color value, `outside` for an item no case names, and `invalid` for a value outside its field.
     """
-    return picked(_KINDS, chosen, values, *path, menu=_COLOR).bind(lambda case: decoded(case, values, item_key(path_key(*path), type(case))))
+    return chosen(values, _KINDS, *path, _COLOR).map(lambda kind: current if isinstance(current, kind) else kind()).bind(lambda case: decoded(case, values, item_key(path_key(*path), type(case))))
 
 
 def selected(panel: InterfacePanel, light: Emission, values: Mapping[Key, Value]) -> Outcome[Emission]:

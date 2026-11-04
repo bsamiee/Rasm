@@ -21,7 +21,7 @@ internal static class RetainedThenTransferred {
         from shown in {|#0:Products.Transfer(panel, Show)|}
         select shown;
 
-    internal static IO<Unit> Seated(Ref<Option<Owned<Button>>> slot) =>
+    internal static IO<Unit> Stored(Ref<Option<Owned<Button>>> slot) =>
         from panel in Products.Replace(slot, IO.lift(static () => new Button()))
         from shown in {|#1:Products.Transfer(panel, Show)|}
         select shown;
@@ -52,4 +52,64 @@ internal static class TransferredOnce {
         select shown;
 
     private static IO<Unit> Show(Button panel) => IO.lift(() => { panel.Visible = true; });
+}
+
+internal static class OwnershipBranches {
+    internal static IO<Unit> Disjoint(Action<IDisposable> retain, Button panel, bool flag) {
+        if (flag) retain(panel);
+        else return Products.Transfer(panel, Show);
+        return IO.pure(unit);
+    }
+
+    internal static IO<Unit> Returned(Action<IDisposable> retain, Button panel, bool flag) {
+        if (flag) {
+            retain(panel);
+            return IO.pure(unit);
+        }
+        return Products.Transfer(panel, Show);
+    }
+
+    internal static IO<Unit> Shared(Action<IDisposable> retain, Button panel, bool flag) {
+        if (flag) retain(panel);
+        return {|#4:Products.Transfer(panel, Show)|};
+    }
+
+    internal static IO<Unit> Deferred(Action<IDisposable> retain, Button panel) {
+        Action callback = () => retain(panel);
+        return Products.Transfer(panel, Show);
+    }
+
+    internal static IO<Unit> Finalized(Action<IDisposable> retain, Button panel, bool flag) {
+        if (flag) {
+            try {
+                retain(panel);
+            }
+            finally {
+                throw new InvalidOperationException();
+            }
+        }
+        return Products.Transfer(panel, Show);
+    }
+
+    internal static Func<IO<Unit>> Callback(Action<IDisposable> retain, Button panel) => () => {
+        retain(panel);
+        return {|#5:Products.Transfer(panel, Show)|};
+    };
+
+    internal static IO<Unit> Looped(Action<IDisposable> retain, Button panel) {
+        IO<Unit> shown = IO.pure(unit);
+        for (int index = 0; index < 2; ++index) {
+            shown = {|#6:Products.Transfer(panel, Show)|};
+            retain(panel);
+        }
+        return shown;
+    }
+
+    internal static IO<Unit> Later(Action<IDisposable> retain, Button panel) {
+        IO<Unit> shown = Products.Transfer(panel, Show);
+        retain(panel);
+        return shown;
+    }
+
+    internal static IO<Unit> Show(Button panel) => IO.lift(() => { panel.Visible = true; });
 }

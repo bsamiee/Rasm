@@ -8,14 +8,8 @@
         "#/*": "./*.ts"
     },
     "exports": {
-        "./content": "./content.ts",
-        "./node": "./node.ts",
-        "./progress": "./progress.ts",
-        "./resource": "./resource.ts",
-        "./route": "./route.ts",
-        "./rpc": "./rpc.ts",
-        "./server": "./server.ts",
-        "./tool": "./tool.ts"
+        ".": "./index.ts",
+        "./node": "./node.ts"
     },
     "dependencies": {
         "@effect/platform-node": "catalog:",

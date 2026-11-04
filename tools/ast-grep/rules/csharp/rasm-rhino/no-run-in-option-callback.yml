@@ -1,0 +1,105 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-run-in-option-callback
+language: csharplang
+severity: error
+files: ['**/rhino/**']
+utils:
+    run-call:
+        kind: invocation_expression
+        has: {field: function, pattern: $RUN, matches: {csharp-owner-member: {type: {regex: '^Session$'}, member: {regex: '^Run$'}}}}
+    run-value:
+        any:
+            - matches: run-call
+            - kind: 'cast_expression, parenthesized_expression'
+              has: {matches: run-value}
+    some-arm:
+        kind: 'lambda_expression, anonymous_method_expression'
+        all:
+            - has:
+                field: parameters
+                any:
+                    - kind: implicit_parameter
+                    - kind: parameter_list
+                      has: {kind: parameter, nthChild: 1}
+                      not: {has: {kind: parameter, nthChild: 2}}
+            - any:
+                - has: {field: body, matches: run-value}
+                - has:
+                    kind: block
+                    all:
+                        - has: {kind: return_statement, nthChild: 1, has: {matches: run-value}}
+                        - not: {has: {nthChild: 2}}
+                - has:
+                    kind: block
+                    all:
+                        - has: {kind: local_declaration_statement, nthChild: 1, has: {kind: variable_declaration, has: {kind: variable_declarator, all: [{has: {field: name, pattern: $HELD_RESULT}}, {has: {nthChild: 2, matches: run-value}}]}}}
+                        - has: {kind: return_statement, nthChild: 2, has: {pattern: $HELD_RESULT}}
+                        - not: {has: {nthChild: 3}}
+    first-argument:
+        kind: argument
+        nthChild: {position: 1, ofRule: {kind: argument}}
+        matches: csharp-positional-argument
+    second-argument:
+        kind: argument
+        nthChild: {position: 2, ofRule: {kind: argument}}
+        matches: csharp-positional-argument
+    arms:
+        kind: argument_list
+        any:
+            - all:
+                - has: {kind: argument, all: [{has: {field: name, regex: '^Some$'}}, {has: {matches: some-arm}}]}
+                - has: {kind: argument, has: {field: name, regex: '^None$'}}
+            - all:
+                - has: {matches: first-argument, has: {matches: some-arm}}
+                - has: {matches: second-argument}
+                - not: {has: {kind: argument, nthChild: {position: 3, ofRule: {kind: argument}}}}
+    option-match:
+        kind: invocation_expression
+        all:
+            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Match$'}}, {has: {field: expression, pattern: $OPTION}}]}
+            - has: {field: arguments, matches: arms}
+    prelude-match:
+        kind: invocation_expression
+        all:
+            - matches: {csharp-named-call: {name: {regex: '^match$'}}}
+            - has:
+                field: arguments
+                all:
+                    - has: {matches: first-argument, has: {pattern: $OPTION}}
+                    - has: {kind: argument, all: [{has: {field: name, regex: '^Some$'}}, {has: {matches: some-arm}}]}
+                    - has: {kind: argument, has: {field: name, regex: '^None$'}}
+    mapped-fallback:
+        kind: invocation_expression
+        all:
+            - has:
+                field: function
+                kind: member_access_expression
+                all:
+                    - has: {field: name, regex: '^IfNone$'}
+                    - has:
+                        field: expression
+                        kind: invocation_expression
+                        all:
+                            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Map$'}}, {has: {field: expression, pattern: $OPTION}}]}
+                            - has: {field: arguments, all: [{has: {matches: first-argument, has: {matches: some-arm}}}, {not: {has: {matches: second-argument}}}]}
+            - has: {field: arguments, all: [{has: {matches: first-argument}}, {not: {has: {matches: second-argument}}}]}
+    option-callback:
+        kind: invocation_expression
+        all:
+            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(Iter|Exists|ForAll|Bind)$'}}, {has: {field: expression, pattern: $OPTION}}]}
+            - has: {field: arguments, all: [{has: {matches: first-argument, has: {matches: some-arm}}}, {not: {has: {kind: argument, nthChild: 2}}}]}
+rule:
+    kind: invocation_expression
+    all:
+        - any:
+            - matches: option-match
+            - matches: prelude-match
+            - matches: mapped-fallback
+            - matches: option-callback
+        - not: {matches: {csharp-owner-body: {type: {regex: '^Session$'}, member: {regex: '^Run$'}}}}
+constraints:
+    OPTION:
+        kind: identifier
+        matches: {csharp-declared-type: {type: {matches: {csharp-type-name: {name: {regex: '^Option$'}}}}}}
+message: '`$OPTION` runs an effect through `$RUN` inside its callback'
+note: 'Compose the callback as `IO` and run it once at the host boundary'

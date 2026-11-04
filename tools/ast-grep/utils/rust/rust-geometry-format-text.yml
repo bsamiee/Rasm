@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: rust-geometry-format-text
-language: rust
+language: rustlang
 utils:
     parsed:
         any:

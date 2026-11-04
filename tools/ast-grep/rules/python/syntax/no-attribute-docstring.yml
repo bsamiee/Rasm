@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-attribute-docstring
-language: python
+language: pythonlang
 severity: error
 utils:
     literal:
@@ -11,9 +11,8 @@ utils:
               has: {matches: literal}
     string-statement:
         kind: expression_statement
-        any:
-            - has: {matches: literal}
-            - has: {kind: assignment, all: [{has: {field: left, kind: identifier, regex: '^_$'}}, {has: {field: right, matches: literal}}]}
+        has:
+            matches: literal
 rule:
     matches: string-statement
     not:
@@ -30,7 +29,7 @@ rule:
             - kind: type_alias_statement
               has: {field: left, pattern: $NAME}
 fix:
-    template: ''
-    expandStart: {regex: '^;$'}
+    template: ""
+    expandStart: {regex: '^;$', precedes: {matches: string-statement, has: {matches: literal}}}
 message: 'String after `$NAME` is a docstring Python discards'
 note: 'Delete the string and state its fact in a name or annotated type'

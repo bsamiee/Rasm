@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: typescript-separator-swap
-language: tsx
+language: tsxlang
 utils:
     hyphen: {kind: 'string, regex', regex: '^([''"]-[''"]|/-/[a-z]*g[a-z]*)$'}
     underscore: {kind: 'string, regex', regex: '^([''"]_[''"]|/_/[a-z]*g[a-z]*)$'}

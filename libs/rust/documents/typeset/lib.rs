@@ -1,7 +1,8 @@
-#![feature(error_iter, error_reporter, float_conversions, gen_blocks, try_blocks_heterogeneous)]
+#![feature(error_iter, error_reporter, float_conversions, gen_blocks, iterator_try_collect, try_blocks_heterogeneous)]
 
 use core::{any::Any, error::Error, fmt, iter, num::NonZero, ops::Deref};
 use std::{
+    borrow::Cow,
     collections::{HashMap, HashSet},
     error::Report,
     io::{self, Read},
@@ -10,7 +11,6 @@ use std::{
 };
 
 use cap_std::{ambient_authority, fs::Dir};
-use itertools::Itertools as _;
 use jiff::{SignedDuration, Zoned, tz::Offset};
 use merman::{RenderError, svg::export::NativeFontError};
 use opentelemetry_semantic_conventions::attribute::{ERROR_TYPE, EXCEPTION_MESSAGE, HTTP_REQUEST_METHOD, HTTP_RESPONSE_STATUS_CODE, OTEL_STATUS_CODE, URL_FULL};
@@ -50,10 +50,6 @@ use typst_kit::{
 };
 use validated::Validated;
 
-// --- [TYPES] ---------------------------------------------------------------------------
-
-pub type Compiled<T> = Result<Warned<T>, TypesetError>;
-
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const TYPST_WARNINGS: &str = "typst.warnings";
@@ -83,12 +79,10 @@ pub struct Diagnostic {
 
 #[derive(Debug, thiserror::Error)]
 pub enum TypesetError {
-    #[error("typed value refused on encode")]
-    Serialize { source: serde_path_to_error::Error<encode::Error> },
-    #[error("typed value refused on decode")]
-    Deserialize { source: serde_path_to_error::Error<decode::Error> },
-    #[error("queried element {index} refused")]
-    Element { index: usize, source: Box<Self> },
+    #[error("value encoding failed{}", fmt::from_fn(|formatter| .element.map_or(Ok(()), |index| write!(formatter, " at queried element {index}"))))]
+    Serialize { element: Option<usize>, source: serde_path_to_error::Error<encode::Error> },
+    #[error("value decoding failed{}", fmt::from_fn(|formatter| .element.map_or(Ok(()), |index| write!(formatter, " at queried element {index}"))))]
+    Deserialize { element: Option<usize>, source: serde_path_to_error::Error<decode::Error> },
     #[error("font buffer {index} face {face} is unreadable")]
     Font { index: usize, face: u32 },
     #[error("{spec} template refused")]
@@ -98,7 +92,7 @@ pub enum TypesetError {
     #[error("{} page {page} rasterizes to {width} by {height} pixels past the pixmap size limit", path.get_without_slash())]
     Raster { path: VirtualPath, page: NonZero<usize>, width: u32, height: u32 },
     #[error("{} rasterizes to {pixels} pixels past the {budget} pixel budget", path.get_without_slash())]
-    Budget { path: VirtualPath, pixels: u64, budget: NonZero<u64> },
+    Budget { path: VirtualPath, pixels: u128, budget: NonZero<u64> },
     #[error("{} page {page} PNG encoding failed", path.get_without_slash())]
     Encode { path: VirtualPath, page: NonZero<usize>, source: png::EncodingError },
     #[error("{} write refused", path.get_without_slash())]
@@ -182,11 +176,11 @@ pub struct Files {
 impl Files {
     fn memory(&self, id: FileId) -> Option<&Bytes> { self.overlay.get(&id).or_else(|| self.diagrams.get(&id)) }
 
-    fn root(&self, id: FileId) -> FileResult<FsRoot> {
+    fn root(&self, id: FileId) -> FileResult<Cow<'_, FsRoot>> {
         match (id.root(), &self.root, &self.packages) {
-            (VirtualRoot::Project, Some(root), _) => Ok(root.clone()),
+            (VirtualRoot::Project, Some(root), _) => Ok(Cow::Borrowed(root)),
             (VirtualRoot::Project, None, _) => Err(FileError::NotFound(PathBuf::from(id.vpath().get_without_slash()))),
-            (VirtualRoot::Package(spec), _, Some(packages)) if self.locked.as_ref().is_none_or(|locked| locked.contains(spec)) => Ok(packages.obtain(spec)?),
+            (VirtualRoot::Package(spec), _, Some(packages)) if self.locked.as_ref().is_none_or(|locked| locked.contains(spec)) => Ok(Cow::Owned(packages.obtain(spec)?)),
             (VirtualRoot::Package(spec), _, _) => Err(FileError::Package(PackageError::NotFound(spec.clone()))),
         }
     }
@@ -237,7 +231,7 @@ where L: FileLoader
 {
     pub fn new<I>(inputs: &I, features: Features, fonts: Arc<FontStore>, files: L, main: VirtualPath, now: Zoned) -> Result<Self, TypesetError>
     where I: Serialize + ?Sized {
-        library(inputs, features).map(|library| Self { library, fonts, files: Box::new(FileStore::new(files)), main: RootedPath::new(VirtualRoot::Project, main).intern(), now })
+        library(inputs, features, &mut Vec::new()).map(|library| Self { library, fonts, files: Box::new(FileStore::new(files)), main: RootedPath::new(VirtualRoot::Project, main).intern(), now })
     }
 }
 
@@ -295,39 +289,49 @@ where
         .into_par_iter()
         .enumerate()
         .map(|(index, data)| {
-            (0..ttf_parser::fonts_in_collection(&data).unwrap_or(1).max(1)).map(|face| Font::new(data.clone(), face).ok_or(TypesetError::Font { index, face })).collect::<Result<Vec<_>, _>>()
+            (0..ttf_parser::fonts_in_collection(&data).unwrap_or(1).max(1)).map(|face| Font::new(data.clone(), face).ok_or(TypesetError::Font { index, face })).try_collect::<Vec<_>>()
         })
         .collect::<Validated<Vec<_>, _>>()
-        .map(|buffers| buffers.into_iter().flatten().map(|font| (font.clone(), font.info().clone())).collect())
+        .map(|buffers| {
+            buffers
+                .into_iter()
+                .flatten()
+                .map(|font| {
+                    let info = font.info().clone();
+                    (font, info)
+                })
+                .collect()
+        })
 }
 
 // --- [INPUTS]
-fn decode<O>(encoded: &[u8]) -> Result<O, TypesetError>
+fn decode<O>(encoded: &[u8], element: Option<usize>) -> Result<O, TypesetError>
 where O: DeserializeOwned {
-    serde_path_to_error::deserialize(&mut rmp_serde::Deserializer::from_read_ref(encoded).with_human_readable()).map_err(|source| TypesetError::Deserialize { source })
+    serde_path_to_error::deserialize(&mut rmp_serde::Deserializer::from_read_ref(encoded).with_human_readable()).map_err(|source| TypesetError::Deserialize { element, source })
 }
 
-fn library<I>(inputs: &I, features: Features) -> Result<LazyHash<Library>, TypesetError>
+fn library<I>(inputs: &I, features: Features, encoded: &mut Vec<u8>) -> Result<LazyHash<Library>, TypesetError>
 where I: Serialize + ?Sized {
-    let mut encoded = Vec::new();
-    serde_path_to_error::serialize(inputs, &mut rmp_serde::Serializer::new(&mut encoded).with_struct_map().with_human_readable()).map_err(|source| TypesetError::Serialize { source })?;
-    decode(&encoded).map(|dict: Dict| LazyHash::new(Library::builder().with_inputs(dict).with_features(features).build()))
+    encoded.clear();
+    serde_path_to_error::serialize(inputs, &mut rmp_serde::Serializer::new(&mut *encoded).with_struct_map().with_human_readable())
+        .map_err(|source| TypesetError::Serialize { element: None, source })?;
+    decode(encoded, None).map(|dict: Dict| LazyHash::new(Library::builder().with_inputs(dict).with_features(features).build()))
 }
 
 pub fn set_inputs<F, I>(project: &mut Project<F>, inputs: &I) -> Result<(), TypesetError>
 where I: Serialize + ?Sized {
-    library(inputs, project.library.features.clone()).map(|library| project.library = library)
+    library(inputs, project.library.features.clone(), &mut Vec::new()).map(|library| project.library = library)
 }
 
 // --- [COMPILE]
-pub fn compile<T>(world: &dyn DiagnosticWorld, max_age: usize) -> Compiled<T>
+pub fn compile<T>(world: &dyn DiagnosticWorld, max_age: usize) -> Result<Warned<T>, TypesetError>
 where T: Output {
     let compiled = compiled::<T>(world);
     comemo::evict(max_age);
     compiled
 }
 
-pub fn compile_records<T, I, F, L>(project: &Project<F>, records: I, max_age: usize) -> Vec<Compiled<T>>
+pub fn compile_records<T, I, F, L>(project: &Project<F>, records: I, max_age: usize) -> Vec<Result<Warned<T>, TypesetError>>
 where
     T: Output + Send,
     I: IntoParallelIterator<Item: Serialize>,
@@ -336,8 +340,8 @@ where
 {
     let compiled = records
         .into_par_iter()
-        .map(|record| {
-            library(&record, project.library.features.clone())
+        .map_init(Vec::new, |encoded, record| {
+            library(&record, project.library.features.clone(), encoded)
                 .and_then(|library| compiled::<T>(&Project { library, fonts: Arc::clone(&project.fonts), files: &*project.files, main: project.main, now: project.now.clone() }))
         })
         .collect();
@@ -345,7 +349,7 @@ where
     compiled
 }
 
-fn compiled<T>(world: &dyn DiagnosticWorld) -> Compiled<T>
+fn compiled<T>(world: &dyn DiagnosticWorld) -> Result<Warned<T>, TypesetError>
 where T: Output {
     let span = tracing::info_span!(
         "compile",
@@ -389,6 +393,7 @@ where
     T: Output,
     R: DeserializeOwned,
 {
+    let mut encoded = Vec::new();
     output
         .introspector()
         .query(selector)
@@ -397,11 +402,11 @@ where
         .map(|(index, content)| {
             let value = content.to_packed::<MetadataElem>().map_or_else(|| Value::Content(content.clone()), |metadata| metadata.value.clone());
             let decoded = try bikeshed Result<R, TypesetError> {
-                let mut encoded = Vec::new();
-                serde_path_to_error::serialize(&value, &mut rmp_serde::Serializer::new(&mut encoded)).map_err(|source| TypesetError::Serialize { source })?;
-                decode(&encoded)?
+                encoded.clear();
+                serde_path_to_error::serialize(&value, &mut rmp_serde::Serializer::new(&mut encoded)).map_err(|source| TypesetError::Serialize { element: Some(index), source })?;
+                decode(&encoded, Some(index))?
             };
-            decoded.map(|element| (content.location(), element)).map_err(|source| TypesetError::Element { index, source: Box::new(source) })
+            decoded.map(|element| (content.location(), element))
         })
         .collect()
 }
@@ -470,16 +475,26 @@ where L: FileLoader {
 
 pub fn template(packages: &SystemPackages, spec: &PackageSpec) -> Result<(HashMap<FileId, Bytes>, FileId), TypesetError> {
     fn other(error: impl fmt::Display) -> FileError { FileError::Other(Some(eco_format!("{error}"))) }
-    fn files(directory: &Dir, path: &Path) -> io::Result<Vec<(PathBuf, Bytes)>> {
-        directory
-            .entries()?
-            .map(|entry| {
-                let entry = entry?;
-                let path = path.join(entry.file_name());
-                if entry.file_type()?.is_dir() { files(&entry.open_dir()?, &path) } else { directory.read(entry.file_name()).map(|bytes| vec![(path, Bytes::new(bytes))]) }
-            })
-            .flatten_ok()
-            .collect()
+    fn files(directory: &Dir, root: &Path) -> io::Result<HashMap<FileId, Bytes>> {
+        let mut pending = vec![(directory.entries()?, root.to_owned())];
+        let mut files = HashMap::new();
+        while let Some((entries, path)) = pending.last_mut() {
+            let Some(entry) = entries.next() else {
+                pending.pop();
+                continue;
+            };
+            let entry = entry?;
+            let path = path.join(entry.file_name());
+            if entry.file_type()?.is_dir() {
+                pending.push((entry.open_dir()?.entries()?, path));
+            } else {
+                let mut bytes = Vec::new();
+                entry.open()?.read_to_end(&mut bytes)?;
+                let path = VirtualPath::virtualize(root, &path).map_err(io::Error::other)?;
+                files.insert(RootedPath::new(VirtualRoot::Project, path).intern(), Bytes::new(bytes));
+            }
+        }
+        Ok(files)
     }
     let project = |path| RootedPath::new(VirtualRoot::Project, path).intern();
     let instantiated = try bikeshed FileResult<_> {
@@ -489,13 +504,7 @@ pub fn template(packages: &SystemPackages, spec: &PackageSpec) -> Result<(HashMa
         let template = manifest.template.ok_or_else(|| PackageError::Other(Some(eco_format!("{spec} holds no template"))))?;
         let path = VirtualPath::new(&template.path).map_err(other)?;
         let real = root.resolve(&path)?;
-        let entries = directory(&root)?
-            .open_dir(path.get_without_slash())
-            .and_then(|walked| files(&walked, &real))
-            .map_err(|error| FileError::from_io(error, &real))?
-            .into_iter()
-            .map(|(file, bytes)| Ok((project(VirtualPath::virtualize(&real, &file).map_err(other)?), bytes)))
-            .collect::<FileResult<_>>()?;
+        let entries = directory(&root)?.open_dir(path.get_without_slash()).and_then(|walked| files(&walked, &real)).map_err(|error| FileError::from_io(error, &real))?;
         (entries, project(VirtualPath::new(&template.entrypoint).map_err(other)?))
     };
     instantiated.map_err(|source| TypesetError::Template { spec: spec.clone(), source })

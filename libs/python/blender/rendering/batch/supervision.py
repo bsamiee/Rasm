@@ -16,12 +16,12 @@ import subprocess
 import sys
 from typing import Annotated
 
-from expression import Error, Nothing, Ok, Option, Some
+from expression import Option, Result, Some
 from expression.extra.result import catch
 import msgspec
 from tenacity import retry_if_result, Retrying, stop_after_attempt
 
-from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, Reason
+from blender.records.faults import accumulated, Error, Fault, Faults, Nothing, Ok, Outcome, paired, Reason
 from blender.records.fields import Case
 from blender.records.stores import argument, folder_made, RecordFile, removed
 from blender.rendering.batch.queue import Ending, Job, observed, Progress, RenderQueue
@@ -170,7 +170,7 @@ def supervise(target: LocalMachine, queue: RenderQueue, host: HostCommands, inte
     schedule = target.schedule(queue)
     restarted = Retrying(
         stop=stop_after_attempt(target.retries + 1),
-        retry=retry_if_result(lambda answer: answer.map(lambda code: code not in {0, 1}).default_value(False)),
+        retry=retry_if_result(lambda answer: answer.map(lambda code: code not in {0, 1}).default_value(value=False)),
         retry_error_callback=lambda state: state.outcome and state.outcome.result(),
     )
 
@@ -187,12 +187,17 @@ def supervise(target: LocalMachine, queue: RenderQueue, host: HostCommands, inte
             return next(answer for _ in count() for answer in polled(child).to_list())
 
     def rendered(progress: Progress) -> Outcome[Progress]:
-        remaining = frozenset(progress.remaining(queue))
-        if not (pending := (progress.pending or next((tuple(group) for _, group in groupby((step for step in schedule if step in remaining), lambda step: step[0])), ()))):
-            return Ok(progress)
-        job = queue.jobs[pending[0][0]]
-        argv = host.argv(RunCommand.RENDER, run, Some(job.file))
-        return records.written(msgspec.structs.replace(progress, pending=pending)).bind(lambda _: restarted(lambda: spawned(argv).bind(waited))).bind(lambda code: confirmed(job, code)).bind(rendered)
+        while True:
+            remaining = frozenset(progress.remaining(queue))
+            if not (pending := (progress.pending or next((tuple(group) for _, group in groupby((step for step in schedule if step in remaining), lambda step: step[0])), ()))):
+                return Ok(progress)
+            job = queue.jobs[pending[0][0]]
+            argv = host.argv(RunCommand.RENDER, run, Some(job.file))
+            match records.written(msgspec.structs.replace(progress, pending=pending)).bind(lambda _: restarted(lambda: spawned(argv).bind(waited))).bind(lambda code: confirmed(job, code)):
+                case Result(tag="ok", ok=held):
+                    progress = held
+                case Result(error=faults):
+                    return Error(faults)
 
     def confirmed(job: Job, code: int) -> Outcome[Progress]:
         return (
@@ -239,7 +244,7 @@ def awake[T](operation: Callable[[], Outcome[T]], /) -> Outcome[T]:
             state.restype = wintypes.DWORD
 
             def changed(flags: int) -> Outcome[int]:
-                return Ok(state(flags)).filter_with(bool, lambda _: Fault.of(Reason.FAILED, f"{state.__name__}({flags})", WinError(get_last_error())))
+                return Ok(state(flags)).filter_with(bool, lambda _: Fault.of(Reason.FAILED, f"{state.__name__}({flags})", WinError(get_last_error())))  # ty: ignore[unsound-return-statement]
 
             return changed(continuous | system).bind(lambda previous: paired(operation(), changed(previous)).map(lambda pair: pair[0]))
 

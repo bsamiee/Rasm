@@ -1,5 +1,6 @@
 using System.Numerics;
 using Darkroom.Chain;
+using Rasm.Imaging.Grade;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Procedural;
 using UnitsNet;
@@ -29,7 +30,7 @@ public sealed record FieldEnvelope(ShortSideLength Width, ShortSideLength Height
 }
 
 public sealed record NoiseTexture(
-    NoiseSource Noise, FieldPlacement Placement, float Warp, NoiseBasis WarpBasis, Seq<RampStop> Colors, GeneratedLayer Layer, Seed Seed, Timing Timing) : IPixelStage<NoiseTexture> {
+    NoiseSource Noise, FieldPlacement Placement, float Warp, NoiseBasis WarpBasis, Seq<RampStop> Colors, GeneratedLayer Layer, int Seed, Timing Timing) : IPixelStage<NoiseTexture> {
     private static readonly Octaves VoronoiOctaves = new(1f, 0.5f, 2f);
 
     public Option<VortexField> VortexShape { get; init; }
@@ -40,7 +41,7 @@ public sealed record NoiseTexture(
     public static NoiseTexture Default { get; } = new(
         NoiseSource.Default with { ScaleX = ShortSideLength.Create(1f / 5f), ScaleY = ShortSideLength.Create(1f / 5f) }, FieldPlacement.Default, 0f,
         NoiseBasis.Wave.Default with { Octaves = new(2f, 0.186957f, 2f), Distortion = 14.9f, Phase = Angle.FromRadians(-3d), DetailScale = 1.3f },
-        Presets.Grayscale, GeneratedLayer.Default, Seed.MinValue, Timing.Default);
+        Presets.Grayscale, GeneratedLayer.Default, 0, Timing.Default);
 
     public static NoiseTexture TurbulentNoise { get; } = Default with { Noise = Default.Noise with { Evolution = 0.3f } };
 
@@ -142,14 +143,14 @@ public sealed record NoiseTexture(
         (nameof(Vortex), static _ => Vortex), (nameof(Smoke), static _ => Smoke), (nameof(Mist), static _ => Mist)];
 
     public static Fin<Option<PixelPass>> Pass(NoiseTexture state, PassContext context) {
-        (uint field, float time) = (state.Seed.Field(12u, 0u), state.Timing.At(context));
+        (uint field, float time) = (CoordinateHash.Branch(state.Seed, 0u, 12u), (float)state.Timing.At(context).TotalSeconds);
         Func<Vector2, Vector4> shape = state.VortexShape.Map(vortex => vortex.Shape(time)).IfNone(static point => new Vector4(point, 0f, 0f));
         Func<Vector2, float> rim = state.Envelope.Map<Func<Vector2, float>>(static envelope => envelope.Falloff).IfNone(static _ => 0f);
         Func<Vector4, Vector3> light = state.Incandescence.Map(emission => context.Derivations.Derived((context.Working, Emission: emission), static key => key.Emission.Glow(key.Working)) switch {
             var glow => new Func<Vector4, Vector3>(color => glow.Sample(color.W).AsVector3()),
         }).IfNone(static color => color.AsVector3());
         Func<float, float> opacity = state.Extinction.Map<Func<float, float>>(static depth => cover => 1f - float.Exp(-depth * cover)).IfNone(static cover => cover);
-        RampLight colors = RampLight.Of(state.Colors, context);
+        ColorRamp colors = RampLight.Of(state.Colors, context);
         return state.Layer.Pass((state.Noise.Sampler(time, CoordinateHash.Branch(field, 0u)), Warped(state, time, field)).Apply((noise, warp) =>
             DistanceField.Fill(state.Placement.Frame(context.Extent), point =>
                 colors.Sample(noise(warp(shape(point))) - rim(point)) switch { var color => new Vector4(light(color), opacity(color.W)) })).As());

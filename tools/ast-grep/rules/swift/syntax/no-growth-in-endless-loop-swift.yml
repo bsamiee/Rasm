@@ -3,8 +3,6 @@ id: no-growth-in-endless-loop-swift
 language: swiftlang
 severity: error
 utils:
-    loop:
-        kind: 'for_statement, while_statement, repeat_while_statement, switch_statement'
     endless-condition:
         has: {field: condition, regex: '^(true|!Task\.isCancelled)$'}
         not: {has: {regex: '^,$'}}
@@ -19,7 +17,7 @@ utils:
                     - {kind: control_transfer_statement, regex: '^break\s+\S'}
                     - kind: control_transfer_statement
                       regex: '^break$'
-                      inside: {stopBy: {matches: loop}, matches: loop, all: [{matches: endless-condition}]}
+                      inside: {stopBy: {kind: &loop 'for_statement, while_statement, repeat_while_statement, switch_statement'}, kind: *loop, all: [{matches: endless-condition}]}
                     - kind: try_operator
                       regex: '^try$'
                       not: {inside: {kind: do_statement, stopBy: {kind: 'while_statement, repeat_while_statement'}}}

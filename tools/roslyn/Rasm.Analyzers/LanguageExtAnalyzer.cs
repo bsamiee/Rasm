@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -18,7 +19,8 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
         Category,
         "Explicit result lift, write the value",
         "`{0}` restates implicit conversion of `{1}` to `{2}`, write `{1}`",
-        "Implicit conversions replace `Fin` or `Validation` factory calls, case constructions, and arm casts when overloads and arm types hold");
+        "Implicit conversions replace `Fin` or `Validation` factory calls, case constructions, and arm casts when overloads and arm types hold",
+        WellKnownDiagnosticTags.CompilationEnd);
 
     public static readonly DiagnosticDescriptor TypeTest = Rule(
         "RASM1003",
@@ -40,13 +42,6 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
         "`Seq` accumulator copied per step, call `Add`",
         "`{0}` copies `{1}` on every step, write `{1}.Add({2})`",
         "`Seq` fold accumulators and loop locals append through `Add` in place of `[.. <seq>, <item>]`");
-
-    public static readonly DiagnosticDescriptor LiftedApply = Rule(
-        "RASM1006",
-        Category,
-        "`IO` `Apply` over lifted `Fin` values, apply inside one `IO.lift`",
-        "`{0}` over {1} `IO.lift` operands keeps one `Fin` failure, call `{0}` on `Fin` values inside one `IO.lift`",
-        "Call `Apply` on `Fin` values or thunks inside one `IO.lift` in place of a tuple of `IO.lift` calls");
 
     public static readonly DiagnosticDescriptor Narrowed = Rule(
         "RASM1007",
@@ -78,19 +73,19 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
 
     private static readonly SymbolDisplayFormat Shown = SymbolDisplayFormat.MinimallyQualifiedFormat.AddMiscellaneousOptions(SymbolDisplayMiscellaneousOptions.IncludeNullableReferenceTypeModifier);
 
-    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Lift, TypeTest, RoundTrip, Spread, LiftedApply, Narrowed, Passed, Nullable, Focused];
+    public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => [Lift, TypeTest, RoundTrip, Spread, Narrowed, Passed, Nullable, Focused];
 
     protected override void Start(CompilationStartAnalysisContext context) {
         LanguageExtSymbols symbols = new(context.Compilation);
-        if (symbols is not { Fin: { } fin, Validation: { } validation, Error: { } error, ManyErrors: { } many, IO: { } io, Seq: { } seq, K: { } kind, Option: { } option }) return;
+        if (symbols is not { Fin: { } fin, Validation: { } validation, Error: { } error, ManyErrors: { } many, Seq: { } seq, K: { } kind, Option: { } option }) return;
+        ImmutableArray<IMethodSymbol> narrowings = [.. kind.ContainingNamespace.ContainingNamespace.GetTypeMembers().SelectMany(static type => Members(type, "As"))];
         Lifts(context, symbols.Factories, fin, validation);
         TypeTests(context, symbols.Leaves, error, many);
-        RoundTrips(context, fin, validation, kind);
+        RoundTrips(context, symbols.Applies, fin, validation, kind);
         Spreads(context, seq);
-        LiftedApplies(context, io, fin);
-        Narrowings(context, kind);
+        Narrowings(context, narrowings, kind);
         Matches(context, symbols, fin, option);
-        if (symbols.Lens is { } lens) Lenses(context, lens);
+        Lenses(context, symbols.Lenses);
     }
 
     // --- [LIFTS]
@@ -123,36 +118,43 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
                 ? (operation, target, conversion)
                 : null;
         }
-        context.RegisterOperationBlockAction(block => {
-            foreach (IGrouping<SyntaxNode?, (IOperation Lift, INamedTypeSymbol Target, IMethodSymbol Conversion)> scope in block.OperationBlocks
-                .SelectMany(static root => root.DescendantsAndSelf())
-                .Select(Candidate)
-                .OfType<(IOperation Lift, INamedTypeSymbol Target, IMethodSymbol Conversion)>()
-                .GroupBy(static lift => Scope(lift.Lift.Syntax)))
-                if (scope.Key is { } root)
-                    foreach ((IOperation lift, INamedTypeSymbol target, _) in scope.Reverse().Aggregate(
-                        ImmutableArray<(IOperation Lift, INamedTypeSymbol Target, IMethodSymbol Conversion)>.Empty,
-                        (removed, next) => Holds(root, [.. removed, next], block.CancellationToken) ? removed.Add(next) : removed))
-                        block.ReportDiagnostic(Diagnostic.Create(Lift, lift.Syntax.GetLocation(), lift.Syntax, Unlifted(lift.Syntax), target.ToDisplayString(Shown)));
+        ConcurrentDictionary<SyntaxNode, ConcurrentBag<(IOperation Lift, INamedTypeSymbol Target, IMethodSymbol Conversion)>> candidates = new();
+        context.RegisterOperationAction(analysis => {
+            if (!analysis.IsGeneratedCode && Candidate(analysis.Operation) is { } candidate && Scope(candidate.Lift.Syntax) is { } root)
+                candidates.GetOrAdd(root, static _ => []).Add(candidate);
+        }, OperationKind.Invocation, OperationKind.ObjectCreation, OperationKind.Conversion);
+        context.RegisterCompilationEndAction(end => {
+            foreach (KeyValuePair<SyntaxNode, ConcurrentBag<(IOperation Lift, INamedTypeSymbol Target, IMethodSymbol Conversion)>> scope in candidates) {
+                end.CancellationToken.ThrowIfCancellationRequested();
+                SyntaxNode root = scope.Key;
+                ImmutableArray<(IOperation Lift, INamedTypeSymbol Target, IMethodSymbol Conversion)> lifts = [.. scope.Value.OrderByDescending(static lift => lift.Lift.Syntax.SpanStart).ThenBy(static lift => lift.Lift.Syntax.Span.Length)];
+                SemanticModel model = lifts[0].Lift.SemanticModel!;
+                ImmutableArray<(SyntaxNode Site, ISymbol? Symbol)> calls = [.. root.DescendantNodesAndSelf()
+                    .Where(static node => node is InvocationExpressionSyntax or BaseObjectCreationExpressionSyntax).Select(node => (node, model.GetSymbolInfo(node, end.CancellationToken).Symbol))];
+                ImmutableArray<(IOperation Lift, INamedTypeSymbol Target, IMethodSymbol Conversion)> removed = Holds(root, calls, lifts, end.CancellationToken) ? lifts : lifts.Length is 1 ? [] : lifts.Aggregate(
+                    ImmutableArray<(IOperation Lift, INamedTypeSymbol Target, IMethodSymbol Conversion)>.Empty,
+                    (held, next) => held.Add(next) switch { var proposed => Holds(root, calls, proposed, end.CancellationToken) ? proposed : held });
+                foreach ((IOperation lift, INamedTypeSymbol target, _) in removed)
+                    end.ReportDiagnostic(Diagnostic.Create(Lift, lift.Syntax.GetLocation(), lift.Syntax, Unlifted(lift.Syntax), target.ToDisplayString(Shown)));
+            }
         });
     }
 
-    private static SyntaxNode? Scope(SyntaxNode node) =>
-        node.Ancestors().FirstOrDefault(static held => held is AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax or MemberDeclarationSyntax or AttributeSyntax) is AnonymousFunctionExpressionSyntax callback
-            ? Scope(callback)
-            : node.Ancestors().FirstOrDefault(static held => held is (StatementSyntax and not BlockSyntax)
+    private static SyntaxNode? Scope(SyntaxNode node) {
+        while (node.Ancestors().FirstOrDefault(static held => held is AnonymousFunctionExpressionSyntax or LocalFunctionStatementSyntax or MemberDeclarationSyntax or AttributeSyntax) is AnonymousFunctionExpressionSyntax callback) node = callback;
+        return node.Ancestors().FirstOrDefault(static held => held is (StatementSyntax and not BlockSyntax)
                 or ArrowExpressionClauseSyntax { Parent: not LocalFunctionStatementSyntax }
                 or EqualsValueClauseSyntax { Parent: PropertyDeclarationSyntax or ParameterSyntax or VariableDeclaratorSyntax { Parent.Parent: FieldDeclarationSyntax } }
                 or MemberDeclarationSyntax or AttributeSyntax) is { } scope and (StatementSyntax or ArrowExpressionClauseSyntax or EqualsValueClauseSyntax)
                 ? scope
                 : null;
+    }
 
-    private static bool Holds(SyntaxNode scope, ImmutableArray<(IOperation Lift, INamedTypeSymbol Target, IMethodSymbol Conversion)> removed, CancellationToken token) {
-        if (removed[0].Lift.SemanticModel is not { } model) return false;
-        ImmutableArray<SyntaxNode> sites = [.. removed.Select(static lift => lift.Lift.Syntax)];
-        ImmutableArray<SyntaxAnnotation> marks = [.. removed.Select(static _ => new SyntaxAnnotation())];
+    private static bool Holds(SyntaxNode scope, ImmutableArray<(SyntaxNode Site, ISymbol? Symbol)> calls, ImmutableArray<(IOperation Lift, INamedTypeSymbol Target, IMethodSymbol Conversion)> removed, CancellationToken token) {
+        SemanticModel model = removed[0].Lift.SemanticModel!;
+        ImmutableDictionary<SyntaxNode, SyntaxAnnotation> marked = removed.ToImmutableDictionary(static lift => lift.Lift.Syntax, static _ => new SyntaxAnnotation());
         SyntaxAnnotation outer = new();
-        SyntaxNode unlifted = scope.ReplaceNodes(sites, (site, rewritten) => SyntaxFactory.ParenthesizedExpression(Unlifted(rewritten)!.WithoutTrivia()).WithTriviaFrom(rewritten).WithAdditionalAnnotations(marks[sites.IndexOf(site)]))
+        SyntaxNode unlifted = scope.ReplaceNodes(marked.Keys, (site, rewritten) => SyntaxFactory.ParenthesizedExpression(Unlifted(rewritten)!.WithoutTrivia()).WithTriviaFrom(rewritten).WithAdditionalAnnotations(marked[site]))
             .WithAdditionalAnnotations(outer);
         SemanticModel? speculative = unlifted switch {
             StatementSyntax statement when model.TryGetSpeculativeSemanticModel(scope.SpanStart, statement, out SemanticModel? held) => held,
@@ -160,15 +162,15 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
             EqualsValueClauseSyntax initializer when model.TryGetSpeculativeSemanticModel(scope.SpanStart, initializer, out SemanticModel? held) => held,
             _ => null,
         };
-        if (speculative?.SyntaxTree.GetRoot(token).GetAnnotatedNodes(outer).FirstOrDefault() is not { } rebound) return false;
-        IEnumerable<ISymbol?> Calls(SemanticModel held, SyntaxNode root, ImmutableArray<SyntaxNode> skipped) =>
-            root.DescendantNodesAndSelf().Where(static node => node is InvocationExpressionSyntax or BaseObjectCreationExpressionSyntax).Except(skipped).Select(node => held.GetSymbolInfo(node, token).Symbol);
-        return removed.Select((lift, index) => rebound.GetAnnotatedNodes(marks[index]).FirstOrDefault() is ExpressionSyntax site
-                && speculative.GetConversion(site, token) is { IsImplicit: true, IsUserDefined: true, MethodSymbol: var conversion }
-                && SymbolEqualityComparer.Default.Equals(conversion, lift.Conversion)
-                && SymbolEqualityComparer.Default.Equals(speculative.GetTypeInfo(site, token).ConvertedType, lift.Target))
-            .All(static held => held)
-            && Calls(model, scope, sites).SequenceEqual(Calls(speculative, rebound, []), SymbolEqualityComparer.Default);
+        if (speculative is null) return false;
+        SyntaxNode rebound = speculative.SyntaxTree.GetRoot(token).GetAnnotatedNodes(outer).First();
+        return removed.Select(lift => (Lift: lift, Site: (ExpressionSyntax)rebound.GetAnnotatedNodes(marked[lift.Lift.Syntax]).First()))
+            .All(held => speculative.GetConversion(held.Site, token) is { IsImplicit: true, IsUserDefined: true, MethodSymbol: var conversion }
+                && SymbolEqualityComparer.Default.Equals(conversion, held.Lift.Conversion)
+                && SymbolEqualityComparer.Default.Equals(speculative.GetTypeInfo(held.Site, token).ConvertedType, held.Lift.Target))
+            && calls.Where(call => !marked.ContainsKey(call.Site)).Select(static call => call.Symbol).SequenceEqual(
+                rebound.DescendantNodesAndSelf().Where(static node => node is InvocationExpressionSyntax or BaseObjectCreationExpressionSyntax).Select(node => speculative.GetSymbolInfo(node, token).Symbol),
+                SymbolEqualityComparer.Default);
     }
 
     // --- [TYPE_TESTS]
@@ -181,7 +183,13 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
         ITypeSymbol? Narrowed(IOperation pattern) =>
             pattern.DescendantsAndSelf().OfType<IPatternOperation>().Where(nested => Same(nested.InputType, error)).Select(static nested => nested.NarrowedType).FirstOrDefault(Case);
         bool Visits(ISymbol member) => Overridden(member).Any(held => Among(held, leaves));
-        bool Iterated(IOperation? source) => source is not null && Stripped(source) is IInvocationOperation call && (Visits(call.TargetMethod) || Iterated(Receiver(call)));
+        bool Iterated(IOperation? source) {
+            while (source is not null && Stripped(source) is IInvocationOperation call) {
+                if (Visits(call.TargetMethod)) return true;
+                source = Receiver(call);
+            }
+            return false;
+        }
         bool Leaf(IOperation tested) =>
             Stripped(tested) switch {
                 IPropertyReferenceOperation reference => Visits(reference.Property),
@@ -214,22 +222,40 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
     }
 
     // --- [ROUND_TRIPS]
-    private static bool Parameterless(IInvocationOperation call) => call.Arguments.Length == (call.Instance is null ? 1 : 0);
+    private static bool Parameterless(IInvocationOperation call) => (call.Instance is not null || call.TargetMethod.IsExtensionMethod) && call.Arguments.Length == (call.Instance is null ? 1 : 0);
 
-    private static void RoundTrips(CompilationStartAnalysisContext context, INamedTypeSymbol fin, INamedTypeSymbol validation, INamedTypeSymbol kind) {
-        static IOperation? Source(IOperation operation, INamedTypeSymbol from, INamedTypeSymbol to) =>
-            operation is IInvocationOperation call && Parameterless(call) && Receiver(call) is { } held && Same(held.Type, from) && Same(call.Type, to) ? Stripped(held) : null;
-        ImmutableArray<IOperation> Hops(IOperation operand) =>
-            Stripped(operand) is var held && Source(held, fin, validation) is not null
-                ? [held]
-                : Source(held, kind, validation) switch {
-                    IInvocationOperation apply when Receiver(apply) is { } tupled && Stripped(tupled) is ITupleOperation tuple
-                        && tuple.Elements.Select(Hops).ToImmutableArray() is var parts && parts.All(static part => !part.IsEmpty) => [.. parts.SelectMany(static part => part)],
-                    IInvocationOperation traverse when traverse.Arguments.LastOrDefault()?.Value is { } mapped && Lambda(mapped) is { } function && Sole(function.Body) is { } returned => Hops(returned),
-                    _ => [],
-                };
-        Report<IInvocationOperation>(context, [OperationKind.Invocation], (exit, _) =>
-            Source(exit, validation, fin) is { } inner && Hops(inner) is { IsEmpty: false } hops && (Source(inner, kind, validation) ?? inner) is IInvocationOperation named
+    private static void RoundTrips(CompilationStartAnalysisContext context, ImmutableArray<IMethodSymbol> applies, INamedTypeSymbol fin, INamedTypeSymbol validation, INamedTypeSymbol kind) {
+        ImmutableArray<IMethodSymbol> traversals = [.. kind.ContainingNamespace.ContainingNamespace.GetTypeMembers().SelectMany(static type => Members(type, "Traverse"))];
+        IOperation? Source(IOperation operation, INamedTypeSymbol from, INamedTypeSymbol to) =>
+            operation is IInvocationOperation call && Same(call.TargetMethod.ContainingAssembly, fin.ContainingAssembly) && Parameterless(call)
+            && Receiver(call) is { } held && Same(held.Type, from) && Same(call.Type, to) ? Stripped(held) : null;
+        ImmutableArray<IOperation> Hops(IOperation operand, CancellationToken token) {
+            ImmutableArray<IOperation>.Builder hops = ImmutableArray.CreateBuilder<IOperation>();
+            Stack<IOperation> remaining = new([operand]);
+            while (remaining.Count is not 0) {
+                token.ThrowIfCancellationRequested();
+                IOperation held = Stripped(remaining.Pop());
+                if (Source(held, fin, validation) is not null) {
+                    hops.Add(held);
+                    continue;
+                }
+                switch (Source(held, kind, validation)) {
+                    case IInvocationOperation apply when Among(apply.TargetMethod, applies) && Receiver(apply) is { } tupled && Stripped(tupled) is ITupleOperation tuple:
+                        foreach (IOperation element in tuple.Elements.Reverse()) remaining.Push(element);
+                        break;
+                    case IInvocationOperation traverse when Among(traverse.TargetMethod, traversals)
+                        && traverse.Arguments.FirstOrDefault(static argument => argument.Parameter!.Type.TypeKind is TypeKind.Delegate)?.Value is { } mapped
+                        && Lambda(mapped) is { } function && Sole(function.Body) is { } returned:
+                        remaining.Push(returned);
+                        break;
+                    default:
+                        return [];
+                }
+            }
+            return hops.DrainToImmutable();
+        }
+        Report<IInvocationOperation>(context, [OperationKind.Invocation], (exit, analysis) =>
+            Source(exit, validation, fin) is { } inner && Hops(inner, analysis.CancellationToken) is { IsEmpty: false } hops && (Source(inner, kind, validation) ?? inner) is IInvocationOperation named
                 ? [Diagnostic.Create(
                     RoundTrip,
                     Named(exit),
@@ -256,21 +282,10 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
                 : []);
     }
 
-    // --- [LIFTED_APPLIES]
-    private static void LiftedApplies(CompilationStartAnalysisContext context, INamedTypeSymbol io, INamedTypeSymbol fin) {
-        bool Raised(IOperation operand) =>
-            Stripped(operand) is IInvocationOperation { TargetMethod: { Parameters: { Length: 1 } parameters } lift } && Same(lift.ContainingType, io) && parameters[0].Type is var raised
-            && (Same(raised, fin) || (raised is INamedTypeSymbol { DelegateInvokeMethod: { Parameters.IsEmpty: true, ReturnType: var returned } } && Same(returned, fin)));
-        Report<IInvocationOperation>(context, [OperationKind.Invocation], (call, _) =>
-            Receiver(call) is { } receiver && Stripped(receiver) is ITupleOperation { Elements.Length: > 1 } tuple && tuple.Elements.All(Raised)
-                ? [Diagnostic.Create(LiftedApply, Named(call), call.TargetMethod.Name, tuple.Elements.Length)]
-                : []);
-    }
-
     // --- [NARROWINGS]
-    private static void Narrowings(CompilationStartAnalysisContext context, INamedTypeSymbol kind) =>
+    private static void Narrowings(CompilationStartAnalysisContext context, ImmutableArray<IMethodSymbol> narrowings, INamedTypeSymbol kind) =>
         Report<IInvocationOperation>(context, [OperationKind.Invocation], (call, _) =>
-            Parameterless(call) && Receiver(call) is IConversionOperation { IsImplicit: true, Type: var trait, Operand.Type: { } held }
+            Among(call.TargetMethod, narrowings) && Parameterless(call) && Receiver(call) is IConversionOperation { IsImplicit: true, Type: var trait, Operand.Type: { } held }
             && Same(trait, kind) && SymbolEqualityComparer.Default.Equals(held, call.Type)
                 ? [Diagnostic.Create(Narrowed, Named(call), call.TargetMethod.Name, held.ToDisplayString(Shown))]
                 : []);
@@ -278,6 +293,7 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
     // --- [MATCHES]
     private static void Matches(CompilationStartAnalysisContext context, LanguageExtSymbols symbols, INamedTypeSymbol fin, INamedTypeSymbol option) {
         (ISymbol? identity, ISymbol? matched, ISymbol? some, ISymbol? none) = (symbols.Identity, symbols.Case, symbols.IsSome, symbols.IsNone);
+        ImmutableArray<IMethodSymbol> fallbacks = Members(option, "IfNone");
         ITypeSymbol? Identity(IOperation value) =>
             Stripped(value) switch {
                 IDelegateCreationOperation { Target: IAnonymousFunctionOperation { Symbol.Parameters: { Length: 1 } parameters } function }
@@ -285,98 +301,113 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
                 IDelegateCreationOperation { Target: IMethodReferenceOperation { Method: { Parameters: { Length: 1 } parameters } method } } when Same(method, identity) => parameters[0].Type,
                 _ => null,
             };
-        static bool Empty(IOperation value) =>
-            Stripped(value) switch {
-                IDefaultValueOperation => true,
-                { ConstantValue: { HasValue: true, Value: null } } => true,
-                IDelegateCreationOperation { Target: IAnonymousFunctionOperation { Symbol.Parameters.IsEmpty: true } function } => Sole(function.Body) is { } returned && Empty(returned),
-                _ => false,
-            };
+        static bool Empty(IOperation value) {
+            while (Stripped(value) is IDelegateCreationOperation { Target: IAnonymousFunctionOperation { Symbol.Parameters.IsEmpty: true } function }) {
+                if (Sole(function.Body) is not { } returned) return false;
+                value = returned;
+            }
+            return Stripped(value) is IDefaultValueOperation or { ConstantValue: { HasValue: true, Value: null } };
+        }
         bool Nulled(ITypeSymbol element, ITypeSymbol? produced) =>
-            element.IsReferenceType || (produced is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } nullable && SymbolEqualityComparer.Default.Equals(nullable.TypeArguments[0], element));
-        static object[] Read(IOperation holder, ITypeSymbol element) => [holder.Syntax, $"{holder.Syntax}.{(element.IsReferenceType ? "ValueUnsafe" : "ToNullable")}()"];
-        bool Held(IOperation? first, IOperation? second) =>
-            (first, second) switch {
+            element.IsReferenceType ? SymbolEqualityComparer.Default.Equals(produced, element)
+            : produced is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } nullable && SymbolEqualityComparer.Default.Equals(nullable.TypeArguments[0], element);
+        object[] Read(IOperation holder, ITypeSymbol element) => [holder.Syntax, $"{holder.Syntax}.{(element.IsReferenceType ? symbols.Unsafe : symbols.Nullable)!.Name}()"];
+        bool Held(IOperation? first, IOperation? second, CancellationToken token) {
+            while ((first, second) is (IMemberReferenceOperation one, IMemberReferenceOperation other) && Same(one.Member, other.Member) && one switch {
+                IFieldReferenceOperation field => !field.Field.IsVolatile,
+                IPropertyReferenceOperation property => property.Property.GetMethod is { } getter
+                    && (getter.IsImplicitlyDeclared || (getter.DeclaringSyntaxReferences is { IsEmpty: false } declarations
+                        && declarations.All(declared => declared.GetSyntax(token) is AccessorDeclarationSyntax { Body: null, ExpressionBody: null })))
+                    && property.Property.ContainingType.GetMembers().OfType<IFieldSymbol>().Any(field => Same(field.AssociatedSymbol, property.Property)),
+                _ => false,
+            })
+                (first, second) = (one.Instance, other.Instance);
+            return (first, second) switch {
                 (ILocalReferenceOperation one, ILocalReferenceOperation other) => Same(one.Local, other.Local),
                 (IParameterReferenceOperation one, IParameterReferenceOperation other) => Same(one.Parameter, other.Parameter),
-                (IFieldReferenceOperation one, IFieldReferenceOperation other) => Same(one.Field, other.Field) && Held(one.Instance, other.Instance),
-                (IPropertyReferenceOperation one, IPropertyReferenceOperation other) => Same(one.Property, other.Property) && Held(one.Instance, other.Instance),
                 (IInstanceReferenceOperation, IInstanceReferenceOperation) or (null, null) => true,
                 _ => false,
             };
-        bool Unwraps(IOperation value, IOperation tested) => Stripped(value) is IConversionOperation { IsImplicit: false, Operand: var source } && Held(source, tested);
+        }
+        bool Unwraps(IOperation value, IOperation tested, CancellationToken token) => Stripped(value) is IConversionOperation { IsImplicit: false, Operand: var source } && Held(source, tested, token);
         (DiagnosticDescriptor Rule, object[] Arguments)? Handled(IInvocationOperation call) {
-            if (Receiver(call) is not { Type: INamedTypeSymbol owner } receiver || !SymbolEqualityComparer.Default.Equals(owner.ContainingAssembly, fin.ContainingAssembly)) return null;
+            if (Receiver(call) is not { } receiver || call.TargetMethod.ContainingType is not { } owner || (!Same(owner, fin) && !Same(owner, option))) return null;
             ImmutableArray<IArgumentOperation> handled = [.. call.Arguments.Where(argument => argument.Value != receiver)];
             bool optional = Same(owner, option);
-            ITypeSymbol element = owner.TypeArguments.FirstOrDefault() ?? owner;
+            ITypeSymbol element = owner.TypeArguments[0];
             object[] unwrapped = Read(receiver, element);
-            if (optional && handled.Length is 1 && Empty(handled[0].Value) && SymbolEqualityComparer.Default.Equals(call.Type?.WithNullableAnnotation(NullableAnnotation.NotAnnotated), element) && Nulled(element, call.Type))
+            if (optional && Among(call.TargetMethod, fallbacks) && handled.Length is 1 && Empty(handled[0].Value) && Nulled(element, call.Type))
                 return (Nullable, unwrapped);
-            if (handled.Length is not 2 || !handled.All(static argument => argument.Parameter?.Type.TypeKind is TypeKind.Delegate)) return null;
-            int kept = Identity(handled[0].Value) is not null ? 0 : Identity(handled[1].Value) is not null ? 1 : -1;
-            IArgumentOperation other = handled[kept is 0 ? 1 : 0];
+            if (handled.Length is not 2 || !Among(call.TargetMethod, symbols.Matches) || !handled.All(static argument => argument.Parameter?.Type.TypeKind is TypeKind.Delegate)) return null;
+            IArgumentOperation? kept = handled.FirstOrDefault(argument => Identity(argument.Value) is not null);
+            IArgumentOperation other = handled.First(argument => argument != kept);
             return (kept, optional && Empty(other.Value) && Nulled(element, call.Type)) switch {
-                ( >= 0, true) => (Nullable, unwrapped),
-                (-1, _) when optional && handled.FirstOrDefault(static argument => !Empty(argument.Value)) is { } mapped && handled.Any(static argument => Empty(argument.Value))
+                (not null, true) => (Nullable, unwrapped),
+                (null, _) when optional && handled.FirstOrDefault(static argument => !Empty(argument.Value)) is { } mapped && handled.Any(static argument => Empty(argument.Value))
                     && call.Type is { IsReferenceType: true } or INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } =>
-                    (Nullable, [receiver.Syntax, $"{receiver.Syntax}.Map<{call.Type.ToDisplayString(Shown)}>({mapped.Value.Syntax}).ValueUnsafe()"]),
-                ( >= 0, false) when SymbolEqualityComparer.Default.Equals(Identity(handled[kept].Value), call.Type)
+                    (Nullable, [receiver.Syntax, $"{receiver.Syntax}.{symbols.Maps[0].Name}<{call.Type.ToDisplayString(Shown)}>({mapped.Value.Syntax}).{symbols.Unsafe!.Name}()"]),
+                ( { Value: var value, Parameter: var parameter }, false) when SymbolEqualityComparer.Default.Equals(Identity(value), call.Type)
                     && owner.GetMembers().OfType<IMethodSymbol>().FirstOrDefault(member => member is { IsStatic: false, Parameters.Length: 1 } && !Same(member, call.TargetMethod)
                         && SymbolEqualityComparer.IncludeNullability.Equals(member.Parameters[0].Type, other.Parameter!.Type)
                         && SymbolEqualityComparer.IncludeNullability.Equals(member.ReturnType, call.Type)) is { } named =>
-                    (Passed, [call.TargetMethod.Name, handled[kept].Parameter!.Name, $"{receiver.Syntax}.{named.Name}({other.Value.Syntax})"]),
+                    (Passed, [call.TargetMethod.Name, parameter!.Name, $"{receiver.Syntax}.{named.Name}({other.Value.Syntax})"]),
                 _ => null,
             };
         }
-        Report<IOperation>(context, [OperationKind.Invocation, OperationKind.Conversion, OperationKind.Conditional], (operation, _) =>
+        Report<IOperation>(context, [OperationKind.Invocation, OperationKind.Conversion, OperationKind.Conditional], (operation, analysis) =>
             operation switch {
                 IInvocationOperation call when Handled(call) is { } handled => [Diagnostic.Create(handled.Rule, call.Syntax.GetLocation(), handled.Arguments)],
-                IConversionOperation { IsImplicit: false, Type: { } target } cast when Stripped(cast.Operand) is IPropertyReferenceOperation { Instance: { Type: INamedTypeSymbol owner } holder } read
-                    && Same(read.Property, matched) && SymbolEqualityComparer.Default.Equals(target.WithNullableAnnotation(NullableAnnotation.NotAnnotated), owner.TypeArguments[0]) =>
+                IConversionOperation { IsImplicit: false, Type: { } target } cast when Stripped(cast.Operand) is IPropertyReferenceOperation { Instance: { } holder, Property.ContainingType: var owner } read
+                    && Same(read.Property, matched) && Nulled(owner.TypeArguments[0], target) =>
                     [Diagnostic.Create(Nullable, cast.Syntax.GetLocation(), Read(holder, owner.TypeArguments[0]))],
-                IConditionalOperation { Condition: IPropertyReferenceOperation { Instance: { Type: INamedTypeSymbol owner } tested } test, WhenTrue: var present, WhenFalse: { } absent } conditional
-                    when (Same(test.Property, some) && Unwraps(present, tested) && Empty(absent)) || (Same(test.Property, none) && Unwraps(absent, tested) && Empty(present)) =>
+                IConditionalOperation { Condition: IPropertyReferenceOperation { Instance: { } tested, Property.ContainingType: var owner } test, WhenTrue: var present, WhenFalse: { } absent } conditional
+                    when ((Same(test.Property, some) && Unwraps(present, tested, analysis.CancellationToken) && Empty(absent))
+                            || (Same(test.Property, none) && Unwraps(absent, tested, analysis.CancellationToken) && Empty(present)))
+                        && Nulled(owner.TypeArguments[0], conditional.Type) =>
                     [Diagnostic.Create(Nullable, conditional.Syntax.GetLocation(), Read(tested, owner.TypeArguments[0]))],
                 _ => [],
             });
     }
 
     // --- [LENSES]
-    private static void Lenses(CompilationStartAnalysisContext context, INamedTypeSymbol lens) {
-        static IParameterSymbol? Parameter(IAnonymousFunctionOperation? function) => function?.Symbol.Parameters is { Length: 1 } parameters ? parameters[0] : null;
-        static bool Equal(ImmutableArray<IPropertySymbol> left, ImmutableArray<IPropertySymbol> right) => left.Length == right.Length && left.Zip(right, Same).All(static same => same);
-        static ImmutableArray<IPropertySymbol>? Read(IOperation value, IParameterSymbol root) =>
-            Stripped(value) switch {
-                IParameterReferenceOperation reference when Same(reference.Parameter, root) => ImmutableArray<IPropertySymbol>.Empty,
-                IPropertyReferenceOperation { Instance: { } instance } reference => Read(instance, root) is { } head ? head.Add(reference.Property) : null,
-                _ => null,
-            };
-        static ImmutableArray<IPropertySymbol>? Written(IOperation value, IParameterSymbol root, IParameterSymbol held, ImmutableArray<IPropertySymbol> prefix) =>
-            Stripped(value) switch {
-                IParameterReferenceOperation reference when Same(reference.Parameter, held) => prefix,
-                IWithOperation { Operand: var operand, Initializer.Initializers: { Length: 1 } sets }
-                    when sets[0] is ISimpleAssignmentOperation { Target: IPropertyReferenceOperation target, Value: var next } && Read(operand, root) is { } read && Equal(read, prefix) =>
-                    Written(next, root, held, prefix.Add(target.Property)),
-                _ => null,
-            };
+    private static void Lenses(CompilationStartAnalysisContext context, ImmutableArray<IMethodSymbol> lenses) {
+        static ImmutableArray<IPropertySymbol>? Read(IOperation value, IParameterSymbol root, CancellationToken token) {
+            Stack<IPropertySymbol> path = new();
+            while (Stripped(value) is IPropertyReferenceOperation { Instance: { } instance } reference) {
+                token.ThrowIfCancellationRequested();
+                path.Push(reference.Property);
+                value = instance;
+            }
+            return Stripped(value) is IParameterReferenceOperation parameter && Same(parameter.Parameter, root) ? [.. path] : null;
+        }
+        static ImmutableArray<IPropertySymbol>? Written(IOperation value, IParameterSymbol root, IParameterSymbol held, CancellationToken token) {
+            ImmutableArray<IPropertySymbol>.Builder path = ImmutableArray.CreateBuilder<IPropertySymbol>();
+            while (Stripped(value) is IWithOperation { Operand: var operand, Initializer.Initializers: { Length: 1 } sets }
+                && sets[0] is ISimpleAssignmentOperation { Target: IPropertyReferenceOperation target, Value: var next }
+                && Read(operand, root, token) is { } read && Enumerable.SequenceEqual(read, path, SymbolEqualityComparer.Default)) {
+                token.ThrowIfCancellationRequested();
+                path.Add(target.Property);
+                value = next;
+            }
+            return Stripped(value) is IParameterReferenceOperation parameter && Same(parameter.Parameter, held) ? path.DrainToImmutable() : null;
+        }
         Report<IInvocationOperation>(context, [OperationKind.Invocation], (call, analysis) => {
             bool Positional(IPropertySymbol property) =>
                 property.ContainingType is { IsRecord: true } owner && Sourced(owner) && property.DeclaringSyntaxReferences.Any(reference => reference.GetSyntax(analysis.CancellationToken) is ParameterSyntax);
-            if (call.TargetMethod is not { Name: "New", IsStatic: true, ContainingType: { } owner } || !Same(owner, lens) || call.Arguments.Length is not 2
-                || Lambda(call.Arguments[0].Value) is not { } getter || Parameter(getter) is not { } root || Sole(getter.Body) is not { } got || Read(got, root) is not { IsEmpty: false } path
-                || Lambda(call.Arguments[1].Value) is not { } setter || Parameter(setter) is not { } held || Sole(setter.Body) is not { } inner || Lambda(inner) is not { } writer
-                || Parameter(writer) is not { } target || Sole(writer.Body) is not { } written || Written(written, target, held, []) is not { } wrote || !Equal(wrote, path) || !path.All(Positional))
+            if (!Among(call.TargetMethod, lenses)) return [];
+            if (Lambda(call.Arguments.Single(static argument => argument.Parameter!.Ordinal is 0).Value) is not { Symbol.Parameters.Length: 1 } getter || Sole(getter.Body) is not { } got || Read(got, getter.Symbol.Parameters[0], analysis.CancellationToken) is not { IsEmpty: false } path
+                || Lambda(call.Arguments.Single(static argument => argument.Parameter!.Ordinal is 1).Value) is not { Symbol.Parameters.Length: 1 } setter || Sole(setter.Body) is not { } inner || Lambda(inner) is not { Symbol.Parameters.Length: 1 } writer
+                || Sole(writer.Body) is not { } written || Written(written, writer.Symbol.Parameters[0], setter.Symbol.Parameters[0], analysis.CancellationToken) is not { } wrote || !Enumerable.SequenceEqual(wrote, path, SymbolEqualityComparer.Default) || !path.All(Positional))
                 return [];
             string joined = string.Join(".", path.Select(static property => property.Name));
             return [
                 Diagnostic.Create(
                     Focused,
                     call.Syntax.GetLocation(),
-                    $"{owner.ToDisplayString(Shown)}.New",
+                    $"{call.TargetMethod.ContainingType.ToDisplayString(Shown)}.{call.TargetMethod.Name}",
                     path.Length is 1 ? "property" : "path",
                     joined,
-                    root.Type.ToDisplayString(Shown),
+                    getter.Symbol.Parameters[0].Type.ToDisplayString(Shown),
                     written.Syntax),
             ];
         });

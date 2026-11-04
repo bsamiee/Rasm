@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-lifted-callback-result
-language: tsx
+language: tsxlang
 severity: error
 utils:
     succeed-module:
@@ -46,33 +46,9 @@ utils:
               has: {field: object, matches: succeed-module}
             - pattern: $M.some
               has: {field: object, matches: option-module}
-    identity-body:
-        matches: lifted-value
-        any: [{pattern: $_.$_($N)}, {pattern: $_.$_<$$$_>($N)}]
-    identity-callback:
-        kind: arrow_function, function_expression
-        not: {has: {regex: '^async$'}}
-        any:
-            - has: {field: parameter, kind: identifier, pattern: $N}
-            - has:
-                field: parameters
-                has: {kind: required_parameter, has: {field: pattern, kind: identifier, pattern: $N}}
-                not: {has: {nthChild: 2}}
-        has:
-            field: body
-            any:
-                - matches: identity-body
-                - kind: parenthesized_expression
-                  has: {matches: identity-body}
-                - kind: statement_block
-                  has: {kind: return_statement, has: {matches: identity-body}}
-                  not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
-    identity-step:
-        any: [{matches: identity-callback}, {matches: point-free-lift}]
-        not: {has: {kind: comment, stopBy: end}}
     recovered:
         kind: call_expression
-        any: [{pattern: $M.$LIFT($V)}, {pattern: $M.$LIFT<$$$_>($V)}]
+        any: [{pattern: $M.$LIFT($_V)}, {pattern: $M.$LIFT<$$$_>($_V)}]
         not: {has: {field: arguments, has: {kind: spread_element}}}
     recovering-handler:
         kind: arrow_function, function_expression
@@ -127,7 +103,7 @@ rule:
         - all:
             - has: {field: function, kind: member_expression, pattern: $M.$F, has: {field: property, regex: '^catch$'}}
             - not: {has: {field: type_arguments, kind: type_arguments}}
-            - has: {field: arguments, has: {nthChild: {position: 1, reverse: true}, matches: recovering-handler, pattern: $HANDLER}}
+            - has: {field: arguments, has: {nthChild: {position: 1, reverse: true}, matches: recovering-handler}}
             - any:
                 - has: {field: function, has: {field: object, matches: {effect-module: {name: {regex: '\bStream$'}}}}}
                 - all:
@@ -136,85 +112,6 @@ rule:
             - not: {has: {kind: comment, stopBy: end}}
 constraints:
     LIFT: {regex: '^(succeed|fail)$'}
-rewriters:
-    - id: recover-unlift-object
-      rule: {matches: recovered, inside: {pattern: $HANDLER, field: body}, has: {field: arguments, has: {kind: object}}}
-      fix: ($V)
-    - id: recover-unlift
-      rule: {matches: recovered, inside: {pattern: $HANDLER, stopBy: end}}
-      fix: $V
-    - id: recover
-      rule: {kind: call_expression, all: [{has: {field: function, has: {field: property, regex: '^catch$'}}}, {has: {field: arguments, pattern: $ARGUMENTS}}]}
-      transform:
-        SUCCEEDED: replace($LIFT, replace='^succeed$', by='orElseSucceed')
-        OPERATION: replace($SUCCEEDED, replace='^fail$', by='mapError')
-        HANDLED: rewrite($ARGUMENTS, rewriters=[recover-unlift-object, recover-unlift])
-      fix: $M.$OPERATION$HANDLED
-    - id: identity-first
-      rule:
-        any: [{pattern: '$M.$_($SELF, $H)'}, {pattern: '$M.$_<$$$_>($SELF, $H)'}]
-        has: {field: arguments, has: {pattern: $H, matches: identity-step}}
-      fix: $SELF
-    - id: identity-last
-      rule:
-        any: [{pattern: $M.$OP($H)}, {pattern: $M.$OP<$$$_>($H)}]
-        has: {field: arguments, has: {pattern: $H, matches: identity-step}}
-      fix: $M.$OP($H)
-    - id: as-first
-      rule:
-        any: [{pattern: '$M.andThen($SELF, $H)'}, {pattern: '$M.andThen<$$$_>($SELF, $H)'}]
-        has: {field: arguments, has: {pattern: $H, matches: lifted-value}}
-      transform:
-        VALUE: rewrite($H, rewriters=[unlift-object, unlift])
-      fix: $M.as($SELF, $VALUE)
-    - id: as-last
-      rule:
-        any: [{pattern: $M.andThen($H)}, {pattern: $M.andThen<$$$_>($H)}]
-        has: {field: arguments, has: {pattern: $H, matches: lifted-value}}
-      transform:
-        VALUE: rewrite($H, rewriters=[unlift-object, unlift])
-      fix: $M.as($VALUE)
-    - id: return-type
-      rule: {kind: type_annotation, inside: {matches: lifting-callback, field: return_type}}
-      fix: ''
-    - id: unlift-object
-      rule:
-        matches: lifted-body
-        any: [{pattern: $_.$_($V)}, {pattern: $_.$_<$$$_>($V)}]
-        has: {field: arguments, has: {kind: object}}
-      fix: ($V)
-    - id: unlift
-      rule:
-        matches: lifted-body
-        any: [{pattern: $_.$_($V)}, {pattern: $_.$_<$$$_>($V)}]
-      fix: $V
-    - id: void-first
-      rule:
-        any: [{pattern: '$M.$_($SELF, $H)'}, {pattern: '$M.$_<$$$_>($SELF, $H)'}]
-        has: {field: arguments, has: {pattern: $H, matches: void-callback, not: {has: {kind: comment, stopBy: end}}}}
-      fix: $M.asVoid($SELF)
-    - id: void-last
-      rule:
-        any: [{pattern: $M.$_($H)}, {pattern: $M.$_<$$$_>($H)}]
-        has: {field: arguments, has: {pattern: $H, matches: void-callback, not: {has: {kind: comment, stopBy: end}}}}
-      fix: $M.asVoid
-    - id: map-first
-      rule:
-        any: [{pattern: '$M.$_($SELF, $H)'}, {pattern: '$M.$_<$$$_>($SELF, $H)'}]
-        has: {field: arguments, has: {pattern: $H, not: {matches: void-callback}}}
-      transform:
-        BODY: rewrite($H, rewriters=[return-type, unlift-object, unlift])
-      fix: $M.map($SELF, $BODY)
-    - id: map-last
-      rule:
-        any: [{pattern: $M.$_($H)}, {pattern: $M.$_<$$$_>($H)}]
-        has: {field: arguments, has: {pattern: $H, not: {matches: void-callback}}}
-      transform:
-        BODY: rewrite($H, rewriters=[return-type, unlift-object, unlift])
-      fix: $M.map($BODY)
-transform:
-    MAPPED: rewrite($CALL, rewriters=[recover, as-first, as-last, identity-first, identity-last, void-first, void-last, map-first, map-last])
-fix: $MAPPED
 message: '`$M.$F` callback lifts its result back into `$M`'
-note: 'Call `<module>.map`, `<module>.as` for a constant, or `<module>.asVoid`, and `<module>.orElseSucceed` or `<module>.mapError` in place of `catch`'
+note: 'Use `map`, `as` for constants, or `asVoid`; replace `catch` with `orElseSucceed` for success or `mapError` for failure'
 labels: {CALL: {style: primary}}

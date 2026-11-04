@@ -31,9 +31,9 @@ utils:
 rule:
     kind: lambda_expression
     all:
+        - inside: {kind: argument, inside: {kind: argument_list, inside: {matches: find-call}}}
         - not: {has: {field: parameters, kind: parameter_list, has: {kind: parameter, nthChild: 2}}}
         - has: {field: parameters, any: [{kind: implicit_parameter, pattern: $KEY}, {kind: parameter_list, has: {kind: parameter, has: {field: name, pattern: $KEY}}}]}
         - has: {field: body, any: [{matches: table-read}, {has: {stopBy: end, matches: table-read}}]}
-        - inside: {kind: argument, inside: {kind: argument_list, inside: {matches: find-call}}}
 message: 'Lambda over `$KEY` looks up a document table row'
 note: 'Call `TableOps.Find<T>(<table>, <address>, <includeDeleted>)` with `ComponentRef<T>.ById`, `ByIndex`, or `ByName` as `<address>`'

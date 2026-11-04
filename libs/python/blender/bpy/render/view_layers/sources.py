@@ -1,4 +1,4 @@
-"""View layer routing settings and the sources its files write: Render Layers outputs in reader axes, light family totals, derived layers, ID colors with their images, files, and documents, and the File Output nodes file_output them."""
+"""View layer routing settings, render pass sources, ID images and documents, and File Output nodes."""
 
 from collections.abc import Callable, Mapping
 from enum import auto, Enum
@@ -8,7 +8,8 @@ from types import MappingProxyType
 from typing import Final, Literal, TYPE_CHECKING
 
 import bpy
-from expression import Error, Nothing, Ok, Option, Result, Some
+from expression import Option, Result, Some
+from expression.extra.result import catch
 import mathutils
 import msgspec
 from msgspec import UNSET
@@ -37,7 +38,7 @@ from blender.imaging.files.buffers import Depth, unassociated
 from blender.imaging.files.documents import Document, LayerGroup, PixelLayer
 from blender.imaging.files.images import Deflate, Storage
 from blender.imaging.files.multilayer import Matte, Multilayer, Pass, PassLayout, PassRole
-from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, Reason
+from blender.records.faults import accumulated, Error, Fault, Faults, Nothing, Ok, Outcome, paired, Reason
 from blender.records.stores import content_hash, rng
 from blender.rendering.outputs.naming import Output
 
@@ -48,7 +49,7 @@ if TYPE_CHECKING:
 
 type Axis = Literal[-3, -2, -1, 1, 2, 3]
 type Color = tuple[float, float, float]
-type Named = tuple[tuple[str, bpy.types.ID, Color], ...]
+type Named = tuple[tuple[str, bpy.types.Object | bpy.types.Material, Color], ...]
 
 
 class VectorSpace(Enum):
@@ -111,8 +112,9 @@ class Recoloring(bpy.types.PropertyGroup):
 
 
 class FileSocket(msgspec.Struct, frozen=True, kw_only=True):
-    """Socket a layer's files write, typed by the File Output item socket type."""
+    """Source identity, requested filename, term, socket type and storage class of a File Output item."""
 
+    key: Key
     name: str
     term: Expr
     socket_type: "rna_enums.NodeSocketDataTypeItems"
@@ -134,13 +136,19 @@ class FileOutput(msgspec.Struct, frozen=True, kw_only=True):
 
 def named(layer: bpy.types.ViewLayer, entity: CryptomatteKind) -> Named:
     """Returns name, block, and scene-linear color per Cryptomatte name of a layer in name order."""
-    shown = tuple(item for item in layer.objects if not item.hide_render and item.data is not None)
-    member = entity.color.prop.identifier
+    shown = (item for item in layer.objects if not item.hide_render and item.data is not None)
+    roots: dict[bpy.types.Object, bpy.types.Object] = {}
 
     def root(item: bpy.types.Object) -> bpy.types.Object:
-        return root(item.parent) if item.parent else item
+        path = []
+        while item not in roots and (parent := item.parent) is not None:
+            path.append(item)
+            item = parent
+        top = roots.setdefault(item, item)
+        roots.update(dict.fromkeys(path, top))
+        return top
 
-    blocks: dict[str, bpy.types.ID]
+    blocks: dict[str, bpy.types.Object | bpy.types.Material]
     match entity:
         case CryptomatteKind.OBJECT:
             blocks = {item.name: item for item in shown}
@@ -148,12 +156,26 @@ def named(layer: bpy.types.ViewLayer, entity: CryptomatteKind) -> Named:
             blocks = {top.name: top for top in map(root, shown)}
         case _:
             blocks = {held.name: held for held in ((layer.material_override,) if layer.material_override else (slot.material for item in shown for slot in item.material_slots if slot.material))}
-    return tuple((name, block, (red, green, blue)) for name, block in sorted(blocks.items()) for red, green, blue, *_ in (getattr(block, member),))
+    return tuple(  # ty: ignore[unsound-return-statement]
+        (name, block, (color[0], color[1], color[2]))  # type: ignore[index]
+        for name, block in sorted(blocks.items())
+        for color in (block.diffuse_color if isinstance(block, bpy.types.Material) else block.color,)
+    )
 
 
-def located(scene: bpy.types.Scene, matte: Matte, layer: str) -> Outcome[tuple[bpy.types.ViewLayer, CryptomatteKind]]:
-    """Returns view layer `layer` and the Cryptomatte kind its matte names after the layer prefix."""
-    return paired(layer_of(scene, layer), CryptomatteKind.named(matte.name.removeprefix(f"{layer}.")).to_result_with(lambda: Fault.of(Reason.ABSENT, str(matte.file.path), member=matte.name)))
+def located(scene: bpy.types.Scene, matte: Matte, layer: Option[str] = Nothing) -> Outcome[tuple[bpy.types.ViewLayer, CryptomatteKind]]:
+    """Resolves the matte's native namespace, or a routed file's known layer and bare pass name."""
+    return (
+        layer
+        .map(lambda name: layer_of(scene, name).map(lambda held: (held,)))
+        .default_with(lambda: Ok(tuple(scene.view_layers)))
+        .bind(
+            lambda layers: next(
+                (Some((held, entity)) for held in layers for entity in CryptomatteKind if matte.name == f"{held.name}.{entity.pass_name}" or (layer.is_some() and matte.name == entity.pass_name)),
+                Nothing,
+            ).to_result_with(lambda: Fault.of(Reason.ABSENT, str(matte.file.path), member=matte.name))
+        )
+    )
 
 
 def entity_image(scene: bpy.types.Scene, layer: bpy.types.ViewLayer, entity: CryptomatteKind, rows: Named) -> Outcome[Option[Expr]]:
@@ -179,9 +201,10 @@ def entity_image(scene: bpy.types.Scene, layer: bpy.types.ViewLayer, entity: Cry
 def colors_written(layer: bpy.types.ViewLayer, entity: CryptomatteKind, chosen: Callable[[tuple[Color, ...]], tuple[Color, ...]]) -> Outcome[int]:
     """Writes chosen colors onto entity names, each block keeping its alpha."""
     rows, member = named(layer, entity), entity.color
-    return accumulated(member.write(block, (*color, getattr(block, member.prop.identifier)[3])) for (_, block, _), color in zip(rows, chosen(tuple(color for _, _, color in rows)))).map(
-        lambda priors: sum(prior.is_some() for prior in priors)
-    )
+    return accumulated(
+        member.write(block, (*color, (block.diffuse_color if isinstance(block, bpy.types.Material) else block.color)[3]))  # type: ignore[index]
+        for (_, block, _), color in zip(rows, chosen(tuple(color for _, _, color in rows)))
+    ).map(lambda priors: sum(prior.is_some() for prior in priors))
 
 
 @Operator.of(Recoloring)
@@ -194,7 +217,9 @@ def ids_recolor(call: Call[Recoloring]) -> Outcome[Answer]:
             case Recolor.SPREAD:
                 return colors(len(held), saturation=1.0, value=1.0)
             case Recolor.SHUFFLE:
-                return tuple(held[index] for index in rng(content_hash(Routing, arrays=(np.asarray(held),))).permutation(len(held)))
+                shuffled = list(held)
+                rng(content_hash(Routing, arrays=(np.asarray(held),))).shuffle(shuffled)
+                return tuple(shuffled)
 
     def painted(layer: bpy.types.ViewLayer, routing: Routing) -> Outcome[Answer]:
         if not (kinds := flagged(CryptomatteKind, routing.ids)):
@@ -210,9 +235,13 @@ def exported(scene: bpy.types.Scene, file: Written, identity: Identity) -> Outco
     def painted(path: OutputPath, matte: Matte, layer: bpy.types.ViewLayer, entity: CryptomatteKind) -> Outcome[str]:
         shown = {name: color for name, _, color in named(layer, entity)}
         known = {name: shown[name] for name in matte.ids if name in shown}
+        spec = matte.file.parts[matte.ranks[0].part]
         return (
-            path
-            .written(file.layer, Output.MATTE, Some(entity.pass_name), scene.frame_current, ".exr")
+            matte.view
+            .or_else(file.view)
+            .map(lambda name: catch(lambda: scene.render.views[name], exception=KeyError)().map(Some).map_error(lambda cause: Fault.of(Reason.ABSENT, repr(scene.render.views), cause, member=name)))
+            .default_value(Ok(Nothing))
+            .bind(lambda view: path.literal(layer.name, Output.MATTE, Some(entity.pass_name), scene.frame_current, suffix=Some(f"{view.map(lambda held: held.file_suffix).default_value('')}.exr")))
             .map(str)
             .filter_with(lambda target: target != file.path, lambda target: Fault.of(Reason.TAKEN, target, member=file.path))
             .bind(
@@ -221,7 +250,7 @@ def exported(scene: bpy.types.Scene, file: Written, identity: Identity) -> Outco
                     tuple(Pass(layer=name, channels=("R", "G", "B", "A"), role=PassRole.COLOR) for name in known),
                     PassLayout.PARTS,
                     Storage(depth=Depth.HALF, compression=Some(Deflate())),
-                    (matte.file.parts[0].width, matte.file.parts[0].height),
+                    (spec.width, spec.height),
                     identity.manifest.stamp,
                     lambda held: matte.filled(frozenset({held.layer}), np.asarray(known[held.layer])),
                 )
@@ -233,7 +262,10 @@ def exported(scene: bpy.types.Scene, file: Written, identity: Identity) -> Outco
         return located(scene, matte, file.layer).bind(lambda pair: painted(path, matte, *pair))
 
     return (
-        paired(ScenePaths().bound(identity).bind(lambda pathed: pathed.path(scene, today())), Multilayer.read(Path(file.path)).bind(Matte.found))
+        paired(
+            ScenePaths().bound(identity).bind(lambda pathed: pathed.path(scene, today())),
+            Multilayer.read(Path(file.path)).bind(lambda frame: Matte.found(frame, header=next(iter(frame.parts.values())))),
+        )
         .bind(lambda found: accumulated(matted(found[0], matte) for matte in found[1]))
         .map(lambda _: None)
     )
@@ -241,9 +273,13 @@ def exported(scene: bpy.types.Scene, file: Written, identity: Identity) -> Outco
 
 def document(_identity: Identity, scene: bpy.types.Scene, frame: Multilayer, depth: Depth) -> Outcome[Document]:
     """Builds the ID document of a written frame, one layer group per matte and one layer per matte name in its block's display color."""
-    size = (frame.parts[0].height, frame.parts[0].width)
+    first = next(iter(frame.parts.values()))
+    size = (first.height, first.width)
 
-    def grouped(index: int, matte: Matte) -> Outcome[tuple[LayerGroup, npt.NDArray[np.float32]]]:
+    def grouped(index: int, matte: Matte) -> Outcome[tuple[LayerGroup, Option[npt.NDArray[np.float32]]]]:
+        spec = matte.file.parts[matte.ranks[0].part]
+        size = (spec.height, spec.width)
+
         def cover(name: str, color: Color) -> Outcome[tuple[str, Color, npt.NDArray[np.float32]]]:
             shown = mathutils.Color(color).from_scene_linear_to_srgb()
             return matte.coverage(frozenset({name})).map(lambda plane: (name, (shown.r, shown.g, shown.b), plane))
@@ -254,21 +290,21 @@ def document(_identity: Identity, scene: bpy.types.Scene, frame: Multilayer, dep
         def layered(name: str, color: Color, plane: npt.NDArray[np.float32]) -> Outcome[PixelLayer]:
             return paired(depth.coded(np.broadcast_to(np.asarray(color, dtype=np.float32), (*size, 3))), depth.coded(plane)).map(lambda codes: PixelLayer(name=name, color=codes[0], alpha=codes[1]))
 
-        return located(scene, matte, matte.name.rpartition(".")[0]).bind(
+        return located(scene, matte).bind(
             lambda pair: covered(*pair).bind(
                 lambda rows: accumulated(itertools.starmap(layered, rows)).map(
                     lambda layers: (
-                        LayerGroup(name=matte.name, visible=index == 0, layers=layers),
-                        sum((plane[..., None] * np.asarray((*color, 1.0), dtype=np.float32) for _, color, plane in rows), start=np.zeros((*size, 4), np.float32)),
+                        LayerGroup(name=matte.view.map(lambda view: f"{matte.name} ({view})").default_value(matte.name), visible=index == 0, layers=layers),
+                        Some(sum((plane[..., None] * np.asarray((*color, 1.0), dtype=np.float32) for _, color, plane in rows), start=np.zeros((*size, 4), np.float32))) if index == 0 else Nothing,
                     )
                 )
             )
         )
 
     return Result[tuple[Matte, ...], Faults].bind(
-        Matte.found(frame),
+        Matte.found(frame, header=first),
         lambda mattes: accumulated(itertools.starmap(grouped, enumerate(mattes))).bind(
-            lambda groups: depth.coded(unassociated(next((filled for _, filled in groups), np.zeros((*size, 4), np.float32)))).map(
+            lambda groups: depth.coded(unassociated(next((composite for _, composite in groups), Nothing).default_with(lambda: np.zeros((*size, 4), np.float32)))).map(
                 lambda composite: Document(layers=tuple(group for group, _ in groups), composite=composite, colorspace="sRGB", density=scene.render.ppm_factor / scene.render.ppm_base)
             )
         ),
@@ -339,15 +375,18 @@ def sources(scene: bpy.types.Scene, layer: bpy.types.ViewLayer, rendered: Expr, 
     spaces = {"Normal": VectorSpace[routing.normals], "Position": VectorSpace.WORLD, DataPass.POSITION.name.lower(): VectorSpace.WORLD, DataPass.REFERENCE.name.lower(): VectorSpace.WORLD}
     rows = {row.name: row for row in routing.files}
 
+    def key(owner: type[object], member: str | None) -> Key:
+        return f"i{content_hash(owner, member).hex()}"
+
     def missing(name: str) -> Faults:
         return Fault.of(Reason.ABSENT, repr(live.outputs), member=name)
 
-    def sourced(expr: Expr, name: str, socket_type: "rna_enums.NodeSocketDataTypeItems", output: Output, dimensions: Option[int] = Nothing) -> tuple[FileSocket, ...]:
+    def sourced(expr: Expr, key: Key, name: str, socket_type: "rna_enums.NodeSocketDataTypeItems", output: Output, dimensions: Option[int] = Nothing) -> tuple[FileSocket, ...]:
         listed = Option.of_optional(rows.get(name))
         return (
             ()
             if listed.filter(lambda row: not row.use_output).is_some()
-            else (FileSocket(name=name, term=expr, socket_type=socket_type, dimensions=dimensions, output=listed.map(lambda row: Output[row.output]).default_value(output)),)
+            else (FileSocket(key=key, name=name, term=expr, socket_type=socket_type, dimensions=dimensions, output=listed.map(lambda row: Output[row.output]).default_value(output)),)
         )
 
     def oriented(name: str) -> Outcome[Expr]:
@@ -376,37 +415,45 @@ def sources(scene: bpy.types.Scene, layer: bpy.types.ViewLayer, rendered: Expr, 
             if role is Role.DATA or socket.type != "RGBA"
             else Output.BEAUTY
         )
-        return paired(oriented(name), dimensions).map(lambda pair: sourced(pair[0], name, DATA_TYPES[base_socket(type(socket))], classed, pair[1]))
+        return paired(oriented(name), dimensions).map(lambda pair: sourced(pair[0], key(type(live), socket.identifier), name, DATA_TYPES[base_socket(type(socket))], classed, pair[1]))
 
     def totaled(family: Family) -> Outcome[tuple[FileSocket, ...]]:
-        return lobed(families[family], outputs, group).to_result_with(lambda: missing(family.total)).map(lambda summed: sourced(summed, family.total, "RGBA", Output.BEAUTY))
+        return (
+            lobed(families[family], outputs, group)
+            .to_result_with(lambda: missing(family.total))
+            .map(lambda summed: sourced(summed, key(type(family), family.name), family.total, "RGBA", Output.BEAUTY))
+        )
 
-    def derived(item: Derived) -> Outcome[tuple[FileSocket, ...]]:
-        name = bpy.path.display_name(str(item.name).lower())
-        depth = Option.of_optional(outputs.get("Depth")).to_result_with(lambda: missing("Depth"))
-        match item:
-            case Derived.DIRECT_LIGHT | Derived.INDIRECT_LIGHT:
-                match tuple(
-                    found
-                    for direct, indirect, color in families.values()
-                    for found in lobed((direct, frozenset(), color) if item is Derived.DIRECT_LIGHT else (frozenset(), indirect, color), outputs, group).to_list()
-                ):
-                    case (first, *rest):
-                        return Ok(sourced(sum(rest, first), name, "RGBA", Output.BEAUTY))
-                    case _:
-                        return Ok(())
-            case Derived.DEPTH_MAP:
-                return depth.map(lambda read: sourced(Expr(kind=bpy.types.CompositorNodeNormalize, inputs=(("Value", read),)), name, "FLOAT", Output.DATA))
+    def lighting(slots: tuple[tuple[Flags, Flags, Flags], ...], kind: Derived) -> Outcome[tuple[FileSocket, ...]]:
+        match tuple(found for held in slots for found in lobed(held, outputs, group).to_list()):
+            case (first, *rest):
+                return Ok(sourced(sum(rest, first), key(type(kind), kind.name), kind.label, "RGBA", Output.BEAUTY))
             case _:
-                return depth.map(lambda read: sourced(1.0 / read, name, "FLOAT", Output.DATA))
+                return Ok(())
 
     def identified(entity: CryptomatteKind) -> Outcome[tuple[FileSocket, ...]]:
-        return entity_image(scene, layer, entity, named(layer, entity)).map(lambda found: found.map(lambda image: sourced(image, f"{entity.label} IDs", "RGBA", Output.MATTE)).default_value(()))
+        return entity_image(scene, layer, entity, named(layer, entity)).map(
+            lambda found: found.map(lambda image: sourced(image, key(type(entity), entity.name), f"{entity.label} IDs", "RGBA", Output.MATTE)).default_value(())
+        )
 
+    derived = flagged(Derived, routing.derived)
+    depth = Option.of_optional(outputs.get("Depth")).to_result_with(lambda: missing("Depth"))
+    empty = frozenset[Descriptor]()
     return accumulated((
         *itertools.starmap(passed, offered.items()),
         *map(totaled, flagged(Family, routing.totals)),
-        *map(derived, flagged(Derived, routing.derived)),
+        *((lighting(tuple((direct, empty, color) for direct, _, color in families.values()), Derived.DIRECT_LIGHT),) if Derived.DIRECT_LIGHT in derived else ()),
+        *((lighting(tuple((empty, indirect, color) for _, indirect, color in families.values()), Derived.INDIRECT_LIGHT),) if Derived.INDIRECT_LIGHT in derived else ()),
+        *(
+            (
+                depth.map(
+                    lambda read: sourced(Expr(kind=bpy.types.CompositorNodeNormalize, inputs=(("Value", read),)), key(Derived, Derived.DEPTH_MAP.name), Derived.DEPTH_MAP.label, "FLOAT", Output.DATA)
+                ),
+            )
+            if Derived.DEPTH_MAP in derived
+            else ()
+        ),
+        *((depth.map(lambda read: sourced(1.0 / read, key(Derived, Derived.INVERSE_DEPTH.name), Derived.INVERSE_DEPTH.label, "FLOAT", Output.DATA)),) if Derived.INVERSE_DEPTH in derived else ()),
         *map(identified, flagged(CryptomatteKind, routing.ids)),
     )).map(lambda parts: tuple(source for part in parts for source in part))
 
@@ -440,15 +487,9 @@ def file_node(pathed: Pathed, path: OutputPath, layer: str, file_output: FileOut
         )
 
     def node(paths: NodePaths) -> Expr:
-        content = FileItems(items=tuple(map(item, file_output.sources, paths.items)))
+        content = FileItems(items={source.key: item(source, requested) for source, requested in zip(file_output.sources, paths.items)})
         members = dict[str | RnaPath, Value](itertools.chain(((member.path, held) for member, held in paths.members.items()), file_output.format.members(("format",)).items()))
-        return Expr(
-            kind=bpy.types.CompositorNodeOutputFile,
-            inputs=tuple((stored.name, source.term) for stored, source in zip(content.items, file_output.sources)),
-            members=members,
-            content=Some(content),
-            key=Some(key),
-        )
+        return Expr(kind=bpy.types.CompositorNodeOutputFile, inputs=tuple((source.key, source.term) for source in file_output.sources), members=members, content=Some(content), key=Some(key))
 
     return pathed.node(path, layer, file_output.output, tuple(layer_name(source.name, nuke=nuke) for source in file_output.sources), layered=file_output.format.layered).map(node)
 

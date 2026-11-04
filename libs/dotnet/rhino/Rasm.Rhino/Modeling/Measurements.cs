@@ -42,35 +42,35 @@ public static class Measurements {
 
     // --- [MASS]
     public static IO<(Seq<Seq<AreaMassProperties>> Parts, AreaMassProperties Total)> Area(Tolerances tolerances, Seq<MassSubject> subjects, bool firstMoments, bool secondMoments, bool productMoments) =>
-        new Measure<AreaMassProperties>(geometry => geometry switch {
-            Brep brep => Some(Products.Of(() => AreaMassProperties.Compute(brep, area: true, firstMoments, secondMoments, productMoments, tolerances.Relative, tolerances.Absolute))),
-            Surface surface => Some(Products.Of(() => AreaMassProperties.Compute(surface, area: true, firstMoments, secondMoments, productMoments))),
-            Mesh mesh => Some(Products.Of(() => AreaMassProperties.Compute(mesh, area: true, firstMoments, secondMoments, productMoments))),
-            Hatch hatch => Some(Products.Of(() => AreaMassProperties.Compute(hatch))),
-            Curve curve => Some(Products.Of(() => AreaMassProperties.Compute(curve, tolerances.Absolute))),
-            _ => None,
+        new Measure<AreaMassProperties>((geometry, index) => geometry switch {
+            Brep brep => Products.Of(() => AreaMassProperties.Compute(brep, area: true, firstMoments, secondMoments, productMoments, tolerances.Relative, tolerances.Absolute)),
+            Surface surface => Products.Of(() => AreaMassProperties.Compute(surface, area: true, firstMoments, secondMoments, productMoments)),
+            Mesh mesh => Products.Of(() => AreaMassProperties.Compute(mesh, area: true, firstMoments, secondMoments, productMoments)),
+            Hatch hatch => Products.Of(() => AreaMassProperties.Compute(hatch)),
+            Curve curve => Products.Of(() => AreaMassProperties.Compute(curve, tolerances.Absolute)),
+            _ => IO.fail<AreaMassProperties>(new RhinoFault(geometry.ObjectType, RhinoReason.Mismatched, index)),
         }, AreaMassProperties.WeightedSum, None).Of(subjects);
 
     public static IO<(Seq<Seq<VolumeMassProperties>> Parts, VolumeMassProperties Total)> Volume(Tolerances tolerances, Seq<MassSubject> subjects, bool firstMoments, bool secondMoments, bool productMoments) =>
-        new Measure<VolumeMassProperties>(geometry => geometry switch {
-            Brep brep => Some(Products.Of(() => VolumeMassProperties.Compute(brep, volume: true, firstMoments, secondMoments, productMoments, tolerances.Relative, tolerances.Absolute))),
-            Surface surface => Some(Products.Of(() => VolumeMassProperties.Compute(surface, volume: true, firstMoments, secondMoments, productMoments))),
-            Mesh mesh => Some(Products.Of(() => VolumeMassProperties.Compute(mesh, volume: true, firstMoments, secondMoments, productMoments))),
-            _ => None,
+        new Measure<VolumeMassProperties>((geometry, index) => geometry switch {
+            Brep brep => Products.Of(() => VolumeMassProperties.Compute(brep, volume: true, firstMoments, secondMoments, productMoments, tolerances.Relative, tolerances.Absolute)),
+            Surface surface => Products.Of(() => VolumeMassProperties.Compute(surface, volume: true, firstMoments, secondMoments, productMoments)),
+            Mesh mesh => Products.Of(() => VolumeMassProperties.Compute(mesh, volume: true, firstMoments, secondMoments, productMoments)),
+            _ => IO.fail<VolumeMassProperties>(new RhinoFault(geometry.ObjectType, RhinoReason.Mismatched, index)),
         }, VolumeMassProperties.WeightedSum,
             Some(fun(static (VolumeMassProperties part, Transform xform) => RhinoFault.Unless(part.Transform(xform), RhinoReason.Declined, xform).Map(_ => part)))).Of(subjects);
 
     public static IO<(Seq<Seq<LengthMassProperties>> Parts, LengthMassProperties Total)> Length(Seq<MassSubject> subjects, bool firstMoments, bool secondMoments, bool productMoments) =>
-        new Measure<LengthMassProperties>(geometry => geometry is Curve curve
-            ? Some(Products.Of(() => LengthMassProperties.Compute(curve, length: true, firstMoments, secondMoments, productMoments)))
-            : None, LengthMassProperties.WeightedSum, None).Of(subjects);
+        new Measure<LengthMassProperties>((geometry, index) => geometry is Curve curve
+            ? Products.Of(() => LengthMassProperties.Compute(curve, length: true, firstMoments, secondMoments, productMoments))
+            : IO.fail<LengthMassProperties>(new RhinoFault(geometry.ObjectType, RhinoReason.Mismatched, index)), LengthMassProperties.WeightedSum, None).Of(subjects);
 
     private sealed record Measure<T>(
-        Func<GeometryBase, Option<IO<T>>> Overload,
+        Func<GeometryBase, int, IO<T>> Compute,
         Func<IEnumerable<T>, IEnumerable<double>, T> Weighted,
         Option<Func<T, Transform, Fin<T>>> Moved) where T : class, IDisposable {
         public IO<(Seq<Seq<T>> Parts, T Total)> Of(Seq<MassSubject> subjects) =>
-            from parts in subjects.Map(static (subject, index) => (Subject: subject, Index: index)).TraverseM(row => Placed(row.Subject, row.Index)).As()
+            from parts in Products.Each(subjects.Map(Placed))
             from total in Products.Of(() => Weighted(parts.Bind(static placed => placed), from row in subjects.Zip(parts) from _ in row.Second select row.First.Density))
             select (parts, total);
 
@@ -79,22 +79,19 @@ public static class Measurements {
                 shape: static shape => IO.pure(shape.Geometry),
                 limit: static limit => Products.Of<GeometryBase>(() => limit.Subdivision.ToBrep(limit.Options)))
             from parts in subject.Placements.IsEmpty
-                ? Computed(source, index).Map(static part => Seq(part))
+                ? Compute(source, index).Map(static part => Seq(part))
                 : Moved.Filter(_ => subject.Placements.Exists(Similar)).Match(
-                    Some: move => Computed(source, index).Bind(computed => subject.Placements.TraverseM(xform => Similar(xform)
+                    Some: move => Compute(source, index).Bind(computed => Products.Each(subject.Placements.Map(xform => Similar(xform)
                         ? Products.Of(() => Weighted([computed], [1.0])).Bind(copy => IO.lift(() => move(copy, xform)))
-                        : Recomputed(source, xform, index)).As()),
-                    None: () => subject.Placements.TraverseM(xform => Recomputed(source, xform, index)).As())
+                        : Recomputed(source, xform, index)))),
+                    None: () => Products.Each(subject.Placements.Map(xform => Recomputed(source, xform, index))))
             select parts;
 
         private IO<T> Recomputed(GeometryBase source, Transform xform, int index) =>
             from copy in Products.Of(source.Duplicate)
             from placed in Transformations.Transformed(copy, xform)
-            from part in Computed(placed, index)
+            from part in Compute(placed, index)
             select part;
-
-        private IO<T> Computed(GeometryBase geometry, int index) =>
-            Overload(geometry).IfNone(() => IO.fail<T>(new RhinoFault(geometry.ObjectType.ToString(), RhinoReason.Mismatched, index)));
 
         private static bool Similar(Transform xform) => xform.SimilarityType is not TransformSimilarityType.NotSimilarity;
     }

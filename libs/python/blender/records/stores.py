@@ -15,14 +15,14 @@ from typing import Annotated, Final, overload, Protocol
 
 from atomicwrites import replace_atomic
 import cbor2
-from expression import Error, Nothing, Ok, Option, Some
+from expression import Option, Some
 from expression.extra.result import catch
 import msgspec
 import numpy as np
 import numpy.typing as npt
 from typing_extensions import TypeForm
 
-from blender.records.faults import accumulated, Fault, Faults, Outcome, Reason
+from blender.records.faults import accumulated, Error, Fault, Faults, Nothing, Ok, Outcome, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -63,7 +63,11 @@ class RecordFile[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
             Ok(record), `UNREADABLE` fault for a missing, unreadable, or invalid file.
         """
         refused = partial(Fault.of, Reason.UNREADABLE, str(self.path))
-        return catch(self.path.read_bytes, exception=OSError)().map_error(refused).bind(lambda data: catch(msgspec.json.decode, exception=msgspec.DecodeError)(data, type=self.form).map_error(refused))
+        return (
+            catch(self.path.read_bytes, exception=OSError)()  # ty: ignore[unsound-return-statement]
+            .map_error(refused)
+            .bind(lambda data: catch(lambda: msgspec.json.decode(data, type=self.form), exception=msgspec.DecodeError)().map_error(refused))
+        )
 
     def found(self) -> Outcome[Option[T]]:
         """Decodes and validates the record a present file holds.
@@ -186,7 +190,7 @@ def argued[T](decoder: msgspec.json.Decoder[T], subject: str, text: str, /) -> O
 
 def content_hash(
     scope: type[object],
-    *records: msgspec.Struct | bytes,
+    *records: object,
     arrays: tuple[npt.NDArray[np.bool | np.int8 | np.int16 | np.int32 | np.int64 | np.uint8 | np.uint16 | np.uint32 | np.uint64 | np.float16 | np.float32 | np.float64], ...] = (),
     providers: tuple[Provider, ...] = (),
 ) -> ContentHash:
@@ -194,36 +198,35 @@ def content_hash(
 
     Args:
         scope: Type naming content domain.
-        *records: Records with naive or aware datetimes, no MessagePack Raw or Ext, or bytes (a configuration cache ID).
+        *records: Native values or records with naive or aware datetimes, excluding MessagePack Raw and Ext.
         arrays: Fixed-width real arrays hashed with shape and canonical bytes.
         providers: Modules hashed by name and version.
 
     Returns:
         Framed BLAKE2b digest.
     """
-    wide = tuple(np.asarray(array, dtype=np.promote_types(array.dtype, np.int64 if np.can_cast(array.dtype, np.int64) else np.uint64).newbyteorder("<"), order="C") for array in arrays)
-    chunks = (
-        memoryview(cbor2.dumps((f"{scope.__module__}.{scope.__qualname__}", len(records), len(wide), len(providers)))),
-        *(
-            memoryview(
-                cbor2.dumps(
-                    msgspec.to_builtins(record, builtin_types=(bytes, bytearray, memoryview, datetime), order="deterministic"),
-                    canonical=True,
-                    encoders={
-                        memoryview: lambda encoder, value: encoder.encode_bytes(bytes(value)),
-                        datetime: lambda encoder, value: encoder.encode(msgspec.to_builtins(value)) if value.tzinfo is None else encoder.encode_datetime(value),
-                    },
-                )
-            )
-            for record in records
-        ),
-        *(view for array in wide for view in (memoryview(cbor2.dumps((array.dtype.str, array.shape))), array.data)),
-        *(memoryview(cbor2.dumps((module.__name__, module.__version__))) for module in providers),
-    )
-    hasher = hashlib.blake2b(len(chunks).to_bytes(4, "big"), digest_size=_DIGEST_SIZE)
-    for chunk in chunks:
-        hasher.update(chunk.nbytes.to_bytes(8, "big"))
-        hasher.update(chunk)
+    hasher = hashlib.blake2b((1 + len(records) + 2 * len(arrays) + len(providers)).to_bytes(4, "big"), digest_size=_DIGEST_SIZE)
+
+    def framed(data: bytes) -> None:
+        hasher.update(len(data).to_bytes(8, "big"))
+        hasher.update(data)
+
+    encoders: dict[type[object], cbor2.EncoderHook] = {
+        memoryview: lambda encoder, value: encoder.encode_bytes(bytes(value)),
+        datetime: lambda encoder, value: encoder.encode(msgspec.to_builtins(value)) if value.tzinfo is None else encoder.encode_datetime(value),
+    }
+    framed(cbor2.dumps((f"{scope.__module__}.{scope.__qualname__}", len(records), len(arrays), len(providers))))
+    for record in records:
+        framed(cbor2.dumps(msgspec.to_builtins(record, builtin_types=(bytes, bytearray, memoryview, datetime), order="deterministic"), canonical=True, encoders=encoders))
+    for array in arrays:
+        dtype = np.promote_types(array.dtype, np.int64 if np.can_cast(array.dtype, np.int64) else np.uint64).newbyteorder("<")
+        framed(cbor2.dumps((dtype.str, array.shape)))
+        hasher.update((array.size * dtype.itemsize).to_bytes(8, "big"))
+        with np.nditer(array, flags=("external_loop", "buffered", "zerosize_ok"), op_flags=("readonly", "contig"), op_dtypes=dtype, order="C") as chunks:  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+            for chunk in chunks:
+                hasher.update(chunk)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+    for module in providers:
+        framed(cbor2.dumps((module.__name__, module.__version__)))
     return hasher.digest()
 
 

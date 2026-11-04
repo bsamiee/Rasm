@@ -22,7 +22,7 @@ public static class PreferenceRows {
                     Changes = row.Changes.Add(Signal(preference)),
                     Edited = edit => edit.Switch(
                         (Restore: restore, Preference: preference),
-                        changed: static (state, held) => held.Phase.Applies
+                        changed: static (state, held) => held.Applies
                             ? Taken(state.Restore).Bind(_ => state.Preference.Write(held.Value))
                             : atomicIO(() => state.Restore.Value).Bind(prior => prior.IsSome
                                 ? state.Preference.Write(held.Value)

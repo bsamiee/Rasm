@@ -29,4 +29,6 @@ fn rendered(port: &Port) -> ContentBlock { ContentBlock::text(port.number.to_str
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-fn main() { black_box(&(tried, bound, defaulted, pretty, direct, rendered)); }
+fn main() { black_box(&(tried, bound, defaulted, pretty, direct, rendered, changed)); }
+
+fn changed(port: &Port) -> ContentBlock { ContentBlock::text(serde_json::to_string(port).map(|_| String::from("other")).unwrap_or_default()) }

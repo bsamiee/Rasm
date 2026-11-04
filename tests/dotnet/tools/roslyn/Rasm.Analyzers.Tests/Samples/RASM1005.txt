@@ -9,6 +9,8 @@ internal static class AccumulatorSpread {
             held = {|#1:[.. held, value]|};
         return held;
     }
+
+    internal static Seq<int> Commented(Seq<int> values) => values.Fold(Seq<int>(), static (held, value) => {|#2:[.. /* source */ held, /* item */ value, /* end */]|});
 }
 
 internal static class OneTimeSpread {

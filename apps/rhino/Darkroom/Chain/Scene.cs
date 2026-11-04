@@ -1,5 +1,6 @@
 using System.Numerics;
 using System.Runtime.InteropServices;
+using MathNet.Numerics.Integration;
 using Rasm.Imaging.Color;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Quantization;
@@ -26,8 +27,8 @@ public sealed record ChainScene {
     public Option<Length> FocalLength { get; init; }
 
     // --- [CONTEXT]
-    public PassContext Context(PixelExtent extent, HashMap<GuideChannel, PixelFrame> guides, Derivations derivations, Option<OutputDepth> depth) =>
-        new(extent, Working.Gamut, Display, depth, Working.Transfer, 0d, Camera, guides, Time, Lights, derivations);
+    public PassContext Context(PixelExtent extent, HashMap<GuideChannel, PixelFrame> guides, Derivations derivations, Option<OutputDepth> depth, GaussLegendreRule integration) =>
+        new(extent, Working.Gamut, Display, depth, Working.Transfer, 0d, Camera, guides, Time, Lights, derivations, integration);
 
     // --- [HOST]
     public static IO<ChainScene> Sourced(RhinoDoc doc, PixelExtent extent, Option<Duration> time) =>

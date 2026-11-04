@@ -1,0 +1,137 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: swift-parameter-use
+language: swiftlang
+arguments: [type]
+utils:
+    bound-pattern:
+        kind: 'pattern, switch_pattern'
+        any:
+            - has: {field: bound_identifier, pattern: $NAME}
+            - has: {kind: pattern, matches: bound-pattern}
+            - all:
+                - not: {has: {kind: 'pattern, user_type'}}
+                - has: {kind: simple_identifier, pattern: $NAME}
+                - any:
+                    - has: {kind: value_binding_pattern}
+                    - inside:
+                        stopBy: {not: {kind: 'pattern, switch_pattern'}}
+                        kind: 'pattern, switch_pattern'
+                        has: {kind: value_binding_pattern}
+                    - inside:
+                        stopBy: {not: {kind: pattern}}
+                        kind: 'property_declaration, for_statement'
+                    - all:
+                        - inside: {kind: 'if_statement, while_statement, guard_statement'}
+                        - follows: {kind: value_binding_pattern, stopBy: {regex: '^case$'}}
+                    - inside:
+                        stopBy: {not: {kind: 'pattern, switch_pattern'}}
+                        kind: pattern
+                        follows: {kind: value_binding_pattern, stopBy: {regex: '^case$'}}
+                        inside: {kind: 'if_statement, while_statement, guard_statement'}
+    binding:
+        any:
+            - kind: property_declaration
+              has: {kind: pattern, matches: bound-pattern}
+            - kind: 'parameter, lambda_parameter'
+              has: {field: name, kind: simple_identifier, pattern: $NAME}
+            - kind: capture_list_item
+              all:
+                - has: {field: name, kind: simple_identifier, pattern: $NAME}
+                - has: {field: value, pattern: $_}
+                - not: {has: {field: value, pattern: $NAME}}
+            - kind: for_statement
+              has: {field: item, matches: bound-pattern}
+            - kind: 'if_statement, while_statement, guard_statement'
+              any:
+                - has: {kind: simple_identifier, pattern: $NAME, follows: {stopBy: {not: {kind: 'comment, multiline_comment'}}, kind: value_binding_pattern}}
+                - has: {kind: pattern, matches: bound-pattern}
+            - kind: catch_block
+              has: {kind: pattern, matches: bound-pattern}
+            - kind: switch_entry
+              has: {kind: switch_pattern, matches: bound-pattern}
+    shadowing-body:
+        kind: statements
+        any:
+            - inside:
+                kind: function_body
+                inside: {kind: 'function_declaration, init_declaration, subscript_declaration', has: {kind: parameter, matches: binding}}
+            - inside:
+                kind: lambda_literal
+                any:
+                    - has: {field: type, has: {stopBy: end, kind: lambda_parameter, matches: binding}}
+                    - has: {field: captures, has: {kind: capture_list_item, matches: binding}}
+            - inside: {kind: 'for_statement, while_statement, catch_block, switch_entry', matches: binding}
+            - nthChild: {position: 1, ofRule: {kind: statements}}
+              inside: {kind: if_statement, matches: binding}
+    shadowing-context:
+        any:
+            - follows: {stopBy: end, kind: 'property_declaration, guard_statement', matches: binding}
+            - kind: statements
+              not: {pattern: $SCOPE}
+              matches: shadowing-body
+            - kind: property_declaration
+              has: {field: computed_value, kind: computed_property}
+              matches: binding
+            - kind: where_clause
+              inside: {kind: 'for_statement, catch_block', matches: binding}
+            - not: {kind: 'switch_pattern, statements'}
+              follows: {stopBy: end, kind: where_keyword}
+              inside: {kind: switch_entry, matches: binding}
+            - all:
+                - not: {any: [{kind: 'statements, else'}, {follows: {kind: else, stopBy: {not: {kind: 'comment, multiline_comment'}}}}]}
+                - inside: {kind: 'if_statement, while_statement, guard_statement'}
+                - follows:
+                    stopBy: end
+                    regex: '^,$'
+                    follows:
+                        stopBy: end
+                        any:
+                            - kind: simple_identifier
+                              pattern: $NAME
+                              follows: {kind: value_binding_pattern, stopBy: {not: {kind: 'comment, multiline_comment'}}}
+                            - kind: pattern
+                              matches: bound-pattern
+    scoped-shadow:
+        all:
+            - matches: shadowing-context
+            - inside: {stopBy: end, kind: statements, pattern: $SCOPE}
+    shadowed:
+        any:
+            - matches: scoped-shadow
+            - inside:
+                stopBy: end
+                matches: scoped-shadow
+            - all:
+                - regex: '^error$'
+                - inside:
+                    stopBy: end
+                    kind: catch_block
+                    not: {has: {kind: pattern}}
+                    inside: {stopBy: end, kind: statements, pattern: $SCOPE}
+rule:
+    kind: 'simple_identifier, call_expression'
+    all:
+        - any:
+            - kind: simple_identifier
+              all: [{pattern: $NAME}, {pattern: $REFERENCE}]
+            - kind: call_expression
+              has: {nthChild: 1, kind: navigation_expression, has: {field: target, kind: simple_identifier, all: [{pattern: $NAME}, {pattern: $REFERENCE}]}}
+        - inside:
+            stopBy: end
+            kind: statements
+            pattern: $SCOPE
+            any:
+                - inside:
+                    kind: function_body
+                    inside:
+                        kind: 'function_declaration, init_declaration, subscript_declaration'
+                        has: {kind: parameter, all: [{has: {field: name, kind: simple_identifier, pattern: $NAME}}, {has: {field: type, matches: type}}]}
+                - inside:
+                    kind: lambda_literal
+                    has:
+                        field: type
+                        has:
+                            kind: lambda_function_type_parameters
+                            has: {kind: lambda_parameter, all: [{has: {field: name, kind: simple_identifier, pattern: $NAME}}, {has: {field: type, matches: type}}]}
+constraints:
+    REFERENCE: {not: {matches: shadowed}}

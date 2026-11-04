@@ -17,7 +17,7 @@ lint!(default Pass; NEEDLESS_STRUCT: "crate-private one-field structs with no im
 
 impl Pass {
     fn disqualify(&mut self, held: Ty<'_>) {
-        if let Some(structure) = held.peel_refs().ty_adt_def().and_then(|adt| adt.did().as_local()) {
+        if let Some(structure) = held.peel_refs().ty_adt_def().filter(|adt| adt.is_struct() && !adt.has_ctor() && adt.non_enum_variant().fields.len() == 1).and_then(|adt| adt.did().as_local()) {
             self.structs.insert(structure, false);
         }
     }
@@ -27,8 +27,8 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_item(&mut self, cx: &LateContext<'tcx>, item: &'tcx Item<'tcx>) {
         let candidate = || {
             let adt = cx.tcx.adt_def(item.owner_id);
-            let variant = adt.non_enum_variant();
-            !adt.repr().c() && !adt.repr().transparent() && adt.repr().pack.is_none() && adt.repr().align.is_none() && !variant.is_field_list_non_exhaustive()
+            let representation = adt.repr();
+            !representation.c() && !representation.transparent() && representation.pack.is_none() && representation.align.is_none() && !adt.non_enum_variant().is_field_list_non_exhaustive()
         };
         match item.kind {
             ItemKind::Struct(_, _, VariantData::Struct { fields: [_], .. }) if !expanded_externally(cx, item.span) && !exported(cx, item.owner_id.def_id) && candidate() => {
@@ -42,15 +42,13 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
     }
 
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
-        if generated(cx, expr.hir_id) {
-            return;
-        }
-        let typeck = cx.typeck_results();
-        match expr.kind {
-            ExprKind::Field(base, _) => self.disqualify(typeck.expr_ty_adjusted(base)),
-            ExprKind::MethodCall(_, receiver, ..) => self.disqualify(typeck.expr_ty_adjusted(receiver)),
-            ExprKind::Struct(_, _, StructTailExpr::Base(_) | StructTailExpr::DefaultFields(_) | StructTailExpr::NoneWithError(_)) => self.disqualify(typeck.expr_ty(expr)),
-            _ => {}
+        let held = match expr.kind {
+            ExprKind::Field(base, _) | ExprKind::MethodCall(_, base, ..) => cx.typeck_results().expr_ty_adjusted(base),
+            ExprKind::Struct(_, _, StructTailExpr::Base(_) | StructTailExpr::DefaultFields(_) | StructTailExpr::NoneWithError(_)) => cx.typeck_results().expr_ty(expr),
+            _ => return,
+        };
+        if !generated(cx, expr.hir_id) {
+            self.disqualify(held);
         }
     }
 

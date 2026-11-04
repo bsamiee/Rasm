@@ -1,16 +1,12 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-copied-continuation-java
-language: java
+language: javalang
 severity: error
 utils:
-    method:
-        kind: method_declaration, constructor_declaration
-    branch:
-        kind: enhanced_for_statement, for_statement, while_statement, lambda_expression
     tail:
         kind: identifier
         pattern: $NEXT
-        inside: {stopBy: {matches: method}, matches: method, has: {field: parameters, has: {kind: formal_parameter, has: {field: name, pattern: $NEXT}}}}
+        inside: {kind: &method 'method_declaration, constructor_declaration', stopBy: {kind: *method}, has: {field: parameters, has: {kind: formal_parameter, has: {field: name, pattern: $NEXT}}}}
     holds-tail:
         any:
             - matches: tail
@@ -20,8 +16,8 @@ utils:
         any:
             - all:
                 - has: {field: name, regex: '^concat$'}
-                - has: {field: arguments, has: {nthChild: {position: 1, reverse: true}, matches: holds-tail}}
-                - not: {has: {field: arguments, has: {nthChild: 1, matches: holds-tail}}}
+                - has: {field: arguments, has: {all: [{pattern: $_, not: &comment {kind: 'line_comment, block_comment'}}, {not: {precedes: &argument {stopBy: end, pattern: $_, not: *comment}}}, {matches: holds-tail}]}}
+                - not: {has: {field: arguments, has: {all: [{pattern: $_, not: *comment}, {not: {follows: *argument}}, {matches: holds-tail}]}}}
             - all:
                 - has: {field: name, regex: '^(addAll|appendAll|plusAll)$'}
                 - has: {field: arguments, has: {matches: holds-tail}}
@@ -36,14 +32,14 @@ utils:
             - kind: identifier
               pattern: $CHAIN
               inside:
-                stopBy: {matches: method}
-                matches: branch
+                stopBy: {kind: *method}
+                kind: &branch 'enhanced_for_statement, for_statement, while_statement, lambda_expression'
                 has:
                     stopBy: end
                     kind: expression_statement
                     has: {kind: method_invocation, pattern: $CHAIN.addAll($$$), has: {field: arguments, has: {matches: holds-tail}}}
                     follows: {stopBy: end, kind: expression_statement, has: {kind: method_invocation, pattern: $CHAIN.add($$$)}}
-    recursion:
+    invocation:
         kind: method_invocation
         all:
             - has: {field: name, pattern: $NAME}
@@ -51,7 +47,7 @@ utils:
                 - not: {has: {field: object, pattern: $_OBJECT}}
                 - has: {field: object, regex: '^this$'}
             - has: {field: arguments, has: {matches: extended}}
-            - inside: {stopBy: {matches: method}, matches: branch}
+            - inside: {stopBy: {kind: *method}, kind: *branch}
     consumed:
         kind: method_invocation
         all:
@@ -63,7 +59,7 @@ rule:
     kind: method_declaration
     all:
         - has: {field: name, pattern: $NAME}
-        - has: {field: body, has: {stopBy: {matches: method}, matches: recursion}}
-        - has: {field: body, has: {stopBy: {matches: method}, matches: consumed}}
-message: '`$NAME` recurses on each branch with tail `$NEXT` appended and processes the tail once per branch'
-note: Recurse on each branch alone and process the tail once after branches join
+        - has: {field: body, has: {stopBy: {kind: *method}, matches: invocation}}
+        - has: {field: body, has: {stopBy: {kind: *method}, matches: consumed}}
+message: '`$NAME` appends tail `$NEXT` to each branch call and reads the tail separately'
+note: Process each branch alone and join the tail once after branches finish

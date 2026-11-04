@@ -1,7 +1,7 @@
-"""Render queue plans: the dispatch form and the scopes it plans, queue preferences read as the records a queue runs on, the dispatcher every queue step binds with its observation of a dispatched run, and the checks a plan passes before dispatch."""
+"""Render plans, target preferences, queue observations, and dispatch checks."""
 
 from collections.abc import Callable, Generator
-from contextlib import contextmanager, ExitStack
+from contextlib import contextmanager
 import datetime
 from enum import auto, Enum
 from functools import partial
@@ -11,7 +11,8 @@ import threading
 from typing import Final, Self
 
 import bpy
-from expression import Error, Nothing, Ok, Option, Some
+from expression import Option, Some
+from expression.extra.result import catch
 import msgspec
 import numpy as np
 
@@ -20,7 +21,8 @@ from blender.bpy.data.rna.descriptors import Descriptor
 from blender.bpy.data.rna.paths import rooted
 from blender.bpy.data.rna.properties import case_choices, enum_choices
 from blender.bpy.data.rna.snapshots import Snapshot
-from blender.bpy.extension.identity import Identity, Resource
+from blender.bpy.extension.identity import Identity
+from blender.bpy.extension.registration import Resource
 from blender.bpy.render.outputs.framing import Framed
 from blender.bpy.render.outputs.paths import OutputPath, Pathed
 from blender.bpy.render.sessions.members import Members
@@ -30,8 +32,7 @@ from blender.bpy.render.view_layers.passes import layer_of, used
 from blender.bpy.render.view_layers.routing import PassRouting
 from blender.bpy.settings.attachments import Attached
 from blender.bpy.ui.elements.panels import Preference
-from blender.bpy.ui.screens.areas import EditorState, Located
-from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, Reason, typed
+from blender.records.faults import accumulated, Error, Fault, Faults, Nothing, Ok, Outcome, paired, Reason, typed
 from blender.records.stores import RecordFile
 from blender.rendering.batch.notices import Listener, Notice, published
 from blender.rendering.batch.queue import Ending, FixedCamera, Frames, JobCamera, MarkedCamera, Marker, observed, Progress, RenderQueue
@@ -53,7 +54,7 @@ class RenderScope(Enum):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_ONLINE: Final = Setting(descriptor=Descriptor.declared(bpy.types.Preferences, ("system", "use_online_access"), bpy.types.BoolProperty))
+_ONLINE: Final = Setting(descriptor=Descriptor(root=bpy.types.Preferences, owner=("system",), prop=bpy.types.PreferencesSystem.bl_rna.properties["use_online_access"]))
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -110,7 +111,8 @@ class Queued(bpy.types.PropertyGroup):
     @property
     def dispatched(self) -> Option[str]:
         """Plan key, `Nothing` before the first dispatch."""
-        return Option.of_optional(self.plan or None)
+        plan: str = self.plan  # ty: ignore[unsound-assignment]
+        return Some(plan).filter(bool)
 
 
 class QueuePreferences(bpy.types.PropertyGroup):
@@ -164,21 +166,21 @@ class QueuePreferences(bpy.types.PropertyGroup):
     @property
     def scripts(self) -> Option[str]:
         """Manager job type scripts folder, `Nothing` while empty."""
-        return Option.of_optional(self.scripts_folder or None)
+        folder: str = self.scripts_folder  # ty: ignore[unsound-assignment]
+        return Some(folder).filter(bool)
 
 
 class Observed(msgspec.Struct, frozen=True, kw_only=True):
-    """Sent record and local progress status timer last read."""
+    """Plan key, sent record, refusals, and local progress the timer last read."""
 
+    plan: str
     sent: Option[Sent]
     progress: Option[tuple[Progress, datetime.datetime]]
-    refused: tuple[str, ...] = ()
+    refused: tuple[str | Fault, ...] = ()
 
     def unrecorded(self, exited: Option[int], /) -> Option[Faults]:
-        """`FAILED` fault of a `prepare` that exited before writing its sent or refused record, its exit read before this observation."""
-        return exited.filter(lambda _: self.sent.is_none() and not self.refused).map(
-            lambda code: Fault.of(Reason.FAILED, RunCommand.PREPARE, f"exit status {code} with no {RunFile.SENT} or {RunFile.REFUSED} record")
-        )
+        """Fault of a `prepare` that exited before writing its sent or refused record, its exit read before this observation."""
+        return exited.filter(lambda _: self.sent.is_none() and not self.refused).map(lambda code: Fault.of(Reason.FAILED, RunCommand.PREPARE, (code, (RunFile.SENT, RunFile.REFUSED))))
 
 
 class LocalRun(msgspec.Struct, frozen=True, kw_only=True):
@@ -194,34 +196,34 @@ class LocalRun(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class QueueState:
-    """Session state of one extension's queue: last observation, paused viewports with the state each held before the pause, the timer observing a pending run, and the `prepare` process the last dispatch started."""
+    """Last queue observation, its native timer, and the preparation process the last dispatch started."""
 
-    __slots__ = ("observed", "paused", "preparing", "watching")
+    __slots__ = ("observed", "preparing", "watching")
 
     def __init__(self) -> None:
-        """Holds no observation, paused viewport, timer, or process."""
+        """Holds no observation, timer, or process."""
         self.observed: Option[Observed] = Nothing
-        self.paused: tuple[tuple[Located, EditorState], ...] = ()
         self.watching: Option[Callable[[], float | None]] = Nothing
-        self.preparing: Option[subprocess.Popen[bytes]] = Nothing
+        self.preparing: Option[tuple[str, subprocess.Popen[bytes]]] = Nothing
 
-    def started(self, process: subprocess.Popen[bytes]) -> subprocess.Popen[bytes]:
-        """Holds the `prepare` process the last dispatch started."""
-        self.preparing = Some(process)
+    def started(self, plan: str, process: subprocess.Popen[bytes]) -> subprocess.Popen[bytes]:
+        """Holds the dispatched plan key with its native preparation process."""
+        self.preparing = Some((plan, process))
         return process
 
-    def exited(self) -> Option[int]:
-        """Exit status of the held `prepare` process once it ended."""
-        return self.preparing.bind(lambda process: Option.of_optional(process.poll()))
+    def exited(self) -> Option[tuple[str, int]]:
+        """Plan key and native preparation exit status once its process ends."""
+        return self.preparing.bind(lambda held: Option.of_optional(held[1].poll()).map(lambda code: (held[0], code)))
 
     @classmethod
     @contextmanager
     def held(cls) -> Generator[Self]:
         """Yields fresh state, stopping its observation timer at scope exit."""
         state = cls()
-        with ExitStack() as scope:
-            scope.callback(state.unwatched)
+        try:
             yield state
+        finally:
+            state.unwatched()
 
     def watched(self, tick: Callable[[], float | None]) -> None:
         """Starts the observation timer unless one runs, the timer stopping itself once nothing is pending."""
@@ -234,15 +236,6 @@ class QueueState:
         for tick in self.watching.filter(bpy.app.timers.is_registered).to_list():
             bpy.app.timers.unregister(tick)
 
-    def pausing(self, held: tuple[tuple[Located, Option[EditorState]], ...]) -> None:
-        """Holds each viewport a pause changed with the state it held before."""
-        self.paused = (*self.paused, *((at, prior) for at, found in held for prior in found.to_list()))
-
-    def resumed(self) -> tuple[tuple[Located, EditorState], ...]:
-        """Returns paused viewports with their prior states, holding none after."""
-        paused, self.paused = self.paused, ()
-        return paused
-
 
 QUEUES: Final = Resource[QueueState](made=lambda _identity: QueueState.held())
 
@@ -251,6 +244,7 @@ class Dispatcher(msgspec.Struct, frozen=True):
     """Bound queue dependencies and session state."""
 
     identity: Identity
+    state: QueueState
     host: HostCommands
     members: Members
     framed: Framed
@@ -258,14 +252,8 @@ class Dispatcher(msgspec.Struct, frozen=True):
     queued: Attached[Queued]
     render: Render
     planning: Option[Callable[[Identity, Plan], Outcome[Plan]]]
+    preparing: Option[Callable[[Identity, Plan], Outcome[Plan]]]
     preference: Preference[QueuePreferences]
-
-    # --- [STATE]
-
-    @property
-    def state(self) -> QueueState:
-        """Session state the extension holds."""
-        return self.identity.resources[QUEUES]
 
     # --- [ACCESS]
 
@@ -281,8 +269,8 @@ class Dispatcher(msgspec.Struct, frozen=True):
 
     # --- [PLANNING]
 
-    def planned(self, context: bpy.types.Context, dispatch: Dispatch, moment: datetime.datetime) -> Outcome[Plan]:
-        """Plans scene scopes, then revises the plan through the extension's planning."""
+    def planned(self, context: bpy.types.Context, dispatch: Dispatch, moment: datetime.datetime, *, revising: Option[Callable[[Identity, Plan], Outcome[Plan]]]) -> Outcome[Plan]:
+        """Plans scene scopes through the supplied declaration or preparation phase."""
 
         def marked(scene: bpy.types.Scene) -> MarkedCamera:
             return MarkedCamera(
@@ -311,7 +299,7 @@ class Dispatcher(msgspec.Struct, frozen=True):
             rooted(bpy.types.Scene, context)
             .bind(reached)
             .bind(lambda scopes: Ok(Plan(moment=moment, scopes=scopes)) if scopes else Error(Fault.of(Reason.ABSENT, repr(context), member=dispatch.scope)))
-            .bind(lambda plan: self.planning.map(lambda revise: revise(self.identity, plan)).default_value(Ok(plan)))
+            .bind(lambda plan: revising.map(lambda revise: revise(self.identity, plan)).default_value(Ok(plan)))
         )
 
     # --- [OBSERVATION]
@@ -328,7 +316,7 @@ class Dispatcher(msgspec.Struct, frozen=True):
                     .filter(lambda record: isinstance(record.target, LocalMachine))
                     .map(lambda record: observed(self.host.path(record.queue.stem, RunFile.PROGRESS)))
                     .default_value(Ok(Nothing))
-                    .map(lambda progress: Observed(sent=pair[0], progress=progress, refused=pair[1].map(lambda held: held.messages).default_value(())))
+                    .map(lambda progress: Observed(plan=plan, sent=pair[0], progress=progress, refused=pair[1].map(lambda held: held.messages).default_value(())))
                 )
             )
 
@@ -342,30 +330,27 @@ class Dispatcher(msgspec.Struct, frozen=True):
             case _:
                 return Error(Fault.of(Reason.ABSENT, repr(self.queued), member=RunFile.PROGRESS))
 
-    def restored(self) -> Outcome[None]:
-        """Restores paused viewports that remain open."""
-        return accumulated(prior.applied(now.area) for at, prior in self.state.resumed() for now in Located.found(at.window, at.area.as_pointer()).to_list()).map(lambda _: None)
-
     def ticked(self) -> Outcome[bool]:
-        """Refreshes the observation, restoring viewports and clearing a succeeded local run once it ends, failing a `prepare` that exited with no record, answering whether a run is pending."""
+        """Refreshes progress, clears successful run files, and reports recordless preparation exits, answering whether a run remains pending."""
         state = self.state
         exited = state.exited()
 
         def acted(fresh: Option[Observed]) -> Outcome[bool]:
             prior = state.observed
-            crashed = fresh.bind(lambda now: now.unrecorded(exited))
+            crashed = fresh.bind(lambda now: exited.filter(lambda held: held[0] == now.plan).bind(lambda held: now.unrecorded(Some(held[1]))))
             current = fresh.map(
                 lambda now: msgspec.structs.replace(
                     now,
                     progress=now.progress.or_else_with(lambda: prior.bind(lambda last: last.progress).filter(lambda pair: now.sent.filter(lambda sent: sent.queue.key == pair[0].queue).is_some())),
-                    refused=crashed.map(lambda faults: tuple(fault.message for fault in faults)).default_value(now.refused),
+                    refused=crashed.default_value(now.refused),
                 )
             )
             state.observed = current
             ended = current.bind(lambda held: held.progress).bind(lambda pair: Option.of_optional(pair[0].ending))
-            pending = current.map(lambda held: not held.refused and held.sent.map(lambda sent: isinstance(sent.target, LocalMachine) and ended.is_none()).default_value(True)).default_value(False)
+            pending = current.map(lambda held: not held.refused and held.sent.map(lambda sent: isinstance(sent.target, LocalMachine) and ended.is_none()).default_value(value=True)).default_value(
+                value=False
+            )
             return paired(
-                self.restored() if ended.is_some() and state.paused else Ok(None),
                 fresh
                 .bind(lambda now: now.sent.bind(lambda sent: now.progress.filter(lambda pair: pair[0].ending is Ending.SUCCEEDED).map(lambda _: sent.queue)))
                 .map(lambda queue: cleared(queue, self.host))
@@ -377,7 +362,7 @@ class Dispatcher(msgspec.Struct, frozen=True):
 
     def tick(self) -> float | None:
         """Host timer body refreshing the observation each second, stopping once no dispatched run is pending."""
-        return 1.0 if self.identity.reports.reported(self.ticked)().default_value(False) else None
+        return 1.0 if self.identity.reports.reported(self.ticked)().default_value(value=False) else None
 
     def watched(self) -> Outcome[Option[float]]:
         """Observes a dispatched run until nothing it dispatched is pending, the session state holding the one timer, answering as a one-shot timer body."""
@@ -392,7 +377,7 @@ class Dispatcher(msgspec.Struct, frozen=True):
 
 def scene_of(name: str) -> Outcome[bpy.types.Scene]:
     """Returns the scene a planned scope or job names, absent fault once it is gone."""
-    return Option.of_optional(bpy.data.scenes.get(name)).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(bpy.data.scenes), member=name))
+    return catch(lambda: bpy.data.scenes[name], exception=KeyError)().map_error(partial(Fault.of, Reason.ABSENT, repr(bpy.data.scenes), member=name))
 
 
 def ranged(scene: bpy.types.Scene) -> Frames:
@@ -413,7 +398,7 @@ def cameras(scene: bpy.types.Scene, scope: JobScope, frames: Frames) -> Outcome[
             gaps, bindings = (), (("fixed camera", camera),)
 
     def checked(binding: str, name: str) -> Outcome[bpy.types.Object]:
-        found: Outcome[bpy.types.Object] = Option.of_optional(bpy.data.objects.get(name)).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(bpy.data.objects), member=name))
+        found = catch(lambda: bpy.data.objects[name], exception=KeyError)().map_error(partial(Fault.of, Reason.ABSENT, repr(bpy.data.objects), member=name))
         return found.bind(lambda bound: typed(bpy.types.Camera, binding, bound.data).map(lambda _: bound))
 
     return accumulated((*(Error(Fault.of(Reason.ABSENT, repr(scene), member=str(frame))) for frame in gaps), *starmap(checked, bindings))).map(lambda _: None)
@@ -429,7 +414,7 @@ def templated(path: OutputPath, scope: JobScope, scene: bpy.types.Scene, frames:
         *((NumberKey.FRAME,) if len(frames.numbers) > 1 and NumberKey.FRAME not in keys else ()),
     )
     return paired(
-        accumulated(path.written(layer, output, Nothing, frames.start, "") for layer in layers for output in Output),
+        accumulated(path.literal(layer, output, Nothing, frames.start) for layer in layers for output in Output),
         accumulated(Error(Fault.of(Reason.REQUIRED, f"{{{field}}} in output template to name one file per {field}")) for field in varied),
     ).map(lambda _: None)
 

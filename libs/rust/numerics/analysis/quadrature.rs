@@ -5,18 +5,25 @@ use core::{
     ops::ControlFlow,
     range::RangeInclusive,
 };
-use std::collections::BinaryHeap;
+use std::collections::BTreeMap;
 
-use gauss_quad::{FiniteAboveNegOneF64, GaussHermite, GaussJacobi, GaussLaguerre, GaussLegendre};
-use itertools::Itertools as _;
-use nalgebra::{DVector, DVectorView, MatrixXx3, Rotation3, UnitVector3, Vector3};
-use nonempty_collections::{IntoNonEmptyIterator, NEVec, NonEmptyIterator as _};
+use dashu::{
+    base::BitTest as _,
+    float::{Context, FBig, Repr, round::mode::HalfEven},
+    integer::IBig,
+};
+use gauss_quad::{FiniteAboveNegOneF64, GaussHermite, GaussLaguerre, GaussLegendre};
+use itertools::{Either, Itertools as _};
+use libm::frexp;
+use nalgebra::{DVector, DVectorView, MatrixXx3, Rotation3, UnitVector3, Vector2, Vector3, convert};
+use nonempty_collections::{IntoNonEmptyIterator, NEVec, NonEmptyIterator as _, nev};
 use num_dual::DualNum;
+use num_traits::Float as _;
 use ordered_float::{FloatIsNan, NotNan};
 use rasm_stats::{Bounds, Tolerance};
 use validated::Validated;
 
-use crate::{AnalysisError, Input, TOLERANCE, joined};
+use crate::{AnalysisError, Input, TOLERANCE, joined, refused_sites};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -52,17 +59,39 @@ pub struct Integral<T> {
     pub evaluations: usize,
 }
 
-struct Piece<T> {
-    domain: Domain,
-    lower: DVector<f64>,
-    upper: DVector<f64>,
+enum Chart {
+    Cartesian,
+    Triangle { affine: Either<MatrixXx3<f64>, MatrixXx3<FBig<HalfEven>>>, area: (f64, isize) },
+    Spherical(Option<Rotation3<f64>>),
+}
+
+impl Chart {
+    fn buffer(&self, dimensions: usize) -> DVector<f64> {
+        DVector::zeros(match self {
+            Self::Cartesian => dimensions,
+            Self::Triangle { affine, area: _ } => affine.as_ref().either(MatrixXx3::nrows, MatrixXx3::nrows),
+            Self::Spherical(_) => 3,
+        })
+    }
+}
+
+struct Piece<'chart, T> {
+    chart: &'chart Chart,
+    lower: NEVec<f64>,
+    upper: NEVec<f64>,
     depth: usize,
     estimate: DVector<T>,
 }
 
-struct Refinement<T> {
-    pieces: Vec<Option<Piece<T>>>,
-    heap: BinaryHeap<(NotNan<f64>, usize)>,
+struct Subdivision<'chart, T> {
+    halves: [Piece<'chart, T>; 2],
+    error: f64,
+    evaluations: usize,
+}
+
+struct Refinement<'chart, T> {
+    pieces: BTreeMap<(NotNan<f64>, usize), Piece<'chart, T>>,
+    next: usize,
     estimate: DVector<T>,
     error: f64,
     evaluations: usize,
@@ -70,124 +99,240 @@ struct Refinement<T> {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-fn extent(domain: &Domain) -> Vec<(f64, f64)> {
-    match domain {
-        Domain::Box(bounds) => bounds.iter().map(|bounds| (bounds.start, bounds.last)).collect(),
-        Domain::Triangle(_) => vec![(0.0, 1.0), (0.0, 1.0)],
-        Domain::Hemisphere(_) => vec![(0.0, FRAC_PI_2), (0.0, TAU)],
-        Domain::Sphere => vec![(0.0, PI), (0.0, TAU)],
-    }
+fn mass(factors: impl IntoIterator<Item = (f64, isize)>) -> (f64, isize) {
+    factors.into_iter().fold((1.0, 0_isize), |(mantissa, exponent), (factor, shift)| {
+        let (factor, carry) = frexp(factor);
+        let (mantissa, offset) = frexp(mantissa * factor);
+        (mantissa, exponent.strict_add(shift).strict_add(carry.strict_cast::<isize>()).strict_add(offset.strict_cast::<isize>()))
+    })
 }
 
-fn chart(domain: &Domain, coordinates: &[f64]) -> (DVector<f64>, f64) {
-    let direction = |polar: f64, azimuth: f64| Vector3::new(polar.sin() * azimuth.cos(), polar.sin() * azimuth.sin(), polar.cos());
-    match (domain, coordinates) {
-        (Domain::Triangle(vertices), &[along, across]) => {
-            let (first, second) = (vertices.column(1) - vertices.column(0), vertices.column(2) - vertices.column(0));
-            let area = first.norm_squared().mul_add(second.norm_squared(), -first.dot(&second).powi(2)).max(0.0).sqrt();
-            (vertices.column(0) + &first * along + &second * ((1.0 - along) * across), area * (1.0 - along))
-        }
-        (Domain::Hemisphere(axis), &[polar, azimuth]) => {
-            let rotation = Rotation3::rotation_between(&Vector3::z(), &axis.into_inner()).unwrap_or_else(|| Rotation3::from_axis_angle(&Vector3::x_axis(), PI));
-            (DVector::from_column_slice(rotation.transform_vector(&direction(polar, azimuth)).as_slice()), polar.sin())
-        }
-        (Domain::Sphere, &[polar, azimuth]) => (DVector::from_column_slice(direction(polar, azimuth).as_slice()), polar.sin()),
-        (Domain::Box(_), _) | (Domain::Triangle(_) | Domain::Hemisphere(_) | Domain::Sphere, [] | [_] | [_, _, _, ..]) => (DVector::from_column_slice(coordinates), 1.0),
-    }
+fn half_width(start: f64, last: f64) -> (f64, (f64, isize)) {
+    let half = last / 2.0 - start / 2.0;
+    let (mantissa, exponent) = frexp(last - start);
+    (half, (mantissa, exponent.strict_sub(1).strict_cast::<isize>()))
 }
 
-fn magnitude<T>(values: &DVector<T>) -> f64
+fn magnitude<T>(values: &DVector<T>, norm: &impl Fn(&T) -> f64) -> f64
 where T: DualNum<Primitive = f64> {
-    values.iter().map(|value| value.re().abs()).fold(0.0, f64::max)
+    values.iter().map(norm).fold(0.0, f64::maximum)
 }
 
-fn converged<T>(estimate: &DVector<T>, error: f64, settings: Settings) -> bool
+fn converged<T>(estimate: &DVector<T>, error: f64, settings: Settings, norm: &impl Fn(&T) -> f64) -> bool
 where T: DualNum<Primitive = f64> {
-    let size = magnitude(estimate);
+    let size = magnitude(estimate, norm);
     size.is_finite() && error <= settings.absolute.map_or_default(Tolerance::into_inner).max(settings.relative.into_inner() * size)
 }
 
-fn accepted<T>(integral: Integral<T>, settings: Settings) -> Result<Integral<T>, AnalysisError>
+fn accepted<T>(integral: Integral<T>, settings: Settings, norm: &impl Fn(&T) -> f64) -> Result<Integral<T>, AnalysisError>
 where T: DualNum<Primitive = f64> {
-    if converged(&integral.estimate, integral.error, settings) { Ok(integral) } else { Err(AnalysisError::Integral { estimate: magnitude(&integral.estimate), error: integral.error }) }
+    if converged(&integral.estimate, integral.error, settings, norm) { Ok(integral) } else { Err(AnalysisError::Integral { estimate: magnitude(&integral.estimate, norm), error: integral.error }) }
 }
 
-fn summed<T>(outputs: usize, nodes: impl IntoIterator<Item = (DVector<T>, f64)>, interval: impl FnOnce() -> Vec<RangeInclusive<f64>>) -> Result<DVector<T>, AnalysisError>
-where T: DualNum<Primitive = f64> {
-    let sum = nodes.into_iter().try_fold(DVector::<T>::zeros(outputs), |sum, (output, mass)| {
-        (output.len() == outputs).ok_or(AnalysisError::Shape { input: Input::Integrand, expected: outputs, found: output.len() }).map(|()| sum + output * T::from(mass))
+fn summed<T>(
+    outputs: usize,
+    nodes: impl IntoIterator<Item = (DVector<T>, (f64, isize))>,
+    interval: impl Fn() -> Vec<RangeInclusive<f64>>,
+    norm: &impl Fn(&T) -> f64,
+) -> Result<DVector<T>, AnalysisError>
+where
+    T: DualNum<Primitive = f64>,
+{
+    #[expect(clippy::arithmetic_side_effects, reason = "Clippy cannot match arithmetic allowances through DualNum bounds")]
+    fn scaled<T>(values: DVector<T>, (mantissa, exponent): (f64, isize)) -> DVector<T>
+    where T: DualNum<Primitive = f64> {
+        let extent = if exponent > 0 { f64::MAX_EXP.strict_sub(1) } else { f64::MIN_EXP }.strict_cast::<isize>();
+        let first = if exponent > 0 { exponent.min(extent) } else { exponent.max(extent) };
+        let values = {
+            let factor = mantissa * convert::<isize, f64>(first).exp2();
+            values.apply_into(|value| *value *= factor)
+        };
+        let remaining = exponent.strict_sub(first).unsigned_abs();
+        let chunk = extent.unsigned_abs();
+        (0..remaining.div_ceil(chunk)).fold(values, |values, index| {
+            let factor = (convert::<usize, f64>(remaining.strict_sub(index.strict_mul(chunk)).min(chunk)) * convert::<isize, f64>(extent.signum())).exp2();
+            values.apply_into(|value| *value *= factor)
+        })
+    }
+    let sum = nodes.into_iter().try_fold(DVector::<T>::zeros(outputs), |sum, (output, weight)| {
+        (output.len() == outputs)
+            .ok_or(AnalysisError::Shape { input: Input::Integrand, expected: outputs, found: output.len() })
+            .and_then(|()| magnitude(&output, norm).is_finite().ok_or_else(|| AnalysisError::Function { interval: interval() }))
+            .map(|()| sum + scaled(output, weight))
     })?;
-    sum.iter().all(|entry| entry.re().is_finite()).ok_or_else(|| AnalysisError::Function { interval: interval() }).map(|()| sum)
+    magnitude(&sum, norm).is_finite().ok_or_else(|| AnalysisError::Function { interval: interval() }).map(|()| sum)
 }
 
-pub fn integrate<F, T, I>(integrand: F, parts: I, settings: Settings) -> Result<Integral<T>, NEVec<AnalysisError>>
+pub fn integrate<F, T, I>(integrand: F, parts: I, settings: Settings, norm: impl Fn(&T) -> f64) -> Result<Integral<T>, NEVec<AnalysisError>>
 where
     F: Fn(DVectorView<'_, f64>) -> DVector<T>,
     T: DualNum<Primitive = f64>,
     I: IntoNonEmptyIterator<Item = Domain>,
 {
-    let parts = parts.into_nonempty_iter().collect::<NEVec<_>>();
-    let rule = GaussLegendre::new(settings.degree);
-    let probe = extent(parts.first());
-    let (origin, _) = chart(parts.first(), &probe.iter().map(|&(start, last)| f64::midpoint(start, last)).collect::<Vec<_>>());
-    let outputs = integrand(origin.column(0)).len();
-    let measured = |domain: &Domain, lower: &DVector<f64>, upper: &DVector<f64>| -> Result<(DVector<T>, usize), AnalysisError> {
-        let nodes = iter::zip(lower.iter(), upper.iter())
-            .map(|(&start, &last)| {
-                let (middle, half) = (f64::midpoint(start, last), last / 2.0 - start / 2.0);
-                rule.iter().map(move |&(node, weight)| (half.mul_add(node, middle), weight * half))
-            })
-            .multi_cartesian_product()
-            .map(|nodes| {
-                let (point, jacobian) = chart(domain, &nodes.iter().map(|&(coordinate, _)| coordinate).collect::<Vec<_>>());
-                (integrand(point.column(0)), nodes.iter().map(|&(_, weight)| weight).product::<f64>() * jacobian)
-            });
-        let interval = || iter::zip(lower.iter(), upper.iter()).map(|(&start, &last)| RangeInclusive { start, last }).collect();
-        summed(outputs, nodes, interval).map(|sum| (sum, iter::repeat_n(rule.degree(), lower.len()).fold(1, usize::saturating_mul)))
-    };
-    let split = |piece: &Piece<T>| {
-        let axis = piece.depth.checked_rem(piece.lower.len()).unwrap_or_default();
-        let (left_upper, right_lower): (Vec<_>, Vec<_>) = iter::zip(piece.lower.iter(), piece.upper.iter())
+    fn split<'chart, T>(
+        piece: &Piece<'chart, T>,
+        measured: &impl Fn(&Chart, &NEVec<f64>, &NEVec<f64>) -> Result<(DVector<T>, usize), AnalysisError>,
+        norm: &impl Fn(&T) -> f64,
+    ) -> Result<Subdivision<'chart, T>, NEVec<AnalysisError>>
+    where
+        T: DualNum<Primitive = f64>,
+    {
+        let axis = piece.depth % piece.lower.len();
+        let (left_upper, right_lower) = piece
+            .lower
+            .nonempty_iter()
+            .zip(&piece.upper)
             .enumerate()
             .map(|(index, (&start, &last))| {
                 let middle = f64::midpoint(start, last);
                 if index == axis { (middle, middle) } else { (last, start) }
             })
             .unzip();
-        let (left_upper, right_lower) = (DVector::from_vec(left_upper), DVector::from_vec(right_lower));
-        Validated::from(measured(&piece.domain, &piece.lower, &left_upper))
-            .map2(Validated::from(measured(&piece.domain, &right_lower, &piece.upper)), |(left_integral, left_count), (right_integral, right_count)| {
-                let deviation = magnitude(&(&piece.estimate - (&left_integral + &right_integral)));
-                let child = |lower: DVector<f64>, upper: DVector<f64>, estimate: DVector<T>| Piece { domain: piece.domain.clone(), lower, upper, depth: piece.depth.strict_add(1), estimate };
-                ([child(piece.lower.clone(), left_upper, left_integral), child(right_lower, piece.upper.clone(), right_integral)], deviation, left_count.saturating_add(right_count))
+        Validated::from(measured(piece.chart, &piece.lower, &left_upper))
+            .map2(Validated::from(measured(piece.chart, &right_lower, &piece.upper)), |(left_integral, left_count), (right_integral, right_count)| {
+                let error = magnitude(&(&piece.estimate - (&left_integral + &right_integral)), norm);
+                let child = |lower: NEVec<f64>, upper: NEVec<f64>, estimate: DVector<T>| Piece { chart: piece.chart, lower, upper, depth: piece.depth.strict_add(1), estimate };
+                Subdivision {
+                    halves: [child(piece.lower.clone(), left_upper, left_integral), child(right_lower, piece.upper.clone(), right_integral)],
+                    error,
+                    evaluations: left_count.saturating_add(right_count),
+                }
             })
             .ok()
-    };
-    let insert = |state: &mut Refinement<T>, (halves, deviation, count): ([Piece<T>; 2], f64, usize), parent: Option<(NotNan<f64>, &Piece<T>)>| -> Result<(), AnalysisError> {
-        let share = NotNan::new(deviation / 2.0).map_err(|FloatIsNan| AnalysisError::Integral { estimate: magnitude(&state.estimate), error: deviation })?;
-        let (removed, released) = parent.map_or_else(|| (DVector::<T>::zeros(state.estimate.len()), 0.0), |(held, piece)| (piece.estimate.clone(), held.into_inner()));
-        state.estimate = halves.iter().fold(&state.estimate - removed, |total, half| total + &half.estimate);
-        state.error = state.error - released + deviation;
-        state.evaluations = state.evaluations.saturating_add(count);
-        state.heap.extend([0, 1].map(|offset| (share, state.pieces.len().strict_add(offset))));
-        state.pieces.extend(halves.map(Some));
+    }
+    fn insert<'chart, T>(
+        state: &mut Refinement<'chart, T>,
+        Subdivision { halves, error, evaluations }: Subdivision<'chart, T>,
+        parent: Option<(NotNan<f64>, &Piece<'chart, T>)>,
+        norm: &impl Fn(&T) -> f64,
+    ) -> Result<(), AnalysisError>
+    where
+        T: DualNum<Primitive = f64>,
+    {
+        let share = NotNan::new(error / 2.0).map_err(|FloatIsNan| AnalysisError::Integral { estimate: magnitude(&state.estimate, norm), error })?;
+        let released = match parent {
+            Some((held, piece)) => {
+                state.estimate -= &piece.estimate;
+                held.into_inner()
+            }
+            None => 0.0,
+        };
+        for half in &halves {
+            state.estimate += &half.estimate;
+        }
+        state.error = state.error - released + error;
+        state.evaluations = state.evaluations.saturating_add(evaluations);
+        let next = state.next.strict_add(halves.len());
+        state.pieces.extend(halves.into_iter().enumerate().map(|(offset, piece)| ((share, state.next.strict_add(offset)), piece)));
+        state.next = next;
         Ok(())
+    }
+    #[expect(clippy::arithmetic_side_effects, reason = "Clippy cannot express finite f64 decoding into Dashu integers")]
+    let exact = |value: f64| {
+        let (mantissa, exponent, sign) = value.integer_decode();
+        FBig::from_repr_const(Repr::new(IBig::from(mantissa) * sign, isize::from(exponent)))
     };
-    let seeded = joined(parts.into_iter().map(|domain| {
-        let (lower, upper): (Vec<_>, Vec<_>) = extent(&domain).into_iter().unzip();
-        let (lower, upper) = (DVector::from_vec(lower), DVector::from_vec(upper));
-        let (estimate, whole) = measured(&domain, &lower, &upper).map_err(NEVec::new)?;
-        split(&Piece { domain, lower, upper, depth: 0, estimate }).map(|(halves, deviation, count)| (halves, deviation, count.saturating_add(whole)))
+    let chart = |chart: &Chart, nodes: &[(f64, (f64, isize))], point: &mut DVector<f64>| match chart {
+        Chart::Cartesian => {
+            iter::zip(point.iter_mut(), nodes).for_each(|(coordinate, &(node, _))| *coordinate = node);
+            (1.0, 0)
+        }
+        Chart::Triangle { affine, area } => {
+            let (along, across) = (nodes[0].0, nodes[1].0);
+            match affine {
+                Either::Left(affine) => {
+                    point.copy_from(&affine.column(0));
+                    point.gemv(1.0, &affine.fixed_columns::<2>(1), &Vector2::new(along, (1.0 - along) * across), 1.0);
+                }
+                Either::Right(affine) => {
+                    let along = exact(along);
+                    #[expect(clippy::arithmetic_side_effects, reason = "Clippy cannot express finite, bounded-exponent Dashu arithmetic")]
+                    let coordinates = affine * Vector3::new(FBig::ONE, along.clone(), (FBig::ONE - along) * exact(across));
+                    point.zip_apply(&coordinates, |coordinate, exact| *coordinate = exact.to_f64().value());
+                }
+            }
+            mass([*area, (1.0 - along, 0)])
+        }
+        Chart::Spherical(rotation) => {
+            let ((radius, height), (sideways, forward)) = (nodes[0].0.sin_cos(), nodes[1].0.sin_cos());
+            let direction = Vector3::new(radius * forward, radius * sideways, height);
+            point.copy_from(&rotation.as_ref().map_or(direction, |rotation| rotation.transform_vector(&direction)));
+            (radius, 0)
+        }
+    };
+    let parts = parts.into_nonempty_iter().collect::<NEVec<_>>();
+    parts
+        .iter()
+        .flat_map(|part| match part {
+            Domain::Triangle(vertices) => Either::Left(refused_sites(vertices, |coordinate: &f64| coordinate.is_finite())),
+            Domain::Box(_) | Domain::Hemisphere(_) | Domain::Sphere => Either::Right(iter::empty()),
+        })
+        .collect::<Validated<(), _>>()
+        .ok()?;
+    let parts = parts
+        .into_nonempty_iter()
+        .map(|domain| match domain {
+            Domain::Box(bounds) => (Chart::Cartesian, bounds.into_nonempty_iter().map(|bounds| (bounds.start, bounds.last)).collect::<NEVec<_>>()),
+            Domain::Triangle(vertices) => {
+                let mut affine = vertices.map(exact);
+                let (origin, mut edges) = affine.columns_range_pair_mut(0, 1..);
+                edges.column_iter_mut().for_each(|mut edge| edge -= &origin);
+                let (first, second) = (affine.column(1), affine.column(2));
+                #[expect(clippy::arithmetic_side_effects, reason = "Clippy cannot express finite, bounded-exponent Dashu arithmetic")]
+                let determinant = first.dot(&first) * second.dot(&second) - first.dot(&second).sqr();
+                let context = Context::<HalfEven>::new(convert(f64::MANTISSA_DIGITS));
+                let area = context.unwrap_fp(context.sqrt(determinant.repr()));
+                let exponent = area.repr().exponent().strict_add(area.repr().significand().bit_len().strict_cast::<isize>());
+                #[expect(clippy::arithmetic_side_effects, reason = "Clippy cannot express finite, bounded-exponent Dashu arithmetic")]
+                let area = ((area >> exponent).to_f64().value(), exponent);
+                let coordinates = affine.map(|coordinate| coordinate.to_f64().value());
+                let affine = if coordinates.iter().all(|coordinate| coordinate.is_finite()) { Either::Left(coordinates) } else { Either::Right(affine) };
+                (Chart::Triangle { affine, area }, nev![(0.0, 1.0), (0.0, 1.0)])
+            }
+            Domain::Hemisphere(axis) => (
+                Chart::Spherical(Some(Rotation3::rotation_between(&Vector3::z(), &axis.into_inner()).unwrap_or_else(|| Rotation3::from_axis_angle(&Vector3::x_axis(), PI)))),
+                nev![(0.0, FRAC_PI_2), (0.0, TAU)],
+            ),
+            Domain::Sphere => (Chart::Spherical(None), nev![(0.0, PI), (0.0, TAU)]),
+        })
+        .collect::<NEVec<_>>();
+    let rule = GaussLegendre::new(settings.degree);
+    let outputs = {
+        let (mapping, bounds) = parts.first();
+        let nodes = bounds.iter().map(|&(start, last)| (f64::midpoint(start, last), (1.0, 0))).collect::<Vec<_>>();
+        let mut origin = mapping.buffer(nodes.len());
+        chart(mapping, &nodes, &mut origin);
+        let probe = integrand(origin.column(0));
+        magnitude(&probe, &norm).is_finite().ok_or_else(|| NEVec::new(AnalysisError::Function { interval: bounds.iter().map(|&(start, last)| RangeInclusive { start, last }).collect() }))?;
+        probe.len()
+    };
+    let measured = |mapping: &Chart, lower: &NEVec<f64>, upper: &NEVec<f64>| -> Result<(DVector<T>, usize), AnalysisError> {
+        let mut point = mapping.buffer(lower.len().get());
+        let nodes = iter::zip(lower.iter(), upper.iter())
+            .map(|(&start, &last)| {
+                let (middle, (half, width)) = (f64::midpoint(start, last), half_width(start, last));
+                rule.iter().map(move |&(node, weight)| (half.mul_add(node, middle), mass([(weight, 0), width])))
+            })
+            .multi_cartesian_product()
+            .map(|nodes| {
+                let jacobian = chart(mapping, &nodes, &mut point);
+                (integrand(point.column(0)), mass(nodes.iter().map(|&(_, weight)| weight).chain(iter::once(jacobian))))
+            });
+        let interval = || iter::zip(lower.iter(), upper.iter()).map(|(&start, &last)| RangeInclusive { start, last }).collect();
+        summed(outputs, nodes, interval, &norm).map(|sum| (sum, iter::repeat_n(rule.degree(), lower.len().get()).fold(1, usize::saturating_mul)))
+    };
+    let seeded = joined(parts.iter().map(|(mapping, bounds)| {
+        let (lower, upper) = bounds.nonempty_iter().copied().unzip();
+        let (estimate, whole) = measured(mapping, &lower, &upper).map_err(NEVec::new)?;
+        split(&Piece { chart: mapping, lower, upper, depth: 0, estimate }, &measured, &norm)
+            .map(|subdivision| Subdivision { evaluations: subdivision.evaluations.saturating_add(whole), ..subdivision })
     }))?;
-    let mut state = Refinement { pieces: Vec::new(), heap: BinaryHeap::new(), estimate: DVector::<T>::zeros(outputs), error: 0.0, evaluations: 1 };
-    seeded.into_iter().try_for_each(|halves| insert(&mut state, halves, None)).map_err(NEVec::new)?;
+    let mut state = Refinement { pieces: BTreeMap::new(), next: 0, estimate: DVector::<T>::zeros(outputs), error: 0.0, evaluations: 1 };
+    seeded.into_iter().try_for_each(|halves| insert(&mut state, halves, None, &norm)).map_err(NEVec::new)?;
     (state.pieces.len()..settings.limit.get())
         .try_for_each(|_| {
-            let widest = (!converged(&state.estimate, state.error, settings))
-                .then(|| state.heap.pop())
-                .flatten()
-                .and_then(|(share, index)| state.pieces.get_mut(index).and_then(Option::take).map(|piece| (share, piece)));
-            match widest.map(|(share, piece)| split(&piece).and_then(|halves| insert(&mut state, halves, Some((share, &piece))).map_err(NEVec::new))) {
+            let widest = (!converged(&state.estimate, state.error, settings, &norm)).then(|| state.pieces.pop_last()).flatten().map(|((share, _), piece)| (share, piece));
+            match widest.map(|(share, piece)| split(&piece, &measured, &norm).and_then(|halves| insert(&mut state, halves, Some((share, &piece)), &norm).map_err(NEVec::new))) {
                 None => ControlFlow::Break(Ok(())),
                 Some(Ok(())) => ControlFlow::Continue(()),
                 Some(Err(errors)) => ControlFlow::Break(Err(errors)),
@@ -195,32 +340,37 @@ where
         })
         .break_value()
         .transpose()?;
-    let Refinement { pieces: _, heap: _, estimate, error, evaluations } = state;
-    accepted(Integral { estimate, error, evaluations }, settings).map_err(NEVec::new)
+    let Refinement { pieces: _, next: _, estimate, error, evaluations } = state;
+    accepted(Integral { estimate, error, evaluations }, settings, &norm).map_err(NEVec::new)
 }
 
-pub fn weighted<F, T>(integrand: F, weight: Weight, settings: Settings) -> Result<Integral<T>, AnalysisError>
+pub fn weighted<F, T>(integrand: F, weighting: Weight, settings: Settings, norm: impl Fn(&T) -> f64) -> Result<Integral<T>, AnalysisError>
 where
     F: Fn(f64) -> DVector<T>,
     T: DualNum<Primitive = f64>,
 {
-    let span = match weight {
+    let span = match weighting {
         Weight::Jacobi { interval, alpha: _, beta: _ } => RangeInclusive { start: interval.start, last: interval.last },
         Weight::Laguerre { alpha: _ } => RangeInclusive { start: 0.0, last: f64::INFINITY },
         Weight::Hermite => RangeInclusive { start: f64::NEG_INFINITY, last: f64::INFINITY },
     };
     let measured = |degree: NonZero<usize>, width: Option<usize>| -> Result<(DVector<T>, usize), AnalysisError> {
-        let nodes = match weight {
+        let (rule, scale, shift) = match weighting {
             Weight::Jacobi { interval, alpha, beta } => {
-                let half = interval.last / 2.0 - interval.start / 2.0;
-                GaussJacobi::new(degree, alpha, beta).iter().map(|&(node, mass)| (half.mul_add(node, f64::midpoint(interval.start, interval.last)), mass * half)).collect::<Vec<_>>()
+                let half = half_width(interval.start, interval.last);
+                (Either::Left(bilby::GaussJacobi::new(degree.get(), alpha.get(), beta.get())?), half, f64::midpoint(interval.start, interval.last))
             }
-            Weight::Laguerre { alpha } => GaussLaguerre::new(degree, alpha).iter().copied().collect(),
-            Weight::Hermite => GaussHermite::new(degree).iter().copied().collect(),
+            Weight::Laguerre { alpha } => (Either::Right(GaussLaguerre::new(degree, alpha).into_node_weight_pairs()), (1.0, (1.0, 0)), 0.0),
+            Weight::Hermite => (Either::Right(GaussHermite::new(degree).into_node_weight_pairs()), (1.0, (1.0, 0)), 0.0),
         };
-        let outputs = nodes.iter().map(|&(node, mass)| (integrand(node), mass)).collect::<Vec<_>>();
-        let width = width.or_else(|| outputs.first().map(|(output, _)| output.len())).unwrap_or_default();
-        summed(width, outputs, || vec![span]).map(|sum| (sum, degree.get()))
+        let (first, nodes) = match &rule {
+            Either::Left(rule) => ((rule.nodes()[0], rule.weights()[0]), Either::Left(iter::zip(&rule.nodes()[1..], &rule.weights()[1..]).map(|(&node, &mass)| (node, mass)))),
+            Either::Right(nodes) => (nodes[0], Either::Right(nodes[1..].iter().copied())),
+        };
+        let evaluate = |(node, weight): (f64, f64)| (integrand(node.mul_add(scale.0, shift)), mass([(weight, 0), scale.1]));
+        let first = evaluate(first);
+        let width = width.unwrap_or(first.0.len());
+        summed(width, iter::once(first).chain(nodes.map(evaluate)), || vec![span], &norm).map(|sum| (sum, degree.get()))
     };
     let doubled = |degree: &NonZero<usize>| degree.checked_mul(const { NonZero::new(2).unwrap() }).filter(|next| next.get() <= settings.degree.get().saturating_mul(settings.limit.get()));
     let (coarse, cost) = measured(settings.degree, None)?;
@@ -228,14 +378,14 @@ where
     iter::successors(doubled(&settings.degree), doubled)
         .try_fold(Integral { estimate: coarse, error: f64::INFINITY, evaluations: cost }, |current, degree| {
             match measured(degree, width).map(|(estimate, count)| {
-                let error = magnitude(&(&current.estimate - &estimate));
+                let error = magnitude(&(&current.estimate - &estimate), &norm);
                 Integral { estimate, error, evaluations: current.evaluations.saturating_add(count) }
             }) {
                 Err(error) => ControlFlow::Break(Err(error)),
-                Ok(next) if converged(&next.estimate, next.error, settings) => ControlFlow::Break(Ok(next)),
+                Ok(next) if converged(&next.estimate, next.error, settings, &norm) => ControlFlow::Break(Ok(next)),
                 Ok(next) => ControlFlow::Continue(next),
             }
         })
-        .map_continue(|last| accepted(last, settings))
+        .map_continue(|last| accepted(last, settings, &norm))
         .into_value()
 }

@@ -1,6 +1,5 @@
 using System.Numerics;
 using System.Text.Json.Serialization;
-using Darkroom.Chain;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Procedural;
 using UnitsNet;
@@ -51,13 +50,10 @@ public abstract partial record NoiseBasis {
         public static Voronoi Default { get; } = new(NoiseDimensions.Three, Perlin.Default.Octaves, VoronoiFeature.F1, 2f, 1f, 0f);
 
         public override Fin<Func<Vector4, uint, (float Value, Vector4 Site)>> Sampler =>
-            Advancing.Map(_ => new Func<Vector4, uint, (float Value, Vector4 Site)>((point, hash) =>
-                Feature.Sample(Dimensions, point, Octaves, Exponent, Randomness, Smoothness, hash)));
+            Feature.Sampler(Dimensions, Octaves, Exponent, Randomness, Smoothness).Map(static sampling => sampling.Sample);
 
         public override Fin<(float Lower, float Upper)> Range =>
-            Advancing.Map(_ => Feature.Range(Dimensions, Octaves, Exponent, Randomness, Smoothness));
-
-        private Fin<Unit> Advancing => DarkroomFault.Unless(!Octaves.Degenerate, DarkroomReason.Octaves, Octaves);
+            Feature.Sampler(Dimensions, Octaves, Exponent, Randomness, Smoothness).Map(static sampling => sampling.Range);
     }
 
     public sealed record Gabor(NoiseDimensions Dimensions, float Frequency, float Anisotropy, Angle Orientation) : NoiseBasis {

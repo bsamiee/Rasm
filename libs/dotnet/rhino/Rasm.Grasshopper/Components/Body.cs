@@ -85,13 +85,13 @@ internal sealed class BodyAttributes : ComponentAttributes, IResizableAttributes
     [return: UnsafeAccessorType(Host)]
     private static extern object Create(ModularComponent component);
 
-    [UnsafeAccessor(UnsafeAccessorKind.Method, Name = nameof(ColourInputCategories))]
+    [UnsafeAccessor(UnsafeAccessorKind.Method)]
     private static extern void ColourInputCategories([UnsafeAccessorType(Host)] object attributes, Context context, Capsule capsule, ModularList input);
 
-    [UnsafeAccessor(UnsafeAccessorKind.Method, Name = nameof(ColourOutputCategories))]
+    [UnsafeAccessor(UnsafeAccessorKind.Method)]
     private static extern void ColourOutputCategories([UnsafeAccessorType(Host)] object attributes, Context context, Capsule capsule, ModularList output);
 
-    [UnsafeAccessor(UnsafeAccessorKind.Method, Name = nameof(DrawForegroundDecorations))]
+    [UnsafeAccessor(UnsafeAccessorKind.Method)]
     private static extern void DrawForegroundDecorations([UnsafeAccessorType(Host)] object attributes, Context context, Skin skin, Capsule capsule, Shade shade);
 
     // --- [RESIZING]

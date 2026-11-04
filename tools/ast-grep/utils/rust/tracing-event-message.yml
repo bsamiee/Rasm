@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: tracing-event-message
-language: rust
+language: rustlang
 rule:
     kind: 'string_literal, raw_string_literal'
     follows: {stopBy: {not: {kind: 'line_comment, block_comment'}}, regex: '^[(,]$'}

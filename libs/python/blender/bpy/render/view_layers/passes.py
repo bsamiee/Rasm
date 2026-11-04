@@ -1,5 +1,6 @@
 """View layer passes: pass kinds, flags of the running build, requests, used layers, presets spread over them, and AOV and light group sync."""
 
+from collections import defaultdict
 from collections.abc import Callable, Mapping
 import enum
 import functools
@@ -7,8 +8,9 @@ import itertools
 from typing import Final, Self
 
 import bpy
-from expression import Nothing, Ok, Option, Result, Some
+from expression import Option, Some
 from expression.collections import Block
+from expression.extra.result import catch
 import msgspec
 
 from blender.bpy.commands.operators import Answer, called, tallied, Unchanged
@@ -20,11 +22,11 @@ from blender.bpy.nodes.trees import nested, socket_at
 from blender.bpy.scene.materials import ShadingSetup, stored, Utility
 from blender.bpy.settings.presets import Preset
 from blender.bpy.ui.layout.values import Listing
-from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, Reason
+from blender.records.faults import accumulated, Fault, Nothing, Ok, Outcome, paired, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Flags = frozenset[Descriptor[bpy.types.BoolProperty]]
+type Flags = frozenset[Descriptor]
 
 
 class Family(enum.Flag):
@@ -57,6 +59,11 @@ class Derived(enum.Flag):
     DEPTH_MAP = 4
     INVERSE_DEPTH = 8
 
+    @property
+    def label(self) -> str:
+        """Display name of a derived pass."""
+        return bpy.path.display_name(str(self.name).lower())
+
 
 class CryptomatteKind(enum.Flag):
     """Cryptomatte kind, valued by its persisted flag bit."""
@@ -76,27 +83,24 @@ class CryptomatteKind(enum.Flag):
         return f"Crypto{str(self.name).title()}"
 
     @property
-    def flag(self) -> Descriptor[bpy.types.BoolProperty]:
+    def flag(self) -> Descriptor:
         """View layer flag enabling the kind's passes."""
-        return Descriptor.declared(bpy.types.ViewLayer, (f"use_pass_cryptomatte_{str(self.name).lower()}",), bpy.types.BoolProperty)
+        return Descriptor(root=bpy.types.ViewLayer, prop=bpy.types.ViewLayer.bl_rna.properties[f"use_pass_cryptomatte_{str(self.name).lower()}"])
 
     @property
-    def index(self) -> Option[tuple[Descriptor[bpy.types.BoolProperty], str]]:
+    def index(self) -> Option[tuple[Descriptor, str]]:
         """View layer flag and pass name of the kind's index pass, which Cycles alone writes, Nothing for a kind the view layer holds no index flag of."""
         return (
             Some(f"use_pass_{str(self.name).lower()}_index")
             .filter(lambda flag: flag in bpy.types.ViewLayer.bl_rna.properties)
-            .map(lambda flag: (Descriptor.declared(bpy.types.ViewLayer, (flag,), bpy.types.BoolProperty), f"{self.label} Index"))
+            .map(lambda flag: (Descriptor(root=bpy.types.ViewLayer, prop=bpy.types.ViewLayer.bl_rna.properties[flag]), f"{self.label} Index"))
         )
 
     @property
-    def color(self) -> Descriptor[bpy.types.FloatProperty]:
+    def color(self) -> Descriptor:
         """Display color member of the blocks the kind names."""
-        return (
-            Descriptor.declared(bpy.types.Material, ("diffuse_color",), bpy.types.FloatProperty)
-            if self is CryptomatteKind.MATERIAL
-            else Descriptor.declared(bpy.types.Object, ("color",), bpy.types.FloatProperty)
-        )
+        owner, member = (bpy.types.Material, "diffuse_color") if self is CryptomatteKind.MATERIAL else (bpy.types.Object, "color")
+        return Descriptor(root=owner, prop=owner.bl_rna.properties[member])
 
     @classmethod
     def named(cls, name: str) -> Option[Self]:
@@ -106,13 +110,13 @@ class CryptomatteKind(enum.Flag):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-EMISSION: Final = Descriptor.declared(bpy.types.ViewLayer, ("use_pass_emit",), bpy.types.BoolProperty)
-ENVIRONMENT: Final = Descriptor.declared(bpy.types.ViewLayer, ("use_pass_environment",), bpy.types.BoolProperty)
-OCCLUSION: Final = Descriptor.declared(bpy.types.ViewLayer, ("use_pass_ambient_occlusion",), bpy.types.BoolProperty)
+EMISSION: Final = Descriptor(root=bpy.types.ViewLayer, prop=bpy.types.ViewLayer.bl_rna.properties["use_pass_emit"])
+ENVIRONMENT: Final = Descriptor(root=bpy.types.ViewLayer, prop=bpy.types.ViewLayer.bl_rna.properties["use_pass_environment"])
+OCCLUSION: Final = Descriptor(root=bpy.types.ViewLayer, prop=bpy.types.ViewLayer.bl_rna.properties["use_pass_ambient_occlusion"])
 DENOISING_ALBEDO: Final = "Denoising Albedo"
 DENOISING_NORMAL: Final = "Denoising Normal"
-_DEPTH: Final = Descriptor.declared(bpy.types.ViewLayer, ("use_pass_z",), bpy.types.BoolProperty)
-_ENGINE: Final = Descriptor.declared(bpy.types.Scene, ("render", "engine"), bpy.types.EnumProperty)
+_DEPTH: Final = Descriptor(root=bpy.types.ViewLayer, prop=bpy.types.ViewLayer.bl_rna.properties["use_pass_z"])
+_ENGINE: Final = Descriptor(root=bpy.types.Scene, owner=("render",), prop=bpy.types.RenderSettings.bl_rna.properties["engine"])
 _CYCLES: Final = Setting(descriptor=_ENGINE, accepted=("CYCLES",))
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -121,12 +125,11 @@ _CYCLES: Final = Setting(descriptor=_ENGINE, accepted=("CYCLES",))
 class PassFlags(msgspec.Struct, frozen=True, kw_only=True):
     """Writable `use_pass_*` flags of `ViewLayer` and its pointer structs in the running build, in RNA order with owning class."""
 
-    every: tuple[tuple[type[Struct], Descriptor[bpy.types.BoolProperty]], ...]
+    every: tuple[tuple[type[Struct], Descriptor], ...]
 
     @classmethod
-    @functools.cache
     def of(cls) -> Self:
-        """Resolves the flags once per build, after engines register their layer settings."""
+        """Reads pass flags from the running build and registered engines."""
         root = bpy.types.ViewLayer.bl_rna
         structs = (
             ((), bpy.types.ViewLayer, root.properties),
@@ -149,31 +152,30 @@ class PassFlags(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def families(self) -> Mapping[Family, tuple[Flags, Flags, Flags]]:
         """Direct, indirect, and color flags of each family, the flags named `use_pass_<family>_<slot>` on any owner."""
+        named: defaultdict[str, set[Descriptor]] = defaultdict(set)
+        for _, flag in self.every:
+            named[flag.prop.identifier].add(flag)
 
         def slot(family: Family, kind: LightSlot) -> Flags:
-            return frozenset(flag for _, flag in self.every if flag.prop.identifier == f"use_pass_{str(family.name).lower()}_{kind}")
+            return frozenset(named.get(f"use_pass_{str(family.name).lower()}_{kind}", ()))
 
         return {family: (slot(family, LightSlot.DIRECT), slot(family, LightSlot.INDIRECT), slot(family, LightSlot.COLOR)) for family in Family}
 
     @property
     def lobes(self) -> Flags:
         """Every family flag."""
-        return frozenset().union(*(slot for slots in self.families.values() for slot in slots))
+        return frozenset(flag for slots in self.families.values() for slot in slots for flag in slot)
 
     def enabled_for(self, totals: Family, derived: Derived, ids: CryptomatteKind) -> Flags:
         """Returns flags the families summed, the derived layers, and the ID kinds read."""
         families = self.families
 
-        def read(item: Derived) -> tuple[Flags, ...]:
-            match item:
-                case Derived.DIRECT_LIGHT:
-                    return tuple(direct | color for direct, _, color in families.values())
-                case Derived.INDIRECT_LIGHT:
-                    return tuple(indirect | color for _, indirect, color in families.values())
-                case _:
-                    return (frozenset({_DEPTH}),)
-
-        return frozenset().union(*(slot for family in totals for slot in families[family]), *(held for item in derived for held in read(item)), (entity.flag for entity in ids))
+        return frozenset(entity.flag for entity in ids).union(
+            *(slot for family in totals for slot in families[family]),
+            *(direct | color for direct, _, color in families.values() if Derived.DIRECT_LIGHT in derived),
+            *(indirect | color for _, indirect, color in families.values() if Derived.INDIRECT_LIGHT in derived),
+            {_DEPTH} if derived & (Derived.DEPTH_MAP | Derived.INVERSE_DEPTH) else (),
+        )
 
 
 class PassRequest(msgspec.Struct, frozen=True, kw_only=True):
@@ -218,14 +220,15 @@ def used(scene: bpy.types.Scene) -> tuple[bpy.types.ViewLayer, ...]:
 
 def layer_of(scene: bpy.types.Scene, name: str) -> Outcome[bpy.types.ViewLayer]:
     """Returns the scene's view layer `name`, absent fault naming it."""
-    return Option.of_optional(scene.view_layers.get(name)).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(scene.view_layers), member=name))
+    return catch(lambda: scene.view_layers[name], exception=KeyError)().map_error(lambda cause: Fault.of(Reason.ABSENT, repr(scene.view_layers), cause, member=name))
 
 
-def soloed(scene: bpy.types.Scene, name: str) -> bool:
-    """Turns `use` on for the layer `name` alone, answering whether any layer's `use` changed."""
-    changed = tuple(layer for layer in scene.view_layers if layer.use != (layer.name == name))
-    for layer in changed:
-        layer.use = layer.name == name
+def soloed(layer: bpy.types.ViewLayer) -> bool:
+    """Turns `use` on for the given layer alone, answering whether any layer's `use` changed."""
+    scene: bpy.types.Scene = layer.id_data  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+    changed = tuple(held for held in scene.view_layers if held.use != (held == layer))
+    for held in changed:
+        held.use = held == layer
     return bool(changed)
 
 
@@ -301,15 +304,16 @@ def synced(scene: bpy.types.Scene, identity: Identity) -> Outcome[None]:
                 case Utility(passes=passes):
                     return {str(member.name).lower(): member.kind for member in passes}
                 case _:
-                    return {}
+                    return dict[str, str]()
 
-        tree: Outcome[bpy.types.NodeTree] = Option.of_optional(material.node_tree).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(material), member="node_tree"))
-        return Result[bpy.types.NodeTree, Faults].bind(tree, lambda found: stored(identity).bind(lambda store: store.read(found))).map(kinds)
+        tree: bpy.types.NodeTree = material.node_tree  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        return stored(identity).read(tree).map(kinds)
 
-    def wanted(layer: bpy.types.ViewLayer) -> Outcome[Mapping[str, str]]:
-        override = Option.of_optional(layer.material_override)
+    @functools.cache
+    def wanted(material: bpy.types.Material | None, world: bpy.types.World | None) -> Outcome[Mapping[str, str]]:
+        override = Option.of_optional(material)
         materials = override.map(lambda material: (material,)).default_with(lambda: tuple(slot.material for item in scene.objects for slot in item.material_slots if slot.material))
-        trees = tuple(tree for tree in (*(material.node_tree for material in materials), *(world.node_tree for world in Option.of_optional(scene.world).to_list())) if tree)
+        trees: tuple[bpy.types.NodeTree, ...] = tuple(held.node_tree for held in materials) + tuple(held.node_tree for held in Option.of_optional(world).to_list())  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
         return override.filter(lambda material: Utility.ownership.marked(identity, material).is_some()).map(setup).default_with(lambda: scanned(trees))
 
     def aovs(layer: bpy.types.ViewLayer, names: Mapping[str, str]) -> Outcome[None]:
@@ -317,12 +321,11 @@ def synced(scene: bpy.types.Scene, identity: Identity) -> Outcome[None]:
 
         def synced_aov(name: str, kind: str) -> Outcome[None]:
             aov = held.get(name) or layer.aovs.add()
-            answer = (
-                paired(written(aov, ("name",), name), written(aov, ("type",), kind))
+            if (
+                answer := paired(written(aov, ("name",), name), written(aov, ("type",), kind))
                 .filter_with(lambda _: aov.name == name and aov.is_valid, lambda _: Fault.of(Reason.TAKEN, name, member=aov.name))
                 .map(lambda _: None)
-            )
-            if answer.is_error() and name not in held:
+            ).is_error() and name not in held:
                 layer.aovs.remove(aov)
             return answer
 
@@ -330,7 +333,7 @@ def synced(scene: bpy.types.Scene, identity: Identity) -> Outcome[None]:
 
     def layered(layer: bpy.types.ViewLayer) -> Outcome[None]:
         return (
-            wanted(layer)
+            wanted(layer.material_override, layer.world_override or scene.world)
             .bind(lambda names: paired(aovs(layer, names), called(bpy.ops.scene.view_layer_add_used_lightgroups, {}, override=Some(bpy.context.temp_override(scene=scene, view_layer=layer)))))
             .map(lambda _: None)
         )

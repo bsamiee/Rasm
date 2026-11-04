@@ -1,12 +1,12 @@
-import type { Installation } from '@rasm/automation/applications';
-import { Automation } from '@rasm/automation/automation';
+import type { Installation } from '@rasm/automation';
+import { Automation } from '@rasm/automation/node';
 import { Effect, FileSystem, Option, Path, Schema } from 'effect';
 import { crashes, REPORTER, uxp } from '#/adobe';
 import { checked, Launched, plist, printed } from '#/instance';
-import { Encoded, Engine, HostCase, HostOutcome, type Placed, type Quit, Reply, SURVEY, Survey } from '#/photoshop/contract';
+import { Encoded, Engine, HostCase, HostOutcome, type Quit, Reply, SURVEY, Survey } from '#/photoshop/contract';
 import { precondition } from '#/photoshop/precondition';
 import { copied } from '#/precondition';
-import { type Batch, type Host as Harness, type Installed, installation, type Live } from '#/session';
+import { type Batch, Harness, type Installed, installation, type Live } from '#/session';
 import { assembled, EXTENDSCRIPT, engineOf } from '#/source';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -64,7 +64,7 @@ const send = Effect.fn('send')(function* (live: Live, batch: Batch<typeof Survey
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const Host = {
+const photoshop = Harness({
     Engine,
     assembled: ENGINE,
     survey: { question: SURVEY, Schema: Survey },
@@ -79,8 +79,8 @@ const Host = {
     quit: (live) => Effect.asVoid(executed(live, JSON.stringify({ quit: true } satisfies typeof Quit.Type))),
     canonical,
     logs: (instance) => Effect.zipWith(plist(instance.chosen.app, Info), crashes(instance), ({ CFBundleDisplayName: folder }, found) => [uxp(folder), ...found]),
-} as const satisfies Harness<typeof Survey.Type, typeof HostCase.Type, typeof Engine.Type, typeof Placed.Type>;
+});
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Host };
+export { photoshop };

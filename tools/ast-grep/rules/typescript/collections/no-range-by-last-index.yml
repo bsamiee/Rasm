@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-range-by-last-index
-language: tsx
+language: tsxlang
 severity: error
 rule:
     kind: call_expression
@@ -8,4 +8,4 @@ rule:
         - pattern: '$RANGE(0, $N - 1)'
         - has: {field: function, matches: {effect-module-member: {module: {regex: '\bArray$'}, member: {regex: '^range$'}}}}
 message: '`$RANGE(0, $N - 1)` returns `[0]` when `$N` is 0'
-note: 'Call `Array.makeBy(<count>, (index) => <value>)` to build a sequence from a length'
+note: 'Call `globalThis.Array.from({ length: <count> }, (_, index) => <value>)` for a sequence that can be empty'

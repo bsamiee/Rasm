@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: rust-imported-name
-language: rust
+language: rustlang
 arguments: [source, name]
 utils:
     imported-leaf:

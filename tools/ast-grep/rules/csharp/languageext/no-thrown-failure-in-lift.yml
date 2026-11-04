@@ -19,6 +19,5 @@ rule:
     any:
         - inside: {field: body, matches: thunk}
         - inside: {kind: return_statement, inside: {kind: block, inside: {matches: thunk}}}
-fix: $VALUE
 message: '`$VALUE.ThrowIfFail()` throws a failure the `IO.lift` thunk can return as `Fin`'
 note: 'Return `Fin` from the thunk'

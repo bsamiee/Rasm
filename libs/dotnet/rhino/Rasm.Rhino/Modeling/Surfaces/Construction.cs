@@ -1,4 +1,3 @@
-using System.Globalization;
 using Rasm.Rhino.Modeling.Curves;
 using Rhino.Geometry.Collections;
 
@@ -35,7 +34,7 @@ public sealed partial class PointGrid {
     static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref Seq<Point3d> points, ref int uCount) =>
         validationError = uCount >= 2 && points.Count / uCount >= 2 && points.Count % uCount is 0
             ? null
-            : new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"grid of {points.Count} points with {uCount} in U"), RhinoReason.Outside);
+            : new RhinoFault((Points: points.Count, UCount: uCount), RhinoReason.Outside);
 }
 
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
@@ -56,9 +55,9 @@ public sealed partial class HermiteGrid {
 
     static partial void ValidateFactoryArguments(
         ref RhinoFault? validationError, ref AscendingParameters u, ref AscendingParameters v, ref Seq<(Point3d Point, Vector3d UTangent, Vector3d VTangent, Vector3d Twist)> stations) =>
-        validationError = stations.Count == u.Values.Count * v.Values.Count
+        validationError = stations.Count == (long)u.Values.Count * v.Values.Count
             ? null
-            : new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"{stations.Count} Hermite stations for a {u.Values.Count} by {v.Values.Count} grid"), RhinoReason.Outside);
+            : new RhinoFault((Stations: stations.Count, UCount: u.Values.Count, VCount: v.Values.Count), RhinoReason.Outside);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -80,12 +79,13 @@ public static class SurfaceConstruction {
     private static Unit Filled(HermiteSurface hermite, HermiteGrid grid) {
         _ = grid.U.Values.Iter(hermite.SetUParameterAt);
         _ = grid.V.Values.Iter(hermite.SetVParameterAt);
-        _ = toSeq(grid.Stations.Chunk(grid.V.Values.Count)).Iter((u, row) => toSeq(row).Iter((v, station) => {
+        _ = grid.Stations.Iter((index, station) => {
+            (int u, int v) = int.DivRem(index, grid.V.Values.Count);
             hermite.SetPointAt(u, v, station.Point);
             hermite.SetUTangentAt(u, v, station.UTangent);
             hermite.SetVTangentAt(u, v, station.VTangent);
             hermite.SetTwistAt(u, v, station.Twist);
-        }));
+        });
         return unit;
     }
 

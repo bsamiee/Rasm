@@ -14,6 +14,7 @@ using Rhino.DocObjects.Tables;
 using Rhino.UI;
 using Rhino.UI.Controls;
 using UnitsNet;
+using RhinoSlider = Rhino.UI.Controls.Slider;
 
 namespace Rasm.Rhino.UI.Inputs;
 
@@ -64,13 +65,13 @@ public static class Values {
         where T : notnull =>
         from state in IO.lift(() => Ref((Shown: initial, Previewed: Option<T>.None)))
         let entered = fun((T value) =>
-            from phase in IO.lift(() => previewing(control) ? EditPhase.Preview : EditPhase.Commit)
+            from applies in IO.lift(() => !previewing(control))
             from fresh in atomicIO(() => {
                 (Option<T> Shown, Option<T> Previewed) held = state.Value;
-                state.Value = phase.Applies ? (Shown: Some(value), Previewed: None) : held with { Previewed = Some(value) };
-                return phase.Applies ? held.Previewed.IsSome || held.Shown != Some(value) : (held.Previewed | held.Shown) != Some(value);
+                state.Value = applies ? (Shown: Some(value), Previewed: None) : held with { Previewed = Some(value) };
+                return applies ? held.Previewed.IsSome || held.Shown != Some(value) : (held.Previewed | held.Shown) != Some(value);
             })
-            from sent in when(fresh, edited(phase.Of(value))).As()
+            from sent in when(fresh, edited(new Edit<T>.Changed(applies, value))).As()
             select unit)
         from dual in use(() => binding.Bind(Binding.Delegate(() => state.Value.Shown, held => Session.Run(held.Traverse(entered).As()))), static dual => dual.Unbind())
         from commits in committing.Traverse(signal => signal.Attach(_ =>
@@ -82,7 +83,7 @@ public static class Values {
             })
             from sent in when(before.Previewed.IsSome, value == before.Shown
                 ? edited(new Edit<T>.Cancel())
-                : value.Traverse(held => edited(EditPhase.Commit.Of(held))).As().Map(unit)).As()
+                : value.Traverse(held => edited(new Edit<T>.Changed(Applies: true, held))).As().Map(unit)).As()
             select unit)).As()
         select (Func<Option<T>, IO<Unit>>)(value => atomicIO(() => state.Value = (Shown: value, Previewed: Option<T>.None)).Bind(_ => IO.lift(() => dual.Update())));
 
@@ -98,7 +99,7 @@ public static class Values {
     internal static bool Stepping(NumericUpDownWithUnitParsing field) => field.IsStepping || field.IsTextChanging;
 
     internal static IO<Unit> Digits(NumericUpDownWithUnitParsing field) =>
-        HostTheme.Applied(field, HostPlatform.Current.Digits(field));
+        HostTheme.Applied(field, IHostPlatform.Current.Digits(field));
 
     internal static TField Fielded<TField>(TField field) where TField : NumericUpDownWithUnitParsing {
         (field.ValueUpdateMode, field.HideAlternateTextWhenValueChanges) = (NumericUpDownWithUnitParsing.UpdateModeWhenInPanel | NumericUpDownWithUnitParsingUpdateMode.OnValueChange, true);
@@ -144,27 +145,27 @@ public static class Values {
             static (drop, _) => IO.pure(drop.SelectedValueBinding.Convert(static held => Optional(held), static held => held.ToNullable())), IO.pure(value), edited);
 
     private static ValueRow<DropDown, T> Listed<T>(Option<T> value, Func<RowScope, IO<Seq<ChoiceItem<T>>>> items, Func<Edit<T>, IO<Unit>> edited) where T : notnull =>
-        new(static () => new DropDown { ItemTextBinding = Binding.Delegate<ChoiceItem<T>, string>(static item => item.Caption) },
+        new(static () => new DropDown {
+            ItemTextBinding = Binding.Delegate<(ChoiceItem<T> Item, Icon? Image), string>(static item => item.Item.Caption),
+            ItemImageBinding = Binding.Delegate<(ChoiceItem<T> Item, Icon? Image), Image?>(static item => item.Image),
+        },
             static (drop, _) => IO.pure(new BindableBinding<DropDown, Option<T>>(drop,
-                static held => Optional(held.SelectedValue as ChoiceItem<T>).Map(static item => item.Value),
-                static (held, wanted) => held.SelectedValue = wanted.Bind(chosen => Stocked<T>(held).Find(item => EqualityComparer<T>.Default.Equals(item.Value, chosen))).ValueUnsafe(),
+                static held => Optional(held.SelectedValue).Map(static item => ((ChoiceItem<T> Item, Icon? Image))item).Map(static item => item.Item.Value),
+                static (held, wanted) => held.SelectedValue = wanted.Bind(chosen => Stocked<T>(held).Find(item => EqualityComparer<T>.Default.Equals(item.Item.Value, chosen))).Map<object>(static item => item).ValueUnsafe(),
                 static (held, handler) => held.SelectedValueChanged += handler,
                 static (held, handler) => held.SelectedValueChanged -= handler)),
             IO.pure(value), edited) {
             Shaped = (drop, _, scope) =>
                 from listed in items(scope)
                 let localized = listed.Map(static item => item with { Caption = LocalText.Of(item.Caption).Local })
-                from icons in localized.TraverseM(static item => item.Icon.Traverse(static icon => Icons.Frames(icon, IconSlot.DropDownItem)).As().Map(frames => (Item: item, Frames: frames))).As()
-                let images = toHashMap(icons.Choose(static held => held.Frames.Map(frames => (held.Item, frames))))
-                from stocked in unless(Stocked<T>(drop) == localized, IO.lift(() => {
-                    drop.ItemImageBinding = Binding.Delegate<ChoiceItem<T>, Image?>(item => images.Find(item).ValueUnsafe());
-                    drop.DataStore = [.. localized];
-                })).As()
+                from icons in localized.TraverseM(static item => item.Icon.Traverse(static icon => Icons.Frames(icon, IconSlot.DropDownItem)).As().Map(frames => (Item: item, Image: frames.ValueUnsafe()))).As()
+                from stocked in unless(Stocked<T>(drop) == icons, IO.lift(() => { drop.DataStore = [.. icons]; })).As()
                 select unit,
             Changes = [HostTheme.Changed],
         };
 
-    private static Seq<ChoiceItem<T>> Stocked<T>(DropDown drop) where T : notnull => toSeq(drop.DataStore ?? []).Choose(static item => Optional(item as ChoiceItem<T>));
+    private static Seq<(ChoiceItem<T> Item, Icon? Image)> Stocked<T>(DropDown drop) where T : notnull =>
+        toSeq((drop.DataStore ?? []).Cast<(ChoiceItem<T> Item, Icon? Image)>());
 
     private static readonly HostEvent<Unit> Tables =
         Subscriptions.Merged(
@@ -191,7 +192,7 @@ public static class Values {
         };
 
     internal static BindableBinding<ColorPicker, Option<Color4f>> Colored(ColorPicker picker) =>
-        picker.ValueBinding.Convert(static held => Some(new Color4f(held.ToSystemDrawing())), held => held.Map(static color => color.AsSystemColor().ToEto()).IfNone(picker.Value));
+        picker.ValueBinding.Convert(static held => Some(new Color4f(held.R, held.G, held.B, held.A)), held => held.Map(static color => color.ToEto()).IfNone(picker.Value));
 
     internal static HostEvent<Unit> Closed(ColorPicker picker) =>
         Subscriptions.Inline<MouseEventArgs>(h => picker.MouseUp += h, h => picker.MouseUp -= h).Choose(static _ => Some(unit));
@@ -225,9 +226,9 @@ public static class Values {
         new Command<Invoke>.Run(new CommandFace("color-named", "Named Colors…"), new Invoke.Effect(scope =>
             from shown in current.Bind(static held => IO.lift(() => Conversions.Required(held)))
             from document in scope.DocumentIO
-            from edit in HostDialogs.ShowColorDialog(document, shown, allowAlpha: true, Some(NamedColorList.Default), Some<Func<Color4f, IO<Unit>>>(color => edited(EditPhase.Preview.Of(color))))
-                .Map(static chosen => EditPhase.Commit.Of(chosen))
-                .Catch(static error => error.Is(Errors.Cancelled), static _ => IO.pure<Edit<Color4f>>(new Edit<Color4f>.Cancel()))
+            from edit in HostDialogs.ShowColorDialog(document, shown, allowAlpha: true, Some(NamedColorList.Default), Some<Func<Color4f, IO<Unit>>>(color => edited(new Edit<Color4f>.Changed(Applies: false, color))))
+                .Map<Edit<Color4f>>(static chosen => new Edit<Color4f>.Changed(Applies: true, chosen))
+                | @catch(static error => error.Is(Errors.Cancelled), static _ => IO.pure<Edit<Color4f>>(new Edit<Color4f>.Cancel()))
             from sent in edited(edit)
             select unit)) { Enabled = new RowRule(_ => current.Map(static held => held.IsSome)) };
 
@@ -239,13 +240,13 @@ public static class Values {
             Attached = Digits,
         };
 
-    public static ValueRow<global::Rhino.UI.Controls.Slider, double> Slider(Option<double> value, double low, double high, Option<int> decimals, Func<Edit<double>, IO<Unit>> edited) =>
-        new(static () => new global::Rhino.UI.Controls.Slider(new Panel(), usePercentageSign: false),
-            static (slider, _) => IO.pure(new BindableBinding<global::Rhino.UI.Controls.Slider, double?>(slider, Binding.Property(static (global::Rhino.UI.Controls.Slider held) => held.Value1))
+    public static ValueRow<RhinoSlider, double> Slider(Option<double> value, double low, double high, Option<int> decimals, Func<Edit<double>, IO<Unit>> edited) =>
+        new(static () => new RhinoSlider(new Panel(), usePercentageSign: false),
+            static (slider, _) => IO.pure(new BindableBinding<RhinoSlider, double?>(slider, Binding.Property(static (RhinoSlider held) => held.Value1))
                 .Convert(static held => Optional(held), static held => held.ToNullable())),
             IO.pure(value), edited) {
             Previewing = static _ => true,
-            Committing = Some<Func<global::Rhino.UI.Controls.Slider, HostEvent<Unit>>>(static slider =>
+            Committing = Some<Func<RhinoSlider, HostEvent<Unit>>>(static slider =>
                 Subscriptions.Inline<PropertyChangedEventHandler, PropertyChangedEventArgs>(h => slider.PropertyChanged += h, h => slider.PropertyChanged -= h, static handler => handler.Invoke)
                     .Choose(static args => Conversions.Present(args.PropertyName is "OnEndChanged", unit))),
             Attached = slider => IO.lift(() => {

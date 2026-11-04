@@ -39,14 +39,14 @@ public sealed partial class MosaicCell {
     public static readonly MosaicCell Cellular = new("cellular", static (state, context, frame, progress) => {
         PixelFrame copy = frame.Copy();
         (Vector2 center, float pitch) = (new Vector2(context.Extent.Width, context.Extent.Height) / 2f, (float)state.Size.Pixels(context.Extent));
-        (uint field, Octaves octaves) = (state.Seed.Field(4u, state.Hold.Period(state.Timing.At(context))), NoiseBasis.Perlin.Plain.Octaves);
-        return new PixelPass.Positional((row, x, y) => {
+        (uint field, Octaves octaves) = (CoordinateHash.Branch(state.Seed, state.Hold.Period(state.Timing.At(context)), 4u), NoiseBasis.Perlin.Plain.Octaves);
+        return VoronoiFeature.F1.Sampler(NoiseDimensions.Two, octaves, state.Exponent, state.Randomness, 0f).Bind(sampling => new PixelPass.Positional((row, x, y) => {
             for (int at = 0; at < row.Length; at++) {
-                Vector4 site = VoronoiFeature.F1.Sample(NoiseDimensions.Two, new Vector4((new Vector2(x + at + 0.5f, y + 0.5f) - center) / pitch, 0f, 0f), octaves, state.Exponent, state.Randomness, 0f, field).Site;
+                Vector4 site = sampling.Sample(new Vector4((new Vector2(x + at + 0.5f, y + 0.5f) - center) / pitch, 0f, 0f), field).Site;
                 Vector2 source = Vector128.Floor(((new Vector2(site.X, site.Y) * pitch) + center).AsVector128()).AsVector2() + new Vector2(0.5f);
                 row[at] = new Vector4(copy.Sample(source, (WrapMode.Clamp, WrapMode.Clamp)).AsVector3(), row[at].W);
             }
-        }).Run(frame, progress);
+        }).Run(frame, progress));
     });
 
     [UseDelegateFromConstructor]
@@ -116,9 +116,9 @@ public sealed record Halftone(
     }
 }
 
-public sealed record Mosaic(MosaicCell Cell, ShortSideLength Size, float Exponent, float Randomness, Seed Seed, Timing Timing, Hold Hold) : IPixelStage<Mosaic> {
+public sealed record Mosaic(MosaicCell Cell, ShortSideLength Size, float Exponent, float Randomness, int Seed, Timing Timing, Hold Hold) : IPixelStage<Mosaic> {
     public static Mosaic Default { get; } = new(
-        MosaicCell.Square, ShortSideLength.Create(0.1f * 0.05f * ReferenceFrame.GreaterSide), NoiseBasis.Voronoi.Default.Exponent, NoiseBasis.Voronoi.Default.Randomness, Seed.MinValue,
+        MosaicCell.Square, ShortSideLength.Create(0.1f * 0.05f * ReferenceFrame.GreaterSide), NoiseBasis.Voronoi.Default.Exponent, NoiseBasis.Voronoi.Default.Randomness, 0,
         Timing.Default with { Pace = 0f }, Hold.MinValue);
 
     public static Fin<Option<PixelPass>> Pass(Mosaic state, PassContext context) => Some<PixelPass>(new PixelPass.Frame((frame, progress) => state.Cell.Run(state, context, frame, progress)));
@@ -126,11 +126,11 @@ public sealed record Mosaic(MosaicCell Cell, ShortSideLength Size, float Exponen
 
 public sealed record GlyphCells(
     string Characters, HersheyFonts Font, ShortSideLength Size, GlyphColoring Coloring, Unicolour Text,
-    Unicolour Background, float Saturation, float Jitter, Seed Seed, Timing Timing, Hold Hold, BlendingMode Mode)
+    Unicolour Background, float Saturation, float Jitter, int Seed, Timing Timing, Hold Hold, BlendingMode Mode)
     : IPixelStage<GlyphCells> {
     public static GlyphCells Default { get; } = new(
         " .:-=+*#%@", HersheyFonts.Simplex, ShortSideLength.Create(1f / 24f), GlyphColoring.Input, new Unicolour(ColourSpace.Rgb, 1d, 1d, 1d), new Unicolour(ColourSpace.Rgb, 0d, 0d, 0d),
-        1f, 0.1f, Seed.MinValue, Timing.Default, Hold.Create(Duration.FromSeconds(6d / 24d)), BlendingMode.Normal);
+        1f, 0.1f, 0, Timing.Default, Hold.Create(Duration.FromSeconds(6d / 24d)), BlendingMode.Normal);
 
     public static GlyphCells Binary { get; } = Default with { Characters = " 01" };
     public static GlyphCells Numbers { get; } = Default with { Characters = " 0123456789" };
@@ -146,9 +146,9 @@ public sealed record GlyphCells(
     private static Fin<Unit> Kernel(GlyphCells state, PassContext context, PixelFrame frame, Option<IProgress<int>> progress) =>
         GlyphAtlas.Rendered(state.Characters, state.Font, state.Size.Pixels(context.Extent), context.Extent).Bind(atlas => {
             Func<(long Column, long Row), Vector3> mean = atlas.Grid.Means(frame);
-            uint field = state.Seed.Field(5u, state.Hold.Period(state.Timing.At(context)));
+            uint field = CoordinateHash.Branch(state.Seed, state.Hold.Period(state.Timing.At(context)), 5u);
             (uint gray, uint tint, Vector3 luminance, Vector3 text) = (CoordinateHash.Branch(field, 0u), CoordinateHash.Branch(field, 1u), context.Working.Luminance, RampLight.Light(state.Text, context).AsVector3());
-            Func<(long Column, long Row), (int Glyph, Vector3 Color)> cells = memo<(long Column, long Row), (int Glyph, Vector3 Color)>(cell => {
+            Func<(long Column, long Row), (int Glyph, Vector3 Color)> cells = memoUnsafe<(long Column, long Row), (int Glyph, Vector3 Color)>(cell => {
                 Vector3 color = mean(cell);
                 Vector128<int> at = Vector128.Create((int)cell.Column, (int)cell.Row, 0, 0);
                 (Vector4 u, Vector4 c) = (CoordinateHash.Uniforms(at, gray), CoordinateHash.Uniforms(at, tint));

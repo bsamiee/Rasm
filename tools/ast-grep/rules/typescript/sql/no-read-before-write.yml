@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-read-before-write
-language: tsx
+language: tsxlang
 severity: error
 utils:
     tagged:
@@ -50,4 +50,4 @@ rule:
 labels:
     WRITE: {style: secondary, message: Write taking a value from the read}
 message: '`$READ` holds a read the later write takes a value from'
-note: 'Compute the value in the write (`set <column> = <column> + 1`, `on conflict (<key>) do update`), or guard it with `where revision = <expected>`'
+note: 'Use a computed `UPDATE` or conflict update, or guard the write with `where revision = <expected>`'

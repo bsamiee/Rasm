@@ -1,13 +1,13 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-forwarding-function-tsx
-language: tsx
+language: tsxlang
 severity: error
 utils:
     overloaded-constructor:
         kind: member_expression
         all:
-            - has: {field: object, matches: {effect-module: {name: {regex: '\bAtom$'}}}}
             - has: {field: property, regex: '^(make|subscriptionRef|fn|fnSync)$'}
+            - has: {field: object, matches: {effect-module: {name: {regex: '\bAtom$'}}}}
     receiver-static:
         has: {field: object, regex: '^(Promise|(Int8|Uint8|Uint8Clamped|Int16|Uint16|Int32|Uint32|Float16|Float32|Float64|BigInt64|BigUint64)Array)$', matches: typescript-global-reference}
     root-declaration:
@@ -113,7 +113,7 @@ utils:
                             - all:
                                 - has: {field: property, regex: '^(forEach|filter|filterMap|findFirst|reduce|partition|validate)$'}
                                 - has: {field: object, matches: {effect-module: {name: {regex: '\bEffect$'}}}}
-    host-free-forward:
+    forwarded-body:
         any:
             - kind: identifier
             - pattern: '$M.$OP($A, $$$REST)'
@@ -122,7 +122,7 @@ utils:
         all:
             - matches: indexed-callback
             - not: {matches: parameters-rest}
-            - not: {has: {field: body, any: [{matches: host-free-forward}, {kind: statement_block, has: {kind: return_statement, has: {matches: host-free-forward}}}]}}
+            - not: {has: {field: body, any: [{matches: forwarded-body}, {kind: statement_block, has: {kind: return_statement, has: {matches: forwarded-body}}}]}}
     reflect-call:
         kind: call_expression
         has: {field: function, kind: member_expression, has: {field: object, regex: '^((globalThis|window|self)\.)?Reflect$', matches: typescript-global-reference}}

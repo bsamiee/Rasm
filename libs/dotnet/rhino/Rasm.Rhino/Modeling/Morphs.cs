@@ -1,7 +1,10 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using System.Runtime.ExceptionServices;
 using Rasm.Rhino.Document.Units;
 using Rasm.Spatial;
 using Rhino.Geometry.Morphs;
+using SuperLinq;
 
 namespace Rasm.Rhino.Modeling;
 
@@ -45,24 +48,49 @@ public abstract partial record MorphKind {
 
 // --- [SERVICES] ------------------------------------------------------------------------
 internal sealed class PointSpaceMorph(Func<Point3d, Point3d> map) : SpaceMorph {
-    public override Point3d MorphPoint(Point3d point) => map(point);
+    // --- [STATE]
+    private readonly Func<Point3d, Point3d> mapping = map;
+    private ExceptionDispatchInfo? failure;
+
+    // --- [POINTS]
+    internal static Func<Point3d, Point3d> Direct(SpaceMorph morph) => morph is PointSpaceMorph managed ? managed.mapping : morph.MorphPoint;
+
+    [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "The native void callback has no failure channel; the original exception is rethrown after native return.")]
+    public override Point3d MorphPoint(Point3d point) {
+        if (Volatile.Read(ref failure) is not null) return point;
+        try {
+            return mapping(point);
+        } catch (Exception error) {
+            _ = Interlocked.CompareExchange(ref failure, ExceptionDispatchInfo.Capture(error), comparand: null);
+            return point;
+        }
+    }
+
+    // --- [MORPHS]
+    internal bool Applied(Func<bool> apply) {
+        Volatile.Write(ref failure, null);
+        bool accepted = apply();
+        Interlocked.Exchange(ref failure, value: null)?.Throw();
+        return accepted;
+    }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Morphs {
     // --- [GEOMETRY]
     public static IO<Seq<T>> Morph<T>(Tolerances tolerances, Seq<T> targets, MorphKind kind, bool preserveStructure, bool quickPreview) where T : GeometryBase =>
-        Morpher(kind, tolerances, preserveStructure, quickPreview).Bind(morpher => targets.Map(static (target, index) => (Target: target, Index: index))
-            .TraverseM(row => Morphed(row.Target, row.Index, morpher.Apply, preserveStructure)).As());
+        Morpher(kind, tolerances, preserveStructure, quickPreview).Bind(morpher => Products.Each(targets
+            .Map((target, index) => Morphed(target, index, morpher.Apply, preserveStructure))));
 
     public static IO<Seq<Plane>> Morph(Tolerances tolerances, Seq<Plane> planes, MorphKind kind, bool quickPreview) =>
         (from morpher in Morpher(kind, tolerances, preserveStructure: false, quickPreview)
-         from space in IO.lift(() => morpher.Space.ToFin(new RhinoFault(kind.GetType().Name, RhinoReason.Unsupported)))
-         from morphed in IO.lift(() => Products.Each(planes, (plane, index) => RhinoFault.Unless(space.Morph(ref plane), RhinoReason.Declined, plane, index).Map(_ => plane)))
+         from space in IO.lift(() => morpher.Space.ToFin(new RhinoFault(kind, RhinoReason.Unsupported)))
+         from morphed in IO.lift(() => Products.Each(planes, (plane, index) => RhinoFault.Unless(
+             space is PointSpaceMorph managed ? managed.Applied(() => managed.Morph(ref plane)) : space.Morph(ref plane), RhinoReason.Declined, plane, index).Map(_ => plane)))
          select morphed).Bracket();
 
     public static IO<Seq<Point3d>> MorphPoint(Tolerances tolerances, Seq<Point3d> points, MorphKind kind) =>
-        Space(kind, tolerances).Bind(space => IO.lift(() => points.Map(space.MorphPoint).Strict())).Bracket();
+        Space(kind, tolerances).Bind(space => IO.lift(() => points.Map(PointSpaceMorph.Direct(space)).Strict())).Bracket();
 
     private static IO<T> Morphed<T>(T target, int index, Func<GeometryBase, bool> apply, bool preserveStructure) where T : GeometryBase =>
         target is Surface surface and not Extrusion && !preserveStructure
@@ -77,7 +105,9 @@ public static class Morphs {
               select deformable;
 
     private static IO<Unit> Moved(GeometryBase subject, int index, Func<GeometryBase, bool> apply) =>
-        IO.lift(() => RhinoFault.Unless(apply(subject), RhinoReason.Declined, subject.ObjectType, index));
+        IO.lift(Fin<Unit> () => apply(subject)
+            ? subject.IsValidWithLog(out string log) ? unit : new RhinoFault(subject.ObjectType, RhinoReason.Invalid, index, Error.New(log))
+            : new RhinoFault(subject.ObjectType, RhinoReason.Declined, index));
 
     // --- [MORPHERS]
     private static IO<(Func<GeometryBase, bool> Apply, Option<SpaceMorph> Space)> Morpher(MorphKind kind, Tolerances tolerances, bool preserveStructure, bool quickPreview) =>
@@ -89,11 +119,13 @@ public static class Morphs {
             Right: space => Products.Changed(() => space.Tolerance, value => space.Tolerance = value, tolerances.Absolute)
                 >> Products.Changed(() => space.QuickPreview, value => space.QuickPreview = value, quickPreview)
                 >> Products.Changed(() => space.PreserveStructure, value => space.PreserveStructure = value, preserveStructure))
-        select (Apply: morph.Match(Left: static Func<GeometryBase, bool> (control) => control.Morph, Right: static Func<GeometryBase, bool> (space) => space.Morph), Space: morph.ToOption());
+        select (Apply: morph.Match(
+            Left: static Func<GeometryBase, bool> (control) => control.Morph,
+            Right: static Func<GeometryBase, bool> (space) => space is PointSpaceMorph managed ? geometry => managed.Applied(() => managed.Morph(geometry)) : space.Morph), Space: morph.ToOption());
 
     private static IO<SpaceMorph> Space(MorphKind kind, Tolerances tolerances) =>
         Made(kind, tolerances).Bind(morph => morph.Match(
-            Left: _ => IO.fail<SpaceMorph>(new RhinoFault(kind.GetType().Name, RhinoReason.Unsupported)),
+            Left: _ => IO.fail<SpaceMorph>(new RhinoFault(kind, RhinoReason.Unsupported)),
             Right: IO.pure));
 
     private static IO<Either<MorphControl, SpaceMorph>> Made(MorphKind kind, Tolerances tolerances) =>
@@ -118,8 +150,12 @@ public static class Morphs {
                 from valid in Products.Accepted(() => control.IsValid)
                 select Left<MorphControl, SpaceMorph>(control),
             control: static (_, of) => Products.Accepted(() => of.Source.IsValid).Map(_ => Left<MorphControl, SpaceMorph>(of.Source)),
-            sequence: static (held, of) => of.Parts.TraverseM(part => Space(part, held)).As()
-                .Map(static chain => Right<MorphControl, SpaceMorph>(new PointSpaceMorph(point => chain.Fold(point, static (at, part) => part.MorphPoint(at))))),
+            sequence: static (held, of) => Products.Each(toSeq(SuperEnumerable.TraverseDepthFirst<MorphKind>(of,
+                    static part => part is MorphKind.Sequence sequence ? sequence.Parts : Seq<MorphKind>())
+                    .Where(static part => part is not MorphKind.Sequence))
+                .Map(part => Space(part, held)))
+                .Map(static chain => chain.Map(PointSpaceMorph.Direct).Strict())
+                .Map(static chain => Right<MorphControl, SpaceMorph>(new PointSpaceMorph(point => chain.Fold(point, static (at, part) => part(at))))),
             point: static (_, of) => IO.pure(Right<MorphControl, SpaceMorph>(new PointSpaceMorph(of.Map))),
             lattice: static (_, of) =>
                 from valid in Products.Accepted(() => of.Reference.IsValid)

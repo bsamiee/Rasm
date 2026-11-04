@@ -84,26 +84,6 @@ def connect(host: str, port: int, timeout: float = 30.0) -> Connection:
 
 ## [04]-[FUNCTIONS]
 
-Full layout, with a wrapped `Args:` entry on a hanging indent:
-
-```python
-def load_config(path: Path, *, strict: bool = False) -> Config:
-    """Loads a configuration file and applies the environment overrides.
-
-    Environment variables override the file values after parsing.
-
-    Args:
-        path: File to parse, a `.json` suffix selects the JSON parser and any other suffix selects the TOML parser.
-        strict: Reject unknown keys instead of ignoring them.
-
-    Returns:
-        The merged configuration.
-
-    Raises:
-        ValueError: If the file contains an unknown key and `strict` is set.
-    """
-```
-
 ### [04.1]-[RETURNS]
 
 Tuple and dict returns describe their shape, functions that can return `None` state when:
@@ -178,31 +158,7 @@ Decorators document their effect on the wrapped function. Decorators that replac
 
 ## [05]-[CLASSES]
 
-Class docstrings open with what an instance represents (`"""The address of a shop."""`), exception classes state what the error represents:
-
-```python
-class HTTPClient:
-    """HTTP client with a connection pool and retries.
-
-    Keeps persistent connections and retries failed requests with exponential backoff.
-
-    Attributes:
-        base_url: Root URL for every request path.
-        timeout: Default request timeout in seconds.
-        max_retries: Retry attempts per failed request.
-    """
-
-    def __init__(self, base_url: str, timeout: float = 30.0) -> None:
-        """Initializes the client.
-
-        Args:
-            base_url: Root URL without a trailing slash.
-            timeout: Default request timeout in seconds.
-        """
-        self.base_url = base_url
-        self.timeout = timeout
-        self.max_retries = 3
-```
+Class docstrings open with what an instance represents (`"""The address of a shop."""`), exception classes state what the error represents.
 
 ### [05.1]-[FIELDS]
 
@@ -247,26 +203,3 @@ def name(self, value: str) -> None:
 - Each example gets a label when the section holds more than one
 - `docstring-code-format` makes `ruff format` reformat `>>>` doctest lines, Markdown fences, and rST `::` blocks that parse
 - Examples are indented plain blocks, `ruff format` leaves them as written
-
-```python
-def retry[**P, R](max_attempts: int = 3, backoff: float = 1.0) -> Callable[[Callable[P, R]], Callable[P, R]]:
-    """Retries the decorated function after an exception.
-
-    Args:
-        max_attempts: Total attempts before the last exception propagates.
-        backoff: Seconds between attempts, doubled after each failure.
-
-    Examples:
-        Defaults:
-
-            @retry()
-            def fetch_data():
-                ...
-
-        Explicit limits:
-
-            @retry(max_attempts=5, backoff=2.0)
-            def fragile_operation():
-                ...
-    """
-```

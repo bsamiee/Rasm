@@ -7,7 +7,6 @@ using System.Xml;
 using System.Xml.Linq;
 using CommunityToolkit.HighPerformance;
 using CommunityToolkit.HighPerformance.Buffers;
-using Microsoft.Win32.SafeHandles;
 using Rasm.Rhino.Render.Effects;
 using Rhino.Render;
 
@@ -54,11 +53,11 @@ public sealed record Rimage(string FileName, Size Size, Seq<EffectEntry> Effects
     public IO<Seq<RenderWindow.StandardChannels>> Available =>
         Read(FileName, (_, index) => Offsets(index.Xml, FileName).Map(static offsets =>
             toSeq(Enum.GetValues<RenderWindow.StandardChannels>())
-                .Filter(channel => channel is not RenderWindow.StandardChannels.None && Components(channel).ForAll(component => offsets.ContainsKey(RenderWindow.ChannelId(component))))
+                .Filter(channel => channel is not RenderWindow.StandardChannels.None && Channels.Components(channel).ForAll(component => offsets.ContainsKey(RenderWindow.ChannelId(component))))
                 .Strict()));
 
     public IO<Memory2D<float>> Channel(RenderWindow.StandardChannels channel) =>
-        Read(FileName, (file, index) => Offsets(index.Xml, FileName).Bind(offsets => Filled(file.SafeFileHandle, index.Body, offsets, channel)));
+        Read(FileName, (file, index) => Offsets(index.Xml, FileName).Bind(offsets => Filled(file, index.Body, offsets, channel)));
 
     private static IO<A> Read<A>(string fileName, Func<FileStream, (XElement Xml, long Body), Fin<A>> body) =>
         use(() => new FileStream(fileName, new FileStreamOptions { Mode = FileMode.Open, Access = FileAccess.Read, Share = FileShare.Read, Options = FileOptions.RandomAccess }))
@@ -88,7 +87,7 @@ public sealed record Rimage(string FileName, Size Size, Seq<EffectEntry> Effects
          Child(xml, Height, parseInt).ToFin(new RhinoFault(fileName, RhinoReason.Unreadable)))
             .Apply(static (width, height) => new Size(width, height))
             .As()
-            .Bind(size => size is { Width: > 0, Height: > 0 } && 4L * size.Width * size.Height <= System.Array.MaxLength
+            .Bind(size => size is { Width: > 0, Height: > 0 } && (long)size.Width * size.Height <= System.Array.MaxLength / 4
                 ? Fin.Succ(size)
                 : new RhinoFault(fileName, RhinoReason.Unreadable));
 
@@ -117,37 +116,26 @@ public sealed record Rimage(string FileName, Size Size, Seq<EffectEntry> Effects
             .ToFin(new RhinoFault(fileName, RhinoReason.Unreadable))
             .Map(static listed => toHashMap(listed));
 
-    private static Seq<RenderWindow.StandardChannels> Components(RenderWindow.StandardChannels channel) =>
-        channel switch {
-            RenderWindow.StandardChannels.RGBA => Seq(RenderWindow.StandardChannels.Red, RenderWindow.StandardChannels.Green, RenderWindow.StandardChannels.Blue, RenderWindow.StandardChannels.Alpha),
-            RenderWindow.StandardChannels.RGB => Seq(RenderWindow.StandardChannels.Red, RenderWindow.StandardChannels.Green, RenderWindow.StandardChannels.Blue),
-            RenderWindow.StandardChannels.NormalXYZ => Seq(RenderWindow.StandardChannels.NormalX, RenderWindow.StandardChannels.NormalY, RenderWindow.StandardChannels.NormalZ),
-            RenderWindow.StandardChannels.AlbedoRGB => Seq(RenderWindow.StandardChannels.AlbedoRed, RenderWindow.StandardChannels.AlbedoGreen, RenderWindow.StandardChannels.AlbedoBlue),
-            _ => Seq(channel),
-        };
-
-    private Fin<Memory2D<float>> Filled(SafeFileHandle file, long body, HashMap<Guid, long> offsets, RenderWindow.StandardChannels channel) =>
-        from starts in Components(channel).Traverse(component => offsets.Find(RenderWindow.ChannelId(component)).ToFin(new RhinoFault(FileName, RhinoReason.Unreadable))).As()
+    private Fin<Memory2D<float>> Filled(FileStream file, long body, HashMap<Guid, long> offsets, RenderWindow.StandardChannels channel) =>
+        from starts in Channels.Components(channel).Traverse(component => offsets.Find(RenderWindow.ChannelId(component)).ToFin(new RhinoFault(FileName, RhinoReason.Unreadable))).As()
         let bytes = (long)sizeof(float) * Size.Width * Size.Height
         let marker = Chan.Length + Unsafe.SizeOf<Guid>()
-        from bounded in RhinoFault.Unless(starts.ForAll(start => start >= 0 && start <= RandomAccess.GetLength(file) - body - marker - bytes), RhinoReason.Unreadable, FileName)
+        let length = file.Length
+        from bounded in RhinoFault.Unless(!starts.IsEmpty && starts.ForAll(start => start >= 0 && start <= length - body - marker - bytes), RhinoReason.Unreadable, FileName)
         select Planes(file, starts.Map(start => body + start + marker).Strict());
 
-    private Memory2D<float> Planes(SafeFileHandle file, Seq<long> planes) {
-        float[] rgba = GC.AllocateUninitializedArray<float>(4 * Size.Width * Size.Height);
-        Span2D<float> rows = new(rgba, Size.Height, 4 * Size.Width);
-        using SpanOwner<float> line = SpanOwner<float>.Allocate(planes.Count * Size.Width);
-        Span2D<float> scan = line.Span.AsSpan2D(planes.Count, Size.Width);
-        for (int y = 0; y < Size.Height; y++) {
-            for (int channel = 0; channel < planes.Count; channel++) {
-                Span<float> plane = scan.GetRowSpan(channel);
-                _ = RandomAccess.Read(file, MemoryMarshal.AsBytes(plane), planes[channel] + ((long)y * sizeof(float) * Size.Width));
-                if (!BitConverter.IsLittleEndian) BinaryPrimitives.ReverseEndianness(MemoryMarshal.Cast<float, int>(plane), MemoryMarshal.Cast<float, int>(plane));
-            }
-            Span2D<float> pixels = rows.GetRowSpan(y).AsSpan2D(Size.Width, 4);
-            for (int channel = 0; channel < planes.Count; channel++) scan.GetRowSpan(channel).AsSpan2D(Size.Width, 1).CopyTo(pixels[.., channel..(channel + 1)]);
-            Channels.Widen(pixels, planes.Count);
+    private Memory2D<float> Planes(FileStream file, Seq<long> planes) {
+        int count = Size.Width * Size.Height;
+        float[] rgba = GC.AllocateUninitializedArray<float>(4 * count);
+        Span2D<float> pixels = new(rgba, count, 4);
+        using SpanOwner<float> plane = SpanOwner<float>.Allocate(count);
+        for (int channel = 0; channel < planes.Count; channel++) {
+            file.Position = planes[channel];
+            file.ReadExactly(MemoryMarshal.AsBytes(plane.Span));
+            if (!BitConverter.IsLittleEndian) BinaryPrimitives.ReverseEndianness(MemoryMarshal.Cast<float, int>(plane.Span), MemoryMarshal.Cast<float, int>(plane.Span));
+            plane.Span.AsSpan2D(count, 1).CopyTo(pixels[.., channel..(channel + 1)]);
         }
+        Channels.Widen(pixels, planes.Count);
         return new Memory2D<float>(rgba, Size.Height, 4 * Size.Width);
     }
 

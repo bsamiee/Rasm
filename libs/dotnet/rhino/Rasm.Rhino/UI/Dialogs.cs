@@ -26,9 +26,8 @@ public sealed record MenuChoice<T>(ChoiceItem<T> Item) where T : notnull {
 [SmartEnum]
 public sealed partial class FileBrowse {
     public static readonly FileBrowse OpenFile = new(static (title, current, types, _) =>
-        HostDialogs.Ask(() => new OpenFileDialog { Title = title.Local, FileName = current, Filter = HostDialogs.Filter(types.Map(static row => (row.Description, row.Extensions))) } switch {
-            var dialog => (dialog.ShowOpenDialog(), toSeq(dialog.FileNames).Head),
-        }));
+        HostDialogs.ShowOpenFileDialog(dialog => (dialog.Title, dialog.FileName, dialog.Filter) = (title.Local, current, HostDialogs.Filter(types.Map(static row => (row.Description, row.Extensions)))))
+            .Map(static paths => paths.Head));
 
     public static readonly FileBrowse SaveFile = new(static (title, current, types, _) =>
         HostDialogs.Ask(() => new SaveFileDialog { Title = title.Local, FileName = current, Filter = HostDialogs.Filter(types.Map(static row => (row.Description, row.Extensions))), DefaultExt = Conversions.Unset(types.Head.Bind(static row => row.Extensions.Head)) } switch {
@@ -159,6 +158,13 @@ public static class HostDialogs {
         Products.Each(layers.Map(layer => Document.Tables.Rows.Find(doc.Layers, layer).Map(static found => found.Index)));
 
     // --- [FILES]
+    public static IO<Seq<string>> ShowOpenFileDialog(Action<OpenFileDialog> configure) =>
+        Ask(() => {
+            OpenFileDialog dialog = new();
+            configure(dialog);
+            return (dialog.ShowOpenDialog(), toSeq(dialog.FileNames));
+        });
+
     public static string Filter(Seq<(string Description, Seq<string> Extensions)> rows) =>
         string.Join('|', rows.Map(static row => row.Description + "|" + string.Join(';', row.Extensions.Map(static extension => "*" + extension))));
 

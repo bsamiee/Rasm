@@ -72,7 +72,7 @@ class Coverage(msgspec.Struct, frozen=True, kw_only=True):
 
     def unrecorded(self, encoded: frozendict[int, str], /) -> tuple[int, ...]:
         """Returns the mapped code points neither required, excluded, nor inside a kept block, ascending."""
-        return tuple(sorted(code for code in encoded.keys() - self.required if self.exclusion(code).is_none() and ucd_data(code).get("Block") not in self.blocks))
+        return tuple(sorted(code for code in encoded.keys() - self.required if self.exclusion(code).is_none() and ucd_data(code).get("Block") not in self.blocks))  # type: ignore[no-untyped-call]
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

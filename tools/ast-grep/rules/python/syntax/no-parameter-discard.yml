@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-parameter-discard
-language: python
+language: pythonlang
 severity: error
 utils:
     target:
@@ -50,31 +50,15 @@ utils:
             - kind: expression_list, tuple, list, parenthesized_expression
               has: {pattern: $_}
               not: {has: {pattern: $_, not: {matches: discarded}}}
-    removable-successor:
-        pattern: $NEXT
-        not: {matches: python-multiline-string}
-    removable-predecessor:
-        pattern: $PREV
-        not: {matches: python-multiline-string}
-        precedes: {not: {precedes: {pattern: $_}}}
 rule:
-    all:
-        - any:
-            - kind: expression_statement
-              has:
-                kind: assignment
-                all:
-                    - has: {field: left, matches: throwaway}
-                    - has: {field: right, matches: discarded, pattern: $P}
-            - kind: delete_statement
-              has: {matches: discarded, pattern: $P}
-        - any:
-            - precedes: {matches: removable-successor}
-            - follows: {matches: removable-predecessor}
-            - pattern: $UNFIXED
-fix:
-    template: $NEXT$PREV$UNFIXED
-    expandStart: {matches: removable-predecessor}
-    expandEnd: {matches: removable-successor}
+    any:
+        - kind: expression_statement
+          has:
+            kind: assignment
+            all:
+                - has: {field: left, matches: throwaway}
+                - has: {field: right, matches: discarded, pattern: $P}
+        - kind: delete_statement
+          has: {matches: discarded, pattern: $P}
 message: 'Statement discards unread parameter `$P`'
 note: 'Delete the statement, parameter, and call arguments, mark an override `@typing.override`, or rename a host callback parameter `_<name>`'

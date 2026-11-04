@@ -1,11 +1,10 @@
 import { AYAH_MARK, ayahMark, type MarkKind, Mushaf } from '@quran.ws/text';
-import { Digits } from '@rasm/search/digits';
-import { Unmatched } from '@rasm/search/unmatched';
+import { Digits, Unmatched } from '@rasm/search';
 import { Array, Effect, Equivalence, Number, Option, Order, pipe, Record, Schema, Stream, Struct } from 'effect';
 import { Csv } from 'effect/encoding';
 import { findSurahAyahByAyahId, formatSurahAyah, generatePartBlocks, getListsOfRiwaya, isValidSurah, isValidSurahAyah, type PartBlock, partNames, type RiwayaData, type RiwayaName, type RiwayasNames, type SurahAyah, type SurahNames, surahNamesAr, surahNamesEn } from 'quran-meta';
-import type { Face } from '#/face';
 import type { Settings } from '#/settings';
+import type { Face } from '#/shaping/face';
 import { TypographyError } from '#/typography-error';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------

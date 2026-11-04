@@ -22,12 +22,12 @@ public sealed record GrasshopperPlugin {
     public void Load(Plugin plugin) =>
         (from bound in Hooks.Bind(Loggers, plugin)
          from scope in envIO
-         from outcome in Types
+         from errors in Types
              .Concat(Themes.Map(static theme => theme.Install))
              .Add(Chrome.Menu(Commands))
              .Concat(Lifetimes.Map(lifetime => lifetime(plugin)))
-             .Map<K<IO, Unit>>(static step => step).PartitionFallible().As()
+             .Map<K<IO, Unit>>(static step => step).Fails().As()
          from closing in Hooks.On(static h => RhinoApp.Closing += h, static h => RhinoApp.Closing -= h, IO.lift(scope.DisposeResources))
-         from loaded in guard(outcome.Fails.IsEmpty, Error.Many(outcome.Fails))
+         from loaded in guard(errors.IsEmpty, Error.Many(errors))
          select unit).BracketFail().Run(Hooks.Scope);
 }

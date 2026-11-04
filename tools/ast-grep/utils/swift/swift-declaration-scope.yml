@@ -2,4 +2,4 @@
 id: swift-declaration-scope
 language: swiftlang
 rule:
-    kind: function_declaration, init_declaration, deinit_declaration, subscript_declaration, computed_property, computed_getter, computed_setter, computed_modify, willset_clause, didset_clause
+    kind: function_declaration, init_declaration, deinit_declaration, subscript_declaration, computed_property, computed_getter, computed_setter, computed_modify, computed_init, willset_clause, didset_clause

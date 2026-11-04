@@ -1,46 +1,30 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-mapfile-status-loop
-language: bash
+language: bashlang
 severity: error
 utils:
-    isolated:
-        kind: function_definition, subshell, command_substitution, process_substitution
-    nested-loop:
-        kind: while_statement, for_statement, c_style_for_statement
     leaving:
         kind: command
-        any:
-            - has: {field: name, regex: '^(return|exit)$'}
-            - all:
-                - has: {field: name, regex: '^break$'}
-                - has: {field: argument, not: {regex: '^["'']?1["'']?$'}}
+        has: {field: name, regex: '^(return|exit)$'}
     break:
-        kind: command
-        has: {field: name, regex: '^break$'}
-    option-value:
-        follows: {kind: word, regex: '^-[a-zA-Z]*[dnOsuCc]$'}
+        matches: {bash-loop-control: {command: {regex: '^break$'}}}
+    reader:
+        any:
+            - kind: command
+              has: {field: name, pattern: $READER, regex: '^(mapfile|readarray)$'}
+              not: {has: {kind: 'word, string, raw_string', regex: '^["'']?-[a-zA-Z]*C'}}
+            - kind: redirected_statement
+              has: {field: body, matches: reader}
 rule:
-    kind: command
-    pattern: $READER
+    kind: while_statement
+    regex: '^while\b'
     all:
-        - has: {field: name, regex: '^(mapfile|readarray)$'}
-        - not: {has: {kind: 'word, string, raw_string', regex: '^["'']?-[a-zA-Z]*C'}}
-        - any:
-            - has: {kind: word, pattern: $ARRAY, regex: '^[A-Za-z_][A-Za-z0-9_]*$', nthChild: {position: 1, reverse: true}, not: {matches: option-value}}
-            - has: {pattern: $DEFAULT, nthChild: {position: 1, reverse: true}, any: [{kind: command_name}, {kind: word, regex: '^-'}, {matches: option-value}]}
-        - precedes: {kind: do_group, stopBy: {not: {regex: '^;$'}}}
-        - inside:
-            kind: while_statement
-            field: condition
-            regex: '^while\b'
-            not:
-                has:
-                    field: body
-                    any:
-                        - has: {stopBy: {matches: isolated}, matches: leaving}
-                        - has: {stopBy: {any: [{matches: isolated}, {matches: nested-loop}]}, matches: break}
-transform:
-    IMPLICIT: {replace: {source: $DEFAULT, replace: '(?s)^.*$', by: 'MAPFILE'}}
-fix: '$READER && (( ${#$ARRAY$IMPLICIT[@]} ))'
-message: '`$READER` succeeds at end of input and never ends the `while` loop'
-note: 'Test array length after the reader, `<reader> && (( ${#<array>[@]} ))`, with `MAPFILE` for a reader naming no array'
+        - has: {matches: reader, precedes: {kind: do_group, stopBy: {not: {regex: '^;$'}}}}
+        - not:
+            has:
+                field: body
+                any:
+                    - has: {stopBy: &isolated {kind: 'function_definition, subshell, command_substitution, process_substitution'}, matches: leaving}
+                    - has: {stopBy: {any: [*isolated, {kind: 'while_statement, for_statement, c_style_for_statement'}]}, matches: break}
+message: '`$READER` succeeds at end of input in a loop condition'
+note: Test fresh batch length or use a reader that reports end of input

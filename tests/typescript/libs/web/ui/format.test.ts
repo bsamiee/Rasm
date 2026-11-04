@@ -1,4 +1,4 @@
-import { Format } from '@rasm/ui/format';
+import { Format } from '@rasm/ui';
 import { ByteSize, DateTime, Duration } from 'effect';
 import { expect, it } from 'vitest';
 
@@ -6,12 +6,12 @@ import { expect, it } from 'vitest';
 
 const english = new Format({ locales: 'en', byteDigits: 3 });
 const dates = new Intl.DateTimeFormat('en');
-const files = { one: (count: string) => `${count} file`, other: (count: string) => `${count} files` };
-const places = { one: (count: string) => `${count}st`, two: (count: string) => `${count}nd`, few: (count: string) => `${count}rd`, other: (count: string) => `${count}th` };
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 it('selects cardinal and ordinal forms by the plural category of the count', () => {
+    const files = { one: (count: string) => `${count} file`, other: (count: string) => `${count} files` };
+    const places = { one: (count: string) => `${count}st`, two: (count: string) => `${count}nd`, few: (count: string) => `${count}rd`, other: (count: string) => `${count}th` };
     const counts = [
         { count: 1, forms: files, type: 'cardinal' },
         { count: 1200, forms: files, type: 'cardinal' },

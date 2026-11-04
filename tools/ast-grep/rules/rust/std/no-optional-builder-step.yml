@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-optional-builder-step
-language: rust
+language: rustlang
 severity: error
 rule:
     any:
@@ -27,4 +27,4 @@ constraints:
     BUILDER: {kind: identifier}
     ITEM: {kind: identifier}
 message: '`$BUILDER` takes `.$STEP` by hand through a decision or closure over `$ITEM`'
-note: 'Fold the items into the builder with the method path as the step (`<items>.into_iter().fold(<builder>, <Builder>::<step>)`), with `.map(<Item>::<conversion>)` ahead of the fold when the step takes a converted value'
+note: 'Fold items with `<Builder>::<step>`, mapping item conversions before the fold'

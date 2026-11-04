@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-telemetry-sink-outside-runner
-language: tsx
+language: tsxlang
 severity: error
 utils:
     runner:
@@ -13,13 +13,19 @@ utils:
             - matches: {effect-module-member: {module: {regex: '\bit$'}, member: {regex: '^(effect|live|layer)$'}}}
             - matches: {typescript-import-reference: {source: {regex: '^@effect/vitest$'}, exported: {regex: '^(effect|live|layer)$'}}}
 rule:
-    kind: member_expression
-    pattern: $SINK
-    any:
-        - matches: {effect-module-member: {module: {regex: '\bLogger$'}, member: {regex: '^(layer|make|map|batched|toFile|CurrentLoggers|LogToStderr|defaultLogger|tracerLogger|format\w+|console\w+|with\w+)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\b(Otlp|OtlpExporter|OtlpLogger|OtlpTracer|OtlpMetrics|OtelLogger|OtelTracer|OtelMetrics|PrometheusMetrics|NodeSdk|WebSdk)$'}, member: {regex: '^(layer\w*|make)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\bTracer$'}, member: {regex: '^make$'}}}
-        - matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^(withLogger|withTracer)$'}}}
-    not: {inside: {kind: program, stopBy: end, has: {stopBy: end, matches: runner}}}
+    kind: program
+    all:
+        - has:
+            stopBy: end
+            kind: member_expression
+            pattern: $SINK
+            any:
+                - matches: {effect-module-member: {module: {regex: '\bLogger$'}, member: {regex: '^(layer|make|map|batched|toFile|CurrentLoggers|LogToStderr|defaultLogger|tracerLogger|format\w+|console\w+|with\w+)$'}}}
+                - matches: {effect-module-member: {module: {regex: '\b(Otlp|OtlpExporter|OtlpLogger|OtlpTracer|OtlpMetrics|OtelLogger|OtelTracer|OtelMetrics|PrometheusMetrics|NodeSdk|WebSdk)$'}, member: {regex: '^(layer\w*|make)$'}}}
+                - matches: {effect-module-member: {module: {regex: '\bTracer$'}, member: {regex: '^make$'}}}
+                - matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^(withLogger|withTracer)$'}}}
+        - not: {has: {stopBy: end, matches: runner}}
+labels:
+    SINK: {style: primary}
 message: '`$SINK` builds a telemetry sink in a module that runs no program'
 note: 'Log through `Effect.log*` with `Effect.annotateLogs` and leave loggers, tracers, and exporters to the module calling a runner'

@@ -31,17 +31,15 @@ where R: Rng + ?Sized {
             Design::Random { points } => DMatrix::from_fn(dimensions.get(), points.get(), |_, _| rng.random()),
             Design::LatinHypercube { points } => {
                 let strata = nalgebra::convert::<usize, f64>(points.get());
-                DMatrix::from_row_iterator(
-                    dimensions.get(),
-                    points.get(),
-                    iter::repeat_with(|| {
+                DMatrix::from_row_iterator(dimensions.get(), points.get(), gen {
+                    for _ in 0..dimensions.get() {
                         let mut permutation = (0..points.get()).collect::<Vec<_>>();
                         permutation.shuffle(rng);
-                        permutation.into_iter().map(|stratum| (nalgebra::convert::<usize, f64>(stratum) + rng.random::<f64>()) / strata).collect::<Vec<_>>()
-                    })
-                    .take(dimensions.get())
-                    .flatten(),
-                )
+                        for stratum in permutation {
+                            yield (nalgebra::convert::<usize, f64>(stratum) + rng.random::<f64>()) / strata;
+                        }
+                    }
+                })
             }
             Design::Sobol { window, seed } => sobol(dimensions.get(), window, seed),
             Design::Factorial { levels } => {

@@ -3,8 +3,13 @@
 lazy from pathlib import Path
 
 import pytest
-lazy from fontTools.fontBuilder import FontBuilder
 lazy from fontTools.pens.ttGlyphPen import TTGlyphPen
+
+lazy from tests.python.libs.typography.fonts import encoded
+lazy from typography.faces.declaration import Face, Kufi
+lazy from typography.faces.glyphs import Source
+lazy from typography.faces.importing import imported
+lazy from typography.shaping.corpus import Corpus
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
@@ -13,9 +18,6 @@ lazy from fontTools.pens.ttGlyphPen import TTGlyphPen
 def arabic(tmp_path_factory: pytest.TempPathFactory) -> Path:
     """Returns the path of a TrueType font mapping beh, lam, alef, fatha, kasra, space, a beh presentation form, and a Private Use code point."""
     order = [".notdef", "space", "beh", "beh.i", "beh.m", "beh.f", "lam", "lam.i", "alef", "alef.f", "lamalef", "fatha", "kasra", "orphan"]
-    builder = FontBuilder(1000, isTTF=True)
-    builder.setupGlyphOrder(order)
-    builder.setupCharacterMap({0x0020: "space", 0x00A0: "space", 0x0628: "beh", 0xFE90: "beh.f", 0x0644: "lam", 0x0627: "alef", 0x064E: "fatha", 0x0650: "kasra", 0xE000: "beh"})
     pens = {name: TTGlyphPen(None) for name in order}
     for name, pen in pens.items():
         if name != "space":
@@ -24,13 +26,7 @@ def arabic(tmp_path_factory: pytest.TempPathFactory) -> Path:
             pen.qCurveTo((50, 150), (100, 100))
             pen.lineTo((100, 0))
             pen.closePath()
-    builder.setupGlyf({name: pen.glyph() for name, pen in pens.items()})
-    builder.setupHorizontalMetrics({name: (0 if name in {"fatha", "kasra"} else 500, 0) for name in order})
-    builder.setupHorizontalHeader(ascent=800, descent=-200)
-    builder.setupNameTable({"familyName": "Test", "styleName": "Regular", "copyright": "Test copyright", "designer": "Test designer"})
-    builder.setupOS2(achVendID="TEST", usWinAscent=900, usWinDescent=300)
-    builder.setupPost()
-    builder.addOpenTypeFeatures("""
+    features = """
 languagesystem arab dflt;
 markClass fatha <anchor 50 80> @ABOVE;
 markClass kasra <anchor 50 -80> @BELOW;
@@ -43,6 +39,48 @@ feature mark {
     pos ligature lamalef <anchor 150 700> mark @ABOVE <anchor 150 -200> mark @BELOW ligComponent <anchor 400 700> mark @ABOVE <anchor 400 -200> mark @BELOW;
 } mark;
 table GDEF { GlyphClassDef [beh beh.i beh.m beh.f lam lam.i alef alef.f], [lamalef], [fatha kasra], ; } GDEF;
-""")
-    builder.save(str(path := tmp_path_factory.mktemp("fonts") / "Arabic-Regular.ttf"))
+"""
+    path = tmp_path_factory.mktemp("fonts") / "Arabic-Regular.ttf"
+    path.write_bytes(
+        encoded(
+            {name: (0 if name in {"fatha", "kasra"} else 500, pen.glyph()) for name, pen in pens.items()},
+            {0x0020: "space", 0x00A0: "space", 0x0628: "beh", 0xFE90: "beh.f", 0x0644: "lam", 0x0627: "alef", 0x064E: "fatha", 0x0650: "kasra", 0xE000: "beh"},
+            features,
+            ascent=800,
+            descent=-200,
+        )
+    )
     return path
+
+
+@pytest.fixture(scope="session")
+def face(arabic: Path) -> Face:
+    """Declares the native fixture as a text face."""
+    return Face(style="Regular", original=arabic.name, family="Test", genre=Kufi())
+
+
+@pytest.fixture(scope="session")
+def source(arabic: Path, face: Face) -> Source:
+    """Imports the fixture once for immutable source behavior tests."""
+    return imported(arabic, face).default_with(lambda faults: pytest.fail(str(faults)))
+
+
+@pytest.fixture(scope="session")
+def sample() -> Corpus:
+    """Defines the imported forms, marks, and ligature that native construction measures."""
+    return Corpus(
+        prose=frozendict(ar=("ببب", "لا")),
+        marked=("بَ", "بِ", "لَا"),
+        annotated=(),
+        deep=(),
+        words=(),
+        digits=(),
+        punctuation=(),
+        joins=(),
+        seam=(),
+        zwnj=(),
+        ligatures=("لا",),
+        letters=(0x0628, 0x0644, 0x0627),
+        vowel_stacks=("َ", "ِ"),
+        stacks=(),
+    )

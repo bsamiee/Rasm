@@ -1,5 +1,5 @@
-import { rank } from '@rasm/search/rank';
-import { Array, Cause, Context, Deferred, Duration, Effect, Exit, flow, Layer, Metric, Option, Predicate, pipe, Record, Ref, Schema, SchemaGetter, Struct, UndefinedOr } from 'effect';
+import { rank } from '@rasm/search';
+import { Array, Cause, Context, Deferred, Duration, Effect, type Exit, flow, Layer, Match, Metric, Option, Predicate, pipe, Record, Ref, Schema, SchemaGetter, type Scope, UndefinedOr } from 'effect';
 import { McpProtocol, McpSchema, McpServer, Tool } from 'effect/ai';
 import { FindMyWay, Headers, HttpRouter, HttpServerRequest, HttpServerResponse, HttpTraceContext } from 'effect/http';
 import { NetAddress } from 'effect/net';
@@ -27,17 +27,10 @@ class Server extends Context.Service<Server, { readonly uri: (path: string) => s
         Layer.effect(McpServer.McpServer)(
             Effect.gen(function* () {
                 const { uri } = yield* Server;
-                const [server, { registration, record, link }] = yield* Effect.all([McpServer.McpServer, executions(uri('executions'), retention)]);
+                const [server, scope] = yield* Effect.all([McpServer.McpServer, Effect.scope]);
+                const history = yield* executions(uri('executions'), retention, server, scope);
                 const templates = FindMyWay.make<string>({ ignoreTrailingSlash: true, ignoreDuplicateSlashes: true, caseSensitive: true });
-                const visible = McpServer.visibility(({ target }) =>
-                    Array.findFirst(server.tools, ({ tool }) => tool.name === target).pipe(
-                        Option.match({ onNone: Context.empty, onSome: Struct.get('annotations') }),
-                        Context.get(Server.Visible),
-                        Effect.tapCause((cause) => Effect.logError(`${target} hidden after its visibility check failed`, cause)),
-                        Effect.orElseSucceed(() => false),
-                    ),
-                );
-                yield* Layer.build(instrumented((target) => templates.find('GET', `/${target}`)?.handler ?? target).combine(visible).layerGlobal);
+                yield* Layer.build(instrumented((target) => templates.find('GET', `/${target}`)?.handler ?? target).layerGlobal);
                 const ranking =
                     <C, R>(complete: (input: string, context: C) => Effect.Effect<McpSchema.CompleteResult, McpSchema.InternalError, R>) =>
                     (input: string, context: C) =>
@@ -45,21 +38,9 @@ class Server extends Context.Service<Server, { readonly uri: (path: string) => s
                             const ordered = rank(input, values);
                             return McpSchema.CompleteResult.make({ ...rest, completion: { values: ordered, total: ordered.length } });
                         });
-                const writes = ({ annotations }: Parameters<typeof server.addTool>[0]) => !Context.get(annotations, Tool.Readonly);
-                const handleCall = (options: Parameters<typeof server.addTool>[0]) =>
-                    Effect.fnUntraced(function* (payload: Schema.Json) {
-                        const [blocks, earlyResult] = yield* Effect.all([Ref.make(Array.empty<McpSchema.ContentBlock>()), Deferred.make<McpSchema.CallToolResult>()]);
-                        const answer = Effect.zipWith(options.handle(payload), Ref.get(blocks), (result, added) => (result instanceof McpSchema.InputRequired ? result : McpSchema.CallToolResult.make({ ...result, content: [...result.content, ...added] }))).pipe(
-                            Effect.provideService(Server.ToolCall, {
-                                add: (block) => Ref.update(blocks, Array.append(block)),
-                                respond: (refusal) => Effect.asVoid(Deferred.succeed(earlyResult, McpSchema.CallToolResult.make({ isError: true, content: [McpSchema.TextContent.make({ text: refusal.message }), link] }))),
-                            }),
-                        );
-                        return yield* writes(options) ? record(options.tool.name, payload, answer, earlyResult) : answer;
-                    });
                 return McpServer.McpServer.of({
                     ...server,
-                    addTool: (options) => Effect.andThen(writes(options) ? registration : Effect.void, server.addTool({ ...options, handle: handleCall(options) })),
+                    addTool: addTool(server, history),
                     addResourceTemplate: (options) =>
                         Effect.andThen(
                             Effect.sync(() => templates.on('GET', `/${options.routerPath}`, options.template.uriTemplate)),
@@ -114,7 +95,12 @@ const operationDuration = Metric.mapInput(
     }),
     Duration.toSeconds,
 );
-const failureAttributes = Exit.match({ onSuccess: (value: unknown) => (Schema.is(McpSchema.CallToolResult)(value) && value.isError === true ? { 'error.type': 'tool_error' } : {}), onFailure: (cause: Cause.Cause<unknown>) => ({ 'error.type': Cause.hasInterruptsOnly(cause) ? 'cancelled' : 'error' }) });
+const failureAttributes = Match.type<Exit.Exit<unknown, unknown>>().pipe(
+    Match.when({ _tag: 'Success', value: Schema.is(Schema.Struct({ isError: Schema.Literal(true) })) }, () => ({ 'error.type': 'tool_error' })),
+    Match.when({ _tag: 'Failure', cause: Cause.hasInterruptsOnly }, () => ({ 'error.type': 'cancelled' })),
+    Match.when({ _tag: 'Failure' }, () => ({ 'error.type': 'error' })),
+    Match.orElse(() => ({})),
+);
 const operations: { readonly [Method in McpServer.MiddlewareMethod]?: (target: string) => Readonly<Record<string, string>> } = {
     'tools/call': (target) => ({ 'gen_ai.tool.name': target, 'gen_ai.operation.name': 'execute_tool' }),
     'resources/read': (target) => ({ 'mcp.resource.uri': target }),
@@ -133,10 +119,10 @@ const instrumented = (subject: (target: string) => string) =>
             }),
         }),
     );
-const executions = Effect.fnUntraced(function* (uri: string, retention: Duration.Duration) {
-    const [server, scope, entries] = yield* Effect.all([McpServer.McpServer, Effect.scope, Ref.make(Array.empty<Effect.Effect<(typeof Executions.Type)[number]>>())]);
+const executions = (uri: string, retention: Duration.Duration, server: McpServer.McpServer['Service'], scope: Scope.Scope) => {
+    const entries = Ref.makeUnsafe(Array.empty<Effect.Effect<(typeof Executions.Type)[number]>>());
     const descriptor = { uri, name: 'executions', description: `Cancelled or refused state-changing calls that keep running, finished calls drop after one read or ${Duration.format(retention)}`, mimeType: 'application/json' };
-    const registration = yield* Effect.cached(
+    const registered = Effect.cached(
         McpServer.registerResource({
             ...descriptor,
             content: Effect.gen(function* () {
@@ -159,17 +145,40 @@ const executions = Effect.fnUntraced(function* (uri: string, retention: Duration
             yield* Effect.forkIn(Deferred.await(done).pipe(Effect.exit, Effect.andThen(Effect.sleep(retention)), Effect.andThen(Ref.update(entries, Array.difference([entry])))), scope);
         });
         yield* Effect.forkIn(Deferred.complete(done, answer), scope, { uninterruptible: true });
-        const [outcome, pending] = yield* Effect.raceFirst(
-            Effect.map(Deferred.await(done), (value) => [value, false] as const),
-            Effect.map(Deferred.await(earlyResult), (value) => [value, true] as const),
-        ).pipe(
+        const [outcome, pending] = yield* pipe(
+            Deferred.await(done),
+            Effect.map((value) => [value, false] as const),
+            Effect.raceFirst(Effect.map(Deferred.await(earlyResult), (value) => [value, true] as const)),
             Effect.interruptible,
             Effect.onInterrupt(() => addEntry),
         );
         return yield* Effect.as(pending ? addEntry : Effect.void, outcome);
     }, Effect.uninterruptible);
-    return { registration, record, link: McpSchema.ResourceLink.make(descriptor) };
-});
+    return Effect.map(registered, (registration) => ({ registration, record, link: McpSchema.ResourceLink.make(descriptor) }));
+};
+const addTool =
+    (server: McpServer.McpServer['Service'], { registration, record, link }: Effect.Success<ReturnType<typeof executions>>) =>
+    (options: Parameters<McpServer.McpServer['Service']['addTool']>[0]) => {
+        const writes = !Context.get(options.annotations, Tool.Readonly);
+        const visible = Context.get(options.annotations, Server.Visible).pipe(
+            Effect.tapCause((cause) => Effect.logError(`${options.tool.name} visibility check failed`, cause)),
+            Server.orInternalError,
+        );
+        const handle = Effect.fnUntraced(function* (payload: Schema.Json) {
+            const [blocks, earlyResult] = yield* Effect.all([Ref.make(Array.empty<McpSchema.ContentBlock>()), Deferred.make<McpSchema.CallToolResult>()]);
+            const answer = Effect.zipWith(options.handle(payload), Ref.get(blocks), (result, added) => (result instanceof McpSchema.InputRequired ? result : McpSchema.CallToolResult.make({ ...result, content: [...result.content, ...added] }))).pipe(
+                Effect.provideService(Server.ToolCall, {
+                    add: (block) => Ref.update(blocks, Array.append(block)),
+                    respond: (refusal) => Effect.asVoid(Deferred.succeed(earlyResult, McpSchema.CallToolResult.make({ isError: true, content: [McpSchema.TextContent.make({ text: refusal.message }), link] }))),
+                }),
+            );
+            return yield* writes ? record(options.tool.name, payload, answer, earlyResult) : answer;
+        });
+        return Effect.andThen(
+            writes ? registration : Effect.void,
+            Effect.flatMap(Effect.scoped(Layer.build(McpServer.visibility(() => visible).layer)), (gate) => server.addTool({ ...options, handle, services: Context.merge(options.services ?? Context.empty(), gate) })),
+        );
+    };
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

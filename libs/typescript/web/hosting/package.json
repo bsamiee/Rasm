@@ -8,21 +8,15 @@
         "#/*": "./*.ts"
     },
     "exports": {
+        ".": "./index.ts",
+        "./browser": "./browser.ts",
         "./cloudflare": "./cloudflare.ts",
-        "./cloudflare/access": "./cloudflare/access.ts",
-        "./content-etag": "./content-etag.ts",
-        "./node/server": "./node/server.ts",
-        "./node/vite": "./node/vite.ts",
-        "./page/hydrate": "./page/hydrate.ts",
-        "./page/render": "./page/render.ts",
-        "./page/shell": "./page/shell.ts",
-        "./storage": "./storage.ts",
-        "./unavailable": "./unavailable.ts",
-        "./user": "./user.ts"
+        "./node": "./node.ts",
+        "./server": "./server/index.ts",
+        "./vite": "./vite.ts"
     },
     "dependencies": {
         "@aws-sdk/client-s3": "catalog:",
-        "@aws-sdk/s3-request-presigner": "catalog:",
         "@effect/platform-node": "catalog:",
         "cheerio": "catalog:",
         "effect": "catalog:",

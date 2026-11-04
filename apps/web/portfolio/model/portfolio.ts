@@ -1,4 +1,4 @@
-import { Array, Effect, Schema, SchemaGetter, SchemaIssue, SchemaParser, Struct } from 'effect';
+import { Array, Effect, Predicate, Record, Schema, SchemaGetter, SchemaIssue, SchemaParser, Struct } from 'effect';
 import isEmail from 'validator/lib/isEmail.js';
 import { type AssetId, Assets, defaulted } from '#/model/asset.ts';
 import { Composition, Placement } from '#/model/placement.ts';
@@ -27,9 +27,10 @@ const PortfolioStructure = Schema.Struct({
     entries: defaulted(Schema.Array(Entry), []),
 });
 const uniqueIds = Schema.makeFilter(({ entries = [] }: typeof PortfolioStructure.Type | typeof PortfolioStructure.Encoded) =>
-    [{ path: ['entries'], ids: entries.map(({ id }) => id) }, ...entries.map(({ compositions = [] }, index) => ({ path: ['entries', index, 'compositions'], ids: compositions.map(({ id }) => id) }))].flatMap(({ path, ids }) =>
-        Array.match(Array.dedupe(ids.filter((id, index) => ids.indexOf(id) !== index)), { onEmpty: () => [], onNonEmpty: (repeated) => [{ path, issue: `IDs repeat: ${repeated.join(', ')}` }] }),
-    ),
+    [{ path: ['entries'], values: entries }, ...entries.map(({ compositions = [] }, index) => ({ path: ['entries', index, 'compositions'], values: compositions }))]
+        .map(({ path, values }) => ({ path, repeated: Record.keys(Record.filter(Array.groupBy<{ readonly id: string }, string>(values, Struct.get('id')), Predicate.not(Predicate.isTupleOf(1)))) }))
+        .filter(({ repeated }) => Array.isReadonlyArrayNonEmpty(repeated))
+        .map(({ path, repeated }) => ({ path, issue: `IDs repeat: ${repeated.join(', ')}` })),
 );
 const Portfolio = Object.assign(PortfolioStructure.check(uniqueIds), {
     assetIds: (portfolio: typeof PortfolioStructure.Type): ReadonlySet<typeof AssetId.Type> =>

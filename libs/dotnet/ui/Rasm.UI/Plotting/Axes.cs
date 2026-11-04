@@ -1,6 +1,6 @@
-using System.Buffers;
 using System.Globalization;
 using System.Numerics.Tensors;
+using CommunityToolkit.HighPerformance.Buffers;
 using MathNet.Numerics;
 using NodaTime.Text;
 using Rasm.UI.Motion;
@@ -9,7 +9,7 @@ using SuperLinq;
 namespace Rasm.UI.Plotting;
 
 // --- [MODELS] --------------------------------------------------------------------------
-[ComplexValueObject(SkipFactoryMethods = true)]
+[ComplexValueObject(SkipFactoryMethods = true, ConstructorAccessModifier = AccessModifier.Internal)]
 public sealed partial class AxisRange : IInterpolated<AxisRange> {
     public static AxisRange Unit { get; } = new(0f, 1f);
 
@@ -17,19 +17,19 @@ public sealed partial class AxisRange : IInterpolated<AxisRange> {
     public float To { get; }
 
     public float Span => To - From;
-    public float Mid => (From + To) / 2f;
+    public float Mid => (float)(((double)From + To) / 2d);
     public float Low => float.Min(From, To);
     public float High => float.Max(From, To);
 
     public bool Contains(float value) => value >= Low && value <= High;
 
     public Option<AxisRange> Scaled(float from, float to, float factor) =>
-        Factor.Validated(factor).ToOption().Bind(scale => Validated(to + ((From - from) * (float)scale), to + ((To - from) * (float)scale)).ToOption());
+        Factor.Validated(factor).ToOption().Bind(scale => Validated((float)(to + (((double)From - from) * (float)scale)), (float)(to + (((double)To - from) * (float)scale))).ToOption());
 
     public Option<AxisRange> Shifted(float delta) => Validated(From + delta, To + delta).ToOption();
 
     public static Fin<AxisRange> Validated(float from, float to) =>
-        UIFault.Unless(float.IsFinite(from) && float.IsFinite(to) && from.CompareTo(to) is not 0, UIReason.Range, (from, to)).Map(_ => new AxisRange(from, to));
+        UIFault.Unless(float.IsFinite(from) && float.IsFinite(to) && float.IsFinite(to - from) && from.CompareTo(to) is not 0, UIReason.Range, (from, to)).Map(_ => new AxisRange(from, to));
 
     public Option<AxisRange> Toward(AxisRange to, float progress) => Validated(float.Lerp(From, to.From, progress), float.Lerp(To, to.To, progress)).ToOption();
 }
@@ -42,7 +42,7 @@ public abstract partial record Axis : IInterpolated<Axis> {
 
     private Axis(AxisRange domain) => Domain = domain;
 
-    public AxisRange Domain { get; init; }
+    public AxisRange Domain { get; private protected init; }
     public Option<int> Places { get; init; }
     public Option<string> Unit { get; init; }
 
@@ -96,7 +96,7 @@ public abstract partial record Axis : IInterpolated<Axis> {
 
     internal bool Resolves(float pixels) {
         float largest = float.Max(MathF.Abs(Domain.From), MathF.Abs(Domain.To));
-        return MathF.Abs(Domain.Span) >= pixels * (MathF.BitIncrement(largest) - largest);
+        return MathF.Abs(Domain.Span) >= pixels * (largest - MathF.BitDecrement(largest));
     }
 
     private protected float Start => Transformed(Domain.From);
@@ -113,8 +113,8 @@ public abstract partial record Axis : IInterpolated<Axis> {
         step.Map(held => Constrained((MathF.Round(value / held, MidpointRounding.ToEven) + (steps * MathF.Sign(Domain.Span))) * held)).IfNone(value);
 
     private protected static void Mirrored(ReadOnlySpan<float> values, Span<float> into, Action<Span<float>> magnitude) {
-        using IMemoryOwner<float> owner = MemoryPool<float>.Shared.Rent(values.Length);
-        Span<float> held = owner.Memory.Span[..values.Length];
+        using SpanOwner<float> owner = SpanOwner<float>.Allocate(values.Length);
+        Span<float> held = owner.Span;
         TensorPrimitives.Abs(values, held);
         magnitude(held);
         TensorPrimitives.CopySign(held, values, into);
@@ -181,7 +181,7 @@ public abstract partial record Axis : IInterpolated<Axis> {
 
         public float Base { get; }
 
-        public static Fin<Log> Validated(AxisRange domain, float @base) => UIFault.Unless(domain.Low > 0f && @base > 1f, UIReason.Range, (domain, @base)).Map(_ => new Log(domain, @base));
+        public static Fin<Log> Validated(AxisRange domain, float @base) => UIFault.Unless(domain.Low > 0f && @base > 1f && float.IsFinite(@base), UIReason.Range, (domain, @base)).Map(_ => new Log(domain, @base));
 
         public override Option<Axis> WithDomain(AxisRange range) => Validated(range, Base).Map(log => (Axis)(log with { Places = Places, Unit = Unit })).ToOption();
 
@@ -190,7 +190,8 @@ public abstract partial record Axis : IInterpolated<Axis> {
             int last = (int)MathF.Floor(MathF.Log(Domain.High, Base) + Tolerance);
             float span = MathF.Abs(Depth);
             int stride = int.Max(1, (int)MathF.Ceiling(least * span / MathF.Log(Base)));
-            Seq<Tick> majors = toSeq(Range(first, int.Max(0, last - first + 1))).Filter(power => power % stride is 0).Map(power => new Tick(MathF.Pow(Base, power), Major: true));
+            int aligned = (int)(Math.Ceiling((double)first / stride) * stride);
+            Seq<Tick> majors = toSeq(Generate.LinearRangeInt32(aligned, stride, last)).Map(power => new Tick(MathF.Pow(Base, power), Major: true));
             Seq<Tick> minors = stride is 1 && MathF.Log(Base / (Base - 1f)) >= least * span
                 ? from power in toSeq(Range(first - 1, int.Max(0, last - first + 2)))
                   from multiple in toSeq(Range(2, int.Max(0, (int)MathF.Ceiling(Base) - 2))).Filter(multiple => multiple < Base)

@@ -1,23 +1,23 @@
 """Charts drawn in the colors of Blender's scopes."""
 
 from collections.abc import Callable, Iterable
-from contextlib import AbstractContextManager
 from functools import partial
 from typing import Final, Literal, Self
 
-from expression import Nothing, Option
+from expression import Option
 import gpu
+from gpu_extras.batch import batch_for_shader
 import msgspec
 import numpy as np
 import numpy.typing as npt
 import PyOpenColorIO
 
-from blender.bpy.ui.drawing.canvas import Align, Blend, Canvas, FontStyle, Rect
+from blender.bpy.ui.drawing.canvas import Align, Blend, Canvas, draw_batch, FontStyle, Program, Rect
 from blender.bpy.ui.resources.theme import CLEAR, Color, Metrics, Spacing
 from blender.imaging.analysis.metering import Bands, Chromaticity, Histogram
 from blender.imaging.color import colorimetry
 from blender.imaging.color.processors import DisplayView
-from blender.records.faults import Outcome, paired
+from blender.records.faults import Nothing, Outcome, paired
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -43,7 +43,7 @@ class Layer(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     """Chart marks batched once in plot fractions under the flat-color shader their primitive binds, drawn under their blend."""
 
     batch: gpu.types.GPUBatch
-    bind: Callable[[Canvas], AbstractContextManager[gpu.types.GPUShader]]
+    bind: Callable[[Canvas], Program]
     blend: Blend
 
     @classmethod
@@ -66,12 +66,13 @@ class Layer(msgspec.Struct, frozen=True, kw_only=True, eq=False):
             case _:
                 shader, bind = "POLYLINE_FLAT_COLOR", partial(Canvas.lines, width=width, shader="POLYLINE_FLAT_COLOR")
         colors = np.ascontiguousarray(np.broadcast_to(np.asarray(color, np.float32), (len(positions), 4)))
-        return cls(batch=Canvas.batched(shader, primitive, {"pos": np.ascontiguousarray(positions, np.float32), "color": colors}, indices=indices), bind=bind, blend=blend)
+        batch = batch_for_shader(gpu.shader.from_builtin(shader), primitive, {"pos": np.ascontiguousarray(positions, np.float32), "color": colors}, indices=indices.to_optional())  # type: ignore[arg-type, dict-item]  # ty: ignore[invalid-argument-type]
+        return cls(batch=batch, bind=bind, blend=blend)
 
     def drawn(self, canvas: Canvas) -> None:
         """Draws the batch under its blend."""
-        with Canvas.blended(self.blend), self.bind(canvas) as shader:
-            self.batch.draw(shader)
+        with Canvas.blended(self.blend):
+            draw_batch(self.batch, self.bind(canvas))
 
 
 class Label(msgspec.Struct, frozen=True, kw_only=True):
@@ -181,7 +182,7 @@ def chromaticity(metrics: Metrics, config: PyOpenColorIO.Config, plane: npt.NDAr
         return Layer.of("LINES", np.vstack((rows[[0, 1, 1, 2, 2, 0]] / framed, rows[3] / framed + square)).astype(np.float32), color, blend=blend, width=stroke)
 
     def block(name: str, rows: npt.NDArray[np.float64]) -> tuple[str, ...]:
-        return (name, *(f"{letter} {x:.4f} {y:.4f}" for letter, x, y in zip("RGBW", rows[:, 0], rows[:, 1], strict=True)))
+        return (name, *(f"{letter} {x:.4f} {y:.4f}" for letter, (x, y) in zip("RGBW", rows)))
 
     def plotted(reading: Chromaticity) -> Chart:
         counts, found = reading.trace, np.argwhere(reading.trace > 0)

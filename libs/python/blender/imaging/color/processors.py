@@ -1,12 +1,10 @@
 """Display formation, colorspace transforms and readings, RGB geometry, and the typed OCIO grading members the stubs lack."""
 
 from collections.abc import Callable
-from functools import partial
 from typing import Annotated, Final, Protocol, Self
 
-from expression import Error, identity, Nothing, Ok, Option, Some
+from expression import identity, Option, Some
 from expression.collections import Block
-from expression.extra.result import catch
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -15,7 +13,7 @@ from scipy.linalg import block_diag
 
 from blender.imaging.files.buffers import applied
 from blender.imaging.files.images import ImageFile, interop
-from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
+from blender.records.faults import accumulated, Error, Fault, Nothing, Ok, Outcome, paired, Reason
 from blender.records.fields import Name, NonNegative
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -36,20 +34,21 @@ class HueCurve(Protocol):
     def validate(self) -> None:
         """Raises `PyOpenColorIO.Exception` for curves OCIO refuses."""
 
+    def setDrawCurveOnly(self, *, drawcurveonly: bool) -> None:  # ruff: ignore[invalid-function-name]
+        """Sets the native draw-curve-only mode."""
 
-type ColorSpace = Name
+
 type Stops = Annotated[float, msgspec.Meta(ge=-float(np.finfo(np.float32).maxexp), le=float(np.finfo(np.float32).maxexp))]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 GRAY: Final = 0.18
 REC709_SCENE: Final = "lin_rec709_scene"
-HUE_CURVE: Final[Callable[..., HueCurve]] = PyOpenColorIO.GradingHueCurve  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-HUE_CURVE_TRANSFORM: Final[Callable[..., PyOpenColorIO.Transform]] = PyOpenColorIO.GradingHueCurveTransform  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-SET_DRAW_CURVE_ONLY: Final[Callable[[HueCurve, bool], None]] = PyOpenColorIO.GradingHueCurve.setDrawCurveOnly  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-GET_SPLINE_TYPE: Final[Callable[[PyOpenColorIO.GradingBSplineCurve], object]] = PyOpenColorIO.GradingBSplineCurve.getSplineType  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-SET_SPLINE_TYPE: Final[Callable[[PyOpenColorIO.GradingBSplineCurve, object], None]] = PyOpenColorIO.GradingBSplineCurve.setSplineType  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-RGB_TO_HSY: Final[PyOpenColorIO.FixedFunctionStyle] = PyOpenColorIO.FIXED_FUNCTION_RGB_TO_HSY_LIN  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+HUE_CURVE: Final[Callable[..., HueCurve]] = PyOpenColorIO.GradingHueCurve  # type: ignore[attr-defined, explicit-any]  # ty: ignore[unresolved-attribute]
+HUE_CURVE_TRANSFORM: Final[Callable[..., PyOpenColorIO.Transform]] = PyOpenColorIO.GradingHueCurveTransform  # type: ignore[attr-defined, explicit-any]  # ty: ignore[unresolved-attribute]
+GET_SPLINE_TYPE: Final[Callable[[PyOpenColorIO.GradingBSplineCurve], object]] = PyOpenColorIO.GradingBSplineCurve.getSplineType  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute, unsound-assignment]
+SET_SPLINE_TYPE: Final[Callable[[PyOpenColorIO.GradingBSplineCurve, object], None]] = PyOpenColorIO.GradingBSplineCurve.setSplineType  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute, unsound-assignment]
+RGB_TO_HSY: Final[PyOpenColorIO.FixedFunctionStyle] = PyOpenColorIO.FIXED_FUNCTION_RGB_TO_HSY_LIN  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute, unsound-assignment]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -201,9 +200,10 @@ def lin_to_log() -> PyOpenColorIO.LogCameraTransform:
 
 def called[**P, T](call: Callable[P, T], subject: str, *args: P.args, **kwargs: P.kwargs) -> Outcome[T]:
     """Returns the value of one OCIO call, or `FAILED` fault naming `subject` for either OCIO exception class."""
-    failed = partial(Fault.of, Reason.FAILED, subject)
-    boxed = catch(lambda: (catch(call, exception=PyOpenColorIO.Exception)(*args, **kwargs),), exception=PyOpenColorIO.ExceptionMissingFile)()
-    return boxed.map_error(failed).bind(lambda held: held[0].map_error(failed))
+    try:
+        return Ok(call(*args, **kwargs))
+    except (PyOpenColorIO.Exception, PyOpenColorIO.ExceptionMissingFile) as error:
+        return Error(Fault.of(Reason.FAILED, subject, error))
 
 
 def processor(config: PyOpenColorIO.Config, transform: PyOpenColorIO.Transform) -> Outcome[PyOpenColorIO.Processor]:
@@ -214,6 +214,38 @@ def processor(config: PyOpenColorIO.Config, transform: PyOpenColorIO.Transform) 
 def converted(config: PyOpenColorIO.Config, transform: PyOpenColorIO.Transform, values: npt.NDArray[np.float32]) -> Outcome[npt.NDArray[np.float32]]:
     """Applies `transform` to associated colors through its CPU processor, or `FAILED` fault."""
     return processor(config, transform).map(lambda built: applied(built.getDefaultCPUProcessor(), values))
+
+
+def captured_scene_source(config: PyOpenColorIO.Config, space: str) -> Outcome[Option[PyOpenColorIO.Processor]]:
+    """Returns captured source-to-scene-interchange processor, absence for data, or `FAILED` faults."""
+
+    def captured() -> Option[PyOpenColorIO.Processor]:
+        built = config.getProcessor(space, PyOpenColorIO.ROLE_INTERCHANGE_SCENE)
+        return (
+            Nothing
+            if config.getColorSpace(space).isData()
+            else Some(PyOpenColorIO.Config.CreateRaw().getProcessor(built.createGroupTransform()).getOptimizedProcessor(PyOpenColorIO.OPTIMIZATION_NO_DYNAMIC_PROPERTIES))
+        )
+
+    return called(captured, space)
+
+
+def converted_image(config: PyOpenColorIO.Config, target: str, file: ImageFile, *, source: Option[PyOpenColorIO.Processor]) -> Outcome[ImageFile]:
+    """Converts captured color to canonical `target`, retaining captured Data unchanged and native target failures."""
+
+    def transformed() -> ImageFile:
+        built = config.getProcessor(
+            PyOpenColorIO.GroupTransform([*source.map(PyOpenColorIO.Processor.createGroupTransform).to_list(), PyOpenColorIO.ColorSpaceTransform(src=PyOpenColorIO.ROLE_INTERCHANGE_SCENE, dst=target)])
+        )
+        return (
+            file
+            if source.is_none()
+            else msgspec.structs.replace(
+                file, pixels=file.pixels.copy() if config.getColorSpace(target).isData() else applied(built.getDefaultCPUProcessor(), file.pixels), colorspace=config.getCanonicalName(target)
+            )
+        )
+
+    return called(transformed, target)
 
 
 # --- [READINGS]
@@ -229,7 +261,7 @@ def basis(config: PyOpenColorIO.Config, space: str) -> Outcome[npt.NDArray[np.fl
             case (PyOpenColorIO.MatrixTransform() as op,) if not any(op.getOffset()) and np.isfinite(values := np.asarray(op.getMatrix(), dtype=np.float64).reshape(4, 4)[:3, :3]).all():
                 return Ok(values)
             case _:
-                return Error(Fault.of(Reason.INVALID, space, f"transform {group} lacks linear RGB geometry"))
+                return Error(Fault.of(Reason.INVALID, space, group, member="linear RGB geometry"))
 
     return processor(config, xyz(config, space)).map(lambda built: built.getOptimizedProcessor(PyOpenColorIO.OPTIMIZATION_DEFAULT).createGroupTransform()).bind(held)
 
@@ -245,7 +277,7 @@ def rendering_basis(config: PyOpenColorIO.Config, space: str) -> Outcome[npt.NDA
         return (
             Ok(values)
             if signed and np.isfinite(normalized).all() and abs(np.linalg.slogdet(normalized).sign) == 1.0
-            else Error(Fault.of(Reason.INVALID, space, f"transform {matrix(values)} lacks linear RGB geometry"))
+            else Error(Fault.of(Reason.INVALID, space, values, member="positive luminance and invertible white-normalized RGB geometry"))
         )
 
     return basis(config, space).bind(held)
@@ -275,16 +307,16 @@ __all__ = [
     "HUE_CURVE_TRANSFORM",
     "REC709_SCENE",
     "RGB_TO_HSY",
-    "SET_DRAW_CURVE_ONLY",
     "SET_SPLINE_TYPE",
-    "ColorSpace",
     "DisplayView",
     "HueCurve",
     "Stops",
     "basis",
     "bracketed",
     "called",
+    "captured_scene_source",
     "converted",
+    "converted_image",
     "hdr",
     "lin_to_log",
     "luma",

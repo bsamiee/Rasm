@@ -65,6 +65,7 @@ public static class Diagnostics {
         })
         from manifold in MeshManifold.Of(mesh)
         let counts = checkedMesh.Counts
+        let badNormals = counts.NonUnitVectorNormalCount + counts.ZeroLengthNormalCount + counts.VertexFaceNormalsDifferCount
         select (checkedMesh.Log, Seq(
                 (Count: counts.DegenerateFaceCount, Locate: (Func<Defect<T>>)(() => {
                     _ = mesh.Faces.GetZeroAreaFaces(out int[] whole, out int[] partial);
@@ -77,8 +78,8 @@ public static class Diagnostics {
                 (Count: counts.NonManifoldEdgeCount, Locate: () => Located<T, Mesh>(DefectKind.NonManifoldEdges, counts.NonManifoldEdgeCount, Edges(mesh, static faces => faces > 2), [])),
                 (Count: counts.ExtremelyShortEdgeCount, Locate: () => Located<T, Mesh>(DefectKind.ShortEdges, counts.ExtremelyShortEdgeCount, [],
                     [Steps.Count<Mesh>(held => held.CollapseFacesByEdgeLength(bGreaterThan: false, tolerances.Absolute), static count => count >= 0)])),
-                (Count: counts.NonUnitVectorNormalCount + counts.ZeroLengthNormalCount + counts.VertexFaceNormalsDifferCount, Locate: () => Located<T, Mesh>(
-                    DefectKind.BadNormals, counts.NonUnitVectorNormalCount + counts.ZeroLengthNormalCount + counts.VertexFaceNormalsDifferCount, [],
+                (Count: badNormals, Locate: () => Located<T, Mesh>(
+                    DefectKind.BadNormals, badNormals, [],
                     [Steps.Of<Mesh>(static held => held.FaceNormals.ComputeFaceNormals()), Steps.Of<Mesh>(static held => held.Normals.ComputeNormals())])),
                 (Count: counts.DuplicateFaceCount, Locate: () => Located<T, Mesh>(DefectKind.DuplicateFaces, counts.DuplicateFaceCount, Components(ComponentIndexType.MeshFace, toSeq(mesh.Faces.GetDuplicateFaces())),
                     [Steps.Of<Mesh>(static held => {
@@ -111,13 +112,13 @@ public static class Diagnostics {
     // --- [BREPS]
     private static (string Log, Seq<Defect<T>> Defects) BrepDefects<T>(Tolerances tolerances, Brep brep) where T : GeometryBase =>
         (Logs: Seq(brep.IsValidTopology(out string topology) ? "" : topology, brep.IsValidGeometry(out string shape) ? "" : shape, brep.IsValidTolerancesAndFlags(out string flags) ? "" : flags),
-            Edges: toSeq(brep.Edges).Map(static edge => (Index: edge.EdgeIndex, edge.Valence)).Strict()) switch {
+            Edges: brep.Edges.ToLookup(static edge => edge.Valence, static edge => edge.EdgeIndex)) switch {
                 var read => (string.Join(Environment.NewLine, read.Logs.Filter(static text => text.Length > 0)), Seq(
-                        Located<T, Brep>(DefectKind.NakedEdges, read.Edges.Count(static edge => edge.Valence is EdgeAdjacency.Naked),
-                            Components(ComponentIndexType.BrepEdge, read.Edges.Filter(static edge => edge.Valence is EdgeAdjacency.Naked).Map(static edge => edge.Index)),
+                        Located<T, Brep>(DefectKind.NakedEdges, read.Edges[EdgeAdjacency.Naked].Count(),
+                            Components(ComponentIndexType.BrepEdge, toSeq(read.Edges[EdgeAdjacency.Naked])),
                             [Steps.Count<Brep>(held => held.JoinNakedEdges(tolerances.Absolute), static count => count >= 0)]),
-                        Located<T, Brep>(DefectKind.NonManifoldEdges, read.Edges.Count(static edge => edge.Valence is EdgeAdjacency.NonManifold),
-                            Components(ComponentIndexType.BrepEdge, read.Edges.Filter(static edge => edge.Valence is EdgeAdjacency.NonManifold).Map(static edge => edge.Index)), []),
+                        Located<T, Brep>(DefectKind.NonManifoldEdges, read.Edges[EdgeAdjacency.NonManifold].Count(),
+                            Components(ComponentIndexType.BrepEdge, toSeq(read.Edges[EdgeAdjacency.NonManifold])), []),
                         Located<T, Brep>(DefectKind.InwardSolid, brep.SolidOrientation is BrepSolidOrientation.Inward ? 1 : 0, [], [Steps.Of<Brep>(static held => {
                         held.Flip();
                         return true;

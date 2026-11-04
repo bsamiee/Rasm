@@ -1,7 +1,6 @@
 {
-    "extends": "../../../../tsconfig.base.json",
+    "extends": "../../../../tsconfig.web.json",
     "compilerOptions": {
-        "lib": [ "es2025", "es2026.array", "es2026.collection", "es2026.error", "es2026.iterator", "es2026.json", "es2026.typedarrays", "esnext.date", "esnext.disposable", "esnext.intl", "esnext.sharedmemory", "esnext.temporal", "dom" ],
         "types": [ "vite/client", "node" ]
     }
 }

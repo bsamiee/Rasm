@@ -8,7 +8,7 @@ from typing import Annotated, Final
 
 import bpy
 from colour.models.rgb.transfer_functions.st_2084 import CONSTANTS_ST2084, eotf_inverse_ST2084
-from expression import Error, Nothing, Ok, Option, Some
+from expression import Option, Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -27,7 +27,7 @@ from blender.bpy.render.compositor.coordinates import uv_mapped
 from blender.imaging.color.luts import cube_split, Lattice, Logarithmic, Rational, Uniform
 from blender.imaging.color.processors import converted, GRAY, processor
 from blender.imaging.files.buffers import applied
-from blender.records.faults import Fault, Outcome, Reason
+from blender.records.faults import Error, Fault, Nothing, Ok, Outcome, Reason
 from blender.records.stores import content_hash
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -434,11 +434,11 @@ def curved(config: PyOpenColorIO.Config, transform: PyOpenColorIO.Transform, dom
         Red, green, and blue curve points, or the transform's color fault.
     """
     ramp = np.linspace(*domain, count, dtype=np.float32)
-    inputs: list[float] = ramp.astype(float).tolist()
 
     def tables(plane: npt.NDArray[np.float32]) -> tuple[Points, Points, Points]:
-        red, green, blue = plane[0].T.astype(float).tolist()
-        return tuple(zip(inputs, red)), tuple(zip(inputs, green)), tuple(zip(inputs, blue))
+        inputs = tuple(map(float, ramp))
+        red, green, blue = (tuple(zip(inputs, map(float, channel))) for channel in plane[0].T)
+        return red, green, blue
 
     return processor(config, transform).map(lambda built: applied(built.getOptimizedCPUProcessor(PyOpenColorIO.OPTIMIZATION_NONE), np.repeat(ramp[None, :, None], 3, axis=2))).map(tables)
 

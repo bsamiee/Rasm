@@ -4,7 +4,6 @@ language: swiftlang
 severity: error
 rule:
     kind: array_literal
-    pattern: $ARGS
     any:
         - has: {kind: line_string_literal, regex: '^"-([a-zA-Z]*i[a-zA-Z]*c|[a-zA-Z]*c[a-zA-Z]*i)[a-zA-Z]*"$', pattern: $FLAG}
         - all:
@@ -20,9 +19,5 @@ rule:
                   regex: '(^|/)(zsh|bash|sh|fish|dash|ksh)$|^SHELL$'
                 - kind: simple_identifier
                   regex: '(?i)shell'
-transform:
-    DROPPED: {replace: {source: $ARGS, replace: '"(-i|--interactive)", ?|, ?"(-i|--interactive)"', by: ''}}
-    WITHOUT: {replace: {source: $DROPPED, replace: '"-([a-zA-Z]*)i([a-zA-Z]*)"', by: '"-$1$2"'}}
-fix: $WITHOUT
 message: '`$FLAG` runs interactive startup files in a child with no terminal, under the parent application''s attribution'
 note: 'Remove `-i`, `--interactive`, or `i` in a combined flag (`-lic` becomes `-lc`)'

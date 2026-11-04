@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-let-else-after-destructure
-language: rust
+language: rustlang
 severity: error
 utils:
     destructure:
@@ -18,13 +18,12 @@ utils:
     refuted:
         kind: let_declaration
         all:
-            - has: {field: pattern, kind: tuple_struct_pattern, pattern: $REFUTED, all: [{has: {field: type, pattern: $_}}, {has: {kind: identifier, nthChild: 2, pattern: $FIELD}}, {not: {has: {nthChild: 3}}}]}
+            - has: {field: pattern, kind: tuple_struct_pattern, all: [{has: {field: type, pattern: $_}}, {has: {kind: identifier, nthChild: 2, pattern: $FIELD}}, {not: {has: {nthChild: 3}}}]}
             - has: {field: value, kind: identifier, pattern: $FIELD}
             - not: {has: {field: type, pattern: $_}}
             - has:
                 field: alternative
                 kind: block
-                pattern: $ELSE
                 not:
                     has:
                         stopBy: end
@@ -42,27 +41,10 @@ rule:
     kind: let_declaration
     all:
         - has: {field: pattern, matches: destructure, pattern: $PATTERN}
-        - has: {field: value, pattern: $VALUE}
+        - has: {field: value, pattern: $_}
         - not: {has: {field: alternative, pattern: $_}}
-        - any:
-            - has: {field: type, pattern: $TYPE}
-            - not: {has: {field: type, pattern: $_}}
         - precedes: {matches: refuted, pattern: $NEXT}
         - has: {field: pattern, has: {stopBy: end, matches: binding}}
-rewriters:
-    - id: shorthand
-      rule: {kind: shorthand_field_identifier, pattern: $FIELD}
-      fix: '$FIELD: $REFUTED'
-    - id: positional
-      rule: {kind: identifier, pattern: $FIELD, not: {inside: {kind: tuple_struct_pattern, field: type}}}
-      fix: $REFUTED
-transform:
-    MERGED: rewrite($PATTERN, rewriters=[shorthand, positional])
-    ANNOTATION:
-        replace: {source: $TYPE, replace: '^(.+)$', by: ': $1'}
-fix:
-    template: let $MERGED$ANNOTATION = $VALUE else $ELSE;
-    expandEnd: {matches: refuted}
 labels:
     PATTERN: {style: primary, message: 'Binds the field'}
     NEXT: {style: secondary, message: 'Refutes the field'}

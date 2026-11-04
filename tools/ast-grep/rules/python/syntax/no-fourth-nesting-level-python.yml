@@ -1,19 +1,20 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-fourth-nesting-level-python
-language: python
+language: pythonlang
 severity: error
 utils:
-    closure: {kind: 'lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression, function_definition'}
+    scope:
+        any:
+            - &closure {kind: 'lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression, function_definition'}
+            - matches: control
     control:
         any:
-            - kind: if_statement, for_statement, while_statement, match_statement
+            - &statement {kind: 'if_statement, for_statement, while_statement, match_statement'}
             - kind: conditional_expression
               not:
-                any:
-                    - nthChild: 3
-                      inside: {kind: conditional_expression}
-                    - inside: {kind: parenthesized_expression, nthChild: 3, inside: {kind: conditional_expression}}
-    scope: {any: [{matches: control}, {matches: closure}]}
+                inside:
+                    kind: conditional_expression
+                    stopBy: {any: [*statement, *closure]}
     conditioned:
         any:
             - inside: {kind: 'if_statement, elif_clause, while_statement', field: condition, stopBy: &scope {matches: scope}}
@@ -26,12 +27,12 @@ utils:
     nested-body:
         any:
             - has: {kind: block, not: {matches: python-single-statement-block}}
-            - has: {matches: control, stopBy: {matches: closure}}
+            - has: {matches: control, stopBy: *closure}
     level:
         any:
             - matches: control
               not: {matches: conditioned}
-            - matches: closure
+            - kind: lambda, function_definition
               all:
                 - inside: {matches: control, stopBy: {kind: function_definition}}
                 - not: {matches: conditioned}
@@ -51,6 +52,6 @@ rule:
                 stopBy: {matches: boundary}
                 not: {inside: {matches: level, stopBy: {kind: function_definition}}}
 message: 'Control flow or closure opens a fourth nesting level'
-note: 'Rebuild the nested levels as one `match` or one pipeline over their inputs'
+note: 'Rebuild nested control flow with `match`, a comprehension or a pipeline over its inputs'
 labels:
     SCOPE: {style: primary, message: Fourth nesting level}

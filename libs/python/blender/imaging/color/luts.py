@@ -8,7 +8,7 @@ import pathlib
 import sys
 from typing import Annotated, Final, Self
 
-from expression import Error, Nothing, Ok, Option, Some
+from expression import Option, Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -17,7 +17,7 @@ import PyOpenColorIO
 
 from blender.imaging.color.processors import called, converted, processor
 from blender.imaging.files.images import emitted, ImageFile, read_file, Subimage
-from blender.records.faults import accumulated, Fault, Outcome, Reason
+from blender.records.faults import accumulated, Error, Fault, Nothing, Ok, Outcome, Reason
 from blender.records.fields import Case
 from blender.records.stores import committed
 
@@ -182,7 +182,7 @@ class Lattice(msgspec.Struct, frozen=True, kw_only=True):
 
         def planed(decoded: npt.NDArray[np.float32]) -> npt.NDArray[np.float32]:
             grid = decoded[:, 0]
-            blue, green, red = np.meshgrid(grid, grid, grid, indexing="ij")
+            blue, green, red = np.meshgrid(grid, grid, grid, indexing="ij", copy=False)
             return np.stack((red, green, blue), axis=-1).reshape(self.size, self.size * self.size, 3)
 
         return (

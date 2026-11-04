@@ -34,9 +34,9 @@ public static class Booleans {
             union: static at => Mapped(() => (Brep.CreateBooleanUnionWithIndexMap(at.Operation.First + at.Operation.Second, at.Tolerance, at.ManifoldOnly, out int[][] map), map)),
             intersection: static at => PerFirst(at.Operation.First, first =>
                 Products.Many(() => Brep.CreateBooleanIntersection([first], at.Operation.Second, at.Tolerance, at.ManifoldOnly), required: false)),
-            difference: static at => Mapped(() => (Brep.CreateBooleanDifferenceWithIndexMap(at.Operation.First, at.Operation.Second, at.Tolerance, at.ManifoldOnly, out int[] keys), keys) switch {
-                var (pieces, owners) => (pieces, Optional(owners).Map(static held => held.Select(static int[] (input) => [input]).ToArray()).ValueUnsafe()),
-            }));
+            difference: static at => Products.Many(() =>
+                    (Brep.CreateBooleanDifferenceWithIndexMap(at.Operation.First, at.Operation.Second, at.Tolerance, at.ManifoldOnly, out int[] keys), keys), required: false)
+                .Map(static answer => answer.Values.Zip(toSeq(answer.Out), static (piece, owner) => new Grouped<Brep, int>(piece, [owner])).Strict()));
 
     public static IO<Seq<Grouped<Brep, int>>> Planar(Tolerances tolerances, Boolean<Brep> operation, Plane plane) =>
         operation.Operation.Switch(
@@ -52,9 +52,8 @@ public static class Booleans {
                 (first, region) => Products.Many(() => Brep.CreatePlanarIntersection(first, region, at.Plane, at.Tolerance), required: false)),
             difference: static at => PerFirst(at.Operation.First, first => at.Operation.Second.IsEmpty
                 ? Products.Of(first.DuplicateBrep).Map(static copy => Seq(copy))
-                : at.Operation.Second.FoldM(Seq(first), (pieces, cutter) => pieces
-                        .TraverseM(piece => Products.Many(() => Brep.CreatePlanarDifference(piece, cutter, at.Plane, at.Tolerance), required: false))
-                        .As()
+                : at.Operation.Second.FoldM(Seq(first), (pieces, cutter) => Products.Each(pieces
+                        .Map(piece => Products.Many(() => Brep.CreatePlanarDifference(piece, cutter, at.Plane, at.Tolerance), required: false)))
                         .Map(static cut => cut.Bind(static held => held)))
                     .As()));
 
@@ -99,35 +98,25 @@ public static class Booleans {
 
     public static IO<Seq<Grouped<Seq<Curve>, int>>> Regions(Tolerances tolerances, Seq<Curve> curves, Plane plane, Seq<Point3d> points, bool combineRegions) =>
         from regions in Products.Of(() => Curve.CreateBooleanRegions(curves, plane, points, combineRegions, tolerances.Absolute))
-        from shapes in toSeq(Range(0, regions.RegionCount)).TraverseM(index => Products.Many(() => regions.RegionCurves(index), required: false)).As()
-        let owners = toSeq(Range(0, regions.PointCount)).Map(point => (Point: point, Region: regions.RegionPointIndex(point))).Strict()
-        select shapes.Map((shape, index) => new Grouped<Seq<Curve>, int>(shape, owners.Filter(owner => owner.Region == index).Map(static owner => owner.Point))).Strict();
+        from shapes in Products.Each(toSeq(Range(0, regions.RegionCount)).Map(index => Products.Many(() => regions.RegionCurves(index), required: false)))
+        let owners = Enumerable.Range(0, regions.PointCount).ToLookup(regions.RegionPointIndex)
+        select shapes.Map((shape, index) => new Grouped<Seq<Curve>, int>(shape, toSeq(owners[index]))).Strict();
 
     // --- [PROVENANCE]
     public static IO<Seq<Grouped<T, int>>> Keyed<T>(Func<(T[]? Rows, int[]? Key)> call, [CallerArgumentExpression(nameof(call))] string member = "") where T : GeometryBase =>
-        from answered in IO.lift(call)
-        from rows in Products.Many(() => answered.Rows, required: false, member)
-        from grouped in IO.lift(() =>
-            from key in Optional(answered.Key).ToFin(new RhinoFault(member, RhinoReason.Missing))
-            from entries in Products.Each(toSeq(key).Map(static (owner, input) => (Owner: owner, Input: input)).Filter(static entry => entry.Owner is not -1), (entry, index) =>
-                RhinoFault.Unless(entry.Owner < rows.Count, RhinoReason.Outside, entry.Owner, index).Map(_ => entry))
-            select rows.Map((row, index) => new Grouped<T, int>(row, entries.Filter(entry => entry.Owner == index).Map(static entry => entry.Input))).Strict())
-        select grouped;
+        from answered in Products.Many(() => call(), required: false, member)
+        from key in IO.lift(() => Conversions.Required(answered.Out, call: member))
+        let owners = key.Select(static (owner, input) => (Owner: owner, Input: input)).ToLookup(static entry => entry.Owner, static entry => entry.Input)
+        select answered.Values.Map((row, index) => new Grouped<T, int>(row, toSeq(owners[index]))).Strict();
 
     public static IO<Seq<Grouped<T, int>>> Mapped<T>(Func<(T[]? Rows, int[][]? Map)> call, [CallerArgumentExpression(nameof(call))] string member = "") where T : GeometryBase =>
-        from answered in IO.lift(call)
-        from rows in Products.Many(() => answered.Rows, required: false, member)
-        from grouped in IO.lift(() =>
-            from map in Optional(answered.Map).ToFin(new RhinoFault(member, RhinoReason.Missing))
-            from paired in RhinoFault.Unless(map.Length == rows.Count, RhinoReason.Mismatched, map.Length)
-            select rows.Zip(toSeq(map), static (row, inputs) => new Grouped<T, int>(row, toSeq(inputs))).Strict())
-        select grouped;
+        from answered in Products.Many(() => call(), required: false, member)
+        from map in IO.lift(() => Conversions.Required(answered.Out, call: member))
+        select answered.Values.Zip(toSeq(map), static (row, inputs) => new Grouped<T, int>(row, toSeq(inputs))).Strict();
 
     // --- [OPERANDS]
     private static IO<Seq<Grouped<T, int>>> PerFirst<T>(Seq<T> first, Func<T, IO<Seq<T>>> step) =>
-        first.Map(static (operand, index) => (Operand: operand, Index: index))
-            .TraverseM(at => step(at.Operand).Map(pieces => pieces.Map(piece => new Grouped<T, int>(piece, [at.Index]))))
-            .As()
+        Products.Each(first.Map((operand, index) => step(operand).Map(pieces => pieces.Map(piece => new Grouped<T, int>(piece, [index])))))
             .Map(static groups => groups.Bind(static group => group));
 
     private static IO<Seq<Grouped<T, int>>> Meet<T>(Seq<T> first, Seq<T> second, Func<IO<Seq<T>>> union, Func<T, T, IO<Seq<T>>> binary) =>
@@ -136,6 +125,6 @@ public static class Booleans {
             1 => IO.pure(second),
             _ => union(),
         }
-        from met in PerFirst(first, operand => pieces.TraverseM(piece => binary(operand, piece)).As().Map(static met => met.Bind(static held => held)))
+        from met in PerFirst(first, operand => Products.Each(pieces.Map(piece => binary(operand, piece))).Map(static met => met.Bind(static held => held)))
         select met;
 }

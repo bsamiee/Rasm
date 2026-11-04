@@ -1,0 +1,88 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: swift-result-context
+language: swiftlang
+utils:
+    flat-map-call:
+        kind: call_expression
+        has:
+            nthChild: 1
+            kind: navigation_expression
+            all:
+                - has: {field: suffix, regex: '^\.(flatMap|flatMapError)$'}
+                - has: {field: target, matches: swift-result-value}
+    owner:
+        any:
+            - kind: 'function_declaration, subscript_declaration'
+              has: {matches: swift-result-type}
+            - kind: property_declaration
+              has: {kind: type_annotation, has: {field: name, matches: swift-result-type}}
+            - kind: computed_property
+              inside: {kind: property_declaration, matches: owner}
+            - kind: computed_getter
+              inside: {kind: computed_property, matches: owner}
+            - kind: lambda_literal
+              has: {field: type, has: {field: return_type, matches: swift-result-type}}
+            - kind: lambda_literal
+              not: {has: {field: type, has: {field: return_type, pattern: $_}}}
+              any:
+                - inside:
+                    kind: call_suffix
+                    not:
+                        any:
+                            - has: {kind: value_arguments, has: {kind: value_argument}}
+                            - has: {kind: lambda_literal, follows: {stopBy: end, kind: lambda_literal}}
+                    inside: {matches: flat-map-call}
+                - inside:
+                    kind: value_argument
+                    not: {has: {field: name, kind: value_argument_label}}
+                    inside:
+                        kind: value_arguments
+                        not: {has: {kind: value_argument, follows: {stopBy: end, kind: value_argument}}}
+                        inside:
+                            kind: call_suffix
+                            not: {has: {kind: lambda_literal}}
+                            inside: {matches: flat-map-call}
+    sole:
+        kind: statements
+        not:
+            has:
+                all:
+                    - &statement {pattern: $_, not: {kind: 'comment, multiline_comment'}}
+                    - follows: {stopBy: end, all: [*statement]}
+rule:
+    kind: 'call_expression, if_statement, switch_statement, ternary_expression, tuple_expression, try_expression, await_expression, unsafe_expression, consume_expression'
+    any:
+        - all:
+            - inside: {kind: property_declaration}
+            - follows:
+                stopBy: {not: {any: [{kind: 'comment, multiline_comment'}, {regex: '^=$'}]}}
+                kind: type_annotation
+                has: {field: name, matches: swift-result-type}
+        - inside:
+            kind: control_transfer_statement
+            field: result
+            has: {regex: '^return$'}
+            inside:
+                stopBy: {any: [{matches: swift-function-scope}, {kind: property_declaration}]}
+                matches: owner
+        - inside:
+            matches: sole
+            any:
+                - inside: {kind: function_body, inside: {matches: owner}}
+                - inside: {kind: lambda_literal, matches: owner}
+                - inside: {kind: 'computed_property, computed_getter', matches: owner}
+                - inside: {kind: if_statement, matches: swift-result-context}
+                - inside: {kind: switch_entry, inside: {kind: switch_statement, matches: swift-result-context}}
+        - inside: {kind: ternary_expression, field: if_true, matches: swift-result-context}
+        - inside: {kind: ternary_expression, field: if_false, matches: swift-result-context}
+        - inside: {kind: 'await_expression, unsafe_expression, consume_expression', field: expr, matches: swift-result-context}
+        - inside:
+            kind: try_expression
+            field: expr
+            not: {has: {kind: try_operator, regex: '^try\?$'}}
+            matches: swift-result-context
+        - inside:
+            kind: tuple_expression
+            field: value
+            not: {has: {nthChild: 2}}
+            matches: swift-result-context

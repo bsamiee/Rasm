@@ -45,9 +45,9 @@ Select the member by the operation:
 
 | [INDEX] | [OPERATION]              | [MEMBER]                                       |
 | :-----: | :----------------------- | :--------------------------------------------- |
-|  [01]   | Parallel apply           | `map(f, a, b, strict=True)`                    |
+|  [01]   | Parallel apply           | `map(f, a, b)`                                 |
 |  [02]   | Neighbor pairs with ends | `pairwise((None, *items, None))`               |
-|  [03]   | Fixed chunks             | `batched(items, size, strict=True)`            |
+|  [03]   | Bounded batches          | `batched(items, size)`                         |
 |  [04]   | Sorted merge             | `heapq.merge(*runs, key=f)` over sorted inputs |
 |  [05]   | Chunked reads            | `iter(partial(stream.read, size), b"")`        |
 

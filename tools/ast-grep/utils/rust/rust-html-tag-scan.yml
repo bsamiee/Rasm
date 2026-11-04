@@ -1,10 +1,10 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: rust-html-tag-scan
-language: rust
+language: rustlang
 utils:
     tag-text:
-        kind: string_literal
-        regex: '^"</?((?i:abbr|article|aside|blockquote|body|br|button|caption|code|dd|del|div|dl|dt|em|footer|form|h[1-6]|head|header|hr|html|iframe|img|input|ins|label|li|link|main|meta|nav|ol|option|pre|script|section|select|small|span|strong|style|sub|sup|svg|table|tbody|td|textarea|th|thead|title|tr|ul)|[abipsu])(\s[^"]*|/?>)?"$'
+        kind: 'string_literal, raw_string_literal'
+        regex: '^r?#*"</?[A-Za-z][\w.:-]*(\s[^"]*|/?>)?"#*$'
     tag-call:
         kind: call_expression
         all:
@@ -24,4 +24,4 @@ rule:
                     kind: 'string_literal, raw_string_literal'
                     all:
                         - regex: '<[^"]*(\[\^<?>\]|\.[*+]\?)[^"]*>'
-                        - regex: '(^|[^?P])<\\?/?(?i:abbr|article|aside|blockquote|body|br|button|caption|code|dd|del|div|dl|dt|em|footer|form|h[1-6]|head|header|hr|html|iframe|img|input|ins|label|li|link|main|meta|nav|ol|option|pre|script|section|select|small|span|strong|style|sub|sup|svg|table|tbody|td|textarea|th|thead|title|tr|ul|[abipsu])[\s>\\/(]'
+                        - regex: '(^|[^?P])<\\?/?[A-Za-z][\w.:-]*[\s>\\/(]'

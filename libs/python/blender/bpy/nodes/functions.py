@@ -11,7 +11,7 @@ import typing
 from typing import Final, TYPE_CHECKING
 
 import bpy
-from expression import Error, Nothing, Ok, Option, Result, Some, try_downcast
+from expression import Option, Result, Some, try_downcast
 from expression.extra.result import catch
 import msgspec
 import numpy as np
@@ -20,14 +20,14 @@ from typing_inspection.introspection import AnnotationSource, inspect_annotation
 
 from blender.bpy.data.ids.evaluation import evaluated
 from blender.bpy.data.ids.ownership import tracked
-from blender.bpy.data.rna.descriptors import Descriptor, written
+from blender.bpy.data.rna.descriptors import written
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.nodes.changes import GroupContent, reconciled
 from blender.bpy.nodes.desired import End, Graph, INPUTS, item_key, Link, Node, OUTPUTS, RESULT
 from blender.bpy.nodes.graphs import Expr, group_input, math, menu, Scalar, SocketType, Term, vector, where, widest, xyz
 from blender.bpy.nodes.interfaces import Interface, NodeGroup, Socket, StockInput
 from blender.bpy.nodes.trees import GraphTree, native, new_group
-from blender.records.faults import accumulated, Fault, Outcome, paired, Reason, typed
+from blender.records.faults import accumulated, Error, Fault, Nothing, Outcome, paired, Reason
 from blender.records.stores import content_hash
 
 if TYPE_CHECKING:
@@ -37,13 +37,7 @@ if TYPE_CHECKING:
 
 type ColorExpr = typing.Annotated[Expr, bpy.types.NodeSocketColor]
 type VectorExpr = typing.Annotated[Expr, bpy.types.NodeSocketVector]
-type _Values = (
-    bpy.types.bpy_prop_collection[bpy.types.FloatAttributeValue]
-    | bpy.types.bpy_prop_collection[bpy.types.IntAttributeValue]
-    | bpy.types.bpy_prop_collection[bpy.types.BoolAttributeValue]
-    | bpy.types.bpy_prop_collection[bpy.types.FloatVectorAttributeValue]
-    | bpy.types.bpy_prop_collection[bpy.types.FloatColorAttributeValue]
-)
+type _Attribute = bpy.types.FloatAttribute | bpy.types.IntAttribute | bpy.types.BoolAttribute | bpy.types.FloatVectorAttribute | bpy.types.FloatColorAttribute
 
 
 class Body[**P](typing.Protocol):
@@ -153,10 +147,10 @@ def lowered(tree: type[GraphTree], *roots: Expr) -> Outcome[Graph]:
     """Lowers root expressions and every node they read into the desired contents of a `tree` tree, each node class the tree's own.
 
     Each expression lowers once per call, with the expressions each keeps, keyed by label, else by `n` and a content digest of kind,
-    members, input keys or literals, and content; member resolution faults, refused node classes, and differing nodes under one key accumulate.
+    members, input keys or literals, and content; unsupported tree classes and differing nodes under one key accumulate.
 
     Returns:
-        `Ok` of graph holding the roots and every node they read. `Error` of member resolution faults and key collisions.
+        `Ok` of graph holding the roots and every node they read. `Error` of unsupported tree classes and key collisions.
     """
     done: dict[Expr, None] = {}
     pending = [(root, False) for root in reversed(roots)]
@@ -187,11 +181,7 @@ def lowered(tree: type[GraphTree], *roots: Expr) -> Outcome[Graph]:
 
     def claimed(expr: Expr) -> Outcome[Graph]:
         literals = {address: term for address, term in expr.inputs if not isinstance(term, Expr | End)}
-        return native(tree, expr.kind).bind(
-            lambda kind: accumulated(Descriptor.resolve(kind, path, bpy.types.Property) for path in expr.paths).map(
-                lambda _: Graph(kind=tree, nodes={keys[expr]: Node(kind=kind, members=expr.members, inputs=literals, content=expr.content)})
-            )
-        )
+        return native(tree, expr.kind).map(lambda kind: Graph(kind=tree, nodes={keys[expr]: Node(kind=kind, members=expr.members, inputs=literals, content=expr.content)}))
 
     links = tuple(
         Link(source=End(node=keys[term], socket=term.socket) if isinstance(term, Expr) else term, target=End(node=keys[expr], socket=address))
@@ -223,7 +213,7 @@ def built(key: Key, interface: Interface, outputs: Mapping[Key, Term], kind: typ
     def held(body: Graph) -> Outcome[Graph]:
         read = frozenset(link.source.socket for link in body.links if link.source.node == INPUTS)
         unread = tuple(entry[0] for key, entry, _, _ in interface.walked() if isinstance(entry, tuple) and entry[1] == "INPUT" and key not in read)
-        menus = tuple(menu(End(node=INPUTS, socket=socket.key), dict.fromkeys(items.items, 0.0)).keyed(item_key(INPUTS, socket.key)) for socket in unread for items in socket.items.to_list())
+        menus = tuple(menu(End(node=INPUTS, socket=socket.key), dict.fromkeys(socket.items, 0.0)).keyed(item_key(INPUTS, socket.key)) for socket in unread if socket.items)
         stocks = tuple(
             Expr(kind=stock.node, inputs=((stock.input, End(node=INPUTS, socket=socket.key)),)).keyed(item_key(INPUTS, socket.key))
             for socket in unread
@@ -263,38 +253,33 @@ def grouped[**P](*, kind: type[GraphTree], key: Option[Key] = Nothing) -> Callab
         key: Group ownership key a factory states per row.
 
     Returns:
-        Decorator building the group from its body, raising `LookupError` with the faults of a parameter no socket holds or of a body the host refuses.
+        Decorator building the group from its body, raising `LookupError` with graph construction faults.
     """
 
     def declared(body: Body[P]) -> Group[P]:
         name = body.__name__.lstrip("_")
         owned = key.default_with(lambda: item_key(body.__module__.rpartition(".")[2], name))
         hints = typing.get_type_hints(body, include_extras=True)
-
-        def metadata(name: str) -> tuple[object, ...]:
-            return tuple(inspect_annotation(hints[name], annotation_source=AnnotationSource.ANY, unpack_type_aliases="eager").metadata) if name in hints else ()
+        metadata = {name: inspect_annotation(annotation, annotation_source=AnnotationSource.ANY, unpack_type_aliases="eager").metadata for name, annotation in hints.items()}
+        signature = inspect.signature(body)
 
         def annotated(name: str) -> Option[SocketType]:
-            return Option.of_optional(next((held for held in metadata(name) if isinstance(held, type) and issubclass(held, bpy.types.NodeSocket)), None))
+            return Option.of_optional(next((held for held in metadata.get(name, ()) if isinstance(held, type) and issubclass(held, bpy.types.NodeSocket)), None))
 
-        def parameter(held: inspect.Parameter) -> Outcome[Socket]:
-            bounds = tuple(meta for meta in metadata(held.name) if isinstance(meta, msgspec.Meta))
-            return (
-                Socket
-                .of(held.name, typing.Annotated[float, *bounds] if bounds else float, None if held.default is inspect.Parameter.empty else held.default)
-                .map(lambda socket: annotated(held.name).map(lambda shape: msgspec.structs.replace(socket, kind=shape)).default_value(socket))
-                .to_result_with(lambda: Fault.of(Reason.OUTSIDE, held.name, repr(held.default), member="a socket value"))
-            )
+        def parameter(held: inspect.Parameter) -> Socket:
+            bounds = tuple(meta for meta in metadata.get(held.name, ()) if isinstance(meta, msgspec.Meta))
+            socket = Socket.of(held.name, typing.Annotated[float, *bounds] if bounds else float, None if held.default is inspect.Parameter.empty else held.default).value
+            return annotated(held.name).map(lambda shape: msgspec.structs.replace(socket, kind=shape)).default_value(socket)
 
         def assembled(inputs: tuple[Socket, ...]) -> Outcome[NodeGroup]:
-            bound = inspect.signature(body).bind(**{entry.key: group_input(entry.key, entry.refined) for entry in inputs})
+            bound = inspect.BoundArguments(signature, {entry.key: group_input(entry.key, entry.refined) for entry in inputs})
             returned = body(*bound.args, **bound.kwargs)
-            outputs: Mapping[Key, Term] = returned if isinstance(returned, Mapping) else {RESULT: returned}
+            outputs: Mapping[Key, Term] = returned if isinstance(returned, Mapping) else {RESULT: returned}  # ty: ignore[unsound-assignment]
             result = annotated("return").filter(lambda _: not isinstance(returned, Mapping))
             interface = Interface(inputs=inputs, outputs=tuple(Socket(key=item, kind=result.default_value(widest(term))) for item, term in outputs.items()))
             return built(owned, interface, outputs, kind, name=Some(bpy.path.display_name(key.default_value(name))))
 
-        match accumulated(map(parameter, inspect.signature(body).parameters.values())).bind(assembled):
+        match assembled(tuple(map(parameter, signature.parameters.values()))):
             case Result(tag="ok", ok=group):
                 return Group(body=body, group=group)
             case Result(error=faults):
@@ -326,15 +311,6 @@ def sampled(identity: Identity, columns: Mapping[str, npt.ArrayLike], *roots: Ex
     Returns:
         Values per root, `(n,)` for single values and `(n, 3)` or `(n, 4)` for vectors and colors. `Error` of refused nodes, links, or writes.
     """
-
-    def attribute_values(attribute: bpy.types.Attribute, /) -> Outcome[_Values]:
-        """Returns the values of a float, integer, boolean, vector, or color attribute, `outside` fault for any other class."""
-        match attribute:
-            case bpy.types.FloatAttribute() | bpy.types.IntAttribute() | bpy.types.BoolAttribute() | bpy.types.FloatVectorAttribute() | bpy.types.FloatColorAttribute():
-                return Ok(attribute.data)
-            case _:
-                return Error(Fault.of(Reason.OUTSIDE, repr(attribute), type(attribute).__name__, member="a float, integer, boolean, vector, or color attribute"))
-
     held = {name: np.ascontiguousarray(values, dtype=np.float32) for name, values in columns.items()}
     count = len(next(iter(held.values()), np.zeros(0)))
     names = tuple(f"{_SCRATCH}_{index}" for index in range(len(roots)))
@@ -361,26 +337,27 @@ def sampled(identity: Identity, columns: Mapping[str, npt.ArrayLike], *roots: Ex
 
         def attributed(name: str, values: npt.NDArray[np.float32]) -> Outcome[None]:
             kind, member, _ = _STORED[_COLUMNS[1 if values.ndim == 1 else values.shape[1]]]
-            attribute = Option.of_optional(attributes.get(name)).default_with(lambda: attributes.new(name, kind, "POINT"))
-            return attribute_values(attribute).bind(lambda data: catch(data.foreach_set, exception=TypeError)(member, values.ravel()).map_error(partial(Fault.of, Reason.REFUSED, repr(attribute))))
+            attribute: _Attribute = Option.of_optional(attributes.get(name)).default_with(lambda: attributes.new(name, kind, "POINT"))  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+            return catch(attribute.data.foreach_set, exception=TypeError)(member, values.ravel()).map_error(partial(Fault.of, Reason.REFUSED, repr(attribute)))
 
         def column_read(points: bpy.types.PointCloud, name: str, socket_type: SocketType) -> Outcome[npt.NDArray[np.float32]]:
             _, member, width = _STORED[socket_type]
             values = np.empty(count * width, dtype=np.float32)
 
-            def read(attribute: bpy.types.Attribute) -> Outcome[npt.NDArray[np.float32]]:
+            def read(attribute: _Attribute) -> Outcome[npt.NDArray[np.float32]]:
                 return (
-                    attribute_values(attribute)
-                    .bind(lambda data: catch(data.foreach_get, exception=TypeError)(member, values).map_error(partial(Fault.of, Reason.REFUSED, repr(attribute))))
+                    catch(attribute.data.foreach_get, exception=TypeError)(member, values)
+                    .map_error(partial(Fault.of, Reason.REFUSED, repr(attribute)))
                     .map(lambda _: values if width == 1 else values.reshape(count, width))
                 )
 
-            return Option.of_optional(points.attributes.get(name)).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(points.attributes), member=name)).bind(read)
+            attribute: _Attribute | None = points.attributes.get(name)  # ty: ignore[unsound-assignment]
+            return read(attribute) if attribute is not None else Error(Fault.of(Reason.ABSENT, repr(points.attributes), member=name))
 
         def geometry_read(tree: bpy.types.NodeTree) -> Outcome[tuple[npt.NDArray[np.float32], ...]]:
+            modifier: bpy.types.NodesModifier = holder.modifiers.new("Field", "NODES")  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
             return (
-                typed(bpy.types.NodesModifier, repr(holder), holder.modifiers.new("Field", "NODES"))
-                .bind(lambda modifier: written(modifier, ("node_group",), tree))
+                written(modifier, ("node_group",), tree)
                 .bind(lambda _: evaluated(scene.view_layers[0]))
                 .bind(lambda depsgraph: catch(holder.evaluated_get(depsgraph).evaluated_geometry, exception=TypeError)().map_error(partial(Fault.of, Reason.REFUSED, repr(holder))))
                 .bind(

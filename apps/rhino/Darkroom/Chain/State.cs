@@ -11,8 +11,12 @@ namespace Darkroom.Chain;
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record ChainEntry(Guid Kind, bool On, float Mix);
 
-public sealed record EffectRow<TState> where TState : IPixelStage<TState> {
-    public TState Default { get; init; } = TState.Default;
+public sealed record EffectRow<TState>(TState Default, Func<TState, PassContext, Fin<Option<PixelPass>>> Pass) {
+    public string Name { get; init; } = typeof(TState).Name;
+    public Seq<string> StatePath { get; init; }
+    public Seq<(string Name, Func<TState, TState> Look)> Looks { get; init; }
+    public Func<TState, Seq<GuideChannel>> Channels { get; init; } = static _ => [];
+    public Func<TState, float, PassContext, PassContext> Continued { get; init; } = static (_, _, context) => context;
     public Option<float> Mix { get; init; } = Some(1f);
     public bool Listed { get; init; }
 }
@@ -24,17 +28,17 @@ public sealed record EffectKind(
     Func<ValueSet, Fin<Seq<GuideChannel>>> Channels) {
     public string Owner => EntryKey.TypeOwner(Id);
 
-    public static EffectKind Of<TState>(Guid id, PostEffectType stage, EffectRow<TState> row) where TState : IPixelStage<TState> =>
+    public static EffectKind Of<TState>(Guid id, PostEffectType stage, EffectRow<TState> row) =>
         EntryKey.TypeOwner(id) switch {
             var owner => new(
-                id, typeof(TState).Name, stage, row.Listed, row.Mix,
-                TState.Looks.Map(look => (look.Name, (Func<ValueSet, Fin<ValueSet>>)(values => values.Recalled(owner, row.Default).Map(state => ValueSet.Fields(owner, look.Look(state)))))),
+                id, row.Name, stage, row.Listed, row.Mix,
+                row.Looks.Map(look => (look.Name, (Func<ValueSet, Fin<ValueSet>>)(values => values.Recalled(owner, row.Default, row.StatePath).Map(state => ValueSet.Fields(owner, look.Look(state), row.StatePath))))),
                 (values, mix, context) =>
-                    from state in values.Recalled(owner, row.Default)
-                    from found in TState.Pass(state, context with { Derivations = context.Derivations.Owned(owner) })
+                    from state in values.Recalled(owner, row.Default, row.StatePath)
+                    from found in row.Pass(state, context with { Derivations = context.Derivations.Owned(id) })
                     let staged = found.Bind(pass => BlendingMode.Normal.Mixed(pass, mix, []))
-                    select (staged, staged.IsSome ? TState.Continued(state, mix, context) : context),
-                values => values.Recalled(owner, row.Default).Map(TState.Channels)),
+                    select (staged, staged.IsSome ? row.Continued(state, mix, context) : context),
+                values => values.Recalled(owner, row.Default, row.StatePath).Map(row.Channels)),
         };
 }
 
@@ -46,21 +50,20 @@ public sealed record ChainState(Seq<ChainEntry> Entries, ValueSet Values) {
     // --- [CATALOG]
     public static ChainState Default => Declared.Value.Default;
 
-    public static Fin<EffectKind> Kind(Guid id) =>
-        Declared.Value.Kinds.Find(id).Map(static held => held.Kind).ToFin(new DarkroomFault(id.ToString("D"), DarkroomReason.Unlisted));
+    public static Fin<EffectKind> Kind(Guid id) => Cataloged(id).Map(static held => held.Kind);
 
     // --- [CHAIN]
-    private Seq<(EffectKind Kind, float Mix)> Running =>
-        toSeq(Entries.Filter(static entry => entry.On).Choose(static entry => Kind(entry.Kind).ToOption().Map(kind => (Kind: kind, entry.Mix))).OrderBy(static run => run.Kind.Stage));
+    private Fin<Seq<(EffectKind Kind, float Mix)>> Running =>
+        Entries.Filter(static entry => entry.On).Traverse(static entry => Kind(entry.Kind).Map(kind => (Kind: kind, entry.Mix))).As()
+            .Map(static runs => toSeq(runs.OrderBy(static run => run.Kind.Stage)));
 
     public Fin<Seq<GuideChannel>> Needs =>
-        Running.Traverse(run => run.Kind.Channels(Values)).As().Map(static needs => needs.Flatten().Distinct());
+        Running.Bind(runs => runs.Traverse(run => run.Kind.Channels(Values)).As()).Map(static needs => needs.Flatten().Distinct());
 
     public Fin<(Seq<(EffectKind Kind, PixelPass Pass)> Passes, PassContext Context)> Passes(PassContext context) =>
-        Running.Fold(Fin.Succ((Passes: Seq<(EffectKind Kind, PixelPass Pass)>(), Context: context)), (previous, run) =>
-            from held in previous
-            from staged in run.Kind.Step(Values, run.Mix, held.Context)
-            select (Passes: held.Passes + staged.Pass.Map(pass => (run.Kind, Pass: pass)).ToSeq(), staged.Context));
+        Running.Bind(runs => runs.FoldM((Passes: Seq<(EffectKind Kind, PixelPass Pass)>(), Context: context), (held, run) =>
+            run.Kind.Step(Values, run.Mix, held.Context).Map(staged =>
+                (Passes: held.Passes + staged.Pass.Map(pass => (run.Kind, Pass: pass)).ToSeq(), staged.Context))).As());
 
     public Fin<Seq<PixelPass.Point>> Baked(PassContext context) =>
         Passes(context).Map(static chain => chain.Passes
@@ -69,8 +72,8 @@ public sealed record ChainState(Seq<ChainEntry> Entries, ValueSet Values) {
 
     // --- [TRANSITIONS]
     public Fin<ChainState> Added(Guid kind) =>
-        (Kind(kind), Placed(kind)).Apply((held, place) => Entries.Exists(entry => entry.Kind == kind) ? this
-            : this with { Entries = Inserted(Entries, new ChainEntry(kind, On: true, held.Mix.IfNone(1f)), entry => Placed(entry.Kind).Exists(other => other.CompareTo(place) > 0)) }).As();
+        Cataloged(kind).Map(held => Entries.Exists(entry => entry.Kind == kind) ? this
+            : this with { Entries = Inserted(Entries, new ChainEntry(kind, On: true, held.Kind.Mix.IfNone(1f)), entry => Placed(entry.Kind).Exists(other => other.CompareTo((held.Kind.Stage, held.Index)) > 0)) });
 
     public Fin<ChainState> Removed(Guid kind) =>
         Present(kind).Map(_ => this with { Entries = [.. Entries.Filter(entry => entry.Kind != kind)] });
@@ -79,23 +82,25 @@ public sealed record ChainState(Seq<ChainEntry> Entries, ValueSet Values) {
         Present(kind).Map(_ => this with { Entries = [.. Entries.Map(entry => entry.Kind == kind ? entry with { On = on } : entry)] });
 
     public Fin<ChainState> Mixed(Guid kind, float mix) =>
-        (Present(kind), Kind(kind).Bind(held => held.Mix.ToFin(new DarkroomFault(kind.ToString("D"), DarkroomReason.Unmixed))))
+        (Present(kind), Kind(kind).Bind(held => held.Mix.ToFin(new DarkroomFault(kind, DarkroomReason.Unmixed))))
             .Apply((entry, _) => this with { Entries = [.. Entries.Map(other => other == entry ? entry with { Mix = mix } : other)] }).As();
 
     public Fin<ChainState> Moved(Guid kind, Option<Guid> before) =>
         from found in (Present(kind), Placed(kind)).Apply(static (entry, place) => (Entry: entry, Place: place)).As()
         from target in before.Traverse(other => Present(other).Bind(_ => Placed(other)).Bind(at =>
-            at.Stage == found.Place.Stage ? Fin.Succ(other) : new DarkroomFault(other.ToString("D"), DarkroomReason.Staged))).As()
-        select this with {
+            at.Stage == found.Place.Stage ? Fin.Succ(other) : new DarkroomFault(other, DarkroomReason.Staged))).As()
+        select target == Some(kind) ? this : this with {
             Entries = Inserted(Entries.Filter(held => held.Kind != kind), found.Entry, target.Match<Func<ChainEntry, bool>>(
                 static other => held => held.Kind == other,
                 () => held => Placed(held.Kind).Exists(at => at.Stage > found.Place.Stage))),
         };
 
     public Fin<ChainState> Tuned(Guid kind, ValueSet values) =>
-        Kind(kind).Map(held => this with {
-            Values = new(Values.Entries.Filter((key, _) => !string.Equals(key.Owner, held.Owner, StringComparison.Ordinal))
-                .AddOrUpdateRange(values.Entries.Filter((key, _) => string.Equals(key.Owner, held.Owner, StringComparison.Ordinal)).AsIterable())),
+        Kind(kind).Map(held => held.Owner switch {
+            var owner => this with {
+                Values = new(Values.Entries.Filter((key, _) => !string.Equals(key.Owner, owner, StringComparison.Ordinal))
+                    .AddOrUpdateRange(values.Entries.Filter((key, _) => string.Equals(key.Owner, owner, StringComparison.Ordinal)).AsIterable())),
+            },
         });
 
     public Fin<ChainState> Looked(Guid kind, string name) =>
@@ -107,13 +112,15 @@ public sealed record ChainState(Seq<ChainEntry> Entries, ValueSet Values) {
         select looked;
 
     private Fin<ChainEntry> Present(Guid kind) =>
-        Entries.Find(entry => entry.Kind == kind).ToFin(new DarkroomFault(kind.ToString("D"), DarkroomReason.Unchained));
+        Entries.Find(entry => entry.Kind == kind).ToFin(new DarkroomFault(kind, DarkroomReason.Unchained));
 
-    private static Fin<(PostEffectType Stage, int Index)> Placed(Guid kind) =>
-        Declared.Value.Kinds.Find(kind).Map(static held => (held.Kind.Stage, held.Index)).ToFin(new DarkroomFault(kind.ToString("D"), DarkroomReason.Unlisted));
+    private static Fin<(EffectKind Kind, int Index)> Cataloged(Guid kind) =>
+        Declared.Value.Kinds.Find(kind).ToFin(new DarkroomFault(kind, DarkroomReason.Unlisted));
+
+    private static Fin<(PostEffectType Stage, int Index)> Placed(Guid kind) => Cataloged(kind).Map(static held => (held.Kind.Stage, held.Index));
 
     private static Seq<ChainEntry> Inserted(Seq<ChainEntry> entries, ChainEntry entry, Func<ChainEntry, bool> after) =>
-        [.. entries.TakeWhile(held => !after(held)), entry, .. entries.SkipWhile(held => !after(held))];
+        entries.Span(held => !after(held)) switch { var (before, following) => [.. before, entry, .. following] };
 
     // --- [DOCUMENT]
     public static IO<ChainState> Read(RhinoDoc doc) => EffectList.State(new EffectSource.Document(doc), typeof(DarkroomEffect).GUID, Default);
@@ -130,25 +137,30 @@ public sealed partial class ChainMembership {
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ChainEdit {
-    private ChainEdit(Option<Guid> target) => Target = target;
+    public sealed record Membership(Guid Kind, ChainMembership Change) : ChainEdit;
 
-    private Option<Guid> Target { get; }
+    public sealed record Toggle(Guid Kind, bool On) : ChainEdit;
 
-    public sealed record Membership(Guid Kind, ChainMembership Change) : ChainEdit(Kind);
+    public sealed record Move(Guid Kind, Option<Guid> Before) : ChainEdit;
 
-    public sealed record Toggle(Guid Kind, bool On) : ChainEdit(Kind);
+    public sealed record Tune(Guid Kind, ValueSet Values) : ChainEdit;
 
-    public sealed record Move(Guid Kind, Option<Guid> Before) : ChainEdit(Kind);
+    public sealed record Mix(Guid Kind, float Value) : ChainEdit;
 
-    public sealed record Tune(Guid Kind, ValueSet Values) : ChainEdit(Kind);
+    public sealed record ApplyLook(Guid Kind, string Name) : ChainEdit;
 
-    public sealed record Mix(Guid Kind, float Value) : ChainEdit(Kind);
-
-    public sealed record ApplyLook(Guid Kind, string Name) : ChainEdit(Kind);
-
-    public sealed record Restore(ChainState State) : ChainEdit(None);
+    public sealed record Restore(ChainState State) : ChainEdit;
 
     // --- [COMMIT]
+    private Option<Guid> Target => Switch<Option<Guid>>(
+        membership: static edit => edit.Kind,
+        toggle: static edit => edit.Kind,
+        move: static edit => edit.Kind,
+        tune: static edit => edit.Kind,
+        mix: static edit => edit.Kind,
+        applyLook: static edit => edit.Kind,
+        restore: static _ => None);
+
     public IO<ChainState> Committed(RhinoDoc doc) =>
         from prior in ChainState.Read(doc)
         from next in IO.lift(() => Applied(prior))
@@ -165,4 +177,10 @@ public abstract partial record ChainEdit {
             mix: static (state, edit) => state.Mixed(edit.Kind, edit.Value),
             applyLook: static (state, edit) => state.Looked(edit.Kind, edit.Name),
             restore: static (_, edit) => edit.State);
+}
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+public static class EffectRow {
+    public static EffectRow<TState> Of<TState>() where TState : IPixelStage<TState> =>
+        new(TState.Default, TState.Pass) { Looks = TState.Looks, Channels = TState.Channels, Continued = TState.Continued };
 }

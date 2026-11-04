@@ -57,7 +57,6 @@ utils:
                                 - matches: csharp-parameterless
                                 - has:
                                     field: body
-                                    pattern: $VALUE
                                     any:
                                         - kind: 'object_creation_expression, tuple_expression'
                                         - matches: declared-value
@@ -69,7 +68,7 @@ utils:
                 field: arguments
                 all:
                     - not: {has: {kind: argument, nthChild: 2}}
-                    - has: {kind: argument, matches: csharp-positional-argument, has: {pattern: $VALUE}}
+                    - has: {kind: argument, matches: csharp-positional-argument}
 rule:
     kind: from_clause
     all:
@@ -78,8 +77,5 @@ rule:
         - has: {kind: invocation_expression, pattern: $SOURCE, any: [{matches: lifted-thunk}, {matches: lifted-value}]}
         - follows: {stopBy: end, kind: from_clause}
         - precedes: {kind: select_clause, has: {kind: identifier, pattern: $RANGE}}
-fix:
-    template: select $VALUE
-    expandEnd: {kind: select_clause}
 message: 'Last `from` binds `$RANGE` to `$SOURCE` and selects it unchanged'
 note: 'Replace the last `from` and its `select` with `select <value>`'

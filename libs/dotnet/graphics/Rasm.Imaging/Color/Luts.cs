@@ -20,17 +20,17 @@ public interface IFixedFunction {
 public sealed class Lut1D {
     private const int HalfCodes = ushort.MaxValue + 1;
 
-    private readonly ImmutableArray<float> planes;
+    private readonly ReadOnlyMemory2D<float> planes;
 
     private Lut1D(ReadOnlySpan<float> rows, Vector3 domainMinimum, Vector3 domainMaximum, bool halfDomain) {
         float[] planar = GC.AllocateUninitializedArray<float>(rows.Length);
-        (Length, DomainMinimum, DomainMaximum, HalfDomain) = (rows.Length / 3, domainMinimum, domainMaximum, halfDomain);
+        (DomainMinimum, DomainMaximum, HalfDomain) = (domainMinimum, domainMaximum, halfDomain);
+        planes = new ReadOnlyMemory2D<float>(planar, 3, rows.Length / 3);
         for (int channel = 0; channel < 3; channel++)
             rows.AsSpan2D(Length, 3).GetColumn(channel).CopyTo(planar.AsSpan().AsSpan2D(3, Length).GetRowSpan(channel));
-        planes = ImmutableCollectionsMarshal.AsImmutableArray(planar);
     }
 
-    public int Length { get; }
+    public int Length => planes.Width;
     public Vector3 DomainMinimum { get; }
     public Vector3 DomainMaximum { get; }
     public bool HalfDomain { get; }
@@ -40,7 +40,7 @@ public sealed class Lut1D {
          halfDomain ? unit : LutTables.Checked(rows.Span, domainMinimum, domainMaximum))
             .Apply((_, _) => new Lut1D(rows.Span, domainMinimum, domainMaximum, halfDomain)).As();
 
-    public ReadOnlySpan<float> Channel(int channel) => planes.AsSpan().AsSpan2D(3, Length).GetRowSpan(channel);
+    public ReadOnlySpan<float> Channel(int channel) => planes.Span.GetRowSpan(channel);
 
     public Vector3 Sample(Vector3 value) =>
         HalfDomain
@@ -101,19 +101,19 @@ public sealed partial class ExponentStyle {
     public static readonly ExponentStyle MonCurveMirrorFwd = new("monCurveMirrorFwd", monCurve: true, mirror: true, passThru: false, forward: true);
     public static readonly ExponentStyle MonCurveMirrorRev = new("monCurveMirrorRev", monCurve: true, mirror: true, passThru: false, forward: false);
 
-    private readonly bool monCurve;
+    public bool MonCurve { get; }
     private readonly bool mirror;
     private readonly bool passThru;
     private readonly bool forward;
 
-    public ExponentStyle Inverse => toSeq(Items).Find(item => (item.monCurve, item.mirror, item.passThru, item.forward) == (monCurve, mirror, passThru, !forward)).IfNone(this);
+    public ExponentStyle Inverse => Items.First(item => (item.MonCurve, item.mirror, item.passThru, item.forward) == (MonCurve, mirror, passThru, !forward));
 
     public void Apply(Span<Vector4> row, Vector3 power, Vector3 offset) {
         (Vector3 knee, Vector3 slope) = Joint(power, offset);
-        (Vector3 exponent, Vector3 curved) = (forward ? power : Vector3.One / power, monCurve ? Vector3.GreaterThan(offset, Vector3.Zero) : Vector3.Zero);
+        (Vector3 exponent, Vector3 curved) = (forward ? power : Vector3.One / power, MonCurve ? Vector3.GreaterThan(offset, Vector3.Zero) : Vector3.Zero);
         foreach (ref Vector4 pixel in row) {
             Vector3 x = pixel.AsVector3();
-            Vector3 magnitude = mirror || passThru ? Vector3.Abs(x) : monCurve ? x : Vector3.Max(x, Vector3.Zero);
+            Vector3 magnitude = mirror || passThru ? Vector3.Abs(x) : MonCurve ? x : Vector3.Max(x, Vector3.Zero);
             Vector3 joined = forward
                 ? Vector3.ConditionalSelect(Vector3.GreaterThanOrEqual(magnitude, knee), Raised((magnitude + offset) / (Vector3.One + offset), power), magnitude * slope)
                 : Vector3.ConditionalSelect(Vector3.GreaterThanOrEqual(magnitude, knee * slope), ((Vector3.One + offset) * Raised(magnitude, exponent)) - offset, magnitude / slope);
@@ -142,7 +142,7 @@ public sealed partial class CdlStyle {
     private readonly bool forward;
     private readonly bool clamps;
 
-    public CdlStyle Inverse => toSeq(Items).Find(item => (item.forward, item.clamps) == (!forward, clamps)).IfNone(this);
+    public CdlStyle Inverse => Items.First(item => (item.forward, item.clamps) == (!forward, clamps));
 
     public Vector3 Apply(Vector3 color, Vector3 slope, Vector3 offset, Vector3 power, float saturation) =>
         forward

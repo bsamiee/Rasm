@@ -1,47 +1,10 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-angle-conversion-by-hand
-language: rust
+language: rustlang
 severity: error
 rule:
     kind: 'binary_expression, call_expression'
     pattern: $CONVERSION
-    all:
-        - matches: {rust-angle-conversion: {X: {pattern: $X}, NUM: {pattern: $NUM}, DEN: {pattern: $DEN}, DEGREES: {pattern: $DEGREES}, RADIANS: {pattern: $RADIANS}, OFFSET: {pattern: $OFFSET}}}
-        - any:
-            - kind: call_expression
-              any:
-                - inside: {kind: field_expression, field: value}
-                - inside: {kind: 'binary_expression, unary_expression, type_cast_expression, reference_expression, try_expression'}
-              pattern: $GROUPED
-            - kind: 'binary_expression, call_expression'
-rewriters:
-    - id: plain-receiver
-      rule:
-        kind: 'identifier, field_expression, call_expression, index_expression, parenthesized_expression, scoped_identifier, float_literal, integer_literal, macro_invocation, try_expression, self'
-        pattern: $R
-      fix: $R
-    - id: grouped-receiver
-      rule:
-        kind: 'binary_expression, type_cast_expression, unary_expression, reference_expression'
-        pattern: $R
-      fix: ($R)
-transform:
-    RECEIVER:
-        rewrite: {source: $X, rewriters: [plain-receiver, grouped-receiver]}
-    TOWARD:
-        replace: {source: $DEN, replace: '^.*(PI|TAU)$', by: to_degrees}
-    METHOD:
-        replace: {source: $TOWARD, replace: '^[^t].*$', by: to_radians}
-    DEGREES_NAME:
-        replace: {source: $DEGREES, replace: '^[\s\S]+$', by: to_degrees}
-    PLUS:
-        replace: {source: $OFFSET, replace: '^([\s\S]+)$', by: ' + $1'}
-    OPEN:
-        replace: {source: $GROUPED, replace: '^[\s\S]+$', by: '('}
-    CLOSE:
-        replace: {source: $GROUPED, replace: '^[\s\S]+$', by: ')'}
-    RADIANS_NAME:
-        replace: {source: $RADIANS, replace: '^[\s\S]+$', by: to_radians}
-fix: $OPEN$RECEIVER.$METHOD$DEGREES_NAME$RADIANS_NAME()$PLUS$CLOSE
+    matches: rust-angle-conversion
 message: '`$CONVERSION` converts an angle between degrees and radians by hand'
 note: 'Call `<value>.to_radians()` or `<value>.to_degrees()` of `f32` or `f64`'

@@ -15,7 +15,7 @@ internal static class Kernels {
 }
 ```
 
-- Constants enter through `T.CreateChecked` to fit, `T.CreateSaturating` to clamp, `T.CreateTruncating` for integer low bits or a clamped float
+- Numeric conversions use `CreateChecked` for overflow rejection, `CreateSaturating` for saturation, and `CreateTruncating` for type-defined truncation
 - Integer arithmetic meant to wrap (hash mixing, generator steps) sits inside `unchecked(…)` and keeps its meaning under a build that checks overflow
 - `where TState : allows ref struct` accepts a span as state a generic member passes to its `Func<TState, R>` callback
 

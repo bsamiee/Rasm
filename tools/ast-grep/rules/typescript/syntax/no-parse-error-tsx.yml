@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-parse-error-tsx
-language: tsx
+language: tsxlang
 severity: error
 utils:
     global-augmentation:
@@ -35,7 +35,7 @@ rule:
         - kind: ERROR
           not: {matches: unreported}
         - kind: program
-          has: {stopBy: end, pattern: $$MISSING, regex: '^$', not: {matches: unreported}}
+          has: {stopBy: end, all: [{regex: '^$'}, {pattern: $$MISSING}, {not: {matches: unreported}}]}
 labels:
     MISSING: {style: primary, message: Token the grammar inserted to recover}
 message: Grammar failed to parse the span

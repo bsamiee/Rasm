@@ -20,7 +20,7 @@ public sealed partial class NamePart {
     static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref string value) {
         ReadOnlySpan<char> trimmed = value.AsSpan().Trim();
         value = string.Create(trimmed.Length, trimmed, static (target, source) => source.ReplaceAny(target, Reserved, '_'));
-        validationError = trimmed.Trim('.').IsEmpty ? new RhinoFault($"value = '{value}'", RhinoReason.Unqualified) : null;
+        validationError = trimmed.Trim('.').IsEmpty ? new RhinoFault(value, RhinoReason.Unqualified) : null;
     }
 }
 
@@ -34,7 +34,7 @@ public sealed partial class FileExtension {
     public static Fin<FileExtension> Validated(string value) => TryCreate(value, out FileExtension? extension, out RhinoFault? fault) ? extension : fault;
 
     static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref string value) =>
-        validationError = value is [Mark, _, ..] && !value.AsSpan(1).ContainsAny(NamePart.Reserved) && !value.AsSpan(1).Contains(Mark) ? null : new RhinoFault($"value = '{value}'", RhinoReason.Unqualified);
+        validationError = value is [Mark, _, ..] && !value.AsSpan(1).ContainsAny(NamePart.Reserved) && !value.AsSpan(1).Contains(Mark) ? null : new RhinoFault(value, RhinoReason.Unqualified);
 }
 
 [ValueObject<int>]
@@ -44,12 +44,12 @@ public sealed partial class OutputVersion : IMinMaxValue<OutputVersion> {
 
     public static OutputVersion MaxValue { get; } = new(int.MaxValue);
 
-    public Fin<OutputVersion> Next() => _value < MaxValue._value ? Validated(_value + 1) : new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"next of {_value}"), RhinoReason.Outside);
+    public Fin<OutputVersion> Next() => _value < MaxValue._value ? Validated(_value + 1) : new RhinoFault(_value, RhinoReason.Outside);
 
     public static Fin<OutputVersion> Validated(int value) => TryCreate(value, out OutputVersion? version, out RhinoFault? fault) ? version : fault;
 
     static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref int value) =>
-        validationError = value >= MinValue._value ? null : new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"value = {value}"), RhinoReason.Outside);
+        validationError = value >= MinValue._value ? null : new RhinoFault(value, RhinoReason.Outside);
 }
 
 [ValueObject<int>]
@@ -62,7 +62,7 @@ public sealed partial class SequenceNumber : IMinMaxValue<SequenceNumber> {
     public static Fin<SequenceNumber> Validated(int value) => TryCreate(value, out SequenceNumber? number, out RhinoFault? fault) ? number : fault;
 
     static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref int value) =>
-        validationError = value >= MinValue._value ? null : new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"value = {value}"), RhinoReason.Outside);
+        validationError = value >= MinValue._value ? null : new RhinoFault(value, RhinoReason.Outside);
 }
 
 [Union]

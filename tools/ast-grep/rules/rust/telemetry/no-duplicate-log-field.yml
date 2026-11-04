@@ -1,12 +1,12 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-duplicate-log-field
-language: rust
+language: rustlang
 severity: error
 utils:
     name-end:
         regex: '^(=|,|\)|\})$'
     repeated-field:
-        matches: tracing-field-start
+        all: [{matches: tracing-field-start}]
         pattern: $NAME
         any:
             - all:

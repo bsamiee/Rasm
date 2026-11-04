@@ -5,43 +5,69 @@ severity: error
 utils:
     options-type:
         kind: user_type
-        regex: '^(Subprocess\.)?PlatformOptions$'
+        regex: '^Subprocess\.PlatformOptions$'
     default-options:
         kind: call_expression
         any:
-            - regex: '^(Subprocess\.)?PlatformOptions(\.init)?\(\s*\)$'
+            - regex: '^Subprocess\.PlatformOptions(\.init)?\(\s*\)$'
             - all:
                 - pattern: .init()
                 - any:
-                    - inside: {kind: value_argument, field: value, has: {field: name, regex: '^platformOptions$'}}
                     - inside:
-                        kind: 'function_declaration, property_declaration'
-                        stopBy: {kind: 'function_declaration, property_declaration, lambda_literal'}
-                        any:
-                            - has: {matches: options-type}
-                            - has: {kind: type_annotation, has: {matches: options-type}}
+                        kind: value_argument
+                        field: value
+                        has: {field: name, regex: '^platformOptions$'}
+                        inside: {kind: value_arguments, inside: {kind: call_suffix, inside: {kind: call_expression, has: {nthChild: 1, regex: '^Subprocess\.(run|Configuration(\.init)?)$'}}}}
+                    - all:
+                        - inside: {kind: property_declaration}
+                        - follows: {kind: type_annotation, stopBy: {kind: 'type_annotation, pattern'}, has: {field: name, matches: options-type}}
+                    - inside:
+                        kind: control_transfer_statement
+                        field: result
+                        inside: {kind: statements, inside: {kind: function_body, inside: {kind: function_declaration, has: {field: return_type, matches: options-type}}}}
+                    - inside:
+                        kind: statements
+                        not: {has: {nthChild: 2}}
+                        inside: {kind: function_body, inside: {kind: function_declaration, has: {field: return_type, matches: options-type}}}
     options-configured:
         all:
             - has:
                 stopBy: end
                 kind: assignment
-                all:
-                    - has: {field: target, regex: '\.teardownSequence$'}
-                    - not: {has: {field: result, regex: '^\[\s*\]$'}}
+                pattern: $OPTIONS.teardownSequence = $_
+                has:
+                    field: result
+                    not:
+                        kind: array_literal
+                        any:
+                            - not: {has: {field: element, pattern: $_}}
+                            - has:
+                                kind: call_expression
+                                all:
+                                    - has: {nthChild: 1, regex: '^(Subprocess\.TeardownStep)?\.(send|gracefulShutDown)$'}
+                                    - not:
+                                        has:
+                                            kind: value_argument
+                                            stopBy: {not: {kind: 'call_suffix, value_arguments'}}
+                                            all:
+                                                - has: {field: name, regex: '^toProcessGroup$'}
+                                                - has: {field: value, regex: '^true$'}
             - has:
                 stopBy: end
                 kind: assignment
                 any:
-                    - all:
-                        - has: {field: target, regex: '\.createSession$'}
-                        - has: {field: result, regex: '^true$'}
-                    - has: {field: target, regex: '\.processGroupID$'}
+                    - pattern: $OPTIONS.createSession = true
+                    - pattern: $OPTIONS.processGroupID = $_
+                      has:
+                          field: result
+                          not:
+                              any:
+                                  - kind: nil_literal
+                                  - {kind: prefix_expression, regex: '^\.none$'}
+                                  - regex: '^((Swift\.)?Optional(<[^>]*>)?)\.none$'
     platform-options-argument:
         kind: value_argument
         has: {field: name, regex: '^platformOptions$'}
-    executable-type:
-        kind: user_type
-        regex: '^(Subprocess\.)?Executable$'
 rule:
     pattern: $SITE
     any:
@@ -51,8 +77,10 @@ rule:
             - not:
                 all:
                     - any:
-                        - inside: {kind: property_declaration, field: value}
-                        - inside: {kind: assignment, field: result}
+                        - all:
+                            - inside: {kind: property_declaration}
+                            - follows: {stopBy: {kind: pattern}, kind: pattern, has: {field: bound_identifier, pattern: $OPTIONS}}
+                        - inside: {kind: assignment, field: result, has: {field: target, has: {pattern: $OPTIONS}}}
                     - inside:
                         kind: 'function_declaration, init_declaration, lambda_literal, computed_property, class_body, enum_class_body, source_file'
                         stopBy: {kind: 'function_declaration, init_declaration, lambda_literal, computed_property, class_body, enum_class_body, source_file'}
@@ -60,10 +88,11 @@ rule:
         - kind: call_expression
           all:
             - any:
-                - has: {nthChild: 1, regex: '^(Subprocess\.)?(run|Configuration(\.init)?)$'}
+                - has: {nthChild: 1, regex: '^Subprocess\.(run|Configuration(\.init)?)$'}
                 - all:
                     - has: {nthChild: 1, kind: prefix_expression, regex: '^\.init$'}
-                    - inside: {kind: property_declaration, field: value, has: {kind: type_annotation, has: {kind: user_type, regex: '^(Subprocess\.)?Configuration$'}}}
+                    - inside: {kind: property_declaration}
+                    - follows: {kind: type_annotation, stopBy: {kind: 'type_annotation, pattern'}, has: {field: name, kind: user_type, regex: '^Subprocess\.Configuration$'}}
             - has:
                 kind: call_suffix
                 has:
@@ -71,36 +100,19 @@ rule:
                     all:
                         - any:
                             - has: {kind: value_argument, has: {field: name, regex: '^(executable|arguments|environment|workingDirectory)$'}}
-                            - has: {kind: value_argument, nthChild: 1, has: {field: value, regex: '^((Subprocess\.)?Executable)?\.(name|path)\('}}
+                            - has: {kind: value_argument, nthChild: 1, has: {field: value, regex: '^(Subprocess\.Executable)?\.(name|path)\('}}
                             - has:
                                 kind: value_argument
                                 nthChild: 1
                                 not: {has: {field: name, kind: value_argument_label}}
-                                has: {field: value, kind: simple_identifier, pattern: $EXECUTABLE}
-                                inside:
-                                    kind: 'function_declaration, init_declaration, lambda_literal, computed_property, class_body, enum_class_body, source_file'
-                                    stopBy: end
-                                    has:
-                                        stopBy: end
-                                        any:
-                                            - kind: parameter
-                                              all:
-                                                - has: {kind: simple_identifier, pattern: $EXECUTABLE}
-                                                - has: {matches: executable-type}
-                                            - kind: property_declaration
-                                              all:
-                                                - has: {field: name, has: {kind: simple_identifier, pattern: $EXECUTABLE}}
-                                                - any:
-                                                    - has: {kind: type_annotation, has: {matches: executable-type}}
-                                                    - has: {field: value, regex: '^(Subprocess\.)?Executable\.(name|path)\('}
+                                has: {field: value, kind: simple_identifier, matches: {swift-parameter-use: {type: {kind: user_type, regex: '^Subprocess\.Executable$'}}}}
                         - not: {has: {matches: platform-options-argument}}
-            - inside: {kind: source_file, stopBy: end, has: {kind: import_declaration, regex: '^import\s+Subprocess$'}}
         - kind: call_expression
           any:
-            - regex: '^(Foundation\.)?Process(\.init)?\(\s*\)$'
-            - has: {nthChild: 1, kind: navigation_expression, regex: '^(Foundation\.)?Process\.(run|launchedProcess)$'}
+            - regex: '^Foundation\.Process(\.init)?\(\s*\)$'
+            - has: {nthChild: 1, kind: navigation_expression, regex: '^Foundation\.Process\.(run|launchedProcess)$'}
             - all:
-                - has: {nthChild: 1, regex: '^((Darwin|Glibc|Musl)\.)?posix_spawnp?$'}
+                - has: {nthChild: 1, regex: '^(Darwin|Glibc|Musl)\.posix_spawnp?$'}
                 - not:
                     inside:
                         kind: 'function_declaration, init_declaration, lambda_literal, computed_property'
@@ -108,8 +120,9 @@ rule:
                         has: {stopBy: end, kind: simple_identifier, regex: '^POSIX_SPAWN_SETEXEC$'}
             - all:
                 - pattern: .init()
-                - inside: {kind: property_declaration, field: value, has: {kind: type_annotation, has: {kind: user_type, regex: '^(Foundation\.)?Process$'}}}
+                - inside: {kind: property_declaration}
+                - follows: {kind: type_annotation, stopBy: {kind: 'type_annotation, pattern'}, has: {field: name, kind: user_type, regex: '^Foundation\.Process$'}}
 transform:
     HEAD: {replace: {source: $SITE, replace: '(?s)\n.*$', by: ''}}
-message: '`$HEAD` starts a child in the parent''s session with no teardown sequence'
+message: '`$HEAD` uses default subprocess options or manual process teardown'
 note: 'Run through `Subprocess.run` with `createSession` or `processGroupID` set and a `teardownSequence` of `toProcessGroup: true` steps'

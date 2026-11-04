@@ -1,16 +1,13 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-suspended-generator
-language: tsx
+language: tsxlang
 severity: error
 utils:
     generator-effect:
-        any:
-            - pattern: $M.gen($BODY)
-              has:
-                field: arguments
-                has: {kind: generator_function, pattern: $BODY, not: {has: {field: name, kind: identifier}}}
-            - kind: call_expression
-              has: {field: function, kind: member_expression, has: {field: object, matches: generator-effect}}
+        pattern: $M.gen($_BODY)
+        has:
+            field: arguments
+            has: {kind: generator_function, pattern: $_BODY, not: {has: {field: name, kind: identifier}}}
     thunk-body:
         any:
             - matches: generator-effect
@@ -34,7 +31,6 @@ rule:
         - not: {has: {stopBy: end, kind: comment, not: {inside: {stopBy: end, pattern: $GENERATOR}}}}
 constraints:
     M: {matches: {effect-module: {name: {regex: '\bEffect$'}}}}
-fix: $GENERATOR
 message: '`$M.suspend` wraps `$M.gen`, an effect that defers its body'
 note: 'Remove the `Effect.suspend` wrapper around `Effect.gen`'
 labels:

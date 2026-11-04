@@ -1,5 +1,4 @@
 using System.Numerics;
-using System.Numerics.Tensors;
 using Rasm.UI.Automation;
 using Rasm.UI.Controls.Primitives;
 using Rasm.UI.Input;
@@ -27,18 +26,18 @@ public sealed record Panel(string Title, Seq<View> Body) {
         new View.Choice(PhysicalAxis.Horizontal, [
             new View.Flex(PhysicalAxis.Vertical,
                 Seq<View>(Header(Icon(Glyph), Title, Subtitle, Actions))
-                + Search.Map(static entry => (entry with { Glyph = entry.Glyph | Some(Role.Magnifier) }).Drawn).ToSeq()
+                + Search.Map(static entry => (entry with { Glyph = entry.Glyph | Some(Roles.Magnifier) }).Drawn).ToSeq()
                 + Seq(Body.IsEmpty ? Empty.Map(Placeholder).IfNone(static () => new View.Box { Height = Sizing.Grow.Unit }) : Scrolled(Body))
                 + (Status.IsEmpty ? [] : Seq<View>(new View.Flex(PhysicalAxis.Horizontal, Status) {
-                    Role = Role.StatusBar,
+                    Role = Roles.StatusBar,
                     Width = Sizing.Grow.Unit,
-                    Accessible = new Accessible { Role = AccessRole.Status, Live = Live.Polite },
+                    Accessible = new Accessible { Role = AccessRole.Status, Interrupts = Some(value: false) },
                 }))).Grown,
             new View.Flex(PhysicalAxis.Vertical, [Icon(Glyph).Head.IfNone(() => new View.Text([Title]) { MaxLines = 1 })]) {
                 Height = Sizing.Grow.Unit,
             },
         ]) {
-            Role = Role.Panel,
+            Role = Roles.Panel,
             Accessible = new Accessible { Role = AccessRole.Group, Label = Title },
         }.Grown;
 
@@ -47,12 +46,12 @@ public sealed record Panel(string Title, Seq<View> Body) {
             leading
             + Seq<View>(new View.Flex(PhysicalAxis.Vertical,
                 Seq<View>(new View.Text([title]) { MaxLines = 1, Accessible = new Accessible { Role = AccessRole.Heading } })
-                + subtitle.Map(static text => (View)new View.Text([text]) { Role = Role.Caption, MaxLines = 1 }).ToSeq()) {
+                + subtitle.Map(static text => (View)new View.Text([text]) { Role = Roles.Caption, MaxLines = 1 }).ToSeq()) {
                 Width = Sizing.Grow.Unit,
                 Align = UnitPoint.Center,
             })
             + trailing) {
-            Role = Role.Header,
+            Role = Roles.Header,
             Width = Sizing.Grow.Unit,
         };
 
@@ -61,10 +60,10 @@ public sealed record Panel(string Title, Seq<View> Body) {
     internal static Option<View> StatusGlyph(HashSet<Condition> conditions) =>
         conditions.Contains(Condition.Busy)
             ? Some(Progress.Ring(None) with { Align = UnitPoint.Center })
-            : Signals.Find(conditions.Contains).Map(static signal => (View)new View.Box { Role = Role.Status, Conditions = [signal], Align = UnitPoint.Center });
+            : Signals.Find(conditions.Contains).Map(static signal => (View)new View.Box { Role = Roles.Status, Conditions = [signal], Align = UnitPoint.Center });
 
     internal static View Placeholder(string message) =>
-        new View.Text([message]) { Role = Role.Caption, Alignment = TextAlignment.Center, Width = Sizing.Grow.Unit, Align = UnitPoint.Center };
+        new View.Text([message]) { Role = Roles.Caption, Alignment = TextAlignment.Center, Width = Sizing.Grow.Unit, Align = UnitPoint.Center };
 
     internal static View Scrolled(Seq<View> content) =>
         content switch {
@@ -83,12 +82,12 @@ public sealed record Section(string Title, Seq<View> Content) {
 
     public View Drawn =>
         new Disclosure(
-            Panel.Header(Panel.Icon(Glyph), Title, None, Summary.Filter(_ => !Expanded).Map(static summary => (View)new View.Text([summary]) { Role = Role.Caption, MaxLines = 1, Align = UnitPoint.Center }).ToSeq() + Actions),
+            Panel.Header(Panel.Icon(Glyph), Title, None, Summary.Filter(_ => !Expanded).Map(static summary => (View)new View.Text([summary]) { Role = Roles.Caption, MaxLines = 1, Align = UnitPoint.Center }).ToSeq() + Actions),
             new View.Flex(PhysicalAxis.Vertical, Content.IsEmpty ? Empty.Map(Panel.Placeholder).ToSeq() : Content) { Width = Sizing.Grow.Unit },
             Expanded) {
             Edited = Edited,
         }.Drawn with {
-            Role = Role.Section,
+            Role = Roles.Section,
             Accessible = new Accessible { Role = AccessRole.Group, Label = Title },
         };
 }
@@ -107,7 +106,7 @@ public sealed record Card(string Title) {
             + Seq<View>(Panel.Header(Panel.Icon(Glyph), Title, Subtitle, Panel.StatusGlyph(Conditions).ToSeq()) with { Role = None })
             + Content
             + DialogAction.Footer(Actions, unit)) {
-            Role = Role.Card,
+            Role = Roles.Card,
             Width = Sizing.Grow.Unit,
             Conditions = Conditions,
             Accessible = new Accessible { Role = AccessRole.Group, Label = Title },
@@ -116,7 +115,7 @@ public sealed record Card(string Title) {
 
 public sealed record Disclosure(View Header, View Content, bool Expanded) {
     public Option<Func<Edit<bool>, IO<Unit>>> Edited { get; init; }
-    public Role Role { get; init; } = Role.Header;
+    public Key Role { get; init; } = Roles.Header;
 
     public View Drawn =>
         new View.Flex(PhysicalAxis.Vertical,
@@ -140,21 +139,21 @@ public sealed record Disclosure(View Header, View Content, bool Expanded) {
             },
             None: static () => Face(open: false) with { Opacity = Fraction.MinValue });
 
-    private static View.Box Face(bool open) => new() { Role = Role.Chevron, Conditions = open ? [Condition.Selected] : [], Align = UnitPoint.Center };
+    private static View.Box Face(bool open) => new() { Role = Roles.Chevron, Conditions = open ? [Condition.Selected] : [], Align = UnitPoint.Center };
 }
 
 public sealed record Split(PhysicalAxis Along, Seq<(View Content, Factor Weight)> Panes, Func<Edit<Seq<Factor>>, IO<Unit>> Edited) {
-    public Fin<View> Drawn {
+    public View Drawn {
         get {
-            float total = TensorPrimitives.Sum<float>([.. Panes.Map(static pane => (float)pane.Weight)]);
-            return Panes.Traverse(pane => Fraction.Validated((float)pane.Weight / total).Map(share => Along.Map(
-                horizontal: pane.Content with { Width = new Sizing.Percent(share) },
-                vertical: pane.Content with { Height = new Sizing.Percent(share) }))).As().Map(shared => {
-                    View panes = new View.Flex(Along, shared.Intersperse(View.Divider(Along)).Strict()).Grown;
-                    return AxisRange.Validated(Along.Map(horizontal: 0f, vertical: total), Along.Map(horizontal: total, vertical: 0f)).ToOption().Filter(_ => Panes.Count > 1).Match(
-                        Some: domain => Divided(new Handles<Seq<Factor>>(Panes.Map(static pane => pane.Weight), Weighted(total), Edited), new PlotPlane.Track(Along, new Axis.Linear(domain)), panes),
-                        None: () => panes);
-                });
+            double total = Panes.Sum(static pane => (double)(float)pane.Weight);
+            Seq<View> shared = Panes.Map(pane => new Sizing.Percent(new Fraction((float)((float)pane.Weight / total))) switch {
+                var share => Along.Map(horizontal: pane.Content with { Width = share }, vertical: pane.Content with { Height = share }),
+            });
+            View panes = new View.Flex(Along, shared.Intersperse(View.Divider(Along)).Strict()).Grown;
+            return Panes.Count > 1
+                ? Divided(new Handles<Seq<Factor>>(Panes.Map(static pane => pane.Weight), Weighted(total), Edited),
+                    new PlotPlane.Track(Along, new Axis.Linear(Along.Map(horizontal: AxisRange.Unit, vertical: new AxisRange(1f, 0f)))), panes)
+                : panes;
         }
     }
 
@@ -165,12 +164,13 @@ public sealed record Split(PhysicalAxis Along, Seq<(View Content, Factor Weight)
             Handle = (_, at) => new View.Pin(plane.Along.Cross.With(at, 0f), new View.Box()) { Span = plane.Along.Cross.With(Vector2.Zero, 1f) },
         }).Drawn(plane, [content]);
 
-    private Points<Seq<Factor>> Weighted(float total) =>
+    private Points<Seq<Factor>> Weighted(double total) =>
         Points<Seq<Factor>>.Listed(
-            static weights => weights.Map(static weight => (float)weight).Scan(0f, static (sum, weight) => sum + weight).Tail.Init,
+            weights => weights.Map(static weight => (double)(float)weight).Scan(0d, static (sum, weight) => sum + weight).Tail.Init.Map(at => (float)(at / total)),
             edge => Along.With(new Vector2(0.5f), edge),
             (_, to) => Some(Along.Of(to)),
-            (_, edges) => toSeq((Seq(0f) + edges).Add(total).AsIterable().Window(2).Select(static pair => Factor.Validated(pair[1] - pair[0]))).Traverse(static weight => weight).As().ToOption(),
+            (_, edges) => toSeq((Seq(0f) + edges.Map(static held => held.Item)).Add(1f).AsIterable().Window(2).Select(pair => Factor.Validated((float)((pair[1] - pair[0]) * total))))
+                .Traverse(static weight => weight).As().ToOption().Map(weights => (weights, edges.Map(static held => held.Key))),
             static (_, _) => None) with {
             Removed = static (_, _) => None,
         };
@@ -199,7 +199,7 @@ public sealed record Board<TItem>(Seq<TItem> Items, Func<TItem, Key> Keyed, Func
 
     private static View.Grid Gridded(Seq<View> tiles, int count) =>
         new(new Tracks(LanguageExt.Seq.repeat<Sizing>(Sizing.Grow.Unit, count)), [tiles]) {
-            Role = Role.Stack,
+            Role = Roles.Stack,
             Width = Sizing.Grow.Unit,
         };
 }

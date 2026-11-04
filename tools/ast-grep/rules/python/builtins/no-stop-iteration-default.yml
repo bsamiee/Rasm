@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-stop-iteration-default
-language: python
+language: pythonlang
 severity: error
 utils:
     lone:
@@ -10,14 +10,34 @@ utils:
         matches: {python-unparenthesized: {value: {matches: {python-builtin-name: {name: {regex: '^next$'}}}, not: {has: {stopBy: end, kind: call}}}}}
     anext-function:
         matches: {python-unparenthesized: {value: {matches: {python-builtin-name: {name: {regex: '^anext$'}}}, not: {has: {stopBy: end, kind: call}}}}}
-    exception-name:
-        matches: {python-unparenthesized: {value: {matches: builtins-stop-iteration, not: {has: {stopBy: end, kind: call}}}}}
-    exception:
+    sync-exception-name:
+        matches: {python-unparenthesized: {value: {matches: {python-builtin-name: {name: {regex: '^StopIteration$'}}}, not: {has: {stopBy: end, kind: call}}}}}
+    async-exception-name:
+        matches: {python-unparenthesized: {value: {matches: {python-builtin-name: {name: {regex: '^StopAsyncIteration$'}}}, not: {has: {stopBy: end, kind: call}}}}}
+    sync-exception:
         any:
-            - matches: exception-name
+            - matches: sync-exception-name
             - kind: tuple
-              has: {matches: exception-name}
-              not: {has: {pattern: $_, not: {matches: exception-name}}}
+              has: {matches: sync-exception-name}
+              not: {has: {pattern: $_, not: {matches: sync-exception-name}}}
+    async-exception:
+        any:
+            - matches: async-exception-name
+            - kind: tuple
+              has: {matches: async-exception-name}
+              not: {has: {pattern: $_, not: {matches: async-exception-name}}}
+    sync-handler:
+        kind: except_clause
+        all:
+            - has: {field: value, pattern: $ERROR, matches: sync-exception}
+            - not: {has: {field: alias, pattern: $_}}
+            - not: {has: {pattern: $_, not: {any: [{kind: block}, {matches: sync-exception}]}}}
+    async-handler:
+        kind: except_clause
+        all:
+            - has: {field: value, pattern: $ERROR, matches: async-exception}
+            - not: {has: {field: alias, pattern: $_}}
+            - not: {has: {pattern: $_, not: {any: [{kind: block}, {matches: async-exception}]}}}
     reference:
         matches: {python-unparenthesized: {value: {kind: identifier}}}
     literal:
@@ -33,68 +53,49 @@ utils:
                             - has: {field: argument, kind: 'integer, float'}
                         - kind: tuple
                           not: {has: {pattern: $_, not: {matches: literal}}}
+    sync-advance:
+        kind: call
+        pattern: $NEXT($IT)
+        all:
+            - has: {field: function, matches: next-function}
+            - has: {field: arguments, has: {matches: reference}}
+            - inside: {kind: try_statement, stopBy: &advance-owner {kind: 'try_statement, function_definition, class_definition, lambda'}, has: {matches: sync-handler}}
+    async-advance:
+        kind: await
+        has:
+            kind: call
+            pattern: $NEXT($IT)
+            all:
+                - has: {field: function, matches: anext-function}
+                - has: {field: arguments, has: {matches: reference}}
+                - inside: {kind: try_statement, stopBy: *advance-owner, has: {matches: async-handler}}
     advance:
         any:
-            - kind: call
-              pattern: $NEXT($IT)
-              all:
-                - has: {field: function, matches: next-function}
-                - has: {field: arguments, has: {matches: reference}}
-            - kind: await
-              pattern: $AWAITED
-              has:
-                kind: call
-                pattern: $NEXT($IT)
-                all:
-                    - has: {field: function, matches: anext-function}
-                    - has: {field: arguments, has: {matches: reference}}
+            - matches: sync-advance
+            - matches: async-advance
             - kind: parenthesized_expression
               has: {matches: advance}
+    default-try:
+        kind: try_statement
+        all:
+            - not: {has: {stopBy: end, kind: comment}}
+            - not: {has: {kind: except_clause, has: {regex: '^\*$'}}}
+            - not:
+                has:
+                    any:
+                        - kind: else_clause, finally_clause
+                        - kind: except_clause
+                          nthChild: {position: 2, ofRule: {kind: except_clause}}
+            - any:
+                - all:
+                    - has: {field: body, matches: lone, has: {kind: return_statement, has: {matches: advance}}}
+                    - has: {kind: except_clause, has: {matches: lone, has: {kind: return_statement, any: [{has: {matches: literal}}, {not: {has: {pattern: $_}}}]}}}
+                - all:
+                    - has: {field: body, matches: lone, has: {kind: expression_statement, has: {kind: assignment, all: [{has: {field: left, kind: 'identifier, attribute', pattern: $TARGET}}, {has: {field: right, matches: advance}}, {not: {has: {field: type, kind: type}}}]}}}
+                    - has: {kind: except_clause, has: {matches: lone, has: {kind: expression_statement, has: {pattern: $TARGET = $DEFAULT}}}}
 rule:
-    all:
-        - pattern: |
-            try:
-                $STMT
-            except $ERROR:
-                $FALLBACK
-        - not: {has: {stopBy: end, kind: comment}}
-        - not:
-            has:
-                any:
-                    - kind: else_clause, finally_clause
-                    - kind: except_clause
-                      nthChild: {position: 2, ofRule: {kind: except_clause}}
-        - not:
-            any:
-                - all: [{has: {field: body, has: {stopBy: end, kind: await}}}, {has: {kind: except_clause, has: {stopBy: end, regex: '^StopIteration$'}}}]
-                - all: [{not: {has: {field: body, has: {stopBy: end, kind: await}}}}, {has: {kind: except_clause, has: {stopBy: end, regex: '^StopAsyncIteration$'}}}]
-        - any:
-            - all:
-                - has: {field: body, matches: lone, has: {kind: return_statement, has: {matches: advance}}}
-                - has: {kind: except_clause, has: {matches: lone, has: {kind: return_statement, any: [{has: {matches: literal}}, {not: {has: {pattern: $_}}}]}}}
-            - all:
-                - has: {field: body, matches: lone, has: {kind: expression_statement, has: {kind: assignment, all: [{has: {field: left, kind: 'identifier, attribute', pattern: $TARGET}}, {has: {field: right, matches: advance}}, {not: {has: {field: type, kind: type}}}]}}}
-                - has: {kind: except_clause, has: {matches: lone, has: {kind: expression_statement, has: {pattern: $TARGET = $DEFAULT}}}}
+    matches: default-try
 constraints:
-    ERROR: {matches: exception}
     DEFAULT: {matches: literal}
-rewriters:
-    - id: value
-      rule: {any: [{pattern: return $VALUE}, {pattern: $TARGET = $VALUE}]}
-      fix: $VALUE
-    - id: implicit-none
-      rule: {kind: return_statement}
-      fix: None
-    - id: return-prefix
-      rule: {kind: return_statement}
-      fix: return
-    - id: assignment-prefix
-      rule: {pattern: $TARGET = $VALUE}
-      fix: $TARGET =
-transform:
-    PREFIX: rewrite($STMT, rewriters=[return-prefix, assignment-prefix])
-    DEFAULT_VALUE: rewrite($FALLBACK, rewriters=[value, implicit-none])
-    ASYNC: {replace: {source: $AWAITED, replace: '(?s)^.*$', by: 'await '}}
-fix: $PREFIX $ASYNC$NEXT($IT, $DEFAULT_VALUE)
 message: '`try` around `$NEXT($IT)` catches `$ERROR` to supply a literal default'
-note: 'Call `next(<iterator>, <default>)` or `await anext(<iterator>, <default>)`'
+note: 'Call `next(<it>, <default>)` or `await anext(...)`, retaining handlers for a raising assignment target'

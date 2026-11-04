@@ -3,12 +3,59 @@ language: csharplang
 role: item
 symbolType: module
 rule:
-    kind: using_directive
+    kind: using_directive, extern_alias_directive
+    pattern: $DECLARATION
     has: {pattern: $NAME}
+transform:
+    SIGNATURE: {replace: {source: $DECLARATION, replace: '[;\s]+$', by: ''}}
 name: $NAME
+signature: $SIGNATURE
 isImport: true
 isExported: false
-
+---
+id: csharp-file-reference
+language: csharplang
+role: item
+symbolType: module
+rule:
+    kind: file_based_directive
+    regex: '^#:\s*(sdk|package|project|ref)\s+\S'
+    pattern: $DECLARATION
+transform:
+    NAME: {replace: {source: $DECLARATION, replace: '^#:\s*\w+\s+|\s+$', by: ''}}
+name: $NAME
+signature: $DECLARATION
+isImport: true
+isExported: false
+---
+id: csharp-file-property
+language: csharplang
+role: item
+symbolType: property
+rule:
+    kind: file_based_directive
+    regex: '^#:\s*property\s+\S'
+    pattern: $DECLARATION
+transform:
+    NAME: {replace: {source: $DECLARATION, replace: '^#:\s*\w+\s+|\s+$', by: ''}}
+name: $NAME
+signature: $DECLARATION
+isExported: false
+---
+id: csharp-file-selection
+language: csharplang
+role: item
+symbolType: file
+rule:
+    kind: file_based_directive
+    regex: '^#:\s*(include|exclude)\s+\S'
+    pattern: $DECLARATION
+transform:
+    NAME: {replace: {source: $DECLARATION, replace: '^#:\s*\w+\s+|\s+$', by: ''}}
+name: $NAME
+signature: $DECLARATION
+isImport: {regex: '^#:\s*include\s'}
+isExported: false
 ---
 id: csharp-interface
 language: csharplang
@@ -16,43 +63,81 @@ role: item
 symbolType: interface
 rule:
     kind: interface_declaration
+    pattern: $DECLARATION
     has: {field: name, pattern: $NAME}
+rewriters:
+    - id: body
+      rule: {kind: declaration_list, inside: {kind: interface_declaration, field: body}}
+      fix: ''
+transform:
+    HEADER: rewrite($DECLARATION, rewriters=[body])
+    SIGNATURE: {replace: {source: $HEADER, replace: '[;\s]+$', by: ''}}
 name: $NAME
-isExported: {has: {kind: modifier, regex: '^public$'}}
-
+signature: $SIGNATURE
+isExported:
+    all:
+        - &public
+          any:
+              - has: {kind: modifier, regex: '^public$'}
+              - inside: {kind: interface_declaration, stopBy: {kind: &owner 'class_declaration, record_declaration, struct_declaration, interface_declaration'}}
+                not: {has: {kind: modifier, regex: '^(private|protected|internal)$'}}
+        - not: {inside: {stopBy: end, kind: *owner, not: *public}}
 ---
 id: csharp-class
 language: csharplang
 role: item
 symbolType: class
 rule:
-    kind: class_declaration
+    kind: class_declaration, record_declaration
+    pattern: $DECLARATION
     has: {field: name, pattern: $NAME}
+    not: {has: {regex: '^struct$'}}
+rewriters:
+    - id: body
+      rule: {kind: declaration_list, inside: {kind: 'class_declaration, record_declaration', field: body}}
+      fix: ''
+transform:
+    HEADER: rewrite($DECLARATION, rewriters=[body])
+    SIGNATURE: {replace: {source: $HEADER, replace: '[;\s]+$', by: ''}}
 name: $NAME
-isExported: {has: {kind: modifier, regex: '^public$'}}
-
----
-id: csharp-record
-language: csharplang
-role: item
-symbolType: struct
-rule:
-    kind: record_declaration
-    has: {field: name, pattern: $NAME}
-name: $NAME
-isExported: {has: {kind: modifier, regex: '^public$'}}
-
+signature: $SIGNATURE
+isExported:
+    all:
+        - &public
+          any:
+              - has: {kind: modifier, regex: '^public$'}
+              - inside: {kind: interface_declaration, stopBy: {kind: &owner 'class_declaration, record_declaration, struct_declaration, interface_declaration'}}
+                not: {has: {kind: modifier, regex: '^(private|protected|internal)$'}}
+        - not: {inside: {stopBy: end, kind: *owner, not: *public}}
 ---
 id: csharp-struct
 language: csharplang
 role: item
 symbolType: struct
 rule:
-    kind: struct_declaration
+    any:
+        - kind: struct_declaration
+        - kind: record_declaration
+          has: {regex: '^struct$'}
+    pattern: $DECLARATION
     has: {field: name, pattern: $NAME}
+rewriters:
+    - id: body
+      rule: {kind: declaration_list, inside: {kind: 'struct_declaration, record_declaration', field: body}}
+      fix: ''
+transform:
+    HEADER: rewrite($DECLARATION, rewriters=[body])
+    SIGNATURE: {replace: {source: $HEADER, replace: '[;\s]+$', by: ''}}
 name: $NAME
-isExported: {has: {kind: modifier, regex: '^public$'}}
-
+signature: $SIGNATURE
+isExported:
+    all:
+        - &public
+          any:
+              - has: {kind: modifier, regex: '^public$'}
+              - inside: {kind: interface_declaration, stopBy: {kind: &owner 'class_declaration, record_declaration, struct_declaration, interface_declaration'}}
+                not: {has: {kind: modifier, regex: '^(private|protected|internal)$'}}
+        - not: {inside: {stopBy: end, kind: *owner, not: *public}}
 ---
 id: csharp-enum
 language: csharplang
@@ -60,10 +145,25 @@ role: item
 symbolType: enum
 rule:
     kind: enum_declaration
+    pattern: $DECLARATION
     has: {field: name, pattern: $NAME}
+rewriters:
+    - id: body
+      rule: {kind: enum_member_declaration_list, inside: {kind: enum_declaration, field: body}}
+      fix: ''
+transform:
+    HEADER: rewrite($DECLARATION, rewriters=[body])
+    SIGNATURE: {replace: {source: $HEADER, replace: '[;\s]+$', by: ''}}
 name: $NAME
-isExported: {has: {kind: modifier, regex: '^public$'}}
-
+signature: $SIGNATURE
+isExported:
+    all:
+        - &public
+          any:
+              - has: {kind: modifier, regex: '^public$'}
+              - inside: {kind: interface_declaration, stopBy: {kind: &owner 'class_declaration, record_declaration, struct_declaration, interface_declaration'}}
+                not: {has: {kind: modifier, regex: '^(private|protected|internal)$'}}
+        - not: {inside: {stopBy: end, kind: *owner, not: *public}}
 ---
 id: csharp-delegate
 language: csharplang
@@ -71,90 +171,133 @@ role: item
 symbolType: function
 rule:
     kind: delegate_declaration
+    pattern: $DECLARATION
     has: {field: name, pattern: $NAME}
+transform:
+    SIGNATURE: {replace: {source: $DECLARATION, replace: '[;\s]+$', by: ''}}
 name: $NAME
-isExported: {has: {kind: modifier, regex: '^public$'}}
-
+signature: $SIGNATURE
+isExported:
+    all:
+        - &public
+          any:
+              - has: {kind: modifier, regex: '^public$'}
+              - inside: {kind: interface_declaration, stopBy: {kind: &owner 'class_declaration, record_declaration, struct_declaration, interface_declaration'}}
+                not: {has: {kind: modifier, regex: '^(private|protected|internal)$'}}
+        - not: {inside: {stopBy: end, kind: *owner, not: *public}}
 ---
 id: csharp-member-constructor
 language: csharplang
 role: member
 symbolType: constructor
-parentRuleIds: [csharp-class, csharp-record, csharp-struct]
+parentRuleIds: [csharp-class, csharp-struct]
 rule:
-    kind: constructor_declaration
+    kind: constructor_declaration, destructor_declaration
     pattern: $DECLARATION
     has: {field: name, pattern: $NAME}
+rewriters:
+    - id: body
+      rule: {kind: 'block, arrow_expression_clause', inside: {kind: 'constructor_declaration, destructor_declaration', field: body}}
+      fix: ''
 transform:
-    BODYLESS: {replace: {source: $DECLARATION, replace: '\s*(\{[\s\S]*$|=>[\s\S]*$|;\s*$)', by: ''}}
-    LINE: {replace: {source: $BODYLESS, replace: '\s*\n\s*', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: '(\()\s+|\s+(\))', by: '$1$2'}}
+    HEADER: rewrite($DECLARATION, rewriters=[body])
+    SIGNATURE: {replace: {source: $HEADER, replace: '[;\s]+$', by: ''}}
 name: $NAME
 signature: $SIGNATURE
 isPublic: {has: {kind: modifier, regex: '^public$'}}
-
 ---
 id: csharp-member-method
 language: csharplang
 role: member
 symbolType: method
-parentRuleIds: [csharp-class, csharp-record, csharp-struct]
+parentRuleIds: [csharp-class, csharp-struct, csharp-interface]
 rule:
     kind: method_declaration
     pattern: $DECLARATION
     has: {field: name, pattern: $NAME}
+rewriters:
+    - id: body
+      rule: {kind: 'block, arrow_expression_clause', inside: {kind: 'method_declaration', field: body}}
+      fix: ''
 transform:
-    BODYLESS: {replace: {source: $DECLARATION, replace: '\s*(\{[\s\S]*$|=>[\s\S]*$|;\s*$)', by: ''}}
-    LINE: {replace: {source: $BODYLESS, replace: '\s*\n\s*', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: '(\()\s+|\s+(\))', by: '$1$2'}}
+    HEADER: rewrite($DECLARATION, rewriters=[body])
+    SIGNATURE: {replace: {source: $HEADER, replace: '[;\s]+$', by: ''}}
 name: $NAME
 signature: $SIGNATURE
-isPublic: {has: {kind: modifier, regex: '^public$'}}
-
----
-id: csharp-interface-method
-language: csharplang
-role: member
-symbolType: method
-parentRuleIds: [csharp-interface]
-rule:
-    kind: method_declaration
-    pattern: $DECLARATION
-    has: {field: name, pattern: $NAME}
-transform:
-    BODYLESS: {replace: {source: $DECLARATION, replace: '\s*(\{[\s\S]*$|=>[\s\S]*$|;\s*$)', by: ''}}
-    LINE: {replace: {source: $BODYLESS, replace: '\s*\n\s*', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: '(\()\s+|\s+(\))', by: '$1$2'}}
-name: $NAME
-signature: $SIGNATURE
-
+isPublic:
+    any:
+        - has: {kind: modifier, regex: '^public$'}
+        - inside: {kind: interface_declaration, stopBy: {kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration'}}
+          not: {has: {kind: modifier, regex: '^(private|protected|internal)$'}}
 ---
 id: csharp-member-property
 language: csharplang
 role: member
 symbolType: property
-parentRuleIds: [csharp-class, csharp-record, csharp-struct, csharp-interface]
+parentRuleIds: [csharp-class, csharp-struct, csharp-interface]
 rule:
     kind: property_declaration
+    pattern: $DECLARATION
     has: {field: name, pattern: $NAME}
+rewriters:
+    - id: value
+      rule: {pattern: $_, inside: {kind: property_declaration, field: value}}
+      fix: {template: '', expandStart: {regex: '^=$', stopBy: end}}
+    - id: body
+      rule: {kind: block, inside: {kind: accessor_declaration, field: body}}
+      fix: ';'
+    - id: arrow
+      rule: {kind: arrow_expression_clause, inside: {kind: accessor_declaration, field: body}}
+      fix: ''
+transform:
+    HEADER: rewrite($DECLARATION, rewriters=[value, body, arrow])
+    SIGNATURE: {replace: {source: $HEADER, replace: '[;\s]+$', by: ''}}
 name: $NAME
+signature: $SIGNATURE
 isPublic:
     any:
         - has: {kind: modifier, regex: '^public$'}
-        - inside: {kind: interface_declaration, stopBy: end}
-
+        - inside: {kind: interface_declaration, stopBy: {kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration'}}
+          not: {has: {kind: modifier, regex: '^(private|protected|internal)$'}}
 ---
 id: csharp-member-field
 language: csharplang
 role: member
 symbolType: field
-parentRuleIds: [csharp-class, csharp-record, csharp-struct]
+parentRuleIds: [csharp-class, csharp-struct, csharp-interface]
 rule:
     kind: field_declaration
-    has: {stopBy: end, kind: variable_declarator, has: {field: name, pattern: $NAME}}
-name: $NAME
-isPublic: {has: {kind: modifier, regex: '^public$'}}
-
+    pattern: $DECLARATION
+    has: {kind: variable_declaration, pattern: $VARIABLES}
+rewriters:
+    - id: name
+      rule:
+        kind: variable_declarator
+        has: {field: name, pattern: $NAME}
+      fix: $NAME
+    - id: initializer
+      rule:
+        pattern: $_
+        inside:
+            kind: variable_declarator
+            inside:
+                kind: variable_declaration
+                inside:
+                    kind: field_declaration
+                    not: {has: {kind: modifier, regex: '^const$'}}
+        follows: {regex: '^=$', stopBy: end}
+      fix: {template: '', expandStart: {regex: '^=$', stopBy: end}}
+transform:
+    NAMES: {rewrite: {source: $VARIABLES, rewriters: [name], joinBy: ', '}}
+    HEADER: rewrite($DECLARATION, rewriters=[initializer])
+    SIGNATURE: {replace: {source: $HEADER, replace: '[;\s]+$', by: ''}}
+name: $NAMES
+signature: $SIGNATURE
+isPublic:
+    any:
+        - has: {kind: modifier, regex: '^public$'}
+        - inside: {kind: interface_declaration, stopBy: {kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration'}}
+          not: {has: {kind: modifier, regex: '^(private|protected|internal)$'}}
 ---
 id: csharp-enum-member
 language: csharplang
@@ -163,5 +306,304 @@ symbolType: enumMember
 parentRuleIds: [csharp-enum]
 rule:
     kind: enum_member_declaration
+    pattern: $DECLARATION
     has: {field: name, pattern: $NAME}
 name: $NAME
+signature: $DECLARATION
+---
+id: csharp-namespace
+language: csharplang
+role: item
+symbolType: namespace
+rule:
+    kind: file_scoped_namespace_declaration
+    has: {field: name, pattern: $NAME}
+name: $NAME
+signature: namespace $NAME
+isExported: false
+---
+id: csharp-member-operator
+language: csharplang
+role: member
+symbolType: operator
+parentRuleIds: [csharp-class, csharp-struct, csharp-interface]
+rule:
+    kind: operator_declaration, conversion_operator_declaration
+    pattern: $DECLARATION
+    any:
+        - has: {field: operator, pattern: $$NAME}
+        - has: {field: type, pattern: $NAME}
+rewriters:
+    - id: body
+      rule: {kind: 'block, arrow_expression_clause', inside: {kind: 'operator_declaration, conversion_operator_declaration', field: body}}
+      fix: ''
+transform:
+    HEADER: rewrite($DECLARATION, rewriters=[body])
+    SIGNATURE: {replace: {source: $HEADER, replace: '[;\s]+$', by: ''}}
+name: operator $NAME
+signature: $SIGNATURE
+isPublic:
+    any:
+        - has: {kind: modifier, regex: '^public$'}
+        - inside: {kind: interface_declaration, stopBy: {kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration'}}
+          not: {has: {kind: modifier, regex: '^(private|protected|internal)$'}}
+---
+id: csharp-member-indexer
+language: csharplang
+role: member
+symbolType: property
+parentRuleIds: [csharp-class, csharp-struct, csharp-interface]
+rule:
+    kind: indexer_declaration
+    pattern: $DECLARATION
+    has: {field: parameters, pattern: $PARAMETERS}
+rewriters:
+    - id: value
+      rule: {kind: arrow_expression_clause, inside: {kind: indexer_declaration, field: value}}
+      fix: ''
+    - id: body
+      rule: {kind: block, inside: {kind: accessor_declaration, field: body}}
+      fix: ';'
+    - id: arrow
+      rule: {kind: arrow_expression_clause, inside: {kind: accessor_declaration, field: body}}
+      fix: ''
+transform:
+    HEADER: rewrite($DECLARATION, rewriters=[value, body, arrow])
+    SIGNATURE: {replace: {source: $HEADER, replace: '[;\s]+$', by: ''}}
+name: this$PARAMETERS
+signature: $SIGNATURE
+isPublic:
+    any:
+        - has: {kind: modifier, regex: '^public$'}
+        - inside: {kind: interface_declaration, stopBy: {kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration'}}
+          not: {has: {kind: modifier, regex: '^(private|protected|internal)$'}}
+---
+id: csharp-member-event
+language: csharplang
+role: member
+symbolType: event
+parentRuleIds: [csharp-class, csharp-struct, csharp-interface]
+rule:
+    kind: event_declaration, event_field_declaration
+    pattern: $DECLARATION
+    any:
+        - has: {field: name, pattern: $NAME}
+        - has: {kind: variable_declaration, pattern: $VARIABLES}
+rewriters:
+    - id: name
+      rule:
+        kind: variable_declarator
+        has: {field: name, pattern: $DECLARED}
+      fix: $DECLARED
+    - id: body
+      rule: {kind: block, inside: {kind: accessor_declaration, field: body}}
+      fix: ';'
+    - id: arrow
+      rule: {kind: arrow_expression_clause, inside: {kind: accessor_declaration, field: body}}
+      fix: ''
+transform:
+    NAMES: {rewrite: {source: $VARIABLES, rewriters: [name], joinBy: ', '}}
+    HEADER: rewrite($DECLARATION, rewriters=[name, body, arrow])
+    SIGNATURE: {replace: {source: $HEADER, replace: '[;\s]+$', by: ''}}
+name: $NAME$NAMES
+signature: $SIGNATURE
+isPublic:
+    any:
+        - has: {kind: modifier, regex: '^public$'}
+        - inside: {kind: interface_declaration, stopBy: {kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration'}}
+          not: {has: {kind: modifier, regex: '^(private|protected|internal)$'}}
+---
+id: csharp-member-class
+language: csharplang
+role: member
+symbolType: class
+parentRuleIds: [csharp-class, csharp-struct, csharp-interface]
+rule:
+    kind: class_declaration, record_declaration
+    pattern: $DECLARATION
+    has: {field: name, pattern: $NAME}
+    not: {has: {regex: '^struct$'}}
+rewriters:
+    - id: body
+      rule: {kind: declaration_list, inside: {kind: 'class_declaration, record_declaration', field: body}}
+      fix: ''
+transform:
+    HEADER: rewrite($DECLARATION, rewriters=[body])
+    SIGNATURE: {replace: {source: $HEADER, replace: '[;\s]+$', by: ''}}
+name: $NAME
+signature: $SIGNATURE
+isPublic:
+    any:
+        - has: {kind: modifier, regex: '^public$'}
+        - inside: {kind: interface_declaration, stopBy: {kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration'}}
+          not: {has: {kind: modifier, regex: '^(private|protected|internal)$'}}
+---
+id: csharp-member-struct
+language: csharplang
+role: member
+symbolType: struct
+parentRuleIds: [csharp-class, csharp-struct, csharp-interface]
+rule:
+    any:
+        - kind: struct_declaration
+        - kind: record_declaration
+          has: {regex: '^struct$'}
+    pattern: $DECLARATION
+    has: {field: name, pattern: $NAME}
+rewriters:
+    - id: body
+      rule: {kind: declaration_list, inside: {kind: 'struct_declaration, record_declaration', field: body}}
+      fix: ''
+transform:
+    HEADER: rewrite($DECLARATION, rewriters=[body])
+    SIGNATURE: {replace: {source: $HEADER, replace: '[;\s]+$', by: ''}}
+name: $NAME
+signature: $SIGNATURE
+isPublic:
+    any:
+        - has: {kind: modifier, regex: '^public$'}
+        - inside: {kind: interface_declaration, stopBy: {kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration'}}
+          not: {has: {kind: modifier, regex: '^(private|protected|internal)$'}}
+---
+id: csharp-member-interface
+language: csharplang
+role: member
+symbolType: interface
+parentRuleIds: [csharp-class, csharp-struct, csharp-interface]
+rule:
+    kind: interface_declaration
+    pattern: $DECLARATION
+    has: {field: name, pattern: $NAME}
+rewriters:
+    - id: body
+      rule: {kind: declaration_list, inside: {kind: interface_declaration, field: body}}
+      fix: ''
+transform:
+    HEADER: rewrite($DECLARATION, rewriters=[body])
+    SIGNATURE: {replace: {source: $HEADER, replace: '[;\s]+$', by: ''}}
+name: $NAME
+signature: $SIGNATURE
+isPublic:
+    any:
+        - has: {kind: modifier, regex: '^public$'}
+        - inside: {kind: interface_declaration, stopBy: {kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration'}}
+          not: {has: {kind: modifier, regex: '^(private|protected|internal)$'}}
+---
+id: csharp-member-enum
+language: csharplang
+role: member
+symbolType: enum
+parentRuleIds: [csharp-class, csharp-struct, csharp-interface]
+rule:
+    kind: enum_declaration
+    pattern: $DECLARATION
+    has: {field: name, pattern: $NAME}
+rewriters:
+    - id: body
+      rule: {kind: enum_member_declaration_list, inside: {kind: enum_declaration, field: body}}
+      fix: ''
+transform:
+    HEADER: rewrite($DECLARATION, rewriters=[body])
+    SIGNATURE: {replace: {source: $HEADER, replace: '[;\s]+$', by: ''}}
+name: $NAME
+signature: $SIGNATURE
+isPublic:
+    any:
+        - has: {kind: modifier, regex: '^public$'}
+        - inside: {kind: interface_declaration, stopBy: {kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration'}}
+          not: {has: {kind: modifier, regex: '^(private|protected|internal)$'}}
+---
+id: csharp-member-delegate
+language: csharplang
+role: member
+symbolType: function
+parentRuleIds: [csharp-class, csharp-struct, csharp-interface]
+rule:
+    kind: delegate_declaration
+    pattern: $DECLARATION
+    has: {field: name, pattern: $NAME}
+transform:
+    SIGNATURE: {replace: {source: $DECLARATION, replace: '[;\s]+$', by: ''}}
+name: $NAME
+signature: $SIGNATURE
+isPublic:
+    any:
+        - has: {kind: modifier, regex: '^public$'}
+        - inside: {kind: interface_declaration, stopBy: {kind: 'class_declaration, record_declaration, struct_declaration, interface_declaration'}}
+          not: {has: {kind: modifier, regex: '^(private|protected|internal)$'}}
+---
+id: csharp-function
+language: csharplang
+role: item
+symbolType: function
+rule:
+    kind: local_function_statement
+    inside: {kind: global_statement}
+    pattern: $DECLARATION
+    has: {field: name, pattern: $NAME}
+rewriters:
+    - id: body
+      rule: {kind: 'block, arrow_expression_clause', inside: {kind: local_function_statement, field: body}}
+      fix: ''
+transform:
+    HEADER: rewrite($DECLARATION, rewriters=[body])
+    SIGNATURE: {replace: {source: $HEADER, replace: '[;\s]+$', by: ''}}
+name: $NAME
+signature: $SIGNATURE
+isExported: false
+---
+id: csharp-variable
+language: csharplang
+role: item
+symbolType: variable
+rule:
+    kind: local_declaration_statement
+    inside: {kind: global_statement}
+    pattern: $DECLARATION
+    has: {kind: variable_declaration, pattern: $VARIABLES}
+rewriters:
+    - id: name
+      rule:
+        kind: variable_declarator
+        any:
+            - has: {field: name, pattern: $DECLARED}
+            - has: {kind: tuple_pattern, pattern: $DECLARED}
+      fix: $DECLARED
+    - id: initializer
+      rule:
+        pattern: $_
+        inside:
+            kind: variable_declarator
+            inside:
+                kind: variable_declaration
+                inside:
+                    kind: local_declaration_statement
+                    not: {has: {kind: modifier, regex: '^const$'}}
+        follows: {regex: '^=$', stopBy: end}
+      fix: {template: '', expandStart: {regex: '^=$', stopBy: end}}
+transform:
+    NAMES: {rewrite: {source: $VARIABLES, rewriters: [name], joinBy: ', '}}
+    HEADER: rewrite($DECLARATION, rewriters=[initializer])
+    SIGNATURE: {replace: {source: $HEADER, replace: '[;\s]+$', by: ''}}
+name: $NAMES
+signature: $SIGNATURE
+isExported: false
+---
+id: csharp-extension-receiver
+language: csharplang
+role: member
+symbolType: variable
+parentRuleIds: [csharp-class]
+rule:
+    kind: receiver_parameter
+    has: {field: type, pattern: $NAME}
+    inside: {kind: extension_declaration, pattern: $DECLARATION}
+rewriters:
+    - id: body
+      rule: {kind: extension_body}
+      fix: ''
+transform:
+    HEADER: rewrite($DECLARATION, rewriters=[body])
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s+$', by: ''}}
+name: $NAME
+signature: $SIGNATURE

@@ -17,7 +17,6 @@ from blender.bpy.render.compositor.coordinates import FrameSpace, shorter
 from blender.bpy.render.compositor.inputs import GraphInputs, Step
 from blender.bpy.render.compositor.motion import CLOCK, Clock, clocked, hashed, SEED
 from blender.bpy.render.compositor.shapes import Bounded, box, cross, ellipse, heart, Join, lattice, line, polygon, rotated, stroke, triangle, turned
-from blender.records.fields import Case
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -57,7 +56,7 @@ _SEGMENT_WIDTH: Final = Socket(key="thickness", kind=bpy.types.NodeSocketFloat, 
 _SEGMENT_START: Final = Socket(key="start", kind=bpy.types.NodeSocketFloatFactor, description="Line start along length")
 _SEGMENT_END: Final = Socket(key="end", kind=bpy.types.NodeSocketFloatFactor, description="Line end along length", default_value=1.0)
 _COMPLETION: Final = Socket(key="completion", kind=bpy.types.NodeSocketFloatFactor, description="Filled share of bar", default_value=0.5)
-_GROWTH: Final = Socket(key="growth", kind=bpy.types.NodeSocketMenu, description="Point the fill grows from", default_value=MenuItem.of(_Growth.START).name, items=Some(MenuItems.of(_Growth)))
+_GROWTH: Final = Socket(key="growth", kind=bpy.types.NodeSocketMenu, description="Point the fill grows from", default_value=MenuItem.of(_Growth.START).name, items=MenuItems.of(_Growth).items)
 _CELL_WIDTH: Final = Socket(key="cell_width", kind=bpy.types.NodeSocketFloat, description="Horizontal spacing over greater frame side", min_value=0.0, default_value=0.1)
 _CELL_HEIGHT: Final = Socket(key="cell_height", kind=bpy.types.NodeSocketFloat, description="Vertical spacing over greater frame side", min_value=0.0, default_value=0.1)
 _LINE: Final = Socket(key="line", kind=bpy.types.NodeSocketFloat, description="Line width over greater frame side", min_value=0.0, default_value=0.002)
@@ -86,7 +85,7 @@ _PRIMITIVES: Final = Interface(panels=(_BOX, _ELLIPSE, _TRIANGLE, _CROSS, _HEART
 
 # --- [FIGURES]
 
-_PRIMITIVE: Final = Socket(key="primitive", kind=bpy.types.NodeSocketMenu, description="Figure drawn about position", items=Some(_PRIMITIVES.menu))
+_PRIMITIVE: Final = Socket(key="primitive", kind=bpy.types.NodeSocketMenu, description="Figure drawn about position", items=_PRIMITIVES.menu.items)
 _POSITION: Final = Socket(key="position", kind=bpy.types.NodeSocketVector2D, description="Center in frame fractions", default_value=(0.5, 0.5))
 _ROTATION: Final = Socket(key="rotation", kind=bpy.types.NodeSocketFloatAngle, description="Counterclockwise turn about position")
 _FIT: Final = Socket(key="fit_short_side", kind=bpy.types.NodeSocketBool, description="Measure lengths against shorter frame side")
@@ -95,7 +94,7 @@ _FIGURE: Final = Interface(inputs=(_PRIMITIVE, _POSITION, _ROTATION, _FIT), pane
 # --- [REGIONS]
 
 _OPERATION: Final = Socket(
-    key="operation", kind=bpy.types.NodeSocketMenu, description="Union, base minus cutter, or overlap", default_value=MenuItem.of(Join.DIFFERENCE).name, items=Some(MenuItems.of(Join))
+    key="operation", kind=bpy.types.NodeSocketMenu, description="Union, base minus cutter, or overlap", default_value=MenuItem.of(Join.DIFFERENCE).name, items=MenuItems.of(Join).items
 )
 _SMOOTHNESS: Final = Socket(key="smoothness", kind=bpy.types.NodeSocketFloat, description="Seam blend radius over greater frame side", min_value=0.0)
 _PROGRESS: Final = Socket(key="progress", kind=bpy.types.NodeSocketFloatFactor, description="Blend from start to end")
@@ -139,7 +138,7 @@ def gridded(read: Callable[[Socket], Expr], point: Expr) -> tuple[Expr, Expr, Ex
     return distance, cell, thickness
 
 
-def figured[R: Case](shell: GraphInputs[R], frame: FrameSpace, *path: Step) -> Bounded:
+def figured(shell: GraphInputs, frame: FrameSpace, *path: Step) -> Bounded:
     """Returns the field of the figure panel a path ends at, its primitive placed, turned, and measured against the greater or shorter frame side."""
 
     def read(*steps: Step) -> Expr:
@@ -175,18 +174,18 @@ def figured[R: Case](shell: GraphInputs[R], frame: FrameSpace, *path: Step) -> B
     return Bounded.of(shell.menu(*path, _PRIMITIVE, cases={item: case.packed for item, case in cases.items()}) * scale)
 
 
-def joined[R: Case](shell: GraphInputs[R], frame: FrameSpace) -> Bounded:
+def joined(shell: GraphInputs, frame: FrameSpace) -> Bounded:
     """Returns the base and cutter figures joined under the boolean operation menu with a smooth seam."""
     base, cutter, seam = figured(shell, frame, BOOLEAN, _BASE), figured(shell, frame, BOOLEAN, _CUTTER), shell.input(BOOLEAN, _SMOOTHNESS)
     return Bounded.of(shell.menu(BOOLEAN, _OPERATION, cases={MenuItem.of(join): base.joined(cutter, seam, join).packed for join in Join}))
 
 
-def morphed[R: Case](shell: GraphInputs[R], frame: FrameSpace) -> Bounded:
+def morphed(shell: GraphInputs, frame: FrameSpace) -> Bounded:
     """Returns the start figure's field blended toward the end figure's by progress."""
     return figured(shell, frame, MORPH, _START).morphed(figured(shell, frame, MORPH, _END), shell.input(MORPH, _PROGRESS))
 
 
-def windowed[R: Case](shell: GraphInputs[R], frame: FrameSpace) -> Bounded:
+def windowed(shell: GraphInputs, frame: FrameSpace) -> Bounded:
     """Returns the centered aperture fitted to the frame at its aspect, the frame's own aspect while the aspect toggle is off."""
     extent = frame.extent
     aspect = switched(shell.input(WINDOW, _APERTURE), extent["X"] / extent["Y"], shell.input(WINDOW, _APERTURE, _ASPECT))
@@ -229,7 +228,7 @@ def _channel(depth: int) -> Group[[_Point, _Point, _Point, _Point, Scalar, Scala
     return grouped(kind=bpy.types.CompositorNodeTree, key=Some(item_key(LIGHTNING.key, "channel", depth)))(body)
 
 
-def bolt[R: Case](shell: GraphInputs[R], frame: FrameSpace, *, depth: int, branches: int, family: int) -> Bounded:
+def bolt(shell: GraphInputs, frame: FrameSpace, *, depth: int, branches: int, family: int) -> Bounded:
     """Returns the bolt's field: the main channel subdivided `depth` levels, then `branches` forks rooted at its first subdivision points.
 
     Args:

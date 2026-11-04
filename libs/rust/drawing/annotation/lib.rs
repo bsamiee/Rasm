@@ -1,10 +1,6 @@
 #![feature(cmp_minmax, const_result_trait_fn, const_trait_impl, default_field_values, float_conversions)]
 
-use core::{
-    borrow::Borrow,
-    f64::consts::FRAC_1_SQRT_2,
-    iter,
-};
+use core::{borrow::Borrow, error::Error, f64::consts::FRAC_1_SQRT_2, iter};
 use std::sync::Arc;
 
 use color::{AlphaColor, Srgb};
@@ -13,8 +9,7 @@ use linesweeper::{BinaryOp, FillRule};
 use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _, nev};
 use parlance::{FontFamily, FontFeature, ParseFontFamilyError};
 use rasm_linework::{
-    Anchor, Baseline, Color, Element, FontSize, FontStyle, FontWeight, FontWidth, Linetype, LineworkError, Opacity, OpacityError, Path, Pen, Placement, Region, Tolerance, Width, regions,
-    transform,
+    Anchor, Baseline, Color, Element, FontSize, FontStyle, FontWeight, FontWidth, Linetype, LineworkError, Opacity, OpacityError, Path, Pen, Placement, Region, Tolerance, Width, regions, transform,
 };
 use skrifa::ScaleError;
 use uom::si::{
@@ -167,11 +162,13 @@ pub struct Graphics {
 impl FromIterator<Self> for Graphics {
     fn from_iter<I>(iter: I) -> Self
     where I: IntoIterator<Item = Self> {
-        iter.into_iter().fold(Self::default(), |Self { mut elements, mut masks }, part| {
-            elements.extend(part.elements);
-            masks.extend(part.masks);
-            Self { elements, masks }
-        })
+        iter.into_iter()
+            .reduce(|Self { mut elements, mut masks }, part| {
+                elements.extend(part.elements);
+                masks.extend(part.masks);
+                Self { elements, masks }
+            })
+            .unwrap_or_default()
     }
 }
 
@@ -183,28 +180,58 @@ pub struct Drawing {
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, derive_more::Display, derive_more::From)]
 pub enum AnnotationError {
-    #[error(transparent)]
-    Linework(#[from] LineworkError),
-    #[error(transparent)]
-    Svg(#[from] usvg::Error),
-    #[error("font {position} holds no readable face")]
-    Font { position: usize },
-    #[error("font family list {list} fails to parse")]
-    Stack { list: Arc<str>, source: ParseFontFamilyError },
-    #[error("no {lookup} named {name}")]
-    Unknown { lookup: Lookup, name: Arc<str> },
-    #[error("face {index} {defect}")]
-    Face { index: u32, defect: Defect },
-    #[error("glyph {glyph} draws no outline")]
-    Outline { glyph: u32, source: ScaleError },
-    #[error("{0}")]
+    #[from]
+    Linework(LineworkError),
+    #[from]
+    Svg(usvg::Error),
+    #[display("font {position} holds no readable face")]
+    Font {
+        position: usize,
+    },
+    #[display("font family list {list} fails to parse")]
+    Stack {
+        list: Arc<str>,
+        source: ParseFontFamilyError,
+    },
+    #[display("no {lookup} named {name}")]
+    Unknown {
+        lookup: Lookup,
+        name: Arc<str>,
+    },
+    #[display("face {index} {defect}")]
+    Face {
+        index: u32,
+        defect: Defect,
+    },
+    #[display("glyph {glyph} draws no outline")]
+    Outline {
+        glyph: u32,
+        source: ScaleError,
+    },
     Geometry(Geometry),
-    #[error("{0} lies outside the linework model")]
+    #[display("{_0} lies outside the linework model")]
     Unsupported(Feature),
-    #[error("{subject}")]
-    Within { subject: Subject, source: Box<Self> },
+    #[display("{subject}")]
+    Within {
+        subject: Subject,
+        source: stacksafe::StackSafe<Box<Self>>,
+    },
+}
+
+impl Error for AnnotationError {
+    #[stacksafe::stacksafe]
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            Self::Linework(source) => source.source(),
+            Self::Svg(source) => source.source(),
+            Self::Stack { list: _, source } => Some(source),
+            Self::Outline { glyph: _, source } => Some(source),
+            Self::Within { subject: _, source } => Some(&**source),
+            Self::Font { position: _ } | Self::Unknown { lookup: _, name: _ } | Self::Face { index: _, defect: _ } | Self::Geometry(_) | Self::Unsupported(_) => None,
+        }
+    }
 }
 
 impl From<AnnotationError> for NEVec<AnnotationError> {
@@ -215,7 +242,7 @@ impl From<AnnotationError> for NEVec<AnnotationError> {
 
 pub fn draw<I>(typesetter: &mut text::Typesetter, style: &Style, placement: Placement, annotations: I) -> Result<Drawing, NEVec<AnnotationError>>
 where I: IntoIterator<Item: Borrow<Annotation>> {
-    let graphics = indexed(annotations.into_iter().map(|annotation| match annotation.borrow() {
+    let graphics = indexed::<_, Vec<_>, _>(annotations.into_iter().map(|annotation| match annotation.borrow() {
         Annotation::Note(note) => text::draw(typesetter, style, placement, note),
         Annotation::Dimension(dimension) => dimensions::draw(typesetter, style, placement, dimension),
         Annotation::FeatureControl(control) => tolerances::draw(typesetter, style, placement, control),
@@ -243,14 +270,17 @@ fn drawn(typesetter: &mut text::Typesetter, style: &Style, placement: Placement,
 
 fn within<T>(subject: &Subject, result: Result<T, NEVec<AnnotationError>>) -> Validated<T, AnnotationError> {
     result.map_or_else(
-        |errors| Validated::Fail(errors.into_nonempty_iter().map(|source| AnnotationError::Within { subject: subject.clone(), source: Box::new(source) }).collect()),
+        |errors| Validated::Fail(errors.into_nonempty_iter().map(|source| AnnotationError::Within { subject: subject.clone(), source: Box::new(source).into() }).collect()),
         Validated::Good,
     )
 }
 
-fn indexed<T, I>(results: I) -> Result<Vec<T>, NEVec<AnnotationError>>
-where I: IntoIterator<Item = Result<T, NEVec<AnnotationError>>> {
-    results.into_iter().enumerate().map(|(index, result)| within(&Subject::Item(index), result)).collect::<Validated<Vec<_>, _>>().ok()
+fn indexed<T, C, I>(results: I) -> Result<C, NEVec<AnnotationError>>
+where
+    C: FromIterator<T>,
+    I: IntoIterator<Item = Result<T, NEVec<AnnotationError>>>,
+{
+    results.into_iter().enumerate().map(|(index, result)| within(&Subject::Item(index), result)).collect::<Validated<C, _>>().ok()
 }
 
 const fn validated<T>(result: Result<T, NEVec<AnnotationError>>) -> Validated<T, AnnotationError> { result.map_or_else(Validated::Fail, Validated::Good) }
@@ -260,14 +290,14 @@ where
     E: IntoIterator<Item = Result<Element, AnnotationError>>,
     G: IntoIterator<Item = Result<Graphics, NEVec<AnnotationError>>>,
 {
-    elements.into_iter().collect::<Validated<Vec<_>, _>>().map2(graphics.into_iter().map(validated).collect::<Validated<Vec<_>, _>>(), |elements, drawn| iter::once(Graphics { elements, .. }).chain(drawn).collect()).ok()
+    iter::once(elements.into_iter().collect::<Validated<Vec<_>, _>>().map(|elements| Graphics { elements, .. })).chain(graphics.into_iter().map(validated)).collect::<Validated<Graphics, _>>().ok()
 }
 
 fn stroked(shape: BezPath, pen: &Pen, linetype: Option<Linetype>) -> Result<Element, AnnotationError> {
     Path::try_new(shape).map(|path| Element::Stroke { path, pen: pen.clone(), linetype }).map_err(|error| LineworkError::from(error).into())
 }
 
-fn filled(shape: &impl Shape, fill_rule: FillRule, color: Color, opacity: Opacity, tolerance: Tolerance) -> Result<Element, AnnotationError> {
+fn filled(shape: impl Shape, fill_rule: FillRule, color: Color, opacity: Opacity, tolerance: Tolerance) -> Result<Element, AnnotationError> {
     Region::new(shape, fill_rule, tolerance).map(|region| Element::Fill { region, color, opacity }).map_err(AnnotationError::from)
 }
 
@@ -284,7 +314,7 @@ fn terminated(terminator: &Terminator, head: Head, tip: Point, toward: Vec2, tol
     let Terminator { size, head: _, pen } = terminator;
     let length = size.into_inner();
     let accuracy = tolerance.into_inner();
-    let solid = |shape: BezPath| filled(&(basis * shape), FillRule::NonZero, pen.color.clone(), pen.opacity, tolerance);
+    let solid = |shape: BezPath| filled(basis * shape, FillRule::NonZero, pen.color.clone(), pen.opacity, tolerance);
     let outlined = |shape: BezPath| stroked(basis * shape, pen, None);
     let disc = || Circle::new(Point::ORIGIN, length * 0.5).to_path(accuracy);
     match head {
@@ -343,10 +373,26 @@ fn transformed(graphics: Graphics, affine: Affine) -> Result<Graphics, NEVec<Ann
 }
 
 #[must_use]
-pub fn bounds(graphics: &Graphics, frame: Affine) -> Rect { graphics.masks.iter().map(|mask| (frame * mask.to_path(0.0)).bounding_box()).reduce(|left, right| left.union(right)).unwrap_or_default() }
+pub fn bounds(graphics: &Graphics, frame: Affine) -> Rect {
+    graphics
+        .masks
+        .iter()
+        .map(|mask| mask.path_segments(0.0).map(|segment| (frame * segment).bounding_box()).reduce(|left, right| left.union(right)).unwrap_or_default())
+        .reduce(|left, right| left.union(right))
+        .unwrap_or_default()
+}
 
-fn graduated<I>(typesetter: &mut text::Typesetter, style: &Style, basis: Affine, size: Size, ticks: I, (direction, anchor, baseline): (Vec2, Anchor, Baseline)) -> Result<Graphics, NEVec<AnnotationError>>
-where I: IntoIterator<Item = (f64, Option<String>)> {
+fn graduated<I>(
+    typesetter: &mut text::Typesetter,
+    style: &Style,
+    basis: Affine,
+    size: Size,
+    ticks: I,
+    (direction, anchor, baseline): (Vec2, Anchor, Baseline),
+) -> Result<Graphics, NEVec<AnnotationError>>
+where
+    I: IntoIterator<Item = (f64, Option<String>)>,
+{
     let accuracy = style.tolerance.into_inner();
     let gap = style.gap.into_inner();
     let Size { width: length, height: thickness } = size;
@@ -359,13 +405,14 @@ where I: IntoIterator<Item = (f64, Option<String>)> {
     let labels = ticks
         .into_iter()
         .filter_map(|(position, content)| {
-            content.map(|content| text::labelled(typesetter, style, &text::Label { content: content.into(), .. }, basis * Point::new(position, gap.mul_add(2.0, thickness)), direction, anchor, baseline))
+            content
+                .map(|content| text::labelled(typesetter, style, &text::Label { content: content.into(), .. }, basis * Point::new(position, gap.mul_add(2.0, thickness)), direction, anchor, baseline))
         })
         .map(validated)
-        .collect::<Validated<Vec<_>, _>>();
-    let bar = Region::new(&(basis * Rect::new(0.0, 0.0, length, thickness + gap).to_path(accuracy)), FillRule::NonZero, style.tolerance).map_err(AnnotationError::from);
+        .collect::<Validated<Graphics, _>>();
+    let bar = Region::new(basis * Rect::new(0.0, 0.0, length, thickness + gap).to_path(accuracy), FillRule::NonZero, style.tolerance).map_err(AnnotationError::from);
     Validated::from(stroked(basis * outline, &style.pen, None))
-        .map3(Validated::from(bar), labels, |stroke, bar, texts| iter::once(Graphics { elements: vec![stroke], masks: vec![bar] }).chain(texts).collect())
+        .map3(Validated::from(bar), labels, |stroke, bar, texts| [Graphics { elements: vec![stroke], masks: vec![bar] }, texts].into_iter().collect())
         .ok()
 }
 

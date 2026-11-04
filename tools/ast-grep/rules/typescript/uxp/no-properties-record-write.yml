@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-properties-record-write
-language: tsx
+language: tsxlang
 severity: error
 utils:
     properties-key:
@@ -38,4 +38,4 @@ rule:
 transform:
     HEAD: {replace: {source: $WRITE, replace: '(?s)^([^(=]+?)\s*[(=].*$', by: '$1'}}
 message: '`$HEAD` sets keys through `properties` and drops each refused key with no error'
-note: 'Set each key through `Object.assign(<target>, { [<key>]: <value> })` under `Effect.validate`, and restore temporary writes in `Effect.acquireRelease`'
+note: 'Apply one-key `Object.assign` calls through `Effect.validate`, restoring temporary writes through `Effect.acquireRelease`'

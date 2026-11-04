@@ -1,13 +1,13 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: effect-dual-operation
-language: tsx
+language: tsxlang
 rule:
     kind: member_expression
     any:
         - matches: {effect-module-member: {module: {regex: '\bActivity$'}, member: {regex: '^(retry)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\bAnthropicConfig$'}, member: {regex: '^(withClientTransform)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\bAnthropicLanguageModel$'}, member: {regex: '^(withConfigOverride)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\bAnthropicTelemetry$'}, member: {regex: '^(addGenAIAnnotations)$'}}}
+        - matches: {effect-module-member: {module: {regex: '\b(AnthropicConfig|OpenAiConfig|OpenRouterConfig|TypeSafeConfig)$'}, member: {regex: '^(withClientTransform)$'}}}
+        - matches: {effect-module-member: {module: {regex: '\b(AnthropicLanguageModel|OpenAiEmbeddingModel|OpenAiLanguageModel|OpenRouterLanguageModel)$'}, member: {regex: '^(withConfigOverride)$'}}}
+        - matches: {effect-module-member: {module: {regex: '\b(AnthropicTelemetry|OpenAiTelemetry|Telemetry)$'}, member: {regex: '^(addGenAIAnnotations)$'}}}
         - matches: {effect-module-member: {module: {regex: '\bArbitrary$'}, member: {regex: '^(filter|filterMap|flatMap|map)$'}}}
         - matches:
             effect-module-member:
@@ -57,9 +57,8 @@ rule:
                         (?x)^(between|clamp|divide|divideUnsafe|gcd|isGreaterThan|isGreaterThanOrEqualTo|isLessThan|isLessThanOrEqualTo|lcm|max|min
                         |multiply|remainder|subtract|sum)$
         - matches: {effect-module-member: {module: {regex: '\bBoolean$'}, member: {regex: '^(and|eqv|implies|match|nand|nor|or|xor)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\bBrowserRuntime$'}, member: {regex: '^(runMain)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\bBunRuntime$'}, member: {regex: '^(runMain)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\bBunStream$'}, member: {regex: '^(pipeThroughDuplex|pipeThroughSimple)$'}}}
+        - matches: {effect-module-member: {module: {regex: '\b(BrowserRuntime|BunRuntime|NodeRuntime)$'}, member: {regex: '^(runMain)$'}}}
+        - matches: {effect-module-member: {module: {regex: '\b(BunStream|NodeStream)$'}, member: {regex: '^(pipeThroughDuplex|pipeThroughSimple)$'}}}
         - matches:
             effect-module-member:
                 module: {regex: '\bByteSize$'}
@@ -69,7 +68,7 @@ rule:
                         |subtractUnsafe|sum|times|toUnit)$
         - matches:
             effect-module-member:
-                module: {regex: '\bCache$'}
+                module: {regex: '\b(Cache|ScopedCache)$'}
                 member:
                     regex: |-
                         (?x)^(get|getOption|getSuccess|has|invalidate|invalidateWhen|refresh|set)$
@@ -166,7 +165,7 @@ rule:
                         |tapCauseFilter|tapCauseIf|tapDefect|tapError|tapErrorTag|timeout|timeoutOption|timeoutOrElse|track|trackDefects
                         |trackDuration|trackErrors|trackSuccesses|unwrapReason|updateContext|updateService|validate|when|withErrorReporting
                         |withExecutionPlan|withLogSpan|withLogger|withTracer|withTracerEnabled|withTracerTiming|zip|zipWith)$
-        - matches: {effect-module-member: {module: {regex: '\bEquivalence$'}, member: {regex: '^(combine|mapInput)$'}}}
+        - matches: {effect-module-member: {module: {regex: '\b(Equivalence|Order)$'}, member: {regex: '^(combine|mapInput)$'}}}
         - matches: {effect-module-member: {module: {regex: '\bExit$'}, member: {regex: '^(map|mapBoth|mapError|match)$'}}}
         - matches: {effect-module-member: {module: {regex: '\bFiber$'}, member: {regex: '^(interruptAllAs|interruptAs|runIn)$'}}}
         - matches: {effect-module-member: {module: {regex: '\bFiberHandle$'}, member: {regex: '^(set|setUnsafe)$'}}}
@@ -180,13 +179,13 @@ rule:
                         (?x)^(andLeft|andRight|compose|composePassthrough|mapFail|or|zip|zipWith)$
         - matches:
             effect-module-member:
-                module: {regex: '\bFlag$'}
+                module: {regex: '\b(Flag|Param)$'}
                 member:
                     regex: |-
                         (?x)^(atLeast|atMost|between|filter|filterMap|map|mapEffect|mapTryCatch|orElse|orElseResult|withAlias|withDefault
                         |withDescription|withFallbackConfig|withFallbackPrompt|withMetavar|withNegation|withOptionalValue|withSchema)$
         - matches: {effect-module-member: {module: {regex: '\bFunction$'}, member: {regex: '^(compose)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\bGlob$'}, member: {regex: '^(match)$'}}}
+        - matches: {effect-module-member: {module: {regex: '\b(Glob|Ordering)$'}, member: {regex: '^(match)$'}}}
         - matches:
             effect-module-member:
                 module: {regex: '\bGraph$'}
@@ -209,7 +208,7 @@ rule:
         - matches: {effect-module-member: {module: {regex: '\bHashRing$'}, member: {regex: '^(add|addMany|has|remove)$'}}}
         - matches:
             effect-module-member:
-                module: {regex: '\bHashSet$'}
+                module: {regex: '\b(HashSet|TxHashSet)$'}
                 member:
                     regex: |-
                         (?x)^(add|difference|every|filter|has|intersection|isSubset|map|reduce|remove|some|union)$
@@ -284,8 +283,6 @@ rule:
                         (?x)^(compareAndSet|getAndSet|getAndUpdate|set|setAndGet|update|updateAndGet)$
         - matches: {effect-module-member: {module: {regex: '\bNdjson$'}, member: {regex: '^(duplex|duplexSchema|duplexSchemaString|duplexString)$'}}}
         - matches: {effect-module-member: {module: {regex: '\bNetAddress$'}, member: {regex: '^(isFamily|match)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\bNodeRuntime$'}, member: {regex: '^(runMain)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\bNodeStream$'}, member: {regex: '^(pipeThroughDuplex|pipeThroughSimple)$'}}}
         - matches:
             effect-module-member:
                 module: {regex: '\bNumber$'}
@@ -293,12 +290,6 @@ rule:
                     regex: |-
                         (?x)^(between|clamp|divide|divideUnsafe|isGreaterThan|isGreaterThanOrEqualTo|isLessThan|isLessThanOrEqualTo|max|min|multiply
                         |remainder|round|subtract|sum)$
-        - matches: {effect-module-member: {module: {regex: '\bOpenAiConfig$'}, member: {regex: '^(withClientTransform)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\bOpenAiEmbeddingModel$'}, member: {regex: '^(withConfigOverride)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\bOpenAiLanguageModel$'}, member: {regex: '^(withConfigOverride)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\bOpenAiTelemetry$'}, member: {regex: '^(addGenAIAnnotations)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\bOpenRouterConfig$'}, member: {regex: '^(withClientTransform)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\bOpenRouterLanguageModel$'}, member: {regex: '^(withConfigOverride)$'}}}
         - matches:
             effect-module-member:
                 module: {regex: '\bOptic$'}
@@ -313,16 +304,7 @@ rule:
                         (?x)^(andThen|as|bind|bindTo|composeK|contains|exists|filter|filterMap|flatMap|flatMapNullishOr|getOrElse|getOrThrowWith|let
                         |liftPredicate|map|match|orElse|orElseResult|orElseSome|partitionMap|product|productMany|reduceCompact|tap|zipLeft
                         |zipRight|zipWith)$
-        - matches: {effect-module-member: {module: {regex: '\bOrder$'}, member: {regex: '^(combine|mapInput)$'}}}
-        - matches: {effect-module-member: {module: {regex: '\bOrdering$'}, member: {regex: '^(match)$'}}}
         - matches: {effect-module-member: {module: {regex: '\bOtelTracer$'}, member: {regex: '^(withSpanContext)$'}}}
-        - matches:
-            effect-module-member:
-                module: {regex: '\bParam$'}
-                member:
-                    regex: |-
-                        (?x)^(atLeast|atMost|between|filter|filterMap|map|mapEffect|mapTryCatch|orElse|orElseResult|withAlias|withDefault
-                        |withDescription|withFallbackConfig|withFallbackPrompt|withMetavar|withNegation|withOptionalValue|withSchema)$
         - matches: {effect-module-member: {module: {regex: '\bPartitionedSemaphore$'}, member: {regex: '^(release|take)$'}}}
         - matches: {effect-module-member: {module: {regex: '\bPool$'}, member: {regex: '^(invalidate|reserve|use)$'}}}
         - matches:
@@ -387,12 +369,6 @@ rule:
         - matches: {effect-module-member: {module: {regex: '\bSchemaGetter$'}, member: {regex: '^(compose|map|run)$'}}}
         - matches: {effect-module-member: {module: {regex: '\bSchemaTransformation$'}, member: {regex: '^(composeTransformation)$'}}}
         - matches: {effect-module-member: {module: {regex: '\bScope$'}, member: {regex: '^(provide|use)$'}}}
-        - matches:
-            effect-module-member:
-                module: {regex: '\bScopedCache$'}
-                member:
-                    regex: |-
-                        (?x)^(get|getOption|getSuccess|has|invalidate|invalidateWhen|refresh|set)$
         - matches: {effect-module-member: {module: {regex: '\bScopedRef$'}, member: {regex: '^(set)$'}}}
         - matches: {effect-module-member: {module: {regex: '\bSemaphore$'}, member: {regex: '^(release|resize|take|takeIfAvailable|takeScoped)$'}}}
         - matches:
@@ -446,21 +422,12 @@ rule:
                         (?x)^(assign|evolve|evolveEntries|evolveKeys|get|map|mapOmit|mapPick|omit|pick|renameKeys)$
         - matches:
             effect-module-member:
-                module: {regex: '\bSubscriptionRef$'}
+                module: {regex: '\b(SubscriptionRef|SynchronizedRef)$'}
                 member:
                     regex: |-
                         (?x)^(getAndSet|getAndUpdate|getAndUpdateEffect|getAndUpdateSome|getAndUpdateSomeEffect|modify|modifyEffect|modifySome
                         |modifySomeEffect|set|setAndGet|update|updateAndGet|updateAndGetEffect|updateEffect|updateSome|updateSomeAndGet
                         |updateSomeAndGetEffect|updateSomeEffect)$
-        - matches:
-            effect-module-member:
-                module: {regex: '\bSynchronizedRef$'}
-                member:
-                    regex: |-
-                        (?x)^(getAndSet|getAndUpdate|getAndUpdateEffect|getAndUpdateSome|getAndUpdateSomeEffect|modify|modifyEffect|modifySome
-                        |modifySomeEffect|set|setAndGet|update|updateAndGet|updateAndGetEffect|updateEffect|updateSome|updateSomeAndGet
-                        |updateSomeAndGetEffect|updateSomeEffect)$
-        - matches: {effect-module-member: {module: {regex: '\bTelemetry$'}, member: {regex: '^(addGenAIAnnotations)$'}}}
         - matches: {effect-module-member: {module: {regex: '\bTransferable$'}, member: {regex: '^(schema)$'}}}
         - matches:
             effect-module-member:
@@ -489,12 +456,6 @@ rule:
                     regex: |-
                         (?x)^(every|filter|filterMap|findFirst|flatMap|forEach|get|getHash|has|hasBy|hasHash|map|modify|modifyAt|reduce|remove
                         |removeMany|set|setMany|some|union)$
-        - matches:
-            effect-module-member:
-                module: {regex: '\bTxHashSet$'}
-                member:
-                    regex: |-
-                        (?x)^(add|difference|every|filter|has|intersection|isSubset|map|reduce|remove|some|union)$
         - matches: {effect-module-member: {module: {regex: '\bTxPriorityQueue$'}, member: {regex: '^(offer|offerAll|removeIf|retainIf|takeUpTo)$'}}}
         - matches: {effect-module-member: {module: {regex: '\bTxPubSub$'}, member: {regex: '^(publish|publishAll|releaseSubscriber)$'}}}
         - matches: {effect-module-member: {module: {regex: '\bTxQueue$'}, member: {regex: '^(fail|failCause|offer|offerAll|takeBetween|takeN)$'}}}
@@ -507,7 +468,6 @@ rule:
                 member:
                     regex: |-
                         (?x)^(getAndSet|getAndUpdate|modify|set|update|updateAndGet)$
-        - matches: {effect-module-member: {module: {regex: '\bTypeSafeConfig$'}, member: {regex: '^(withClientTransform)$'}}}
         - matches: {effect-module-member: {module: {regex: '\bUndefinedOr$'}, member: {regex: '^(getOrThrowWith|map|match)$'}}}
         - matches:
             effect-module-member:

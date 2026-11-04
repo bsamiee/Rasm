@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: python-builtin-name
-language: python
+language: pythonlang
 arguments: [name]
 utils:
     implicit-module:
@@ -12,6 +12,11 @@ utils:
 rule:
     any:
         - matches: {python-builtin-identifier: {name: {matches: name}}}
+        - kind: identifier
+          all:
+              - not: {matches: name}
+              - inside: {kind: module, stopBy: end, regex: '\bbuiltins\b'}
+              - matches: {python-imported-name: {module: {regex: '^builtins$'}, name: {matches: name}}}
         - kind: attribute
           all:
             - has: {field: attribute, matches: name}

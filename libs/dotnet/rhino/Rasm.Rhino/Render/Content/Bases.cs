@@ -4,6 +4,7 @@ using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.PlugIns;
 using Rhino.Render;
+using Rhino.Render.Fields;
 using Rhino.UI;
 
 namespace Rasm.Rhino.Render.Content;
@@ -21,21 +22,21 @@ public sealed record ContentDefinition<TState>(string Caption, string Help, stri
 // --- [SERVICES] ------------------------------------------------------------------------
 internal sealed class ContentBody<TState> where TState : notnull {
     private readonly ContentDefinition<TState> definition;
+    private readonly Seq<(Field Field, ContentField<TState> Row)> fields;
 
     public ContentBody(RenderContent content, ContentDefinition<TState> definition) {
         this.definition = definition;
-        _ = definition.Fields.Iter(field => content.BindParameterToField(
-            field.Key, field.Add(content.Fields, Conversions.Unset(field.Prompt.Map(static prompt => LocalText.Of(prompt).Local)), definition.Default),
-            RenderContent.ChangeContexts.UI));
+        fields = definition.Fields.Map(row => (Field: row.Add(content.Fields, Conversions.Unset(row.Prompt.Map(static prompt => LocalText.Of(prompt).Local)), definition.Default), Row: row)).Strict();
+        _ = fields.Iter(bound => content.BindParameterToField(bound.Field.Name, bound.Field, RenderContent.ChangeContexts.UI));
     }
 
-    public TState State(RenderContent content) => definition.Fields.Fold(definition.Default, (state, row) => row.Read(content.Fields, state));
+    public TState State() => fields.Fold(definition.Default, static (state, bound) => bound.Row.Read(bound.Field, state));
 
     public IO<RenderContent> Changed(RenderContent content, Func<TState, TState> change) =>
         Contents.Edit(content, RenderContent.ChangeContexts.Program, [
             Steps.Then<RenderContent>(changed => {
-                TState next = change(State(changed));
-                _ = definition.Fields.Iter(field => field.Write(changed.Fields, next));
+                TState next = change(State());
+                _ = fields.Iter(bound => changed.SetParameter(bound.Field.Name, bound.Row.Value(next)));
                 return changed;
             }),
         ]);
@@ -44,8 +45,8 @@ internal sealed class ContentBody<TState> where TState : notnull {
 
     public string TypeDescription => LocalText.Of(definition.Help).Local;
 
-    public IEnumerable<string> FilesToEmbed(RenderContent content) =>
-        definition.Fields.Filter(static row => row.File).Choose(row => content.Fields.TryGetValue(row.Key, out string path) ? Conversions.Present(path) : None);
+    public IEnumerable<string> FilesToEmbed =>
+        fields.Filter(static bound => bound.Row.File).Choose(static bound => Conversions.Present(bound.Field.GetValue<string>()));
 
     public Option<Bitmap> Icon(Size size) => Optional(DrawingUtilities.BitmapFromSvg(definition.Svg, size.Width, size.Height, adjustForDarkMode: true));
 
@@ -61,7 +62,7 @@ public abstract class DefinedMaterial<TSelf, TState> : RenderMaterial
 
     protected DefinedMaterial() => body = new(this, TSelf.Definition);
 
-    public TState State => body.State(this);
+    public TState State => body.State();
 
     public IO<RenderContent> Change(Func<TState, TState> change) => body.Changed(this, change);
 
@@ -71,7 +72,7 @@ public abstract class DefinedMaterial<TSelf, TState> : RenderMaterial
 
     public sealed override string TypeDescription => body.TypeDescription;
 
-    public sealed override IEnumerable<string> FilesToEmbed => body.FilesToEmbed(this);
+    public sealed override IEnumerable<string> FilesToEmbed => body.FilesToEmbed;
 
     public sealed override bool VirtualIcon(Size size, out Bitmap? bitmap) => (bitmap = body.Icon(size).ValueUnsafe()) is not null;
 
@@ -81,7 +82,7 @@ public abstract class DefinedMaterial<TSelf, TState> : RenderMaterial
 
     public sealed override void SimulateMaterial(ref Material simulation, RenderTexture.TextureGeneration tg) {
         Material target = simulation;
-        if (!Session.Run((from built in Products.Of(() => Simulated(body.State(this))) from copied in IO.lift(() => target.CopyFrom(built)) select true).Bracket(), failed: false))
+        if (!Session.Run((from built in Products.Of(() => Simulated(body.State())) from copied in IO.lift(() => target.CopyFrom(built)) select true).Bracket(), failed: false))
             base.SimulateMaterial(ref simulation, tg);
     }
 }
@@ -92,7 +93,7 @@ public abstract class DefinedTexture<TSelf, TState> : RenderTexture
 
     protected DefinedTexture() => body = new(this, TSelf.Definition);
 
-    public TState State => body.State(this);
+    public TState State => body.State();
 
     public IO<RenderContent> Change(Func<TState, TState> change) => body.Changed(this, change);
 
@@ -102,7 +103,7 @@ public abstract class DefinedTexture<TSelf, TState> : RenderTexture
 
     public sealed override string TypeDescription => body.TypeDescription;
 
-    public sealed override IEnumerable<string> FilesToEmbed => body.FilesToEmbed(this);
+    public sealed override IEnumerable<string> FilesToEmbed => body.FilesToEmbed;
 
     public sealed override bool VirtualIcon(Size size, out Bitmap? bitmap) => (bitmap = body.Icon(size).ValueUnsafe()) is not null;
 
@@ -111,7 +112,7 @@ public abstract class DefinedTexture<TSelf, TState> : RenderTexture
     protected sealed override uint CalculateRenderHash2(CrcRenderHashFlags flags, string[] excludeParameterNames) => base.CalculateRenderHash2(flags, body.Excluded(excludeParameterNames));
 
     public sealed override TextureEvaluator CreateEvaluator(TextureEvaluatorFlags evaluatorFlags) =>
-        new Evaluator(evaluatorFlags, body.State(this), evaluatorFlags.HasFlag(TextureEvaluatorFlags.DisableLocalMapping) ? Transform.Identity : LocalMappingTransform, Sample);
+        new Evaluator(evaluatorFlags, body.State(), evaluatorFlags.HasFlag(TextureEvaluatorFlags.DisableLocalMapping) ? Transform.Identity : LocalMappingTransform, Sample);
 
     private sealed class Evaluator(TextureEvaluatorFlags flags, TState state, Transform mapping, Func<TState, Point3d, Vector3d, Vector3d, Color4f> sample) : TextureEvaluator(flags) {
         public override Color4f GetColor(Point3d uvw, Vector3d duvwdx, Vector3d duvwdy) => sample(state, mapping * uvw, mapping * duvwdx, mapping * duvwdy);
@@ -124,7 +125,7 @@ public abstract class DefinedEnvironment<TSelf, TState> : RenderEnvironment
 
     protected DefinedEnvironment() => body = new(this, TSelf.Definition);
 
-    public TState State => body.State(this);
+    public TState State => body.State();
 
     public IO<RenderContent> Change(Func<TState, TState> change) => body.Changed(this, change);
 
@@ -134,7 +135,7 @@ public abstract class DefinedEnvironment<TSelf, TState> : RenderEnvironment
 
     public sealed override string TypeDescription => body.TypeDescription;
 
-    public sealed override IEnumerable<string> FilesToEmbed => body.FilesToEmbed(this);
+    public sealed override IEnumerable<string> FilesToEmbed => body.FilesToEmbed;
 
     public sealed override bool VirtualIcon(Size size, out Bitmap? bitmap) => (bitmap = body.Icon(size).ValueUnsafe()) is not null;
 
@@ -144,7 +145,7 @@ public abstract class DefinedEnvironment<TSelf, TState> : RenderEnvironment
 
     public sealed override void SimulateEnvironment(ref SimulatedEnvironment simulation, bool isForDataOnly) {
         SimulatedEnvironment target = simulation;
-        if (!Session.Run(Simulated(body.State(this), target, isForDataOnly).Map(static _ => true), failed: false))
+        if (!Session.Run(Simulated(body.State(), target, isForDataOnly).Map(static _ => true), failed: false))
             base.SimulateEnvironment(ref simulation, isForDataOnly);
     }
 }

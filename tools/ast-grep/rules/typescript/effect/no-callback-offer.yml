@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-callback-offer
-language: tsx
+language: tsxlang
 severity: error
 utils:
     queue-module:
@@ -64,4 +64,4 @@ rule:
         - inside: {kind: 'array_pattern, object_pattern', inside: *declarator}
         - inside: {kind: pair_pattern, field: value, inside: {kind: object_pattern, inside: *declarator}}
 message: 'Callback feeds `$QUEUE` outside the effect that built it'
-note: 'Build the queue through `Stream.callback((queue) => <registration>)`, and fork its consumer with `Effect.forkScoped({ startImmediately: true })` where a later step reads the registration'
+note: 'Build through `Stream.callback`; fork a consumer with `Effect.forkScoped({ startImmediately: true })` before reading registration'

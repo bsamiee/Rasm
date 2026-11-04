@@ -19,6 +19,11 @@ test    = false
 doctest = false
 bench   = false
 
+# --- [TESTS]
+[[test]]
+name = "operations"
+path = "../../../../tests/rust/drawing/linework/operations.rs"
+
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
 # --- [RUNTIME]
@@ -30,6 +35,7 @@ itertools                  = { workspace = true }
 thiserror                  = { workspace = true }
 validated                  = { workspace = true }
 derive_more                = { workspace = true }
+stacksafe                  = { workspace = true }
 nutype                     = { workspace = true }
 geo                        = { workspace = true }
 geo-types                  = { workspace = true }
@@ -38,6 +44,11 @@ linebender_resource_handle = { workspace = true }
 parlance                   = { workspace = true }
 kurbo                      = { workspace = true }
 linesweeper                = { workspace = true }
+nalgebra                   = { workspace = true }
+
+# --- [TESTING]
+[dev-dependencies]
+claims = { workspace = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

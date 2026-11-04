@@ -8,7 +8,7 @@ use rustc_hir::{Arm, Expr, ExprKind, HirId, MatchSource, Pat, PatKind, UnOp, def
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty::{TyCtxt, TypeckResults};
 
-use crate::{expanded_externally, fn_item_value, path, resolve};
+use crate::{expanded_externally, fn_item_value, path, resolve, result_parts};
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -29,6 +29,8 @@ impl Pass {
         }
     }
 }
+
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
 impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
@@ -51,12 +53,10 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 _ => None,
             };
             let answer = |arm: &Arm<'_>| match arm.body.kind {
-                ExprKind::Lit(literal) if arm.guard.is_none() =>
-                    if let LitKind::Bool(answer) = literal.node {
-                        Some(answer)
-                    } else {
-                        None
-                    },
+                ExprKind::Lit(literal)
+                    if arm.guard.is_none()
+                        && let LitKind::Bool(answer) = literal.node =>
+                    Some(answer),
                 _ => None,
             };
             let mut negated = false;
@@ -73,16 +73,22 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 ExprKind::Call(Expr { kind: ExprKind::Path(qpath), hir_id, .. }, [operand]) =>
                     typeck.qpath_res(qpath, *hir_id).opt_def_id().and_then(|function| pass.cases.get(&function).copied()).filter(|_| reaches(operand)),
                 ExprKind::Match(scrutinee, [hit, miss], MatchSource::Normal)
-                    if (matches!(miss.pat.kind, PatKind::Wild) || case(miss.pat).is_some()) && answer(miss).is_some() && reaches(scrutinee) =>
-                    Some(case(hit.pat)? == answer(hit)?),
+                    if (matches!(miss.pat.kind, PatKind::Wild) || case(miss.pat).is_some())
+                        && let Some((hit_answer, miss_answer)) = answer(hit).zip(answer(miss))
+                        && hit_answer != miss_answer
+                        && reaches(scrutinee) =>
+                    Some(case(hit.pat)? == hit_answer),
                 _ => None,
             }
             .map(|selected| selected != negated)
         }
 
-        if let ExprKind::MethodCall(segment, receiver, [predicate], _) = expr.kind
-            && !expanded_externally(cx, expr.span)
-            && fn_def_id(cx, expr).is_some_and(|method| Some(method) == self.partition)
+        let (span, receiver, predicate) = match expr.kind {
+            ExprKind::MethodCall(segment, receiver, [predicate], _) => (segment.ident.span, receiver, predicate),
+            ExprKind::Call(callee, [receiver, predicate]) => (callee.span, receiver, predicate),
+            _ => return,
+        };
+        if fn_def_id(cx, expr).and_then(|method| cx.tcx.opt_associated_item(method)?.trait_item_or_self().ok()).is_some_and(|method| Some(method) == self.partition)
             && let named = fn_item_value(cx, predicate)
             && let Some(ok_first) = named.and_then(|named| self.cases.get(&named).copied()).or_else(|| {
                 match predicate.kind {
@@ -94,22 +100,17 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                     _ => None,
                 })
             })
+            && let Some(item) = get_iterator_item_ty(cx, cx.typeck_results().expr_ty_adjusted(receiver))
+            && result_parts(cx, item.peel_refs()).is_some()
+            && !expanded_externally(cx, expr.span)
         {
-            let owned = get_iterator_item_ty(cx, cx.typeck_results().expr_ty_adjusted(receiver)).is_none_or(|item| !item.is_ref());
-            span_lint_hir_and_then(
-                cx,
-                PARTITION_BY_RESULT,
-                expr.hir_id,
-                segment.ident.span.to(expr.span.shrink_to_hi()),
-                "`partition` leaves each half of the results wrapped in `Ok` or `Err`",
-                |diag| {
-                    diag.help(format!(
-                        "call `Itertools::partition_result`{}{}",
-                        if owned { "" } else { " on owned results" },
-                        if ok_first { " and delete the unwraps after it" } else { ", swap the halves, and delete the unwraps after it" },
-                    ));
-                },
-            );
+            span_lint_hir_and_then(cx, PARTITION_BY_RESULT, expr.hir_id, span.to(expr.span.shrink_to_hi()), "`partition` leaves each half of the results wrapped in `Ok` or `Err`", |diag| {
+                diag.help(format!(
+                    "call `Itertools::partition_result`{}{}",
+                    if item.is_ref() { " after mapping each borrowed result with `Result::as_ref`" } else { "" },
+                    if ok_first { " and delete the unwraps after it" } else { ", swap the halves, and delete the unwraps after it" },
+                ));
+            });
         }
     }
 }

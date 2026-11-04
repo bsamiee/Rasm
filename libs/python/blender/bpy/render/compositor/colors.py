@@ -7,7 +7,7 @@ from math import log
 from typing import Final, Literal
 
 import bpy
-from expression import Ok, Option, Result, Some
+from expression import Option, Result, Some
 import numpy as np
 import numpy.typing as npt
 import PyOpenColorIO
@@ -17,7 +17,7 @@ from blender.bpy.nodes import functions
 from blender.bpy.nodes.graphs import Component, composed, directed, equal, Expr, group_input, inverted, math, matrix, mixed, rgba, Term, vector, where, xyz
 from blender.bpy.nodes.interfaces import Interface, NodeGroup, Socket
 from blender.imaging.color.processors import lin_to_log, luma
-from blender.records.faults import Fault, Faults, Outcome, paired, Reason
+from blender.records.faults import Fault, Faults, Ok, Outcome, paired, Reason
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 

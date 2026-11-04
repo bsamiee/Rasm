@@ -1,4 +1,4 @@
-#![feature(const_result_trait_fn, const_trait_impl, default_field_values, trait_alias, try_blocks_heterogeneous)]
+#![feature(const_result_trait_fn, const_trait_impl, default_field_values, float_conversions, trait_alias, try_blocks_heterogeneous)]
 
 use core::{
     borrow::Borrow,
@@ -18,10 +18,6 @@ use parry3d_f64::{
 use rayon::iter::{IndexedParallelIterator, IntoParallelRefIterator as _, ParallelIterator as _};
 use validated::Validated;
 
-// --- [TYPES] ---------------------------------------------------------------------------
-
-type Placed<'assembly> = (usize, &'assembly Pose, &'assembly SharedShape);
-
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const MAX_LEAF_COUNT: usize = 0x3FFF_FFFF;
@@ -31,11 +27,14 @@ const MAX_LEAF_COUNT: usize = 0x3FFF_FFFF;
 #[nutype::nutype(validate(finite, greater_or_equal = 0.0), derive(Debug, Clone, Copy, PartialEq, PartialOrd))]
 pub struct Distance(f64);
 
-#[derive(Debug, Clone, derive_more::AsRef)]
+#[derive_where::derive_where(Debug, Clone)]
+#[derive(derive_more::AsRef)]
 pub struct Assembly {
     elements: Vec<Option<(Pose, SharedShape)>>,
     #[as_ref]
     bvh: Bvh,
+    #[derive_where(skip(Debug, Clone))]
+    workspace: Option<Box<BvhWorkspace>>,
 }
 
 impl Assembly {
@@ -43,7 +42,11 @@ impl Assembly {
     where I: IntoIterator<Item = (Isometry3<f64>, SharedShape)> {
         let elements = elements.into_iter().map(|(pose, shape)| Some((Pose::from(pose), shape))).collect::<Vec<_>>();
         Validated::from((elements.len() <= MAX_LEAF_COUNT).ok_or(ProximityError::Capacity { count: elements.len() }))
-            .map2(Validated::from(bounds(elements.par_iter().map(Option::as_ref))), |(), bounds| Self { elements, bvh: Bvh::from_iter(strategy, bounds.into_iter().flatten().enumerate()) })
+            .map2(Validated::from(bounds(elements.par_iter().map(Option::as_ref))), |(), bounds| Self {
+                elements,
+                bvh: Bvh::from_iter(strategy, bounds.into_iter().flatten().enumerate()),
+                workspace: None,
+            })
             .ok()
     }
 
@@ -64,19 +67,17 @@ impl Assembly {
                 }
                 None => self.bvh.remove(leaf),
             }
-            if let Some(slot) = self.elements.get_mut(index) {
-                *slot = element;
-            }
+            self.elements[index] = element;
         });
-        let mut workspace = BvhWorkspace::default();
-        self.bvh.refit_parallel(&mut workspace);
-        self.bvh.optimize_incremental(&mut workspace);
+        let workspace = self.workspace.get_or_insert_default();
+        self.bvh.refit_parallel(workspace);
+        self.bvh.optimize_incremental(workspace);
         Ok(())
     }
 
-    fn element(&self, leaf: u32) -> Option<Placed<'_>> {
+    fn element(&self, leaf: u32) -> Option<(usize, &Pose, &SharedShape)> {
         let index = leaf as usize;
-        self.elements.get(index)?.as_ref().map(|(pose, shape)| (index, pose, shape))
+        self.elements[index].as_ref().map(|(pose, shape)| (index, pose, shape))
     }
 }
 

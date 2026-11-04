@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-restated-match-finalizer
-language: tsx
+language: tsxlang
 severity: error
 utils:
     function-reference:
@@ -61,4 +61,4 @@ rule:
                         - matches: unmatched-failure
                         - matches: {effect-module-member: {module: {regex: '\bResult$'}, member: {regex: '^fail$'}}}
 message: '`$OR_ELSE` restates `Match.option` or `Match.result` with an absent or failing default'
-note: 'Return plain values from the arms and finish with `Match.option` for `Option.none()` or `Match.result` for a `Result` failure on unmatched input'
+note: 'Return plain arm values; finish with `Match.option` for absence or `Match.result` for an unmatched input failure'

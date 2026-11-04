@@ -18,7 +18,7 @@ utils:
     get-call:
         kind: call_expression
         all:
-            - has: {kind: navigation_expression, has: {field: suffix, has: {field: suffix, regex: '^get$'}}}
+            - has: {nthChild: 1, kind: navigation_expression, all: [{has: {field: suffix, has: {field: suffix, regex: '^get$'}}}, {has: {field: target, matches: swift-result-value}}]}
             - has: {kind: call_suffix, has: {kind: value_arguments, not: {has: {kind: value_argument}}}}
     consumed:
         any:
@@ -102,12 +102,14 @@ rule:
         - kind: switch_statement
           not: {matches: partition}
           all:
+            - has: {field: expr, matches: swift-result-value}
             - has: {matches: success-projection}
             - has: {matches: failure-default}
             - not: {has: {kind: switch_entry, nthChild: {position: 3, ofRule: {kind: switch_entry}}}}
         - kind: if_statement
           regex: '^if\s+case\s+(\.success\(let\s+\w+\)|let\s+\.success\(\w+\))\s*='
           all:
+            - has: {matches: swift-result-value, follows: {regex: '^=$'}}
             - not: {has: {kind: if_statement}}
             - not: {matches: partition}
             - any:
@@ -125,6 +127,7 @@ rule:
         - kind: guard_statement
           regex: '^guard\s+case\s+(\.success\(let\s+\w+\)|let\s+\.success\(\w+\))\s*='
           all:
+            - has: {matches: swift-result-value, follows: {regex: '^=$'}}
             - not: {has: {regex: '^,$'}}
             - has:
                 kind: statements

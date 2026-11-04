@@ -5,5 +5,9 @@ arguments: [first]
 rule:
     kind: statements
     all:
-        - has: {nthChild: 1, matches: first}
-        - not: {has: {nthChild: 2}}
+        - not:
+            has:
+                all:
+                    - &statement {pattern: $_, not: {kind: 'comment, multiline_comment'}}
+                    - follows: {stopBy: end, all: [*statement]}
+        - has: {all: [*statement, {matches: first}]}

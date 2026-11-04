@@ -30,8 +30,9 @@ utils:
                                     has: {field: function, kind: member_access_expression, has: {field: expression, matches: source-path}}
                 - inside:
                     stopBy: end
-                    kind: query_expression
-                    has:
+                    inside: {kind: query_expression}
+                    follows:
+                        stopBy: end
                         kind: from_clause
                         all:
                             - has: {field: name, pattern: $ELEMENT}
@@ -40,13 +41,17 @@ utils:
               pattern: $LOCAL
               inside:
                 stopBy: end
-                kind: method_declaration
-                has:
+                inside: {kind: block}
+                follows:
                     stopBy: end
-                    kind: variable_declarator
-                    all:
-                        - has: {field: name, pattern: $LOCAL}
-                        - has: {nthChild: 2, matches: source-path}
+                    kind: local_declaration_statement
+                    has:
+                        kind: variable_declaration
+                        has:
+                            kind: variable_declarator
+                            all:
+                                - has: {field: name, pattern: $LOCAL}
+                                - has: {nthChild: 2, matches: source-path}
     source-path:
         any:
             - matches: source-root
@@ -99,57 +104,33 @@ utils:
 rule:
     kind: invocation_expression, member_access_expression, cast_expression
     all:
+        - any:
+            - kind: invocation_expression
+              has: {field: function, matches: csharp-throwing-factory, pattern: $CONVERSION}
+            - kind: member_access_expression
+              matches: csharp-throwing-factory
+              pattern: $CONVERSION
+            - kind: cast_expression
+              pattern: $CONVERSION
+              has: {field: type, kind: 'identifier, generic_name, qualified_name', not: {matches: {csharp-type-name: {name: {regex: '^I[A-Z]\w*$'}}}}}
         - matches: source-parameter
         - any:
             - kind: invocation_expression
-              all:
-                - has: {field: function, matches: csharp-throwing-factory, pattern: $CONVERSION}
-                - has: {field: arguments, has: {matches: source-argument}}
+              has: {field: arguments, has: {matches: source-argument}}
             - kind: member_access_expression
-              all:
-                - matches: csharp-throwing-factory
-                - pattern: $CONVERSION
-                - inside:
-                    kind: argument
+              inside:
+                kind: argument
+                inside:
+                    kind: argument_list
                     inside:
-                        kind: argument_list
-                        inside:
-                            kind: invocation_expression
-                            has: {field: function, kind: member_access_expression, has: {field: expression, matches: source-path}}
+                        kind: invocation_expression
+                        any:
+                            - has: {field: function, kind: member_access_expression, has: {field: expression, matches: source-path}}
+                            - matches: csharp-nameof-call
+                              inside: {kind: attribute_argument, has: {field: name, regex: '^Use$'}}
             - kind: cast_expression
               all:
-                - pattern: $CONVERSION
-                - has: {field: type, kind: 'identifier, generic_name, qualified_name', not: {matches: {csharp-type-name: {name: {regex: '^I[A-Z]\w*$'}}}}}
                 - has: {field: value, matches: key-source}
                 - matches: key-parameter
-            - kind: member_access_expression
-              all:
-                - matches: csharp-throwing-factory
-                - pattern: $CONVERSION
-                - inside:
-                    kind: argument
-                    inside:
-                        kind: argument_list
-                        inside:
-                            kind: invocation_expression
-                            all:
-                                - matches: csharp-nameof-call
-                                - inside: {kind: attribute_argument, has: {field: name, regex: '^Use$'}}
-            - kind: invocation_expression
-              all:
-                - has: {field: function, pattern: $CONVERSION}
-                - has: {field: arguments, has: {matches: source-argument}}
-                - matches:
-                    csharp-file-method-call:
-                        declaration:
-                            not: {matches: mapperly-mapping-method}
-                            has:
-                                stopBy: end
-                                any:
-                                    - kind: invocation_expression
-                                      has: {field: function, matches: csharp-throwing-factory}
-                                    - kind: member_access_expression
-                                      matches: csharp-throwing-factory
-                                      inside: {kind: argument}
 message: '`$CONVERSION` throws on rejected `$SOURCE` inside a mapping method'
 note: 'Validate `<source>` into target type through its `Fin`-returning factory before the mapping runs'

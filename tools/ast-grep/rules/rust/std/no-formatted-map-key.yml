@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-formatted-map-key
-language: rust
+language: rustlang
 severity: error
 utils:
     literal:
@@ -38,20 +38,21 @@ utils:
     key-name:
         regex: '(?i)(^|_)(id|key)$'
 rule:
-    matches: joined-key
     pattern: $KEY
-    any:
-        - nthChild: 1
-          inside: {kind: arguments, inside: {matches: owned-key-call}}
-        - inside: {kind: reference_expression, nthChild: 1, inside: {kind: arguments, inside: {matches: borrowed-key-call}}}
-        - inside: {kind: let_declaration, has: {field: pattern, kind: identifier, regex: '(?i)(^|_)id$'}}
-        - inside:
-            kind: let_declaration
-            has: {field: pattern, kind: identifier, pattern: $BOUND}
-            precedes: {stopBy: end, any: [{matches: bound-key-call}, {has: {stopBy: end, matches: bound-key-call}}]}
-        - inside: {kind: field_initializer, has: {field: field, matches: key-name}}
-        - inside: {kind: assignment_expression, has: {field: left, matches: key-name}}
-        - nthChild: 1
-          inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '(Id|Key)$'}}}
+    all:
+        - matches: joined-key
+        - any:
+            - nthChild: 1
+              inside: {kind: arguments, inside: {matches: owned-key-call}}
+            - inside: {kind: reference_expression, nthChild: 1, inside: {kind: arguments, inside: {matches: borrowed-key-call}}}
+            - inside: {kind: let_declaration, has: {field: pattern, kind: identifier, regex: '(?i)(^|_)id$'}}
+            - inside:
+                kind: let_declaration
+                has: {field: pattern, kind: identifier, pattern: $BOUND}
+                precedes: {stopBy: end, any: [{matches: bound-key-call}, {has: {stopBy: end, matches: bound-key-call}}]}
+            - inside: {kind: field_initializer, has: {field: field, matches: key-name}}
+            - inside: {kind: assignment_expression, has: {field: left, matches: key-name}}
+            - nthChild: 1
+              inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '(Id|Key)$'}}}
 message: '`$KEY` joins typed parts into a text key'
 note: 'Key the map by a tuple `(<a>, <b>)` or a struct deriving `Hash` and `Eq` for a hash map or `Ord` for a B-tree map'

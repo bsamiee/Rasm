@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-owner-per-member-row
-language: python
+language: pythonlang
 severity: error
 utils:
     sibling: {regex: '^[^,#]'}
@@ -40,20 +40,33 @@ utils:
             - matches: owned
             - kind: list_splat
               has: {has: {field: body, matches: owned}}
-    row:
+    object-setter:
         any:
-            - kind: call
-              has: {field: arguments, has: {matches: python-identifier-string, precedes: {stopBy: {matches: sibling}, kind: keyword_argument}}}
-              any: [{pattern: '$F($_S, $KW=$_V)'}, {pattern: '$F($O, $_S, $KW=$_V)'}]
-            - kind: call
-              pattern: $F($O, $_S, $_V)
-              has: {field: arguments, has: {nthChild: 2, matches: python-identifier-string}}
-              not: {has: {field: arguments, has: {kind: keyword_argument}}}
-            - kind: tuple
-              pattern: ($O, $_S, $_V)
-              has: {nthChild: 2, matches: python-identifier-string}
-            - kind: expression_statement
-              has: {kind: call, matches: row}
+            - &setter-reference
+              kind: attribute
+              all:
+                - has: {field: attribute, regex: '^__setattr__$'}
+                - has: {field: object, matches: {python-builtin-name: {name: {regex: '^object$'}}}}
+            - kind: identifier
+              matches: {python-assigned-name: {value: *setter-reference}}
+            - kind: parenthesized_expression
+              has: {matches: object-setter}
+    row:
+        all:
+            - any:
+                - kind: call
+                  has: {field: arguments, has: {matches: python-identifier-string, precedes: {stopBy: {matches: sibling}, kind: keyword_argument}}}
+                  any: [{pattern: '$F($_S, $KW=$_V)'}, {pattern: '$F($O, $_S, $KW=$_V)'}]
+                - kind: call
+                  pattern: $F($O, $_S, $_V)
+                  has: {field: arguments, has: {nthChild: 2, matches: python-identifier-string}}
+                  not: {has: {field: arguments, has: {kind: keyword_argument}}}
+                - kind: tuple
+                  pattern: ($O, $_S, $_V)
+                  has: {nthChild: 2, matches: python-identifier-string}
+                - kind: expression_statement
+                  has: {kind: call, matches: row}
+            - not: {kind: call, has: {field: function, matches: object-setter}}
 rule:
     any:
         - kind: list_splat

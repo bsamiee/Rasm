@@ -71,7 +71,7 @@ const batch = {
     boxes: Schema.Array(Schema.Literals(BOXES)),
     modal: Model.fields.modal,
 };
-const Request = Schema.TaggedUnion({ Survey: batch, Case: { ...batch, signatures: Model.fields.signatures, case: HostCase } });
+const EngineRequest = Schema.TaggedUnion({ Survey: batch, Case: { ...batch, signatures: Model.fields.signatures, case: HostCase } });
 const HostOutcome = Outcome.mapFields(
     Struct.assign({
         ...Outcome.common,
@@ -92,4 +92,4 @@ const Answered = replied(Schema.Struct({ outcome: HostOutcome, kept: Schema.Arra
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Answered, BOXES, Engine, HostCase, HostOutcome, Lockdown, Model, Page, Placed, Recorded, Request, Staged, Survey, Surveyed };
+export { Answered, BOXES, Engine, EngineRequest, HostCase, HostOutcome, Lockdown, Model, Page, Placed, Recorded, Staged, Survey, Surveyed };

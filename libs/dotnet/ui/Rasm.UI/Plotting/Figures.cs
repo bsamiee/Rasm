@@ -64,15 +64,38 @@ public sealed partial class Interpolation {
     internal Seq<SKPoint> Traced(Seq<SKPoint> knots, double[] at, float density) =>
         (Spline.Filter(_ => knots.Count >= 3).Map(held => Splined(knots, at, density, held)) | Bump.Filter(_ => knots.Count >= 2).Map(along => Bumped(knots, density, along))).IfNone(knots);
 
-    internal void Edges(SKPathBuilder path, Seq<SKPoint> knots, double[] at, float density, bool closed) =>
-        path.AddPoly([.. this == Linear ? Simplified(knots, 0.5f / density, closed) : Traced(knots, at, density)], closed);
+    internal void Edges(SKPathBuilder path, Seq<SKPoint> knots, double[] at, float density, bool closed) {
+        if (Spline.Case is Func<double[], double[], CubicSpline> spline && knots.Count >= 3) {
+            (CubicSpline across, CubicSpline up) = Curves(knots, at, spline);
+            SKPoint Tangent(double t, double distance) => new((float)(across.Differentiate(t) * distance), (float)(up.Differentiate(t) * distance));
+            path.MoveTo(knots[0]);
+            for (int index = 1; index < knots.Count; index++) {
+                double third = (at[index] - at[index - 1]) / 3d;
+                path.CubicTo(knots[index - 1] + Tangent(at[index - 1], third), knots[index] - Tangent(at[index], third), knots[index]);
+            }
+        } else if (Bump.Case is PhysicalAxis along && knots.Count >= 2) {
+            path.MoveTo(knots[0]);
+            _ = toSeq(knots.AsIterable().Window(2)).Iter(pair => {
+                (Vector2 from, Vector2 to) = ((Vector2)pair[0], (Vector2)pair[1]);
+                float middle = (along.Of(from) + along.Of(to)) / 2f;
+                path.CubicTo((SKPoint)along.With(from, middle), (SKPoint)along.With(to, middle), pair[1]);
+            });
+        } else {
+            path.AddPoly([.. Simplified(knots, 0.5f / density, closed)], closed);
+            return;
+        }
+        if (closed) path.Close();
+    }
 
     internal static double[] Chords(Seq<SKPoint> knots) => [.. toSeq(knots.AsIterable().Window(2, static pair => (double)SKPoint.Distance(pair[0], pair[1]))).Scan(0d, static (length, step) => length + step)];
 
     private static Seq<SKPoint> Splined(Seq<SKPoint> knots, double[] at, float density, Func<double[], double[], CubicSpline> spline) {
-        (CubicSpline across, CubicSpline up) = (spline(at, [.. knots.Map(static knot => (double)knot.X)]), spline(at, [.. knots.Map(static knot => (double)knot.Y)]));
+        (CubicSpline across, CubicSpline up) = Curves(knots, at, spline);
         return Tabulated(knots, density, (index, step) => double.Lerp(at[index], at[index + 1], step) switch { var t => new SKPoint((float)across.Interpolate(t), (float)up.Interpolate(t)) });
     }
+
+    private static (CubicSpline Across, CubicSpline Up) Curves(Seq<SKPoint> knots, double[] at, Func<double[], double[], CubicSpline> spline) =>
+        (spline(at, [.. knots.Map(static knot => (double)knot.X)]), spline(at, [.. knots.Map(static knot => (double)knot.Y)]));
 
     private static Seq<SKPoint> Bumped(Seq<SKPoint> knots, float density, PhysicalAxis along) =>
         Tabulated(knots, density, (index, step) => {
@@ -153,7 +176,7 @@ public abstract partial record Figure : IInterpolated<Figure> {
                 ? source.Summary.Toward(other.Summary, held.Progress).Map(summary => (Figure)(other with { At = float.Lerp(source.At, other.At, held.Progress), Summary = summary }))
                 : None,
             field: static (held, source) => held.To is Field other && source.Columns == other.Columns && source.Rows == other.Rows
-                ? source.Values.Toward(other.Values, held.Progress).Bind(values => Field.Validated(other.Columns, other.Rows, values).ToOption()).Map(static field => (Figure)field)
+                ? source.Values.Toward(other.Values, held.Progress).Map(values => (Figure)new Field(other.Columns, other.Rows, values))
                 : None,
             label: static (held, source) => held.To is Label other ? source.Along.Toward(other.Along, held.Progress).Map(along => (Figure)(other with { Along = along })) : None);
 
@@ -447,7 +470,7 @@ public abstract partial record Figure : IInterpolated<Figure> {
         public Samples Values { get; }
 
         public static Fin<Field> Validated(int columns, int rows, Samples values) =>
-            UIFault.Unless(columns > 0 && rows > 0 && columns * rows == values.Values.Length, UIReason.Range, (columns, rows, values.Values.Length)).Map(_ => new Field(columns, rows, values));
+            UIFault.Unless(columns > 0 && rows > 0 && Math.BigMul(columns, rows) == values.Values.Length, UIReason.Range, (columns, rows, values.Values.Length)).Map(_ => new Field(columns, rows, values));
 
         internal override void Interior(SKPathBuilder path, PlotFrame frame, Pen pen) =>
             frame.Plane.Enclose(path, frame, pen, frame.Plane.Spans(PhysicalAxis.Horizontal, None), frame.Plane.Spans(PhysicalAxis.Vertical, None));

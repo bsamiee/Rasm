@@ -1,12 +1,12 @@
-"""Render setups: what a render set captures from a member scene, setup recipes applied over unlocked members, the category and compositor entry captures, and the locks setups keep, stored per scene for any key kind."""
+"""Render setup captures, recipes, presets, and locks on settings and compositor entries."""
 
 from collections.abc import Callable, Mapping
 from functools import cached_property, partial
 from types import GenericAlias, MappingProxyType
-from typing import Final, Protocol, Self
+from typing import Final, Generic, Protocol, Self, TypeVar
 
 import bpy
-from expression import Nothing, Ok, Option, Some
+from expression import Option, Some
 import msgspec
 from typing_extensions import TypeForm
 
@@ -17,7 +17,7 @@ from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.extension.reports import alerted
 from blender.bpy.render.compositor.colors import COLOR_INPUT
-from blender.bpy.render.compositor.effects import Entry
+from blender.bpy.render.compositor.effects import CompositorRecord, Entry
 from blender.bpy.render.compositor.entries import Enabled
 from blender.bpy.render.compositor.inputs import keyed
 from blender.bpy.render.compositor.offered import OfferedEffects
@@ -29,13 +29,15 @@ from blender.bpy.settings.presets import Preset
 from blender.bpy.ui.layout.rows import ConditionalRow, Layout, operator_button, RowContent, RowDraw
 from blender.bpy.ui.layout.templates import PresetGallery
 from blender.bpy.ui.layout.values import hosted, Listing
-from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
-from blender.records.fields import Case, Name
+from blender.records.faults import accumulated, Fault, Nothing, Ok, Outcome, paired, Reason
+from blender.records.fields import Name
 from blender.records.stores import content_hash
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type Toggle[K] = Callable[[K, bpy.types.UILayout, Struct, bpy.types.Context], None]
+
+_R_co = TypeVar("_R_co", bound=CompositorRecord, default=CompositorRecord, covariant=True)
 
 
 class Capture[C: msgspec.Struct](Protocol):
@@ -78,11 +80,11 @@ class CategorySettings(msgspec.Struct, frozen=True, kw_only=True):
     layers: Mapping[str, Snapshot]
 
 
-class EffectSetup[R: Case](msgspec.Struct, frozen=True, kw_only=True):
+class EffectSetup(msgspec.Struct, Generic[_R_co], frozen=True, kw_only=True):  # ruff: ignore[non-pep695-generic-class]
     """Category settings of a scene and its view layers, and the compositor entries it holds by name in stack order."""
 
     settings: CategorySettings
-    effects: Mapping[Name, Valued[Entry[R]]]
+    effects: Mapping[Name, Valued[Entry[_R_co]]]
 
 
 class LockRequest(bpy.types.PropertyGroup):
@@ -128,18 +130,19 @@ class Locking[K](msgspec.Struct, frozen=True, kw_only=True, dict=True):
         """Toggle command keyed after the locks."""
         return Operator.of(LockRequest, named=Some(f"{self.key}_toggle"))(self.lock_toggle)
 
-    def stored(self, identity: Identity) -> Outcome[Stored[Locks[K]]]:
+    def stored(self, identity: Identity) -> Stored[Locks[K]]:
         """Binds the per-scene lock store."""
         return Stored.keyed(identity, self.key, msgspec.msgpack.Decoder(self.form))
 
     def read(self, identity: Identity, scene: bpy.types.Scene) -> Outcome[Locks[K]]:
         """Reads a scene's locks, none before the first lock."""
-        return self.stored(identity).bind(partial(_locked, scene=scene))
+        return _locked(self.stored(identity), scene=scene)
 
     def lock_toggle(self, call: Call[LockRequest]) -> Outcome[Done]:
         """Toggles a key's lock on the holder its button drew, in the holder scene's lock store."""
+        store = self.stored(call.identity)
 
-        def toggled(owner: Struct, store: Stored[Locks[K]], key: K) -> Outcome[Done]:
+        def toggled(owner: Struct, key: K) -> Outcome[Done]:
             return (
                 self
                 .holder(owner)
@@ -148,11 +151,9 @@ class Locking[K](msgspec.Struct, frozen=True, kw_only=True, dict=True):
                 .map(lambda _: Done())
             )
 
-        return paired(call.identity.identifier(self.owner).bind(lambda name: hosted(name, call.context)), self.stored(call.identity), self.parsed(call.properties.key)).bind(
-            lambda parts: toggled(*parts)
-        )
+        return paired(hosted(call.identity.identifier(self.owner), call.context), self.parsed(call.properties.key)).bind(lambda parts: toggled(*parts))
 
-    def toggles(self, identity: Identity) -> Outcome[Toggle[K]]:
+    def toggles(self, identity: Identity) -> Toggle[K]:
         """Binds the lock store once into the draw of any key's locked or unlocked toggle on the drawn holder."""
 
         def toggle(name: str, store: Stored[Locks[K]], key: K, layout: bpy.types.UILayout, holder: Struct, _context: bpy.types.Context) -> None:
@@ -170,28 +171,28 @@ class Locking[K](msgspec.Struct, frozen=True, kw_only=True, dict=True):
             for found in self.holder(holder).to_list():
                 shown(*found)
 
-        return paired(identity.identifier(self.owner), self.stored(identity)).map(lambda parts: partial(toggle, *parts))
+        return partial(toggle, identity.identifier(self.owner), self.stored(identity))
 
     def drawn(self, key: K, identity: Identity) -> Outcome[RowDraw]:
         """Draws the toggle of a key's lock on the drawn holder."""
-        return self.toggles(identity).map(lambda toggle: partial(toggle, key))
+        return Ok(partial(self.toggles(identity), key))
 
     def row(self, key: K) -> RowContent:
         """Lock toggle of a key on the drawn holder with its command."""
-        return Layout(rows=lambda identity: self.drawn(key, identity).map(lambda draw: (draw,)), prerequisites=(self.operator,))
+        return Layout(builder=Some(lambda identity: self.drawn(key, identity).map(lambda draw: (draw,))), prerequisites=(self.operator,))
 
 
 class EntryLocks(ConditionalRow, frozen=True, kw_only=True):
     """Closed panel over a drawn compositor entry listing its enable flags and visible inputs, each beside the toggle of its entry lock."""
 
     @staticmethod
-    def acquisitions(_identity: Identity, /) -> Outcome[Acquisitions]:
+    def acquisitions(_identity: Identity, /) -> Acquisitions:
         """Acquires the entry lock command."""
-        return Ok((ENTRY_LOCKS.operator,))
+        return (ENTRY_LOCKS.operator,)
 
     def drawn(self, identity: Identity, /) -> Outcome[RowDraw]:
         """Binds the entry lock store once into the panel draw."""
-        return ENTRY_LOCKS.toggles(identity).map(lambda toggle: self.conditioned(partial(self.shown, identity, toggle)))
+        return Ok(self.conditioned(partial(self.shown, identity, ENTRY_LOCKS.toggles(identity))))
 
     @staticmethod
     def shown(identity: Identity, toggle: Toggle[Key], layout: bpy.types.UILayout, holder: object, context: bpy.types.Context) -> None:
@@ -270,26 +271,26 @@ class Categories(msgspec.Struct, frozen=True, kw_only=True):
         return ()
 
 
-class EffectSetups[R: Case](msgspec.Struct, frozen=True, kw_only=True, dict=True):
+class EffectSetups(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     """Category capture with the compositor entries the `effects` own, entry locks kept by every setup, and setup presets drawn as a gallery of `tile` icons.
 
     `tile` returns the preview icon of a slot showing the preview-enabled entries a setup projects over the drawn scene, in stack order.
     """
 
-    effects: OfferedEffects[R]
-    tile: Option[Callable[[Identity, Key, tuple[Valued[Entry[R]], ...]], Option[int]]] = Nothing
+    effects: OfferedEffects
+    tile: Option[Callable[[Identity, bpy.types.Scene, Key, tuple[Valued[Entry], ...]], Option[int]]] = Nothing
 
     @cached_property
-    def form(self) -> TypeForm[EffectSetup[R]]:
+    def form(self) -> TypeForm[EffectSetup]:
         """Setup record over the offered effect records."""
-        return GenericAlias(EffectSetup, (self.effects.form,))  # type: ignore[return-value]  # ty: ignore[invalid-type-form]
+        return GenericAlias(EffectSetup, (self.effects.form,))  # type: ignore[return-value]  # ty: ignore[invalid-type-form, unsound-return-statement]
 
-    def captured(self, members: Members, scene: bpy.types.Scene, /) -> Outcome[EffectSetup[R]]:
+    def captured(self, members: Members, scene: bpy.types.Scene, /) -> Outcome[EffectSetup]:
         """Captures category settings and owned entries."""
         return paired(CATEGORIES.captured(members, scene), recorded(self.effects, members.identity, scene)).map(lambda pair: EffectSetup(settings=pair[0], effects=pair[1]))
 
     @staticmethod
-    def projected(members: Members, scene: bpy.types.Scene, recipe: EffectSetup[R], current: EffectSetup[R], /) -> Outcome[tuple[EffectSetup[R], EffectSetup[R]]]:
+    def projected(members: Members, scene: bpy.types.Scene, recipe: EffectSetup, current: EffectSetup, /) -> Outcome[tuple[EffectSetup, EffectSetup]]:
         """Projects recipe settings and entries over current ones, setting and entry locks kept."""
         return paired(CATEGORIES.projected(members, scene, recipe.settings, current.settings), ENTRY_LOCKS.read(members.identity, scene)).map(
             lambda parts: (
@@ -298,23 +299,23 @@ class EffectSetups[R: Case](msgspec.Struct, frozen=True, kw_only=True, dict=True
             )
         )
 
-    def applied(self, members: Members, scene: bpy.types.Scene, sparse: EffectSetup[R], /) -> Outcome[None]:
+    def applied(self, members: Members, scene: bpy.types.Scene, sparse: EffectSetup, /) -> Outcome[None]:
         """Writes sparse settings and entries, locked entries and fields kept."""
         return paired(
             CATEGORIES.applied(members, scene, sparse.settings),
             ENTRY_LOCKS.read(members.identity, scene).bind(lambda locks: applied(self.effects, members.identity, scene, sparse.effects, locked=locks.whole(WHOLE), fields=locks.held)),
         ).map(lambda _: None)
 
-    def rows(self, _members: Members, scope: "SetupScope[EffectSetup[R]]", /) -> tuple[RowContent, ...]:
+    def rows(self, _members: Members, scope: "SetupScope[EffectSetup]", /) -> tuple[RowContent, ...]:
         """Draws setup presets as tiles above the member lists while a tile source is given."""
         return tuple(PresetGallery(listing=scope.listing, tile=partial(self.tiled, tile)) for tile in self.tile.to_list())
 
-    def tiled(self, tile: Callable[[Identity, Key, tuple[Valued[Entry[R]], ...]], Option[int]], identity: Identity, context: bpy.types.Context | None, setup: EffectSetup[R]) -> Option[int]:
+    def tiled(self, tile: Callable[[Identity, bpy.types.Scene, Key, tuple[Valued[Entry], ...]], Option[int]], identity: Identity, context: bpy.types.Context | None, setup: EffectSetup) -> Option[int]:
         """Returns the icon of the preview-enabled entries a setup projects over the context scene's entries, locks kept."""
 
-        def shown(scene: bpy.types.Scene, current: Mapping[Name, Valued[Entry[R]]], locks: Locks[Key]) -> Option[int]:
+        def shown(scene: bpy.types.Scene, current: Mapping[Name, Valued[Entry]], locks: Locks[Key]) -> Option[int]:
             entries = tuple(held for held in projected(current, setup.effects, locked=locks.whole(WHOLE), fields=locks.held).values() if Enabled.PREVIEW in held.enables)
-            return tile(identity, f"{KEY}_{scene.session_uid}_{content_hash(EffectSetups, setup).hex()}", entries)
+            return tile(identity, scene, f"{KEY}_{content_hash(EffectSetups, setup).hex()}", entries)
 
         return (
             Option

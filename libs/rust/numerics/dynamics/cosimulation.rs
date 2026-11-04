@@ -1,15 +1,24 @@
-use core::{convert::identity, hash::Hash, iter, ops::ControlFlow};
-use std::{collections::HashMap, path::Path};
+use core::{
+    convert::identity,
+    iter,
+    ops::ControlFlow,
+    sync::atomic::{AtomicBool, Ordering},
+};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+    thread,
+};
 
 use fmi::{
     fmi2::{
         self, Fmi2Error, Fmi2Res,
         import::Fmi2Import,
-        instance::{CoSimulation as _, Common as _},
+        instance::{CoSimulation as _, Common},
         schema::{ScalarVariableElement, SimpleTypeElement},
     },
     fmi3::{
-        self, CoSimulation as _, Fmi3Error, Fmi3Model as _, GetSet as _,
+        self, CoSimulation as _, Fmi3Error, Fmi3Model as _, GetSet,
         import::Fmi3Import,
         schema::{ArrayableVariableTrait, FloatVariableAlias, TypeDefinition, TypedVariableTrait as _, Variable, VariableAlias},
     },
@@ -18,23 +27,20 @@ use fmi::{
     traits::{FmiImport as _, FmiInstance, FmiStatus},
 };
 use itertools::Itertools as _;
-use uom::{
-    fmt::DisplayStyle::Abbreviation,
-    si::{f64::Time, time::second},
-};
+use uom::si::{f64::Time, time::second};
 
 use crate::{BaseUnit, Causality, DynamicsError, Grid, Kind, Operation, Port};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, enum_map::Enum)]
 enum Fmi2Type {
     Real,
     Integer,
     Boolean,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, enum_map::Enum)]
 enum Fmi3Type {
     Float32,
     Float64,
@@ -73,64 +79,62 @@ impl Fmu {
     }
 
     pub(crate) fn set(&mut self, references: &[usize], values: &[f64]) -> Result<(), DynamicsError> {
-        fn stored<T, R, E>(value_references: &[u32], written: &[f64], narrow: impl Fn(f64) -> T, setter: impl FnOnce(&[u32], &[T]) -> Result<R, E>) -> Result<(), DynamicsError>
+        fn stored<T, R, E>(value_references: &[u32], written: Vec<f64>, narrow: impl Fn(f64) -> T, setter: impl FnOnce(&[u32], &[T]) -> Result<R, E>) -> Result<(), DynamicsError>
         where E: Into<fmi::Error> {
-            setter(value_references, &written.iter().copied().map(narrow).collect_vec()).map(drop).map_err(failure(Operation::Set))
+            setter(value_references, &written.into_iter().map(narrow).collect_vec()).map(drop).map_err(failure(Operation::Set))
         }
         let members = iter::zip(references.iter().copied(), values.iter().copied());
         match &mut self.instance {
-            Instance::Fmi2 { instance, import: _, variables } => grouped(variables, members)?.try_for_each(|(typed, held, written)| match typed {
-                Fmi2Type::Real => stored(&held, &written, identity, |vrs, narrowed| instance.set_real(vrs, narrowed)),
-                Fmi2Type::Integer => stored(&held, &written, |value| value.round().to_int_saturating::<i32>(), |vrs, narrowed| instance.set_integer(vrs, narrowed)),
-                Fmi2Type::Boolean => stored(&held, &written, |value| i32::from(value != 0.0), |vrs, narrowed| instance.set_boolean(vrs, narrowed)),
+            Instance::Fmi2 { instance, import: _, variables } => grouped(variables, members).try_for_each(|(typed, held, written)| match typed {
+                Fmi2Type::Real => stored(&held, written, identity, |vrs, narrowed| instance.set_real(vrs, narrowed)),
+                Fmi2Type::Integer => stored(&held, written, |value| value.round().to_int_saturating::<i32>(), |vrs, narrowed| instance.set_integer(vrs, narrowed)),
+                Fmi2Type::Boolean => stored(&held, written, |value| i32::from(value != 0.0), |vrs, narrowed| instance.set_boolean(vrs, narrowed)),
             }),
-            Instance::Fmi3 { instance, import: _, variables } => grouped(variables, members)?.try_for_each(|(typed, held, written)| match typed {
-                Fmi3Type::Float32 => stored(&held, &written, f64::cast::<f32>, |vrs, narrowed| instance.set_float32(vrs, narrowed)),
-                Fmi3Type::Float64 => stored(&held, &written, identity, |vrs, narrowed| instance.set_float64(vrs, narrowed)),
-                Fmi3Type::Int8 => stored(&held, &written, |value| value.round().to_int_saturating::<i8>(), |vrs, narrowed| instance.set_int8(vrs, narrowed)),
-                Fmi3Type::UInt8 => stored(&held, &written, |value| value.round().to_int_saturating::<u8>(), |vrs, narrowed| instance.set_uint8(vrs, narrowed)),
-                Fmi3Type::Int16 => stored(&held, &written, |value| value.round().to_int_saturating::<i16>(), |vrs, narrowed| instance.set_int16(vrs, narrowed)),
-                Fmi3Type::UInt16 => stored(&held, &written, |value| value.round().to_int_saturating::<u16>(), |vrs, narrowed| instance.set_uint16(vrs, narrowed)),
-                Fmi3Type::Int32 => stored(&held, &written, |value| value.round().to_int_saturating::<i32>(), |vrs, narrowed| instance.set_int32(vrs, narrowed)),
-                Fmi3Type::UInt32 => stored(&held, &written, |value| value.round().to_int_saturating::<u32>(), |vrs, narrowed| instance.set_uint32(vrs, narrowed)),
-                Fmi3Type::Boolean => stored(&held, &written, |value| value != 0.0, |vrs, narrowed| instance.set_boolean(vrs, narrowed)),
+            Instance::Fmi3 { instance, import: _, variables } => grouped(variables, members).try_for_each(|(typed, held, written)| match typed {
+                Fmi3Type::Float32 => stored(&held, written, f64::cast::<f32>, |vrs, narrowed| instance.set_float32(vrs, narrowed)),
+                Fmi3Type::Float64 => stored(&held, written, identity, |vrs, narrowed| instance.set_float64(vrs, narrowed)),
+                Fmi3Type::Int8 => stored(&held, written, |value| value.round().to_int_saturating::<i8>(), |vrs, narrowed| instance.set_int8(vrs, narrowed)),
+                Fmi3Type::UInt8 => stored(&held, written, |value| value.round().to_int_saturating::<u8>(), |vrs, narrowed| instance.set_uint8(vrs, narrowed)),
+                Fmi3Type::Int16 => stored(&held, written, |value| value.round().to_int_saturating::<i16>(), |vrs, narrowed| instance.set_int16(vrs, narrowed)),
+                Fmi3Type::UInt16 => stored(&held, written, |value| value.round().to_int_saturating::<u16>(), |vrs, narrowed| instance.set_uint16(vrs, narrowed)),
+                Fmi3Type::Int32 => stored(&held, written, |value| value.round().to_int_saturating::<i32>(), |vrs, narrowed| instance.set_int32(vrs, narrowed)),
+                Fmi3Type::UInt32 => stored(&held, written, |value| value.round().to_int_saturating::<u32>(), |vrs, narrowed| instance.set_uint32(vrs, narrowed)),
+                Fmi3Type::Boolean => stored(&held, written, |value| value != 0.0, |vrs, narrowed| instance.set_boolean(vrs, narrowed)),
             }),
         }
     }
 
-    pub(crate) fn get(&mut self, references: &[usize]) -> Result<Vec<f64>, DynamicsError> {
-        fn fetched<T, R, E>(value_references: &[u32], widen: impl Fn(T) -> f64, getter: impl FnOnce(&[u32], &mut [T]) -> Result<R, E>) -> Result<Vec<f64>, DynamicsError>
+    pub(crate) fn get(&mut self, references: &[usize], values: &mut [f64]) -> Result<(), DynamicsError> {
+        fn fetched<I, T, R, E>(instance: &mut I, value_references: &[u32], widen: impl Fn(T) -> f64, getter: impl FnOnce(&mut I, &[u32], &mut [T]) -> Result<R, E>) -> Result<Vec<f64>, DynamicsError>
         where
             T: Clone + Default,
             E: Into<fmi::Error>,
         {
             let mut values = vec![T::default(); value_references.len()];
-            getter(value_references, &mut values).map_err(failure(Operation::Get))?;
+            getter(instance, value_references, &mut values).map_err(failure(Operation::Get))?;
             Ok(values.into_iter().map(widen).collect())
         }
-        fn gathered<S>(variables: &[(S, u32)], references: &[usize], mut fetch: impl FnMut(S, &[u32]) -> Result<Vec<f64>, DynamicsError>) -> Result<Vec<f64>, DynamicsError>
-        where S: Copy + Ord + Hash {
-            grouped(variables, iter::zip(references.iter().copied(), 0_usize..))?
-                .map(|(typed, held, positions)| fetch(typed, &held).map(|values| iter::zip(positions, values)))
-                .flatten_ok()
-                .process_results(|located| located.sorted_unstable_by_key(|&(position, _)| position).map(|(_, value)| value).collect())
+        fn gathered<S>(variables: &[(S, u32)], references: &[usize], values: &mut [f64], mut fetch: impl FnMut(S, &[u32]) -> Result<Vec<f64>, DynamicsError>) -> Result<(), DynamicsError>
+        where S: Copy + enum_map::Enum {
+            grouped(variables, iter::zip(references.iter().copied(), values))
+                .try_for_each(|(typed, held, slots)| fetch(typed, &held).map(|fetched| iter::zip(slots, fetched).for_each(|(slot, value)| *slot = value)))
         }
         match &mut self.instance {
-            Instance::Fmi2 { instance, import: _, variables } => gathered(variables, references, |typed, held| match typed {
-                Fmi2Type::Real => fetched(held, identity, |vrs, values| instance.get_real(vrs, values)),
-                Fmi2Type::Integer => fetched(held, f64::from, |vrs, values: &mut [i32]| instance.get_integer(vrs, values)),
-                Fmi2Type::Boolean => fetched(held, f64::from, |vrs, values: &mut [i32]| instance.get_boolean(vrs, values)),
+            Instance::Fmi2 { instance, import: _, variables } => gathered(variables, references, values, |typed, held| match typed {
+                Fmi2Type::Real => fetched(&mut **instance, held, identity, Common::get_real),
+                Fmi2Type::Integer => fetched(&mut **instance, held, f64::from, Common::get_integer),
+                Fmi2Type::Boolean => fetched(&mut **instance, held, f64::from, Common::get_boolean),
             }),
-            Instance::Fmi3 { instance, import: _, variables } => gathered(variables, references, |typed, held| match typed {
-                Fmi3Type::Float32 => fetched(held, f64::from, |vrs, values: &mut [f32]| instance.get_float32(vrs, values)),
-                Fmi3Type::Float64 => fetched(held, identity, |vrs, values| instance.get_float64(vrs, values)),
-                Fmi3Type::Int8 => fetched(held, f64::from, |vrs, values: &mut [i8]| instance.get_int8(vrs, values)),
-                Fmi3Type::UInt8 => fetched(held, f64::from, |vrs, values: &mut [u8]| instance.get_uint8(vrs, values)),
-                Fmi3Type::Int16 => fetched(held, f64::from, |vrs, values: &mut [i16]| instance.get_int16(vrs, values)),
-                Fmi3Type::UInt16 => fetched(held, f64::from, |vrs, values: &mut [u16]| instance.get_uint16(vrs, values)),
-                Fmi3Type::Int32 => fetched(held, f64::from, |vrs, values: &mut [i32]| instance.get_int32(vrs, values)),
-                Fmi3Type::UInt32 => fetched(held, f64::from, |vrs, values: &mut [u32]| instance.get_uint32(vrs, values)),
-                Fmi3Type::Boolean => fetched(held, f64::from, |vrs, values: &mut [bool]| instance.get_boolean(vrs, values)),
+            Instance::Fmi3 { instance, import: _, variables } => gathered(variables, references, values, |typed, held| match typed {
+                Fmi3Type::Float32 => fetched(&mut **instance, held, f64::from, GetSet::get_float32),
+                Fmi3Type::Float64 => fetched(&mut **instance, held, identity, GetSet::get_float64),
+                Fmi3Type::Int8 => fetched(&mut **instance, held, f64::from, GetSet::get_int8),
+                Fmi3Type::UInt8 => fetched(&mut **instance, held, f64::from, GetSet::get_uint8),
+                Fmi3Type::Int16 => fetched(&mut **instance, held, f64::from, GetSet::get_int16),
+                Fmi3Type::UInt16 => fetched(&mut **instance, held, f64::from, GetSet::get_uint16),
+                Fmi3Type::Int32 => fetched(&mut **instance, held, f64::from, GetSet::get_int32),
+                Fmi3Type::UInt32 => fetched(&mut **instance, held, f64::from, GetSet::get_uint32),
+                Fmi3Type::Boolean => fetched(&mut **instance, held, f64::from, GetSet::get_boolean),
             }),
         }
     }
@@ -148,11 +152,7 @@ impl Fmu {
             && !variable.unwrap_or_default()
             && longest - shortest > resolution
         {
-            return Err(failure(Operation::Initialize)(fmi::Error::UnsupportedInterface(format!(
-                "variable communication step size from {} to {}",
-                shortest.into_format_args(second, Abbreviation),
-                longest.into_format_args(second, Abbreviation)
-            ))));
+            return Err(DynamicsError::StepSizes { shortest, longest });
         }
         let (stop, tolerance) = (Some(stop), self.tolerance.or_else(|| self.default_experiment().tolerance()));
         match &mut self.instance {
@@ -168,19 +168,24 @@ impl Fmu {
         }
     }
 
-    pub(crate) fn step(&mut self, time: Time, step: Time) -> Result<ControlFlow<Time>, DynamicsError> {
+    pub(crate) fn step(&mut self, time: Time, step: Time, cancel: &AtomicBool) -> Result<ControlFlow<Option<Time>>, DynamicsError> {
         let (time, step) = (time.get::<second>(), step.get::<second>());
         match &mut self.instance {
             Instance::Fmi2 { instance, import: _, variables: _ } => {
                 let mut settled = instance.do_step(time, step, true);
                 while matches!(settled, Ok(Fmi2Res::Pending)) {
+                    if cancel.load(Ordering::Relaxed) {
+                        instance.cancel_step().map(drop).map_err(failure(Operation::Step))?;
+                        return Ok(ControlFlow::Break(None));
+                    }
+                    thread::yield_now();
                     settled = instance.do_step_status().and_then(FmiStatus::ok);
                 }
                 match settled {
                     Ok(Fmi2Res::OK | Fmi2Res::Warning | Fmi2Res::Pending) => Ok(ControlFlow::Continue(())),
                     Err(Fmi2Error::Discard) => instance.terminated().and_then(|terminated| {
                         terminated.ok_or(Fmi2Error::Discard)?;
-                        instance.last_successful_time().map(|last_successful_time| ControlFlow::Break(Time::new::<second>(last_successful_time)))
+                        instance.last_successful_time().map(|last_successful_time| ControlFlow::Break(Some(Time::new::<second>(last_successful_time))))
                     }),
                     Err(source @ (Fmi2Error::TypesPlatformMismatch(_) | Fmi2Error::Error | Fmi2Error::Fatal)) => Err(source),
                 }
@@ -190,7 +195,7 @@ impl Fmu {
                 let (mut event_handling_needed, mut terminate_simulation, mut early_return, mut last_successful_time) = (false, false, false, time);
                 let stepped = instance.do_step(time, step, true, &mut event_handling_needed, &mut terminate_simulation, &mut early_return, &mut last_successful_time);
                 match (stepped, terminate_simulation) {
-                    (Ok(_) | Err(Fmi3Error::Discard), true) => Ok(ControlFlow::Break(Time::new::<second>(last_successful_time))),
+                    (Ok(_) | Err(Fmi3Error::Discard), true) => Ok(ControlFlow::Break(Some(Time::new::<second>(last_successful_time)))),
                     (Ok(_), false) => Ok(ControlFlow::Continue(())),
                     (Err(source), _) => Err(failure(Operation::Step)(source)),
                 }
@@ -213,14 +218,15 @@ pub fn fmu(path: impl AsRef<Path>, tolerance: Option<f64>) -> Result<Fmu, Dynami
         members.enumerate().map(|(reference, (variable, name, causality, kind))| (variable, Port { name, causality, reference, kind })).unzip()
     }
     let path = path.as_ref();
+    let failed = |operation: fn(PathBuf) -> Operation| move |source| DynamicsError::Fmi { operation: operation(path.to_path_buf()), source };
     let base_unit = |exponents: [Option<i32>; 8], factor: Option<f64>, offset: Option<f64>, relative_quantity: Option<bool>| BaseUnit {
         exponents: exponents.map(Option::unwrap_or_default),
         factor: factor.unwrap_or(1.0),
         offset: offset.filter(|_| !relative_quantity.unwrap_or_default()).unwrap_or_default(),
     };
-    match peek_descr_path(path).and_then(|description| description.version().map_err(fmi::Error::from)).map_err(failure(Operation::Import(path.to_path_buf())))?.major {
+    match peek_descr_path(path).and_then(|description| description.version().map_err(fmi::Error::from)).map_err(failed(Operation::Import))?.major {
         2 => {
-            let import = from_path::<Fmi2Import>(path).map_err(failure(Operation::Import(path.to_path_buf())))?;
+            let import = from_path::<Fmi2Import>(path).map_err(failed(Operation::Import))?;
             let description = import.model_description();
             let bases =
                 description.unit_definitions.iter().flat_map(|definitions| &definitions.units).filter_map(|unit| Some((unit.name.as_str(), unit.base_unit.as_ref()?))).collect::<HashMap<_, _>>();
@@ -249,11 +255,11 @@ pub fn fmu(path: impl AsRef<Path>, tolerance: Option<f64>) -> Result<Fmu, Dynami
                 }?;
                 Some(((typed, variable.value_reference), variable.name.clone(), causality, kind))
             }));
-            let instance = import.instantiate_cs(&description.model_name, false, false).map_err(failure(Operation::Instantiate(path.to_path_buf())))?;
+            let instance = import.instantiate_cs(&description.model_name, false, false).map_err(failed(Operation::Instantiate))?;
             Ok(Fmu { instance: Instance::Fmi2 { instance: Box::new(instance), import, variables }, tolerance, ports })
         }
         3 => {
-            let import = from_path::<Fmi3Import>(path).map_err(failure(Operation::Import(path.to_path_buf())))?;
+            let import = from_path::<Fmi3Import>(path).map_err(failed(Operation::Import))?;
             let description = import.model_description();
             let bases =
                 description.unit_definitions.iter().flat_map(|definitions| &definitions.units).filter_map(|unit| Some((unit.name.as_str(), unit.base_unit.as_ref()?))).collect::<HashMap<_, _>>();
@@ -320,24 +326,23 @@ pub fn fmu(path: impl AsRef<Path>, tolerance: Option<f64>) -> Result<Fmu, Dynami
                     })
                     .flatten(),
             );
-            let instance = import.instantiate_cs(&description.model_name, false, false, false, false, &[]).map_err(failure(Operation::Instantiate(path.to_path_buf())))?;
+            let instance = import.instantiate_cs(&description.model_name, false, false, false, false, &[]).map_err(failed(Operation::Instantiate))?;
             Ok(Fmu { instance: Instance::Fmi3 { instance: Box::new(instance), import, variables }, tolerance, ports })
         }
         major => Err(DynamicsError::Version { path: path.to_path_buf(), major }),
     }
 }
 
-fn grouped<S, M>(variables: &[(S, u32)], members: impl IntoIterator<Item = (usize, M)>) -> Result<impl Iterator<Item = (S, Vec<u32>, Vec<M>)>, DynamicsError>
-where S: Copy + Ord + Hash {
-    members
-        .into_iter()
-        .map(|(reference, member)| variables.get(reference).map(|&(typed, value_reference)| (typed, (value_reference, member))).ok_or(DynamicsError::Reference { reference }))
-        .process_results(|located| {
-            located.into_group_map().into_iter().sorted_unstable_by_key(|&(typed, _)| typed).map(|(typed, group)| {
-                let (held, carried) = group.into_iter().unzip();
-                (typed, held, carried)
-            })
-        })
+fn grouped<S, M>(variables: &[(S, u32)], members: impl IntoIterator<Item = (usize, M)>) -> impl Iterator<Item = (S, Vec<u32>, Vec<M>)>
+where S: Copy + enum_map::Enum {
+    let mut groups = enum_map::EnumMap::<S, (Vec<u32>, Vec<M>)>::default();
+    members.into_iter().for_each(|(reference, member)| {
+        let (typed, value_reference) = variables[reference];
+        let (held, carried) = &mut groups[typed];
+        held.push(value_reference);
+        carried.push(member);
+    });
+    groups.into_iter().filter(|(_, (held, _))| !held.is_empty()).map(|(typed, (held, carried))| (typed, held, carried))
 }
 
 const fn failure<E>(operation: Operation) -> impl FnOnce(E) -> DynamicsError

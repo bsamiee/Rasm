@@ -58,14 +58,17 @@ public static class RenderHistory {
 
     // --- [WRITES]
     public static IO<Rendering> Annotated(Rendering rendering, Option<string> note) =>
-        IO.lift(rendering.State.ToFin(new DarkroomFault($"render state of {rendering.Image.FileName}", DarkroomReason.Missing)))
-            .Bind(state => Recorded(rendering, state with { Note = note }));
+        (from entered in use(IO.liftAsync(static environment => Recording.EnterAsync(environment.Token)))
+         from state in IO.lift(rendering.State.ToFin(new DarkroomFault((FormattableString)$"render state of {rendering.Image.FileName}", DarkroomReason.Missing)))
+         from recorded in Recorded(rendering, state with { Note = note })
+         select recorded).Bracket();
 
     public static IO<Unit> Delete(Rendering rendering) =>
-        from deleted in IO.lift(() => File.Delete(rendering.Image.FileName))
-        from sidecar in IO.lift(() => File.Delete(Sidecar(rendering.Image.FileName)))
-        from removed in Swapped(ledger => ledger with { Renderings = ledger.Renderings.Remove(rendering.Image.FileName) })
-        select unit;
+        (from entered in use(IO.liftAsync(static environment => Recording.EnterAsync(environment.Token)))
+         from deleted in IO.lift(() => File.Delete(rendering.Image.FileName))
+         from sidecar in IO.lift(() => File.Delete(Sidecar(rendering.Image.FileName)))
+         from removed in Swapped(ledger => ledger with { Renderings = ledger.Renderings.Remove(rendering.Image.FileName) })
+         select unit).Bracket();
 
     private static IO<Ledger> Swapped(Func<Ledger, Ledger> change) => atomicIO(() => Held.Swap(change));
 
@@ -73,15 +76,18 @@ public static class RenderHistory {
     private static IO<Unit> Forked(IO<Unit> work) => work.Fork().Bind(static forked => forked.Await);
 
     private static IO<Unit> Saved(ImageFileEventArgs args) =>
-        from claimed in Claimed(args.FileName)
-        from recorded in Recorded(args)
-        select unit;
+        (from entered in use(IO.liftAsync(static environment => Recording.EnterAsync(environment.Token)))
+         from claimed in Claimed(args.FileName)
+         from opened in Opened(args.FileName, None)
+         from recorded in Recorded(opened, new RenderingState(args.SessionId, args.RenderEngine, args.RenderEngineId, Duration.FromSeconds(args.EllapsedTime), None))
+         select unit).Bracket();
 
     private static IO<Unit> Deleted(ImageFileEventArgs args) =>
-        from claimed in Claimed(args.FileName)
-        from removed in Swapped(ledger => ledger with { Renderings = ledger.Renderings.Remove(args.FileName) })
-        from sidecar in IO.lift(() => File.Delete(Sidecar(args.FileName)))
-        select unit;
+        (from entered in use(IO.liftAsync(static environment => Recording.EnterAsync(environment.Token)))
+         from claimed in Claimed(args.FileName)
+         from removed in Swapped(ledger => ledger with { Renderings = ledger.Renderings.Remove(args.FileName) })
+         from sidecar in IO.lift(() => File.Delete(Sidecar(args.FileName)))
+         select unit).Bracket();
 
     private static IO<Unit> Claimed(string fileName) =>
         from folder in IO.lift(() => Optional(Path.GetDirectoryName(fileName)).ToFin(new RhinoFault(fileName, RhinoReason.Unqualified)))
@@ -91,14 +97,15 @@ public static class RenderHistory {
 
     // --- [FILES]
     private static IO<Unit> Scanned(string folder) =>
-        from fileNames in IO.lift(() => toSeq(Directory.EnumerateFiles(folder, "*.rimage")).Strict())
-        from sidecars in IO.lift(() => toSeq(Directory.EnumerateFiles(folder, $"*{Suffix}")).Strict())
-        let kept = toHashSet(fileNames.Map(Sidecar))
-        from orphans in IO.lift(() => sidecars.Filter(sidecar => !kept.Contains(sidecar)).Map(static sidecar => Try.lift(fun(() => File.Delete(sidecar))).Run()))
-        from read in fileNames.Map<K<IO, Rendering>>(static fileName => Stated(Sidecar(fileName)).Bind(state => Opened(fileName, state))).PartitionFallible().As()
-        from listed in Swapped(ledger => ledger with { Renderings = ledger.Renderings.TryAddRange(read.Succs.Map(static rendering => (rendering.Image.FileName, rendering))) })
-        from failed in IO.lift((orphans + read.Fails.Map(static error => Fin.Fail<Unit>(error))).Traverse(static deleted => deleted).As().Map(static _ => unit))
-        select unit;
+        (from entered in use(IO.liftAsync(static environment => Recording.EnterAsync(environment.Token)))
+         from fileNames in IO.lift(() => toSeq(Directory.EnumerateFiles(folder, "*.rimage")).Strict())
+         from sidecars in IO.lift(() => toSeq(Directory.EnumerateFiles(folder, $"*{Suffix}")).Strict())
+         let kept = toHashSet(fileNames.Map(Sidecar))
+         from orphans in IO.lift(() => sidecars.Filter(sidecar => !kept.Contains(sidecar)).Map(static sidecar => Try.lift(fun(() => File.Delete(sidecar))).Run()).Strict())
+         from read in fileNames.Map<K<IO, Rendering>>(static fileName => Stated(Sidecar(fileName)).Bind(state => Opened(fileName, state))).PartitionFallible().As()
+         from listed in Swapped(ledger => ledger with { Renderings = ledger.Renderings.TryAddRange(read.Succs.Map(static rendering => (rendering.Image.FileName, rendering))) })
+         from failed in IO.lift((orphans + read.Fails.Map(static error => Fin.Fail<Unit>(error))).Traverse(static deleted => deleted).As().Map(static _ => unit))
+         select unit).Bracket();
 
     private static IO<Rendering> Opened(string fileName, Option<RenderingState> state) =>
         from image in Rimage.Open(fileName)
@@ -108,18 +115,12 @@ public static class RenderHistory {
 
     private static IO<Option<RenderingState>> Stated(string sidecar) => FilePublication.Read(sidecar, RenderingState.Info, static state => Fin.Succ(state));
 
-    private static IO<Rendering> Recorded(ImageFileEventArgs args) =>
-        from opened in Opened(args.FileName, None)
-        from recorded in Recorded(opened, new RenderingState(args.SessionId, args.RenderEngine, args.RenderEngineId, Duration.FromSeconds(args.EllapsedTime), None))
-        select recorded;
-
     private static IO<Rendering> Recorded(Rendering rendering, RenderingState state) =>
-        (from entered in use(IO.liftAsync(static environment => Recording.EnterAsync(environment.Token)))
-         from path in IO.lift(OutputPath.Of(Sidecar(rendering.Image.FileName)))
-         from written in FilePublication.Write(path, state, RenderingState.Info)
-         let noted = rendering with { State = Some(state) }
-         from listed in Swapped(ledger => ledger with { Renderings = ledger.Renderings.AddOrUpdate(noted.Image.FileName, noted) })
-         select noted).Bracket();
+        from path in IO.lift(OutputPath.Of(Sidecar(rendering.Image.FileName)))
+        from written in FilePublication.Write(path, state, RenderingState.Info)
+        let noted = rendering with { State = Some(state) }
+        from listed in Swapped(ledger => ledger with { Renderings = ledger.Renderings.AddOrUpdate(noted.Image.FileName, noted) })
+        select noted;
 
     private static string Suffix => $".{Session.PlugIn.Id:N}.json";
 

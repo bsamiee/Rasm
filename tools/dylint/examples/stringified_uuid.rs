@@ -39,11 +39,19 @@ fn keyed() -> BTreeMap<String, u32> {
     BTreeMap::from([(key, 1)])
 }
 
+fn failed(error: uuid::Error) -> Session { Session { key: error.to_string() } }
+
+fn formatted(id: Uuid) -> Session { Session { key: format!("{id}") } }
+
+fn counted(id: Uuid) -> Session { Session { key: format!("{}", id.as_bytes().len()) } }
+
+fn qualified(id: Uuid) -> Session { Session { key: ToString::to_string(&id.hyphenated()) } }
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 fn main() {
     let mut opened = session(Uuid::nil());
     rotated(&mut opened);
     let created = account("ada");
-    black_box(&(created.user_id.len(), created.name.len(), opened.key.len(), typed().user_id.is_nil(), keyed().len()));
+    black_box(&(created.user_id.len(), created.name.len(), opened.key.len(), typed().user_id.is_nil(), keyed().len(), failed, formatted, counted, qualified));
 }

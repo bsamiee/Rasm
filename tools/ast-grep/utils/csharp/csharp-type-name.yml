@@ -8,7 +8,7 @@ utils:
             - kind: identifier, predefined_type
               matches: name
             - kind: generic_name
-              has: {kind: identifier, nthChild: 1, matches: name}
+              has: {kind: identifier, matches: name}
     named:
         any:
             - matches: leaf

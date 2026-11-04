@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: typescript-global-type-reference
+language: tsxlang
+arguments: [name]
+utils:
+    declaration:
+        any:
+            - kind: class, class_declaration, abstract_class_declaration, interface_declaration, type_alias_declaration, enum_declaration, internal_module
+              has: {field: name, pattern: $TYPE}
+            - kind: expression_statement
+              has: {kind: internal_module, has: {field: name, pattern: $TYPE}}
+            - kind: import_alias
+              has: {kind: identifier, nthChild: 1, pattern: $TYPE}
+            - kind: import_statement
+              any:
+                - has: {kind: import_require_clause, has: {kind: identifier, nthChild: 1, pattern: $TYPE}}
+                - has:
+                    kind: import_clause
+                    any:
+                        - has: {kind: identifier, pattern: $TYPE}
+                        - has: {kind: namespace_import, has: {kind: identifier, pattern: $TYPE}}
+                        - has:
+                            kind: named_imports
+                            has:
+                                kind: import_specifier
+                                has: {kind: identifier, pattern: $TYPE, nthChild: {position: 1, reverse: true, ofRule: {kind: identifier}}}
+            - kind: export_statement
+              has: {matches: declaration}
+rule:
+    kind: type_identifier
+    all:
+        - matches: name
+        - pattern: $TYPE
+        - not:
+            inside:
+                stopBy: end
+                any:
+                    - matches: declaration
+                    - has: {field: type_parameters, has: {kind: type_parameter, has: {field: name, pattern: $TYPE}}}
+                    - kind: statement_block, program
+                      has: {matches: declaration}
+                    - kind: switch_body
+                      has: {kind: 'switch_case, switch_default', has: {matches: declaration}}

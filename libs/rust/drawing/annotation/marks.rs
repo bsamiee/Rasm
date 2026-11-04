@@ -13,9 +13,9 @@ use uom::si::{
 use crate::{
     AnnotationError, Geometry, Graphics, Head, bounds, directed, edges, filled, graduated, indexed, joined, located, measured,
     notation::{self, Sign},
-    oriented, polyline, stroked,
+    oriented, polyline, station, stroked, terminated,
     text::{Label, Typesetter, labelled},
-    station, terminated, tipped, transformed, units,
+    tipped, transformed, units,
 };
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -74,14 +74,15 @@ pub(crate) fn draw(typesetter: &mut Typesetter, style: &crate::Style, placement:
                     .chain(iter::once(PathEl::ClosePath))
                     .collect())
             };
-            indexed((*placement * &**boundary).subpaths().map(|elements| scalloped(elements).map_err(NEVec::from)))
+            indexed::<_, Vec<_>, _>((*placement * &**boundary).subpaths().map(|elements| scalloped(elements).map_err(NEVec::from)))
                 .and_then(|rings| stroked(rings.into_iter().flatten().collect(), &style.pen, None).map(|stroke| Graphics { elements: vec![stroke], .. }).map_err(NEVec::from))
         }
         Mark::Break { line, size, form } => breakline(style, placement, *line, *size, form),
         Mark::Arrow { path, start, label } => {
             let path = *placement * &**path;
             let tip = |head: Head, outline: &BezPath| {
-                indexed(outline.subpaths().map(|elements| tipped(&style.arrow, head, kurbo::segments(elements.iter().copied()), style.tolerance).map_err(NEVec::from))).map(|elements| Graphics { elements, .. })
+                indexed(outline.subpaths().map(|elements| tipped(&style.arrow, head, kurbo::segments(elements.iter().copied()), style.tolerance).map_err(NEVec::from)))
+                    .map(|elements| Graphics { elements, .. })
             };
             let text = label.as_ref().map(|label| {
                 let segment = path.segments().next().ok_or(AnnotationError::Geometry(Geometry::Coincident))?;
@@ -95,15 +96,27 @@ pub(crate) fn draw(typesetter: &mut Typesetter, style: &crate::Style, placement:
             let linear = linear.as_ref().unwrap_or(&style.linear);
             let scale = direction.length();
             let thickness = height.into_inner();
-            let lengths = indexed(iter::chain(subdivisions, divisions.iter()).map(|division| (division.is_finite() && division.value > 0.0).then_some(units(*division)).ok_or_else(|| AnnotationError::Geometry(Geometry::Extent).into())))?;
+            let lengths = indexed::<_, Vec<_>, _>(
+                iter::chain(subdivisions, divisions.iter())
+                    .map(|division| (division.is_finite() && division.value > 0.0).then_some(units(*division)).ok_or_else(|| AnnotationError::Geometry(Geometry::Extent).into())),
+            )?;
             let left = subdivisions.iter().map(|division| units(*division)).sum::<f64>();
             let positions = edges(lengths).collect::<Vec<_>>();
             let basis = oriented(origin, direction) * Affine::FLIP_Y * Affine::translate((-left * scale, 0.0));
             let solid = positions.array_windows().step_by(2).flat_map(|&[from, to]| Rect::new(from * scale, 0.0, to * scale, thickness).path_elements(accuracy)).collect::<BezPath>();
-            let ticks = positions.iter().enumerate().map(|(index, &position)| (position * scale, (index == 0 || index >= subdivisions.len()).then(|| notation::linear(linear, Length::new::<millimeter>((position - left).abs()), Sign::Negative))));
+            let ticks = positions.iter().enumerate().map(|(index, &position)| {
+                (position * scale, (index == 0 || index >= subdivisions.len()).then(|| notation::linear(linear, Length::new::<millimeter>((position - left).abs()), Sign::Negative)))
+            });
             joined(
-                [filled(&(basis * solid), FillRule::NonZero, style.pen.color.clone(), style.pen.opacity, style.tolerance)],
-                [graduated(typesetter, style, basis, Size::new(positions.last().map_or_default(|&position| position * scale), thickness), ticks, (direction.normalize(), Anchor::Middle, Baseline::Bottom))],
+                [filled(basis * solid, FillRule::NonZero, style.pen.color.clone(), style.pen.opacity, style.tolerance)],
+                [graduated(
+                    typesetter,
+                    style,
+                    basis,
+                    Size::new(positions.last().map_or_default(|&position| position * scale), thickness),
+                    ticks,
+                    (direction.normalize(), Anchor::Middle, Baseline::Bottom),
+                )],
             )
         }
         Mark::Center { circle, size, overshoot, linetype } => {
@@ -131,7 +144,10 @@ pub(crate) fn draw(typesetter: &mut Typesetter, style: &crate::Style, placement:
             let measured = measured(path.segments(), accuracy);
             let (Some(&(first, _, _)), Some(&(last, _, length))) = (measured.first(), measured.last()) else { return Err(AnnotationError::Geometry(Geometry::Coincident).into()) };
             (length > reach * 2.0).ok_or(AnnotationError::Geometry(Geometry::Gap))?;
-            let corners = measured.array_windows().filter(|&&[(before, _, _), (after, _, _)]| (tangent(before, 1.0) - tangent(after, 0.0)).length() * reach > accuracy).map(|&[(_, _, joint), _]| (joint - reach, joint + reach));
+            let corners = measured
+                .array_windows()
+                .filter(|&&[(before, _, _), (after, _, _)]| (tangent(before, 1.0) - tangent(after, 0.0)).length() * reach > accuracy)
+                .map(|&[(_, _, joint), _]| (joint - reach, joint + reach));
             let thick = BezPath::from_path_segments(iter::once((0.0, reach)).chain(corners).chain(iter::once((length - reach, length))).flat_map(|(from, to)| {
                 measured.iter().filter(move |&&(_, start, stop)| start < to && stop > from).map(move |&(segment, start, stop)| {
                     let [low, high] = [from, to].map(|at| segment.inv_arclen((at - start).clamp(0.0, stop - start), accuracy));
@@ -140,9 +156,9 @@ pub(crate) fn draw(typesetter: &mut Typesetter, style: &crate::Style, placement:
             }));
             let (opening, closing) = labels.as_ref().map_or((None, None), |ends| ends.as_ref().left_and_right());
             let views = [(first.start(), tangent(first, 0.0).turn_90(), opening), (last.end(), tangent(last, 1.0).turn_90(), closing)];
-            let arrows = views
-                .iter()
-                .flat_map(|&(base, view, _)| [stroked(Line::new(base, base + view * reach).to_path(accuracy), &style.pen, None), terminated(&style.arrow, style.arrow.head, base + view * reach, view, style.tolerance)]);
+            let arrows = views.iter().flat_map(|&(base, view, _)| {
+                [stroked(Line::new(base, base + view * reach).to_path(accuracy), &style.pen, None), terminated(&style.arrow, style.arrow.head, base + view * reach, view, style.tolerance)]
+            });
             joined(
                 iter::chain([stroked(path, &style.pen, linetype.clone()), stroked(thick, pen, None)], arrows),
                 views.into_iter().filter_map(|(base, view, label)| label.map(|label| beyond(label, base + view * reach, view))),
@@ -163,10 +179,12 @@ fn breakline(style: &crate::Style, placement: Placement, line: Line, size: Width
         Breakline::Zigzag { stations } => polyline(
             iter::once(Point::ORIGIN)
                 .chain(
-                    indexed(stations.iter().map(|&station| (0.0..=1.0).contains(&station).then_some(station * length).ok_or_else(|| AnnotationError::Geometry(Geometry::Station).into())))?
-                        .into_iter()
-                        .sorted_by(f64::total_cmp)
-                        .flat_map(|center| [(center - reach, 0.0), (reach.mul_add(-0.5, center), -reach), (reach.mul_add(0.5, center), reach), (center + reach, 0.0)].map(Point::from)),
+                    indexed::<_, Vec<_>, _>(
+                        stations.iter().map(|&station| (0.0..=1.0).contains(&station).then_some(station * length).ok_or_else(|| AnnotationError::Geometry(Geometry::Station).into())),
+                    )?
+                    .into_iter()
+                    .sorted_by(f64::total_cmp)
+                    .flat_map(|center| [(center - reach, 0.0), (reach.mul_add(-0.5, center), -reach), (reach.mul_add(0.5, center), reach), (center + reach, 0.0)].map(Point::from)),
                 )
                 .chain(iter::once(Point::new(length, 0.0))),
         ),
@@ -201,7 +219,11 @@ fn insulation(style: &crate::Style, path: &BezPath, half: f64) -> Result<Graphic
         .collect::<Option<Vec<_>>>()
         .ok_or(AnnotationError::Geometry(Geometry::Coincident))?;
     let reach = half * 0.75;
-    let batt = iter::chain(loops.first().map(|&(point, _)| PathEl::MoveTo(point)), loops.array_windows().map(|&[(from, leaving), (to, arriving)]| PathEl::CurveTo(from - leaving * reach, to + arriving * reach, to))).collect::<BezPath>();
+    let batt = iter::chain(
+        loops.first().map(|&(point, _)| PathEl::MoveTo(point)),
+        loops.array_windows().map(|&[(from, leaving), (to, arriving)]| PathEl::CurveTo(from - leaving * reach, to + arriving * reach, to)),
+    )
+    .collect::<BezPath>();
     stroked(batt, &style.pen, None).map(|stroke| Graphics { elements: vec![stroke], .. }).map_err(NEVec::from)
 }
 

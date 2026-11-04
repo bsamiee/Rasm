@@ -1,11 +1,10 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-forbidden-encoding-by-hand
-language: tsx
+language: tsxlang
 severity: error
 utils:
     getter:
         kind: member_expression
-        pattern: $SG.$GETTER
         matches: {effect-module-member: {module: {regex: '\bSchemaGetter$'}, member: {regex: '^(forbidden|succeed)$'}}}
     transformation:
         matches: {effect-module-member: {module: {regex: '\bSchemaTransformation$'}, member: {regex: '^Transformation$'}}}
@@ -20,21 +19,12 @@ rule:
     all:
         - has: {field: function, matches: getter}
         - any:
-            - pattern: $FIXABLE
-              all:
+            - all:
                 - has: {field: function, has: {field: property, regex: '^forbidden$'}}
                 - has: {field: arguments, has: {nthChild: 1, matches: {typescript-constant-function: {result: {kind: 'string, template_string', not: {has: {kind: template_substitution}}}}}}}
                 - matches: encode-position
-            - pattern: $KEPT
-              all:
+            - all:
                 - has: {field: function, has: {field: property, regex: '^succeed$'}}
                 - matches: effect-union-member-encode
-rewriters:
-    - id: forbidden-encoding
-      rule: {kind: call_expression, pattern: $SG.forbidden($$$_)}
-      fix: $SG.forbiddenEncoding
-transform:
-    FIXED: {rewrite: {source: $FIXABLE, rewriters: [forbidden-encoding]}}
-fix: $FIXED$KEPT
 message: '`$HAND` encodes without reading the decoded value'
 note: 'Pass `SchemaGetter.forbiddenEncoding` as the encode getter of a decode-only link'

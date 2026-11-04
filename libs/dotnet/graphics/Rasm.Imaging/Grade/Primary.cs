@@ -37,6 +37,9 @@ public sealed record GradingPrimary(
         };
 
     public Option<Action<Span<Vector4>>> Graded(GradingStyle style, Gamut working) {
+        GradingPrimary neutral = Neutral(style);
+        if (this with { Pivot = neutral.Pivot, PivotBlack = 0f, PivotWhite = 1f } == neutral)
+            return None;
         static Vector3 Nonzero(Vector3 value) => Vector3.ConditionalSelect(Vector3.IsZero(value), Vector3.One, value);
         float span = float.Max(PivotWhite - PivotBlack, 0.01f);
         (Vector3 offset, float anchor, Vector3 scale, float black, float white, Vector3 power) = style.Map(
@@ -45,7 +48,7 @@ public sealed record GradingPrimary(
             video: (Offset.Sum + Lift.Sum, PivotBlack, new Vector3(span) / Nonzero((new Vector3(PivotWhite) / Nonzero(Gain.Product)) + Lift.Sum - new Vector3(PivotBlack)),
                 PivotBlack, PivotBlack + span, Vector3.One / Vector3.Max(Gamma.Product, new(0.01f))));
         (Vector3 luma, float range) = (working.Luminance, white - black);
-        return this with { Pivot = Neutral(style).Pivot, PivotBlack = 0f, PivotWhite = 1f } == Neutral(style) ? None : Some(ToneCurve.Graded(Corrected));
+        return Some(ToneCurve.Graded(Corrected));
 
         Vector3 Corrected(Vector3 color) {
             Vector3 shifted = ((color + offset - new Vector3(anchor)) * scale) + new Vector3(anchor - black);
@@ -55,20 +58,5 @@ public sealed record GradingPrimary(
             float chroma = Saturation * (1f + (Vibrance * (Vibrance > 0f ? (1f - spread) * (1f - spread) : spread * spread * 0.5f)));
             return Vector3.Clamp(Vector3.Lerp(new Vector3(Vector3.Dot(luma, rgb)), rgb, chroma), new Vector3(ClampBlack), new Vector3(ClampWhite));
         }
-    }
-}
-
-public sealed record GradientMap(Seq<Vector4> Stops) {
-    public Action<Span<Vector4>> Graded(Gamut gamut) {
-        (float top, Vector3 luminance, Vector4[] stops) = (Stops.Count - 1, gamut.Luminance, [.. Stops]);
-        return row => {
-            ReadOnlySpan<Vector4> table = stops;
-            foreach (ref Vector4 pixel in row) {
-                float position = float.Clamp(float.Cbrt(Vector3.Dot(luminance, pixel.AsVector3())), 0f, 1f) * top;
-                int low = int.Clamp((int)float.MaxNumber(position, 0f), 0, int.Max(table.Length - 2, 0));
-                Vector4 mapped = Vector4.Lerp(table[low], table[int.Min(low + 1, table.Length - 1)], position - low);
-                pixel = new Vector4(Vector3.Lerp(pixel.AsVector3(), mapped.AsVector3(), mapped.W), pixel.W);
-            }
-        };
     }
 }

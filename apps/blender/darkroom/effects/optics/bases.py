@@ -1,12 +1,12 @@
 """Procedural texture bases cut to density over greater frame sides: their cases, the panel declaring them, their node form, and their evaluation at frame points."""
 
 from collections.abc import Callable, Mapping
-from functools import partial
 from math import pi, tau
+from types import MemberDescriptorType
 from typing import Annotated, Final, get_args
 
 import bpy
-from expression import Nothing, Option, Some
+from expression import Option, Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -16,12 +16,12 @@ from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.nodes import textures
 from blender.bpy.nodes.desired import item_key, MenuItem, MenuItems
 from blender.bpy.nodes.functions import POSITION, sampled, W
-from blender.bpy.nodes.graphs import Expr, math, menus, Scalar, switched, vector, xyz
+from blender.bpy.nodes.graphs import Expr, math, menus, Scalar, switched, Term, vector, xyz
 from blender.bpy.nodes.interfaces import decoded, Interface, InterfacePanel, Socket
-from blender.bpy.render.compositor.inputs import chosen, GraphInputs, Step
+from blender.bpy.render.compositor.inputs import chosen, GraphInputs
 from blender.bpy.render.compositor.motion import origin
-from blender.records.faults import Outcome, paired
-from blender.records.fields import Case, member, Positive
+from blender.records.faults import Nothing, Outcome, paired
+from blender.records.fields import Case, Positive
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -82,8 +82,8 @@ class White(Case, frozen=True, kw_only=True):
 
 # --- [INTERFACES] -----------------------------------------------------------------------
 
-_KINDS: Final[tuple[type[Basis], ...]] = get_args(Basis.__value__)
-_TEXTURE: Final = Socket(key="texture", kind=bpy.types.NodeSocketMenu, description="Texture case", items=Some(MenuItems.of(Basis)))
+_KINDS: Final[tuple[type[Basis], ...]] = get_args(Basis.__value__)  # ty: ignore[unsound-assignment]
+_TEXTURE: Final = Socket(key="texture", kind=bpy.types.NodeSocketMenu, description="Texture case", items=MenuItems.of(Basis).items)
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -93,15 +93,6 @@ _TEXTURE: Final = Socket(key="texture", kind=bpy.types.NodeSocketMenu, descripti
 def cased[T: msgspec.Struct](kinds: tuple[type[T], ...], current: T) -> tuple[T, ...]:
     """Every case of a union in union order, the current case in its own place and every other at its defaults."""
     return tuple(current if isinstance(current, kind) else kind() for kind in kinds)
-
-
-def picked[T: msgspec.Struct](kinds: tuple[type[T], ...], current: T, values: Mapping[Key, Value], *path: Step, menu: Socket) -> Outcome[T]:
-    """Returns the case the menu socket under a panel path names in entry input values, the current case where it names the current kind.
-
-    Returns:
-        `Ok` of the case. `Error` as `chosen` reads the menu.
-    """
-    return chosen(values, kinds, *path, menu).map(lambda kind: current if isinstance(current, kind) else kind())
 
 
 # --- [PANELS]
@@ -123,8 +114,8 @@ def bases(key: Key, chosen: Basis, description: str, name: str | None = None) ->
 # --- [NODES]
 
 
-def textured[R: Case](
-    shell: GraphInputs[R], panel: InterfacePanel, chosen: Basis, point: Expr, time: Scalar, seed: Scalar, *, loss: Scalar = 0.0, streams: tuple[int, *tuple[int, ...]] = (0,)
+def textured(
+    shell: GraphInputs, panel: InterfacePanel, chosen: Basis, point: Expr, time: Scalar, seed: Scalar, *, loss: Scalar = 0.0, streams: tuple[int, *tuple[int, ...]] = (0,)
 ) -> tuple[tuple[Expr, Expr], ...]:
     """Returns density and tone per stream of the basis panel's texture menu, every stream switched by the one menu.
 
@@ -143,23 +134,23 @@ def textured[R: Case](
     """
 
     def drawn(case: Basis) -> tuple[Expr, ...]:
-        read = Some(partial(_input, shell, panel, type(case)))
+        read = Some(lambda *path: shell.input(panel.socket(type(case), *path)))
         return tuple(part for stream in streams for part in _drawn(case, point, time, origin(seed, float(stream)), read, loss))
 
     first, *rest = menus(shell.input(panel, _TEXTURE), {MenuItem.of(type(case)): drawn(case) for case in cased(_KINDS, chosen)})
     columns = (first, *rest)
-    return tuple(zip(columns[::2], columns[1::2], strict=True))
+    return tuple(zip(columns[::2], columns[1::2]))
 
 
 # --- [EVALUATION]
 
 
-def selected(panel: InterfacePanel, chosen: Basis, values: Mapping[Key, Value]) -> Outcome[Basis]:
-    """Returns the basis entry input values hold: the case the texture menu names with its texture inputs, own fields, and cut, each case's node members as `chosen` holds them.
+def selected(panel: InterfacePanel, current: Basis, values: Mapping[Key, Value]) -> Outcome[Basis]:
+    """Returns the basis entry inputs hold, retaining current node settings for its selected case.
 
     Args:
         panel: Basis panel `bases` declared.
-        chosen: Record basis holding the node members of its case, every other case at its defaults.
+        current: Basis holding node settings for its case, other cases taking defaults.
         values: Entry input values by item key.
 
     Returns:
@@ -172,11 +163,20 @@ def selected(panel: InterfacePanel, chosen: Basis, values: Mapping[Key, Value]) 
             lambda parts: decoded(msgspec.structs.replace(case, texture=parts[0], cut=parts[1]), values, prefix)
         )
 
-    return picked(_KINDS, chosen, values, panel, menu=_TEXTURE).bind(held)
+    return chosen(values, _KINDS, panel, _TEXTURE).map(lambda kind: current if isinstance(current, kind) else kind()).bind(held)
 
 
-def evaluated(identity: Identity, field: Basis, points: npt.NDArray[np.float64], time: npt.NDArray[np.float64], *, seed: int, stream: int) -> Outcome[npt.NDArray[np.float64]]:
-    """Returns density and tone columns at greater-side frame points and evolution times, the stock nodes evaluating the node form the graph draws.
+def evaluated(
+    identity: Identity,
+    field: Basis,
+    points: npt.NDArray[np.float64],
+    time: npt.NDArray[np.float64],
+    *,
+    seed: int,
+    streams: tuple[int, ...],
+    outputs: Callable[[Expr, Expr], tuple[Expr, ...]] = lambda density, tone: (density, tone),
+) -> Outcome[tuple[npt.NDArray[np.float32], ...]]:
+    """Returns selected basis outputs per stream in one native evaluation over frame points and evolution times.
 
     Args:
         identity: Extension owning the scratch evaluation tree.
@@ -184,41 +184,38 @@ def evaluated(identity: Identity, field: Basis, points: npt.NDArray[np.float64],
         points: `(n, 2)` greater-side frame positions.
         time: `(n,)` evolution coordinates.
         seed: Seed.
-        stream: Draw family from `tiles.stream`.
+        streams: Draw families from `tiles.stream`, in output order.
+        outputs: Projection of density and tone expressions, retaining both by default.
 
     Returns:
-        `(n, 2)` density and tone, or the faults of the scratch evaluation.
+        Native `(n,)` arrays in selected output order per stream, or scratch evaluation faults.
     """
     columns = {"position": np.column_stack((points, np.zeros(len(points)))), "w": time}
-    return sampled(identity, columns, *_drawn(field, POSITION, W, origin(float(seed), float(stream)), Nothing)).map(lambda values: np.column_stack(values).astype(np.float64))
+    fields = tuple(part for stream in streams for part in outputs(*_drawn(field, POSITION, W, origin(float(seed), float(stream)), Nothing)))
+    return sampled(identity, columns, *fields)
 
 
-def density_range(field: Basis) -> tuple[float, float]:
-    """Bounds the cut density, smooth-cell color corrections reaching below zero."""
+def density_range(field: Basis) -> Outcome[tuple[float, float]]:
+    """Encloses every finite native density, or returns a fault where its cut or cell-color support is unproved."""
+    density = field.cut.bounds()
     match field:
-        case Voronoi(cell_color=True, texture=textures.Voronoi(feature="SMOOTH_F1") as cells):
-            span = cells.smoothness / 2.0
-            return -(5 ** textures.dimensions(cells) - 1) * span / (4.0 * (1.0 + 3.0 * span)), 1.0
+        case Voronoi(cell_color=True):
+            return paired(density, field.feature_cells.color_bounds()).map(lambda spans: (float((products := np.multiply.outer(*spans, dtype=np.float32)).min()), float(products.max())))
         case _:
-            return 0.0, 1.0
+            return density
 
 
 # --- [FORMS]
 
 
-def _input[R: Case](shell: GraphInputs[R], panel: InterfacePanel, kind: type[Basis], *path: object) -> Expr:
-    """Group input of the socket at a path under one case of a basis panel."""
-    return shell.input(panel.socket(kind, *path))
-
-
-def _drawn(case: Basis, point: Expr, time: Scalar, offset: Expr, read: Option[Callable[..., Expr]], loss: Scalar = 0.0) -> tuple[Expr, Expr]:
+def _drawn(case: Basis, point: Expr, time: Scalar, offset: Expr, read: Option[Callable[[*tuple[object, ...]], Expr]], loss: Scalar = 0.0) -> tuple[Expr, Expr]:
     """Density and tone of one case at a decorrelation offset, its sockets read through `read` where the graph holds them, the record's values where it reads `Nothing`."""
     kind = type(case)
 
     def operand(held: Scalar, *path: object) -> Scalar:
         return read.map(lambda reader: reader(*path)).default_value(held)
 
-    def linked(field: object) -> Option[textures.Linked]:
+    def linked(field: object) -> Option[Callable[[MemberDescriptorType], Option[Term]]]:
         return read.map(lambda reader: lambda inner: Some(reader(field, inner)))
 
     raw: Expr
@@ -228,7 +225,7 @@ def _drawn(case: Basis, point: Expr, time: Scalar, offset: Expr, read: Option[Ca
         case Voronoi(texture=cells):
             raw = textures.evolving(cells, point + offset, time, linked=linked(Voronoi.texture))
         case Wave(texture=wave):
-            phase = member(textures.Wave, lambda held: held.phase_offset)
+            phase: MemberDescriptorType = textures.Wave.phase_offset  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
             travel = math("MULTIPLY_ADD", time, -tau, operand(wave.phase_offset, Wave.texture, phase))
             raw = wave.node(point + vector("MULTIPLY", offset, (0.0, 0.0, 1.0)), linked=Some(lambda field: Some(travel) if field is phase else linked(Wave.texture).bind(lambda reader: reader(field))))
         case Gabor(texture=oscillations):
@@ -250,4 +247,4 @@ def _drawn(case: Basis, point: Expr, time: Scalar, offset: Expr, read: Option[Ca
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Basis", "Gabor", "Magic", "Perlin", "Voronoi", "Wave", "White", "bases", "cased", "density_range", "evaluated", "picked", "selected", "textured"]
+__all__ = ["Basis", "Gabor", "Magic", "Perlin", "Voronoi", "Wave", "White", "bases", "cased", "density_range", "evaluated", "selected", "textured"]

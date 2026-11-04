@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-set-insert-filter
-language: rust
+language: rustlang
 severity: error
 utils:
     empty-set:
@@ -58,4 +58,4 @@ rule:
                 - has: {matches: empty-set}
                 - not: {has: {stopBy: end, kind: identifier, pattern: $SET, not: {matches: own-read}}}
 message: '`$SITE` keeps first occurrences through inserts into local set `$SET`'
-note: 'Call `<iterator>.unique()` or `unique_by(<key>)` (`use itertools::Itertools as _;`), replacing a `retain` with `<vec>.into_iter().unique().collect()`'
+note: 'Use `Itertools::unique` or `unique_by` before `collect`, consuming retained vectors through `into_iter`'

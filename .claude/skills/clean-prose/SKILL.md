@@ -5,33 +5,15 @@ description: "Use when writing, rewriting, or reviewing any English text in a pr
 
 # [CLEAN_PROSE]
 
-Governs every English text in a project (markdown, comments, messages, identifiers, file names). Corrections remove a problem's whole category, deletion before replacement. Swaps of one marker for another and rewrites that fail a rule are regressions. Rewrites keep every fact and add no cause, frequency, or certainty their source did not state. Rewrites end with fewer words and bytes unless a fact was wrong or missing. Texts state what a reader acts on where they appear.
-
-Oversized lines are only dash/list/numbered entries, paragraphs are refined/trimmed to principles of optimization laid out in the skill and are not subject to the same <150 col width requirement, they are optimized accordingly/properly, but within appropriate bounds.
-
-1. Use `scripts/prose.py` to automatically find and fix problems we always look for (incorrect dividers, article openers, oversized dash entries, etc)
-2. Always remove/replace coined terms, withing code files (rename files and folders if needed), divider labels, section labels, and use domain appropriate terminology
-3. Remove unnecessary framing within prose/sentences in all forms, unnecessary framing is content not relevant if the earlier portion was stated properly for guidance
-4. Improve all prose to reduce words/char/byte count where its unnecessarily self-referencing or trying to describe the self evident topic of concern
-5. Ensure consistent usage of action words from `references/actions.md`
-6. Ensure all known instances of coined terms from `references/word-map.md` are remoced and replaced, replacements are always domain appropriate, not naive single solution
-7. Ensure no hidden article openers (within md table cells, output fields hiding the true opening, etc)
-8. Treat ALL output message field prose as agent facing, always reduce content as much as possible remove unnecessary/fragile guidance, no anchoring/binding guidance
-9. Ensure all output messages (errors included) use variables where they can over hardcoded values/information, deriving information and minimal framing
-10. Never split/shear an oversized entry to achive the size, optimize the content, identifying what is overlap, unnecessary framing, and prose optimization to achieve it instead
-11. Identify all overlapping/duplicate information in a file, to remove all isntances for focused singular isntances of information without unnecessary framing
-12. Skills do not carry duplicate information within the skill file, or between the skill and references content
-13. `SKILL.md` files never carry mini-sections or named sections that a `references/` file covers, remove the content or move it
-
-Ensure all prose sentences and entries are coherent, not vague, garbled, and clear, remove such lines when they are near similar lines a relic of an earlier poor correction that sheared/split guidance.
+Applies to project English, including Markdown, comments, messages, identifiers, and file names. Corrections remove whole problem categories through deletion before replacement. Rewrites preserve facts and stated uncertainty without adding unstated causes or frequencies. Rewrites reduce words and bytes unless a fact is wrong or missing.
 
 [REFERENCES]:
-- [01]-[WORD_MAP](references/word-map.md): Words to delete or replace, with replacement for each
-- [02]-[REWRITES](references/rewrites.md): Before and after pairs for structural moves, with rewrites that look right and fail
-- [03]-[ACTIONS](references/actions.md): Verbs and forms for actions a reader takes
+- [01]-[WORD_MAP](references/word-map.md): Word choice
+- [02]-[REWRITES](references/rewrites.md): Rewrite examples
+- [03]-[ACTIONS](references/actions.md): Reader action verbs
 
 [SCRIPTS]:
-- [01]-[PROSE](scripts/prose.py): Checks and fixes markdown, dividers, and comments
+- [01]-[PROSE](scripts/prose.py): Markdown and source comment corrections
 
 ## [01]-[TERMINOLOGY]
 
@@ -76,8 +58,8 @@ Words that fail take the current term for what they name, real field terms (SIMD
 |  [30]   | `pluggable`, `publication-quality`, `settled` (fact)              | Delete                                                           |
 |  [31]   | `toolkit`, `suite` (after a package name), `hard-won`             | Delete                                                           |
 
-Names in code, build, and rule files say what the thing is in their language's vocabulary:
-- Renames go through language tooling and update every reference, test, and file name
+Names and divider labels in code, build, and rule files use language or domain terms:
+- Renames use language tooling and update every reference, test, file, and folder
 - Prose writes code names in backticks with exact spelling, a tool use as its command (`ruff check`), and tool or product names used as words plain
 - Names, control labels, and text another system resolves or emits stay exact, reports name each coupling
 - Guidance examples, snippets, and comments use placeholder names (`<tool>`, `<dir>`, `Item`) and neutral values
@@ -88,11 +70,11 @@ Names in code, build, and rule files say what the thing is in their language's v
 Words stay only when rereading the sentence without them loses something of value:
 - Words that narrow what a sentence permits (`only`, `alone`, `in place of`, `nothing else`) stay
 - Articles, conjunctions, qualifiers, and word map rows are common deletions
-- Clauses after a deleted connective continue after a comma with their verb
-- Additive markers go, their fact joins the list it belongs to or stands as its own statement
-- Reason clauses (`because`, the same reason after a comma or before an instruction) go whole when the subject makes them obvious or no reader acts on them
-- Reasons that name a tool behavior or criterion become the condition before the instruction, or a fact in their own sentence
-- Hedges and frequency words with a measured or real uncertainty stay as "can" or as a condition
+- Connective deletion keeps each clause's verb and joins clauses with a comma
+- Facts after additive markers join their list or stand alone
+- Obvious reasons and reasons readers cannot act on go with their connective
+- Tool behavior and decision criteria precede instructions as conditions or stand as facts
+- Measured or real uncertainty stays as `can` or an explicit condition
 - Real values keep their original spelling, counts of items a reader can see go
 - Versions stay in their project file, or in prose where a fact holds for one version alone
 
@@ -109,28 +91,25 @@ Stated values stay with their source named, every other threshold goes:
 - Values a declaration, project file, or option states (`timeout: 600000`)
 - Size, byte, duration, and count limits a named tool enforces
 
-Examples stay when they are a command, a sequence, or a case of the file's subject with a source on disk or in a tool's documentation.
+Examples are commands, sequences, or cases of a file's subject with a source on disk or in tool documentation.
 
 ## [03]-[SENTENCES]
 
 Sentences state one instruction or fact in active voice and simple present or past, with the condition and reason a reader acts on:
-- Joined clauses (chained by `and`, `,`, `:`, `;`, `—`, or a repeated article) that narrate or split one concept into parts become one statement of the fact
-- Entries (messages, descriptions, labels, comments, list items, steps, table rows) state one fact or purpose in one line under 150 columns
+- Fragments and chained clauses on one concept become one statement with its condition and reason
+- Entries state one fact or purpose; list items, steps, and table rows use one line under 150 columns
 - Entries open with a capital letter, an identifier, or a tool name and end without a period
 - Second sentences in an entry hold only a fact a reader acts on
-- Entries over the width and long texts hold chained or restated sentences, a rewrite rebuilds them whole in place of trimming words
+- Rebuild long passages and oversized entries whole to remove overlap and framing and preserve instructions
 - `plus` names a math operation alone, elsewhere the word goes with no replacement
-- Second facts open their own sentence
-- Runs of short sentences on one fact are fragments, one sentence states the fact with its condition and reason
 - Clauses that complete one fact continue after a comma or "and"
 - Lines a reader must act on are instructions, lines that record what a system does are statements
-- Statements and entries open with a subject noun, plural when generic, or with an instruction verb, a condition precedes the verb with a comma
+- Statements and entries open with subject nouns, plural when generic, or instruction verbs; conditions precede verbs with a comma
 - Noun chains stop at 3 words, a longer chain is rebuilt whole
-- Instructions opening with `never`, `not`, or `no` state the required form instead, a restriction that is a fact stays
+- Instructions state required forms positively; restrictions describing behavior stay as facts
 - Forbidden forms go in the section's anti-pattern table beside the correct form, or stay as facts when the section has none
 - Warnings precede their step and state its command or condition, then its risk
 - Statements name their actor as subject, passive voice stays for an unknown actor
-- Verbs name actions, nominalizations and phrasal verbs take their verb from the word map
 - Modals are must for a requirement, can for a possibility, will for what comes next
 - `should` becomes must or goes as a suggestion, `may`, `might`, `could`, and `would` become can or condition, `may have` stays
 - One word names one concept across a file and every file of its area, identifiers included
@@ -141,62 +120,60 @@ Sentences state one instruction or fact in active voice and simple present or pa
 - `such as` becomes a parenthetical or list, `whose` becomes `with` or `that`
 - `e.g.` and `i.e.` become their words, `etc.` names items, `and/or` names one or both
 - Demonstratives (`this`, `these`, `that`, `those`) as a determiner or subject go, or the noun repeats
-- Pronouns and possessives (`it`, `its`, `they`, `their`, `them`) for a subject the sentence, heading, or file makes evident go, or the noun repeats
-- Texts state facts without naming or describing a subject their context supplies (`<host>` in its library, `value this field holds`)
+- Pronouns and possessives for an evident subject repeat the noun or go
+- Text omits subjects supplied by its field, heading, or file
 - Subject names stay where a text spans more than one subject or a fact otherwise attaches to another subject
-- Cross-references (`above`, `below`, `see`, `[NN]`, `this file`, a later passage pointing back) go, the fact sits where readers need it
+- Facts sit where readers need them without passage cross-references
 - Questions outside a quoted message become fact or purpose
 
-`the` appears at most once per sentence, pointing at one referent its sentence, heading, or previous sentence named. Sentences that need more restate or chain, a swap to `a`, `each`, or `this` corrects nothing:
-- Sentences and entries open with no article
+`the` appears at most once per sentence, referring to a noun named in the same sentence, heading, or preceding sentence. Extra articles require rewriting; swaps with `a`, `each`, or `this` preserve the defect:
+- Sentence and entry text opens without articles, including text after field keys or markup
 - Nouns before an identifier take no article (target `lint`)
 - `the <noun> of the <noun>` becomes a compound noun or a possessive (`store keys`, `file's diff`)
 - Appositions listing an output or a file's contents drop
 
 ## [04]-[DOCUMENTS]
 
-Sections follow work or dependency order under `## [NN]-[NOUN]` headings with no parenthetical, and open with the sentence a reader needs before their list or table:
-- Each fact appears once, in its owning file under the heading that names it
-- Sentences that restate what their file, heading, code, or previous sentence supplies at the same scope go
+Sections follow work or dependency order under `## [NN]-[NOUN]` headings without parentheses and introduce their list or table:
+- Each fact appears once in its owning file and section, including facts shared by skills and references
+- Sentences repeating context from their file, heading, code, or preceding text go
 - Paths and names that locate what a sentence acts on stay
-- Phrasings that differ in subject, scope, or value are separate facts or one wrong fact, the owning source's phrasing stays
-- Facts a deleted sentence alone held join a rewrite of the sentence holding their topic
-- Opening sentences state their scope as one category, every other sentence about the file, section, or skill goes
-- Pointers to another file or skill are one line, `Use <name> for <purpose>`, a sentence that `<name>` owns a topic takes the pointer form
-- Pointers name the file and its purpose alone, a section, heading, row, line, or category inside it drifts
+- Subject, scope, or value differences are distinct facts; conflicts retain wording from the owning source
+- Facts unique to a deleted sentence join a rewrite of the topic's owning line
+- Openings name one scope category; other descriptions of a file, section, or skill go
+- Reference topics stay in reference files; pointers use one line, `Use <name> for <purpose>`
+- Pointers name files and purposes; internal headings, rows, lines, and categories drift
 - Pointer purposes name one category a reader recognizes a task by, a list stays where no term covers its members
 - `Use <name>` excludes every other source, tail naming one (`in place of memory`) restates the instruction
-- Facts sit where readers need them, links locate what readers open
+- Links locate what readers open
 - External URLs outside a package page, download, or tool document go, the fact they cited is stated
 - Tree and index lines with a list as their fact keep the list
-- Guidance that enumerates code members, quirks, or one tool's configuration rows drifts, one rule for the category replaces it
-- Prose names a command, identifier, file, directory, section, diagram node, or reference with its purpose, contents and steps stay in the thing
+- Guidance states category rules; code members, quirks, and tool configuration rows stay with their owner
+- Labels for commands, identifiers, paths, sections, diagram nodes, and references state purpose; contents and steps stay with their owner
 - Steps that name a command hold one reading that decides what follows
-- Paragraphs hold one topic on one line, parallel cases sit in one list or table, or in one sentence when each case is a phrase
+- Paragraphs keep one topic on one line without a column limit; parallel cases use a list, table, or one sentence of phrases
 - List items share one grammatical form and follow their lead-in colon without a blank line
 - Items under an uppercase label hold the sentences the label needs
-- Files open with one `# [TOKEN]` H1, `##` headings number from `[01]` in file order and `###` restart under each `##`
+- Files open with one `# [TOKEN]`; `##` numbers start at `[01]` in file order and `###` restart under each `##`
 - Labels close with `:` before their list or table, entry leaders are `[NN]-[TOKEN]:` chains
 - Link cards number from `[01]` among sibling entries, the file stem as their token
 - One blank line follows a heading or surrounds a table, at most one separates other blocks, none ends a line or the file
 - Labels and sentence position give emphasis, `**` and `_` markers, emoji, and uppercase words outside code and `[LABELS]` go
 
-Snippets show one rule or operation of the package their file owns, the owned type stands alone:
+Snippets show one package rule or operation, with its owning type alone:
 - Constructs are complete with their rule visible, every member serves the rule
 - Every local declares its type, prose beside the snippet names each undeclared placeholder member
-- One snippet shows one shape, a construct its source shows in more shapes keeps each shape
+- Snippets show one shape each and retain every supported form
 - Names keep one shape within a file
-- Code indents by the `.editorconfig` indent size of its language, output copied from a tool keeps its spacing in a `text` fence
+- Code snippets follow their language's native formatter and project settings, output copied from a tool keeps its spacing in a `text` fence
 
-Tables hold values a reader decides by, the sentence that explains them stays in section text:
-- Headers hold at most 2 words, cells hold values, identifiers, or short phrases without an article, period, or semicolon
+Tables hold decision values; explanations stay in section text:
+- Headers use at most 2 words; cells hold values, identifiers, or short phrases without articles, periods, or semicolons
 - Cells open with a capital letter, except backticked identifiers and literal words
-- Rows that list what a file exports, declares, or registers go, section text names the file
-- Rows that repeat a step or section sentence go, a step names the table it applies
-- Columns with one value down every row go, their lead-in states value
-- Rows over the width hold a narrating cell or too many columns
+- Constant columns move to the lead-in
+- Rows exceeding 150 columns lose narration or redundant columns
 
-Tables take bracket headers with an [INDEX] column:
+Tables use bracket headers and an `[INDEX]` column:
 
 ```markdown
 | [INDEX] | [FLAG]    | [EFFECT]                        |
@@ -207,41 +184,36 @@ Tables take bracket headers with an [INDEX] column:
 ## [05]-[COMMENTS]
 
 Comments state intent or constraint code cannot show:
-- Each sentence stays whole on its line within language line length, intent that needs a second line goes
+- Sentences stay whole within language line length; intent needing another line goes
 - Consecutive full-line comments merge into one, a comment that repeats its code goes
 - Inline comments stay and get the same removals
-- Test case comments name case's shape as a noun phrase, then the fact that decides it
+- Test comments name case shape as a noun phrase, then its deciding fact
 - Comments naming a value's ported source go once the source leaves the repository or names a file the repository does not hold
 - Structured doc comments with one element per line, commented-out configuration templates, and tool directives keep their form
 - Section dividers follow `CLAUDE.md` file organization
-- Doc comment summaries are one sentence that states what the member returns or does without restating its name, remarks keep one fact per sentence
-- Messages (log, error, exception, diagnostic) state what happened and its cause when known, then after a comma one action when a reader has one
+- Doc summaries state returns or behavior without repeating member names; remarks keep one fact per sentence
+- Messages and output fields derive event details and known causes from values, then give agents one available action after a comma
 - Commit subjects open `<type>(<project>): ` with an imperative subject, `!` before the colon marks a breaking change
 - Commit and pull request bodies state past facts
-- Commit types state the release a change carries: `feat` new behavior, `fix` repaired behavior, `refactor` and `perf` reworked behavior
-- Commits changing no product's behavior take `build`, `ci`, `docs`, `test`, `style`, or `chore`
-- Commit scopes name the one project carrying the change in its Nx name, a change across projects takes no scope
-- Comments naming a wrong result a call can return are guards, the call takes the parameter or form returning the right result, or the line goes
+- Commit types mark behavior: `feat` adds, `fix` corrects, `refactor` reworks, and `perf` improves performance
+- Changes with no product behavior use `build`, `ci`, `docs`, `test`, `style`, or `chore`
+- Commit scopes use the changed project's Nx name; changes across projects omit scope
+- Comments warning of a wrong call result go; calls use parameters or forms that return the required result
 
 ## [06]-[PROCESS]
 
 Rewrite of an existing file:
-1. Read the whole file and every file it points to
-2. List every fact once, mark each fact that context, an owning file, or a table restates
-3. Choose a file and section for each fact
-4. When the list holds no finding, report compliance and stop
-5. Rename coined identifiers and files with every reference
-6. Replace coined terms and delete filler by the word map, a word outside the map joins the row of its category
-7. Rewrite each remaining sentence to state one fact in its section
-8. Report bytes before and after, renames, coined terms removed, couplings left in place, facts added, corrected, or kept in longer form
+1. Read the whole file, linked files, and every `references/` file before editing
+2. List facts and owners and mark restatements
+3. When no finding remains, report compliance and stop
+4. Rewrite sentences in owning sections using word-map meanings and reader action verbs; add unlisted words to their category
+5. Report bytes before and after, renames, coined terms removed, couplings left in place, facts added, corrected, or kept in longer form
 
-Edits to a skill, guidance file, workflow, or message replace, rewrite, or delete the line owning a fact, widen its category for a new case, and leave text reading as written whole. Appended clauses and lines restating another are regressions. New text follows every rule from its first draft and states its fact or action in clearest positive form, unframed and free of validation or checking language.
+Guidance and message edits rewrite or delete owning lines and widen categories for new cases. Appended restatements are regressions. New text uses direct positive statements without framing or validation language.
 
-Every run reads each file under `references/` whole before its first edit.
-
-`check` reports findings in named files and folders, `fix` writes fixable ones and reports the rest:
+Run `scripts/prose.py`: `check` reports findings, `fix` writes fixes and reports remaining findings:
 
 ```bash
-python ${CLAUDE_SKILL_DIR}/scripts/prose.py check <path>...
-python ${CLAUDE_SKILL_DIR}/scripts/prose.py fix <path>...
+python "${CLAUDE_SKILL_DIR}/scripts/prose.py" check <path>...
+python "${CLAUDE_SKILL_DIR}/scripts/prose.py" fix <path>...
 ```

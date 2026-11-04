@@ -11,10 +11,12 @@ rule:
         - matches: swift-result-bind-switch
         - kind: if_statement
           regex: '^if\s+case\s+(let\s+)?\.failure\b'
+          all: [{has: {matches: swift-result-value, follows: {regex: '^=$'}}}]
           has: {matches: failure-return}
         - kind: if_statement
           regex: '^if\s+case\s+(let\s+)?\.success\b'
           all:
+            - has: {matches: swift-result-value, follows: {regex: '^=$'}}
             - not: {has: {regex: '^,$'}}
             - not: {has: {kind: if_statement}}
             - any:
@@ -26,6 +28,7 @@ rule:
           regex: '^guard\s+case\s+(let\s+)?\.success\b'
           not: {regex: '(?s)^guard\s+case\s+(let\s+)?\.success\b[^,]*,.*\b(case|let|var)\b'}
           has: {matches: failure-return}
+          all: [{has: {matches: swift-result-value, follows: {regex: '^=$'}}}]
 transform:
     HEAD: {replace: {source: $SITE, replace: '(?s)\n.*$', by: ''}}
 message: '`$HEAD` returns a `Result` failure by hand to bind its success value'

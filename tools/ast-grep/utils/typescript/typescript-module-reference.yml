@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: typescript-module-reference
+language: tsxlang
+arguments: [source]
+utils:
+    module-import:
+        kind: import_statement
+        all:
+            - has: {field: source, not: {has: {kind: escape_sequence}}, has: {kind: string_fragment, matches: source}}
+            - has:
+                kind: import_clause
+                any:
+                    - has: {kind: identifier, pattern: $IMPORTED}
+                    - has: {kind: namespace_import, has: {kind: identifier, pattern: $IMPORTED}}
+    type-position:
+        inside: {kind: 'nested_type_identifier, type_query', stopBy: {not: {kind: 'nested_identifier, member_expression'}}}
+rule:
+    kind: identifier, undefined
+    pattern: $IMPORTED
+    all:
+        - any:
+            - matches: type-position
+              inside: {kind: program, stopBy: end, has: {matches: module-import}}
+            - not: {matches: type-position}
+              inside: {kind: program, stopBy: end, has: {matches: module-import, not: {has: {regex: '^type$', not: {pattern: $_}}}}}
+        - not: {matches: {typescript-local-binding: {owner: {pattern: $_}}}}

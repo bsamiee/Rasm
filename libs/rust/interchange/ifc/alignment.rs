@@ -2,7 +2,7 @@ use core::num::NonZero;
 
 use gauss_quad::GaussLegendre;
 use itertools::Itertools as _;
-use nalgebra::{Isometry3, Point2, Point3, Translation3, UnitQuaternion, Vector2};
+use nalgebra::{ComplexField as _, Isometry3, Point2, Point3, Translation3, UnitQuaternion, Vector2};
 use nonempty_collections::{IntoIteratorExt as _, NEVec, NonEmptyIterator};
 use parry3d_f64::{math::Vector, shape::Polyline};
 use serde::{Deserialize, Serialize};
@@ -189,7 +189,7 @@ impl Alignment {
 
     #[must_use]
     pub fn projection(&self, point: Point3<f64>, chord: PositiveLength) -> Option<LinearReference> {
-        let (seed, _) = self.samples(chord).into_iter().min_by(|(_, left), (_, right)| {
+        let (seed, _) = self.samples(chord).min_by(|(_, left), (_, right)| {
             let distance = |frame: &Isometry3<f64>| nalgebra::distance_squared(&Point3::from(frame.translation.vector), &point);
             distance(left).total_cmp(&distance(right))
         })?;
@@ -205,11 +205,11 @@ impl Alignment {
 
     #[must_use]
     pub fn polyline(&self, chord: PositiveLength) -> Option<Polyline> {
-        let vertices = self.samples(chord).into_iter().map(|(_, frame)| Vector::from(frame.translation)).collect::<Vec<_>>();
-        matches!(vertices.as_slice(), [_, _, ..]).then(|| Polyline::new(vertices, None))
+        let vertices = self.samples(chord).map(|(_, frame)| Vector::from(frame.translation)).collect::<Vec<_>>();
+        matches!(&vertices, [_, _, ..]).then(|| Polyline::new(vertices, None))
     }
 
-    fn samples(&self, chord: PositiveLength) -> Vec<(f64, Isometry3<f64>)> {
+    fn samples(&self, chord: PositiveLength) -> impl Iterator<Item = (f64, Isometry3<f64>)> {
         fn ends<T>(layout: &NEVec<Segment<T>>) -> impl Iterator<Item = f64> { layout.iter().flat_map(|segment| [segment.distance, segment.distance + segment.length]) }
         let (sagitta, span) = (chord.into_inner().get::<meter>(), self.length().get::<meter>());
         let breaks = ends(&self.horizontal)
@@ -219,21 +219,30 @@ impl Alignment {
             .sorted_by(f64::total_cmp)
             .dedup()
             .collect::<Vec<_>>();
-        let interior = breaks.iter().copied().tuple_windows().flat_map(|(from, to)| {
+        let last = breaks.last().copied();
+        let interior = breaks.into_iter().tuple_windows().flat_map(move |(from, to)| {
             let (middle, half) = (from.midpoint(to), (to - from) * 0.5);
-            let plan = at(&self.horizontal, middle, 0.0).map_or_default(|(curve, run)| curve.rate.mul_add(run - half, curve.curvature).abs().max(curve.rate.mul_add(run + half, curve.curvature).abs()));
+            let plan =
+                at(&self.horizontal, middle, 0.0).map_or_default(|(curve, run)| curve.rate.mul_add(run - half, curve.curvature).abs().max(curve.rate.mul_add(run + half, curve.curvature).abs()));
             let profile = self.vertical.as_ref().and_then(|layout| at(layout, middle, 0.0)).map_or_default(|(profile, _)| profile.curvature.abs());
             let steps = ((to - from) / (8.0 * sagitta / plan.max(profile)).sqrt()).ceil().max(1.0).to_int_saturating::<usize>();
             (0..steps).map(move |step| nalgebra::convert::<usize, f64>(step).mul_add((to - from) / nalgebra::convert::<usize, f64>(steps), from))
         });
-        interior.chain(breaks.last().copied()).filter_map(|along| self.frame(along).map(|frame| (along, frame))).collect()
+        interior.chain(last).filter_map(move |along| self.frame(along).map(|frame| (along, frame)))
     }
 
     fn frame(&self, along: f64) -> Option<Isometry3<f64>> {
         let tolerance = self.evaluation.tolerance.map_or_default(|tolerance| tolerance.into_inner().get::<meter>());
         let (curve, arc) = at(&self.horizontal, along, tolerance)?;
         let heading = |run: f64| (0.5 * curve.rate).mul_add(run, curve.curvature).mul_add(run, curve.direction);
-        let position = curve.start + Vector2::new(self.rule.integrate(0.0, arc, |run| heading(run).cos()), self.rule.integrate(0.0, arc, |run| heading(run).sin()));
+        let displacement = if curve.rate == 0.0 {
+            let turn = curve.curvature * arc * 0.5;
+            let (sine, cosine) = (curve.direction + turn).sin_cos();
+            Vector2::new(cosine, sine) * (arc * turn.sinc())
+        } else {
+            Vector2::new(self.rule.integrate(0.0, arc, |run| heading(run).cos()), self.rule.integrate(0.0, arc, |run| heading(run).sin()))
+        };
+        let position = curve.start + displacement;
         let (height, grade) = self.vertical.as_ref().map_or(Some((0.0, 0.0)), |layout| {
             at(layout, along, tolerance).map(|(&Profile { height, inclination, curvature }, run)| {
                 let reached = curvature.mul_add(run, inclination.sin()).clamp(-1.0, 1.0).asin();

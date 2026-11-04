@@ -1,10 +1,12 @@
 using System.Globalization;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using Eto.Forms;
 using Rasm.Rhino.Persistence;
 using Rasm.Rhino.UI.Rows;
 using Rhino;
 using Rhino.UI;
+using SuperLinq;
 using UUIDNext;
 
 namespace Rasm.Rhino.UI;
@@ -33,19 +35,6 @@ public sealed partial class RuiPlatforms {
     public static readonly RuiPlatforms Windows = new("Win");
 }
 
-[SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
-[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
-[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
-public sealed partial class ToolbarDock {
-    public static readonly ToolbarDock Top = new("Top", floats: false);
-    public static readonly ToolbarDock Left = new("Left", floats: false);
-    public static readonly ToolbarDock Right = new("Right", floats: false);
-    public static readonly ToolbarDock Bottom = new("Bottom", floats: false);
-    public static readonly ToolbarDock Floating = new("Top", floats: true);
-
-    public bool Floats { get; }
-}
-
 [Union]
 public abstract partial record ScriptStep {
     public string Text => Switch(pick: static held => $"_{held.Option}", assign: static held => $"_{held.Option}=_{held.Value}", pause: static _ => "_Pause");
@@ -69,7 +58,8 @@ public sealed record ToolbarRow(CommandFace Face, Seq<Seq<Command<Macro>>> Group
 }
 
 public sealed record ToolbarGroupRow(CommandFace Face, IterableNE<ToolbarRow> Tabs) {
-    public ToolbarDock Dock { get; init; } = ToolbarDock.Top;
+    public DockPosition Dock { get; init; } = DockPosition.Top;
+    public bool Floating { get; init; }
     public bool Visible { get; init; } = true;
     public RuiPlatforms Platforms { get; init; } = RuiPlatforms.Both;
 }
@@ -102,7 +92,8 @@ public abstract partial record MenuEntry {
 
     public Guid Id { get; }
 
-    public Seq<MenuEntry> Flattened => this.Cons(Switch(separator: static _ => Seq<MenuEntry>(), item: static _ => Seq<MenuEntry>(), submenu: static held => held.Children.Bind(static child => child.Flattened)));
+    public Seq<MenuEntry> Flattened =>
+        toSeq(SuperEnumerable.TraverseDepthFirst(this, static entry => entry.Switch(separator: static _ => Seq<MenuEntry>(), item: static _ => Seq<MenuEntry>(), submenu: static held => held.Children)));
 
     public sealed record Separator(Guid Id) : MenuEntry(Id);
 

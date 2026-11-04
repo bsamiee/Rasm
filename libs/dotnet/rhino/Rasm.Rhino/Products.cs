@@ -1,41 +1,54 @@
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using Microsoft.VisualStudio.Threading;
 using Rhino.Runtime;
 
 namespace Rasm.Rhino;
 
-// --- [MODELS] --------------------------------------------------------------------------
-public sealed record Owned<T>(T Value, EnvIO Scope);
+// --- [SERVICES] ------------------------------------------------------------------------
+public sealed class Owned<T> {
+    internal Owned(T value, EnvIO scope, Resources owner) => (Value, Scope, this.owner) = (value, scope, owner);
+
+    private readonly Resources owner;
+
+    public T Value { get; }
+
+    public EnvIO Scope { get; }
+
+    public IO<Unit> Release => IO.liftVAsync(environment => owner.Release(this).RunAsync(environment));
+}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Products {
     // --- [PRODUCTS]
     public static IO<T> Of<T>(Func<T?> call, [CallerArgumentExpression(nameof(call))] string member = "") where T : class =>
-        Present(call, Label(member)).Bind(found => IO.lift(found.ToFin(new RhinoFault(Label(member), RhinoReason.Missing))));
+        Maybe(call, member).Bind(found => IO.lift(found.ToFin(new RhinoFault(member, RhinoReason.Missing))));
 
-    public static IO<Option<T>> Maybe<T>(Func<T?> call, [CallerArgumentExpression(nameof(call))] string member = "") where T : class => Present(call, Label(member));
+    public static IO<Option<T>> Maybe<T>(Func<T?> call, [CallerArgumentExpression(nameof(call))] string member = "") where T : class =>
+        IO.lift(call).Bind(product => Optional(product).Traverse(held => Owning(held, member, None)).As());
 
     public static IO<Seq<T>> Many<T>(Func<IEnumerable<T?>?> call, bool required = true, [CallerArgumentExpression(nameof(call))] string member = "") where T : class =>
-        IO.lift(call).Bind(products => Listed(products, Label(member), required));
+        IO.lift(call).Bind(products => Listed(products, member, required));
+
+    public static IO<(Seq<T> Values, TOut Out)> Many<T, TOut>(Func<(IEnumerable<T?>? Values, TOut Out)> call, bool required = true, [CallerArgumentExpression(nameof(call))] string member = "") where T : class =>
+        IO.lift(call).SelectMany(answered => Listed(answered.Values, member, required), static (answered, values) => (values, answered.Out));
 
     public static IO<(T Value, TOut Out)> Of<T, TOut>(Func<(T? Value, TOut Out)> call, [CallerArgumentExpression(nameof(call))] string member = "") where T : class =>
         IO.lift(call).Bind(answered => Optional(answered.Value).Match(
-            Some: held => Owning(held, Label(member), None).Map(owned => (owned, answered.Out)),
-            None: () => IO.fail<(T, TOut)>(new RhinoFault(Label(member), RhinoReason.Missing))));
+            Some: held => Owning(held, member, None).Map(owned => (owned, answered.Out)),
+            None: () => IO.fail<(T, TOut)>(new RhinoFault(member, RhinoReason.Missing))));
 
     public static IO<TOut> Accepted<TOut>(Func<(bool Accepted, TOut Out)> call, [CallerArgumentExpression(nameof(call))] string member = "") =>
         IO.lift(Fin<TOut> () => call() switch {
             (true, var value) => value,
-            _ => new RhinoFault(Label(member), RhinoReason.Declined),
+            _ => new RhinoFault(member, RhinoReason.Declined),
         });
 
     public static IO<Unit> Accepted(Func<bool> call, [CallerArgumentExpression(nameof(call))] string member = "") =>
-        IO.lift(() => call() ? Fin.Succ(unit) : new RhinoFault(Label(member), RhinoReason.Declined));
+        IO.lift(() => call() ? Fin.Succ(unit) : new RhinoFault(member, RhinoReason.Declined));
 
-    public static IO<T> Copied<T>(T source, [CallerArgumentExpression(nameof(source))] string member = "") where T : GeometryBase => Of(() => source.Duplicate() as T, member);
-
-    private static IO<Option<T>> Present<T>(Func<T?> call, string label) where T : class =>
-        IO.lift(call).Bind(product => Optional(product).Traverse(held => Owning(held, label, None)).As());
+    public static IO<T> Copied<T>(T source, [CallerArgumentExpression(nameof(source))] string member = "") where T : GeometryBase =>
+        use(IO.lift(() => Conversions.Required(source.Duplicate() as T, call: member)));
 
     private static IO<Seq<T>> Listed<T>(IEnumerable<T?>? products, string label, bool required) where T : class =>
         Optional(products).Map(static rows => toSeq(rows).Strict()).Filter(rows => !required || !rows.IsEmpty).Match(
@@ -49,9 +62,6 @@ public static class Products {
             CommonObject geometry when !geometry.IsValidWithLog(out string log) => Fin.Fail<T>(new RhinoFault(label, RhinoReason.Invalid, index, Error.New(log))),
             var held => held,
         });
-
-    private static string Label(string member) =>
-        Seq("static () => ", "() => ").Find(prefix => member.StartsWith(prefix, StringComparison.Ordinal)).Map(prefix => member[prefix.Length..]).IfNone(member);
 
     // --- [CALLBACKS]
     public static IO<T> Captured<T>(Func<Action<Fin<T>>, IO<Unit>> host, [CallerArgumentExpression(nameof(host))] string call = "") =>
@@ -72,17 +82,65 @@ public static class Products {
             .Bind(static outcome => outcome.Fails.IsEmpty ? IO.pure(outcome.Succs) : IO.fail<Seq<T>>(Error.Many(outcome.Fails)));
 
     // --- [RELEASES]
-    public static IO<Unit> Released(Action release) => use(() => new StrongBox<Action>(release), static box => box.Value!()).Map(unit);
+    public static IO<Unit> Released(Action release) => use(static () => new object(), _ => IO.lift(release)).Map(unit);
+
+    public static IO<Unit> Released(IO<Unit> release) => use(static () => new object(), _ => release).Map(unit);
 
     public static IO<Unit> Changed<T>(Func<T> read, Action<T> write, T value) =>
         IO.lift(read).Bind(prior => Released(() => write(prior)) >> IO.lift(() => write(value)));
 
+    public static IO<Unit> Changed<T>(Func<T> read, Action<T> write, Func<T, T> change) =>
+        IO.lift(read).Bind(prior => Released(() => write(prior)) >> IO.lift(() => write(change(prior))));
+
     // --- [OWNERSHIP]
+    public static IO<T> Acquired<T>(IO<T> acquire) where T : IDisposable => Acquired(acquire, static held => IO.lift(held.Dispose));
+
+    public static IO<T> Acquired<T>(IO<T> acquire, Func<T, IO<Unit>> release) =>
+        IO.env.Bind(environment => use(acquire.Scoped(environment), release).Uninterruptible());
+
+    public static IO<Owned<T>> Owned<T>(IO<T> body) =>
+        from parent in IO.env
+        from owned in Acquired(
+            (from scope in IO.env
+             from value in body
+             select new Owned<T>(value, scope, parent.Resources)).BracketFail(),
+            static held => IO.lift(held.Scope.Dispose))
+        select owned;
+
+    public static IO<ForkIO<T>> Forked<T>(IO<T> body) =>
+        IO.env.Bind(parent => Owned(use(Transfer(
+                () => EnvIO.New(token: parent.Token),
+                scope => body.Scoped(scope).Fork().Map(worker => (Scope: scope, Worker: worker))), static run =>
+                    Each(Seq(
+                            IO.liftAsync(() => run.Scope.Source.CancelAsync().ToUnit()),
+                            run.Worker.Await.Map(unit) | @catch(static error => error.Is(Errors.Cancelled), static _ => IO.pure(unit))))
+                        .Map(unit).Finally(IO.lift(run.Scope.Dispose)).Uninterruptible()))
+            .Map(static held => new ForkIO<T>(held.Release, held.Value.Worker.Await.Uninterruptible())).Uninterruptible());
+
+    public static IO<T> Serialized<T>(Func<Func<IO<Unit>, IO<Unit>>, IO<(T Value, IO<Unit> Close)>> open) =>
+        use(Transfer(static () => new AsyncSemaphore(1), gate =>
+                Transfer(static () => new CancellationTokenSource(), closing =>
+                    Transfer(static () => EnvIO.New(token: CancellationToken.None), scope =>
+                        from token in IO.lift(() => closing.Token)
+                        from opened in open(body =>
+                            (from entered in Acquired(IO.liftAsync(() => gate.EnterAsync(token)))
+                             from value in body.Scoped(scope.Resources)
+                             select value).Bracket()).Scoped(scope)
+                        select (opened.Value, opened.Close, Scope: scope, Gate: gate, Closing: closing)))),
+                static held => IO.liftAsync(() => held.Closing.CancelAsync().ToUnit()).Finally(
+                    (from entered in Acquired(IO.liftAsync(() => held.Gate.EnterAsync(CancellationToken.None)))
+                     from closed in held.Close.Scoped(held.Scope)
+                     select unit).Bracket()
+                        .Finally(IO.lift(held.Scope.Dispose))
+                        .Finally(IO.lift(held.Gate.Dispose))
+                        .Finally(IO.lift(held.Closing.Dispose))).Uninterruptible())
+            .Map(static held => held.Value).Uninterruptible();
+
     public static IO<TOut> Transfer<T, TOut>(T value, Func<T, IO<TOut>> to) where T : IDisposable =>
-        to(value).Catch(error => IO.lift(value.Dispose) >> IO.fail<TOut>(error)).As();
+        use(() => value).Bind(to).BracketFail();
 
     public static IO<TOut> Transfer<T, TOut>(Func<T?> make, Func<T, IO<TOut>> to, [CallerArgumentExpression(nameof(make))] string member = "") where T : class, IDisposable =>
-        IO.lift(make).Bind(made => Optional(made).Match(Some: held => Transfer(held, to), None: () => IO.fail<TOut>(new RhinoFault(Label(member), RhinoReason.Missing))));
+        use(IO.lift(() => Conversions.Required(make(), call: member))).Bind(to).BracketFail();
 
     public static IO<T> Replace<T>(Ref<Option<Owned<T>>> slot, IO<T> body) =>
         Replaced(body, owned => {
@@ -113,12 +171,10 @@ public static class Products {
         }).Bind(Release);
 
     private static IO<T> Replaced<T>(IO<T> body, Func<Owned<T>, Option<Owned<T>>> swap) =>
-        from fresh in IO.lift(static () => EnvIO.New(token: CancellationToken.None))
-        from value in Transfer(fresh, body.Scoped)
-        from kept in use(() => fresh)
-        from prior in atomicIO(() => swap(new Owned<T>(value, fresh)))
+        from fresh in Owned(body)
+        from prior in atomicIO(() => swap(fresh))
         from released in Release(prior)
-        select value;
+        select fresh.Value;
 
-    private static IO<Unit> Release<T>(Option<Owned<T>> prior) => prior.Traverse(static owned => release(owned.Scope)).As().Map(unit);
+    private static IO<Unit> Release<T>(Option<Owned<T>> prior) => prior.Traverse(static owned => owned.Release).As().Map(unit);
 }

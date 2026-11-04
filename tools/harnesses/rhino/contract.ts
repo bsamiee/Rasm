@@ -73,7 +73,7 @@ const Row = Schema.Struct({
     script: Schema.optionalKey(Schema.String.annotate({ description: 'Script RhinoCode runs by its extension or #! header on the case document' })),
 });
 const Rows = Schema.fromJsonString(Schema.Struct({ cases: Schema.Array(Row), plugin: Schema.optionalKey(Schema.String) })).annotate({ description: 'Batch file the engine reads, one row per compiled case' });
-const Request = Schema.fromJsonString(Schema.Array(Schema.String)).annotate({ description: 'Loader request, assembly, batch, records, and reply paths for a batch, none for the quit' });
+const LoaderRequest = Schema.fromJsonString(Schema.Array(Schema.String)).annotate({ description: 'Loader request, assembly, batch, records, and reply paths for a batch, none for the quit' });
 
 // --- [INSTANCE]
 const Language = Schema.Struct({ lcid: Schema.Int, culture: Schema.String }).annotate({ description: 'RhCore localization the instance runs' });
@@ -81,7 +81,7 @@ const Environment = Schema.Struct({ version: Schema.String, runtime: Schema.Stri
 const Survey = Schema.Struct({ host: Schema.Struct({ language: Language, environment: Environment }) }).annotate({ description: 'Instance facts the loader reports at launch, deciding answers beside the version' });
 const Session = Schema.fromJsonString(Schema.Struct({ application: Schema.String, version: Schema.String, survey: Survey })).annotate({ description: 'File the loader writes once the instance runs it' });
 const Loaded = Schema.Struct({ name: Schema.String, version: Schema.String });
-const PlugInLoad = Schema.Struct({ file: Schema.String, id: Schema.String, result: Schema.String, current: Schema.Boolean.annotate({ description: 'Loaded module is the file build' }) });
+const PlugInLoad = Schema.Struct({ file: Schema.String, id: Schema.String, result: Schema.String });
 const Grasshopper = Schema.Struct({ version: Schema.String, loaded: Schema.Array(Schema.String), failed: Schema.Array(Schema.String), incomplete: Schema.optionalKey(Schema.String) });
 const State = Schema.Struct({
     plugins: Schema.Array(Loaded).annotate({ description: 'Plug-ins loaded when the batch ended' }),
@@ -101,7 +101,7 @@ const Sarif = Schema.fromJsonString(
                             level: Schema.optionalKey(Schema.String),
                             message: Schema.Struct({ text: Schema.String }),
                             suppressions: Schema.optionalKey(Schema.Array(Schema.Unknown)),
-                            locations: Schema.optionalKey(Schema.Array(Schema.Struct({ physicalLocation: Schema.optionalKey(Schema.Struct({ artifactLocation: Schema.Struct({ uri: Schema.String }), region: Schema.optionalKey(Schema.Struct({ startLine: Schema.Int })) })) }))),
+                            locations: Schema.optionalKey(Schema.Array(Schema.Struct({ physicalLocation: Schema.optionalKey(Schema.Struct({ artifactLocation: Schema.Struct({ uri: Schema.String }), region: Schema.optionalKey(Schema.Struct({ startLine: Schema.Int, startColumn: Schema.optionalKey(Schema.Int) })) })) }))),
                         }),
                     ),
                 ),
@@ -139,4 +139,4 @@ const HostOutcome = Outcome.mapFields(
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Closed, culture, Engine, HostCase, HostOutcome, Info, Member, Opened, Placed, REFUSED, Request, Rows, Sarif, Session, Source, Survey, Template, Tolerance };
+export { Closed, culture, Engine, HostCase, HostOutcome, Info, LoaderRequest, Member, Opened, Placed, REFUSED, Rows, Sarif, Session, Source, Survey, Template, Tolerance };

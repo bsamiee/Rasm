@@ -108,7 +108,7 @@ public abstract partial record Sweep {
 
     // --- [LOWERINGS]
     private static IO<Seq<Brep>> Hosted((Sweep Sweep, Tolerances Tolerances) at, Rail rail, Seq<Curve> shapes, Option<Point3d> start, Option<Point3d> end, SweepBlend blend, SweepMiter miter, bool refitRail) =>
-        from host in IO.lift(() => rail.Alignment.Host.ToFin(new RhinoFault(rail.Alignment.GetType().Name, RhinoReason.Unsupported)))
+        from host in IO.lift(() => rail.Alignment.Host.ToFin(new RhinoFault(rail.Alignment, RhinoReason.Unsupported)))
         let fit = at.Sweep.Fit.Parameters
         from swept in Products.Many(() => Brep.CreateFromSweep(
             rail.Alignment is Alignment.Surface surface ? surface.Trim : rail.Path, shapes, Conversions.Unset(start), Conversions.Unset(end),
@@ -141,10 +141,10 @@ public abstract partial record Sweep {
         select swept;
 
     private static IO<Seq<(Curve Shape, double At)>> Positioned(Tolerances tolerances, Driven sweep) =>
-        IO.lift(() => new Frames.Along(sweep.Rail, sweep.Spacing).Placements(tolerances, sweep.Basis, sweep.Placement)).Bind(placed => placed.TraverseM(row =>
+        IO.lift(() => new Frames.Along(sweep.Rail, sweep.Spacing).Placements(tolerances, sweep.Basis, sweep.Placement)).Bind(placed => Products.Each(placed.Map(row =>
             from copy in Products.Of(sweep.Shape.DuplicateCurve)
             from moved in Products.Accepted(() => copy.Transform(row.Xform))
-            select (Shape: copy, At: row.Station.Parameter)).As());
+            select (Shape: copy, At: row.Station.Parameter))));
 
     private static IO<SubD> Railed(Rail rail, Seq<Curve> shapes, bool closed, bool corners) =>
         from host in IO.lift(() => Framed(rail))
@@ -161,7 +161,7 @@ public abstract partial record Sweep {
         select made;
 
     private static Fin<(SweepFrame Frame, Vector3d Normal)> Framed(Rail rail) =>
-        rail.Alignment.Host.Filter(static held => held.Frame is not SweepFrame.AlignWithSurface).ToFin(new RhinoFault(rail.Alignment.GetType().Name, RhinoReason.Unsupported));
+        rail.Alignment.Host.Filter(static held => held.Frame is not SweepFrame.AlignWithSurface).ToFin(new RhinoFault(rail.Alignment, RhinoReason.Unsupported));
 
     private static IO<Seq<NurbsCurve>> Nurbs(IEnumerable<Curve> shapes) => Products.Many(() => shapes.Select(static shape => shape.ToNurbsCurve()));
 }

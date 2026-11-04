@@ -1,37 +1,33 @@
-"""Scene renders: the render call every render path takes, Blender's native render recording the colorspace each composited image leaves in, and slot renders under temporary scene overrides."""
+"""Native and viewport renders, color origins, temporary overrides, and scene dependencies."""
 
+from collections import deque
 from collections.abc import Callable, Generator
 from contextlib import contextmanager, ExitStack
 import datetime
 from enum import auto, Enum
 from functools import cached_property, partial
-from itertools import accumulate
 from typing import ClassVar, Final, TYPE_CHECKING, TypeGuard
 
 import bpy
-from expression import Error, Nothing, Ok, Option, Some
-from expression.collections import Block
+from expression import Option, Some
 from expression.extra.result import catch
 import msgspec
-import PyOpenColorIO
 
 from blender.bpy.commands.invocations import Popup
-from blender.bpy.commands.operators import BoundBody, Call, called, Done, NoUndo, Operator, PopupKind, PopupTarget
-from blender.bpy.data.ids.store import Handle
+from blender.bpy.commands.operators import BoundBody, Call, called, Done, Operator, PopupKind, PopupTarget
 from blender.bpy.data.rna.conditions import Scenes, Setting
 from blender.bpy.data.rna.descriptors import Descriptor, written
 from blender.bpy.data.rna.paths import RnaPath, rooted
 from blender.bpy.data.rna.properties import enum_choices
 from blender.bpy.data.rna.restoration import BeforeAfter
 from blender.bpy.data.rna.snapshots import assigned, Snapshot
-from blender.bpy.extension.events import Handler
 from blender.bpy.extension.identity import Identity
-from blender.bpy.extension.registration import Acquisitions, Declaration
+from blender.bpy.extension.registration import Acquisitions, Declaration, Handler
 from blender.bpy.nodes.trees import nested
-from blender.bpy.render.color.spaces import leaving, traced, viewed
 from blender.bpy.render.outputs.framing import Framed, FrameSize
 from blender.bpy.render.outputs.paths import OutputPath, today
-from blender.bpy.render.outputs.results import COMPOSITE, RENDER_ORIGINS, RenderOrigin
+from blender.bpy.render.outputs.results import animation_files, Receipt, RENDER_ORIGINS, still_files
+from blender.bpy.render.view_layers.passes import layer_of, soloed
 from blender.bpy.render.view_layers.routing import PassRouting, RoutingRow
 from blender.bpy.settings.attachments import Attached, Attachment, Recovery, RetentionSettings
 from blender.bpy.settings.presets import Preset
@@ -40,7 +36,7 @@ from blender.bpy.ui.elements.panels import Preference
 from blender.bpy.ui.layout.rows import Layout, Opens, OperatorButton
 from blender.bpy.ui.layout.sections import Section
 from blender.bpy.ui.layout.values import Captured, menu_key, Store
-from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
+from blender.records.faults import accumulated, Error, Fault, Nothing, Ok, Outcome, paired, Reason
 from blender.records.fields import Retention
 from blender.records.stores import content_hash
 
@@ -74,7 +70,7 @@ RENDER_HISTORY: Final = Preference(key="render_history", form=RetentionSettings)
 
 
 class RenderCall(msgspec.Struct, frozen=True, kw_only=True):
-    """`render.render` options a render passes through, an absent layer rendering every layer and an absent frame bound keeping the scene range."""
+    """Native render options, an explicit layer rendered alone and absent frame bounds keeping the scene range."""
 
     animation: bool = False
     write_still: bool = False
@@ -125,28 +121,35 @@ class RenderBinding(msgspec.Struct, frozen=True):
 # --- [RENDERS]
 
 
-def native(identity: Identity, scene: bpy.types.Scene, call: RenderCall) -> Outcome[frozenset["rna_enums.OperatorReturnItems"]]:
-    """Runs `render.render`, recording the Render Result in the space the last render-enabled entry leaves and the Viewer in the space reaching it in the active entry, a scene-linear image under the scene view."""
-    config = PyOpenColorIO.GetCurrentConfig()
-    linear = config.getColorSpace(PyOpenColorIO.ROLE_SCENE_LINEAR).getName()
-    enabled = tuple(entry for entry in scene.compositor_effects if entry.enable_for_render) if scene.render.use_compositing else ()
-    spaces = tuple(accumulate(enabled, lambda entering, entry: leaving(config, entry, entering), initial=Some(linear)))
-    viewer = Block.of_seq(zip(enabled, spaces, strict=False)).filter(lambda pair: pair[0].is_active).try_head().bind(lambda pair: _shown(config, *pair))
-    active: bpy.types.ViewLayer = bpy.context.view_layer  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+@contextmanager
+def _rendering(scene: bpy.types.Scene, layer: Option[bpy.types.ViewLayer]) -> Generator[None]:
+    """Holds the producing scene, native interface lock, and layer policy."""
+    settings = scene.render
+    locked, single = settings.use_lock_interface, settings.use_single_layer
+    uses = tuple((held, held.use) for held in scene.view_layers) if layer.is_some() else ()
+    try:
+        settings.use_lock_interface = True
+        settings.use_single_layer = layer.is_some() or single
+        for chosen in layer.to_list():
+            soloed(chosen)
+        with bpy.context.temp_override(scene=scene):
+            yield
+    finally:
+        for held, use in uses:
+            held.use = use
+        settings.use_single_layer = single
+        settings.use_lock_interface = locked
 
-    def produced(space: str, layer: Option[str] = Nothing) -> RenderOrigin:
-        return RenderOrigin(scene=Handle.of(scene), space=space, layer=layer, view=Some(viewed(scene)) if space == linear else Nothing)
 
-    productions = {"RENDER_RESULT": spaces[-1].map(lambda space: produced(space, Some(COMPOSITE if enabled else call.layer.default_value(active.name)))), "COMPOSITING": viewer.map(produced)}
-    for image in (image for image in bpy.data.images if image.type in productions):
-        RenderOrigin.recorded(identity, image, Nothing)
+def native(identity: Identity, scene: bpy.types.Scene, call: RenderCall, *, files: Option[Receipt] = Nothing) -> Outcome[frozenset["rna_enums.OperatorReturnItems"]]:
+    """Renders under the native lock with explicit receipts or paths of the native write mode."""
+    receipts: Outcome[Option[Receipt]] = Ok(files.or_else(Some(animation_files) if call.animation else Some(still_files) if call.write_still else Nothing))
 
-    def published(status: frozenset["rna_enums.OperatorReturnItems"]) -> frozenset["rna_enums.OperatorReturnItems"]:
-        for image in (image for image in bpy.data.images if image.type in productions):
-            RenderOrigin.recorded(identity, image, productions[image.type])
-        return status
+    def rendered(layer: Option[bpy.types.ViewLayer]) -> Outcome[frozenset["rna_enums.OperatorReturnItems"]]:
+        with _rendering(scene, layer), RENDER_ORIGINS[identity].requested(scene, call.layer, receipts, animation=call.animation):
+            return called(bpy.ops.render.render, msgspec.structs.asdict(call))
 
-    return called(bpy.ops.render.render, msgspec.structs.asdict(call) | {"scene": scene.name}).map(published)
+    return call.layer.map(lambda name: layer_of(scene, name).map(Some)).default_value(Ok(Nothing)).bind(rendered)
 
 
 # --- [SLOTS]
@@ -167,41 +170,47 @@ class RenderSlots(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     @cached_property
     def rendering(self) -> Operator[Launch]:
         """Slot render command binding overrides on call."""
-        return Operator.of(Launch, invoke=Some(Popup(partial(bpy.types.WindowManager.invoke_props_dialog))), undo=NoUndo())(BoundBody(self.bound, self.render_slot))
+        return Operator.of(Launch, invoke=Some(Popup[Launch](partial(bpy.types.WindowManager.invoke_props_dialog))), options=frozenset())(
+            BoundBody[RenderBinding, Launch](self.bound, self.render_slot)
+        )
 
     @cached_property
     def viewporting(self) -> Operator[Launch]:
         """Viewport render command binding overrides on call."""
         return Operator.of(
             Launch,
-            invoke=Some(Popup(partial(bpy.types.WindowManager.invoke_props_dialog))),
-            undo=NoUndo(),
-            condition=Some(Setting(descriptor=Descriptor.declared(bpy.types.SpaceView3D, ("type",), bpy.types.EnumProperty), accepted=("VIEW_3D",))),
-        )(BoundBody(self.bound, self.render_viewport))
+            invoke=Some(Popup[Launch](partial(bpy.types.WindowManager.invoke_props_dialog))),
+            options=frozenset(),
+            condition=Some(Setting(descriptor=Descriptor(root=bpy.types.SpaceView3D, prop=bpy.types.Space.bl_rna.properties["type"]), accepted=("VIEW_3D",))),
+        )(BoundBody[RenderBinding, Launch](self.bound, self.render_viewport))
 
     # --- [OVERRIDES]
 
     def bound(self, identity: Identity) -> Outcome[RenderBinding]:
         """Binds override store, frame size, pass routing, and recovery."""
-        return paired(self.override.bound(identity), FrameSize().bound(identity), RoutingRow.bound(identity), Recovery.before_after(identity, "render_restore")).map(
-            lambda parts: RenderBinding(*parts)
+        return paired(self.override.bound(identity), FrameSize().bound(identity), RoutingRow.bound(identity)).map(
+            lambda parts: RenderBinding(*parts, Recovery.before_after(identity, "render_restore"))
         )
 
     def render_slot(self, bound: RenderBinding, call: Call[Launch]) -> Outcome[Done]:
         """Renders into the chosen slot under temporary scene overrides."""
-        return self.launched(bound, call, viewport=False)
+        return self.launched(bound, call, self.render, Some(call.properties.layer) if call.properties.use_layer else Nothing)
 
     def render_viewport(self, bound: RenderBinding, call: Call[Launch]) -> Outcome[Done]:
         """Renders the 3D view under temporary scene overrides."""
-        return self.launched(bound, call, viewport=True)
 
-    def launched(self, bound: RenderBinding, call: Call[Launch], *, viewport: bool) -> Outcome[Done]:
+        def viewport(_identity: Identity, scene: bpy.types.Scene, options: RenderCall) -> Outcome[frozenset["rna_enums.OperatorReturnItems"]]:
+            with _rendering(scene, Nothing):
+                return called(bpy.ops.render.opengl, msgspec.structs.asdict(options) | {"view_context": True})
+
+        return self.launched(bound, call, viewport, Nothing)
+
+    def launched(self, bound: RenderBinding, call: Call[Launch], render: Render, chosen: Option[str]) -> Outcome[Done]:
         """Renders into chosen slot under temporary overrides, their prior values recorded first, restoring them once the render ends, refusing a scene holding the overrides of an unfinished render."""
         identity, record, day = call.identity, call.properties, today()
 
         def scene_render(scene: bpy.types.Scene, layer: bpy.types.ViewLayer) -> Outcome[Done]:
             images = tuple(image for image in bpy.data.images if image.type == "RENDER_RESULT")
-            chosen = Some(record.layer) if record.use_layer and not viewport else Nothing
             member = chosen.default_value(scene.name)
 
             def prepared(values: tuple[Snapshot, tuple[int, OutputPath]]) -> Outcome[None]:
@@ -252,23 +261,31 @@ class RenderSlots(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
             def rendered(_: None) -> Outcome[Done]:
                 options = RenderCall(animation=record.animation, write_still=record.write_still and not record.animation, layer=chosen)
-                outcome = called(bpy.ops.render.opengl, msgspec.structs.asdict(options) | {"view_context": True}, context="EXEC_DEFAULT") if viewport else self.render(identity, scene, options)
+                outcome = render(identity, scene, options)
                 return outcome.bind(lambda _: bound.restored(day, scene)).map(lambda _: Done())
 
             with ExitStack() as rollback:
-                outcome = (
-                    paired(Snapshot.capture(scene, owned=identity.owns), bound.routing.pathed.path(scene, day).map(lambda path: (bound.routing.pathed.attached.struct(scene).version, path)))
-                    .bind(lambda values: prepared(values).bind(lambda _: slotted(rollback, values[1][0])))
-                    .bind(rendered)
-                )
-                if outcome.is_ok():
+                if (
+                    outcome := (
+                        paired(Snapshot.capture(scene, owned=identity.owns), bound.routing.pathed.path(scene, day).map(lambda path: (bound.routing.pathed.attached.struct(scene).version, path)))
+                        .bind(lambda values: prepared(values).bind(lambda _: slotted(rollback, values[1][0])))
+                        .bind(rendered)
+                    )
+                ).is_ok():
                     rollback.pop_all()
             return outcome.or_else_with(lambda faults: paired(Error(faults), bound.restored(day, scene)).map(lambda _: Done()))
 
         def checked(scene: bpy.types.Scene, layer: bpy.types.ViewLayer) -> Outcome[Done]:
             return bound.recovery.stored.read(scene).bind(lambda held: Error(Fault.of(Reason.TAKEN, repr(scene), member=bound.recovery.stored.name)) if held.is_some() else scene_render(scene, layer))
 
-        return paired(rooted(bpy.types.Scene, call.context), rooted(bpy.types.ViewLayer, call.context)).bind(lambda parts: checked(*parts))
+        def selected(scene: bpy.types.Scene) -> Outcome[Done]:
+            def launched(layer: bpy.types.ViewLayer) -> Outcome[Done]:
+                with call.context.temp_override(scene=scene, view_layer=layer):
+                    return checked(scene, layer)
+
+            return chosen.map(lambda name: layer_of(scene, name)).default_with(lambda: rooted(bpy.types.ViewLayer, call.context)).bind(launched)
+
+        return rooted(bpy.types.Scene, call.context).bind(selected)
 
     # --- [REGISTRATION]
 
@@ -316,19 +333,20 @@ class RenderSlots(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
 def sourced(scenes: tuple[bpy.types.Scene, ...]) -> tuple[bpy.types.Scene, ...]:
     """Returns scenes and every scene their render-enabled groups read through unmuted Render Layers or render Cryptomatte nodes, each once."""
-    reached = tuple(
-        dict.fromkeys((
-            *scenes,
-            *(
-                live.scene
-                for scene in scenes
-                for tree in nested((entry.node_group for entry in scene.compositor_effects if entry.enable_for_render and entry.node_group is not None), muted=False)
-                for live in tree.nodes
-                if not live.mute and reads_render(live) and live.scene is not None
-            ),
-        ))
-    )
-    return reached if reached == scenes else sourced(reached)
+    reached = dict.fromkeys(scenes)
+    pending = deque(reached)
+    while pending:
+        scene = pending.popleft()
+        for source in (
+            live.scene
+            for tree in nested((entry.node_group for entry in scene.compositor_effects if entry.enable_for_render and entry.node_group is not None), muted=False)
+            for live in tree.nodes
+            if not live.mute and reads_render(live) and live.scene is not None
+        ):
+            if source not in reached:
+                reached[source] = None
+                pending.append(source)
+    return tuple(reached)
 
 
 def reads_render(node: bpy.types.Node) -> TypeGuard[bpy.types.CompositorNodeRLayers | bpy.types.CompositorNodeCryptomatteV2]:
@@ -345,26 +363,12 @@ def reads_render(node: bpy.types.Node) -> TypeGuard[bpy.types.CompositorNodeRLay
 def engined[T](sources: tuple[bpy.types.Scene, ...], engine: str, body: Callable[[], Outcome[T]]) -> Outcome[T]:
     """Runs body with every source rendering through `engine`, each source's own engine restored after on every path."""
     held = tuple((source.render, source.render.engine) for source in sources)
-    return paired(accumulated(assigned(render, {("engine",): engine}) for render, _ in held).bind(lambda _: body()), accumulated(assigned(render, {("engine",): prior}) for render, prior in held)).map(
-        lambda pair: pair[0]
-    )
-
-
-# --- [SPACES]
-
-
-def _shown(config: PyOpenColorIO.Config, entry: bpy.types.SceneCompositorEffect, entering: Option[str]) -> Option[str]:
-    """Returns the colorspace an entry's first unmuted Viewer node shows from the space entering the entry."""
-    return Option.of_optional(entry.node_group).bind(
-        lambda tree: (
-            Block
-            .of_seq(tree.nodes)
-            .filter(lambda node: isinstance(node, bpy.types.CompositorNodeViewer) and not node.mute)
-            .try_head()
-            .bind(lambda viewer: Block.of_seq(viewer.inputs).try_head())
-            .bind(lambda inlet: traced(config, tree, inlet, lambda _: entering))
-        )
-    )
+    member = ("engine",)
+    try:
+        answer = accumulated(assigned(render, {member: engine}) for render, _ in held).bind(lambda _: body())
+    finally:
+        restored = accumulated(assigned(render, {member: prior}) for render, prior in held)
+    return paired(answer, restored).map(lambda pair: pair[0])
 
 
 # --- [OVERRIDES]

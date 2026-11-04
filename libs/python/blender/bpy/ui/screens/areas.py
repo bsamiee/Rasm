@@ -2,12 +2,12 @@
 
 from collections.abc import Callable, Iterable, Mapping
 from functools import partial, reduce
+from itertools import chain
 from types import MappingProxyType
 from typing import Final, Literal, Self, TYPE_CHECKING
 
 import bpy
-from expression import Error, Nothing, Ok, Option, Result, Some, try_downcast
-from expression.collections import Block
+from expression import Option, Result, Some, try_downcast
 import msgspec
 
 from blender.bpy.commands.operators import called, Operation, Setting
@@ -15,7 +15,7 @@ from blender.bpy.data.rna.conditions import Condition, satisfied
 from blender.bpy.data.rna.descriptors import Descriptor, Value, written
 from blender.bpy.data.rna.paths import Native, RnaPath, rooted, Struct, struct_at
 from blender.bpy.ui.resources.theme import Metrics, overlaps
-from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
+from blender.records.faults import accumulated, Error, Fault, Nothing, Ok, Outcome, paired, Reason
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -49,8 +49,21 @@ class Located(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def found(cls, window: bpy.types.Window, pointer: int) -> Option[Self]:
-        """Returns live area by session pointer, Nothing once removed."""
-        return Block.of_seq(areas((window,))).filter(lambda at: at.area.as_pointer() == pointer).try_head().map(lambda at: cls(window=at.window, area=at.area))
+        """Finds the area pointer in the current live window inventory, Nothing while absent."""
+        requested = window.as_pointer()
+        return Option.of_optional(
+            next(
+                (
+                    (live, area)
+                    for manager in bpy.data.window_managers
+                    for live in manager.windows
+                    if live.as_pointer() == requested
+                    for area in chain(live.screen.areas, live.global_areas)
+                    if area.as_pointer() == pointer
+                ),
+                None,
+            )
+        ).starmap(lambda live, area: cls(window=live, area=area))
 
     def within(self, kind: "rna_enums.RegionTypeItems" = "WINDOW") -> Outcome[Self]:
         """Returns the area located at its first region of a type."""
@@ -89,7 +102,9 @@ class AreaQuery(msgspec.Struct, frozen=True, kw_only=True):
 
     def first(self, windows: Iterable[bpy.types.Window]) -> Outcome[Located]:
         """Returns largest matching area, or fault naming editor."""
-        return Block.of_seq(self.located(windows)).try_head().to_result_with(partial(Fault.of, Reason.ABSENT, "WindowManager.windows", member=self.ui_type.default_value(self.space.__name__)))
+        return Option.of_optional(next(iter(self.located(windows)), None)).to_result_with(
+            partial(Fault.of, Reason.ABSENT, "WindowManager.windows", member=self.ui_type.default_value(self.space.__name__))
+        )
 
 
 class EditorState(msgspec.Struct, frozen=True, kw_only=True):
@@ -105,27 +120,28 @@ class EditorState(msgspec.Struct, frozen=True, kw_only=True):
             lambda pairs: cls(region=region, values=pairs)
         )
 
-    def applied(self, area: bpy.types.Area) -> Outcome[Option[Self]]:
-        """Writes values in order, rolling back on refusal or absent owner.
+    def applied(self, at: Located) -> Outcome[Option[Self]]:
+        """Writes values under the located context in order, rolling back on refusal or absent owner.
 
         Returns:
             Replaced values, Nothing while the base or an owner is absent.
         """
-        base = self.region.map(lambda kind: region_in(area, kind).to_option()).default_with(lambda: Option.of_optional(area.spaces.active))
+        base = self.region.map(lambda kind: region_in(at.area, kind).to_option()).default_with(lambda: Option.of_optional(at.area.spaces.active))
 
         def stepped(state: _Written, setting: Descriptor[bpy.types.Property], value: Value | bytes | Struct) -> Result[_Written, _Written]:
             match base.filter(lambda held: isinstance(held, setting.root)).bind(lambda held: struct_at(held, setting.owner)).map(lambda held: (held, setting.write(held, value))):
                 case Option(some=(held, Result(tag="ok", ok=prior))):
-                    return Ok(((*state[0], *((held, setting, replaced) for replaced in prior.to_list())), Ok(None)))
+                    return Result[_Written, _Written].Ok(((*state[0], *((held, setting, replaced) for replaced in prior.to_list())), Ok(None)))
                 case missed:
-                    return Error((state[0], missed.map(lambda pair: pair[1].map(lambda _: None)).default_value(Ok(None))))
+                    return Result[_Written, _Written].Error((state[0], missed.map(lambda pair: pair[1].map(lambda _: None)).default_value(Ok(None))))
 
-        done, stopped = (outcome := reduce(lambda state, pair: state.bind(lambda held: stepped(held, *pair)), self.values, Result[_Written, _Written](ok=((), Ok(None))))).merge()
-        return (
-            Ok(Some(msgspec.structs.replace(self, values=tuple((setting, prior) for _, setting, prior in reversed(done)))))
-            if outcome.is_ok()
-            else accumulated((stopped, *(descriptor.write(held, prior) for held, descriptor, prior in reversed(done)))).map(lambda _: Nothing)
-        )
+        with at.override:
+            done, stopped = (outcome := reduce(lambda state, pair: state.bind(lambda held: stepped(held, *pair)), self.values, Result[_Written, _Written](ok=((), Ok(None))))).merge()
+            return (
+                Ok(Some(msgspec.structs.replace(self, values=tuple((setting, prior) for _, setting, prior in reversed(done)))))
+                if outcome.is_ok()
+                else accumulated((stopped, *(descriptor.write(held, prior) for held, descriptor, prior in reversed(done)))).map(lambda _: Nothing)
+            )
 
 
 class NodeEditing(msgspec.Struct, frozen=True, kw_only=True):
@@ -158,11 +174,6 @@ class Split(msgspec.Struct, frozen=True, kw_only=True):
     ui_type: str
     state: EditorState = EditorState()
 
-    def __post_init__(self) -> None:
-        """Refuses a share outside (0, 0.5), the smaller part `screen.area_split` makes the new area."""
-        if not 0.0 < self.share < 1.0 - self.share:
-            raise ValueError(self)
-
 
 class Retype(msgspec.Struct, frozen=True, kw_only=True):
     """Editor type change, its state applied on the next pass."""
@@ -181,12 +192,8 @@ class Arrangement(msgspec.Struct, frozen=True, kw_only=True):
 
     def advanced(self) -> Outcome[Option[Self]]:
         """Applies the next step on the live area, Nothing once every step and the maximization applied."""
-        return (
-            Located
-            .found(self.at.window, self.at.area.as_pointer())
-            .to_result_with(partial(Fault.of, Reason.ABSENT, repr(self.at.window.screen), member=str(self.at.area.as_pointer())))
-            .bind(self.stepped)
-        )
+        pointer = self.at.area.as_pointer()
+        return Located.found(self.at.window, pointer).to_result_with(lambda: Fault.of(Reason.ABSENT, repr(self.at.window), member=str(pointer))).bind(self.stepped)
 
     def stepped(self, at: Located) -> Outcome[Option[Self]]:
         """Applies the head step, a retype or split leaving its state as the next step and a nested arrangement merging its reverts once done."""
@@ -197,8 +204,8 @@ class Arrangement(msgspec.Struct, frozen=True, kw_only=True):
 
         match self.steps:
             case (EditorState() as state, *_):
-                return state.applied(at.area).map(
-                    lambda prior: prior.map(lambda held: kept(partial(_reached, window, at.area.as_pointer(), lambda live: held.applied(live.area).map(lambda _: None)))).default_value(Some(self))
+                return state.applied(at).map(
+                    lambda prior: prior.map(lambda held: kept(partial(_reached, window, at.area.as_pointer(), lambda live: held.applied(live).map(lambda _: None)))).default_value(Some(self))
                 )
             case (Retype(ui_type=ui_type, state=state), *_):
                 prior = at.area.ui_type
@@ -211,12 +218,8 @@ class Arrangement(msgspec.Struct, frozen=True, kw_only=True):
                     at
                     .run(bpy.ops.screen.area_split, {"direction": "HORIZONTAL" if side in {"TOP", "BOTTOM"} else "VERTICAL", "factor": 1.0 - share if side in {"TOP", "RIGHT"} else share})
                     .bind(
-                        lambda _: (
-                            Block
-                            .of_seq(window.screen.areas)
-                            .filter(lambda area: area.as_pointer() not in before)
-                            .try_head()
-                            .to_result_with(partial(Fault.of, Reason.ABSENT, repr(window.screen), member="screen.area_split"))
+                        lambda _: Option.of_optional(next((area for area in window.screen.areas if area.as_pointer() not in before), None)).to_result_with(
+                            partial(Fault.of, Reason.ABSENT, repr(window.screen), member="screen.area_split")
                         )
                     )
                     .bind(
@@ -259,12 +262,12 @@ class Arrangement(msgspec.Struct, frozen=True, kw_only=True):
 
 def areas(windows: Iterable[bpy.types.Window]) -> tuple[Located, ...]:
     """Returns every screen and global area of the windows."""
-    return tuple(Located(window=window, area=area) for window in windows for area in (*window.screen.areas, *window.global_areas))
+    return tuple(Located(window=window, area=area) for window in windows for area in chain(window.screen.areas, window.global_areas))
 
 
 def region_in(area: bpy.types.Area, kind: "rna_enums.RegionTypeItems" = "WINDOW") -> Outcome[bpy.types.Region]:
     """Returns the area's first region of a type."""
-    return Block.of_seq(area.regions).filter(lambda region: region.type == kind).try_head().to_result_with(partial(Fault.of, Reason.ABSENT, repr(area), member=kind))
+    return Option.of_optional(next((region for region in area.regions if region.type == kind), None)).to_result_with(partial(Fault.of, Reason.ABSENT, repr(area), member=kind))
 
 
 def _reached(window: bpy.types.Window, pointer: int, revert: Callable[[Located], Outcome[None]]) -> Outcome[None]:
@@ -336,7 +339,7 @@ def to_view(located: Located, x: float, y: float) -> Option[tuple[float, float]]
     """Returns editor coordinates of located region pixels, Nothing without a region."""
 
     def viewed(region: bpy.types.Region) -> tuple[float, float]:
-        point: tuple[float, float] = region.view2d.region_to_view(x, y)  # type: ignore[assignment]
+        point: tuple[float, float] = region.view2d.region_to_view(x, y)  # type: ignore[assignment]  # ty: ignore[unsound-assignment]
         view_x, view_y = point
         scale = _scale(located.area)
         return view_x / scale, view_y / scale
@@ -349,7 +352,7 @@ def to_region(located: Located, x: float, y: float) -> Option[tuple[int, int]]:
 
     def placed(region: bpy.types.Region) -> Option[tuple[int, int]]:
         scale = _scale(located.area)
-        point: tuple[int, int] = region.view2d.view_to_region(x * scale, y * scale, clip=False)  # type: ignore[assignment]
+        point: tuple[int, int] = region.view2d.view_to_region(x * scale, y * scale, clip=False)  # type: ignore[assignment]  # ty: ignore[unsound-assignment]
         column, row = point
         return Some(point).filter(lambda _: 0 <= column < region.width and 0 <= row < region.height)
 

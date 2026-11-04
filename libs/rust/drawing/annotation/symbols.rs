@@ -1,4 +1,3 @@
-use core::iter;
 use std::{borrow::Cow, collections::BTreeMap, sync::Arc};
 
 use color::{OpaqueColor, Srgb};
@@ -12,9 +11,14 @@ use rasm_linework::{
     Alignment, Anchor, Baseline, Color, Content, Dash, DashOffset, DashOffsetError, Dashes, DashesError, Element, FontSize, FontSizeError, FontStyle, FontWeight, FontWeightError, FontWidth, Linetype,
     LineworkError, MiterLimit, MiterLimitError, Opacity, Path, Pen, Placement, Region, Side, Target, Text, Tolerance, ToleranceError, Width, WidthError, regions, strokes,
 };
+use stacksafe::StackSafe;
 use uom::{
     ConstZero,
-    si::{angle::radian, f64::{Angle, Length}, length::inch},
+    si::{
+        angle::radian,
+        f64::{Angle, Length},
+        length::inch,
+    },
 };
 use usvg::{
     AlignmentBaseline, BaselineShift, BlendMode, ClipPath, DominantBaseline, FontStretch, Group, ImageHrefResolver, ImageKind, LineCap, LineJoin, Node, Options, Paint, PaintOrder, TextAnchor,
@@ -66,7 +70,9 @@ impl Definition {
             let basis = basis * affine(group.transform());
             let shaped = |path: &usvg::Path| -> Validated<Vec<Element>, AnnotationError> {
                 let local = outline(path);
-                let fill = path.fill().map(|fill| Validated::from(painted(fill.paint(), fill.opacity()).and_then(|(color, opacity)| filled(&(basis * &local), fill_rule(fill.rule()), color, opacity, tolerance))));
+                let fill = path
+                    .fill()
+                    .map(|fill| Validated::from(painted(fill.paint(), fill.opacity()).and_then(|(color, opacity)| filled(basis * &local, fill_rule(fill.rule()), color, opacity, tolerance))));
                 let stroke = path.stroke().map(|stroke| traced(stroke, &local, basis, tolerance));
                 match path.paint_order() {
                     PaintOrder::FillAndStroke => [fill, stroke],
@@ -112,7 +118,7 @@ impl Definition {
                 let drawn = elements.into_iter().flatten().collect();
                 Lowered {
                     elements: match clip {
-                        Some(region) => vec![Element::Clip { region, keep: Side::Inside, elements: drawn }],
+                        Some(region) => vec![Element::Clip { region, keep: Side::Inside, elements: StackSafe::new(drawn) }],
                         None => drawn,
                     },
                     slots: slots.into_iter().flatten().collect(),
@@ -209,23 +215,31 @@ impl Definition {
             };
             let content = Arc::<str>::from(text.chunks().iter().map(TextChunk::text).join("\n"));
             let distance = |value: f32| width(f64::from(value) * scale, Feature::Layout);
-            let spacing = Validated::from(pitches.as_ref().and_then(|steps| steps.first().copied()).map(distance).transpose()).map2(Validated::from(span.text_length().map(distance).transpose()), |line_height, fit| (line_height, fit));
-            let sized = Validated::from(FontWeight::try_new(f32::from(font.weight())).map_err(|(FontWeightError::FiniteViolated | FontWeightError::GreaterOrEqualViolated | FontWeightError::LessOrEqualViolated)| AnnotationError::Unsupported(Feature::Font)))
-                .map2(Validated::from(font_size(em)), |weight, size| (weight, size))
-                .ok()
-                .and_then(|(weight, size)| {
-                    let (_, ratio) = text::em(typesetter, &Text { content: Arc::clone(&content), family: family.clone(), size, placement: Placement::default(), weight, width: stretch, style: slant, .. })?;
-                    font_size(em / ratio).map(|capital| (weight, capital)).map_err(NEVec::from)
-                });
+            let spacing = Validated::from(pitches.as_ref().and_then(|steps| steps.first().copied()).map(distance).transpose())
+                .map2(Validated::from(span.text_length().map(distance).transpose()), |line_height, fit| (line_height, fit));
+            let sized = Validated::from(
+                FontWeight::try_new(f32::from(font.weight()))
+                    .map_err(|(FontWeightError::FiniteViolated | FontWeightError::GreaterOrEqualViolated | FontWeightError::LessOrEqualViolated)| AnnotationError::Unsupported(Feature::Font)),
+            )
+            .map2(Validated::from(font_size(em)), |weight, size| (weight, size))
+            .ok()
+            .and_then(|(weight, size)| {
+                let (_, ratio) =
+                    text::em(typesetter, &Text { content: Arc::clone(&content), family: family.clone(), size, placement: Placement::default(), weight, width: stretch, style: slant, .. })?;
+                font_size(em / ratio).map(|capital| (weight, capital)).map_err(NEVec::from)
+            });
             Some(refusals.map4(validated(sized), Validated::from(painted(fill.paint(), fill.opacity())), spacing, |(), (weight, size), (color, opacity), (line_height, fit)| {
-                (Arc::from(text.id()), Slot {
-                    lettering: Lettering { family, size, weight, width: stretch, style: slant, line_height, features: Vec::new(), color, opacity },
-                    content,
-                    basis: basis * Affine::translate(origin) * Affine::scale(scale.recip()),
-                    anchor,
-                    baseline,
-                    fit,
-                })
+                (
+                    Arc::from(text.id()),
+                    Slot {
+                        lettering: Lettering { family, size, weight, width: stretch, style: slant, line_height, features: Vec::new(), color, opacity },
+                        content,
+                        basis: basis * Affine::translate(origin) * Affine::scale(scale.recip()),
+                        anchor,
+                        baseline,
+                        fit,
+                    },
+                )
             }))
         }
 
@@ -298,12 +312,16 @@ pub(crate) fn draw(typesetter: &mut Typesetter, style: &crate::Style, placement:
         let anchored = basis * *local;
         labelled(typesetter, style, &label, anchored * Point::ORIGIN, directed(anchored, Vec2::new(1.0, 0.0)).normalize(), *anchor, *baseline)
     };
-    let unknown = slots.keys().filter(|name| !definition.slots.contains_key(*name)).map(|name| Err::<(), _>(AnnotationError::Unknown { lookup: Lookup::Slot, name: Arc::clone(name) })).collect::<Validated<(), _>>();
-    let placed = Region::new(&definition.extent.to_path(style.tolerance.into_inner()), FillRule::NonZero, style.tolerance)
+    let unknown = slots
+        .keys()
+        .filter(|name| !definition.slots.contains_key(*name))
+        .map(|name| Err::<(), _>(AnnotationError::Unknown { lookup: Lookup::Slot, name: Arc::clone(name) }))
+        .collect::<Validated<(), _>>();
+    let placed = Region::new(definition.extent, FillRule::NonZero, style.tolerance)
         .map_err(|error| NEVec::from(AnnotationError::from(error)))
         .and_then(|mask| transformed(Graphics { elements: definition.elements.clone(), masks: vec![mask] }, basis));
-    let set = definition.slots.iter().map(|(name, slot)| within(&Subject::Slot(Arc::clone(name)), filled_slot(slot, slots.get(name)))).collect::<Validated<Vec<_>, _>>();
-    unknown.map3(validated(placed), set, |(), drawn, texts| iter::once(drawn).chain(texts).collect()).ok()
+    let set = definition.slots.iter().map(|(name, slot)| within(&Subject::Slot(Arc::clone(name)), filled_slot(slot, slots.get(name)))).collect::<Validated<Graphics, _>>();
+    unknown.map3(validated(placed), set, |(), drawn, texts| [drawn, texts].into_iter().collect()).ok()
 }
 
 fn traced(stroke: &usvg::Stroke, local: &BezPath, basis: Affine, tolerance: Tolerance) -> Validated<Element, AnnotationError> {
@@ -344,11 +362,24 @@ fn traced(stroke: &usvg::Stroke, local: &BezPath, basis: Affine, tolerance: Tole
     };
     let reach = dashing.as_ref().map_or(line_width * 0.5, |_| local.perimeter(tolerance.into_inner() / major).max(line_width * 0.5));
     if (major - minor) * reach > tolerance.into_inner() {
-        validated(pen(1.0).map3(linetype(1.0), Validated::from(Tolerance::try_new(tolerance.into_inner() / major).map_err(|(ToleranceError::FiniteViolated | ToleranceError::GreaterViolated)| unsupported())), |pen, linetype, accuracy| (pen, linetype, accuracy)).ok().and_then(|(pen, linetype, accuracy)| {
-            filled(&(basis * strokes::outline(local, &pen, linetype.as_ref(), accuracy)), FillRule::NonZero, pen.color, pen.opacity, tolerance).map_err(NEVec::from)
-        }))
+        validated(
+            pen(1.0)
+                .map3(
+                    linetype(1.0),
+                    Validated::from(Tolerance::try_new(tolerance.into_inner() / major).map_err(|(ToleranceError::FiniteViolated | ToleranceError::GreaterViolated)| unsupported())),
+                    |pen, linetype, accuracy| (pen, linetype, accuracy),
+                )
+                .ok()
+                .and_then(|(pen, linetype, accuracy)| {
+                    filled(basis * strokes::outline(local, &pen, linetype.as_ref(), accuracy), FillRule::NonZero, pen.color, pen.opacity, tolerance).map_err(NEVec::from)
+                }),
+        )
     } else {
-        pen(scale).map3(linetype(scale), Validated::from(Path::try_new(basis * local).map_err(|error| AnnotationError::from(LineworkError::from(error)))), |pen, linetype, path| Element::Stroke { path, pen, linetype })
+        pen(scale).map3(linetype(scale), Validated::from(Path::try_new(basis * local).map_err(|error| AnnotationError::from(LineworkError::from(error)))), |pen, linetype, path| Element::Stroke {
+            path,
+            pen,
+            linetype,
+        })
     }
 }
 
@@ -356,7 +387,9 @@ fn refused(refusals: &[(bool, Feature)]) -> Validated<(), AnnotationError> {
     refusals.iter().filter_map(|&(present, feature)| present.then_some(feature)).unique().map(|feature| Err::<(), _>(AnnotationError::Unsupported(feature))).collect()
 }
 
-fn width(value: f64, feature: Feature) -> Result<Width, AnnotationError> { Width::try_new(value).map_err(|(WidthError::FiniteViolated | WidthError::GreaterOrEqualViolated)| AnnotationError::Unsupported(feature)) }
+fn width(value: f64, feature: Feature) -> Result<Width, AnnotationError> {
+    Width::try_new(value).map_err(|(WidthError::FiniteViolated | WidthError::GreaterOrEqualViolated)| AnnotationError::Unsupported(feature))
+}
 
 fn font_size(value: f64) -> Result<FontSize, AnnotationError> {
     FontSize::try_new(value).map_err(|(FontSizeError::FiniteViolated | FontSizeError::GreaterViolated)| AnnotationError::Unsupported(Feature::Font))
@@ -378,7 +411,8 @@ fn clipped(clip: Option<&ClipPath>, basis: Affine, tolerance: Tolerance) -> Resu
             .iter()
             .filter_map(|node| match node {
                 Node::Group(inner) => Some(area(inner, basis, tolerance)),
-                Node::Path(path) => path.fill().filter(|_| path.is_visible()).map(|fill| Validated::from(Region::new(&(basis * outline(path)), fill_rule(fill.rule()), tolerance).map_err(AnnotationError::from))),
+                Node::Path(path) =>
+                    path.fill().filter(|_| path.is_visible()).map(|fill| Validated::from(Region::new(basis * outline(path), fill_rule(fill.rule()), tolerance).map_err(AnnotationError::from))),
                 Node::Text(text) => Some(area(text.flattened(), basis, tolerance)),
                 Node::Image(_) => None,
             })

@@ -1,14 +1,14 @@
 """Modal invoke form with gesture, preview, timer, rollback, and status hints read from the user's modal keymaps."""
 
 from collections.abc import Callable, Generator
-from contextlib import contextmanager, ExitStack
+from contextlib import contextmanager
 from enum import Enum
 from functools import partial
 from types import MappingProxyType
 from typing import ClassVar, Final, TYPE_CHECKING
 
 import bpy
-from expression import Error, Nothing, Ok, Option, Result
+from expression import Option, Result, Some
 from expression.collections import Block
 from expression.extra.result import catch
 import msgspec
@@ -16,7 +16,7 @@ import msgspec
 from blender.bpy.commands.operators import Body, Notes, Returns
 from blender.bpy.extension.registration import Acquisitions, Tier
 from blender.bpy.extension.reports import rendered
-from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, Reason
+from blender.records.faults import accumulated, Error, Fault, Faults, Nothing, Ok, Outcome, paired, Reason
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -110,32 +110,34 @@ class Run[S](msgspec.Struct, frozen=True, kw_only=True):
 
     initial: S
     state: S
+    manager: bpy.types.WindowManager
     window: bpy.types.Window
     workspace: bpy.types.WorkSpace
     area: Option[bpy.types.Area]
     region: Option[bpy.types.Region]
     press: Press
     ticking: Option[tuple[Tick[S], bpy.types.Timer]]
+    text: Option[str] = Nothing
     elapsed: float = 0.0
     snapped: bool = False
     pressed: frozenset["rna_enums.EventTypeItems"] = frozenset()
 
 
 class Modal[S](msgspec.Struct, frozen=True, kw_only=True):
-    """Modal invoke form with preview and rollback, asking for no input before the body, which runs once the run applies."""
+    """Native modal lifetime with preview, cancel rollback, and context-free disposal, running body once the run applies."""
 
     asks: ClassVar[bool] = False
-    gesture: Gesture
     begin: Callable[[bpy.types.Context, Travel], Outcome[S]]
-    preview: Callable[[bpy.types.Context, S, Travel], Outcome[Option[str]]]
-    restore: Callable[[bpy.types.Context, S], Outcome[None]]
+    gesture: Gesture = Gesture.TIMED
+    preview: Callable[[bpy.types.Context, S, Travel], Outcome[Option[str]]] = lambda _context, _state, _travel: Ok(Nothing)
+    restore: Callable[[bpy.types.Context, S], Outcome[None]] = lambda _context, _state: Ok(None)
     tick: Option[Tick[S]] = Nothing
     status: Option[Callable[[bpy.types.UILayout, S], None]] = Nothing
     event: Option[Callable[[bpy.types.Context, S, bpy.types.Event], Outcome[tuple[S, "rna_enums.OperatorReturnItems"]]]] = Nothing
-    release: Option[Callable[[bpy.types.Context, S], Outcome[None]]] = Nothing
+    release: Option[Callable[[S], Outcome[None]]] = Nothing
 
-    def classed[T: bpy.types.PropertyGroup](self, body: Body[T], base: type[bpy.types.Operator], /) -> Outcome[Acquisitions]:
-        """Derives the class with gesture flags, modal and cancel members, and the run opening, with a release cancelling live runs at unregistration."""
+    def classed[T: bpy.types.PropertyGroup](self, body: Body[T], base: type[bpy.types.Operator], /) -> Acquisitions:
+        """Derives native callbacks and disposes live runs before class unregistration."""
         runs: dict[bpy.types.Operator, Run[S]] = {}
 
         def proposed(item: bpy.types.KeyMapItem, /) -> str:
@@ -145,7 +147,8 @@ class Modal[S](msgspec.Struct, frozen=True, kw_only=True):
         def modal_map(context: bpy.types.Context, name: str, /) -> Option[bpy.types.KeyMap]:
             """Returns a modal keymap of the user keyconfig, which Python operators read and cannot replace."""
             user: bpy.types.KeyConfig = context.window_manager.keyconfigs.user  # type: ignore[union-attr, assignment]  # ty: ignore[unresolved-attribute, invalid-assignment]
-            return Option.of_optional(user.keymaps.get(name))
+            held: bpy.types.KeyMap | None = user.keymaps.get(name)  # ty: ignore[unsound-assignment]
+            return Option.of_optional(held)
 
         def active(context: bpy.types.Context, name: str, /) -> Block[bpy.types.KeyMapItem]:
             """Returns the active items of a user modal keymap in keymap order."""
@@ -153,7 +156,7 @@ class Modal[S](msgspec.Struct, frozen=True, kw_only=True):
 
         def precision(context: bpy.types.Context, event: bpy.types.Event, pressed: frozenset["rna_enums.EventTypeItems"], /) -> bool:
             """Checks whether a key of the user's transform precision items is held, a modifier key held as its event flag reports."""
-            flagged = frozenset(key for down, keys in zip((event.shift, event.ctrl, event.alt, event.oskey, event.hyper), _MODIFIERS, strict=True) if down for key in keys)
+            flagged = frozenset(key for down, keys in zip((event.shift, event.ctrl, event.alt, event.oskey, event.hyper), _MODIFIERS) if down for key in keys)
             return any(proposed(item) == "PRECISION" and item.type in pressed | flagged for item in active(context, _TRANSFORM))
 
         def hinted(operator: bpy.types.Operator, header: bpy.types.Header, context: bpy.types.Context) -> None:
@@ -172,6 +175,8 @@ class Modal[S](msgspec.Struct, frozen=True, kw_only=True):
             )
             for item in items:
                 layout.template_event_from_keymap_item(item, text=bpy.types.UILayout.enum_item_name(item, "propvalue", item.propvalue))
+            for text in run.text.to_list():
+                layout.label(text=text)
             for draw in self.status.to_list():
                 draw(layout, run.state)
 
@@ -180,10 +185,13 @@ class Modal[S](msgspec.Struct, frozen=True, kw_only=True):
 
             def started(manager: bpy.types.WindowManager, window: bpy.types.Window, workspace: bpy.types.WorkSpace, press: Press, state: S) -> Outcome["rna_enums.OperatorReturnItems"]:
                 if not manager.modal_handler_add(operator):
-                    return paired(Result[None, Faults].Error(Fault.of(Reason.FAILED, "WindowManager.modal_handler_add")), self.restore(context, state)).map(lambda _: "CANCELLED")
+                    return accumulated((Error(Fault.of(Reason.FAILED, "WindowManager.modal_handler_add")), self.restore(context, state), *(release(state) for release in self.release.to_list()))).map(
+                        lambda _: "CANCELLED"
+                    )
                 runs[operator] = Run(
                     initial=state,
                     state=state,
+                    manager=manager,
                     window=window,
                     workspace=workspace,
                     area=Option.of_optional(context.area),
@@ -210,40 +218,31 @@ class Modal[S](msgspec.Struct, frozen=True, kw_only=True):
                 case _:
                     return Error(Fault.of(Reason.ABSENT, repr(context), member="window"))
 
-        def ended(operator: bpy.types.Operator, context: bpy.types.Context, *, cancelled: bool) -> Outcome[None]:
-            """Releases live run, restoring initial snapshot when cancelled."""
-            manager: bpy.types.WindowManager = context.window_manager  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        def ended(operator: bpy.types.Operator, rollback: Option[bpy.types.Context] = Nothing) -> Outcome[None]:
+            """Disposes the run, restoring its snapshot when the native host supplies a cancellation context."""
 
             def released(action: Callable[[], None]) -> Outcome[None]:
                 return catch(action, exception=ReferenceError)().map_error(partial(Fault.of, Reason.REFUSED, operator.bl_idname))
 
-            def restored(run: Run[S], live: tuple[bpy.types.Window, ...]) -> Outcome[None]:
-                area = run.area.filter(lambda held: any(held == area for window in live for area in window.screen.areas))
-                region = run.region.filter(lambda held: any(held == region for found in area.to_list() for region in found.regions))
-                with ExitStack() as scope:
-                    entered = catch(scope.enter_context, exception=TypeError)(
-                        context.temp_override(window=Block.of_seq(live).try_head().to_optional(), area=area.to_optional(), region=region.to_optional())
-                    ).map_error(partial(Fault.of, Reason.REFUSED, "Context.temp_override"))
-                    return entered.bind(lambda _: self.restore(context, run.initial))
-
             def closed(run: Run[S]) -> Outcome[None]:
-                live = tuple(window for window in manager.windows if window == run.window)
+                restored = rollback.map(lambda context: self.restore(context, run.initial)).default_value(Ok(None))
                 cleanup = accumulated((
-                    *(release(context, run.state) for release in self.release.to_list()),
-                    *(released(window.cursor_modal_restore) for _ in self.gesture.cursor.to_list() for window in live),
+                    *(release(run.state) for release in self.release.to_list()),
+                    *(released(run.window.cursor_modal_restore) for _ in self.gesture.cursor.to_list()),
                     released(lambda: run.workspace.status_text_set(None)),
-                    *(released(lambda: area.header_text_set(None)) for area in run.area.to_list()),
-                    *(released(lambda: manager.event_timer_remove(timer)) for _, timer in run.ticking.to_list()),
-                    *(released(manager.progress_end) for tick, _ in run.ticking.to_list() for _ in tick.progress.to_list()),
-                    *(released(lambda: window.cursor_warp(run.press.x, run.press.y)) for window in live if self.gesture.grab.is_some()),
+                    *(released(lambda: run.manager.event_timer_remove(timer)) for _, timer in run.ticking.to_list()),
+                    *(released(run.manager.progress_end) for tick, _ in run.ticking.to_list() for _ in tick.progress.to_list()),
+                    *(released(lambda: run.window.cursor_warp(run.press.x, run.press.y)) for _ in self.gesture.grab.to_list()),
                 ))
-                return paired(cleanup, restored(run, live) if cancelled else Ok(None)).map(lambda _: None)
+                return paired(restored, cleanup).map(lambda _: None)
 
             return Option.of_optional(runs.pop(operator, None)).map(closed).default_value(Ok(None))
 
         def handled(operator: bpy.types.Operator, context: bpy.types.Context, event: bpy.types.Event) -> Outcome["rna_enums.OperatorReturnItems"]:
             """Returns event outcome, matching modal items against the keys held before the event and precision against the keys held after it."""
             prior = runs[operator]
+            if context.window != prior.window or any(context.area != area for area in prior.area.to_list()) or any(context.region != region for region in prior.region.to_list()):
+                return Ok("CANCELLED")
             held = prior.pressed - {event.type} if event.value == "RELEASE" else prior.pressed
             run = runs[operator] = msgspec.structs.replace(prior, pressed=held | {event.type} if event.value == "PRESS" else held)
             precise = precision(context, event, run.pressed)
@@ -252,8 +251,7 @@ class Modal[S](msgspec.Struct, frozen=True, kw_only=True):
                 runs[operator] = current
                 result = self.preview(context, current.state, current.press.travel(event, snapped=current.snapped, precise=precise))
                 for text in result.to_option().to_list():
-                    for area in current.area.to_list():
-                        area.header_text_set(text.to_optional())
+                    runs[operator] = msgspec.structs.replace(current, text=text)
                 return result.map(lambda _: "RUNNING_MODAL")
 
             def ticked(tick: Tick[S], timer: bpy.types.Timer) -> Outcome["rna_enums.OperatorReturnItems"]:
@@ -261,9 +259,8 @@ class Modal[S](msgspec.Struct, frozen=True, kw_only=True):
                     return Ok("PASS_THROUGH")
                 match tick.body(context, run.state, elapsed):
                     case Result(tag="ok", ok=Option(tag="some", some=state)):
-                        manager: bpy.types.WindowManager = context.window_manager  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
                         for progress in tick.progress.to_list():
-                            manager.progress_update(progress(state))
+                            run.manager.progress_update(progress(state))
                         return previewed(msgspec.structs.replace(run, state=state, elapsed=elapsed))
                     case Result(tag="ok"):
                         return Ok("FINISHED")
@@ -275,8 +272,6 @@ class Modal[S](msgspec.Struct, frozen=True, kw_only=True):
                 runs[operator] = msgspec.structs.replace(run, state=state)
                 return outcome
 
-            if context.window != run.window or any(context.area != area for area in run.area.to_list()) or any(context.region != region for region in run.region.to_list()):
-                return Ok("CANCELLED")
             run.workspace.status_text_set(partial(hinted, operator))
             for handle in self.event.to_list():
                 return handle(context, run.state, event).map(following)
@@ -299,12 +294,12 @@ class Modal[S](msgspec.Struct, frozen=True, kw_only=True):
                     return Ok("RUNNING_MODAL")
 
         def cancelled(operator: bpy.types.Operator, context: bpy.types.Context, entries: Notes) -> Returns:
-            return body.noted(operator, (*entries, *ended(operator, context, cancelled=True).map(lambda _: ()).default_with(rendered)), "CANCELLED")
+            return body.noted(operator, (*entries, *ended(operator, Some(context)).map(lambda _: ()).default_with(rendered)), "CANCELLED")
 
         def returned(operator: bpy.types.Operator, context: bpy.types.Context, outcome: "rna_enums.OperatorReturnItems") -> Returns:
             match outcome:
                 case "FINISHED":
-                    return body.modal_finished(operator, context, lambda rolled: ended(operator, context, cancelled=rolled))
+                    return body.modal_finished(operator, context, partial(ended, operator))
                 case "CANCELLED":
                     return cancelled(operator, context, ())
                 case _:
@@ -319,7 +314,7 @@ class Modal[S](msgspec.Struct, frozen=True, kw_only=True):
                 yield Result[None, Faults](ok=None)
             finally:
                 for operator in tuple(runs):
-                    cancelled(operator, bpy.context, ())
+                    body.noted(operator, ended(operator).map(lambda _: ()).default_with(rendered), "CANCELLED")
 
         members = {
             "bl_options": base.bl_options | self.gesture.options,
@@ -327,7 +322,7 @@ class Modal[S](msgspec.Struct, frozen=True, kw_only=True):
             "cancel": lambda operator, context: cancelled(operator, context, ()),
             "invoke": body.invoking(lambda operator, context, event: began(operator, context, event).map(lambda outcome: {outcome})),
         }
-        return Ok((body.derived(base, members), (Tier.OPERATORS, released())))
+        return body.derived(base, members), (Tier.OPERATORS, released())
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -346,7 +341,7 @@ def matched(item: bpy.types.KeyMapItem, event: bpy.types.Event, held: frozenset[
                 and (item.value != "CLICK_DRAG" or item.direction in {"ANY", event.direction})
                 and all(
                     state in {-1, int(pressed)} or event.type in keys
-                    for state, pressed, keys in zip((item.shift, item.ctrl, item.alt, item.oskey, item.hyper), (event.shift, event.ctrl, event.alt, event.oskey, event.hyper), _MODIFIERS, strict=True)
+                    for state, pressed, keys in zip((item.shift, item.ctrl, item.alt, item.oskey, item.hyper), (event.shift, event.ctrl, event.alt, event.oskey, event.hyper), _MODIFIERS)
                 )
                 and (item.key_modifier == "NONE" or item.key_modifier in held)
             )

@@ -22,18 +22,21 @@ public sealed record ValueSet(HashMap<EntryKey, string> Entries) {
 
     public static DictionaryCodec<ValueSet> Codec { get; } = ArchivableDictionaries.Json<ValueSet>(nameof(ValueSet), 3);
 
-    public static ValueSet Fields<T>(string owner, T record) =>
-        new(toHashMap(Paths(record).AsIterable().Map(entry => (new EntryKey(owner, entry.Key), entry.Value))));
+    public static ValueSet Fields<T>(string owner, T record, Seq<string> prefix = default) =>
+        new(toHashMap(Paths(record, prefix).AsIterable().Map(entry => (new EntryKey(owner, entry.Key), entry.Value))));
 
-    public static HashMap<Seq<string>, string> Paths<T>(T record) =>
-        toHashMap(Leaves(JsonSerializer.SerializeToNode(record, ArchivableDictionaries.Options), []));
+    public static HashMap<Seq<string>, string> Paths<T>(T record, Seq<string> prefix = default) =>
+        toHashMap(Leaves(JsonSerializer.SerializeToNode(record, ArchivableDictionaries.Options), prefix));
 
-    public Fin<T> Recalled<T>(string owner, T current) =>
-        ArchivableDictionaries.Decoded(owner, () => Merged(
-                JsonSerializer.SerializeToNode(current, ArchivableDictionaries.Options),
-                Grown(toSeq(Enumerable.OrderBy(Entries.AsIterable().Filter(entry => string.Equals(entry.Key.Owner, owner, StringComparison.Ordinal)), static entry => EntryKey.Name(entry.Key.Path), StringComparer.Ordinal)).Map(static entry => (entry.Key.Path, entry.Value)),
-                    Parsed, Branch))
-            .Deserialize<T>(ArchivableDictionaries.Options));
+    public Fin<T> Recalled<T>(string owner, T current, Seq<string> prefix = default) =>
+        toSeq(Enumerable.OrderBy(Entries.AsIterable()
+                .Filter(entry => string.Equals(entry.Key.Owner, owner, StringComparison.Ordinal) && entry.Key.Path.Take(prefix.Count).Equals(prefix))
+                .Map(entry => (Path: entry.Key.Path.Skip(prefix.Count), entry.Value)),
+            static entry => EntryKey.Name(entry.Path), StringComparer.Ordinal)) switch {
+                { IsEmpty: true } => current,
+                var rows => ArchivableDictionaries.Decoded(owner, () => Merged(JsonSerializer.SerializeToNode(current, ArchivableDictionaries.Options), Grown(rows, Parsed, Branch))
+                    .Deserialize<T>(ArchivableDictionaries.Options)),
+            };
 
     public string Text() => JsonSerializer.Serialize(this, ValueSetContext.Default.ValueSet);
 

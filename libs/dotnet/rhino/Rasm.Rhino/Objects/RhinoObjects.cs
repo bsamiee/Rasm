@@ -10,13 +10,13 @@ namespace Rasm.Rhino.Objects;
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum<int>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class ObjectSelection {
-    public static readonly ObjectSelection Unselected = new(0, on: false, persistentSelect: false);
-    public static readonly ObjectSelection Selected = new(1, on: true, persistentSelect: false);
-    public static readonly ObjectSelection Persistent = new(2, on: true, persistentSelect: true);
+    public static readonly ObjectSelection Unselected = new(0);
+    public static readonly ObjectSelection Selected = new(1);
+    public static readonly ObjectSelection Persistent = new(2);
 
-    public bool On { get; }
+    public bool On => this != Unselected;
 
-    public bool PersistentSelect { get; }
+    public bool PersistentSelect => this == Persistent;
 }
 
 // --- [MODELS] --------------------------------------------------------------------------

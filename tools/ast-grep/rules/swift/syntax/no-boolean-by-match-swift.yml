@@ -20,7 +20,7 @@ utils:
     single-pattern:
         kind: switch_entry
         all:
-            - has: {kind: switch_pattern, pattern: $PATTERN}
+            - has: {kind: switch_pattern}
             - not: {has: {kind: switch_pattern, nthChild: {position: 2, ofRule: {kind: switch_pattern}}}}
     first-entry:
         kind: switch_entry
@@ -31,76 +31,19 @@ utils:
     two-entries:
         kind: switch_statement
         all:
-            - has: {field: expr, pattern: $SUBJECT}
+            - has: {field: expr, pattern: $_}
             - not: {has: {kind: switch_entry, nthChild: {position: 3, ofRule: {kind: switch_entry}}}}
     boolean-switch:
         matches: two-entries
         all:
             - has: {all: [{matches: first-entry}, {matches: literal-entry}]}
             - has: {all: [{matches: second-entry}, {matches: literal-entry}]}
-    true-call: {pattern: {context: '$CTOR($$$BEFORE, $LABEL: true, $$$TAIL)', strictness: ast}}
-    false-call: {pattern: {context: '$CTOR($$$BEFORE, $LABEL: false, $$$TAIL)', strictness: ast}}
-    true-arm:
-        any:
-            - matches: true-call
-            - kind: control_transfer_statement
-              has: {field: result, matches: true-call}
-    false-arm:
-        any:
-            - matches: false-call
-            - kind: control_transfer_statement
-              has: {field: result, matches: false-call}
-    matched-literal:
-        has:
-            stopBy: end
-            kind: value_argument
-            all:
-                - has: {field: name, pattern: $LABEL}
-                - has: {field: value, kind: boolean_literal, pattern: $IN}
-    other-literal:
-        has:
-            stopBy: end
-            kind: value_argument
-            all:
-                - has: {field: name, pattern: $LABEL}
-                - has: {field: value, kind: boolean_literal, pattern: $OUT}
-    constructor-switch:
-        matches: two-entries
-        all:
-            - has: {all: [{matches: first-entry}, {matches: single-pattern}]}
-            - any:
-                - all:
-                    - has: {matches: first-entry, has: {kind: statements, not: {has: {nthChild: 2}}, has: {nthChild: 1, pattern: $CALLED, all: [{matches: true-arm}, {matches: matched-literal}]}}}
-                    - has: {matches: second-entry, has: {kind: statements, not: {has: {nthChild: 2}}, has: {nthChild: 1, all: [{matches: false-arm}, {matches: other-literal}]}}}
-                - all:
-                    - has: {matches: first-entry, has: {kind: statements, not: {has: {nthChild: 2}}, has: {nthChild: 1, pattern: $CALLED, all: [{matches: false-arm}, {matches: matched-literal}]}}}
-                    - has: {matches: second-entry, has: {kind: statements, not: {has: {nthChild: 2}}, has: {nthChild: 1, all: [{matches: true-arm}, {matches: other-literal}]}}}
-            - any:
-                - has: {kind: switch_entry, has: {kind: statements, has: {nthChild: 1, kind: control_transfer_statement}}}
-                - inside: {kind: statements, has: {nthChild: 2}}
-                - {matches: whole-body, pattern: $WHOLE}
-    returning-statement:
-        all:
-            - inside: {kind: statements}
-            - any:
-                - kind: 'if_statement, guard_statement'
-                - matches: boolean-switch
-                  has: {kind: switch_entry, has: {kind: statements, has: {nthChild: 1, kind: control_transfer_statement}}}
-    whole-body:
-        nthChild: 1
-        inside: {kind: statements, inside: {kind: 'function_body, lambda_literal, computed_property, computed_getter'}}
 rule:
     all:
         - any:
-            - {matches: returning-statement, not: {matches: whole-body}, pattern: $KEPT}
-            - {not: {matches: returning-statement}}
-            - {matches: whole-body}
-        - any:
             - kind: if_statement
-              pattern: $IF
               matches: {swift-boolean-match: {matched: {pattern: $IN}, other: {pattern: $OUT}}}
             - kind: guard_statement
-              pattern: $GUARD
               matches: {swift-boolean-match: {matched: {pattern: $IN}, other: {pattern: $OUT}}}
             - matches: boolean-switch
               all:
@@ -119,25 +62,21 @@ rule:
                 - has:
                     all: [{matches: second-entry}, {matches: single-pattern}]
                     has: {kind: statements, has: {kind: boolean_literal, pattern: $IN, stopBy: end, not: {pattern: $OUT}}}
-            - matches: constructor-switch
-transform:
-    RETURN: {replace: {source: $KEPT, replace: '(?s)^.*$', by: 'return '}}
-    LOCAL: {replace: {source: $LABEL, replace: '^(.+)$', by: 'let $1: Bool = '}}
-    NEWLINE: {replace: {source: $CTOR, replace: '^.+$', by: "\n"}}
-    WHOLE_RETURN: {replace: {source: $WHOLE, replace: '(?s)^.*$', by: 'return '}}
-    CALL_RETURN: {replace: {source: $CALLED, replace: '(?s)^\s*(return\s+)?.*$', by: '$1'}}
-    ARGUMENT: {replace: {source: $LABEL, replace: '^(.+)$', by: '$1'}}
-    HEAD: {replace: {source: $IF, replace: '(?s)^(if\s+case\b.*?)\s*\{\s*return\s+(?:true|false)\s*\}(?:\s*else\s*\{\s*return\s+(?:true|false)\s*\})?$', by: '$1'}}
-    TEST: {replace: {source: $GUARD, replace: '(?s)^guard\s+(case\b.*?)\s*else\s*\{\s*return\s+(?:true|false)\s*\}$', by: 'if $1'}}
-    CASE: {replace: {source: $PATTERN, replace: '^', by: 'if case '}}
-    VALUE: {replace: {source: $SUBJECT, replace: '^', by: ' = '}}
-    CTOR_OPEN: {replace: {source: $CTOR, replace: '^(.+)$', by: '$1('}}
-    CTOR_CLOSE: {replace: {source: $CTOR, replace: '^.+$', by: ')'}}
-    BEFORE_ARGS: {replace: {source: $$$BEFORE, replace: '(?s)^(.+)$', by: '$1, '}}
-    LABEL_COLON: {replace: {source: $LABEL, replace: '^(.+)$', by: '$1: '}}
-    TAIL_ARGS: {replace: {source: $$$TAIL, replace: '(?s)^(.+)$', by: ', $1'}}
-fix:
-    template: '$RETURN$LOCAL$HEAD$TEST$CASE$VALUE { $IN } else { $OUT }$NEWLINE$WHOLE_RETURN$CALL_RETURN$CTOR_OPEN$BEFORE_ARGS$LABEL_COLON$ARGUMENT$TAIL_ARGS$CTOR_CLOSE'
-    expandEnd: {kind: control_transfer_statement}
+        - any:
+            - all:
+                - any:
+                    - kind: 'if_statement, guard_statement'
+                    - has: {kind: switch_entry, has: {kind: statements, has: {kind: control_transfer_statement}}}
+                - inside: {stopBy: {matches: swift-function-scope}, kind: function_declaration, has: {field: return_type, regex: '^Swift\.Bool$'}}
+            - inside:
+                kind: statements
+                not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, multiline_comment'}}}}}
+                inside: {kind: function_body, inside: {kind: function_declaration, has: {field: return_type, regex: '^Swift\.Bool$'}}}
+            - inside: {kind: control_transfer_statement, field: result, inside: {stopBy: {matches: swift-function-scope}, kind: function_declaration, has: {field: return_type, regex: '^Swift\.Bool$'}}}
+            - inside: {kind: property_declaration, field: value, has: {kind: type_annotation, has: {field: name, regex: '^Swift\.Bool$'}}}
+            - inside:
+                kind: computed_property
+                stopBy: {matches: swift-function-scope}
+                inside: {kind: property_declaration, has: {kind: type_annotation, has: {field: name, regex: '^Swift\.Bool$'}}}
 message: 'Match yields `$IN` for one pattern and `$OUT` for every other'
 note: 'Write `if case <pattern> = <value> { <matched> } else { <other> }`, or `<value> == <case>` for an `Equatable` type'

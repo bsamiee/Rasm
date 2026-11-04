@@ -17,7 +17,7 @@ public static partial class Session {
     internal static readonly JoinableTaskContext Threading = Eto.Forms.Application.Instance.Invoke(static () =>
         Eto.Forms.Application.Instance.Properties.Create(typeof(JoinableTaskContext), static () => new JoinableTaskContext()));
 
-    private static readonly Atom<Option<Bound>> State = Atom(Option<Bound>.None);
+    private static readonly Ref<Option<Bound>> State = Ref(Option<Bound>.None);
 
     public static PlugIn PlugIn => Read(static bound => bound.Host.IfLeft(static skin => throw new InvalidOperationException($"{skin.GetType().FullName} binds a skin session, not a plug-in")));
 
@@ -36,50 +36,55 @@ public static partial class Session {
     public static IO<Unit> Bind(Skin skin, Seq<Action<ILoggingBuilder>> logging) => Opened(Left(skin), skin.GetType(), logging);
 
     public static IO<Unit> Close =>
-        from taken in IO.lift(static () => State.Swap(static _ => None))
-        from closed in taken.Traverse(static bound =>
-            from cancelled in IO.liftAsync(() => bound.Scope.Source.CancelAsync().ToUnit())
-            from drained in IO.liftAsync(environment => bound.Pending.JoinTillEmptyAsync(environment.Token).ToUnit())
-            from scope in IO.lift(bound.Scope.Dispose)
-            from loggers in IO.lift(bound.Loggers.Dispose)
-            select unit).As()
-        select unit;
+        (from taken in atomicIO(static () => {
+            Option<Bound> bound = State.Value;
+            State.Value = None;
+            return bound;
+        })
+         from closed in taken.Traverse(static bound => Products.Each(Seq(
+             IO.liftAsync(() => bound.Scope.Source.CancelAsync().ToUnit()),
+             IO.liftAsync(() => bound.Pending.JoinTillEmptyAsync(CancellationToken.None).ToUnit()),
+             IO.lift(bound.Scope.DisposeResources),
+             IO.lift(bound.Scope.DisposeNonResources),
+             IO.lift(bound.Loggers.Dispose))).Map(unit)).As()
+         select unit).Uninterruptible();
 
     private static IO<Unit> Opened(Either<Skin, PlugIn> host, Type category, Seq<Action<ILoggingBuilder>> logging) =>
         from fresh in IO.lift(() => LoggerFactory.Create(builder => (Seq<Action<ILoggingBuilder>>(static window => window.AddProvider(new CommandWindowLoggerProvider())) + logging).Iter(row => row(builder))) switch {
             var loggers => new Bound(host, category.Assembly, loggers, loggers.CreateLogger(category), EnvIO.New(token: CancellationToken.None), Threading.CreateCollection()),
         })
-        from bound in IO.lift(() => State.Swap(prior => prior | Some(fresh)))
+        from bound in atomicIO(() => State.Swap(prior => prior | Some(fresh)))
         from taken in unless(bound.Exists(held => ReferenceEquals(held, fresh)), IO.lift(() => {
             fresh.Scope.Dispose();
             fresh.Loggers.Dispose();
-        }) >> IO.fail<Unit>(new RhinoFault(category.FullName ?? category.Name, RhinoReason.Taken))).As()
+        }) >> IO.fail<Unit>(new RhinoFault(category, RhinoReason.Taken))).As()
         select unit;
 
     // --- [RUNS]
     public static Fin<T> RunSafe<T>(IO<T> effect, CancellationToken token) => Threading.Factory.Run(() => RunSafeAsync(effect, token));
 
-    public static async Task<Fin<T>> RunSafeAsync<T>(IO<T> effect, CancellationToken token) {
-        using EnvIO environment = EnvIO.New(token: token, syncContext: SynchronizationContext.Current);
-        return await effect.RunSafeAsync(environment).ConfigureAwait(false);
-    }
+    public static Task<Fin<T>> RunSafeAsync<T>(IO<T> effect, CancellationToken token, IDisposable? owned = null) =>
+        IO.liftVAsync(async _ => {
+            using (owned)
+                return await effect.RunAsync(token).ConfigureAwait(false);
+        }).RunSafeAsync().AsTask();
 
     public static T Run<T>(IO<T> effect, T failed, [CallerMemberName] string member = "") =>
-        RunSafe(effect, CancellationToken.None).IfFail(error => {
-            _ = Failed(error, member);
+        Read(bound => RunSafe(effect, CancellationToken.None).IfFail(error => {
+            _ = Failed(bound.Logger, error, member);
             return failed;
-        });
+        }));
 
     public static Unit Run<T>(IO<T> effect, [CallerMemberName] string member = "") => Run(effect.Map(unit), unit, member);
 
-    public static Unit Start<T>(IO<T> effect, [CallerMemberName] string member = "") =>
-        Read(bound => {
-            bound.Pending.Add(Threading.Factory.RunAsync(async () => {
-                using EnvIO environment = EnvIO.New(token: bound.Scope.Token);
-                _ = await effect.Map(unit).IfFail(error => IO.lift(() => Failed(error, member))).RunAsync(environment).ConfigureAwait(false);
-            }));
-            return unit;
-        });
+    public static Unit Start<T>(IO<T> effect, [CallerMemberName] string member = "", IDisposable? owned = null) => ignore(StartAsync(effect, member, owned));
+
+    public static Task<Fin<T>> StartAsync<T>(IO<T> effect, [CallerMemberName] string member = "", IDisposable? owned = null) =>
+        Read(bound => Threading.CreateFactory(bound.Pending).RunAsync(async () => {
+            Fin<T> answer = await RunSafeAsync(effect, bound.Scope.Token, owned).ConfigureAwait(false);
+            _ = answer.Match(Succ: static _ => unit, Fail: error => Failed(bound.Logger, error, member));
+            return answer;
+        }).Task);
 
     // --- [THREADS]
     extension<T>(IO<T> effect) {
@@ -91,19 +96,26 @@ public static partial class Session {
 
         public IO<T> Scoped(EnvIO scope) => IO.liftVAsync(_ => effect.RunAsync(scope));
 
+        public IO<T> Scoped(Resources resources) => IO.liftVAsync(async environment => {
+            using EnvIO scope = EnvIO.New(resources, environment.Token, environment.Source, environment.SyncContext);
+            return await effect.RunAsync(scope).ConfigureAwait(false);
+        });
+
         public IO<T> Scoped() => IO.liftVAsync(_ => effect.RunAsync(Scope));
     }
 
     // --- [LOGS]
-    public static Unit Failed(Error error, [CallerMemberName] string member = "") {
-        if (Cancellation(error)) Canceled(Logger, member);
-        else if (Logger.IsEnabled(LogLevel.Error)) Failed(Logger, member, Messages(error), Causes(error).Choose(static cause => cause.Exception) switch { [] => null, [var single] => single, var many => new AggregateException(many) });
-        return unit;
-    }
+    public static Unit Failed(Error error, [CallerMemberName] string member = "") => Failed(Logger, error, member);
 
     public static string Messages(Error error) => string.Join(Environment.NewLine, Causes(error).Map(static cause => cause.Message));
 
     public static bool Cancellation(Error error) => error.Count is 1 && error.Is(Errors.Cancelled);
+
+    private static Unit Failed(ILogger logger, Error error, string member) {
+        if (Cancellation(error)) Canceled(logger, member);
+        else if (logger.IsEnabled(LogLevel.Error)) Failed(logger, member, Messages(error), Causes(error).Choose(static cause => cause.Exception) switch { [] => null, [var single] => single, var many => new AggregateException(many) });
+        return unit;
+    }
 
     [LoggerMessage(Level = LogLevel.Error, Message = "{Member} failed: {Message}", SkipEnabledCheck = true)]
     private static partial void Failed(ILogger logger, string member, string message, Exception? exception);
@@ -111,7 +123,9 @@ public static partial class Session {
     [LoggerMessage(Level = LogLevel.Debug, Message = "{Member} canceled")]
     private static partial void Canceled(ILogger logger, string member);
 
-    private static Seq<Error> Causes(Error error) => error.FoldM(static leaf => leaf.Cons(leaf.Inner.ToSeq().Bind(Causes))).As();
+    private static Seq<Error> Causes(Error error) =>
+        toSeq(LanguageExt.List.unfold(error.AsIterable().ToSeq(), static pending => pending.Head.Map(cause =>
+            (cause, cause.Inner.ToSeq().Bind(static inner => inner.AsIterable().ToSeq()) + pending.Tail))));
 }
 
 [ProviderAlias("CommandWindow")]

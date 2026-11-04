@@ -40,12 +40,14 @@ public static class FilePublication {
 
     // --- [JSON]
     public static IO<Option<TValue>> Read<TRecord, TValue>(string path, JsonTypeInfo<TRecord> info, Func<TRecord, Fin<TValue>> decode) where TRecord : class =>
-        IO.lift(() => Some(File.ReadAllBytes(path)))
-            .Catch(static error => error.HasException<FileNotFoundException>() || error.HasException<DirectoryNotFoundException>(), static _ => IO.pure(Option<byte[]>.None))
-            .Bind(found => found.Traverse(bytes =>
-                IO.lift(() => Conversions.Required(JsonSerializer.Deserialize(bytes, info)).Bind(decode))
-                    .Catch(static error => error.IsExpected || error.HasException<JsonException>(),
-                        error => IO.fail<TValue>(new RhinoFault(path, RhinoReason.Unreadable, Inner: error)))).As());
+        IO.lift(() => {
+            using FileStream stream = File.OpenRead(path);
+            return Conversions.Required(JsonSerializer.Deserialize(stream, info)).Map(Some);
+        })
+            .Catch(static error => error.HasException<FileNotFoundException>() || error.HasException<DirectoryNotFoundException>(), static _ => IO.pure(Option<TRecord>.None))
+            .Bind(found => found.Traverse(record => IO.lift(() => decode(record))).As())
+            .Catch(static error => error.IsExpected || error.HasException<JsonException>(),
+                error => IO.fail<Option<TValue>>(new RhinoFault(path, RhinoReason.Unreadable, Inner: error)));
 
     public static IO<Unit> Write<TRecord>(OutputPath path, TRecord value, JsonTypeInfo<TRecord> info, bool overwrite = true) =>
         Write(path, overwrite, stream => IO.liftAsync(async environment => {

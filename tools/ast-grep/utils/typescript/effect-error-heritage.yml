@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: effect-error-heritage
-language: tsx
+language: tsxlang
 utils:
     error-module:
         matches: {effect-module: {name: {regex: '\b(Data|Schema)$'}}}

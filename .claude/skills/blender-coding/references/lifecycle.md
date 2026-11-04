@@ -4,7 +4,7 @@
 
 ## [01]-[FILE_LOADS]
 
-File loads drop non-`persistent` handlers and timers, msgbus subscriptions, and `driver_namespace` entries, and `register()` skips the new file. Per-file state rebuilds in one persistent `load_post` handler:
+File loads drop non-`persistent` handlers and timers, msgbus subscriptions, and `driver_namespace` entries, and `register()` skips the new file. One persistent `load_post` handler replaces per-file state:
 - Startup runs `load_post` once after extensions register, every callback `register()` acquired live
 - Extensions enabled within a session see no `load_post`, and a one-shot persistent timer beside the handler seeds their state
 - `load_post` runs after versioning and before drivers and the depsgraph evaluate, evaluated reads and heavy work running from later timer steps
@@ -24,6 +24,8 @@ File loads drop non-`persistent` handlers and timers, msgbus subscriptions, and 
 - Any animation recalculation sets `is_updated_shading`
 - F12 renders can fire the handler with empty `updates`, and undo fires one listing the scene, every object, and each other ID the step re-read
 - Timer writes to built-in properties notify msgbus subscribers as the step returns, after any `depsgraph_update_post` its `ed.undo_push` fired
+- `Image.update()` and `pixels.foreach_set` expose no complete pixel revision; content snapshots reuse buffers within one operation
+- Join retained ID state to native data stores once per operation, keeping live undisplayed IDs despite incomplete deletion notifications
 
 ## [03]-[DEFERRED_WORK]
 

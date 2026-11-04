@@ -1,0 +1,24 @@
+RASM3012 `MissingNumber` forwards `RhinoMath.UnsetValue`, read `RhinoMath.UnsetValue` at each use
+#0 'Entry' receives sentinel 'Id.Empty' for an absent member
+#1 'Entry' receives sentinel 'default' for an absent member
+#2 'Entry' receives sentinel 'new Id()' for an absent member
+#3 'Entry' receives sentinel 'Id.Empty' for an absent member
+#4 'DateEntry' receives sentinel 'DateTime.MinValue' for an absent member
+#5 'DateEntry' receives sentinel 'new DateTime()' for an absent member
+#6 'NumericEntry' receives sentinel 'double.NaN' for an absent member
+#7 'WideEntry' receives sentinel 'default' for an absent member
+#8 'WideEntry' receives sentinel 'default' for an absent member
+#9 'TextEntry' receives sentinel '""' for an absent member
+#10 'TextEntry' receives sentinel '""' for an absent member
+#11 'TextEntry' receives sentinel '""' for an absent member
+#12 'Entry' receives sentinel 'Id.Empty' for an absent member
+#13 'Entry' receives sentinel 'Id.Empty' for an absent member
+#14 'OffsetEntry' receives sentinel 'DateTimeOffset.MinValue' for an absent member
+#15 'NumericEntry' receives sentinel 'float.NaN' for an absent member
+#16 'TextEntry' receives sentinel '""' for an absent member
+#17 'Entry' receives sentinel 'Id.Empty' for an absent member
+#18 'NumericEntry' receives sentinel 'Point3d.Unset' for an absent member
+#19 'Entry' receives sentinel 'Id.Empty' for an absent member
+#20 'StoredText' receives sentinel '""' for an absent member
+#21 'NumericEntry' receives sentinel 'RhinoMath.UnsetValue' for an absent member
+#22 'NumericEntry' receives sentinel 'RhinoMath.UnsetValue' for an absent member

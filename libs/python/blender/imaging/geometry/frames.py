@@ -4,7 +4,7 @@ from collections.abc import Callable
 import math
 from typing import Literal, Self
 
-from expression import Error, Nothing, Ok, Option, Some
+from expression import Option, Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -13,7 +13,7 @@ from scipy.ndimage import gaussian_filter, map_coordinates, sobel
 from skimage.transform import ProjectiveTransform
 
 from blender.imaging.files.buffers import checked, pixels
-from blender.records.faults import Fault, Outcome, paired, Reason
+from blender.records.faults import Error, Fault, Nothing, Ok, Outcome, paired, Reason
 from blender.records.fields import Count, Finite, Frozen
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -30,7 +30,7 @@ class Region(msgspec.Struct, frozen=True, kw_only=True):
     def __post_init__(self) -> None:
         """Refuses sides out of order."""
         if self.left > self.right or self.bottom > self.top:
-            raise ValueError(f"{self!r} holds sides out of order")
+            raise ValueError(self)
 
     @classmethod
     def bounding(cls, points: npt.NDArray[np.float64]) -> Self:
@@ -44,7 +44,7 @@ class Region(msgspec.Struct, frozen=True, kw_only=True):
 
         def span(low: float, high: float, extent: int) -> "slice[int, int, None]":
             start = min(max(math.floor(low * extent - 0.5) + 1, 0), extent)
-            return slice(start, min(max(math.ceil(high * extent - 0.5), start), extent))
+            return slice(start, min(max(math.ceil(high * extent - 0.5), start), extent))  # ty: ignore[unsound-return-statement]
 
         return span(1.0 - self.top, 1.0 - self.bottom, height), span(self.left, self.right, width)
 
@@ -56,10 +56,15 @@ class Region(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Raster(msgspec.Struct, frozen=True, kw_only=True):
-    """Pixel rows and columns splitting a global rectangle, rows top first."""
+    """Pixel rows and columns splitting a positive-area global rectangle, rows top first."""
 
     bounds: Region
     shape: tuple[Count, Count]
+
+    def __post_init__(self) -> None:
+        """Refuses a rectangle with no width or height."""
+        if self.bounds.left == self.bounds.right or self.bounds.bottom == self.bounds.top:
+            raise ValueError(self.bounds)
 
     @property
     def step(self) -> npt.NDArray[np.float64]:
@@ -120,11 +125,11 @@ class Homography(Frozen, frozen=True, kw_only=True, eq=False):
         """Returns map of `quad`, absent for a quad that is not strictly convex, `OUTSIDE` fault when its corners allow no projective map."""
         if not quad.convex:
             return Ok(Nothing)
-        match ProjectiveTransform.from_estimate(Quad().samples[:, :2], quad.samples[:, :2]):
+        match ProjectiveTransform.from_estimate(Quad().samples[:, :2], quad.samples[:, :2]):  # type: ignore[no-untyped-call]
             case ProjectiveTransform() as found:
                 return Ok(Some(cls(quad=quad, matrix=np.asarray(found.params, dtype=np.float64))))
             case failed:
-                return Error(Fault.of(Reason.OUTSIDE, cls.__name__, str(quad.corners), member=f"corners of a projective quad, {failed}"))
+                return Error(Fault.of(Reason.OUTSIDE, cls.__name__, (quad.corners, failed), member="corners of a projective quad"))
 
     def to_image(self, samples: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
         """Maps plane samples to image, zero coverage beyond vanishing line."""

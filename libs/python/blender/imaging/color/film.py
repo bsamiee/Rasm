@@ -5,7 +5,7 @@ import math
 import sys
 from typing import Annotated, ClassVar
 
-from expression import Error, Option
+from expression import Option
 from expression.extra.result import catch
 import msgspec
 import numpy as np
@@ -15,7 +15,7 @@ from scipy.special import exprel
 
 from blender.imaging.color.luts import Lattice, Logarithmic
 from blender.imaging.color.processors import REC709_SCENE
-from blender.records.faults import Fault, Outcome, Reason
+from blender.records.faults import Error, Fault, Outcome, Reason
 from blender.records.fields import AtLeastOne, Finite, NonNegative, Positive, Unit
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -106,7 +106,7 @@ class Film(msgspec.Struct, frozen=True, kw_only=True):
         white = density(log_backlight - self.negative.density, self.positive)
         interval = black - white
         if (floor := Option.of_optional(self.black_point)).is_none() and not np.any(interval):
-            return Error(Fault.of(Reason.OUTSIDE, type(self).__name__, str((black, white)), member="black and white print densities that differ"))
+            return Error(Fault.of(Reason.OUTSIDE, type(self).__name__, (black, white), member="black and white print densities that differ"))
         light = np.maximum(values.astype(np.float64), 0.0)
         log_light = logged(light)
         log_pre = logged(pre)
@@ -128,7 +128,7 @@ class Film(msgspec.Struct, frozen=True, kw_only=True):
         log_scale = -np.maximum(log_right.max(axis=-1, keepdims=True), 0.0)
         right = np.exp2(log_right + log_scale)
 
-        def finished(solved: npt.NDArray[np.inexact]) -> npt.NDArray[np.float32]:
+        def finished(solved: npt.NDArray[np.float64]) -> npt.NDArray[np.float32]:
             formed: npt.NDArray[np.float64] = np.exp2(np.minimum(logged(np.maximum(solved.T.reshape(light.shape), 0.0)) + logged(np.array(self.post_filter)) - log_scale, 0.0))
             peak = formed.max(axis=-1, keepdims=True)
             chroma = peak - formed
@@ -137,7 +137,7 @@ class Film(msgspec.Struct, frozen=True, kw_only=True):
             blend = np.maximum(1.0 - np.abs((formed @ weights)[..., None] - 0.5) / 0.45, 0.0)
             return np.asarray(formed + (saturated - formed) * blend, dtype=np.float32)
 
-        return catch(np.linalg.solve, exception=np.linalg.LinAlgError)(matrix, right.reshape(-1, 3).T).map(finished).map_error(partial(Fault.of, Reason.FAILED, str(matrix)))
+        return catch(lambda: np.linalg.solve(matrix, right.reshape(-1, 3).T), exception=np.linalg.LinAlgError)().map(finished).map_error(partial(Fault.of, Reason.FAILED, str(matrix)))
 
     # --- [TABLE]
 

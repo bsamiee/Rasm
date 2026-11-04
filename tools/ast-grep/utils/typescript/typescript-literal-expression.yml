@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: typescript-literal-expression
-language: tsx
+language: tsxlang
 rule:
     any:
         - kind: 'object, array, string, number, true, false, null, undefined, template_string, unary_expression, regex'

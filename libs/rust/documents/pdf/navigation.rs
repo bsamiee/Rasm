@@ -4,6 +4,7 @@ use std::{
     sync::{Arc, LazyLock},
 };
 
+use hayro_syntax::object::dict::keys::{COUNT, FIRST, LAST};
 use itertools::Itertools as _;
 use lopdf::{Dictionary, Object, ObjectId, dictionary, text_string};
 use nonempty_collections::{IntoNonEmptyIterator as _, NonEmptyIterator as _};
@@ -27,12 +28,6 @@ pub struct Navigation {
     pub labels: Vec<PageLabelRange> = Vec::new(),
 }
 
-struct Entry {
-    title: Object,
-    dest: Option<Object>,
-    children: Vec<Self>,
-}
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 pub fn read(document: &Document) -> Result<Navigation, PdfError> {
@@ -42,8 +37,12 @@ pub fn read(document: &Document) -> Result<Navigation, PdfError> {
 
 #[must_use]
 pub fn label(labels: &[PageLabelRange], page: usize) -> Option<String> {
+    let range = labels.first().map(|_first| labels.iter().filter(|range| range.start_page <= page).max_by_key(|range| range.start_page).unwrap_or(&UNCOVERED))?;
+    formatted(range, page)
+}
+
+fn formatted(range: &PageLabelRange, page: usize) -> Option<String> {
     const LETTERS: NonZero<u32> = NonZero::new(26).unwrap();
-    let range = covering(labels, page)?;
     let number = numbered(range, page)?;
     match range.style {
         PageLabelStyle::AlphaUpper | PageLabelStyle::AlphaLower => {
@@ -59,19 +58,6 @@ pub fn label(labels: &[PageLabelRange], page: usize) -> Option<String> {
 #[must_use]
 pub(crate) fn assembled<'part, I>(parts: I) -> Navigation
 where I: IntoIterator<Item = (&'part Navigation, &'part [usize])> {
-    fn relocated(items: &[OutlineItem], sources: &BTreeMap<usize, usize>) -> Vec<OutlineItem> {
-        items
-            .iter()
-            .filter_map(|item| {
-                let children = relocated(&item.children, sources);
-                let dest = match &item.dest {
-                    Some(Destination::PageIndex(source)) => sources.get(source).copied().map(Destination::PageIndex),
-                    Some(Destination::Named(_)) | None => None,
-                };
-                (dest.is_some() || !children.is_empty()).then(|| OutlineItem { title: item.title.clone(), dest, children })
-            })
-            .collect()
-    }
     let placed = parts
         .into_iter()
         .scan(0_usize, |offset, (navigation, pages)| {
@@ -80,27 +66,47 @@ where I: IntoIterator<Item = (&'part Navigation, &'part [usize])> {
             Some((navigation, iter::zip(pages.iter().copied(), start..*offset)))
         })
         .collect::<Vec<_>>();
-    let numbering = placed
-        .iter()
-        .flat_map(|(navigation, pages)| {
-            pages.clone().map(move |(source, target)| {
-                let (range, page) = covering(&navigation.labels, source).map_or((&*UNCOVERED, target), |range| (range, source));
-                numbered(range, page).map_or_else(
-                    || PageLabelRange::new(target).with_style(PageLabelStyle::None),
-                    |start_value| PageLabelRange { start_page: target, style: range.style, prefix: range.prefix.clone(), start_value },
-                )
-            })
+    let numbering = placed.iter().flat_map(|(navigation, pages)| {
+        let ranges = indexed_labels(&navigation.labels);
+        pages.clone().map(move |(source, target)| {
+            let (range, page) = ranges.range(..=source).next_back().map_or((&*UNCOVERED, target), |(_, &range)| (range, source));
+            numbered(range, page).map_or_else(
+                || PageLabelRange::new(target).with_style(PageLabelStyle::None),
+                |start_value| PageLabelRange { start_page: target, style: range.style, prefix: range.prefix.clone(), start_value },
+            )
         })
-        .collect::<Vec<_>>();
+    });
     Navigation {
-        outline: placed.iter().flat_map(|(navigation, pages)| relocated(&navigation.outline, &pages.clone().rev().collect())).collect(),
+        outline: placed
+            .iter()
+            .flat_map(|(navigation, pages)| {
+                let sources = pages.clone().into_grouping_map().min();
+                map_outline(&navigation.outline, |item, children| {
+                    let children = children.into_iter().flatten().collect::<Vec<_>>();
+                    let dest = match &item.dest {
+                        Some(Destination::PageIndex(source)) => sources.get(source).copied().map(Destination::PageIndex),
+                        Some(Destination::Named(_)) | None => None,
+                    };
+                    (dest.is_some() || !children.is_empty()).then(|| OutlineItem { title: item.title.clone(), dest, children })
+                })
+                .into_iter()
+                .flatten()
+            })
+            .collect(),
         labels: if placed.iter().any(|(navigation, _)| !navigation.labels.is_empty()) {
             numbering
-                .chunk_by(|earlier, later| {
-                    earlier.style == later.style && earlier.prefix == later.prefix && (earlier.style == PageLabelStyle::None || earlier.start_value.checked_add(1) == Some(later.start_value))
+                .map(|range| {
+                    let last = range.start_value;
+                    (range, last)
                 })
-                .filter_map(<[_]>::first)
-                .cloned()
+                .coalesce(|(earlier, last), (later, end)| {
+                    if earlier.style == later.style && earlier.prefix == later.prefix && (earlier.style == PageLabelStyle::None || last.checked_add(1) == Some(later.start_value)) {
+                        Ok((earlier, end))
+                    } else {
+                        Err(((earlier, last), (later, end)))
+                    }
+                })
+                .map(|(range, _)| range)
                 .collect()
         } else {
             Vec::new()
@@ -112,39 +118,16 @@ pub(crate) fn write(structure: &mut lopdf::Document, navigation: &Navigation) ->
     const DESTS: &str = "Dests";
     const NAMES: &str = "Names";
     const OUTLINES: &str = "Outlines";
-    fn resolved<F>(items: &[OutlineItem], target: &F) -> Validated<Vec<Entry>, PdfError>
-    where F: Fn(&OutlineItem, &Destination) -> Result<Object, PdfError> {
-        items
-            .iter()
-            .map(|item| {
-                Validated::from(item.dest.as_ref().map(|destination| target(item, destination)).transpose()).map2(resolved(&item.children, target), |dest, children| Entry {
-                    title: text_string(&item.title),
-                    dest,
-                    children,
-                })
-            })
-            .collect()
-    }
-    fn linked(structure: &mut lopdf::Document, siblings: Vec<Entry>, parent: ObjectId) -> Result<(i64, Option<[ObjectId; 2]>), lopdf::Error> {
-        let ids = siblings.iter().map(|_sibling| structure.try_new_object_id()).collect::<Result<Vec<_>, _>>()?;
-        let count = iter::zip(siblings, &ids).enumerate().try_fold(0_i64, |count, (index, (Entry { title, dest, children }, &id))| {
-            let (descendants, ends) = linked(structure, children, id)?;
-            structure.set_object(
-                id,
-                present([
-                    ("Title", Some(title)),
-                    ("Parent", Some(parent.into())),
-                    ("Prev", index.checked_sub(1).and_then(|before| ids.get(before)).copied().map(Object::from)),
-                    ("Next", ids.get(index.strict_add(1)).copied().map(Object::from)),
-                    ("First", ends.map(|[first, _]| first.into())),
-                    ("Last", ends.map(|[_, last]| last.into())),
-                    ("Count", ends.map(|_ends| descendants.into())),
-                    ("Dest", dest),
-                ]),
-            );
+    fn linked(structure: &mut lopdf::Document, siblings: &[(ObjectId, i64)], parent: ObjectId) -> Result<(i64, Option<[ObjectId; 2]>), lopdf::Error> {
+        let count = siblings.iter().enumerate().try_fold(0_i64, |count, (index, &(id, descendants))| {
+            structure.get_dictionary_mut(id)?.as_hashmap_mut().extend(present([
+                (b"Parent", Some(parent.into())),
+                (b"Prev", index.checked_sub(1).and_then(|before| siblings.get(before)).map(|&(previous_id, _)| previous_id.into())),
+                (b"Next", siblings.get(index.strict_add(1)).map(|&(next_id, _)| next_id.into())),
+            ]));
             Ok::<_, lopdf::Error>(count.strict_add(descendants).strict_add(1))
         })?;
-        Ok((count, ids.first().zip(ids.last()).map(|(&first, &last)| [first, last])))
+        Ok((count, siblings.first().zip(siblings.last()).map(|(first, last)| [first.0, last.0])))
     }
     let destination = |page: ObjectId| Object::Array(vec![page.into(), "XYZ".into(), Object::Null, Object::Null, Object::Null]);
     let place = |dictionary: &mut Dictionary, key: &str, value: Option<Object>| match value {
@@ -163,12 +146,14 @@ pub(crate) fn write(structure: &mut lopdf::Document, navigation: &Navigation) ->
         .collect::<Validated<(), _>>()
         .ok()
         .map_err(PdfError::Refused)?;
+    let ranges = indexed_labels(&navigation.labels);
     let labeled = iter::zip(0_usize.., &pages)
-        .filter_map(|(page, &id)| label(&navigation.labels, page).filter(|name| !name.is_empty()).map(|name| (name.into_bytes(), id)))
+        .filter_map(|(page, &id)| ranges.range(..=page).next_back().and_then(|(_, range)| formatted(range, page)).filter(|name| !name.is_empty()).map(|name| (name.into_bytes(), id)))
         .into_group_map()
         .into_iter()
         .collect::<BTreeMap<Vec<u8>, Vec<ObjectId>>>();
     let catalog = structure.catalog()?;
+    let prior = catalog.get(OUTLINES.as_bytes()).and_then(Object::as_reference).ok();
     let mut directory = crate::nested(structure, catalog, &[NAMES.as_bytes()])?.cloned().unwrap_or_default();
     let held = pages.iter().copied().collect::<BTreeSet<_>>();
     let opens = |value: &Object| {
@@ -186,7 +171,7 @@ pub(crate) fn write(structure: &mut lopdf::Document, navigation: &Navigation) ->
         .filter(|&(_, value)| opens(value))
         .map(|(name, value)| (name.clone(), value.clone()))
         .collect::<Dictionary>();
-    let named = crate::nested(structure, &directory, &[DESTS.as_bytes()])?.map(|tree| crate::leaves(structure, tree, NAMES, &|name: &Object| name.as_str().map(<[u8]>::to_vec), &[])).transpose()?;
+    let named = crate::nested(structure, &directory, &[DESTS.as_bytes()])?.map(|tree| crate::leaves(structure, tree, NAMES, &|name: &Object| name.as_str().map(<[u8]>::to_vec))).transpose()?;
     let destinations = iter::chain(
         labeled.iter().filter_map(|(name, owners)| match owners {
             [page] => Some((name.clone(), destination(*page))),
@@ -204,20 +189,45 @@ pub(crate) fn write(structure: &mut lopdf::Document, navigation: &Navigation) ->
             (false, false, false) => Err(PdfError::Named { name: Arc::from(item.title.as_str()), refusal: Refusal::Destination }),
         },
     };
-    let outline = resolved(&navigation.outline, &target).ok().map_err(|errors| PdfError::Refused(errors.into_nonempty_iter().map(|error| (Subject::Outline, error)).collect()))?;
-    let ranges = iter::chain(navigation.labels.first().map(|_first| &*UNCOVERED), &navigation.labels).map(|range| (range.start_page, range)).collect::<BTreeMap<_, _>>();
-    let nums = iter::zip(0..pages.len(), 0_i64..)
-        .filter_map(|(page, key)| {
-            ranges.get(&page).map(|range| {
-                [
-                    Object::Integer(key),
-                    Object::Dictionary(present([("S", range.style.to_name().map(Object::from)), ("P", range.prefix.as_deref().map(text_string)), ("St", Some(range.start_value.into()))])),
-                ]
-            })
+    let outline = map_outline(&navigation.outline, |item, children| {
+        match Validated::from(item.dest.as_ref().map(|dest| target(item, dest)).transpose()).map2(children.into_iter().collect::<Validated<Vec<_>, _>>(), |dest, children| (dest, children)) {
+            Validated::Good((dest, children)) => Validated::from(
+                structure
+                    .try_new_object_id()
+                    .and_then(|id| {
+                        let (count, ends) = linked(structure, &children, id)?;
+                        structure.set_object(
+                            id,
+                            present([
+                                (b"Title", Some(text_string(&item.title))),
+                                (FIRST, ends.map(|[first, _]| first.into())),
+                                (LAST, ends.map(|[_, last]| last.into())),
+                                (COUNT, ends.map(|_ends| count.into())),
+                                (b"Dest", dest),
+                            ])
+                            .collect::<Dictionary>(),
+                        );
+                        Ok((id, count))
+                    })
+                    .map_err(PdfError::from),
+            ),
+            Validated::Fail(errors) => Validated::Fail(errors),
+        }
+    })
+    .into_iter()
+    .collect::<Validated<Vec<_>, _>>()
+    .ok()
+    .map_err(|errors| PdfError::Refused(errors.into_nonempty_iter().map(|error| (Subject::Outline, error)).collect()))?;
+    let nums = ranges
+        .into_iter()
+        .map(|(page, range)| {
+            let key = i64::try_from(page).map_err(lopdf::Error::from)?;
+            Ok::<_, lopdf::Error>([
+                Object::Integer(key),
+                Object::Dictionary(present([(b"S", range.style.to_name().map(Object::from)), (b"P", range.prefix.as_deref().map(text_string)), (b"St", Some(range.start_value.into()))]).collect()),
+            ])
         })
-        .flatten()
-        .collect::<Vec<_>>();
-    let prior = catalog.get(OUTLINES.as_bytes()).and_then(Object::as_reference).ok();
+        .process_results(|pairs| pairs.flatten().collect::<Vec<_>>())?;
     place(
         &mut directory,
         DESTS,
@@ -229,10 +239,11 @@ pub(crate) fn write(structure: &mut lopdf::Document, navigation: &Navigation) ->
         (None, []) => None,
     };
     if let Some(root) = root {
-        let (count, ends) = linked(structure, outline, root)?;
+        let (count, ends) = linked(structure, &outline, root)?;
         structure.set_object(
             root,
-            present([("Type", Some(OUTLINES.into())), ("First", ends.map(|[first, _]| first.into())), ("Last", ends.map(|[_, last]| last.into())), ("Count", ends.map(|_ends| count.into()))]),
+            present([(b"Type", Some(OUTLINES.into())), (FIRST, ends.map(|[first, _]| first.into())), (LAST, ends.map(|[_, last]| last.into())), (COUNT, ends.map(|_ends| count.into()))])
+                .collect::<Dictionary>(),
         );
     }
     let written = structure.catalog_mut()?;
@@ -247,10 +258,29 @@ pub(crate) fn write(structure: &mut lopdf::Document, navigation: &Navigation) ->
     Ok(())
 }
 
-fn covering(labels: &[PageLabelRange], page: usize) -> Option<&PageLabelRange> {
-    labels.first().map(|_first| labels.iter().filter(|range| range.start_page <= page).max_by_key(|range| range.start_page).unwrap_or(&UNCOVERED))
+fn indexed_labels(labels: &[PageLabelRange]) -> BTreeMap<usize, &PageLabelRange> { iter::chain(labels.first().map(|_first| &*UNCOVERED), labels).map(|range| (range.start_page, range)).collect() }
+
+fn map_outline<T>(items: &[OutlineItem], mut map: impl FnMut(&OutlineItem, Vec<T>) -> T) -> Vec<T> {
+    let mut remaining = items.iter();
+    let mut mapped = Vec::new();
+    let mut ancestors = Vec::new();
+    loop {
+        match remaining.next() {
+            Some(item) => {
+                ancestors.push((item, remaining, mapped));
+                (remaining, mapped) = (item.children.iter(), Vec::new());
+            }
+            None => match ancestors.pop() {
+                Some((item, siblings, mut preceding)) => {
+                    preceding.push(map(item, mapped));
+                    (remaining, mapped) = (siblings, preceding);
+                }
+                None => return mapped,
+            },
+        }
+    }
 }
 
-fn numbered(range: &PageLabelRange, page: usize) -> Option<u32> { range.start_value.checked_add(u32::try_from(page.checked_sub(range.start_page)?).unwrap_or(u32::MAX)) }
+fn numbered(range: &PageLabelRange, page: usize) -> Option<u32> { range.start_value.checked_add(u32::try_from(page.checked_sub(range.start_page)?).ok()?) }
 
-fn present<const N: usize>(fields: [(&str, Option<Object>); N]) -> Dictionary { fields.into_iter().filter_map(|(key, value)| value.map(|value| (key, value))).collect() }
+fn present<const N: usize>(fields: [(&[u8], Option<Object>); N]) -> impl Iterator<Item = (Vec<u8>, Object)> { fields.into_iter().filter_map(|(key, value)| value.map(|value| (key.to_vec(), value))) }

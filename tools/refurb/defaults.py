@@ -1,8 +1,11 @@
 """Keyword arguments restating the literal default a same-module function or a `msgspec.Struct` field declares."""
 
+lazy from collections import defaultdict
+lazy from collections.abc import Callable
+lazy from functools import cache
 lazy from typing import override
 
-import msgspec
+lazy import msgspec
 lazy from mypy.nodes import (
     AssignmentStmt,
     BytesExpr,
@@ -10,29 +13,30 @@ lazy from mypy.nodes import (
     Decorator,
     Expression,
     FloatExpr,
+    FUNC_NO_INFO,
     FuncDef,
+    get_func_def,
+    IndexExpr,
     IntExpr,
     MemberExpr,
     MypyFile,
     NameExpr,
+    OverloadedFuncDef,
     RefExpr,
-    Statement,
     StrExpr,
     SymbolNode,
+    TypeAlias,
+    TypeApplication,
     TypeInfo,
     UnaryExpr,
     Var,
 )
-lazy from mypy.types import Instance
+lazy from mypy.types import CallableType, FunctionLike, get_proper_type, Instance, Type
 lazy from refurb.checks.common import get_mypy_type, is_equivalent, stringify
 lazy from refurb.error import Error
-lazy from refurb.visitor import TraverserVisitor
 
 from tools.refurb.findings import fullname, RasmError
-
-# --- [CONSTANTS] ------------------------------------------------------------------------
-
-_STRUCT = fullname(msgspec.Struct)
+from tools.refurb.loops import Traverser
 
 # --- [ERRORS] ---------------------------------------------------------------------------
 
@@ -69,66 +73,111 @@ class ErrorRestatedDefaultError(RasmError):
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
-def check(node: MypyFile, errors: list[Error]) -> None:
-    """Reports each keyword argument equal to the literal default of a function the module defines or of a `msgspec.Struct` field."""
+def configured(type_of: Callable[[Expression], Type | None] | None = None) -> Callable[[MypyFile, list[Error]], None]:
+    """Returns a check that resolves mutable callees through supplied native expression types."""
+    struct, field = fullname(msgspec.Struct), fullname(msgspec.field)
 
-    def literal(expression: Expression) -> bool:
-        match expression:
-            case IntExpr() | FloatExpr() | StrExpr() | BytesExpr() | NameExpr(fullname="builtins.True" | "builtins.False" | "builtins.None") | UnaryExpr(op="-", expr=IntExpr() | FloatExpr()):
-                return True
-            case _:
-                return False
+    def check(node: MypyFile, errors: list[Error]) -> None:
+        def literal(expression: Expression) -> bool:
+            match expression:
+                case IntExpr() | FloatExpr() | StrExpr() | BytesExpr() | NameExpr(fullname="builtins.True" | "builtins.False" | "builtins.None") | UnaryExpr(op="-", expr=IntExpr() | FloatExpr()):
+                    return True
+                case _:
+                    return False
 
-    def declared(callee: Expression) -> SymbolNode | None:
-        match callee, get_mypy_type(callee.expr) if isinstance(callee, MemberExpr) else None:
-            case MemberExpr(name=name), Instance(type=owner) | (TypeInfo() as owner):
-                return member.node if (member := owner.get(name)) is not None else None
-            case RefExpr(node=symbol), _:
-                return symbol
-            case _:
-                return None
+        def declared(callee: Expression) -> SymbolNode | None:
+            match callee:
+                case IndexExpr(analyzed=TypeApplication(expr=constructor)):
+                    callee = constructor
+                case _:
+                    pass
+            receiver = (type_of(callee.expr) if type_of is not None else get_mypy_type(callee.expr)) if isinstance(callee, MemberExpr) and callee.node is None else None
+            proper = get_proper_type(receiver) if isinstance(receiver, Type) else receiver
+            match callee, proper.type_object() if isinstance(proper, FunctionLike) and proper.is_type_obj() else proper:
+                case RefExpr(node=symbol), _ if symbol is not None:
+                    pass
+                case MemberExpr(name=name), Instance(type=owner) | (TypeInfo() as owner):
+                    symbol = member.node if (member := owner.get(name)) is not None else None
+                case _:
+                    return None
+            match symbol:
+                case Decorator(func=function) | OverloadedFuncDef(impl=Decorator(func=function) | (FuncDef() as function)):
+                    return function
+                case Var(type=signature, is_final=final):
+                    match get_proper_type(type_of(callee) if type_of is not None else signature if final else None):
+                        case CallableType() as called:
+                            return called.type_object() if called.is_type_obj() else get_func_def(called)
+                        case _:
+                            return None
+                case TypeAlias(target=target, python_3_12_type_alias=False):
+                    return proper.type if isinstance(proper := get_proper_type(target), Instance) else None
+                case _:
+                    return symbol
 
-    def assigned(statement: Statement) -> tuple[tuple[str, Expression], ...]:
-        match statement:
-            case AssignmentStmt(lvalues=[NameExpr(name=name, node=Var(is_classvar=False))], rvalue=CallExpr(callee=RefExpr(fullname=callee)) as call) if callee == fullname(msgspec.field):
-                return ((name, next((value for argument, value in zip(call.arg_names, call.args) if argument == "default"), call)),)
-            case AssignmentStmt(lvalues=[NameExpr(name=name, node=Var(is_classvar=False))], rvalue=value, type=annotation) if annotation is not None:
-                return ((name, value),)
-            case _:
-                return ()
+        @cache
+        def fields(base: TypeInfo) -> dict[str, Expression]:
+            held: dict[str, Expression] = {}
+            for statement in base.defn.defs.body:
+                match statement:
+                    case AssignmentStmt(lvalues=[NameExpr(name=name, node=Var(is_classvar=False))], rvalue=CallExpr(callee=RefExpr(fullname=callee)) as call) if callee == field:
+                        held[name] = next((value for argument, value in zip(call.arg_names, call.args) if argument == "default"), call)
+                    case AssignmentStmt(lvalues=[NameExpr(name=name, node=Var(is_classvar=False))], rvalue=value, type=annotation) if annotation is not None:
+                        held[name] = value
+            return held
 
-    class Walk(TraverserVisitor):
-        def __init__(self) -> None:
-            super().__init__()
-            self.functions: set[FuncDef] = set()
-            self.calls: list[tuple[CallExpr, SymbolNode | None]] = []
+        class Walk(Traverser):
+            def __init__(self) -> None:
+                super().__init__()
+                self.functions: set[FuncDef] = set()
+                self.calls: defaultdict[SymbolNode, list[CallExpr]] = defaultdict(list)
 
-        @override
-        def visit_func_def(self, o: FuncDef) -> None:
-            self.functions.add(o)
-            super().visit_func_def(o)
+            @override
+            def visit_func_def(self, o: FuncDef) -> None:
+                if not o.is_decorated:
+                    self.functions.add(o)
+                super().visit_func_def(o)
 
-        @override
-        def visit_call_expr(self, o: CallExpr) -> None:
-            if any(o.arg_names):
-                self.calls.append((o, declared(o.callee)))
-            super().visit_call_expr(o)
+            @override
+            def visit_decorator(self, o: Decorator) -> None:
+                if not o.decorators:
+                    self.functions.add(o.func)
+                super().visit_decorator(o)
 
-    def defaults(symbol: SymbolNode | None, functions: set[FuncDef]) -> tuple[str, dict[str, Expression]]:
-        match symbol:
-            case (FuncDef() as function) | Decorator(func=FuncDef() as function) if function in functions:
-                return function.name, {argument.variable.name: argument.initializer for argument in function.arguments if argument.initializer is not None}
-            case TypeInfo() as info if info.has_base(_STRUCT):
-                return info.name, {name: value for base in reversed(info.mro) if base.fullname != _STRUCT for statement in base.defn.defs.body for name, value in assigned(statement)}
-            case _:
-                return "", {}
+            @override
+            def visit_call_expr(self, o: CallExpr) -> None:
+                if any(o.arg_names) and (symbol := declared(o.callee)) is not None:
+                    self.calls[symbol].append(o)
+                super().visit_call_expr(o)
 
-    walk = Walk()
-    walk.accept(node)
-    errors.extend(
-        ErrorRestatedDefaultError.from_node(value, f"`{name}={stringify(value)}` restates the default `{owner}` declares, omit `{name}`")
-        for call, symbol in walk.calls
-        for owner, held in (defaults(symbol, walk.functions),)
-        for name, value in zip(call.arg_names, call.args)
-        if name is not None and (default := held.get(name)) is not None and literal(default) and is_equivalent(value, default)
-    )
+        walk = Walk()
+        walk.accept(node)
+        for symbol, calls in walk.calls.items():
+            match symbol:
+                case FuncDef() as function if function in walk.functions and (function.info is FUNC_NO_INFO or function.is_final or function.info.is_final):
+                    owner = function.name
+                    held = {name: value for name, argument in zip(function.arg_names, function.arguments) if name is not None and (value := argument.initializer) is not None and literal(value)}
+                case TypeInfo() as info if any(base.fullname == struct and base.metaclass_type == info.metaclass_type for base in info.mro):
+                    owner = info.name
+                    held = {
+                        name: value
+                        for name in frozenset(name for call in calls for name in call.arg_names if name is not None)
+                        if (base := info.get_containing_type_info(name)) is not None and (value := fields(base).get(name)) is not None and literal(value)
+                    }
+                case _:
+                    continue
+            errors.extend(
+                ErrorRestatedDefaultError.from_node(value, f"`{name}={stringify(value)}` restates the default `{owner}` declares, omit `{name}`")
+                for call in calls
+                for name, value in zip(call.arg_names, call.args)
+                if name is not None and (default := held.get(name)) is not None and is_equivalent(value, default)
+            )
+
+    return check
+
+
+check = configured()
+
+
+# --- [EXPORTS] --------------------------------------------------------------------------
+
+__all__ = ("ErrorRestatedDefaultError", "check", "configured")

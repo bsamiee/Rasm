@@ -1,44 +1,74 @@
-"""Feature text, kerning groups, and kerning values written once from a source's lookup records."""
+"""Feature text from ordered source lookups through native feature statements and compiler compression."""
 
-from itertools import count, groupby
+# mypy: disable-error-code="no-untyped-call"
+
+from itertools import starmap
+from typing import ClassVar
+lazy from collections.abc import Iterable, Mapping
 
 import msgspec
 lazy from fontTools.feaLib import ast
-lazy from fontTools.unicodedata import ot_tags_from_script, script
+lazy from fontTools.unicodedata import ot_tags_from_script
+lazy from ufo2ft.featureCompiler import FeatureCompiler
+lazy from ufo2ft.featureWriters import CursFeatureWriter, GdefFeatureWriter, MarkFeatureWriter
+lazy from ufoLib2 import Font
 
 lazy from typography.faces.glyphs import Source
-lazy from typography.faces.layout import Adjustment, Context, Contextual, Lift, Lifts, Ligatures, Lookups, Pairs, Positions, Single
+lazy from typography.faces.layout import Adjustment, Chain, Contextual, Lifts, Ligatures, Lookups, Pairs, Positions, Single
 
-# --- [MODELS] ---------------------------------------------------------------------------
+# --- [SERVICES] -------------------------------------------------------------------------
 
 
-class Emitted(msgspec.Struct, frozen=True, kw_only=True):
-    """Feature text with the writers' insertion marker, and the `public.kern1`/`public.kern2` groups and kerning `KernFeatureWriter` reads."""
+class FeatureWriter(msgspec.Struct, frozen=True, kw_only=True):
+    """Native feature-writer conformance composing generated attachment handles with scoped source positioning."""
 
-    features: str
-    groups: frozendict[str, tuple[str, ...]]
-    kerning: frozendict[tuple[str, str], int]
+    source: Source
+    tableTag: ClassVar[str] = "GPOS"  # ruff: ignore[mixed-case-variable-in-class-scope]
+    mode: ClassVar[str] = "append"
+    insertFeatureMarker: ClassVar[None] = None  # ruff: ignore[mixed-case-variable-in-class-scope]
+
+    @property
+    def substitutions(self) -> str:
+        """Source substitutions available to native glyph classification before positioning is generated."""
+        return _rendered(self.source, ((index, lookup) for index, lookup in enumerate(self.source.lookups) if isinstance(lookup, Single | Ligatures | Contextual)))
+
+    def write(self, font: Font, feaFile: ast.FeatureFile, compiler: FeatureCompiler | None = None) -> bool:  # ruff: ignore[invalid-argument-name]
+        """Constructs native attachments before custom positioning, then stores complete executable feature text on its UFO."""
+        before = frozenset(feaFile.statements)
+        written = [writer(mode="append").write(font, feaFile, compiler=compiler) for writer in (CursFeatureWriter, MarkFeatureWriter)]
+        inherited = {
+            block.name: tuple(statement if isinstance(statement, ast.LookupReferenceStatement) else ast.LookupReferenceStatement(statement) for statement in block.statements)
+            for block in feaFile.statements
+            if isinstance(block, ast.FeatureBlock) and block not in before
+        }
+        statements = _statements(((index, lookup) for index, lookup in enumerate(self.source.lookups) if isinstance(lookup, Positions | Pairs | Lifts)), _systems(self.source), inherited)
+        feaFile.statements.extend(statements)
+        written.append(GdefFeatureWriter().write(font, feaFile, compiler=compiler))
+        font.features.text = feaFile.asFea()
+        return bool(statements) or any(written)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 # --- [STATEMENTS]
 
 
-def _class(glyphs: tuple[str, ...], /) -> ast.GlyphClass | ast.GlyphName:
-    return ast.GlyphName(glyphs[0]) if len(glyphs) == 1 else ast.GlyphClass([ast.GlyphName(glyph) for glyph in glyphs])
+def _class(glyphs: tuple[str, ...], /) -> ast.GlyphClass:
+    return ast.GlyphClass(list(glyphs))
 
 
 def _value(adjustment: Adjustment, /) -> ast.ValueRecord:
     return ast.ValueRecord(xPlacement=adjustment.dx, yPlacement=adjustment.dy, xAdvance=adjustment.advance, yAdvance=0)
 
 
-def _block(name: str, statements: list[ast.Statement], /) -> ast.LookupBlock:
+def _block(name: str, statements: list[ast.Statement], flags: ast.LookupFlagStatement, /) -> ast.LookupBlock:
     block = ast.LookupBlock(name)
-    block.statements.extend(statements)
+    block.statements.extend((flags, *statements))
     return block
 
 
-def _chained(name: str, rules: tuple[Context | Lift, ...], /) -> tuple[ast.LookupBlock, ...]:
+def _chained(
+    name: str, rules: tuple[Chain[str], ...] | tuple[Chain[Adjustment | None], ...], statement: type[ast.ChainContextSubstStatement | ast.ChainContextPosStatement], flags: ast.LookupFlagStatement, /
+) -> tuple[ast.LookupBlock, ...]:
     """Returns the single lookups each rule position applies, then the chaining lookup naming them."""
     inner = {
         (index, position): _block(
@@ -48,81 +78,100 @@ def _chained(name: str, rules: tuple[Context | Lift, ...], /) -> tuple[ast.Looku
                 if isinstance(change, str)
                 else ast.SinglePosStatement([(_class(glyphs), _value(change))], [], [], forceChain=False)
             ],
+            flags,
         )
         for index, rule in enumerate(rules)
-        for position, (glyphs, change) in enumerate(zip(rule.input, rule.replacement if isinstance(rule, Context) else rule.adjustments, strict=True))
+        for position, (glyphs, change) in enumerate(rule.input)
         if change is not None and not (isinstance(change, str) and glyphs == (change,))
     }
     chain = _block(
         name,
         [
-            (ast.ChainContextSubstStatement if isinstance(rule, Context) else ast.ChainContextPosStatement)(
-                list(map(_class, rule.backtrack)), list(map(_class, rule.input)), list(map(_class, rule.lookahead)), [inner.get((index, position)) for position in range(len(rule.input))]
+            statement(
+                list(map(_class, rule.backtrack)),
+                [_class(glyphs) for glyphs, _ in rule.input],
+                list(map(_class, rule.lookahead)),
+                [inner.get((index, position)) for position in range(len(rule.input))],
             )
             for index, rule in enumerate(rules)
         ],
+        flags,
     )
     return (*inner.values(), chain)
 
 
 def _lookups(lookup: Lookups, name: str, /) -> tuple[ast.LookupBlock, ...]:
     """Returns the lookup blocks of one record, the last the one its feature references."""
-    match lookup:
-        case Single(mapping=mapping):
-            return (_block(name, [ast.SingleSubstStatement([ast.GlyphName(glyph)], [ast.GlyphName(target)], [], [], forceChain=False) for glyph, target in mapping.items()]),)
-        case Ligatures(rules=rules):
-            return (_block(name, [ast.LigatureSubstStatement([], [ast.GlyphName(part) for part in parts], [], ast.GlyphName(target), forceChain=False) for parts, target in rules]),)
-        case Contextual(rules=rules) | Lifts(rules=rules):
-            return _chained(name, rules)
-        case Positions(values=values):
-            return (_block(name, [ast.SinglePosStatement([(ast.GlyphName(glyph), _value(adjustment))], [], [], forceChain=False) for glyph, adjustment in values.items()]),)
-        case Pairs(values=values):
-            return (_block(name, [ast.PairPosStatement(ast.GlyphName(first), _value(adjustment), ast.GlyphName(second), None) for (first, second), adjustment in values.items()]),)
-
-
-# --- [KERNING]
-
-
-def _kerned(source: Source, /) -> tuple[frozendict[str, tuple[str, ...]], frozendict[tuple[str, str], int]]:
-    """Splits `kern` pairs into first-glyph classes sharing one value row and second-glyph classes sharing one column."""
-    values = {pair: adjustment.advance for lookup in source.lookups if isinstance(lookup, Pairs) and lookup.feature == "kern" for pair, adjustment in lookup.values.items()}
-    rows = {first: tuple(sorted((second, value) for (head, second), value in values.items() if head == first)) for first, _ in values}
-    firsts = {members[0]: members for members in (tuple(first for first, _ in group) for _, group in groupby(sorted(rows.items(), key=lambda item: item[1]), key=lambda item: item[1]))}
-    owner = {member: f"public.kern1.{head}" for head, members in firsts.items() for member in members}
-    columns = {second: tuple(sorted({(owner[first], value) for (first, held), value in values.items() if held == second})) for _, second in values}
-    seconds = {members[0]: members for members in (tuple(second for second, _ in group) for _, group in groupby(sorted(columns.items(), key=lambda item: item[1]), key=lambda item: item[1]))}
-    return (
-        frozendict({**{f"public.kern1.{head}": members for head, members in firsts.items()}, **{f"public.kern2.{head}": members for head, members in seconds.items()}}),
-        frozendict({(group, f"public.kern2.{head}"): value for head, members in seconds.items() for group, value in columns[members[0]]}),
+    flags = ast.LookupFlagStatement(
+        value=lookup.flags,
+        markAttachment=_class(tuple(sorted(lookup.mark_attachment))) if lookup.mark_attachment is not None else None,
+        markFilteringSet=_class(tuple(sorted(lookup.mark_filtering))) if lookup.mark_filtering is not None else None,
     )
+    match lookup:
+        case Single():
+            return (_block(name, [ast.SingleSubstStatement([ast.GlyphName(glyph)], [ast.GlyphName(target)], [], [], forceChain=False) for glyph, target in lookup.mapping.items()], flags),)
+        case Ligatures(rules=rules):
+            mapping: dict[tuple[str, ...], str] = {}
+            for parts, target in rules:
+                mapping.setdefault(parts, target)
+            return (
+                _block(
+                    name,
+                    [
+                        *(*((ast.SubtableStatement(),) if index else ()), ast.LigatureSubstStatement([], [ast.GlyphName(part) for part in parts], [], ast.GlyphName(target), forceChain=False))
+                        for index, (parts, target) in enumerate(mapping.items())
+                    ],
+                    flags,
+                ),
+            )
+        case Contextual(rules=rules):
+            return _chained(name, rules, ast.ChainContextSubstStatement, flags)
+        case Lifts(rules=rules):
+            return _chained(name, rules, ast.ChainContextPosStatement, flags)
+        case Positions(values=values):
+            return (_block(name, [ast.SinglePosStatement([(ast.GlyphName(glyph), _value(adjustment))], [], [], forceChain=False) for glyph, adjustment in values.items()], flags),)
+        case Pairs(values=values):
+            return (_block(name, [ast.PairPosStatement(ast.GlyphName(first), _value(adjustment), ast.GlyphName(second), None) for (first, second), adjustment in values.items()], flags),)
 
 
 # --- [EMISSION]
 
 
-def emitted(source: Source, /) -> Emitted:
-    """Writes every lookup record once as feature syntax: language systems of the glyphs' scripts and the lookups' languages, lookups in `order`, lifts in `mark` ahead of the writers' marker, `kern` pairs as groups."""
-    fea, names = ast.FeatureFile(), count()
-    tags = sorted({tag for glyph in source.glyphs for code in glyph.name.codes if (held := script(chr(code))) not in {"Zyyy", "Zinh", "Zzzz"} for tag in ot_tags_from_script(held)})
-    systems = dict.fromkeys(("DFLT/dflt", *(f"{tag}/dflt" for tag in tags), *sorted({*lookup.languages for lookup in source.lookups})))
-    fea.statements.extend(ast.LanguageSystemStatement(*system.split("/")) for system in systems)
-    ordered = sorted((lookup for lookup in source.lookups if not (isinstance(lookup, Pairs) and lookup.feature == "kern")), key=lambda lookup: lookup.order)
-    blocks = tuple((lookup, _lookups(lookup, f"{lookup.feature}{next(names)}")) for lookup in ordered)
-    fea.statements.extend(*held for _, held in blocks)
-    for feature in dict.fromkeys(lookup.feature for lookup, _ in blocks):
+def _systems(source: Source, /) -> tuple[tuple[str, str], ...]:
+    """Native language registrations from encoded scripts and every explicit source association."""
+    tags = sorted({*ot_tags_from_script(held) for held in source.scripts})
+    return tuple(dict.fromkeys((("DFLT", "dflt"), *((tag, "dflt") for tag in tags), *sorted({*held for lookup in source.lookups for held in lookup.features.values()}))))  # ty: ignore[unsound-return-statement]
+
+
+def _statements(entries: Iterable[tuple[int, Lookups]], systems: tuple[tuple[str, str], ...], inherited: Mapping[str, tuple[ast.LookupReferenceStatement, ...]], /) -> list[ast.Statement]:
+    """Native lookup definitions and exact feature/system references, including generated positioning dependencies."""
+    blocks = tuple((lookup, _lookups(lookup, f"lookup{index}")) for index, lookup in sorted(entries, key=lambda entry: entry[1].order))
+    statements: list[ast.Statement] = [*held for _, held in blocks]
+    for feature in dict.fromkeys(tuple(*lookup.features for lookup, _ in blocks)):
         block = ast.FeatureBlock(feature)
-        block.statements.extend(
-            statement
-            for lookup, held in sorted((pair for pair in blocks if pair[0].feature == feature), key=lambda pair: pair[0].languages)
-            for system in lookup.languages or ("",)
-            for statement in (*((ast.ScriptStatement(system[:4]), ast.LanguageStatement(system[5:])) if system else ()), ast.LookupReferenceStatement(held[-1]))
-        )
-        block.statements.extend((ast.Comment("# Automatic Code"),) if feature == "mark" else ())
-        fea.statements.append(block)
-    groups, kerning = _kerned(source)
-    return Emitted(features=fea.asFea(), groups=groups, kerning=kerning)
+        for system in systems:
+            if active := tuple((lookup, held) for lookup, held in blocks if feature in lookup.features and (not lookup.features[feature] or system in lookup.features[feature])):
+                block.statements.extend((
+                    ast.ScriptStatement(system[0]),
+                    ast.LanguageStatement(system[1], include_default=False, required=any(lookup.features[feature].get(system, False) for lookup, _ in active)),
+                    *inherited.get(feature, ()),
+                    *(ast.LookupReferenceStatement(held[-1]) for _, held in active),
+                ))
+        statements.append(block)
+    return statements
+
+
+def _rendered(source: Source, entries: Iterable[tuple[int, Lookups]], /) -> str:
+    fea, systems = ast.FeatureFile(), _systems(source)
+    fea.statements.extend((*starmap(ast.LanguageSystemStatement, systems), *_statements(entries, systems, {})))
+    return fea.asFea()  # type: ignore[no-any-return] # ty: ignore[unsound-return-statement]
+
+
+def emitted(source: Source, /) -> str:
+    """Renders source lookup definitions and their exact native feature and language associations."""
+    return _rendered(source, enumerate(source.lookups))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Emitted", "emitted"]
+__all__ = ["FeatureWriter", "emitted"]

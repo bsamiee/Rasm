@@ -11,6 +11,7 @@ using Rasm.Rhino.Render.Settings;
 using Rasm.Rhino.Viewport;
 using Rhino;
 using Rhino.Render;
+using Thinktecture.Collections;
 
 namespace Darkroom.Queue;
 
@@ -85,13 +86,12 @@ public abstract partial record QueueEdit {
 
     private (QueueState Queue, Seq<QueuedEntry> Touched) Applied(Seq<QueuedEntry> prior) =>
         Switch(prior,
-            add: static (held, add) => add.Entries.Fold(Seq<QueuedEntry>(), (fresh, entry) =>
-                    (held + fresh).Exists(kept => kept with { Renders = entry.Renders } == entry) ? fresh : fresh.Add(entry)) switch {
-                        var fresh => (new QueueState(held + fresh), fresh),
-                    },
-            remove: static (held, remove) => (
-                new QueueState([.. held.Where((_, index) => !remove.Indices.Contains(index))]),
-                toSeq(held.Where((_, index) => remove.Indices.Contains(index)))),
+            add: static (held, add) => toSeq(add.Entries.Except(held, new ProjectionEqualityComparer<QueuedEntry, QueuedEntry>(static entry => entry with { Renders = false }))) switch {
+                var fresh => (new QueueState(held + fresh), fresh),
+            },
+            remove: static (held, remove) => held.Map(static (entry, index) => (Entry: entry, Index: index)).Partition(row => remove.Indices.Contains(row.Index)) switch {
+                var (removed, remaining) => (new QueueState(remaining.Map(static row => row.Entry)), removed.Map(static row => row.Entry)),
+            },
             toggle: static (held, toggle) => (
                 new QueueState(held.Map((entry, index) => index == toggle.Index ? entry with { Renders = toggle.Renders } : entry)),
                 held.At(toggle.Index).Filter(entry => entry.Renders != toggle.Renders).ToSeq()));
@@ -105,14 +105,14 @@ public abstract partial record QueueEdit {
 
 public sealed record QueueOutput<TPath>(OutputTarget Target, OutputName Name, TPath Path);
 
-public sealed record QueueEntry<TPath>(QueuedEntry Queued, RenderOverride Override, string Folder, NamePart Stem, bool Overwrite, FrameSpan Frames, Seq<QueueOutput<TPath>> Outputs) {
-    public ContentKey Key => ContentKey.Of<QueuedEntry>(hash => hash.Bytes(JsonSerializer.SerializeToUtf8Bytes(QueueJob.Identity(this), ArchivableDictionaries.Options)));
+public sealed record QueueEntry<TPath>(QueuedEntry Queued, RenderSettings Settings, string Folder, NamePart Stem, bool Overwrite, FrameSpan Frames, Seq<QueueOutput<TPath>> Outputs) {
+    public UInt128 Key => ContentKeys.Of<QueuedEntry>(hash => hash.Bytes(JsonSerializer.SerializeToUtf8Bytes(QueueJob.Identity(this), ArchivableDictionaries.Options)));
 
     public Fin<OverscanFrame> Rendered => PixelExtent.Validated(Queued.Extent.Width, Queued.Extent.Height).Bind(extent => OverscanFrame.Around(extent, Queued.Overscan));
 
     public Option<LocalDateTime> Moment(SequenceNumber frame) => Queued.Sun.Bind(window => window.Frames.At((int)frame));
 
-    public QueueEntry<TPlaced> Placed<TPlaced>(Seq<QueueOutput<TPlaced>> outputs) => new(Queued, Override, Folder, Stem, Overwrite, Frames, outputs);
+    public QueueEntry<TPlaced> Placed<TPlaced>(Seq<QueueOutput<TPlaced>> outputs) => new(Queued, Settings, Folder, Stem, Overwrite, Frames, outputs);
 }
 
 public sealed record RenderBatch(Seq<QueueEntry<OutputPath>> Entries) {
@@ -120,7 +120,7 @@ public sealed record RenderBatch(Seq<QueueEntry<OutputPath>> Entries) {
 
     public static IO<RenderBatch> Placed(RhinoDoc doc, Seq<QueueEntry<Unit>> entries, bool overwrite) =>
         from groups in Products.Each(toSeq(entries.GroupBy(entry => (entry.Folder, entry.Stem, Overwrite: entry.Overwrite || overwrite))).Map(batch =>
-            from files in IO.pure(from entry in toSeq(batch) from output in entry.Outputs select (entry.Key, Output: output))
+            from files in IO.pure(from entry in toSeq(batch) let key = entry.Key from output in entry.Outputs select (Key: key, Output: output))
             from placed in Destinations.Resolve(doc, new OutputFolder.Absolute(batch.Key.Folder), new Stem.Literal(batch.Key.Stem), batch.Key.Overwrite, OutputConvention.Default,
                 files.Map(static file => file.Output.Name))
             select files.Zip(placed, static (file, row) => (file.Key, Output: new QueueOutput<OutputPath>(file.Output.Target, row.Name, row.Path)))))
@@ -138,7 +138,7 @@ public sealed record QueuePlan {
     public static IO<QueuePlan> Read(RhinoDoc doc) =>
         from queue in QueueState.Read(doc)
         from book in OutputBook.Read(doc)
-        from settings in RenderOverride.Current(doc)
+        from settings in Products.Acquired(RenderSettingsSources.Snapshot(doc))
         from saved in IO.lift(() => Conversions.Present(doc.Path))
         from plan in IO.lift(Of(book, saved, settings, toSeq(queue.Entries).Filter(static entry => entry.Renders)))
         select plan;
@@ -148,7 +148,7 @@ public sealed record QueuePlan {
             .Apply(static (folder, stem, _) => (Folder: folder, Stem: stem)).As()
         from planned in entries.Map(static (entry, index) => (Entry: entry, Index: index)).Traverse(held =>
                 (held.Entry.View.Traverse(NamePart.Validated).As(), FrameSpan.Of(held.Entry.Sun))
-                    .Apply((scope, frames) => new QueueEntry<Unit>(held.Entry, new RenderOverride(settings, held.Entry.Clay), location.Folder, location.Stem, book.Overwrite, frames, book.Names(scope.ToSeq())))
+                    .Apply((scope, frames) => new QueueEntry<Unit>(held.Entry, settings, location.Folder, location.Stem, book.Overwrite, frames, book.Names(scope.ToSeq())))
                     .As()
                     .MapFail(error => new DarkroomFault(held.Entry.Label, DarkroomReason.Invalid, held.Index, error)))
             .As()
@@ -156,16 +156,18 @@ public sealed record QueuePlan {
         select new QueuePlan(book, unique);
 
     public IO<RenderBatch> Resolved(RhinoDoc doc, Option<QueueProgress> resumed) =>
-        RenderBatch.Placed(doc, Entries.Map(entry => entry.Placed(
-            from frame in entry.Frames.Numbers
-            from output in entry.Outputs
-            select output with {
-                Name = output.Name with {
-                    Number = entry.Frames.Named(frame),
-                    Version = resumed.Bind(record => record.Entries.Find(entry.Key)).Bind(held => held.Versions.Find(output.Name.Scope))
-                        .Match<OutputVersioning>(Some: static version => new OutputVersioning.Pinned(version), None: static () => new OutputVersioning.Next()),
-                },
-            })), resumed.IsSome);
+        RenderBatch.Placed(doc, Entries.Map(entry => resumed.Bind(record => record.Entries.Find(entry.Key)) switch {
+            var prior => entry.Placed(
+                from frame in entry.Frames.Numbers
+                from output in entry.Outputs
+                select output with {
+                    Name = output.Name with {
+                        Number = entry.Frames.Named(frame),
+                        Version = prior.Bind(held => held.Versions.Find(output.Name.Scope))
+                            .Match<OutputVersioning>(Some: static version => new OutputVersioning.Pinned(version), None: static () => new OutputVersioning.Next()),
+                    },
+                }),
+        }), resumed.IsSome);
 }
 
 public sealed record QueueHeartbeat(Duration Interval, int Misses) {

@@ -1,8 +1,8 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: python-docstring-or-comment
-language: python
+language: pythonlang
 rule:
     any:
         - kind: comment
         - kind: expression_statement
-          has: {kind: string, regex: "^(?i:r|u)?[\"']"}
+          has: {kind: 'string, concatenated_string', not: {has: {stopBy: end, kind: string_start, not: {regex: "^(?i:r|u)?[\"']"}}}}

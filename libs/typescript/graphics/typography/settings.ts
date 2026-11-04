@@ -1,6 +1,6 @@
-import { Digits } from '@rasm/search/digits';
+import { Digits } from '@rasm/search';
 import { Effect, Option, Predicate, Record, Schema, Struct } from 'effect';
-import { Tag } from '#/tag';
+import { Tag } from '#/internal/tag';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -45,7 +45,7 @@ const Alignment = Schema.TaggedUnion({
 const Height = Schema.TaggedUnion({
     Auto: {
         ratio: Schema.Finite.check(Schema.isGreaterThan(0))
-            .annotate({ description: `Line height over the largest point size on the line, InDesign auto leading ${AUTO_LEADING}` })
+            .annotate({ description: `Line height over the largest point size on the line, auto leading ${AUTO_LEADING}` })
             .pipe(Schema.withConstructorDefault(Effect.succeed(AUTO_LEADING))),
     },
     Fixed: { em: Schema.Finite.check(Schema.isGreaterThan(0)).annotate({ description: 'Baseline to baseline distance in em' }) },
@@ -108,6 +108,11 @@ class Settings extends Schema.Class<Settings, { readonly brand: unique symbol }>
     { description: 'Typesetting of one paragraph or run' },
 ) {
     static readonly Direction = Direction;
+    static readonly Alignment = Alignment;
+    static readonly Leading = Leading;
+    static readonly Kashida = Kashida;
+    static readonly Marks = Marks;
+    static readonly Spacing = Spacing;
     static readonly Partial = Settings.mapFields((fields) =>
         Struct.map(Schema.optionalKey)({
             ...fields,

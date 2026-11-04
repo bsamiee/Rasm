@@ -3,17 +3,15 @@ namespace Rasm.Rhino.Modeling;
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record SmoothFrame {
-    private SmoothFrame(SmoothingCoordinateSystem system, Plane plane) => (System, Plane) = (system, plane);
+    public SmoothingCoordinateSystem System => Switch(world: static _ => SmoothingCoordinateSystem.World, objectUvn: static _ => SmoothingCoordinateSystem.Object, cPlane: static _ => SmoothingCoordinateSystem.CPlane);
 
-    public SmoothingCoordinateSystem System { get; }
+    public Plane Plane => Switch(world: static _ => Plane.WorldXY, objectUvn: static _ => Plane.WorldXY, cPlane: static frame => frame.Frame);
 
-    public Plane Plane { get; }
+    public sealed record World : SmoothFrame;
 
-    public sealed record World() : SmoothFrame(SmoothingCoordinateSystem.World, Plane.WorldXY);
+    public sealed record ObjectUvn : SmoothFrame;
 
-    public sealed record ObjectUvn() : SmoothFrame(SmoothingCoordinateSystem.Object, Plane.WorldXY);
-
-    public sealed record CPlane(Plane Frame) : SmoothFrame(SmoothingCoordinateSystem.CPlane, Frame);
+    public sealed record CPlane(Plane Frame) : SmoothFrame;
 }
 
 public sealed record SmoothOptions(double Factor, bool X, bool Y, bool Z, bool FixBoundaries, SmoothFrame Frame) {
@@ -31,6 +29,6 @@ public sealed record SmoothOptions(double Factor, bool X, bool Y, bool Z, bool F
                     from smoothed in Products.Accepted(() => mesh.Smooth(held, Factor, Iterations, X, Y, Z, FixBoundaries, Frame.System, Frame.Plane))
                     select target,
                 None: () => Products.Accepted(() => mesh.Smooth(Factor, Iterations, X, Y, Z, FixBoundaries, Frame.System, Frame.Plane)).Map(_ => target)),
-            var other => IO.fail<T>(new RhinoFault(other.ObjectType.ToString(), RhinoReason.Unsupported)),
+            var other => IO.fail<T>(new RhinoFault(other.ObjectType, RhinoReason.Unsupported)),
         });
 }

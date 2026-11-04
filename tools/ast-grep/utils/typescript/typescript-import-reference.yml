@@ -1,10 +1,12 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: typescript-import-reference
-language: tsx
+language: tsxlang
 arguments: [source, exported]
 utils:
+    module-reference:
+        matches: {typescript-module-reference: {source: {matches: source}}}
     type-only:
-        has: {regex: '^type$'}
+        has: {regex: '^type$', not: {pattern: $_}}
     module-import:
         kind: import_statement
         has: {field: source, not: {has: {kind: escape_sequence}}, has: {kind: string_fragment, matches: source}}
@@ -34,26 +36,19 @@ utils:
                         - has: {field: name, matches: exported}
                         - has: {kind: identifier, pattern: $IMPORTED, nthChild: {position: 1, reverse: true, ofRule: {kind: identifier}}}
             - has: {matches: namespace-binding, has: {regex: '^\*$', matches: exported}}
-    module-binding:
-        kind: import_clause
-        any:
-            - has: {kind: identifier, pattern: $IMPORTED}
-            - has: {matches: namespace-binding}
     type-position:
         inside: {kind: 'nested_type_identifier, type_query', stopBy: {not: {kind: 'nested_identifier, member_expression'}}}
 rule:
     any:
-        - kind: identifier
+        - kind: identifier, undefined
           pattern: $IMPORTED
           all:
             - any:
                 - inside: {kind: program, stopBy: end, has: {matches: module-import, not: {matches: type-only}, has: {matches: export-binding}}}
                 - matches: type-position
                   inside: {kind: program, stopBy: end, has: {matches: module-import, has: {matches: type-binding}}}
-            - not: {matches: typescript-local-binding}
-        - kind: member_expression
+            - not: {matches: {typescript-local-binding: {owner: {pattern: $_}}}}
+        - kind: member_expression, nested_identifier
           all:
             - has: {field: property, matches: exported}
-            - has: {field: object, kind: identifier, pattern: $IMPORTED}
-            - inside: {kind: program, stopBy: end, has: {matches: module-import, not: {matches: type-only}, has: {matches: module-binding}}}
-            - has: {field: object, not: {matches: typescript-local-binding}}
+            - has: {field: object, matches: module-reference}

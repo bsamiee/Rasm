@@ -5,7 +5,7 @@ import math
 from types import MemberDescriptorType
 from typing import Annotated
 
-from expression import Nothing, Ok, Option, Some
+from expression import Option, Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -19,8 +19,9 @@ from scipy.stats import rankdata
 
 from blender.imaging.color.colorimetry import matching, observer
 from blender.imaging.files.buffers import Depth, pixels
+from blender.imaging.geometry.frames import Raster
 from blender.imaging.geometry.lenses import Aperture
-from blender.records.faults import Outcome
+from blender.records.faults import Nothing, Ok, Outcome
 from blender.records.fields import NonNegative, Seed
 from blender.records.stores import content_hash, rng
 
@@ -34,19 +35,23 @@ class Pupil(msgspec.Struct, frozen=True, kw_only=True):
     squeeze: Annotated[float, msgspec.Meta(ge=1.0, le=2.0)] = 1.0
     core: NonNegative = 0.002
 
-    def kernel(self, config: PyOpenColorIO.Config, size: tuple[int, int], frame: tuple[int, int], pixel_aspect: float) -> Outcome[Option[npt.NDArray[np.float32]]]:
-        """Returns spectral diffraction weights over every displacement of the stored `size` frame, `frame` the camera extent at stored pixel scale.
+    def kernel(self, config: PyOpenColorIO.Config, data: Raster, *, camera: Raster) -> Outcome[Option[npt.NDArray[np.float32]]]:
+        """Returns spectral diffraction over `data` displacements in greater-camera-side shares, with aperture sampling from `camera`.
 
         Returns:
             RGB weights of shape (2 * height - 1, 2 * width - 1, 3) with unit channel sums, absent at zero core or a closed iris, or `FAILED` and `INVALID` faults.
         """
         if self.core == 0.0 or self.iris.obstruction == 1.0:
             return Ok(Nothing)
-        shape = (2 * size[0] - 1, 2 * size[1] - 1, 3)
+        height, width = data.shape
+        shape = (2 * height - 1, 2 * width - 1, 3)
         rows = observer()
-        side = 2 * next_fast_len(max(frame))
-        aspect = Fraction(pixel_aspect)
-        sampling = Fraction(1.22 * 550.0) / (Fraction(self.core) * max(Fraction(frame[0]), frame[1] * aspect) * side)
+        side = 2 * next_fast_len(max(camera.shape))
+        bounds = camera.bounds
+        sampling = Fraction(1.22 * 550.0) / (Fraction(self.core) * max(Fraction(bounds.right) - Fraction(bounds.left), Fraction(bounds.top) - Fraction(bounds.bottom)) * side)
+        bounds = data.bounds
+        horizontal_sampling = sampling * (Fraction(bounds.right) - Fraction(bounds.left)) / width
+        vertical_sampling = sampling * (Fraction(bounds.top) - Fraction(bounds.bottom)) / height
         edges = np.linspace(-1.0, 1.0, side + 1)
         pupil = self.iris.coverage(self.squeeze * edges, -edges)
 
@@ -63,9 +68,8 @@ class Pupil(msgspec.Struct, frozen=True, kw_only=True):
             return ZoomFFT(side, (first, first + count * step), m=count, fs=1.0), footprint
 
         def spread(wavelength: np.float64) -> npt.NDArray[np.float64]:
-            frequency = sampling / int(wavelength)
-            horizontal, xfootprint = axis(size[1], frequency * aspect)
-            vertical, yfootprint = axis(size[0], frequency)
+            horizontal, xfootprint = axis(width, horizontal_sampling / int(wavelength))
+            vertical, yfootprint = axis(height, vertical_sampling / int(wavelength))
             power = abs(vertical(horizontal(pupil, axis=1), axis=0) * yfootprint[:, None] * xfootprint[None, :]) ** 2
             return np.asarray(power / power.sum(), dtype=np.float64)
 
@@ -115,7 +119,7 @@ def stream(*parts: object) -> int:
 
 def uniforms(keys: npt.NDArray[np.int64], stream: int, count: int, *, seed: int = 0) -> npt.NDArray[np.float64]:
     """Returns `count` stable uniforms per integer key row and seed, each row seeding its own `SeedSequence` spawned from the draw stream."""
-    rows = np.ascontiguousarray(keys, dtype=np.int64).reshape(len(keys), -1).view(np.uint64)
+    rows = np.ascontiguousarray(keys, dtype=np.int64).reshape(len(keys), math.prod(keys.shape[1:])).view(np.uint64)
     return np.array([np.random.default_rng(np.random.SeedSequence((stream, seed), spawn_key=tuple(row))).random(count) for row in rows.tolist()], dtype=np.float64).reshape(len(keys), count)
 
 

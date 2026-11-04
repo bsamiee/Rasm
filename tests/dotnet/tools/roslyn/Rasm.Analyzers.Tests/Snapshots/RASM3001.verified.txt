@@ -5,3 +5,10 @@
 #5 `Doubled` has one read, in `Twofold`, inline `Doubled` at the read
 #6 `Area` has one read, in `Size`, inline `Area` at the read
 #7 `Moved` has one read, in `Shifted`, inline `Moved` at the read
+#8 `Count` has one read, in `Changed`, inline `Count` at the read
+#9 `Difference` has one read, in `Changed`, inline `Difference` at the read
+#10 `Extensions` has one read, in `Found`, inline `Extensions` at the read
+#13 `ReadRead` has one read, in `Read`, inline `ReadRead` at the read
+#14 `Read` has one read, in `ReadRead`, inline `Read` at the read
+#11 `Kept` has one read, in `Changed`, inline `Kept` at the read
+#12 `Counts` has one read, in `Found`, inline `Counts` at the read

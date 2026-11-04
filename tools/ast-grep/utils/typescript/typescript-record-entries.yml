@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: typescript-record-entries
-language: tsx
+language: tsxlang
 rule:
     kind: member_expression
     any:

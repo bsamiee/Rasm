@@ -156,6 +156,22 @@ fn visible(text: &str) -> usize { hidden(text) }
 #[cfg(any())]
 fn stripped() -> usize { hidden("") }
 
+fn raw_hidden(text: &str) -> usize { text.chars().filter(char::is_ascii_digit).count().strict_mul(2) }
+
+fn raw_visible(text: &str) -> usize { raw_hidden(text).strict_add(1) }
+
+fn escaped_hidden(text: &str) -> usize { text.chars().filter(char::is_ascii_uppercase).count() }
+
+fn escaped_visible(text: &str) -> usize { escaped_hidden(text).strict_add(1) }
+
+#[cfg(any())]
+#[path = r#"single_reader/raw.rs"#]
+mod raw_reader;
+
+#[cfg(any())]
+#[path = "single_reader/esc\u{61}ped.rs"]
+mod escaped_reader;
+
 fn outer(text: &str) -> usize {
     fn inner(text: &str) -> usize { text.split_whitespace().count() }
     inner(text)
@@ -252,4 +268,5 @@ async fn main() {
     black_box(&(built(5).width, relayed("e"), visible("v"), outer("o"), sided(4), Report { ports: 6 }, widened(2), narrowed(8), compared(5)));
     black_box(&(padded(), gridded(&grid), SEED, STEPS, window.tripled(), window.scale(), grid.scale()));
     black_box(&(Buffer { items: vec![1_u16] }.bytes(), sized(), port(1), kept(), counted("a"), grade(6), wrapped(3), layered(5), paired(4_u8), doubled(5_u8), tripled(7_u8)));
+    black_box((raw_visible("12"), escaped_visible("AB")));
 }

@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Final
 
 import bpy
-from expression import Ok, Some
+from expression import Some
 import PyOpenColorIO
 
 from blender.bpy.data.ids.images import Tag
@@ -27,8 +27,7 @@ from blender.imaging.color.processors import GRAY
 from blender.imaging.geometry.arithmetic import smoothstep
 from blender.imaging.sampling.integration import placement, Population
 from blender.imaging.sampling.tiles import stream
-from blender.records.faults import Outcome
-from blender.records.fields import Case
+from blender.records.faults import Ok, Outcome
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -62,7 +61,7 @@ _AXES: Final = Socket(key="axes", kind=bpy.types.NodeSocketVector2D, description
 _ROTATION: Final = Socket(key="rotation", kind=bpy.types.NodeSocketFloatAngle, description="Map and displacement axes turn")
 _TILE: Final = Socket(key="value", kind=bpy.types.NodeSocketVector2D, description="Map tile size over greater frame side", default_value=(1.0, 1.0))
 _TILING: Final = InterfacePanel.of("tile", Interface(inputs=(_TILE,)), description="Map tile size, the map spanning the frame when off", toggle=Some(False))
-_SURFACE: Final = Socket(key="surface", kind=bpy.types.NodeSocketMenu, description="Glass height function", default_value=MenuItem.of(Surface.FROSTED).name, items=Some(MenuItems.of(Surface)))
+_SURFACE: Final = Socket(key="surface", kind=bpy.types.NodeSocketMenu, description="Glass height function", default_value=MenuItem.of(Surface.FROSTED).name, items=MenuItems.of(Surface).items)
 _SIZE: Final = Socket(key="size", kind=bpy.types.NodeSocketFloat, description="Glass cell width over greater frame side", min_value=0.0, default_value=0.1)
 _SLOPE: Final = Socket(key="strength", kind=bpy.types.NodeSocketFloat, description="Signed displacement per unit slope in glass-cell coordinates", default_value=0.02)
 _GLASS_BLUR: Final = Socket(key="blur", kind=bpy.types.NodeSocketFloat, description="Refracted image blur radius over greater frame side", min_value=0.0)
@@ -116,21 +115,21 @@ def _slope(image: Expr, frame: FrameSpace) -> Expr:
 # --- [TERMS]
 
 
-def luminous[R: Case](shell: GraphInputs[R], frame: FrameSpace, height: Expr) -> Expr:
+def luminous(shell: GraphInputs, frame: FrameSpace, height: Expr) -> Expr:
     """Offset moving bright content toward the luma direction and dark content against it."""
     read = partial(shell.input, LUMA)
     angle = read(_DIRECTION)
     return vector("SCALE", xyz(math("COSINE", angle), math("SINE", angle)), (_softened(height, frame.pixel_size(read(_SOFTNESS))) * 2.0 - 1.0) * read(_AMPLITUDE))
 
 
-def bubbled[R: Case](shell: GraphInputs[R], frame: FrameSpace, height: Expr) -> Expr:
+def bubbled(shell: GraphInputs, frame: FrameSpace, height: Expr) -> Expr:
     """Offset down the blurred luminance height, differences taken one softness each way."""
     read = partial(shell.input, BUBBLES)
     span = read(_SPAN)
     return vector("SCALE", _difference(_softened(height, frame.pixel_size(span)), frame, span), -read(_STRENGTH))
 
 
-def mapped[R: Case](shell: GraphInputs[R], frame: FrameSpace, source: FilePath | None, reading: MapReading, gain: Expr) -> Outcome[tuple[Expr, Scalar]]:
+def mapped(shell: GraphInputs, frame: FrameSpace, source: FilePath | None, reading: MapReading, gain: Expr) -> Outcome[tuple[Expr, Scalar]]:
     """Returns the map offset and its coverage: a file or the entry input read as a gradient, luma, offset, or coordinate field, spanning the frame or tiled, turned with the map axes.
 
     Args:
@@ -192,7 +191,7 @@ def mapped[R: Case](shell: GraphInputs[R], frame: FrameSpace, source: FilePath |
             return masks.luminance(shell.config, plane).map(leveled)
 
 
-def refracted[R: Case](shell: GraphInputs[R], frame: FrameSpace) -> tuple[Expr, Expr]:
+def refracted(shell: GraphInputs, frame: FrameSpace) -> tuple[Expr, Expr]:
     """Returns the offset down the blurred glass height of the chosen surface, scaled by strength over cell size, and the entry input blurred behind the glass."""
     read = partial(shell.input, GLASS)
     size = read(_SIZE)
@@ -210,7 +209,7 @@ def refracted[R: Case](shell: GraphInputs[R], frame: FrameSpace) -> tuple[Expr, 
     return vector("SCALE", _slope(level, frame), read(_SLOPE) * size), filters.blurred(shell.color, frame.pixel_size(read(_GLASS_BLUR)))
 
 
-def rained[R: Case](shell: GraphInputs[R], frame: FrameSpace) -> tuple[Expr, Expr, Expr]:
+def rained(shell: GraphInputs, frame: FrameSpace) -> tuple[Expr, Expr, Expr]:
     """Returns drop coverage, the offset showing each drop's inverted view with trails refracting through their blurred height, and the view blurred inside drops.
 
     Args:
@@ -231,7 +230,7 @@ def rained[R: Case](shell: GraphInputs[R], frame: FrameSpace) -> tuple[Expr, Exp
     first, second = (hashed(read(SEED), float(stream(RAINDROPS.key, index)), cell["X"], cell["Y"]) for index in range(2))
     draws = (first["Red"], first["Green"], first["Blue"], second["Red"], second["Green"], second["Blue"])
     x, y, radius, gain = placement(
-        (cell["X"], cell["Y"]), draws, EXPRESSIONS, spacing=spacing, diameter=spacing * drops(Population.size), variation=drops(Population.variation), spread=drops(Population.spread)
+        (cell["X"], cell["Y"]), draws, EXPRESSIONS.exp2, spacing=spacing, diameter=spacing * drops(Population.size), variation=drops(Population.variation), spread=drops(Population.spread)
     )
     present = draws[0] < drops(Population.density)
     arm = local - xyz(x, y)

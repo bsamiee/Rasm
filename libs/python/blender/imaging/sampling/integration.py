@@ -4,15 +4,16 @@ from collections.abc import Callable, Sequence
 from functools import partial
 import math
 import sys
-from typing import Annotated
+from typing import Annotated, Generic, TypeVar
 
 from expression.extra.result import catch
 import msgspec
 import numpy as np
 import numpy.typing as npt
+from optype import CanAdd
 from scipy.stats import qmc, sem
 
-from blender.imaging.geometry.arithmetic import Elementwise, Namespace, smoothstep
+from blender.imaging.geometry.arithmetic import Arithmetic, smoothstep
 from blender.imaging.geometry.frames import Raster, Region
 from blender.imaging.sampling.tiles import uniforms
 from blender.records.faults import accumulated, Fault, Outcome, Reason
@@ -21,6 +22,7 @@ from blender.records.stores import content_hash, rng
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
+_T_co = TypeVar("_T_co", covariant=True)
 type _Integrand = Callable[[npt.NDArray[np.float64]], Outcome[npt.NDArray[np.float64]]]
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -40,10 +42,10 @@ class Precision(msgspec.Struct, frozen=True, kw_only=True):
         return qmc.Sobol(dimensions, scramble=True, bits=64, rng=rng(content_hash(Precision), self.seed, replicate, *key)).random_base2(self.power)
 
 
-class Estimate[T](msgspec.Struct, frozen=True, kw_only=True, eq=False):
+class Estimate(msgspec.Struct, Generic[_T_co], frozen=True, kw_only=True, eq=False):  # ruff: ignore[non-pep695-generic-class]
     """Estimated value with replicate standard error."""
 
-    value: T
+    value: _T_co
     standard_error: npt.NDArray[np.float64]
     precision: Precision
     replicates: npt.NDArray[np.float64]
@@ -81,8 +83,8 @@ class Population(msgspec.Struct, frozen=True, kw_only=True):
     def covering(self, bounds: Region) -> npt.NDArray[np.int64]:
         """Returns cells with discs able to intersect global bounds, rows bottom first."""
         radius = self.size / 2.0
-        columns = np.arange(math.floor(bounds.left / self.spacing - radius) - 1, math.floor(bounds.right / self.spacing + radius) + 1)
-        rows = np.arange(math.floor(bounds.bottom / self.spacing - radius) - 1, math.floor(bounds.top / self.spacing + radius) + 1)
+        columns = np.arange(math.floor(bounds.left / self.spacing - radius) - 1, math.floor(bounds.right / self.spacing + radius) + 1, dtype=np.int64)
+        rows = np.arange(math.floor(bounds.bottom / self.spacing - radius) - 1, math.floor(bounds.top / self.spacing + radius) + 1, dtype=np.int64)
         return np.stack(np.meshgrid(columns, rows), axis=-1).reshape(-1, 2)
 
     def occupied(self, cells: npt.NDArray[np.int64], stream: int) -> tuple[npt.NDArray[np.int64], npt.NDArray[np.float64]]:
@@ -91,9 +93,9 @@ class Population(msgspec.Struct, frozen=True, kw_only=True):
         kept = values[:, 0] < self.density
         return cells[kept], values[kept]
 
-    def placed[V: Elementwise, B](self, cell: tuple[V, V], draws: Sequence[V], ns: Namespace[V, B], *, spacing: float, scale: V | float = 1.0) -> tuple[V, V, V, V]:
-        """Returns the center abscissa and ordinate, radius, and peak gain of an occupied cell from its six uniforms at lattice `spacing` and depth `scale`, over any namespace."""
-        return placement(cell, draws, ns, spacing=spacing, diameter=self.spacing * self.size, variation=self.variation, spread=self.spread, scale=scale)
+    def placed[V: Arithmetic](self, cell: tuple[CanAdd[float, V], CanAdd[float, V]], draws: Sequence[V], exp2: Callable[[V], V], *, spacing: float, scale: V | float = 1.0) -> tuple[V, V, V, V]:
+        """Returns the center abscissa and ordinate, radius, and peak gain of an occupied cell from its six uniforms at lattice `spacing` and depth `scale`."""
+        return placement(cell, draws, exp2, spacing=spacing, diameter=self.spacing * self.size, variation=self.variation, spread=self.spread, scale=scale)
 
     def discs(self, bounds: Region, stream: int = 0) -> tuple[Disc, ...]:
         """Returns occupied members of cells covering global bounds, in cell order."""
@@ -140,23 +142,31 @@ class Population(msgspec.Struct, frozen=True, kw_only=True):
 
     def _placements(self, cells: npt.NDArray[np.int64], values: npt.NDArray[np.float64]) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64], npt.NDArray[np.float64]]:
         """Returns `(discs, 2)` centers, radii, and peak gains of occupied cells and their uniforms at the population's own spacing."""
-        column, row = cells[:, :2].T.astype(np.float64)
-        across, up, radii, gains = self.placed((column, row), tuple(values.T), np, spacing=self.spacing)
+        column, row = cells[:, :2].T
+        across, up, radii, gains = self.placed((column, row), tuple(values.T), np.exp2, spacing=self.spacing)
         return np.column_stack((across, up)), radii, gains
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def placement[V: Elementwise, B](
-    cell: tuple[V, V], draws: Sequence[V], ns: Namespace[V, B], *, spacing: V | float, diameter: V | float, variation: V | float, spread: V | float, scale: V | float = 1.0
+def placement[V: Arithmetic](
+    cell: tuple[CanAdd[float, V], CanAdd[float, V]],
+    draws: Sequence[V],
+    exp2: Callable[[V], V],
+    *,
+    spacing: V | float,
+    diameter: V | float,
+    variation: V | float,
+    spread: V | float,
+    scale: V | float = 1.0,
 ) -> tuple[V, V, V, V]:
-    """Returns the center abscissa and ordinate, radius, and peak gain of an occupied cell from its six uniforms, every population value an operand of the namespace (group inputs over node expressions).
+    """Returns the center abscissa and ordinate, radius, and peak gain of an occupied cell from its six uniforms.
 
     Args:
         cell: Lattice column and row.
         draws: Six uniforms of the cell: presence, size, gain, tone, and two center offsets.
-        ns: Namespace of the operands.
+        exp2: Exponentiation over the operands.
         spacing: Lattice spacing.
         diameter: Largest disc diameter at unit scale.
         variation: Diameter shrink share below the largest.
@@ -168,7 +178,7 @@ def placement[V: Elementwise, B](
     """
     column, row = cell
     _, size, gain, _, across, up = draws
-    return (column + 0.25 + across * 0.5) * spacing, (row + 0.25 + up * 0.5) * spacing, (1.0 - size * variation) * scale * (diameter * 0.5), ns.exp2(gain * spread * -1.0)
+    return (column + 0.25 + across * 0.5) * spacing, (row + 0.25 + up * 0.5) * spacing, (1.0 - size * variation) * scale * (diameter * 0.5), exp2(gain * spread * -1.0)
 
 
 def integrated(request: msgspec.Struct, field: _Integrand, bounds: tuple[tuple[float, ...], tuple[float, ...]], *, precision: Precision) -> Outcome[Estimate[npt.NDArray[np.float64]]]:

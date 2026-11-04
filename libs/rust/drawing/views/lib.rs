@@ -70,7 +70,7 @@ struct Prepared {
 #[derive(Debug, Clone)]
 struct Scene {
     bodies: Vec<Prepared>,
-    assembly: Assembly,
+    assembly: Arc<Assembly>,
 }
 
 #[derive(Debug, Clone)]
@@ -96,21 +96,18 @@ impl View {
             .into_par_iter()
             .enumerate()
             .filter(|_| !cancel::is_cancelled(token))
-            .map(|(index, body)| sections::prepared(&frame, index, body, token))
+            .filter_map(|(index, body)| sections::prepared(&frame, index, body, token).transpose())
             .collect::<Validated<Vec<_>, _>>()
-            .ok()?
-            .into_iter()
-            .flatten()
-            .collect::<Vec<_>>();
+            .ok()?;
         let renumbered = |error: ProximityError| {
             let ProximityError::NonFinite { indices } = error else {
                 return ViewsError::from(error);
             };
-            ViewsError::from(ProximityError::NonFinite { indices: indices.into_nonempty_iter().map(|index| bodies.get(index).map_or(index, |prepared| prepared.body)).collect() })
+            ViewsError::from(ProximityError::NonFinite { indices: indices.into_nonempty_iter().map(|index| bodies[index].body).collect() })
         };
         let assembly = Assembly::new(BvhBuildStrategy::Ploc, bodies.iter().map(|prepared| (Isometry3::identity(), SharedShape(Arc::<TriMesh>::clone(&prepared.mesh)))))
             .map_err(|errors| errors.into_nonempty_iter().map(renumbered).collect::<NEVec<_>>())?;
-        let scene = Scene { bodies, assembly };
+        let scene = Scene { bodies, assembly: Arc::new(assembly) };
         (!cancel::is_cancelled(token)).ok_or(NEVec::new(ViewsError::Cancelled))?;
         outline(&frame, &scene, crease, tolerance).map(|lines| Self { frame, scene, lines, crease, tolerance }).map_err(NEVec::new)
     }

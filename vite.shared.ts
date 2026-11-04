@@ -2,21 +2,21 @@ import { globSync, readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { basename, dirname, isAbsolute, join, relative, sep } from 'node:path';
 import process from 'node:process';
-import { NodeServices } from '@effect/platform-node';
-import { ExtensionManifest } from '@rasm/cep/manifest';
-import { Manifest } from '@rasm/uxp/manifest';
+import { layer } from '@effect/platform-node/NodeServices';
+import { ExtensionManifest } from '@rasm/cep';
+import { UxpManifest } from '@rasm/uxp';
 import viteReact from '@vitejs/plugin-react';
-import { Array, Cause, Config, Effect, Function, Option, Predicate, Record, Result, Schema, String } from 'effect';
+import { Array, Cause, Config, Effect, Function, flow, Option, Predicate, Record, Result, Schema, String } from 'effect';
 import type { HttpRouter } from 'effect/http';
 import { NetAddress } from 'effect/net';
 import { build } from 'plist';
-import { defaultClientConditions, defaultServerConditions, mergeConfig, type Plugin, type PluginOption, type Rolldown, type UserConfig, type UserConfigFnPromise } from 'vite';
+import { type ConfigEnv, defaultClientConditions, defaultServerConditions, mergeConfig, type Plugin, type PluginOption, type Rolldown, type UserConfig, type UserConfigFnPromise } from 'vite';
 import { Mise, Package } from '#/eng/typescript/manifest';
-import { run } from '#/eng/typescript/process';
+import { runCommand } from '#/eng/typescript/run-command';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Fields = Parameters<typeof Manifest.make>[0];
+type Fields = Parameters<typeof UxpManifest.make>[0];
 type Linking = Omit<ImportMetaEnv['LINK'], 'endpoint'> & { readonly path: Exclude<HttpRouter.PathInput, '*'> };
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -29,6 +29,10 @@ const ENTRY = 'main';
 const PRERELEASE = /[-+]/u;
 const IDENTIFIER = Config.String('PRODUCT_BUNDLE_IDENTIFIER');
 
+// --- [MODELS] --------------------------------------------------------------------------
+
+const JsonText = Schema.fromJsonString(Schema.Unknown);
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [PROJECT]
@@ -37,19 +41,19 @@ const located = (folder: string, directory: string) => join(ROOT, folder, relati
 const daemon = Effect.fnUntraced(function* (directory: string) {
     const { daemons } = yield* Mise.read(ROOT);
     const ports = Record.filterMap(daemons, (row) => (Predicate.isString(row) ? Result.failVoid : Result.fromOption(row.port, Function.constVoid)));
-    const found = Array.findLast(relative(ROOT, directory).split(sep), (name) => Option.map(Record.get(ports, name), (port) => ({ name, port })));
+    const found = Array.findLast(relative(ROOT, directory).split(sep), (name) => Option.all({ name: Option.some(name), port: Record.get(ports, name) }));
     return yield* Effect.fromOption(found, () => new Cause.NoSuchElementError(`No mise daemon with a port names a folder of ${directory}`));
 });
 const dialed = Effect.fnUntraced(function* (directory: string, { path, redial }: Linking) {
-    const [{ port }, { Link }] = yield* Effect.all([daemon(directory), Effect.promise(() => import('@rasm/uxp/link'))], { concurrency: 'unbounded' });
-    const origin = Link.origin(port);
-    const link = yield* Effect.orDie(Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({ endpoint: `${origin}${path}`, redial } satisfies ImportMetaEnv['LINK']));
+    const [{ port }, { Peer }] = yield* Effect.all([daemon(directory), Effect.promise(() => import('@rasm/uxp/peer'))], { concurrency: 'unbounded' });
+    const origin = Peer.origin(port);
+    const link = yield* Effect.orDie(Schema.encodeEffect(JsonText)({ endpoint: `${origin}${path}`, redial } satisfies ImportMetaEnv['LINK']));
     return { origin, define: { 'import.meta.env.LINK': link } };
 });
 const identity = Effect.fnUntraced(function* (directory: string) {
     const [identifier, { description }, prefix] = yield* Effect.all([IDENTIFIER, Package.read(directory), Config.String('MinVerTagPrefix')], { concurrency: 'unbounded' });
-    const release = yield* run('minver', ['-t', prefix, '-v', 'e']);
-    const version = yield* Schema.decodeEffect(Manifest.Version)(Array.headNonEmpty(String.split(String.trim(release), PRERELEASE)));
+    const release = yield* runCommand('minver', ['-t', prefix, '-v', 'e']);
+    const version = yield* Schema.decodeEffect(UxpManifest.Version)(Array.headNonEmpty(String.split(String.trim(release), PRERELEASE)));
     return { id: `${identifier}.${basename(directory)}`, name: description, version };
 });
 
@@ -63,10 +67,15 @@ const bundled = (directory: string, asset: Required<Pick<Rolldown.EmittedAsset, 
         build: {
             ssr: join(directory, `${ENTRY}.ts`),
             emptyOutDir: true,
-            target: Manifest.target,
+            target: UxpManifest.target,
             rolldownOptions: {
                 platform: 'neutral',
-                transform: { inject: Record.filterMap(load(encoding), (_, name: string) => (name in globalThis ? Result.succeed([encoding, name] satisfies [string, string]) : Result.failVoid)) },
+                transform: {
+                    inject: Record.fromIterableWith(
+                        Object.keys(load(encoding)).filter((name) => name in globalThis),
+                        (name) => [name, [encoding, name] satisfies [string, string]],
+                    ),
+                },
                 output: {
                     format: 'cjs',
                     entryFileNames: '[name].js',
@@ -87,27 +96,29 @@ const bundled = (directory: string, asset: Required<Pick<Rolldown.EmittedAsset, 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const react = () => viteReact({ compiler: { panicThreshold: 'all_errors' } });
-const worker =
-    (directory: string, { plugins, hosting }: { readonly plugins: PluginOption; readonly hosting: PluginOption }): UserConfigFnPromise =>
-    ({ mode }) =>
-        Effect.gen(function* () {
+const cloudflareWorker = (directory: string, { plugins, hosting }: { readonly plugins: PluginOption; readonly hosting: PluginOption }): UserConfigFnPromise =>
+    flow(
+        Effect.fnUntraced(function* ({ mode }: ConfigEnv) {
             const [storybook, vitest] = yield* Effect.all([Config.withDefault(Config.Boolean('STORYBOOK'), false), Config.withDefault(Config.Boolean('VITEST'), false)]);
             const hosted =
                 storybook || vitest ? [] : [hosting, (yield* Effect.promise(() => import('@cloudflare/vite-plugin'))).cloudflare({ types: { generate: false }, ...(mode === testMode ? { persistState: false, inspectorPort: false } : { persistState: { path: located(join('.cache', 'cloudflare'), directory) } }) })];
             return { build: { target: 'esnext', rolldownOptions: { experimental: EXPERIMENTAL } }, plugins: [plugins, hosted] };
-        }).pipe(Effect.runPromise);
-const uxp =
-    (directory: string, manifest: Omit<Fields, keyof Effect.Success<ReturnType<typeof identity>> | 'main' | 'host' | 'requiredPermissions'> & { readonly host: Omit<Fields['host'], 'data'>; readonly requiredPermissions: Omit<Fields['requiredPermissions'], 'network'> }, link: Linking): UserConfigFnPromise =>
-    () =>
-        Effect.gen(function* () {
+        }),
+        Effect.runPromise,
+    );
+const uxp = (directory: string, manifest: Omit<Fields, keyof Effect.Success<ReturnType<typeof identity>> | 'main' | 'host' | 'requiredPermissions'> & { readonly host: Omit<Fields['host'], 'data'>; readonly requiredPermissions: Omit<Fields['requiredPermissions'], 'network'> }, link: Linking): UserConfigFnPromise =>
+    Effect.fnUntraced(
+        function* () {
             const [{ origin, define }, release] = yield* Effect.all([dialed(directory, link), identity(directory)], { concurrency: 'unbounded' });
-            const source = yield* Effect.orDie(Schema.encodeEffect(Manifest.json)(Manifest.make({ ...manifest, ...release, main: `${ENTRY}.js`, host: { ...manifest.host, data: { loadEvent: 'startup' } }, requiredPermissions: { ...manifest.requiredPermissions, network: { domains: [origin] } } })));
-            return mergeConfig(bundled(directory, { fileName: Manifest.file, source }), { define });
-        }).pipe(Effect.provide(NodeServices.layer), Effect.runPromise);
-const cep =
-    (directory: string, contract: { readonly host: ExtensionManifest['host']; readonly script: string }, link: Linking): UserConfigFnPromise =>
-    () =>
-        Effect.gen(function* () {
+            const source = yield* Effect.orDie(Schema.encodeEffect(UxpManifest.json)(UxpManifest.make({ ...manifest, ...release, main: `${ENTRY}.js`, host: { ...manifest.host, data: { loadEvent: 'startup' } }, requiredPermissions: { ...manifest.requiredPermissions, network: { domains: [origin] } } })));
+            return mergeConfig(bundled(directory, { fileName: UxpManifest.file, source }), { define });
+        },
+        Effect.provide(layer),
+        Effect.runPromise,
+    );
+const cep = (directory: string, contract: { readonly host: ExtensionManifest['host']; readonly script: string }, link: Linking): UserConfigFnPromise =>
+    Effect.fnUntraced(
+        function* () {
             const [{ define }, release, { transformSync }] = yield* Effect.all([dialed(directory, link), identity(directory), Effect.promise(() => import('@swc/core'))], { concurrency: 'unbounded' });
             const load = createRequire(join(directory, Package.file));
             const extendscript = { name: 'extendscript', renderChunk: (code) => transformSync(code, { jsc: { target: ExtensionManifest.target, parser: { syntax: 'ecmascript' }, assumptions: { iterableIsArray: true } } }).code } satisfies Rolldown.Plugin;
@@ -123,19 +134,21 @@ const cep =
                 define,
                 build: { rolldownOptions: { preserveEntrySignatures: 'exports-only', output: { format: 'iife' } } },
                 environments: {
-                    client: { build: { target: ExtensionManifest.chromium, rolldownOptions: { input: { [ENTRY]: load.resolve('@rasm/cep/entrypoints') }, output: { entryFileNames: '[name].js', plugins: panel } } } },
+                    client: { build: { target: ExtensionManifest.chromium, rolldownOptions: { input: { [ENTRY]: load.resolve('@rasm/cep/panel') }, output: { entryFileNames: '[name].js', plugins: panel } } } },
                     host: {
                         consumer: 'client',
                         build: { target: 'esnext', minify: false, rolldownOptions: { input: load.resolve(contract.script), platform: 'neutral', output: { name: ExtensionManifest.global, exports: 'default', entryFileNames: ExtensionManifest.script, plugins: extendscript } } },
                     },
                 },
             });
-        }).pipe(Effect.provide(NodeServices.layer), Effect.runPromise);
-const script = (directory: string, extension: string): UserConfig => bundled(directory, { fileName: `${ENTRY}.${extension}`, source: `require('./${ENTRY}.js');\n` });
-const sea =
-    (directory: string, { executable, listen }: { readonly executable: string; readonly listen: string }): UserConfigFnPromise =>
-    () =>
-        Effect.gen(function* () {
+        },
+        Effect.provide(layer),
+        Effect.runPromise,
+    );
+const uxpScript = (directory: string, extension: string): UserConfig => bundled(directory, { fileName: `${ENTRY}.${extension}`, source: `require('./${ENTRY}.js');\n` });
+const sea = (directory: string, { executable, listen }: { readonly executable: string; readonly listen: string }): UserConfigFnPromise =>
+    Effect.fnUntraced(
+        function* () {
             const [{ name, port }, identifier, program] = yield* Effect.all([daemon(directory), IDENTIFIER, Config.String(executable)]);
             const addon = `@swc/core-${process.platform}-${process.arch}`;
             const binding = createRequire(createRequire(join(directory, Package.file)).resolve('@swc/core')).resolve(addon);
@@ -161,7 +174,10 @@ const sea =
                             handler(this: Rolldown.PluginContext, _options, output): void {
                                 const { outDir } = this.environment.config.build;
                                 const folders = Array.dedupe(Object.values(output).flatMap((file) => (file.type === 'chunk' ? file.moduleIds.filter(isAbsolute).map(dirname) : [])));
-                                const assets = Record.fromEntries(Array.flatMap(folders, (folder) => globSync('*.wasm', { cwd: folder }).map((file) => [file, join(folder, file)] as const)));
+                                const assets = Record.fromIterableWith(
+                                    Array.flatMap(folders, (folder) => globSync('*.wasm', { cwd: folder, withFileTypes: true })),
+                                    ({ name: file, parentPath }) => [file, join(parentPath, file)],
+                                );
                                 this.emitFile({ type: 'asset', fileName: 'sea.json', source: `${JSON.stringify({ main: join(outDir, `${name}.mjs`), mainFormat: 'module', output: join(outDir, name), useVfs: true, disableExperimentalSEAWarning: true, assets }, null, 4)}\n` });
                                 this.emitFile({ type: 'asset', fileName: join('LaunchAgents', `${label}.plist`), source: agent });
                                 this.emitFile({ type: 'asset', fileName: basename(binding), source: readFileSync(binding) });
@@ -170,8 +186,11 @@ const sea =
                     } satisfies Plugin,
                 ],
             });
-        }).pipe(Effect.provide(NodeServices.layer), Effect.runPromise);
+        },
+        Effect.provide(layer),
+        Effect.runPromise,
+    );
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { cep, located, react, script, sea, testMode, uxp, worker };
+export { cep, cloudflareWorker, located, react, sea, testMode, uxp, uxpScript };

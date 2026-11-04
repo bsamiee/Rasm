@@ -5,11 +5,12 @@ from functools import partial
 from pathlib import Path
 
 import bpy
-from expression import Nothing, Ok, Option, Some, try_downcast
+from expression import Option, Some, try_downcast
 from expression.collections import Block
 from expression.extra.result import catch
 import numpy as np
 import numpy.typing as npt
+import OpenImageIO
 import PyOpenColorIO
 
 from blender.bpy.data.rna.descriptors import Value
@@ -24,9 +25,8 @@ from blender.bpy.render.outputs.formats import extension
 from blender.imaging.color.processors import DisplayView
 from blender.imaging.files.buffers import Coded, Depth, unassociated
 from blender.imaging.files.documents import Document, DocumentLayers, LayerGroup, PixelLayer
-from blender.imaging.files.multilayer import Multilayer
-from blender.records.faults import accumulated, Fault, Outcome, paired, Reason, typed
-from blender.records.fields import Case
+from blender.imaging.files.multilayer import Layer, Multilayer
+from blender.records.faults import accumulated, Fault, Nothing, Ok, Outcome, paired, Reason, typed
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -35,27 +35,28 @@ type _Planes = tuple[DocumentLayers, npt.NDArray[np.float32]]
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def layered[M: Case](stacking: LayerStackService[M], view: DisplayView, scene: bpy.types.Scene, frame: Multilayer, depth: Depth) -> Outcome[Document]:
+def layered(stacking: LayerStackService, config: PyOpenColorIO.Config, view: DisplayView, scene: bpy.types.Scene, frame: Multilayer, depth: Depth) -> Outcome[Document]:
     """Layered document of formed color and raw mask coverage of the scene's head stack at a saved frame, formed through the view, nested stacks as groups.
 
     Returns:
         `Ok` of the document. `Error` of `absent` for a missing file, layer, or frame number, and `refused` for an unreadable number or opacity.
     """
-    identity, config = stacking.identity, PyOpenColorIO.GetCurrentConfig()
+    identity = stacking.identity
     number = (
         Block
-        .of_seq(frame.parts[:1])
-        .choose(lambda part: Option.of_optional(part.header.get("Frame")))
+        .of_seq(frame.parts.values())
         .try_head()
+        .bind(lambda part: Option.of_optional(try_downcast(str, part.getattribute("Frame", OpenImageIO.TypeString))))
         .to_result_with(partial(Fault.of, Reason.ABSENT, str(frame.path), member="Frame"))
         .bind(lambda text: catch(int, exception=ValueError)(text).map_error(partial(Fault.of, Reason.REFUSED, str(frame.path))))
     )
 
-    def read_tree(tree: bpy.types.NodeTree, record: LayerStack[M], at: int, valued: Callable[[Key], Outcome[Value]]) -> Outcome[_Planes]:
+    def read_tree(tree: bpy.types.NodeTree, record: LayerStack, at: int, valued: Callable[[Key], Outcome[Value]]) -> Outcome[_Planes]:
         shown = frozenset(layer.key for layer, _ in record.composited())
+        nodes = owned(tree, identity)
         path = (
             Block
-            .of_seq(owned(tree, identity).values())
+            .of_seq(nodes.values())
             .choose(lambda node: Option.of_optional(try_downcast(bpy.types.CompositorNodeOutputFile, node)))
             .try_head()
             .bind(lambda node: Option.of_optional(node.format).bind(extension).map(lambda suffix: Path(bpy.path.abspath(node.directory)) / f"{stack_file(tree.session_uid, Some(at))}{suffix}"))
@@ -63,18 +64,22 @@ def layered[M: Case](stacking: LayerStackService[M], view: DisplayView, scene: b
         )
 
         def planes(file: Multilayer) -> Outcome[_Planes]:
+            layers: dict[str, Layer] = {}
+            for layer in file.layers:
+                layers.setdefault(layer.name, layer)
+
             def raw(name: str) -> Outcome[npt.NDArray[np.float32]]:
-                found = Block.of_seq(file.layers).filter(lambda layer: layer.name == name).try_head().to_result_with(partial(Fault.of, Reason.ABSENT, str(file.path), member=name))
+                found = Option.of_optional(layers.get(name)).to_result_with(partial(Fault.of, Reason.ABSENT, str(file.path), member=name))
                 return found.bind(lambda layer: file.plane(layer, layer.channels))
 
             def color(name: str) -> Outcome[tuple[npt.NDArray[Coded], npt.NDArray[Coded]]]:
                 return raw(name).bind(lambda pixels: view.form(config, pixels)).map(unassociated).bind(lambda pixels: paired(depth.coded(pixels[..., :3]), depth.coded(pixels[..., 3])))
 
-            def blend(layer: StackLayer[M]) -> Outcome[tuple[object, float]]:
+            def blend(layer: StackLayer) -> Outcome[tuple[object, float]]:
                 read = partial(item_key, layer.key, LAYER_BLEND)
                 return paired(valued(read(MODE.key)), valued(read(OPACITY.key)).bind(partial(typed, float, layer.key)))
 
-            def each(layer: StackLayer[M]) -> Outcome[PixelLayer | LayerGroup]:
+            def each(layer: StackLayer) -> Outcome[PixelLayer | LayerGroup]:
                 visible = layer.key in shown
                 if isinstance(layer.source, Adjustment):
                     return color(layer.composite_part).map(lambda codes: PixelLayer(name=layer.name, color=codes[0], alpha=codes[1], visible=visible))
@@ -84,7 +89,7 @@ def layered[M: Case](stacking: LayerStackService[M], view: DisplayView, scene: b
                     .filter(lambda _: layer.plain)
                     .map(
                         lambda inner: paired(stacking.read(inner), blend(layer)).bind(
-                            lambda parts: read_tree(inner, parts[0], at, partial(grouped_value, identity, inner, owned(tree, identity)[layer.node])).map(
+                            lambda parts: read_tree(inner, parts[0], at, partial(grouped_value, identity, inner, nodes[layer.node])).map(
                                 lambda held: LayerGroup(name=layer.name, layers=held[0], mode=photoshop(str(parts[1][0])), opacity=parts[1][1], visible=visible)
                             )
                         )
@@ -100,7 +105,7 @@ def layered[M: Case](stacking: LayerStackService[M], view: DisplayView, scene: b
 
         return path.bind(Multilayer.read).bind(planes)
 
-    def composed(entry: bpy.types.SceneCompositorEffect, tree: bpy.types.NodeTree, record: LayerStack[M], at: int) -> Outcome[Document]:
+    def composed(entry: bpy.types.SceneCompositorEffect, tree: bpy.types.NodeTree, record: LayerStack, at: int) -> Outcome[Document]:
         density = scene.render.ppm_factor / scene.render.ppm_base
         space = view.colorspace(config).to_result_with(partial(Fault.of, Reason.ABSENT, repr(config), member=f"{view.display}/{view.view}"))
         return paired(read_tree(tree, record, at, partial(entry_value, identity, entry)), space).bind(

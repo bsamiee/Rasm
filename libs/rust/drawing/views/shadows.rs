@@ -57,10 +57,7 @@ pub fn shadows(view: &View, sun: UnitVector3<f64>, token: Option<&CancelToken>) 
             .into_iter()
             .map(|(source, members)| (source, seed(&members)))
             .collect::<HashMap<_, _>>();
-        seeds
-            .values()
-            .any(Option::is_none)
-            .then(|| izip!(0_u32.., sources).map(|(index, source)| source.map(|source| Source { face: seeds.get(&source).copied().flatten().unwrap_or(index), ..source })).collect::<Vec<_>>())
+        seeds.values().any(Option::is_none).then(|| izip!(0_u32.., sources).map(|(index, source)| source.map(|source| Source { face: seeds[&source].unwrap_or(index), ..source })).collect::<Vec<_>>())
     };
     let keys = scene.bodies.par_iter().map(keyed).collect::<Vec<_>>();
     let seamed = keys.iter().any(Option::is_some);
@@ -73,7 +70,7 @@ pub fn shadows(view: &View, sun: UnitVector3<f64>, token: Option<&CancelToken>) 
             bodies: iter::zip(&scene.bodies, keys)
                 .map(|(prepared, keys)| keys.map_or_else(|| prepared.clone(), |sources| Prepared { body: prepared.body, mesh: Arc::clone(&prepared.mesh), sources, surface: prepared.surface }))
                 .collect(),
-            assembly: scene.assembly.clone(),
+            assembly: Arc::clone(&scene.assembly),
         })
     } else {
         Cow::Borrowed(scene)
@@ -99,18 +96,20 @@ pub fn shadows(view: &View, sun: UnitVector3<f64>, token: Option<&CancelToken>) 
             let (near, segment) = ray(from, normalized * point);
             line_toi_with_halfspace(Vector::from(anchor.coords), Vector::from(normal.into_inner()), Vector::from(near.coords), Vector::from(segment))
                 .and_then(|time| picture(to, clip(to, &(near + segment * time))))
-                .ok_or(LineworkError::Sweep(linesweeper::Error::Infinity))
         };
-        let mut elements = Vec::new();
-        flatten(path, reach, |element| elements.push(element));
-        elements
-            .into_iter()
-            .map(|element| match element {
+        let mut elements = Some(BezPath::new());
+        flatten(path, reach, |element| {
+            let Some(outline) = elements.as_mut() else { return };
+            match match element {
                 PathEl::MoveTo(point) => moved(point).map(PathEl::MoveTo),
                 PathEl::LineTo(point) | PathEl::QuadTo(_, point) | PathEl::CurveTo(_, _, point) => moved(point).map(PathEl::LineTo),
-                PathEl::ClosePath => Ok(PathEl::ClosePath),
-            })
-            .collect::<Result<BezPath, _>>()
+                PathEl::ClosePath => Some(PathEl::ClosePath),
+            } {
+                Some(element) => outline.push(element),
+                None => elements = None,
+            }
+        });
+        elements.ok_or(LineworkError::Sweep(linesweeper::Error::Infinity))
     };
     let wide = |path: &BezPath| 2.0 * path.area().abs() > reach * path.perimeter(reach);
     receivers
@@ -124,12 +123,12 @@ pub fn shadows(view: &View, sun: UnitVector3<f64>, token: Option<&CancelToken>) 
                     .map(|contour| mapped(frame, &light, plane, &contour.path))
                     .flatten_ok()
                     .collect::<Result<BezPath, _>>()
-                    .and_then(|pictured| Region::new(&pictured, FillRule::NonZero, *tolerance))
+                    .and_then(|pictured| Region::new(pictured, FillRule::NonZero, *tolerance))
                     .and_then(|pictured| boolean(&pictured, [sunlit], BinaryOp::Difference, *tolerance))
                     .and_then(|unlit| {
                         unlit.iter().filter(|contour| wide(&contour.path)).map(|contour| mapped(&light, frame, plane, &contour.path)).filter_ok(wide).flatten_ok().collect::<Result<BezPath, _>>()
                     })
-                    .and_then(|shade| Region::new(&shade, FillRule::NonZero, *tolerance)),
+                    .and_then(|shade| Region::new(shade, FillRule::NonZero, *tolerance)),
             }
             .map(|shade| (!shade.is_empty()).then(|| Face { body, source: origins.get(&(body, key)).copied().unwrap_or(key), normal, region: shade }))
             .map_err(|refusal| ViewsError::Linework { operation: Operation::Region(body), source: refusal })

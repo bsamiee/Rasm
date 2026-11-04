@@ -28,6 +28,7 @@ use parquet::{
     file::{metadata::ParquetMetaData, properties::WriterProperties},
 };
 use serde::{Serialize, de::DeserializeOwned};
+use serde_arrow::ArrayBuilder;
 
 use crate::{Record, TablesError, rows};
 
@@ -63,14 +64,17 @@ where
     E: From<TablesError>,
 {
     let schema = T::schema();
-    rows.try_fold(AsyncArrowWriter::try_new(async_writer, Arc::clone(&schema), Some(properties(&schema, settings)?)).map_err(TablesError::from)?, async |mut writer, chunk| {
-        let written = try bikeshed Result<_, TablesError> { writer.write(&serde_arrow::to_record_batch(schema.fields(), &<S::Ok as Borrow<[T]>>::borrow(&chunk))?).await? };
-        written.map(|()| writer).map_err(E::from)
-    })
-    .await?
-    .close()
-    .await
-    .map_err(|source| E::from(TablesError::from(source)))
+    let (writer, _) = rows
+        .try_fold((AsyncArrowWriter::try_new(async_writer, Arc::clone(&schema), Some(properties(&schema, settings)?)).map_err(TablesError::from)?, None), async |(mut writer, mut arrays), chunk| {
+            let written = try bikeshed Result<_, TablesError> {
+                let builder = arrays.get_or_try_insert_with(|| ArrayBuilder::from_arrow(schema.fields()))?;
+                builder.extend(<S::Ok as Borrow<[T]>>::borrow(&chunk))?;
+                writer.write(&builder.to_record_batch()?).await?
+            };
+            written.map(|()| (writer, arrays)).map_err(E::from)
+        })
+        .await?;
+    writer.close().await.map_err(|source| E::from(TablesError::from(source)))
 }
 
 // --- [READ]

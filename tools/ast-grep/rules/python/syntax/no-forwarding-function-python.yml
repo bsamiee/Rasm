@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-forwarding-function-python
-language: python
+language: pythonlang
 severity: error
 utils:
     plain-decorator:
@@ -23,7 +23,7 @@ utils:
                   all:
                     - inside: {kind: attribute, field: object}
                     - inside:
-                        matches: python-method
+                        matches: method
                         stopBy: {kind: 'function_definition, lambda'}
                         has: {field: parameters, has: {nthChild: 1, kind: identifier, pattern: $ROOT}}
             - kind: attribute
@@ -45,7 +45,7 @@ utils:
         inside:
             kind: parameters
             inside:
-                matches: python-method
+                matches: method
                 not: {has: {field: body, has: {stopBy: end, pattern: $CALL, has: {field: arguments, has: {stopBy: end, kind: identifier, pattern: $RECEIVER}}}}}
     slot:
         kind: identifier, typed_parameter, list_splat_pattern, dictionary_splat_pattern
@@ -107,6 +107,16 @@ utils:
                         - matches: positional-argument
                         - precedes: {stopBy: {kind: 'identifier, list_splat'}, any: [{kind: identifier, pattern: $Y}, {kind: list_splat, has: {kind: identifier, pattern: $Y}}]}
                         - not: {inside: {kind: function_definition, stopBy: {kind: function_definition}, has: {field: parameters, has: {all: [{matches: {python-parameter: {name: {pattern: $X}}}}, {precedes: {stopBy: {matches: position}, matches: {python-parameter: {name: {pattern: $Y}}}}}]}}}}
+    method:
+        kind: function_definition
+        inside:
+            kind: block
+            stopBy:
+                not:
+                    kind: decorated_definition
+            inside:
+                kind: class_definition
+                field: body
 rule:
     kind: function_definition
     all:

@@ -13,7 +13,11 @@ public sealed record TopologyGraph(IUndirectedGraph<int, TaggedUndirectedEdge<in
     internal static TaggedUndirectedEdge<int, int> Edge(int a, int b, int tag) => new(Math.Min(a, b), Math.Max(a, b), tag);
 
     internal static IEnumerable<TaggedUndirectedEdge<int, int>> Across(int edge, int face, int[] faces) =>
-        faces.SelectMany((one, at) => faces.Skip(at + 1).Where(other => one == face || other == face).Select(other => Edge(one, other, edge)));
+        Enumerable.Range(0, faces.Length).Where(index => faces[index] == face).ToArray() switch {
+            var incident => faces.SelectMany((other, index) => other == face
+                ? faces.Skip(index + 1).Select(next => Edge(face, next, edge))
+                : incident.SkipWhile(at => at <= index).Select(_ => Edge(other, face, edge))),
+        };
 }
 
 [SmartEnum]

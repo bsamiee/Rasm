@@ -5,7 +5,7 @@ from functools import partial
 from typing import Final, Self
 
 import bpy
-from expression import Error, Nothing, Ok, Option, Some
+from expression import Option, Some
 import msgspec
 
 from blender.bpy.data.rna.descriptors import Descriptor
@@ -17,12 +17,12 @@ from blender.bpy.render.compositor.colors import with_alpha
 from blender.bpy.render.view_layers.passes import EMISSION, ENVIRONMENT, Family, OCCLUSION, PassFlags, PassRequest
 from blender.bpy.render.view_layers.sources import lobed
 from blender.bpy.scene.lights.groups import LightGroupEdits
-from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
+from blender.records.faults import accumulated, Error, Fault, Nothing, Ok, Outcome, paired, Reason
 from blender.records.fields import Case
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type LightPass = Family | Descriptor[bpy.types.BoolProperty]
+type LightPass = Family | Descriptor
 type Recombination = Lobes | LightGroups
 type TermFilter = Callable[[Key, Expr, Option[Family], Expr], Expr]
 

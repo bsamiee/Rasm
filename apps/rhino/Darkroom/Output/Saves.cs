@@ -1,7 +1,8 @@
+using System.Drawing;
 using System.Drawing.Imaging;
 using System.Globalization;
 using System.Numerics;
-using System.Runtime.InteropServices;
+using System.Runtime.CompilerServices;
 using CommunityToolkit.HighPerformance;
 using Darkroom.Chain;
 using Darkroom.Queue;
@@ -17,7 +18,6 @@ using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.Render;
-using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 
 namespace Darkroom.Output;
@@ -84,9 +84,11 @@ public sealed record SaveSource(RenderWindow Rendering, ChainScene Scene, Oversc
     public IO<(PixelFrame Frame, Option<ColorEncoding> Encoding)> Formed(OutputDepth depth) =>
         depth.Levels.IsSome
             ? (from bitmap in Products.Of(Rendering.GetBitmap)
-               from pixels in use(() => bitmap.Clone(new System.Drawing.Rectangle(0, 0, bitmap.Width, bitmap.Height), PixelFormat.Format32bppArgb))
-               from data in use(() => pixels.LockBits(new(0, 0, pixels.Width, pixels.Height), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb), pixels.UnlockBits)
-               from frame in IO.lift(() => Placed(Unpacked(data)))
+               from frame in IO.lift(() => {
+                   using Bitmap pixels = bitmap.Clone(new Rectangle(0, 0, bitmap.Width, bitmap.Height), PixelFormat.Format32bppArgb);
+                   BitmapData data = pixels.LockBits(new(0, 0, pixels.Width, pixels.Height), ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
+                   try { return Placed(data); } finally { pixels.UnlockBits(data); }
+               })
                select (frame, Option<ColorEncoding>.None)).Bracket()
             : Linear.Map(static frame => (frame, Some(ChainScene.Working)));
 
@@ -122,22 +124,19 @@ public sealed record SaveSource(RenderWindow Rendering, ChainScene Scene, Oversc
     private IO<PixelFrame> Read(RenderWindow.StandardChannels channel) =>
         RenderWindows.Read(Rendering, channel).Bind(read => IO.lift(() => Placed(read)));
 
-    private static Memory2D<float> Unpacked(BitmapData data) {
-        byte[] packed = GC.AllocateUninitializedArray<byte>(data.Stride * data.Height);
-        Marshal.Copy(data.Scan0, packed, 0, packed.Length);
-        float[] rgba = GC.AllocateUninitializedArray<float>(4 * data.Width * data.Height);
-        ReadOnlySpan2D<Bgra32> source = MemoryMarshal.Cast<byte, Bgra32>(packed.AsSpan()).AsSpan2D(data.Height, data.Stride / Marshal.SizeOf<Bgra32>()).Slice(0, 0, data.Height, data.Width);
-        Span2D<Vector4> target = MemoryMarshal.Cast<float, Vector4>(rgba.AsSpan()).AsSpan2D(data.Height, data.Width);
-        for (int row = 0; row < data.Height; row++)
-            PixelOperations<Bgra32>.Instance.ToVector4(Configuration.Default, source.GetRowSpan(row), target.GetRowSpan(row));
-        return new Memory2D<float>(rgba, data.Height, 4 * data.Width);
-    }
+    private Fin<PixelFrame> Placed(BitmapData pixels) =>
+        Placed(pixels.Width, pixels.Height, (window, extent) => PixelFrame.From<Bgra32>(
+            pixels.Scan0 + ((window.Y + Frame.Pad.Height) * pixels.Stride) + ((window.X + Frame.Pad.Width) * Unsafe.SizeOf<Bgra32>()),
+            pixels.Stride, window.Location, extent, Frame.Frame));
 
     private Fin<PixelFrame> Placed(Memory2D<float> pixels) =>
+        Placed(pixels.Width / 4, pixels.Height, (window, extent) => new PixelFrame(window.Location, extent, Frame.Frame, block =>
+            pixels.Slice(window.Y + Frame.Pad.Height, 4 * (window.X + Frame.Pad.Width), extent.Height, 4 * extent.Width).Span.CopyTo(block.AsSpan2D(extent.Height, 4 * extent.Width))));
+
+    private Fin<PixelFrame> Placed(int width, int height, Func<Rectangle, PixelExtent, PixelFrame> decode) =>
         Region.Map(region => region.Pixels(Frame.Frame)).IfNone(Frame.DataWindow) switch {
-            var window => DarkroomFault.Unless(pixels.Width == 4 * Frame.Padded.Width && pixels.Height == Frame.Padded.Height, DarkroomReason.Invalid, (pixels.Width / 4, pixels.Height))
+            var window => DarkroomFault.Unless(width == Frame.Padded.Width && height == Frame.Padded.Height, DarkroomReason.Invalid, (width, height))
                 .Bind(_ => PixelExtent.Validated(window.Width, window.Height))
-                .Map(extent => new PixelFrame(window.Location, extent, Frame.Frame, block =>
-                    pixels.Slice(window.Y + Frame.Pad.Height, 4 * (window.X + Frame.Pad.Width), extent.Height, 4 * extent.Width).Span.CopyTo(block.AsSpan2D(extent.Height, 4 * extent.Width)))),
+                .Map(extent => decode(window, extent)),
         };
 }

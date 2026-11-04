@@ -9,13 +9,13 @@ use std::io::{self, BufRead};
 use futures::{StreamExt as _, TryStreamExt as _, future};
 use nonempty_collections::NEVec;
 use opentelemetry::{
-    KeyValue, Value,
+    KeyValue,
     trace::{SpanId, TraceId},
 };
 use opentelemetry_otlp::OTEL_EXPORTER_OTLP_ENDPOINT;
 use opentelemetry_proto::tonic::{
     Attributes,
-    common::v1::AnyValue,
+    common::v1::{AnyValue, any_value::Value},
     logs::v1::ResourceLogs,
     metrics::v1::{ResourceMetrics, metric::Data},
     resource::v1::Resource,
@@ -35,6 +35,7 @@ use rmcp::{
 };
 use serde::{Deserialize, de::DeserializeOwned};
 use serde_json::{Map, json};
+use serde_path_to_error::Segment;
 use testcontainers::{
     CopyTargetOptions, GenericImage, ImageExt as _, TestcontainersError,
     core::{IntoContainerPort as _, WaitFor, wait::HttpWaitStrategy},
@@ -72,7 +73,6 @@ enum Operation {
 
 const SERVICE: &str = "bridged";
 const INSTANCE: &str = "transport";
-const LINKED: &str = "upstream linked";
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -86,16 +86,15 @@ struct Event {
     service: String,
     #[serde(rename = "service.instance.id")]
     instance: String,
-    message: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 struct Correlated {
     #[serde(rename = "openTelemetry")]
     context: Option<Context>,
 }
 
-#[derive(Deserialize)]
+#[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Context {
     trace_id: String,
@@ -120,7 +119,7 @@ enum Failure {
     Io { operation: Operation, source: io::Error },
     #[error("cannot decode {line}")]
     Decode { line: String, source: serde_path_to_error::Error<serde_json::Error> },
-    #[error("bridge ended before listening and linking its upstream\n{log}")]
+    #[error("bridge ended before listening\n{log}")]
     Unready { log: String },
     #[error("MCP client handshake failed")]
     Initialize(#[from] Box<ClientInitializeError>),
@@ -140,7 +139,11 @@ impl From<Failure> for NEVec<Failure> {
 
 fn decode<T>(line: &str) -> Result<T, Failure>
 where T: DeserializeOwned {
-    serde_path_to_error::deserialize(&mut serde_json::Deserializer::from_str(line)).map_err(|source| Failure::Decode { line: line.to_owned(), source })
+    let mut decoder = serde_json::Deserializer::from_str(line);
+    let mut path = serde_path_to_error::Track::new();
+    T::deserialize(serde_path_to_error::Deserializer::new(&mut decoder, &mut path))
+        .and_then(|value| decoder.end().map(|()| value))
+        .map_err(|source| Failure::Decode { line: line.to_owned(), source: serde_path_to_error::Error::new(path.path(), source) })
 }
 
 async fn exchange(endpoint: Option<&str>, params: PaginatedRequestParams) -> Result<(Event, String, Option<u32>), NEVec<Failure>> {
@@ -168,35 +171,51 @@ async fn exchange(endpoint: Option<&str>, params: PaginatedRequestParams) -> Res
         .try_next()
         .await?;
     let Some((address, event)) = listening else { return Err(Failure::Unready { log: log.join("\n") }.into()) };
-    let linked = lines
-        .by_ref()
-        .try_filter_map(|line| {
-            ready(decode::<Event>(&line).map(|linked| {
-                log.push(line);
-                (linked.message == LINKED).then_some(())
-            }))
-        })
-        .try_next()
-        .await?;
-    let Some(()) = linked else { return Err(Failure::Unready { log: log.join("\n") }.into()) };
     let session = async {
-        let client = ().serve(StreamableHttpClientTransport::from_uri(format!("http://{address}"))).await.map_err(Box::new)?;
-        let listed = client.list_tools(Some(params)).await;
-        client.cancel().await?;
-        Ok::<_, Failure>(listed?)
+        match ().serve(StreamableHttpClientTransport::from_uri(format!("http://{address}"))).await {
+            Ok(client) => {
+                let listed = client.list_tools(Some(params)).await.map_err(Failure::from);
+                Validated::from(listed).map2(client.cancel().await.map_err(Failure::from).into(), |listed, _| listed)
+            }
+            Err(source) => Validated::fail(Failure::Initialize(Box::new(source))),
+        }
     };
     let stopped = async {
         let listed = session.await;
         (listed, child.signal(SignalKind::terminate().as_raw_value()).map_err(io(Operation::Signal)), child.wait().await.map_err(io(Operation::Wait)))
     };
-    let (rest, (listed, signalled, status)) = future::join(lines.try_collect::<Vec<_>>(), stopped).await;
-    let (tools, status, log) = Validated::from(rest).map4(signalled.into(), listed.into(), status.into(), |rest, (), tools, status| (tools, status, [log, rest].concat().join("\n"))).ok()?;
+    let drained = lines.try_for_each(|line| {
+        log.push(line);
+        ready(Ok(()))
+    });
+    let (drained, (listed, signalled, status)) = future::join(drained, stopped).await;
+    let (tools, status) = Validated::from(drained).map4(signalled.into(), listed, status.into(), |(), (), tools, status| (tools, status)).ok()?;
+    let log = log.join("\n");
     assert!(status.success(), "bridge exited {status}\n{log}");
     assert!(!tools.tools.is_empty(), "bridge listed no tools\n{log}");
     Ok((event, log, pid))
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
+
+#[test]
+fn json_log_frames_preserve_error_paths() -> Result<(), Failure> {
+    decode::<Correlated>("{}\t \r\n")?;
+    for line in ["{} {}", "{} trailing"] {
+        core::assert_matches!(decode::<Correlated>(line), Err(Failure::Decode { line: held, source }) if held == line && source.inner().is_syntax(), "{line}");
+    }
+    let line = r#"{"openTelemetry":{"traceId":1}}"#;
+    core::assert_matches!(
+        decode::<Correlated>(line),
+        Err(Failure::Decode { line: held, source }) if held == line
+            && source.path().iter().map(|segment| match segment {
+                Segment::Map { key } => Some(key.as_str()),
+                Segment::Seq { index: _ } | Segment::Enum { variant: _ } | Segment::Unknown => None,
+            }).eq([Some("openTelemetry"), Some("traceId")])
+            && source.inner().is_data()
+    );
+    Ok(())
+}
 
 #[tokio::test]
 async fn tools_list_and_graceful_shutdown() -> Result<(), NEVec<Failure>> {
@@ -235,15 +254,19 @@ async fn otlp_export_flushes_on_shutdown() -> Result<(), NEVec<Failure>> {
     params.set_traceparent(&format!("00-{trace}-{parent}-01"));
     let (event, log, pid) = exchange(Some(&endpoint), params).await?;
     assert_eq!([event.service.as_str(), event.instance.as_str()], [SERVICE, INSTANCE], "bridge resource ignored OTEL_SERVICE_NAME or OTEL_RESOURCE_ATTRIBUTES\n{log}");
-    let correlated = log.lines().map(decode::<Correlated>).collect::<Validated<Vec<_>, _>>().ok()?;
-    assert!(correlated.iter().any(|line| line.context.as_ref().is_some_and(|context| TraceId::from_hex(&context.trace_id) == Ok(trace))), "no log line holds trace {trace}\n{log}");
+    let correlated = log
+        .lines()
+        .map(decode::<Correlated>)
+        .fold(Validated::Good(false), |correlated, line| correlated.map2(line.into(), |found, line| found || line.context.is_some_and(|context| TraceId::from_hex(&context.trace_id) == Ok(trace))))
+        .ok()?;
+    assert!(correlated, "no log line holds trace {trace}\n{log}");
     collector.stop().await.map_err(Failure::from)?;
     let (code, output, copied) = future::join3(collector.exit_code(), collector.stderr_to_vec(), collector.copy_file_from(file, Vec::new())).await;
-    collector.rm().await.map_err(Failure::from)?;
+    let removed = collector.rm().await.map_err(Failure::from);
     let read = |line: io::Result<String>| line.map_err(|source| Failure::Io { operation: Operation::Telemetry, source }).and_then(|line| decode(&line));
     let exported = copied.map_or_else(|source| Validated::fail(source.into()), |bytes| BufRead::lines(bytes.as_slice()).map(read).collect());
     let (code, output, exported) = Validated::from(code.map_err(Failure::from))
-        .map3(output.map_err(Failure::from).into(), exported, |code, output, exported: Vec<Exported>| (code, String::from_utf8_lossy_owned(output), exported))
+        .map4(output.map_err(Failure::from).into(), exported, removed.into(), |code, output, exported: Vec<Exported>, ()| (code, String::from_utf8_lossy_owned(output), exported))
         .ok()?;
     let (Attributes(method), service) = (
         Attributes::from([KeyValue::new("mcp.method.name", "tools/list")]),
@@ -282,16 +305,19 @@ async fn otlp_export_flushes_on_shutdown() -> Result<(), NEVec<Failure>> {
             .any(|point| point.count > 0 && method.iter().all(|attribute| point.attributes.contains(attribute))),
         "no mcp.server.operation.duration point recorded for tools/list\n{output}"
     );
-    let records = exported
+    let mut records = exported
         .iter()
         .flat_map(|line| &line.logs)
         .filter(|resource| served(resource.resource.as_ref(), &resource.schema_url))
         .flat_map(|resource| &resource.scope_logs)
         .flat_map(|scope| &scope.log_records)
-        .collect::<Vec<_>>();
-    assert!(records.iter().any(|record| record.body == Some(AnyValue::from(Value::from("shutting down")))), "no \"shutting down\" log record exported\n{output}");
+        .filter_map(|record| match &record.body {
+            Some(AnyValue { value: Some(Value::StringValue(message)) }) => Some((message.as_str(), &record.attributes)),
+            _ => None,
+        });
+    assert!(records.clone().any(|(message, _)| message == "shutting down"), "no \"shutting down\" log record exported\n{output}");
     assert!(
-        records.iter().any(|record| record.body == Some(AnyValue::from(Value::from("request completed"))) && method.iter().all(|attribute| record.attributes.contains(attribute))),
+        records.any(|(message, attributes)| message == "request completed" && method.iter().all(|attribute| attributes.contains(attribute))),
         "no \"request completed\" log record holds mcp.method.name=tools/list\n{output}"
     );
     Ok(())

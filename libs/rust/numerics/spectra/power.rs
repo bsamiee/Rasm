@@ -3,16 +3,16 @@ use core::{borrow::Borrow, iter, num::NonZero};
 use apodize::{blackman_iter, cosine_iter, hamming_iter, hanning_iter, nuttall_iter, triangular_iter};
 use nalgebra::convert;
 use ndarray::{Array1, Array2, Axis, Slice, Zip};
-use ndrustfft::{R2cFftHandler, ndfft_r2c};
 use num_complex::Complex;
 use rayon::iter::{IntoParallelIterator as _, ParallelIterator as _};
+use realfft::RealFftPlanner;
 use uom::si::{
     f64::{Frequency, Time},
     frequency::hertz,
 };
 
 use crate::{
-    Band, Rate, Samples, Series, SpectraError, real_bins,
+    Band, Rate, Samples, Series, SpectraError,
     transforms::{Transform, frequencies},
 };
 
@@ -94,7 +94,7 @@ struct Frames<T, const N: usize> {
 pub fn estimate(series: &Series, welch: Welch) -> Result<Spectrum, SpectraError> {
     frames(series.rate, [&series.samples], welch, Complex::norm_sqr).map(|Frames { values: [powers], factors, frequencies, hop: _ }| Spectrum {
         frequencies,
-        powers: averaged(&powers, welch.average, &factors),
+        powers: averaged(&powers, welch.average, &factors, |&power| power),
         scaling: welch.scaling,
     })
 }
@@ -109,12 +109,15 @@ pub fn spectrogram(series: &Series, welch: Welch) -> Result<Spectrogram, Spectra
 pub fn transfer(input: &Series, output: &Series, welch: Welch) -> Result<Transfer, SpectraError> {
     (input.rate == output.rate).ok_or(SpectraError::Rates { rates: [input.rate, output.rate] })?;
     let Frames { values: [source, target], factors, frequencies, hop: _ } = frames(input.rate, [&input.samples, &output.samples], welch, |&bin| bin)?;
-    let products = Zip::from(&source).and(&target).map_collect(|from, to| from.conj() * to);
-    let [real, imaginary] = [products.mapv(|product| product.re), products.mapv(|product| product.im)].map(|part| averaged(&part, welch.average, &factors));
-    let [inputs, outputs] = [&source, &target].map(|bins| averaged(&bins.map(Complex::norm_sqr), welch.average, &factors));
+    let [inputs, outputs] = [&source, &target].map(|bins| averaged(bins, welch.average, &factors, Complex::norm_sqr));
     if let Some((&frequency, _)) = iter::zip(&frequencies, iter::zip(&inputs, &outputs)).find(|(_, (from, to))| **from <= 0.0 || **to <= 0.0) {
         Err(SpectraError::Power { frequency })
     } else {
+        let mut products = source;
+        products.zip_mut_with(&target, |from, to| *from = from.conj() * to);
+        drop(target);
+        let (real, imaginary) = (averaged(&products, welch.average, &factors, |product| product.re), averaged(&products, welch.average, &factors, |product| product.im));
+        drop(products);
         let cross = Zip::from(&real).and(&imaginary).map_collect(|&re, &im| Complex::new(re, im));
         Ok(Transfer {
             coherence: Zip::from(&cross).and(&inputs).and(&outputs).map_collect(|product, &from, &to| product.norm_sqr() / (from * to)),
@@ -155,27 +158,31 @@ where T: Default + Clone + Send {
     let count = samples.strict_sub(length).strict_div(hop.get()).strict_add(1);
     let width = convert::<usize, f64>(length);
     let ramp = Array1::linspace(-(width - 1.0) / 2.0, (width - 1.0) / 2.0, length);
-    let (spread, handler) = (ramp.dot(&ramp), R2cFftHandler::<f64>::new(transform.get()));
-    let bins = real_bins(usize::from(transform));
-    let values = series.map(|series| {
+    let (spread, handler) = (ramp.dot(&ramp), RealFftPlanner::<f64>::new().plan_fft_forward(transform.get()));
+    let bins = handler.complex_len();
+    let values = series.try_map(|series| {
+        let input = series.slice_axis(Axis(0), Slice::from(..samples));
         let mut values = Array2::default((count, bins));
-        Zip::from(values.rows_mut()).and(series.windows_with_stride(length, hop.get())).into_par_iter().for_each_init(
-            || (Array1::zeros(transform.get()), Array1::zeros(bins)),
-            |(frame, spectrum), (row, window)| {
-                let (offset, slope) = match detrend {
-                    None => (0.0, 0.0),
-                    Some(Trend::Constant) => (window.sum() / width, 0.0),
-                    Some(Trend::Linear) => (window.sum() / width, window.dot(&ramp) / spread),
-                };
-                Zip::from(frame.slice_axis_mut(Axis(0), Slice::from(..length))).and(&window).and(&weights).and(&ramp).for_each(|tapered, &sample, &weight, &position| {
-                    *tapered = slope.mul_add(-position, sample - offset) * weight;
-                });
-                ndfft_r2c(&*frame, spectrum, &handler, 0);
-                Zip::from(row).and(&*spectrum).for_each(|slot, bin| *slot = value(bin));
-            },
-        );
-        values
-    });
+        Zip::from(values.rows_mut())
+            .and(input.windows_with_stride(length, hop.get()))
+            .into_par_iter()
+            .try_for_each_init(
+                || (handler.make_input_vec(), handler.make_output_vec(), handler.make_scratch_vec()),
+                |(frame, spectrum, scratch), (row, window)| {
+                    let (offset, slope) = match detrend {
+                        None => (0.0, 0.0),
+                        Some(Trend::Constant) => (window.sum() / width, 0.0),
+                        Some(Trend::Linear) => (window.sum() / width, window.dot(&ramp) / spread),
+                    };
+                    frame[length..].fill(0.0);
+                    Zip::from(&mut frame[..length]).and(&window).and(&weights).and(&ramp).for_each(|tapered, &sample, &weight, &position| {
+                        *tapered = slope.mul_add(-position, sample - offset) * weight;
+                    });
+                    handler.process_with_scratch(frame, spectrum, scratch).map(|()| Zip::from(row).and(spectrum.as_slice()).for_each(|slot, bin| *slot = value(bin)))
+                },
+            )
+            .map(|()| values)
+    })?;
     let scale = match scaling {
         Scaling::Density => rate.get::<hertz>() * weights.dot(&weights),
         Scaling::Spectrum => weights.sum().powi(2),
@@ -189,18 +196,26 @@ where T: Default + Clone + Send {
     })
 }
 
-fn averaged(values: &Array2<f64>, average: Average, factors: &Array1<f64>) -> Array1<f64> {
+fn averaged<T>(values: &Array2<T>, average: Average, factors: &Array1<f64>, project: impl Fn(&T) -> f64 + Sync) -> Array1<f64>
+where T: Sync {
     let count = values.nrows();
-    let bias = (1..=count.strict_sub(1).strict_div(2)).map(|term| convert::<usize, f64>(term.strict_mul(2))).map(|even| (even + 1.0).recip() - even.recip()).sum::<f64>() + 1.0;
-    Zip::from(values.columns()).and(factors).par_map_collect(|lane, &factor| {
-        factor
-            * match average {
-                Average::Mean => lane.sum() / convert::<usize, f64>(count),
-                Average::Median => {
-                    let mut ordered = lane.to_vec();
+    let lanes = Zip::from(values.columns()).and(factors);
+    match average {
+        Average::Mean => lanes.par_map_collect(|lane, &factor| factor * (lane.fold(0.0, |sum, entry| sum + project(entry)) / convert::<usize, f64>(count))),
+        Average::Median => {
+            let bias = (1..=count.strict_sub(1).strict_div(2)).map(|term| convert::<usize, f64>(term.strict_mul(2))).map(|even| (even + 1.0).recip() - even.recip()).sum::<f64>() + 1.0;
+            let mut powers = Array1::zeros(factors.len());
+            lanes.and(&mut powers).into_par_iter().for_each_init(
+                || Vec::with_capacity(count),
+                |ordered, (lane, &factor, power)| {
+                    ordered.clear();
+                    ordered.extend(lane.iter().map(&project));
                     let (lower, &mut upper, _) = ordered.select_nth_unstable_by(count.strict_div(2), f64::total_cmp);
-                    count.is_multiple_of(2).then_some(lower).and_then(|lower| lower.iter().copied().max_by(f64::total_cmp)).map_or(upper, |below| below.midpoint(upper)) / bias
-                }
-            }
-    })
+                    let median = count.is_multiple_of(2).then_some(lower).and_then(|lower| lower.iter().copied().max_by(f64::total_cmp)).map_or(upper, |below| below.midpoint(upper));
+                    *power = factor * (median / bias);
+                },
+            );
+            powers
+        }
+    }
 }

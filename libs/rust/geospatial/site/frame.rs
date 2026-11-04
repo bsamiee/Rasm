@@ -1,6 +1,6 @@
 use geo::AffineTransform;
 use geo_types::{Coord, Point};
-use nalgebra::{Isometry3, Matrix4, Point3, UnitQuaternion, Vector3};
+use nalgebra::{Isometry3, Matrix4, Point3, Translation3, UnitQuaternion, Vector3};
 use uom::si::{
     angle::radian,
     f64::{Angle, Length, Ratio},
@@ -60,18 +60,18 @@ pub struct Frame {
 
 impl Frame {
     pub fn from_anchor(crs: Crs, anchor: Anchor, north: North, rotation: Angle, scale: Scale) -> Result<Self, SiteError> {
-        let factors = crs.factors()?;
+        let (unit, factors) = crs.factors()?;
+        let unit = unit.get::<meter>();
         let anchor = match anchor {
             Anchor::Grid(grid) => grid,
             Anchor::Site { position, elevation } => {
                 let Point(Coord { x, y }) = Transformation::new(Crs::WGS84, crs.clone(), Context::default())?.apply(position.0)?;
-                Point3::new(x, y, elevation.get::<meter>() / factors(Point3::new(x, y, 0.0))?.grid_unit.get::<meter>())
+                Point3::new(x, y, elevation.get::<meter>() / unit)
             }
         };
         let refused = || SiteError::Anchor { anchor, rotation, scale };
         anchor.iter().all(|coordinate| coordinate.is_finite()).ok_or_else(refused)?;
         let factors = factors(anchor)?;
-        let unit = factors.grid_unit.get::<meter>();
         let horizontal = match scale {
             Scale::Grid => 1.0,
             Scale::Ground => factors.parallel_scale.get::<ratio>() * factors.elevation_scale.get::<ratio>(),
@@ -86,7 +86,7 @@ impl Frame {
             .ok()
             .filter(|_| turn.is_finite() && stretch.iter().all(|factor| factor.is_normal() && factor.is_sign_positive()))
             .ok_or_else(refused)?;
-        Ok(Self { crs, isometry: Isometry3::new(anchor.coords, Vector3::z() * turn), scale: stretch, factors, elevation })
+        Ok(Self { crs, isometry: Isometry3::from_parts(Translation3::from(anchor.coords), UnitQuaternion::from_axis_angle(&Vector3::z_axis(), turn)), scale: stretch, factors, elevation })
     }
 
     #[must_use]
@@ -95,8 +95,8 @@ impl Frame {
     #[must_use]
     pub fn matrix(&self, toward: Toward) -> Matrix4<f64> {
         match toward {
-            Toward::Grid => self.isometry.to_homogeneous() * Matrix4::new_nonuniform_scaling(&self.scale),
-            Toward::Site => Matrix4::new_nonuniform_scaling(&self.scale.map(f64::recip)) * self.isometry.inverse().to_homogeneous(),
+            Toward::Grid => self.isometry.to_homogeneous().prepend_nonuniform_scaling(&self.scale),
+            Toward::Site => self.isometry.inverse().to_homogeneous().append_nonuniform_scaling(&self.scale.map(f64::recip)),
         }
     }
 

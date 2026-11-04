@@ -3,6 +3,7 @@ use core::{
     cmp::Ordering,
     fmt, iter,
     num::TryFromIntError,
+    ops::RangeInclusive,
 };
 use std::rc::Rc;
 
@@ -21,7 +22,7 @@ use serde::{
 use serde_json::value::Serializer;
 use uom::si::f64 as si;
 
-use crate::{ArrayRestrictions, Composed, DataType, Fault, IfcError, ObjectRestrictions, Path, Schema, Value, ValueDescription, stored};
+use crate::{Composed, DataType, Fault, IfcError, Path, Schema, Value, ValueDescription, stored};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -96,8 +97,8 @@ struct Descriptions<'schema> {
     described: Vec<&'schema ValueDescription>,
     undefined: Option<&'schema str>,
     scope: Scope<'schema>,
-    element: OnceCell<Box<Self>> = OnceCell::new(),
-    fields: OnceCell<IndexMap<&'schema str, Self>> = OnceCell::new(),
+    element: OnceCell<Option<(Box<Self>, RangeInclusive<usize>)>> = OnceCell::new(),
+    fields: OnceCell<Option<IndexMap<&'schema str, (Self, bool)>>> = OnceCell::new(),
 }
 
 impl<'schema> Descriptions<'schema> {
@@ -120,7 +121,21 @@ impl<'schema> Descriptions<'schema> {
             Unexpected::Signed(value) => Some(nalgebra::convert::<i64, f64>(value)),
             Unexpected::Unsigned(value) => Some(nalgebra::convert::<u64, f64>(value)),
             Unexpected::Float(value) => Some(value),
-            Unexpected::Bool(_) | Unexpected::Str(_) | Unexpected::Char(_) | Unexpected::Bytes(_) | Unexpected::Unit | Unexpected::Option | Unexpected::NewtypeStruct | Unexpected::Seq | Unexpected::Map | Unexpected::Enum | Unexpected::UnitVariant | Unexpected::NewtypeVariant | Unexpected::TupleVariant | Unexpected::StructVariant | Unexpected::Other(_) => None,
+            Unexpected::Bool(_)
+            | Unexpected::Str(_)
+            | Unexpected::Char(_)
+            | Unexpected::Bytes(_)
+            | Unexpected::Unit
+            | Unexpected::Option
+            | Unexpected::NewtypeStruct
+            | Unexpected::Seq
+            | Unexpected::Map
+            | Unexpected::Enum
+            | Unexpected::UnitVariant
+            | Unexpected::NewtypeVariant
+            | Unexpected::TupleVariant
+            | Unexpected::StructVariant
+            | Unexpected::Other(_) => None,
         };
         let decoded = |data_type: Option<&DataType>| match (data_type, visited, number) {
             (None | Some(DataType::Boolean), Unexpected::Bool(value), _) => Ok(Value::Boolean(value)),
@@ -168,11 +183,6 @@ impl<'schema> Descriptions<'schema> {
                 }
             })?
             .map_or_else(|| decoded(None), Ok)
-    }
-
-    fn restricted<R, E>(&self, visited: Unexpected<'_>, project: impl Fn(&'schema DataType) -> Option<R>) -> Result<Vec<R>, E>
-    where E: de::Error {
-        self.described.iter().copied().map(|description| project(&description.data_type)).collect::<Option<Vec<_>>>().ok_or_else(|| E::invalid_type(visited, &self))
     }
 }
 
@@ -225,11 +235,20 @@ impl<'de> Visitor<'de> for &Descriptions<'_> {
 
     fn visit_seq<A>(self, mut seq: A) -> Result<Value, A::Error>
     where A: SeqAccess<'de> {
-        let arrays = self.restricted::<&ArrayRestrictions, A::Error>(Unexpected::Seq, |data_type| {
-            let DataType::Array { restrictions } = data_type else { return None };
-            Some(&**restrictions)
-        })?;
-        let element = self.element.get_or_init(|| Box::new(Descriptions::new(arrays.iter().copied().map(|restrictions| &restrictions.value), &self.scope)));
+        let Some((element, lengths)) = self.element.get_or_init(|| {
+            let arrays = self
+                .described
+                .iter()
+                .map(|description| {
+                    let DataType::Array { restrictions } = &description.data_type else { return None };
+                    Some(&**restrictions)
+                })
+                .collect::<Option<Vec<_>>>()?;
+            let lengths = arrays.iter().filter_map(|restrictions| restrictions.min).max().unwrap_or_default()..=arrays.iter().filter_map(|restrictions| restrictions.max).min().unwrap_or(usize::MAX);
+            Some((Box::new(Descriptions::new(arrays.iter().map(|restrictions| &restrictions.value), &self.scope)), lengths))
+        }) else {
+            return Err(de::Error::invalid_type(Unexpected::Seq, &self));
+        };
         let capacity = seq.size_hint().unwrap_or_default();
         let values = iter::from_fn(|| seq.next_element_seed(&**element).transpose()).try_fold(Vec::with_capacity(capacity), |mut values, value| {
             value.map(|value| {
@@ -237,49 +256,51 @@ impl<'de> Visitor<'de> for &Descriptions<'_> {
                 values
             })
         })?;
-        arrays
-            .iter()
-            .all(|restrictions| restrictions.min.is_none_or(|min| min <= values.len()) && restrictions.max.is_none_or(|max| values.len() <= max))
-            .ok_or_else(|| de::Error::invalid_length(values.len(), &self))
-            .map(|()| Value::Array(values))
+        lengths.contains(&values.len()).ok_or_else(|| de::Error::invalid_length(values.len(), &self)).map(|()| Value::Array(values))
     }
 
     fn visit_map<A>(self, mut map: A) -> Result<Value, A::Error>
     where A: MapAccess<'de> {
-        let objects = self
-            .restricted::<Option<&ObjectRestrictions>, A::Error>(Unexpected::Map, |data_type| {
-                let DataType::Object { restrictions } = data_type else { return None };
-                Some(restrictions.as_ref())
-            })?
-            .into_iter()
-            .flatten()
-            .collect::<Vec<_>>();
-        let fields = self.fields.get_or_init(|| {
-            objects
+        let Some(fields) = self.fields.get_or_init(|| {
+            let objects = self
+                .described
                 .iter()
-                .copied()
-                .flat_map(|restrictions| restrictions.values.keys())
-                .map(|key| &**key)
-                .unique()
-                .map(|key| (key, Descriptions::new(objects.iter().copied().filter_map(move |restrictions| restrictions.values.get(key)), &self.scope)))
-                .collect()
-        });
+                .map(|description| {
+                    let DataType::Object { restrictions } = &description.data_type else { return None };
+                    Some(restrictions.as_ref())
+                })
+                .collect::<Option<Vec<_>>>()?
+                .into_iter()
+                .flatten()
+                .collect::<Vec<_>>();
+            Some(
+                objects
+                    .iter()
+                    .copied()
+                    .flat_map(|restrictions| restrictions.values.keys())
+                    .map(|key| &**key)
+                    .unique()
+                    .map(|key| {
+                        let mut described = objects.iter().copied().filter_map(move |restrictions| restrictions.values.get(key));
+                        (key, (Descriptions::new(described.clone(), &self.scope), described.any(|description| !description.optional)))
+                    })
+                    .collect(),
+            )
+        }) else {
+            return Err(de::Error::invalid_type(Unexpected::Map, &self));
+        };
         let untyped = LazyCell::new(|| Descriptions::new(iter::empty(), &self.scope));
         let capacity = map.size_hint().unwrap_or_default();
-        let decoded = iter::from_fn(|| map.next_key::<Box<str>>().transpose().map(|key| key.and_then(|key| map.next_value_seed(fields.get(&*key).unwrap_or(&*untyped)).map(|value| (key, value))))).try_fold(
-            IndexMap::with_capacity(capacity),
-            |mut held, entry| {
-                entry.map(|(key, value)| {
-                    held.insert(key, value);
-                    held
-                })
-            },
-        )?;
-        let missing = fields
-            .keys()
-            .copied()
-            .filter(|key| !decoded.contains_key(*key) && objects.iter().filter_map(|restrictions| restrictions.values.get(*key)).any(|description| !description.optional))
-            .collect::<Vec<_>>();
+        let decoded = iter::from_fn(|| {
+            map.next_key::<Box<str>>().transpose().map(|key| key.and_then(|key| map.next_value_seed(fields.get(&*key).map_or_else(|| &*untyped, |(field, _)| field)).map(|value| (key, value))))
+        })
+        .try_fold(IndexMap::with_capacity(capacity), |mut held, entry| {
+            entry.map(|(key, value)| {
+                held.insert(key, value);
+                held
+            })
+        })?;
+        let missing = fields.iter().filter_map(|(&key, (_, required))| (*required && !decoded.contains_key(key)).then_some(key)).collect::<Vec<_>>();
         missing.is_empty().ok_or_else(|| de::Error::custom(format_args!("missing `{}`", missing.join("`, `")))).map(|()| Value::Object(Box::new(decoded)))
     }
 }
@@ -319,6 +340,10 @@ pub(crate) fn decoder<'schema>(described: impl IntoIterator<Item = (&'schema str
     move |node: &Path, id: &str, value: &serde_json::Value| {
         let seed = seeds.get(id).ok_or_else(|| IfcError::Attribute { node: node.clone(), attribute: id.into(), reason: Fault::Undeclared })?;
         let mut track = serde_path_to_error::Track::new();
-        seed.deserialize(serde_path_to_error::Deserializer::new(value, &mut track)).map_err(|inner| IfcError::Invalid { node: node.clone(), attribute: id.into(), source: serde_path_to_error::Error::new(track.path(), inner) })
+        seed.deserialize(serde_path_to_error::Deserializer::new(value, &mut track)).map_err(|inner| IfcError::Invalid {
+            node: node.clone(),
+            attribute: id.into(),
+            source: serde_path_to_error::Error::new(track.path(), inner),
+        })
     }
 }

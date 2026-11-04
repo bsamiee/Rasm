@@ -1,8 +1,8 @@
 """Per-node previews over every geometry node editor under the node previews preference: the commands, the feed planning a job per changed target, and the stored thumbnails each render writes."""
 
-from collections.abc import Callable, Hashable, Iterator
-from functools import cached_property, partial, reduce
-import glob
+from collections import Counter, defaultdict
+from collections.abc import Callable, Hashable, Mapping
+from functools import cache, cached_property, partial, reduce
 import itertools
 import os
 from pathlib import Path
@@ -10,49 +10,53 @@ from typing import ClassVar, Final
 
 from bl_ui.space_node import NODE_MT_context_menu
 import bpy
-from expression import Error, Nothing, Ok, Option, Result, Some, try_downcast
-from expression.collections import Block
+from expression import Option, Some, try_downcast
 from expression.extra.result import catch
-import gpu
 import msgspec
 import OpenImageIO
 import PyOpenColorIO
 
 from blender.bpy.commands.invocations import Save
 from blender.bpy.commands.keymaps import Chord, Keymap
-from blender.bpy.commands.operators import Answer, Call, Done, Empty, NoUndo, Operator, Placement, tallied, Unchanged
+from blender.bpy.commands.operators import Answer, Call, Done, Empty, Operator, Placement, tallied, Unchanged
 from blender.bpy.data.ids.images import fingerprinted, loaded, Tag
-from blender.bpy.data.ids.store import STORES
-from blender.bpy.data.rna.descriptors import written
+from blender.bpy.data.ids.store import Handle
+from blender.bpy.data.rna.conditions import Setting
+from blender.bpy.data.rna.descriptors import Descriptor, written
 from blender.bpy.data.rna.paths import rooted
-from blender.bpy.extension.events import Change, Handler, updated
+from blender.bpy.data.rna.snapshots import Snapshot
+from blender.bpy.extension.events import updated
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.nodes.trees import socket_at
+from blender.bpy.extension.registration import Acquisitions, Handler
+from blender.bpy.nodes.desired import Graph
 from blender.bpy.render.color.spaces import viewed
+from blender.bpy.render.compositor.motion import rate
 from blender.bpy.render.outputs.results import INTERMEDIATES
-from blender.bpy.render.previews.queue import BACKLOG, Demand, Job, PreviewFeed, PreviewQueue, Rank
-from blender.bpy.render.previews.scenes import PreviewScene, Readback
-from blender.bpy.render.previews.targets import CLAY, Editor, enclosing, NODE_PREVIEWS, NodePreviews, rendered, SETTING, SWATCH, Target, targets
-from blender.bpy.render.previews.thumbnails import Cell, NODE_STATES, NodeThumbnails, Status, ThumbnailSettings
+from blender.bpy.render.previews.queue import BACKLOG, Job, PreviewFeed, PreviewQueue, Rank
+from blender.bpy.render.previews.scenes import PreviewLighting, PreviewScene, Readback
+from blender.bpy.render.previews.targets import CLAY, Editor, enclosing, NODE_PREVIEWS, NodePreviews, rendered, RenderKind, SETTING, SWATCH, Target, targets
+from blender.bpy.render.previews.thumbnails import Cell, NODE_STATES, NODE_TEXTURES, NodeThumbnails, Status, ThumbnailSettings
 from blender.bpy.ui.drawing.handlers import Drawing, Overlay, Signal
 from blender.bpy.ui.elements.menus import Append
 from blender.bpy.ui.layout.members import Member
 from blender.bpy.ui.layout.rows import even, FUNCTIONS, Label, Layout, OperatorButton, Property, Row
 from blender.bpy.ui.layout.sections import Section
 from blender.bpy.ui.layout.values import Store
-from blender.bpy.ui.resources.previews import TEXTURES
 from blender.bpy.ui.resources.theme import Metrics
 from blender.bpy.ui.screens.areas import AreaQuery, areas, Located, to_region
+from blender.imaging.color.processors import DisplayView
 from blender.imaging.files.buffers import Depth
 from blender.imaging.files.images import Format, ImageFile, read_file, Storage
-from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, Reason
+from blender.records.faults import accumulated, Error, Fault, Nothing, Ok, Outcome, paired, Reason
 from blender.records.fields import Retention
 from blender.records.stores import content_hash, ContentHash, removed
 
+# --- [TYPES] ----------------------------------------------------------------------------
+
+type _Candidate = tuple[bpy.types.Node, bpy.types.NodeSocket, Target, int, tuple[bpy.types.Node, ...], bpy.types.Scene, Rank]
+
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_STORED: Final = tuple(kind for kind in STORES if issubclass(kind, bpy.types.ID) and kind not in {bpy.types.ID, bpy.types.Object})
 _SUFFIX: Final = ".exr"
 _SUFFIXES: Final[tuple[str, *tuple[str, ...]]] = (_SUFFIX, *(suffix for row in Format.writable() for suffix in row.suffixes))
 
@@ -82,27 +86,27 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     @cached_property
     def toggle(self) -> Operator[Empty]:
         """Command toggling node editor thumbnails."""
-        return Operator(form=Empty, undo=NoUndo(), run=self.toggle_node_previews)
+        return Operator(form=Empty, options=frozenset(), run=self.toggle_node_previews)
 
     @cached_property
     def enlarge(self) -> Operator[Empty]:
         """Command toggling the larger active node thumbnail."""
-        return Operator(form=Empty, undo=NoUndo(), run=self.enlarge_node_preview)
+        return Operator(form=Empty, options=frozenset(), run=self.enlarge_node_preview)
 
     @cached_property
     def refresh(self) -> Operator[Empty]:
         """Command rendering every thumbnail again."""
-        return Operator(form=Empty, undo=NoUndo(), run=self.refresh_node_previews)
+        return Operator(form=Empty, options=frozenset(), run=self.refresh_node_previews)
 
     @cached_property
     def clear(self) -> Operator[Empty]:
         """Command removing cached and stored thumbnails."""
-        return Operator(form=Empty, undo=NoUndo(), run=self.clear_node_previews)
+        return Operator(form=Empty, options=frozenset(), run=self.clear_node_previews)
 
     @cached_property
     def export(self) -> Operator[ThumbnailExport]:
         """Command writing the active node thumbnail to an image file."""
-        return Operator(form=ThumbnailExport, undo=NoUndo(), invoke=Some(Save(extensions=lambda _: _SUFFIXES)), run=self.export_node_preview)
+        return Operator(form=ThumbnailExport, options=frozenset(), invoke=Some(Save(extensions=lambda _: _SUFFIXES)), run=self.export_node_preview)
 
     def flipped(self, call: Call[Empty], change: Callable[[NodePreviews], Outcome[object]]) -> Outcome[Answer]:
         """Writes the change into the preference and refreshes thumbnails."""
@@ -122,203 +126,255 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     def clear_node_previews(self, call: Call[Empty]) -> Outcome[Answer]:
         """Empty texture cache, held values, and previews folder, then render every thumbnail again."""
-        files = tuple(_thumbnails(call.identity))
-        call.identity.resources[TEXTURES].cleared()
-        call.identity.resources[NODE_STATES].values.clear()
-        return accumulated(removed(path) for path in files).bind(lambda _: self.rerendered(call.identity)).map(lambda _: Done(notes=(("INFO", f"Removed {len(files)} stored thumbnails"),)))
+        return _thumbnails(call.identity).bind(lambda files: self.rerendered(call.identity, Some(files)).map(lambda _: Done(notes=(("INFO", f"Removed {len(files)} stored thumbnails"),))))
 
     def export_node_preview(self, call: Call[ThumbnailExport]) -> Outcome[Answer]:
         """Write the active node thumbnail to an image file in the scene display space."""
-        space = call.context.space_data
-        shown: Outcome[tuple[Editor, bpy.types.NodeTree, bpy.types.Node]] = (
-            Option
-            .of_optional(space if isinstance(space, bpy.types.SpaceNodeEditor) else None)
-            .bind(
-                lambda found: Editor.of(found).bind(lambda editor: Option.of_optional(found.edit_tree).bind(lambda tree: Option.of_optional(tree.nodes.active).map(lambda node: (editor, tree, node))))
+        shown = paired(rooted(bpy.types.SpaceNodeEditor, call.context), rooted(bpy.types.Scene, call.context)).bind(
+            lambda found: Editor.of(*found).bind(
+                lambda editor: editor.bind(
+                    lambda held: Option.of_optional(found[0].edit_tree).bind(lambda tree: Option.of_optional(tree.nodes.active).map(lambda node: (held, tree, node)))
+                ).to_result_with(partial(Fault.of, Reason.ABSENT, "SpaceNodeEditor.edit_tree.nodes", member="active"))
             )
-            .to_result_with(partial(Fault.of, Reason.ABSENT, "SpaceNodeEditor.edit_tree.nodes", member="active"))
         )
 
         def chosen(editor: Editor, tree: bpy.types.NodeTree, node: bpy.types.Node, settings: NodePreviews) -> Outcome[Target]:
             return targets(call.identity, editor, tree, settings).bind(
-                lambda found: (
-                    Block.of_seq(found).filter(lambda pair: pair[0] == node).try_head().map(lambda pair: pair[1]).to_result_with(partial(Fault.of, Reason.ABSENT, repr(tree.nodes), member=node.name))
+                lambda found: Option.of_optional(next((target for source, _socket, target in found if source == node), None)).to_result_with(
+                    partial(Fault.of, Reason.ABSENT, repr(tree.nodes), member=node.name)
                 )
             )
 
-        def wrote(scene: bpy.types.Scene, target: Target, settings: NodePreviews) -> Outcome[Path]:
+        def wrote(target: Target, settings: NodePreviews) -> Outcome[Path]:
             path = call.paths[0]
-            return paired(rendered(call.identity, self.preview, target, call.properties.size, settings, scene=scene), Format.of(path)).bind(
-                lambda pair: ImageFile(pixels=pair[0].plane, colorspace=pair[0].colorspace).written(path, Storage(depth=pair[1].depths[-1]), {}, PyOpenColorIO.GetCurrentConfig())
+            lighting = target.kind.lighting(settings.lighting)
+            return paired(lighting.prepared(), Format.of(path)).bind(
+                lambda pair: rendered(call.identity, self.preview, target, call.properties.size, lighting, pair[0][0]).bind(
+                    lambda readback: ImageFile(pixels=readback.plane, colorspace=readback.colorspace).written(path, Storage(depth=pair[1].depths[-1]), {}, PyOpenColorIO.GetCurrentConfig())
+                )
             )
 
         return (
-            paired(shown, NODE_PREVIEWS.read(call.identity), rooted(bpy.types.Scene, call.context))
-            .bind(lambda parts: chosen(*parts[0], parts[1]).bind(lambda target: wrote(parts[2], target, parts[1])))
+            paired(shown, NODE_PREVIEWS.read(call.identity))
+            .bind(lambda parts: chosen(*parts[0], parts[1]).bind(lambda target: wrote(target, parts[1])))
             .bind(lambda name: loaded(str(name), Tag()).map(lambda _: name) if call.properties.opened else Ok(name))
             .map(lambda name: Done.wrote((name,)))
         )
 
     # --- [THUMBNAILS]
 
-    def thumbnailed(
-        self, identity: Identity, target: Target, demand: Demand[ThumbnailSettings], size: int, kept: frozenset[Hashable], settings: NodePreviews, *, scene: bpy.types.Scene
-    ) -> Outcome[None]:
+    def thumbnailed(self, identity: Identity, target: Target, demand: Hashable, size: int, kept: frozenset[Hashable], limit: int, lighting: PreviewLighting, world: Graph) -> Outcome[None]:
         """Renders a target into texture cache and previews folder, its uniform value held and stored as a typed header attribute."""
-        state, limit, config = identity.resources[NODE_STATES], settings.limit, PyOpenColorIO.GetCurrentConfig()
+        state, config = NODE_STATES[identity], PyOpenColorIO.GetCurrentConfig()
 
         def pruned() -> Outcome[None]:
-            files: Outcome[list[Path]] = catch(sorted, exception=OSError)(_thumbnails(identity), key=lambda path: path.stat().st_mtime).map_error(
-                partial(Fault.of, Reason.UNREADABLE, str(_folder(identity)))
-            )
-            return Result[list[Path], Faults].bind(files, lambda found: accumulated(removed(path) for path in found[:-limit])).map(lambda _: None)
+            def oldest(paths: tuple[Path, ...]) -> Outcome[list[Path]]:
+                try:
+                    return Ok(sorted(paths, key=lambda path: path.stat().st_mtime))
+                except OSError as error:
+                    return Error(Fault.of(Reason.UNREADABLE, str(_folder(identity)), error))
+
+            return _thumbnails(identity).bind(oldest).bind(lambda found: accumulated(removed(path) for path in found[:-limit])).map(lambda _: None)
 
         def stored(readback: Readback, name: str) -> Outcome[None]:
             number = readback.uniform
 
             def written_file(digest: ContentHash) -> Outcome[None]:
-                header = tuple(OpenImageIO.ParamValue(name, held) for held in number.to_list())
+                header = OpenImageIO.ImageSpec()
+                for held in number.to_list():
+                    header.attribute(name, held)
                 return (
                     ImageFile(pixels=readback.plane, colorspace=readback.colorspace, header=header)
                     .written(_thumbnail(identity, digest), Storage(depth=Depth.HALF), {}, config)
                     .bind(lambda _: pruned())
                 )
 
-            def saved(_texture: gpu.types.GPUTexture) -> Outcome[None]:
-                for held in number.to_list():
-                    state.values[demand.key] = held
-                return demand.content.map(written_file).default_value(Ok(None)).bind(lambda _: self.signal.fired())
+            return (
+                NODE_TEXTURES[identity]
+                .stored(demand, readback.plane, limit, kept, metadata=number)
+                .bind(lambda _: written_file(demand) if isinstance(demand, bytes) else Ok(None))
+                .bind(lambda _: self.signal.fired())
+                if state.demands.holds(target, demand)
+                else Ok(None)
+            )
 
-            return identity.resources[TEXTURES].stored(demand.key, readback.plane, limit, kept).bind(saved) if state.demands.holds(target, demand) else Ok(None)
-
-        return paired(rendered(identity, self.preview, target, size, settings, scene=scene), identity.identifier(PreviewScene.value)).bind(lambda parts: stored(*parts))
+        return rendered(identity, self.preview, target, size, lighting, world).bind(lambda readback: stored(readback, identity.identifier(PreviewScene.value)))
 
     # --- [FEED]
 
     def jobs(self, identity: Identity, context: bpy.types.Context) -> Outcome[tuple[Job, ...]]:
         """Writes editor cells and returns a job per target key neither cache nor folder holds."""
-        state, metrics, failed = identity.resources[NODE_STATES], Metrics.read(), identity.resources[BACKLOG].failed
+        state, metrics, failed = NODE_STATES[identity], Metrics.read(), BACKLOG[identity].failed
+        inventory = cache(lambda: _thumbnails(identity).map(frozenset))
         manager: bpy.types.WindowManager = context.window_manager  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-        views = tuple(
-            (editor, space, at, tree)
-            for found in areas(manager.windows)
-            for space in (found.area.spaces.active,)
-            if isinstance(space, bpy.types.SpaceNodeEditor)
-            for at in found.within().to_option().to_list()
-            for editor in Editor.of(space).to_list()
-            for tree in Option.of_optional(space.edit_tree).to_list()
-        )
+        views: dict[Editor, tuple[bpy.types.Scene, bpy.types.SpaceNodeEditor, bpy.types.NodeTree, list[Located]]] = {}
 
-        def keyed(node: bpy.types.Node, target: Target, basis: ThumbnailSettings, nested: tuple[bpy.types.Node, ...]) -> Outcome[Option[ContentHash]]:
-            editor = target.editor
-            place = (editor.item, editor.modifier)
-            source = (
-                Option
-                .of_optional(state.held.get(place))
-                .map(Ok)
-                .default_with(lambda: editor.item.resolve().bind(lambda item: fingerprinted(item, before_modifier=Some(editor.modifier))).map(lambda key: state.held.setdefault(place, key)))
-            )
-            return paired(fingerprinted(node), accumulated(fingerprinted(group) for group in nested), source).map(
-                lambda parts: reduce(
-                    lambda own, key: own.map2(lambda held, current: content_hash(Target, held, current), key), (*parts[1], parts[2]), parts[0].map(lambda own: content_hash(Target, basis, own))
+        def located(found: Located) -> Outcome[None]:
+            match found.area.spaces.active:
+                case bpy.types.SpaceNodeEditor(edit_tree=bpy.types.NodeTree() as tree) as space:
+
+                    def kept(editors: Option[Editor]) -> None:
+                        for at, editor in itertools.product(found.within().to_option().to_list(), editors.to_list()):
+                            views.setdefault(editor, (found.window.scene, space, tree, []))[3].append(at)
+
+                    return Editor.of(space, found.window.scene).map(kept)
+                case _:
+                    return Ok(None)
+
+        @cache
+        def source(item: Handle[bpy.types.Object], modifier: str) -> Outcome[Option[ContentHash]]:
+            """Reads each source's upstream content once in this feed."""
+            return item.resolve().bind(lambda held: fingerprinted(held, before_modifier=Some(modifier)))
+
+        def keyed(
+            node: bpy.types.Node,
+            target: Target,
+            basis: ThumbnailSettings,
+            nested: tuple[bpy.types.Node, ...],
+            images: tuple[bpy.types.Image, ...],
+            hashes: Mapping[bpy.types.Node | bpy.types.Image, Option[ContentHash]],
+        ) -> Outcome[Option[ContentHash]]:
+            return source(target.editor.item, target.editor.modifier).map(
+                lambda upstream: reduce(
+                    lambda own, key: own.map2(lambda held, current: content_hash(Target, held, current), key),
+                    (*tuple(hashes[parent] for parent in nested), *tuple(hashes[image] for image in images), upstream),
+                    hashes[node].map(lambda own: content_hash(Target, basis, own)),
                 )
             )
 
-        def restored(key: ContentHash, config: PyOpenColorIO.Config, name: str, limit: int, kept: frozenset[Hashable]) -> Outcome[bool]:
-            path = _thumbnail(identity, key)
-
-            def cached(image: ImageFile) -> Outcome[bool]:
-                for number in Block.of_seq(image.header).filter(lambda field: field.name == name).choose(lambda field: Option.of_optional(try_downcast(float, field.value)))[-1:]:
-                    state.values[key] = number
+        def restored(key: ContentHash, path: Path, config: PyOpenColorIO.Config, name: str, limit: int, kept: frozenset[Hashable]) -> Outcome[None]:
+            def cached(image: ImageFile) -> Outcome[None]:
+                number = Option.of_optional(try_downcast(float, image.header.getattribute(name)))
                 return (
-                    identity
-                    .resources[TEXTURES]
-                    .stored(key, image.pixels, limit, kept)
+                    NODE_TEXTURES[identity]
+                    .stored(key, image.pixels, limit, kept, metadata=number)
                     .bind(lambda _: catch(os.utime, exception=OSError)(path).map_error(partial(Fault.of, Reason.UNWRITABLE, str(path))))
-                    .map(lambda _: True)
+                    .map(lambda _: None)
                 )
 
-            match read_file(path, config):
-                case Result(tag="error", error=faults) if all(fault.reason in {Reason.UNREADABLE, Reason.UNWRITABLE} for fault in faults):
-                    return Ok(False)
-                case Result(tag="error", error=faults):
-                    return Error(faults)
-                case Result(ok=image):
-                    return cached(image)
+            return read_file(path, config).bind(cached)
 
-        def planned(scene: bpy.types.Scene, settings: NodePreviews, config: PyOpenColorIO.Config, name: str) -> Outcome[tuple[Job, ...]]:
-            def demanded(node: bpy.types.Node, target: Target, size: int, nested: tuple[bpy.types.Node, ...]) -> Outcome[Demand[ThumbnailSettings]]:
-                basis = ThumbnailSettings(
-                    kind=target.kind,
-                    socket=target.socket,
-                    engine=scene.render.engine,
-                    size=size,
-                    lighting=settings.lighting,
-                    view=viewed(scene),
-                    frame=(scene.frame_current,) if settings.frames else (),
-                    host=(bpy.app.version, bpy.app.build_hash),
-                    config=config.getCacheID(),
+        def planned(settings: NodePreviews, config: PyOpenColorIO.Config, name: str) -> Outcome[tuple[Job, ...]]:
+            type Lighting = tuple[PreviewLighting, Graph, tuple[bpy.types.Image, ...]]
+
+            host, cache_id = (bpy.app.version, bpy.app.build_hash), config.getCacheID()
+            scale: float = settings.scale  # ty: ignore[unsound-assignment]
+
+            @cache
+            def prepared(kind: RenderKind) -> Outcome[Lighting]:
+                lighting = kind.lighting(settings.lighting)
+                return lighting.prepared().map(lambda found: (lighting, *found))
+
+            @cache
+            def scene_values(scene: bpy.types.Scene) -> Outcome[tuple[Snapshot, DisplayView, tuple[float, ...]]]:
+                """Reads the native rendering basis once per source scene."""
+                return self.preview.engine(scene).map(lambda engine: (engine, viewed(scene), (scene.frame_current_final, rate(scene)) if settings.frames else ()))
+
+            def demanded(
+                node: bpy.types.Node,
+                target: Target,
+                size: int,
+                nested: tuple[bpy.types.Node, ...],
+                scene: bpy.types.Scene,
+                lighting: Lighting,
+                hashes: Mapping[bpy.types.Node | bpy.types.Image, Option[ContentHash]],
+            ) -> Outcome[Hashable]:
+                return (
+                    scene_values(scene)
+                    .bind(
+                        lambda values: keyed(
+                            node,
+                            target,
+                            ThumbnailSettings(kind=target.kind, socket=target.socket, engine=values[0], size=size, lighting=lighting[0], view=values[1], frame=values[2], host=host, config=cache_id),
+                            nested,
+                            lighting[2],
+                            hashes,
+                        )
+                    )
+                    .map(partial(state.demands.demanded, target))
                 )
-                return state.demands.demanded(target, basis, lambda: keyed(node, target, basis, nested))
 
-            def viewed_in(
-                editor: Editor, space: bpy.types.SpaceNodeEditor, at: Located, tree: bpy.types.NodeTree
-            ) -> Outcome[tuple[tuple[bpy.types.Node, Target, int, Demand[ThumbnailSettings], Rank], ...]]:
-                nested = tuple(node for found in enclosing(space) for node in found.to_list())
+            def viewed_in(editor: Editor, scene: bpy.types.Scene, space: bpy.types.SpaceNodeEditor, tree: bpy.types.NodeTree, locations: list[Located]) -> Outcome[tuple[_Candidate, ...]]:
+                def rows(nested: tuple[bpy.types.Node, ...], found: tuple[tuple[bpy.types.Node, bpy.types.NodeSocket, Target], ...]) -> tuple[_Candidate, ...]:
+                    counts, active = Counter(target.node for _node, _socket, target in found), tree.nodes.active
 
-                def rows(found: tuple[tuple[bpy.types.Node, Target], ...]) -> Outcome[tuple[tuple[bpy.types.Node, Target, int, Demand[ThumbnailSettings], Rank], ...]]:
-                    def each(node: bpy.types.Node, target: Target) -> Outcome[tuple[bpy.types.Node, Target, int, Demand[ThumbnailSettings], Rank]]:
-                        size = round(node.width * metrics.scale * settings.scale / (2 if sum(1 for held, _ in found if held == node) > 1 else 1))
+                    def each(node: bpy.types.Node, socket: bpy.types.NodeSocket, target: Target) -> _Candidate:
+                        size = round(node.width * metrics.scale * scale / (2 if counts[target.node] > 1 else 1))
                         location = node.location_absolute
-                        rank = Rank.ACTIVE if node.select or node == tree.nodes.active else Rank.SHOWN if to_region(at, location.x, location.y).is_some() else Rank.REST
-                        return demanded(node, target, size, nested).map(lambda demand: (node, target, size, demand, rank))
+                        rank = Rank.ACTIVE if node.select or node == active else Rank.SHOWN if any(to_region(at, location.x, location.y).is_some() for at in locations) else Rank.REST
+                        return node, socket, target, size, nested, scene, rank
 
-                    return accumulated(itertools.starmap(each, found))
+                    return tuple(itertools.starmap(each, found))
 
-                return targets(identity, editor, tree, settings).bind(rows)
+                return paired(enclosing(space), targets(identity, editor, tree, settings)).map(lambda found: rows(*found))
 
-            def scheduled(plans: tuple[tuple[bpy.types.Node, Target, int, Demand[ThumbnailSettings], Rank], ...]) -> Outcome[tuple[Job, ...]]:
-                kept = frozenset(demand.key for *_, demand, held in plans if held is not Rank.REST)
+            def hashed(candidates: tuple[_Candidate, ...]) -> Outcome[tuple[Job, ...]]:
+                roots = tuple(dict.fromkeys(root for node, _socket, _target, _size, nested, _scene, _rank in candidates for root in (node, *nested)))
+
+                def ready(lighting: Mapping[RenderKind, Lighting], hashes: Mapping[bpy.types.Node | bpy.types.Image, Option[ContentHash]]) -> Outcome[tuple[Job, ...]]:
+                    return accumulated(
+                        demanded(node, target, size, nested, scene, lighting[target.kind], hashes).map(lambda demand: (socket, target, size, demand, rank))
+                        for node, socket, target, size, nested, scene, rank in candidates
+                    ).bind(partial(scheduled, lighting))
+
+                def read(lighting: Mapping[RenderKind, Lighting]) -> Outcome[tuple[Job, ...]]:
+                    subjects: tuple[bpy.types.Node | bpy.types.Image, ...] = (*roots, *tuple(dict.fromkeys(image for _lighting, _world, images in lighting.values() for image in images)))
+                    return fingerprinted(subjects).bind(lambda read: ready(lighting, dict(zip(subjects, read))))
+
+                return accumulated(prepared(kind).map(lambda found: (kind, found)) for kind in dict.fromkeys(target.kind for _node, _socket, target, _size, _nested, _scene, _rank in candidates)).bind(
+                    lambda lighting: read(dict(lighting))
+                )
+
+            def scheduled(lighting: Mapping[RenderKind, Lighting], plans: tuple[tuple[bpy.types.NodeSocket, Target, int, Hashable, Rank], ...]) -> Outcome[tuple[Job, ...]]:
+                state.demands.held = {target: demand for _socket, target, _size, demand, _rank in plans}
+                kept = frozenset(demand for *_, demand, held in plans if held is not Rank.REST)
 
                 def shown(ready: frozenset[Hashable]) -> Outcome[tuple[Job, ...]]:
-                    cells = {
-                        editor: tuple(
+                    grouped: defaultdict[Editor, list[Cell]] = defaultdict(list)
+                    for socket, target, _size, demand, _rank in plans:
+                        grouped[target.editor].append(
                             Cell(
-                                node=node.name,
-                                key=demand.key,
-                                label=socket_at(node.outputs, target.socket).map(lambda socket: socket.name).default_value(node.name),
-                                status=Status.READY if demand.key in ready else Status.FAILED if ((Some(self.jobs), target), demand.key) in failed.items() else Status.QUEUED,
-                                value=Option.of_optional(state.values.get(demand.key)),
+                                node=target.node,
+                                key=demand,
+                                label=socket.name,
+                                status=Status.READY if demand in ready else Status.FAILED if failed.get((Some(self.jobs), target)) == demand else Status.QUEUED,
+                                value=Option.of_optional(NODE_TEXTURES[identity].held.get(demand)).bind(lambda held: held[1]),
                             )
-                            for node, target, _size, demand, _rank in plans
-                            if target.editor == editor
                         )
-                        for editor in dict.fromkeys(target.editor for _node, target, *_ in plans)
-                    }
+                    cells = {editor: tuple(items) for editor, items in grouped.items()}
                     changed, state.cells = cells != state.cells, cells
                     return (self.signal.fired() if changed else Ok(None)).map(
                         lambda _: tuple(
-                            Job(place=target, key=demand.key, rank=rank, run=partial(self.thumbnailed, identity, target, demand, size, kept, settings, scene=scene), playback=settings.frames)
-                            for _node, target, size, demand, rank in plans
-                            if demand.key not in ready
+                            Job(place=target, key=demand, rank=rank, run=partial(self.thumbnailed, identity, target, demand, size, kept, settings.limit, light, world), playback=settings.frames)
+                            for _socket, target, size, demand, rank in plans
+                            if demand not in ready
+                            for light, world, _images in (lighting[target.kind],)
                         )
                     )
 
                 return (
                     accumulated(
                         Ok(Some(key))
-                        if key in identity.resources[TEXTURES].held
-                        else digest.map(lambda found: restored(found, config, name, settings.limit, kept).map(lambda held: Some(key) if held else Nothing)).default_value(Ok(Nothing))
-                        for key, digest in {demand.key: demand.content for *_, demand, _rank in plans}.items()
+                        if key in NODE_TEXTURES[identity].held
+                        else (
+                            inventory().bind(
+                                lambda files: restored(key, path, config, name, settings.limit, kept).map(lambda _: Some(key)) if (path := _thumbnail(identity, key)) in files else Ok(Nothing)
+                            )
+                            if isinstance(key, bytes)
+                            else Ok(Nothing)
+                        )
+                        for key in dict.fromkeys(demand for *_, demand, _rank in plans)
                     )
                     .map(lambda parts: frozenset(key for part in parts for key in part.to_list()))
                     .bind(shown)
                 )
 
-            return accumulated(itertools.starmap(viewed_in, views if settings.enabled else ())).map(lambda parts: tuple(itertools.chain.from_iterable(parts))).bind(scheduled)
+            return accumulated(viewed_in(editor, *sources) for editor, sources in views.items()).map(lambda parts: tuple(itertools.chain.from_iterable(parts))).bind(hashed)
 
-        return paired(rooted(bpy.types.Scene, context), NODE_PREVIEWS.read(identity), identity.identifier(PreviewScene.value)).bind(
-            lambda parts: planned(parts[0], parts[1], PyOpenColorIO.GetCurrentConfig(), parts[2])
+        return NODE_PREVIEWS.read(identity).bind(
+            lambda settings: (accumulated(map(located, areas(manager.windows))).map(lambda _: None) if settings.enabled else Ok(None)).bind(
+                lambda _: planned(settings, PyOpenColorIO.GetCurrentConfig(), identity.identifier(PreviewScene.value))
+            )
         )
 
     # --- [REGISTRATION]
@@ -331,7 +387,7 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             header=header,
             rows=(
                 *(OperatorButton(target=row) for row in (self.toggle, self.refresh, self.clear, self.export)),
-                Layout(rows=lambda identity: Ok((Label(text=partial(_counted, identity), function=FUNCTIONS["label"]),)), container=Some(even), prerequisites=(BACKLOG, TEXTURES)),
+                Layout(builder=Some(lambda identity: Ok((Label(text=partial(_counted, identity), function=FUNCTIONS["label"]),))), container=Some(even), prerequisites=(BACKLOG, NODE_TEXTURES)),
                 Section(
                     key=f"{self.key}_active",
                     title=Some("Active Node"),
@@ -347,20 +403,18 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             ),
         )
 
-    def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
+    def acquisitions(self, identity: Identity) -> Acquisitions:
         """Returns preview declarations, state, resources, overlay, and handlers, updates of a scene under a preview render left to the render."""
 
         def forgotten(switch: Callable[[NodePreviews], bool]) -> Outcome[None]:
             read = NODE_PREVIEWS.read(identity)
             for _ in read.to_option().filter(switch).to_list():
-                identity.resources[NODE_STATES].demands.forgotten()
+                NODE_STATES[identity].demands.forgotten()
             return read.map(lambda _: None)
 
-        def dropped(scene: bpy.types.Scene, updates: tuple[bpy.types.DepsgraphUpdate, ...]) -> Outcome[None]:
-            if scene.session_uid in identity.resources[INTERMEDIATES]:
+        def dropped(scene: bpy.types.Scene, _updates: tuple[bpy.types.DepsgraphUpdate, ...]) -> Outcome[None]:
+            if scene.session_uid in INTERMEDIATES[identity]:
                 return Ok(None)
-            for block in (held for update in updates for held in Option.of_optional(update.id).to_list()):
-                identity.resources[NODE_STATES].released(block)
             return forgotten(lambda settings: settings.automatic)
 
         overlay = Overlay(drawing=Drawing(area=AreaQuery(space=bpy.types.SpaceNodeEditor), part=NodeThumbnails(identity=identity), refreshes=(self.signal,)))
@@ -368,7 +422,7 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             keymap="Node Editor",
             bindings=((Chord(type="P", ctrl=1, alt=1), Placement(self.toggle)), (Chord(type="Z", ctrl=1, alt=1), Placement(self.enlarge)), (Chord(type="R", ctrl=1, alt=1), Placement(self.refresh))),
         )
-        return Ok((
+        return (
             self.preview,
             INTERMEDIATES,
             SETTING,
@@ -377,7 +431,7 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             keymap,
             CLAY,
             SWATCH,
-            TEXTURES,
+            NODE_TEXTURES,
             PreviewFeed(feed=self.jobs),
             self.toggle,
             self.enlarge,
@@ -387,15 +441,17 @@ class NodePreview(msgspec.Struct, frozen=True, kw_only=True, dict=True):
             self.export,
             Append(target=NODE_MT_context_menu, rows=(OperatorButton(target=mark_node_previews), OperatorButton(target=self.export), OperatorButton(target=self.refresh))),
             overlay,
-            Handler(handlers=bpy.app.handlers.depsgraph_update_post, body=partial(updated, _STORED, dropped)),
-            Handler(handlers=bpy.app.handlers.depsgraph_update_post, body=partial(updated, (bpy.types.Object,), dropped, changes=Some(Change.GEOMETRY | Change.SHADING))),
+            Handler(handlers=bpy.app.handlers.depsgraph_update_post, body=partial(updated, (bpy.types.ID,), dropped)),
             Handler(handlers=bpy.app.handlers.frame_change_post, body=lambda: forgotten(lambda settings: settings.frames)),
-        ))
+        )
 
-    def rerendered(self, identity: Identity) -> Outcome[None]:
-        """Drops target keys and held failures for a full rerender."""
-        PreviewQueue.forced(identity, identity.resources[NODE_STATES].demands.forgotten())
-        return self.signal.fired()
+    def rerendered(self, identity: Identity, paths: Option[tuple[Path, ...]] = Nothing) -> Outcome[None]:
+        """Removes held textures, failures, and demand files, or supplied files, for a fresh render."""
+        dropped = NODE_STATES[identity].demands.forgotten()
+        PreviewQueue.forced(identity, dropped)
+        NODE_TEXTURES[identity].cleared()
+        files = paths.default_with(lambda: tuple(_thumbnail(identity, key) for key in dict.fromkeys(dropped.values()) if isinstance(key, bytes)))
+        return accumulated(removed(path) for path in files).bind(lambda _: self.signal.fired())
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -406,9 +462,15 @@ def _folder(identity: Identity) -> Path:
     return identity.folder / NodePreview.key
 
 
-def _thumbnails(identity: Identity) -> Iterator[Path]:
+def _thumbnails(identity: Identity) -> Outcome[tuple[Path, ...]]:
     """Stored thumbnail files of an extension."""
-    return _folder(identity).glob(f"*{glob.escape(_SUFFIX)}")
+    folder = _folder(identity)
+    try:
+        return Ok(tuple(path for path in folder.iterdir() if path.suffix == _SUFFIX))
+    except FileNotFoundError:
+        return Ok(())
+    except OSError as error:
+        return Error(Fault.of(Reason.UNREADABLE, str(folder), error))
 
 
 def _thumbnail(identity: Identity, key: ContentHash) -> Path:
@@ -418,14 +480,14 @@ def _thumbnail(identity: Identity, key: ContentHash) -> Path:
 
 def _counted(identity: Identity, _context: bpy.types.Context) -> tuple[str, ...]:
     """Queued and failed preview jobs, cached thumbnails, and their texture memory, one label each."""
-    backlog, cache = identity.resources[BACKLOG], identity.resources[TEXTURES]
+    backlog, cache = BACKLOG[identity], NODE_TEXTURES[identity]
     return f"{len(backlog.jobs)} queued", f"{len(backlog.failed)} failed", f"{len(cache.held)} cached", f"{cache.memory / 2**20:.1f} MiB pixels"
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
-@Operator.of(Empty)
+@Operator.of(Empty, condition=Some(Setting(descriptor=Descriptor(root=bpy.types.SpaceNodeEditor, owner=("edit_tree",), prop=bpy.types.ID.bl_rna.properties["is_editable"]), accepted=(True,))))
 def mark_node_previews(call: Call[Empty]) -> Outcome[Answer]:
     """Toggle the node preview each selected node shows under the Marked scope."""
     if not (nodes := tuple(call.context.selected_nodes)):

@@ -19,10 +19,10 @@ public static class Search {
                 Collected(found => RTree.SearchOverlaps(treeA, treeB, distance, found), static found => (A: found.Id, B: found.IdB)))));
 
     public static IO<Seq<Seq<int>>> Within(Seq<BoundingBox> items, Seq<SearchRegion> queries) =>
-        Planted(items, tree => queries.TraverseM(query => query.Switch(
+        Planted(items, tree => Products.Each(queries.Map(query => query.Switch(
             tree,
             boundingBox: static (held, box) => Collected(found => held.Search(box, found), static found => found.Id),
-            sphere: static (held, sphere) => Collected(found => held.Search(sphere, found), static found => found.Id))).As());
+            sphere: static (held, sphere) => Collected(found => held.Search(sphere, found), static found => found.Id)))));
 
     private static IO<T> Planted<T>(Seq<BoundingBox> boxes, Func<RTree, IO<T>> body) =>
         (from tree in use(static () => new RTree())

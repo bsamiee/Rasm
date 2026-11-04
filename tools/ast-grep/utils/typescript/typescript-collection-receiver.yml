@@ -1,14 +1,23 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: typescript-collection-receiver
-language: tsx
+language: tsxlang
 arguments: [collection]
 utils:
+    global-type:
+        matches: {typescript-global-type-reference: {name: {matches: collection}}}
     collection-type:
         kind: type_annotation
-        has: {kind: generic_type, has: {field: name, kind: type_identifier, matches: collection}}
+        has: {kind: generic_type, has: {field: name, matches: global-type}}
     construction:
         kind: new_expression
-        has: {field: constructor, kind: identifier, matches: collection}
+        has:
+            field: constructor
+            any:
+                - kind: identifier
+                  matches: collection
+                - kind: member_expression
+                  all: [{has: {field: object, regex: '^(globalThis|window|self)$'}}, {has: {field: property, matches: collection}}]
+            matches: typescript-global-reference
     built:
         any:
             - matches: construction
@@ -16,6 +25,13 @@ utils:
               has: {nthChild: 1, matches: built}
     collection-declared:
         any: [{has: {field: type, matches: collection-type}}, {has: {field: value, matches: built}}]
+    static-member:
+        has: {regex: '^static$', not: {pattern: $_}}
+    collection-field:
+        kind: public_field_definition
+        all:
+            - has: {field: name, pattern: $FIELD}
+            - matches: collection-declared
     receiver-binding:
         any:
             - kind: variable_declarator
@@ -24,40 +40,44 @@ utils:
               has: {field: pattern, pattern: $RECEIVER}
     collection-binding:
         all: [{matches: receiver-binding}, {matches: collection-declared}]
-    receiver-scope:
-        any:
-            - kind: statement_block, program
-              has: {stopBy: &declaration {not: {kind: 'lexical_declaration, variable_declaration, export_statement'}}, matches: receiver-binding}
-            - matches: typescript-function-boundary
-              any:
-                - has: {field: parameter, pattern: $RECEIVER}
-                - has: {field: parameters, has: {matches: receiver-binding}}
-            - kind: for_in_statement
-              has: {field: left, pattern: $RECEIVER}
-            - kind: catch_clause
-              has: {field: parameter, pattern: $RECEIVER}
     collection-scope:
         any:
             - kind: statement_block, program
-              has: {stopBy: *declaration, matches: collection-binding}
+              has: {stopBy: {not: {kind: 'lexical_declaration, using_declaration, export_statement'}}, matches: collection-binding}
             - matches: typescript-function-boundary
               has: {field: parameters, has: {matches: collection-binding}}
+            - kind: for_statement
+              has: {field: initializer, kind: 'lexical_declaration, using_declaration', has: {matches: collection-binding}}
+            - all:
+                - any: [{kind: 'program, class_static_block, internal_module'}, {matches: typescript-function-boundary}]
+                - regex: '\bvar\b'
+                - has:
+                    stopBy: {kind: 'function_declaration, generator_function_declaration, method_definition, arrow_function, function_expression, generator_function, class, class_declaration, abstract_class_declaration, class_static_block, internal_module'}
+                    kind: variable_declaration
+                    has: {matches: collection-binding}
 rule:
     any:
-        - kind: identifier
+        - kind: identifier, undefined
           pattern: $RECEIVER
-          all:
-            - inside: {stopBy: end, matches: collection-scope}
-            - not: {inside: {stopBy: end, matches: receiver-scope, not: {matches: collection-scope}, inside: {stopBy: end, matches: collection-scope}}}
+          matches: {typescript-local-binding: {owner: {pattern: $OWNER}}}
         - kind: member_expression
           all:
             - has: {field: object, kind: this}
             - has: {field: property, pattern: $FIELD}
             - inside:
-                kind: class_body
-                stopBy: end
-                has:
-                    kind: public_field_definition
-                    all:
-                        - has: {field: name, pattern: $FIELD}
-                        - matches: collection-declared
+                stopBy: {kind: 'class_body, method_definition, public_field_definition, class_static_block, function_declaration, function_expression, generator_function, generator_function_declaration'}
+                any:
+                    - kind: method_definition, public_field_definition
+                      not: {matches: static-member}
+                      inside:
+                          kind: class_body
+                          has: {matches: collection-field, not: {matches: static-member}}
+                    - any:
+                        - kind: class_static_block
+                        - kind: method_definition, public_field_definition
+                          matches: static-member
+                      inside:
+                          kind: class_body
+                          has: {all: [{matches: collection-field}, {matches: static-member}]}
+constraints:
+    OWNER: {matches: collection-scope}

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-string-joined-path-rust
-language: rust
+language: rustlang
 severity: error
 utils:
     literal:
@@ -44,15 +44,16 @@ utils:
 rule:
     pattern: $JOINED
     any:
-        - matches: joined
-          any:
-            - inside: {kind: arguments, inside: {matches: path-call}}
-            - inside: {kind: reference_expression, inside: {kind: arguments, inside: {matches: path-call}}}
-        - matches: joined
-          not: {matches: rooted-format}
-          any:
-            - inside: {kind: let_declaration, has: {field: pattern, kind: identifier, matches: path-name}}
-            - inside: {kind: assignment_expression, has: {field: left, matches: path-name}}
+        - all:
+            - matches: joined
+            - any:
+                - inside: {kind: arguments, inside: {matches: path-call}}
+                - inside: {kind: reference_expression, inside: {kind: arguments, inside: {matches: path-call}}}
+                - all:
+                    - not: {matches: rooted-format}
+                    - any:
+                        - inside: {kind: let_declaration, has: {field: pattern, kind: identifier, matches: path-name}}
+                        - inside: {kind: assignment_expression, has: {field: left, matches: path-name}}
         - matches: pushed-slash
 message: '`$JOINED` joins a file-system path with a `/` literal'
 note: 'Join through `<base>.join(<segment>)` on a `Path` or `PathBuf`, or `[<a>, <b>].iter().collect::<PathBuf>()`'

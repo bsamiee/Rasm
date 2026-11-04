@@ -1,33 +1,36 @@
 """Desired node tree state: node content, menu items, link ends, links, nodes, frames, and graphs."""
 
-from collections.abc import Iterable, Iterator, Mapping
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from enum import Enum
-import functools
+from functools import partial
 import inspect
-import itertools
+from itertools import chain, islice
 import re
 from types import MappingProxyType, MemberDescriptorType
-from typing import Final, get_args, override, Self, TypeAliasType
+from typing import ClassVar, Final, get_args, override, Self, TYPE_CHECKING, TypeAliasType
 
 import bpy
-from expression import Error, Nothing, Ok, Option, Some, try_downcast
-from expression.collections import Block
+from expression import Option, Result, Some, try_downcast
 import msgspec
 import msgspec.structs
 
 from blender.bpy.data.ids.ownership import Ownership
-from blender.bpy.data.rna.descriptors import Value, written
+from blender.bpy.data.rna.descriptors import differing, Value, written
 from blender.bpy.data.rna.paths import RnaPath
 from blender.bpy.data.rna.properties import titled
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.nodes.trees import arranged, GraphTree
-from blender.records.faults import accumulated, Fault, Outcome, Reason
+from blender.bpy.nodes.trees import GraphTree, matched_items, ordered_items
+from blender.records.faults import accumulated, Error, Fault, Nothing, Ok, Outcome, Reason
+
+if TYPE_CHECKING:
+    from blender.bpy.nodes.interfaces import NodeGroup
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type Members = Mapping[str | RnaPath, Value]
 type Choice = Enum | type[msgspec.Struct]
+type _NestedGroup = Ownership[bpy.types.NodeTree] | NodeGroup
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -51,6 +54,11 @@ class Content(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def groups(self) -> tuple[Ownership[bpy.types.NodeTree], ...]:
         """Ownership rows of the owned groups the content points at, at any depth."""
+        return _groups(self.nested)
+
+    @property
+    def nested(self) -> tuple[_NestedGroup, ...]:
+        """Direct owned trees or group declarations the content points at."""
         return ()
 
     def holds(self, live: bpy.types.Node, identity: Identity, /) -> Outcome[bool]:
@@ -81,6 +89,11 @@ class ItemContent(Content, frozen=True, kw_only=True):
         """
         raise NotImplementedError(type(self).__name__)
 
+    @property
+    def positions(self) -> Callable[[bpy.types.Node, Identity], Mapping[bool, Mapping[int, str]]] | None:
+        """Reader of future retained native item identifiers by enabled position and output side, absent for nested interfaces."""
+        return None
+
 
 class MenuItem(msgspec.Struct, frozen=True, kw_only=True):
     """Menu Switch item."""
@@ -100,13 +113,22 @@ class MenuItem(msgspec.Struct, frozen=True, kw_only=True):
     @staticmethod
     def member[C: Choice](choices: Iterable[C], name: str, /) -> Option[C]:
         """Returns the enum member or case class whose item `of` names `name`, the inverse of `of` over an enum class or a union alias's `get_args(alias.__value__)`."""
-        return Block.of_seq(choices).filter(lambda choice: MenuItem.of(choice).name == name).try_head()
+        return Option.of_optional(next((choice for choice in choices if MenuItem.of(choice).name == name), None))
 
 
 class MenuItems(ItemContent, frozen=True, kw_only=True):
     """Ordered Menu Switch items, the content a Menu Switch node holds."""
 
     items: tuple[MenuItem, ...]
+    selected: MenuItem | None = None
+    _key: ClassVar[Key] = "menu_items"
+
+    @staticmethod
+    def _bound(live: bpy.types.GeometryNodeMenuSwitch, identity: Identity) -> tuple[Mapping[str, Mapping[str, str]], dict[str, bpy.types.NodeEnumItem], bpy.types.NodeInputs, bpy.types.NodeOutputs]:
+        bindings: Mapping[str, Mapping[str, str]] = live.get(identity.identifier(MenuItems._key), {})  # ty: ignore[unsound-assignment]
+        inputs: bpy.types.NodeInputs = live.inputs  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        outputs: bpy.types.NodeOutputs = live.outputs  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+        return bindings, {socket.identifier: item for item, socket in zip(live.enum_items, islice(outputs, 1, None))}, inputs, outputs
 
     @classmethod
     def of(cls, source: bpy.types.EnumProperty | Iterable[Choice] | TypeAliasType, /) -> Self:
@@ -121,21 +143,94 @@ class MenuItems(ItemContent, frozen=True, kw_only=True):
 
     @override
     def holds(self, live: bpy.types.Node, identity: Identity, /) -> Outcome[bool]:
-        return _switch(live).map(lambda switch: tuple((each.name, each.description) for each in switch.enum_items) == tuple((each.name, each.description) for each in self.items))
+        def matched(switch: bpy.types.GeometryNodeMenuSwitch) -> bool:
+            bindings, inventory, inputs, _ = self._bound(switch, identity)
+            selection = None if self.selected is None else next((native.name for native, wanted in zip(inventory.values(), self.items) if wanted == self.selected), self.selected.name)
+            return (
+                len(inventory) == len(self.items)
+                and tuple(bindings[identifier]["request"] for identifier in inventory if identifier in bindings) == tuple(item.name for item in self.items)
+                and all(native.name == bindings[identifier]["name"] and native.description == wanted.description for (identifier, native), wanted in zip(inventory.items(), self.items))
+                and (selection is None or not differing(inputs["Menu"], {("default_value",): selection}))
+            )
+
+        return _switch(live).map(matched)
 
     @override
     def write(self, live: bpy.types.Node, identity: Identity, /) -> Outcome[None]:
-        return _switch(live).bind(
-            lambda switch: accumulated(
-                written(each, ("description",), item.description)
-                for each, item in zip(arranged(switch.enum_items, tuple(each.name for each in self.items), switch.enum_items.new, switch.enum_items.remove), self.items)
-            ).map(lambda _: None)
-        )
+        match _switch(live):
+            case Result(tag="ok", ok=switch):
+                pass
+            case Result(error=errors):
+                return Error(errors)
+        bindings, inventory, inputs, outputs = self._bound(switch, identity)
+        removed, matched = matched_items(inventory, {identifier: row["request"] for identifier, row in bindings.items()}, (item.name for item in self.items))
+        names = {identifier: item.name for identifier, item in inventory.items()}
+        selected = next((index for index, item in enumerate(self.items) if item == self.selected), None)
+        selection = None if self.selected is None else self.selected.name
+        kept: dict[str, dict[str, str]] = {}
+        desired: list[str] = []
+        answers: list[Outcome[object]] = []
+        refused = partial(Fault.of, Reason.REFUSED, repr(switch))
+        try:
+            for index in reversed(removed):
+                switch.enum_items.remove(switch.enum_items[index])
+            for index, (wanted, retained) in enumerate(zip(self.items, matched)):
+                item = switch.enum_items[names[retained]] if retained is not None else switch.enum_items.new(wanted.name)
+                if retained is not None and item.name != bindings[retained]["name"]:
+                    item.name = wanted.name
+                identifier = retained if retained is not None else outputs[len(switch.enum_items)].identifier
+                kept[identifier] = {"request": wanted.name, "name": item.name}
+                selection = item.name if index == selected else selection
+                desired.append(identifier)
+                answers.append(written(item, ("description",), wanted.description))
+            current = (*(identifier for identifier in inventory if identifier in kept), *(identifier for identifier, retained in zip(desired, matched) if retained is None))
+            ordered_items(current, desired, switch.enum_items.move)
+            if selection is not None:
+                answers.append(written(inputs["Menu"], ("default_value",), selection))
+        except (RuntimeError, TypeError, ValueError) as error:
+            return accumulated((*answers, Error(refused(error)))).map(lambda _: None)
+        try:
+            switch[identity.identifier(self._key)] = kept
+        except (KeyError, TypeError, ValueError) as error:
+            answers.append(Error(refused(error)))
+        return accumulated(answers).map(lambda _: None)
 
     @override
     def sockets(self, live: bpy.types.Node, identity: Identity, /) -> Mapping[str, str]:
-        fixed = {socket.identifier for socket in (*live.inputs, *live.outputs)}
-        return _switch(live).map(lambda switch: {item.name: socket.identifier for item, socket in zip(switch.enum_items, tuple(live.outputs)[1:]) if item.name not in fixed}).default_value({})
+        match live:
+            case bpy.types.GeometryNodeMenuSwitch() as switch:
+                bindings, inventory, inputs, outputs = self._bound(switch, identity)
+            case _:
+                return dict[str, str]()
+        fixed = {socket.identifier for socket in chain(inputs, outputs)}
+        aliases: dict[str, str] = {}
+        for name, identifier in chain(
+            ((bindings[identifier]["request"], identifier) for identifier in inventory if identifier in bindings), ((item.name, identifier) for identifier, item in inventory.items())
+        ):
+            if name not in fixed:
+                aliases.setdefault(name, identifier)
+        return aliases
+
+    @override
+    def positions(self, live: bpy.types.Node, identity: Identity, /) -> Mapping[bool, Mapping[int, str]]:
+        match live:
+            case bpy.types.GeometryNodeMenuSwitch() as switch:
+                bindings, inventory, inputs, outputs = self._bound(switch, identity)
+            case _:
+                return {False: dict[int, str](), True: dict[int, str]()}
+        _, matched = matched_items(inventory, {identifier: row["request"] for identifier, row in bindings.items()}, (item.name for item in self.items))
+        return {
+            output: {
+                index: identifier
+                for index, identifier in enumerate((
+                    sockets[0].identifier,
+                    *matched,
+                    *(socket.identifier for socket in islice(sockets, 1, None) if socket.identifier not in inventory and socket.enabled),
+                ))
+                if identifier is not None
+            }
+            for output, sockets in ((False, inputs), (True, outputs))
+        }
 
 
 # --- [GRAPHS]
@@ -195,17 +290,19 @@ class Graph(Membered, frozen=True, kw_only=True):
     @property
     def placed(self) -> dict[Key, tuple[Node, Option[Key]]]:
         """Node and parent frame key per key in preorder, frames as `NodeFrame` nodes."""
-
-        def walked(items: Mapping[Key, Node | FrameNode], parent: Option[Key]) -> Iterator[tuple[Key, tuple[Node, Option[Key]]]]:
-            for key, item in items.items():
-                match item:
-                    case FrameNode(members=members, nodes=inner):
-                        yield key, (Node(kind=bpy.types.NodeFrame, members=members), parent)
-                        yield from walked(inner, Some(key))
-                    case Node():
-                        yield key, (item, parent)
-
-        return dict(walked(self.nodes, Nothing))
+        placed: dict[Key, tuple[Node, Option[Key]]] = {}
+        pending: list[tuple[Iterator[tuple[Key, Node | FrameNode]], Option[Key]]] = [(iter(self.nodes.items()), Nothing)]
+        while pending:
+            items, parent = pending[-1]
+            match next(items, None):
+                case (key, FrameNode(members=members, nodes=inner)):
+                    placed[key] = (Node(kind=bpy.types.NodeFrame, members=members), parent)
+                    pending.append((iter(inner.items()), Some(key)))
+                case (key, Node() as node):
+                    placed[key] = (node, parent)
+                case None:
+                    pending.pop()
+        return placed
 
     @property
     def contents(self) -> dict[Key, Content]:
@@ -214,8 +311,8 @@ class Graph(Membered, frozen=True, kw_only=True):
 
     @property
     def groups(self) -> tuple[Ownership[bpy.types.NodeTree], ...]:
-        """Ownership rows of the groups nested at any depth, one per key in nesting order."""
-        return tuple({group.key: group for content in self.contents.values() for group in content.groups}.values())
+        """Ownership rows in nesting order, first declaration per key retained."""
+        return _groups(group for content in self.contents.values() for group in content.nested)
 
     @classmethod
     def merged(cls, kind: type[GraphTree], parts: Iterable["Graph"]) -> Outcome["Graph"]:
@@ -229,12 +326,11 @@ class Graph(Membered, frozen=True, kw_only=True):
             `Ok` of joined graph. `Error` of `refused` per key holding different nodes.
         """
         held = tuple(parts)
-        pairs = tuple((key, item) for part in held for key, item in part.nodes.items())
-        first = {key: index for index, key in enumerate(dict.fromkeys(key for key, _ in pairs))}
-        claims: dict[Key, tuple[Node | FrameNode, ...]] = {
-            key: functools.reduce(lambda distinct, item: distinct if item in distinct else (*distinct, item), (item for _, item in run), ())
-            for key, run in itertools.groupby(sorted(pairs, key=lambda pair: first[pair[0]]), key=lambda pair: pair[0])
-        }
+        claims: dict[Key, list[Node | FrameNode]] = {}
+        for key, item in ((key, item) for part in held for key, item in part.nodes.items()):
+            distinct = claims.setdefault(key, [])
+            if item not in distinct:
+                distinct.append(item)
         return accumulated(
             Ok((key, first)) if not rest else Error(Fault.of(Reason.REFUSED, f"Graph.nodes[{key!r}]", ValueError(f"{len(rest) + 1} different nodes share key {key!r}")))
             for key, (first, *rest) in claims.items()
@@ -244,12 +340,31 @@ class Graph(Membered, frozen=True, kw_only=True):
             )
         )
 
-    def acquisitions(self, _identity: Identity) -> Outcome[Acquisitions]:
+    def acquisitions(self, _identity: Identity) -> Acquisitions:
         """Returns nested group ownership rows in nesting order."""
-        return Ok(self.groups)
+        return self.groups
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+def _groups(starts: Iterable[_NestedGroup]) -> tuple[Ownership[bpy.types.NodeTree], ...]:
+    """Walks group declarations once by identity, retaining the first ownership per key."""
+    held: dict[Key, Ownership[bpy.types.NodeTree]] = {}
+    seen: set[int] = set()
+    pending = [iter(starts)]
+    while pending:
+        match next(pending[-1], None):
+            case None:
+                pending.pop()
+            case Ownership() as owner:
+                held.setdefault(owner.key, owner)
+            case group:
+                if (identity := id(group)) not in seen:
+                    seen.add(identity)
+                    held.setdefault(group.key, group.ownership)
+                    pending.append(iter(child for content in group.graph.contents.values() for child in content.nested))
+    return tuple(held.values())
 
 
 def member_paths(members: Members) -> Mapping[RnaPath, Value]:

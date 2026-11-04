@@ -1,6 +1,7 @@
 using Eto.Drawing;
 using Eto.Forms;
 using Rhino.UI.Controls;
+using SuperLinq;
 
 namespace Rasm.Rhino.UI.Rows;
 
@@ -27,19 +28,23 @@ public sealed class RowTable {
 
     internal static IO<RowTable> Made(RowScope scope) =>
         from made in use(() => new RowTable(scope, new Panel()), static table => table.Released)
-        from sized in Subscriptions.On<EventArgs>(h => made.view.SizeChanged += h, h => made.view.SizeChanged -= h).Attach(_ => made.Fitted)
+        from post in Mailboxes.Idle<Unit, Unit>(_ => made.Fitted)
+        from sized in Subscriptions.On<EventArgs>(h => made.view.SizeChanged += h, h => made.view.SizeChanged -= h).Attach(_ => post(unit, unit))
         select made;
 
     // --- [SHOW]
     public IO<Unit> Show(Seq<Row> rows) =>
-        from shown in rows.TraverseM(row => Holds(row.Visible).Map(visible => (Row: row, Visible: visible))).As()
-        let visible = Identified(shown.Filter(static entry => entry.Visible).Map(static entry => entry.Row))
-        from prior in Taken
-        from current in visible.TraverseM(entry => Restated(prior.Realized.Find(row => row.Id == entry.Id), entry.Id, entry.Row)).As()
-        from laid in Arranged(prior.Laid, current.Map(static held => held.Placed), prior.Laid.Map(static held => held.Beside).IfNone(noneValue: true))
-        from stored in atomicIO(() => state.Value = (Realized: current.Map(static held => held.Row), Laid: Some(laid)))
-        from released in prior.Realized.Filter(row => !current.Exists(kept => ReferenceEquals(kept.Row, row))).TraverseM(static row => row.Released).As()
-        select unit;
+        (from shown in rows.TraverseM(row => Holds(row.Visible).Map(visible => (Row: row, Visible: visible))).As()
+         let visible = Identified(shown.Filter(static entry => entry.Visible).Map(static entry => entry.Row))
+         from prior in atomicIO(() => state.Value)
+         let existing = toHashMap(prior.Realized.Map(static row => (row.Id, row)))
+         from current in visible.TraverseM(entry => Restated(existing.Find(entry.Id), entry.Id, entry.Row)).As()
+         from laid in Arranged(prior.Laid, current.Map(static held => held.Placed), prior.Laid.Map(static held => held.Beside).IfNone(noneValue: true))
+         let realized = current.Map(static held => held.Row)
+         let kept = toHashMap(realized.Map(static row => (row.Id, row)))
+         from stored in atomicIO(() => state.Value = (Realized: realized, Laid: Some(laid)))
+         select prior.Realized.Filter(row => !kept.Find(row.Id).Exists(current => ReferenceEquals(current, row))))
+        .BracketFail().Bind(static retired => Products.Each(retired.Map(static row => row.Content.Release))).Map(unit);
 
     private static Seq<((Type Kind, string Label, int Ordinal) Id, Row Row)> Identified(Seq<Row> rows) =>
         rows.Fold((Seen: HashMap<(Type Kind, string Label), int>(), Rows: Seq<((Type Kind, string Label, int Ordinal) Id, Row Row)>()), static (state, row) =>
@@ -55,24 +60,24 @@ public sealed class RowTable {
         });
 
     private IO<(RealizedRow Row, (RowShape Shape, Option<Label> Caption, Control Value) Placed)> Restated(Option<RealizedRow> held, (Type Kind, string Label, int Ordinal) id, Row row) =>
-        from kept in held.Match(Some: existing => existing.Restated(row).Scoped(existing.Scope).Map(same => Conversions.Present(same, existing)), None: static () => IO.pure(Option<RealizedRow>.None))
+        from kept in held.Match(Some: existing => existing.Content.Value.Restate(row).Scoped(existing.Content.Scope).Map(same => Conversions.Present(same, existing)), None: static () => IO.pure(Option<RealizedRow>.None))
         from current in kept.Match(Some: static existing => IO.pure(existing), None: () => Realized(id, row))
         from faced in Faced(current, row)
-        select (current, (row.Shape, current.Caption, current.Value));
+        select (current, (row.Shape, current.Content.Value.Caption, current.Content.Value.Control));
 
     private IO<RealizedRow> Realized((Type Kind, string Label, int Ordinal) id, Row row) =>
-        Products.Transfer(static () => EnvIO.New(token: CancellationToken.None), owned =>
-            (from made in row.Realize(LocalText.Of(row.Label), scope)
-             from value in Valued(made.Cells, row)
-             from caption in row.Shape.Labeled ? use(static () => new Label()).Map(Some) : IO.pure(Option<Label>.None)
-             select new RealizedRow(id, caption, value, made.Restated, owned))
-            .Scoped(owned));
+        Products.Owned(
+            from made in row.Realize(LocalText.Of(row.Label), scope)
+            from value in Valued(made.Cells, row)
+            from caption in row.Shape.Labeled ? use(static () => new Label()).Map(Some) : IO.pure(Option<Label>.None)
+            select (Caption: caption, Control: value, Restate: made.Restated))
+            .Map(content => new RealizedRow(id, content));
 
     private IO<Unit> Faced(RealizedRow current, Row row) =>
         from enabled in Holds(row.Enabled)
         from faced in IO.lift(() => {
-            _ = current.Caption.Iter(label => (label.Text, label.Font, label.Enabled) = (LocalText.Of(row.Label).Local, row.Modified ? SystemFonts.Bold(SystemFonts.Label().Size) : SystemFonts.Label(), enabled));
-            (current.Value.Enabled, current.Value.ToolTip) = (enabled, row.Help.Map(static help => LocalText.Of(help).Local).ValueUnsafe());
+            _ = current.Content.Value.Caption.Iter(label => (label.Text, label.Font, label.Enabled) = (LocalText.Of(row.Label).Local, row.Modified ? SystemFonts.Bold(SystemFonts.Label().Size) : SystemFonts.Label(), enabled));
+            (current.Content.Value.Control.Enabled, current.Content.Value.Control.ToolTip) = (enabled, row.Help.Map(static help => LocalText.Of(help).Local).ValueUnsafe());
         })
         select unit;
 
@@ -81,17 +86,13 @@ public sealed class RowTable {
     private IO<Unit> Released =>
         from prior in Taken
         from cleared in prior.Laid.Traverse(Cleared).As()
-        from released in prior.Realized.TraverseM(static row => row.Released).As()
+        from released in Products.Each(prior.Realized.Map(static row => row.Content.Release))
         from disposed in IO.lift(view.Dispose)
         select unit;
 
     // --- [ARRANGE]
     private IO<Unit> Fitted =>
-        from prior in atomicIO(() => {
-            (Seq<RealizedRow> Realized, Option<Arrangement> Laid) held = state.Value;
-            state.Value = held with { Laid = None };
-            return held.Laid;
-        })
+        from prior in atomicIO(() => state.Value.Laid)
         from laid in prior.Traverse(held => IO.lift(() => view.Width >= Needed(held.Rows)).Bind(beside => Arranged(prior, held.Rows, beside))).As()
         from stored in atomicIO(() => state.Value = state.Value with { Laid = laid })
         select unit;
@@ -126,9 +127,7 @@ public sealed class RowTable {
     }
 
     private static Seq<Seq<(RowShape Shape, Option<Label> Caption, Control Value)>> Runs(Seq<(RowShape Shape, Option<Label> Caption, Control Value)> rows) =>
-        rows.Fold(Seq<Seq<(RowShape Shape, Option<Label> Caption, Control Value)>>(), static (runs, row) => runs.Last.Filter(run => !row.Shape.Spans && !run.Exists(static prior => prior.Shape.Spans)).Match(
-            Some: run => runs.Init.Add(run.Add(row)),
-            None: () => runs.Add(Seq(row))));
+        toSeq(rows.Segment(static (current, previous, _) => current.Shape.Spans || previous.Shape.Spans)).Map(static run => toSeq(run));
 
     private static TableLayout Paired(Seq<(RowShape Shape, Option<Label> Caption, Control Value)> run, Size spacing) =>
         new(run.Map(static row => row.Caption.Match(
@@ -158,14 +157,17 @@ public sealed class RowTable {
         select body;
 
     private static IO<Control> Body(RowCells cells, Row row) =>
-        from main in Lined(Seq(new TableCell(cells.Value, scaleWidth: true)) + cells.Pick.Map(static pick => new TableCell(pick)).ToSeq())
-        from lines in cells.Lines.TraverseM(Line).As()
-        from stack in Containers.Frame(static () => new StackLayout {
-            Spacing = RhinoLayout.Spacing(RhinoLayout.SpacingType.Table).Height,
-            HorizontalContentAlignment = HorizontalAlignment.Stretch,
-        })
-        from filled in IO.lift(() => main.Cons(lines).Iter(line => stack.Items.Add(new StackLayoutItem(line, expand: row.Shape.Fills))))
-        select (Control)stack;
+        from main in cells.Pick.Match(Some: pick => Lined([new TableCell(cells.Value, scaleWidth: true), new TableCell(pick)]), None: () => IO.pure(cells.Value))
+        from body in cells.Lines.IsEmpty
+            ? IO.pure(main)
+            : from lines in cells.Lines.TraverseM(Line).As()
+              from stack in Containers.Frame(static () => new StackLayout {
+                  Spacing = RhinoLayout.Spacing(RhinoLayout.SpacingType.Table).Height,
+                  HorizontalContentAlignment = HorizontalAlignment.Stretch,
+              })
+              from filled in IO.lift(() => main.Cons(lines).Iter(line => stack.Items.Add(new StackLayoutItem(line, expand: row.Shape.Fills))))
+              select (Control)stack
+        select body;
 
     private static IO<Control> Line(RowLine line) =>
         line.Caption.Match(
@@ -178,7 +180,5 @@ public sealed class RowTable {
     // --- [ROWS]
     private sealed record Arrangement(Seq<(RowShape Shape, Option<Label> Caption, Control Value)> Rows, bool Beside, TableLayout Table, Seq<TableLayout> Runs);
 
-    private sealed record RealizedRow((Type Kind, string Label, int Ordinal) Id, Option<Label> Caption, Control Value, Func<Row, IO<bool>> Restated, EnvIO Scope) {
-        public IO<Unit> Released => IO.lift(Scope.Dispose);
-    }
+    private sealed record RealizedRow((Type Kind, string Label, int Ordinal) Id, Owned<(Option<Label> Caption, Control Control, Func<Row, IO<bool>> Restate)> Content);
 }

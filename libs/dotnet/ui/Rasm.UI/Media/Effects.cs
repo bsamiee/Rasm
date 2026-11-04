@@ -58,34 +58,38 @@ internal sealed record RuntimeEffect {
 
     private static Fin<Unit> Typed(SKRuntimeEffect program, HashMap<string, ColorValue> colors, HashMap<string, Metric> floats) =>
         Try.lift(() => {
-            using SKRuntimeEffectUniforms probed = Uniforms(program, colors.Map(static _ => Some(new SKColorF())), floats.Map(static _ => 0f), SKSize.Empty, 0f, Corners.Square.Clockwise, SKPoint.Empty);
+            using SKRuntimeEffectUniforms probed = new(program);
+            WriteUniforms(probed, colors.Map(static _ => new SKColorF()), floats.Map(static _ => 0f), SKSize.Empty, 0f, Corners.Square.Clockwise, SKPoint.Empty);
             return unit;
-        }).Run().MapFail(error => new UIFault(string.Join(", ", colors.Keys.Concat(floats.Keys)), UIReason.Refused, Inner: error));
+        }).Run().MapFail(error => new UIFault(toSeq(colors.Keys.Concat(floats.Keys)), UIReason.Refused, Inner: error));
 
     // --- [BINDING]
-    internal Option<T> Bound<T>(PaintTarget target, SKMatrix local, Func<SKRuntimeEffect, SKRuntimeEffectUniforms, SKRuntimeEffectChildren, T> build) {
-        Seq<(string Name, Option<SKShader> Shader)> placed = Children.AsIterable().ToSeq().Map(pair => (Name: pair.Key, Shader: pair.Value.Shader(target).Map(made => {
-            using SKShader owned = made;
-            return owned.WithLocalMatrix(local);
-        }))).Strict();
-        using SKRuntimeEffectUniforms uniforms = Uniforms(Program, Colors.Map(target.Resolve), Floats.Map(target.Metric), target.Frame.Size, target.Clock, target.Corners.Clockwise,
-            target.Pointer.Map(at => at - target.Frame.Location).IfNone(Away));
-        using SKRuntimeEffectChildren bound = new(Program);
-        _ = placed.Iter(held => held.Shader.Iter(shader => bound[held.Name] = shader));
-        Option<T> built = placed.ForAll(static held => held.Shader.IsSome) ? Some(build(Program, uniforms, bound)) : None;
-        _ = placed.Iter(static held => held.Shader.Iter(static shader => shader.Dispose()));
-        return built;
-    }
+    internal Option<T> Bound<T>(PaintTarget target, SKMatrix local, Func<SKRuntimeEffect, SKRuntimeEffectUniforms, SKRuntimeEffectChildren, T> build) =>
+        Colors.AsIterable().ToSeq().Traverse(pair => target.Resolve(pair.Value).Map(color => (pair.Key, color))).As().Bind(colors => {
+            using SKRuntimeEffectChildren bound = new(Program);
+            try {
+                return Children.AsIterable().ToSeq().Traverse(pair => pair.Value.Shader(target).Map(made => {
+                    using SKShader shader = made;
+                    bound[pair.Key] = shader.WithLocalMatrix(local);
+                    return unit;
+                })).As().Map(_ => {
+                    using SKRuntimeEffectUniforms uniforms = new(Program);
+                    WriteUniforms(uniforms, toHashMap(colors), Floats.Map(target.Metric), target.Frame.Size, target.Clock, target.Corners.Clockwise,
+                        target.Pointer.Map(at => at - target.Frame.Location).IfNone(Away));
+                    return build(Program, uniforms, bound);
+                });
+            } finally {
+                foreach (SKObject? child in bound.ToArray()) child?.Dispose();
+            }
+        });
 
-    private static SKRuntimeEffectUniforms Uniforms(SKRuntimeEffect program, HashMap<string, Option<SKColorF>> colors, HashMap<string, float> floats, SKSize size, float clock, Seq<float> radii, SKPoint pointer) {
-        SKRuntimeEffectUniforms uniforms = new(program);
+    private static void WriteUniforms(SKRuntimeEffectUniforms uniforms, HashMap<string, SKColorF> colors, HashMap<string, float> floats, SKSize size, float clock, Seq<float> radii, SKPoint pointer) {
         if (uniforms.Contains(Size)) uniforms[Size] = size;
         if (uniforms.Contains(Clock)) uniforms[Clock] = clock;
         if (uniforms.Contains(Radii)) uniforms[Radii] = radii.ToArray();
         if (uniforms.Contains(Pointer)) uniforms[Pointer] = pointer;
-        _ = colors.Iter((name, color) => color.Iter(held => uniforms[name] = held));
+        _ = colors.Iter((name, color) => uniforms[name] = color);
         _ = floats.Iter((name, value) => uniforms[name] = value);
-        return uniforms;
     }
 }
 
@@ -144,7 +148,7 @@ internal sealed record PaintTarget(SKColorSpace Space, SKRect Frame, Func<ColorV
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Filter {
     // --- [CHAIN]
-    internal static readonly PaintTarget Probe = new(SKColorSpace.Srgb, SKRect.Create(1f, 1f), static _ => None, static metric => metric.Default, static _ => None);
+    internal static readonly PaintTarget Probe = new(SKColorSpace.CreateSrgb(), SKRect.Create(1f, 1f), static _ => None, static metric => metric.Default, static _ => None);
 
     internal static readonly Func<Seq<Filter>, float> Outset = memo<Seq<Filter>, float>(static filters => Chained(filters, Probe).Map(Reach).IfNone(0f));
 
@@ -159,7 +163,7 @@ public abstract partial record Filter {
     internal static Option<SKImageFilter> Chained(Seq<Filter> filters, PaintTarget target) =>
         filters.Fold(Option<SKImageFilter>.None, (input, filter) =>
             filter.Built(target, input.ValueUnsafe()).Map(built => {
-                _ = input.Iter(static held => held.Dispose());
+                if (input.Case is SKImageFilter held && !ReferenceEquals(held, built)) held.Dispose();
                 return built;
             }) | input);
 
@@ -221,7 +225,7 @@ public abstract partial record Filter {
         public float Bias { get; }
 
         public static Fin<Convolve> Validated(SKSizeI size, Seq<float> kernel, float gain, float bias) =>
-            UIFault.Unless(size is { Width: > 0, Height: > 0 } && kernel.Count == size.Width * size.Height, UIReason.Range, (size, kernel.Count)).Map(_ => new Convolve(size, kernel, gain, bias));
+            UIFault.Unless(size is { Width: > 0, Height: > 0 } && kernel.Count == Math.BigMul(size.Width, size.Height), UIReason.Range, (size, kernel.Count)).Map(_ => new Convolve(size, kernel, gain, bias));
 
         internal override Option<SKImageFilter> Built(PaintTarget target, SKImageFilter? input) =>
             SKImageFilter.CreateMatrixConvolution(Size, [.. Kernel], Gain, Bias, new SKPointI(Size.Width / 2, Size.Height / 2), SKShaderTileMode.Clamp, convolveAlpha: false, input);
@@ -288,14 +292,6 @@ public static class Blenders {
 }
 
 internal static class ColorSpaceExtensions {
-    private static readonly SKColorSpace Standard = SKColorSpace.CreateSrgb();
-    private static readonly SKColorSpace Linear = SKColorSpace.CreateSrgbLinear();
-
-    extension(SKColorSpace) {
-        internal static SKColorSpace Srgb => Standard;
-        internal static SKColorSpace SrgbLinear => Linear;
-    }
-
     extension(SKColorSpace target) {
         internal SKColorFilter ColorMatrix(ReadOnlySpan<float> srgb) {
             SKColorFilter matrix = SKColorFilter.CreateColorMatrix(srgb);

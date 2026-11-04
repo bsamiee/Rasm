@@ -1,5 +1,6 @@
 """Darkroom metering: the scene meter written into the earliest Exposure entry, a meter region picked or dragged over the image, and viewport following through the inverse of the shown formation."""
 
+# ruff: file-ignore[relative-imports]
 from collections.abc import Callable, Generator
 from contextlib import contextmanager, nullcontext
 from functools import partial
@@ -8,26 +9,26 @@ from typing import ClassVar, Final
 
 from bl_ui.properties_render import RENDER_PT_color_management
 import bpy
-from expression import Nothing, Ok, Option, Some
+from expression import Option, Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
 import PyOpenColorIO
 
 from blender.bpy.commands.keymaps import Button, Chord
-from blender.bpy.commands.operators import Answer, Call, Done, Empty, NoUndo, Operator, Placement
+from blender.bpy.commands.operators import Answer, Call, Done, Empty, Operator, Placement
 from blender.bpy.data.ids.images import fingerprinted
 from blender.bpy.data.ids.store import Handle
 from blender.bpy.data.rna.conditions import Job, Setting
 from blender.bpy.data.rna.descriptors import Descriptor
 from blender.bpy.data.rna.paths import root_in, rooted
 from blender.bpy.data.rna.snapshots import assigned
-from blender.bpy.extension.events import Timer
-from blender.bpy.extension.identity import Identity, Resource
-from blender.bpy.extension.registration import Acquisitions, Declaration
+from blender.bpy.extension.identity import Identity
+from blender.bpy.extension.registration import Acquisitions, Declaration, Handler, Resource, Timer
 from blender.bpy.render.color.spaces import viewed
 from blender.bpy.render.compositor.entries import Enabled
 from blender.bpy.render.compositor.inputs import entered, path_key
+from blender.bpy.render.compositor.motion import rate
 from blender.bpy.render.compositor.viewers import READ
 from blender.bpy.render.previews import queue
 from blender.bpy.render.previews.queue import Latest, PreviewFeed, Rank
@@ -43,25 +44,29 @@ from blender.bpy.ui.layout.rows import OperatorButton
 from blender.bpy.ui.layout.sections import Section
 from blender.bpy.ui.layout.values import Store
 from blender.bpy.ui.resources.theme import Metrics
-from blender.bpy.ui.screens.areas import AreaQuery
+from blender.bpy.ui.screens.areas import AreaQuery, Located
 from blender.imaging.analysis.metering import Meter
 from blender.imaging.color.luts import Lattice, Logarithmic
 from blender.imaging.color.processors import DisplayView, processor
 from blender.imaging.files.buffers import applied
 from blender.imaging.files.images import ImageFile
 from blender.imaging.geometry.frames import Quad, Region
-from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
-from blender.records.stores import content_hash, ContentHash
+from blender.records.faults import accumulated, Fault, Nothing, Ok, Outcome, paired, Reason
+from blender.records.stores import ContentHash
 
 from ..catalog import chain
 from ..effects.grade.exposure import entry_stops, exposure, gain, STOPS
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_LATTICE: Final = Lattice(spacing=Logarithmic())
-_INTERVAL: Final = 0.12
 _VIEWPORTS: Final = AreaQuery(
-    space=bpy.types.SpaceView3D, shows=Some(Setting(descriptor=Descriptor.declared(bpy.types.SpaceView3D, ("shading", "type"), bpy.types.EnumProperty), accepted=("MATERIAL", "RENDERED")))
+    space=bpy.types.SpaceView3D,
+    shows=Some(Setting(descriptor=Descriptor(root=bpy.types.SpaceView3D, owner=("shading",), prop=bpy.types.View3DShading.bl_rna.properties["type"]), accepted=("MATERIAL", "RENDERED"))),
+)
+_COMPOSITOR: Final = Descriptor(root=bpy.types.SpaceView3D, owner=("shading",), prop=bpy.types.View3DShading.bl_rna.properties["use_compositor"])
+_COMPOSITED: Final = Setting(descriptor=_COMPOSITOR, accepted=("ALWAYS",)) | (
+    Setting(descriptor=_COMPOSITOR, accepted=("CAMERA",))
+    & Setting(descriptor=Descriptor(root=bpy.types.Context, owner=("region_data",), prop=bpy.types.RegionView3D.bl_rna.properties["view_perspective"]), accepted=("CAMERA",))
 )
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -97,88 +102,110 @@ class Metering(bpy.types.PropertyGroup):
 
 
 class Following(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Enabled viewport meter with its bias and agreement, the inverse of the scene view, the inverse of the composited formation, `Nothing` until its lattice is sampled, and the Exposure gain in stops."""
+    """Enabled viewport meter with its bias, agreement, and inverse pipeline with Exposure compensation, `Nothing` until the composited lattice is sampled."""
 
     scene: Handle[bpy.types.Scene]
     meter: Meter
     bias: float
     tolerance: float
     config: PyOpenColorIO.Config
-    viewing: PyOpenColorIO.CPUProcessor
-    composited: Option[PyOpenColorIO.CPUProcessor]
-    gain: float
+    inverse: Option[tuple[PyOpenColorIO.CPUProcessor, float]]
+
+
+class _Formation(msgspec.Struct, frozen=True, kw_only=True):
+    """Viewport formation request with its frame, view, OCIO configuration, and each entry's fingerprint."""
+
+    scene: Handle[bpy.types.Scene]
+    entries: tuple[str, ...]
+    frame: tuple[float, float]
+    view: DisplayView
+    config: str
+    content: tuple[Option[ContentHash], ...]
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
-_INVERSES: Final = Resource[Latest[ContentHash, PyOpenColorIO.CPUProcessor]](made=lambda _identity: nullcontext(Latest()))
+_INVERSES: Final = Resource[Latest[int, _Formation, PyOpenColorIO.CPUProcessor]](made=lambda _identity: nullcontext(Latest()))
+_READINGS: Final = Resource[dict[Handle[bpy.types.Scene], tuple[object, float]]](made=lambda _identity: nullcontext({}), renewed=Some(lambda _readings: {}))
 _SIGNAL: Final = Resource[Signal](made=lambda _identity: nullcontext(Signal()))
 
 
 class Follower:
     """Viewport part metering the shown camera frame through the inverse of its formation, stepping toward targets consecutive readings agree on."""
 
-    __slots__ = ("identity", "previous", "step")
+    __slots__ = ("identity", "step")
     draw_type: ClassVar[DrawType] = "PRE_VIEW"
 
-    def __init__(self, identity: Identity, step: Callable[[Handle[bpy.types.Scene], float], None]) -> None:
-        """Holds the identity and deferred step with no previous reading."""
+    def __init__(self, identity: Identity, step: Callable[[Handle[bpy.types.Scene], object], None]) -> None:
+        """Holds the identity and deferred exposure step."""
         self.identity, self.step = identity, step
-        self.previous: Option[tuple[Handle[bpy.types.Scene], float]] = Nothing
 
     def read(self, _metrics: Metrics) -> Outcome[Option[Following]]:
-        """Returns enabled metering with the inverses of the scene view and of the held composited formation."""
+        """Returns enabled metering with the inverse pipeline used by this viewport."""
         config, identity = PyOpenColorIO.GetCurrentConfig(), self.identity
 
-        def followed(scene: bpy.types.Scene, metering: Metering, view: DisplayView) -> Outcome[Following]:
-            def held(viewing: PyOpenColorIO.CPUProcessor) -> Outcome[Following]:
-                return paired(AutoExposure.composited(identity, scene, view, viewing), gain(identity, scene, enabled=Enabled.PREVIEW)).map(
-                    lambda found: Following(
-                        scene=Handle.of(scene), meter=metering.meter, bias=metering.bias, tolerance=metering.follow.tolerance, config=config, viewing=viewing, composited=found[0], gain=found[1]
-                    )
-                )
-
-            return (
-                view
+        def followed(scene: bpy.types.Scene, metering: Metering) -> Outcome[Option[Following]]:
+            if not metering.use_follow:
+                _READINGS[identity].pop(Handle.of(scene), None)
+                return Ok(Nothing)
+            view, composited = viewed(scene), _COMPOSITED.holds(bpy.context)
+            entries = AutoExposure.viewport_entries(identity, scene) if composited else ()
+            inverse = (
+                AutoExposure.requested(config, scene, entries, view).map(lambda request: _INVERSES[identity].value(scene.session_uid, request))
+                if entries
+                else view
                 .processor(config)
                 .bind(lambda built: processor(config, PyOpenColorIO.GroupTransform([built.createGroupTransform()], direction=PyOpenColorIO.TRANSFORM_DIR_INVERSE)))
-                .bind(lambda built: held(built.getDefaultCPUProcessor()))
+                .map(lambda built: Some(built.getDefaultCPUProcessor()))
+            )
+            return paired(inverse, gain(identity, scene, enabled=Enabled.PREVIEW) if composited else Ok(0.0)).map(
+                lambda found: Some(
+                    Following(
+                        scene=Handle.of(scene),
+                        meter=metering.meter,
+                        bias=metering.bias,
+                        tolerance=metering.follow.tolerance,
+                        config=config,
+                        inverse=found[0].map(lambda built: (built, math.exp2(-found[1]))),
+                    )
+                )
             )
 
-        return (
-            root_in(bpy.types.Scene, bpy.context)
-            .map(lambda scene: AutoExposure.attachment.read(identity, scene).bind(lambda metering: followed(scene, metering, viewed(scene)).map(Some) if metering.use_follow else Ok(Nothing)))
-            .default_value(Ok(Nothing))
-        )
+        return root_in(bpy.types.Scene, bpy.context).map(lambda scene: AutoExposure.attachment.read(identity, scene).bind(partial(followed, scene))).default_value(Ok(Nothing))
 
-    def drawn(self, canvas: Canvas, state: Following) -> None:
+    def drawn(self, state: Following, canvas: Canvas) -> None:
         """Meters the scene ahead of the chain in the visible camera frame, through the composited formation's inverse with the Exposure gain divided out while the viewport composites and the view's inverse otherwise, and defers targets two readings agree on."""
-        reports = self.identity.reports
+        reports, previous = self.identity.reports, _READINGS[self.identity]
 
         def metered(plane: npt.NDArray[np.float32]) -> Option[float]:
             return reports.reported(lambda: state.meter.stops(state.config, plane))().bind(lambda value: value).map(lambda value: value + state.bias)
 
-        match bpy.context.scene, canvas.region, canvas.space:
-            case bpy.types.Scene() as scene, bpy.types.Region() as region, bpy.types.SpaceView3D(region_3d=bpy.types.RegionView3D() as view) as space if Handle.of(scene) == state.scene:
+        match bpy.context.scene, canvas.region, bpy.context.region_data:
+            case bpy.types.Scene() as scene, bpy.types.Region() as region, bpy.types.RegionView3D() as view:
                 viewing = view.view_perspective == "CAMERA"
-                composited = space.shading.use_compositor == "ALWAYS" or (space.shading.use_compositor == "CAMERA" and viewing)
-                inverse = state.composited.map(lambda held: (held, math.exp2(-state.gain))) if composited else Some((state.viewing, 1.0))
                 rect = camera_frame(scene, region, view, canvas.extent) if viewing else Some(canvas.extent)
-                reading = inverse.bind(lambda held: rect.bind(reports.reported(captured)).map(lambda plane: applied(held[0], plane) * np.array((held[1], held[1], held[1], 1.0), np.float32))).bind(
-                    metered
-                )
-                for target in reading.filter(lambda found: self.previous.filter(lambda previous: previous[0] == state.scene and abs(found - previous[1]) <= state.tolerance).is_some()).to_list():
-                    self.step(state.scene, target)
-                self.previous = reading.map(lambda value: (state.scene, value))
+                reading = state.inverse.bind(
+                    lambda held: rect.bind(reports.reported(captured)).map(lambda plane: applied(held[0], plane) * np.array((held[1], held[1], held[1], 1.0), np.float32))
+                ).bind(metered)
             case _:
-                self.previous = Nothing
+                reading = Nothing
+
+        match reading:
+            case Option(tag="some", some=value):
+                agreed = Option.of_optional(previous.get(state.scene)).filter(lambda prior: abs(value - prior[1]) <= state.tolerance).is_some()
+                token = object()
+                previous[state.scene] = token, value
+                if agreed:
+                    self.step(state.scene, token)
+            case _:
+                previous.pop(state.scene, None)
 
 
 class AutoExposure(msgspec.Struct, frozen=True, kw_only=True):
     """Scene meter of the earliest Exposure entry's input frame, writing absolute stops into that entry, and the viewport following it through OCIO's inverse of a lattice sampled through the composited formation."""
 
     attachment: ClassVar[Attachment[Metering]] = Attachment(key="auto_exposure", form=Metering, owner=bpy.types.Scene)
-    prerequisites: ClassVar[tuple[Declaration, ...]] = (attachment, _INVERSES, _SIGNAL)
+    prerequisites: ClassVar[tuple[Declaration, ...]] = (attachment, _READINGS, _SIGNAL)
 
     # --- [EXPOSURE]
 
@@ -204,22 +231,30 @@ class AutoExposure(msgspec.Struct, frozen=True, kw_only=True):
         return AutoExposure.attachment.read(identity, scene).bind(lambda metering: metering.meter.stops(PyOpenColorIO.GetCurrentConfig(), file.pixels).bind(lambda measured: kept(metering, measured)))
 
     @staticmethod
-    def stepped(identity: Identity, handle: Handle[bpy.types.Scene], target: float) -> Outcome[Option[str]]:
-        """Moves the chain gain toward a target beyond the dead band, outside undo."""
+    def stepped(identity: Identity, handle: Handle[bpy.types.Scene], token: object) -> Outcome[Option[str]]:
+        """Moves the shown chain gain toward its current agreed target while viewport following remains enabled."""
 
-        def moved(scene: bpy.types.Scene, follow: Follow, current: float) -> Outcome[Option[str]]:
+        def moved(scene: bpy.types.Scene, follow: Follow, current: float, target: float) -> Outcome[Option[str]]:
             step = follow.speed * (target - current)
             return (
-                AutoExposure.entry(identity, scene).bind(lambda held: entry_stops(identity, held)).bind(lambda stops: AutoExposure.written(identity, scene, stops + step)).map(lambda _: Nothing)
+                Option
+                .of_optional(next((entry for entry in exposure.entries(identity, scene) if entry.enable_for_preview), None))
+                .map(lambda held: entry_stops(identity, held).bind(lambda stops: entered(identity, held, {path_key(STOPS): stops + step})).map(lambda _: Nothing))
+                .default_value(Ok(Nothing))
                 if abs(target - current) > follow.band
                 else Ok(Nothing)
             )
 
-        return handle.resolve().bind(
-            lambda scene: AutoExposure.attachment.read(identity, scene).bind(
-                lambda metering: gain(identity, scene, enabled=Enabled.PREVIEW).bind(lambda current: moved(scene, metering.follow, current))
-            )
-        )
+        match _READINGS[identity].get(handle):
+            case (held, target) if held is token:
+                return (
+                    handle
+                    .resolve()
+                    .bind(lambda scene: AutoExposure.attachment.read(identity, scene).map(lambda metering: (scene, metering)))
+                    .bind(lambda pair: gain(identity, pair[0], enabled=Enabled.PREVIEW).bind(lambda current: moved(pair[0], pair[1].follow, current, target)) if pair[1].use_follow else Ok(Nothing))
+                )
+            case _:
+                return Ok(Nothing)
 
     # --- [FORMATION]
 
@@ -229,61 +264,82 @@ class AutoExposure(msgspec.Struct, frozen=True, kw_only=True):
         return tuple(entry for entry in scene.compositor_effects if entry.enable_for_preview and chain.row(identity, entry).filter(lambda row: row.pointwise and row is not exposure).is_some())
 
     @staticmethod
-    def keyed(config: PyOpenColorIO.Config, entries: tuple[bpy.types.SceneCompositorEffect, ...], view: DisplayView) -> Outcome[ContentHash]:
-        """Returns the content key of the formation through entries and the view under the config."""
-        return accumulated(map(fingerprinted, entries)).map(lambda keys: content_hash(AutoExposure, view, config.getCacheID().encode(), *(key for found in keys for key in found.to_list())))
-
-    @staticmethod
-    def composited(identity: Identity, scene: bpy.types.Scene, view: DisplayView, viewing: PyOpenColorIO.CPUProcessor) -> Outcome[Option[PyOpenColorIO.CPUProcessor]]:
-        """Returns the held inverse of the composited formation, the view's inverse `viewing` without a per-pixel entry, `Nothing` until its lattice is sampled."""
-        entries, held = AutoExposure.viewport_entries(identity, scene), identity.resources[_INVERSES]
-        return (
-            AutoExposure.keyed(PyOpenColorIO.GetCurrentConfig(), entries, view).map(lambda key: held.wanted.filter(lambda wanted: wanted == key).bind(lambda _: held.value))
-            if entries
-            else Ok(Some(viewing))
+    def requested(config: PyOpenColorIO.Config, scene: bpy.types.Scene, entries: tuple[bpy.types.SceneCompositorEffect, ...], view: DisplayView) -> Outcome[_Formation]:
+        """Returns the frame and content requested through the entries and view."""
+        return fingerprinted(entries).map(
+            lambda content: _Formation(
+                scene=Handle.of(scene), entries=tuple(entry.name for entry in entries), frame=(scene.frame_current_final, rate(scene)), view=view, config=config.getCacheID(), content=content
+            )
         )
 
     @staticmethod
-    def inverted(identity: Identity, scene: bpy.types.Scene, entries: tuple[bpy.types.SceneCompositorEffect, ...], view: DisplayView, key: ContentHash) -> Outcome[None]:
-        """Samples the lattice through the entries and the view, publishes the processor of OCIO's inverse of its table while its key stays wanted, then refreshes the following."""
-        config = PyOpenColorIO.GetCurrentConfig()
+    def inverted(identity: Identity, request: _Formation, token: object) -> Outcome[None]:
+        """Samples the requested formation, publishes its inverse while the request stays wanted, and refreshes viewport following."""
+        config, lattice = PyOpenColorIO.GetCurrentConfig(), Lattice(spacing=Logarithmic())
         return (
-            _LATTICE
+            lattice
             .samples()
-            .bind(lambda samples: PreviewScene().sampled(identity, scene, entries, samples))
-            .bind(lambda plane: view.form(config, plane))
-            .bind(lambda formed: processor(config, PyOpenColorIO.GroupTransform([_LATTICE.transform(formed)], direction=PyOpenColorIO.TRANSFORM_DIR_INVERSE)))
-            .map(lambda built: identity.resources[_INVERSES].published(key, built.getDefaultCPUProcessor()))
-            .bind(lambda _: identity.resources[_SIGNAL].fired())
+            .bind(lambda samples: PreviewScene().sampled_from(identity, request.scene, request.entries, samples))
+            .bind(lambda plane: request.view.form(config, plane))
+            .bind(lambda formed: processor(config, PyOpenColorIO.GroupTransform([lattice.transform(formed)], direction=PyOpenColorIO.TRANSFORM_DIR_INVERSE)))
+            .bind(lambda built: _SIGNAL[identity].fired() if _INVERSES[identity].published(request.scene.uid, token, built.getDefaultCPUProcessor()) else Ok(None))
+        )
+
+    @staticmethod
+    def followed(identity: Identity, manager: bpy.types.WindowManager) -> Outcome[tuple[Located, ...]]:
+        """Returns rendered viewports following exposure, native query order retained and each scene read once."""
+        located = _VIEWPORTS.located(manager.windows)
+        scenes = tuple(dict.fromkeys(at.window.scene for at in located))
+        return (
+            accumulated(AutoExposure.attachment.read(identity, scene).map(lambda settings: settings.use_follow) for scene in scenes)
+            .map(lambda following: frozenset(scene for scene, on in zip(scenes, following) if on))
+            .map(lambda following: tuple(at for at in located if at.window.scene in following))
         )
 
     @staticmethod
     def jobs(identity: Identity, context: bpy.types.Context) -> Outcome[tuple[queue.Job, ...]]:
-        """Returns the lattice sampling of the context scene's composited formation while the scene follows and holds no inverse of it."""
-        held = identity.resources[_INVERSES]
+        """Returns lattice sampling per followed window scene whose formation inverse is absent."""
+        held, config = _INVERSES[identity], PyOpenColorIO.GetCurrentConfig()
+        manager: bpy.types.WindowManager = context.window_manager  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
 
-        def wanted(scene: bpy.types.Scene, metering: Metering) -> Outcome[tuple[queue.Job, ...]]:
-            entries, view = AutoExposure.viewport_entries(identity, scene), viewed(scene)
-            return AutoExposure.keyed(PyOpenColorIO.GetCurrentConfig(), entries, view).map(
-                lambda key: (
-                    (queue.Job(place=AutoExposure, key=key, rank=Rank.SHOWN, run=partial(AutoExposure.inverted, identity, scene, entries, view, key)),)
-                    if metering.use_follow and entries and (held.wanting(key) or held.value.is_none())
-                    else ()
+        def queued(request: _Formation) -> tuple[queue.Job, ...]:
+            _, token, value = held.wanting(request.scene.uid, request, same=lambda prior, wanted: prior == wanted and all(key.is_some() for key in wanted.content))
+            return () if value.is_some() else (queue.Job(place=request.scene.uid, key=token, rank=Rank.SHOWN, run=partial(AutoExposure.inverted, identity, request, token)),)
+
+        def wanted(located: tuple[Located, ...]) -> Outcome[tuple[queue.Job, ...]]:
+            sources: dict[bpy.types.Scene, None] = {}
+            for at in located:
+                for region in at.area.regions:
+                    if region.type != "WINDOW":
+                        continue
+                    with bpy.context.temp_override(window=at.window, area=at.area, region=region):
+                        sources.update(dict.fromkeys((at.window.scene,) if _COMPOSITED.holds(bpy.context) else ()))
+            active = tuple((scene, entries) for scene in sources for entries in (AutoExposure.viewport_entries(identity, scene),) if entries)
+            following, readings = frozenset(Handle.of(at.window.scene) for at in located), _READINGS[identity]
+            for handle in readings.keys() - following:
+                del readings[handle]
+            sampled = frozenset(Handle.of(scene) for scene, _ in active)
+            return (_SIGNAL[identity].fired() if held.cleared(lambda request: request.scene not in sampled) else Ok(None)).bind(
+                lambda _: accumulated(AutoExposure.requested(config, scene, entries, viewed(scene)).map(queued) for scene, entries in active).map(
+                    lambda batches: tuple(job for jobs in batches for job in jobs)
                 )
             )
 
-        return root_in(bpy.types.Scene, context).map(lambda scene: AutoExposure.attachment.read(identity, scene).bind(partial(wanted, scene))).default_value(Ok(()))
+        return AutoExposure.followed(identity, manager).bind(wanted)
 
     # --- [REGISTRATION]
 
     @staticmethod
     def ticked(identity: Identity) -> Outcome[Option[float]]:
-        """Redraws the viewports while the context scene follows, keeping their read, each interval."""
+        """Redraws the viewports of followed window scenes each interval."""
         manager: bpy.types.WindowManager = bpy.context.window_manager  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-        following = root_in(bpy.types.Scene, bpy.context).map(lambda scene: AutoExposure.attachment.read(identity, scene).map(lambda metering: metering.use_follow)).default_value(Ok(False))
-        for located in _VIEWPORTS.located(manager.windows) if following.default_value(False) else ():
-            located.area.tag_redraw()
-        return following.map(lambda _: Some(_INTERVAL))
+
+        def redrawn(located: tuple[Located, ...]) -> Option[float]:
+            for at in located:
+                at.area.tag_redraw()
+            return Some(0.12)
+
+        return AutoExposure.followed(identity, manager).map(redrawn)
 
     @contextmanager
     def acquisitions(self, identity: Identity) -> Generator[Outcome[Acquisitions]]:
@@ -299,16 +355,30 @@ class AutoExposure(msgspec.Struct, frozen=True, kw_only=True):
         def write(context: bpy.types.Context, quad: Quad) -> Outcome[None]:
             return rooted(bpy.types.Scene, context).bind(lambda scene: metered(identity, scene, Region.bounding(quad.samples)))
 
-        with identity.reports.deferred(lambda handle, target: self.stepped(identity, handle, target)) as step:
+        def cleared() -> Outcome[None]:
+            _READINGS[identity].clear()
+            return Ok(None)
+
+        def framed(scene: bpy.types.Scene) -> Outcome[None]:
+            _READINGS[identity].pop(Handle.of(scene), None)
+            return Ok(None)
+
+        with (
+            identity.reports.deferred(partial(self.stepped, identity)) as step,
+            Latest.invalidating(identity, _INVERSES, lambda request, _scene: any(key.is_none() for key in request.content), _SIGNAL[identity].fired) as lifecycle,
+        ):
             yield Ok((
+                *lifecycle,
                 meter_exposure,
                 READ,
                 PreviewScene(),
                 PreviewFeed(feed=self.jobs),
                 Timer(body=partial(self.ticked, identity)),
+                *(Handler(handlers=event, body=cleared) for event in (bpy.app.handlers.undo_post, bpy.app.handlers.redo_post)),
+                Handler(handlers=bpy.app.handlers.frame_change_pre, body=framed),
                 Overlay[Following](
                     drawing=Drawing(
-                        area=_VIEWPORTS, part=Follower(identity, step), refreshes=(identity.resources[_SIGNAL], HandlerRefresh(handlers=bpy.app.handlers.depsgraph_update_post, ids=(bpy.types.Scene,)))
+                        area=_VIEWPORTS, part=Follower(identity, step), refreshes=(_SIGNAL[identity], HandlerRefresh(handlers=bpy.app.handlers.depsgraph_update_post, ids=(bpy.types.Scene,)))
                     ),
                     respect_overlays=False,
                 ),
@@ -319,7 +389,7 @@ class AutoExposure(msgspec.Struct, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-@Operator.of(Empty, condition=Some(Job(kind="RENDER")), undo=NoUndo())
+@Operator.of(Empty, condition=Some(Job(kind="RENDER")), options=frozenset())
 def meter_exposure(call: Call[Empty]) -> Outcome[Answer]:
     """Meter the Exposure entry input and write absolute stops."""
     return (

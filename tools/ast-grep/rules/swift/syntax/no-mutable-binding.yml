@@ -23,20 +23,16 @@ utils:
             all:
                 - has: {field: target, pattern: $NAME}
                 - has: {field: suffix, regex: '^\.(append|insert|remove|removeAll|removeFirst|removeLast|removeSubrange|replaceSubrange|sort|reverse|shuffle|merge|formUnion|formIntersection|formSymmetricDifference|subtract|toggle)$'}
-    head-write:
-        any:
-            - {kind: assignment, has: {field: target, has: {matches: head}}}
-            - matches: derivable-mutation
     expressionless-loop:
         kind: for_statement
         any:
             - has: {pattern: $$_AWAIT, regex: '^await$'}
             - has: {field: collection, any: [{kind: value_pack_expansion}, {has: {stopBy: end, kind: value_pack_expansion}}]}
-    awaiting-loop:
-        kind: 'while_statement, repeat_while_statement'
+    effectful-loop:
+        kind: 'for_statement, while_statement, repeat_while_statement'
         all:
-            - has: {kind: statements, has: {stopBy: end, kind: await_expression}}
-            - has: {kind: statements, has: {stopBy: end, matches: mutation}}
+            - has: {stopBy: &scope {kind: 'function_declaration, lambda_literal'}, kind: 'try_expression, await_expression'}
+            - has: {kind: statements, has: {stopBy: *scope, matches: mutation}}
 rule:
     kind: value_binding_pattern
     all:
@@ -71,7 +67,7 @@ rule:
                                             - {kind: assignment, has: {field: target, has: {kind: call_expression, has: {pattern: $NAME}}}}
                                             - has: {stopBy: end, kind: assignment, has: {field: target, has: {pattern: $NAME}}}
                                             - has: {stopBy: end, kind: assignment, has: {field: target, has: {kind: call_expression, has: {pattern: $NAME}}}}
-                            - precedes: {stopBy: end, any: [{matches: awaiting-loop}, {has: {stopBy: end, matches: awaiting-loop}}]}
+                            - precedes: {stopBy: end, any: [{matches: effectful-loop}, {has: {stopBy: end, matches: effectful-loop}}]}
                             - precedes:
                                 stopBy: end
                                 has:
@@ -86,19 +82,19 @@ rule:
                                     any:
                                         - all:
                                             - matches: expressionless-loop
-                                            - has: {stopBy: end, matches: head-write}
+                                            - has: {stopBy: end, matches: mutation}
                                         - has:
                                             stopBy: end
                                             matches: expressionless-loop
-                                            has: {stopBy: end, matches: head-write}
+                                            has: {stopBy: end, matches: mutation}
                                 - not:
                                     precedes:
                                         stopBy: end
                                         any:
-                                            - matches: head-write
+                                            - matches: mutation
                                             - has:
                                                 stopBy: end
-                                                matches: head-write
+                                                matches: mutation
                                                 not: {inside: {stopBy: end, matches: expressionless-loop}}
 message: '`var $NAME` binds a value an expression computes'
 note: 'Bind `let` to the expression yielding its final value (`map`, `reduce`, `merging`, a memberwise init, a `switch` or `if` expression)'

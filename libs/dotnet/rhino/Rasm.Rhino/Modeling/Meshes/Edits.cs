@@ -17,24 +17,22 @@ public sealed partial class QuadSplit {
 
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record FacePatch {
-    private FacePatch(Seq<ComponentIndex> corners, Seq<int> edges) => (Corners, Edges) = (corners, edges);
+    public Seq<ComponentIndex> Corners => Switch(vertexEdge: static patch => Seq(patch.Vertex), twoEdges: static _ => Seq<ComponentIndex>(), threeVertices: static patch => Seq(patch.A, patch.B, patch.C));
 
-    public Seq<ComponentIndex> Corners { get; }
+    public Seq<int> Edges => Switch(vertexEdge: static patch => Seq(patch.Edge), twoEdges: static patch => Seq(patch.EdgeA, patch.EdgeB), threeVertices: static _ => Seq<int>());
 
-    public Seq<int> Edges { get; }
+    public sealed record VertexEdge(ComponentIndex Vertex, int Edge) : FacePatch;
 
-    public sealed record VertexEdge(ComponentIndex Vertex, int Edge) : FacePatch(Seq(Vertex), Seq(Edge));
+    public sealed record TwoEdges(int EdgeA, int EdgeB) : FacePatch;
 
-    public sealed record TwoEdges(int EdgeA, int EdgeB) : FacePatch(Seq<ComponentIndex>(), Seq(EdgeA, EdgeB));
-
-    public sealed record ThreeVertices(ComponentIndex A, ComponentIndex B, ComponentIndex C) : FacePatch(Seq(A, B, C), Seq<int>());
+    public sealed record ThreeVertices(ComponentIndex A, ComponentIndex B, ComponentIndex C) : FacePatch;
 
     public Step<Mesh> Patch =>
         Steps.Derived<Mesh>(mesh =>
             from held in IO.lift(() =>
                 from corners in Products.Each(Corners, static (vertex, at) => vertex.ComponentIndexType is ComponentIndexType.MeshVertex or ComponentIndexType.MeshTopologyVertex
                     ? Fin.Succ(vertex)
-                    : new RhinoFault(vertex.ComponentIndexType.ToString(), RhinoReason.Mismatched, at))
+                    : new RhinoFault(vertex.ComponentIndexType, RhinoReason.Mismatched, at))
                 from components in mesh.Within(corners + Edges.Map(static edge => new ComponentIndex(ComponentIndexType.MeshTopologyEdge, edge)))
                 select components)
             from patched in Products.Accepted(() => mesh.PatchSingleFace(held))

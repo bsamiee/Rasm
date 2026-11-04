@@ -7,6 +7,7 @@ using Rhino;
 using Rhino.Display;
 using Rhino.DocObjects;
 using Rhino.FileIO;
+using Font = Rhino.DocObjects.Font;
 
 namespace Rasm.Rhino.Viewport.Printing;
 
@@ -51,7 +52,7 @@ public sealed record PageMark {
 
     // --- [MARKS]
     public static PageMark Text(
-        Seq<FieldRun> runs, (Length X, Length Y) anchor, Length height, global::Rhino.DocObjects.Font font, Color fill, Option<(Color Color, Length Width)> outline, double rotation,
+        Seq<FieldRun> runs, (Length X, Length Y) anchor, Length height, Font font, Color fill, Option<(Color Color, Length Width)> outline, double rotation,
         TextHorizontalAlignment horizontal, TextVerticalAlignment vertical) =>
         new(page =>
             from words in FieldFormulas.Format(page.Document, FieldFormulas.Text(runs), obj: page.Context, topParent: page.Context)

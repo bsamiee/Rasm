@@ -42,7 +42,7 @@ where I: IntoIterator<Item = Node<Value>> {
 pub fn merge(header: Header, base: &Layer, left: &Layer, right: &Layer) -> Result<Layer, NEVec<IfcError>> {
     fn merged<K, T>(
         path: &Path,
-        subject: impl Fn(&K) -> String,
+        subject: impl Fn(&K) -> Subject,
         base: Option<&IndexMap<K, Option<T>>>,
         left: Option<&IndexMap<K, Option<T>>>,
         right: Option<&IndexMap<K, Option<T>>>,
@@ -61,7 +61,7 @@ pub fn merge(header: Header, base: &Layer, left: &Layer, right: &Layer) -> Resul
                     (Some(other), Some(chosen)) if stated == Some(other) => Ok(Some(chosen)),
                     (Some(chosen), None) | (None, Some(chosen)) if stated.is_none() => Ok(Some(chosen)),
                     (Some(kept), None) | (None, Some(kept)) if stated == Some(kept) => Ok(None),
-                    (Some(_) | None, Some(_) | None) => Err(IfcError::Conflict { path: path.clone(), opinion: subject(key).into_boxed_str() }),
+                    (Some(_) | None, Some(_) | None) => Err(IfcError::Conflict { path: path.clone(), opinion: subject(key) }),
                 }
                 .map(|chosen| chosen.map(|chosen| (key.clone(), chosen.clone())))
                 .transpose()
@@ -75,9 +75,9 @@ pub fn merge(header: Header, base: &Layer, left: &Layer, right: &Layer) -> Resul
         .unique()
         .map(|path| {
             let (stated, left_node, right_node) = (held.get(path), ours.get(path), theirs.get(path));
-            let children = merged(path, |name| Subject::Child(name).to_string(), stated.map(|node| &node.children), left_node.map(|node| &node.children), right_node.map(|node| &node.children));
-            let inherits = merged(path, |name| Subject::Inherit(name).to_string(), stated.map(|node| &node.inherits), left_node.map(|node| &node.inherits), right_node.map(|node| &node.inherits));
-            let attributes = merged(path, |id| Subject::Attribute(id).to_string(), stated.map(|node| &node.attributes), left_node.map(|node| &node.attributes), right_node.map(|node| &node.attributes));
+            let children = merged(path, |name| Subject::Child(name.clone()), stated.map(|node| &node.children), left_node.map(|node| &node.children), right_node.map(|node| &node.children));
+            let inherits = merged(path, |name| Subject::Inherit(name.clone()), stated.map(|node| &node.inherits), left_node.map(|node| &node.inherits), right_node.map(|node| &node.inherits));
+            let attributes = merged(path, |id| Subject::Attribute(id.clone()), stated.map(|node| &node.attributes), left_node.map(|node| &node.attributes), right_node.map(|node| &node.attributes));
             children.map3(inherits, attributes, |children, inherits, attributes| owned(Node { path: path.clone(), children, inherits, attributes }))
         })
         .collect::<Validated<Vec<_>, _>>()
@@ -131,7 +131,12 @@ pub fn diff(before: &Layer, after: &Layer) -> Layer {
         .collect::<Vec<_>>();
     let revised_schemas = after.schemas.iter().map(|(id, schema)| (&**id, schema)).collect::<IndexMap<_, _>>();
     let restated = after.schemas.iter().filter(|&(id, schema)| before.schemas.get(id) != Some(schema)).map(|(id, _)| &**id);
-    Layer { header: after.header.clone(), imports: after.imports.iter().filter(|import| !before.imports.contains(import)).cloned().collect(), schemas: reachable(&revised_schemas, &data, restated), data }
+    Layer {
+        header: after.header.clone(),
+        imports: after.imports.iter().filter(|import| !before.imports.contains(import)).cloned().collect(),
+        schemas: reachable(&revised_schemas, &data, restated),
+        data,
+    }
 }
 
 #[must_use]
@@ -177,7 +182,12 @@ pub fn effective_diff(before: &Model, after: &Model) -> Vec<Node<Value>> {
 // --- [SHARED]
 
 fn borrowed(layer: &Layer) -> impl Iterator<Item = Node<&serde_json::Value>> {
-    layer.data.iter().map(|node| Node { path: node.path.clone(), children: node.children.clone(), inherits: node.inherits.clone(), attributes: node.attributes.iter().map(|(id, value)| (id.clone(), value.as_ref())).collect() })
+    layer.data.iter().map(|node| Node {
+        path: node.path.clone(),
+        children: node.children.clone(),
+        inherits: node.inherits.clone(),
+        attributes: node.attributes.iter().map(|(id, value)| (id.clone(), value.as_ref())).collect(),
+    })
 }
 
 fn owned(Node { path, children, inherits, attributes }: Node<&serde_json::Value>) -> Node {
@@ -185,22 +195,30 @@ fn owned(Node { path, children, inherits, attributes }: Node<&serde_json::Value>
 }
 
 fn reachable<'held, V>(schemas: &IndexMap<&'held str, &'held Schema>, data: &'held [Node<V>], restated: impl IntoIterator<Item = &'held str>) -> IndexMap<Box<str>, Schema> {
-    fn referenced(description: &ValueDescription) -> Vec<&str> {
-        let nested = match &description.data_type {
-            DataType::Array { restrictions } => vec![&restrictions.value],
-            DataType::Object { restrictions } => restrictions.iter().flat_map(|restrictions| restrictions.values.values()).collect(),
-            DataType::Real { quantity_kind: _ }
-            | DataType::Boolean
-            | DataType::Integer
-            | DataType::String
-            | DataType::DateTime
-            | DataType::Enum { restrictions: _ }
-            | DataType::Reference
-            | DataType::Blob => Vec::new(),
-        };
-        description.inherits.iter().map(|id| &**id).chain(nested.into_iter().flat_map(referenced)).collect()
+    gen fn referenced(description: &ValueDescription) -> &str {
+        let mut pending = Vec::new();
+        let mut description = description;
+        loop {
+            match &description.data_type {
+                DataType::Array { restrictions } => pending.push(&restrictions.value),
+                DataType::Object { restrictions } => pending.extend(restrictions.iter().flat_map(|restrictions| restrictions.values.values())),
+                DataType::Real { quantity_kind: _ }
+                | DataType::Boolean
+                | DataType::Integer
+                | DataType::String
+                | DataType::DateTime
+                | DataType::Enum { restrictions: _ }
+                | DataType::Reference
+                | DataType::Blob => (),
+            }
+            for id in &description.inherits {
+                yield &**id;
+            }
+            let Some(next) = pending.pop() else { break };
+            description = next;
+        }
     }
-    let references = schemas.iter().flat_map(|(&id, schema)| referenced(&schema.value).into_iter().map(move |named| (id, named))).collect::<DiGraphMap<&str, ()>>();
+    let references = schemas.iter().flat_map(|(&id, schema)| referenced(&schema.value).map(move |named| (id, named))).collect::<DiGraphMap<&str, ()>>();
     let written = data.iter().flat_map(|node| node.attributes.iter().filter_map(|(id, value)| value.is_some().then_some(&**id)));
     let reached = Dfs::from_parts(written.chain(restated).collect(), references.visit_map()).iter(&references).collect::<HashSet<_>>();
     schemas.iter().filter(|&(id, _)| reached.contains(*id)).map(|(&id, &schema)| (Box::from(id), schema.clone())).collect()

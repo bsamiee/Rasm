@@ -25,7 +25,7 @@ utils:
 rule:
     kind: call_expression
     all:
-        - has: {kind: navigation_expression, has: {field: suffix, has: {field: suffix, regex: '^flatMapError$'}}}
+        - has: {nthChild: 1, kind: navigation_expression, all: [{has: {field: suffix, has: {field: suffix, regex: '^flatMapError$'}}}, {has: {field: target, matches: swift-result-value}}]}
         - has:
             kind: call_suffix
             any:

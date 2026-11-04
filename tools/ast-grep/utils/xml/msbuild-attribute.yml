@@ -1,9 +1,0 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: msbuild-attribute
-language: xml
-arguments: [name, value]
-rule:
-    kind: Attribute
-    all:
-        - has: {kind: Name, matches: name}
-        - has: {kind: AttValue, matches: value}

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-length-by-equality
-language: tsx
+language: tsxlang
 severity: error
 utils:
     length:
@@ -14,9 +14,8 @@ rule:
         - has: {field: function, kind: member_expression, pattern: $ASSERT, all: [{has: {field: object, regex: '^assert$'}}, {has: {field: property, regex: '^(deepStrictEqual|strictEqual|deepEqual|equal)$'}}]}
         - has: {field: arguments, not: {has: {nthChild: 3}}}
         - any:
-            - has: {field: arguments, all: [{has: {nthChild: 1, matches: length}}, {has: {nthChild: 2, pattern: $COUNT}}]}
-            - has: {field: arguments, all: [{has: {nthChild: 1, kind: number, pattern: $COUNT}}, {has: {nthChild: 2, matches: length}}]}
+            - has: {field: arguments, all: [{has: {nthChild: 1, matches: length}}, {has: {nthChild: 2, pattern: $_COUNT}}]}
+            - has: {field: arguments, all: [{has: {nthChild: 1, kind: number, pattern: $_COUNT}}, {has: {nthChild: 2, matches: length}}]}
         - inside: {kind: program, stopBy: end, has: {kind: import_statement, regex: '\bassert\b', has: {field: source, regex: '^[''"](@effect/vitest|vitest|chai)[''"]$'}}}
-fix: assert.lengthOf($LIST, $COUNT)
 message: '`$ASSERT` compares the length of `$LIST` as a number'
 note: 'Call `assert.lengthOf(<list>, <count>)` for a failure message that prints the list'

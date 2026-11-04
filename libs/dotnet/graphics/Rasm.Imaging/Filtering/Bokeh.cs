@@ -4,6 +4,7 @@ using System.Numerics.Tensors;
 using CommunityToolkit.HighPerformance;
 using Emgu.CV;
 using Emgu.CV.CvEnum;
+using Emgu.CV.Util;
 using MathNet.Numerics;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Procedural;
@@ -117,17 +118,22 @@ public sealed partial class Iris {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Bokeh {
-    public static Fin<PointSpread> Spread(Iris iris, double fringe, Vector4 radii) =>
-        toSeq(Range(0, 4)).Traverse(channel => Gaussian.Taps(radii[channel] * iris.Circumradius / double.Min(iris.Squeeze, 1d)).Map(side => {
-            Mat kernel = new(side, side, DepthType.Cv32F, 1);
-            Span2D<float> cells = kernel.View<float>();
-            for (int y = 0; y < side; y++) {
-                for (int x = 0; x < side; x++)
-                    cells[y, x] = Tap(iris, fringe, iris.Outline(new Vector2((side / 2) - x, (side / 2) - y)), radii[channel])[channel];
+    public static Fin<VectorOfMat> Spread(Iris iris, double fringe, Vector4 radii) =>
+        toSeq(Range(0, 4)).Traverse(channel => Gaussian.Taps(radii[channel] * iris.Circumradius / double.Min(iris.Squeeze, 1d))).As().Map(taps => {
+            VectorOfMat kernels = new(taps.Count);
+            for (int channel = 0; channel < kernels.Size; channel++) {
+                int side = taps[channel];
+                using Mat kernel = kernels[channel];
+                kernel.Create(side, side, DepthType.Cv32F, 1);
+                Span2D<float> cells = kernel.View<float>();
+                for (int y = 0; y < side; y++) {
+                    for (int x = 0; x < side; x++)
+                        cells[y, x] = Tap(iris, fringe, iris.Outline(new Vector2((side / 2) - x, (side / 2) - y)), radii[channel])[channel];
+                }
+                CvInvoke.Normalize(kernel, kernel, 1d, 0d, NormType.L1);
             }
-            CvInvoke.Normalize(kernel, kernel, 1d, 0d, NormType.L1);
-            return kernel;
-        })).As().Map(static kernels => new PointSpread(kernels));
+            return kernels;
+        });
 
     public static PixelPass Correlated(Iris iris, double fringe, Vector4 radii) =>
         new PixelPass.Frame((frame, progress) =>

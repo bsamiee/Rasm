@@ -1,19 +1,20 @@
 """Tree and node classes, holders, sockets, node, item, and link creation, link order, link ends and feeds, and tree walks."""
 
-from collections.abc import Callable, Iterable, Iterator, Mapping
+from collections import defaultdict, deque
+from collections.abc import Callable, Hashable, Iterable, Mapping
 from functools import partial, reduce
 from types import MappingProxyType
-from typing import Final, overload, Protocol, TYPE_CHECKING
+from typing import Final, overload, TYPE_CHECKING
 
 import bpy
-from expression import Error, Nothing, Ok, Option, Result, Some, try_downcast
+from expression import Option, Result, Some, try_downcast
 from expression.collections import Block
 from expression.extra.result import catch
 
 from blender.bpy.data.ids.store import embedded
 from blender.bpy.data.rna.descriptors import written
-from blender.bpy.data.rna.paths import struct_at
-from blender.records.faults import Fault, Faults, Outcome, Reason, typed
+from blender.bpy.data.rna.paths import definition, struct_at
+from blender.records.faults import Error, Fault, Faults, Nothing, Ok, Outcome, Reason
 from blender.records.trees import reached
 
 if TYPE_CHECKING:
@@ -25,29 +26,10 @@ type GraphTree = bpy.types.CompositorNodeTree | bpy.types.GeometryNodeTree | bpy
 type Holder = bpy.types.NodeTree | bpy.types.Material | bpy.types.World | bpy.types.Light
 
 
-class Named(Protocol):
-    """Item of a node item collection, named as the socket it adds."""
-
-    name: str
-
-
-class Items[I: Named](Protocol):
-    """Node item collection taking moves by index (Menu Switch `enum_items` and File Output `file_output_items`)."""
-
-    def __iter__(self) -> Iterator[I]:
-        """Items in socket order."""
-
-    def find(self, key: str, /) -> int:
-        """Index of the item named `key`, -1 when none."""
-
-    def move(self, from_index: int, to_index: int, /) -> None:
-        """Moves one item, an index past the range moving nothing."""
-
-
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 NATIVE: Final[Mapping[type[bpy.types.NodeTree], Mapping[type[bpy.types.Node], type[bpy.types.Node]]]] = MappingProxyType({
-    bpy.types.ShaderNodeTree: MappingProxyType({}),
+    bpy.types.ShaderNodeTree: MappingProxyType(dict[type[bpy.types.Node], type[bpy.types.Node]]()),
     bpy.types.CompositorNodeTree: MappingProxyType({
         bpy.types.ShaderNodeSeparateColor: bpy.types.CompositorNodeSeparateColor,
         bpy.types.ShaderNodeCombineColor: bpy.types.CompositorNodeCombineColor,
@@ -94,8 +76,27 @@ DATA_TYPES: Final[Mapping[type[bpy.types.NodeSocket], "rna_enums.NodeSocketDataT
 
 
 def base_socket(kind: type[bpy.types.NodeSocket]) -> type[bpy.types.NodeSocket]:
-    """Returns the base socket class of a refined one, `NodeSocketFloat` for `NodeSocketFloatFactor`, the class whose name the host's refined class names begin with."""
-    return max((base for base in DATA_TYPES if kind.__name__.startswith(base.__name__)), key=lambda base: len(base.__name__), default=kind)
+    """Returns the native value carrier of a refined builtin socket, retaining basic and custom socket classes."""
+    rna = definition(kind)
+    if kind in DATA_TYPES or rna.base != definition(bpy.types.NodeSocketStandard):
+        return kind
+    try:
+        prop = rna.properties["default_value"]
+    except KeyError:
+        return kind
+    match prop:
+        case bpy.types.FloatProperty(is_array=True):
+            return bpy.types.NodeSocketVector
+        case bpy.types.FloatProperty():
+            return bpy.types.NodeSocketFloat
+        case bpy.types.IntProperty(is_array=True):
+            return bpy.types.NodeSocketIntVector3D
+        case bpy.types.IntProperty():
+            return bpy.types.NodeSocketInt
+        case bpy.types.StringProperty():
+            return bpy.types.NodeSocketString
+        case _:
+            return kind
 
 
 def native(tree: type[bpy.types.NodeTree], kind: type[bpy.types.Node]) -> Outcome[type[bpy.types.Node]]:
@@ -108,25 +109,34 @@ def native(tree: type[bpy.types.NodeTree], kind: type[bpy.types.Node]) -> Outcom
     )
 
 
-def arranged[I: Named](items: Items[I], names: tuple[str, ...], added: Callable[[str], object], removed: Callable[[I], object]) -> tuple[I, ...]:
-    """Removes items `names` lacks, adds the names `items` lacks, and moves each item to its position in `names`.
+# --- [ITEMS]
 
-    Args:
-        items: Item collection of one node.
-        names: Item names in desired order.
-        added: Adds the item of one name.
-        removed: Removes one item.
 
-    Returns:
-        Items in desired order.
-    """
-    for stale in tuple(item.name for item in items if item.name not in names):
-        removed(next(item for item in items if item.name == stale))
-    for name in tuple(name for name in names if items.find(name) < 0):
-        added(name)
-    for index, name in enumerate(names):
-        items.move(items.find(name), index)
-    return tuple(items)
+def matched_items[K: Hashable](live: Iterable[str], stored: Mapping[str, K], requests: Iterable[K]) -> tuple[tuple[int, ...], tuple[str | None, ...]]:
+    """Matches original requests to live native identifiers in item order, returning removed indices and a retained identifier per request."""
+    inventory = tuple(live)
+    available: defaultdict[K, deque[str]] = defaultdict(deque)
+    for identifier in inventory:
+        if identifier in stored:
+            available[stored[identifier]].append(identifier)
+    matched: list[str | None] = []
+    for request in requests:
+        candidates = available[request]
+        matched.append(candidates.popleft() if candidates else None)
+    kept = frozenset(identifier for identifier in matched if identifier is not None)
+    return tuple(index for index, identifier in enumerate(inventory) if identifier not in kept), tuple(matched)
+
+
+def ordered_items(live: Iterable[str], desired: Iterable[str], moved: Callable[[int, int], None]) -> None:
+    """Moves native items into desired identifier order, retaining every item and its identifier."""
+    current = list(live)
+    for index, identifier in enumerate(desired):
+        if (position := current.index(identifier)) != index:
+            moved(position, index)
+            current.insert(index, current.pop(position))
+
+
+# --- [READS]
 
 
 def links_of(socket: bpy.types.NodeSocket) -> tuple[bpy.types.NodeLink, ...]:
@@ -144,10 +154,14 @@ def interface_of(tree: bpy.types.NodeTree, /) -> bpy.types.NodeTreeInterface:
 # --- [EDITS]
 
 
-def new_group(kind: type[bpy.types.NodeTree], name: str, /) -> Outcome[bpy.types.NodeTree]:
+def new_group[T: bpy.types.NodeTree](kind: type[T], name: str, /) -> Outcome[T]:
     """Creates empty node group of a tree class, `refused` fault for a class the host refuses."""
-    request = repr(bpy.data.node_groups)
-    return catch(bpy.data.node_groups.new, exception=TypeError)(name, kind.__name__).map_error(partial(Fault.of, Reason.REFUSED, request)).bind(partial(typed, bpy.types.NodeTree, request))
+
+    def added() -> T:
+        tree: T = bpy.data.node_groups.new(name, definition(kind).identifier)  # type: ignore[arg-type, assignment]  # ty: ignore[invalid-argument-type, invalid-assignment]
+        return tree
+
+    return catch(added, exception=TypeError)().map_error(partial(Fault.of, Reason.REFUSED, repr(bpy.data.node_groups)))
 
 
 @overload
@@ -179,17 +193,18 @@ def socket_at(sockets: bpy.types.NodeInputs | bpy.types.NodeOutputs, identifier:
         case int(position):
             found = Block.of_seq(sockets).filter(lambda socket: socket.enabled).skip(position).try_head()
         case str():
-            found = Block.of_seq(sockets).filter(lambda socket: socket.identifier == aliases.get(identifier, identifier)).try_head()
+            address = aliases.get(identifier, identifier)
+            found = Option.of_optional(next((socket for socket in sockets if socket.identifier == address), None))
     return found.to_result_with(lambda: Fault.of(Reason.ABSENT, repr(sockets), member=str(identifier)))
 
 
 def created[N: bpy.types.Node](tree: bpy.types.NodeTree, kind: type[N]) -> Outcome[N]:
-    """Adds node by `bpy.types` class name.
+    """Adds node by its registered RNA identifier.
 
     Returns:
         `Ok` of node. `Error` of `refused` for refused class, `outside` for alias add-ons rebind to another class, its node removed.
     """
-    identifier = kind.__name__
+    identifier = definition(kind).identifier
 
     def narrowed(made: bpy.types.Node) -> Outcome[N]:
         match made:
@@ -245,15 +260,16 @@ def linked(tree: bpy.types.NodeTree, source: bpy.types.NodeSocket, target: bpy.t
 
 def ordered(socket: bpy.types.NodeSocket, desired: tuple[bpy.types.NodeLink, ...]) -> Outcome[None]:
     """Orders multi-input links top to bottom within their slots by sort ID swaps, `refused` fault for the first swap the host refuses."""
-    type Plan = tuple[tuple[bpy.types.NodeLink, ...], tuple[tuple[bpy.types.NodeLink, bpy.types.NodeLink], ...]]
-
-    def planned(state: Plan, step: tuple[int, bpy.types.NodeLink]) -> Plan:
-        (live, swaps), (index, wanted) = state, step
-        held, position = live[index], live.index(wanted)
-        return (live, swaps) if held == wanted else (tuple(wanted if at == index else held if at == position else link for at, link in enumerate(live)), (*swaps, (held, wanted)))
-
-    start: Plan = (tuple(link for link in links_of(socket) if link in desired), ())
-    _, swaps = reduce(planned, enumerate(desired), start)
+    selected = frozenset(desired)
+    live = [link for link in links_of(socket) if link in selected]
+    positions = {link: index for index, link in enumerate(live)}
+    swaps: list[tuple[bpy.types.NodeLink, bpy.types.NodeLink]] = []
+    for index, wanted in enumerate(desired):
+        held, position = live[index], positions[wanted]
+        if held != wanted:
+            live[index], live[position] = wanted, held
+            positions[held], positions[wanted] = position, index
+            swaps.append((held, wanted))
     return reduce(
         lambda done, pair: done.bind(lambda _: catch(pair[0].swap_multi_input_sort_id, exception=RuntimeError)(pair[1]).map_error(partial(Fault.of, Reason.REFUSED, repr(pair[0])))),
         swaps,
@@ -276,13 +292,8 @@ def group_tree(node: bpy.types.Node, /) -> Option[bpy.types.NodeTree]:
 
 def active_output(tree: bpy.types.NodeTree) -> Outcome[bpy.types.NodeGroupOutput]:
     """Returns active Group Output node."""
-    return (
-        Block
-        .of_seq(tree.nodes)
-        .choose(lambda node: Option.of_optional(try_downcast(bpy.types.NodeGroupOutput, node)))
-        .filter(lambda node: node.is_active_output)
-        .try_head()
-        .to_result_with(partial(Fault.of, Reason.ABSENT, repr(tree.nodes), member=bpy.types.NodeGroupOutput.__name__))
+    return Option.of_optional(next((node for node in tree.nodes if isinstance(node, bpy.types.NodeGroupOutput) and node.is_active_output), None)).to_result_with(
+        partial(Fault.of, Reason.ABSENT, repr(tree.nodes), member=bpy.types.NodeGroupOutput.__name__)
     )
 
 
@@ -312,10 +323,10 @@ def upstream(node: bpy.types.Node, /) -> tuple[bpy.types.Node, ...]:
 
 def feeds(trees: Iterable[bpy.types.NodeTree], /) -> Mapping[bpy.types.NodeSocket, tuple[tuple[bpy.types.Node, bpy.types.NodeSocket], ...]]:
     """Returns the source node and socket of each valid unmuted link into each input socket, one pass over the links of the trees given."""
-    fed: dict[bpy.types.NodeSocket, tuple[tuple[bpy.types.Node, bpy.types.NodeSocket], ...]] = {}
+    fed: dict[bpy.types.NodeSocket, list[tuple[bpy.types.Node, bpy.types.NodeSocket]]] = {}
     for source, outlet, _, inlet in (endpoints(link) for tree in trees for link in tree.links if link.is_valid and not link.is_muted):
-        fed[inlet] = (*fed.get(inlet, ()), (source, outlet))
-    return MappingProxyType(fed)
+        fed.setdefault(inlet, []).append((source, outlet))
+    return MappingProxyType({inlet: tuple(sources) for inlet, sources in fed.items()})
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
@@ -327,10 +338,7 @@ __all__ = [
     "OUTPUT_NODES",
     "GraphTree",
     "Holder",
-    "Items",
-    "Named",
     "active_output",
-    "arranged",
     "base_socket",
     "created",
     "emptied",
@@ -341,10 +349,12 @@ __all__ = [
     "interface_of",
     "linked",
     "links_of",
+    "matched_items",
     "native",
     "nested",
     "new_group",
     "ordered",
+    "ordered_items",
     "socket_at",
     "tree_of",
     "upstream",

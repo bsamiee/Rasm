@@ -34,7 +34,7 @@ public abstract record Part {
 
         public View Drawn(View face) => face with { Part = this, Accessible = face.Accessible.Combine(new Accessible { Role = AccessRole.Button }) };
 
-        internal static View Dismiss(IO<Unit> run) => new Press(_ => run) { Delete = Some(run) }.Drawn(new View.Box { Role = Role.Dismiss, Align = UnitPoint.Center });
+        internal static View Dismiss(IO<Unit> run) => new Press(_ => run) { Delete = Some(run) }.Drawn(new View.Box { Role = Roles.Dismiss, Align = UnitPoint.Center });
 
         internal override Option<Reply> Began(Gesture gesture, HitTarget aim) => gesture is Gesture.Press ? Some(new Reply([], Some(Holding(aim)))) : None;
 
@@ -74,12 +74,22 @@ public abstract record Part {
         private AccessRole Composite => Value.Map(one: AccessRole.RadioGroup, many: AccessRole.List);
 
         // --- [DRAW]
-        public View Drawn(Seq<View> faces, Func<Seq<View>, View> container) =>
-            container(toSeq(Items.Zip(faces, (key, face) => Member(face, key, Some(Role.ListRow))))) switch {
+        public View Drawn(Func<Func<View, Key, View>, View> content) =>
+            content((node, key) => Member(node, key, Some(Roles.ListRow))) switch {
                 var held => held with { Part = this, Accessible = held.Accessible.Combine(new Accessible { Role = Composite }) },
             };
 
-        public View Drawn(Func<Key, View> item, Func<Seq<View>, View> container) => Drawn(Items.Map(item), container);
+        public View Drawn(Seq<View> faces, Func<Seq<View>, View> container) =>
+            Drawn(member => container(toSeq(Items.Zip(faces, (key, face) => member(face, key)))));
+
+        public View Drawn(Func<Key, View> item, Func<Seq<View>, View> container) => Drawn(member => container(Items.Map(key => member(item(key), key))));
+
+        public View Drawn(Seq<Key> shown, Func<Key, View> item, Func<Seq<View>, View> container) {
+            HashSet<Key> enabled = toHashSet(Items);
+            return Drawn(member => container(shown.Map(key => member(item(key), key) switch {
+                var node => enabled.Contains(key) ? node : node.Conditioned(Condition.Disabled),
+            })));
+        }
 
         public View.Lazy Drawn(Func<Key, View> item, PhysicalAxis axis, Tracks across, HashSet<Key> realized) =>
             new(axis, across, Items) {
@@ -88,7 +98,7 @@ public abstract record Part {
                 Accessible = new Accessible { Role = Composite },
             };
 
-        private View Member(View node, Key key, Option<Role> row) =>
+        private View Member(View node, Key key, Option<Key> row) =>
             node with {
                 Key = key,
                 Role = node.Role | row,
@@ -109,7 +119,7 @@ public abstract record Part {
 
         internal override Option<Reply> Began(Gesture gesture, HitTarget aim) =>
             from press in Optional(gesture as Gesture.Press)
-            from session in Item(aim.Hit, aim.Owner.Layout).Map(key => Pressing(key, aim)) | (Value is Selection.Many ? Some(Enclosing(aim)) : None)
+            from session in Item(aim.Hit, aim.Owner.Layout).Map(key => Pressing(key, aim)) || (Value is Selection.Many ? Some(Enclosing(aim)) : None)
             from reply in session.Began(press)
             select reply;
 
@@ -195,7 +205,7 @@ public abstract record Part {
 
         private Seq<Seq<Key>> Paths(LayoutNode layout, Seq<Key> keys) {
             HashMap<Key, Seq<Key>> tiles = toHashMap(Tiles(layout).Map(static tile => (tile.Key, tile.Layout.Path)));
-            return keys.Choose(key => tiles.Find(key) | Optional(layout.View as View.Lazy).Filter(lazy => lazy.Items.Exists(item => item == key)).Map(_ => layout.Path.Add(key)));
+            return keys.Choose(key => tiles.Find(key) || Optional(layout.View as View.Lazy).Filter(lazy => lazy.Items.Exists(item => item == key)).Map(_ => layout.Path.Add(key)));
         }
 
         private Seq<(Key Item, SKRect Frame)> Framed(HitTarget aim) => Tiles(aim.Owner.Layout).Choose(tile => aim.Scene.Frame(tile.Layout.Path).Map(frame => (Item: tile.Key, Frame: frame))).Strict();
@@ -221,10 +231,14 @@ public abstract record Part {
                 None: () => Tiles(sight.Layout).Filter(tile => sight.Scene.Bounds(tile.Layout.Path).Exists(static bounds => !bounds.IsEmpty)).Map(static tile => tile.Key)));
 
         private static Option<Key> Item(Seq<Key> over, LayoutNode layout, HashSet<Key> members) =>
-            layout.Children.Find(child => over.StartsWith(child.Path)).Bind(child => Tile(child, members) | Item(over, child, members));
+            toSeq(SuperEnumerable.TraverseDepthFirst(layout, node => node.Children.Find(child => over.StartsWith(child.Path)).ToSeq())).Skip(1)
+                .Choose(node => Tile(node, members)).Head;
 
         private static Seq<(Key Key, LayoutNode Layout)> Tiles(LayoutNode layout, HashSet<Key> members) =>
-            layout.Children.Bind(child => Tile(child, members).Match(Some: key => Seq((Key: key, Layout: child)), None: () => Tiles(child, members)));
+            layout.Children.Bind(child => toSeq(SuperEnumerable.TraverseDepthFirst((Layout: child, Key: Tile(child, members)), held => held.Key.IsSome
+                ? []
+                : held.Layout.Children.Map(node => (Layout: node, Key: Tile(node, members))))))
+                .Choose(static held => held.Key.Map(key => (Key: key, held.Layout)));
 
         private static Option<Key> Tile(LayoutNode layout, HashSet<Key> members) => layout.View.Key.Filter(members.Contains);
     }
@@ -240,7 +254,7 @@ public abstract record Part {
         // --- [GESTURES]
         internal override Option<Reply> Began(Gesture gesture, HitTarget aim) =>
             aim.Frame.Bind(frame => gesture.SwitchPartially(
-                (Viewport: this, Frame: frame, aim.Owner.Layout.Styled(Role.Handle).Metrics),
+                (Viewport: this, Frame: frame, aim.Owner.Layout.Styled(Roles.Handle).Metrics),
                 @default: static (held, _) => held.Viewport.Panning(held.Frame, held.Metrics),
                 press: static (held, press) =>
                     press.Clicks >= 2 ? held.Viewport.Tracking(held.Frame, (start, next) => next is Gesture.Press ? held.Viewport.Cycled(held.Frame, start) : None)
@@ -250,7 +264,7 @@ public abstract record Part {
         internal override Option<Reply> Performed(Gesture gesture, HitTarget aim) =>
             from frame in aim.Frame
             from move in gesture.SwitchPartially(
-                (Viewport: this, Frame: frame, Center: new SKPoint(aim.Owner.Bounds.MidX, aim.Owner.Bounds.MidY), aim.Owner.Layout.Styled(Role.Handle).Metrics),
+                (Viewport: this, Frame: frame, Center: new SKPoint(aim.Owner.Bounds.MidX, aim.Owner.Bounds.MidY), aim.Owner.Layout.Styled(Roles.Handle).Metrics),
                 @default: static (_, _) => Option<Func<PlotPlane, Option<PlotPlane>>>.None,
                 scroll: static (held, wheel) => held.Viewport.Wheeled(held.Frame, wheel, held.Metrics, notch: true),
                 perform: static (held, perform) => perform.Act.SwitchPartially(
@@ -350,18 +364,18 @@ public abstract record Part {
         // --- [DRAW]
         public View Zooms(PlotPlane view) =>
             new View.Flex(PhysicalAxis.Horizontal, [
-                Zoom(Role.Add, Some(Stepped(view, -1))),
-                Zoom(Role.Subtract, Some(Stepped(view, 1))),
-                Zoom(Role.Revert, view == Rest ? None : Some<Part>(new Press(_ => Edited(Edit.Of(EditPhase.Commit, Rest))))),
+                Zoom(Roles.Add, Some(Stepped(view, -1))),
+                Zoom(Roles.Subtract, Some(Stepped(view, 1))),
+                Zoom(Roles.Revert, view == Rest ? None : Some<Part>(new Press(_ => Edited(Edit.Of(EditPhase.Commit, Rest))))),
             ]) {
-                Role = Role.Hud,
+                Role = Roles.Hud,
             };
 
         internal View.Plot Overview(PlotPlane view, Seq<View> content) => new Brush(view, Edited).Overview(Rest, content);
 
-        private static View.Flex Zoom(Role glyph, Option<Part> part) =>
+        private static View.Flex Zoom(Key glyph, Option<Part> part) =>
             new(PhysicalAxis.Horizontal, [new View.Box { Role = glyph }]) {
-                Role = Role.Button,
+                Role = Roles.Button,
                 Conditions = part.IsSome ? [Condition.Borderless] : [Condition.Borderless, Condition.Disabled],
                 Part = part,
                 Accessible = new Accessible { Role = AccessRole.Button },
@@ -376,7 +390,7 @@ public abstract record Part {
             internal override Option<Reply> Performed(Gesture gesture, HitTarget aim) => Pressed(aim).Performed(gesture, aim);
 
             private Press Pressed(HitTarget aim) =>
-                new(_ => Owner.Zoomed(View, View.Center, MathF.Pow(aim.Owner.Layout.Styled(Role.Handle).Metrics[Metric.Notch], Notches))
+                new(_ => Owner.Zoomed(View, View.Center, MathF.Pow(aim.Owner.Layout.Styled(Roles.Handle).Metrics[Metric.Notch], Notches))
                     .Map(plane => Owner.Edited(Edit.Of(EditPhase.Commit, plane))).IfNone(unitIO));
         }
     }
@@ -417,14 +431,14 @@ public abstract record Part {
         private static TextRange Spanned(LayoutNode.Text text, SKPoint origin, Gesture.Press press) =>
             (Caret(text, origin, press.From), Caret(text, origin, press.At), press.Clicks) switch {
                 (var from, var to, <= 1) => new TextRange(from, to),
-                (var from, var to, 2) => Worded(text.Typeset.Lines, int.Min(from, to), int.Max(from, to)),
+                (var from, var to, 2) => Worded(text.Typeset.Source, int.Min(from, to), int.Max(from, to)),
                 _ => Whole(text),
             };
 
-        private static TextRange Whole(LayoutNode.Text text) => new(0, text.Typeset.Lines.Length);
+        private static TextRange Whole(LayoutNode.Text text) => new(0, text.Typeset.Source.Length);
 
         private static int Caret(LayoutNode.Text text, SKPoint origin, SKPoint at) =>
-            int.Max(0, text.Typeset.Lines.HitTest(at.X - origin.X - text.Origin.X, at.Y - origin.Y - text.Origin.Y).ClosestCodePointIndex);
+            text.Typeset.HitTest(new SKPoint(at.X - origin.X - text.Origin.X, at.Y - origin.Y - text.Origin.Y)).ClosestCodePointIndex;
 
         private static TextRange Worded(TextBlock block, int low, int high) =>
             toSeq(block.WordBoundaryIndicies) switch {

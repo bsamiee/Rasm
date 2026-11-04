@@ -5,7 +5,7 @@ from typing import ClassVar
 
 from bl_ui.space_view3d import VIEW3D_MT_select_object
 import bpy
-from expression import Ok, Option, Some, try_downcast
+from expression import Option, Some, try_downcast
 import msgspec
 
 from blender.bpy.commands.operators import Answer, answered, Call, Done, Empty, Operator, Unchanged
@@ -15,16 +15,16 @@ from blender.bpy.data.rna.paths import RnaPath, root_in, rooted
 from blender.bpy.data.rna.properties import redeclared
 from blender.bpy.data.rna.snapshots import Applied, assigned, Snapshot
 from blender.bpy.extension.identity import Identity
-from blender.bpy.extension.registration import Acquisitions
+from blender.bpy.extension.registration import acquired, Acquisitions
 from blender.bpy.scene.lights.emitters import emitters, emitting, picked, strengths, TEMPERATURE
 from blender.bpy.scene.objects import active_object
 from blender.bpy.settings.attachments import Attached, Attachment
 from blender.bpy.ui.elements.menus import Append
 from blender.bpy.ui.layout.lists import ItemList
 from blender.bpy.ui.layout.members import Member
-from blender.bpy.ui.layout.rows import acquired, OperatorButton, Property
+from blender.bpy.ui.layout.rows import OperatorButton, Property
 from blender.bpy.ui.layout.sections import Section
-from blender.records.faults import accumulated, Outcome, paired
+from blender.records.faults import accumulated, Ok, Outcome, paired
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -63,9 +63,9 @@ class LightList(msgspec.Struct, frozen=True, kw_only=True):
 
     solo: ClassVar[Attachment[Solo]] = Attachment(key="solo", form=Solo, owner=bpy.types.Object)
 
-    def acquisitions(self, _identity: Identity) -> Outcome[Acquisitions]:
+    def acquisitions(self, _identity: Identity) -> Acquisitions:
         """Returns solo attachment, emissive select menu entry, and section."""
-        return Ok((LightList.solo, Append(target=VIEW3D_MT_select_object, rows=(OperatorButton(target=emissives_select),)), *acquired((self.section(),))))
+        return LightList.solo, Append(target=VIEW3D_MT_select_object, rows=(OperatorButton(target=emissives_select),)), *acquired((self.section(),))
 
     @staticmethod
     def section() -> Section:
@@ -80,7 +80,6 @@ class LightList(msgspec.Struct, frozen=True, kw_only=True):
             rows=(
                 ItemList[bpy.types.PropertyGroup, bpy.types.Object](
                     key="emitters",
-                    item=bpy.types.Object,
                     collection=Member(root=bpy.types.Scene, path=("objects",)),
                     active=Some(Member(root=bpy.types.LayerObjects, path=("active",))),
                     cells=(

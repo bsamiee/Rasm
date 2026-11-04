@@ -2,7 +2,7 @@ use core::{cmp, iter, num::NonZero, ops::ControlFlow};
 
 use faer::{
     Accum, MatMut, MatRef, get_global_parallelism,
-    sparse::{SparseColMat, linalg::matmul::sparse_dense_matmul},
+    sparse::{SparseColMatRef, linalg::matmul::sparse_dense_matmul},
 };
 use nalgebra::{DVector, Matrix3xX};
 use nonempty_collections::NEVec;
@@ -42,8 +42,9 @@ pub fn equilibrium(network: &Network, members: &[Member], tolerance: Tolerance, 
     .map(Err)
     .collect::<Validated<(), _>>()
     .ok()?;
-    let (symbolic, values) = network.free.clone().into_parts();
-    let unsigned = SparseColMat::<usize, f64>::new(symbolic, values.into_iter().map(f64::abs).collect());
+    let (symbolic, values) = network.free.parts();
+    let values = values.iter().copied().map(f64::abs).collect::<Vec<_>>();
+    let unsigned = SparseColMatRef::new(symbolic, &values);
     let settle = |step: u32, free: &Matrix3xX<f64>| {
         let spans = spans(network, free);
         let densities = DVector::from_vec(
@@ -62,11 +63,11 @@ pub fn equilibrium(network: &Network, members: &[Member], tolerance: Tolerance, 
                 })
                 .collect(),
         );
-        let [residual, reactions] = balance(network, &spans, &densities);
+        let (residual, reactions) = balance(network, &spans, densities.as_view());
         let peak = residual.column_iter().map(|force| force.norm()).try_fold(0.0_f64, |peak, norm| norm.is_finite().then_some(peak.max(norm)));
         match peak {
             None => ControlFlow::Break(Err(FormError::Diverged { step })),
-            Some(peak) if peak <= tolerance.into_inner() => ControlFlow::Break(Ok(form(network, free, &spans, &densities, [residual, reactions]))),
+            Some(peak) if peak <= tolerance.into_inner() => ControlFlow::Break(Ok(form(network, free, &spans, densities.as_view(), (residual, reactions)))),
             Some(peak) => ControlFlow::Continue((residual, densities, peak)),
         }
     };

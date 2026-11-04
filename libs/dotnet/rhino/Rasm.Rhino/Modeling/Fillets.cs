@@ -24,17 +24,15 @@ public sealed partial class ArcDegree {
 
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record ArcSection {
-    private ArcSection(int degree, Seq<double> sliders) => (Degree, Sliders) = (degree, sliders);
+    public int Degree => Switch(rational: static _ => 2, nonRational: static section => section.Arc.Degree, nonRationalArcs: static section => section.Arc.Degree);
 
-    public int Degree { get; }
+    public Seq<double> Sliders => Switch(rational: static _ => Seq<double>(), nonRational: static section => Seq(section.Tangent, section.Inner), nonRationalArcs: static _ => Seq<double>());
 
-    public Seq<double> Sliders { get; }
+    public sealed record Rational : ArcSection;
 
-    public sealed record Rational() : ArcSection(2, []);
+    public sealed record NonRational(ArcDegree Arc, double Tangent, double Inner) : ArcSection;
 
-    public sealed record NonRational(ArcDegree Arc, double Tangent, double Inner) : ArcSection(Arc.Degree, [Tangent, Inner]);
-
-    public sealed record NonRationalArcs(ArcDegree Arc) : ArcSection(Arc.Degree, []);
+    public sealed record NonRationalArcs(ArcDegree Arc) : ArcSection;
 }
 
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
@@ -64,8 +62,8 @@ public abstract partial record FilletSection {
                 rational: static (at, _) => Fin.Succ(Brep.FilletSurfaceSettings.CreateRationalArcSettings(at.Radius, at.Tolerance, at.Trim, at.Extend)),
                 nonRational: static (at, section) =>
                     Brep.FilletSurfaceSettings.CreateNonRationalSettings(at.Radius, at.Tolerance, section.Arc.Degree, section.Tangent, section.Inner, at.Trim, at.Extend),
-                nonRationalArcs: static (_, _) => new RhinoFault(nameof(ArcSection.NonRationalArcs), RhinoReason.Unsupported)),
-            lines: static (_, _) => new RhinoFault(nameof(Lines), RhinoReason.Unsupported),
+                nonRationalArcs: static (_, section) => new RhinoFault(section, RhinoReason.Unsupported)),
+            lines: static (_, section) => new RhinoFault(section, RhinoReason.Unsupported),
             g2: static (at, _) => Brep.FilletSurfaceSettings.CreateG2BlendSettings(at.Radius, at.Tolerance, at.Trim, at.Extend));
 }
 
@@ -76,8 +74,8 @@ public abstract partial record FilletContact {
     public sealed record Rail(BrepFace RailFace, Curve Rail3d, BrepFace Face, Point2d Uv) : FilletContact;
     public sealed record FaceCurve(BrepFace Face, Point2d Uv, Curve Rail3d, double T, double Radius) : FilletContact;
 
-    public IO<FilletEngine> Engine(Tolerances tolerances) =>
-        from engine in Products.Of(() => Switch(
+    public IO<SurfaceFilletBase> Engine(Tolerances tolerances) =>
+        from engine in Products.Of<SurfaceFilletBase>(() => Switch(
             tolerances.Absolute,
             faces: static (tolerance, faces) => new FilletEngine(faces.A, faces.UvA, faces.B, faces.UvB, faces.Radius, faces.AllowExtend, tolerance),
             chamfer: static (tolerance, chamfer) => new FilletEngine(chamfer.A, chamfer.UvA, chamfer.B, chamfer.UvB, chamfer.Radius0, chamfer.Radius1, chamfer.AllowExtend, tolerance),
@@ -93,9 +91,9 @@ public abstract partial record FilletContact {
                 (Accepted: Brep.CreateFilletSurface(faces.A, faces.UvA, faces.B, faces.UvB, settings, out Brep.FilletSurfaceResults results), Results: (Brep.FilletSurfaceResults?)results)),
             chamfer: static (at, chamfer) => Chained(at.Section is FilletSection.Lines
                     ? Brep.FilletSurfaceSettings.CreateChamferSettings(chamfer.Radius0, chamfer.Radius1, at.Tolerance, at.Trim, at.Extend)
-                    : new RhinoFault(nameof(Chamfer), RhinoReason.Unsupported), at.Chain).Map(settings =>
+                    : new RhinoFault(chamfer, RhinoReason.Unsupported), at.Chain).Map(settings =>
                 (Accepted: Brep.CreateFilletSurface(chamfer.A, chamfer.UvA, chamfer.B, chamfer.UvB, settings, out Brep.FilletSurfaceResults results), Results: (Brep.FilletSurfaceResults?)results)),
-            rail: static (_, _) => new RhinoFault(nameof(Rail), RhinoReason.Unsupported),
+            rail: static (_, rail) => new RhinoFault(rail, RhinoReason.Unsupported),
             faceCurve: static (at, faceCurve) => Chained(at.Section.Settings(faceCurve.Radius, at.Tolerance, at.Trim, at.Extend), at.Chain).Map(settings =>
                 (Accepted: Brep.CreateFilletSurfaceCurve(faceCurve.Face, faceCurve.Uv, faceCurve.Rail3d, faceCurve.T, settings, out Brep.FilletSurfaceResults results), Results: (Brep.FilletSurfaceResults?)results)));
 
@@ -108,17 +106,15 @@ public abstract partial record FilletContact {
 
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record CurveAlignment {
-    private CurveAlignment(int alignToCurve, int bezierSurfaces) => (AlignToCurve, BezierSurfaces) = (alignToCurve, bezierSurfaces);
+    public int AlignToCurve => Switch(ignore: static _ => 0, match: static _ => 1, matchToTolerance: static _ => 2);
 
-    public int AlignToCurve { get; }
+    public int BezierSurfaces => Switch(ignore: static alignment => alignment.Surfaces, match: static _ => 0, matchToTolerance: static _ => 0);
 
-    public int BezierSurfaces { get; }
+    public sealed record Ignore(int Surfaces) : CurveAlignment;
 
-    public sealed record Ignore(int Surfaces) : CurveAlignment(0, Surfaces);
+    public sealed record Match : CurveAlignment;
 
-    public sealed record Match() : CurveAlignment(1, 0);
-
-    public sealed record MatchToTolerance() : CurveAlignment(2, 0);
+    public sealed record MatchToTolerance : CurveAlignment;
 }
 
 public sealed record SurfaceToCurveFit(double CurveDeviation, double FaceDeviation, double FaceAngle, double BezierAngle, double BezierCurvature);
@@ -128,7 +124,7 @@ public sealed record SurfaceToRailFit(double Deviation0, double Deviation1, doub
 public sealed record FilletResult(Seq<Brep> Fillets, Seq<Brep> Trimmed0, Seq<Brep> Trimmed1);
 
 // --- [SERVICES] ------------------------------------------------------------------------
-public sealed class FilletEngine : SurfaceFilletBase {
+file sealed class FilletEngine : SurfaceFilletBase {
     internal FilletEngine(BrepFace faceA, Point2d uvA, BrepFace faceB, Point2d uvB, double radius, bool allowExtend, double tolerance)
         : base(faceA, uvA, faceB, uvB, radius, allowExtend, tolerance) { }
 
@@ -140,8 +136,6 @@ public sealed class FilletEngine : SurfaceFilletBase {
 
     internal FilletEngine(BrepFace face, Point2d uv, Curve rail, double t, double radius, double tolerance)
         : base(face, uv, rail, t, radius, tolerance) { }
-
-    public IO<Unit> ChangeRadius(double radius) => Products.Accepted(() => ChangeFilletRadius(radius));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

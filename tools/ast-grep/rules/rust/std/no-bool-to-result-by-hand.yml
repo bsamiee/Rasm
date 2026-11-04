@@ -1,14 +1,16 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-bool-to-result-by-hand
-language: rust
+language: rustlang
 severity: error
 utils:
+    postfix-expression:
+        kind: 'identifier, self, field_expression, call_expression, macro_invocation, parenthesized_expression, index_expression, boolean_literal, scoped_identifier, try_expression, await_expression'
     compound:
-        not: {any: [{matches: rust-postfix-expression}, {kind: 'let_condition, let_chain'}]}
+        not: {any: [{matches: postfix-expression}, {kind: 'let_condition, let_chain'}]}
     unit-ok:
         matches: {rust-single-statement: {first: {pattern: Ok(())}}}
     error-arm:
-        matches: {rust-single-statement: {first: {pattern: Err($E)}}}
+        matches: {rust-single-statement: {first: {pattern: Err($_)}}}
     ok-first:
         all:
             - has: {field: consequence, matches: unit-ok}
@@ -24,35 +26,35 @@ utils:
         kind: if_expression
         all:
             - not: {inside: {kind: else_clause}}
-            - not: {matches: rust-const-context}
             - any:
-                - all: [{matches: ok-first}, {has: {field: condition, matches: rust-postfix-expression, pattern: $P}}]
+                - all: [{matches: ok-first}, {has: {field: condition, matches: postfix-expression, pattern: $P}}]
                 - all: [{matches: ok-first}, {has: {field: condition, matches: compound, pattern: $Q}}]
-                - all: [{matches: error-first}, {has: {field: condition, matches: negation, has: {nthChild: 1, matches: rust-postfix-expression, pattern: $P}}}]
+                - all: [{matches: error-first}, {has: {field: condition, matches: negation, has: {nthChild: 1, matches: postfix-expression, pattern: $P}}}]
                 - all: [{matches: error-first}, {has: {field: condition, matches: negation, has: {nthChild: 1, matches: compound, pattern: $Q}}}]
-                - all: [{matches: error-first}, {has: {field: condition, not: {matches: negation}, matches: rust-postfix-expression, pattern: $NP}}]
+                - all: [{matches: error-first}, {has: {field: condition, not: {matches: negation}, matches: postfix-expression, pattern: $NP}}]
                 - all: [{matches: error-first}, {has: {field: condition, not: {matches: negation}, matches: compound, pattern: $NQ}}]
+            - not: {matches: rust-const-context}
     unit-option:
         kind: call_expression
         any:
-            - pattern: $B.then_some(()).$OK($UE)
-            - pattern: '$B.then(|| ()).$OK($UE)'
+            - pattern: $B.then_some(()).$OK($_)
+            - pattern: '$B.then(|| ()).$OK($_)'
     filtered-unit:
         kind: call_expression
         any:
-            - pattern: $FO.filter($FP).map(drop).$OK($UE)
-            - pattern: '$FO.filter($FP).map(|_| ()).$OK($UE)'
+            - pattern: $FO.filter($_).map(drop).$OK($_)
+            - pattern: '$FO.filter($_).map(|_| ()).$OK($_)'
     unit-map-or:
         kind: call_expression
         any:
-            - pattern: '$M.map_or(Ok(()), |()| Err($ME))'
-            - pattern: '$M.map_or(Ok(()), |_| Err($ME))'
+            - pattern: '$M.map_or(Ok(()), |()| Err($_))'
+            - pattern: '$M.map_or(Ok(()), |_| Err($_))'
     flattened-option:
         kind: call_expression
         any:
-            - pattern: '$C.then(|| $LAZY).$FOK($FE).flatten()'
-            - pattern: $C.then_some($EAGER).$FOK($FE).flatten()
-            - pattern: $C.then($CALL).$FOK($FE).flatten()
+            - pattern: '$C.then(|| $_).$FOK($_).flatten()'
+            - pattern: $C.then_some($_).$FOK($_).flatten()
+            - pattern: $C.then($_).$FOK($_).flatten()
 rule:
     kind: 'if_expression, call_expression'
     any:
@@ -64,22 +66,5 @@ rule:
 constraints:
     OK: {regex: '^ok_or(_else)?$'}
     FOK: {regex: '^ok_or(_else)?$'}
-transform:
-    QW: {replace: {source: $Q, replace: '^([\s\S]+)$', by: '($1)'}}
-    NPW: {replace: {source: $NP, replace: '^([\s\S]+)$', by: '(!$1)'}}
-    NQW: {replace: {source: $NQ, replace: '^([\s\S]+)$', by: '(!($1))'}}
-    EAGER_TAIL: {replace: {source: $E, replace: '^([A-Za-z_][\w:]*(?:\.[A-Za-z_]\w*)*|-?[0-9][\w.]*|"(?:[^"\\]|\\.)*"|''(?:[^''\\]|\\.)'')$', by: '.ok_or($1)'}}
-    BRANCH_TAIL: {replace: {source: $EAGER_TAIL, replace: '^([^.][\s\S]*)$', by: '.ok_or_else(|| $1)'}}
-    MAP_OR_EAGER: {replace: {source: $ME, replace: '^([A-Za-z_][\w:]*(?:\.[A-Za-z_]\w*)*|-?[0-9][\w.]*|"(?:[^"\\]|\\.)*"|''(?:[^''\\]|\\.)'')$', by: '.is_none().ok_or($1)'}}
-    MAP_OR_TAIL: {replace: {source: $MAP_OR_EAGER, replace: '^([^.][\s\S]*)$', by: '.is_none().ok_or_else(|| $1)'}}
-    FILTER_TEST: {replace: {source: $FP, replace: '^([\s\S]+)$', by: '.as_ref().is_some_and($1)'}}
-    UNIT_TAIL: {replace: {source: $OK, replace: '^(.+)$', by: '.$1'}}
-    UNIT_ARGUMENT: {replace: {source: $UE, replace: '^([\s\S]+)$', by: '($1)'}}
-    FLAT_TAIL: {replace: {source: $FOK, replace: '^(.+)$', by: '.$1'}}
-    FLAT_ARGUMENT: {replace: {source: $FE, replace: '^([\s\S]+)$', by: '($1)'}}
-    LAZY_RESULT: {replace: {source: $LAZY, replace: '^([\s\S]+)$', by: '.and_then(|()| $1)'}}
-    EAGER_RESULT: {replace: {source: $EAGER, replace: '^([\s\S]+)$', by: '.and($1)'}}
-    CALLED_RESULT: {replace: {source: $CALL, replace: '^([\s\S]+)$', by: '.and_then(|()| $1())'}}
-fix: '$P$QW$NPW$NQW$BRANCH_TAIL$M$MAP_OR_TAIL$B$FO$FILTER_TEST$UNIT_TAIL$UNIT_ARGUMENT$C$FLAT_TAIL$FLAT_ARGUMENT$LAZY_RESULT$EAGER_RESULT$CALLED_RESULT'
 message: '`$P$Q$NP$NQ$M$B$FO$C` converts a `bool` or `Option<()>` into a `Result` by hand'
-note: 'Write `<condition>.ok_or(<error>)` or `ok_or_else(<closure>)`, `<option>.is_none().ok_or(<error>)` for an `Option<()>`, `<option>.is_some_and(<test>).ok_or(<error>)` for a filtered option, chaining `and` or `and_then` when the condition selects a result'
+note: 'Convert bools with `ok_or` or `ok_or_else`, options with `is_none` or `is_some_and`, nested results with `and` or `and_then`'

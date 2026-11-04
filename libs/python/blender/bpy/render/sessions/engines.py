@@ -1,14 +1,14 @@
-"""Render engine classes built from callback bodies taking the host's own callback parameters, the replay engine with the tiles a saved multilayer render replays, and engine sample reads."""
+"""Render engines from native callbacks, replayed multilayer passes, and sample settings."""
 
 from collections.abc import Callable, Generator, Iterable, Mapping
 from contextlib import contextmanager, ExitStack
 from functools import partial
+from itertools import islice
 from types import MappingProxyType
 from typing import ClassVar, Final, Literal, Self, TYPE_CHECKING
 
 import bpy
-from expression import Error, Nothing, Ok, Option, Result, Some
-from expression.collections import Block
+from expression import Option, Result, Some
 from expression.extra.result import catch
 import msgspec
 import numpy as np
@@ -22,15 +22,13 @@ from blender.bpy.extension.reports import rendered
 from blender.bpy.render.outputs.framing import Border, Framing
 from blender.bpy.render.outputs.results import COMBINED
 from blender.imaging.files.multilayer import Layer, Multilayer
-from blender.records.faults import accumulated, Fault, Outcome, Reason
+from blender.records.faults import accumulated, Error, Fault, Nothing, Ok, Outcome, Reason
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-FLAGS: Final = tuple(prop for prop in bpy.types.RenderEngine.bl_rna.properties if isinstance(prop, bpy.types.BoolProperty) and prop.identifier.startswith("bl_"))
-POSTPROCESS: Final = Descriptor.declared(bpy.types.RenderEngine, ("bl_use_postprocess",), bpy.types.BoolProperty)
 ENGINE_SAMPLES: Final = MappingProxyType({
     "BLENDER_EEVEE": (("eevee", "taa_render_samples"), ("eevee", "taa_samples")),
     "BLENDER_WORKBENCH": (("display", "render_aa"), ("display", "viewport_aa")),
@@ -49,7 +47,7 @@ class EnginePass(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def kind(self) -> Literal["VALUE", "VECTOR", "COLOR"]:
         """Registered pass type: one channel a value, RGB or RGBA a color, others a vector."""
-        return "VALUE" if len(self.chanid) == 1 else "COLOR" if self.chanid in {"RGB", "RGBA"} else "VECTOR"
+        return "VALUE" if len(self.chanid) == 1 else "COLOR" if self.chanid.upper() in {"RGB", "RGBA"} else "VECTOR"
 
 
 class Tile(msgspec.Struct, frozen=True, kw_only=True, eq=False):
@@ -70,7 +68,7 @@ class Tile(msgspec.Struct, frozen=True, kw_only=True, eq=False):
         names = tuple(sorted((layer.name for layer in scene.view_layers), key=len, reverse=True))
         framing = Framing.of(scene.render)
         (width, height), window = framing.bounds
-        stamps = tuple((key, value) for part in file.parts[:1] for key, value in part.header.items())
+        stamps = tuple((attribute.name, value) for part in islice(file.parts.values(), 1) for attribute in part.extra_attribs if isinstance(value := attribute.value, str))
 
         def cropped(values: npt.NDArray[np.float32]) -> npt.NDArray[np.float32]:
             bordered = isinstance(framing.extent, Border) and values.shape[:2] == (height, width)
@@ -78,40 +76,41 @@ class Tile(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
         def plane(owner: str, layer: Layer) -> Outcome[tuple[str, str, EnginePass, npt.NDArray[np.float32]]]:
             declared = EnginePass(name=layer.name[len(owner) + 1 :], chanid="".join(layer.channels))
-            return file.plane(layer, layer.channels).map(lambda values: (owner, file.parts[layer.part].header.get("view", ""), declared, cropped(values)))
+            return file.plane(layer, layer.channels).map(lambda values: (owner, file.parts[layer.part].get_string_attribute("view"), declared, cropped(values)))
 
         def grouped(planes: tuple[tuple[str, str, EnginePass, npt.NDArray[np.float32]], ...]) -> Mapping[str, tuple[Self, ...]]:
-            held = {key: tuple((declared, values) for owner, view, declared, values in planes if (owner, view) == key) for key in dict.fromkeys((owner, view) for owner, view, _, _ in planes)}
-            return {
-                layer: tuple(cls(x=0, y=0, planes=(found[0], *found[1:]), view=view, stamps=stamps) for (owner, view), found in held.items() if owner == layer)
-                for layer in dict.fromkeys(owner for owner, _ in held)
-            }
+            held: dict[str, dict[str, list[tuple[EnginePass, npt.NDArray[np.float32]]]]] = {}
+            for owner, view, declared, values in planes:
+                held.setdefault(owner, {}).setdefault(view, []).append((declared, values))
+            return {owner: tuple(cls(x=0, y=0, planes=(found[0], *found[1:]), view=view, stamps=stamps) for view, found in views.items()) for owner, views in held.items()}
 
-        return accumulated(plane(owner, layer) for layer in file.layers for owner in Block.of_seq(names).filter(lambda name: layer.name.startswith(f"{name}.")).try_head().to_list()).map(grouped)
+        return accumulated(plane(owner, layer) for layer in file.layers for owner in Option.of_optional(next((name for name in names if layer.name.startswith(f"{name}.")), None)).to_list()).map(
+            grouped
+        )
 
 
 class Engine(msgspec.Struct, frozen=True, kw_only=True):
-    """Render engine built from enabled `bl_` flags, others at their RNA default, and callback bodies over the host's own callback parameters, labeled by its key."""
+    """Render engine with explicit native flag overrides and callbacks, labeled by its key."""
 
     combined: ClassVar[EnginePass] = EnginePass(name=COMBINED, chanid="RGBA")
     key: Key
     render: Callable[[bpy.types.RenderEngine, bpy.types.Depsgraph], Iterable[Outcome[Tile]]]
-    enabled: frozenset[Descriptor[bpy.types.BoolProperty]] = frozenset()
-    passes: tuple[EnginePass, ...] | Callable[[bpy.types.Scene, bpy.types.ViewLayer], tuple[EnginePass, ...]] = ()
-    view_update: Option[Callable[[bpy.types.Context, bpy.types.Depsgraph], Outcome[None]]] = Nothing
-    view_draw: Option[Callable[[bpy.types.Context, bpy.types.Depsgraph], Outcome[None]]] = Nothing
-    bake: Option[Callable[[bpy.types.RenderEngine, bpy.types.Depsgraph, bpy.types.Object, "rna_enums.BakePassTypeItems", int, int, int], Outcome[npt.NDArray[np.float32]]]] = Nothing
+    flags: Mapping[bpy.types.BoolProperty, bool] = MappingProxyType({})
+    passes: tuple[EnginePass, ...] = ()
+    pass_builder: Option[Callable[[bpy.types.Scene, bpy.types.ViewLayer], tuple[EnginePass, ...]]] = Nothing
+    view_update: Option[Callable[[bpy.types.RenderEngine, bpy.types.Context, bpy.types.Depsgraph], Outcome[None]]] = Nothing
+    view_draw: Option[Callable[[bpy.types.RenderEngine, bpy.types.Context, bpy.types.Depsgraph], Outcome[None]]] = Nothing
+    bake: Option[Callable[[bpy.types.RenderEngine, bpy.types.Depsgraph, bpy.types.Object, "rna_enums.BakePassTypeItems", int, int, int], Outcome[None]]] = Nothing
     compat_engines: frozenset[str] = frozenset()
 
     # --- [CALLBACKS]
 
-    def built(self, identity: Identity, name: str) -> type[bpy.types.RenderEngine]:
+    def built(self, identity: Identity) -> type[bpy.types.RenderEngine]:
         """Builds `RenderEngine` subclass from callback bodies."""
 
         def update_render_passes(engine: bpy.types.RenderEngine, scene: bpy.types.Scene, renderlayer: bpy.types.ViewLayer) -> None:
             """Registers Combined, then engine passes."""
-            declaration = self.passes
-            for pass_ in (self.combined, *(declaration if isinstance(declaration, tuple) else declaration(scene, renderlayer))):
+            for pass_ in (self.combined, *self.passes, *self.pass_builder.map(lambda build: build(scene, renderlayer)).default_value(())):
                 engine.register_pass(scene, renderlayer, pass_.name, len(pass_.chanid), pass_.chanid, pass_.kind)
 
         def render(engine: bpy.types.RenderEngine, depsgraph: bpy.types.Depsgraph) -> None:
@@ -120,10 +119,10 @@ class Engine(msgspec.Struct, frozen=True, kw_only=True):
             for _, text in _written(engine, layer.name, self.render(engine, depsgraph)).swap().map(rendered).default_value(()):
                 engine.report({"ERROR"}, text)
 
-        def view_update(_engine: bpy.types.RenderEngine, context: bpy.types.Context, depsgraph: bpy.types.Depsgraph) -> None:
+        def view_update(engine: bpy.types.RenderEngine, context: bpy.types.Context, depsgraph: bpy.types.Depsgraph) -> None:
             """Runs viewport update, holding faults in extension reports."""
             for body in self.view_update.to_list():
-                identity.reports.reported(body)(context, depsgraph).to_optional()
+                identity.reports.reported(body)(engine, context, depsgraph).to_optional()
 
         def view_draw(engine: bpy.types.RenderEngine, context: bpy.types.Context, depsgraph: bpy.types.Depsgraph) -> None:
             """Draws under scene display space shader, unbinding it after, holding faults in extension reports."""
@@ -131,25 +130,20 @@ class Engine(msgspec.Struct, frozen=True, kw_only=True):
                 engine.bind_display_space_shader(depsgraph.scene)
                 scope.callback(engine.unbind_display_space_shader)
                 for body in self.view_draw.to_list():
-                    identity.reports.reported(body)(context, depsgraph).to_optional()
+                    identity.reports.reported(body)(engine, context, depsgraph).to_optional()
 
         def bake(engine: bpy.types.RenderEngine, depsgraph: bpy.types.Depsgraph, target: bpy.types.Object, pass_type: "rna_enums.BakePassTypeItems", pass_filter: int, width: int, height: int) -> None:
-            """Writes body plane to Combined pass of bake result."""
-            if (result := engine.begin_result(0, 0, width, height)) is None:
-                return
-            try:
-                for body in self.bake.to_list():
-                    baked = body(engine, depsgraph, target, pass_type, pass_filter, width, height).bind(lambda plane: _filled(result, "", self.combined, plane))
-                    for _, text in baked.swap().map(rendered).default_value(()):
-                        engine.report({"ERROR"}, text)
-            finally:
-                engine.end_result(result, cancel=engine.test_break())
+            """Runs native bake body and reports its faults."""
+            for body in self.bake.to_list():
+                for _, text in body(engine, depsgraph, target, pass_type, pass_filter, width, height).swap().map(rendered).default_value(()):
+                    engine.report({"ERROR"}, text)
 
+        name = identity.name(bpy.types.RenderEngine, self.key)
         namespace: dict[str, object] = {
             "__module__": identity.package,
             "bl_idname": name,
             "bl_label": bpy.path.display_name(self.key),
-            **{prop.identifier: prop.default or any(prop == descriptor.prop for descriptor in self.enabled) for prop in FLAGS},
+            **{prop.identifier: value for prop, value in self.flags.items()},
             "update_render_passes": update_render_passes,
             "render": render,
             **({"view_update": view_update} if self.view_update.is_some() else {}),
@@ -173,26 +167,28 @@ class Engine(msgspec.Struct, frozen=True, kw_only=True):
             layer: bpy.types.ViewLayer = depsgraph.view_layer  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
             return map(Ok, tiles(scene, layer))
 
-        replay = cls(key=key, render=render, passes=passes, enabled=frozenset({POSTPROCESS}))
+        replay = cls(key=key, render=render, pass_builder=Some(passes)).built(identity)
         with ExitStack() as scope:
-            yield identity.name(bpy.types.RenderEngine, key).bind(lambda name: entered(scope, (replay.built(identity, name),)).map(lambda _: name))
+            yield entered(scope, (replay,)).map(lambda _: replay.bl_idname)
 
     @contextmanager
     def joined(self, name: str) -> Generator[Outcome[None]]:
         """Adds engine to `COMPAT_ENGINES` sets holding a `compat_engines` name until scope exit."""
-        panels = tuple(engines for panel in bpy.types.Panel.__subclasses__() if isinstance(engines := getattr(panel, "COMPAT_ENGINES", None), set))
-        answer = accumulated(
-            Ok(None) if any(identifier in engines for engines in panels) else Error(Fault.of(Reason.ABSENT, "COMPAT_ENGINES", member=identifier)) for identifier in sorted(self.compat_engines)
-        ).map(lambda _: None)
         with ExitStack() as scope:
-            for engines in {id(engines): engines for engines in panels if answer.is_ok() and self.compat_engines.intersection(engines) and name not in engines}.values():
-                engines.add(name)
-                scope.callback(engines.discard, name)
-            yield answer
+            for panel in bpy.types.Panel.__subclasses__() if self.compat_engines else ():
+                try:
+                    engines: set[str] = panel.COMPAT_ENGINES  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute, unsound-assignment]
+                except AttributeError:  # ruff: ignore[try-except-continue]
+                    continue
+                if self.compat_engines.intersection(engines) and name not in engines:
+                    engines.add(name)
+                    scope.callback(engines.discard, name)
+            yield Ok(None)
 
-    def acquisitions(self, identity: Identity, /) -> Outcome[Acquisitions]:
+    def acquisitions(self, identity: Identity, /) -> Acquisitions:
         """Acquires engine class, then `COMPAT_ENGINES` memberships."""
-        return identity.name(bpy.types.RenderEngine, self.key).map(lambda name: (self.built(identity, name), (Tier.INTERFACE, self.joined(name))))
+        engine = self.built(identity)
+        return engine, (Tier.INTERFACE, self.joined(engine.bl_idname))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -200,6 +196,7 @@ class Engine(msgspec.Struct, frozen=True, kw_only=True):
 
 def _written(engine: bpy.types.RenderEngine, layer: str, tiles: Iterable[Outcome[Tile]]) -> Outcome[int]:
     """Writes tiles into a view layer's results until cancellation or first fault, returning written count."""
+    final: bpy.types.RenderResult = engine.get_result()  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
     count, area = 0, 0
     for answer in tiles:
         if engine.test_break():
@@ -210,11 +207,11 @@ def _written(engine: bpy.types.RenderEngine, layer: str, tiles: Iterable[Outcome
             case Result(ok=tile):
                 height, width = tile.planes[0][1].shape[:2]
                 if (result := engine.begin_result(tile.x, tile.y, width, height, layer=layer, view=tile.view)) is None:
-                    continue
+                    return Error(Fault.of(Reason.ABSENT, repr(engine), member=bpy.types.RenderResult.__name__))
                 try:
                     filled = accumulated(_filled(result, tile.view, pass_, plane[-result.resolution_y :, : result.resolution_x]) for pass_, plane in tile.planes)
                     for field, value in tile.stamps:
-                        result.stamp_data_add_field(field, value)
+                        final.stamp_data_add_field(field, value)
                     area += result.resolution_x * result.resolution_y
                 finally:
                     engine.end_result(result, cancel=engine.test_break())
@@ -229,11 +226,16 @@ def _written(engine: bpy.types.RenderEngine, layer: str, tiles: Iterable[Outcome
 
 def _filled(result: bpy.types.RenderResult, view: str, pass_: EnginePass, plane: npt.NDArray[np.float32]) -> Outcome[None]:
     """Writes a plane, top row first, into the result's pass of that name and view, absent fault for a pass the engine never registered, invalid fault for a plane the pass refuses."""
+
+    @catch(exception=TypeError)
+    def filled(found: bpy.types.RenderPass) -> None:
+        found.rect.foreach_set(plane[::-1].ravel())  # type: ignore[arg-type]
+
     return (
         Option
         .of_optional(result.layers[0].passes.find_by_name(pass_.name, view))
         .to_result_with(lambda: Fault.of(Reason.ABSENT, repr(result), member=pass_.name))
-        .bind(lambda found: catch(found.rect.foreach_set, exception=TypeError)(plane[::-1].ravel()).map_error(partial(Fault.of, Reason.INVALID, pass_.name)))
+        .bind(lambda found: filled(found).map_error(partial(Fault.of, Reason.INVALID, pass_.name)))
     )
 
 
@@ -251,7 +253,7 @@ def samples(scene: bpy.types.Scene, layer: bpy.types.ViewLayer) -> Option[int]:
     def counted(descriptor: Descriptor[bpy.types.Property], owner: Native) -> Option[int]:
         match descriptor.prop, descriptor.read(owner):
             case bpy.types.EnumProperty(enum_items=items), str(identifier):
-                return Option.of_optional(items.get(identifier)).map(lambda item: item.value)
+                return Some(items[identifier].value)
             case _, int(count):
                 return Some(count)
             case _:
@@ -274,4 +276,4 @@ def samples(scene: bpy.types.Scene, layer: bpy.types.ViewLayer) -> Option[int]:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["ENGINE_SAMPLES", "FLAGS", "POSTPROCESS", "Engine", "EnginePass", "Tile", "samples"]
+__all__ = ["ENGINE_SAMPLES", "Engine", "EnginePass", "Tile", "samples"]

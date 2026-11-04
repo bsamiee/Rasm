@@ -1,6 +1,6 @@
-#![feature(adt_const_params, array_try_map, cmp_minmax)]
+#![feature(adt_const_params, cmp_minmax)]
 
-use core::{borrow::Borrow, convert, fmt, iter, marker::ConstParamTy};
+use core::{borrow::Borrow, cell::LazyCell, convert, fmt, iter, marker::ConstParamTy};
 
 use cavalier_contours::{
     core::math::Vector2,
@@ -49,12 +49,15 @@ impl<const CLOSURE: Closure> Polyline<CLOSURE> {
 
     pub fn from_line_string(line: &LineString<f64>, tolerance: Tolerance) -> Result<Self, PlanarError> { indexed(straight(line), tolerance) }
 
-    pub fn points(&self, tolerance: Tolerance) -> Result<Vec<Point2<f64>>, PlanarError> { flattened(&self.outline.polyline, tolerance) }
+    pub fn points(&self, tolerance: Tolerance) -> Result<Vec<Point2<f64>>, PlanarError> { flattened(&self.outline.polyline, tolerance).map(|points| points.map(Point2::from).collect()) }
 
     pub fn to_line_string(&self, tolerance: Tolerance) -> Result<LineString<f64>, PlanarError> {
-        self.points(tolerance).map(|points| {
-            let closing = points.first().copied().filter(|_| CLOSURE == Closure::Closed);
-            iter::chain(points, closing).map(<[f64; 2]>::from).collect()
+        flattened(&self.outline.polyline, tolerance).map(|points| {
+            let mut line = points.collect::<LineString<_>>();
+            if CLOSURE == Closure::Closed {
+                line.close();
+            }
+            line
         })
     }
 
@@ -88,18 +91,13 @@ impl Region {
 
     #[must_use]
     pub fn polygons(&self) -> Vec<(Polyline<{ Closure::Closed }>, Vec<Polyline<{ Closure::Closed }>>)> {
-        let Shape { ccw_plines: bodies, cw_plines: holes, plines_index: _ } = &self.0;
-        let owned = iter::zip(holes, owners(&self.0)).filter_map(|(hole, owner)| owner.map(|owner| (owner, hole))).into_group_map();
-        bodies.iter().enumerate().map(|(body, outline)| (measured(outline.clone()), owned.get(&body).into_iter().flatten().map(|hole| measured((*hole).clone())).collect())).collect()
+        rings(&self.0).map(|(body, holes)| (measured(body.clone()), holes.into_iter().map(|hole| measured(hole.clone())).collect())).collect()
     }
 
     pub fn to_multi_polygon(&self, tolerance: Tolerance) -> Result<MultiPolygon<f64>, PlanarError> {
-        self.polygons()
-            .iter()
-            .map(|(body, holes)| {
-                body.to_line_string(tolerance)
-                    .and_then(|exterior| holes.iter().map(|hole| hole.to_line_string(tolerance)).collect::<Result<Vec<_>, _>>().map(|interiors| Polygon::new(exterior, interiors)))
-            })
+        let line = |outline: &IndexedPolyline<f64>| flattened(&outline.polyline, tolerance).map(Iterator::collect::<LineString<_>>);
+        rings(&self.0)
+            .map(|(body, holes)| line(body).and_then(|exterior| holes.into_iter().map(line).collect::<Result<Vec<_>, _>>().map(|interiors| Polygon::new(exterior, interiors))))
             .collect::<Result<Vec<_>, _>>()
             .map(MultiPolygon::new)
     }
@@ -144,7 +142,7 @@ pub enum PlanarError {
     Crossing { segments: NEVec<[Point2<f64>; 2]> },
     #[error("{}", sites.iter().map(|(site, source)| fmt::from_fn(move |formatter| write!(formatter, "site {site} is refused as {source}"))).format(", "))]
     Insertion { sites: NEVec<(usize, InsertionError)> },
-    #[error("triangulation positions exceed {}", spade::MAX_ALLOWED_VALUE)]
+    #[error("triangulation refused positions")]
     Extent { source: InsertionError },
 }
 
@@ -158,7 +156,7 @@ pub fn winding_number(region: &Region, point: Point2<f64>, tolerance: Tolerance)
         .0
         .plines_index
         .query_iter(min_x, min_y, max_x, max_y)
-        .filter_map(|index| boundary(&region.0, index))
+        .map(|index| boundary(&region.0, index))
         .map(|IndexedPolyline { polyline: outline, spatial_index }| {
             spatial_index
                 .query_iter(min_x, min_y, max_x, max_y)
@@ -272,17 +270,15 @@ fn placed<'source>(outline: &'source polyline::Polyline<f64>, placement: &'sourc
     })
 }
 
-fn flattened(polyline: &polyline::Polyline<f64>, tolerance: Tolerance) -> Result<Vec<Point2<f64>>, PlanarError> {
-    polyline.arcs_to_approx_lines(tolerance.into_inner()).map(|lines| lines.iter_vertexes().map(|vertex| Point2::new(vertex.x, vertex.y)).collect()).ok_or(PlanarError::Flattening { tolerance })
+fn flattened(polyline: &polyline::Polyline<f64>, tolerance: Tolerance) -> Result<impl ExactSizeIterator<Item = [f64; 2]> + use<>, PlanarError> {
+    polyline.arcs_to_approx_lines(tolerance.into_inner()).map(|lines| lines.vertex_data.into_iter().map(|vertex| [vertex.x, vertex.y])).ok_or(PlanarError::Flattening { tolerance })
 }
 
 fn collapsed(outline: &polyline::Polyline<f64>, tolerance: Tolerance) -> bool { 2.0 * outline.area().abs() <= tolerance.into_inner() * outline.path_length() }
 
 fn segment(path: &polyline::Polyline<f64>, index: usize) -> (PlineVertex<f64>, PlineVertex<f64>) { (path.at(index), path.at(path.next_wrapping_index(index))) }
 
-fn boundary(shape: &Shape<f64>, index: usize) -> Option<&IndexedPolyline<f64>> {
-    index.checked_sub(shape.ccw_plines.len()).map_or_else(|| shape.ccw_plines.get(index), |hole| shape.cw_plines.get(hole))
-}
+fn boundary(shape: &Shape<f64>, index: usize) -> &IndexedPolyline<f64> { index.checked_sub(shape.ccw_plines.len()).map_or_else(|| &shape.ccw_plines[index], |hole| &shape.cw_plines[hole]) }
 
 fn nested<I, R>(polygons: I, tolerance: Tolerance) -> Result<Region, PlanarError>
 where
@@ -374,14 +370,14 @@ where
                 plines_index.query_iter(bounds.min_x, bounds.min_y, bounds.max_x, bounds.max_y).filter(move |second| *second > first).map(move |second| (first, outline, second))
             })
         })
-        .filter_map(|(first, outline, second)| boundary(&shape, second).and_then(|other| nesting(outline, other)).map(|within| (first, second, within)))
+        .filter_map(|(first, outline, second)| nesting(outline, boundary(&shape, second)).map(|within| (first, second, within)))
         .partition_map(|(first, second, within)| match within {
             [true, false] => Either::Left((first, second)),
             [false, true] => Either::Left((second, first)),
             [true, true] | [false, false] => Either::Right([first, second]),
         });
     let containers = contained.into_iter().into_group_map();
-    let area = |index: &usize| boundary(&shape, *index).map_or_default(|outline| outline.polyline.area().abs());
+    let area = |index: &usize| boundary(&shape, *index).polyline.area().abs();
     let solid = shape.ccw_plines.len();
     let enclosure = subjects.iter().enumerate().flat_map(|(index, (_, owner))| {
         let outer = containers.get(&index).map_or(&[][..], Vec::as_slice);
@@ -394,11 +390,8 @@ where
             (false, false) => [Some((index, Defect::Overlapping)), outer.iter().min_by(|left, right| area(left).total_cmp(&area(right))).map(|outer| (*outer, Defect::Overlapping))],
         }
     });
-    let defects = enclosure
-        .flatten()
-        .chain(overlapping.into_iter().flatten().map(|index| (index, Defect::Overlapping)))
-        .unique_by(|(index, _)| *index)
-        .filter_map(|(index, defect)| subjects.get(index).map(|(subject, _)| (*subject, defect)));
+    let defects =
+        enclosure.flatten().chain(overlapping.into_iter().flatten().map(|index| (index, Defect::Overlapping))).unique_by(|(index, _)| *index).map(|(index, defect)| (subjects[index].0, defect));
     iter::chain(refused, defects).sorted_by_key(|(subject, _)| *subject).dedup().try_into_nonempty_iter().map(NonEmptyIterator::collect::<NEVec<_>>).map_or(Ok(Region(shape)), Err)
 }
 
@@ -418,16 +411,23 @@ where
     Shape::from_plines(bodies.into_iter().map(turned(PlineOrientation::CounterClockwise)).chain(holes.into_iter().map(turned(PlineOrientation::Clockwise))))
 }
 
+fn rings(shape: &Shape<f64>) -> impl Iterator<Item = (&IndexedPolyline<f64>, Vec<&IndexedPolyline<f64>>)> {
+    let Shape { ccw_plines: bodies, cw_plines: holes, plines_index: _ } = shape;
+    let mut owned = iter::zip(holes, owners(shape)).filter_map(|(hole, owner)| owner.map(|owner| (owner, hole))).into_group_map();
+    bodies.iter().enumerate().map(move |(body, outline)| (outline, owned.remove(&body).unwrap_or_default()))
+}
+
 fn owners(shape: &Shape<f64>) -> Vec<Option<usize>> {
     let Shape { ccw_plines: bodies, cw_plines: holes, plines_index } = shape;
-    let areas = bodies.iter().map(|body| body.polyline.area()).collect_vec();
+    let areas = LazyCell::new(|| bodies.iter().map(|body| body.polyline.area()).collect_vec());
     holes
         .iter()
         .map(|hole| {
-            let inside = hole.polyline.iter_segments().next().map(|(start, end)| polyline::seg_midpoint(start, end))?;
+            let (start, end) = segment(&hole.polyline, 0);
+            let inside = polyline::seg_midpoint(start, end);
             plines_index
                 .query_iter(inside.x, inside.y, inside.x, inside.y)
-                .filter_map(|body| bodies.get(body).zip(areas.get(body)).map(|(outline, area)| (body, outline, *area)))
+                .filter_map(|body| bodies.get(body).map(|outline| (body, outline, areas[body])))
                 .filter(|(_, outline, _)| outline.polyline.winding_number(inside) != 0)
                 .min_by(|(_, _, left), (_, _, right)| left.total_cmp(right))
                 .map(|(body, _, _)| body)
@@ -435,7 +435,7 @@ fn owners(shape: &Shape<f64>) -> Vec<Option<usize>> {
         .collect()
 }
 
-fn position(point: Point2<f64>) -> spade::Point2<f64> { spade::mitigate_underflow(<[f64; 2]>::from(point).into()) }
+fn position(point: impl Into<[f64; 2]>) -> spade::Point2<f64> { spade::mitigate_underflow(point.into().into()) }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

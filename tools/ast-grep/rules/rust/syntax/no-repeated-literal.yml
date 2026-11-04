@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-repeated-literal
-language: rust
+language: rustlang
 severity: error
 utils:
     number:
@@ -20,13 +20,15 @@ utils:
     unit-site:
         any:
             - matches: rust-calendar-site
-            - matches: {rust-angle-conversion: {X: &any {pattern: $_}, NUM: *any, DEN: *any, DEGREES: *any, RADIANS: *any, OFFSET: *any}}
-            - matches: {rust-duration-scaling: {PATH: *any, SECS: *any, MILLIS: *any, MICROS: *any, NANOS: *any, ARG: *any, D: *any, READ: *any, THOUSAND: *any}}
+            - matches: rust-angle-conversion
+            - matches: rust-duration-scaling
     unit-factor:
-        inside: {stopBy: end, matches: unit-site}
+        inside: {stopBy: {kind: function_item}, matches: unit-site}
     site:
-        any: [{matches: number, not: {matches: unit-factor}}, {matches: text}]
-        not: {inside: {stopBy: end, kind: 'const_item, static_item, attribute_item, inner_attribute_item, token_tree, enum_variant'}}
+        all:
+            - any: [{matches: number}, {matches: text}]
+            - not: {inside: {stopBy: end, kind: 'const_item, static_item, attribute_item, inner_attribute_item, token_tree, enum_variant'}}
+            - not: {all: [{kind: 'integer_literal, float_literal'}, {matches: unit-factor}]}
     negated:
         inside: {kind: unary_expression, regex: '^-'}
     plain-site:
@@ -63,17 +65,17 @@ rule:
         - not: {matches: rust-test-scope}
         - any:
             - all:
-                - matches: plain-site
+                - not: {matches: negated}
                 - any:
                     - matches: earlier-plain
                     - inside: {stopBy: {kind: 'function_item, impl_item, trait_item'}, not: {kind: 'function_item, impl_item, trait_item'}, matches: earlier-plain}
                     - inside: {stopBy: {kind: function_item}, kind: function_item, matches: method, all: [{matches: earlier-plain}]}
                     - matches: owned
             - all:
-                - matches: negated-site
+                - matches: negated
                 - any:
                     - matches: earlier-negated
                     - inside: {stopBy: {kind: 'function_item, impl_item, trait_item'}, not: {kind: 'function_item, impl_item, trait_item'}, matches: earlier-negated}
                     - inside: {stopBy: {kind: function_item}, kind: function_item, matches: method, all: [{matches: earlier-negated}]}
 message: '`$LITERAL` repeats an earlier literal of its function, impl, or trait, or a `const` or `static` value'
-note: 'Bind the value once in a `let` or `const` and read it at each use, or read its owning or library constant (`u16::MAX`)'
+note: 'Bind one `let` or `const` for every use, or read the owning constant (`u16::MAX`)'

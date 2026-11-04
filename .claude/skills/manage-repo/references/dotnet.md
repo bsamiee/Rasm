@@ -9,7 +9,6 @@ MSBuild directory files and central package versions own every shared .NET decla
 - Releases come from nuget.org, the one `NuGet.config` source, a per-commit build on a dnceng feed (`dotnet-tools`) is no release
 - Version edits splice attribute text in place, `XmlDocument` or `ProjectRootElement` saves collapse row alignment
 - Newest release is the highest listed framework-compatible release by `NuGetVersion` across base versions, a stable release above its prereleases
-- Prereleases of one base version rank by `NuGetVersion` where the first differing label is numeric on both sides, else by feed publish time
 - Package metadata and downloads read NuGet's HTTP cache under its default age
 - Rows move down when their current version is unlisted or incompatible with the repository target framework
 - `global.json` `sdk.version` moves by hand to the newest `mise ls-remote dotnet` entry

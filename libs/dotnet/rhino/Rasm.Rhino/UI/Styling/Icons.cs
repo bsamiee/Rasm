@@ -24,9 +24,9 @@ public sealed partial class IconSlot {
     public static readonly IconSlot PanelTab = new(static () => IO.lift(static () => Panels.IconSize.Width));
     public static readonly IconSlot PanelButton = new(static () => Appearance.PanelButtonSize.Read);
     public static readonly IconSlot Small = new(static () => IO.pure(16));
-    public static readonly IconSlot DropDownItem = new(static () => IO.lift(static () => HostPlatform.Current.DropDownIconSize));
+    public static readonly IconSlot DropDownItem = new(static () => IO.lift(static () => IHostPlatform.Current.DropDownIconSize));
     public static readonly IconSlot Banner = new(static () => IO.pure(44));
-    public static readonly IconSlot RenderTab = new(static () => IO.lift(static () => HostPlatform.Current.RenderTabIconSize));
+    public static readonly IconSlot RenderTab = new(static () => IO.lift(static () => IHostPlatform.Current.RenderTabIconSize));
 
     public IO<Size> Pixels => Device(None);
 

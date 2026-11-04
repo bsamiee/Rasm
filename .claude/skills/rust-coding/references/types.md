@@ -49,7 +49,15 @@ impl_typed_uuid_kinds! {
 
 Each row derives an uninhabited `ParcelKind`, its tag `parcel`, and the alias `ParcelUuid` for `TypedUuid<ParcelKind>`. `ParcelUuid::new_v7(stamp)` creates a time-ordered identifier from `uuid::Timestamp::from_unix(&context, seconds, nanos)` over a caller's instant. The caller's `ContextV7` orders identifiers created within one millisecond.
 
-## [03]-[TYPESTATE]
+## [03]-[MEMORY]
+
+Native `collect` can reuse an owned iterator's allocation. Small retained results can keep large source allocations; `Box<[T]>` fits frozen storage when spare capacity has no future consumer. Converting `Vec` to `Arc<[T]>` allocates and moves elements; direct shared-slice collection lets native specialization choose construction. Exact output length can enable direct allocation, while `ExactSizeIterator` alone promises no specialization and filtering can lose it. Unsafe iterator markers remain with their owning implementation.
+
+`Vec` and `String` use native `clone_from` or `clone_into` to reuse destination storage when replacement requires cloning; element reuse follows that element's implementation. Generic `Clone` bounds promise no reuse. Borrow or move an available owner when duplication serves no consumer. `Bytes::slice` shares backing storage in constant time; copying a small retained part can release a larger source after other owners drop. Allocation count and retained bytes are separate costs.
+
+Borrowed map lookup avoids temporary key ownership. `hashbrown::HashMap::entry_ref(...).or_insert_with(...)` constructs an owned key and value only on vacancy. `or_insert_with_key` derives a value from its key; `get_key_value` returns both stored facts in one lookup. Preserve output ordering and hasher requirements when choosing the collection.
+
+## [04]-[TYPESTATE]
 
 Generic state parameters hold each state's data, marker impls declare the lifecycle's transitions, and one function moves an order along any of them:
 
@@ -73,9 +81,9 @@ where S: Precedes<T> {
 }
 ```
 
-`Draft`, `Placed { at }`, and `Paid { at, reference }` are the state records. `advance(order, Placed { at })` compiles for a draft alone, and a paid order has no transition onward. A branching state implements `Precedes` once per successor, and the orphan rule bars other crates from adding one. `enum Stored { Draft(Order<Draft>), Placed(Order<Placed>), Paid(Order<Paid>) }` holds a stored order, and a load matches it once.
+`Draft`, `Placed { at }`, and `Paid { at, reference }` are the state records. `advance(order, Placed { at })` accepts a draft, and declared impls give paid orders no successor. Branching states implement `Precedes` per successor; downstream crates can extend the public trait with their own state types. `enum Stored { Draft(Order<Draft>), Placed(Order<Placed>), Paid(Order<Paid>) }` holds stored orders, and a load matches once. Closed lifecycle cases use an enum when consumers inspect state.
 
-## [04]-[PERSISTENT_COLLECTIONS]
+## [05]-[PERSISTENT_COLLECTIONS]
 
 `imbl` transitions (`update`, `alter`, `without`) return a successor sharing every node off the changed path. Derived values follow each version through a diff:
 
@@ -92,7 +100,7 @@ pub fn retotal(total: Decimal, before: &OrdMap<Sku, Decimal>, after: &OrdMap<Sku
 
 `diff` skips every subtree both versions share by pointer, and a total, index, or view updates at the cost of changed entries alone. Versions sharing a root diff empty. `alter` reads a key's present value and returns the successor in one call, and a `None` from its closure removes the key. A `Vector` of versions holds an undo history at the cost of changed paths.
 
-## [05]-[ARENAS]
+## [06]-[ARENAS]
 
 Records referring to each other sit in an arena owning every record, references are keys, and the graph an algorithm reads derives from the arena:
 
@@ -108,3 +116,13 @@ pub fn network(hubs: &SlotMap<HubKey, Hub>) -> DiGraphMap<HubKey, &Link> {
 ```
 
 `Hub` holds its outgoing `links` as `(HubKey, Link)` pairs. Generational keys outliving their hub fail `get` and `contains_key` in place of naming a hub that reused the slot. The graph leaves out links to removed hubs. Edges borrow each `Link` from the arena, and the graph copies no record. `Bfs::new(&graph, origin).iter(&graph)` walks hubs reachable from `origin`. `toposort(&graph, None)` orders linked hubs or returns a `Cycle` naming a hub on one. `SecondaryMap<HubKey, V>` adds a column computed later (a layout, a load) without widening `Hub`.
+
+Dense `SecondaryMap` storage and iteration cover primary slots; `SparseSecondaryMap` fits columns populated for a minority of keys. Derived columns need later consumers. Arena lifetime, removal, and destruction semantics select the owner; dropless storage excludes values requiring destruction.
+
+`Dfs::reset` starts an independent traversal, while `move_to` retains discovered nodes. `has_path_connecting` accepts reusable `DfsSpace` and stops when the target is found. Preserve direction, revisit behavior, mutation rules, and simultaneously live outputs when reusing workspace.
+
+## [07]-[LAYOUT]
+
+`Option` preserves size, alignment, and call ABI for the references, global boxes, function pointers, nonzero integers, `NonNull`, and transparent wrappers its contract lists. Custom enums and arbitrary smart pointers carry no blanket niche guarantee. Use the domain's optional value instead of a separate presence flag or sentinel, with no unsafe representation conversion.
+
+Inline storage saves allocation when its footprint and spill behavior fit the workload. `SmallVec` embeds capacity even when empty; domain bounds or observed lengths determine capacity. Large enum variants affect every instance's layout, while boxing adds allocation and indirection and can remove `Copy`. Variant distribution, access patterns, native size and alignment determine whether representation changes improve the operation.

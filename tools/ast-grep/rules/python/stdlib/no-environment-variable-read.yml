@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-environment-variable-read
-language: python
+language: pythonlang
 severity: error
 ignores:
     - '**/__main__.py'
@@ -62,7 +62,9 @@ utils:
             stopBy: end
             any:
                 - matches: python-entry-module
-                - has: {kind: 'import_from_statement, import_statement', regex: '^(from|import)\s+cyclopts\b'}
+                - has:
+                    kind: import_from_statement, import_statement
+                    has: {stopBy: end, kind: dotted_name, regex: '^cyclopts(\.|$)', matches: python-imported-module}
 rule:
     pattern: $READ
     not: {matches: boundary}
@@ -72,8 +74,9 @@ rule:
             - any:
                 - regex: 'environb?$'
                 - all:
+                    - kind: identifier
                     - not: {inside: {kind: 'call, keyword_argument, parameters, typed_parameter, default_parameter, typed_default_parameter, import_from_statement, aliased_import, function_definition, class_definition'}}
-                    - matches: {python-import-alias: {module: {regex: '^os$'}, name: {regex: '^environb?$'}, source: {regex: '\benvironb?\s+as\s'}}}
+                    - not: {not: {inside: {kind: module, stopBy: end, regex: '\benvironb?\s+as\s'}}}
             - matches: mapping
             - not: {any: [{matches: written}, {matches: forwarded}]}
         - kind: subscript

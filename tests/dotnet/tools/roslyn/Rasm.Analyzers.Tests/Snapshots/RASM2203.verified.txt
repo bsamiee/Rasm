@@ -2,3 +2,6 @@
 #1 `Products.Transfer` disposes `panel` on failure after `Products.Replace` handed `panel` to an owner, pass `panel` to its consumer without `Transfer`
 #2 `Products.Transfer` disposes `panel` on failure after `Products.Replace` handed `panel` to an owner, pass `panel` to its consumer without `Transfer`
 #3 `Products.Transfer` disposes `panel` on failure after `retain` handed `panel` to an owner, pass `panel` to its consumer without `Transfer`
+#4 `Products.Transfer` disposes `panel` on failure after `retain` handed `panel` to an owner, pass `panel` to its consumer without `Transfer`
+#5 `Products.Transfer` disposes `panel` on failure after `retain` handed `panel` to an owner, pass `panel` to its consumer without `Transfer`
+#6 `Products.Transfer` disposes `panel` on failure after `retain` handed `panel` to an owner, pass `panel` to its consumer without `Transfer`

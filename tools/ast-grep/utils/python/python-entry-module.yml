@@ -1,7 +1,19 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: python-entry-module
-language: python
+language: pythonlang
 utils:
+    main-condition:
+        any:
+            - kind: comparison_operator
+              all:
+                  - has: {field: operators, regex: '^==$'}
+                  - has: {stopBy: &parentheses {not: {kind: parenthesized_expression}}, kind: identifier, regex: '^__name__$'}
+                  - has: {stopBy: *parentheses, kind: string, has: {kind: string_content, regex: '^__main__$'}, not: {has: {kind: string_start, not: {regex: "^(?i:r|u)?[\"']"}}}}
+                  - not: {has: {nthChild: {position: 3, ofRule: {not: {kind: comment}}}}}
+            - kind: parenthesized_expression
+              has: {matches: main-condition}
+    fixture:
+        matches: {python-member-use: {module: {regex: '^pytest$'}, name: {regex: '^fixture$'}}}
     collected:
         any:
             - kind: function_definition
@@ -15,13 +27,9 @@ rule:
     has:
         any:
             - kind: if_statement
-              has: {field: condition, regex: '^__name__\s*==\s*["'']__main__["'']$'}
+              has: {field: condition, matches: main-condition}
             - matches: collected
             - kind: decorated_definition
               any:
                 - has: {field: definition, matches: collected}
-                - has: {kind: decorator, regex: '^@pytest\.fixture\b'}
-            - kind: function_definition
-              all:
-                - has: {field: name, regex: '^check$'}
-                - follows: {kind: class_definition, stopBy: end, has: {field: name, regex: '^Error'}}
+                - has: {kind: decorator, has: {any: [{matches: fixture}, {kind: call, has: {field: function, matches: fixture}}]}}

@@ -1,6 +1,6 @@
-import { NodeRuntime, NodeServices } from '@effect/platform-node';
-import { Option } from '@rasm/function-hooks/monads';
-import { commandDecision, policyFailure, type System } from '@rasm/function-hooks/policies';
+import { runMain } from '@effect/platform-node/NodeRuntime';
+import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
+import { commandDecision, Option, policyFailure, type System } from '@rasm/function-hooks';
 import { Cause, Config, Console, Effect, FileSystem, Match, Path, Schema, Stdio, Stream } from 'effect';
 import { ChildProcess } from 'effect/process';
 import manifest from '#/package.json' with { type: 'json' };
@@ -12,12 +12,12 @@ const Input = Schema.fromJsonString(Schema.Struct({ cwd: Schema.String, tool_nam
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 Effect.gen(function* () {
-    const [fs, path, stdio, home, context] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Stdio.Stdio, Config.String('HOME'), Effect.context<NodeServices.NodeServices>()]);
+    const [fs, path, stdio, home, context] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Stdio.Stdio, Config.String('HOME'), Effect.context<NodeServices>()]);
     const run = Effect.runPromiseWith(context);
     const root = path.resolve(import.meta.dirname, '..', '..');
     const spawn = (...[[file, ...rest], { cwd, stdin }]: Parameters<System['run']>) =>
         ChildProcess.make(file, rest, { cwd, stdin: Stream.encodeText(Stream.make(stdin)) }).pipe(
-            Effect.flatMap((handle) => Effect.all({ stdout: Stream.mkString(Stream.decodeText(handle.stdout)), stderr: Stream.mkString(Stream.decodeText(handle.stderr)), exitCode: handle.exitCode }, { concurrency: 'unbounded' })),
+            Effect.flatMap((handle) => Effect.all({ stdout: handle.stdout.pipe(Stream.decodeText, Stream.mkString), stderr: handle.stderr.pipe(Stream.decodeText, Stream.mkString), exitCode: handle.exitCode }, { concurrency: 'unbounded' })),
             Effect.scoped,
         );
     const system = {
@@ -29,9 +29,11 @@ Effect.gen(function* () {
         plugin: path.join(root, 'plugins', 'function-hooks'),
         home: Option.some(home),
     } satisfies Omit<System, 'cwd' | 'root'>;
-    const decision = yield* Stream.mkString(Stream.decodeText(stdio.stdin)).pipe(
+    const decision = yield* stdio.stdin.pipe(
+        Stream.decodeText,
+        Stream.mkString,
         Effect.flatMap(Schema.decodeEffect(Input)),
-        Effect.flatMap(({ cwd, tool_input: { command } }) => Effect.promise(() => commandDecision({ ...system, cwd, root: path.relative(root, cwd).startsWith('..') ? Option.none : Option.some(root) }, command, manifest.name, { kind: 'plain' }))),
+        Effect.flatMap(({ cwd, tool_input: { command } }) => Effect.promise(commandDecision.bind(undefined, { ...system, cwd, root: path.relative(root, cwd).startsWith('..') ? Option.none : Option.some(root) }, command, manifest.name, { kind: 'plain' }))),
         Effect.catchCause((cause) => Effect.succeed({ kind: 'deny' as const, reason: policyFailure(String(Cause.squash(cause))) })),
     );
     yield* Match.value(decision).pipe(
@@ -49,4 +51,4 @@ Effect.gen(function* () {
                 ),
         }),
     );
-}).pipe(Effect.provide(NodeServices.layer), NodeRuntime.runMain);
+}).pipe(Effect.provide(layer), runMain);

@@ -186,7 +186,7 @@ internal static class Dispatch {
                 .Match(Some: held => core(mount, held.Scroll, held.Scrollers), None: () => mount.Unhandled);
 
         private Mount FirstHandled(Seq<(PartOwner Owner, Seq<Key> Hit)> chain, Func<Mount, PartOwner, Seq<Key>, Mount> ask) =>
-            chain.Fold(mount.Unhandled, (routed, held) => routed.Otherwise(next => ask(next, held.Owner, held.Hit)));
+            chain.FoldWhile(mount.Unhandled, (routed, held) => routed.Otherwise(next => ask(next, held.Owner, held.Hit)), static held => held.State.Output.Effects.IsNone);
 
         private Mount Opened(PartOwner owner, Seq<Key> over, Gesture increment) =>
             owner.Part.Began(increment, new HitTarget(mount.Scene, owner, over)).Map(reply => mount.Replied(reply, track => mount.Routing with { Latch = new Latch.Part(owner.Path, track.Map(held => (increment, held))) })).IfNone(mount.Unhandled);
@@ -318,7 +318,7 @@ internal static class Dispatch {
             where !read.IsEmpty
             select mount with {
                 Nearest = Some(new Nearest(focus, toHashMap(read.Map(static held => (held.Series, held.Datum))))),
-                Output = new Output([], [new AccessibilityNotice.Announced(mount.Host.Culture.TextInfo.Listed(read.Map(static held => held.Spoken)), Live.Polite)], Some(Seq<IO<Unit>>())),
+                Output = new Output([], [new AccessibilityNotice.Announced(mount.Host.Culture.TextInfo.Listed(read.Map(static held => held.Spoken)), Interrupts: false)], Some(Seq<IO<Unit>>())),
             };
     }
 }

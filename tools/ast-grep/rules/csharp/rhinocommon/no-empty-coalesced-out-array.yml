@@ -7,7 +7,7 @@ utils:
     empty-collection:
         any:
             - kind: collection_expression
-              not: {has: {kind: expression_element}}
+              not: {has: {kind: collection_element}}
             - kind: invocation_expression
               all:
                 - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^(Enumerable|Array)$'}, member: {regex: '^Empty$'}}}, has: {stopBy: end, kind: type_argument_list}}
@@ -127,13 +127,13 @@ rule:
         - any:
             - kind: binary_expression
               all:
-                - has: {field: left, any: [{matches: out-value}, {matches: null-chain}]}
                 - has: {field: operator, regex: '^\?\?$'}
+                - has: {field: left, any: [{matches: out-value}, {matches: null-chain}]}
                 - has: {field: right, matches: empty-collection}
             - kind: assignment_expression
               all:
-                - has: {field: left, matches: out-value}
                 - has: {field: operator, regex: '^\?\?=$'}
+                - has: {field: left, matches: out-value}
                 - has: {field: right, matches: empty-collection}
             - kind: conditional_expression
               all:
@@ -156,8 +156,8 @@ rule:
                 - has: {field: arguments, has: {kind: argument, has: {matches: empty-fallback}}}
             - kind: binary_expression
               all:
-                - has: {field: left, matches: optional-out}
                 - has: {field: operator, regex: '^\|$'}
+                - has: {field: left, matches: optional-out}
                 - has: {field: right, matches: empty-fallback}
             - kind: invocation_expression
               has:

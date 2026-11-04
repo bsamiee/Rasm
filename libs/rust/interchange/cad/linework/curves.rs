@@ -1,4 +1,4 @@
-use core::{f64::consts::TAU, iter};
+use core::{array, cmp::max_by, f64::consts::TAU, iter};
 use std::borrow::Cow;
 
 use acadrust::{
@@ -12,18 +12,6 @@ use nonempty_collections::NEVec;
 use rasm_linework::{Dashes, DashesError, LineworkError, Region, Tolerance};
 
 use crate::{CadError, Refusal, Subject};
-
-// --- [MODELS] --------------------------------------------------------------------------
-
-#[derive(Debug, Clone, Copy)]
-struct Homogeneous {
-    weighted: Vec2,
-    weight: f64,
-}
-
-impl Homogeneous {
-    fn cartesian(&self) -> Point { (self.weighted / self.weight).to_point() }
-}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -39,16 +27,15 @@ pub(crate) fn path(entity: &EntityType, frame: Affine, tolerance: Tolerance) -> 
         match (spline.control_points.as_slice(), spline.fit_points.as_slice()) {
             ([], []) => Ok(None),
             ([], [_, ..]) => Err(Refusal::Fitted),
-            (control, _) => nurbs(
-                usize::try_from(spline.degree)?,
-                &control.iter().map(|vertex| frame * point(*vertex)).collect::<Vec<_>>(),
-                weights,
-                &spline.knots,
-                tolerance.into_inner(),
-            )
-            .map(|path| iter::chain(path.into_elements(), (spline.flags.closed || spline.flags.periodic).then_some(PathEl::ClosePath)).collect())
-            .map(Some)
-            .ok_or(Refusal::Unsupported),
+            (control, _) => nurbs(usize::try_from(spline.degree)?, &control.iter().map(|vertex| frame * point(*vertex)).collect::<Vec<_>>(), weights, &spline.knots, tolerance.into_inner())
+                .map(|mut path| {
+                    if spline.flags.closed || spline.flags.periodic {
+                        path.push(PathEl::ClosePath);
+                    }
+                    path
+                })
+                .map(Some)
+                .ok_or(Refusal::Unsupported),
         }
     };
     let edges = |face: &Face3D| -> BezPath {
@@ -73,18 +60,16 @@ pub(crate) fn path(entity: &EntityType, frame: Affine, tolerance: Tolerance) -> 
         EntityType::Arc(arc) => Ok(Some(framed(frame * ocs(arc.normal, arc.center.z), tolerance.into_inner(), |local| {
             kurbo::Arc::new(point(arc.center), (arc.radius, arc.radius), arc.start_angle, sweep(arc.start_angle, arc.end_angle), 0.0).path_elements(local).collect()
         }))),
-        EntityType::Circle(circle) => {
-            Ok(Some(framed(frame * ocs(circle.normal, circle.center.z), tolerance.into_inner(), |local| Circle::new(point(circle.center), circle.radius).path_elements(local).collect())))
-        }
+        EntityType::Circle(circle) =>
+            Ok(Some(framed(frame * ocs(circle.normal, circle.center.z), tolerance.into_inner(), |local| Circle::new(point(circle.center), circle.radius).path_elements(local).collect()))),
         EntityType::Ellipse(ellipse) => {
             let (major, minor) = (ellipse.major_axis, ellipse.normal.normalize().cross(&ellipse.major_axis) * ellipse.minor_axis_ratio);
             Ok(Some(framed(frame * Affine::new([major.x, major.y, minor.x, minor.y, ellipse.center.x, ellipse.center.y]), tolerance.into_inner(), |local| {
                 kurbo::Arc::new(Point::ORIGIN, (1.0, 1.0), ellipse.start_parameter, sweep(ellipse.start_parameter, ellipse.end_parameter), 0.0).path_elements(local).collect()
             })))
         }
-        EntityType::LwPolyline(_) | EntityType::Polyline2D(_) | EntityType::Polyline(_) | EntityType::Polyline3D(_) => {
-            Ok(lightweight(entity).map(|polyline| framed(frame * ocs(polyline.normal, polyline.elevation), tolerance.into_inner(), |local| chained(&polyline, local))))
-        }
+        EntityType::LwPolyline(_) | EntityType::Polyline2D(_) | EntityType::Polyline(_) | EntityType::Polyline3D(_) =>
+            Ok(lightweight(entity).map(|polyline| framed(frame * ocs(polyline.normal, polyline.elevation), tolerance.into_inner(), |local| chained(&polyline, local)))),
         EntityType::Spline(spline) => splined(spline),
         EntityType::Helix(helix) => splined(&helix.spline),
         EntityType::Face3D(face) => Ok(Some(edges(face))),
@@ -181,18 +166,23 @@ pub(super) fn band(entity: &EntityType, frame: Affine, tolerance: Tolerance) -> 
             .iter()
             .circular_tuple_windows::<(_, _)>()
             .take(seams.len().saturating_sub(usize::from(!polyline.is_closed)))
-            .filter_map(|((corner, _, ends), (_, starts, _))| ends.zip(*starts).map(|((end_left, end_right), (start_left, start_right))| [polygon([*corner, end_left, start_left]), polygon([*corner, end_right, start_right])]))
+            .filter_map(|((corner, _, ends), (_, starts, _))| {
+                ends.zip(*starts).map(|((end_left, end_right), (start_left, start_right))| [polygon([*corner, end_left, start_left]), polygon([*corner, end_right, start_right])])
+            })
             .flatten();
         iter::chain(outlines, joints).flat_map(BezPath::into_elements).collect()
     };
     let outline = match &widths {
         _ if constant(0.0) => None,
-        [(_, _, width, _), ..] if constant(*width) => {
-            Some(stroke(chained(&polyline, local).iter(), &Stroke::new(*width).with_caps(Cap::Butt).with_join(Join::Miter), &StrokeOpts::default(), local))
-        }
+        [(_, _, width, _), ..] if constant(*width) => Some(stroke(chained(&polyline, local).iter(), &Stroke::new(*width).with_caps(Cap::Butt).with_join(Join::Miter), &StrokeOpts::default(), local)),
         _ => Some(tapered()),
     };
-    outline.map(|outline| Region::new(&(plane * outline), FillRule::NonZero, tolerance)).transpose()
+    outline
+        .map(|mut outline| {
+            outline.apply_affine(plane);
+            Region::new(outline, FillRule::NonZero, tolerance)
+        })
+        .transpose()
 }
 
 pub(super) fn boundary(hatch: &Hatch, frame: Affine, tolerance: Tolerance, subject: &Subject) -> Result<Region, CadError> {
@@ -212,25 +202,25 @@ pub(super) fn boundary(hatch: &Hatch, frame: Affine, tolerance: Tolerance, subje
                     let (major, center) = (planar(arc.major_axis_endpoint).to_vec2(), planar(arc.center));
                     let minor = major.turn_90() * arc.minor_axis_ratio;
                     let (start, turn) = if arc.counter_clockwise { (arc.start_angle, sweep(arc.start_angle, arc.end_angle)) } else { (-arc.start_angle, -sweep(-arc.end_angle, -arc.start_angle)) };
-                    Ok(framed(Affine::new([major.x, major.y, minor.x, minor.y, center.x, center.y]), local, |within| kurbo::Arc::new(Point::ORIGIN, (1.0, 1.0), start, turn, 0.0).path_elements(within).collect()))
+                    Ok(framed(Affine::new([major.x, major.y, minor.x, minor.y, center.x, center.y]), local, |within| {
+                        kurbo::Arc::new(Point::ORIGIN, (1.0, 1.0), start, turn, 0.0).path_elements(within).collect()
+                    }))
                 }
                 BoundaryEdge::Spline(spline) => {
                     let stated = spline.control_points.iter().map(|control| control.z).collect::<Vec<_>>();
                     let weights: &[f64] = if spline.rational { &stated } else { &[] };
                     match (spline.control_points.as_slice(), spline.fit_points.as_slice()) {
                         ([], [_, ..]) => Err(Refusal::Fitted),
-                        (control, _) => nurbs(
-                            usize::try_from(spline.degree)?,
-                            &control.iter().map(|vertex| point(*vertex)).collect::<Vec<_>>(),
-                            weights,
-                            &spline.knots,
-                            local,
-                        )
-                        .ok_or(Refusal::Unsupported),
+                        (control, _) =>
+                            nurbs(usize::try_from(spline.degree)?, &control.iter().map(|vertex| point(*vertex)).collect::<Vec<_>>(), weights, &spline.knots, local).ok_or(Refusal::Unsupported),
                     }
                 }
                 BoundaryEdge::Polyline(polyline) => Ok(chained(
-                    &LwPolyline { vertices: polyline.vertices.iter().map(|vertex| LwVertex::with_bulge(Vector2::new(vertex.x, vertex.y), vertex.z)).collect(), is_closed: polyline.is_closed, ..LwPolyline::new() },
+                    &LwPolyline {
+                        vertices: polyline.vertices.iter().map(|vertex| LwVertex::with_bulge(Vector2::new(vertex.x, vertex.y), vertex.z)).collect(),
+                        is_closed: polyline.is_closed,
+                        ..LwPolyline::new()
+                    },
                     local,
                 )),
             })
@@ -254,31 +244,40 @@ pub(super) fn boundary(hatch: &Hatch, frame: Affine, tolerance: Tolerance, subje
         HatchStyleType::Ignore => (FillRule::NonZero, Some(0)),
     };
     let depth = |index: usize, start: Point| loops.iter().take(index).chain(loops.iter().skip(index.strict_add(1))).filter(|other| other.winding(start) != 0).count();
-    let kept = loops
+    let mut kept = loops
         .iter()
         .enumerate()
         .filter(|(index, path)| deepest.is_none_or(|limit| path.elements().first().and_then(PathEl::end_point).is_none_or(|start| depth(*index, start) <= limit)))
         .flat_map(|(_, path)| path.iter())
         .collect::<BezPath>();
-    Region::new(&(plane * kept), rule, tolerance).map_err(|source| CadError::Geometry { subject: subject.clone(), source })
+    kept.apply_affine(plane);
+    Region::new(kept, rule, tolerance).map_err(|source| CadError::Geometry { subject: subject.clone(), source })
 }
 
-pub(super) fn dashes(lengths: &[f64], scale: f64) -> Result<Option<(Dashes, f64)>, DashesError> {
-    let runs = lengths
-        .chunk_by(|left, right| (*left >= 0.0) == (*right >= 0.0))
-        .filter_map(|run| run.first().map(|first| (*first >= 0.0, run.iter().map(|length| length.abs() * scale).sum::<f64>())))
+pub(super) fn dashes(lengths: impl IntoIterator<Item = f64>, scale: f64) -> Result<Option<(Dashes, f64)>, DashesError> {
+    let mut runs = lengths
+        .into_iter()
+        .map(|length| (length >= 0.0, length.abs() * scale))
+        .coalesce(|(left_on, left), (right_on, right)| if left_on == right_on { Ok((left_on, left + right)) } else { Err(((left_on, left), (right_on, right))) })
         .collect::<Vec<_>>();
-    let merged = match &runs {
-        [(head_on, head), middle @ .., (tail_on, tail)] if head_on == tail_on => Some((iter::once((*head_on, head + tail)).chain(middle.iter().copied()).collect::<Vec<_>>(), *tail)),
-        _ => None,
+    let phase = match runs.as_mut_slice() {
+        [(head_on, head), .., (tail_on, tail)] if head_on == tail_on => {
+            let phase = *tail;
+            *head += phase;
+            runs.truncate(runs.len().strict_sub(1));
+            phase
+        }
+        _ => 0.0,
     };
-    let (runs, phase) = merged.unwrap_or((runs, 0.0));
-    let rotated = match &runs {
-        [(false, gap), rest @ ..] => Some((rest.iter().copied().chain(iter::once((false, *gap))).collect::<Vec<_>>(), rest.iter().map(|(_, length)| length).sum::<f64>() + phase)),
-        _ => None,
+    let offset = match &runs {
+        [(false, _), rest @ ..] => {
+            let offset = rest.iter().map(|(_, length)| length).sum::<f64>() + phase;
+            runs.rotate_left(1);
+            offset
+        }
+        _ => phase,
     };
-    let (pattern, offset) = rotated.unwrap_or((runs, phase));
-    match &pattern {
+    match &runs {
         [] | [(true, _)] => Ok(None),
         [(true, head), rest @ ..] => Dashes::try_new(NEVec::from((*head, rest.iter().map(|(_, length)| *length).collect()))).map(|dashes| Some((dashes, offset))),
         [(false, _), ..] => Err(DashesError::PredicateViolated),
@@ -349,29 +348,34 @@ pub(super) fn signed(dashes: &Dashes, offset: f64) -> Vec<f64> {
         })
         .collect::<Vec<_>>();
     let phase = offset.rem_euclid(dashes.iter().sum());
-    let index = starts.partition_point(|start| *start <= phase).saturating_sub(1);
-    let within = starts.get(index).map_or_default(|start| phase - start);
-    let (before, after) = runs.split_at_checked(index).unwrap_or_default();
+    let index = starts.partition_point(|start| *start <= phase).strict_sub(1);
+    let within = phase - starts[index];
+    let (before, after) = runs.split_at(index);
     match after.split_first() {
-        Some((run, rest)) if within > 0.0 => iter::once(run.signum() * (run.abs() - within)).chain(rest.iter().copied()).chain(before.iter().copied()).chain(iter::once(run.signum() * within)).collect(),
+        Some((run, rest)) if within > 0.0 =>
+            iter::once(run.signum() * (run.abs() - within)).chain(rest.iter().copied()).chain(before.iter().copied()).chain(iter::once(run.signum() * within)).collect(),
         _ => iter::chain(after, before).copied().collect(),
     }
 }
 
 fn nurbs(degree: usize, control: &[Point], weights: &[f64], knots: &[f64], tolerance: f64) -> Option<BezPath> {
-    fn flattened(piece: &[Homogeneous], tolerance: f64) -> Vec<Point> {
-        let points = piece.iter().map(Homogeneous::cartesian).collect::<Vec<_>>();
-        let (Some(&start), Some(&end)) = (points.first(), points.last()) else { return Vec::new() };
-        let reach = tolerance.max(points.iter().map(|vertex| vertex.x.abs().max(vertex.y.abs())).max_by(f64::total_cmp).unwrap_or_default() * f64::EPSILON * 64.0);
-        let chord = Line::new(start, end);
-        if points.iter().all(|vertex| chord.nearest(*vertex, 0.0).distance_sq <= reach * reach) {
-            vec![end]
-        } else {
-            let levels = iter::successors(Some(piece.to_vec()), |level| {
-                (level.len() > 1).then(|| level.array_windows().map(|&[low, high]| Homogeneous { weighted: low.weighted.lerp(high.weighted, 0.5), weight: low.weight.midpoint(high.weight) }).collect())
-            })
-            .collect::<Vec<_>>();
-            [flattened(&levels.iter().filter_map(|level| level.first().copied()).collect::<Vec<_>>(), tolerance), flattened(&levels.iter().rev().filter_map(|level| level.last().copied()).collect::<Vec<_>>(), tolerance)].concat()
+    #[derive(Debug, Clone, Copy)]
+    struct Homogeneous {
+        weighted: [f128; 2],
+        weight: f128,
+    }
+    impl Homogeneous {
+        fn cartesian(&self) -> Point {
+            let [x, y] = self.weighted.map(|coordinate| (coordinate / self.weight).cast::<f64>());
+            Point::new(x, y)
+        }
+    }
+    fn polynomial<T>(control: &[T], point: impl Fn(&T) -> Point) -> Option<PathEl> {
+        match control {
+            [_, end] => Some(PathEl::LineTo(point(end))),
+            [_, handle, end] => Some(PathEl::QuadTo(point(handle), point(end))),
+            [_, leading, trailing, end] => Some(PathEl::CurveTo(point(leading), point(trailing), point(end))),
+            _ => None,
         }
     }
     let inserted = |weighted: &[Homogeneous], spread: &[f64], value: f64| -> Option<(Vec<Homogeneous>, Vec<f64>)> {
@@ -384,9 +388,16 @@ fn nurbs(degree: usize, control: &[Point], weights: &[f64], knots: &[f64], toler
                 at if at > shifted => weighted.get(at.checked_sub(1)?).copied(),
                 at => {
                     let (low, high) = (spread.get(at)?, spread.get(at.checked_add(degree)?)?);
-                    let share = (value - low) / (high - low);
+                    let [low, value, high] = [*low, value, *high].map(f128::from);
+                    let width = high - low;
+                    let (before, after) = ((high - value) / width, (value - low) / width);
                     let (previous, current) = (weighted.get(at.checked_sub(1)?)?, weighted.get(at)?);
-                    Some(Homogeneous { weighted: previous.weighted.lerp(current.weighted, share), weight: share.mul_add(current.weight - previous.weight, previous.weight) })
+                    Some(Homogeneous {
+                        #[expect(clippy::suboptimal_flops, reason = "native f128 mul_add produces incorrect results on Darwin")]
+                        weighted: array::from_fn(|axis| previous.weighted[axis] * before + current.weighted[axis] * after),
+                        #[expect(clippy::suboptimal_flops, reason = "native f128 mul_add produces incorrect results on Darwin")]
+                        weight: previous.weight * before + current.weight * after,
+                    })
                 }
             })
             .collect::<Option<Vec<_>>>()?;
@@ -394,22 +405,35 @@ fn nurbs(degree: usize, control: &[Point], weights: &[f64], knots: &[f64], toler
         Some((blended, spread.iter().take(split).chain(iter::once(&value)).chain(spread.iter().skip(split)).copied().collect()))
     };
     let count = control.len();
-    let weights = match weights {
-        [] => Some(vec![1.0; count]),
-        stated if stated.len() == count && stated.iter().all(|weight| weight.is_finite() && *weight > 0.0) => Some(stated.to_vec()),
-        _ => None,
-    }?;
     let rational = weights.array_windows().any(|[left, right]| left.total_cmp(right).is_ne());
     let valid = degree > 0
         && count > degree
         && knots.len() == count.checked_add(degree)?.checked_add(1)?
+        && (weights.is_empty() || weights.len() == count && weights.iter().all(|weight| weight.is_finite() && *weight > 0.0))
         && control.iter().all(|vertex| vertex.is_finite())
         && knots.iter().all(|knot| knot.is_finite())
         && knots.is_sorted();
-    let breaks = knots.get(degree..=count).filter(|_| valid)?.chunk_by(|left, right| left.total_cmp(right).is_eq()).filter_map(<[f64]>::first).copied().collect::<Vec<_>>();
+    let domain = knots.get(degree..=count).filter(|_| valid)?;
+    if !rational
+        && count == degree.strict_add(1)
+        && domain[0] < domain[1]
+        && knots.chunk_by(|left, right| left.total_cmp(right).is_eq()).map(<[f64]>::len).eq([count, count])
+        && let Some(element) = polynomial(control, |point| *point)
+    {
+        return Some([PathEl::MoveTo(control[0]), element].into_iter().collect());
+    }
+    let breaks = domain.chunk_by(|left, right| left.total_cmp(right).is_eq()).filter_map(<[f64]>::first).copied().collect::<Vec<_>>();
     let (_, lows) = breaks.split_last()?;
     let (points, knots) = breaks.iter().try_fold(
-        (iter::zip(control, &weights).map(|(vertex, &weight)| Homogeneous { weighted: vertex.to_vec2() * weight, weight }).collect::<Vec<_>>(), knots.to_vec()),
+        (
+            iter::zip(control, weights.iter().copied().chain(iter::repeat(1.0)))
+                .map(|(vertex, weight)| {
+                    let weight = f128::from(weight);
+                    Homogeneous { weighted: [vertex.x, vertex.y].map(|coordinate| f128::from(coordinate) * weight), weight }
+                })
+                .collect::<Vec<_>>(),
+            knots.to_vec(),
+        ),
         |state, &value| {
             let present = state.1.iter().filter(|knot| knot.total_cmp(&value).is_eq()).count();
             (present..degree).try_fold(state, |(weighted, spread), _| inserted(&weighted, &spread, value))
@@ -422,14 +446,44 @@ fn nurbs(degree: usize, control: &[Point], weights: &[f64], knots: &[f64], toler
             points.get(span.checked_sub(degree)?..=span)
         })
         .collect::<Option<Vec<_>>>()?;
-    let start = pieces.first()?.first()?.cartesian();
-    let elements = pieces.iter().flat_map(|&piece| match (rational, piece) {
-        (false, [_, end]) => vec![PathEl::LineTo(end.cartesian())],
-        (false, [_, handle, end]) => vec![PathEl::QuadTo(handle.cartesian(), end.cartesian())],
-        (false, [_, leading, trailing, end]) => vec![PathEl::CurveTo(leading.cartesian(), trailing.cartesian(), end.cartesian())],
-        _ => flattened(piece, tolerance).into_iter().map(PathEl::LineTo).collect(),
-    });
-    Some(iter::once(PathEl::MoveTo(start)).chain(elements).collect())
+    let mut path = BezPath::new();
+    path.move_to(pieces.first()?.first()?.cartesian());
+    let mut pieces = pieces.into_iter();
+    let mut pending = Vec::new();
+    let mut cartesian = Vec::new();
+    while let Some(piece) = pending.pop().map(Cow::Owned).or_else(|| pieces.next().map(Cow::Borrowed)) {
+        if !rational && let Some(element) = polynomial(&piece, Homogeneous::cartesian) {
+            path.push(element);
+            continue;
+        }
+        cartesian.clear();
+        cartesian.extend(piece.iter().map(Homogeneous::cartesian));
+        let last = piece.len().strict_sub(1);
+        let (start, end) = (cartesian[0], cartesian[last]);
+        let magnitude = cartesian.iter().map(|point| point.x.abs().max(point.y.abs())).fold(0.0, |largest, next| max_by(largest, next, f64::total_cmp));
+        let flat = magnitude == 0.0 || {
+            let scale = magnitude.max(tolerance);
+            let normalized = |point: Point| Point::new(point.x / scale, point.y / scale);
+            let chord = Line::new(normalized(start), normalized(end));
+            let reach = (tolerance / scale).max((magnitude / scale) * f64::EPSILON * 64.0);
+            cartesian.iter().all(|&point| chord.nearest(normalized(point), 0.0).distance_sq <= reach * reach)
+        };
+        if flat {
+            path.line_to(end);
+            continue;
+        }
+        let mut left = piece.into_owned();
+        let mut right = left.clone();
+        for level in 1..=last {
+            for index in (level..=last).rev() {
+                let (low, high) = (left[index.strict_sub(1)], left[index]);
+                left[index] = Homogeneous { weighted: array::from_fn(|axis| low.weighted[axis].midpoint(high.weighted[axis])), weight: low.weight.midpoint(high.weight) };
+            }
+            right[last.strict_sub(level)] = left[last];
+        }
+        pending.extend([right, left]);
+    }
+    Some(path)
 }
 
 fn lightweight(entity: &EntityType) -> Option<Cow<'_, LwPolyline>> {
@@ -485,20 +539,29 @@ fn chained(polyline: &LwPolyline, tolerance: f64) -> BezPath {
 }
 
 fn cubic(pieces: &[PathSeg], closed: bool) -> Spline {
-    let cubics = pieces.iter().map(PathSeg::to_cubic).collect::<Vec<_>>();
-    let count = cubics.len();
+    let count = pieces.len();
     Spline {
         degree: 3,
         flags: SplineFlags { closed, planar: true, ..SplineFlags::new() },
-        knots: iter::successors(Some(0.0_f64), |knot| Some(knot + 1.0)).take(count.strict_add(1)).enumerate().flat_map(|(index, knot)| iter::repeat_n(knot, if index == 0 || index == count { 4 } else { 3 })).collect(),
-        control_points: iter::chain(cubics.first().map(|first| first.p0), cubics.iter().flat_map(|cubic| [cubic.p1, cubic.p2, cubic.p3])).map(|control| Vector3::new(control.x, control.y, 0.0)).collect(),
+        knots: iter::successors(Some(0.0_f64), |knot| Some(knot + 1.0))
+            .take(count.strict_add(1))
+            .enumerate()
+            .flat_map(|(index, knot)| iter::repeat_n(knot, if index == 0 || index == count { 4 } else { 3 }))
+            .collect(),
+        control_points: iter::chain(
+            pieces.first().map(ParamCurve::start),
+            pieces.iter().flat_map(|piece| {
+                let cubic = piece.to_cubic();
+                [cubic.p1, cubic.p2, cubic.p3]
+            }),
+        )
+        .map(|control| Vector3::new(control.x, control.y, 0.0))
+        .collect(),
         ..Spline::new()
     }
 }
 
-fn corners(pieces: &[PathSeg], closed: bool) -> impl Iterator<Item = Point> {
-    pieces.iter().map(ParamCurve::start).chain(pieces.last().filter(|_| !closed).map(ParamCurve::end))
-}
+fn corners(pieces: &[PathSeg], closed: bool) -> impl Iterator<Item = Point> { pieces.iter().map(ParamCurve::start).chain(pieces.last().filter(|_| !closed).map(ParamCurve::end)) }
 
 fn arc(from: Point, to: Point, bulge: f64) -> Option<kurbo::Arc> {
     let radius = from.distance(to) * bulge.mul_add(bulge, 1.0) / (4.0 * bulge.abs());
@@ -510,7 +573,11 @@ fn sweep(start: f64, end: f64) -> f64 {
     if swept == 0.0 && end - start != 0.0 { TAU } else { swept }
 }
 
-fn framed(affine: Affine, tolerance: f64, local: impl FnOnce(f64) -> BezPath) -> BezPath { affine * local(tolerance / affine.spectral_norm()) }
+fn framed(affine: Affine, tolerance: f64, local: impl FnOnce(f64) -> BezPath) -> BezPath {
+    let mut path = local(tolerance / affine.spectral_norm());
+    path.apply_affine(affine);
+    path
+}
 
 const fn point(vector: Vector3) -> Point { Point::new(vector.x, vector.y) }
 

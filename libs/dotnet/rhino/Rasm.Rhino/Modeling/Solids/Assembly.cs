@@ -1,5 +1,3 @@
-using System.Globalization;
-
 namespace Rasm.Rhino.Modeling.Solids;
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -78,7 +76,7 @@ public static class SolidAssembly {
                 select (Trim: added, Iso: Some(singular.Iso)));
 
     private static Fin<T> Picked<T>(Seq<T> rows, int index, int at) =>
-        rows.At(index).ToFin(new RhinoFault(string.Create(CultureInfo.InvariantCulture, $"{typeof(T).Name} {index} of {rows.Count}"), RhinoReason.Outside, at));
+        rows.At(index).ToFin(new RhinoFault((Type: typeof(T), Index: index, rows.Count), RhinoReason.Outside, at));
 
     private static BrepFace Oriented(BrepFace face, bool reversed) {
         face.OrientationIsReversed = reversed;

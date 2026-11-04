@@ -15,14 +15,14 @@ public sealed record DialogAction(CommandPresentation Presentation, IO<Unit> Run
     internal static Seq<View> Footer(Seq<DialogAction> actions, Fin<Unit> valid) =>
         valid.Match(
             Succ: static _ => Seq<View>(),
-            Fail: static error => error.IsExpected ? Seq<View>(new View.Text([error.Message]) { Role = Role.Label, Conditions = [Condition.Faulted], Accessible = new Accessible { Live = Live.Polite } }) : [])
+            Fail: static error => error.IsExpected ? Seq<View>(new View.Text([error.Message]) { Role = Roles.Label, Conditions = [Condition.Faulted], Accessible = new Accessible { Interrupts = Some(value: false) } }) : [])
         + (actions.IsEmpty ? [] : Seq<View>(new View.Flex(PhysicalAxis.Horizontal, Seq<View>(new View.Box { Width = Sizing.Grow.Unit }) + actions.Map(action => action.Drawn(valid.IsFail))) {
             Width = Sizing.Grow.Unit,
         }));
 
     private View Drawn(bool gated) =>
         (gated && Conditions.Contains(Condition.Default) ? Conditions.TryAdd(Condition.Disabled) : Conditions) switch {
-            var state => Presentation.Button(state, AccessRole.Button, Role.Button, Some(new Part.Press(_ => Run)), CommandPresentation.IconAndLabel(Presentation, state)),
+            var state => Presentation.Button(state, AccessRole.Button, Roles.Button, Some(new Part.Press(_ => Run)), CommandPresentation.IconAndLabel(Presentation, state)),
         };
 }
 
@@ -45,7 +45,7 @@ public sealed record Dialog(string Title, Seq<View> Content) {
                 Seq<View>(Panel.Header(Panel.StatusGlyph(Conditions).ToSeq(), Title, None, Tools + Dismissed.Filter(_ => Actions.IsEmpty).Map(Part.Press.Dismiss).ToSeq()))
                 + Panel.Scrolled(Message.Map(static text => (View)new View.Text([text]) { Width = Sizing.Grow.Unit }).ToSeq() + Content)
                 + DialogAction.Footer(Actions, Valid)) {
-                Role = upright || level ? Role.Sheet : Role.Dialog,
+                Role = upright || level ? Roles.Sheet : Roles.Dialog,
                 Conditions = Conditions,
             }) {
                 Anchor = None,
@@ -71,22 +71,36 @@ public sealed record Palette<TItem>(Seq<TItem> Items, Func<TItem, CommandPresent
 
     public View.Layer Drawn(CultureInfo culture) {
         Search query = Query.Search;
-        Seq<Seq<TItem>> groups = Grouped(query, culture);
-        Seq<TItem> found = groups.Flatten();
-        Option<TItem> current = found.Find(item => Active == Some(Keyed(item))) | found.Head;
-        Option<Key> active = current.Map(Keyed);
+        Seq<(TItem Item, CommandPresentation Shown)> entries = Items.Map(item => (Item: item, Shown: Presented(item))).Strict();
+        Seq<(TItem Item, CommandPresentation Shown)> recent = query.Terms.IsEmpty ? Recent.Choose(toHashMap(entries.Map(static entry => (entry.Shown.Key, entry))).Find) : [];
+        HashSet<Key> recents = toHashSet(recent.Map(static entry => entry.Shown.Key));
+        Seq<(Option<string> Heading, Seq<(TItem Item, CommandPresentation Shown)> Items)> groups = (recent.IsEmpty ? [] : Seq((Heading: Option<string>.None, Items: recent)))
+            + toSeq(entries.Filter(entry => !recents.Contains(entry.Shown.Key) && query.Matches(entry.Shown.Caption, culture)).GroupBy(entry => Group(entry.Item)))
+                .Map(static group => (Heading: group.Key, Items: toSeq(group)));
+        Seq<(TItem Item, CommandPresentation Shown)> found = groups.Bind(static group => group.Items);
+        Option<(TItem Item, CommandPresentation Shown)> current = found.Find(entry => Active == Some(entry.Shown.Key)) || found.Head;
+        Option<Key> active = current.Map(static entry => entry.Shown.Key);
         View results = found.IsEmpty
             ? Empty.Map(Panel.Placeholder).IfNone(static () => new View.Box())
-            : new View.Scroll(PhysicalAxis.Vertical, new Part.Choice(found.Map(Keyed), active, Edited).Drawn(
-                found.Map(item => Row(item, query, culture)),
-                rows => new View.Flex(PhysicalAxis.Vertical, Sectioned(groups, rows, query)) { Width = Sizing.Grow.Unit, Accessible = new Accessible { Role = AccessRole.Menu } })).Grown;
+            : new View.Scroll(PhysicalAxis.Vertical, new Part.Choice(found.Map(static entry => entry.Shown.Key), active, Edited).Drawn(
+                found.Map(entry => entry.Shown.Item([], None, query.Marked(entry.Shown.Caption, culture))),
+                rows => new View.Flex(PhysicalAxis.Vertical,
+                    groups.Zip(groups.Scan(0, static (at, group) => at + group.Items.Count)).Map(group => (View)new View.Flex(PhysicalAxis.Vertical,
+                        group.First.Heading.Map(static title => (View)new View.Text([title]) { Role = Roles.Caption, MaxLines = 1 }).ToSeq()
+                        + rows.Skip(group.Second).Take(group.First.Items.Count)) {
+                        Width = Sizing.Grow.Unit,
+                        Accessible = new Accessible { Role = AccessRole.Group, Label = group.First.Heading },
+                    }).Intersperse(View.Divider(PhysicalAxis.Vertical))) {
+                    Width = Sizing.Grow.Unit,
+                    Accessible = new Accessible { Role = AccessRole.Menu },
+                })).Grown;
         return new(new View.Flex(PhysicalAxis.Vertical, [
-            (Query with { Glyph = Query.Glyph | Some(Role.Magnifier) }).Drawn,
-            current.Bind(Preview).Match(
+            (Query with { Glyph = Query.Glyph | Some(Roles.Magnifier) }).Drawn,
+            current.Bind(entry => Preview(entry.Item)).Match(
                 Some: pane => new View.Choice(PhysicalAxis.Horizontal, [new View.Flex(PhysicalAxis.Horizontal, [results, pane]) { Width = Sizing.Grow.Unit }, results]).Grown,
                 None: () => results),
         ]) {
-            Role = Role.Popover,
+            Role = Roles.Popover,
         }) {
             Anchor = None,
             Side = UnitPoint.Center,
@@ -95,40 +109,19 @@ public sealed record Palette<TItem>(Seq<TItem> Items, Func<TItem, CommandPresent
             Accessible = new Accessible { Label = Query.Placeholder },
         };
     }
-
-    private Key Keyed(TItem item) => new Key.Named(Presented(item).Name);
-
-    private Seq<Seq<TItem>> Grouped(Search query, CultureInfo culture) {
-        Seq<TItem> recent = query.Terms.IsEmpty ? Recent.Choose(key => Items.Find(item => Keyed(item) == key)) : [];
-        Seq<TItem> rest = Items.Filter(item => !recent.Exists(held => Keyed(held) == Keyed(item)) && query.Matches(Presented(item).Caption, culture));
-        return (recent.IsEmpty ? [] : Seq(recent)) + toSeq(rest.GroupBy(Group)).Map(static group => toSeq(group));
-    }
-
-    private Seq<View> Sectioned(Seq<Seq<TItem>> groups, Seq<View> rows, Search query) =>
-        groups.Fold((At: 0, Views: Seq<View>()), (held, group) => (held.At + group.Count, held.Views
-            + (held.At > 0 ? Seq(View.Divider(PhysicalAxis.Vertical)) : [])
-            + Seq<View>(group.Head.Filter(item => !query.Terms.IsEmpty || !Recent.Exists(key => key == Keyed(item))).Bind(Group) switch {
-                var heading => new View.Flex(PhysicalAxis.Vertical,
-                    heading.Map(static title => (View)new View.Text([title]) { Role = Role.Caption, MaxLines = 1 }).ToSeq() + rows.Skip(held.At).Take(group.Count)) {
-                    Width = Sizing.Grow.Unit,
-                    Accessible = new Accessible { Role = AccessRole.Group, Label = heading },
-                },
-            }))).Views;
-
-    private View Row(TItem item, Search query, CultureInfo culture) => Presented(item) switch { var shown => shown.Item([], None, query.Marked(shown.Caption, culture)) };
 }
 
 public sealed record Toast(Key Key, View Content, Option<Duration> Lifetime);
 
 public sealed record Toasts(Seq<Toast> Shown, Func<Key, IO<Unit>> Dismissed) {
     private static readonly Key Surface = new Key.Ordinal(0);
-    private static readonly Points<bool> Swiped = new(static _ => [], static (shown, _, _) => new Dragged<bool>(shown, [])) {
-        Placed = static (shown, _, _) => Some(new Dragged<bool>(shown, [Surface])),
-        Removed = static (_, _) => Some(value: false),
+    private static readonly Points<bool> Swiped = new(static _ => [], static (shown, _, _) => (shown, [])) {
+        Placed = static (shown, _, _) => Some((shown, Surface)),
+        Removed = static (_, _) => Some((Value: false, Renames: HashMap((Surface, Option<Key>.None)))),
         DraggedOut = true,
     };
 
-    public Role Role { get; init; } = Role.Popover;
+    public Key Role { get; init; } = Roles.Popover;
     public UnitPoint Corner { get; init; } = new(Fraction.MaxValue, Fraction.MaxValue);
     public int Limit { get; init; } = 3;
 
@@ -137,7 +130,7 @@ public sealed record Toasts(Seq<Toast> Shown, Func<Key, IO<Unit>> Dismissed) {
     private View Toasted(Toast toast) =>
         new View.Plot(PlotPlane.Cartesian.Unit, [
             new Handles<bool>(Value: true, Swiped, edit => when(edit.Phase == EditPhase.Commit && edit.Value.Exists(static shown => !shown), Dismissed(toast.Key)).As()).Drawn(PlotPlane.Cartesian.Unit, []),
-            new View.Flex(PhysicalAxis.Horizontal, [toast.Content]) { Role = Role, Accessible = new Accessible { Role = AccessRole.Status, Live = Live.Polite } },
+            new View.Flex(PhysicalAxis.Horizontal, [toast.Content]) { Role = Role, Accessible = new Accessible { Role = AccessRole.Status, Interrupts = Some(value: false) } },
         ]) {
             Key = toast.Key,
             Expires = toast.Lifetime.Map(lifetime => new Expiry(lifetime, Dismissed(toast.Key))),

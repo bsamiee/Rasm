@@ -9,7 +9,8 @@ from typing import Annotated, Final, Self
 
 import colour
 from colour.characterisation import ColourChecker
-from expression import Nothing, Ok, Option, Some
+from colour.characterisation.datasets.colour_checkers.chromaticity_coordinates import CCS_COLORCHECKER24_AFTER_NOV2014
+from expression import Option, Some
 from expression.extra.result import catch
 import msgspec
 import numpy as np
@@ -18,10 +19,10 @@ import OpenImageIO
 import PyOpenColorIO
 
 from blender.imaging.color.colorimetry import adaptation
-from blender.imaging.color.processors import basis, converted, matrix, Stops, xyz
+from blender.imaging.color.processors import basis, called, converted, matrix, Stops, xyz
 from blender.imaging.geometry.frames import Homography, Quad, StMap
 from blender.imaging.geometry.panoramas import PanoramaView
-from blender.records.faults import Fault, Outcome, paired, Reason
+from blender.records.faults import Fault, Nothing, Ok, Outcome, paired, Reason
 from blender.records.fields import Case, Rgb
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -35,13 +36,12 @@ class PublishedChart(IntEnum):
     COLORCHECKER_CLASSIC = 1
     SPYDERCHECKR_24 = 2
 
-    @functools.cached_property
+    @property
     def checker(self) -> ColourChecker:
         """Published patch chromaticities, illuminant, and grid."""
         match self:
             case PublishedChart.COLORCHECKER_CLASSIC:
-                published: ColourChecker = colour.CCS_COLOURCHECKERS["ColorChecker24 - After November 2014"]
-                return published
+                return CCS_COLORCHECKER24_AFTER_NOV2014
             case PublishedChart.SPYDERCHECKR_24:
                 patches = {
                     "H1 (Bluish Green)": (0.3076822512, 0.4234772396, 0.3374520529),
@@ -81,12 +81,14 @@ class PublishedChart(IntEnum):
     @property
     def shape(self) -> npt.NDArray[np.int64]:
         """Patch columns and rows of chart grid."""
-        return np.array((self.checker.columns, self.checker.rows), dtype=np.int64)
+        checker = self.checker
+        return np.array((checker.columns, checker.rows), dtype=np.int64)
 
     def values(self, config: PyOpenColorIO.Config, colorspace: str = PyOpenColorIO.ROLE_SCENE_LINEAR) -> Outcome[Colors]:
         """Returns white-adapted patch RGB in `colorspace`."""
-        patches = colour.xyY_to_XYZ(np.array(tuple(self.checker.data.values()), dtype=np.float64))
-        white = np.asarray(colour.xy_to_XYZ(self.checker.illuminant), dtype=np.float64)
+        checker = self.checker
+        patches = colour.xyY_to_XYZ(np.array(tuple(checker.data.values()), dtype=np.float64))
+        white = np.asarray(colour.xy_to_XYZ(checker.illuminant), dtype=np.float64)
         return (
             basis(config, PyOpenColorIO.ROLE_SCENE_LINEAR)
             .bind(
@@ -150,10 +152,11 @@ class ChartPlacement(msgspec.Struct, frozen=True, kw_only=True):
     @property
     def footprints(self) -> npt.NDArray[np.float64]:
         """Clockwise footprint corners in chart coordinates, top-left patch first."""
-        chart = self.chart
-        rows, columns = np.divmod(np.arange(len(chart.checker.data)), chart.checker.columns)
-        centers = (np.stack((columns, rows), axis=-1) + 0.5) / chart.shape * (1.0, -1.0) + (0.0, 1.0)
-        planar = centers[:, np.newaxis] + (Quad().samples[:, :2] - 0.5) * self.footprint / chart.shape
+        checker = self.chart.checker
+        shape = np.array((checker.columns, checker.rows), dtype=np.int64)
+        rows, columns = np.divmod(np.arange(len(checker.data)), shape[0])
+        centers = (np.stack((columns, rows), axis=-1) + 0.5) / shape * (1.0, -1.0) + (0.0, 1.0)
+        planar = centers[:, np.newaxis] + (Quad().samples[:, :2] - 0.5) * self.footprint / shape
         return np.concatenate((planar, np.ones_like(planar[..., :1])), axis=-1)
 
     @property
@@ -205,8 +208,8 @@ class ChartPlacement(msgspec.Struct, frozen=True, kw_only=True):
 
         return self.aligned.map(lambda aligned: aligned.map(listed))
 
-    def means(self, plane: npt.NDArray[np.float32]) -> Outcome[Option[Colors]]:
-        """Returns alpha-weighted patch means, or absence when chart cannot align."""
+    def means(self, plane: npt.NDArray[np.float32]) -> Outcome[Option[tuple[Homography, Colors]]]:
+        """Returns the solved chart map and alpha-weighted patch means, or absence when chart cannot align."""
         shape, channels = self.chart.shape, plane.shape[2]
         repeat = np.array([axis == OpenImageIO.Wrap.Periodic for axis in self.extension])
 
@@ -214,7 +217,7 @@ class ChartPlacement(msgspec.Struct, frozen=True, kw_only=True):
             grid = samples[..., :2] * shape
             return np.concatenate(((np.floor(grid) + 0.5 + (grid % 1.0 - 0.5) * self.footprint) / shape, samples[..., 2:]), axis=-1)
 
-        def sampled(homography: Homography) -> Outcome[Colors]:
+        def sampled(homography: Homography) -> Outcome[tuple[Homography, Colors]]:
             mapping = self.mapping(homography)
             corners = mapping(Quad().samples)[:, :2]
             edges = np.roll(corners, -1, axis=0) - corners
@@ -229,6 +232,7 @@ class ChartPlacement(msgspec.Struct, frozen=True, kw_only=True):
                 .map(lambda warped: warped.reshape(shape[1], side, shape[0], side, channels).sum(axis=(1, 3), dtype=np.float64).reshape(-1, channels))
                 .map(lambda sums: np.divide(sums[:, :3], sums[:, 3:], out=np.zeros_like(sums[:, :3]), where=sums[:, 3:] > 0.0))
                 .bind(_colors)
+                .map(lambda colors: (homography, colors))
             )
 
         return self.aligned.bind(lambda aligned: aligned.map(lambda homography: sampled(homography).map(Some)).default_value(Ok(Nothing)))
@@ -253,8 +257,8 @@ class Calibration(msgspec.Struct, frozen=True, kw_only=True):
 
     def __post_init__(self) -> None:
         """Refuses rows whose condition number reaches the float64 inversion ceiling."""
-        if not self.condition < _CEILING:
-            raise ValueError(f"matrix condition {self.condition:.3g} reaches {_CEILING:.3g}")
+        if not (condition := self.condition) < _CEILING:
+            raise ValueError(condition, _CEILING)
 
     @classmethod
     def fit(cls, samples: tuple[tuple[Rgb, Rgb], ...]) -> Outcome[Self]:
@@ -264,7 +268,7 @@ class Calibration(msgspec.Struct, frozen=True, kw_only=True):
             catch(colour.matrix_colour_correction, exception=np.linalg.LinAlgError)(source, target, method="Cheung 2004")
             .map_error(functools.partial(Fault.of, Reason.FAILED, str(source)))
             .bind(
-                lambda found: catch(msgspec.convert, exception=msgspec.ValidationError)({"color_matrix": np.asarray(found, dtype=np.float64).tolist()}, cls).map_error(
+                lambda found: catch(lambda: msgspec.convert({"color_matrix": np.asarray(found, dtype=np.float64).tolist()}, cls), exception=msgspec.ValidationError)().map_error(
                     functools.partial(Fault.of, Reason.OUTSIDE, cls.__name__, member=f"matrix condition below {_CEILING:.3g}")
                 )
             )
@@ -288,7 +292,9 @@ class Calibration(msgspec.Struct, frozen=True, kw_only=True):
         def factored(matrices: tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]) -> Option[Self]:
             source_luma, target_luma = (float(held[1] @ np.asarray(sample)) for held, sample in zip(matrices, (source, target)))
             return (
-                catch(msgspec.convert, exception=msgspec.ValidationError)(math.log2(target_luma) - math.log2(source_luma), Stops).to_option() if source_luma > 0.0 and target_luma > 0.0 else Nothing
+                catch(lambda: msgspec.convert(math.log2(target_luma) - math.log2(source_luma), Stops), exception=msgspec.ValidationError)().to_option()
+                if source_luma > 0.0 and target_luma > 0.0
+                else Nothing
             ).map(lambda exposure: msgspec.structs.replace(self, exposure=exposure))
 
         return paired(basis(config, source_space), basis(config, target_space)).map(factored)
@@ -307,10 +313,20 @@ class Calibration(msgspec.Struct, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
+@np.errstate(over="raise")
+def converted_colors(config: PyOpenColorIO.Config, source: str, target: str, values: Colors) -> Outcome[Colors]:
+    """Returns finite RGB rows converted from `source` to `target`, or `FAILED` and `INVALID` faults."""
+    return (
+        catch(lambda: np.array(values, dtype=np.float32).reshape(-1, 3), exception=FloatingPointError)()
+        .map_error(functools.partial(Fault.of, Reason.FAILED, target))
+        .bind(lambda rows: called(lambda: config.getProcessor(source, target).getDefaultCPUProcessor().applyRGB(rows), target).bind(lambda _: _colors(rows)))
+    )
+
+
 def _colors(values: npt.NDArray[np.float32 | np.float64]) -> Outcome[Colors]:
-    return catch(msgspec.convert, exception=msgspec.ValidationError)(values.tolist(), Colors).map_error(functools.partial(Fault.of, Reason.INVALID, Colors.__name__))
+    return catch(lambda: msgspec.convert(values.tolist(), Colors), exception=msgspec.ValidationError)().map_error(functools.partial(Fault.of, Reason.INVALID, Colors.__name__))  # ty: ignore[unsound-return-statement]
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Calibration", "ChartPlacement", "Clipped", "Colors", "Finding", "PublishedChart", "Reversed", "Skewed", "Wide"]
+__all__ = ["Calibration", "ChartPlacement", "Clipped", "Colors", "Finding", "PublishedChart", "Reversed", "Skewed", "Wide", "converted_colors"]

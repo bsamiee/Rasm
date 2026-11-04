@@ -1,4 +1,4 @@
-#![feature(associated_type_defaults, default_field_values, error_reporter, lock_value_accessors, nonpoison_mutex, sync_nonpoison, trait_alias)]
+#![feature(associated_type_defaults, default_field_values, error_reporter, integer_casts, lock_value_accessors, nonpoison_mutex, sync_nonpoison, trait_alias)]
 
 use core::{
     error::Error,
@@ -8,7 +8,7 @@ use core::{
     pin::pin,
     str::Utf8Error,
 };
-use std::{borrow::Cow, error::Report, ffi::OsString, io, sync::Arc};
+use std::{borrow::Cow, error::Report, ffi::OsString, io};
 
 use futures::{StreamExt as _, TryFutureExt as _, TryStreamExt as _, future, stream};
 use jsonschema::{ValidationError, paths::Location};
@@ -28,7 +28,7 @@ use rmcp::{
 };
 use serde::{Serialize, de::value};
 use serde_json::Value;
-use tokio::sync::{broadcast, watch};
+use tokio::sync::watch;
 use tokio_stream::wrappers::WatchStream;
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -214,13 +214,6 @@ pub enum McpError {
         #[serde(skip)]
         source: Box<ClientInitializeError>,
     },
-    #[error("upstream server is starting, call again once its handshake completes")]
-    Starting,
-    #[error("upstream server is unavailable")]
-    Unavailable {
-        #[serde(skip)]
-        source: Arc<Self>,
-    },
     #[error("upstream server ended before shutdown")]
     Ended,
 }
@@ -243,8 +236,6 @@ impl From<McpError> for ErrorData {
             | McpError::Service { source: _ }
             | McpError::Spawn { command: _, source: _ }
             | McpError::Handshake { source: _ }
-            | McpError::Starting
-            | McpError::Unavailable { source: _ }
             | McpError::Ended => ErrorCode::INTERNAL_ERROR,
         };
         Self { code, ..server::tools::ToolError(value).into() }
@@ -255,9 +246,9 @@ impl From<McpError> for sysexits::ExitCode {
     fn from(value: McpError) -> Self {
         match value {
             McpError::Spawn { command: _, source } => source.into(),
-            McpError::Handshake { source: _ } | McpError::Unavailable { source: _ } => Self::Protocol,
+            McpError::Handshake { source: _ } => Self::Protocol,
             McpError::Ended => Self::Unavailable,
-            McpError::Stopping | McpError::Starting => Self::TempFail,
+            McpError::Stopping => Self::TempFail,
             McpError::Declarations { errors } => Self::from(errors.into_nonempty_iter().next().0),
             McpError::Route { pattern: _, source: _ }
             | McpError::Template { template: _, expression: _ }
@@ -278,13 +269,6 @@ impl From<McpError> for sysexits::ExitCode {
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
-
-#[derive(Clone, Debug)]
-pub struct Notifier(broadcast::Sender<ServerNotification>);
-
-impl Notifier {
-    pub fn notify(&self, notification: impl Into<ServerNotification>) { let (Ok(_) | Err(broadcast::error::SendError(_))) = self.0.send(notification.into()); }
-}
 
 #[derive(Clone, Debug, Default)]
 pub struct Progress(watch::Sender<Option<ProgressNotificationParam>>);

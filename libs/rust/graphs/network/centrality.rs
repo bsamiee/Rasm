@@ -58,32 +58,31 @@ where
         (true, _) | (false, false) => 1.0,
     };
     let blank = || vec![Centrality::default(); graph.node_bound()];
-    let pass = |mut total: Vec<Centrality>, &origin: &NodeIndex| {
+    let pass = |(mut total, mut dependency): (Vec<Centrality>, Vec<f64>), &origin: &NodeIndex| {
         let tree = search(graph, origin, &cost, &extent, catchment);
-        let (own, dependency) = tree.iter().enumerate().skip(1).rev().fold((Centrality::default(), vec![0.0; tree.len()]), |(own, mut dependency), (position, (&node, reached))| {
+        dependency.clear();
+        dependency.resize(tree.len(), 0.0);
+        let own = tree.iter().enumerate().skip(1).rev().fold(Centrality::default(), |own, (position, (&node, reached))| {
             let weight = held(node);
             let paired = weight * counted(node);
-            let carried = dependency.get(position).map_or(paired, |share| paired + share);
+            let carried = paired + dependency[position];
             reached.predecessors.iter().filter_map(|&edge| graph.edge_endpoints(edge)).filter_map(|(tail, head)| tree.get_full(if tail == node { &head } else { &tail })).for_each(
                 |(index, _, before)| {
-                    if let Some(share) = dependency.get_mut(index) {
-                        *share = (before.paths / reached.paths).mul_add(carried, *share);
-                    }
+                    let share = &mut dependency[index];
+                    *share = (before.paths / reached.paths).mul_add(carried, *share);
                 },
             );
-            (own + Centrality { reach: weight, farness: weight * reached.distance, gravity: weight * decay(reached.distance), ..Centrality::default() }, dependency)
+            own + Centrality { reach: weight, farness: weight * reached.distance, gravity: weight * decay(reached.distance), ..Centrality::default() }
         });
         let carrier = held(origin);
-        iter::once((origin, own)).chain(tree.keys().zip(dependency).skip(1).map(|(&node, share)| (node, Centrality { betweenness: carrier * share, ..Centrality::default() }))).for_each(
-            |(node, part)| {
-                if let Some(slot) = total.get_mut(node.index()) {
-                    *slot += part;
-                }
-            },
-        );
-        total
+        iter::once((origin, own))
+            .chain(tree.keys().zip(dependency.iter().copied()).skip(1).map(|(&node, share)| (node, Centrality { betweenness: carrier * share, ..Centrality::default() })))
+            .for_each(|(node, part)| {
+                total[node.index()] += part;
+            });
+        (total, dependency)
     };
-    let total = origins.par_iter().fold(blank, pass).reduce(blank, |mut total, other| {
+    let total = origins.par_iter().fold(|| (blank(), Vec::new()), pass).map(|(total, _)| total).reduce(blank, |mut total, other| {
         iter::zip(&mut total, other).for_each(|(slot, part)| *slot += part);
         total
     });

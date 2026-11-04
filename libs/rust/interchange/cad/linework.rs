@@ -1,23 +1,23 @@
-use core::{iter, mem, slice};
-use std::{borrow::Cow, sync::Arc};
+use core::{iter, mem, ops::ControlFlow};
+use std::{borrow::Cow, collections::HashSet, sync::Arc, vec::IntoIter};
 
 use acadrust::{
     CadDocument, Color, DxfVersion, Handle, LineWeight, Transparency, Vector2, Vector3,
     entities::{AttributeEntity, EntityCommon, EntityType, Hatch, HatchPattern, HatchPatternLine, HatchPatternType, Insert, Viewport},
     objects::{KnownXRecordKind, ObjectType, XRecordValue},
     plot_style::PlotStyleTable,
-    tables::{Layer, LayerFlags, LineType, LineTypeElement, TextStyle},
+    tables::{Layer, LayerFlags, LineType, LineTypeElement, TextStyle, normalize_name},
     types::Transform,
 };
 use color::{OpaqueColor, Rgba8, Srgb};
-use itertools::Itertools as _;
+use itertools::{Either, Itertools as _};
 use kurbo::{Affine, BezPath, Circle, PathEl, Point, Rect, Shape as _, Vec2};
 use linesweeper::FillRule;
 use nonempty_collections::{IntoNonEmptyIterator as _, NEVec, NonEmptyIterator as _};
 use parlance::{FontFamily, FontFamilyName, GenericFamily};
 use rasm_linework::{
-    Alignment, Dash, DashOffset, DashOffsetError, DashesError, Descriptor, Element, Family, FamilyError, Linetype, LineworkError, Opacity, OpacityError, Path, Pattern, Pen, Placement, Region, Side, Target,
-    Tolerance, Visibility, Width, WidthError, cleanup, pages,
+    Alignment, Dash, DashOffset, DashOffsetError, DashesError, Descriptor, Element, Family, FamilyError, Linetype, LineworkError, Opacity, OpacityError, Path, Pattern, Pen, Placement, Region, Side,
+    Target, Tolerance, Visibility, Width, WidthError, cleanup, pages,
 };
 use uom::si::{f64::Length, length::millimeter};
 use validated::Validated;
@@ -51,13 +51,26 @@ pub(crate) struct Context<'source> {
     pub(crate) view_height: f64,
 }
 
+struct Expansion {
+    entities: IntoIter<EntityType>,
+    name: Option<String>,
+}
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 pub fn layers(document: &mut CadDocument, projection: &Projection) -> Result<Vec<pages::Layer>, NEVec<CadError>> {
     let code = document.header.insertion_units;
     let unit = projection.unit.or_else(|| Unit::from_repr(code)).ok_or(CadError::Unit { code }).map_err(NEVec::new)?;
     let model = document.header.model_space_block_handle;
-    let sheet = document.objects.values().find_map(|object| if let ObjectType::Layout(layout) = object && layout.block_record == model { Some(layout.plot_style_sheet.as_str()) } else { None });
+    let sheet = document.objects.values().find_map(|object| {
+        if let ObjectType::Layout(layout) = object
+            && layout.block_record == model
+        {
+            Some(layout.plot_style_sheet.as_str())
+        } else {
+            None
+        }
+    });
     let context = Context {
         frame: Affine::scale(Length::from(unit).get::<millimeter>()),
         table: sheet.and_then(|sheet| projection.plot_styles.iter().find(|table| table.name.eq_ignore_ascii_case(sheet))),
@@ -109,8 +122,353 @@ pub(crate) fn authored(authoring: &Authoring) -> CadDocument {
 }
 
 pub(crate) fn projected(document: &mut CadDocument, block: &str, context: &Context<'_>, projection: &Projection) -> Result<Vec<pages::Layer>, NEVec<CadError>> {
-    let entities = ordered(document, block);
-    drawn(document, entities, &[block.to_owned()], None, context, projection).ok()
+    struct Frame {
+        source: Either<IntoIter<Arc<EntityType>>, (Expansion, Subject)>,
+        layers: Validated<Vec<pages::Layer>, CadError> = Validated::Good(Vec::new()),
+    }
+    let ordered = |document: &CadDocument, block: &str| -> Vec<Arc<EntityType>> {
+        let record = document.block_records.get(block);
+        let owner = record.map(|record| record.handle);
+        let table = document.objects.values().find_map(|object| {
+            if let ObjectType::SortEntitiesTable(table) = object
+                && Some(table.block_owner_handle) == owner
+            {
+                Some(table)
+            } else {
+                None
+            }
+        });
+        let mut entities = record.into_iter().flat_map(|record| &record.entity_handles).filter_map(|&handle| document.get_entity_arc(handle)).collect::<Vec<_>>();
+        if let Some(table) = table {
+            entities.sort_by_key(|entity| table.effective_sort_handle(entity.common().handle));
+        }
+        entities
+    };
+
+    let overridden = |document: &CadDocument, layer: &Layer, context: &Context<'_>, kind: KnownXRecordKind| -> Option<XRecordValue> {
+        context.viewport.and_then(|viewport| document.layer_viewport_overrides(layer.handle, kind).into_iter().find_map(|(handle, value)| (handle == viewport.common.handle).then_some(value)))
+    };
+
+    let plotted = |document: &CadDocument, color: Color, layer: &Layer, context: &Context<'_>| -> (OpaqueColor<Srgb>, Option<f64>) {
+        let resolved = match color {
+            Color::ByLayer => overridden(document, layer, context, KnownXRecordKind::LayerViewportColorOverride)
+                .and_then(|value| if let XRecordValue::Int32(packed) = value { Some(Color::from_true_color_value(packed)) } else { None })
+                .unwrap_or(layer.color),
+            Color::None | Color::ByBlock => Color::WHITE,
+            Color::Index(_) | Color::Rgb { r: _, g: _, b: _ } => color,
+        };
+        let (index, object) = match resolved {
+            Color::Rgb { r, g, b } => (None, OpaqueColor::from_rgb8(r, g, b)),
+            Color::Index(index) if resolved == Color::WHITE => (Some(index), OpaqueColor::BLACK),
+            Color::Index(index) => (Some(index), resolved.rgb().map_or(OpaqueColor::BLACK, |(r, g, b)| OpaqueColor::from_rgb8(r, g, b))),
+            Color::ByLayer | Color::ByBlock | Color::None => (None, OpaqueColor::BLACK),
+        };
+        let (plotted, width, screening) = match context.table {
+            None => (None, None, 1.0),
+            Some(table) if table.is_stb => table.named_entries.get(&layer.plot_style).map_or((None, None, 1.0), |entry| {
+                (
+                    entry.color.map(|[r, g, b]| OpaqueColor::from_rgb8(r, g, b)),
+                    Some(entry.lineweight)
+                        .filter(|&weight| !matches!(weight, 0 | u8::MAX))
+                        .and_then(|weight| table.lineweights.get(usize::from(weight)))
+                        .map(|weight| if table.apply_factor { weight * table.scale_factor.max(0.0) } else { *weight }),
+                    f32::from(entry.screening.min(100)) / 100.0,
+                )
+            }),
+            Some(table) => index.map_or((None, None, 1.0), |aci| (table.resolve_color(aci).map(OpaqueColor::new), table.resolve_lineweight(aci), table.resolve_screening(aci))),
+        };
+        (OpaqueColor::WHITE.lerp_rect(plotted.unwrap_or(object), screening), width.map(f64::from))
+    };
+
+    let drew = |document: &mut CadDocument,
+                entity: &EntityType,
+                earlier: &mut Vec<pages::Layer>,
+                chain: &mut HashSet<String>,
+                subject: &Subject,
+                context: &Context<'_>,
+                projection: &Projection|
+     -> Result<ControlFlow<Expansion, Vec<pages::Layer>>, NEVec<CadError>> {
+        let pen = |document: &CadDocument, common: &EntityCommon, layer: &Layer, context: &Context<'_>, projection: &Projection| -> Result<Pen, Refusal> {
+            let (color, stated) = plotted(document, common.color, layer, context);
+            let weight = match common.line_weight {
+                LineWeight::ByLayer => overridden(document, layer, context, KnownXRecordKind::LayerViewportLineweightOverride)
+                    .and_then(|value| if let XRecordValue::Int32(weight) = value { Some(i16::try_from(weight).map(LineWeight::from_value)) } else { None })
+                    .transpose()?
+                    .unwrap_or(layer.line_weight),
+                LineWeight::ByBlock | LineWeight::Default | LineWeight::Value(_) => common.line_weight,
+            };
+            let transparency = match common.transparency {
+                Transparency::ByLayer => overridden(document, layer, context, KnownXRecordKind::LayerViewportAlphaOverride)
+                    .and_then(|value| if let XRecordValue::Int32(alpha) = value { Transparency::from_layer_alpha_value(alpha.cast_unsigned()) } else { None })
+                    .unwrap_or(layer.transparency),
+                Transparency::ByBlock | Transparency::Explicit(_) => common.transparency,
+            };
+            let width = Width::try_new(stated.or_else(|| weight.millimeters()).unwrap_or_else(|| projection.lineweight.map_or(0.25, Width::into_inner)))
+                .map_err(|(WidthError::FiniteViolated | WidthError::GreaterOrEqualViolated)| Refusal::Unsupported)?;
+            Opacity::try_new(1.0 - transparency.as_percent())
+                .map(|opacity| Pen { width, color: rasm_linework::Color::Srgb(color), opacity, .. })
+                .map_err(|(OpacityError::FiniteViolated | OpacityError::GreaterOrEqualViolated | OpacityError::LessOrEqualViolated)| Refusal::Unsupported)
+        };
+
+        let linetype = |document: &CadDocument, common: &EntityCommon, layer: &Layer, context: &Context<'_>| -> Result<Option<Linetype>, Refusal> {
+            let stated = match &common.linetype {
+                name if name.is_empty() || name.eq_ignore_ascii_case("ByLayer") => overridden(document, layer, context, KnownXRecordKind::LayerViewportLinetypeOverride)
+                    .and_then(|value| if let XRecordValue::Handle(handle) = value { document.line_types.iter().find(|entry| entry.handle == handle) } else { None })
+                    .or_else(|| document.line_types.get(&layer.line_type)),
+                name if name.eq_ignore_ascii_case("ByBlock") => None,
+                _ => document.line_types.get(&common.linetype),
+            };
+            let (factor, target) = context.drafting.map_or_else(|| (context.frame.determinant().abs().sqrt(), Target::Model), |paper| (paper, Target::Drafting));
+            match stated {
+                Some(entry) if entry.is_complex() => Err(Refusal::Linetype),
+                Some(entry) => curves::dashes(entry.elements.iter().map(|element| element.length), document.header.linetype_scale * common.linetype_scale * factor)
+                    .map_err(|DashesError::PredicateViolated| Refusal::Linetype)?
+                    .map(|(dashes, offset)| {
+                        DashOffset::try_new(offset)
+                            .map(|dash_offset| Linetype { dashes, alignment: Alignment::Start { dash_offset }, target })
+                            .map_err(|DashOffsetError::FiniteViolated| Refusal::Linetype)
+                    })
+                    .transpose(),
+                None => Ok(None),
+            }
+        };
+
+        let common = entity.common();
+        let layer = document.layers.get(&common.layer).cloned().unwrap_or_else(|| Layer::new(common.layer.clone()));
+        let (frame, tolerance) = (context.frame, projection.tolerance);
+        let name = Arc::<str>::from(layer.name.as_str());
+        let print = if layer.is_plottable && !layer.name.eq_ignore_ascii_case("DEFPOINTS") { Visibility::Visible } else { Visibility::Hidden };
+        let view = if layer.flags.off { Visibility::Hidden } else { Visibility::Visible };
+        let piece = |elements: Vec<Element>| vec![pages::Layer { name: Arc::clone(&name), print, view, elements }];
+        let refusing = |reason| CadError::Refused { subject: subject.clone(), reason };
+        let misshapen = |source| CadError::Geometry { subject: subject.clone(), source };
+        let mut inserted = |insert: &Insert| -> Result<Expansion, NEVec<CadError>> {
+            let block_key = normalize_name(&insert.block_name);
+            let record = document
+                .block_records
+                .get(&insert.block_name)
+                .ok_or(Refusal::Undefined)
+                .and_then(|record| chain.insert(block_key.clone()).then_some(record).ok_or(Refusal::Cycle))
+                .map_err(|reason| NEVec::new(refusing(reason)))?;
+            let base = if let Some(EntityType::Block(block)) = document.get_entity(record.block_entity_handle) { block.base_point } else { record.base_point };
+            let block = ordered(document, &insert.block_name)
+                .into_iter()
+                .map(|member| {
+                    let mut member = Arc::unwrap_or_clone(member);
+                    member.as_entity_mut().apply_transform(&Transform::from_translation(-base));
+                    member
+                })
+                .collect::<Vec<_>>();
+            match insert.explode(&block) {
+                parts if parts.is_empty() && !block.is_empty() => {
+                    chain.remove(&block_key);
+                    Err(NEVec::new(refusing(Refusal::Unsupported)))
+                }
+                parts => {
+                    #[expect(clippy::needless_collect, reason = "frame owns Vec::IntoIter and appends attributes before traversal")]
+                    let mut shown = parts
+                        .into_iter()
+                        .filter_map(|part| match part {
+                            EntityType::AttributeDefinition(definition) =>
+                                definition.is_constant().then(|| EntityType::AttributeEntity(AttributeEntity::from_definition(&definition, Some(definition.default_value.clone())))),
+                            shown => Some(shown),
+                        })
+                        .collect::<Vec<_>>();
+                    shown.extend(insert.attributes.iter().cloned().map(EntityType::AttributeEntity));
+                    Ok(Expansion { entities: shown.into_iter(), name: Some(block_key) })
+                }
+            }
+        };
+        let penned = || Validated::from(pen(document, common, &layer, context, projection).map_err(refusing));
+        let stroked = |outline: Option<BezPath>| -> Result<Vec<pages::Layer>, NEVec<CadError>> {
+            outline.map_or(Ok(Vec::new()), |outline| {
+                Validated::from(Path::try_new(outline).map_err(|source| misshapen(LineworkError::from(source))))
+                    .map3(penned(), Validated::from(linetype(document, common, &layer, context).map_err(refusing)), |path, pen, linetype| piece(vec![Element::Stroke { path, pen, linetype }]))
+                    .ok()
+            })
+        };
+        let filled = |region: Region| penned().map(|pen| piece(vec![Element::Fill { region, color: pen.color, opacity: pen.opacity }])).ok();
+        let outlined = || curves::path(entity, frame, tolerance).map_err(|reason| NEVec::new(refusing(reason))).and_then(stroked);
+        let polygon = |corners: &[Vector3], plane: Affine| {
+            let mut points = corners.iter().map(|corner| plane * Point::new(corner.x, corner.y));
+            Region::new(iter::chain(points.next().map(PathEl::MoveTo), points.map(PathEl::LineTo)).collect::<BezPath>(), FillRule::NonZero, tolerance).map_err(|source| NEVec::new(misshapen(source)))
+        };
+        let hidden = layer.flags.frozen || common.invisible || context.viewport.is_some_and(|viewport| viewport.frozen_layers.contains(&layer.handle));
+        match entity {
+            _ if hidden => Ok(Vec::new()),
+            EntityType::Line(_) | EntityType::Arc(_) | EntityType::Circle(_) | EntityType::Ellipse(_) | EntityType::Spline(_) | EntityType::Helix(_) | EntityType::Face3D(_) => outlined(),
+            EntityType::LwPolyline(_) | EntityType::Polyline2D(_) | EntityType::Polyline(_) | EntityType::Polyline3D(_) => match curves::band(entity, frame, tolerance) {
+                Ok(Some(region)) => filled(region),
+                Ok(None) => outlined(),
+                Err(source) => Err(NEVec::new(misshapen(source))),
+            },
+            EntityType::Text(_) | EntityType::MText(_) | EntityType::AttributeEntity(_) | EntityType::AttributeDefinition(_) =>
+                text::lifted(entity, &document.text_styles, &projection.families, frame, tolerance, subject)
+                    .map_or_else(Validated::Fail, Validated::Good)
+                    .map2(penned(), |lettering, pen| {
+                        lettering.map_or_default(|text::Lettering { text, background }| {
+                            piece(
+                                iter::chain(
+                                    background.map(|(region, color)| Element::Fill { region, color: rasm_linework::Color::Srgb(plotted(document, color, &layer, context).0), opacity: pen.opacity }),
+                                    iter::once(Element::Text { text, color: pen.color, opacity: pen.opacity }),
+                                )
+                                .collect(),
+                            )
+                        })
+                    })
+                    .ok(),
+            EntityType::Hatch(hatch) if hatch.gradient_color.is_enabled() => Err(NEVec::new(refusing(Refusal::Gradient))),
+            EntityType::Hatch(hatch) if hatch.is_solid =>
+                Validated::from(curves::boundary(hatch, frame, tolerance, subject)).map2(penned(), |region, pen| piece(vec![Element::Fill { region, color: pen.color, opacity: pen.opacity }])).ok(),
+            EntityType::Hatch(hatch) => {
+                let family = |(index, line): (usize, &HatchPatternLine)| -> Result<Family, CadError> {
+                    let dashed = curves::dashes(line.dash_lengths.iter().copied(), 1.0).map_err(|DashesError::PredicateViolated| misshapen(LineworkError::Scaled(Dash::Array)))?;
+                    let delta = (Affine::rotate(-line.angle) * Point::new(line.offset.x, line.offset.y)).to_vec2();
+                    let shift = dashed.as_ref().map_or_default(|&(_, offset)| offset);
+                    Family::try_new(Descriptor {
+                        angle: line.angle,
+                        origin: Point::new(line.base_point.x, line.base_point.y) - Vec2::from_angle(line.angle) * shift,
+                        delta,
+                        dashes: dashed.map(|(dashes, _)| dashes),
+                    })
+                    .map_err(|FamilyError::PredicateViolated| misshapen(LineworkError::Spacing { family: index, spacing: delta.y }))
+                };
+                Validated::from(curves::boundary(hatch, frame, tolerance, subject))
+                    .map4(
+                        penned(),
+                        Validated::from(Placement::try_new(frame * curves::ocs(hatch.normal, hatch.elevation)).map_err(misshapen)),
+                        hatch.pattern.lines.iter().enumerate().map(family).collect::<Validated<Vec<_>, _>>(),
+                        |region, pen, placement, families| {
+                            NEVec::try_from_vec(families).map_or_default(|families| piece(vec![Element::Hatch { region, pattern: Pattern { families, target: Target::Model }, placement, pen }]))
+                        },
+                    )
+                    .ok()
+            }
+            EntityType::Solid(solid) =>
+                polygon(&[solid.first_corner, solid.second_corner, solid.fourth_corner, solid.third_corner], frame * curves::ocs(solid.normal, solid.first_corner.z)).and_then(filled),
+            EntityType::Point(marker) => {
+                let header = &document.header;
+                let percent = |share: f64| context.view_height * share / 100.0;
+                let size = match header.point_display_size {
+                    stated if stated > 0.0 => stated,
+                    stated if stated < 0.0 => percent(-stated),
+                    _ => percent(5.0),
+                };
+                let (center, half, mode, local) = (Point::new(marker.location.x, marker.location.y), size / 2.0, header.point_display_mode, tolerance.into_inner() / frame.spectral_norm());
+                let line = |from: Vec2, to: Vec2| [PathEl::MoveTo(center + from), PathEl::LineTo(center + to)];
+                let figure = match mode.rem_euclid(32) {
+                    0 => line(Vec2::ZERO, Vec2::ZERO).to_vec(),
+                    2 => [line(Vec2::new(-half, 0.0), Vec2::new(half, 0.0)), line(Vec2::new(0.0, -half), Vec2::new(0.0, half))].concat(),
+                    3 => [line(Vec2::new(-half, -half), Vec2::new(half, half)), line(Vec2::new(-half, half), Vec2::new(half, -half))].concat(),
+                    4 => line(Vec2::ZERO, Vec2::new(0.0, half)).to_vec(),
+                    i16::MIN..=-1 | 1 | 5..=i16::MAX => Vec::new(),
+                };
+                let circle = ((mode & 32) != 0).then(|| Circle::new(center, half).path_elements(local).collect::<Vec<_>>());
+                let square = ((mode & 64) != 0).then(|| Rect::from_center_size(center, (size, size)).path_elements(local).collect::<Vec<_>>());
+                let mut elements = iter::chain(figure, circle.into_iter().flatten()).chain(square.into_iter().flatten()).collect::<BezPath>();
+                elements.apply_affine(frame);
+                stroked((!elements.is_empty()).then_some(elements))
+            }
+            EntityType::Wipeout(wipeout) => polygon(&if wipeout.is_rectangular() { wipeout.corners().to_vec() } else { wipeout.world_boundary_vertices() }, frame).map(|region| {
+                mem::take(earlier)
+                    .into_iter()
+                    .map(|shown| pages::Layer { elements: vec![Element::Clip { region: region.clone(), keep: Side::Outside, elements: shown.elements.into() }], ..shown })
+                    .collect()
+            }),
+            EntityType::Insert(insert) => return inserted(insert).map(ControlFlow::Break),
+            EntityType::Dimension(dimension) if document.block_records.contains(&dimension.base().block_name) => {
+                let mut insert = Insert::new(dimension.base().block_name.clone(), Vector3::ZERO);
+                insert.common = dimension.base().common.clone();
+                return inserted(&insert).map(ControlFlow::Break);
+            }
+            EntityType::Dimension(_)
+            | EntityType::MLine(_)
+            | EntityType::MultiLeader(_)
+            | EntityType::Leader(_)
+            | EntityType::Table(_)
+            | EntityType::Mesh(_)
+            | EntityType::PolyfaceMesh(_)
+            | EntityType::PolygonMesh(_)
+            | EntityType::Region(_)
+            | EntityType::Solid3D(_)
+            | EntityType::Body(_)
+            | EntityType::Surface(_) => match document.explode_entity(entity) {
+                [] => Err(NEVec::new(refusing(Refusal::Unsupported))),
+                parts => return Ok(ControlFlow::Break(Expansion { entities: parts.into_iter(), name: None })),
+            },
+            EntityType::Light(_) | EntityType::Viewport(_) | EntityType::Block(_) | EntityType::BlockEnd(_) | EntityType::Seqend(_) => Ok(Vec::new()),
+            EntityType::RasterImage(_)
+            | EntityType::Underlay(_)
+            | EntityType::Ole2Frame(_)
+            | EntityType::Shape(_)
+            | EntityType::Tolerance(_)
+            | EntityType::SectionSymbol(_)
+            | EntityType::ViewBorder(_)
+            | EntityType::Extended(_)
+            | EntityType::Unknown(_)
+            | EntityType::Ray(_)
+            | EntityType::XLine(_) => Err(NEVec::new(refusing(Refusal::Unsupported))),
+        }
+        .map(ControlFlow::Continue)
+    };
+
+    let mut chain = HashSet::from([normalize_name(block)]);
+    let mut frame = Frame { source: Either::Left(ordered(document, block).into_iter()), .. };
+    let mut parents = Vec::<Frame>::new();
+    let merge = |earlier: Validated<Vec<pages::Layer>, CadError>, more: Validated<Vec<pages::Layer>, CadError>| {
+        earlier.map2(more, |earlier, more| {
+            more.into_iter().fold(earlier, |mut layers, added| {
+                if let Some(last) = layers.last_mut()
+                    && last.name == added.name
+                    && last.print == added.print
+                    && last.view == added.view
+                {
+                    last.elements.extend(added.elements);
+                } else {
+                    layers.push(added);
+                }
+                layers
+            })
+        })
+    };
+    loop {
+        let next = match &mut frame.source {
+            Either::Left(entities) => entities.next().map(Either::Left),
+            Either::Right((expansion, _)) => expansion.entities.next().map(Either::Right),
+        };
+        let Some(entity) = next else {
+            if let Either::Right((Expansion { entities: _, name: Some(name) }, _)) = frame.source {
+                chain.remove(&name);
+            }
+            let Some(mut parent) = parents.pop() else { return frame.layers.ok() };
+            parent.layers = merge(parent.layers, frame.layers);
+            frame = parent;
+            continue;
+        };
+        let entity = match &entity {
+            Either::Left(entity) => entity.as_ref(),
+            Either::Right(entity) => entity,
+        };
+        let own = Subject::Record { handle: entity.common().handle, kind: entity.as_entity().entity_type() };
+        let subject = match &frame.source {
+            Either::Left(_) => &own,
+            Either::Right((_, subject)) => subject,
+        };
+        let mut discarded = Vec::new();
+        let earlier = match &mut frame.layers {
+            Validated::Good(layers) => layers,
+            Validated::Fail(_) => &mut discarded,
+        };
+        match drew(document, entity, earlier, &mut chain, subject, context, projection) {
+            Ok(ControlFlow::Continue(more)) => frame.layers = merge(frame.layers, Validated::Good(more)),
+            Err(errors) => frame.layers = merge(frame.layers, Validated::Fail(errors)),
+            Ok(ControlFlow::Break(expansion)) => {
+                let source = Either::Right((expansion, subject.clone()));
+                parents.push(frame);
+                frame = Frame { source, .. };
+            }
+        }
+    }
 }
 
 pub(crate) fn written(document: &mut CadDocument, space: &str, layers: Vec<pages::Layer>, authoring: &Authoring) -> Result<Vec<Handle>, NEVec<CadError>> {
@@ -154,306 +512,9 @@ pub(crate) fn written(document: &mut CadDocument, space: &str, layers: Vec<pages
         .ok()
 }
 
-fn ordered(document: &CadDocument, block: &str) -> Vec<EntityType> {
-    let owner = document.block_records.get(block).map(|record| record.handle);
-    let table = document.objects.values().find_map(|object| if let ObjectType::SortEntitiesTable(table) = object && Some(table.block_owner_handle) == owner { Some(table) } else { None });
-    let mut entities = document.entities_in_block(block).cloned().collect::<Vec<_>>();
-    if let Some(table) = table {
-        entities.sort_by_key(|entity| table.effective_sort_handle(entity.common().handle));
-    }
-    entities
-}
-
-fn drawn(document: &mut CadDocument, entities: Vec<EntityType>, chain: &[String], subject: Option<&Subject>, context: &Context<'_>, projection: &Projection) -> Validated<Vec<pages::Layer>, CadError> {
-    entities.into_iter().fold(Validated::Good(Vec::new()), |state, entity| {
-        let own = Subject::Record { handle: entity.common().handle, kind: entity.as_entity().entity_type() };
-        let subject = subject.unwrap_or(&own);
-        match state {
-            Validated::Good(layers) => drew(document, &entity, layers, chain, subject, context, projection).map_or_else(Validated::Fail, Validated::Good),
-            Validated::Fail(mut errors) => {
-                if let Err(more) = drew(document, &entity, Vec::new(), chain, subject, context, projection) {
-                    errors.extend(more);
-                }
-                Validated::Fail(errors)
-            }
-        }
-    })
-}
-
-fn drew(
-    document: &mut CadDocument,
-    entity: &EntityType,
-    mut earlier: Vec<pages::Layer>,
-    chain: &[String],
-    subject: &Subject,
-    context: &Context<'_>,
-    projection: &Projection,
-) -> Result<Vec<pages::Layer>, NEVec<CadError>> {
-    let common = entity.common();
-    let layer = document.layers.get(&common.layer).cloned().unwrap_or_else(|| Layer::new(common.layer.clone()));
-    let (frame, tolerance) = (context.frame, projection.tolerance);
-    let name = Arc::<str>::from(layer.name.as_str());
-    let print = if layer.is_plottable && !layer.name.eq_ignore_ascii_case("DEFPOINTS") { Visibility::Visible } else { Visibility::Hidden };
-    let view = if layer.flags.off { Visibility::Hidden } else { Visibility::Visible };
-    let piece = |elements: Vec<Element>| vec![pages::Layer { name: Arc::clone(&name), print, view, elements }];
-    let refusing = |reason| CadError::Refused { subject: subject.clone(), reason };
-    let misshapen = |source| CadError::Geometry { subject: subject.clone(), source };
-    let penned = || Validated::from(pen(document, common, &layer, context, projection).map_err(refusing));
-    let stroked = |outline: Option<BezPath>| -> Result<Vec<pages::Layer>, NEVec<CadError>> {
-        outline.map_or(Ok(Vec::new()), |outline| {
-            Validated::from(Path::try_new(outline).map_err(|source| misshapen(LineworkError::from(source))))
-                .map3(penned(), Validated::from(linetype(document, common, &layer, context).map_err(refusing)), |path, pen, linetype| piece(vec![Element::Stroke { path, pen, linetype }]))
-                .ok()
-        })
-    };
-    let filled = |region: Region| penned().map(|pen| piece(vec![Element::Fill { region, color: pen.color, opacity: pen.opacity }])).ok();
-    let outlined = || curves::path(entity, frame, tolerance).map_err(|reason| NEVec::new(refusing(reason))).and_then(stroked);
-    let polygon = |corners: &[Vector3], plane: Affine| {
-        let mut points = corners.iter().map(|corner| plane * Point::new(corner.x, corner.y));
-        Region::new(&iter::chain(points.next().map(PathEl::MoveTo), points.map(PathEl::LineTo)).collect::<BezPath>(), FillRule::NonZero, tolerance).map_err(|source| NEVec::new(misshapen(source)))
-    };
-    let hidden = layer.flags.frozen || common.invisible || context.viewport.is_some_and(|viewport| viewport.frozen_layers.contains(&layer.handle));
-    match entity {
-        _ if hidden => Ok(Vec::new()),
-        EntityType::Line(_) | EntityType::Arc(_) | EntityType::Circle(_) | EntityType::Ellipse(_) | EntityType::Spline(_) | EntityType::Helix(_) | EntityType::Face3D(_) => outlined(),
-        EntityType::LwPolyline(_) | EntityType::Polyline2D(_) | EntityType::Polyline(_) | EntityType::Polyline3D(_) => match curves::band(entity, frame, tolerance) {
-            Ok(Some(region)) => filled(region),
-            Ok(None) => outlined(),
-            Err(source) => Err(NEVec::new(misshapen(source))),
-        },
-        EntityType::Text(_) | EntityType::MText(_) | EntityType::AttributeEntity(_) | EntityType::AttributeDefinition(_) => {
-            text::lifted(entity, &document.text_styles, &projection.families, frame, tolerance, subject)
-                .map_or_else(Validated::Fail, Validated::Good)
-                .map2(penned(), |lettering, pen| {
-                    lettering.map_or_default(|text::Lettering { text, background }| {
-                        piece(
-                            iter::chain(
-                                background.map(|(region, color)| Element::Fill { region, color: rasm_linework::Color::Srgb(plotted(document, color, &layer, context).0), opacity: pen.opacity }),
-                                iter::once(Element::Text { text, color: pen.color, opacity: pen.opacity }),
-                            )
-                            .collect(),
-                        )
-                    })
-                })
-                .ok()
-        }
-        EntityType::Hatch(hatch) if hatch.gradient_color.is_enabled() => Err(NEVec::new(refusing(Refusal::Gradient))),
-        EntityType::Hatch(hatch) if hatch.is_solid => {
-            Validated::from(curves::boundary(hatch, frame, tolerance, subject)).map2(penned(), |region, pen| piece(vec![Element::Fill { region, color: pen.color, opacity: pen.opacity }])).ok()
-        }
-        EntityType::Hatch(hatch) => {
-            let family = |(index, line): (usize, &HatchPatternLine)| -> Result<Family, CadError> {
-                let dashed = curves::dashes(&line.dash_lengths, 1.0).map_err(|DashesError::PredicateViolated| misshapen(LineworkError::Scaled(Dash::Array)))?;
-                let delta = (Affine::rotate(-line.angle) * Point::new(line.offset.x, line.offset.y)).to_vec2();
-                let shift = dashed.as_ref().map_or_default(|&(_, offset)| offset);
-                Family::try_new(Descriptor { angle: line.angle, origin: Point::new(line.base_point.x, line.base_point.y) - Vec2::from_angle(line.angle) * shift, delta, dashes: dashed.map(|(dashes, _)| dashes) })
-                    .map_err(|FamilyError::PredicateViolated| misshapen(LineworkError::Spacing { family: index, spacing: delta.y }))
-            };
-            Validated::from(curves::boundary(hatch, frame, tolerance, subject))
-                .map4(
-                    penned(),
-                    Validated::from(Placement::try_new(frame * curves::ocs(hatch.normal, hatch.elevation)).map_err(misshapen)),
-                    hatch.pattern.lines.iter().enumerate().map(family).collect::<Validated<Vec<_>, _>>(),
-                    |region, pen, placement, families| {
-                        NEVec::try_from_vec(families).map_or_default(|families| piece(vec![Element::Hatch { region, pattern: Pattern { families, target: Target::Model }, placement, pen }]))
-                    },
-                )
-                .ok()
-        }
-        EntityType::Solid(solid) => polygon(&[solid.first_corner, solid.second_corner, solid.fourth_corner, solid.third_corner], frame * curves::ocs(solid.normal, solid.first_corner.z)).and_then(filled),
-        EntityType::Point(marker) => {
-            let header = &document.header;
-            let percent = |share: f64| context.view_height * share / 100.0;
-            let size = match header.point_display_size {
-                stated if stated > 0.0 => stated,
-                stated if stated < 0.0 => percent(-stated),
-                _ => percent(5.0),
-            };
-            let (center, half, mode, local) = (Point::new(marker.location.x, marker.location.y), size / 2.0, header.point_display_mode, tolerance.into_inner() / frame.spectral_norm());
-            let line = |from: Vec2, to: Vec2| [PathEl::MoveTo(center + from), PathEl::LineTo(center + to)];
-            let figure = match mode.rem_euclid(32) {
-                0 => line(Vec2::ZERO, Vec2::ZERO).to_vec(),
-                2 => [line(Vec2::new(-half, 0.0), Vec2::new(half, 0.0)), line(Vec2::new(0.0, -half), Vec2::new(0.0, half))].concat(),
-                3 => [line(Vec2::new(-half, -half), Vec2::new(half, half)), line(Vec2::new(-half, half), Vec2::new(half, -half))].concat(),
-                4 => line(Vec2::ZERO, Vec2::new(0.0, half)).to_vec(),
-                i16::MIN..=-1 | 1 | 5..=i16::MAX => Vec::new(),
-            };
-            let circle = ((mode & 32) != 0).then(|| Circle::new(center, half).path_elements(local).collect::<Vec<_>>());
-            let square = ((mode & 64) != 0).then(|| Rect::from_center_size(center, (size, size)).path_elements(local).collect::<Vec<_>>());
-            let elements = iter::chain(figure, circle.into_iter().flatten()).chain(square.into_iter().flatten()).collect::<BezPath>();
-            stroked((!elements.is_empty()).then(|| frame * elements))
-        }
-        EntityType::Wipeout(wipeout) => polygon(&if wipeout.is_rectangular() { wipeout.corners().to_vec() } else { wipeout.world_boundary_vertices() }, frame).map(|region| {
-            mem::take(&mut earlier)
-                .into_iter()
-                .map(|shown| pages::Layer { elements: vec![Element::Clip { region: region.clone(), keep: Side::Outside, elements: shown.elements }], ..shown })
-                .collect()
-        }),
-        EntityType::Insert(insert) => inserted(document, insert, chain, subject, context, projection),
-        EntityType::Dimension(dimension) if document.block_records.contains(&dimension.base().block_name) => {
-            let mut insert = Insert::new(dimension.base().block_name.clone(), Vector3::ZERO);
-            insert.common = dimension.base().common.clone();
-            inserted(document, &insert, chain, subject, context, projection)
-        }
-        EntityType::Dimension(_)
-        | EntityType::MLine(_)
-        | EntityType::MultiLeader(_)
-        | EntityType::Leader(_)
-        | EntityType::Table(_)
-        | EntityType::Mesh(_)
-        | EntityType::PolyfaceMesh(_)
-        | EntityType::PolygonMesh(_)
-        | EntityType::Region(_)
-        | EntityType::Solid3D(_)
-        | EntityType::Body(_)
-        | EntityType::Surface(_) => match document.explode_entity(entity) {
-            [] => Err(NEVec::new(refusing(Refusal::Unsupported))),
-            parts => drawn(document, parts, chain, Some(subject), context, projection).ok(),
-        },
-        EntityType::Light(_) | EntityType::Viewport(_) | EntityType::Block(_) | EntityType::BlockEnd(_) | EntityType::Seqend(_) => Ok(Vec::new()),
-        EntityType::RasterImage(_)
-        | EntityType::Underlay(_)
-        | EntityType::Ole2Frame(_)
-        | EntityType::Shape(_)
-        | EntityType::Tolerance(_)
-        | EntityType::SectionSymbol(_)
-        | EntityType::ViewBorder(_)
-        | EntityType::Extended(_)
-        | EntityType::Unknown(_)
-        | EntityType::Ray(_)
-        | EntityType::XLine(_) => Err(NEVec::new(refusing(Refusal::Unsupported))),
-    }
-    .map(|more| {
-        more.into_iter().fold(earlier, |mut layers, added| {
-            if let Some(last) = layers.last_mut()
-                && last.name == added.name
-                && last.print == added.print
-                && last.view == added.view
-            {
-                last.elements.extend(added.elements);
-            } else {
-                layers.push(added);
-            }
-            layers
-        })
-    })
-}
-
-fn inserted(document: &mut CadDocument, insert: &Insert, chain: &[String], subject: &Subject, context: &Context<'_>, projection: &Projection) -> Result<Vec<pages::Layer>, NEVec<CadError>> {
-    let refused = |reason| Err(NEVec::new(CadError::Refused { subject: subject.clone(), reason }));
-    match document.block_records.get(&insert.block_name) {
-        _ if chain.iter().any(|name| name.eq_ignore_ascii_case(&insert.block_name)) => refused(Refusal::Cycle),
-        None => refused(Refusal::Undefined),
-        Some(record) => {
-            let base = if let Some(EntityType::Block(block)) = document.get_entity(record.block_entity_handle) { block.base_point } else { record.base_point };
-            let block = ordered(document, &insert.block_name)
-                .into_iter()
-                .map(|mut entity| {
-                    entity.as_entity_mut().apply_transform(&Transform::from_translation(-base));
-                    entity
-                })
-                .collect::<Vec<_>>();
-            match insert.explode(&block) {
-                parts if parts.is_empty() && !block.is_empty() => refused(Refusal::Unsupported),
-                parts => {
-                    let shown = parts
-                        .into_iter()
-                        .filter_map(|part| match part {
-                            EntityType::AttributeDefinition(definition) => {
-                                definition.is_constant().then(|| EntityType::AttributeEntity(AttributeEntity::from_definition(&definition, Some(definition.default_value.clone()))))
-                            }
-                            shown => Some(shown),
-                        })
-                        .chain(insert.attributes.iter().cloned().map(EntityType::AttributeEntity))
-                        .collect();
-                    drawn(document, shown, &[chain, slice::from_ref(&insert.block_name)].concat(), Some(subject), context, projection).ok()
-                }
-            }
-        }
-    }
-}
-
-fn overridden(document: &CadDocument, layer: &Layer, context: &Context<'_>, kind: KnownXRecordKind) -> Option<XRecordValue> {
-    context
-        .viewport
-        .and_then(|viewport| document.layer_viewport_overrides(layer.handle, kind).into_iter().find_map(|(handle, value)| (handle == viewport.common.handle).then_some(value)))
-}
-
-fn plotted(document: &CadDocument, color: Color, layer: &Layer, context: &Context<'_>) -> (OpaqueColor<Srgb>, Option<f64>) {
-    let resolved = match color {
-        Color::ByLayer => overridden(document, layer, context, KnownXRecordKind::LayerViewportColorOverride)
-            .and_then(|value| if let XRecordValue::Int32(packed) = value { Some(Color::from_true_color_value(packed)) } else { None })
-            .unwrap_or(layer.color),
-        Color::None | Color::ByBlock => Color::WHITE,
-        Color::Index(_) | Color::Rgb { r: _, g: _, b: _ } => color,
-    };
-    let (index, object) = match resolved {
-        Color::Rgb { r, g, b } => (None, OpaqueColor::from_rgb8(r, g, b)),
-        Color::Index(index) if resolved == Color::WHITE => (Some(index), OpaqueColor::BLACK),
-        Color::Index(index) => (Some(index), resolved.rgb().map_or(OpaqueColor::BLACK, |(r, g, b)| OpaqueColor::from_rgb8(r, g, b))),
-        Color::ByLayer | Color::ByBlock | Color::None => (None, OpaqueColor::BLACK),
-    };
-    let (plotted, width, screening) = match context.table {
-        None => (None, None, 1.0),
-        Some(table) if table.is_stb => table.named_entries.get(&layer.plot_style).map_or((None, None, 1.0), |entry| {
-            (
-                entry.color.map(|[r, g, b]| OpaqueColor::from_rgb8(r, g, b)),
-                Some(entry.lineweight)
-                    .filter(|&weight| !matches!(weight, 0 | u8::MAX))
-                    .and_then(|weight| table.lineweights.get(usize::from(weight)))
-                    .map(|weight| if table.apply_factor { weight * table.scale_factor.max(0.0) } else { *weight }),
-                f32::from(entry.screening.min(100)) / 100.0,
-            )
-        }),
-        Some(table) => index.map_or((None, None, 1.0), |aci| (table.resolve_color(aci).map(OpaqueColor::new), table.resolve_lineweight(aci), table.resolve_screening(aci))),
-    };
-    (OpaqueColor::WHITE.lerp_rect(plotted.unwrap_or(object), screening), width.map(f64::from))
-}
-
-fn pen(document: &CadDocument, common: &EntityCommon, layer: &Layer, context: &Context<'_>, projection: &Projection) -> Result<Pen, Refusal> {
-    let (color, stated) = plotted(document, common.color, layer, context);
-    let weight = match common.line_weight {
-        LineWeight::ByLayer => overridden(document, layer, context, KnownXRecordKind::LayerViewportLineweightOverride)
-            .and_then(|value| if let XRecordValue::Int32(weight) = value { Some(i16::try_from(weight).map(LineWeight::from_value)) } else { None })
-            .transpose()?
-            .unwrap_or(layer.line_weight),
-        LineWeight::ByBlock | LineWeight::Default | LineWeight::Value(_) => common.line_weight,
-    };
-    let transparency = match common.transparency {
-        Transparency::ByLayer => overridden(document, layer, context, KnownXRecordKind::LayerViewportAlphaOverride)
-            .and_then(|value| if let XRecordValue::Int32(alpha) = value { Transparency::from_layer_alpha_value(alpha.cast_unsigned()) } else { None })
-            .unwrap_or(layer.transparency),
-        Transparency::ByBlock | Transparency::Explicit(_) => common.transparency,
-    };
-    let width = Width::try_new(stated.or_else(|| weight.millimeters()).unwrap_or_else(|| projection.lineweight.map_or(0.25, Width::into_inner)))
-        .map_err(|(WidthError::FiniteViolated | WidthError::GreaterOrEqualViolated)| Refusal::Unsupported)?;
-    Opacity::try_new(1.0 - transparency.as_percent())
-        .map(|opacity| Pen { width, color: rasm_linework::Color::Srgb(color), opacity, .. })
-        .map_err(|(OpacityError::FiniteViolated | OpacityError::GreaterOrEqualViolated | OpacityError::LessOrEqualViolated)| Refusal::Unsupported)
-}
-
-fn linetype(document: &CadDocument, common: &EntityCommon, layer: &Layer, context: &Context<'_>) -> Result<Option<Linetype>, Refusal> {
-    let stated = match &common.linetype.to_ascii_uppercase() {
-        "" | "BYLAYER" => overridden(document, layer, context, KnownXRecordKind::LayerViewportLinetypeOverride)
-            .and_then(|value| if let XRecordValue::Handle(handle) = value { document.line_types.iter().find(|entry| entry.handle == handle) } else { None })
-            .or_else(|| document.line_types.get(&layer.line_type)),
-        "BYBLOCK" => None,
-        _ => document.line_types.get(&common.linetype),
-    };
-    let (factor, target) = context.drafting.map_or_else(|| (context.frame.determinant().abs().sqrt(), Target::Model), |paper| (paper, Target::Drafting));
-    match stated {
-        Some(entry) if entry.is_complex() => Err(Refusal::Linetype),
-        Some(entry) => curves::dashes(&entry.elements.iter().map(|element| element.length).collect::<Vec<_>>(), document.header.linetype_scale * common.linetype_scale * factor)
-            .map_err(|DashesError::PredicateViolated| Refusal::Linetype)?
-            .map(|(dashes, offset)| {
-                DashOffset::try_new(offset).map(|dash_offset| Linetype { dashes, alignment: Alignment::Start { dash_offset }, target }).map_err(|DashOffsetError::FiniteViolated| Refusal::Linetype)
-            })
-            .transpose(),
-        None => Ok(None),
-    }
-}
-
+#[stacksafe::stacksafe]
 fn entities(document: &mut CadDocument, element: Element, layer: &str, unit: Affine, tolerance: Tolerance, subject: &Subject) -> Result<Vec<EntityType>, NEVec<CadError>> {
+    #[stacksafe::stacksafe]
     fn masked(element: &Element) -> bool {
         match element {
             Element::Text { text: _, color: _, opacity: _ } | Element::Glyphs { run: _, color: _, opacity: _ } | Element::Placed { content: _, placement: _, opacity: _ } => true,
@@ -471,7 +532,7 @@ fn entities(document: &mut CadDocument, element: Element, layer: &str, unit: Aff
         rasm_linework::Color::Cmyk(_) | rasm_linework::Color::Spot { name: _, tint: _, alternate: _ } => Err(refusing(Refusal::Ink)),
     };
     let weighted = |width: Width| {
-        (u8::MIN..=u8::MAX)
+        (u8::MIN..=LineWeight::Default.to_dwg_index())
             .map(LineWeight::from_dwg_index)
             .filter_map(|weight| weight.millimeters().map(|millimeters| (weight, (millimeters - width.into_inner()).abs())))
             .min_by(|(_, left), (_, right)| left.total_cmp(right))
@@ -523,7 +584,10 @@ fn entities(document: &mut CadDocument, element: Element, layer: &str, unit: Aff
                     }
                 })
                 .transpose()?;
-            Ok(curves::curves(&(unit * path.into_inner())).into_iter().map(|entity| styled(entity, ink, weighted(pen.width), named.clone().unwrap_or_default())).collect())
+            let weight = weighted(pen.width);
+            let mut path = path.into_inner();
+            path.apply_affine(unit);
+            Ok(curves::curves(&path).into_iter().map(|entity| styled(entity, ink, weight, named.clone().unwrap_or_default())).collect())
         }
         Element::Fill { region, color, opacity } => {
             let ink = inked(&color, opacity)?;
@@ -536,35 +600,30 @@ fn entities(document: &mut CadDocument, element: Element, layer: &str, unit: Aff
             let (across, up) = (Vec2::new(across_x, across_y), Vec2::new(up_x, up_y));
             let reach = f64::EPSILON * 64.0 * across.hypot2();
             let similar = across.dot(up).abs() <= reach && (across.hypot2() - up.hypot2()).abs() <= reach;
-            let (linear, scale) = (drawing.with_translation(Vec2::ZERO), drawing.determinant().abs().sqrt());
-            let lines = pattern
-                .families
-                .iter()
-                .map(|family| {
-                    let along = (linear * Point::new(family.angle.cos(), family.angle.sin())).to_vec2();
-                    let (origin, offset) = (drawing * family.origin, linear * (Affine::rotate(family.angle) * family.delta.to_point()));
-                    HatchPatternLine {
-                        angle: along.atan2(),
-                        base_point: Vector2::new(origin.x, origin.y),
-                        offset: Vector2::new(offset.x, offset.y),
-                        dash_lengths: family.dashes.as_ref().map_or_default(|dashes| curves::signed(dashes, 0.0).into_iter().map(|length| length * scale).collect()),
-                    }
-                })
-                .collect::<Vec<_>>();
-            let rows = iter::zip(&pattern.families, &lines)
-                .map(|(family, line)| {
-                    iter::chain([line.angle.to_degrees(), line.base_point.x, line.base_point.y, family.delta.x * scale, family.delta.y * scale], line.dash_lengths.iter().copied()).join(",")
-                })
-                .join(" ");
             if similar {
+                let (linear, scale) = (drawing.with_translation(Vec2::ZERO), drawing.determinant().abs().sqrt());
+                let lines = pattern
+                    .families
+                    .iter()
+                    .map(|family| {
+                        let along = (linear * Point::new(family.angle.cos(), family.angle.sin())).to_vec2();
+                        let (origin, offset) = (drawing * family.origin, linear * (Affine::rotate(family.angle) * family.delta.to_point()));
+                        HatchPatternLine {
+                            angle: along.atan2(),
+                            base_point: Vector2::new(origin.x, origin.y),
+                            offset: Vector2::new(offset.x, offset.y),
+                            dash_lengths: family.dashes.as_ref().map_or_default(|dashes| curves::signed(dashes, 0.0).into_iter().map(|length| length * scale).collect()),
+                        }
+                    })
+                    .collect::<Vec<_>>();
+                let rows = iter::zip(&pattern.families, &lines)
+                    .map(|(family, line)| {
+                        iter::chain([line.angle.to_degrees(), line.base_point.x, line.base_point.y, family.delta.x * scale, family.delta.y * scale], line.dash_lengths.iter().copied()).join(",")
+                    })
+                    .join(" ");
                 placed(&region).map(|region| {
-                    let hatch = Hatch {
-                        paths: curves::loops(&region),
-                        pattern: HatchPattern { lines, ..HatchPattern::new(rows) },
-                        pattern_type: HatchPatternType::Custom,
-                        is_solid: false,
-                        ..Hatch::new()
-                    };
+                    let hatch =
+                        Hatch { paths: curves::loops(&region), pattern: HatchPattern { lines, ..HatchPattern::new(rows) }, pattern_type: HatchPatternType::Custom, is_solid: false, ..Hatch::new() };
                     vec![styled(EntityType::Hatch(Box::new(hatch)), ink, weighted(pen.width), String::new())]
                 })
             } else {

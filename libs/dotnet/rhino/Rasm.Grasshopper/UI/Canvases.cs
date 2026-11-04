@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Reflection;
 using Eto.Drawing;
 using Eto.Forms;
 using Grasshopper2;
@@ -23,7 +24,7 @@ public static class Canvases {
     // --- [POLICIES]
     public static IO<Unit> Restrict(Canvas canvas, Action<CanvasActions> restrict) =>
         from restriction in use(IO.lift(() => Restricted(canvas, restrict)), restriction => IO.lift(() => Released(canvas, restriction)))
-        from over in use(IO.lift(static () => Atom(Option<IResponsive>.None)), static over => IO.lift(() => ignore(Hovered(over, None))))
+        from over in use(IO.lift(static () => Ref(Option<IResponsive>.None)), static over => IO.lift(() => ignore(Hovered(over, None))))
         from hovering in Hooks.On<MouseEventArgs>(h => canvas.MouseMove += h, h => canvas.MouseMove -= h, args => IO.lift(() =>
             Hovered(over, args.Buttons is MouseButtons.None && ReferenceEquals(canvas.FocusObject, restriction.Guard)
                     ? toSeq(canvas.ResponsivesForwards).Rev().Find(responsive => responsive.Responder.IsCoincident(args.Location, canvas.Map(args.Location, CoordinateSystem.Control, CoordinateSystem.Content)))
@@ -72,24 +73,16 @@ public static class Canvases {
     }
 
     private static CanvasActions Merged(CanvasActions live, CanvasActions source, Option<CanvasActions> installed) {
-        (live.AllowDrag, live.AlloWireSelect, live.AllowObjectSelect, live.AllowMakeWire, live.AllowDeleteWire, live.AllowModifyWire) = (
-            Pick(static actions => actions.AllowDrag), Pick(static actions => actions.AlloWireSelect), Pick(static actions => actions.AllowObjectSelect),
-            Pick(static actions => actions.AllowMakeWire), Pick(static actions => actions.AllowDeleteWire), Pick(static actions => actions.AllowModifyWire));
-        (live.MakeWireFilter, live.DeleteWireFilter) = (Pick(static actions => actions.MakeWireFilter), Pick(static actions => actions.DeleteWireFilter));
-        (live.AllowMakeObject, live.AllowDeleteObject, live.AllowObjectResponse, live.AllowDropFile) = (
-            Pick(static actions => actions.AllowMakeObject), Pick(static actions => actions.AllowDeleteObject), Pick(static actions => actions.AllowObjectResponse), Pick(static actions => actions.AllowDropFile));
-        (live.AllowWireMenu, live.AllowObjectMenu, live.AllowCanvasMenu) = (
-            Pick(static actions => actions.AllowWireMenu), Pick(static actions => actions.AllowObjectMenu), Pick(static actions => actions.AllowCanvasMenu));
+        _ = toSeq(typeof(CanvasActions).GetProperties(BindingFlags.Public | BindingFlags.Instance))
+            .Filter(property => installed.ForAll(held => Equals(property.GetValue(live), property.GetValue(held))))
+            .Iter(property => property.SetValue(live, property.GetValue(source)));
         return live;
-
-        T Pick<T>(Func<CanvasActions, T> field) => installed.Match(Some: held => Kept(field(live), field(held), field(source)), None: () => field(source));
     }
 
     private static T Kept<T>(T live, T installed, T prior) => EqualityComparer<T>.Default.Equals(live, installed) ? prior : live;
 
-    private static Option<IResponsive> Hovered(Atom<Option<IResponsive>> over, Option<IResponsive> next) {
-        Option<IResponsive> prior = over.Value;
-        _ = over.Swap(_ => next);
+    private static Option<IResponsive> Hovered(Ref<Option<IResponsive>> over, Option<IResponsive> next) {
+        Option<IResponsive> prior = atomic(() => (Prior: over.Value, Next: over.Swap(_ => next)).Prior);
         _ = prior.Filter(held => !next.Exists(target => ReferenceEquals(target, held))).Iter(static held => held.Responder.MouseLeave());
         return next;
     }
@@ -147,9 +140,18 @@ public static class Canvases {
         from assistant in IO.lift(static () => Optional(TypeAssistantServer.Find<T>()).ToFin(new GrasshopperFault(typeof(T).Name, GrasshopperReason.Missing)))
         from undo in IO.lift(snapshot)
         let recorded = memo(() => Optional(owner.Document).Bind(document => {
-            Option<Node> before = Optional(document.Undo.FirstUndo);
-            owner.AddUndoRecord(new VerbNoun("Edit", owner.Nomen.Name), undo);
-            return Optional(document.Undo.FirstUndo).Filter(after => !before.Exists(prior => ReferenceEquals(prior, after))).Map(after => (Document: document, Node: after));
+            VerbNoun name = new("Edit", owner.Nomen.Name);
+            Option<Node> added = None;
+            EventHandler<UndoNodeEventArgs> capture = (_, args) => {
+                if (ReferenceEquals(args.Node.Record.Name, name)) added = Some(args.Node);
+            };
+            document.Undo.NodeAdded += capture;
+            try {
+                owner.AddUndoRecord(name, undo);
+            } finally {
+                document.Undo.NodeAdded -= capture;
+            }
+            return added.Map(node => (Document: document, Node: node));
         }))
         from last in IO.lift(() => Atom((Value: current, Changed: false, Recorded: false)))
         from shown in IO.lift(() => canvas.ShowInlineEditor(frame, assistant.Format(current),

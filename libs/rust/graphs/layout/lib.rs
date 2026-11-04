@@ -10,6 +10,7 @@ use std::{
     io,
 };
 
+use dugong::graphlib::GraphError;
 use itertools::{Either, Itertools as _};
 use kurbo::{BezPath, DEFAULT_ACCURACY, Ellipse, Line, ParamCurve as _, PathEl, Point, QuadBez, Rect, Shape as _, Size, Vec2};
 use manatee::Anchor;
@@ -118,6 +119,8 @@ pub enum LayoutError {
     }))]
     Absent { element: Either<NodeIndex, EdgeIndex> },
     #[error(transparent)]
+    Graph(#[from] GraphError),
+    #[error(transparent)]
     Layered(#[from] dugong::LayoutError),
     #[error(transparent)]
     Force(#[from] manatee::Error),
@@ -179,11 +182,11 @@ fn ancestors(parents: &DiGraphMap<NodeIndex, ()>, member: NodeIndex) -> impl Ite
 }
 
 fn nesting(parents: &DiGraphMap<NodeIndex, ()>, source: NodeIndex, target: NodeIndex) -> Option<Ordering> {
-    match (source == target, ancestors(parents, target).contains(&source), ancestors(parents, source).contains(&target)) {
-        (true, _, _) => Some(Ordering::Equal),
-        (false, true, _) => Some(Ordering::Greater),
-        (false, false, true) => Some(Ordering::Less),
-        (false, false, false) => None,
+    match source == target {
+        true => Some(Ordering::Equal),
+        false if ancestors(parents, target).contains(&source) => Some(Ordering::Greater),
+        false if ancestors(parents, source).contains(&target) => Some(Ordering::Less),
+        false => None,
     }
 }
 
@@ -249,6 +252,16 @@ fn route(
     interpolation: Interpolation,
     label: Option<Extent>,
 ) -> (BezPath, Option<Rect>) {
+    let border = |shape: Shape, frame: Rect, toward: Point| -> Point {
+        let (center, offset) = (frame.center(), toward - frame.center());
+        [(offset.x, frame.width()), (offset.y, frame.height())]
+            .into_iter()
+            .filter(|&(along, _)| along != 0.0)
+            .map(|(along, span)| span / along.abs())
+            .reduce(f64::min)
+            .and_then(|scale| crossing(&outline(shape, frame), Line::new(center + offset * scale, center)))
+            .unwrap_or(center)
+    };
     let normal = |side: Anchor| match side {
         Anchor::Left => Vec2::new(-1.0, 0.0),
         Anchor::Right => Vec2::new(1.0, 0.0),
@@ -328,17 +341,6 @@ fn outline(shape: Shape, frame: Rect) -> BezPath {
 
 fn crossing(outline: &BezPath, span: Line) -> Option<Point> {
     outline.segments().flat_map(|side| side.intersect_line(span)).map(|hit| hit.line_t).min_by(f64::total_cmp).map(|line_t| span.eval(line_t))
-}
-
-fn border(shape: Shape, frame: Rect, toward: Point) -> Point {
-    let (center, offset) = (frame.center(), toward - frame.center());
-    [(offset.x, frame.width()), (offset.y, frame.height())]
-        .into_iter()
-        .filter(|&(along, _)| along != 0.0)
-        .map(|(along, span)| span / along.abs())
-        .reduce(f64::min)
-        .and_then(|scale| crossing(&outline(shape, frame), Line::new(center + offset * scale, center)))
-        .unwrap_or(center)
 }
 
 fn clipped(points: &[Point], source: &BezPath, target: &BezPath) -> Vec<Point> {

@@ -1,4 +1,4 @@
-"""Render sets of copied scenes or view layers: the set service with its commands, section, menus, and form conversion."""
+"""Render sets, commands, menus, settings, and conversion between copied scenes and view layers."""
 
 from collections.abc import Callable, Generator, Mapping
 from contextlib import contextmanager, ExitStack
@@ -8,7 +8,7 @@ from types import MappingProxyType
 from typing import ClassVar, TYPE_CHECKING
 
 import bpy
-from expression import Nothing, Ok, Option, Some
+from expression import Option, Some
 from expression.extra.result import catch
 import msgspec
 
@@ -18,9 +18,9 @@ from blender.bpy.data.rna.descriptors import Descriptor, written
 from blender.bpy.data.rna.paths import parsed, rooted
 from blender.bpy.data.rna.properties import enum_choices
 from blender.bpy.data.rna.snapshots import assigned, Snapshot
-from blender.bpy.extension.events import Handler, updated
+from blender.bpy.extension.events import updated
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.extension.registration import Acquisitions, Registrable
+from blender.bpy.extension.registration import Acquisitions, Handler, Registrable
 from blender.bpy.render.sessions.engines import samples
 from blender.bpy.render.sessions.members import (
     added,
@@ -56,7 +56,7 @@ from blender.bpy.ui.layout.rows import Layout, Opens, OperatorButton, Property, 
 from blender.bpy.ui.layout.sections import Section
 from blender.bpy.ui.layout.tables import SettingsTable
 from blender.bpy.ui.layout.values import Captured, menu_key
-from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
+from blender.records.faults import accumulated, Fault, Nothing, Ok, Outcome, paired, Reason
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -98,14 +98,16 @@ class RenderSet[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, di
             ).map(lambda found: (category, found))
             for category in self.categories
         )
-        return paired(self.record.attachment.bound(identity), self.scenes.bound(identity), self.layers.bound(identity), selections, Recovery.before_after(identity, "render_set_sync")).map(
-            lambda joined: Members(identity=identity, sets=joined[0], scenes=joined[1], layers=joined[2], categories=MappingProxyType(dict(joined[3])), recovery=joined[4])
+        return paired(self.record.attachment.bound(identity), self.scenes.bound(identity), self.layers.bound(identity), selections).map(
+            lambda joined: Members(
+                identity=identity, sets=joined[0], scenes=joined[1], layers=joined[2], categories=MappingProxyType(dict(joined[3])), recovery=Recovery.before_after(identity, "render_set_sync")
+            )
         )
 
     # --- [COMMANDS]
 
     @cached_property
-    def commands(self) -> Mapping[Callable[..., Outcome[Answer]], Operator[Empty] | Operator[Converting]]:
+    def commands(self) -> Mapping[Callable[[Members, Call[Empty]], Outcome[Answer]] | Callable[[Members, Call[Converting]], Outcome[Answer]], Operator[Empty] | Operator[Converting]]:
         """Set commands keyed by their step, each binding the set's members on call."""
         icons: tuple[tuple[Callable[[Members, Call[Empty]], Outcome[Answer]], rna_enums.IconItems], ...] = (
             (render_set_add, "ADD"),
@@ -164,16 +166,14 @@ class RenderSet[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, di
             Property(target=Member(root=bpy.types.WindowManager, path=(members.sets.name, "across"))),
             ItemList[SceneMembership, bpy.types.Scene](
                 key="render_set_scenes",
-                item=bpy.types.Scene,
                 collection=Member(root=bpy.types.BlendData, path=("scenes",)),
                 active=Some(Member(root=bpy.types.Window, path=("scene",))),
                 attachment=Some(self.scenes),
-                where=Some(lambda context, _ui, item: members.form(context).bind(lambda form: members.copies(context).map(lambda scenes: item in scenes) if form is Form.COPIES else Ok(False))),
+                where=Some(lambda context, _ui, item: members.form(context).bind(lambda form: members.copies(context).map(lambda scenes: item in scenes) if form is Form.COPIES else Ok(value=False))),
                 side=tuple(OperatorButton(target=self.commands[step], keywords={"text": ""}) for step in (render_set_add, render_set_remove, render_set_lock)),
             ),
             ItemList[Membership, bpy.types.ViewLayer](
                 key="render_set_layers",
-                item=bpy.types.ViewLayer,
                 collection=Member(root=bpy.types.Scene, path=("view_layers",)),
                 active=Some(Member(root=bpy.types.Window, path=("view_layer",))),
                 attachment=Some(self.layers),
@@ -203,7 +203,7 @@ class RenderSet[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, di
         return Section(
             key=self.key,
             header=(Opens(target=PopupTarget(menu_key(Preset(key=KEY, form=self.capture.form)), PopupKind.MENU), keywords={"text": ""}, icon=Some("PRESET")),),
-            rows=(Layout(rows=lambda identity: self.bound(identity).map(self.rows), prerequisites=(self,)),),
+            rows=(Layout(builder=Some(lambda identity: self.bound(identity).map(self.rows)), prerequisites=(self,)),),
         )
 
     # --- [REGISTRATION]
@@ -221,8 +221,9 @@ class RenderSet[C: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True, di
 
                     def handed(record: Sets) -> None:
                         if record.across and scene == context.scene:
-                            for owner in Option.of_optional(context.scene if Form[record.form] is Form.COPIES else context.view_layer).to_list():
-                                deferred(owner)
+                            for owner in (scene, context.view_layer):
+                                if owner is not None and any(isinstance(owner, category.root) for category in members.categories):
+                                    deferred(owner)
 
                     return rooted(bpy.types.WindowManager, context).map(lambda manager: handed(members.sets.struct(manager)))
 

@@ -1,5 +1,6 @@
 """Darkroom chart calibration: a color chart placed over an image or node preview, fitted against its reference, and written into the earliest Primaries entry's channel mixer."""
 
+# ruff: file-ignore[relative-imports]
 from pathlib import Path
 from typing import Final
 
@@ -27,7 +28,7 @@ def apply_calibration(call: Call[Empty]) -> Outcome[Answer]:
     """Write calibration into scene primaries."""
 
     def mixed(entry: bpy.types.SceneCompositorEffect, rows: tuple[tuple[float, float, float], ...]) -> Outcome[bool]:
-        return entered(call.identity, entry, {path_key(REMAP): MIXER.item.name, **{path_key(socket): row for socket, row in zip(MIXER.inputs, rows, strict=True)}})
+        return entered(call.identity, entry, {path_key(REMAP): MIXER.item.name, **{path_key(socket): row for socket, row in zip(MIXER.inputs, rows)}})
 
     return paired(calibration.fitting(call), rooted(bpy.types.Scene, call.context)).bind(
         lambda pair: chain.assigned(call.identity, pair[1], Primaries()).bind(

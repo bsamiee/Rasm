@@ -1,27 +1,31 @@
-"""Registration bands, class registration in dependency order, translation, manual, and CLI registries, and the extension service."""
+"""Registration bands, callback lifetimes, typed resources, class dependencies, and extension registries."""
 
 from collections import deque
 from collections.abc import Callable, Generator, Iterable, Mapping
-from contextlib import AbstractContextManager, contextmanager, ExitStack
+from contextlib import AbstractContextManager, contextmanager, ExitStack, nullcontext
+from dataclasses import dataclass, field
 from enum import auto, Enum
 from functools import partial, reduce
 import graphlib
+import inspect
 from itertools import chain
+from threading import Event
 from types import MappingProxyType
-from typing import Any, Final, NoReturn, Protocol, runtime_checkable
+from typing import Final, NoReturn, Protocol, runtime_checkable
 
+import _bpy  # type: ignore[import-not-found]  # ty: ignore[unresolved-import]  # ruff: ignore[import-private-name]
 import bpy
-from expression import Error, Ok, Option, Result
+from expression import Option, Result, Some
 from expression.collections import Block
 from expression.extra.result import catch
 import msgspec
 
 from blender.bpy.data.rna.paths import definition, Struct
-from blender.bpy.data.rna.properties import annotated
-from blender.bpy.extension.events import DISPATCHERS, Handler, Subscription, Timer
-from blender.bpy.extension.identity import Identity, Key, Resource
+from blender.bpy.data.rna.properties import annotated, hosting
+from blender.bpy.extension.events import runtime
+from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.reports import rendered
-from blender.records.faults import Fault, Faults, Outcome, Reason
+from blender.records.faults import Error, Fault, Faults, Nothing, Ok, Outcome, Reason
 from blender.records.stores import argued
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -45,11 +49,12 @@ class Tier(Enum):
     REGISTRIES = auto()
 
 
-type Acquisition = type | AbstractContextManager[Outcome[None]] | Callable[[], Outcome[tuple[type, ...]]]
-type Declaration = Registrable | Resource[Any] | Handler | Subscription | Timer
+type Acquisition = type | AbstractContextManager[Outcome[None]] | Classes
+type Declaration = Registrable | Handler | Subscription | Timer
 type _Banded = tuple[Tier, Acquisition]
 type Acquisitions = tuple[Declaration | type | _Banded, ...]
-type _Answer = Outcome[Acquisitions] | AbstractContextManager[Outcome[Acquisitions]]
+type Declarations = tuple[Declaration | Gathering | type | _Banded, ...]
+type _Answer = Acquisitions | Outcome[Acquisitions] | AbstractContextManager[Acquisitions | Outcome[Acquisitions]]
 
 
 @runtime_checkable
@@ -73,14 +78,13 @@ class Dependent(Protocol):
 class Gathering(Protocol):
     """Row building its acquisitions over every declaration the scope built before it."""
 
-    def gathered(self, identity: Identity, declared: "tuple[Declaration | Gathering, ...]", /) -> Outcome[Acquisitions]:
+    def gathered(self, identity: Identity, declared: "tuple[Declaration | Gathering, ...]", /) -> _Answer:
         """Builds acquisitions over the declarations of every other row, in build order."""
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _EAGER: Final = (Tier.GROUPS, Tier.ATTACHMENTS, Tier.RESOURCES)
-_EVENTS: Final[Mapping[type, Tier]] = MappingProxyType({Handler: Tier.APP_HANDLERS, Subscription: Tier.SUBSCRIPTIONS, Timer: Tier.TIMERS})
 _BANDS: Final[Mapping[type, Tier]] = MappingProxyType({
     bpy.types.PropertyGroup: Tier.GROUPS,
     bpy.types.AddonPreferences: Tier.PREFERENCES,
@@ -93,15 +97,144 @@ _BANDS: Final[Mapping[type, Tier]] = MappingProxyType({
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class Classes:
+    """Deferred native classes, invoked in their acquisition band even when their factory also implements a context manager."""
+
+    build: Callable[[], Outcome[tuple[type, ...]]]
+
+
+class Handler(msgspec.Struct, frozen=True, kw_only=True, eq=False):  # type: ignore[explicit-any]
+    """Callback on one `bpy.app.handlers` list, each row distinct."""
+
+    handlers: list[Callable[..., None]]  # type: ignore[explicit-any]
+    body: Callable[..., Outcome[None]]  # type: ignore[explicit-any]
+    scenes: Callable[[Identity, bpy.types.Scene], bool] = lambda identity, scene: not runtime(identity, scene)
+
+    @contextmanager
+    def held(self, identity: Identity, /) -> Generator[Outcome[None]]:
+        """Joins the persistent dispatcher until scope exit, applying the scene policy and passing the host arguments body takes."""
+        body = identity.reports.reported(self.body)
+        parameters = tuple(inspect.signature(self.body).parameters.values())
+        count = (
+            None
+            if any(parameter.kind is inspect.Parameter.VAR_POSITIONAL for parameter in parameters)
+            else sum(parameter.kind in {inspect.Parameter.POSITIONAL_ONLY, inspect.Parameter.POSITIONAL_OR_KEYWORD} for parameter in parameters)
+        )
+
+        def called(*arguments: object) -> None:
+            """Runs body over the leading arguments it takes."""
+            match arguments:
+                case (bpy.types.Scene() as scene, *_) if not self.scenes(identity, scene):
+                    return
+                case _:
+                    _ = body(*arguments[:count])
+
+        lists, key = DISPATCHERS[identity], id(self.handlers)
+        if key not in lists:
+            lists[key] = (_dispatching(calls := list[Callable[..., None]]()), calls)
+            self.handlers.append(lists[key][0])
+        dispatched, calls = lists[key]
+
+        def left() -> None:
+            """Drops the call, and the dispatcher with the list's last call."""
+            calls.remove(called)
+            if not calls:
+                self.handlers.remove(dispatched)
+                del lists[key]
+
+        with ExitStack() as stack:
+            calls.append(called)
+            stack.callback(left)
+            yield Ok(None)
+
+
+class Subscription(msgspec.Struct, frozen=True, kw_only=True):
+    """Msgbus callback on one owner type property, subscribed again after every file load clears the bus."""
+
+    owner: type[Struct]
+    setting: bpy.types.Property
+    body: Callable[[], Outcome[None]]
+
+    @contextmanager
+    def held(self, identity: Identity, /) -> Generator[Outcome[None]]:
+        """Holds the subscription under its own msgbus owner until scope exit, notification faults held in the extension's reports."""
+        owner, body = object(), identity.reports.reported(self.body)
+
+        def notified() -> None:
+            """Runs body through reports, the host printing a `ValueError` for any notify return other than None."""
+            _ = body()
+
+        def subscribed() -> Outcome[None]:
+            """Subscribes the key under owner."""
+            bpy.msgbus.subscribe_rna(key=(self.owner, self.setting.identifier), owner=owner, args=(), notify=notified)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+            return Ok(None)
+
+        with ExitStack() as stack:
+            stack.callback(bpy.msgbus.clear_by_owner, owner)
+            _ = subscribed()
+            yield stack.enter_context(Handler(handlers=bpy.app.handlers.load_post, body=subscribed).held(identity))
+
+
+class Timer(msgspec.Struct, frozen=True, kw_only=True):
+    """Main-loop work returning next interval, Nothing to stop, idle in background mode."""
+
+    body: Callable[[], Outcome[Option[float]]]
+    first_interval: float = 0.0
+
+    @contextmanager
+    def held(self, identity: Identity, /) -> Generator[Outcome[None]]:
+        """Holds the persistent timer until it stops or scope exits, body faults held in the extension's reports."""
+        body = identity.reports.reported(self.body)
+
+        def ticked() -> float | None:
+            """Returns the next interval, `None` to stop the timer."""
+            return body().bind(lambda interval: interval).to_optional()
+
+        def stopped() -> None:
+            """Unregisters the timer while the host holds it, one that returned `None` being gone."""
+            if bpy.app.timers.is_registered(ticked):
+                bpy.app.timers.unregister(ticked)
+
+        with ExitStack() as stack:
+            bpy.app.timers.register(ticked, first_interval=self.first_interval, persistent=True)
+            stack.callback(stopped)
+            yield Ok(None)
+
+
+class Startup(msgspec.Struct, frozen=True, kw_only=True, eq=False):
+    """Work run after every file load, and on the first main-loop pass after each registration unless a load ran it first.
+
+    Blender startup registers extensions before load handlers and the first main-loop pass, and the work runs once there, the timer idle in background.
+    """
+
+    body: Callable[[], Outcome[None]]
+
+    def acquisitions(self, _identity: Identity, /) -> tuple[Handler | Timer, ...]:
+        """Builds the `load_post` handler and the one-shot timer sharing this registration's load mark."""
+        loaded = Event()
+
+        def reloaded() -> Outcome[None]:
+            """Marks the load, then runs the work."""
+            loaded.set()
+            return self.body()
+
+        def once() -> Outcome[Option[float]]:
+            """Runs the work unless a file load ran it first, stopping the timer."""
+            return (Ok(None) if loaded.is_set() else self.body()).map(lambda _: Nothing)
+
+        return Handler(handlers=bpy.app.handlers.load_post, body=reloaded), Timer(body=once)
+
+
 class Translations(msgspec.Struct, frozen=True, kw_only=True):
     """Interface text translations registered under extension package, in the host form keyed by locale, then by translation context and message."""
 
     table: Mapping[str, Mapping[tuple[str, str], str]]
 
-    def acquisitions(self, identity: Identity, /) -> Outcome[Acquisitions]:
+    def acquisitions(self, identity: Identity, /) -> Acquisitions:
         """Builds the registry acquisition holding the table under the extension package."""
         table = {locale: dict(entries) for locale, entries in self.table.items()}
-        return Ok(((Tier.REGISTRIES, scoped(identity.package, partial(bpy.app.translations.register, identity.package, table), lambda _: bpy.app.translations.unregister(identity.package))),))
+        return ((Tier.REGISTRIES, scoped(identity.package, partial(bpy.app.translations.register, identity.package, table), lambda _: bpy.app.translations.unregister(identity.package))),)
 
 
 class CliCommand[A](msgspec.Struct, frozen=True, kw_only=True):
@@ -111,14 +244,11 @@ class CliCommand[A](msgspec.Struct, frozen=True, kw_only=True):
     decoder: msgspec.json.Decoder[A]
     run: Callable[[A, tuple[str, ...]], Outcome[int]]
 
-    def acquisitions(self, identity: Identity, /) -> Outcome[Acquisitions]:
-        """Builds the registry acquisition holding the command under its prefixed name, reports holding its faults, unregistered fault for a refused key."""
-
-        def registered(command: str) -> AbstractContextManager[Outcome[None]]:
-            executed = identity.reports.reported(partial(self.executed, command))
-            return scoped(command, partial(bpy.utils.register_cli_command, command, lambda arguments: executed(arguments).default_value(1)), bpy.utils.unregister_cli_command)
-
-        return identity.identifier(self.key).map(lambda command: ((Tier.REGISTRIES, registered(command)),))
+    def acquisitions(self, identity: Identity, /) -> Acquisitions:
+        """Builds the prefixed command acquisition, reports holding command faults."""
+        command = identity.identifier(self.key)
+        executed = identity.reports.reported(partial(self.executed, command))
+        return ((Tier.REGISTRIES, scoped(command, partial(bpy.utils.register_cli_command, command, lambda arguments: executed(arguments).default_value(1)), bpy.utils.unregister_cli_command)),)
 
     def executed(self, command: str, arguments: list[str], /) -> Outcome[int]:
         """Runs over the decoded first argument and the rest unchanged, unreadable fault for an undecodable document, absent fault for no argument."""
@@ -129,7 +259,58 @@ class CliCommand[A](msgspec.Struct, frozen=True, kw_only=True):
                 return Error(Fault.of(Reason.ABSENT, command, member="arguments"))
 
 
+# --- [TABLES] ---------------------------------------------------------------------------
+
+_EVENTS: Final[Mapping[type, Tier]] = MappingProxyType({Handler: Tier.APP_HANDLERS, Subscription: Tier.SUBSCRIPTIONS, Timer: Tier.TIMERS})
+
 # --- [SERVICES] -------------------------------------------------------------------------
+
+
+@dataclass(eq=False, slots=True, kw_only=True)
+class Resource[T]:
+    """Value each extension holds while registered, made after its prerequisites and optionally renewed after every file load."""
+
+    made: Callable[[Identity], AbstractContextManager[T]]
+    renewed: Option[Callable[[T], T]] = Nothing
+    prerequisites: tuple[Declaration, ...] = ()
+    _values: dict[Identity, T] = field(default_factory=dict, init=False)
+
+    # --- [VALUES]
+
+    def __getitem__(self, identity: Identity, /) -> T:
+        """Returns the value held by this registration."""
+        return self._values[identity]
+
+    def get(self, identity: Identity, /) -> Option[T]:
+        """Returns the registration's value, Nothing outside its resource scope."""
+        try:
+            return Some(self._values[identity])
+        except KeyError:
+            return Nothing
+
+    # --- [LIFETIME]
+
+    @contextmanager
+    def held(self, identity: Identity, /) -> Generator[Outcome[None]]:
+        """Holds the value made for this registration until scope exit."""
+        with ExitStack() as stack:
+            self._values[identity] = stack.enter_context(self.made(identity))
+            stack.callback(self._values.pop, identity)
+            yield Ok(None)
+
+    def updated(self, identity: Identity, renew: Callable[[T], T], /) -> Outcome[None]:
+        """Replaces the registration's value with its renewal after a file load."""
+        self._values[identity] = renew(self[identity])
+        return Ok(None)
+
+    # --- [REGISTRATION]
+
+    def acquisitions(self, identity: Identity, /) -> Acquisitions:
+        """Builds the resource scope and native renewal handlers."""
+        return ((Tier.RESOURCES, self.held(identity)), *(Handler(handlers=bpy.app.handlers.load_post, body=partial(self.updated, identity, renew)) for renew in self.renewed.to_list()))
+
+
+DISPATCHERS: Final = Resource[dict[int, tuple[Callable[..., None], list[Callable[..., None]]]]](made=lambda _identity: nullcontext({}))
 
 
 class Registration:
@@ -137,21 +318,19 @@ class Registration:
 
     Handler dispatcher builds first, prerequisites precede their rows, resources are held once built, and gathering rows build last.
     Equal declarations build once, each class acquires in the band of its host base, and a manifest website holds Online Manual links over the extension.
-    Refused registration raises one `RuntimeError` of rendered faults after every acquisition before it released.
+    Host registration raises rendered faults after partial acquisitions release; scoped registration returns typed faults.
     """
 
     __slots__ = ("_held", "package", "rows", "unregister")
 
-    def __init__(self, package: str, rows: tuple[Declaration | Gathering | type | _Banded, ...], /) -> None:
+    def __init__(self, package: str, rows: Declarations, /) -> None:
         """Holds the package `Identity.read` reads and the rows, with nothing registered, `unregister` releasing every registration in reverse."""
         self.package, self.rows, self._held = package, rows, ExitStack()
         self.unregister: Callable[[], None] = self._held.close
 
-    def register(self) -> None:
-        """Acquires every row's registrations, holding their releases until `unregister`, a refusal raising the `RuntimeError` of every rendered fault."""
-
-        def refused(faults: Faults) -> NoReturn:
-            raise RuntimeError("\n".join(text for _, text in rendered(faults)))
+    @contextmanager
+    def opened(self) -> Generator[Outcome[Identity]]:
+        """Yields the acquired identity or registration faults, releasing acquisitions at scope exit."""
 
         def merged() -> None:
             manager: bpy.types.WindowManager = bpy.context.window_manager  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
@@ -170,7 +349,8 @@ class Registration:
 
             def declared(declaration: Declaration | Gathering, answer: _Answer) -> Outcome[Acquisitions]:
                 declarations.append(declaration)
-                return stack.enter_context(answer) if isinstance(answer, AbstractContextManager) else answer
+                held = stack.enter_context(answer) if isinstance(answer, AbstractContextManager) else answer
+                return held if isinstance(held, Result) else Ok(held)
 
             def built(row: Declaration | Gathering | type | _Banded) -> Outcome[None]:
                 answer: Callable[[], _Answer]
@@ -187,13 +367,8 @@ class Registration:
                         )
                     case _ if row in declarations:
                         return Ok(None)
-                    case Resource() as resource:
-                        answer = lambda: Ok((
-                            (Tier.RESOURCES, identity.resources.holding(resource, partial(resource.made, identity))),
-                            *(Handler(handlers=bpy.app.handlers.load_post, body=partial(identity.resources.renewed, resource, renew)) for renew in resource.renewed.to_list()),
-                        ))
                     case Handler() | Subscription() | Timer() as event:
-                        answer = lambda: Ok(((_EVENTS[type(event)], event.held(identity)),))
+                        answer = lambda: ((_EVENTS[type(event)], event.held(identity)),)
                     case Gathering() as gathering:
                         answer = lambda: gathering.gathered(identity, tuple(declarations))
                     case Registrable() as registrable:
@@ -212,11 +387,50 @@ class Registration:
             return _each(built, (DISPATCHERS, *prerequisites, *sorted(self.rows, key=lambda row: isinstance(row, Gathering)))).bind(lambda _: _each(opened, Tier))
 
         with ExitStack() as stack:
-            Identity.read(self.package).bind(partial(registered, stack)).map(lambda _: self._held.push(stack.pop_all())).default_with(refused)
+            owner = _bpy._bl_owner_id_get()  # ruff: ignore[private-member-access]
+            _bpy._bl_owner_id_set(self.package)  # ruff: ignore[private-member-access]
+            try:
+                outcome = Identity.read(self.package).bind(lambda identity: registered(stack, identity).map(lambda _: identity))
+            finally:
+                _bpy._bl_owner_id_set(owner)  # ruff: ignore[private-member-access]
+            yield outcome
+
+    def register(self) -> None:
+        """Holds the acquired scope until unregister, raising rendered registration faults after cleanup."""
+
+        def refused(faults: Faults) -> NoReturn:
+            raise RuntimeError("\n".join(text for _, text in rendered(faults)))
+
+        with ExitStack() as stack:
+            stack.enter_context(self.opened()).map(lambda _: self._held.push(stack.pop_all())).default_with(refused)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
+# --- [HANDLERS]
+
+
+def _dispatching(calls: list[Callable[..., None]], /) -> Callable[..., None]:  # type: ignore[explicit-any]
+    """Builds the persistent callback running each joined call over native arguments in join order, a call leaving during the pass skipped."""
+
+    def dispatched(*arguments: object) -> None:
+        for each in tuple(calls):
+            if each in calls:
+                each(*arguments)
+
+    persisted: Callable[..., None] = bpy.app.handlers.persistent(dispatched)  # type: ignore[explicit-any]
+    return persisted
+
+
 # --- [ROWS]
+
+
+def acquired(rows: Iterable[object]) -> tuple[Declaration, ...]:
+    """Returns prerequisites of rows that register nothing, then the rows that register."""
+    held = tuple(rows)
+    return (
+        *(declaration for row in held if isinstance(row, Dependent) and not isinstance(row, Registrable) for declaration in row.prerequisites),
+        *(row for row in held if isinstance(row, Registrable)),
+    )
 
 
 def _prerequisites(row: object, /) -> tuple[Declaration, ...]:
@@ -258,14 +472,15 @@ def _acquired(stack: ExitStack, acquisition: Acquisition, /) -> Outcome[None]:
 
             stack.callback(released)
             try:
-                bpy.utils.register_class(cls)  # ty: ignore[invalid-argument-type]
+                with hosting(cls):
+                    bpy.utils.register_class(cls)  # ty: ignore[invalid-argument-type]
             except (ValueError, RuntimeError, AttributeError) as error:
                 return Error(Fault.of(Reason.UNREGISTERED, cls.__name__, error))
             return Ok(None)
-        case AbstractContextManager() as manager:
-            return stack.enter_context(manager)
-        case build:
+        case Classes(build=build):
             return build().bind(partial(entered, stack))
+        case manager:
+            return stack.enter_context(manager)
 
 
 def _each[T](step: Callable[[T], Outcome[None]], items: Iterable[T], /) -> Outcome[None]:
@@ -318,4 +533,26 @@ def _walked(starts: tuple[bpy.types.Struct, ...], followed: Callable[[bpy.types.
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Acquisition", "Acquisitions", "CliCommand", "Declaration", "Dependent", "Gathering", "Registrable", "Registration", "Tier", "Translations", "entered", "scoped"]
+__all__ = [
+    "DISPATCHERS",
+    "Acquisition",
+    "Acquisitions",
+    "Classes",
+    "CliCommand",
+    "Declaration",
+    "Declarations",
+    "Dependent",
+    "Gathering",
+    "Handler",
+    "Registrable",
+    "Registration",
+    "Resource",
+    "Startup",
+    "Subscription",
+    "Tier",
+    "Timer",
+    "Translations",
+    "acquired",
+    "entered",
+    "scoped",
+]

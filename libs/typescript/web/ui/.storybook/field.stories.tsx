@@ -1,5 +1,5 @@
 import preview from '#/.storybook/preview';
-import { Field } from '#/form/field';
+import { Field } from '#/field';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

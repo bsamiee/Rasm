@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: swift-task-call
+language: swiftlang
+arguments: [member]
+rule:
+    kind: call_expression
+    has:
+        nthChild: 1
+        kind: navigation_expression
+        all:
+            - has: {field: suffix, has: {field: suffix, matches: member}}
+            - has:
+                field: target
+                any:
+                    - {kind: navigation_expression, regex: '^_Concurrency\.Task$'}
+                    - matches: swift-task-type

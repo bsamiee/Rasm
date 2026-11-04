@@ -1,14 +1,26 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-reawaited-select-future
-language: rust
+language: rustlang
 severity: error
 utils:
     polled:
         kind: identifier
         pattern: $FUTURE
         any:
-            - follows: {kind: mutable_specifier, follows: {regex: '^&$'}}
-            - precedes: {regex: '^\.$', precedes: {kind: identifier, regex: '^as_mut$'}}
+            - follows: {kind: mutable_specifier, follows: {regex: '^&$', follows: {regex: '^=$', follows: {kind: identifier, pattern: $VALUE}}}}
+              precedes: {regex: '^=>$', precedes: {matches: handler}}
+            - follows: {regex: '^=$', follows: {kind: identifier, pattern: $VALUE}}
+              precedes: {regex: '^\.$', precedes: {kind: identifier, regex: '^as_mut$', precedes: {kind: token_tree, regex: '^\(\s*\)$', precedes: {regex: '^=>$', precedes: {matches: handler}}}}}
+    output-write:
+        kind: identifier
+        pattern: $OUTPUT
+        precedes: {regex: '^=$', precedes: {kind: identifier, regex: '^Some$', precedes: {kind: token_tree, pattern: {context: 'call!($VALUE)', selector: token_tree}}}}
+    handler:
+        any:
+            - matches: output-write
+            - kind: token_tree
+              regex: '^\{\s*(r#)?\w+\s*=\s*Some\s*\(\s*(r#)?\w+\s*\)\s*;?\s*\}$'
+              has: {matches: output-write}
     awaited:
         kind: await_expression
         has:
@@ -22,25 +34,44 @@ utils:
               all:
                 - has: {field: pattern, regex: '^(Option::)?None$'}
                 - follows: {stopBy: end, kind: match_arm, has: {field: pattern, regex: '^(Option::)?Some\('}}
+                - inside: {kind: match_block, inside: {kind: match_expression, has: {field: value, kind: identifier, pattern: $OUTPUT}}}
             - kind: match_arm
               all:
                 - has: {field: pattern, regex: '^(Option::)?None$'}
                 - precedes: {stopBy: end, kind: match_arm, has: {field: pattern, regex: '^(Option::)?Some\('}}
+                - inside: {kind: match_block, inside: {kind: match_expression, has: {field: value, kind: identifier, pattern: $OUTPUT}}}
             - kind: else_clause
-              inside: {kind: if_expression, has: {field: condition, kind: let_condition, has: {field: pattern, regex: '^(Option::)?Some\('}}}
+              inside: {kind: if_expression, has: {field: condition, kind: let_condition, all: [{has: {field: pattern, regex: '^(Option::)?Some\('}}, {has: {field: value, kind: identifier, pattern: $OUTPUT}}]}}
+    completion-select:
+        kind: macro_invocation
+        all:
+            - has: {field: macro, regex: '^(::)?(tokio::|futures::)?select(_biased)?$'}
+            - has: {kind: token_tree, has: {matches: polled}}
+    select-statement:
+        pattern: $SELECT_STATEMENT
+        any:
+            - matches: completion-select
+            - kind: expression_statement
+              has: {matches: completion-select}
+            - kind: let_declaration
+              has: {field: value, matches: completion-select}
+    tracked-output:
+        all:
+            - follows: {stopBy: end, matches: select-statement}
+            - not:
+                follows:
+                    stopBy: end
+                    not: {pattern: $SELECT_STATEMENT}
+                    all:
+                        - follows: {stopBy: end, pattern: $SELECT_STATEMENT}
+                        - has: {stopBy: {kind: function_item}, kind: identifier, any: [{pattern: $OUTPUT}, {pattern: $FUTURE}]}
 rule:
     kind: await_expression
     all:
         - matches: awaited
         - inside: {matches: absent, stopBy: {kind: 'match_arm, else_clause, closure_expression, async_block, function_item'}}
-        - inside:
-            kind: function_item
-            stopBy: end
-            has:
-                stopBy: end
-                kind: macro_invocation
-                all:
-                    - has: {field: macro, regex: '^(::)?(tokio::|futures::)?select(_biased)?$'}
-                    - has: {kind: token_tree, has: {matches: polled}}
-message: '`await` polls `$FUTURE` again in the `None` arm of an `Option` that tracks `select!` completion'
+        - any:
+            - matches: tracked-output
+            - inside: {stopBy: {kind: 'function_item, closure_expression, async_block'}, matches: tracked-output}
+message: '`$OUTPUT` stores `$FUTURE` completion from `select!` before a `None` fallback awaits it'
 note: 'Pin `futures::future::maybe_done(<future>)`, poll it through `&mut` in each `select!`, and read its output once through `take_output()`'

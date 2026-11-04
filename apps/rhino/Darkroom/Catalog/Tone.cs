@@ -59,7 +59,7 @@ public sealed partial class AgXBase {
 
     public ColorEncoding Signal { get; }
 
-    public LutTable Table => FormationTables.Table((resource, LutFormat.Cube));
+    public LutTable Table => new LutTable.Cube(FormationTables.Lattice(resource), LutInterpolation.Tetrahedral);
 }
 
 [SmartEnum<string>]
@@ -249,11 +249,16 @@ public sealed record ImageFormation(ToneMapping View, Display Device) : IPixelSt
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class FormationTables {
-    public static Func<(string Resource, LutFormat Format), LutTable> Table { get; } = memo(static ((string Resource, LutFormat Format) source) => {
+    public static Func<(string Resource, LutFormat Format), LutTable> Table { get; } = memoUnsafe(static ((string Resource, LutFormat Format) source) => {
         using Stream stream = typeof(FormationTables).Assembly.GetManifestResourceStream(source.Resource)!;
         using MemoryStream bytes = new();
         stream.CopyTo(bytes);
         return source.Format.Decode(bytes.ToArray()).ThrowIfFail();
+    });
+
+    public static Func<string, Lut3D> Lattice { get; } = memoUnsafe(static (string resource) => {
+        using StreamReader reader = new(typeof(FormationTables).Assembly.GetManifestResourceStream(resource)!);
+        return Lut3D.ParseCube(reader.ReadToEnd());
     });
 
     public static LutSpace AgXLog { get; } = LutSpace.AgX(Lattice("luminance_compensation_bt2020.cube"));
@@ -261,9 +266,8 @@ public static class FormationTables {
     public static Lut1D FalseColorKey => Curve("AgX_False_Color.spi1d");
     public static LutTable TonyMcMapface => Table(("tony_mc_mapface.dds", LutFormat.DirectDrawSurface));
 
-    public static Lut3D Lattice(string resource) =>
-        (Table((resource, LutFormat.Cube)) is LutTable.Cube { Lattice: var lattice } ? Fin.Succ(lattice) : new DarkroomFault(resource, DarkroomReason.Lattice)).ThrowIfFail();
-
-    public static Lut1D Curve(string resource) =>
-        (Table((resource, LutFormat.Spi1d)) is LutTable.ChannelCurve { Table: var curve } ? Fin.Succ(curve) : new DarkroomFault(resource, DarkroomReason.Curve)).ThrowIfFail();
+    public static Func<string, Lut1D> Curve { get; } = memoUnsafe(static (string resource) => {
+        using StreamReader reader = new(typeof(FormationTables).Assembly.GetManifestResourceStream(resource)!);
+        return LutFormat.ParseSpi1d(reader.ReadToEnd()).ThrowIfFail();
+    });
 }

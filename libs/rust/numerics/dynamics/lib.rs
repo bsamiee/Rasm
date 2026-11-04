@@ -5,17 +5,22 @@ use std::path::PathBuf;
 
 use diffsol::DiffsolError;
 use faer::sparse::{CreationError, linalg::LltError};
-use itertools::Itertools as _;
+use itertools::{Either, Itertools as _};
 use nalgebra::DMatrix;
 use nonempty_collections::NEVec;
-use petgraph::graph::{EdgeIndex, NodeIndex};
+use petgraph::{
+    algo::Cycle,
+    graph::{EdgeIndex, NodeIndex},
+};
 use uom::{
     fmt::DisplayStyle::Abbreviation,
     si::{
         Dimension,
-        f64::{HeatCapacity, ThermalConductance, Time},
+        f64::{HeatCapacity, Power, ThermalConductance, ThermodynamicTemperature, Time},
         heat_capacity::joule_per_kelvin,
+        power::watt,
         thermal_conductance::watt_per_kelvin,
+        thermodynamic_temperature::kelvin,
         time::second,
     },
     typenum::Integer as _,
@@ -167,8 +172,19 @@ pub enum DynamicsError {
         instants.iter().format_with(", ", |(index, instant), write| write(&format_args!("{} at index {index}", instant.into_format_args(second, Abbreviation))))
     )]
     Instants { instants: NEVec<(usize, Time)> },
-    #[error("a scenario of {found} parameters meets a problem of {expected}")]
+    #[error("scenario has {found} parameters, expected {expected}")]
     Parameters { expected: usize, found: usize },
+    #[error("design column {column} holds parameters that are not finite at rows {}", rows.iter().format(", "))]
+    Design { column: usize, rows: NEVec<usize> },
+    #[error("{}", fmt::from_fn(|formatter| match time {
+        Some(instant) => write!(formatter, "solved values are not finite at {}", instant.into_format_args(second, Abbreviation)),
+        None => formatter.write_str("adjoint gradient is not finite"),
+    }))]
+    Diverged { time: Option<Time> },
+    #[error("{found} cotangent lanes state no objective{}", fmt::from_fn(|formatter| integrated.map_or(Ok(()), |count| write!(formatter, " over {count} integrated outputs"))))]
+    Cotangents { found: usize, integrated: Option<usize> },
+    #[error("cotangent lanes {} need {} rows by {} instants of finite values", lanes.iter().format(", "), shape.0, shape.1)]
+    CotangentValues { lanes: NEVec<usize>, shape: (usize, usize) },
     #[error(transparent)]
     Solver(#[from] DiffsolError),
     #[error("node {} holds capacity {} that is negative or not finite", node.index(), capacity.into_format_args(joule_per_kelvin, Abbreviation))]
@@ -177,6 +193,15 @@ pub enum DynamicsError {
     Conductance { edge: EdgeIndex, conductance: ThermalConductance },
     #[error("{found} initial temperatures meet a network of {nodes} nodes")]
     Initial { nodes: usize, found: usize },
+    #[error("{}", settings.iter().format("; "))]
+    Settings { settings: NEVec<lumped::Setting> },
+    #[error("forcing at {} holds values that are not finite: {}", time.into_format_args(second, Abbreviation), values.iter().format_with(", ", |(node, value), write| match value {
+        Either::Left(temperature) => write(&format_args!("temperature {} of boundary node {}", temperature.into_format_args(kelvin, Abbreviation), node.index())),
+        Either::Right(heat) => write(&format_args!("heat {} into node {}", heat.into_format_args(watt, Abbreviation), node.index())),
+    }))]
+    Forcing { time: Time, values: NEVec<(NodeIndex, Either<ThermodynamicTemperature, Power>)> },
+    #[error("network has {nodes} boundary nodes and no state to integrate")]
+    State { nodes: usize },
     #[error("components {} reach no boundary and hold no steady state", components.iter().map(|component| component.iter().map(|node| node.index()).format(", ")).format("; "))]
     Floating { components: NEVec<Vec<NodeIndex>> },
     #[error(transparent)]
@@ -185,6 +210,8 @@ pub enum DynamicsError {
     Factorization(#[from] LltError),
     #[error("FMU {} declares FMI {major}, neither 2 nor 3", path.display())]
     Version { path: PathBuf, major: u64 },
+    #[error("variable communication step size from {} to {} is unsupported", shortest.into_format_args(second, Abbreviation), longest.into_format_args(second, Abbreviation))]
+    StepSizes { shortest: Time, longest: Time },
     #[error("{operation} failed")]
     Fmi { operation: Operation, source: fmi::Error },
     #[error("port {reference} is no parameter or input")]
@@ -193,6 +220,8 @@ pub enum DynamicsError {
     Endpoint { endpoint: Endpoint, causality: Causality },
     #[error("connection from {} to {} joins {}, which no conversion relates", connection.source, connection.target, kinds.iter().format(" to "))]
     Connection { connection: Connection, kinds: Box<[Kind; 2]> },
+    #[error("coupling cycle through subsystem {}", cycle.node_id().index())]
+    Cycle { cycle: Cycle<NodeIndex> },
     #[error("subsystem {subsystem} failed at {}", time.into_format_args(second, Abbreviation))]
     Subsystem { subsystem: usize, time: Time, source: Box<Self> },
 }

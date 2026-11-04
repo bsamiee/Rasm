@@ -1,37 +1,28 @@
 """Pen conversion, booleans, pieces, extents, affine maps and stroke offsets over quadratic outlines through skia-pathops."""
 
-from enum import StrEnum
+# mypy: disable-error-code="no-untyped-call"
+
 from typing import Literal, Self
-lazy from collections.abc import Callable
 lazy from functools import partial
-lazy from itertools import groupby, pairwise
+lazy from itertools import pairwise
 
 import msgspec
-lazy from fontTools.misc.arrayTools import insetRect, sectRect, unionRect
+lazy from fontTools.misc.arrayTools import insetRect, offsetRect, sectRect, unionRect
+lazy from fontTools.misc.transform import Offset, Transform
 lazy from fontTools.pens.basePen import AbstractPen
 lazy from fontTools.pens.boundsPen import BoundsPen
-lazy from fontTools.pens.cu2quPen import Cu2QuPen
-lazy from fontTools.pens.pointPen import AbstractPointPen, PointToSegmentPen, ReverseContourPointPen, SegmentToPointPen
+lazy from fontTools.pens.pointPen import PointToSegmentPen, ReverseContourPointPen
 lazy from fontTools.pens.recordingPen import RecordingPointPen
 lazy from fontTools.pens.transformPen import TransformPointPen
 lazy import pathops
 
-lazy from typography.faces.glyphs import Contour, Outline, Point
+lazy from typography.faces.glyphs import Contour, draw_points, Outline, Point, recorded, traced
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type Axis = Literal["x", "y"]
 type Matrix = tuple[float, float, float, float, float, float]
 type Segment = tuple[tuple[float, float], ...]
-
-
-class Operation(StrEnum):
-    """Boolean operations, each value the `pathops.PathOp` member that applies it."""
-
-    UNION = "UNION"
-    DIFFERENCE = "DIFFERENCE"
-    INTERSECTION = "INTERSECTION"
-    XOR = "XOR"
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -52,7 +43,7 @@ class Box(msgspec.Struct, frozen=True, kw_only=True):
     @classmethod
     def of(cls, rect: tuple[float, float, float, float], /) -> Self:
         """Returns the extent of an `(xmin, ymin, xmax, ymax)` rectangle."""
-        xmin, ymin, xmax, ymax = map(float, rect)
+        xmin, ymin, xmax, ymax = rect
         return cls(xmin=xmin, ymin=ymin, xmax=xmax, ymax=ymax)
 
     @property
@@ -91,6 +82,14 @@ class Box(msgspec.Struct, frozen=True, kw_only=True):
         """Returns the extent moved out by a distance on every side, in for a negative one."""
         return self.of(insetRect(msgspec.structs.astuple(self), -distance, -distance))
 
+    def shifted(self, dx: float, dy: float, /) -> Self:
+        """Returns the extent translated by a vector."""
+        return self.of(offsetRect(msgspec.structs.astuple(self), dx, dy))
+
+    def centered(self, advance: float, /) -> Transform:
+        """Translation placing the horizontal ink center at the center of an advance."""
+        return Offset(advance / 2 - self.middle[0], 0)
+
     def band(self, low: float, high: float, /, axis: Axis = "x") -> Self:
         """Returns the extent cut to the span from `low` to `high` along an axis."""
         return msgspec.structs.replace(self, xmin=low, xmax=high) if axis == "x" else msgspec.structs.replace(self, ymin=low, ymax=high)
@@ -106,27 +105,9 @@ class Box(msgspec.Struct, frozen=True, kw_only=True):
 # --- [PENS]
 
 
-def _fed(points: AbstractPointPen, outline: Outline, /, *, closed: bool) -> None:
-    """Sends contours to a point pen, each on-curve point typed by the point before it, an open contour starting with a move."""
-    for contour in outline:
-        points.beginPath()
-        for index, (before, point) in enumerate(zip((contour[-1], *contour[:-1]), contour, strict=True)):
-            points.addPoint((point.x, point.y), None if not point.on else "move" if not closed and not index else "line" if before.on else "qcurve")
-        points.endPath()
-
-
-def _recorded(recording: RecordingPointPen, /) -> Outline:
-    """Contours a recording point pen holds."""
-    return tuple(
-        tuple(Point(x=float(x), y=float(y), on=kind is not None) for _, ((x, y), kind, *_), _ in group)
-        for adding, group in groupby(recording.value, key=lambda entry: entry[0] == "addPoint")
-        if adding
-    )
-
-
 def trace(pen: AbstractPen, outline: Outline, /, *, closed: bool = True) -> None:
     """Draws contours into a segment pen as given, an open contour starting at its first point."""
-    _fed(PointToSegmentPen(pen), outline, closed=closed)
+    draw_points(PointToSegmentPen(pen), outline, closed=closed)
 
 
 def draw(pen: AbstractPen, /, *outlines: Outline) -> None:
@@ -137,18 +118,11 @@ def draw(pen: AbstractPen, /, *outlines: Outline) -> None:
         pathops.simplify(path, **_FILL).draw(pen)
 
 
-def traced(drawing: Callable[[AbstractPen], object], /) -> Outline:
-    """Reads what a drawing callable sends to a segment pen as quadratic contours, cubic segments converted through cu2qu within one unit."""
-    recording = RecordingPointPen()
-    drawing(Cu2QuPen(SegmentToPointPen(recording), max_err=1.0, all_quadratic=True))
-    return _recorded(recording)
-
-
 def segments(outline: Outline, /, *, closed: bool = True) -> tuple[Segment, ...]:
     """Returns every line as two points and every quadratic as three, implied on-curve points explicit, closed contours read from their union with each closing line."""
     path = pathops.Path()
     trace(path.getPen(), outline, closed=closed)
-    return tuple(
+    return tuple(  # ty: ignore[unsound-return-statement]
         (before[-1], *step)
         for contour in (pathops.simplify(path, **_FILL) if closed else path).contours
         for steps in (tuple(points for _, points in contour if points),)
@@ -161,17 +135,20 @@ def segments(outline: Outline, /, *, closed: bool = True) -> tuple[Segment, ...]
 
 def union(*outlines: Outline) -> Outline:
     """Returns the nonzero union of outlines, every overlap and retraced spur removed."""
-    path = pathops.Path()
-    draw(path.getPen(), *outlines)
-    return traced(pathops.simplify(path, **_FILL).draw)
+    builder = pathops.OpBuilder(**_FILL)
+    for outline in outlines:
+        path = pathops.Path()
+        trace(path.getPen(), outline)
+        builder.add(path, pathops.PathOp.UNION)
+    return traced(builder.resolve().draw)
 
 
-def combined(a: Outline, b: Outline, operation: Operation, /) -> Outline:
-    """Returns the boolean operation of `a` with `b`, each outline's winding fixed first."""
+def combined(a: Outline, b: Outline, operation: pathops.PathOp, /) -> Outline:  # type: ignore[no-any-unimported]
+    """Returns the native boolean operation of two nonzero-filled outlines."""
     one, two = pathops.Path(), pathops.Path()
-    draw(one.getPen(), a)
-    draw(two.getPen(), b)
-    return traced(pathops.op(one, two, pathops.PathOp[operation], **_FILL).draw)
+    trace(one.getPen(), a)
+    trace(two.getPen(), b)
+    return traced(pathops.op(one, two, operation, **_FILL).draw)
 
 
 def pieces(outline: Outline, /) -> tuple[Outline, ...]:
@@ -188,7 +165,7 @@ def strip(outline: Outline, low: float, high: float, /, axis: Axis = "x") -> Out
     """Returns the ink between two coordinates along an axis, the band reaching one unit past the ink across the other."""
     match bounds(outline):
         case Box() as box:
-            return combined(outline, (box.grown(1.0).band(low, high, axis).contour,), Operation.INTERSECTION)
+            return combined(outline, (box.grown(1.0).band(low, high, axis).contour,), pathops.PathOp.INTERSECTION)
         case _:
             return ()
 
@@ -200,7 +177,7 @@ def area(outline: Outline, /) -> float:
     """Returns the ink area of the outline's union."""
     path = pathops.Path()
     draw(path.getPen(), outline)
-    return float(path.area)
+    return path.area  # type: ignore[no-any-return]  # ty: ignore[unsound-return-statement]
 
 
 def bounds(outline: Outline, /) -> Box | None:
@@ -212,8 +189,11 @@ def bounds(outline: Outline, /) -> Box | None:
 
 def iou(a: Outline, b: Outline, /) -> float:
     """Returns intersection over union of two outlines' ink, 0 when both are empty."""
-    joined = area(union(a, b))
-    return area(combined(a, b, Operation.INTERSECTION)) / joined if joined else 0.0
+    one, two = pathops.Path(), pathops.Path()
+    trace(one.getPen(), a)
+    trace(two.getPen(), b)
+    joined = pathops.op(one, two, pathops.PathOp.UNION, **_FILL).area
+    return pathops.op(one, two, pathops.PathOp.INTERSECTION, **_FILL).area / joined if joined else 0.0  # ty: ignore[unsound-return-statement]
 
 
 # --- [SHAPES]
@@ -223,22 +203,22 @@ def transformed(outline: Outline, matrix: Matrix, /) -> Outline:
     """Maps every point through an affine matrix `(xx, xy, yx, yy, dx, dy)`, a `fontTools.misc.transform.Transform` included, contours reversed under a reflection to keep their winding."""
     recording = RecordingPointPen()
     xx, xy, yx, yy, _, _ = matrix
-    _fed(TransformPointPen(ReverseContourPointPen(recording) if xx * yy - xy * yx < 0 else recording, matrix), outline, closed=True)
-    return _recorded(recording)
+    draw_points(TransformPointPen(ReverseContourPointPen(recording) if xx * yy - xy * yx < 0 else recording, matrix), outline, closed=True)
+    return recorded(recording)
 
 
 def offset(outline: Outline, distance: float, /) -> Outline:
     """Grows the outline's ink by `distance` units, or shrinks it for a negative distance, at mitered corners with miter limit 4."""
     if not distance:
         return union(outline)
-    body, rim = pathops.Path(), pathops.Path()
+    body = pathops.Path()
     draw(body.getPen(), outline)
-    draw(rim.getPen(), outline)
+    rim = pathops.Path(body)
     rim.stroke(2 * abs(distance), pathops.LineCap.BUTT_CAP, pathops.LineJoin.MITER_JOIN, 4.0)
     rim.convertConicsToQuads()
-    return traced(pathops.op(body, pathops.simplify(rim, **_FILL), pathops.PathOp.UNION if distance > 0 else pathops.PathOp.DIFFERENCE, **_FILL).draw)
+    return traced(pathops.op(body, rim, pathops.PathOp.UNION if distance > 0 else pathops.PathOp.DIFFERENCE, **_FILL).draw)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Axis", "Box", "Matrix", "Operation", "Segment", "area", "bounds", "combined", "draw", "iou", "offset", "pieces", "segments", "strip", "trace", "traced", "transformed", "union"]
+__all__ = ["Axis", "Box", "Matrix", "Segment", "area", "bounds", "combined", "draw", "iou", "offset", "pieces", "segments", "strip", "trace", "transformed", "union"]

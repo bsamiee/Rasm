@@ -46,7 +46,7 @@ public static class EffectList {
     public const string StateKey = "state";
 
     public static IO<Seq<EffectEntry>> Read(RenderSettings settings) =>
-        Within(settings, static (effects, held) => IO.lift(() => ToneMapper(effects) switch {
+        Within(settings, static (effects, held) => IO.lift(() => ToneMapper(Conversions.Present(effects.GetSelectedPostEffect(Internals.ToneMappingStage, out Guid id), id)) switch {
             var selected => held.Map(data => EffectEntry.Of(data, selected)).Strict(),
         }));
 
@@ -156,9 +156,6 @@ public static class EffectList {
          from held in Products.Many(() => effects, required: false)
          from value in body(effects, held)
          select value).Bracket();
-
-    private static Guid ToneMapper(PostEffectCollection effects) =>
-        ToneMapper(Conversions.Present(effects.GetSelectedPostEffect(Internals.ToneMappingStage, out Guid id), id));
 
     private static IO<PostEffectData> Found(PostEffectCollection effects, Guid id) =>
         Products.Many(() => effects, required: false).Bind(held => IO.lift(() => held.Find(data => data.Id == id).ToFin(Missing(id))));

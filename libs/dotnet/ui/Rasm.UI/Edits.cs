@@ -83,13 +83,13 @@ public abstract partial record Selection {
                 }) { Anchor = enclosed.Head | many.Anchor, Focus = enclosed.Last | many.Focus },
             });
 
-    internal Selection Renamed(HashMap<Key, Key> renames) =>
+    internal Selection Renamed(HashMap<Key, Option<Key>> renames) =>
         Switch(
             renames,
-            one: static (held, one) => (Selection)new One(one.Selected.Map(key => Renamed(held, key))),
-            many: static (held, many) => new Many(many.Selected.Map(key => Renamed(held, key))) { Anchor = many.Anchor.Map(key => Renamed(held, key)), Focus = many.Focus.Map(key => Renamed(held, key)) });
+            one: static (held, one) => (Selection)new One(one.Selected.Bind(key => Renamed(held, key))),
+            many: static (held, many) => new Many(toHashSet(toSeq(many.Selected).Choose(key => Renamed(held, key)))) { Anchor = many.Anchor.Bind(key => Renamed(held, key)), Focus = many.Focus.Bind(key => Renamed(held, key)) });
 
-    private static Key Renamed(HashMap<Key, Key> renames, Key key) => renames.Find(key).IfNone(key);
+    private static Option<Key> Renamed(HashMap<Key, Option<Key>> renames, Key key) => renames.Find(key).IfNone(Some(key));
 
     private static Many Only(Key key) => new([key]) { Anchor = Some(key), Focus = Some(key) };
 
@@ -97,7 +97,7 @@ public abstract partial record Selection {
         (from end in ordered.Position(target)
          let found = anchor.Bind(held => ordered.Position(held))
          let start = found.IfNone(end)
-         select new Many(toHashSet(ordered.Skip(int.Min(start, end)).Take(int.Abs(start - end) + 1))) { Anchor = found.IsSome ? anchor : Some(target), Focus = Some(target) })
+         select new Many(toHashSet(ordered.Take(int.Min(start, end)..(int.Max(start, end) + 1)))) { Anchor = found.IsSome ? anchor : Some(target), Focus = Some(target) })
         .IfNone(() => Only(target));
 
     public sealed record One(Option<Key> Selected) : Selection;

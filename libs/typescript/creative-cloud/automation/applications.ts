@@ -14,7 +14,7 @@ const Seconds = Schema.Finite.pipe(Schema.decodeTo(Schema.Duration, SchemaTransf
 const LongestSide = Schema.Int.check(Schema.isGreaterThan(0)).annotate({ description: 'Limit in pixels' });
 const ElementID = Schema.String.annotate({ description: 'Base64 element id, a remote token or a menu bar path, valid while status lists its element' });
 const Frame = Schema.Tuple([Schema.Tuple([Schema.Finite, Schema.Finite]), Schema.Tuple([Schema.Finite, Schema.Finite])]).annotate({ description: 'Origin and size in screen points' });
-const Window = Schema.Struct({
+const WindowInfo = Schema.Struct({
     number: WindowID,
     title: Schema.optionalKey(Schema.String.annotate({ description: 'kCGWindowName, absent when unset or without Screen Recording grant' })),
     frame: Frame,
@@ -61,7 +61,7 @@ const elements = {
             ),
         }),
     ),
-    windows: Schema.Array(Window).annotate({ description: 'Windows no element describes' }),
+    windows: Schema.Array(WindowInfo).annotate({ description: 'Windows no element describes' }),
 };
 const usage = {
     usage: Schema.optionalKey(
@@ -102,10 +102,10 @@ const runningFields = {
     created: Schema.optionalKey(Schema.Boolean.annotate({ description: 'Launch started the instance' })),
     ...next,
 };
-const launching = { windows: Schema.Array(Window).annotate({ description: 'Every CoreGraphics window' }) };
+const launching = { windows: Schema.Array(WindowInfo).annotate({ description: 'Every CoreGraphics window' }) };
 const unresponsive = {
     process: Schema.Literals(['running', 'sleeping', 'stopped']).annotate({ description: 'Main thread state, sleeping while waiting, stopped by signal or debugger' }),
-    windows: Schema.Array(Window).annotate({ description: 'Every CoreGraphics window, modal alerts included' }),
+    windows: Schema.Array(WindowInfo).annotate({ description: 'Every CoreGraphics window, modal alerts included' }),
 };
 const exit = {
     status: Schema.optionalKey(Schema.Int),
@@ -199,4 +199,4 @@ class Screenshot extends Schema.Class<Screenshot, { readonly brand: unique symbo
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Installation, Launched, LongestSide, Perform, Pid, RunningInstance, Screenshot, State, Window };
+export { Installation, Launched, LongestSide, Perform, Pid, RunningInstance, Screenshot, State, WindowInfo };

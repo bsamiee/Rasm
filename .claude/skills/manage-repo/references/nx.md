@@ -5,7 +5,7 @@
 - Plugins export `createDependencies` beside `createNodes` for undeclared edges, a static edge names its `sourceFile`
 - Nx merges inferred projects sharing a root, each file of one directory adds its targets to one project
 - Workspace plugin markers match a base name, an extension, or `<directory>/<base>` for a generic name (`.storybook/main.ts`)
-- Projects with a `tsconfig.json` and no `package.json` take the nearest package's name joined to their path from it (`rasm/infra`)
+- Projects with a `tsconfig.json` and no `package.json` take the nearest package's name joined to their relative path
 - Cargo `[package.metadata.nx]` merges over a package's inferred targets as a later layer of its project, a target one package owns sits there
 - Task hashing reads files by project directory, a root naming a file owns none and its tasks fail to hash
 - Plugins infer each target and tag from project files, `targetDefaults` configure them, `package.json` files hold no `nx` field
@@ -33,13 +33,14 @@ Use JSON discovery from workspace root:
 - `targetDefaults` tries executor key, exact target name, then globs longest first, and applies the first key holding a matching entry alone
 - Matching entries inside one `targetDefaults` key merge in order, later values win, a key with no matching entry falls through to the next
 - Entry `filter` keys `projects` (names, globs, `tag:<tag>`, `directory:<glob>`, `!` exclusions), `plugin`, and `executor` must all match
+- Filters for workspace root use `projects: ["directory:."]`, unqualified names can match child project name prefixes
 - `filter.plugin` matches the plugin that set a target's `executor` or `command`, an empty inferred target matches by tag or name glob
 - Entries setting no `command` precede a key's entry setting one, Nx stamps a later entry with the inferred command and it replaces target
 - `targetDefaults` configures existing targets alone, over plugin-inferred values and under project configuration
 - `"...": true` in objects and `"..."` in arrays preserve lower-layer values at their position
 - `command` on a target runs one command with its `options`, `executor: nx:run-commands` with `commands` and `parallel` exists for a list alone
 - Command lists run in order under `parallel: false`, the `true` default terminates running commands when one fails unless `readyWhen` is set
-- `options.args` and CLI arguments append to a command holding no `{args}` or `{args.<name>}`, `forwardAllArgs: false` stops the append
+- `options.args` supplies defaults, CLI `--args` replaces them with shell source, `forwardAllArgs: false` stops automatic forwarding
 - Forwarded flags named as a run-commands option (`--verbose`, `--cwd`, `--env`, `--color`) never reach the command
 - `{projectRoot}` and `{projectName}` interpolate anywhere in an option value, `{workspaceRoot}` at its start alone
 - Commands with `cwd` at their project read the workspace root through `$NX_WORKSPACE_ROOT`
@@ -55,7 +56,7 @@ Use JSON discovery from workspace root:
 - `parallelism: false` runs a target with no other task of its `nx` process
 - `NX_DEFAULT_OUTPUT_STYLE` in `mise.toml` overrides the `summary` style Nx picks for an agent
 - `static` and `static-failures-only` hold task output until the task exits, `stream-without-prefixes` streams it live
-- Nx reads an unknown `<project>:<target>:<config>` as target `<target>` and drops the configuration, `rasm:lint:ty` ran every linter
+- Nx reads an unknown `<project>:<target>:<config>` as target `<target>` and drops the configuration
 
 ## [04]-[INPUTS]
 
@@ -72,6 +73,7 @@ Use JSON discovery from workspace root:
 - File inputs include untracked files and exclude ignored files
 - `includeIgnored: true` on a `{ "fileset": "<glob>" }` entry hashes ignored matches from disk, on a `!` entry excludes ignored matches
 - Named inputs hold files every target naming them reads, an input one target reads inlines into it, one a plugin reads (`production`) stays
+- Compiler inputs include declared target sources disabled for execution and imported workspace source absent from graph edges
 
 ## [05]-[SCOPE]
 

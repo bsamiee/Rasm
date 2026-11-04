@@ -5,7 +5,7 @@ from functools import partial
 import msgspec
 lazy from expression.extra.result import catch
 
-from typography.shaping.runs import Binary, Direction, shaped, Shaper
+from typography.shaping.runs import Binary, Direction
 lazy from typography.faces.faults import Fault, Outcome, Reason
 lazy from typography.shaping.corpus import Corpus
 
@@ -19,7 +19,7 @@ class Defaults(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=True):
     language: str = ""
     direction: Direction | None = None
     features: frozendict[str, bool] = frozendict()
-    shaper: Shaper | None = None
+    shaper: str | None = None
     variations: frozendict[str, float] = frozendict()
 
 
@@ -29,6 +29,8 @@ class Expectation(Defaults, frozen=True, kw_only=True):
     input: str
     expectation: str
     note: str = ""
+    only: tuple[str, ...] = ()
+    exclude: tuple[str, ...] = ()
 
 
 class Configuration(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=True):
@@ -41,7 +43,7 @@ class Configuration(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=Tru
 class Expectations(msgspec.Struct, frozen=True, kw_only=True, omit_defaults=True):
     """Shaping file fontspector `shaping/regression` reads from its test directory."""
 
-    configuration: Configuration = Configuration()
+    configuration: Configuration
     tests: tuple[Expectation, ...]
 
 
@@ -59,7 +61,7 @@ def decoded(raw: bytes, /) -> Outcome[Expectations]:
     Returns:
         Ok(expectations), `INVALID` fault for malformed JSON or a field outside its record.
     """
-    return catch(partial(msgspec.json.decode, type=Expectations), exception=msgspec.DecodeError)(raw).map_error(partial(Fault.of, Reason.INVALID, "shaping expectations"))
+    return catch(lambda: msgspec.json.decode(raw, type=Expectations), exception=msgspec.DecodeError)().map_error(partial(Fault.of, Reason.INVALID, "shaping expectations"))
 
 
 def expected(binary: Binary, corpus: Corpus, /) -> Expectations:
@@ -74,7 +76,7 @@ def expected(binary: Binary, corpus: Corpus, /) -> Expectations:
     """
     return Expectations(
         configuration=Configuration(forbidden_glyphs=binary.order[:1]),
-        tests=tuple(Expectation(input=line, expectation=shaped(binary, line, language=language).serialized, language=language) for line in corpus.lines for language in corpus.languages),
+        tests=tuple(Expectation(input=line, expectation=binary.shaped(line, language=language).serialized, language=language) for line in corpus.lines for language in corpus.languages),
     )
 
 

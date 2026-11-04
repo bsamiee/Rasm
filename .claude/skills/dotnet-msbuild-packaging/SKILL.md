@@ -133,7 +133,7 @@ SemVer precedence misorders the prerelease builds a CI labels by branch or by bu
 
 ## [03]-[RESTORE]
 
-Restore resolves every direct reference to its exact `PackageVersion` and every transitive package to the lowest version its graph accepts, or to its `PackageVersion` under transitive pinning. Resolved graph is a function of `Directory.Packages.props`, project files, and sources.
+Restore resolves requested ranges through NuGet's lowest applicable version and direct-dependency rules. Central transitive pinning adds catalog entries to that resolution.
 
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
@@ -342,7 +342,7 @@ dotnet test --solution Product.slnx --no-build --report-trx
 |  [03]   | `VersionOverride` in more than one project                  | One `PackageVersion` item, or a nested file with `PackageVersion Update` |
 |  [04]   | `PackageReference` with `Version` under CPM                 | `PackageVersion` in `Directory.Packages.props`                           |
 |  [05]   | `NuGet.config` without `<clear />`                          | `<clear />` first, then the named sources and their mappings             |
-|  [06]   | NuGet lock file or lock-file restore setting                | Deleted, exact central versions make restore repeat without a lock file  |
+|  [06]   | Central versions treated as a resolved dependency graph     | Central versions own declarations, application locks preserve closure    |
 |  [07]   | `GeneratePackageOnBuild` in a library                       | `dotnet pack` from the pipeline, a build then writes no package          |
 |  [08]   | Packed `build/` props setting a property unconditionally    | `Condition="'$(Name)' == ''"`, the consumer keeps its own value          |
 |  [09]   | Native libraries under `contentFiles`                       | `runtimes/<rid>/native/`, the one layout with RID selection              |

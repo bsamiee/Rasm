@@ -63,7 +63,7 @@ Rules for adding a project, tool, plugin, or harness row.
 [OWNERS]:
 - Defect forms take the first owner able to report them: checker configuration, then ast-grep, then a `tools/` checker
 - Checker configuration holds levels, options, thresholds, and bans for rules a checker includes
-- Forms wrong whatever their types (shape, nesting, banned construct, hand loop) take ast-grep rules, with fixes and reach across languages
+- Forms wrong whatever their types (shape, nesting, banned construct, hand loop) take ast-grep rules across languages
 - Compiler extensions hold rules that resolved names, types, expansions, or other files decide
 - `tools/` checker folders take the tool or compiler name they extend
 - Forms code cannot write or no checker can see take no check

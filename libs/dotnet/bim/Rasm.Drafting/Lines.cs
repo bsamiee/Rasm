@@ -44,7 +44,7 @@ public sealed partial class LineGroup {
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class LineCap {
     public static readonly LineCap Butt = new(static multiple => multiple);
-    public static readonly LineCap Round = new(static multiple => multiple > QuantityValue.Zero ? (multiple > QuantityValue.One ? multiple - 1 : QuantityValue.Zero) : multiple - 1);
+    public static readonly LineCap Round = new(static multiple => multiple > QuantityValue.Zero && multiple <= QuantityValue.One ? QuantityValue.Zero : multiple - 1);
 
     [UseDelegateFromConstructor]
     internal partial QuantityValue Drawn(QuantityValue multiple);

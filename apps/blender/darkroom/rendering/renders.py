@@ -1,5 +1,6 @@
 """Darkroom renders: frame size, scene paths, passes, finishing, and exports in their host panels, render sets over Darkroom's setup categories and chain entries, preflight, the queue with its temporal denoise follow-up, and render slots, every render staged through the chain."""
 
+# ruff: file-ignore[relative-imports]
 from typing import Final
 
 from bl_ui.properties_freestyle import VIEWLAYER_PT_freestyle
@@ -10,8 +11,8 @@ from bl_ui.space_image import IMAGE_MT_image, IMAGE_PT_render_slots
 from bl_ui.space_node import NODE_MT_node
 from bl_ui.space_topbar import TOPBAR_MT_render
 from bl_ui.space_view3d import VIEW3D_MT_object_context_menu
-from cycles.presets import AddPresetIntegrator, AddPresetPerformance, AddPresetSampling, AddPresetViewportSampling
-from cycles.ui import CYCLES_RENDER_PT_bake, CYCLES_RENDER_PT_passes
+from cycles.presets import AddPresetIntegrator, AddPresetPerformance, AddPresetSampling, AddPresetViewportSampling  # type: ignore[import-not-found]  # ty: ignore[unresolved-import]
+from cycles.ui import CYCLES_RENDER_PT_bake, CYCLES_RENDER_PT_passes  # type: ignore[import-not-found]  # ty: ignore[unresolved-import]
 from expression import Some
 
 from blender.bpy.commands.operators import PopupKind, PopupTarget
@@ -20,7 +21,6 @@ from blender.bpy.render.outputs.formats import format_listing
 from blender.bpy.render.outputs.framing import camera_border, FrameSize, Framing, selection_border
 from blender.bpy.render.outputs.paths import output_replace, output_version, ScenePaths
 from blender.bpy.render.outputs.results import Finishing, rewrite
-from blender.bpy.render.previews.tiles import Recipe
 from blender.bpy.render.sessions.members import Category
 from blender.bpy.render.sessions.preflight import Preflight
 from blender.bpy.render.sessions.queue import QueueRun
@@ -37,7 +37,7 @@ from blender.bpy.ui.layout.rows import Opens, OperatorButton
 
 from ..catalog import chain, render, stacks, tiles
 from ..effects.finish.dither import diffuse
-from ..effects.grade.exposure import gain
+from ..review.results import history
 from .temporal import temporal_denoise
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -91,10 +91,10 @@ categories: Final = (
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 passes: Final = RoutingRow()
-export: Final = Export(gain=gain, layering=(stacks.layering, RoutingRow.layering))
-render_sets: Final = RenderSet(capture=EffectSetups(effects=chain, tile=Some(lambda identity, slot, entries: tiles.icon(identity, slot, Recipe(entries=entries)))), categories=categories)
+export: Final = Export(selected=history.history.selected, layering=(stacks.layering, RoutingRow.layering))
+render_sets: Final = RenderSet(capture=EffectSetups(effects=chain, tile=Some(tiles.icon)), categories=categories)
 checks: Final = Preflight()
-batch: Final = QueueRun(sets=render_sets, render=render.rendered, planning=Some(temporal_denoise.planned))
+batch: Final = QueueRun(sets=render_sets, render=render.rendered, planning=Some(temporal_denoise.planned), preparing=Some(temporal_denoise.prepared))
 slots: Final = RenderSlots(render=render.rendered)
 rows: Final = (
     FrameSize(),

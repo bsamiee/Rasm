@@ -1,4 +1,4 @@
-import { Settings } from '@rasm/typography/settings';
+import { Settings } from '@rasm/typography';
 import { Option, Schema, Struct } from 'effect';
 import { RpcGroup } from 'effect/rpc';
 import { Reference, request } from '#/requests';

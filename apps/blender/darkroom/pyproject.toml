@@ -22,6 +22,11 @@ dependencies = [
     "openimageio",    # Image IO and buffer operations for finish and particle stages
 ]
 
+# --- [UV] -------------------------------------------------------------------------------
+
+[tool.uv]
+package = false
+
 # --- [RUFF] -----------------------------------------------------------------------------
 
 [tool.ruff]

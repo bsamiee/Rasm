@@ -33,14 +33,19 @@ pub(crate) fn drawn(
 ) -> Result<(pages::Viewport, Vec<pages::Layer>, Vec<Link>), NEVec<SheetsError>> {
     let Viewport { placement, scale, boundary, layers: content } = viewport;
     let flat = pages::Viewport { boundary, placement, scale, layers: Vec::new() };
-    let (linework, annotation, links) = layers::drawn(typesetter, style, pages::affine(&flat).map_err(SheetsError::from)?, table, targets, content)?;
+    let layers::Drawing { model: linework, paper: annotation, links } = layers::drawn(typesetter, style, pages::affine(&flat).map_err(SheetsError::from)?, table, targets, content)?;
     let (framed, linked) = match &flat.boundary {
         Some(region) => {
             let frame = region.bounding_box();
             (
                 annotation
                     .into_iter()
-                    .map(|pages::Layer { name, print, view, elements }| pages::Layer { name, print, view, elements: vec![Element::Clip { region: region.clone(), keep: Side::Inside, elements }] })
+                    .map(|pages::Layer { name, print, view, elements }| pages::Layer {
+                        name,
+                        print,
+                        view,
+                        elements: vec![Element::Clip { region: region.clone(), keep: Side::Inside, elements: elements.into() }],
+                    })
                     .collect(),
                 links.into_iter().map(|Link { area, destination }| Link { area: area.intersect(frame), destination }).filter(|Link { area, destination: _ }| !area.is_zero_area()).collect(),
             )

@@ -1,6 +1,6 @@
 # [TYPESCRIPT]
 
-pnpm resolves every version through the workspace catalog, `tsc` checks each project, Biome lints and formats every file.
+pnpm resolves versions through workspace catalog, `effect-tsgo tsc@next` checks projects, Biome lints and formats files.
 
 ## [01]-[CATALOG]
 
@@ -15,29 +15,28 @@ pnpm resolves every version through the workspace catalog, `tsc` checks each pro
 - `skills.dirs: []` disables agent skill links, pnpm offers no package skill for approval and removes links it created
 - `CI` set makes `pnpm install` frozen, a lock out of step with a `package.json` fails the install in place of a lock rewrite
 - `ncu --target newest` takes the latest publish, prereleases included, `greatest` takes abandoned prerelease lines with a higher number
-- Lock downgrade checks rank npm prereleases of one base by registry publish time where the first differing label is alphanumeric
-- `ncu --reject` names rows `ncu` cannot pick, `eng/typescript/upgrade/typescript.ts` moves them
+- `ncu --reject` names rows `ncu` cannot pick, `eng/typescript/upgrade/typescript/main.ts` moves them
 - `pnpm install` keeps orphans for `modulesCacheMaxAge`, `pnpm update` and `pnpm prune` remove them, then `playwright install` deletes unused browsers
 
 ## [02]-[COMPILER]
 
-- `tsc` is the TypeScript 7 native build `@effect/tsgo` patches with Effect diagnostics, the repository holds no `tsgo` binary
+- Native compiler runs as `effect-tsgo tsc@next`, editor SDK links to executable directory from `@effect/tsgo/lib/getExePath`
 - `nx run <project>:typecheck:tsc` checks one project incrementally into `.cache/tsc/<project>` and hashes its `extends` chain and ignored `typeRoots` declarations
-- Project `tsconfig.json` extends `tsconfig.base.json`, or host platform library `tsconfig.json` stating host `lib` and `types`
+- Project `tsconfig.json` extends `tsconfig.base.json`, `tsconfig.web.json` for a web host, or host platform library `tsconfig.json` stating host `lib` and `types`
 - Programs with their own package closure (`infra`, `tools/nx`) hold their own `tsconfig.json` outside the root program
 - Root `tsconfig.json` checks project `*.config.ts` and `.storybook/main.ts` files, base `exclude` keeps `${configDir}/*.config.ts` out of projects
-- Importers name each concept's `exports` entry (`"./<name>": "./<name>.ts"`), a file importing one runtime's modules sits in one entry's import graph
-- Host packages hold wire schemas, manifests, and descriptors in a runtime-free `contract` entry, build configs and other runtimes' programs import it in place of `host`
+- Library `exports` list `.` and one entry per runtime or dependency (`./node`, `./uxp`), sync generator `barrels` in `tools/nx` writing each `index.ts`
+- `typecheck:neutral` checks root entries with no `types`, `lint:dependency-cruiser` rejects a `node:`, wasm, or `adobe:` module a root `index.ts` reaches
 - ExtendScript code sits in packages whose programs list `types-for-adobe` alone, a CEP panel program holds `dom` and no ExtendScript globals
 - Package self-imports are extensionless, `imports` maps each folder's extension (`"#/server/*": "./server/*.ts"` beside `"#/*": "./*.tsx"`)
 - `tsc` compiles sibling source under importer options, importers list each typings package and `paths` row it needs
 - `types` defaults to `[]`, a project lists each typings package declaring a global or module its files read (`node` for a `node:` module)
 - Project `types` replaces an extended list, a project adding an entry restates the list it extends
 - `paths` maps a module specifier no `types` entry declares to a declaration file an installed package holds
-- `lib` names declarations the host runtime has (Node's in `tsconfig.base.json`, a UXP host's level, `esnext` with `dom` in a browser)
+- `lib` names declarations the host runtime has (Node's in `tsconfig.base.json`, a UXP host's level, Node's with `dom` in `tsconfig.web.json` for code also running under Node)
 - Project `include` lists `.storybook/*.stories.ts` or `.stories.tsx` beside `**/*` (skips dot directories), story imports reach `.storybook/preview`
 - `tsconfig.base.json` `$schema` names installed `typescript` schema, Schema Store's copy lists an older `lib` set
-- `tsconfig.base.json` plugin entry holds every rule severity, project entries merge over it (`diagnostics: false` where a host loads no `effect`)
+- `tsconfig.base.json` plugin entry holds every rule severity, its `overrides` scoping a severity to a file glob
 
 ## [03]-[EXECUTION]
 
@@ -54,9 +53,9 @@ pnpm resolves every version through the workspace catalog, `tsc` checks each pro
 ## [04]-[WEB]
 
 [VITE]:
-- Browser projects run in current browsers alone, `worker` builds at `esnext` over Vite's `baseline-widely-available` default
+- Browser projects run in current browsers alone, `cloudflareWorker` builds at `esnext` over Vite's `baseline-widely-available` default
 - Root `vite.shared.ts` `react` holds React Compiler options for apps, Vitest projects, and Storybook
-- App `vite.config.ts` is its one Vite config, Storybook finds it by default lookup and `project` from root `vitest.config.ts` merges it through `loadConfigFromFile`
+- App `vite.config.ts` is its one Vite config, Storybook finds it by default lookup and `vitestProject` from root `vitest.config.ts` merges it through `loadConfigFromFile`
 - Web builds keep project-local `dist`, where `sites()` copies `.openai/hosting.json` with no relocation setting
 - Vite caches stay in each project's `node_modules/.vite`, `isInNodeModules(importer)` warns on dynamic imports of a dependency optimized elsewhere
 - `@nx/vite` stays out, it infers `serve-static`, a deprecated `serve`, and a `typecheck` beside `typecheck:tsc`
@@ -64,7 +63,7 @@ pnpm resolves every version through the workspace catalog, `tsc` checks each pro
 [WORKERS]:
 - `cloudflare.config.ts` declares an app's Worker with `entrypoint` at its product module, or a library suite's test Worker with bindings alone
 - Cloudflare plugin hooks (`config`, `configResolved`, `configureServer`) take app type, output, and requests in every Vite server
-- `worker(<directory>, { plugins, hosting })` drops `hosting` and Cloudflare plugin when Storybook or Vitest CLIs set `STORYBOOK` or `VITEST`
+- `cloudflareWorker(<directory>, { plugins, hosting })` drops `hosting` and Cloudflare plugin when Storybook or Vitest CLIs set `STORYBOOK` or `VITEST`
 - Cloudflare plugin keeps state in `.cache/cloudflare/<project path>` and Build Output in `.cloudflare/output`, mode `test` keeps bindings in memory
 - Target `types` writes `Cloudflare.Env` and runtime types for the compatibility date to ignored `.cloudflare/types`, `typecheck:tsc` depends on it
 - Project `tsconfig.json` `types` names `./.cloudflare/types` in place of `@cloudflare/workers-types`
@@ -73,7 +72,7 @@ pnpm resolves every version through the workspace catalog, `tsc` checks each pro
 - `.storybook/main.ts` spreads `@rasm/test-support/main` `framework` and resolved `addons` beside its `stories`, a preset supplies no `framework`
 - `.storybook/preview` passes `@rasm/test-support/preview` `addons` to `definePreview`, Storybook reads `addons` and literal `tags` from its source
 - Library `viteFinal` adds `react()`, Storybook finds no `vite.config.ts` in a library
-- Root `package.json` lists no `@storybook/react-vite`, a root row resolves its `typescript` peer to root TypeScript 7 over `docgen` catalog's 6
+- `@storybook/react-vite` importers declare `typescript` from `docgen` catalog for the compiler API
 - Storybook caches stay under each project's `node_modules/.cache/storybook`, a `CACHE_DIR` row merges every project's cache into one directory
 - `@nx/storybook` stays out, its `storybook` peer range ends below 11 and its `test-storybook` repeats `test`
 

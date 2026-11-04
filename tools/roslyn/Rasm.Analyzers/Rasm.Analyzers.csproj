@@ -5,6 +5,11 @@
 
     <ItemGroup Label="Analyzer Authoring">
         <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" PrivateAssets="all" />
-        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" PrivateAssets="all" />
+        <PackageReference Include="Microsoft.CodeAnalysis.Common" ExcludeAssets="runtime" PrivateAssets="all" />
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" ExcludeAssets="runtime" PrivateAssets="all" />
+    </ItemGroup>
+
+    <ItemGroup Label="Collections">
+        <PackageReference Include="System.Collections.Immutable" ExcludeAssets="runtime" PrivateAssets="all" />
     </ItemGroup>
 </Project>

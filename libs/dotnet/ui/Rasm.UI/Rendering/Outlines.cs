@@ -90,16 +90,19 @@ internal abstract class Outline : IDisposable {
         key.Shape.Switch(
             key,
             rounded: static (held, _) => held.Smoothing <= 0f
-                ? Built(path => path.AddRoundRect(Radii(held.Corners, held.Frame, held.Offset), SKPathDirection.Clockwise))
+                ? Built(path => {
+                    using SKRoundRect radii = Radii(held.Corners, held.Frame, held.Offset);
+                    path.AddRoundRect(radii, SKPathDirection.Clockwise);
+                })
                 : Built(path => Continuous(path, held.Corners.Grown(held.Offset), SKRect.Inflate(held.Frame, held.Offset, held.Offset), held.Smoothing)),
             capsule: static (held, _) => Lowered(held with { Shape = new Shape.Rounded() }),
             outlined: static (held, outlined) => {
-                using SKPath parsed = outlined.Path();
+                SKPath parsed = outlined.Path;
                 SKMatrix placed = ImageFit.Mapping(parsed.Bounds, held.Frame);
                 return Offset(Built(path => path.AddPath(parsed, in placed)), held.Offset);
             },
             icon: static (held, icon) => {
-                using SKPath grid = icon.Outline.Path();
+                SKPath grid = icon.Outline.Path;
                 SKMatrix placed = ImageFit.Mapping(grid.Bounds, ImageFit.Contain.Fitted(SKRect.Inflate(held.Frame, -held.Inset, -held.Inset), grid.Bounds.Size));
                 float weighted = icon.Set.Stem * placed.ScaleX * (((float)held.Weight / (float)SKFontStyleWeight.Normal) - 1f) / 2f;
                 return Offset(Built(path => path.AddPath(grid, in placed)), held.Offset + weighted);
@@ -109,12 +112,13 @@ internal abstract class Outline : IDisposable {
                     Shape = placed.Inner,
                     Frame = SKRect.Create(held.Frame.Left + (placed.Unit.Left * held.Frame.Width), held.Frame.Top + (placed.Unit.Top * held.Frame.Height), placed.Unit.Width * held.Frame.Width, placed.Unit.Height * held.Frame.Height),
                 }),
-            combined: static (held, combined) =>
-                from operands in (Lowered(held with { Shape = combined.First, Offset = 0f }), Lowered(held with { Shape = combined.Second, Offset = 0f }))
-                    .Apply(static (first, second) => (First: first, Second: second)).As()
-                from joined in Joined(operands.First, operands.Second, combined.Op)
-                from offset in Offset(joined, held.Offset)
-                select offset);
+            combined: static (held, combined) => {
+                Fin<SKPath> first = Lowered(held with { Shape = combined.First, Offset = 0f });
+                Fin<SKPath> second = Lowered(held with { Shape = combined.Second, Offset = 0f });
+                using SKPath? one = first.ToOption().ValueUnsafe();
+                using SKPath? other = second.ToOption().ValueUnsafe();
+                return (first, second).Apply((left, right) => Joined(left, right, combined.Op)).As().Bind(identity).Bind(joined => Offset(joined, held.Offset));
+            });
 
     private static SKPath Turned(SKPath path, OutlineKey key) {
         if (key.Turn is 0f) return path;
@@ -125,15 +129,14 @@ internal abstract class Outline : IDisposable {
 
     private static Fin<SKPath> Offset(SKPath path, float by) {
         if (by is 0f) return path;
+        using SKPath owned = path;
         using SKPaint rim = new() { Style = SKPaintStyle.Stroke, StrokeWidth = 2f * MathF.Abs(by), StrokeJoin = SKStrokeJoin.Round };
-        return Joined(path, rim.GetFillPath(path), by > 0f ? SKPathOp.Union : SKPathOp.Difference);
+        using SKPath edge = rim.GetFillPath(owned);
+        return Joined(owned, edge, by > 0f ? SKPathOp.Union : SKPathOp.Difference);
     }
 
-    private static Fin<SKPath> Joined(SKPath first, SKPath second, SKPathOp op) {
-        using SKPath one = first;
-        using SKPath other = second;
-        return Optional(one.Op(other, op)).ToFin(new UIFault($"{op}: {one.Bounds} {other.Bounds}", UIReason.Refused));
-    }
+    private static Fin<SKPath> Joined(SKPath first, SKPath second, SKPathOp op) =>
+        Optional(first.Op(second, op)).ToFin(new UIFault((op, first.Bounds, second.Bounds), UIReason.Refused));
 
     private static SKPath Built(Action<SKPathBuilder> trace) {
         using SKPathBuilder builder = new();

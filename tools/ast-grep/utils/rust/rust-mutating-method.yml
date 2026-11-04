@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: rust-mutating-method
-language: rust
+language: rustlang
 rule:
     kind: field_identifier
     any:

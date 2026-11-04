@@ -240,7 +240,6 @@ public sealed partial record ViewTransform {
     }
 
     private static Fin<float> Hull(Vector2 cusp, float hue, Rendering p) {
-        (float sin, float cos) = float.SinCos(float.DegreesToRadians(hue));
         Vector3 point = new(cusp, 0f);
         Seq<(float Source, float Slope, float Crossing)> tests = HullTests.Map(position => float.Lerp(cusp.X, p.LimitJ, position) switch { var j => Projected(j, cusp.Y, j, point, p) }).Strict();
         double Margin(double gamma) => tests.Max(test => Boundary(point with { Z = (float)(1d / gamma) }, test.Source, test.Slope, test.Crossing, p) switch {

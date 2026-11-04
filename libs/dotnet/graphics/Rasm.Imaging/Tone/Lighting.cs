@@ -94,9 +94,15 @@ public sealed record LightingReading(
     public static Fin<LightingReading> Read(PixelFrame frame, Gamut gamut, PixelExtent analysis, int paletteSize) {
         PixelFrame sample = frame.Downscaled(analysis);
         static Metering Inset(float share) => new(0f, 1f, 0f, new Vector2(share), new Vector2(1f - share));
-        Rectangle subject = Inset(Insets.Subject).Window(sample);
-        return (LuminanceSamples.Of(LuminanceSamples.Plane(sample, subject, gamut.Luminance), subject), Inset(Insets.Subject).Metered(sample, gamut), PaletteEntry.Extracted(sample, gamut, paletteSize, subject))
-            .Apply((ranks, stops, palette) => Measured(sample, gamut, ranks, stops, palette.Entries, subject, Inset(Insets.Center).Window(sample), Inset(Insets.Rim).Window(sample))).As();
+        Metering meter = Inset(Insets.Subject);
+        Rectangle subject = meter.Window(sample);
+        double[] plane = LuminanceSamples.Plane(sample, subject, gamut.Luminance);
+        return (
+                from ranks in LuminanceSamples.Of(plane, subject)
+                from stops in meter.Metered(plane, subject, ranks)
+                select (Ranks: ranks, Stops: stops),
+                PaletteEntry.Extracted(sample, gamut, paletteSize, subject))
+            .Apply((reading, palette) => Measured(sample, gamut, reading.Ranks, reading.Stops, palette.Entries, subject, Inset(Insets.Center).Window(sample), Inset(Insets.Rim).Window(sample))).As();
     }
 
     private static LightingReading Measured(PixelFrame sample, Gamut gamut, LuminanceSamples ranks, float stops, Seq<PaletteEntry> palette, Rectangle subject, Rectangle center, Rectangle rim) {

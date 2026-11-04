@@ -3,7 +3,11 @@ import { JsonObject } from '#/values';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Row = (typeof Batch.Type.cases)[number];
+type Case = (typeof Batch.Type.cases)[number];
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const CASES = '.cases.json';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -30,6 +34,7 @@ const shared = {
     name: Name,
     precondition: Schema.optionalKey(Precondition),
     read: Schema.optionalKey(Reads),
+    until: Schema.optionalKey(Expression.annotate({ description: 'Completion condition evaluated between host event-loop passes' })),
     commands: Schema.optionalKey(Schema.Array(Schema.NonEmptyString).annotate({ description: 'Macros the host runs one per command on the case document, each answering its own prompts' })),
     ...answers,
     ...expected,
@@ -57,7 +62,7 @@ const Encoded = Schema.fromJsonString(Batch);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const scriptOf = (batch: Pick<typeof Batch.Type, 'script'>, row: Row) => Option.fromUndefinedOr(Schema.is(Probe)(row) ? undefined : (row.script ?? batch.script));
+const scriptOf = (batch: Pick<typeof Batch.Type, 'script'>, row: Case) => Option.fromUndefinedOr(Schema.is(Probe)(row) ? undefined : (row.script ?? batch.script));
 const vectored =
     (calls: Record.ReadonlyRecord<string, string>) =>
     (row: (typeof Vector.Type.cases)[number]): Option.Option<typeof Call.Type> =>
@@ -78,4 +83,4 @@ const expand = Effect.fn('expand')(function* (product: string, file: string) {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { answers, Batch, Call, Expression, expand, Keywords, Name, Probe, Reads, type Row, scriptOf };
+export { answers, Batch, CASES, Call, type Case, Expression, expand, Keywords, Name, Probe, Reads, scriptOf };

@@ -45,22 +45,28 @@ pub enum Guid {
     DocumentReference(DocumentReferenceUuid),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, derive_more::From, derive_more::Into)]
-pub struct NodeUuid(Uuid);
-
-impl Simple for NodeUuid {
+impl Simple for Uuid {
     fn decode(text: &str) -> Result<Self, IfcError> {
-        let parsed = |uuid: Result<Uuid, uuid::Error>| uuid.map(Self).map_err(|source| IfcError::Uuid { text: text.into(), source });
         if text.len() != IFC_GUID_DIGITS {
-            return parsed(text.parse());
+            return text.parse().map_err(|source| IfcError::Uuid { text: text.into(), source });
         }
-        match &IFC_GUID.decode(format!("00{text}").as_bytes()).map_err(|source| IfcError::Encoded { text: text.into(), alphabet: Alphabet::IfcGuid, source })? {
-            [0, 0, uuid @ ..] => parsed(Uuid::from_slice(uuid)),
+        let mut input = [b'0'; 24];
+        input[2..].copy_from_slice(text.as_bytes());
+        let mut bytes = [0; 18];
+        IFC_GUID.decode_mut(&input, &mut bytes).map_err(|source| IfcError::Encoded { text: text.into(), alphabet: Alphabet::IfcGuid, source: source.error })?;
+        match bytes {
+            [0, 0, uuid @ ..] => Ok(Self::from_bytes(uuid)),
             _ => Err(IfcError::Constrained(Constraint::IfcGuid(text.into()))),
         }
     }
 
-    fn encode(&self) -> String { IFC_GUID.encode(&[[0; 2].as_slice(), self.0.as_bytes()].concat()).split_off(2) }
+    fn encode(&self) -> String {
+        let mut bytes = [0; 18];
+        bytes[2..].copy_from_slice(self.as_bytes());
+        let mut text = IFC_GUID.encode(&bytes);
+        text.replace_range(..2, "");
+        text
+    }
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -142,7 +148,7 @@ impl Codec for Image {
     fn write(&self, writer: &mut Writer<'_>, node: Node) -> Result<(), IfcError> {
         let Self { format, content } = self;
         let held = digest::digest(&digest::SHA256, content);
-        let name = format!("{}.{}", HEXLOWER.encode(held.as_ref()), <&str>::from(format));
+        let name = format!("{}.{}", HEXLOWER.encode_display(held.as_ref()), <&str>::from(format));
         writer.xot.append_text(node, &name).map_err(writer.xml())?;
         (writer.store)(&resolve(writer.entry, &name), content, held, CompressionMethod::Stored)
     }
@@ -167,8 +173,18 @@ impl Issues {
         let dangling = topics
             .iter()
             .flat_map(|(&topic, body)| {
-                let viewpoints = body.comments.values().filter_map(|comment| comment.remark.as_ref().right()).filter(|guid| !body.viewpoints.contains_key(*guid)).map(move |&guid| IfcError::Dangling { topic, guid: guid.into() });
-                let references = body.document_references.values().filter_map(|reference| reference.target.as_ref().left()).filter(|guid| !documents.contains_key(*guid)).map(move |&guid| IfcError::Dangling { topic, guid: guid.into() });
+                let viewpoints = body
+                    .comments
+                    .values()
+                    .filter_map(|comment| comment.remark.as_ref().right())
+                    .filter(|guid| !body.viewpoints.contains_key(*guid))
+                    .map(move |&guid| IfcError::Dangling { topic, guid: guid.into() });
+                let references = body
+                    .document_references
+                    .values()
+                    .filter_map(|reference| reference.target.as_ref().left())
+                    .filter(|guid| !documents.contains_key(*guid))
+                    .map(move |&guid| IfcError::Dangling { topic, guid: guid.into() });
                 viewpoints.chain(references)
             })
             .collect::<Vec<_>>();
@@ -218,7 +234,11 @@ codec! {
 
 impl Keyed<DocumentUuid> for Document {
     fn read_keyed(reader: &Reader<'_>, node: Node, key: DocumentUuid) -> Validated<Self, IfcError> {
-        reader.element(node, &[], FILENAME).map3(reader.element(node, &[], DESCRIPTION), Validated::from(reader.file(&document_entry(key))), |filename, description, content| Self { filename, description, content })
+        reader.element(node, &[], FILENAME).map3(reader.element(node, &[], DESCRIPTION), Validated::from(reader.file(&document_entry(key))), |filename, description, content| Self {
+            filename,
+            description,
+            content,
+        })
     }
 
     fn write_keyed(&self, key: DocumentUuid, writer: &mut Writer<'_>, node: Node) -> Result<(), IfcError> {
@@ -237,7 +257,12 @@ pub fn read<R>(source: R) -> Result<Issues, NEVec<IfcError>>
 where R: Read + Seek {
     const UPGRADED_RELEASE: &str = "2.1";
     let zip = ZipArchive::new(source).map_err(|source| nev![archive_error(CENTRAL_DIRECTORY)(source)])?;
-    let entries = zip.file_names().enumerate().map(|(index, name)| name.map(|raw| (resolve("", &raw).to_ascii_lowercase(), index)).map_err(archive_error(CENTRAL_DIRECTORY))).collect::<Validated<IndexMap<_, _>, _>>().ok()?;
+    let entries = zip
+        .file_names()
+        .enumerate()
+        .map(|(index, name)| name.map(|raw| (resolve("", &raw).to_ascii_lowercase(), index)).map_err(archive_error(CENTRAL_DIRECTORY)))
+        .collect::<Validated<IndexMap<_, _>, _>>()
+        .ok()?;
     let zip = RefCell::new(zip);
     let open = |entry: &str| -> Result<Box<[u8]>, ZipError> {
         let index = *entries.get(&entry.to_ascii_lowercase()).ok_or(ZipError::FileNotFound)?;
@@ -256,7 +281,12 @@ where R: Read + Seek {
     let topics = entries
         .keys()
         .filter(|name| name.split_once('/').is_some_and(|(_, file)| file == MARKUP.0))
-        .map(|entry| required(document(&open, upgrading, (entry, MARKUP.1), |reader, root| reader.attribute::<TopicUuid>(root, &[TOPIC], GUID).map2(markup::Topic::read(reader, root), |guid, topic| (guid, topic))), entry))
+        .map(|entry| {
+            required(
+                document(&open, upgrading, (entry, MARKUP.1), |reader, root| reader.attribute::<TopicUuid>(root, &[TOPIC], GUID).map2(markup::Topic::read(reader, root), |guid, topic| (guid, topic))),
+                entry,
+            )
+        })
         .collect();
     document(&open, upgrading, PROJECT_INFO, |reader, root| reader.element(root, &[], PROJECT))
         .map4(
@@ -291,27 +321,22 @@ where W: Write + Seek {
         writer.xot.set_attribute(root, name, RELEASE);
         Ok(())
     })?;
-    let listed = || topics.values();
-    let predefined = joined(
-        extensions.clone(),
-        Extensions {
-            topic_types: listed().map(|topic| topic.r#type.clone()).collect(),
-            topic_statuses: listed().map(|topic| topic.status.clone()).collect(),
-            priorities: listed().filter_map(|topic| topic.priority.clone()).collect(),
-            topic_labels: listed().flat_map(|topic| topic.labels.iter().cloned()).collect(),
-            users: listed()
-                .flat_map(|topic| {
-                    iter::once(&topic.creation_author)
-                        .chain(&topic.modified_author)
-                        .chain(&topic.assigned_to)
-                        .chain(topic.comments.values().flat_map(|comment| iter::once(&comment.author).chain(&comment.modified_author)))
-                })
-                .cloned()
-                .collect(),
-            snippet_types: listed().filter_map(|topic| topic.bim_snippet.as_ref().map(|snippet| snippet.snippet_type.clone())).collect(),
-            stages: listed().filter_map(|topic| topic.stage.clone()).collect(),
-        },
-    );
+    let predefined = topics.values().fold(extensions.clone(), |mut listed, topic| {
+        listed.topic_types.insert(topic.r#type.clone());
+        listed.topic_statuses.insert(topic.status.clone());
+        listed.priorities.extend(topic.priority.iter().cloned());
+        listed.topic_labels.extend(topic.labels.iter().cloned());
+        listed.users.extend(
+            iter::once(&topic.creation_author)
+                .chain(&topic.modified_author)
+                .chain(&topic.assigned_to)
+                .chain(topic.comments.values().flat_map(|comment| iter::once(&comment.author).chain(&comment.modified_author)))
+                .cloned(),
+        );
+        listed.snippet_types.extend(topic.bim_snippet.iter().map(|snippet| snippet.snippet_type.clone()));
+        listed.stages.extend(topic.stage.iter().cloned());
+        listed
+    });
     if predefined != Extensions::default() {
         stored(&store, EXTENSIONS, |writer, root| predefined.write(writer, root))?;
     }
@@ -333,8 +358,9 @@ where W: Write + Seek {
     zip.into_inner().finish().map_err(archive_error(CENTRAL_DIRECTORY))
 }
 
-pub fn merge(left: Issues, right: Issues) -> Result<Issues, NEVec<IfcError>> {
-    let Issues { project, extensions, mut documents, mut topics } = left;
+#[must_use]
+pub fn merge(left: Issues, right: Issues) -> Issues {
+    let Issues { project, mut extensions, mut documents, mut topics } = left;
     let Issues { project: other_project, extensions: other_extensions, documents: other_documents, topics: other_topics } = right;
     documents.extend(other_documents);
     other_topics.into_iter().for_each(|(guid, topic)| {
@@ -344,21 +370,15 @@ pub fn merge(left: Issues, right: Issues) -> Result<Issues, NEVec<IfcError>> {
         };
         topics.insert(guid, merged);
     });
-    Issues::new(project.or(other_project), joined(extensions, other_extensions), documents, topics)
-}
-
-// --- [EXTENSIONS]
-
-fn joined(mut held: Extensions, other: Extensions) -> Extensions {
-    let Extensions { topic_types, topic_statuses, priorities, topic_labels, users, snippet_types, stages } = other;
-    held.topic_types.extend(topic_types);
-    held.topic_statuses.extend(topic_statuses);
-    held.priorities.extend(priorities);
-    held.topic_labels.extend(topic_labels);
-    held.users.extend(users);
-    held.snippet_types.extend(snippet_types);
-    held.stages.extend(stages);
-    held
+    let Extensions { topic_types, topic_statuses, priorities, topic_labels, users, snippet_types, stages } = other_extensions;
+    extensions.topic_types.extend(topic_types);
+    extensions.topic_statuses.extend(topic_statuses);
+    extensions.priorities.extend(priorities);
+    extensions.topic_labels.extend(topic_labels);
+    extensions.users.extend(users);
+    extensions.snippet_types.extend(snippet_types);
+    extensions.stages.extend(stages);
+    Issues { project: project.or(other_project), extensions, documents, topics }
 }
 
 // --- [ENTRIES]

@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: rust-scaled-ratio
+language: rustlang
+arguments: [numerator, denominator]
+utils:
+    multiply:
+        kind: binary_expression
+        has: {field: operator, regex: '^\*$'}
+    divide:
+        kind: binary_expression
+        has: {field: operator, regex: '^/$'}
+    ratio:
+        all:
+            - matches: divide
+            - has: {field: left, matches: numerator}
+            - has: {field: right, matches: denominator}
+    grouped-ratio:
+        any: [{matches: ratio}, {kind: parenthesized_expression, has: {matches: grouped-ratio}}]
+rule:
+    kind: 'binary_expression, call_expression'
+    any:
+        - all:
+            - matches: divide
+            - has:
+                field: left
+                matches: multiply
+                any: [{has: {field: left, matches: numerator}}, {has: {field: right, matches: numerator}}]
+            - has: {field: right, matches: denominator}
+        - all:
+            - matches: multiply
+            - any:
+                - all:
+                    - has: {field: right, matches: numerator}
+                    - has: {field: left, matches: divide, has: {field: right, matches: denominator}}
+                - has: {field: left, matches: grouped-ratio}
+                - has: {field: right, matches: grouped-ratio}
+        - pattern: $_VALUE.mul_add($_RATIO, $_OFFSET)
+          has: {field: arguments, has: {nthChild: 1, matches: grouped-ratio}}

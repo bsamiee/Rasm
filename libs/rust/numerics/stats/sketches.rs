@@ -18,15 +18,18 @@ pub struct Summary {
 
 impl Summary {
     pub fn new(compression: u16) -> Result<Self, StatsError> { Ok(Self { moments: Variance::new(), digest: TDigestMut::new(compression)?, non_finite: 0 }) }
+}
 
-    #[must_use]
-    pub const fn moments(&self) -> &Variance { &self.moments }
+const impl AsRef<Variance> for Summary {
+    fn as_ref(&self) -> &Variance { &self.moments }
+}
 
-    #[must_use]
-    pub fn digest(self) -> TDigest { self.digest.freeze() }
+const impl AsRef<u64> for Summary {
+    fn as_ref(&self) -> &u64 { &self.non_finite }
+}
 
-    #[must_use]
-    pub const fn non_finite(&self) -> u64 { self.non_finite }
+impl From<Summary> for TDigest {
+    fn from(value: Summary) -> Self { value.digest.freeze() }
 }
 
 impl Extend<f64> for Summary {
@@ -63,12 +66,16 @@ impl Merge for Summary {
 impl FromIterator<Self> for Summary {
     fn from_iter<T>(iter: T) -> Self
     where T: IntoIterator<Item = Self> {
-        let (moments, digests, non_finite) = iter.into_iter().fold((Variance::new(), Vec::new(), 0_u64), |(mut total, mut digests, count), Self { moments, digest, non_finite }| {
-            total.merge(&moments);
-            digests.push(digest);
-            (total, digests, count.strict_add(non_finite))
-        });
-        Self { moments, digest: digests.into_iter().collect(), non_finite }
+        let (mut moments, mut non_finite) = (Variance::new(), 0_u64);
+        let digest = iter
+            .into_iter()
+            .inspect(|summary| {
+                moments.merge(&summary.moments);
+                non_finite = non_finite.strict_add(summary.non_finite);
+            })
+            .map(|summary| summary.digest)
+            .collect();
+        Self { moments, digest, non_finite }
     }
 }
 

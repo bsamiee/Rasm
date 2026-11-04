@@ -31,7 +31,7 @@ Public types and members of the LanguageExt packages by scope, each scope with t
 | :-----: | :---------------------------- | :---------------- | :-------------------------------------------------------- |
 |  [01]   | `Seq<A>`                      | `readonly struct` | Ordered immutable sequence with `AsSpan`                  |
 |  [02]   | `Arr<A>`                      | `readonly struct` | Indexed immutable array                                   |
-|  [03]   | `Lst<A>`                      | `readonly struct` | Persistent linked list                                    |
+|  [03]   | `Lst<A>`                      | `readonly struct` | Persistent balanced indexed tree                          |
 |  [04]   | `HashMap<K, V>`               | `readonly struct` | Hashed persistent map                                     |
 |  [05]   | `Map<K, V>`                   | `readonly struct` | Ordered persistent map                                    |
 |  [06]   | `TrackingHashMap<K, V>`       | `readonly struct` | Map with its own change log                               |
@@ -310,7 +310,7 @@ Each `LanguageExt.Deriving` interface lifts one `LanguageExt.Traits` conformance
 |  [25]   | `IO.RunAsync()`                                                              | `instance` | `ValueTask` execution                     |
 |  [26]   | `IO.Bracket(Func<A,IO<C>>, Func<A,IO<B>>)`                                   | `instance` | Acquire-use-release scope                 |
 |  [27]   | `IO.Bracket(Func<A,IO<C>>, Func<Error,IO<C>>, Func<A,IO<B>>)`                | `instance` | Scope with a failure branch               |
-|  [28]   | `IO.Finally(K<IO,X>)`                                                        | `instance` | Unconditional release                     |
+|  [28]   | `IO.Finally(K<IO,X>)`                                                        | `instance` | Cleanup attached to a deferred effect     |
 |  [29]   | `IO.Repeat()`                                                                | `instance` | Unconditional repetition                  |
 |  [30]   | `IO.Repeat(Schedule)`                                                        | `instance` | Policy-driven repetition                  |
 |  [31]   | `IO.RepeatWhile(Func<A,bool>)`                                               | `instance` | State-advancing repetition                |
@@ -427,7 +427,7 @@ Each `LanguageExt.Deriving` interface lifts one `LanguageExt.Traits` conformance
 
 ### [02.9]-[COLLECTIONS]
 
-`Seq`, `Arr`, `HashMap`, and `Set` are the immutable collections:
+`HashMap<EqK, K, V>` takes `EqK : Eq<K>` for key equality and hashing. `LanguageExt.ClassInstances.EqInt` and `EqStringOrdinal` provide those operations without assembly scanning:
 
 | [INDEX] | [MEMBER]                                                               | [KIND]     | [DESCRIPTION]                             |
 | :-----: | :--------------------------------------------------------------------- | :--------- | :---------------------------------------- |
@@ -455,7 +455,7 @@ Each `LanguageExt.Deriving` interface lifts one `LanguageExt.Traits` conformance
 |  [22]   | `Seq.Concat(Seq<A>)`                                                   | `instance` | Cross-collection join                     |
 |  [23]   | `Seq.Intersperse(A)`                                                   | `instance` | Separator insertion                       |
 |  [24]   | `Seq.Strict()`                                                         | `instance` | Force a lazily-built sequence             |
-|  [25]   | `Seq.AsSpan()`                                                         | `instance` | Zero-copy contiguous read                 |
+|  [25]   | `Seq.AsSpan()`                                                         | `instance` | Strict array view or lazy materialization |
 |  [26]   | `Seq.AsIterable()`                                                     | `instance` | Lazy-view lift                            |
 |  [27]   | `Seq.Traverse(Func<A,K<F,B>>)`                                         | `instance` | Applicative shape inversion               |
 |  [28]   | `Seq.TraverseM(Func<A,K<M,B>>)`                                        | `instance` | Short-circuiting shape inversion          |
@@ -571,28 +571,28 @@ Each `LanguageExt.Deriving` interface lifts one `LanguageExt.Traits` conformance
 
 ### [02.12]-[ATOM_HASH_MAP]
 
-`AtomHashMap<K, V>` is the lock-free map `Prelude.AtomHashMap(…)` or `HashMap.ToAtom()` creates, and `AtomHashMap<EqK, K, V>` has the same members with an explicit `EqK` equality trait type parameter. Every mutation returns `Unit`, publishes on `Change`, and commits under a CAS retry loop:
+`AtomHashMap<K, V>` is the lock-free map `Prelude.AtomHashMap(…)` or `HashMap.ToAtom()` creates, and `AtomHashMap<EqK, K, V>` takes an equality trait. Writes commit through CAS:
 
-| [INDEX] | [MEMBER]                                                  | [KIND]     | [DESCRIPTION]                                  |
-| :-----: | :-------------------------------------------------------- | :--------- | :--------------------------------------------- |
-|  [01]   | `Swap(Func<TrackingHashMap<K,V>, TrackingHashMap<K,V>>)`  | `instance` | Whole-map CAS update seeing its own change log |
-|  [02]   | `SwapKey(K, Func<V, V>)`                                  | `instance` | One-key CAS update                             |
-|  [03]   | `SwapKey(K, Func<Option<V>, Option<V>>)`                  | `instance` | One-key CAS covering insert, edit, and delete  |
-|  [04]   | `Add(K, V)` / `TryAdd(K, V)`                              | `instance` | Insert, throwing or tolerating a duplicate     |
-|  [05]   | `AddOrUpdate(K, V)` / `(K, Func<V,V>, Func<V>)`           | `instance` | Upsert, unconditional or matched               |
-|  [06]   | `SetItem(K, V)` / `SetItem(K, Func<V,V>)`                 | `instance` | Replace an existing key                        |
-|  [07]   | `TrySetItem(K, V)` / `TrySetItems(IEnumerable<K>, …)`     | `instance` | Replace only where the key is present          |
-|  [08]   | `AddRange` / `AddOrUpdateRange` / `TryAddRange`           | `instance` | One commit per bulk write                      |
-|  [09]   | `Remove(K)` / `RemoveRange(IEnumerable<K>)`               | `instance` | Remove one key or a set of keys                |
-|  [10]   | `Clear()`                                                 | `instance` | Remove every entry                             |
-|  [11]   | `FilterInPlace(Func<K,V,bool>)` / `MapInPlace(Func<V,V>)` | `instance` | Narrow or reshape without rebuilding           |
-|  [12]   | `Append` / `Subtract` / `Except` / `SymmetricExcept`      | `instance` | Set algebra against a map or a pair sequence   |
-|  [13]   | `Union(rhs, WhenMatched)` / `Intersect(rhs, WhenMatched)` | `instance` | Merge under an explicit collision rule         |
-|  [14]   | `Change`                                                  | `event`    | One `HashMapPatch<K,V>` per accepted commit    |
-|  [15]   | `Find(K)` / `FindOrMaybeAdd(K, Func<Option<V>>)`          | `instance` | `Option<V>` read, optionally seeding on a miss |
-|  [16]   | `ToHashMap()` / `ToSeq()` / `AsIterable()`                | `instance` | Immutable snapshot at the read                 |
-|  [17]   | `Fold(S, Func<S,K,V,S>)` / `Iter(Action<K,V>)`            | `fold`     | Key-and-value iteration over a snapshot        |
-|  [18]   | `HashMapPatch.From` / `To` / `Changes`                    | `property` | Both snapshots and the `HashMap<K, Change<V>>` |
+| [INDEX] | [MEMBER]                                                       | [KIND]     | [DESCRIPTION]                                  |
+| :-----: | :------------------------------------------------------------- | :--------- | :--------------------------------------------- |
+|  [01]   | `Swap(Func<TrackingHashMap<K,V>, TrackingHashMap<K,V>>)`       | `instance` | Whole-map CAS update seeing its own change log |
+|  [02]   | `SwapKey(K, Func<V, V>)`                                       | `instance` | One-key CAS update                             |
+|  [03]   | `SwapKey(K, Func<Option<V>, Option<V>>)`                       | `instance` | One-key CAS covering insert, edit, and delete  |
+|  [04]   | `Add(K, V)` / `TryAdd(K, V)`                                   | `instance` | Insert, throwing or tolerating a duplicate     |
+|  [05]   | `AddOrUpdate(K, V)` / `(K, Func<V,V>, Func<V>)`                | `instance` | Upsert, unconditional or matched               |
+|  [06]   | `SetItem(K, V)` / `SetItem(K, Func<V,V>)`                      | `instance` | Replace an existing key                        |
+|  [07]   | `TrySetItem(K, V)` / `TrySetItems(IEnumerable<K>, …)`          | `instance` | Replace only where the key is present          |
+|  [08]   | `AddRange` / `AddOrUpdateRange` / `TryAddRange`                | `instance` | One commit per bulk write                      |
+|  [09]   | `Remove(K)` / `RemoveRange(IEnumerable<K>)`                    | `instance` | Remove one key or a set of keys                |
+|  [10]   | `Clear()`                                                      | `instance` | Remove every entry                             |
+|  [11]   | `FilterInPlace(Func<K,V,bool>)` / `MapInPlace(Func<V,V>)`      | `instance` | Narrow or reshape without rebuilding           |
+|  [12]   | `Append` / `Subtract` / `Except` / `SymmetricExcept`           | `instance` | Set algebra against a map or a pair sequence   |
+|  [13]   | `Union(rhs, WhenMatched)` / `Intersect(rhs, WhenMatched)`      | `instance` | Merge under an explicit collision rule         |
+|  [14]   | `Change`                                                       | `event`    | One `HashMapPatch<K,V>` per accepted commit    |
+|  [15]   | `FindOrAdd(K, Func<V>)` / `FindOrMaybeAdd(K, Func<Option<V>>)` | `instance` | Found or inserted value, optionally absent     |
+|  [16]   | `ToHashMap()` / `ToSeq()` / `AsIterable()`                     | `instance` | Immutable snapshot at the read                 |
+|  [17]   | `Fold(S, Func<S,K,V,S>)` / `Iter(Action<K,V>)`                 | `fold`     | Key-and-value iteration over a snapshot        |
+|  [18]   | `HashMapPatch.From` / `To` / `Changes`                         | `property` | Both snapshots and the `HashMap<K, Change<V>>` |
 
 - `Atom<HashMap<K,V>>` makes every keyed write a whole-map `Swap` returning a new map, `SwapKey` commits one key under the same CAS discipline
 - Commit results read through `Change` or a later `Find`
@@ -650,3 +650,12 @@ Each `LanguageExt.Deriving` interface lifts one `LanguageExt.Traits` conformance
 - `Deriving.Fallible<E, Supertype, Subtype>` puts the failure type first
 - `LanguageExt.Deriving` is a static class, `using LanguageExt.Deriving;` fails with `CS0138`, a derivation reads `Deriving.Monad<Supertype, Subtype>`
 - `LanguageExt.Traits.Deriving<Supertype, Subtype>` is a separate interface over `NaturalIso<Supertype, Subtype>`
+
+### [02.14]-[JSON]
+
+`LanguageExt.Json` exposes `OptionConverterFactory` and `SeqConverterFactory` in namespace `LanguageExt`. Register them in `JsonSerializerOptions.Converters` where these payload contracts fit:
+- `Option<A>` writes its value or JSON `null`, `null` reads as `None`, `Some(null)` loses presence and nested options are rejected
+- Option writes `Case` as `object`; declared `A` converters and polymorphism need typed serialization, nested presence an explicit format
+- `Seq<A>` uses `IEnumerable<A>` with the supplied options, writes an array, and reads JSON `null` as empty; `Lst` and `HashMap` have no converter
+- Reflection closes converter types at runtime, source-generated serializer metadata alone does not make these factories Native AOT compatible
+- `Json<F>` uses global mutable options, direct factory registration preserves caller-owned serializer configuration

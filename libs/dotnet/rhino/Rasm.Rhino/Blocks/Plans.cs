@@ -26,9 +26,9 @@ public sealed record PlannedDefinition(DefinitionMetadata Metadata, Point3d Base
 public static class Plans {
     // --- [PROGRAM]
     public static IO<Seq<RowPlan<InstanceDefinition, PlannedDefinition>>> Plan(RhinoDoc doc, Seq<PlannedDefinition> planned, Prune prune) =>
-        from ordered in IO.lift(Ordered(planned))
         from rows in IO.lift(() => Conversions.Rows(doc.InstanceDefinitions.GetList(ignoreDeleted: true)).Filter(static row => !row.IsReference).Strict())
-        from matched in IO.lift(() => Rows.Plan(rows, ordered, static row => row.Name, static spec => spec.Metadata.Name, StringComparer.OrdinalIgnoreCase, prune))
+        from matched in IO.lift(() => Rows.Plan(rows, planned, static row => row.Name, static spec => spec.Metadata.Name, StringComparer.OrdinalIgnoreCase, prune,
+            Some(Ordered)))
         from nesting in DefinitionGraph.Read(doc)
         let removable = toHashSet(nesting.Removable(toHashSet(matched.Choose(static step => step is RowPlan<InstanceDefinition, PlannedDefinition>.Remove remove ? Some(remove.Row.Id) : None))))
         from pending in matched.TraverseM(step => step.Switch(
@@ -79,8 +79,11 @@ public static class Plans {
     private static IO<bool> Stored(InstanceDefinitionTable table, InstanceDefinition live, PlannedDefinition planned) =>
         IO.lift(() => toSeq(live.GetObjects()).Map(Optional).Strict()).Bind(held =>
             held.Count == planned.Members.Count && planned.Members.ForAll(static member => member.Attributes.IsNone)
-                ? planned.Members.Zip(held).TraverseM(pair => (from shape in Resolved(table, pair.First) from member in pair.Second select (Shape: shape, Member: member)).Match(
-                    Some: matched => Same(matched.Shape, planned.BasePoint, matched.Member.Geometry),
+                ? planned.Members.Zip(held).TraverseM(pair => (from member in pair.Second from shape in Resolved(table, pair.First) select (Shape: shape, Member: member)).Match(
+                    Some: matched =>
+                        (from owned in when(pair.First is PlannedMember.Instance, use(() => matched.Shape).Map(unit)).As()
+                         from same in Same(matched.Shape, planned.BasePoint, matched.Member.Geometry)
+                         select same).Bracket(),
                     None: static () => IO.pure(value: false))).As().Map(static matches => matches.ForAll(static matched => matched))
                 : IO.pure(value: false));
 

@@ -38,10 +38,10 @@ public sealed record CodecDamage(int Quality, JpegColorType ColorType, int Gener
 
 public sealed record Glitch(
     ShortSideLength BlockWidth, ShortSideLength BlockHeight, float BlockDensity, ShortSideLength TearPeriod, float Split, Angle SplitDirection, float SplitJitter, float Slide,
-    VideoStandard Matrix, float LumaCorruption, float ChromaCorruption, WrapMode Wrap, Seed Seed, Timing Timing, Hold Hold) : IPixelStage<Glitch> {
+    VideoStandard Matrix, float LumaCorruption, float ChromaCorruption, WrapMode Wrap, int Seed, Timing Timing, Hold Hold) : IPixelStage<Glitch> {
     public static Glitch Default { get; } = new(
         ShortSideLength.Create(1f / (5f * 0.1f)), ShortSideLength.Create(1f / 5f), 0f, ShortSideLength.Create(MathF.Tau / 20f), 0f, Angle.Zero, 0f, 0f, VideoStandard.Rec601, 0f, 0f,
-        WrapMode.Periodic, Seed.MinValue, Timing.Default, Hold.MinValue);
+        WrapMode.Periodic, 0, Timing.Default, Hold.MinValue);
 
     public static Glitch Corruption { get; } = Default with {
         BlockWidth = ShortSideLength.Create(0.03f * ReferenceFrame.GreaterSide),
@@ -76,11 +76,11 @@ public sealed record Glitch(
 
     private static Fin<Unit> Kernel(Glitch state, PassContext context, PixelFrame frame, Option<IProgress<int>> progress) {
         PixelExtent extent = context.Extent;
-        uint field = state.Seed.Field(3u, state.Hold.Period(state.Timing.At(context)));
+        uint field = CoordinateHash.Branch(state.Seed, state.Hold.Period(state.Timing.At(context)), 3u);
         (uint sites, Vector4 draw) = (CoordinateHash.Branch(field, 1u), CoordinateHash.Uniforms(Vector128<int>.Zero, CoordinateHash.Branch(field, 3u)));
         CoordinateMap blocks = new CoordinateMap.Analytic(Displacement(state, extent, sites, draw.X), Sampling.Nearest, (state.Wrap, state.Wrap));
         return from moved in (state.Split is not 0f, state.Moves) switch {
-            (true, _) => Splits(state, extent, draw.Y, blocks, frame, progress),
+            (true, _) => Splits(state, context, draw.Y, blocks, frame, progress),
             (false, true) => blocks.Apply(frame, progress),
             (false, false) => unit,
         }
@@ -110,16 +110,17 @@ public sealed record Glitch(
         };
     }
 
-    private static Fin<Unit> Splits(Glitch state, PixelExtent extent, float draw, CoordinateMap blocks, PixelFrame frame, Option<IProgress<int>> progress) {
+    private static Fin<Unit> Splits(Glitch state, PassContext context, float draw, CoordinateMap blocks, PixelFrame frame, Option<IProgress<int>> progress) {
+        PixelExtent extent = context.Extent;
         float reach = state.Split * extent.ShortSide * (1f - state.SplitJitter + (state.SplitJitter * ((2f * draw) - 1f)));
         Vector2 direction = float.SinCos((float)state.SplitDirection.Radians.ToDouble()) switch { var (sin, cos) => new(cos, -sin) };
         return reach is 0f ? state.Moves ? blocks.Apply(frame, progress) : unit
-            : CoordinateMap.Integrated(
+            : CoordinateMap.Integrated(context.Integration,
                 tau => Subframe(reach * (1d - state.Slide + (state.Slide * tau)), Vector4.UnitX),
                 tau => Subframe(-reach * (1d - state.Slide + (state.Slide * tau)), Vector4.UnitZ),
                 _ => Subframe(0d, new Vector4(0f, 1f, 0f, 1f))).Run(frame, progress);
 
-        (CoordinateMap Map, Vector4 Gains) Subframe(double shift, Vector4 gains) =>
+        Fin<(CoordinateMap Map, Vector4 Gains)> Subframe(double shift, Vector4 gains) =>
             new CoordinateMap.Planar(Matrix3x2.CreateTranslation(-(float)shift * direction), Sampling.Linear, (state.Wrap, state.Wrap)) switch {
                 var moved => (state.Moves ? new CoordinateMap.Composed(blocks, moved) : moved, gains),
             };

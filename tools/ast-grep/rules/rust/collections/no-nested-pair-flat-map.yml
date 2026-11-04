@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-nested-pair-flat-map
-language: rust
+language: rustlang
 severity: error
 rule:
     kind: call_expression
@@ -30,8 +30,5 @@ constraints:
         any:
             - regex: '^[\w.&*]+(\.(clone|as_slice|as_ref)\(\))?\.(iter|into_iter|keys|values|chars|bytes)\(\)(\.(copied|cloned)\(\))?$'
             - regex: '^\(\s*[\w.]+\s*\.\.=?\s*[\w.]+(\(\))?\s*\)$'
-transform:
-    OTHER: {replace: {source: $Y, replace: '^\(\s*([\s\S]*?)\s*\)$', by: '$1'}}
-fix: $X.cartesian_product($OTHER)
 message: '`$X` pairs each element with every element of `$Y` through a nested `flat_map`'
 note: 'Call `<outer>.cartesian_product(<inner>)` (`use itertools::Itertools as _;`) over a `Clone` outer element type'

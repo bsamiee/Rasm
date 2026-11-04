@@ -3,6 +3,7 @@ use core::{cmp, iter};
 use geo::{BooleanOps as _, BoundingRect as _, MapCoords as _};
 use geo_types::{LineString, MultiLineString};
 use kurbo::{Affine, BezPath, ParamCurve as _, ParamCurveArclen as _, PathEl, Point, Shape as _, Vec2, dash, segments};
+use linesweeper::Error;
 use nonempty_collections::NEVec;
 use rayon::iter::{IntoParallelIterator as _, ParallelIterator as _};
 use validated::Validated;
@@ -18,13 +19,17 @@ pub fn expand<'pattern>(region: &Region, pattern: &'pattern Pattern, placement: 
         let frame = *placement * Affine::rotate(descriptor.angle).then_translate(descriptor.origin.to_vec2());
         let [x, y, ..] = frame.as_coeffs();
         let spacing = (frame.determinant() * descriptor.delta.y).abs() / Vec2::new(x, y).hypot();
-        (spacing >= accuracy).then_some((frame, descriptor)).ok_or(LineworkError::Spacing { family, spacing })
-    };
-    let lines = |(frame, family): (Affine, &Family)| {
-        let (inverse, spacing) = (frame.inverse(), family.delta.y);
+        (spacing >= accuracy).ok_or(LineworkError::Spacing { family, spacing })?;
+        let inverse = frame.inverse();
         let local = inverse.transform_rect_bbox(extent);
-        let [first, last] = cmp::minmax_by((local.y0 / spacing).round(), (local.y1 / spacing).round(), f64::total_cmp);
-        let rows = iter::successors(Some(first), |row| Some(row + 1.0_f64))
+        let [first, last] = cmp::minmax_by((local.y0 / descriptor.delta.y).round(), (local.y1 / descriptor.delta.y).round(), f64::total_cmp);
+        (!frame.is_nan() && !inverse.is_nan() && !local.is_nan() && !first.is_nan() && !last.is_nan()).ok_or(LineworkError::Sweep(Error::NaN))?;
+        (frame.is_finite() && inverse.is_finite() && local.is_finite() && first.is_finite() && last.is_finite()).ok_or(LineworkError::Sweep(Error::Infinity))?;
+        Ok((frame, inverse, local, [first, last], descriptor))
+    };
+    let lines = |(frame, inverse, local, [first, last], family): (Affine, Affine, kurbo::Rect, [f64; 2], &Family)| {
+        let spacing = family.delta.y;
+        let rows = iter::successors(Some(first), |row| Some(row.next_up().ceil()))
             .take_while(|&row| row <= last)
             .map(|row| LineString::new(vec![crate::coord(frame * Point::new(local.x0, row * spacing)), crate::coord(frame * Point::new(local.x1, row * spacing))]))
             .collect::<MultiLineString<f64>>();

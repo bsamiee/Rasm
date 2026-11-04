@@ -1,11 +1,10 @@
-import indesign from 'adobe:indesign';
-import { host } from '@rasm/indesign/host';
-import { Plugin } from '@rasm/uxp/plugin';
+import { linkInDesign } from '@rasm/indesign/uxp';
+import { UxpPlugin } from '@rasm/uxp/uxp';
 import type { panels } from '#/panels';
 import { typesetting } from '#/typesetting';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const { linked, scripted } = host(indesign);
+const { linked, scripted } = linkInDesign();
 
-Plugin.serve({ link: linked, panels: { typesetting: typesetting(scripted) } satisfies Record<keyof typeof panels, unknown> });
+UxpPlugin.serve({ link: linked, panels: { typesetting: typesetting(scripted) } satisfies Record<keyof typeof panels, unknown> });

@@ -10,7 +10,7 @@ namespace Rasm.Rhino.Render.Sessions;
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record MeshRequest(MeshType Type, ViewportInfo Viewport, RenderMeshProvider.Flags Flags, Option<PlugIn> Requester, Option<DisplayPipelineAttributes> Display);
 
-public sealed record MeshBuild(Seq<Instance> Instances, ContentKey Inputs, RenderMeshProvider.Flags Flags);
+public sealed record MeshBuild(Seq<Instance> Instances, UInt128 Inputs, RenderMeshProvider.Flags Flags);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public abstract class DefinedMeshProvider(string name) : RenderMeshProvider {
@@ -33,7 +33,7 @@ public abstract class DefinedMeshProvider(string name) : RenderMeshProvider {
         (Option<RenderMeshes> Meshes, Flags Flags) answer = Session.Run(
             from previous in IO.lift(() => toSeq(previousPrimitives).Strict())
             from built in Build(request, doc, objectId, Conversions.Rows(ancestry), previous)
-            let hash = uint.CreateTruncating((UInt128)ContentKey.Of<DefinedMeshProvider>(stream => stream.Integer(previousPrimitives.Hash).Id(ProviderId).Integer((UInt128)built.Inputs)))
+            let hash = uint.CreateTruncating(ContentKeys.Of<DefinedMeshProvider>(stream => stream.Integer(previousPrimitives.Hash).Id(ProviderId).Integer(built.Inputs)))
             from meshes in Products.Transfer(() => new RenderMeshes(doc, objectId, ProviderId, hash, (uint)built.Flags), held => IO.lift(() => built.Instances.Iter(held.AddInstance)).Map(_ => held))
             select (Some(meshes), built.Flags),
             failed: (None, request.Flags));

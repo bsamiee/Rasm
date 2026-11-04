@@ -152,7 +152,7 @@ pub fn dew_point(dry_bulb: ThermodynamicTemperature, relative_humidity: Ratio) -
 fn root<F>(equation: F, start: f64, last: f64) -> Result<Option<f64>, WeatherError>
 where F: Fn(f64) -> f64 + Sync {
     match Bounds::try_new(RangeInclusive { start, last }) {
-        Ok(bounds) => roots::bracketed(equation, bounds, NonZero::<usize>::MIN, None).map(|found| found.first().copied()).map_err(WeatherError::Analysis),
+        Ok(bounds) => roots::bracketed(equation, bounds, NonZero::<usize>::MIN, None, (None, None)).map(|found| found.first().copied()).map_err(WeatherError::Analysis),
         Err(BoundsError::PredicateViolated) => Ok(start.total_cmp(&last).is_eq().then_some(start)),
     }
 }

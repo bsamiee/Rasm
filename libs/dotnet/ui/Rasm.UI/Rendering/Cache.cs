@@ -1,7 +1,7 @@
-using System.Collections;
 using Rasm.UI.Layout;
 using Rasm.UI.Media;
 using Rasm.UI.Plotting;
+using Rasm.UI.Styling;
 using Rasm.UI.Typography;
 using SkiaSharp;
 using Topten.RichTextKit;
@@ -14,7 +14,7 @@ internal interface ISlot : IDisposable {
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
-internal sealed class Slot<TKey, TValue> : ISlot where TKey : notnull {
+internal sealed class Slot<TKey, TValue>(Action<TValue> release) : ISlot where TKey : notnull {
     private readonly Lock gate = new();
     private HashMap<TKey, TValue> live;
     private HashMap<TKey, TValue> aging;
@@ -26,23 +26,27 @@ internal sealed class Slot<TKey, TValue> : ISlot where TKey : notnull {
     }
 
     internal Option<TValue> Find(TKey key) {
-        lock (gate) return live.Find(key) | aging.Find(key).Map(value => Kept(key, value));
+        lock (gate) return live.Find(key) || aging.Find(key).Map(value => Kept(key, value));
     }
 
-    internal TValue GetOrAdd(TKey key, Func<TValue> make) => Find(key).IfNone(() => Added(key, make()));
+    internal TValue GetOrAdd(TKey key, Func<TValue> make) {
+        lock (gate) return Find(key).IfNone(() => Added(key, make()));
+    }
 
-    internal Fin<TValue> GetOrAdd(TKey key, Func<Fin<TValue>> make) => Find(key).Match(Some: Fin.Succ, None: () => make().Map(made => Added(key, made)));
+    internal Fin<TValue> GetOrAdd(TKey key, Func<Fin<TValue>> make) {
+        lock (gate) return Find(key).Match(Some: Fin.Succ, None: () => make().Map(made => Added(key, made)));
+    }
 
     public void Evict() {
         HashMap<TKey, TValue> dead;
         lock (gate) (dead, live, aging) = (aging, [], live);
-        _ = Release(dead.Values);
+        _ = toSeq(dead.Values).Iter(release);
     }
 
     public void Dispose() {
         HashMap<TKey, TValue> dead;
         lock (gate) (dead, live, aging) = (live + aging, [], []);
-        _ = Release(dead.Values);
+        _ = toSeq(dead.Values).Iter(release);
     }
 
     private TValue Kept(TKey key, TValue value) {
@@ -51,22 +55,8 @@ internal sealed class Slot<TKey, TValue> : ISlot where TKey : notnull {
     }
 
     private TValue Added(TKey key, TValue made) {
-        lock (gate) live = live.AddOrUpdate(key, made);
+        live = live.AddOrUpdate(key, made);
         return made;
-    }
-
-    private static Unit Release(object? value) {
-        switch (value) {
-            case IDisposable owned:
-                owned.Dispose();
-                return unit;
-            case IOptional optional:
-                return optional.MatchUntyped(Release, static () => unit);
-            case IEnumerable items:
-                return toSeq(items.Cast<object?>()).Fold(unit, static (_, item) => Release(item));
-            default:
-                return unit;
-        }
     }
 }
 
@@ -77,56 +67,62 @@ internal sealed class PaintCache : IDisposable {
     private readonly SKSurfaceProperties raster;
     private readonly Option<GRRecordingContext> context;
     private readonly Decoding media;
+    private readonly Seq<ISlot> sceneSlots;
+    private readonly Seq<ISlot> frameSlots;
     private Option<(Scene Scene, HashSet<LayoutNode> Leaving, float Scale, HashSet<Seq<Key>> Moving, HashMap<(LayoutNode Layout, GlyphSource Source), LoadedMedia> Art)> retained;
 
     internal PaintCache(SKImageInfo target, SKSurfaceProperties raster, Shaping shaping, Option<GRRecordingContext> context) {
         (this.target, this.raster, this.context) = (target, raster, context);
         media = new Decoding(target, shaping, Offscreen);
-        Space = target.ColorSpace ?? SKColorSpace.Srgb;
-        Precision = target.BytesPerPixel < 8 ? SKCanvasSaveLayerRecFlags.F16ColorType : SKCanvasSaveLayerRecFlags.None;
+        using SKColorSpace srgb = SKColorSpace.CreateSrgb();
+        Space = target.ColorSpace ?? srgb;
         Raster = new TextPaintOptions {
             Edging = raster.PixelGeometry is SKPixelGeometry.Unknown ? SKFontEdging.Antialias : SKFontEdging.SubpixelAntialias,
             Hinting = raster.IsUseDeviceIndependentFonts ? SKFontHinting.None : SKFontHinting.Slight,
             SubpixelPositioning = true,
         };
+        Blobs = run => TextBlobs.GetOrAdd(run, () => Typesetting.Blob(run, Raster));
+        sceneSlots = [Recordings, Leaves, TextOutlines, TextBlobs, Interiors, Contours, Sprites, Meshes, Labels, Mattes, Arts, Decoded];
+        frameSlots = [Filters, Brushes, Backdrops, Images, Valued, Dots, Atlases, Fields, Shadows, Casts, Strokes, Fades, Opacities, Tints, Solids];
+        Precision = target.BytesPerPixel < 8 ? SKCanvasSaveLayerRecFlags.F16ColorType : SKCanvasSaveLayerRecFlags.None;
     }
 
     internal TextPaintOptions Raster { get; }
     internal SKColorSpace Space { get; }
     internal SKCanvasSaveLayerRecFlags Precision { get; }
+    internal Func<StatePalette, Func<Seq<int>, SKColorF>> Palettes { get; } = memo<StatePalette, Func<Seq<int>, SKColorF>>(static key => key.Samples);
+    internal Func<Typeset.Run, Option<SKTextBlob>> Blobs { get; }
     internal Seq<Seq<Key>> Animated { get; private set; }
     internal HashSet<Seq<Key>> Moving => retained.Map(static held => held.Moving).IfNone([]);
 
     // --- [SLOTS]
-    internal Slot<(LayoutNode Layout, Context Context, float Alpha, HashSet<Seq<Key>> Live), SKDrawable> Recordings { get; } = new();
-    internal Slot<LayoutNode, Painter.Leaf> Leaves { get; } = new();
-    internal Slot<Typeset, SKPath> TextOutlines { get; } = new();
-    internal Slot<MarkKey, Outline.Traced> Interiors { get; } = new();
-    internal Slot<MarkKey, Outline.Traced> Contours { get; } = new();
-    internal Slot<(LayoutNode Layout, Option<Marker> Marker, float Diameter, float Scale), Option<SKImage>> Sprites { get; } = new();
-    internal Slot<MarkKey, Seq<SKVertices>> Meshes { get; } = new();
-    internal Slot<(Typeset Set, MarkKey Mark), Option<SKTextBlob>> Labels { get; } = new();
-    internal Slot<(SKSize Size, Corners Corners, float Smoothing, float Scale), Option<SKImage>> Mattes { get; } = new();
-    internal Slot<FillKey, Option<SKImageFilter>> Filters { get; } = new();
-    internal Slot<FillKey, Option<SKPaint>> Brushes { get; } = new();
-    internal Slot<FillKey, Option<SKImageFilter>> Backdrops { get; } = new();
-    internal Slot<(LayoutNode Layout, Option<SKColorF> Color, bool AlphaOnly), SKPaint> Images { get; } = new();
-    internal Slot<(LayoutNode Layout, SKImage Source, SKRect Target, SKSamplingOptions Sampling), Option<SKPaint>> Valued { get; } = new();
-    internal Slot<(MarkKey Mark, Seq<SKPaint> Paints), SKPicture> Dots { get; } = new();
-    internal Slot<(MarkKey Mark, Option<Marker> Marker, SKColorF Color), SKPicture> Atlases { get; } = new();
-    internal Slot<(MarkKey Mark, Option<SKColorF> Lead), Option<SKPaint>> Fields { get; } = new();
-    private Slot<ArtKey, LoadedMedia> Arts { get; } = new();
-    private Slot<(ImageSource.Encoded Source, SKSizeI Pixels), Decoded> Decoded { get; } = new();
-    private Slot<(Shadow Shadow, SKColorF Color), SKPaint> Shadows { get; } = new();
-    private Slot<Seq<(Shadow Shadow, SKColorF Color)>, SKPaint> Casts { get; } = new();
-    private Slot<(Stroke Stroke, SKColorF Color, float Width, uint Ordinal, float Clock, Option<SKBlender> Blend), SKPaint> Strokes { get; } = new();
-    private Slot<(SKPoint From, SKPoint To, bool Before, bool After, float Edge), SKPaint> Fades { get; } = new();
-    private Slot<(float Alpha, Option<SKImageFilter> Filter), SKPaint> Opacities { get; } = new();
-    private Slot<(Option<SKPicture> Still, SKColorF Tint), SKPaint> Tints { get; } = new();
-    private Slot<SKColorF, SKPaint> Solids { get; } = new();
-    private Slot<SKColorF, SKPaint> Washes { get; } = new();
-    private Seq<ISlot> SceneSlots => [Recordings, Leaves, TextOutlines, Interiors, Contours, Sprites, Meshes, Labels, Mattes, Arts, Decoded];
-    private Seq<ISlot> FrameSlots => [Filters, Brushes, Backdrops, Images, Valued, Dots, Atlases, Fields, Shadows, Casts, Strokes, Fades, Opacities, Tints, Solids, Washes];
+    internal Slot<(LayoutNode Layout, Context Context, float Alpha, HashSet<Seq<Key>> Live), SKDrawable> Recordings { get; } = new(static value => value.Dispose());
+    internal Slot<LayoutNode, Painter.Leaf> Leaves { get; } = new(static value => value.Dispose());
+    internal Slot<Typeset, SKPath> TextOutlines { get; } = new(static value => value.Dispose());
+    private Slot<Typeset.Run, Option<SKTextBlob>> TextBlobs { get; } = new(static value => value.Iter(static blob => blob.Dispose()));
+    internal Slot<MarkKey, Outline.Traced> Interiors { get; } = new(static value => value.Dispose());
+    internal Slot<MarkKey, Outline.Traced> Contours { get; } = new(static value => value.Dispose());
+    internal Slot<(LayoutNode Layout, Option<Marker> Marker, float Diameter, float Scale), Option<SKImage>> Sprites { get; } = new(static value => value.Iter(static image => image.Dispose()));
+    internal Slot<MarkKey, Seq<SKVertices>> Meshes { get; } = new(static value => value.Iter(static vertices => vertices.Dispose()));
+    internal Slot<(Typeset Set, MarkKey Mark), Option<SKTextBlob>> Labels { get; } = new(static value => value.Iter(static blob => blob.Dispose()));
+    internal Slot<(SKSize Size, Corners Corners, float Smoothing, float Scale), Option<SKImage>> Mattes { get; } = new(static value => value.Iter(static image => image.Dispose()));
+    internal Slot<FillKey, Option<SKImageFilter>> Filters { get; } = new(static value => value.Iter(static filter => filter.Dispose()));
+    internal Slot<FillKey, Option<SKPaint>> Brushes { get; } = new(static value => value.Iter(static paint => paint.Dispose()));
+    internal Slot<FillKey, Option<SKImageFilter>> Backdrops { get; } = new(static value => value.Iter(static filter => filter.Dispose()));
+    internal Slot<(LayoutNode Layout, Option<SKColorF> Color, bool AlphaOnly), SKPaint> Images { get; } = new(static value => value.Dispose());
+    internal Slot<(LayoutNode Layout, SKImage Source, SKRect Target, SKSamplingOptions Sampling), Option<SKPaint>> Valued { get; } = new(static value => value.Iter(static paint => paint.Dispose()));
+    internal Slot<(MarkKey Mark, Seq<SKPaint> Paints), SKPicture> Dots { get; } = new(static value => value.Dispose());
+    internal Slot<(MarkKey Mark, Option<Marker> Marker, SKColorF Color), SKPicture> Atlases { get; } = new(static value => value.Dispose());
+    internal Slot<(MarkKey Mark, Option<SKColorF> Lead), Option<SKPaint>> Fields { get; } = new(static value => value.Iter(static paint => paint.Dispose()));
+    private Slot<ArtKey, LoadedMedia> Arts { get; } = new(static value => value.Dispose());
+    private Slot<(ImageSource.Encoded Source, SKSizeI Pixels), Decoded> Decoded { get; } = new(static value => value.Dispose());
+    private Slot<(Shadow Shadow, SKColorF Color), SKPaint> Shadows { get; } = new(static value => value.Dispose());
+    private Slot<Seq<(Shadow Shadow, SKColorF Color)>, SKPaint> Casts { get; } = new(static value => value.Dispose());
+    private Slot<(Stroke Stroke, SKColorF Color, float Width, uint Ordinal, float Clock, Option<SKBlender> Blend), SKPaint> Strokes { get; } = new(static value => value.Dispose());
+    private Slot<(SKPoint From, SKPoint To, bool Before, bool After, float Edge), SKPaint> Fades { get; } = new(static value => value.Dispose());
+    private Slot<(float Alpha, Option<SKImageFilter> Filter), SKPaint> Opacities { get; } = new(static value => value.Dispose());
+    private Slot<(Option<SKPicture> Still, SKColorF Tint), SKPaint> Tints { get; } = new(static value => value.Dispose());
+    private Slot<SKColorF, SKPaint> Solids { get; } = new(static value => value.Dispose());
 
     // --- [LAYERS]
     internal SKPaint Opacity(float alpha, Option<SKImageFilter> filter) =>
@@ -176,12 +172,6 @@ internal sealed class PaintCache : IDisposable {
 
     internal SKPaint Solid(SKColorF color) => Solids.GetOrAdd(color, () => new SKPaint { IsAntialias = true, ColorF = color });
 
-    internal SKPaint Wash(SKColorF color) =>
-        Washes.GetOrAdd(color, () => {
-            using SKColorFilter washed = Space.Tinted(color, inverted: false);
-            return new SKPaint { ColorFilter = washed };
-        });
-
     // --- [OFFSCREENS]
     internal Option<SKImage> Rasterized(SKSize size, float scale, SKColorType type, Action<SKCanvas> draw) {
         SKSizeI pixels = Capture.Pixels(size, scale);
@@ -210,7 +200,8 @@ internal sealed class PaintCache : IDisposable {
         if (retained.Exists(held => ReferenceEquals(held.Scene, scene) && held.Leaving == left && held.Scale.CompareTo(scale) is 0)) return unit;
         Seq<LayoutNode> drawn = (scene.Layout.Cons(scene.Layers) + scene.Fragments.Values.ToSeq() + leaving).Bind(static layout => layout.Preorder).Strict();
         _ = drawn.Iter(layout => Leaves.Find(layout));
-        _ = SceneSlots.Add(scene.Outlines).Iter(static slot => slot.Evict());
+        _ = drawn.Choose(static layout => layout.TextNode).Bind(static text => text.Typeset.Lines).Bind(static line => line.Runs).Iter(held => TextBlobs.Find(held.Run));
+        _ = sceneSlots.Add(scene.Outlines).Iter(static slot => slot.Evict());
         Seq<((LayoutNode Layout, GlyphSource Source) Shown, Fin<LoadedMedia> Media)> arts = (
             from layout in drawn
             from source in Decoding.Sources(layout)
@@ -229,7 +220,7 @@ internal sealed class PaintCache : IDisposable {
     }
 
     internal void Framed(Painter.Pass pass) {
-        _ = FrameSlots.Iter(static slot => slot.Evict());
+        _ = frameSlots.Iter(static slot => slot.Evict());
         _ = retained.Iter(held => toSeq(held.Art.Values).Filter(static shown => shown.Animated).Distinct().Iter(shown => shown.Seek(pass.Now)));
         _ = Leaves.Values.Iter(leaf => leaf.Framed(pass));
     }
@@ -245,5 +236,5 @@ internal sealed class PaintCache : IDisposable {
                 from frames in held.Cache.Decoded.Find(Decoding.Requested(held.Layout, held.Image, encoded, kept.Scale))
                 select frames.At(held.Now));
 
-    public void Dispose() => _ = (SceneSlots + FrameSlots).Iter(static slot => slot.Dispose());
+    public void Dispose() => _ = (sceneSlots + frameSlots).Iter(static slot => slot.Dispose());
 }

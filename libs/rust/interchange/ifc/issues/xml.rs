@@ -6,6 +6,7 @@ use itertools::{EitherOrBoth, Itertools as _};
 use jiff::{Timestamp, fmt::temporal::Pieces, tz::Offset};
 use newtype_uuid::{GenericUuid as _, TypedUuid, TypedUuidKind};
 use nonempty_collections::{IntoIteratorExt as _, NEVec, NonEmptyIterator};
+use smallvec::SmallVec;
 use typed_path::Utf8UnixPath;
 use uuid::Uuid;
 use validated::Validated;
@@ -232,7 +233,15 @@ impl Reader<'_> {
 
     pub(super) fn element<T>(&self, node: Node, ancestors: &[&'static str], element: &'static str) -> Validated<T, IfcError>
     where T: Occurs<Item: Codec> {
-        self.occurs(elements(self.xot, node, ancestors).into_iter().flat_map(|ancestor| named(self.xot, ancestor, element)).filter(|&child| T::Item::present(self.xot, child)).map(|child| T::Item::read(self, child)).collect(), element)
+        self.occurs(
+            elements(self.xot, node, ancestors)
+                .into_iter()
+                .flat_map(|ancestor| named(self.xot, ancestor, element))
+                .filter(|&child| T::Item::present(self.xot, child))
+                .map(|child| T::Item::read(self, child))
+                .collect(),
+            element,
+        )
     }
 
     pub(super) fn attribute<T>(&self, node: Node, ancestors: &[&'static str], attribute: &'static str) -> Validated<T, IfcError>
@@ -328,14 +337,18 @@ impl<'xml> Writer<'xml> {
         })
     }
 
-    pub(super) fn file(&self, name: &str, content: &[u8], method: CompressionMethod) -> Result<(), IfcError> { (self.store)(&resolve(self.entry, name), content, digest::digest(&digest::SHA256, content), method) }
+    pub(super) fn file(&self, name: &str, content: &[u8], method: CompressionMethod) -> Result<(), IfcError> {
+        (self.store)(&resolve(self.entry, name), content, digest::digest(&digest::SHA256, content), method)
+    }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [ENTRIES]
 
-pub(super) fn required<T>(found: Validated<Option<T>, IfcError>, entry: &str) -> Validated<T, IfcError> { bind(found, |held| held.map_or_else(|| Validated::fail(archive_error(entry)(ZipError::FileNotFound)), Validated::Good)) }
+pub(super) fn required<T>(found: Validated<Option<T>, IfcError>, entry: &str) -> Validated<T, IfcError> {
+    bind(found, |held| held.map_or_else(|| Validated::fail(archive_error(entry)(ZipError::FileNotFound)), Validated::Good))
+}
 
 pub(super) fn sides<L, R>(reader: &Reader<'_>, left_found: Validated<Option<L>, IfcError>, right_found: Validated<Option<R>, IfcError>, element: &str) -> Validated<EitherOrBoth<L, R>, IfcError> {
     bind(left_found.map2(right_found, |left, right| (left, right)), |stated| match stated {
@@ -401,7 +414,9 @@ pub(super) fn document<T>(open: &Open<'_>, upgrading: bool, (entry, root): (&str
     let mut xot = Xot::new();
     let parsed = xot.parse_bytes(&bytes).map_err(xot::Error::from).and_then(|document| if upgrading { upgraded(&mut xot, document).map(|()| document) } else { Ok(document) });
     let reader = Reader { xot: &xot, entry, open, upgrading };
-    bind(Validated::from(parsed.map_err(|source| IfcError::Xml { entry: entry.into(), source })), |document| named(reader.xot, document, root).next().map_or_else(|| Validated::fail(reader.refused(root, None)), |element| read(&reader, element).map(Some)))
+    bind(Validated::from(parsed.map_err(|source| IfcError::Xml { entry: entry.into(), source })), |document| {
+        named(reader.xot, document, root).next().map_or_else(|| Validated::fail(reader.refused(root, None)), |element| read(&reader, element).map(Some))
+    })
 }
 
 pub(super) fn stored(store: &Store<'_>, (entry, root): (&str, &'static str), write: impl FnOnce(&mut Writer<'_>, Node) -> Result<(), IfcError>) -> Result<(), IfcError> {
@@ -411,7 +426,10 @@ pub(super) fn stored(store: &Store<'_>, (entry, root): (&str, &'static str), wri
     let mut writer = Writer { xot: &mut xot, entry, store };
     let document = writer.xot.new_document_with_element(element).map_err(writer.xml())?;
     write(&mut writer, element)?;
-    let text = writer.xot.serialize_xml_string(Parameters { declaration: Some(Declaration { encoding: Some("UTF-8".to_owned()), standalone: None }), ..Parameters::default() }, document).map_err(writer.xml())?;
+    let text = writer
+        .xot
+        .serialize_xml_string(Parameters { declaration: Some(Declaration { encoding: Some("UTF-8".to_owned()), standalone: None }), ..Parameters::default() }, document)
+        .map_err(writer.xml())?;
     store(entry, text.as_bytes(), digest::digest(&digest::SHA256, text.as_bytes()), CompressionMethod::Deflated)
 }
 
@@ -441,20 +459,20 @@ pub(super) fn archive_error(entry: &str) -> impl Fn(ZipError) -> IfcError { move
 
 pub(super) fn local_name(xot: &Xot, node: Node) -> &str { xot.element(node).map_or("", |element| xot.local_name_str(element.name())) }
 
-pub(super) fn stated(xot: &Xot, node: Node) -> bool { !xot.string_value(node).trim().is_empty() }
+pub(super) fn stated(xot: &Xot, node: Node) -> bool { xot.descendants(node).filter_map(|child| xot.text_str(child)).any(|text| !text.trim().is_empty()) }
 
 pub(super) fn named<'xml>(xot: &'xml Xot, node: Node, name: &str) -> impl Iterator<Item = Node> + use<'xml> {
     let name = xot.name(name);
     xot.children(node).filter(move |&child| xot.element(child).is_some_and(|element| Some(element.name()) == name))
 }
 
-fn elements(xot: &Xot, node: Node, ancestors: &[&str]) -> Vec<Node> { ancestors.iter().fold(vec![node], |nodes, name| nodes.into_iter().flat_map(|parent| named(xot, parent, name)).collect()) }
+fn elements(xot: &Xot, node: Node, ancestors: &[&str]) -> SmallVec<Node, 1> {
+    ancestors.iter().fold(SmallVec::from_buf([node]), |nodes, name| nodes.into_iter().flat_map(|parent| named(xot, parent, name)).collect())
+}
 
 fn rename(xot: &mut Xot, node: Node, name: &str) {
     let id = xot.add_name(name);
-    if let Some(element) = xot.element_mut(node) {
-        element.set_name(id);
-    }
+    xot.set_element_name(node, id);
 }
 
 fn appended(xot: &mut Xot, parent: Node, name: &str) -> Result<Node, xot::Error> {

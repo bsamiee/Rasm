@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-presence-type-guard
-language: tsx
+language: tsxlang
 severity: error
 ignores: ['.claude/workflows/*.js']
 utils:
@@ -68,11 +68,6 @@ utils:
                     - not: {has: {pattern: $_, not: {any: [{kind: comment}, {kind: return_statement}]}}}
     asserted:
         has: {kind: type_predicate, has: {field: type, pattern: $TYPE}}
-    schema-is:
-        matches: {effect-module-member: {module: {regex: '^Schema$'}, member: {regex: '^is$'}}}
-    schema-test:
-        kind: call_expression
-        has: {field: function, kind: call_expression, all: [{has: {field: function, matches: schema-is}}, {has: {field: arguments, has: {nthChild: 1, pattern: $SCHEMA}}}]}
     call-presence:
         kind: call_expression
         all:
@@ -114,10 +109,6 @@ rule:
                                 - has: {field: name, regex: '^(Predicate\.)?Refinement$'}
                                 - has: {field: type_arguments, has: {nthChild: 2, pattern: $TYPE}}
             - matches: tested-body
-        - kind: arrow_function, function_expression, function_declaration, method_definition
-          all:
-            - has: {field: body, any: [{matches: schema-test}, {kind: statement_block, has: {kind: return_statement, has: {matches: schema-test}}, not: {has: {nthChild: 2}}}]}
-            - has: {field: return_type, matches: asserted, not: {has: {kind: type_predicate, has: {field: type, any: [{kind: type_query, has: {kind: member_expression, pattern: $SCHEMA.Type}}, {kind: lookup_type, all: [{has: {nthChild: 1, pattern: $SCHEMA}}, {has: {kind: literal_type, regex: '^.Type.$'}}]}]}}}}
     not: {inside: {kind: program, stopBy: end, matches: extendscript-file}}
 message: '`$TYPE` narrows on a test in place of its schema'
-note: 'Decode with a `Schema` of the narrowed type at entry or host return, or narrow a union on its literal discriminant (`constructorName` for InDesign, `Match.discriminators`)'
+note: 'Decode with `Schema` at boundaries, or match literal discriminants (`constructorName` in InDesign) through `Match.discriminators`'

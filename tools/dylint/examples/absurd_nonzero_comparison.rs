@@ -6,6 +6,17 @@ struct Limits {
     retries: NonZero<u32>,
 }
 
+struct Dereferenced(Limits);
+
+impl core::ops::Deref for Dereferenced {
+    type Target = Limits;
+
+    fn deref(&self) -> &Self::Target {
+        black_box(());
+        &self.0
+    }
+}
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 fn empty(count: NonZero<u32>) -> bool { count.get() == 0 }
@@ -52,6 +63,10 @@ fn expanded(count: NonZero<u32>) -> bool { empty_count!(count) }
 
 fn other_bound(count: NonZero<u32>) -> bool { count.get() != 1 }
 
+fn indexed(values: &[NonZero<u32>], index: impl Fn() -> usize) -> bool { values[index()].get() != 0 }
+
+fn projected(value: &Dereferenced) -> bool { value.retries.get() > 0 }
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 fn main() {
@@ -61,4 +76,5 @@ fn main() {
         [called(NonZero::<u16>::MIN), signed(NonZero::<i32>::MIN), signed_zero(NonZero::<i32>::MIN), several(one), computed(&[one])],
         [converted(one), converted_into(NonZero::<u64>::MIN), named_bound(one), expanded(one), other_bound(one)],
     ));
+    black_box((indexed(&[one], || 0), projected(&Dereferenced(Limits { retries: one }))));
 }

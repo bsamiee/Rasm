@@ -1,5 +1,8 @@
+use core::iter;
+
 use clippy_utils::{diagnostics::span_lint_hir_and_then, sym};
 use rustc_ast::{
+    LitKind,
     attr::AttributeExt as _,
     token::{self, TokenKind},
     tokenstream::TokenTree,
@@ -17,6 +20,8 @@ use crate::{derives, expanded_externally};
 
 lint!(SOURCE_IN_ERROR_MESSAGE: "`#[error(\"..\")]` messages that print the variant's `#[source]`, `#[from]`, or `source` field");
 
+// --- [COMPOSITION] ---------------------------------------------------------------------
+
 impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_item(&mut self, cx: &LateContext<'tcx>, item: &'tcx Item<'tcx>) {
         fn printed_source(cx: &LateContext<'_>, variant: &VariantDef) -> Option<(HirId, Span, String, String)> {
@@ -28,7 +33,8 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             let AttrArgs::Delimited(delimited) = &parsed.args else { return None };
             let tokens = delimited.tokens.iter().map(|tree| if let TokenTree::Token(token, _) = tree { Some(&token.kind) } else { None }).collect::<Vec<_>>();
             let mut groups = tokens.split(|kind| matches!(kind, Some(TokenKind::Comma)));
-            let [Some(TokenKind::Literal(token::Lit { kind: token::LitKind::Str, symbol: text, .. }))] = groups.next()? else { return None };
+            let [Some(TokenKind::Literal(literal))] = groups.next()? else { return None };
+            let LitKind::Str(text, _) = LitKind::from_token_lit(*literal).ok()? else { return None };
             let arguments = groups
                 .filter(|group| !group.is_empty())
                 .map(|group| {
@@ -45,20 +51,20 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 .collect::<Vec<_>>();
             let marked = |field: &FieldDef| field.did.as_local().is_some_and(|local| tcx.hir_attrs(tcx.local_def_id_to_hir_id(local)).iter().any(|marker| marker.has_any_name(&[source, sym::from])));
             let named = |name: Symbol| variant.fields.iter().find(|field| field.name == name).filter(|field| field.name == source || marked(field)).map(|_| name.to_string());
-            let pieces = Parser::new(text.as_str(), None, None, false, ParseMode::Format).collect::<Vec<_>>();
-            let shown = pieces.iter().filter_map(|piece| if let Piece::NextArgument(argument) = piece { Some(&argument.position) } else { None }).find_map(|position| match *position {
-                Position::ArgumentNamed(name) => {
-                    let name = Symbol::intern(name);
-                    arguments.iter().find(|&&(written, _)| written == Some(name)).map_or_else(|| named(name), |&(_, field)| field.and_then(named))
-                }
-                Position::ArgumentIs(index) if arguments.is_empty() => named(sym::integer(index)),
-                Position::ArgumentIs(index) | Position::ArgumentImplicitlyIs(index) =>
-                    arguments.iter().filter(|(written, _)| written.is_none()).nth(index).and_then(|&(_, field)| field).and_then(named),
-            })?;
-            let help = match &pieces {
-                [Piece::NextArgument(_)] => format!("state the failure in the message in place of field `{shown}`"),
-                _ => format!("delete field `{shown}` from the message"),
-            };
+            let mut pieces = Parser::new(text.as_str(), None, None, false, ParseMode::Format).peekable();
+            let first = pieces.next()?;
+            let source_only = matches!(first, Piece::NextArgument(_)) && pieces.peek().is_none();
+            let shown =
+                iter::once(first).chain(pieces).filter_map(|piece| if let Piece::NextArgument(argument) = piece { Some(argument.position) } else { None }).find_map(|position| match position {
+                    Position::ArgumentNamed(name) => {
+                        let name = Symbol::intern(name);
+                        arguments.iter().find(|&&(written, _)| written == Some(name)).map_or_else(|| named(name), |&(_, field)| field.and_then(named))
+                    }
+                    Position::ArgumentIs(index) if arguments.is_empty() => named(sym::integer(index)),
+                    Position::ArgumentIs(index) | Position::ArgumentImplicitlyIs(index) =>
+                        arguments.iter().filter(|(written, _)| written.is_none()).nth(index).and_then(|&(_, field)| field).and_then(named),
+                })?;
+            let help = if source_only { format!("state the failure in the message in place of field `{shown}`") } else { format!("delete field `{shown}` from the message") };
             Some((node, parsed.span, format!("`{}` message prints its source field `{shown}`", variant.name), help))
         }
 

@@ -8,7 +8,7 @@ use good_lp::{ResolutionError, solvers::MipGapError};
 use nalgebra::DVector;
 use nlopt::{Algorithm, FailState, SuccessState};
 
-use crate::{conic::Refusal, nonlinear::Termination};
+use crate::conic::Refusal;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -73,12 +73,12 @@ pub enum OptimizeError {
     Gap(#[from] MipGapError),
     #[error(transparent)]
     Resolution(#[from] ResolutionError),
-    #[error("nlopt refused to run its algorithm {}", failure(*state))]
+    #[error("nlopt refused {algorithm:?} {}", failure(*state))]
     Algorithm { algorithm: Algorithm, state: FailState },
     #[error("nlopt refused constraint {constraint} {}", failure(*state))]
     Constraint { constraint: usize, state: FailState },
-    #[error("nonlinear solve ended {termination} at objective {objective}")]
-    Nonlinear { point: DVector<f64>, objective: f64, termination: Termination },
+    #[error("nonlinear solve ended {} at objective {objective}", .termination.map_or("on a non-finite objective", failure))]
+    Nonlinear { point: DVector<f64>, objective: f64, termination: Option<FailState> },
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

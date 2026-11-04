@@ -2,7 +2,7 @@ use core::{borrow::Borrow, iter};
 use std::sync::Arc;
 
 use fontdb::Database;
-use jiff::{SignedDuration, Zoned};
+use jiff::{Zoned, tz::TimeZone};
 use krilla::{
     SerializeSettings,
     action::LinkAction,
@@ -134,10 +134,11 @@ pub fn scan(tiff: &[u8], options: &Options) -> Result<Document, PdfError> {
     let settings = standards::settings(&options.standards)?;
     (!settings.enable_tagging).ok_or_else(|| KrillaError::Validation(vec![(ValidationError::MissingTagging, settings.configuration.validators())]))?;
     let mut document = opened(settings, options)?;
+    let mut resizer = fast_image_resize::Resizer::new();
     rasters::frames(tiff)?.enumerate().try_for_each(|(index, frame)| {
         let (paper, raster) = frame?;
         let (page, size) = dimensioned(paper)?;
-        let image = rasters::image(&raster, rasters::target(&raster, paper, options.resolution))
+        let image = rasters::image(&raster, rasters::target(&raster, paper, options.resolution), &mut resizer)
             .map_err(|errors| PdfError::Refused(errors.into_nonempty_iter().map(|error| (Subject::Page(index), error)).collect()))?;
         document.start_page_with(page).surface().draw_image(image, size);
         Ok::<_, PdfError>(())
@@ -146,16 +147,14 @@ pub fn scan(tiff: &[u8], options: &Options) -> Result<Document, PdfError> {
 }
 
 fn opened(settings: SerializeSettings, options: &Options) -> Result<krilla::Document, PdfError> {
-    let zoned = &options.created;
-    let offset = SignedDuration::from_secs(zoned.offset().seconds().into());
-    let created = DateTime::new(zoned.year().max(0).cast_unsigned())
+    let zoned = options.created.with_time_zone(TimeZone::UTC);
+    let created = DateTime::new(u16::try_from(zoned.year()).map_err(|_error| PdfError::Year(zoned.year()))?)
         .month(zoned.month().cast_unsigned())
         .day(zoned.day().cast_unsigned())
         .hour(zoned.hour().cast_unsigned())
         .minute(zoned.minute().cast_unsigned())
         .second(zoned.second().cast_unsigned())
-        .utc_offset_hour(i8::try_from(offset.as_hours()).unwrap_or(i8::MAX))
-        .utc_offset_minute(u8::try_from(offset.saturating_sub(SignedDuration::from_hours(offset.as_hours())).as_mins().unsigned_abs()).unwrap_or(u8::MAX));
+        .utc_offset_hour(0);
     let mut document = krilla::Document::new_with(settings);
     document.set_metadata(options.metadata.clone().creation_date(created));
     document.set_outline(Outline::new());

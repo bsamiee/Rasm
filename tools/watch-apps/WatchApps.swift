@@ -8,6 +8,7 @@ import OrderedCollections
 import Processes
 import Results
 import ScreenCaptureKit
+import Subprocess
 import Synchronization
 import System
 import UniformTypeIdentifiers
@@ -138,7 +139,7 @@ extension JSONDecoder {
 @main
 struct WatchApps: AsyncParsableCommand {
     static let configuration: CommandConfiguration = CommandConfiguration(
-        abstract: "Observes and drives installed applications in background. Commands exit 1 after a fail line",
+        abstract: "Observes and drives installed applications in background. Commands fail after a fail line",
         subcommands: [Watch.self, Launch.self, Show.self, Read.self, Capture.self, Perform.self, SetValue.self, Quit.self, Log.self],
     )
 
@@ -155,7 +156,11 @@ struct WatchApps: AsyncParsableCommand {
     }
 
     @MainActor
-    static func run(trusted: Bool = true, _ work: @escaping @MainActor (AsyncStream<(key: String, line: Line)>.Continuation) async -> Void) async -> Never {
+    static func run(
+        trusted: Bool = true,
+        completion: @escaping @MainActor () -> ExitCode? = { nil },
+        _ work: @escaping @MainActor (AsyncStream<(key: String, line: Line)>.Continuation) async -> Void,
+    ) async -> Never {
         let (lines, output): (AsyncStream<(key: String, line: Line)>, AsyncStream<(key: String, line: Line)>.Continuation) = AsyncStream.makeStream()
         let received: Mutex<Int32?> = Mutex(nil)
         signal(SIGPIPE, SIG_IGN)
@@ -204,14 +209,21 @@ struct WatchApps: AsyncParsableCommand {
                 return failed
             }
         }()
+        let status: ExitCode? = written[case: \.success].map { failed in
+            switch (completion(), failed) {
+                case (.some(let code), _) where !code.isSuccess: code
+                case (_, true): .failure
+                case (_, false): .success
+            }
+        }
         let ending: Ending = received.withLock { held in
-            held.map { number in Ending(signal: number) } ?? Ending(status: written[case: \.success].map { failed in failed ? ExitCode.failure.rawValue : ExitCode.success.rawValue })
+            held.map { number in Ending(signal: number) } ?? Ending(status: status?.rawValue)
         }
         let closed: Result<Void, any Error> = Result { try record(Record(at: .now, pid: process, exit: ending)) }
         withExtendedLifetime((parent, signals)) {
             switch (written, closed) {
                 case (.failure(let error), _), (.success, .failure(let error)): exit(withError: error)
-                case (.success(let failed), .success): exit(withError: failed ? ExitCode.failure : nil)
+                case (.success, .success): exit(withError: status)
             }
         }
     }
@@ -219,9 +231,10 @@ struct WatchApps: AsyncParsableCommand {
     @MainActor
     static func run(
         _ names: [String],
+        completion: @escaping @MainActor () -> ExitCode? = { nil },
         _ work: @escaping @MainActor (OrderedDictionary<String, [Installation]>, AsyncStream<(key: String, line: Line)>.Continuation) async -> Void,
     ) async -> Never {
-        await run { output in
+        await run(completion: completion) { output in
             let found: OrderedDictionary<String, [Installation]> = await OrderedSet(names).async.reduce(into: [:]) { @Sendable found, name in
                 do throws(ApplicationFailure) { found[name] = try await Installation.installed(named: name) } catch { output.yield((name, .fail(error))) }
             }
@@ -322,7 +335,7 @@ struct Watch: AsyncParsableCommand {
 
 struct Launch: AsyncParsableCommand {
     static let configuration: CommandConfiguration = CommandConfiguration(
-        abstract: "Opens each application or document hidden without activation. Prints states until next leaves wait or prompts show. Leaves each instance running"
+        abstract: "Opens applications or documents hidden without activation. Observes readiness and prompts, or process completion with --wait"
     )
 
     @Argument(help: ArgumentHelp(installedNames))
@@ -330,6 +343,9 @@ struct Launch: AsyncParsableCommand {
 
     @Flag(help: "Opens another instance when one runs")
     var new: Bool = false
+
+    @Flag(help: "Observes one named application until it exits and returns its exit status, or 128 plus its signal")
+    var wait: Bool = false
 
     @Option(help: ArgumentHelp("File to open, one per flag", valueName: "path"), transform: { path in URL(filePath: path) })
     var document: [URL] = []
@@ -349,31 +365,50 @@ struct Launch: AsyncParsableCommand {
     func validate() throws(ValidationError) {
         guard !names.isEmpty || !document.isEmpty else { throw ValidationError("Name an application or pass --document") }
         guard names.count < 2 || document.isEmpty else { throw ValidationError("--document belongs to one application") }
+        guard !wait || names.count == 1 else { throw ValidationError("--wait belongs to one named application") }
     }
 
+    @MainActor
     func run() async {
-        await WatchApps.run(names) { applications, output in
-            let launches: OrderedDictionary<Installation, [URL]> =
-                if names.isEmpty {
-                    document.reduce(into: [:]) { launches, file in
-                        do throws(ApplicationFailure) { launches[try Installation(opening: file), default: []].append(file) } catch { output.yield((file.path(percentEncoded: false), .fail(error))) }
-                    }
-                } else {
-                    applications.reduce(into: [:]) { launches, application in
-                        do throws(ApplicationFailure) { launches[try Installation.newest(of: application.key, among: application.value)] = document } catch {
-                            output.yield((application.key, .fail(error)))
+        var status: ExitCode? = wait ? .failure : nil
+        await WatchApps.run(
+            names,
+            completion: { status },
+            { applications, output in
+                let launches: OrderedDictionary<Installation, [URL]> =
+                    if names.isEmpty {
+                        document.reduce(into: [:]) { launches, file in
+                            do throws(ApplicationFailure) { launches[try Installation(opening: file), default: []].append(file) } catch {
+                                output.yield((file.path(percentEncoded: false), .fail(error)))
+                            }
+                        }
+                    } else {
+                        applications.reduce(into: [:]) { launches, application in
+                            do throws(ApplicationFailure) { launches[try Installation.newest(of: application.key, among: application.value)] = document } catch {
+                                output.yield((application.key, .fail(error)))
+                            }
                         }
                     }
+                guard !launches.isEmpty else { return }
+                let target: Target = .launch(
+                    launches.map { installation, documents in (installation, documents) },
+                    arguments: arguments,
+                    environment: Dictionary(environment) { _, last in last },
+                    newInstance: new,
+                    waitForExit: wait,
+                )
+                for await observation: Observation in NSWorkspace.shared.observed(target) {
+                    if wait, case .instance(_, .exited(.success(let ended), _)) = observation {
+                        status =
+                            switch ended.status {
+                                case .exited(let code): ExitCode(code)
+                                case .signaled(let signal): ExitCode(128 + signal)
+                            }
+                    }
+                    output.yield(observation.line)
                 }
-            guard !launches.isEmpty else { return }
-            let target: Target = .launch(
-                launches.map { installation, documents in (installation, documents) },
-                arguments: arguments,
-                environment: Dictionary(environment) { _, last in last },
-                newInstance: new,
-            )
-            for await observation: Observation in NSWorkspace.shared.observed(target) { output.yield(observation.line) }
-        }
+            },
+        )
     }
 }
 

@@ -9,13 +9,12 @@ using Emgu.CV.Util;
 using MathNet.Numerics.Distributions;
 using MathNet.Numerics.Statistics;
 using Rasm.Imaging.Pixels;
+using SuperLinq;
 
 namespace Rasm.Imaging.Procedural;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record Octaves(float Detail, float Roughness, float Lacunarity) {
-    public bool Degenerate => Lacunarity is 0f && Detail > 0f && Roughness > 0f;
-
     internal float Weight(int octave) => float.Min(1f, Detail - (octave - 1));
 }
 
@@ -122,7 +121,8 @@ public sealed partial class NoiseDimensions {
 
     internal float CellBound(float exponent, float randomness, float smoothness, int span) {
         ImmutableArray<Vector4> scanned = smoothness is 0f ? Near[Key] : Wide[Key];
-        float reach = scanned.Select(offset => Length(Vector4.Max(Vector4.Abs(offset - Live), Vector4.Abs(offset + (randomness * Live))), exponent)).Order().ElementAt(smoothness is 0f ? span - 1 : scanned.Length - 1);
+        IEnumerable<float> distances = scanned.Select(offset => Length(Vector4.Max(Vector4.Abs(offset - Live), Vector4.Abs(offset + (randomness * Live))), exponent));
+        float reach = smoothness is 0f ? distances.PartialSort(span).Last() : distances.Max();
         float peak = smoothness is 0f ? reach : Bound(reach + (smoothness / 2d * scanned.Length / 4d), 8 * scanned.Length);
         return peak / (span * Length((0.5f + (0.5f * randomness)) * Live, exponent));
     }
@@ -315,11 +315,15 @@ public sealed partial class VoronoiFeature {
         static (dimensions, point, _, _, randomness, _, field) => dimensions.Radius(point, randomness, field),
         static (dimensions, _, _, randomness, _) => (0f, NoiseDimensions.Bound(0.5d * (new Vector4(1f + randomness, randomness, randomness, randomness) * dimensions.Live).Length(), (2 * dimensions.Key) + 4)));
 
-    [UseDelegateFromConstructor]
-    public partial (float Distance, Vector4 Site) Sample(NoiseDimensions dimensions, Vector4 point, Octaves octaves, float exponent, float randomness, float smoothness, uint field);
+    public Fin<(Func<Vector4, uint, (float Distance, Vector4 Site)> Sample, (float Lower, float Upper) Range)> Sampler(NoiseDimensions dimensions, Octaves octaves, float exponent, float randomness, float smoothness) =>
+        ImagingFault.Unless(this == NSphereRadius || !(octaves.Lacunarity is 0f && octaves.Detail > 0f && octaves.Roughness > 0f), ImagingReason.Degenerate, octaves)
+            .Map(_ => ((Func<Vector4, uint, (float Distance, Vector4 Site)>)((point, field) => Sample(dimensions, point, octaves, exponent, randomness, smoothness, field)), Range(dimensions, octaves, exponent, randomness, smoothness)));
 
     [UseDelegateFromConstructor]
-    public partial (float Lower, float Upper) Range(NoiseDimensions dimensions, Octaves octaves, float exponent, float randomness, float smoothness);
+    private partial (float Distance, Vector4 Site) Sample(NoiseDimensions dimensions, Vector4 point, Octaves octaves, float exponent, float randomness, float smoothness, uint field);
+
+    [UseDelegateFromConstructor]
+    private partial (float Lower, float Upper) Range(NoiseDimensions dimensions, Octaves octaves, float exponent, float randomness, float smoothness);
 
     private static (float Distance, Vector4 Site) Averaged(NoiseDimensions dimensions, Vector4 point, Octaves octaves, float exponent, float randomness, float smoothness, int span, uint field) {
         float limit = span * NoiseDimensions.Length((0.5f + (0.5f * randomness)) * dimensions.Live, exponent);
@@ -367,7 +371,8 @@ public sealed partial class WaveProfile {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class CoordinateHash {
-    public static uint Branch(uint field, uint index, uint stream = 0u) => Pcg3d(field, index, stream).X;
+    public static uint Branch<TField, TIndex>(TField field, TIndex index, uint stream = 0u) where TField : IBinaryInteger<TField> where TIndex : IBinaryInteger<TIndex> =>
+        Pcg3d(uint.CreateTruncating(field), uint.CreateTruncating(index), stream).X;
 
     public static Vector4 Uniforms(Vector128<int> cell, uint field) =>
         Hash(cell, field) switch { var (x, y, z) => (new Vector4(x >> 9, y >> 9, z >> 9, Pcg3d(x, y, z).X >> 9) + new Vector4(0.5f)) * (1f / (1 << 23)) };
@@ -398,17 +403,17 @@ public static class CoordinateHash {
 [ComplexValueObject]
 [ValidationError<ImagingFault>]
 public sealed partial class MagicNoise {
-    private static readonly ImmutableArray<Func<Vector3, float, Vector3>> Turbulence = [
-        static (v, d) => v with { Y = -float.Cos(v.X - v.Y + v.Z) * d },
-        static (v, d) => v with { X = float.Cos(v.X - v.Y - v.Z) * d },
-        static (v, d) => v with { Z = float.Sin(-v.X - v.Y - v.Z) * d },
-        static (v, d) => v with { X = -float.Cos(-v.X + v.Y - v.Z) * d },
-        static (v, d) => v with { Y = -float.Sin(-v.X + v.Y + v.Z) * d },
-        static (v, d) => v with { Y = -float.Cos(-v.X + v.Y + v.Z) * d },
-        static (v, d) => v with { X = float.Cos(v.X + v.Y + v.Z) * d },
-        static (v, d) => v with { Z = float.Sin(v.X + v.Y - v.Z) * d },
-        static (v, d) => v with { X = -float.Cos(-v.X - v.Y + v.Z) * d },
-        static (v, d) => v with { Y = -float.Sin(v.X - v.Y + v.Z) * d },
+    private static readonly ImmutableArray<(int Axis, Vector3 Coefficients, float Gain, bool Cosine)> Turbulence = [
+        (1, new(1f, -1f, 1f), -1f, true),
+        (0, new(1f, -1f, -1f), 1f, true),
+        (2, new(-1f, -1f, -1f), 1f, false),
+        (0, new(-1f, 1f, -1f), -1f, true),
+        (1, new(-1f, 1f, 1f), -1f, false),
+        (1, new(-1f, 1f, 1f), -1f, true),
+        (0, new(1f, 1f, 1f), 1f, true),
+        (2, new(1f, 1f, -1f), 1f, false),
+        (0, new(-1f, -1f, 1f), -1f, true),
+        (1, new(1f, -1f, 1f), -1f, false),
     ];
 
     public int Depth { get; }
@@ -421,8 +426,10 @@ public sealed partial class MagicNoise {
         Vector3 wrapped = point - (float.Tau * Vector128.Floor((point / float.Tau).AsVector128()).AsVector3());
         Vector3 turned = new Vector3(float.Sin((wrapped.X + wrapped.Y + wrapped.Z) * 5f), float.Cos((-wrapped.X + wrapped.Y - wrapped.Z) * 5f), -float.Cos((-wrapped.X - wrapped.Y + wrapped.Z) * 5f))
             * (Depth is 0 ? 1f : Distortion);
-        foreach (Func<Vector3, float, Vector3> step in Turbulence.AsSpan()[..Depth])
-            turned = step(turned, Distortion);
+        foreach ((int axis, Vector3 coefficients, float gain, bool cosine) in Turbulence.AsSpan()[..Depth]) {
+            float angle = Vector3.Dot(coefficients, turned);
+            turned[axis] = gain * (cosine ? float.Cos(angle) : float.Sin(angle)) * Distortion;
+        }
         return Centered(turned);
     }
 

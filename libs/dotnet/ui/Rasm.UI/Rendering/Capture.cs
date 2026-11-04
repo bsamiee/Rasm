@@ -1,6 +1,4 @@
-using System.Globalization;
 using Rasm.UI.Hosting;
-using Rasm.UI.Media;
 using Rasm.UI.Styling;
 using Rasm.UI.Typography;
 using SkiaSharp;
@@ -17,14 +15,14 @@ public static class Capture {
     internal static SKImageInfo Info(SKSize size, float scale, bool extended) =>
         Pixels(size, scale) switch {
             var pixels => new SKImageInfo(pixels.Width, pixels.Height, extended ? SKColorType.RgbaF16 : SKImageInfo.PlatformColorType, SKAlphaType.Premul,
-                extended ? SKColorSpace.SrgbLinear : SKColorSpace.Srgb),
+                extended ? SKColorSpace.CreateSrgbLinear() : SKColorSpace.CreateSrgb()),
         };
 
     // --- [RASTER]
     public static Fin<SKImage> Image(Host host, StyleSheet sheet, View node, float scale, Shaping shaping) =>
         Mount.Create(host, sheet, node, shaping).Bind(mount => {
             SKImageInfo info = Info(mount.Scene.Layout.Frame.Size, scale, mount.Scene.Extended);
-            Fin<SKImage> image = Optional(SKSurface.Create(info, Scaled)).ToFin(new UIFault(string.Create(CultureInfo.InvariantCulture, $"{info.Width}x{info.Height} {info.ColorType}"), UIReason.Refused)).Bind(surface => {
+            Fin<SKImage> image = Optional(SKSurface.Create(info, Scaled)).ToFin(new UIFault(info, UIReason.Refused)).Bind(surface => {
                 using SKSurface owned = surface;
                 owned.Canvas.Scale(scale);
                 return Painted(owned.Canvas, mount, scale).Map(_ => owned.Snapshot());

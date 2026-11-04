@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: python-shadowed-name
-language: python
+language: pythonlang
 utils:
     root:
         any:
@@ -9,26 +9,40 @@ utils:
             - kind: attribute
               has: {field: object, matches: root}
     binding:
-        kind: &binding 'identifier, typed_parameter, list_splat_pattern, dictionary_splat_pattern, default_parameter, typed_default_parameter, assignment, augmented_assignment, for_statement, for_in_clause, named_expression, as_pattern, function_definition, class_definition'
+        kind: &binding 'identifier, typed_parameter, list_splat_pattern, dictionary_splat_pattern, default_parameter, typed_default_parameter, assignment, augmented_assignment, for_statement, for_in_clause, named_expression, as_pattern, function_definition, class_definition, type_alias_statement, delete_statement'
         matches: {python-binding: {name: {pattern: $ROOT}}}
+    bound:
+        has: {stopBy: &nested-scope {kind: 'module, function_definition, lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression, class_definition'}, kind: *binding, matches: binding}
+    enclosing-lookup:
+        any:
+            - inside:
+                  kind: for_in_clause
+                  not: &preceding-iterable {follows: {kind: for_in_clause, stopBy: end}}
+                  field: right
+                  stopBy: *nested-scope
+                  inside: {all: [&lexical-scope {kind: 'module, function_definition, lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression'}, {matches: enclosing-lookup}]}
+            - not: {inside: {kind: for_in_clause, not: *preceding-iterable, field: right, stopBy: *nested-scope}}
+              inside:
+                  stopBy: *lexical-scope
+                  all: [*lexical-scope]
+                  any: [{matches: bound}, {matches: enclosing-lookup}]
+    lookup:
+        any:
+            - inside:
+                  kind: for_in_clause
+                  not: *preceding-iterable
+                  field: right
+                  stopBy: *nested-scope
+                  inside: {all: [*lexical-scope, {matches: lookup}]}
+            - not: {inside: {kind: for_in_clause, not: *preceding-iterable, field: right, stopBy: *nested-scope}}
+              inside:
+                  stopBy: *nested-scope
+                  all: [*nested-scope]
+                  any: [{matches: bound}, {matches: enclosing-lookup}]
 rule:
     all:
         - any:
             - matches: root
             - kind: call
               has: {field: function, matches: root}
-        - any:
-            - inside:
-                kind: module, function_definition, lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression
-                stopBy: end
-                has:
-                    stopBy: {kind: "function_definition, class_definition, lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression"}
-                    kind: *binding
-                    matches: binding
-            - inside:
-                kind: class_definition
-                stopBy: {kind: "function_definition, lambda"}
-                has:
-                    stopBy: {kind: "function_definition, class_definition, lambda"}
-                    kind: *binding
-                    matches: binding
+        - matches: lookup

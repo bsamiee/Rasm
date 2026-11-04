@@ -324,6 +324,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "approx"
+version = "0.6.0-rc2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "94fbdd65cc59dcc820bfb0fd01315963d4f9898bf3399a47134c9836698c47df"
+dependencies = [
+ "approx-derive",
+ "num-traits",
+ "paste",
+]
+
+[[package]]
+name = "approx-derive"
+version = "0.6.0-rc2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1cd3b2c059ab6844ce55767dcf05f9103354b8bb96e783d34e350c2f58161de3"
+dependencies = [
+ "proc-macro-crate",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
+]
+
+[[package]]
 name = "ar_archive_writer"
 version = "0.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1009,6 +1032,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2af50177e190e07a26ab74f8b1efbfe2ef87da2116221318cb1c2e82baf7de06"
 
 [[package]]
+name = "basin"
+version = "3.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5bfd91b743c58c5b87f0c2dcda0242e1ec19f86ffbcec82e4330ee0211b24519"
+dependencies = [
+ "num-traits",
+ "rand 0.10.3",
+ "rand_chacha 0.10.0",
+ "rand_distr 0.6.0",
+ "web-time 1.1.0",
+]
+
+[[package]]
 name = "biblatex"
 version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1020,6 +1056,15 @@ dependencies = [
  "unic-langid",
  "unicode-normalization",
  "unscanny",
+]
+
+[[package]]
+name = "bilby"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c1257d14dd2646c60e0a5e86ae201999614cf32126e17abfa5c60b965362ec89"
+dependencies = [
+ "num-traits",
 ]
 
 [[package]]
@@ -1390,6 +1435,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "bstr"
+version = "1.13.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6bb31b46c14244e20ee9984b11bf5c992b91fb6939fea616e3512c8baecdbe5f"
+dependencies = [
+ "memchr",
+ "regex-automata",
+ "serde_core",
+]
+
+[[package]]
 name = "built"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1740,6 +1796,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "claims"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bba18ee93d577a8428902687bcc2b6b45a56b1981a1f6d779731c86cc4c5db18"
+
+[[package]]
 name = "clang-sys"
 version = "1.9.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1851,7 +1913,7 @@ dependencies = [
 [[package]]
 name = "clippy_utils"
 version = "0.1.101"
-source = "git+https://github.com/rust-lang/rust-clippy?rev=8518004654e6d4fbdc48c8e6deddeb578c516152#8518004654e6d4fbdc48c8e6deddeb578c516152"
+source = "git+https://github.com/rust-lang/rust-clippy?rev=9fd09bc3fb6edda57705cceaeef185be33ba41b9#9fd09bc3fb6edda57705cceaeef185be33ba41b9"
 dependencies = [
  "arrayvec",
  "itertools 0.15.0",
@@ -2571,10 +2633,61 @@ dependencies = [
 ]
 
 [[package]]
+name = "dashu"
+version = "0.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "31f6dc24668cbbc8bf423317d90978fdab0eef54130db10eaf01acd20ca74d23"
+dependencies = [
+ "dashu-base 0.6.1",
+ "dashu-cmplx",
+ "dashu-float",
+ "dashu-int 0.6.2",
+ "dashu-macros",
+ "dashu-ratio 0.6.1",
+]
+
+[[package]]
 name = "dashu-base"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a64b04cdfc4c8533100fe00304eb9687173bda47b1f1dac8af12ba13712ed49d"
+
+[[package]]
+name = "dashu-base"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "861a614e79388a4c72aa66b0bdabc91e3a4f30d53e0c8d962953e207d75884d0"
+dependencies = [
+ "num-modular",
+]
+
+[[package]]
+name = "dashu-cmplx"
+version = "0.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "afb1039d10a717fa2584d8428596cf23d9be49be743362d7478b5b2637ca8cb5"
+dependencies = [
+ "dashu-base 0.6.1",
+ "dashu-float",
+ "dashu-int 0.6.2",
+ "num-modular",
+ "num-order",
+ "num-traits",
+]
+
+[[package]]
+name = "dashu-float"
+version = "0.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4be5a53987dee3a7e9e874aad24cd42cf074f0aa1e6b4d1230189837ea672a49"
+dependencies = [
+ "dashu-base 0.6.1",
+ "dashu-int 0.6.2",
+ "num-modular",
+ "num-order",
+ "num-traits",
+ "static_assertions",
+]
 
 [[package]]
 name = "dashu-int"
@@ -2583,11 +2696,41 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b6ee98721d5d223e5b64b642dd9588b79d9ef415554b13720308b77d628c3be6"
 dependencies = [
  "cfg-if",
- "dashu-base",
+ "dashu-base 0.5.1",
  "num-modular",
  "num-traits",
  "rustversion",
  "static_assertions",
+]
+
+[[package]]
+name = "dashu-int"
+version = "0.6.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "64a0490b40a6a3f6427970035f17f76fd59c01d3cd9f9140809672863a0d64c8"
+dependencies = [
+ "cfg-if",
+ "dashu-base 0.6.1",
+ "num-modular",
+ "num-order",
+ "num-traits",
+ "static_assertions",
+]
+
+[[package]]
+name = "dashu-macros"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "91bcbb4860c5b0c8a953b07b2fbb9dec68f7b286938f6670058867d2a38af166"
+dependencies = [
+ "dashu-base 0.6.1",
+ "dashu-cmplx",
+ "dashu-float",
+ "dashu-int 0.6.2",
+ "dashu-ratio 0.6.1",
+ "pastey 0.2.3",
+ "proc-macro2",
+ "quote",
 ]
 
 [[package]]
@@ -2596,10 +2739,24 @@ version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "727613e0312d442301147d9e45eb2e7c2797230fc6d223a2c51ecf0e98dfeb5e"
 dependencies = [
- "dashu-base",
- "dashu-int",
+ "dashu-base 0.5.1",
+ "dashu-int 0.5.1",
  "num-traits",
  "rustversion",
+]
+
+[[package]]
+name = "dashu-ratio"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eb0b7e2610ae7f28b2ab8b09229afedc9cbc7a32e7c647b916a3a49ca00123c1"
+dependencies = [
+ "dashu-base 0.6.1",
+ "dashu-float",
+ "dashu-int 0.6.2",
+ "num-modular",
+ "num-order",
+ "num-traits",
 ]
 
 [[package]]
@@ -3069,6 +3226,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "92773504d58c093f6de2459af4af33faa518c13451eb8f2b5698ed3d36e7c813"
 
 [[package]]
+name = "dylint-non-exhaustive"
+version = "0.0.0"
+dependencies = [
+ "thiserror 2.0.21",
+]
+
+[[package]]
 name = "dylint_internal"
 version = "6.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3448,6 +3612,12 @@ dependencies = [
  "libc",
  "windows-sys 0.61.2",
 ]
+
+[[package]]
+name = "escape8259"
+version = "0.5.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9f1f0d310082fd5de539d4f41601182241147498444a7695c520288a0cdbead6"
 
 [[package]]
 name = "etcetera"
@@ -5200,6 +5370,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
 
 [[package]]
+name = "hexf"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6618f4550dcd7d9ddb5126ab18d48dfa31aa952159cb832390bda464d3bc827e"
+dependencies = [
+ "hexf-parse",
+ "syn 1.0.109",
+]
+
+[[package]]
+name = "hexf-parse"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dfa686283ad6dd069f105e5ab091b04c62850d3e4cf5d67debad1933f55023df"
+
+[[package]]
 name = "highs"
 version = "2.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6721,6 +6907,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "libtest-mimic"
+version = "0.8.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "14e6ba06f0ade6e504aff834d7c34298e5155c6baca353cc6a4aaff2f9fd7f33"
+dependencies = [
+ "anstream",
+ "anstyle",
+ "clap",
+ "escape8259",
+]
+
+[[package]]
 name = "libz-sys"
 version = "1.1.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6783,19 +6981,23 @@ dependencies = [
  "cargo_metadata",
  "clap",
  "clippy_utils",
- "derive-where",
  "derive_more",
+ "dunce",
+ "dylint-non-exhaustive",
  "dylint_linting",
  "fs-err",
  "futures",
  "indexmap 2.14.2",
  "insta",
  "itertools 0.15.0",
+ "litrs",
  "nonempty-collections",
+ "nuts-rs",
  "opentelemetry-otlp",
  "opentelemetry-semantic-conventions",
  "opentelemetry_sdk",
  "rasm-mcp",
+ "rayon",
  "rmcp",
  "serde",
  "serde_json",
@@ -7016,8 +7218,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ddad329fd20646de626e339ea1146de838464060824cb3edd5593d8d061a3f95"
 dependencies = [
  "clipper2-rust",
- "dashu-int",
- "dashu-ratio",
+ "dashu-int 0.5.1",
+ "dashu-ratio 0.5.1",
  "num-traits",
  "rayon",
  "rustc-hash",
@@ -7893,6 +8095,15 @@ name = "num-modular"
 version = "0.6.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bd8e500409e6cd603b03e477c26a6caecdc27ac58979a53e881c75eafc079f44"
+
+[[package]]
+name = "num-order"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "537b596b97c40fcf8056d153049eb22f481c17ebce72a513ec9286e4986d1bb6"
+dependencies = [
+ "num-modular",
+]
 
 [[package]]
 name = "num-rational"
@@ -9396,6 +9607,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "projjson"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "23915cadf994ff5be20c111f5a152eb208ee40fd42b82bec9722dbc69fa1a1bc"
+dependencies = [
+ "num-traits",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "proptest"
 version = "1.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9732,6 +9954,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rand_chacha"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3e6af7f3e25ded52c41df4e0b1af2d047e45896c2f3281792ed68a1c243daedb"
+dependencies = [
+ "ppv-lite86",
+ "rand_core 0.10.1",
+]
+
+[[package]]
 name = "rand_core"
 version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9814,20 +10046,25 @@ name = "rasm-analysis"
 version = "1.0.0"
 dependencies = [
  "almost",
+ "approx 0.6.0-rc2",
  "argmin",
+ "basin",
+ "bilby",
  "csaps",
+ "dashu",
  "derive_more",
  "faer",
  "gauss-quad",
  "itertools 0.15.0",
+ "libm",
  "nalgebra",
  "ndarray 0.17.2",
  "nlopt",
  "nonempty-collections",
  "num-complex 0.4.6",
  "num-dual",
+ "num-traits",
  "nutype",
- "opentelemetry-semantic-conventions",
  "ordered-float",
  "rasm-optimize",
  "rasm-stats",
@@ -9836,7 +10073,6 @@ dependencies = [
  "spade",
  "statrs",
  "thiserror 2.0.21",
- "tracing",
  "validated",
 ]
 
@@ -9861,7 +10097,7 @@ dependencies = [
  "rasm-linework",
  "rust_decimal",
  "skrifa 0.49.0",
- "thiserror 2.0.21",
+ "stacksafe",
  "uom",
  "usvg",
  "validated",
@@ -9881,6 +10117,7 @@ dependencies = [
  "nonempty-collections",
  "parlance",
  "rasm-linework",
+ "stacksafe",
  "strum 0.28.0",
  "thiserror 2.0.21",
  "uom",
@@ -9943,21 +10180,26 @@ dependencies = [
 name = "rasm-dependency"
 version = "1.0.0"
 dependencies = [
+ "derive-where",
  "derive_more",
  "enum-map",
  "itertools 0.15.0",
  "nonempty-collections",
+ "num-traits",
  "petgraph",
  "rustworkx-core",
  "thiserror 2.0.21",
+ "validated",
 ]
 
 [[package]]
 name = "rasm-dynamics"
 version = "1.0.0"
 dependencies = [
+ "approx 0.6.0-rc2",
  "derive_more",
  "diffsol",
+ "enum-map",
  "faer",
  "fmi",
  "itertools 0.15.0",
@@ -9982,6 +10224,7 @@ dependencies = [
  "nalgebra",
  "nlopt",
  "nonempty-collections",
+ "petgraph",
  "rasm-optimize",
  "rasm-stats",
  "rayon",
@@ -9994,6 +10237,7 @@ name = "rasm-ifc"
 version = "1.0.0"
 dependencies = [
  "aws-lc-rs",
+ "bytes",
  "color",
  "data-encoding",
  "data-encoding-macro",
@@ -10017,6 +10261,7 @@ dependencies = [
  "serde_json",
  "serde_path_to_error",
  "serde_with",
+ "smallvec 2.0.0-beta.4",
  "strum 0.28.0",
  "thiserror 2.0.21",
  "tokio",
@@ -10064,6 +10309,7 @@ dependencies = [
 name = "rasm-linework"
 version = "1.0.0"
 dependencies = [
+ "claims",
  "color",
  "derive_more",
  "enum-map",
@@ -10073,10 +10319,12 @@ dependencies = [
  "kurbo",
  "linebender_resource_handle",
  "linesweeper",
+ "nalgebra",
  "nonempty-collections",
  "nutype",
  "parlance",
  "rayon",
+ "stacksafe",
  "thiserror 2.0.21",
  "validated",
 ]
@@ -10156,6 +10404,7 @@ dependencies = [
 name = "rasm-mesh"
 version = "1.0.0"
 dependencies = [
+ "approx 0.6.0-rc2",
  "bounded-integer",
  "derive_more",
  "itertools 0.15.0",
@@ -10193,7 +10442,9 @@ dependencies = [
 name = "rasm-optimize"
 version = "1.0.0"
 dependencies = [
+ "approx 0.6.0-rc2",
  "bounded-integer",
+ "claims",
  "clarabel",
  "derive_more",
  "good_lp",
@@ -10215,6 +10466,7 @@ version = "1.0.0"
 dependencies = [
  "anstream",
  "anstyle",
+ "bstr",
  "clap",
  "comfy-table",
  "crossterm",
@@ -10223,17 +10475,20 @@ dependencies = [
  "indexmap 2.14.2",
  "inquire",
  "itoa",
+ "libtest-mimic",
  "minus",
  "nonempty-collections",
  "rasm-command",
  "rasm-telemetry",
  "serde",
+ "serde-content",
  "serde_json",
  "sysexits",
  "thiserror 2.0.21",
  "tokio",
  "tracing-indicatif",
  "tracing-subscriber",
+ "validated",
  "zmij",
 ]
 
@@ -10241,6 +10496,7 @@ dependencies = [
 name = "rasm-pdf"
 version = "1.0.0"
 dependencies = [
+ "bytemuck",
  "color",
  "derive-where",
  "derive_more",
@@ -10251,6 +10507,7 @@ dependencies = [
  "hayro-syntax 0.9.0",
  "image",
  "image-compare",
+ "indexmap 2.14.2",
  "itertools 0.15.0",
  "jiff",
  "krilla",
@@ -10263,14 +10520,18 @@ dependencies = [
  "nutype",
  "pdf_oxide",
  "rasm-linework",
+ "rasn",
+ "rasn-cms",
  "reqwest",
  "secrecy",
+ "stacksafe",
  "strum 0.28.0",
  "thiserror 2.0.21",
  "tiff",
  "uom",
  "usvg",
  "validated",
+ "vello_common 0.3.0",
  "xot",
 ]
 
@@ -10295,6 +10556,7 @@ name = "rasm-proximity"
 version = "1.0.0"
 dependencies = [
  "bytemuck",
+ "derive-where",
  "derive_more",
  "faer",
  "glamx",
@@ -10365,17 +10627,21 @@ dependencies = [
  "derive_more",
  "geo",
  "geo-types",
+ "geographiclib-rs",
+ "itertools 0.15.0",
  "jiff",
  "nalgebra",
  "nonempty-collections",
  "nutype",
  "proj",
+ "projjson",
  "serde",
  "serde_json",
  "serde_path_to_error",
  "thiserror 2.0.21",
  "tzf-rs",
  "uom",
+ "validated",
 ]
 
 [[package]]
@@ -10393,7 +10659,7 @@ dependencies = [
  "rasm-proximity",
  "rasm-site",
  "rayon",
- "rstar 0.13.1",
+ "rstar 0.14.0",
  "solar-positioning",
  "thiserror 2.0.21",
  "uom",
@@ -10404,9 +10670,12 @@ name = "rasm-spectra"
 version = "1.0.0"
 dependencies = [
  "apodize",
+ "approx 0.6.0-rc2",
  "biquad",
+ "claims",
  "derive_more",
  "faer",
+ "itertools 0.15.0",
  "nalgebra",
  "ndarray 0.17.2",
  "ndarray-conv",
@@ -10414,6 +10683,7 @@ dependencies = [
  "num-complex 0.4.6",
  "nutype",
  "rayon",
+ "realfft",
  "rustfft",
  "thiserror 2.0.21",
  "uom",
@@ -10424,24 +10694,25 @@ name = "rasm-stats"
 version = "1.0.0"
 dependencies = [
  "anyhow",
+ "approx 0.6.0-rc2",
  "average",
  "datasketches",
  "derive_more",
  "itertools 0.15.0",
  "nalgebra",
  "nonempty-collections",
+ "num-complex 0.4.6",
  "num-dual",
  "nuts-rs",
  "nutype",
- "opentelemetry-semantic-conventions",
  "rand 0.10.3",
  "rayon",
+ "rustfft",
  "serde",
  "serde_with",
  "sobol_burley",
  "statrs",
  "thiserror 2.0.21",
- "tracing",
  "validated",
 ]
 
@@ -10472,6 +10743,7 @@ version = "1.0.0"
 dependencies = [
  "clap",
  "derive_more",
+ "enum-map",
  "itertools 0.15.0",
  "json-subscriber",
  "log",
@@ -10482,10 +10754,8 @@ dependencies = [
  "opentelemetry-resource-detectors",
  "opentelemetry-semantic-conventions",
  "opentelemetry_sdk",
- "strum 0.28.0",
  "sysexits",
  "thiserror 2.0.21",
- "tokio",
  "tracing",
  "tracing-log",
  "tracing-opentelemetry",
@@ -10499,9 +10769,11 @@ version = "1.0.0"
 dependencies = [
  "cap-std",
  "derive_more",
+ "indexmap 2.14.2",
  "itertools 0.15.0",
  "jiff",
  "merman",
+ "nonempty-collections",
  "opentelemetry-semantic-conventions",
  "png",
  "rayon",
@@ -10550,11 +10822,14 @@ dependencies = [
 name = "rasm-weather"
 version = "1.0.0"
 dependencies = [
+ "approx 0.6.0-rc2",
  "bounded-integer",
  "csv",
+ "dashu",
  "derive_more",
  "gauss-quad",
  "grib",
+ "indexmap 2.14.2",
  "itertools 0.15.0",
  "jiff",
  "nalgebra",
@@ -10573,6 +10848,7 @@ dependencies = [
  "statrs",
  "thermalcomfort",
  "thiserror 2.0.21",
+ "twofloat",
  "uom",
  "validated",
 ]
@@ -10592,6 +10868,72 @@ dependencies = [
  "spreadsheet-ods",
  "thiserror 2.0.21",
  "umya-spreadsheet",
+]
+
+[[package]]
+name = "rasn"
+version = "0.30.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8099261c639cababe4b27ab20fb3f9c7cef5e014a12bc63a0fc09a1b90d7751b"
+dependencies = [
+ "bitvec",
+ "bytes",
+ "cfg-if",
+ "chrono",
+ "either",
+ "nom 7.1.3",
+ "num-bigint 0.4.8",
+ "num-integer",
+ "num-traits",
+ "once_cell",
+ "rasn-derive",
+ "serde_json",
+ "snafu",
+ "xml-no-std",
+]
+
+[[package]]
+name = "rasn-cms"
+version = "0.30.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77cb7561aedcf64e4a5e7457ec4fa56864732d3fe0d7f2b34d9987f865fbabae"
+dependencies = [
+ "rasn",
+ "rasn-pkix",
+]
+
+[[package]]
+name = "rasn-derive"
+version = "0.30.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ffcc5d3631747eae0d97d3444c479135c037de13f0701a7ea60732a25eb7ac97"
+dependencies = [
+ "proc-macro2",
+ "rasn-derive-impl",
+ "syn 2.0.119",
+]
+
+[[package]]
+name = "rasn-derive-impl"
+version = "0.30.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f55d80a38e4e6a8e435cf61e1144f62219fb7ea3c5bd682e216cb4c32c363114"
+dependencies = [
+ "either",
+ "itertools 0.13.0",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
+ "uuid",
+]
+
+[[package]]
+name = "rasn-pkix"
+version = "0.30.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "19996a5f78f6a4196cbab57cc56cf8be96c6c8f0fb7ce4710c8e9f74b614e235"
+dependencies = [
+ "rasn",
 ]
 
 [[package]]
@@ -11228,6 +11570,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "rstar"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d95c33d01e9acee7be3363f99e9ef88b1a587186e81e03843fbe39d77d9a0c1f"
+dependencies = [
+ "heapless 0.9.3",
+ "num-traits",
+ "ordered-float",
+ "smallvec 1.16.4",
+]
+
+[[package]]
 name = "rtree_rs"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -11687,6 +12041,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde-content"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3753ca04f350fa92d00b6146a3555e63c55388c9ef2e11e09bce2ff1c0b509c6"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "serde_arrow"
 version = "0.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -12127,6 +12490,7 @@ version = "2.0.0-beta.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d1a521aaffa9ff9b9f5c7f50a8eb60aebd11d6467d43684128d5552f6ce02003"
 dependencies = [
+ "serde_core",
  "smallvec-macro",
 ]
 
@@ -12135,6 +12499,27 @@ name = "smallvec-macro"
 version = "0.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8aa3a1ebad7c7d912534fac818e45203fe094907e97806786285f8f440222e5a"
+
+[[package]]
+name = "snafu"
+version = "0.8.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6e84b3f4eacbf3a1ce05eac6763b4d629d60cbc94d632e4092c54ade71f1e1a2"
+dependencies = [
+ "snafu-derive",
+]
+
+[[package]]
+name = "snafu-derive"
+version = "0.8.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c1c97747dbf44bb1ca44a561ece23508e99cb592e862f22222dcf42f51d1e451"
+dependencies = [
+ "heck",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
+]
 
 [[package]]
 name = "snap"
@@ -12289,6 +12674,27 @@ dependencies = [
  "libc",
  "psm",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "stacksafe"
+version = "1.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "95f9c34983ac74195c710c473db6fdf1085f64a47dbaa0090d1bea03be70da66"
+dependencies = [
+ "stacker",
+ "stacksafe-macro",
+]
+
+[[package]]
+name = "stacksafe-macro"
+version = "1.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6feeae42a2d6b0dcb8aeb2f08d9e48cdac600239cf8a20fc59f9e252e86bdfe1"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 3.0.9",
 ]
 
 [[package]]
@@ -13495,6 +13901,17 @@ dependencies = [
  "serde",
  "serde_derive",
  "syntect",
+]
+
+[[package]]
+name = "twofloat"
+version = "0.8.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2f25f7bfd28a043cba51ea618ad2d29c5fa991a1237a4c0b592b466fbbb60c5c"
+dependencies = [
+ "hexf",
+ "libm",
+ "num-traits",
 ]
 
 [[package]]
@@ -15208,6 +15625,12 @@ name = "xhtmlchardet"
 version = "2.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "acc471704e8954f426350a7300e92a4da6932b762068ae8e6aa5dcacf141e133"
+
+[[package]]
+name = "xml-no-std"
+version = "0.8.26"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cd223bc94c615fc02bf2f4bbc22a4a9bfe489c2add3ec10b1038df3aca44cac7"
 
 [[package]]
 name = "xml-rs"

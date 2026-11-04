@@ -40,27 +40,25 @@ public abstract partial record CoordinateMap {
     public Fin<PixelFrame> Resample(PixelFrame source, PixelExtent extent) =>
         Try.lift(() => Sampled(new PixelFrame(Point.Empty, extent, extent), source, [(this, Vector4.One)])).Run();
 
-    public PixelFrame ToSTMap(PixelExtent extent) {
-        PixelFrame map = new(Point.Empty, extent, extent);
+    public PixelFrame ToSTMap(PixelExtent output, PixelExtent source) {
+        PixelFrame map = new(Point.Empty, output, output);
         map.Rows((row, x, y) => {
             using SpanOwner<Vector2> points = SpanOwner<Vector2>.Allocate(row.Length);
             using SpanOwner<float> coverage = SpanOwner<float>.Allocate(row.Length);
-            Traced(x, y, extent, extent, points.Span, coverage.Span);
+            Traced(x, y, output, source, points.Span, coverage.Span);
             for (int column = 0; column < row.Length; column++)
-                row[column] = new Vector4(points.Span[column].X / extent.Width, 1f - (points.Span[column].Y / extent.Height), coverage.Span[column], coverage.Span[column]);
+                row[column] = new Vector4(points.Span[column].X / source.Width, 1f - (points.Span[column].Y / source.Height), coverage.Span[column], coverage.Span[column]);
         });
         return map;
     }
 
-    public static PixelPass.Frame Integrated(Func<double, (CoordinateMap Map, Vector4 Gains)> path, params Func<double, (CoordinateMap Map, Vector4 Gains)>[] additional) {
-        Seq<Func<double, (CoordinateMap Map, Vector4 Gains)>> paths = path.Cons(toSeq(additional));
-        return new((frame, progress) => new GaussLegendreRule(0d, 1d, int.Max(1, (int)double.Ceiling(double.Pi / 2d * paths.Max(path => Travel(path, frame.Extent))))) switch {
-            var rule => Run(frame, progress, toSeq(
+    public static PixelPass.Frame Integrated(GaussLegendreRule rule, Func<double, Fin<(CoordinateMap Map, Vector4 Gains)>> path, params Func<double, Fin<(CoordinateMap Map, Vector4 Gains)>>[] additional) {
+        Seq<Func<double, Fin<(CoordinateMap Map, Vector4 Gains)>>> paths = path.Cons(toSeq(additional));
+        return new((frame, progress) => toSeq(
                 from each in paths
                 from step in Enumerable.Range(0, rule.Order)
-                let sample = each(rule.GetAbscissa(step))
-                select (sample.Map, sample.Gains * (float)rule.GetWeight(step)))),
-        });
+                select each(rule.GetAbscissa(step)).Map(sample => (sample.Map, sample.Gains * (float)rule.GetWeight(step))))
+            .Traverse(static sample => sample).As().Bind(samples => Run(frame, progress, samples)));
     }
 
     internal abstract void Trace(Span<Vector2> points, Span<float> coverage, PixelExtent output, PixelExtent source);
@@ -104,16 +102,6 @@ public abstract partial record CoordinateMap {
         coverage.Fill(1f);
         Trace(points, coverage, output, source);
         Bound(points, coverage, source);
-    }
-
-    private static double Travel(Func<double, (CoordinateMap Map, Vector4 Gains)> path, PixelExtent extent) {
-        Span<Vector2> corners = stackalloc Vector2[12];
-        Span<float> coverage = stackalloc float[4];
-        double travel = 0d;
-        for (int at = 0; at < corners.Length; at++) corners[at] = new Vector2((at & 1) is 0 ? 0.5f : extent.Width - 0.5f, (at & 2) is 0 ? 0.5f : extent.Height - 0.5f);
-        for (int at = 0; at < 3; at++) path(at / 2d).Map.Trace(corners.Slice(4 * at, 4), coverage, extent, extent);
-        for (int at = 0; at < 4; at++) travel = double.Max(travel, Vector2.Distance(corners[at], corners[at + 4]) + Vector2.Distance(corners[at + 4], corners[at + 8]));
-        return travel;
     }
 
     private static Fin<Unit> Run(PixelFrame frame, Option<IProgress<int>> progress, Seq<(CoordinateMap Map, Vector4 Gains)> subframes) =>
@@ -222,12 +210,14 @@ public abstract partial record CoordinateMap {
                 },
                 None: () => distorted);
 
-        public static PixelPass.Frame Dispersed(Projection.Rectilinear output, Projection.Rectilinear input, double dispersion, Sampling sampling, (WrapMode Across, WrapMode Down) wrap) {
+        public static PixelPass.Frame Dispersed(GaussLegendreRule rule, Projection.Rectilinear output, Projection.Rectilinear input, double dispersion, Sampling sampling, (WrapMode Across, WrapMode Down) wrap) {
             return Integrated(
-                t => (Shifted(double.Lerp(-dispersion / 4d, 0d, t)), new Vector4((float)(1d - t), (float)t, 0f, 1f)),
-                t => (Shifted(double.Lerp(0d, dispersion / 4d, t)), new Vector4(0f, (float)(1d - t), (float)t, 1f)));
+                rule,
+                t => Shifted(double.Lerp(-dispersion / 4d, 0d, t), new Vector4((float)(1d - t), (float)t, 0f, 1f)),
+                t => Shifted(double.Lerp(0d, dispersion / 4d, t), new Vector4(0f, (float)(1d - t), (float)t, 1f)));
 
-            Reprojection Shifted(double shift) => new(Lensed(output, shift), Lensed(input, shift), Quaternion.Identity, sampling, wrap);
+            Fin<(CoordinateMap Map, Vector4 Gains)> Shifted(double shift, Vector4 gains) =>
+                (new Reprojection(Lensed(output, shift), Lensed(input, shift), Quaternion.Identity, sampling, wrap), gains);
 
             static Projection.Rectilinear Lensed(Projection.Rectilinear projection, double shift) =>
                 projection with { Distortion = projection.Distortion.Map(lens => new LensDistortion(lens.K1 + shift, lens.K2, lens.P1, lens.P2, lens.K3)) };

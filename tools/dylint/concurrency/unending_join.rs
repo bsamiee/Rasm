@@ -1,16 +1,35 @@
 use core::ops::ControlFlow;
 
-use clippy_utils::{diagnostics::span_lint_hir_and_then, fn_def_id, paths::PathNS, peel_hir_expr_while, res::MaybeResPath as _, visitors::for_each_expr};
-use rustc_data_structures::fx::FxHashSet;
+use clippy_utils::{
+    desugar_await,
+    diagnostics::span_lint_hir_and_then,
+    expr_or_init, fn_def_id, get_parent_expr,
+    macros::macro_backtrace,
+    paths::PathNS,
+    peel_hir_expr_while,
+    res::{MaybeDef as _, MaybeQPath as _, MaybeResPath as _},
+    sym,
+    visitors::for_each_expr_without_closures,
+};
+use itertools::Either;
+use rustc_data_structures::fx::{FxHashMap, FxHashSet};
 use rustc_hir::{
-    Expr, ExprKind, HirId, LetStmt, Node, Pat, PatKind,
+    Body, Expr, ExprKind, HirId, LetStmt, Mutability, Node, Pat, PatKind,
     def::{DefKind, Res},
-    def_id::DefId,
+    def_id::{DefId, LocalDefId},
 };
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_middle::ty::{self, Ty, TyCtxt};
+use rustc_middle::ty::{self, TyCtxt, UpvarCapture};
 
-use crate::{Access, access, any_expr, expanded_externally, item_path, paths, signature};
+use crate::{Access, access, expanded_externally, impl_owner, item_path, paths, signature};
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+#[derive(Default)]
+struct BodyUses {
+    invalidated: FxHashSet<HirId>,
+    joined: FxHashMap<HirId, FxHashSet<HirId>>,
+}
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -21,9 +40,10 @@ pub(crate) struct Pass {
     drains: FxHashSet<DefId>,
     streams: FxHashSet<DefId>,
     wrappers: FxHashSet<DefId>,
-    bounded: FxHashSet<DefId>,
+    senders: FxHashSet<DefId>,
     subscriptions: FxHashSet<DefId>,
     channels: FxHashSet<DefId>,
+    bodies: FxHashMap<LocalDefId, BodyUses>,
 }
 
 lint!(Pass; UNENDING_JOIN: "joined futures draining a `watch` or `broadcast` stream with a sender that outlives the join");
@@ -32,22 +52,10 @@ impl Pass {
     pub(crate) fn new(tcx: TyCtxt<'_>) -> Self {
         let outputs = |methods: &FxHashSet<DefId>| methods.iter().filter_map(|&method| Some(signature(tcx, method).output().ty_adt_def()?.did())).collect::<FxHashSet<_>>();
         let wrappers = paths(tcx, PathNS::Value, &["tokio_stream::wrappers::WatchStream::new", "tokio_stream::wrappers::WatchStream::from_changes", "tokio_stream::wrappers::BroadcastStream::new"]);
+        let subscriptions = paths(tcx, PathNS::Value, &["tokio::sync::watch::Sender::subscribe", "tokio::sync::broadcast::Sender::subscribe"]);
         Self {
-            joins: paths(
-                tcx,
-                PathNS::Value,
-                &[
-                    "futures::future::join",
-                    "futures::future::join3",
-                    "futures::future::join4",
-                    "futures::future::join5",
-                    "futures::future::try_join",
-                    "futures::future::try_join3",
-                    "futures::future::try_join4",
-                    "futures::future::try_join5",
-                ],
-            ),
-            join_macros: paths(tcx, PathNS::Macro, &["tokio::join", "tokio::try_join", "futures::join", "futures::try_join"]),
+            joins: paths(tcx, PathNS::Value, &["futures::future::join", "futures::future::join3", "futures::future::join4", "futures::future::join5"]),
+            join_macros: paths(tcx, PathNS::Macro, &["tokio::join", "futures::join"]),
             maybe_done: paths(tcx, PathNS::Value, &["futures::future::maybe_done", "tokio::macros::support::maybe_done"]),
             drains: paths(
                 tcx,
@@ -59,151 +67,171 @@ impl Pass {
                     "futures::stream::StreamExt::fold",
                     "futures::stream::StreamExt::for_each",
                     "futures::stream::StreamExt::for_each_concurrent",
-                    "futures::stream::StreamExt::forward",
                     "futures::stream::StreamExt::unzip",
-                    "futures::stream::TryStreamExt::try_collect",
-                    "futures::stream::TryStreamExt::try_concat",
-                    "futures::stream::TryStreamExt::try_fold",
-                    "futures::stream::TryStreamExt::try_for_each",
-                    "futures::stream::TryStreamExt::try_for_each_concurrent",
-                    "tokio_stream::StreamExt::collect",
                     "tokio_stream::StreamExt::fold",
                 ],
             ),
             streams: outputs(&wrappers),
             wrappers,
-            bounded: outputs(&paths(
-                tcx,
-                PathNS::Value,
-                &[
-                    "futures::stream::StreamExt::scan",
-                    "futures::stream::StreamExt::take",
-                    "futures::stream::StreamExt::take_until",
-                    "futures::stream::StreamExt::take_while",
-                    "futures::stream::StreamExt::zip",
-                    "tokio_stream::StreamExt::map_while",
-                    "tokio_stream::StreamExt::take",
-                    "tokio_stream::StreamExt::take_while",
-                ],
-            )),
-            subscriptions: paths(tcx, PathNS::Value, &["tokio::sync::watch::Sender::subscribe", "tokio::sync::broadcast::Sender::subscribe"]),
+            senders: subscriptions.iter().filter_map(|&method| impl_owner(tcx, method).opt_def_id()).collect(),
+            subscriptions,
             channels: paths(tcx, PathNS::Value, &["tokio::sync::watch::channel", "tokio::sync::broadcast::channel"]),
+            bodies: FxHashMap::default(),
         }
     }
 }
 
+// --- [COMPOSITION] ---------------------------------------------------------------------
+
 impl<'tcx> LateLintPass<'tcx> for Pass {
-    fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
-        fn outlives(cx: &LateContext<'_>, binding: HirId) -> bool {
-            let tcx = cx.tcx;
-            let scope = tcx.hir_enclosing_body_owner(binding);
-            cx.typeck_results().node_type(binding).is_ref()
-                || !any_expr(tcx, tcx.hir_body_owned_by(scope), |mention| {
-                    mention.res_local_id() == Some(binding)
-                        && (tcx.hir_enclosing_body_owner(mention.hir_id) != scope
-                            || match access(cx, mention) {
-                                Access::Borrowed | Access::Mutated | Access::Copied => false,
-                                Access::Moved | Access::Assigned(_) => true,
-                            })
-                })
-        }
-        let streamed = |drained: Ty<'tcx>| {
-            let (mut walker, mut streamed) = (drained.walk(), None);
-            while let Some(argument) = walker.next() {
-                match argument.as_type().map(Ty::kind) {
-                    Some(ty::Closure(..) | ty::CoroutineClosure(..) | ty::Coroutine(..)) => walker.skip_current_subtree(),
-                    Some(ty::Adt(adapter, _)) if self.bounded.contains(&adapter.did()) => return None,
-                    Some(ty::Adt(stream, _)) if self.streams.contains(&stream.did()) => streamed = Some(stream.did()),
-                    _ => {}
-                }
+    fn check_body(&mut self, cx: &LateContext<'tcx>, body: &Body<'tcx>) {
+        if for_each_expr_without_closures(body.value, |part| {
+            if matches!(part.kind, ExprKind::Call(..)) && fn_def_id(cx, part).is_some_and(|called| self.joins.contains(&called) || self.maybe_done.contains(&called)) {
+                ControlFlow::Break(())
+            } else {
+                ControlFlow::Continue(())
             }
-            streamed
+        })
+        .is_some()
+        {
+            self.bodies.insert(cx.tcx.hir_body_owner_def_id(body.id()), BodyUses::default());
+        }
+    }
+
+    fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
+        fn moved_capture<'tcx>(cx: &LateContext<'tcx>, capture: &ty::CapturedPlace<'tcx>) -> bool {
+            let captured = capture.place.ty();
+            match capture.info.capture_kind {
+                UpvarCapture::ByValue => !cx.type_is_copy_modulo_regions(captured),
+                UpvarCapture::ByUse => !cx.type_is_copy_modulo_regions(captured) && !cx.type_is_use_cloned_modulo_regions(captured),
+                UpvarCapture::ByRef(ty::BorrowKind::Immutable) => false,
+                UpvarCapture::ByRef(ty::BorrowKind::UniqueImmutable | ty::BorrowKind::Mutable) => true,
+            }
+        }
+
+        let body_owner = cx.tcx.hir_enclosing_body_owner(expr.hir_id);
+        let Some(uses) = self.bodies.get_mut(&body_owner) else { return };
+        let native_sender = |binding: HirId| {
+            let declared = cx.typeck_results().node_type(binding);
+            let held = match declared.kind() {
+                ty::Adt(wrapper, args) if wrapper.is_box() || matches!(wrapper.opt_diag_name(cx), Some(sym::Arc | sym::Rc)) => args.type_at(0),
+                _ => declared,
+            };
+            held.opt_def_id().is_some_and(|sender| self.senders.contains(&sender))
+        };
+        let invalidated = |expression| match access(cx, expression) {
+            Access::Moved | Access::Assigned(_) | Access::Mutated => true,
+            Access::Copied | Access::Borrowed => false,
+        };
+        if let Some(binding) = expr.res_local_id()
+            && native_sender(binding)
+            && invalidated(expr)
+        {
+            uses.invalidated.insert(binding);
+        }
+        if let ExprKind::Closure(closure) = expr.kind {
+            uses.invalidated.extend(
+                cx.tcx.closure_captures(closure.def_id).iter().filter(|capture| native_sender(capture.get_root_variable()) && moved_capture(cx, capture)).map(|capture| capture.get_root_variable()),
+            );
+        }
+        let inherited = |binding| cx.tcx.is_closure_like(body_owner.to_def_id()) && cx.tcx.closure_captures(body_owner).iter().any(|capture| capture.get_root_variable() == binding);
+        let live_owner = |binding| match cx.typeck_results().node_type(binding).kind() {
+            ty::Adt(..) if native_sender(binding) => cx.tcx.hir_enclosing_body_owner(binding) == body_owner || inherited(binding),
+            ty::Ref(_, _, Mutability::Not) => inherited(binding),
+            _ => false,
         };
         let channeled =
             |tuple: HirId| matches!(cx.tcx.parent_hir_node(tuple), Node::LetStmt(LetStmt { init: Some(init), .. }) if fn_def_id(cx, init).is_some_and(|built| self.channels.contains(&built)));
         let sender = |subscribed: &'tcx Expr<'tcx>| {
-            reach(cx, subscribed, |part| match (part.kind, part.res_local_id().map(|received| cx.tcx.parent_hir_node(received))) {
-                (ExprKind::MethodCall(_, sender, ..), _) if fn_def_id(cx, part).is_some_and(|method| self.subscriptions.contains(&method)) => {
+            let subscribed = expr_or_init(cx, subscribed);
+            match (subscribed.kind, subscribed.res_local_id().map(|received| cx.tcx.parent_hir_node(received))) {
+                (ExprKind::MethodCall(_, sender, ..), _) if fn_def_id(cx, subscribed).is_some_and(|method| self.subscriptions.contains(&method)) => {
                     let base = peel_hir_expr_while(sender, |step| match step.kind {
                         ExprKind::Field(base, _) => Some(base),
                         _ => None,
                     });
-                    match base.kind {
-                        ExprKind::Path(qpath) => match cx.qpath_res(&qpath, base.hir_id) {
-                            Res::Local(binding) => Some((Some(binding), sender.span)),
-                            Res::Def(DefKind::Static { .. }, _) => Some((None, sender.span)),
-                            _ => None,
-                        },
+                    let base = if cx.typeck_results().expr_ty(base).is_ref() { expr_or_init(cx, base).peel_borrows() } else { base };
+                    match base.res(cx.typeck_results()) {
+                        Res::Local(binding) if live_owner(binding) => Some((Some(binding), sender.span)),
+                        Res::Def(DefKind::Static { mutability: Mutability::Not, .. }, _) => Some((None, sender.span)),
                         _ => None,
                     }
                 }
-                (_, Some(Node::Pat(&Pat { kind: PatKind::Tuple([Pat { kind: PatKind::Binding(_, binding, ..), span, .. }, ..], _), hir_id, .. }))) if channeled(hir_id) =>
+                (_, Some(Node::Pat(&Pat { kind: PatKind::Tuple([Pat { kind: PatKind::Binding(_, binding, ..), span, .. }, ..], _), hir_id, .. }))) if channeled(hir_id) && live_owner(*binding) =>
                     Some((Some(*binding), *span)),
                 _ => None,
-            })
+            }
         };
         if let ExprKind::Call(_, operands) = expr.kind
-            && let Some(join) = fn_def_id(cx, expr).and_then(|called| {
+            && let Some((join, expansion)) = fn_def_id(cx, expr).and_then(|called| {
                 if self.joins.contains(&called) {
-                    (!expanded_externally(cx, expr.span)).then(|| item_path(cx, called))
+                    (!expanded_externally(cx, expr.span)).then_some((called, None))
                 } else if self.maybe_done.contains(&called) {
-                    expr.span
-                        .macro_backtrace()
-                        .filter_map(|expansion| Some((expansion.macro_def_id.filter(|written| self.join_macros.contains(written))?, expansion.call_site)))
+                    macro_backtrace(expr.span)
+                        .filter(|expansion| self.join_macros.contains(&expansion.def_id))
                         .last()
-                        .filter(|&(_, call_site)| !expanded_externally(cx, call_site))
-                        .map(|(written, _)| format!("{}!", cx.tcx.item_name(written)))
+                        .filter(|expansion| !expanded_externally(cx, expansion.span))
+                        .map(|expansion| (expansion.def_id, Some(expansion.expn)))
                 } else {
                     None
                 }
             })
+            && (expansion.is_some()
+                || get_parent_expr(cx, expr).and_then(|parent| get_parent_expr(cx, parent)).is_some_and(|awaited| desugar_await(awaited).is_some_and(|future| future.hir_id == expr.hir_id)))
         {
-            let drains = operands.iter().filter_map(|operand| {
-                reach(cx, operand, |part| match part.kind {
-                    ExprKind::MethodCall(method, receiver, ..) if fn_def_id(cx, part).is_some_and(|drained| self.drains.contains(&drained)) => streamed(cx.typeck_results().expr_ty_adjusted(receiver))
-                        .zip(reach(cx, receiver, |built| match built.kind {
-                            ExprKind::Call(_, [subscribed]) if fn_def_id(cx, built).is_some_and(|wrapper| self.wrappers.contains(&wrapper)) => sender(subscribed),
-                            _ => None,
-                        }))
-                        .map(|(stream, held)| (part, method.ident, stream, held)),
-                    _ => None,
+            let evaluated = expansion
+                .and_then(|expansion| {
+                    cx.tcx
+                        .hir_parent_iter(expr.hir_id)
+                        .filter_map(|(_, node)| if let Node::Expr(parent) = node { Some(parent) } else { None })
+                        .take_while(|parent| parent.span.ctxt().outer_expn().is_descendant_of(expansion))
+                        .last()
                 })
+                .unwrap_or(expr);
+            let moved_during = uses.joined.entry(evaluated.hir_id).or_insert_with(|| {
+                let mut moved = FxHashSet::default();
+                let _: Option<()> = for_each_expr_without_closures(evaluated, |part| {
+                    moved.extend(match part.kind {
+                        ExprKind::Closure(closure) => Either::Left(
+                            cx.tcx
+                                .closure_captures(closure.def_id)
+                                .iter()
+                                .filter(|capture| native_sender(capture.get_root_variable()) && moved_capture(cx, capture))
+                                .map(|capture| capture.get_root_variable()),
+                        ),
+                        _ => Either::Right(part.res_local_id().filter(|&binding| native_sender(binding) && invalidated(part)).into_iter()),
+                    });
+                    ControlFlow::Continue(())
+                });
+                moved
             });
-            for (drain, method, stream, (_, held)) in drains.filter(|&(.., (holder, _))| holder.is_none_or(|binding| outlives(cx, binding))) {
+            let outlives = |binding| !uses.invalidated.contains(&binding) && !moved_during.contains(&binding);
+            let join = if expansion.is_some() { format!("{}!", cx.tcx.item_name(join)) } else { item_path(cx, join) };
+            let drains = operands.iter().filter_map(|operand| {
+                let drain = expr_or_init(cx, operand);
+                let ExprKind::MethodCall(method, receiver, ..) = drain.kind else { return None };
+                self.drains.contains(&fn_def_id(cx, drain)?).then_some(())?;
+                let stream = cx.typeck_results().expr_ty_adjusted(receiver).peel_refs().opt_def_id().filter(|stream| self.streams.contains(stream))?;
+                let built = expr_or_init(cx, receiver);
+                let ExprKind::Call(_, [subscribed]) = built.kind else { return None };
+                self.wrappers.contains(&fn_def_id(cx, built)?).then_some(())?;
+                Some((drain, method.ident, stream, sender(subscribed)?))
+            });
+            for (drain, method, stream, (_, held)) in drains.filter(|&(.., (holder, _))| holder.is_none_or(outlives)) {
                 span_lint_hir_and_then(
                     cx,
                     UNENDING_JOIN,
                     drain.hir_id,
                     drain.span,
-                    format!("`{method}` over `{}` never completes while a sender outlives `{join}`", cx.tcx.item_name(stream)),
+                    format!("`{method}` over `{}` can keep `{join}` pending while a sender remains alive", cx.tcx.item_name(stream)),
                     |diag| {
                         diag.span_note(held, "sender held here");
-                        diag.help(format!("race `{method}` against the other futures through `futures::future::select` in place of `{join}`"));
+                        diag.help(format!("pin the futures, combine any remaining futures, and race `{method}` against them through `futures::future::select` in place of `{join}`"));
                     },
                 );
             }
         }
     }
-}
 
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-fn reach<'tcx, B, F>(cx: &LateContext<'tcx>, root: &'tcx Expr<'tcx>, mut found: F) -> Option<B>
-where F: FnMut(&'tcx Expr<'tcx>) -> Option<B> {
-    let (mut pending, mut seen) = (vec![root], FxHashSet::default());
-    while let Some(next) = pending.pop() {
-        let hit = for_each_expr(cx.tcx, next, |part| {
-            if let Some(binding) = part.res_local_id()
-                && seen.insert(binding)
-                && let Node::LetStmt(LetStmt { init: Some(init), .. }) = cx.tcx.parent_hir_node(binding)
-            {
-                pending.push(init);
-            }
-            found(part).map_or(ControlFlow::Continue(()), ControlFlow::Break)
-        });
-        if hit.is_some() {
-            return hit;
-        }
-    }
-    None
+    fn check_body_post(&mut self, cx: &LateContext<'tcx>, body: &Body<'tcx>) { self.bodies.remove(&cx.tcx.hir_body_owner_def_id(body.id())); }
 }

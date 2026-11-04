@@ -5,18 +5,18 @@ from functools import partial
 from pathlib import PurePath
 
 import bpy
-from expression import Nothing, Ok, Option, Some
+from expression import Option, Some
 from expression.collections import Block
 
 from blender.bpy.data.rna.conditions import Scoped
 from blender.bpy.data.rna.descriptors import Descriptor
 from blender.bpy.data.rna.paths import definition, Native, RnaPath, Struct
 from blender.bpy.extension.identity import Identity
-from blender.bpy.extension.registration import Acquisitions
+from blender.bpy.extension.registration import acquired, Acquisitions
 from blender.bpy.extension.reports import alerted
-from blender.bpy.ui.layout.members import marked, Member, ResolvedMember
-from blender.bpy.ui.layout.rows import acquired, ConditionalRow, Property, realized, RowContent, RowDraw, split
-from blender.records.faults import accumulated, Fault, Outcome, paired, Reason
+from blender.bpy.ui.layout.members import marked
+from blender.bpy.ui.layout.rows import ConditionalRow, realized, RowContent, RowDraw, split
+from blender.records.faults import accumulated, Fault, Nothing, Ok, Outcome, paired, Reason
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -43,13 +43,9 @@ class SettingsTable(ConditionalRow, frozen=True, kw_only=True):
         kinds = tuple(kind for kind, _ in self.compound)
 
         def celled(setting: Descriptor) -> Outcome[tuple[Descriptor, RowDraw]]:
-            action = self.action.map(lambda build: build(identity, setting).map(Some)).default_value(Ok(Nothing))
-            match Block.of_seq(self.compound).filter(lambda pair: isinstance(setting.prop, bpy.types.PointerProperty) and isinstance(setting.prop.fixed_type, pair[0])).try_head():
-                case Option(tag="some", some=(_, place)):
-                    cell = action.map(lambda extra: partial(_edited, setting, place, extra))
-                case _:
-                    cell = paired(Property(target=Member(root=owner_type, path=setting.path), keywords={"text": ""}).drawn(identity), action).map(lambda parts: partial(_beside, *parts))
-            return cell.map(lambda draw: (setting, draw))
+            action = accumulated(build(identity, setting) for build in self.action.to_list())
+            editor = Block.of_seq(self.compound).filter(lambda pair: isinstance(setting.prop, bpy.types.PointerProperty) and isinstance(setting.prop.fixed_type, pair[0])).try_head()
+            return action.map(lambda extra: (setting, editor.map(lambda pair: partial(_edited, setting, pair[1], extra)).default_with(lambda: partial(_beside, setting, extra))))
 
         named = Option.of_optional(definition(owner_type).name_property).to_result_with(lambda: Fault.of(Reason.ABSENT, owner_type.__name__, member="name_property"))
         settings = accumulated(Descriptor.resolve(owner_type, path, bpy.types.Property) for path in self.settings).map(lambda found: tuple(leaf for each in found for leaf in each.leaves(kinds)))
@@ -108,9 +104,9 @@ class TreeTable[L: Struct, C: Struct](ConditionalRow, frozen=True, kw_only=True)
         """Mark rows."""
         return self.marks
 
-    def acquisitions(self, _identity: Identity, /) -> Outcome[Acquisitions]:
+    def acquisitions(self, _identity: Identity, /) -> Acquisitions:
         """Acquires the mark rows."""
-        return Ok(acquired(self.marks))
+        return acquired(self.marks)
 
     def drawn(self, identity: Identity, /) -> Outcome[RowDraw]:
         """Realizes the marks once into the tree draw."""
@@ -144,19 +140,20 @@ def _grid(layout: bpy.types.UILayout, columns: int) -> tuple[bpy.types.UILayout,
     return names, values.grid_flow(row_major=True, columns=columns, even_columns=True, align=True)
 
 
-def _edited(setting: Descriptor, place: Editor, action: Option[RowDraw], layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
+def _edited(setting: Descriptor, place: Editor, action: tuple[RowDraw, ...], layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
     """Draws a compound setting through its editor at each located owner, its action row first."""
-    for owner, key in ResolvedMember(descriptor=setting).at(holder, context).to_list():
-        for draw in action.to_list():
+    for owner in setting.owner_of(context, Some(holder)).to_list():
+        for draw in action:
             draw(layout.row(align=True), holder, context)
-        place(layout, owner, key)
+        place(layout, owner, setting.prop.identifier)
 
 
-def _beside(field: RowDraw, action: Option[RowDraw], layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
+def _beside(setting: Descriptor, action: tuple[RowDraw, ...], layout: bpy.types.UILayout, holder: Struct, context: bpy.types.Context) -> None:
     """Draws a field with its action after it in one row."""
-    line = layout.row(align=True) if action.is_some() else layout
-    field(line, holder, context)
-    for draw in action.to_list():
+    line = layout.row(align=True) if action else layout
+    for owner in setting.owner_of(context, Some(holder)).to_list():
+        line.prop(owner, setting.prop.identifier, text="", index=setting.index.default_value(-1))
+    for draw in action:
         draw(line, holder, context)
 
 

@@ -76,35 +76,41 @@ public sealed class ThinktectureAnalyzer : RasmAnalyzer {
 
     // --- [CATCH_ALLS]
     private static void CatchAlls(CompilationStartAnalysisContext context, ImmutableArray<INamedTypeSymbol> marks, INamedTypeSymbol adHoc, INamedTypeSymbol keyed) {
-        AttributeData? Mark(ITypeSymbol? type) => type?.GetAttributes().FirstOrDefault(data => marks.Any(mark => Derives(data.AttributeClass, mark)));
-        INamedTypeSymbol? Marked(ITypeSymbol? type) =>
-            type switch {
-                INamedTypeSymbol { IsTupleType: true } tuple => tuple.TupleElements.Select(element => Marked(element.Type)).FirstOrDefault(static found => found is not null),
-                INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } nullable => Marked(nullable.TypeArguments[0]),
-                INamedTypeSymbol named when Mark(named) is not null => named,
-                _ => null,
-            };
-        (INamedTypeSymbol Owner, Func<IOperation, bool> Case)? Closed(IOperation subject) =>
+        ConcurrentDictionary<ITypeSymbol, AttributeData?> attributes = new(SymbolEqualityComparer.Default);
+        AttributeData? Mark(ITypeSymbol type) => attributes.GetOrAdd(type, held => held.GetAttributes().FirstOrDefault(data => marks.Any(mark => Derives(data.AttributeClass, mark))));
+        INamedTypeSymbol? Marked(ITypeSymbol? type, CancellationToken token) {
+            Stack<ITypeSymbol> pending = new(type is null ? [] : [type]);
+            while (pending.Count is > 0) {
+                ITypeSymbol current = pending.Pop();
+                token.ThrowIfCancellationRequested();
+                if (current is INamedTypeSymbol { IsTupleType: true } tuple)
+                    for (int index = tuple.TupleElements.Length - 1; index >= 0; index--) pending.Push(tuple.TupleElements[index].Type);
+                else if (current is INamedTypeSymbol { OriginalDefinition.SpecialType: SpecialType.System_Nullable_T } nullable) pending.Push(nullable.TypeArguments[0]);
+                else if (current is INamedTypeSymbol named && Mark(named) is not null) return named;
+            }
+            return null;
+        }
+        (INamedTypeSymbol Owner, Func<IOperation, bool> Case)? Closed(IOperation subject, CancellationToken token) =>
             Stripped(subject) switch {
-                IPropertyReferenceOperation { Instance.Type: INamedTypeSymbol owner, Property: var property }
+                IMemberReferenceOperation { Instance.Type: INamedTypeSymbol owner, Member: var member }
                     when Mark(owner) is { AttributeClass: { TypeArguments.Length: 1 } attribute } mark && Same(attribute, keyed)
-                        && SymbolEqualityComparer.Default.Equals(property.Type, attribute.TypeArguments[0]) && string.Equals(property.Name, Key(mark), StringComparison.Ordinal) =>
+                        && member is IPropertySymbol or IFieldSymbol && string.Equals(member.Name, Key(mark), StringComparison.Ordinal) =>
                     (owner, static test => test is IConstantPatternOperation or IRelationalPatternOperation || (test is not IPatternOperation && test.ConstantValue.HasValue)),
                 IPropertyReferenceOperation { Instance.Type: INamedTypeSymbol owner, Property.Type.SpecialType: SpecialType.System_Object }
                     when Mark(owner) is { AttributeClass: { } union } mark && Derives(union, adHoc)
-                        && (ImmutableArray<ITypeSymbol>)[.. union.TypeArguments, .. mark.ConstructorArguments.Select(static held => held.Value).OfType<ITypeSymbol>()] is { IsEmpty: false } cases =>
+                        && union.TypeArguments.AddRange(mark.ConstructorArguments.Select(static held => held.Value).OfType<ITypeSymbol>()) is { IsEmpty: false } cases =>
                     (owner, test => test is IPatternOperation { NarrowedType: var narrowed } && cases.Any(held => SymbolEqualityComparer.Default.Equals(held, narrowed))),
-                _ when Marked(subject.Type) is { } owner => (owner, test => test switch {
+                _ when Marked(subject.Type, token) is { } owner => (owner, test => test switch {
                     IPatternOperation { NarrowedType: var narrowed } => !Same(narrowed, owner) && Derives(narrowed, owner),
                     IFieldReferenceOperation { Field: { IsStatic: true, Type: var item } } => Same(item, owner),
                     _ => false,
                 }),
                 _ => null,
             };
-        Report<IOperation>(context, [OperationKind.SwitchExpression, OperationKind.Switch], (operation, _) =>
-            Dispatch(operation) is ( { } subject, var arms) && Closed(subject) is ( { } owner, var names)
-            && arms.Any(arm => !CatchesAll(arm) && ((arm.Test is { } test && test.DescendantsAndSelf().Any(names)) || (arm.Guard is { } guard && guard.DescendantsAndSelf().Any(names))))
-                ? arms.Where(CatchesAll).Select(arm => Diagnostic.Create(CatchAll, arm.Arm.Syntax.GetLocation(), owner.Name))
+        Report<IOperation>(context, [OperationKind.SwitchExpression, OperationKind.Switch], (operation, analysis) =>
+            Dispatch(operation) is ( { } subject, var arms) && Closed(subject, analysis.CancellationToken) is ( { } owner, var names)
+            && arms.Any(arm => !CatchesAll(arm, analysis.CancellationToken) && ((arm.Test is { } test && test.DescendantsAndSelf().Any(names)) || (arm.Guard is { } guard && guard.DescendantsAndSelf().Any(names))))
+                ? arms.Where(arm => CatchesAll(arm, analysis.CancellationToken)).Select(arm => Diagnostic.Create(CatchAll, arm.Arm.Syntax.GetLocation(), owner.Name))
                 : []);
     }
 
@@ -167,17 +173,23 @@ public sealed class ThinktectureAnalyzer : RasmAnalyzer {
 
     // --- [ENUMERATIONS]
     private static void Enumerations(CompilationStartAnalysisContext context, INamedTypeSymbol plain, INamedTypeSymbol keyed) {
-        ConcurrentDictionary<INamedTypeSymbol, bool> free = new(SymbolEqualityComparer.Default);
+        ConcurrentDictionary<INamedTypeSymbol, (bool Plain, bool Items)> free = new(SymbolEqualityComparer.Default);
         ConcurrentDictionary<INamedTypeSymbol, byte> read = new(SymbolEqualityComparer.Default);
-        (AttributeData Mark, bool Keyed)? Form(INamedTypeSymbol type) =>
-            type.GetAttributes().Select(data => data.AttributeClass switch {
-                { } held when Same(held, plain) => (data, false),
-                { TypeArguments: { Length: 1 } arguments } held when Same(held, keyed) && arguments[0].SpecialType is SpecialType.System_String => (data, true),
-                _ => ((AttributeData, bool)?)null,
-            }).FirstOrDefault(static form => form is not null);
+        ConcurrentDictionary<INamedTypeSymbol, (bool Keyed, ImmutableArray<ISymbol> Readers)?> forms = new(SymbolEqualityComparer.Default);
+        ImmutableArray<ISymbol> allowed = [plain, keyed, .. new[] {
+            context.Compilation.GetTypeByMetadataName("Thinktecture.KeyMemberEqualityComparerAttribute`2"),
+            context.Compilation.GetTypeByMetadataName("Thinktecture.KeyMemberComparerAttribute`2"),
+        }.OfType<INamedTypeSymbol>()];
+        (bool Keyed, ImmutableArray<ISymbol> Readers)? Form(INamedTypeSymbol type) =>
+            forms.GetOrAdd(type, symbol => symbol.GetAttributes().Select(data => data.AttributeClass switch {
+                { } held when Same(held, plain) => (false, ImmutableArray<ISymbol>.Empty),
+                { TypeArguments: { Length: 1 } arguments } held when Same(held, keyed) && arguments[0].SpecialType is SpecialType.System_String =>
+                    (true, ImmutableArray.CreateRange(symbol.GetMembers(Key(data)).Concat(symbol.AllInterfaces.SelectMany(static face => face.GetMembers()).OfType<IMethodSymbol>()
+                        .Where(method => method.IsStatic && (Same(method.ReturnType, symbol) || method.Parameters.Any(parameter => parameter.RefKind is RefKind.Out && Same(parameter.Type, symbol))))
+                        .Select(symbol.FindImplementationForInterfaceMember).OfType<ISymbol>()))),
+                _ => ((bool, ImmutableArray<ISymbol>)?)null,
+            }).FirstOrDefault(static form => form is not null));
         static bool Named(string literal, string member) => string.Equals(literal.Replace("-", ""), member, StringComparison.OrdinalIgnoreCase);
-        static bool Allowed(AttributeSyntax attribute, SemanticModel model, CancellationToken token) =>
-            model.GetSymbolInfo(attribute, token).Symbol?.ContainingType is { ContainingNamespace.Name: "Thinktecture", Name: "SmartEnumAttribute" or "KeyMemberEqualityComparerAttribute" or "KeyMemberComparerAttribute" };
         static bool Item(FieldDeclarationSyntax field, INamedTypeSymbol owner, bool keyedForm, SemanticModel model, CancellationToken token) =>
             field.Modifiers.Any(SyntaxKind.StaticKeyword) && field.Declaration.Variables.All(variable =>
                 variable.Initializer?.Value is BaseObjectCreationExpressionSyntax { Initializer: null } creation && Same(model.GetTypeInfo(creation, token).Type, owner)
@@ -188,34 +200,27 @@ public sealed class ThinktectureAnalyzer : RasmAnalyzer {
         context.RegisterSyntaxNodeAction(
             node => {
                 ClassDeclarationSyntax declaration = (ClassDeclarationSyntax)node.Node;
-                if (node.IsGeneratedCode || node.SemanticModel.GetDeclaredSymbol(declaration, node.CancellationToken) is not { } type || Form(type) is not (_, var keyedForm)) return;
-                bool held = declaration.Members.Any(static member => member is FieldDeclarationSyntax)
-                    && declaration.Members.All(member => member switch {
-                        FieldDeclarationSyntax field => Item(field, type, keyedForm, node.SemanticModel, node.CancellationToken),
-                        ConstructorDeclarationSyntax { ParameterList.Parameters.Count: <= 1, ExpressionBody: null, Body: null or { Statements.Count: 0 } } => true,
-                        _ => false,
-                    })
-                    && declaration.AttributeLists.SelectMany(static list => list.Attributes).All(attribute => Allowed(attribute, node.SemanticModel, node.CancellationToken));
-                _ = free.AddOrUpdate(type, held, (_, prior) => prior && held);
+                if (node.IsGeneratedCode || node.SemanticModel.GetDeclaredSymbol(declaration, node.CancellationToken) is not { } type || Form(type) is not (var keyedForm, _)) return;
+                bool held = declaration.Members.All(member => member switch {
+                    FieldDeclarationSyntax field => Item(field, type, keyedForm, node.SemanticModel, node.CancellationToken),
+                    ConstructorDeclarationSyntax { ParameterList.Parameters.Count: <= 1, ExpressionBody: null, Body: null or { Statements.Count: 0 } } => true,
+                    _ => false,
+                })
+                    && declaration.AttributeLists.SelectMany(static list => list.Attributes).All(attribute => Among(node.SemanticModel.GetSymbolInfo(attribute, node.CancellationToken).Symbol?.ContainingType, allowed));
+                bool items = declaration.Members.Any(static member => member is FieldDeclarationSyntax);
+                _ = free.AddOrUpdate(type, (held, items), (_, prior) => (prior.Plain && held, prior.Items || items));
             },
             SyntaxKind.ClassDeclaration);
         context.RegisterOperationAction(
             analysis => {
-                (ISymbol? Member, INamedTypeSymbol? Owner) found = analysis.Operation switch {
-                    IInvocationOperation { TargetMethod: { IsExtensionMethod: true, Parameters: { Length: > 0 } parameters } extension } when parameters[0].Type is INamedTypeSymbol receiver => (extension, receiver),
-                    IInvocationOperation { TargetMethod: var method } => (method, method.ContainingType),
-                    IPropertyReferenceOperation { Property: var property } => (property, property.ContainingType),
-                    _ => (null, null),
-                };
-                if (found is not ( { } member, { } owner) || Form(owner) is not ( { } mark, true)) return;
-                bool keyRead = member.Name is "Get" or "TryGet" or "Validate" or "Parse" or "TryParse" || string.Equals(member.Name, Key(mark), StringComparison.Ordinal);
-                if (keyRead) read[owner] = 1;
+                if (!analysis.IsGeneratedCode && Target(analysis.Operation) is { ContainingType: { } owner } member && Form(owner) is (true, var readers) && Among(member, readers)) read[owner] = 1;
             },
             OperationKind.Invocation,
-            OperationKind.PropertyReference);
+            OperationKind.PropertyReference,
+            OperationKind.FieldReference);
         context.RegisterCompilationEndAction(end => {
-            foreach (KeyValuePair<INamedTypeSymbol, bool> pair in free.Where(static pair => pair.Value))
-                if (Form(pair.Key) is (_, var keyedForm) && (!keyedForm || !read.ContainsKey(pair.Key)))
+            foreach (KeyValuePair<INamedTypeSymbol, (bool Plain, bool Items)> pair in free.Where(static pair => pair.Value is (true, true)))
+                if (Form(pair.Key) is (var keyedForm, _) && (!keyedForm || !read.ContainsKey(pair.Key)))
                     end.ReportDiagnostic(Diagnostic.Create(
                         Plain,
                         pair.Key.Locations[0],
@@ -229,33 +234,40 @@ public sealed class ThinktectureAnalyzer : RasmAnalyzer {
     // --- [PICKERS]
     private static void Pickers(CompilationStartAnalysisContext context, INamedTypeSymbol union, LanguageExtSymbols languageExt) {
         Compilation compilation = context.Compilation;
-        ImmutableArray<IMethodSymbol> lifts = [.. Members(languageExt.IO, "lift"), .. languageExt.Uses];
+        ImmutableArray<IMethodSymbol> lifts = [.. languageExt.Lifts, .. languageExt.Uses];
         bool Hosted(ISymbol target) =>
             !Same(target.ContainingAssembly, compilation.Assembly)
             && !Namespaced(compilation, target, languageExt.Namespace);
         IAnonymousFunctionOperation? Thunk(IOperation value) =>
-            Lambda(value) ?? (Stripped(value) is IInvocationOperation { Arguments.Length: 1 } call && Among(call.TargetMethod, lifts) ? Lambda(call.Arguments[0].Value) : null);
-        bool Picks(IAnonymousFunctionOperation function, INamedTypeSymbol owner, ImmutableArray<IParameterSymbol> bound) {
-            ImmutableArray<IParameterSymbol> held = bound.AddRange(function.Symbol.Parameters);
+            Lambda(value) ?? (Stripped(value) is IInvocationOperation { Arguments.Length: 1 } call && Among(call.TargetMethod, lifts)
+                && call.TargetMethod.OriginalDefinition.Parameters[0].Type is INamedTypeSymbol { DelegateInvokeMethod: not null } ? Lambda(call.Arguments[0].Value) : null);
+        bool Picks(IAnonymousFunctionOperation function, INamedTypeSymbol owner, CancellationToken token) {
+            HashSet<IParameterSymbol> held = new(SymbolEqualityComparer.Default);
             bool Read(IOperation value) =>
                 Stripped(value) switch {
-                    IParameterReferenceOperation reference => held.Contains(reference.Parameter, SymbolEqualityComparer.Default),
-                    IPropertyReferenceOperation { Instance: IParameterReferenceOperation reference } => held.Any(parameter => SymbolEqualityComparer.Default.Equals(parameter, reference.Parameter) && !Same(parameter.Type, owner) && Derives(parameter.Type, owner)),
+                    IParameterReferenceOperation reference => held.Contains(reference.Parameter),
+                    IPropertyReferenceOperation { Instance: IParameterReferenceOperation reference } => held.Contains(reference.Parameter) && !Same(reference.Parameter.Type, owner) && Derives(reference.Parameter.Type, owner),
                     _ => false,
                 };
-            return Sole(function.Body) is { } value && (Thunk(value) is { } inner ? Picks(inner, owner, held) : value switch {
-                IInvocationOperation call => (Target: call.TargetMethod, call.Arguments),
-                IObjectCreationOperation { Constructor: { } made } creation => (Target: made, creation.Arguments),
-                _ => default,
-            } is ( { } target, var arguments) && Hosted(target) && arguments.Where(static argument => argument.ArgumentKind is ArgumentKind.Explicit).All(argument => Read(argument.Value)));
+            while (true) {
+                token.ThrowIfCancellationRequested();
+                held.UnionWith(function.Symbol.Parameters);
+                if (Sole(function.Body) is not { } value) return false;
+                if (Thunk(value) is { } inner) { function = inner; continue; }
+                return value switch {
+                    IInvocationOperation call => (Target: call.TargetMethod, call.Arguments),
+                    IObjectCreationOperation { Constructor: { } made } creation => (Target: made, creation.Arguments),
+                    _ => default,
+                } is ( { } target, var arguments) && Hosted(target) && arguments.Where(static argument => argument.ArgumentKind is ArgumentKind.Explicit).All(argument => Read(argument.Value));
+            }
         }
         ConcurrentDictionary<INamedTypeSymbol, bool> picked = new(SymbolEqualityComparer.Default);
         context.RegisterOperationAction(
             analysis => {
-                if (analysis.Operation is not IInvocationOperation { TargetMethod: { Name: "Switch" or "Map", ContainingType: { } owner } } call || !Sourced(owner) || Marked(owner, union) is null) return;
+                if (analysis.IsGeneratedCode || analysis.Operation is not IInvocationOperation { TargetMethod: { Name: "Switch" or "Map", ContainingType: { } owner } } call || !Sourced(owner) || Marked(owner, union) is null) return;
                 ImmutableArray<IOperation> arms = [.. call.Arguments.Where(static argument => argument.Parameter?.Type.TypeKind is TypeKind.Delegate).Select(static argument => Stripped(argument.Value))];
                 if (arms.IsEmpty) return;
-                bool each = arms.All(arm => Lambda(arm) is { } function && Picks(function, owner, []));
+                bool each = arms.All(arm => Lambda(arm) is { } function && Picks(function, owner, analysis.CancellationToken));
                 _ = picked.AddOrUpdate(owner.OriginalDefinition, each, (_, prior) => prior && each);
             },
             OperationKind.Invocation);
@@ -266,5 +278,10 @@ public sealed class ThinktectureAnalyzer : RasmAnalyzer {
     }
 
     // --- [KEYS]
-    private static string Key(AttributeData mark) => mark.NamedArguments.Where(static named => named.Key is "KeyMemberName").Select(static named => named.Value.Value).OfType<string>().FirstOrDefault() ?? "Key";
+    private static string Key(AttributeData mark) {
+        bool Selected(string option, string member) => mark.NamedArguments.FirstOrDefault(named => string.Equals(named.Key, option, StringComparison.Ordinal)).Value is { Type: INamedTypeSymbol type, Value: { } value }
+            && type.GetMembers(member).OfType<IFieldSymbol>().Any(field => Equals(field.ConstantValue, value));
+        return mark.NamedArguments.Where(static named => named.Key is "KeyMemberName").Select(static named => named.Value.Value).OfType<string>().FirstOrDefault()
+            ?? (Selected("KeyMemberAccessModifier", "Private") && Selected("KeyMemberKind", "Field") ? "_key" : "Key");
+    }
 }

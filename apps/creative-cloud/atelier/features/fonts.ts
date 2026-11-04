@@ -1,13 +1,9 @@
-import { Automation } from '@rasm/automation/automation';
-import { AvailableFace } from '@rasm/automation/available-face';
-import { Font } from '@rasm/indesign/contract';
-import { Resource } from '@rasm/mcp/resource';
-import { Route } from '@rasm/mcp/route';
-import { Face } from '@rasm/typography/face';
-import { Justification } from '@rasm/typography/justification';
-import { Settings } from '@rasm/typography/settings';
-import { ShapedText } from '@rasm/typography/shaped-text';
-import type { Source } from '@rasm/typography/source';
+import { AvailableFace } from '@rasm/automation';
+import { Automation } from '@rasm/automation/node';
+import { Inspect } from '@rasm/indesign';
+import { Resource, Route } from '@rasm/mcp';
+import { Settings, type Source } from '@rasm/typography';
+import { Face, Justification, ShapedText } from '@rasm/typography/shaping';
 import { Effect, FileSystem, Option, Schema, SchemaAST, Stream, Struct } from 'effect';
 import { Tool } from 'effect/ai';
 import type { listening } from '#/features/plugins';
@@ -29,7 +25,7 @@ const FontRequest = Face.Instance.pipe(
         settings: Settings.Partial.pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
     }),
 );
-const FontResult = Schema.Union([AvailableFace.mapFields(Struct.assign({ specimen: Specimen })), Font.mapFields(Struct.assign({ specimen: Schema.OptionFromOptionalKey(Specimen) }))]);
+const FontResult = Schema.Union([AvailableFace.mapFields(Struct.assign({ specimen: Specimen })), Inspect.Font.mapFields(Struct.assign({ specimen: Schema.OptionFromOptionalKey(Specimen) }))]);
 const Faces = Schema.Array(AvailableFace);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -69,7 +65,7 @@ const font = Effect.fnUntraced(function* ({ serving }: Effect.Success<ReturnType
         });
         return Option.match(chosen, { onNone: () => shaping, onSome: native });
     };
-    yield* Route.register(route.optional('CoreText'))(tool, typeset);
+    yield* Route(route.optional('CoreText'))(tool, typeset);
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------

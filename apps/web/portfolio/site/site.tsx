@@ -1,6 +1,6 @@
 import { useAtomValue } from '@effect/atom-react';
-import { User } from '@rasm/hosting/user';
-import { ModalOverlay } from '@rasm/ui/dialog/overlay';
+import { User } from '@rasm/hosting';
+import { Backdrop } from '@rasm/ui';
 import { flow, Option, Schema } from 'effect';
 import { UrlParams } from 'effect/http';
 import { Atom } from 'effect/reactivity';
@@ -31,7 +31,7 @@ const Site = ({ published: served, session }: typeof Bootstrap.Type) => {
     const requested = Option.isSome(useAtomValue(editing)) && session === 'owner';
     const [toggled, setToggled] = useState(Option.none<boolean>());
     const open = Option.getOrElse(toggled, () => requested);
-    const modalOpen = useAtomValue(ModalOverlay.open, (count) => count > 0);
+    const modalOpen = useAtomValue(Backdrop.open, (count) => count > 0);
     const opener = useRef<HTMLButtonElement>(null);
     const work = useRef<HTMLElement>(null);
     const sticky = useRef<HTMLDivElement>(null);
@@ -61,7 +61,7 @@ const Site = ({ published: served, session }: typeof Bootstrap.Type) => {
                         {(Option.isSome(toggled) || requested) && (
                             <ErrorBoundary
                                 fallback={
-                                    <ModalOverlay className="bg-foreground/55 fixed inset-0 z-50 flex items-center justify-center p-5" isDismissable={true}>
+                                    <Backdrop className="bg-foreground/55 fixed inset-0 z-50 flex items-center justify-center p-5" isDismissable={true}>
                                         <Modal className="bg-background w-full max-w-lg p-9">
                                             <Dialog className="flex flex-col gap-5">
                                                 <Heading className="text-2xl tracking-tight" slot="title">
@@ -73,7 +73,7 @@ const Site = ({ published: served, session }: typeof Bootstrap.Type) => {
                                                 </Button>
                                             </Dialog>
                                         </Modal>
-                                    </ModalOverlay>
+                                    </Backdrop>
                                 }
                             >
                                 <Suspense

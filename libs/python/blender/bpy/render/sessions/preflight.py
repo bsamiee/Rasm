@@ -1,4 +1,4 @@
-"""Audits and measures before render dispatch, and the condition a dispatch requires."""
+"""Render dispatch conditions, asset audits, and resource measurements."""
 
 import functools
 from functools import cached_property, partial
@@ -8,14 +8,14 @@ from pathlib import Path
 from typing import ClassVar, override
 
 import bpy
-from expression import Error, Nothing, Ok, Option, Some
+from expression import Option, Some
 from expression.collections import Block
 from expression.extra.result import catch
 import msgspec
 
 from blender.bpy.commands.invocations import Popup
-from blender.bpy.commands.operators import Answer, Call, Done, Empty, NoUndo, Operator, Placement
-from blender.bpy.data.ids.evaluation import evaluated, instances
+from blender.bpy.commands.operators import Answer, Call, Done, Empty, Operator, Placement
+from blender.bpy.data.ids.evaluation import evaluated
 from blender.bpy.data.ids.store import embedded, resolved
 from blender.bpy.data.rna import conditions
 from blender.bpy.data.rna.descriptors import Descriptor
@@ -27,7 +27,7 @@ from blender.bpy.nodes.trees import nested
 from blender.bpy.render.outputs.paths import Pathed
 from blender.bpy.ui.layout.rows import OperatorButton
 from blender.bpy.ui.layout.sections import Section
-from blender.records.faults import accumulated, Fault, Outcome, Reason
+from blender.records.faults import accumulated, Error, Fault, Nothing, Ok, Outcome, Reason
 from blender.records.stores import existing
 from blender.rendering.batch.supervision import detached
 
@@ -77,8 +77,8 @@ class Preflight(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     condition: ClassVar[conditions.AllOf] = (
         Pathed.unsaved
         & conditions.Count(
-            collection=Descriptor.declared(bpy.types.Scene, ("view_layers",), bpy.types.CollectionProperty),
-            where=Some(conditions.Setting(descriptor=Descriptor.declared(bpy.types.ViewLayer, ("use",), bpy.types.BoolProperty))),
+            collection=Descriptor[bpy.types.CollectionProperty](root=bpy.types.Scene, prop=bpy.types.Scene.bl_rna.properties["view_layers"]),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+            where=Some(conditions.Setting(descriptor=Descriptor(root=bpy.types.ViewLayer, prop=bpy.types.ViewLayer.bl_rna.properties["use"]))),
         )
         & _Folder()
         & conditions.Job(kind="RENDER")
@@ -90,11 +90,11 @@ class Preflight(msgspec.Struct, frozen=True, kw_only=True, dict=True):
     def operators(self) -> tuple[Operator[Empty] | Operator[Shader], ...]:
         """Audit operators in section order."""
         return (
-            Operator.of(Empty, icon=Some("CHECKMARK"), undo=NoUndo())(self.audit_file),
-            Operator.of(Empty, undo=NoUndo())(self.list_users),
-            Operator.of(Shader, invoke=Some(Popup(partial(bpy.types.WindowManager.invoke_search_popup))), undo=NoUndo(), primary=Some("kind"))(self.list_shader_users),
-            Operator.of(Empty, undo=NoUndo())(self.measure_view_layer),
-            Operator.of(Empty, icon=Some("FILE_BLEND"), undo=NoUndo())(self.open_library),
+            Operator.of(Empty, icon=Some("CHECKMARK"), options=frozenset())(self.audit_file),
+            Operator.of(Empty, options=frozenset())(self.list_users),
+            Operator.of(Shader, invoke=Some(Popup[Shader](partial(bpy.types.WindowManager.invoke_search_popup))), options=frozenset(), primary=Some("kind"))(self.list_shader_users),
+            Operator.of(Empty, options=frozenset())(self.measure_view_layer),
+            Operator.of(Empty, icon=Some("FILE_BLEND"), options=frozenset())(self.open_library),
         )
 
     @staticmethod
@@ -140,9 +140,9 @@ class Preflight(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
     # --- [REGISTRATION]
 
-    def acquisitions(self, _identity: Identity, /) -> Outcome[Acquisitions]:
+    def acquisitions(self, _identity: Identity, /) -> Acquisitions:
         """Returns audit operators for registration."""
-        return Ok(self.operators)
+        return self.operators
 
     @cached_property
     def section(self) -> Section:
@@ -157,7 +157,8 @@ class Preflight(msgspec.Struct, frozen=True, kw_only=True, dict=True):
 
 def _active(context: bpy.types.Context) -> Outcome[bpy.types.ID]:
     """Reads editor `context.id`, absent when unset."""
-    return catch(lambda: context.id, exception=AttributeError)().to_option().bind(Option.of_optional).to_result_with(lambda: Fault.of(Reason.ABSENT, "bpy.context", member="id"))
+    absent = partial(Fault.of, Reason.ABSENT, "bpy.context", member="id")
+    return catch(lambda: context.id, exception=AttributeError)().map_error(absent).bind(lambda value: Option.of_optional(value).to_result_with(absent))
 
 
 def audited() -> Outcome[None]:
@@ -213,11 +214,11 @@ def measured(view_layer: bpy.types.ViewLayer) -> Outcome[Measure]:
 
     def counted(depsgraph: bpy.types.Depsgraph) -> Measure:
         """Counts instance meshes and images of depsgraph."""
-        copies = instances(depsgraph)
-        meshes = tuple(data for instance in copies for data in (instance.source.evaluated_get(depsgraph).data,) if isinstance(data, bpy.types.Mesh))
+        data = tuple(instance.object.data for instance in depsgraph.object_instances)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+        meshes = tuple(mesh for mesh in data if isinstance(mesh, bpy.types.Mesh))
         images = tuple(image for block in depsgraph.ids for image in (block.original,) if isinstance(image, bpy.types.Image))
         return Measure(
-            objects=len(copies),
+            objects=len(data),
             vertices=sum(len(mesh.vertices) for mesh in meshes),
             faces=sum(len(mesh.polygons) for mesh in meshes),
             triangles=sum(len(mesh.loop_triangles) for mesh in meshes),

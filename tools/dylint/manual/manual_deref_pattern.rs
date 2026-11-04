@@ -46,7 +46,9 @@ impl Pass {
                 )),
             _ => None,
         };
-        if let Some((receiver, view)) = viewed {
+        if let Some((receiver, view)) = viewed
+            && !expanded_externally(cx, scrutinee.span)
+        {
             let mut applicability = Applicability::MaybeIncorrect;
             let borrowed = typeck.expr_ty(receiver).is_ref();
             let receiver = Sugg::hir_with_context(cx, receiver, scrutinee.span.ctxt(), "..", &mut applicability);
@@ -61,16 +63,13 @@ impl Pass {
 
 impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_local(&mut self, cx: &LateContext<'tcx>, local: &'tcx LetStmt<'tcx>) {
-        if let (Some(init), Some(_)) = (local.init, local.els)
-            && !expanded_externally(cx, local.span)
-        {
+        if let (Some(init), Some(_)) = (local.init, local.els) {
             self.scrutinee(cx, init);
         }
     }
 
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
         match expr.kind {
-            _ if expanded_externally(cx, expr.span) => {}
             ExprKind::Match(scrutinee, _, MatchSource::Normal) => self.scrutinee(cx, scrutinee),
             ExprKind::Let(binding) => self.scrutinee(cx, binding.init),
             _ => {}

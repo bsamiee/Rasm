@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-panic-payload-downcast
-language: rust
+language: rustlang
 severity: error
 utils:
     literal-side:
@@ -8,11 +8,13 @@ utils:
         any:
             - pattern: $I.payload().downcast_ref::<&str>().$COPY()
             - pattern: $I.payload().downcast_ref::<&'static str>().$COPY()
-            - pattern: $I.payload().downcast_ref::<&str>().map($_)
-            - pattern: $I.payload().downcast_ref::<&'static str>().map($_)
+            - pattern: '$I.payload().downcast_ref::<&str>().map(|$LITERAL| *$LITERAL)'
+            - pattern: '$I.payload().downcast_ref::<&''static str>().map(|$LITERAL| *$LITERAL)'
     owned-side:
         kind: call_expression
-        pattern: $I.payload().downcast_ref::<String>().map($_)
+        any:
+            - pattern: $I.payload().downcast_ref::<String>().map(String::as_str)
+            - pattern: '$I.payload().downcast_ref::<String>().map(|$OWNED| $OWNED.as_str())'
     literal-fallback:
         any:
             - matches: literal-side
@@ -36,6 +38,5 @@ rule:
                 - has: {field: arguments, has: {nthChild: 1, matches: literal-fallback}}
 constraints:
     COPY: {regex: '^(copied|cloned)$'}
-fix: $I.payload_as_str()
 message: '`$I` downcasts its panic payload to `&str` and `String` by hand'
 note: 'Call `payload_as_str()` on the `PanicHookInfo`'

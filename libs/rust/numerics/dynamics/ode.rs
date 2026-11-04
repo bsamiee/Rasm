@@ -3,15 +3,13 @@ use core::iter;
 use diffsol::{
     AdjointOdeSolverMethod, CheckpointingPath, Context as _, DefaultDenseMatrix, DefaultSolver, DenseMatrix, DiffsolError, OdeEquations, OdeEquationsAdjoint, OdeEquationsImplicit,
     OdeEquationsImplicitAdjoint, OdeEquationsImplicitSens, OdeSolverMethod, OdeSolverProblem, OdeSolverState, OdeSolverStopReason, SensitivitiesOdeSolverMethod, Vector, VectorRef, VectorView as _,
-    VectorViewMut as _, matrix::MatrixRef,
+    matrix::MatrixRef,
 };
 use itertools::Itertools as _;
 use nalgebra::{DMatrix, DMatrixView};
+use nonempty_collections::{IntoIteratorExt as _, NEVec, NonEmptyIterator};
 use rayon::iter::{IntoParallelIterator as _, ParallelIterator as _};
-use uom::{
-    fmt::DisplayStyle::Abbreviation,
-    si::{f64::Time, time::second},
-};
+use uom::si::{f64::Time, time::second};
 
 use crate::{DynamicsError, Grid, Stop, Trajectory};
 
@@ -49,12 +47,27 @@ fn recorded(instants: &[Time], reason: OdeSolverStopReason<f64>) -> (Vec<usize>,
 
 fn selected<M>(matrix: &M, columns: &[usize]) -> DMatrix<f64>
 where M: DenseMatrix<T = f64> {
-    DMatrix::from_iterator(matrix.nrows().strict_mul(matrix.context().nbatch()), columns.len(), columns.iter().flat_map(|&column| matrix.column(column).into_owned().clone_as_vec()))
+    let rows = matrix.nrows().strict_mul(matrix.context().nbatch());
+    let mut views = columns.iter().map(|&index| matrix.column(index));
+    let values = views.next().map_or_default(|first| {
+        let mut column = first.into_owned();
+        let mut values = column.clone_as_vec();
+        values.reserve(rows.strict_mul(views.len()));
+        views.for_each(|view| {
+            column.copy_from_view(&view);
+            values.extend(column.clone_as_vec());
+        });
+        values
+    });
+    DMatrix::from_vec(rows, columns.len(), values)
 }
 
-fn finite<'matrix>(times: &[Time], matrices: impl IntoIterator<Item = &'matrix DMatrix<f64>>) -> Result<(), DiffsolError> {
-    let diverged = matrices.into_iter().filter_map(|matrix| matrix.column_iter().position(|column| column.iter().any(|entry| !entry.is_finite()))).min().and_then(|column| times.get(column));
-    diverged.map_or(Ok(()), |instant| Err(DiffsolError::Other(format!("solved values leave the finite range by {}", instant.into_format_args(second, Abbreviation)))))
+fn finite<'matrix>(times: &[Time], matrices: impl IntoIterator<Item = &'matrix DMatrix<f64>>) -> Result<(), DynamicsError> {
+    matrices
+        .into_iter()
+        .filter_map(|matrix| matrix.column_iter().position(|column| column.iter().any(|entry| !entry.is_finite())))
+        .min()
+        .map_or(Ok(()), |column| Err(DynamicsError::Diverged { time: Some(times[column]) }))
 }
 
 pub fn trajectory<Eqn>(problem: &OdeSolverProblem<Eqn>, method: Method, grid: &Grid) -> Result<Trajectory, DynamicsError>
@@ -144,38 +157,40 @@ where
     {
         let (path, values, reason) = forward.solve_dense_with_checkpointing(&t_eval(grid.as_ref()), max_steps_between_checkpoints)?;
         let (written, _) = reached(grid.as_ref(), reason);
-        let (columns, times, stop) = recorded(written, reason);
-        let values = selected(&values, &columns);
-        finite(&times, [&values])?;
-        let trajectory = Trajectory { times, values, stop };
+        let trajectory = {
+            let (columns, times, stop) = recorded(written, reason);
+            let values = selected(&values, &columns);
+            finite(&times, [&values])?;
+            Trajectory { times, values, stop }
+        };
         let held = cotangents(&trajectory);
         let (context, outputs) = (forward.problem().context(), forward.problem().eqn.nout());
         let integrated = forward.problem().integrate_out.then_some(outputs);
-        integrated
-            .map_or(!held.is_empty(), |integrated| held.is_empty() || held.len() == integrated)
-            .ok_or_else(|| DiffsolError::Other(format!("{} cotangent lanes state no objective over {} integrated outputs", held.len(), integrated.unwrap_or_default())))?;
-        let refused = held.iter().positions(|cotangent| cotangent.shape() != trajectory.values.shape() || cotangent.iter().any(|entry| !entry.is_finite())).collect::<Vec<_>>();
-        refused.is_empty().ok_or_else(|| {
-            DiffsolError::Other(format!(
-                "cotangent lanes {} hold other than {} rows by {} instants of finite values",
-                refused.iter().format(", "),
-                trajectory.values.nrows(),
-                trajectory.values.ncols()
-            ))
-        })?;
+        integrated.map_or(!held.is_empty(), |integrated| held.is_empty() || held.len() == integrated).ok_or(DynamicsError::Cotangents { found: held.len(), integrated })?;
+        held.iter()
+            .positions(|cotangent| cotangent.shape() != trajectory.values.shape() || cotangent.iter().any(|entry| !entry.is_finite()))
+            .try_into_nonempty_iter()
+            .map(NonEmptyIterator::collect::<NEVec<_>>)
+            .map_or(Ok(()), |lanes| Err(DynamicsError::CotangentValues { lanes, shape: trajectory.values.shape() }))?;
         let lanes = held
-            .iter()
+            .into_iter()
             .map(|cotangent| {
-                let mut lane = context.dense_mat_zeros::<Eqn::V>(outputs, cotangent.ncols());
-                cotangent.column_iter().enumerate().for_each(|(column, instant)| lane.column_mut(column).copy_from(&Eqn::V::from_slice(instant.as_slice(), context.clone())));
-                lane
+                let (columns, batches) = (cotangent.ncols(), context.nbatch());
+                let cotangent = if batches == 1 {
+                    cotangent
+                } else {
+                    let mut reordered = DMatrix::zeros(outputs, columns.strict_mul(batches));
+                    (0..batches).for_each(|batch| reordered.columns_mut(batch.strict_mul(columns), columns).copy_from(&cotangent.rows(batch.strict_mul(outputs), outputs)));
+                    reordered
+                };
+                <Eqn::V as DefaultDenseMatrix>::M::from_vec(outputs, columns, cotangent.data.into(), context.clone())
             })
             .collect::<Vec<_>>();
-        let (state, _) =
-            backward(path, forward, (!held.is_empty()).then_some(held.len()))?.solve_adjoint_backwards_pass(&t_eval(if held.is_empty() { &[] } else { written }), &lanes.iter().collect::<Vec<_>>())?;
+        let count = lanes.len();
+        let (state, _) = backward(path, forward, (count != 0).then_some(count))?.solve_adjoint_backwards_pass(&t_eval(if count == 0 { &[] } else { written }), &lanes.iter().collect::<Vec<_>>())?;
         let sg = OdeSolverState::as_ref(&state).sg;
         let gradient = DMatrix::from_vec(sg.len(), sg.context().nbatch(), sg.clone_as_vec());
-        gradient.iter().all(|entry| entry.is_finite()).ok_or_else(|| DiffsolError::Other("the adjoint pass leaves the finite range".to_owned()))?;
+        gradient.iter().all(|entry| entry.is_finite()).ok_or(DynamicsError::Diverged { time: None })?;
         Ok((trajectory, gradient))
     }
     match method {
@@ -226,8 +241,12 @@ where
                 let scenario = design.column(column);
                 let (expected, found) = (problem.eqn.nparams().strict_mul(problem.context().nbatch()), scenario.nrows());
                 (found == expected).ok_or(DynamicsError::Parameters { expected, found })?;
-                let refused = scenario.iter().positions(|parameter| !parameter.is_finite()).collect::<Vec<_>>();
-                refused.is_empty().ok_or_else(|| DiffsolError::Other(format!("design column {column} holds parameters that are not finite at rows {}", refused.iter().format(", "))))?;
+                scenario
+                    .iter()
+                    .positions(|parameter| !parameter.is_finite())
+                    .try_into_nonempty_iter()
+                    .map(NonEmptyIterator::collect::<NEVec<_>>)
+                    .map_or(Ok(()), |rows| Err(DynamicsError::Design { column, rows }))?;
                 problem.eqn.set_params(&<Eqn::V as Vector>::from_slice(scenario.as_slice(), problem.context().clone()));
                 solve(problem)
             },

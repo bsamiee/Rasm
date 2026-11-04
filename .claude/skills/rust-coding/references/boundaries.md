@@ -58,12 +58,16 @@ Encodings sit on the field, and the field keeps its domain type:
 |  [06]   | Map rejecting a repeated key       | `#[serde_as(as = "MapPreventDuplicates<_, _>")]`     |
 |  [07]   | List dropping a malformed item     | `#[serde_as(as = "VecSkipError<_>")]`                |
 |  [08]   | Absent key for each `None`         | `#[skip_serializing_none]` on the type               |
-|  [09]   | JSON forwarded unread              | `Box<RawValue>` field                                |
+|  [09]   | JSON forwarded unread              | Borrowed `&RawValue` or owned `Box<RawValue>`        |
 |  [10]   | Undeclared keys kept               | `#[serde(flatten)] rest: Map<String, Value>`         |
 |  [11]   | Undeclared keys rejected           | `#[serde(deny_unknown_fields)]`                      |
 |  [12]   | Foreign type's own byte codec      | Marker with `SerializeAs` over `Bytes`               |
 
-`#[serde_as]` and `#[skip_serializing_none]` precede the derive, and one `#[serde_as]` enables every conversion on the type. Conversions compose inside containers (`Vec<DisplayFromStr>`, `Option<Base64>`), and an `Option` conversion decodes an absent key as `None`. Derived `JsonSchema` reads each conversion's wire form. `TimestampSeconds` takes a jiff `Timestamp` or `Zoned`, and `DurationSeconds` a `SignedDuration`. A plain map decode keeps the last value of a repeated key, and a map from untrusted input rejects the repeat. `VecSkipError<_, I>` reports each dropped item to `I`, an `InspectError` implementor. Records a program owns reject undeclared keys. Pass-through records keep them in `rest`, their one `Value` field, and encode back what they read. `RawValue` copies a forwarded value's bytes unparsed inside a record that decodes without `flatten`. Foreign types with a byte form no adapter covers take one marker implementing both directions over `Bytes`:
+`#[serde_as]` and `#[skip_serializing_none]` precede the derive; one `#[serde_as]` enables field conversions throughout a type. Adapters compose inside containers (`Vec<DisplayFromStr>`, `Option<Base64>`), and an absent optional key decodes as `None`. Derived `JsonSchema` reads the adapter's wire form. `TimestampSeconds` accepts jiff `Timestamp` or `Zoned`, and `DurationSeconds` accepts `SignedDuration`.
+
+Plain map decoding keeps the last repeated key; `MapPreventDuplicates` enforces a wire contract requiring unique keys. Closed contracts reject undeclared keys, while extension contracts can retain them in flattened `rest`. Serde does not support `deny_unknown_fields` with `flatten` on either record. `VecSkipError<_, I>` reports each discarded item's error to an `InspectError` implementor.
+
+Foreign types with a byte form no adapter covers take one marker implementing both directions over `Bytes`:
 
 ```rust
 #[derive(Debug)]
@@ -89,6 +93,10 @@ where K: TypedUuidKind
 ```
 
 Fields declare `#[serde_as(as = "Key")]` in place of a `serialize_with` and `deserialize_with` pair each.
+
+Raw fields decode directly through the JSON tokenizer: `#[serde(borrow)] &'a RawValue` borrows a string or slice, while `Box<RawValue>` owns reader input or data outliving its source. Buffering through Serde `Content` or `Value` loses raw-source capture and formatting; a named raw field beside flattened siblings can still decode directly. Borrowed fields retain their input owner, making a copy useful when a small retained value otherwise holds a large input alive.
+
+Protocol codecs can use an existing transport when replacing its client would lose authentication, headers, TLS, proxy policy, or connection reuse. Fallible serialization can stage an item before committing destination writes, preserving refusal and partial-write contracts.
 
 ## [04]-[BINARY]
 
@@ -129,7 +137,13 @@ pub struct Args {
 }
 ```
 
-Flags and variables derive from field names (`--token`, `TOKEN`), a variable a package or specification names takes its constant or literal (`env = EnvFilter::DEFAULT_ENV`, `env = "OTEL_PROPAGATORS"`), and each repeated `--settings` layers over earlier files and field defaults. `SecretString` redacts its `Debug` output, and code reads it through `expose_secret` at the call sending it. Choice enums derive `ValueEnum` with a `#[value(help)]` per variant, and `#[default]` beside `default_value_t` states the default once. Repeatable path rows take no `value_delimiter`, which splits a command-line path holding the separator. Flags every program shares (log directory, man pages, color, telemetry with its `RUST_LOG` and `OTEL_*` variables) sit on a workspace record, and a record generic over each program's `Args` implements `CommandFactory`, `FromArgMatches`, and an empty `Parser` supplying `try_parse`, and restores the program's `about` and `long_about` through `Resettable::from`, a flattened package record's `#[command(about = None, long_about = None)]` clearing both. Hand-written `CommandFactory` and `FromArgMatches` impls exist for that generic record alone, and a program wrapping a child command derives `Parser` over one `Vec<OsString>` under `num_args = 1..`, `trailing_var_arg`, `allow_hyphen_values`, and `value_hint = ValueHint::CommandWithArguments`, a slice pattern `[program, args @ ..]` splitting it. Default `_mut` methods of `FromArgMatches` route to the `&ArgMatches` pair and each derived part clones, and the record writes all four methods with the `&` pair cloning once into the `_mut` pair. Builder commands read clap command metadata from `clap::command!()`. Flattened records take `#[group(skip)]` and `#[command(next_help_heading = ..)]`, and records sharing a type name keep apart arg groups and help sections. An `Option` flatten keeps the group clap reads its presence from and leaves its required args required, and a setting only another flag's presence reads takes `requires = "<id>"` in place of a nested group. Variables the program reads are arguments, and a variable a dependency reads itself (`OTEL_EXPORTER_OTLP_ENDPOINT`) reaches it untouched. Settings declare each default on its field, and one generic function decodes every layer stack:
+Flags and variables derive from field names (`--token`, `TOKEN`); package or specification names use their constant or declared literal (`EnvFilter::DEFAULT_ENV`, `OTEL_PROPAGATORS`). Repeated `--settings` files layer over earlier files and field defaults. `SecretString` redacts `Debug`, with `expose_secret` at the sending call. Choice enums derive `ValueEnum`, per-variant `#[value(help)]`, and `#[default]` beside `default_value_t`. Repeatable paths omit `value_delimiter` so separators remain part of each path.
+
+Shared flags (logs, man pages, color, telemetry with `RUST_LOG` and `OTEL_*`) belong to a record generic over application `Args`. Native `CommandFactory`, `FromArgMatches`, and `Parser` compose that record. `Resettable::from` restores application `about` and `long_about`; flattened package records clear both through `#[command(about = None, long_about = None)]`. Default `_mut` methods delegate to their borrowed pair, cloning each derived part; composed records can implement all four methods with one clone into the consuming pair. Builder commands read metadata from `clap::command!()`.
+
+Child commands keep executable and child tokens in one trailing `Vec<OsString>` with required arity, `num_args = 1..`, `trailing_var_arg`, `allow_hyphen_values`, and `ValueHint::CommandWithArguments`. Splitting executable and arguments into separate positionals lets known parent flags outrank the next positional. Derive parsing when it expresses the complete contract; supported typed `CommandFactory` and `FromArgMatches` conversion remains available otherwise. Slice pattern `[program, args @ ..]` separates the captured command after native arity enforcement.
+
+Flattened records use `#[group(skip)]` and `#[command(next_help_heading = ..)]`; reused type names need distinct groups and headings. Optional flattening retains the group that determines presence and keeps required fields required. Values requiring another flag use `requires = "<id>"`. Application-read variables become arguments; dependency-read variables (`OTEL_EXPORTER_OTLP_ENDPOINT`) pass through untouched. Settings declare field defaults, and one generic function decodes layered files:
 
 ```rust
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -219,7 +233,7 @@ fn main() -> ExitCode {
 - `DropGuard::new(Runtime::new()?, Runtime::shutdown_background)` holds the runtime `block_on` reads, every path returning without waiting for blocked tasks
 - `panic::set_hook` force-flushes each provider, then calls the previous hook, `panic::take_hook()` held as an `Arc<dyn Fn(&PanicHookInfo) + Send + Sync>` the guard restores
 - Hooks record `info.payload_as_str()` as `EXCEPTION_MESSAGE` and `info.location()` as `CODE_FILE_PATH` and `CODE_LINE_NUMBER` fields
-- `DropGuard` over the providers and previous hook shuts them down and restores it on unwind, and `DropGuard::dismiss` returns both once the work commits
+- Provider guards shut down on unwind without replacing hooks; normal exit restores the previous hook before provider shutdown
 - `panic = "abort"` runs no unwind release, and a hook held for process lifetime chains through `panic::update_hook` to drop the `WorkerGuard` an `Arc<nonpoison::Mutex<Option<WorkerGuard>>>` holds
 - `clap_mangen::generate_to` writes man pages into a directory `create_dir_all` made
 - Work returning `T: Termination` exits through `report()`

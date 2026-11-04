@@ -65,7 +65,7 @@ internal sealed record Gutter(Vector2 Start, Vector2 End) {
             Seq<LayoutNode> provisional = Layouts.Pins(available, content, callers, plot.Plane.In(content).Point, Layouts.Filled);
             return layout with { Data = content, Members = provisional + layout.Members.Filter(Generated), Children = provisional };
         }
-        RoleStyle tick = layout.Within(Role.Tick);
+        RoleStyle tick = layout.Within(Roles.Tick);
         float gap = tick.Metrics[Metric.Gap];
         Seq<LayoutNode> earlier = layout.Members.Filter(Generated).Bind(static held => held.Members);
         SKRect first = Inside(content);
@@ -74,8 +74,8 @@ internal sealed record Gutter(Vector2 Start, Vector2 End) {
         Seq<Marked> marks = Marks(available, plot, second, tick, refit: true, earlier);
         SKRect data = rough.Max(Marked.Reached(marks, plot.Plane, second, gap)).Inside(content);
         Seq<LayoutNode> grids = toSeq(from marked in marks
-                                      from role in Seq(Role.Grid, Role.GridFine)
-                                      select (View)new View.Mark(new Figure.Grid(marked.Guide.Along) { Major = role == Role.Grid, Spacing = Some(marked.Spacing) }) { Role = role })
+                                      from role in Seq(Roles.Grid, Roles.GridFine)
+                                      select (View)new View.Mark(new Figure.Grid(marked.Guide.Along) { Major = role == Roles.Grid, Spacing = Some(marked.Spacing) }) { Role = role })
             .Map((node, index) => Built(available, layout.Path.Add(Grids).Add(new Key.Ordinal((uint)index)), node, earlier));
         Seq<LayoutNode> members = Contained(layout, Grids, grids.Map(grid => Layouts.Framed(available.Pass, grid, Local(data, content))))
             + Layouts.Pins(available, data, callers, plot.Plane.In(data).Point, (room, member) => Layouts.Framed(room.Pass, member, data))
@@ -110,12 +110,12 @@ internal sealed record Gutter(Vector2 Start, Vector2 End) {
         float fitted = refit && widest > apart ? widest : spacing;
         Seq<(float Value, LayoutNode Layout)> kept = fitted > spacing ? Label(available, guide, axis, fitted / pixels, offset, earlier) : labels;
         return new Marked(guide, fitted, kept, guide.Title.Map(title => Built(available, available.Layout.Path.Add(Labels).Add(new Key.Ordinal(offset + (uint)kept.Count)),
-            new View.Text([title]) { Role = Role.Caption, Align = UnitPoint.Center, Transform = Rotation(guide.TitleAngle) }, earlier)));
+            new View.Text([title]) { Role = Roles.Caption, Align = UnitPoint.Center, Transform = Rotation(guide.TitleAngle) }, earlier)));
     }
 
     private static Seq<(float Value, LayoutNode Layout)> Label(AvailableSpace available, Guide guide, Axis axis, float least, uint offset, Seq<LayoutNode> earlier) =>
         axis.Ticks(least).Filter(static tick => tick.Major).Map((tick, index) => (tick.Value, Built(available, available.Layout.Path.Add(Labels).Add(new Key.Ordinal(offset + (uint)index)),
-            new View.Text([guide.Label(axis, tick.Value, available.Pass.Culture)]) { Role = Role.Tick, Align = UnitPoint.Center, Transform = Rotation(guide.Angle) }, earlier)));
+            new View.Text([guide.Label(axis, tick.Value, available.Pass.Culture)]) { Role = Roles.Tick, Align = UnitPoint.Center, Transform = Rotation(guide.Angle) }, earlier)));
 
     private static (LayoutNode Layout, SKRect Frame, SKRect Reach) Placement(LayoutNode layout, float degrees, Vector2 near, PhysicalAxis cross, float outward) {
         SKSize turned = Turned(layout.Intrinsic, degrees);

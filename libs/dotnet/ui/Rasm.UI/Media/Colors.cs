@@ -59,7 +59,7 @@ public abstract partial record ColorRamp {
     // --- [STOPS]
     private ColorRamp(Seq<Stop> stops) => Stops = toSeq(stops.OrderBy(static stop => stop.At));
 
-    public Seq<Stop> Stops { get; }
+    public Seq<Stop> Stops { get; private protected init; }
 
     private protected Seq<(Stop Low, Stop High)> Segments => toSeq(Stops.AsIterable().Window(2, static pair => (Low: pair[0], High: pair[1])));
 
@@ -73,10 +73,7 @@ public abstract partial record ColorRamp {
 
     public ColorRamp Banded(uint count) =>
         new Stepped(toSeq(Enumerable.Range(0, (int)count)).Choose(band =>
-            from at in Fraction.Validated((float)band / count).ToOption()
-            from middle in Fraction.Validated((band + 0.5f) / count).ToOption()
-            from color in At(middle)
-            select new Stop(color, at)));
+            At(new Fraction((band + 0.5f) / count)).Map(color => new Stop(color, new Fraction((float)band / count)))));
 
     // --- [SAMPLING]
     public abstract Option<ColorValue> At(Fraction at);
@@ -116,8 +113,7 @@ public abstract partial record ColorRamp {
             Segments.Find(segment => at <= segment.High.At).Bind(segment => at <= segment.Low.At ? Some(segment.Low.Color) : Mixed(segment.Low, segment.High, at)) | Last;
 
         private Option<ColorValue> Mixed(Stop low, Stop high, Fraction at) =>
-            from progress in Fraction.Validated(((float)at - (float)low.At) / ((float)high.At - (float)low.At)).ToOption()
-            from eased in Easing.At(progress).Map(static sampled => (float)sampled.Progress)
+            from eased in Easing.At(new Fraction(((float)at - (float)low.At) / ((float)high.At - (float)low.At))).Map(static sampled => (float)sampled.Progress)
             select Fraction.Validated(eased).Match(
                 Succ: amount => new ColorValue.Mixed(low.Color, high.Color, amount) { Space = Space, Hue = Hue },
                 Fail: _ => eased < 0f ? low.Color : high.Color);
@@ -132,6 +128,14 @@ public abstract partial record ColorRamp {
     }
 
     public sealed record Mapped(Colourmap Map) : ColorRamp(Sampled(Map)) {
+        public Colourmap Map {
+            get;
+            init {
+                field = value;
+                Stops = Sampled(value);
+            }
+        } = Map;
+
         public Option<Unicolour> Under { get; init; }
         public Option<Unicolour> Over { get; init; }
 

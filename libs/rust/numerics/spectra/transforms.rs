@@ -122,7 +122,10 @@ where
         let product = coefficient * value;
         product.rem_euclid(1.0) + coefficient.mul_add(value, -product)
     };
-    let square = |index: usize| turns(sweep, convert::<usize, f64>(index.strict_mul(index)));
+    let square = |index: usize| {
+        let position = convert::<usize, f64>(index);
+        turns(sweep, position * position)
+    };
     let chirp = |index: usize| Complex::cis(TAU * square(index));
     let mut planner = FftPlanner::new();
     let [forward, inverse] = [FftDirection::Forward, FftDirection::Inverse].map(|direction| planner.plan_fft(size, direction));

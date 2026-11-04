@@ -7,9 +7,11 @@ import sys
 from types import MemberDescriptorType
 from typing import Annotated, Final, Self
 
-from expression import Nothing, Option, Some, try_downcast
+from expression import Option, Some
 import msgspec
 import numpy as np
+
+from blender.records.faults import Nothing
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -26,6 +28,7 @@ type Rgb = tuple[Finite, Finite, Finite]
 type Count = Annotated[int, msgspec.Meta(ge=1)]
 type Name = Annotated[str, msgspec.Meta(min_length=1)]
 type Lens = tuple[object, ...]
+type _Parent = tuple[msgspec.Struct, MemberDescriptorType] | tuple[tuple[object, ...], int]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -47,8 +50,10 @@ class Frozen(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
     def __post_init__(self) -> None:
         """Marks every array field read-only."""
-        for array in (held for value in msgspec.structs.astuple(self) for held in (value.to_list() if isinstance(value, Option) else (value,)) if isinstance(held, np.ndarray)):
-            array.setflags(write=False)
+        for name in self.__struct_fields__:
+            value = getattr(self, name)
+            if isinstance(array := value.to_optional() if isinstance(value, Option) else value, np.ndarray):
+                array.setflags(write=False)
 
 
 class Case(msgspec.Struct, frozen=True, kw_only=True, tag_field="kind", tag=True):
@@ -84,7 +89,7 @@ class History[T](msgspec.Struct, frozen=True, kw_only=True):
             case (head, *rest) if not self.future and head.value != entry.value and datetime.timedelta() <= entry.moment - head.moment < retention.interval:
                 past = (msgspec.structs.replace(head, moment=entry.moment), *rest)
             case _:
-                past = (entry, *self.remove(entry.value).past)
+                past = (entry, *(held for held in self.past if held.value != entry.value))
         return type(self)(past=past[: retention.capacity])
 
     def at(self, offset: int) -> Option[Dated[T]]:
@@ -111,31 +116,55 @@ class History[T](msgspec.Struct, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def member[T: msgspec.Struct](kind: type[T], read: Callable[[type[T]], object]) -> object:
-    """Returns the member descriptor a field read on a struct class yields, which checkers refuse on a generic struct's class."""
-    return read(kind)
-
-
-def _walked[V](kind: type[V], value: object, lens: Lens) -> Option[tuple[V, Callable[[object], object]]]:
-    match lens, value:
-        case (), _:
-            return Option.of_optional(try_downcast(kind, value)).map(lambda held: (held, lambda new: new))
-        case (MemberDescriptorType() as field, *rest), msgspec.Struct() if isinstance(value, field.__objclass__):
-            return _walked(kind, field.__get__(value), tuple(rest)).map(lambda found: (found[0], lambda new: msgspec.structs.replace(value, **{field.__name__: found[1](new)})))
-        case (int(index), *rest), tuple() if 0 <= index < len(value):
-            return _walked(kind, value[index], tuple(rest)).map(lambda found: (found[0], lambda new: (*value[:index], found[1](new), *value[index + 1 :])))
+def _stepped(value: object, step: object) -> Option[tuple[object, _Parent]]:
+    match step, value:
+        case MemberDescriptorType() as field, msgspec.Struct() if isinstance(value, field.__objclass__):
+            return Some((field.__get__(value), (value, field)))
+        case int(index), tuple() if 0 <= index < len(value):
+            return Some((value[index], (value, index)))
         case _:
             return Nothing
 
 
 def focused[V](kind: type[V], value: object, lens: Lens) -> Option[V]:
     """Returns the `kind` value a lens of struct fields and 0-based tuple indexes reaches, `Nothing` where a step or the value's class misses."""
-    return _walked(kind, value, lens).map(lambda found: found[0])
+    for step in lens:
+        match _stepped(value, step):
+            case Option(tag="none"):
+                return Nothing
+            case Option(some=(reached, _)):
+                value = reached
+    return Some(value) if isinstance(value, kind) else Nothing
 
 
 def amended[T: msgspec.Struct, V](kind: type[V], record: T, lens: Lens, change: Callable[[V], object]) -> Option[T]:
     """Returns record with the `kind` value a lens reaches replaced by its change, every enclosing struct and tuple rebuilt, `Nothing` where a step or the value's class misses."""
-    return _walked(kind, record, lens).bind(lambda found: Option.of_optional(try_downcast(type(record), found[1](change(found[0])))))
+    match lens:
+        case ():
+            record_type = type(record)
+            return Some(changed) if isinstance(record, kind) and isinstance(changed := change(record), record_type) else Nothing
+        case (MemberDescriptorType() as root, *rest) if isinstance(record, root.__objclass__):
+            value: object = root.__get__(record)
+        case _:
+            return Nothing
+    parents: list[_Parent] = []
+    for step in rest:
+        match _stepped(value, step):
+            case Option(tag="none"):
+                return Nothing
+            case Option(some=(reached, edge)):
+                value = reached
+                parents.append(edge)
+    if not isinstance(value, kind):
+        return Nothing
+    value = change(value)
+    for edge in reversed(parents):
+        match edge:
+            case (msgspec.Struct() as owner, MemberDescriptorType() as field):  # type: ignore[unreachable]
+                value = msgspec.structs.replace(owner, **{field.__name__: value})
+            case (tuple(items), int(index)):  # type: ignore[unreachable]
+                value = (*items[:index], value, *items[index + 1 :])
+    return Some(msgspec.structs.replace(record, **{root.__name__: value}))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
@@ -164,5 +193,4 @@ __all__ = [
     "Unit",
     "amended",
     "focused",
-    "member",
 ]

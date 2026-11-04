@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 
 internal static class DiscardedAwaitable {
@@ -14,4 +15,28 @@ internal static class ObservedAwaitable {
         return 1;
     }
     internal static void Value(int count) => _ = count + 1;
+}
+
+internal sealed record Awaited;
+
+internal static class AwaiterExtensions {
+    internal static TaskAwaiter GetAwaiter(this Awaited value) => Task.CompletedTask.GetAwaiter();
+}
+
+internal sealed class Unrelated {
+    internal int GetAwaiter() => 1;
+}
+
+internal sealed class Hidden {
+    private TaskAwaiter GetAwaiter() => Task.CompletedTask.GetAwaiter();
+}
+
+internal static class CustomAwaitables {
+    internal static void Extended(Awaited value) => {|#3:_ = value|};
+
+    internal static void Named(Unrelated value) => _ = value;
+
+    internal static void Inaccessible(Hidden value) => _ = value;
+
+    internal static void Dynamic(dynamic value) => _ = value;
 }

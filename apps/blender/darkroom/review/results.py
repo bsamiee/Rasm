@@ -1,13 +1,16 @@
 """Darkroom render review: the last render's luminance histogram, chromaticity, and clipping tints over Render Result switched per screen, and the render history browsed as the before frame of a compare in the render view's Sidebar tab."""
 
+# ruff: file-ignore[relative-imports]
 from collections.abc import Callable
 from contextlib import nullcontext
+from functools import cache, cached_property, lru_cache, partial
 from pathlib import Path
 from typing import ClassVar, Final
 
 from bl_ui.space_image import IMAGE_HT_header, IMAGE_PT_render_slots, IMAGE_PT_view_histogram
 import bpy
-from expression import Nothing, Ok, Option, Some
+from expression import Option, Result, Some
+import gpu
 import msgspec
 import numpy as np
 import numpy.typing as npt
@@ -15,33 +18,37 @@ import PyOpenColorIO
 
 from blender.bpy.commands.keymaps import Chord, Keymap
 from blender.bpy.commands.operators import Placement
-from blender.bpy.data.ids.store import Handle
+from blender.bpy.data.ids.store import Handle, retained
 from blender.bpy.data.rna.properties import annotated
-from blender.bpy.extension.identity import Identity, Resource
-from blender.bpy.extension.registration import Acquisitions, Declaration
+from blender.bpy.extension.identity import Identity
+from blender.bpy.extension.registration import Acquisitions, Declaration, Resource
 from blender.bpy.render.color.spaces import EXPOSURE
-from blender.bpy.render.outputs.formats import depth, rounds_straight
-from blender.bpy.render.outputs.results import combined, ResultRead
+from blender.bpy.render.outputs.results import CompletedRender, Consume, ResultRead
 from blender.bpy.render.review.browsing import HistoryBrowser
 from blender.bpy.settings.attachments import Attachment
 from blender.bpy.ui.drawing.charts import Chart, chromaticity, histogram
-from blender.bpy.ui.drawing.handlers import Refresh, SelfDrawnPart, Signal
+from blender.bpy.ui.drawing.handlers import DrawingPart, Refresh, Signal
 from blender.bpy.ui.elements.menus import Append
 from blender.bpy.ui.elements.panels import Beside, Panel
 from blender.bpy.ui.images.compare import Mode
-from blender.bpy.ui.images.views import Masks, overlaid, RenderView, RESULT, Tint
+from blender.bpy.ui.images.views import coverage, Masks, overlaid, RenderView, RESULT
 from blender.bpy.ui.layout.members import Member
 from blender.bpy.ui.layout.rows import even, Layout, Property, Separator
 from blender.bpy.ui.layout.sections import Section
 from blender.bpy.ui.resources.icons import Icon
+from blender.bpy.ui.resources.previews import Texture
 from blender.bpy.ui.resources.theme import Color, Metrics
 from blender.imaging.analysis.metering import Clipping
-from blender.imaging.color.processors import DisplayView
-from blender.imaging.files.buffers import Coding, Depth, unassociated
-from blender.records.faults import Outcome, paired
+from blender.imaging.color.processors import converted_image, DisplayView
+from blender.imaging.files.images import ImageFile
+from blender.records.faults import accumulated, Error, Nothing, Ok, Outcome, paired
 
-from ..effects.formation.display import current_view, displayed_frame
+from ..effects.formation.display import current_view
 from ..effects.grade.exposure import gain
+
+# --- [TYPES] ----------------------------------------------------------------------------
+
+type _Plot = Callable[[Metrics, PyOpenColorIO.Config, npt.NDArray[np.float32], DisplayView], Outcome[Chart]]
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -55,17 +62,35 @@ class Charted(bpy.types.PropertyGroup):
     high: bpy.props.BoolProperty(name="High Clip", description="Tint pixels at the written file's highest code")  # type: ignore[valid-type]  # ty: ignore[invalid-type-form]
 
 
-class Frames(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Last render's scene-linear plane with the view forming it, and the pixels its written file clips, `Nothing` for a format storing floats."""
+class Frames(msgspec.Struct, frozen=True, kw_only=True, eq=False, dict=True):
+    """Last render's tagged final image, captured encoding and view, and optional written-code clipping."""
 
-    linear: npt.NDArray[np.float32]
+    source: ImageFile
+    encoding: Outcome[Option[PyOpenColorIO.Processor]]
     view: DisplayView
-    clipping: Option[Clipping]
+    codes: Outcome[Option[npt.NDArray[np.uint8 | np.uint16]]]
+
+    @cached_property
+    def chart(self) -> Callable[[Metrics, str, _Plot], Outcome[Chart]]:
+        """Charts and native batches owned by this frame's lifetime."""
+        linear = lru_cache(maxsize=1)(
+            lambda _config_id: self.encoding.bind(lambda source: converted_image(PyOpenColorIO.GetCurrentConfig(), PyOpenColorIO.ROLE_SCENE_LINEAR, self.source, source=source))
+        )
+        return lru_cache()(lambda metrics, config_id, plot: linear(config_id).bind(lambda file: plot(metrics, PyOpenColorIO.GetCurrentConfig(), file.pixels, self.view)))
+
+    @cached_property
+    def textures(self) -> Outcome[tuple[Callable[[], Outcome[gpu.types.GPUTexture]], ...]]:
+        """Uploads each clipping mask when drawing first selects it."""
+
+        def uploaded(read: Callable[[], npt.NDArray[np.bool]]) -> Callable[[], Outcome[gpu.types.GPUTexture]]:
+            return cache(lambda: coverage(read().astype(np.float32)))
+
+        return self.codes.map(lambda codes: codes.map(Clipping.of).map(lambda clip: tuple(map(uploaded, (lambda: clip.low, lambda: clip.high)))).default_value(()))
 
 
 # --- [SERVICES] -------------------------------------------------------------------------
 
-_FRAMES: Final = Resource[dict[Handle[bpy.types.Scene], Frames]](made=lambda _identity: nullcontext({}))
+_FRAMES: Final = Resource[dict[Handle[bpy.types.Scene], Frames]](made=lambda _identity: nullcontext({}), renewed=Some(lambda _frames: {}))
 _SIGNAL: Final = Resource[Signal](made=lambda _identity: nullcontext(Signal()))
 
 
@@ -82,57 +107,54 @@ class FrameCharts(msgspec.Struct, frozen=True, kw_only=True):
     # --- [FRAMES]
 
     @staticmethod
-    def clipped(settings: bpy.types.ImageFormatSettings, formed: npt.NDArray[np.float32]) -> Outcome[Option[Clipping]]:
-        """Returns the display pixels the format's integer codes clip, coded straight where its writer rounds straight color, `Nothing` for a format storing floats."""
-        match depth(settings):
-            case Option(tag="some", some=Depth.UINT8 | Depth.UINT16 as integer):
-                return Coding.ROUNDED.coded(unassociated(formed) if rounds_straight(settings) else formed, integer).map(lambda codes: Some(Clipping.of(codes)))
-            case _:
-                return Ok(Nothing)
+    def captured(identity: Identity, scene: bpy.types.Scene, _config: PyOpenColorIO.Config) -> Outcome[Consume]:
+        """Captures the review view before retaining the completed frame's source and written codes."""
+        handle = Handle.of(scene)
 
-    @staticmethod
-    def consumed(identity: Identity, scene: bpy.types.Scene, path: str) -> Outcome[Option[str]]:
-        """Holds a finished render's frames for its scene, then refreshes every chart."""
-        config = PyOpenColorIO.GetCurrentConfig()
-
-        def kept(plane: npt.NDArray[np.float32], view: DisplayView) -> Outcome[None]:
+        def kept(view: DisplayView, completed: CompletedRender) -> Outcome[Option[str]]:
             return (
-                displayed_frame(identity, scene, plane, PyOpenColorIO.ROLE_SCENE_LINEAR, config)
-                .bind(lambda file: FrameCharts.clipped(scene.render.image_settings, file.pixels))
-                .map(lambda clipping: identity.resources[_FRAMES].update({Handle.of(scene): Frames(linear=plane, view=view, clipping=clipping)}))
-                .bind(lambda _: identity.resources[_SIGNAL].fired())
+                completed
+                .read()
+                .map(lambda file: _FRAMES[identity].update({handle: Frames(source=file, encoding=completed.encoding, view=view, codes=completed.codes)}))
+                .bind(lambda _: _SIGNAL[identity].fired())
+                .map(lambda _: Nothing)
             )
 
-        return paired(combined(path), current_view(identity, scene)).bind(lambda found: kept(*found)).map(lambda _: Nothing)
+        return current_view(identity, scene).map(lambda view: partial(kept, view))
 
     @staticmethod
     def shown(identity: Identity) -> Outcome[Option[tuple[Charted, Frames]]]:
         """Returns the context screen's switches with the context scene's last render, `Nothing` before its first render."""
+        frames = _FRAMES[identity]
+        retained(frames, bpy.data.scenes)
         match bpy.context.screen, bpy.context.scene:
             case bpy.types.Screen() as screen, bpy.types.Scene() as scene:
-                return FrameCharts.switches.read(identity, screen).map(lambda switches: Option.of_optional(identity.resources[_FRAMES].get(Handle.of(scene))).map(lambda frames: (switches, frames)))
+                return FrameCharts.switches.read(identity, screen).map(lambda switches: Option.of_optional(frames.get(Handle.of(scene))).map(lambda frames: (switches, frames)))
             case _:
                 return Ok(Nothing)
 
     # --- [CHARTS]
 
-    def charted(self, identity: Identity, on: Callable[[Charted], bool], chart: Callable[[Metrics, PyOpenColorIO.Config, Frames], Outcome[Chart]]) -> SelfDrawnPart[Chart]:
+    def charted(self, identity: Identity, on: Callable[[Charted], bool], chart: _Plot) -> DrawingPart[Chart]:
         """Reads a chart of the shown last render while its switch is on."""
-        return SelfDrawnPart(
+        return DrawingPart(
+            drawn=Chart.drawn,
             read=lambda metrics: self.shown(identity).bind(
-                lambda found: found.filter(lambda pair: on(pair[0])).map(lambda pair: chart(metrics, PyOpenColorIO.GetCurrentConfig(), pair[1]).map(Some)).default_value(Ok(Nothing))
-            )
+                lambda found: found.filter(lambda pair: on(pair[0])).map(lambda pair: pair[1].chart(metrics, PyOpenColorIO.GetCurrentConfig().getCacheID(), chart).map(Some)).default_value(Ok(Nothing))
+            ),
         )
 
-    def tints(self, identity: Identity) -> Outcome[Option[tuple[Tint, ...]]]:
+    def tints(self, identity: Identity) -> Outcome[Option[tuple[Texture[Color], ...]]]:
         """Returns the clipping tints the context screen switches on over the shown last render."""
-        return self.shown(identity).map(
-            lambda found: found.bind(
-                lambda pair: pair[1].clipping.map(
-                    lambda clip: tuple(Tint(plane=mask.astype(np.float32), color=rgba) for mask, rgba, on in ((clip.low, self.under, pair[0].low), (clip.high, self.over, pair[0].high)) if on)
-                )
-            ).filter(bool)
-        )
+        match self.shown(identity):
+            case Result(tag="ok", ok=Option(tag="some", some=(switches, frame))) if switches.low or switches.high:
+                return frame.textures.bind(
+                    lambda builders: accumulated(paired(builder(), Ok(color)) for builder, color, on in zip(builders, (self.under, self.over), (switches.low, switches.high)) if on)
+                ).map(lambda tints: Some(tints).filter(bool))
+            case Result(tag="ok"):
+                return Ok(Nothing)
+            case Result(error=faults):
+                return Error(faults)
 
     # --- [ROWS]
 
@@ -159,19 +181,13 @@ class FrameCharts(msgspec.Struct, frozen=True, kw_only=True):
 
     def acquisitions(self, identity: Identity) -> Outcome[Acquisitions]:
         """Returns the render read, both charts, the clipping masks, and their O and U keys."""
-        refreshes: tuple[Refresh, ...] = (identity.resources[_SIGNAL], *((Charted, name) for name in annotated(Charted)))
+        refreshes: tuple[Refresh, ...] = (_SIGNAL[identity], *((Charted, name) for name in annotated(Charted)))  # ty: ignore[unsound-assignment]
         return self.switches.bound(identity).map(
             lambda attached: (
-                ResultRead(consume=lambda scene, path: self.consumed(identity, scene, path)),
-                overlaid(
-                    self.charted(
-                        identity, lambda held: held.outline, lambda metrics, config, frames: histogram(metrics, config, frames.linear, frames.view, (EXPOSURE.prop.hard_min, EXPOSURE.prop.hard_max))
-                    ),
-                    RESULT,
-                    refreshes,
-                ),
-                overlaid(self.charted(identity, lambda held: held.chromaticity, lambda metrics, config, frames: chromaticity(metrics, config, frames.linear, frames.view)), RESULT, refreshes),
-                overlaid(Masks(source=lambda _metrics: self.tints(identity)), RESULT, refreshes),
+                ResultRead(capture=partial(self.captured, identity), codes=True),
+                overlaid(self.charted(identity, lambda held: held.outline, partial(histogram, stops=(EXPOSURE.hard_min, EXPOSURE.hard_max))), RESULT, refreshes),
+                overlaid(self.charted(identity, lambda held: held.chromaticity, chromaticity), RESULT, refreshes),
+                overlaid(Masks(read=lambda _metrics: self.tints(identity)), RESULT, refreshes),
                 Keymap(
                     keymap="Image",
                     bindings=tuple((chord, Placement.context(bpy.ops.wm.context_toggle, ("screen", attached.name, name))) for chord, name in ((Chord(type="O"), "high"), (Chord(type="U"), "low"))),

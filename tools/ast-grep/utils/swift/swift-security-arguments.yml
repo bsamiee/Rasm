@@ -5,8 +5,8 @@ arguments: [subcommand]
 rule:
     any:
         - kind: array_literal
-          not: {inside: {kind: additive_expression}}
+          not: &outer {inside: {kind: additive_expression, stopBy: {not: {kind: 'additive_expression, tuple_expression'}}}}
           has: {kind: line_string_literal, matches: subcommand}
         - kind: additive_expression
-          not: {inside: {kind: additive_expression}}
+          not: *outer
           has: {stopBy: end, kind: array_literal, has: {kind: line_string_literal, matches: subcommand}}

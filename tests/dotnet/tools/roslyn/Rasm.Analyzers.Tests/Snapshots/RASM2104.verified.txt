@@ -1,2 +1,3 @@
 #0 `conduit.Enabled = true` toggles a conduit outside `Conduits`, toggle through the one library enable operation
 #1 `conduit.Enabled = false` toggles a conduit outside `Conduits`, toggle through the one library enable operation
+#2 `(conduit.Enabled, count) = (true, 1)` toggles a conduit outside `Conduits`, toggle through the one library enable operation

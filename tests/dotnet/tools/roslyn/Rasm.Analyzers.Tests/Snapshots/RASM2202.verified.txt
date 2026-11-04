@@ -5,3 +5,5 @@
 #4 `retain` disposes `Scrollable` with children attached, acquire `Scrollable` through `use` with a release detaching children before `Dispose`
 #5 `Products.Transfer` disposes `Panel` with children attached, acquire `Panel` through `use` with a release detaching children before `Dispose`
 #6 `Prelude.use` disposes `Scrollable` with children attached, acquire `Scrollable` through `use` with a release detaching children before `Dispose`
+#7 `Prelude.use` disposes `NestedFrame` with children attached, acquire `NestedFrame` through `use` with a release detaching children before `Dispose`
+#8 `Prelude.use` disposes `InheritedFrame` with children attached, acquire `InheritedFrame` through `use` with a release detaching children before `Dispose`

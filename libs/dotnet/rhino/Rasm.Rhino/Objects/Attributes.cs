@@ -32,7 +32,7 @@ public static class AttributeEdits {
     public static IO<Seq<Guid>> Modify(RhinoDoc doc, Seq<RhinoObject> objects, Func<RhinoObject, Seq<Step<ObjectAttributes>>> steps, bool quiet) =>
         objects.Map(target => (Target: target, Steps: steps(target))).Filter(static row => !row.Steps.IsEmpty)
             .Map((row, index) => Edits.Apply(Stage(doc, row.Target, quiet), row.Target.Attributes, row.Steps).Map(_ => row.Target.Id).Bracket()
-                .MapFail(error => new RhinoFault(row.Target.Id.ToString(), RhinoReason.Declined, index, error)))
+                .MapFail(error => new RhinoFault(row.Target.Id, RhinoReason.Declined, index, error)))
             .TraverseM(static edit => edit).As();
 
     // --- [STEPS]
@@ -56,7 +56,7 @@ public static class AttributeEdits {
     public static Step<ObjectAttributes> AddMaterialRef(Guid plugIn, ObjectMaterialSource source, Guid frontId, int frontIndex, Guid backId, int backIndex) =>
         Steps.Of<ObjectAttributes>(staged => {
             using MaterialRef? created = staged.MaterialRefs.Create(new MaterialRefCreateParams {
-                PlugInId = plugIn, MaterialSource = source, FrontFaceMaterialId = backId, FrontFaceMaterialIndex = backIndex, BackFaceMaterialId = frontId, BackFaceMaterialIndex = frontIndex,
+                PlugInId = plugIn, MaterialSource = source, FrontFaceMaterialId = frontId, FrontFaceMaterialIndex = frontIndex, BackFaceMaterialId = backId, BackFaceMaterialIndex = backIndex,
             });
             if (created is null) return false;
             staged.MaterialRefs.Add(plugIn, created);

@@ -1,44 +1,22 @@
 """Elementwise protocols under Array API names, numpy serving as a namespace, and periodic, normal, and Hermite maps over them."""
 
 import math
-from typing import Literal, Protocol, Self
+from typing import Literal, Protocol
 
 import numpy as np
+from optype import CanAddSame, CanModSame, CanMulSame, CanRAddSelf, CanRMulSelf, CanRSubSelf, CanRTruedivSelf, CanSubSame, CanTruedivSame
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type WaveProfile = Literal["SIN", "SAW", "TRI"]
 
 
-class Elementwise(Protocol):
+class Arithmetic(CanAddSame[float], CanRSubSelf[float], CanMulSame[float], Protocol):
+    """Value supporting sums, products, and subtraction from a float."""
+
+
+class Elementwise(Arithmetic, CanRAddSelf[float], CanSubSame[float], CanRMulSelf[float], CanTruedivSame[float], CanRTruedivSelf[float], CanModSame[float], Protocol):
     """Value supporting elementwise arithmetic with itself and floats."""
-
-    def __add__(self, other: Self | float, /) -> Self:
-        """Elementwise sum."""
-
-    def __radd__(self, other: float, /) -> Self:
-        """Elementwise sum with a leading float."""
-
-    def __sub__(self, other: Self | float, /) -> Self:
-        """Elementwise difference."""
-
-    def __rsub__(self, other: float, /) -> Self:
-        """Elementwise difference from a leading float."""
-
-    def __mul__(self, other: Self | float, /) -> Self:
-        """Elementwise product."""
-
-    def __rmul__(self, other: float, /) -> Self:
-        """Elementwise product with a leading float."""
-
-    def __truediv__(self, other: Self | float, /) -> Self:
-        """Elementwise quotient."""
-
-    def __rtruediv__(self, other: float, /) -> Self:
-        """Elementwise quotient of a leading float."""
-
-    def __mod__(self, other: Self | float, /) -> Self:
-        """Elementwise floored remainder taking the sign of `other`."""
 
 
 class Namespace[V: Elementwise, B](Protocol):
@@ -143,4 +121,4 @@ def smoothstep[V: Elementwise](values: V) -> V:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Elementwise", "Namespace", "WaveProfile", "gaussian", "periodic", "smoothstep"]
+__all__ = ["Arithmetic", "Elementwise", "Namespace", "WaveProfile", "gaussian", "periodic", "smoothstep"]

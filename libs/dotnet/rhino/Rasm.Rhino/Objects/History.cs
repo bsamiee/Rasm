@@ -18,7 +18,6 @@ public abstract record HistoryReplay(int Version) {
 public sealed record HistoryDefinition<T>(int Version, HistoryKey<T> Inputs, Func<T, IO<Seq<GeometryBase>>> Build) : HistoryReplay(Version) where T : notnull {
     // --- [RUN]
     public IO<Seq<Guid>> Run(RhinoDoc doc, Command command, T inputs, Option<ObjectAttributes> attributes) =>
-        from unique in IO.lift(Conversions.Unique(Inputs.Ids, static id => id))
         from added in (from record in use(() => new HistoryRecord(command, Version) { CopyOnReplaceObject = CopyOnReplace })
                        from built in Build(inputs)
                        from written in Inputs.Write(doc, record, inputs)
@@ -64,7 +63,7 @@ public static class Histories {
             _ => Option<bool>.None,
         }).Match(
             Some: updated => RhinoFault.Unless(updated, RhinoReason.Declined, geometry.ObjectType, index),
-            None: () => new RhinoFault(geometry.ObjectType.ToString(), RhinoReason.Unsupported, index));
+            None: () => new RhinoFault(geometry.ObjectType, RhinoReason.Unsupported, index));
 
     // --- [GRAPH]
     public static IO<ArrayBidirectionalGraph<Guid, SEquatableEdge<Guid>>> Graph(RhinoDoc doc, Guid id) =>

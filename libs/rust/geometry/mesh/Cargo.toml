@@ -19,6 +19,11 @@ test    = false
 doctest = false
 bench   = false
 
+# --- [TEST]
+[[test]]
+name = "booleans"
+path = "../../../../tests/rust/geometry/mesh/booleans.rs"
+
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
 # --- [RUNTIME]
@@ -33,6 +38,10 @@ nalgebra        = { workspace = true }
 manifold-rust   = { workspace = true }
 meshopt         = { workspace = true }
 parry3d-f64     = { workspace = true }
+
+# --- [TESTING]
+[dev-dependencies]
+approx = { workspace = true }
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-filter-in-loop-body-rust
-language: rust
+language: rustlang
 severity: error
 utils:
     control-exit:
@@ -11,7 +11,7 @@ utils:
         any:
             - kind: 'continue_expression, unit_expression'
             - kind: block
-              not: {has: {pattern: $_, matches: rust-statement, not: {any: [{kind: continue_expression}, {kind: expression_statement, has: {nthChild: 1, kind: continue_expression}}]}}}
+              not: {has: {matches: rust-statement, not: {any: [{kind: continue_expression}, {kind: expression_statement, has: {nthChild: 1, kind: continue_expression}}]}}}
     continue-block:
         kind: block
         all:

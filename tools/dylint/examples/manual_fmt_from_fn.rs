@@ -17,6 +17,18 @@ struct Traced(u8);
 
 struct Scaled(u8);
 
+struct Different(u8);
+
+struct Equal(u8);
+
+struct Configured(u8);
+
+struct Named;
+
+struct Reflected;
+
+struct Nested;
+
 impl fmt::Display for Joined<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { self.0.iter().try_for_each(|item| write!(f, "{item},")) }
 }
@@ -37,6 +49,47 @@ impl fmt::Display for Scaled {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "{}", self.doubled()) }
 }
 
+impl fmt::Display for Different {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "display {}", self.0) }
+}
+
+impl fmt::Debug for Different {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "debug {}", self.0) }
+}
+
+impl fmt::Display for Equal {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "equal {}", self.0) }
+}
+
+impl fmt::Debug for Equal {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result { write!(formatter, "equal {}", self.0) }
+}
+
+impl fmt::Display for Configured {
+    #[inline(never)]
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result { write!(formatter, "configured {}", self.0) }
+}
+
+impl fmt::Debug for Configured {
+    #[inline(always)]
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result { write!(formatter, "configured {}", self.0) }
+}
+
+impl fmt::Display for Named {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result { formatter.write_str(core::any::type_name::<Self>()) }
+}
+
+impl fmt::Display for Reflected {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result { formatter.write_str(core::any::type_name_of_val(self)) }
+}
+
+impl fmt::Display for Nested {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let named = |_: &Self| "nested";
+        formatter.write_str(named(self))
+    }
+}
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 fn main() {
@@ -46,5 +99,9 @@ fn main() {
     let twice = format!("{}{}", Twice(1), Twice(2));
     let traced = usize::from(Traced(4).0);
     let scaled = Scaled(5);
+    black_box(format!("{0}/{0:?}", Different(6)));
+    black_box(format!("{0}/{0:?}", Equal(7)));
+    black_box(format!("{0}/{0:?}", Configured(8)));
+    black_box((Named.to_string(), Reflected.to_string(), Nested.to_string()));
     black_box(&(joined, holder.label.to_string(), twice, traced, scaled.to_string(), scaled.doubled()));
 }

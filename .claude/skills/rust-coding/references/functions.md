@@ -8,13 +8,13 @@ Cursor pages over sorted rows are one generic function taking the row's key:
 #[must_use]
 pub fn page<T, K>(rows: &[T], mut key: impl FnMut(&T) -> K, after: Option<K>, size: NonZero<usize>) -> (&[T], Option<K>)
 where K: Ord {
-    let (_, rest) = rows.split_at_checked(after.map_or(0, |cursor| rows.partition_point(|row| key(row) <= cursor))).unwrap_or_default();
+    let (_, rest) = rows.split_at(after.map_or(0, |cursor| rows.partition_point(|row| key(row) <= cursor)));
     let (taken, left) = rest.split_at_checked(size.get()).unwrap_or((rest, &[]));
     (taken, taken.last().filter(|_| !left.is_empty()).map(key))
 }
 ```
 
-`page(&orders, |order| order.id, cursor, size)` serves every listing sorted by a unique key. `partition_point` binary-searches past the cursor, and a page longer than the rows left takes them all. The next cursor is the last row's key while a row remains.
+`page(&orders, |order| order.id, cursor, size)` serves listings sorted by a unique key. `partition_point` supplies a valid split of the same slice, requiring no fallback. A requested page longer than remaining rows takes them all. The next cursor is the last returned key while more rows remain.
 
 ## [02]-[RULES]
 
@@ -82,7 +82,7 @@ pub fn rate_for(bands: &[(Cents, Rate)]) -> impl Fn(Cents) -> Option<Rate> + use
 
 ## [04]-[COMPOSITION_ROOT]
 
-Composition-root factories take a capability trait holding the effects, and their closure runs a load, pure transition, and save per request:
+Factories bind a resource once and return an async closure applying a pure transition through that resource's atomic update:
 
 ```rust
 pub type Depositing<L: Ledger> = impl AsyncFn(Deposit) -> Result<Account, LedgerError>;
@@ -90,11 +90,8 @@ pub type Depositing<L: Ledger> = impl AsyncFn(Deposit) -> Result<Account, Ledger
 #[define_opaque(Depositing)]
 pub fn depositing<L>(ledger: L) -> Depositing<L>
 where L: Ledger {
-    async move |command: Deposit| {
-        let next = ledger.load(command.account).await?.ok_or(LedgerError::Refused { account: command.account, reason: Refusal::Missing })?.post(command.amount)?;
-        ledger.save(&next).await.map(|()| next)
-    }
+    async move |command: Deposit| ledger.update(command.account, |account| account.post(command.amount)).await
 }
 ```
 
-`Ledger` declares `load` returning `Result<Option<Account>, LedgerError>` and `save` returning `Result<(), LedgerError>` as `async fn` methods. `main` binds `depositing(store)` once over the store it opened, and the server awaits that closure per request. Each call's future borrows the ledger the closure owns, and no request clones a handle. `Depositing<L>` names the closure type its `#[define_opaque]` factory fixes. State records hold it in an unboxed, non-generic field (`deposit: Depositing<Store>`), called as `(state.deposit)(command)`.
+`Ledger::update` reads an account and commits a successful transition atomically, returning `Result<Account, LedgerError>`. Missing accounts and refused transitions leave stored state unchanged. Native transactions or conditional writes implement that contract; separate load and save calls lose concurrent updates. Retryable update callbacks remain pure. `main` binds `depositing(store)` once, each request borrowing the captured ledger. `#[define_opaque]` fixes `Depositing<L>` to the returned closure type; records hold `deposit: Depositing<Store>` without a box or another type parameter.

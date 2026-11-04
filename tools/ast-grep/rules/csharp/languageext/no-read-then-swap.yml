@@ -59,12 +59,12 @@ utils:
                 - has: {field: name, pattern: $DERIVED}
                 - has: {kind: identifier, nthChild: 1, pattern: $DERIVED}
                 - has: {stopBy: end, kind: variable_declarator, has: {field: name, pattern: $DERIVED}}
-    fed-bound:
+    bound-input:
         kind: invocation_expression
         all:
             - matches: swap
             - has: {stopBy: end, kind: identifier, pattern: $BOUND}
-    fed-derived:
+    derived-input:
         kind: invocation_expression
         all:
             - matches: swap
@@ -83,10 +83,10 @@ rule:
                 precedes:
                     stopBy: end
                     any:
-                        - has: {stopBy: end, matches: fed-bound}
+                        - has: {stopBy: end, matches: bound-input}
                         - all:
                             - matches: derived
-                            - precedes: {stopBy: end, has: {stopBy: end, matches: fed-derived}}
+                            - precedes: {stopBy: end, has: {stopBy: end, matches: derived-input}}
             - inside:
                 stopBy: end
                 field: condition
@@ -104,4 +104,4 @@ rule:
 labels:
     WRITE: {style: secondary, message: 'Writes the atom an earlier read observed'}
 message: '`$CELL.$READER` is read before a separate `$SWAP` of `$CELL`'
-note: 'Read inside one `Swap` transition and use its result, `FindOrAdd`/`TryAdd`/`SwapKey` on `AtomHashMap`, a `Ref` under `atomicIO` for before-and-after pairs'
+note: 'Read in one `Swap`; `AtomHashMap` uses `FindOrAdd`, `TryAdd`, or `SwapKey`; `Ref` under `atomicIO` returns before/after pairs'

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-unchecked-type-predicate
-language: tsx
+language: tsxlang
 severity: error
 utils:
     unbound-parameter:

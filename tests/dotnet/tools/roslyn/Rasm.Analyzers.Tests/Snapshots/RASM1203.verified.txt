@@ -1,1 +1,7 @@
 #0 `HostUtils.ExceptionReport` reports failure `Sink.Report` a second time, report once at the host translation
+#1 `HostUtils.ExceptionReport` reports failure `ReportedTwice.Forward` a second time, report once at the host translation
+#2 `HostUtils.ExceptionReport` reports failure `ReportedTwice.Invoked` a second time, report once at the host translation
+#3 `HostUtils.ExceptionReport` reports failure `ReportedTwice.Invoke` a second time, report once at the host translation
+#4 `HostUtils.ExceptionReport` reports failure `IO.lift` a second time, report once at the host translation
+#5 `HostUtils.ExceptionReport` reports failure `ReportedTwice.ForwardCallback` a second time, report once at the host translation
+#6 `HostUtils.ExceptionReport` reports failure `ReportedTwice.Wrap` a second time, report once at the host translation

@@ -1,4 +1,4 @@
-"""Render queue background commands: `prepare` writing each planned scope's job file, placing its traced files for a farm, and sending the queue to its target; `supervise` holding local render processes; and `render` writing frames."""
+"""Background render preparation, frame output, farm transfer, and local supervision."""
 
 from collections.abc import Callable
 import datetime
@@ -10,20 +10,20 @@ import time
 
 from blender_asset_tracer.hashing import get_hasher
 import bpy
-from expression import Error, Nothing, Ok, Option, Result, Some
+from expression import Option, Result, Some
 from expression.extra.result import catch
 import msgspec
 
 from blender.bpy.data.ids.store import IdName
 from blender.bpy.data.rna.paths import rna, struct_at
 from blender.bpy.data.rna.snapshots import Snapshot
-from blender.bpy.files.sessions import BlendFile, FarmTransfer, packed_session, saved, session_loaded
+from blender.bpy.files.sessions import FarmTransfer, packed_session, saved, session_loaded
 from blender.bpy.render.outputs.paths import OutputPath
 from blender.bpy.render.sessions.engines import samples
 from blender.bpy.render.sessions.plans import Dispatcher, JobScope, Plan, PrepareArguments, QueuePreferences, ranged, Refused, scene_of, Sent
 from blender.bpy.render.sessions.renders import RenderCall
-from blender.bpy.render.view_layers.passes import PassFlags, soloed, used
-from blender.records.faults import accumulated, Fault, Faults, Outcome, paired, Reason
+from blender.bpy.render.view_layers.passes import layer_of, PassFlags, soloed, used
+from blender.records.faults import accumulated, Error, Fault, Faults, Nothing, Ok, Outcome, paired, Reason
 from blender.records.stores import RecordFile
 from blender.rendering.batch.notices import Completed, Estimated, Failed, Started
 from blender.rendering.batch.queue import FixedCamera, FrameTime, Job, observed, PackedFile, Progress, RenderFrames, RenderQueue
@@ -77,8 +77,9 @@ def prepared(dispatcher: Dispatcher, arguments: PrepareArguments, trailing: tupl
         record = Refused(messages=tuple(fault.message for fault in faults))
         return RecordFile(path=dispatcher.host.path(arguments.plan, RunFile.REFUSED), form=Refused).written(record).bind(lambda _: Error(faults))
 
-    loaded: Outcome[Plan] = _no_trailing(RunCommand.PREPARE, trailing).bind(lambda _: RecordFile(path=dispatcher.host.path(arguments.plan, RunFile.PLAN), form=Plan).read())
-    return Result[Plan, Faults].bind(loaded, planned).bind(sent).or_else_with(refused)
+    return (
+        _no_trailing(RunCommand.PREPARE, trailing).bind(lambda _: RecordFile(path=dispatcher.host.path(arguments.plan, RunFile.PLAN), form=Plan).read()).bind(planned).bind(sent).or_else_with(refused)
+    )
 
 
 def job(dispatcher: Dispatcher, scope: JobScope, plan: Plan, source: Path, stem: str, part: int, *, transferred: bool) -> Outcome[Job]:
@@ -95,10 +96,11 @@ def job(dispatcher: Dispatcher, scope: JobScope, plan: Plan, source: Path, stem:
             else Ok(None)
         )
         values = Option.of_optional(scope.values).map(lambda snapshot: snapshot.apply(scene).outcome).default_value(Ok(None))
-        for name in Option.of_optional(scope.layer).to_list():
-            soloed(scene, name)
-        return paired(camera, values, dispatcher.framed.grown(scene)).bind(
-            lambda parts: dispatcher.routing.pathed.path(scene, day).bind(lambda path: dispatcher.routing.placed(scene, path.copied)).map(lambda path: (path, parts[2][1]))
+        layer = Option.of_optional(scope.layer).map(lambda name: layer_of(scene, name).map(soloed)).default_value(Ok(None))
+        return (
+            paired(camera, values, layer)
+            .bind(lambda _: dispatcher.framed.grown(scene))
+            .bind(lambda framed: dispatcher.routing.pathed.path(scene, day).bind(lambda path: dispatcher.routing.placed(scene, path.copied)).map(lambda path: (path, framed[1])))
         )
 
     def written(scene: bpy.types.Scene, path: OutputPath, pixels: tuple[int, int]) -> Outcome[Job]:
@@ -153,10 +155,11 @@ def job(dispatcher: Dispatcher, scope: JobScope, plan: Plan, source: Path, stem:
 
         return saved(file, bpy.ops.wm.save_mainfile, compress=True, relative_remap=True).bind(lambda saved_file: paired(outputs, placed(saved_file))).map(lambda parts: made(*parts))
 
-    def opened(_: BlendFile) -> Outcome[Job]:
-        return scene_of(scope.scene).bind(lambda scene: applied(scene).bind(lambda parts: written(scene, *parts)))
+    def opened(scene: bpy.types.Scene) -> Outcome[Job]:
+        with bpy.context.temp_override(scene=scene):
+            return applied(scene).bind(lambda parts: written(scene, *parts))
 
-    return session_loaded(bpy.ops.wm.open_mainfile, filepath=str(source)).bind(opened)
+    return session_loaded(bpy.ops.wm.open_mainfile, filepath=str(source)).bind(lambda _: scene_of(scope.scene)).bind(opened)
 
 
 # --- [RENDER]
@@ -166,6 +169,7 @@ def frames[T](
     dispatcher: Dispatcher, scene: bpy.types.Scene, numbers: tuple[int, ...], consumed: Callable[[int, datetime.timedelta], Outcome[T]], base: Option[Path] = Nothing
 ) -> Outcome[tuple[T, ...]]:
     """Renders and consumes each frame through the call's own frame range, output rerooted under `base` when set."""
+    values: list[T] = []
 
     def frame(number: int) -> Outcome[T]:
         started = time.monotonic()
@@ -176,7 +180,8 @@ def frames[T](
     return (
         _job_path(dispatcher, scene)
         .bind(lambda original: base.map(lambda root: dispatcher.routing.placed(scene, original.rerooted(root)).map(lambda _: None)).default_value(Ok(None)))
-        .bind(lambda _: reduce(lambda done, number: done.bind(lambda values: frame(number).map(lambda value: (*values, value))), numbers, Result[tuple[T, ...], Faults](ok=())))
+        .bind(lambda _: reduce(lambda done, number: done.bind(lambda _: frame(number).map(values.append)), numbers, Ok(None)))
+        .map(lambda _: tuple(values))
     )
 
 
@@ -214,8 +219,7 @@ def rendered(dispatcher: Dispatcher, run: Run) -> Outcome[tuple[FrameTime, ...]]
             )
 
         def appended(mark: FrameTime) -> Outcome[FrameTime]:
-            persisted: Outcome[Progress] = records.revised(lambda held: msgspec.structs.replace(held, marks=(*held.marks, mark)))
-            return Result[Progress, Faults].bind(persisted, lambda held: finished(held, mark))
+            return records.revised(lambda held: msgspec.structs.replace(held, marks=(*held.marks, mark))).bind(lambda held: finished(held, mark))
 
         def runs(progress: Progress) -> Outcome[tuple[FrameTime, ...]]:
             remaining = frozenset(progress.remaining(queue))
@@ -227,8 +231,7 @@ def rendered(dispatcher: Dispatcher, run: Run) -> Outcome[tuple[FrameTime, ...]]
                 case _:
                     return Ok(())
 
-        loaded: Outcome[Progress] = records.read()
-        return Result[Progress, Faults].bind(loaded, runs)
+        return records.read().bind(runs)
 
     return paired(RecordFile(path=Path(run.queue), form=RenderQueue).read(), dispatcher.preference.read(identity)).bind(lambda pair: ran(*pair))
 

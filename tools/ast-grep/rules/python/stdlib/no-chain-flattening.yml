@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-chain-flattening
-language: python
+language: pythonlang
 severity: error
 metadata: {python-from: '3.15'}
 utils:
@@ -22,10 +22,8 @@ utils:
     wrapper:
         kind: call
         all:
-            - has: {field: function, matches: {python-builtin-name: {name: {regex: '^(list|set)$'}}}, pattern: $WRAPPER}
+            - has: {field: function, matches: {python-builtin-name: {name: {regex: '^(list|set)$'}}}}
             - has: {field: arguments, has: {nthChild: 1, matches: chain-call}, not: {has: {nthChild: 2}}}
-    sole-argument:
-        inside: {kind: argument_list, not: {has: {nthChild: 2}}}
     nested-loop:
         any:
             - kind: list_comprehension, set_comprehension, generator_expression
@@ -44,30 +42,13 @@ rule:
     pattern: $SITE
     any:
         - matches: wrapper
-        - matches: chain-call
-          all:
-            - not: {inside: {kind: argument_list, inside: {matches: wrapper}}}
-            - any:
-                - matches: sole-argument
-                  pattern: $SOLE
-                - not: {matches: sole-argument}
-                  pattern: $PARENTHESIZED
+        - all:
+            - matches: chain-call
+            - not:
+                inside:
+                    kind: argument_list
+                    inside:
+                        matches: wrapper
         - matches: nested-loop
-          pattern: $LOOP
-transform:
-    OPEN_LIST: {replace: {source: $WRAPPER, replace: '^list$', by: '['}}
-    OPEN: {replace: {source: $OPEN_LIST, replace: '^set$', by: '{'}}
-    CLOSE_LIST: {replace: {source: $WRAPPER, replace: '^list$', by: ']'}}
-    CLOSE: {replace: {source: $CLOSE_LIST, replace: '^set$', by: '}'}}
-    LEFT: {replace: {source: $PARENTHESIZED, replace: '(?s)^.*$', by: '('}}
-    RIGHT: {replace: {source: $PARENTHESIZED, replace: '(?s)^.*$', by: ')'}}
-    ITEM_OVER_ITERABLES: {replace: {source: $ITERABLES, replace: '(?s)^.*$', by: '*item for item in '}}
-    ITEM_OVER_ARGUMENTS: {replace: {source: $ARGUMENTS, replace: '(?s)^.*$', by: '*item for item in '}}
-    LOOP_OPEN: {substring: {source: $LOOP, endChar: 1}}
-    LOOP_CLOSE: {substring: {source: $LOOP, startChar: -1}}
-    UNPACKED: {replace: {source: $ITEMS, replace: '(?s)^(.*)$', by: '*$1 for '}}
-    SPREAD: {replace: {source: $MAPPING, replace: '(?s)^(.*)$', by: '**$1 for '}}
-    OVER: {replace: {source: $ROWS, replace: '(?s)^(.*)$', by: ' in $1'}}
-fix: $OPEN$LEFT$ITEM_OVER_ITERABLES$ITEM_OVER_ARGUMENTS$ITERABLES$ARGUMENTS$CLOSE$RIGHT$LOOP_OPEN$UNPACKED$SPREAD$OUTER$OVER$LOOP_CLOSE
 message: '`$SITE` flattens iterables in place of comprehension unpacking'
-note: 'Write `[*<row> for <row> in <rows>]`, set `{*…}`, iterator `(*…)`, `tuple(*…)`, or dict `{**<row> for <row> in <rows>}`'
+note: 'Use comprehension unpacking with equivalent iteration timing and bindings'

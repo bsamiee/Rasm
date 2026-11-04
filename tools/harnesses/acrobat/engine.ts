@@ -1,5 +1,5 @@
 import type { Schema } from 'effect';
-import type { HostCase, HostOutcome, Model, Request } from '#/acrobat/contract';
+import type { EngineRequest, HostCase, HostOutcome, Model } from '#/acrobat/contract';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -73,7 +73,7 @@ interface Reads {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const engine = function (this: unknown, request: typeof Request.Type): string {
+const engine = function (this: unknown, request: typeof EngineRequest.Type): string {
     const NUMBERS: Members = { undefined, NaN: Number.NaN, Infinity: Number.POSITIVE_INFINITY, '-Infinity': Number.NEGATIVE_INFINITY, '-0': -0 };
     const DATED = 'date:';
     const TAGGED = '[object ';

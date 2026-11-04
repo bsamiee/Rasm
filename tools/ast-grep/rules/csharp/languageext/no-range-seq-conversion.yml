@@ -32,4 +32,3 @@ rule:
             - not: {has: {field: arguments, has: {kind: argument}}}
 message: '`$RANGE` converts to `Seq` before a `Foldable` member `Range` supports'
 note: 'Delete `Seq` conversion around the range'
-fix: $RANGE

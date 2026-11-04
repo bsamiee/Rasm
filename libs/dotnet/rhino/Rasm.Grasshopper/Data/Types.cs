@@ -31,13 +31,14 @@ public interface IGeometric<TSelf> where TSelf : IGeometric<TSelf> {
     public static abstract TSelf Deform(TSelf value, SpaceMorph morph);
 }
 
-public interface IValueControl<T> {
-    public Option<Control> CreateValueControl(ValueParameter<T> parameter);
+// --- [SERVICES] ------------------------------------------------------------------------
+public abstract class ValueAssistant<T>(string name, Seq<Preset<T>> presets = default) : TypeAssistant<T>(name) {
+    // --- [CONTROLS]
+    public abstract Option<Control> CreateValueControl(ValueParameter<T> parameter);
 
-    public Seq<Preset<T>> Presets => [];
+    public virtual Seq<Preset<T>> Presets { get; } = presets;
 }
 
-// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class ValueParameter<T> : Parameter<T>, GrasshopperIO.ICustomIoId {
     // --- [CONSTRUCTION]
     public ValueParameter() : base(new Nomen(typeof(T).Name, "")) { }
@@ -54,14 +55,14 @@ public sealed class ValueParameter<T> : Parameter<T>, GrasshopperIO.ICustomIoId 
 
     public override IPresets PresetsWeak {
         get {
-            if (Presets.Count is 0 && TypeAssistant is IValueControl<T> owner)
+            if (Presets.Count is 0 && TypeAssistant is ValueAssistant<T> owner)
                 _ = owner.Presets.Iter(preset => Presets.Add(preset));
             return Presets;
         }
     }
 
     public override Control CreateValueControl() =>
-        (Presets.Count is 0 && TypeAssistant is IValueControl<T> owner ? owner.CreateValueControl(this).ValueUnsafe() : null) ?? base.CreateValueControl();
+        (Presets.Count is 0 && TypeAssistant is ValueAssistant<T> owner ? owner.CreateValueControl(this).ValueUnsafe() : null) ?? base.CreateValueControl();
 
     protected override IIcon? IconInternal => TypeAssistant?.Icon;
 
@@ -70,7 +71,7 @@ public sealed class ValueParameter<T> : Parameter<T>, GrasshopperIO.ICustomIoId 
 }
 
 internal class ValueAssistant<TValue, TKey, TError>(ITypeAssistant<TKey> key, Option<Func<ValueParameter<TValue>, Control>> control = default, Seq<Preset<TValue>> presets = default)
-    : TypeAssistant<TValue>($"{char.ToLowerInvariant(typeof(TValue).Name[0])}{typeof(TValue).Name[1..]}"), IValueControl<TValue>
+    : ValueAssistant<TValue>($"{char.ToLowerInvariant(typeof(TValue).Name[0])}{typeof(TValue).Name[1..]}", presets)
     where TValue : IObjectFactory<TValue, TKey, TError>, IConvertible<TKey>
     where TKey : notnull
     where TError : class, IValidationError<TError> {
@@ -91,8 +92,8 @@ internal class ValueAssistant<TValue, TKey, TError>(ITypeAssistant<TKey> key, Op
         key.Parse(constructor: null, text, existing: null) switch {
             { Success: false } failed => Result<TValue>.Fail(failed.Error, text, failed.Start, failed.After),
             var parsed => Conversions<TValue, TKey, TError>.Validated(parsed.Value).Match(
-                Succ: value => parsed.WithValue(value),
-                Fail: error => Result<TValue>.Fail(error.Message, text, parsed.Start, parsed.After)),
+                Left: error => Result<TValue>.Fail(Conversions<TValue, TKey, TError>.Rejected(error), text, parsed.Start, parsed.After),
+                Right: value => parsed.WithValue(value)),
         };
 
     // --- [PERSISTENCE]
@@ -105,9 +106,7 @@ internal class ValueAssistant<TValue, TKey, TError>(ITypeAssistant<TKey> key, Op
     }
 
     // --- [CONTROLS]
-    public Option<Control> CreateValueControl(ValueParameter<TValue> parameter) => control.Map(create => create(parameter));
-
-    public Seq<Preset<TValue>> Presets => presets;
+    public override Option<Control> CreateValueControl(ValueParameter<TValue> parameter) => control.Map(create => create(parameter));
 }
 
 internal sealed class GeometricAssistant<TValue, TKey, TError>(ITypeAssistant<TKey> key) : ValueAssistant<TValue, TKey, TError>(key)
@@ -156,10 +155,8 @@ internal sealed class GeometricAssistant<TValue, TKey, TError>(ITypeAssistant<TK
     }
 
     private static Option<double> Measured(TValue instance, Func<ITypeAssistant, GeometryBase, Option<double>> measure) =>
-        TValue.Geometry(instance).Choose(shape => Optional(TypeAssistantServer.FindByValue(shape)).Bind(assistant => measure(assistant, shape))).Strict() switch {
-            { IsEmpty: true } => None,
-            var parts => parts.Fold(0d, static (sum, part) => sum + part),
-        };
+        TValue.Geometry(instance).Choose(shape => Optional(TypeAssistantServer.FindByValue(shape)).Bind(assistant => measure(assistant, shape)))
+            .Fold(Option<double>.None, static (sum, part) => Some(sum.IfNone(0d) + part));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -168,30 +165,31 @@ internal static class Conversions<TValue, TKey, TError>
     where TKey : notnull
     where TError : class, IValidationError<TError> {
     // --- [VALIDATION]
-    public static Fin<TValue> Validated(TKey key) =>
+    public static Either<TError, TValue> Validated(TKey key) =>
         TValue.Validate(key, CultureInfo.InvariantCulture, out TValue? value) switch {
-            null => value!,
-            Error error => error,
-            var error => Error.New(string.Create(CultureInfo.InvariantCulture, $"{error}")),
+            null => Right(value!),
+            var error => Left(error),
         };
+
+    public static string Rejected(TError error) => error is Error fault ? fault.Message : string.Create(CultureInfo.InvariantCulture, $"{error}");
 
     // --- [INBOUND]
     [Merit(Merit.Direct)]
-    [Explanation("Validates the key as the value.")]
+    [Explanation("Validates key as value")]
     public static void Inbound(TKey source, out TValue target) =>
-        target = Validated(source).IfFail(static error => throw ConversionRepository.CustomError(typeof(TKey), typeof(TValue), error.Message));
+        target = Validated(source).IfLeft(static error => throw ConversionRepository.CustomError(typeof(TKey), typeof(TValue), Rejected(error)));
 
     // --- [OUTBOUND]
     [Merit(Merit.Direct)]
-    [Explanation("Takes the key of the value.")]
+    [Explanation("Reads value key")]
     public static void Outbound(TValue source, out TKey target) => target = source.ToValue();
 
-    // --- [ROWS]
-    public static Seq<IO<Unit>> Rows { get; } = typeof(TKey) == typeof(string) ? [] : [Row<TKey, TValue>(Inbound), Row<TValue, TKey>(Outbound)];
+    // --- [REGISTRATION]
+    public static IO<Unit> Registered { get; } = unless(typeof(TKey) == typeof(string), Register(typeof(Conversions<TValue, TKey, TError>))).As();
 
-    public static IO<Unit> Row<TSource, TTarget>(ConversionDelegate<TSource, TTarget> convert) =>
-        IO.lift(() => GrasshopperFault.Unless(
-            ConversionServer.TryAddConversion(convert.Method) || ConversionServer.FindConversion<TSource, TTarget>() is not null, GrasshopperReason.Declined, convert.Method));
+    public static IO<Unit> Register(params Seq<Type> owners) =>
+        IO.lift(() => owners.Bind(static owner => toSeq(owner.GetMethods(BindingFlags.Public | BindingFlags.Static)))
+            .Iter(static method => ignore(ConversionServer.TryAddConversion(method))));
 }
 
 internal static class NumberConversions<TValue, TKey, TError>
@@ -199,40 +197,33 @@ internal static class NumberConversions<TValue, TKey, TError>
     where TKey : struct, INumber<TKey>
     where TError : class, IValidationError<TError> {
     // --- [KEYS]
-    public static bool Integral { get; } = TKey.IsInteger(TKey.CreateTruncating(0.5d));
+    public static bool Integral { get; } = typeof(TKey).GetInterfaces().Any(static contract => contract.IsGenericType && contract.GetGenericTypeDefinition() == typeof(IBinaryInteger<>));
 
     // --- [INBOUND]
     [Merit(Merit.Direct)]
-    [Explanation("Validates the number as the key, rounded first when the key is an integer.")]
+    [Explanation("Validates number as key, rounding integer keys")]
     public static void Inbound(double source, out TValue target) =>
         Conversions<TValue, TKey, TError>.Inbound(TKey.CreateChecked(Integral ? double.Round(source, MidpointRounding.AwayFromZero) : source), out target);
 
     [Merit(Merit.Direct)]
-    [Explanation("Validates the integer as the key.")]
+    [Explanation("Validates integer as key")]
     public static void Inbound(int source, out TValue target) => Conversions<TValue, TKey, TError>.Inbound(TKey.CreateChecked(source), out target);
 
     [Merit(Merit.Direct)]
-    [Explanation("Validates the big integer as the key.")]
+    [Explanation("Validates big integer as key")]
     public static void Inbound(BigInteger source, out TValue target) => Conversions<TValue, TKey, TError>.Inbound(TKey.CreateChecked(source), out target);
 
     // --- [OUTBOUND]
     [Merit(Merit.Direct)]
-    [Explanation("Takes the key of the value as a number.")]
+    [Explanation("Reads value key as number")]
     public static void Outbound(TValue source, out double target) => target = double.CreateChecked(source.ToValue());
 
     [Merit(Merit.Direct)]
-    [Explanation("Rounds the key of the value to an integer.")]
+    [Explanation("Rounds value key to integer")]
     public static void Outbound(TValue source, out int target) => IntegerConversions.Convert(double.CreateChecked(source.ToValue()), out target);
 
-    // --- [ROWS]
-    public static Seq<IO<Unit>> Rows { get; } = [
-        Conversions<TValue, TKey, TError>.Row<double, TValue>(Inbound),
-        Conversions<TValue, TKey, TError>.Row<int, TValue>(Inbound),
-        Conversions<TValue, TKey, TError>.Row<BigInteger, TValue>(Inbound),
-        Conversions<TValue, TKey, TError>.Row<TValue, double>(Outbound),
-        Conversions<TValue, TKey, TError>.Row<TValue, int>(Outbound),
-        .. Conversions<TValue, TKey, TError>.Rows,
-    ];
+    // --- [REGISTRATION]
+    public static IO<Unit> Registered { get; } = Conversions<TValue, TKey, TError>.Register(typeof(NumberConversions<TValue, TKey, TError>), typeof(Conversions<TValue, TKey, TError>));
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -242,7 +233,7 @@ public static class DataTypes {
         where TValue : IObjectFactory<TValue, TKey, TError>, IConvertible<TKey>
         where TKey : notnull
         where TError : class, IValidationError<TError> =>
-        Keyed<TValue, TKey>(static key => new ValueAssistant<TValue, TKey, TError>(key), Conversions<TValue, TKey, TError>.Rows);
+        Keyed<TValue, TKey>(static key => new ValueAssistant<TValue, TKey, TError>(key), Conversions<TValue, TKey, TError>.Registered);
 
     public static IO<Unit> Choice<TValue, TKey, TError>()
         where TValue : ISmartEnum<TKey, TValue, TError>
@@ -250,13 +241,13 @@ public static class DataTypes {
         where TError : class, IValidationError<TError> =>
         Keyed<TValue, TKey>(
             static key => new ValueAssistant<TValue, TKey, TError>(key, presets: toSeq(TValue.Items).Map(static item => new Preset<TValue>(string.Create(CultureInfo.InvariantCulture, $"{item.ToValue()}"), item))),
-            Conversions<TValue, TKey, TError>.Rows);
+            Conversions<TValue, TKey, TError>.Registered);
 
     public static IO<Unit> Number<TValue, TKey, TError>()
         where TValue : IObjectFactory<TValue, TKey, TError>, IConvertible<TKey>
         where TKey : struct, INumber<TKey>
         where TError : class, IValidationError<TError> =>
-        Keyed<TValue, TKey>(static key => new ValueAssistant<TValue, TKey, TError>(key), NumberConversions<TValue, TKey, TError>.Rows);
+        Keyed<TValue, TKey>(static key => new ValueAssistant<TValue, TKey, TError>(key), NumberConversions<TValue, TKey, TError>.Registered);
 
     public static IO<Unit> Bounded<TValue, TKey, TError>()
         where TValue : IObjectFactory<TValue, TKey, TError>, IConvertible<TKey>, IMinMaxValue<TValue>
@@ -270,34 +261,33 @@ public static class DataTypes {
                 Seq<decimal> current = toSeq(parameter.PersistentData.NonNullItems).Map(static value => decimal.CreateSaturating(value.ToValue()));
                 SliderControl slider = new(limits) { Width = 200, Height = 24 };
                 slider.Values.Assign(current.IsEmpty ? Seq(limits.Value) : current);
-                slider.SliderValueChanged += (_, _) => {
-                    Seq<TValue> picked = toSeq(slider.Values.AllValues).Choose(static number => Conversions<TValue, TKey, TError>.Validated(TKey.CreateChecked(number)).ToOption());
-                    if (picked.IsEmpty) return;
-                    parameter.AddUndoRecord(new VerbNoun("Set", parameter.TypeAssistant.Name), new PersistentDataAction(parameter, runtime));
-                    parameter.PersistentData = Garden.TreeFromPears(
-                        (parameter.PersistentData.PathCount > 0 ? parameter.PersistentData.Paths : Paths.Zero).First, picked.Map(static value => Garden.Pear(value)));
-                    parameter.Document?.Solution.DelayedExpire(parameter);
-                };
+                slider.SliderValueChanged += (_, _) => Hooks.Run(
+                    IO.lift(() => toSeq(slider.Values.AllValues).Traverse(static number => Conversions<TValue, TKey, TError>.Validated(TKey.CreateChecked(number))
+                            .MapLeft<Error>(static error => error is Error fault ? fault : Error.New(Conversions<TValue, TKey, TError>.Rejected(error))).ToFin()).As())
+                        .Bind(picked => unless(picked.IsEmpty, IO.lift(() => {
+                            parameter.AddUndoRecord(new VerbNoun("Set", parameter.TypeAssistant.Name), new PersistentDataAction(parameter, runtime));
+                            parameter.PersistentData = Garden.TreeFromPears(
+                                (parameter.PersistentData.PathCount > 0 ? parameter.PersistentData.Paths : Paths.Zero).First, picked.Map(static value => Garden.Pear(value)));
+                            parameter.Document?.Solution.DelayedExpire(parameter);
+                        })).As()),
+                    unit);
                 return slider;
             })),
-            NumberConversions<TValue, TKey, TError>.Rows);
+            NumberConversions<TValue, TKey, TError>.Registered);
 
     public static IO<Unit> Geometric<TValue, TKey, TError>()
         where TValue : IObjectFactory<TValue, TKey, TError>, IConvertible<TKey>, IGeometric<TValue>
         where TKey : notnull
         where TError : class, IValidationError<TError> =>
-        Keyed<TValue, TKey>(static key => new GeometricAssistant<TValue, TKey, TError>(key), Conversions<TValue, TKey, TError>.Rows);
+        Keyed<TValue, TKey>(static key => new GeometricAssistant<TValue, TKey, TError>(key), Conversions<TValue, TKey, TError>.Registered);
 
     public static IO<Unit> Assistant<T>() =>
-        IO.lift(static () => GrasshopperFault.Unless(
-            GrasshopperIO.IO.TryGetIoId(typeof(ValueParameter<T>), out Guid id) && (GrasshopperIO.IO.RegisterRestorableType(typeof(ValueParameter<T>), id) || GrasshopperIO.IO.ResolveType(id) is not null),
-            GrasshopperReason.Declined,
-            typeof(ValueParameter<T>)));
+        IO.lift(static () => ignore(GrasshopperIO.IO.RegisterRestorableType(typeof(ValueParameter<T>))));
 
-    private static IO<Unit> Keyed<TValue, TKey>(Func<ITypeAssistant<TKey>, TypeAssistant<TValue>> assistant, Seq<IO<Unit>> conversions) =>
+    private static IO<Unit> Keyed<TValue, TKey>(Func<ITypeAssistant<TKey>, TypeAssistant<TValue>> assistant, IO<Unit> conversions) =>
         from key in IO.lift(static () => Optional(TypeAssistantServer.Find<TKey>()).ToFin(new GrasshopperFault(typeof(TKey).ToString(), GrasshopperReason.Missing)))
-        from registered in IO.lift(() => GrasshopperFault.Unless(TypeAssistantServer.Find<TValue>() is not null || TypeAssistantServer.Register(assistant(key)), GrasshopperReason.Declined, typeof(TValue)))
-        from converted in conversions.TraverseM(static row => row).As()
+        from registered in IO.lift(() => GrasshopperFault.Unless(TypeAssistantServer.Register(assistant(key)), GrasshopperReason.Declined, typeof(TValue)))
+        from converted in conversions
         from restorable in Assistant<TValue>()
         select unit;
 

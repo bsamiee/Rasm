@@ -1,61 +1,75 @@
 # [OUTLINE]
 
-`ast-grep outline` maps declarations and their direct members to source ranges. Outlines locate what to act on: a declaration to edit, a member to attach a change to, a registration to trace, a rule to read. Extractors repeating `fd`, `rg`, `jq`, or bundled extractor output are redundant.
+`ast-grep outline` locates declarations and direct members by parsed source ranges. Use outlines to select code for reading or editing when no richer language navigator exists. Extractors repeating file discovery, text search, or bundled output add no capability.
 
 ## [01]-[READING]
 
-- Directory outlines pass `--items structure` for local items, members need `--view expanded`
-- `--match` is a Rust regex over item names, signatures, and first source lines, `--type` a comma list of `symbolType` values, neither reaches members
-- `--json=compact | jq` over an item's `members` array reaches a member
-- `<dir> -l <lang>` walks one language of a directory
-- `<file> --items imports` lists a file's dependencies, `<dir> --items exports --view signatures` enumerates public entry points
-- `<file> --match '^<symbol>$' --view expanded` expands one symbol
-- `<producer> | ast-grep outline --custom-languages allow --stdin -l <lang>` outlines piped code
-- `<path> --json=stream | rg '^\{' | jq -c '<filter>'` post-processes entries
-- Files of a language with no extractor print `nothing found` at exit 0
-- `nx run rasm:outline` passes `--color never`, a forwarded `--color` fails as a repeated argument
+Views select extraction work as well as presentation:
+- `<dir> --items structure` includes local items, directory runs otherwise select exports
+- `--view names` and `--view signatures` omit member compilation and extraction
+- Names view omits signature templates, matcher transforms still execute
+- `--view digest` extracts member names, `--view expanded` evaluates member signatures
+- `--match` filters item names and signatures with a Rust regex and forces item signature evaluation in names view
+- `--match` applies after member collection, filtering a large expanded outline does not avoid member work
+- `--type` selects item `symbolType` values, neither `--type` nor `--match` reaches members
+- `--json=compact | jq` over an item's `members` array selects a member
+- `-l` selects files and forces their parser, enabled catalogs for other languages still compile
+- Use inferred languages for outlines with embedded syntax, filter output afterward
+- `<file> --items imports` lists dependencies, `<dir> --items exports --view signatures` lists public entry points
+- `<producer> | ast-grep outline --stdin -l <lang>` outlines piped code
+- `<path> --json=stream | jq -c '<filter>'` processes JSONL output directly
+- Files without an applicable extractor print `nothing found` at exit 0
 
 ## [02]-[EXTRACTORS]
 
-- Extractor documents hold `id`, `language`, `role` (`item` or `member`), `symbolType`, `rule`, and `name`, a member adds `parentRuleIds`
-- Optional keys are `signature`, `isImport`, `isExported`, `isPublic`, `constraints`, `utils`, and `transform`
+Extractor documents hold `id`, `language`, `role`, `symbolType`, `rule`, and `name`. Member documents add `parentRuleIds` naming item extractors.
+
+- `role` is `item` or `member`, member parents cannot be other members
+- Optional keys include `signature`, import/export/public flags, `constraints`, `utils`, `transform`, and `rewriters`
 - `isImport` defaults to `false`, `isExported` and `isPublic` to `true`
-- File or stdin runs default to `--items structure --view digest`, a directory run or mixed arguments to `--items exports --view names`
-- `names` and `signatures` extract no member, `digest` prints member names with empty signatures, `expanded` evaluates member signatures
-- `--pub-members` drops members with `isPublic` false
-- Text view prints the item name in place of an empty signature, `--json` holds `""` for it
-- JSON entries hold `role`, `symbolType`, `name`, `range` (`byteOffset`, zero-based `start` and `end`), `signature`, and `astKind`
-- Items add `isImport`, `isExported`, and `members` (omitted when empty), a member adds `isPublic`
-- Injected regions (`run:` shell block) merge into the host file's items in host order with host-relative ranges and the host path and language
-- Bundled extractors cover rust, typescript, javascript, python, go, kotlin, java, swift, csharp, cpp, c, ruby, php, and markdown
-- Extractor files hold one document per extractor separated by `---`, documents of different languages load from one file
-- `--outline-rules` loads a file for a built-in language, `customLanguages.<name>.outlineRules` for a custom one
-- `sgconfig.yml` holds no other outline key
-- Rules load bundled first, then `customLanguages.<name>.outlineRules`, then `--outline-rules` in flag order, the first match on a node wins
-- One file loaded through both `outlineRules` and `--outline-rules` registers each extractor once
-- `--no-default-outline-rules` fails a member naming a bundled parent with `references unknown parent rule`
+- Literal import/export/public flags and `--type` can exclude extractors before compilation
+- Predicate flags filter matched nodes after extraction
+- File and stdin runs default to `--items structure --view digest`, directory or mixed arguments to `--items exports --view names`
+- `--pub-members` excludes members with `isPublic` false
+- Empty signatures render as item names in text and `""` in JSON
+- JSON entries hold `role`, `symbolType`, `name`, `range`, `signature`, and `astKind`
+- Ranges hold `byteOffset` and zero-based `start` and `end` positions
+- Items add `isImport`, `isExported`, and optional `members`, members add `isPublic`
+- Injected items retain host paths and positions and join host items in source order
+- Extractor files separate documents with `---`, languages can share one file
+- `--outline-rules` loads extractor catalogs, custom languages can set `outlineRules` in their config
+- Project configuration has no root outline-rules key or per-language default suppression
+- Loading order is bundled rules, custom-language `outlineRules`, then CLI paths, first matching extractor wins
+- Repeated config and CLI paths compile the same extractors again, load a file through one mechanism
+- `--no-default-outline-rules` globally disables bundled extractors, complete catalogs cover intended host and injected languages
+- Members referencing disabled bundled parents fail with `references unknown parent rule`
 
 ## [03]-[CONSTRUCTION]
 
-Reuse a bundled extractor selecting the construct. Choose the item boundary before its name or signature, a declaration matched through its named fields with ancestry restricted to the intended scope.
+Match declaration boundaries through grammar fields and attach members to every item parent sharing their syntax. Native extraction traverses items once and indexes member candidates by kind and parent id.
 
-- One extractor per construct with a predicate flag (`isExported: {inside: {kind: export_statement}}`), a pair of ids duplicates the rule
-- Repository items over the wrapping node (`decorated_definition`, `export_statement`) take the declaration from a bundled item
-- Traversal reaches a wrapper before the declaration it holds
-- Matched items skip their subtree, an inner construct is a member or invisible
-- Members attach by containment alone, `parentRuleIds` names every container id sharing the member syntax
-- `utils` sit in the extractor's file, outline compilation loads no `utilDirs`
-- `replace` chains (strip the body, collapse newlines, trim) build a multi-line header's signature
-- Regex groups expand in `by`, missing groups leave their separator, the trim removes it
-- `rewriters` joined by `, ` build a construct's signature from its children
-- Rewriters bind their own metavariable name, a name the item bound through a shared util refuses another binding
-- Literal `name` values name a construct the grammar leaves anonymous, binding nothing
-- Signature fallback is the first line, the findable text (`--match '<gate>'`)
-- Sibling pairs name an anonymous mapping, a literal name makes every construct one name
-- `isPublic` takes `not: {has: {kind: <visibility-kind>, regex: '<private-marker>'}}` where the default is public
-- Quoted keys stay quoted where unquoting changes their spelling
-- Headers keep generics, constraints, attributes, and heritage clauses
-- Extractors yield each intended item and member once in source order, in every view a consumer reads
-- Extractors replacing a bundled default keep every construct the default yielded
+- Bundled matches precede supplements, an identical node predicate cannot replace a bundled signature or visibility flag
+- Wrapper items (`decorated_definition`, `export_statement`) can select declarations before bundled inner-node rules
+- Matched items search for scoped members, matched members prune their subtrees
+- Nested types emitted as members hide deeper declarations, arbitrary-depth hierarchy needs another language navigator
+- Parent ids select member rules, unmatched wrappers can expose nested declarations requiring bounded ownership predicates
+- Group bindings only when one visibility and ownership describes them all, otherwise emit separate items
+- Document-local `utils` share structural predicates, outline compilation loads no global `utilDirs` and YAML anchors stop at `---`
+- Capture names identify declaration names, literal names cover constructs with no grammar-provided identifier
+- Extractor `name: $NAME` starts fallback signatures at the captured name's source line
+- Other name templates fall back to the first nonempty matched source line
+- Outline templates use grammar header captures or structural body removal, slicing at captured positions is unavailable
+- Preserve multiline source and literal or comment contents, trim only synthetic signature boundaries
+- Regex replacement groups expand in `by`, missing groups can leave separators requiring a trim
+- Build each binding's signature from its fields, rewriting its full grouped declaration per binding costs quadratic work
+- Rewriters bind distinct capture names when an enclosing shared util already binds a capture
+- Visibility predicates exclude grammar-defined private forms, `isPublic` otherwise defaults to true
+- Headers retain generics, constraints, attributes, heritage, and fields outside omitted bodies
+- Quoted names retain delimiters when removing quotes changes their spelling
+- Complete replacement catalogs retain required declaration kinds and parents, a custom parser serves syntax gaps alone
 
-Constructs with no identifier (table row, a keyed block inside a document read whole) take no extractor. TOML has no built-in language, a `customLanguages` grammar adds one.
+Derive coverage from grammar declaration kinds and bundled extractors. Compare names, signatures, ranges, visibility, and parent ownership across wrappers and modern syntax. Constructs read as anonymous rows or keyed blocks need no invented declaration names.
+
+```bash
+ast-grep outline --no-default-outline-rules --outline-rules <catalog> --items structure --view expanded <path>
+```

@@ -29,7 +29,7 @@ def sampled(context: bpy.types.Context, points: NDArray[np.float32], field: Call
 
     name = f".{sampled.__name__}"
     cloud = bpy.data.pointclouds.new(name)
-    tree: bpy.types.GeometryNodeTree = bpy.data.node_groups.new(name, bpy.types.GeometryNodeTree.__name__)  # type: ignore[arg-type, assignment]  # ty: ignore[invalid-argument-type, invalid-assignment]
+    tree: bpy.types.GeometryNodeTree = bpy.data.node_groups.new(name, bpy.types.GeometryNodeTree.bl_rna.identifier)  # type: ignore[arg-type, assignment]  # ty: ignore[invalid-argument-type, invalid-assignment]
     holder = bpy.data.objects.new(name, cloud)
     with ExitStack() as scratch:
         scratch.callback(bpy.data.batch_remove, ids=(holder, cloud, tree))
@@ -37,8 +37,8 @@ def sampled(context: bpy.types.Context, points: NDArray[np.float32], field: Call
         cloud.points.foreach_set("co", points.reshape(-1))
         interface: bpy.types.NodeTreeInterface = tree.interface  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
         for side in ("INPUT", "OUTPUT"):
-            interface.new_socket(name, in_out=side, socket_type=bpy.types.NodeSocketGeometry.__name__)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-        source, sink = (tree.nodes.new(kind.__name__) for kind in (bpy.types.NodeGroupInput, bpy.types.NodeGroupOutput))
+            interface.new_socket(name, in_out=side, socket_type=bpy.types.NodeSocketGeometry.bl_rna.identifier)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+        source, sink = (tree.nodes.new(kind.bl_rna.identifier) for kind in (bpy.types.NodeGroupInput, bpy.types.NodeGroupOutput))
         tree.links.new(source.outputs[0], sink.inputs[0])
         match tree.links.new(field(tree), sink.inputs[-1], handle_dynamic_sockets=True):
             case bpy.types.NodeLink(to_socket=bpy.types.NodeSocket(identifier=identifier)):
@@ -54,7 +54,7 @@ def sampled(context: bpy.types.Context, points: NDArray[np.float32], field: Call
         return Option.of_optional(geometry.pointcloud).bind(lambda evaluated: Option.of_optional(evaluated.attributes.get(name))).bind(copied)
 ```
 
-`sampled(context, points, lambda tree: tree.nodes.new(bpy.types.ShaderNodeTexNoise.__name__).outputs["Fac"])` returns each point's noise factor, and a Noise to Map Range to Color Ramp `field` returns ramp colors in one pass:
+`sampled(context, points, lambda tree: tree.nodes.new(bpy.types.ShaderNodeTexNoise.bl_rna.identifier).outputs["Fac"])` returns each point's noise factor, and a Noise to Map Range to Color Ramp `field` returns ramp colors in one pass:
 - Values keep source type layout: `(n,)` `float32`, `int32`, or `bool`, `(n, 3)` vectors, `(n, 4)` linear colors and quaternions, `(n, 4, 4)` matrices
 - Single values (a Value node) return repeated once per point
 - Sources whose type no attribute stores (String, Bundle) return `Nothing`

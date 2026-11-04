@@ -5,7 +5,7 @@ import functools
 import pathlib
 import struct
 
-from expression import Nothing, Option
+from expression import Option
 from expression.extra.result import catch
 import msgspec
 import numpy as np
@@ -17,7 +17,7 @@ import tifffile
 from blender.imaging.files.buffers import Coded
 from blender.imaging.files.images import profile, written
 from blender.imaging.geometry.lenses import Optics
-from blender.records.faults import Fault, Outcome, paired, Reason
+from blender.records.faults import Fault, Nothing, Outcome, paired, Reason
 from blender.records.fields import Finite
 
 # --- [TYPES] ----------------------------------------------------------------------------

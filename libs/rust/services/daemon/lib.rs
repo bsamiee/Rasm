@@ -1,7 +1,7 @@
 #![feature(error_reporter, try_blocks_heterogeneous)]
 
-use core::{future::ready, iter, net::SocketAddr, pin::pin, time::Duration};
-use std::{error::Report, io, process::ExitCode, sync::Arc};
+use core::{cell::LazyCell, iter, net::SocketAddr, pin::pin, time::Duration};
+use std::{collections::HashSet, error::Report, io, process::ExitCode, sync::Arc};
 
 use axum::{Router, serve::ListenerExt as _};
 use clap::{Args, CommandFactory, FromArgMatches};
@@ -32,7 +32,7 @@ pub trait Lifetime {
 pub trait Daemon: Lifetime {
     fn router(self: Arc<Self>) -> Router;
 
-    fn drain(&self) -> impl Future<Output = Result<(), Self::Error>> + Send { ready(()).map(Ok) }
+    fn drain(&self) -> impl Future<Output = Result<(), Self::Error>> + Send { async { Ok(()) } }
 }
 
 #[derive(Debug, Clone, Copy, derive_more::Display)]
@@ -139,10 +139,11 @@ where
         .into_iter()
         .collect::<Validated<Vec<_>, _>>()
         .ok()?;
+        let ipv4_ports = LazyCell::new(|| resolved.iter().flat_map(|(_, found)| found).filter(|address| address.is_ipv4()).map(SocketAddr::port).collect::<HashSet<_>>());
         let bind = |requested: SocketAddr, port: u16| {
             let mut address = requested;
             address.set_port(port);
-            let paired = requested.is_ipv6() && requested.ip().is_unspecified() && resolved.iter().flat_map(|(_, found)| found).any(|other| other.is_ipv4() && other.port() == requested.port());
+            let paired = requested.is_ipv6() && requested.ip().is_unspecified() && ipv4_ports.contains(&requested.port());
             let socket = try bikeshed io::Result<TcpSocket> {
                 let socket = if address.is_ipv4() { TcpSocket::new_v4() } else { TcpSocket::new_v6() }?;
                 if paired {
@@ -167,6 +168,7 @@ where
             })
             .collect::<Validated<Vec<_>, _>>()
             .ok()?;
+        drop(ipv4_ports);
         let addresses = iter::zip(resolved, &rows).map(|((authority, _), listeners)| (authority, listeners.nonempty_iter().map(|&(address, _)| address).collect::<NEVec<_>>())).collect::<Vec<_>>();
         let stopping = CancellationToken::new();
         let _stopped = stopping.drop_guard_ref();
@@ -174,6 +176,7 @@ where
             started = start(args, &addresses, filter, stopping.child_token()) => started.map_err(DaemonError::Daemon)?,
             _ = signals.next() => return Ok(()),
         });
+        drop(addresses);
         let service = Arc::clone(&daemon).router().into_make_service_with_connect_info::<SocketAddr>();
         let serving = future::join_all(rows.into_iter().flatten().map(|(address, listener)| {
             tracing::info!({ SERVER_ADDRESS } = %address.ip(), { SERVER_PORT } = address.port(), "listening");

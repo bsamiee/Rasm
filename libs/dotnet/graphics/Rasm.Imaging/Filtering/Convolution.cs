@@ -11,29 +11,37 @@ using Rasm.Imaging.Pixels;
 
 namespace Rasm.Imaging.Filtering;
 
-// --- [SERVICES] ------------------------------------------------------------------------
-public sealed class PointSpread(Seq<Mat> kernels) : IDisposable {
-    public static PointSpread Veiling(PixelExtent size, double degreesPerPixel) {
-        using Mat glare = new((2 * size.Height) - 1, (2 * size.Width) - 1, DepthType.Cv32F, 1);
+// --- [OPERATIONS] ----------------------------------------------------------------------
+public static class PointSpread {
+    public static VectorOfMat Veiling(PixelExtent size, double degreesPerPixel) {
+        VectorOfMat kernels = new(1);
+        using Mat glare = kernels[0];
+        glare.Create((2 * size.Height) - 1, (2 * size.Width) - 1, DepthType.Cv32F, 1);
         Span2D<float> cells = glare.View<float>();
         for (int y = 0; y < cells.Height; y++) {
             for (int x = 0; x < cells.Width; x++)
                 cells[y, x] = (float)Spencer(degreesPerPixel * double.Hypot(x - (size.Width - 1), y - (size.Height - 1)));
         }
-        return new(Seq(glare * (1d / CvInvoke.Sum(glare).V0)));
+        CvInvoke.Normalize(glare, glare, 1d, 0d, NormType.L1);
+        return kernels;
 
         static double Spencer(double degrees) =>
             (0.384d * 2.61e6d * double.Exp(-double.Pow(degrees / 0.02d, 2d))) + (0.478d * 20.91d / double.Pow(degrees + 0.02d, 3d)) + (0.138d * 72.37d / double.Pow(degrees + 0.02d, 2d));
     }
 
-    public static PointSpread Diffraction(Iris pupil, double airy, PixelExtent size, PixelExtent canvas, Gamut working) {
+    public static VectorOfMat Diffraction(Iris pupil, double airy, PixelExtent size, PixelExtent canvas, Gamut working) {
         const double reference = 550d;
         const double firstZero = 1.22d;
         Arr<(float Wavelength, Vector3 Matching)> rows = StandardObserver.Matching(working);
         Vector3 total = rows.Fold(Vector3.Zero, static (sum, row) => sum + row.Matching);
         int grid = 2 * CvInvoke.GetOptimalDFTSize(int.Max(canvas.Width, canvas.Height));
         (int middle, double half, int width, int height) = (grid / 2, grid / (2d * pupil.Circumradius), (2 * size.Width) - 1, (2 * size.Height) - 1);
-        Mat[] planes = [.. Enumerable.Range(0, 3).Select(_ => Mat.Zeros(height, width, DepthType.Cv64F, 1))];
+        VectorOfMat planes = new(3);
+        for (int component = 0; component < planes.Size; component++) {
+            using Mat plane = planes[component];
+            plane.Create(height, width, DepthType.Cv64F, 1);
+            plane.SetTo(default(MCvScalar));
+        }
         using Mat energy = new(grid, grid, DepthType.Cv64F, 1);
         using Mat spectrum = new();
         using Mat light = new();
@@ -60,32 +68,32 @@ public sealed class PointSpread(Seq<Mat> kernels) : IDisposable {
             CvInvoke.WarpAffine(energy, light, shift, footprint.Size, Inter.Linear, Warp.InverseMap, BorderType.Wrap, default);
             CvInvoke.Multiply(light, footprint, light);
             CvInvoke.Normalize(light, light, 1d, 0d, NormType.L1);
-            for (int component = 0; component < planes.Length; component++)
-                CvInvoke.ScaleAdd(light, (double)matching[component] / total[component], planes[component], planes[component]);
+            for (int component = 0; component < planes.Size; component++) {
+                using Mat plane = planes[component];
+                CvInvoke.ScaleAdd(light, (double)matching[component] / total[component], plane, plane);
+            }
         }
-        return new(toSeq(planes));
+        return planes;
     }
 
-    public void Convolve(Mat light, BorderType border = BorderType.Constant) {
-        if (kernels is [var shared]) {
-            CvInvoke.Filter2D(light, light, shared, new Point(-1, -1), 0d, border);
-            return;
+    extension(VectorOfMat kernels) {
+        public void Convolve(Mat light, BorderType border = BorderType.Constant) {
+            if (kernels.Size is 1) {
+                using Mat shared = kernels[0];
+                CvInvoke.Filter2D(light, light, shared, new Point(-1, -1), 0d, border);
+                return;
+            }
+            using Mat channel = new();
+            for (int index = 0; index < kernels.Size; index++) {
+                using Mat kernel = kernels[index];
+                CvInvoke.ExtractChannel(light, channel, index);
+                CvInvoke.Filter2D(channel, channel, kernel, new Point(-1, -1), 0d, border);
+                CvInvoke.InsertChannel(channel, light, index);
+            }
         }
-        using Mat channel = new();
-        for (int index = 0; index < kernels.Count; index++) {
-            CvInvoke.ExtractChannel(light, channel, index);
-            CvInvoke.Filter2D(channel, channel, kernels[index], new Point(-1, -1), 0d, border);
-            CvInvoke.InsertChannel(channel, light, index);
-        }
-    }
-
-    public void Dispose() {
-        foreach (Mat kernel in kernels)
-            kernel.Dispose();
     }
 }
 
-// --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Gaussian {
     extension(Mat plane) {
         public void Blur(Mat target, double sigma, BorderType border = BorderType.Replicate) =>

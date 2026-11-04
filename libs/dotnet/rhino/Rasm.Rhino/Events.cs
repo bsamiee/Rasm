@@ -129,7 +129,7 @@ public static class Subscriptions {
     public static HostEvent<Either<ErrorEventArgs, FileSystemEventArgs>> Files(DirectoryInfo directory, Seq<string> filters, bool subdirectories) =>
         new(directory.FullName, deliver =>
             from watcher in use(() => new FileSystemWatcher(directory.FullName) { NotifyFilter = NotifyFilters.FileName | NotifyFilters.LastWrite | NotifyFilters.Size, IncludeSubdirectories = subdirectories })
-                .Catch(
+                | @catch(
                     static error => error.HasException<ArgumentException>() || error.HasException<FileNotFoundException>(),
                     error => IO.fail<FileSystemWatcher>(new RhinoFault(directory.FullName, RhinoReason.Missing, Inner: error)))
             from changed in Seq(

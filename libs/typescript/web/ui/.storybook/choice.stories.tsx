@@ -1,6 +1,6 @@
 import { fn } from 'storybook/test';
 import preview from '#/.storybook/preview';
-import { Choice } from '#/form/choice';
+import { Choice } from '#/choice';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

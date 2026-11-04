@@ -18,6 +18,7 @@ use clap::{
     Arg, Args, Command, Id, ValueEnum,
     builder::{EnumValueParser, PossibleValue, PossibleValuesParser, TypedValueParser},
 };
+use enum_map::EnumMap;
 use itertools::Itertools as _;
 use json_subscriber::JsonLayer;
 use log::SetLoggerError;
@@ -36,15 +37,13 @@ use opentelemetry_sdk::{
     logs::{LoggerProviderBuilder, SdkLoggerProvider},
     metrics::{MeterProviderBuilder, SdkMeterProvider},
     propagation::{BaggagePropagator, TraceContextPropagator},
-    resource::{EnvResourceDetector, ResourceDetector, TelemetryResourceDetector},
+    resource::{EnvResourceDetector, ResourceDetector as _, TelemetryResourceDetector},
     trace::{SdkTracerProvider, TracerProviderBuilder},
 };
 use opentelemetry_semantic_conventions::{
     SCHEMA_URL,
     attribute::{CODE_FILE_PATH, CODE_LINE_NUMBER, EXCEPTION_MESSAGE, EXCEPTION_STACKTRACE, PROCESS_COMMAND_ARGS, SERVICE_INSTANCE_ID, SERVICE_NAME, SERVICE_VERSION, THREAD_NAME},
 };
-use strum::VariantArray as _;
-use tokio::process::Command as TokioCommand;
 use tracing::{
     Subscriber,
     subscriber::{self, SetGlobalDefaultError},
@@ -72,24 +71,7 @@ pub type Handle = reload::Handle<EnvFilter, Registry>;
 
 type Setting<V> = Result<Option<V>, Unrecognized>;
 
-pub trait Environment {
-    fn set(&mut self, key: String, value: String);
-    fn remove(&mut self, key: String);
-}
-
-impl Environment for process::Command {
-    fn set(&mut self, key: String, value: String) { self.env(key, value); }
-
-    fn remove(&mut self, key: String) { self.env_remove(key); }
-}
-
-impl Environment for TokioCommand {
-    fn set(&mut self, key: String, value: String) { self.env(key, value); }
-
-    fn remove(&mut self, key: String) { self.env_remove(key); }
-}
-
-#[derive(Clone, Copy, Debug, derive_more::Display, strum::VariantArray)]
+#[derive(Clone, Copy, Debug, derive_more::Display, enum_map::Enum)]
 #[display(rename_all = "lowercase")]
 enum Signal {
     Traces,
@@ -234,35 +216,31 @@ impl Options {
         where F: Into<sysexits::ExitCode> {
             sysexits::ExitCode::report(failures.into_nonempty_iter().next().0.into())
         }
-        let settled = |operation: Operation, (tracer_provider, meter_provider, logger_provider): &(SdkTracerProvider, SdkMeterProvider, SdkLoggerProvider)| {
+        let finished = |operation: Operation, (tracer_provider, meter_provider, logger_provider): &(SdkTracerProvider, SdkMeterProvider, SdkLoggerProvider)| {
             thread::scope(|scope| {
-                Signal::VARIANTS
-                    .iter()
-                    .map(|&signal| {
-                        let spawned = thread::Builder::new().spawn_scoped(scope, move || match (signal, operation) {
-                            #[cfg(panic = "abort")]
-                            (Signal::Traces, Operation::Flush) => tracer_provider.force_flush(),
-                            (Signal::Traces, Operation::Shutdown) => tracer_provider.shutdown(),
-                            #[cfg(panic = "abort")]
-                            (Signal::Metrics, Operation::Flush) => meter_provider.force_flush(),
-                            (Signal::Metrics, Operation::Shutdown) => meter_provider.shutdown(),
-                            #[cfg(panic = "abort")]
-                            (Signal::Logs, Operation::Flush) => logger_provider.force_flush(),
-                            (Signal::Logs, Operation::Shutdown) => logger_provider.shutdown(),
-                        });
-                        (signal, spawned)
+                EnumMap::<Signal, _>::from_fn(|signal| {
+                    thread::Builder::new().spawn_scoped(scope, move || match (signal, operation) {
+                        #[cfg(panic = "abort")]
+                        (Signal::Traces, Operation::Flush) => tracer_provider.force_flush(),
+                        (Signal::Traces, Operation::Shutdown) => tracer_provider.shutdown(),
+                        #[cfg(panic = "abort")]
+                        (Signal::Metrics, Operation::Flush) => meter_provider.force_flush(),
+                        (Signal::Metrics, Operation::Shutdown) => meter_provider.shutdown(),
+                        #[cfg(panic = "abort")]
+                        (Signal::Logs, Operation::Flush) => logger_provider.force_flush(),
+                        (Signal::Logs, Operation::Shutdown) => logger_provider.shutdown(),
                     })
-                    .collect_vec()
-                    .into_iter()
-                    .map(|(signal, spawned)| {
-                        spawned
-                            .map_err(|source| TelemetryError::Spawn { operation, signal, source })?
-                            .join()
-                            .unwrap_or_else(|payload| panic::resume_unwind(payload))
-                            .map_err(|source| TelemetryError::Sdk { operation, signal, source })
-                    })
-                    .collect::<Validated<(), _>>()
-                    .ok()
+                })
+                .into_iter()
+                .map(|(signal, spawned)| {
+                    spawned
+                        .map_err(|source| TelemetryError::Spawn { operation, signal, source })?
+                        .join()
+                        .unwrap_or_else(|payload| panic::resume_unwind(payload))
+                        .map_err(|source| TelemetryError::Sdk { operation, signal, source })
+                })
+                .collect::<Validated<(), _>>()
+                .ok()
             })
         };
         let Self { log, service_name, propagators, traces_exporter, metrics_exporter, logs_exporter, sdk_disabled, traceparent, tracestate, baggage } = self;
@@ -273,33 +251,30 @@ impl Options {
         });
         let exported = exporters.iter().any(Exporter::is_otlp);
         let [traces, metrics, logs] = exporters;
-        let level = iter::chain(directives.split(','), log.iter().map(String::as_str)).filter_map(|directive| directive.parse::<LevelFilter>().ok()).next_back().unwrap_or(LevelFilter::OFF);
-        let (accepted, refused): (Vec<Directive>, Vec<_>) =
-            log.iter().filter(|directive| !directive.is_empty()).map(|directive| directive.parse().map_err(|source: ParseError| (directive, source))).partition_result();
-        let detectors: [Box<dyn ResourceDetector>; _] =
-            [Box::new(TelemetryResourceDetector), Box::new(OsResourceDetector), Box::new(HostResourceDetector::default()), Box::new(ContainerResourceDetector)];
+        let nonempty = |directive: &&str| !directive.is_empty();
+        let default_directives = directives.split(',').filter(nonempty);
+        let log = log.iter().map(String::as_str).filter(nonempty);
+        let level = iter::chain(default_directives.clone(), log.clone()).filter_map(|directive| directive.parse::<LevelFilter>().ok()).next_back().unwrap_or(LevelFilter::OFF);
+        let (accepted, refused): (Vec<Directive>, Vec<_>) = log.map(|directive| directive.parse().map_err(|source: ParseError| (directive, source))).partition_result();
         let resource = Resource::builder_empty()
-            .with_schema_url([], SCHEMA_URL)
-            .with_service_name(command.get_name().to_owned())
-            .with_attributes(command.get_version().map(|version| KeyValue::new(SERVICE_VERSION, version.to_owned())))
-            .with_detector(Box::new(ServiceInstanceIdResourceDetector))
-            .with_detectors(if exported { &detectors } else { &[] })
-            .with_attributes(
-                exported
-                    .then(|| ProcessResourceDetector.detect())
-                    .iter()
-                    .flat_map(Resource::iter)
-                    .filter(|&(key, _)| key.as_str() != PROCESS_COMMAND_ARGS)
-                    .map(|(key, value)| KeyValue::new(key.clone(), value.clone())),
+            .with_schema_url(
+                iter::once(KeyValue::new(SERVICE_NAME, command.get_name().to_owned())).chain(command.get_version().map(|version| KeyValue::new(SERVICE_VERSION, version.to_owned()))),
+                SCHEMA_URL,
             )
-            .with_detector(Box::new(EnvResourceDetector::new()))
-            .with_attributes(attributes)
-            .with_attributes(service_name.filter(|name| !name.is_empty()).map(|name| KeyValue::new(SERVICE_NAME, name)))
-            .build();
+            .with_detector(Box::new(ServiceInstanceIdResourceDetector));
+        let resource = if exported {
+            resource
+                .with_detectors(&[Box::new(TelemetryResourceDetector), Box::new(OsResourceDetector), Box::new(HostResourceDetector::default()), Box::new(ContainerResourceDetector)])
+                .with_attributes(ProcessResourceDetector.detect().iter().filter(|&(key, _)| key.as_str() != PROCESS_COMMAND_ARGS).map(|(key, value)| KeyValue::new(key.clone(), value.clone())))
+        } else {
+            resource
+        }
+        .with_detector(Box::new(EnvResourceDetector::new()))
+        .with_attributes(iter::chain(attributes, service_name.filter(|name| !name.is_empty()).map(|name| KeyValue::new(SERVICE_NAME, name))))
+        .build();
         let started = subscriber::with_default(tracing_subscriber::registry().with(json(&resource, writer.clone())).with(LevelFilter::WARN), || {
             (try bikeshed Result<_, NEVec<TelemetryError>> {
-                let (filter, tracer_provider, meter_provider, logger_provider) = iter::chain([INTERNAL_LOGS], directives.split(','))
-                    .filter(|directive| !directive.is_empty())
+                let (filter, tracer_provider, meter_provider, logger_provider) = iter::chain([INTERNAL_LOGS], default_directives)
                     .map(|directive| directive.parse().map_err(|source| TelemetryError::Filter { directive: directive.into(), source }))
                     .collect::<Validated<Vec<Directive>, _>>()
                     .map4(
@@ -336,7 +311,7 @@ impl Options {
             Err(failures) => return status(failures),
         };
         for (directive, source) in &refused {
-            tracing::warn!({ EXCEPTION_MESSAGE } = %Report::new(source), directive = directive.as_str(), "ignored filter directive");
+            tracing::warn!({ EXCEPTION_MESSAGE } = %Report::new(source), directive = *directive, "ignored filter directive");
         }
         for Unrecognized { setting, value, source } in iter::chain(
             propagators.iter().filter_map(|propagator| propagator.as_ref().err()),
@@ -363,11 +338,11 @@ impl Options {
             })
             .collect(),
         ));
-        let carried = [(stringify!(traceparent), traceparent), (stringify!(tracestate), tracestate), (stringify!(baggage), baggage)]
+        let carrier = [(stringify!(traceparent), traceparent), (stringify!(tracestate), tracestate), (stringify!(baggage), baggage)]
             .into_iter()
             .filter_map(|(field, value)| Some((field.to_owned(), value?)))
             .collect::<HashMap<_, _>>();
-        let parent = global::get_text_map_propagator(|propagator| propagator.extract(&carried));
+        let parent = global::get_text_map_propagator(|propagator| propagator.extract(&carrier));
         let previous: Arc<dyn Fn(&PanicHookInfo<'_>) + Send + Sync> = panic::take_hook().into();
         let chained = Arc::clone(&previous);
         #[cfg(panic = "abort")]
@@ -375,16 +350,16 @@ impl Options {
         panic::set_hook(Box::new(move |info| {
             tracing::error!({ EXCEPTION_MESSAGE } = %info, { EXCEPTION_STACKTRACE } = %Backtrace::force_capture(), "panicked");
             #[cfg(panic = "abort")]
-            settled(Operation::Flush, &hooked).unwrap_or_else(|errors| reported(&errors));
+            finished(Operation::Flush, &hooked).unwrap_or_else(|errors| reported(&errors));
             chained(info);
         }));
-        let stopping = DropGuard::new((tracer_provider, meter_provider, logger_provider), |providers| settled(Operation::Shutdown, &providers).unwrap_or_else(|errors| reported(&errors)));
+        let stopping = DropGuard::new((tracer_provider, meter_provider, logger_provider), |providers| finished(Operation::Shutdown, &providers).unwrap_or_else(|errors| reported(&errors)));
         let worked = {
             let _parent = parent.attach();
             work(handle, level).inspect_err(reported)
         };
         panic::set_hook(Box::new(move |info| previous(info)));
-        let stopped = settled(Operation::Shutdown, &DropGuard::dismiss(stopping)).inspect_err(reported);
+        let stopped = finished(Operation::Shutdown, &DropGuard::dismiss(stopping)).inspect_err(reported);
         match (worked, stopped) {
             (Ok(outcome), Ok(())) => outcome.report(),
             (Err(failures), _) => status(failures),
@@ -429,18 +404,17 @@ impl From<TelemetryError> for sysexits::ExitCode {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-pub fn inject<E>(context: &Context, environment: &mut E)
-where E: Environment {
+pub fn inject(context: &Context, command: &mut process::Command) {
     global::get_text_map_propagator(|propagator| {
-        let mut carried = HashMap::new();
-        propagator.inject_context(context, &mut carried);
+        let mut carrier = HashMap::new();
+        propagator.inject_context(context, &mut carrier);
         propagator.fields().for_each(|field| {
             let prefix = field.starts_with(|first: char| first.is_ascii_digit()).then_some('_');
             let variable = iter::chain(prefix, field.chars().map(|character| if character.is_ascii_alphanumeric() { character.to_ascii_uppercase() } else { '_' })).collect::<String>();
-            match carried.remove(field) {
-                Some(value) => environment.set(variable, value),
-                None => environment.remove(variable),
-            }
+            match carrier.remove(field) {
+                Some(value) => command.env(variable, value),
+                None => command.env_remove(variable),
+            };
         });
     });
 }

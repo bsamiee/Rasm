@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-run-in-effect-callback
-language: tsx
+language: tsxlang
 severity: error
 utils:
     run-invocation:
@@ -11,8 +11,8 @@ utils:
                 - matches: {typescript-import-reference: {source: {regex: '^effect/Effect$'}, exported: {regex: '^run(Promise|PromiseExit|Sync|SyncExit|Fork|Callback)$'}}}
                 - kind: member_expression
                   all:
-                    - has: {field: object, matches: {effect-module: {name: {regex: '\bEffect$'}}}}
                     - has: {field: property, regex: '^run(Promise|PromiseExit|Sync|SyncExit|Fork|Callback)$'}
+                    - has: {field: object, matches: {effect-module: {name: {regex: '\bEffect$'}}}}
                 - kind: call_expression
                   has:
                     field: function
@@ -20,8 +20,8 @@ utils:
                         - matches: {typescript-import-reference: {source: {regex: '^effect/Effect$'}, exported: {regex: '^run(Promise|PromiseExit|Sync|SyncExit|Fork|Callback)With$'}}}
                         - kind: member_expression
                           all:
-                            - has: {field: object, matches: {effect-module: {name: {regex: '\bEffect$'}}}}
                             - has: {field: property, regex: '^run(Promise|PromiseExit|Sync|SyncExit|Fork|Callback)With$'}
+                            - has: {field: object, matches: {effect-module: {name: {regex: '\bEffect$'}}}}
     effect-combinator:
         kind: call_expression
         any:
@@ -40,8 +40,8 @@ utils:
                                         |RequestResolver|Logger|Metric)$
                     - not:
                         all:
-                            - has: {field: object, matches: {effect-module: {name: {regex: '\bEffect$'}}}}
                             - has: {field: property, regex: '^run'}
+                            - has: {field: object, matches: {effect-module: {name: {regex: '\bEffect$'}}}}
             - has: {field: function, kind: call_expression, matches: effect-combinator}
     callback:
         matches: typescript-function-boundary
@@ -50,39 +50,9 @@ utils:
             - inside: {kind: pair, field: value, inside: {kind: object, inside: {kind: arguments}}}
             - kind: method_definition
               inside: {kind: object, inside: {kind: arguments}}
-    run-call:
-        kind: call_expression
-        all:
-            - has:
-                field: function
-                kind: member_expression
-                all:
-                    - has: {field: object, pattern: $M, matches: {effect-module: {name: {regex: '\bEffect$'}}}}
-                    - has: {field: property, regex: '^(runSync|runPromise)$'}
-            - has: {field: arguments, has: {pattern: $EFFECT}, not: {has: {nthChild: 2}}}
-    run-callback:
-        kind: arrow_function, function_expression
-        not: {has: {regex: '^async$'}}
-        has:
-            field: body
-            any:
-                - matches: run-call
-                - kind: statement_block
-                  has: {kind: return_statement, has: {matches: run-call}}
-                  not: {has: {nthChild: 2}}
-    fixable-call:
-        kind: call_expression
-        all:
-            - has: {field: function, kind: member_expression, has: {field: object, matches: {effect-module: {name: {regex: '\bEffect$'}}}}}
-            - not: {has: {field: type_arguments, kind: type_arguments}}
-            - not: {has: {field: arguments, has: {nthChild: 3}}}
-            - not: {has: {kind: comment, stopBy: end}}
 rule:
     kind: call_expression
-    regex: '\brun(Promise|PromiseExit|Sync|SyncExit|Fork|Callback)'
-    pattern: $CALL
     all:
-        - matches: effect-combinator
         - has:
             field: arguments
             has:
@@ -93,36 +63,9 @@ rule:
                     matches: run-invocation
                     pattern: $RUN
                     not: {inside: {matches: effect-generator-function, stopBy: end}}
-rewriters:
-    - id: effect-argument
-      rule: {matches: run-call}
-      fix: $EFFECT
-    - id: map-first
-      rule:
-        pattern: '$M.map($SELF, $H)'
-        matches: fixable-call
-        has: {field: arguments, has: {nthChild: 2, matches: run-callback}}
-      transform: {BODY: 'rewrite($H, rewriters=[effect-argument])'}
-      fix: $M.flatMap($SELF, $BODY)
-    - id: map-last
-      rule:
-        pattern: $M.map($H)
-        matches: fixable-call
-        has: {field: arguments, has: {nthChild: 1, matches: run-callback}}
-      transform: {BODY: 'rewrite($H, rewriters=[effect-argument])'}
-      fix: $M.flatMap($BODY)
-    - id: suspend
-      rule:
-        pattern: $M.$OWNER($H)
-        matches: fixable-call
-        has: {field: arguments, has: {nthChild: 1, matches: run-callback}}
-      constraints: {OWNER: {regex: '^(sync|promise)$'}}
-      transform: {BODY: 'rewrite($H, rewriters=[effect-argument])'}
-      fix: $M.suspend($BODY)
+        - matches: effect-combinator
 transform:
-    COMPOSED: rewrite($CALL, rewriters=[map-first, map-last, suspend])
     RUN_HEAD: {replace: {source: $RUN, replace: '(?s)^([^(]+)\(.*$', by: '$1'}}
-fix: $COMPOSED
 message: '`$RUN_HEAD` starts a separate runtime inside an effect callback'
 note: 'Return the effect from its callback, through `flatMap` in place of `map` and `suspend` in place of `sync` or `promise`'
 labels:

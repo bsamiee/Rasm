@@ -1,244 +1,165 @@
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-fn fn_pointer_iterator_type(found: &str) {
-    insta::assert_snapshot!(found, @"
-    warning: `IntoIter` names `Map<IntoIter<u8>, fn(u8) -> u16>` through a `fn` pointer in place of its closure
-      --> tools/dylint/examples/fn_pointer_iterator_type.rs:18:21
-       |
-    18 |     type IntoIter = Map<vec::IntoIter<u8>, fn(u8) -> u16>;
-       |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-       |
-       = help: declare `type IntoIter = impl Iterator<Item = u16>` under `#![feature(impl_trait_in_assoc_type)]` and build the adapter with a closure
-       = note: `#[warn(fn_pointer_iterator_type)]` on by default
-    ");
-}
-
+#[rustfmt::skip]
+snapshots! {
 fn formatted_tracing_value(found: &str) {
     insta::assert_snapshot!(found, @r#"
     warning: tracing message interpolates values into text
-     --> tools/dylint/examples/formatted_tracing_value.rs:8:5
-      |
-    8 |     tracing::info!("loaded {} rows from {path}", rows);
-      |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-      |
-      = help: record each interpolated value as its own field (`name = value`, or `name = %value` for a type without `tracing::Value`) beside a constant message
-      = note: `#[warn(formatted_tracing_value)]` on by default
+      --> tools/dylint/examples/formatted_tracing_value.rs:22:5
+       |
+    22 |     tracing::info!("loaded {} rows from {path}", rows);
+       |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+       |
+       = help: record each value beside a constant message: directly for `tracing::Value`, `%value` for `Display` formatting, or `?value` for `Debug` formatting
+       = note: `#[warn(formatted_tracing_value)]` on by default
 
     warning: tracing field records a value rendered to text
-      --> tools/dylint/examples/formatted_tracing_value.rs:14:27
+      --> tools/dylint/examples/formatted_tracing_value.rs:28:27
        |
-    14 |     tracing::warn!(port = format!("{port}"), "listening");
+    28 |     tracing::warn!(port = format!("{port}"), "listening");
        |                           ^^^^^^^^^^^^^^^^^
        |
-       = help: record each formatted value as its own field (`name = value`, or `name = %value` for a type without `tracing::Value`)
+       = help: record each value directly for `tracing::Value`, with `%value` for `Display` formatting or `?value` for `Debug` formatting
 
     warning: tracing field records a value rendered to text
-      --> tools/dylint/examples/formatted_tracing_value.rs:15:28
+      --> tools/dylint/examples/formatted_tracing_value.rs:29:28
        |
-    15 |     tracing::debug!(port = port.to_string(), "listening");
+    29 |     tracing::debug!(port = port.to_string(), "listening");
        |                            ^^^^^^^^^^^^^^^^ help: record the `u16` as a typed field: `port`
     applicability MaybeIncorrect: record the `u16` as a typed field
 
     warning: tracing field records a value rendered to text
-      --> tools/dylint/examples/formatted_tracing_value.rs:18:55
+      --> tools/dylint/examples/formatted_tracing_value.rs:32:55
        |
-    18 |     let _span = tracing::info_span!("request", port = format!("{port}"));
+    32 |     let _span = tracing::info_span!("request", port = format!("{port}"));
        |                                                       ^^^^^^^^^^^^^^^^^
        |
-       = help: record each formatted value as its own field (`name = value`, or `name = %value` for a type without `tracing::Value`)
+       = help: record each value directly for `tracing::Value`, with `%value` for `Display` formatting or `?value` for `Debug` formatting
 
     warning: tracing field records a value rendered to text
-      --> tools/dylint/examples/formatted_tracing_value.rs:19:65
+      --> tools/dylint/examples/formatted_tracing_value.rs:33:65
        |
-    19 |     tracing::info_span!("request", port = Empty).record("port", port.to_string());
-       |                                                                 ^^^^^^^^^^^^^^^^ help: record the `u16` as a typed field: `port`
+    33 |     tracing::info_span!("request", port = Empty).record("port", port.to_string());
+       |                                                                 ^^^^^^^^^^^^^^^^ help: record the `u16` as a typed field: `&port`
     applicability MaybeIncorrect: record the `u16` as a typed field
 
     warning: tracing field records a value rendered to text
-      --> tools/dylint/examples/formatted_tracing_value.rs:23:19
+      --> tools/dylint/examples/formatted_tracing_value.rs:34:28
        |
-    23 |     let message = format!("handled {count} rows");
-       |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-       |
-       = help: record each formatted value as its own field (`name = value`, or `name = %value` for a type without `tracing::Value`)
+    34 |     tracing::debug!(port = ToString::to_string(&port), "listening");
+       |                            ^^^^^^^^^^^^^^^^^^^^^^^^^^ help: record the `&u16` as a typed field: `&port`
+    applicability MaybeIncorrect: record the `&u16` as a typed field
 
     warning: tracing field records a value rendered to text
-      --> tools/dylint/examples/formatted_tracing_value.rs:25:31
+      --> tools/dylint/examples/formatted_tracing_value.rs:35:65
        |
-    25 |     tracing::info!(summary = %format_args!("handled {count}"), "done");
+    35 |     tracing::info_span!("request", port = Empty).record("port", ToString::to_string(&port));
+       |                                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^ help: record the `&u16` as a typed field: `&&port`
+    applicability MaybeIncorrect: record the `&u16` as a typed field
+
+    warning: tracing field records a value rendered to text
+      --> tools/dylint/examples/formatted_tracing_value.rs:37:43
+       |
+    37 |     tracing::Span::record(&span, "port", &port.to_string());
+       |                                           ^^^^^^^^^^^^^^^^ help: record the `u16` as a typed field: `&port`
+    applicability MaybeIncorrect: record the `u16` as a typed field
+
+    warning: tracing field records a value rendered to text
+      --> tools/dylint/examples/formatted_tracing_value.rs:38:42
+       |
+    38 |     tracing::Span::record(&span, "port", format!("{port}"));
+       |                                          ^^^^^^^^^^^^^^^^^
+       |
+       = help: pass a native `tracing::Value` to `Span::record`, or use `tracing::field::display` for `Display` formatting and `tracing::field::debug` for `Debug` formatting
+
+    warning: tracing field records a value rendered to text
+      --> tools/dylint/examples/formatted_tracing_value.rs:42:19
+       |
+    42 |     let message = format!("handled {count} rows");
+       |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+       |
+       = help: record each value directly for `tracing::Value`, with `%value` for `Display` formatting or `?value` for `Debug` formatting
+
+    warning: tracing field records a value rendered to text
+      --> tools/dylint/examples/formatted_tracing_value.rs:44:31
+       |
+    44 |     tracing::info!(summary = %format_args!("handled {count}"), "done");
        |                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: record each formatted value as its own field (`name = value`, or `name = %value` for a type without `tracing::Value`)
+       = help: record each value directly for `tracing::Value`, with `%value` for `Display` formatting or `?value` for `Debug` formatting
+
+    warning: tracing message interpolates values into text
+      --> tools/dylint/examples/formatted_tracing_value.rs:54:5
+       |
+    54 |     tracing::info!("state {status:?}");
+       |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+       |
+       = help: record each value beside a constant message: directly for `tracing::Value`, `%value` for `Display` formatting, or `?value` for `Debug` formatting
+
+    warning: tracing field records a value rendered to text
+      --> tools/dylint/examples/formatted_tracing_value.rs:55:29
+       |
+    55 |     tracing::debug!(state = format!("{status:?}"), "state");
+       |                             ^^^^^^^^^^^^^^^^^^^^^
+       |
+       = help: record each value directly for `tracing::Value`, with `%value` for `Display` formatting or `?value` for `Debug` formatting
+
+    warning: tracing field records a value rendered to text
+      --> tools/dylint/examples/formatted_tracing_value.rs:56:67
+       |
+    56 |     tracing::info_span!("request", state = Empty).record("state", format!("{status:?}"));
+       |                                                                   ^^^^^^^^^^^^^^^^^^^^^
+       |
+       = help: pass a native `tracing::Value` to `Span::record`, or use `tracing::field::display` for `Display` formatting and `tracing::field::debug` for `Debug` formatting
+
+    warning: tracing field records a value rendered to text
+      --> tools/dylint/examples/formatted_tracing_value.rs:61:67
+       |
+    61 |     tracing::info_span!("request", error = Empty).record("error", error.to_string());
+       |                                                                   ^^^^^^^^^^^^^^^^^ help: record the value through its `Display` impl: `tracing::field::display(&error)`
+    applicability MaybeIncorrect: record the value through its `Display` impl
+
+    warning: tracing field records a value rendered to text
+      --> tools/dylint/examples/formatted_tracing_value.rs:64:67
+       |
+    64 |     tracing::info_span!("request", error = Empty).record("error", boxed.to_string());
+       |                                                                   ^^^^^^^^^^^^^^^^^ help: record the `std::boxed::Box<dyn std::error::Error>` as a typed field: `&boxed`
+    applicability MaybeIncorrect: record the `std::boxed::Box<dyn std::error::Error>` as a typed field
     "#);
 }
 
-fn forwarding_newtype(found: &str) {
+fn manual_reference_impl(found: &str) {
     insta::assert_snapshot!(found, @"
-    warning: `impl AsRef<[String]> for Names` returns the wrapped `Vec<String>` by hand
-      --> tools/dylint/examples/forwarding_newtype.rs:15:1
-       |
-    15 | impl AsRef<[String]> for Names {
-       | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-       |
-       = help: derive `derive_more::AsRef` on `Names` with `#[as_ref(forward)]` and delete the impl
-       = note: `#[warn(forwarding_newtype)]` on by default
-
-    warning: every non-constructor method of newtype `Queue` forwards to the wrapped `Vec<u32>`
-      --> tools/dylint/examples/forwarding_newtype.rs:53:1
-       |
-    53 | struct Queue(Vec<u32>);
-       | ^^^^^^^^^^^^
-       |
-    note: forwards here
-      --> tools/dylint/examples/forwarding_newtype.rs:56:5
-       |
-    56 |     fn push(&mut self, value: u32) { self.0.push(value); }
-       |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    57 |
-    58 |     const fn len(&self) -> usize { self.0.len() }
-       |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-       = help: use `Vec<u32>` in place of `Queue`
-
-    warning: every non-constructor method of newtype `Public` forwards to the wrapped `Vec<u32>`
-      --> tools/dylint/examples/forwarding_newtype.rs:62:1
-       |
-    62 | pub struct Public(Vec<u32>);
-       | ^^^^^^^^^^^^^^^^^
-       |
-    note: forwards here
-      --> tools/dylint/examples/forwarding_newtype.rs:66:5
-       |
-    66 |     pub const fn len(&self) -> usize { self.0.len() }
-       |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-       = help: use `Vec<u32>` in place of `Public`
-
     warning: `impl AsRef<String> for Title` returns the wrapped `String` by hand
-      --> tools/dylint/examples/forwarding_newtype.rs:85:1
+      --> tools/dylint/examples/manual_reference_impl.rs:86:1
        |
-    85 | impl AsRef<String> for Title {
-       | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    86 | / impl AsRef<String> for Title {
+    87 | |     fn as_ref(&self) -> &String { &self.0 }
+    88 | | }
+       | |_^
        |
-       = help: derive `derive_more::AsRef` on `Title` and delete the impl
+       = help: derive `derive_more::AsRef` on `Title` with `#[as_ref(String)]` and delete the impl
+       = note: `#[warn(manual_reference_impl)]` on by default
 
     warning: `impl AsRef<str> for Title` returns the wrapped `String` by hand
-      --> tools/dylint/examples/forwarding_newtype.rs:89:1
+      --> tools/dylint/examples/manual_reference_impl.rs:90:1
        |
-    89 | impl AsRef<str> for Title {
-       | ^^^^^^^^^^^^^^^^^^^^^^^^^
+    90 | / impl AsRef<str> for Title {
+    91 | |     fn as_ref(&self) -> &str { self.0.as_ref() }
+    92 | | }
+       | |_^
        |
-       = help: derive `derive_more::AsRef` on `Title` with `#[as_ref(forward)]` and delete the impl
+       = help: derive `derive_more::AsRef` on `Title` with `#[as_ref(str)]` and delete the impl
 
     warning: `impl AsMut<String> for Title` returns the wrapped `String` by hand
-      --> tools/dylint/examples/forwarding_newtype.rs:93:1
+      --> tools/dylint/examples/manual_reference_impl.rs:94:1
        |
-    93 | impl AsMut<String> for Title {
-       | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    94 | / impl AsMut<String> for Title {
+    95 | |     fn as_mut(&mut self) -> &mut String { &mut self.0 }
+    96 | | }
+       | |_^
        |
-       = help: derive `derive_more::AsMut` on `Title` and delete the impl
-
-    warning: `impl Deref for Names` exposes every method of the wrapped `Vec<String>` on `Names`
-      --> tools/dylint/examples/forwarding_newtype_deref.rs:12:1
-       |
-    12 | impl Deref for Names {
-       | ^^^^^^^^^^^^^^^^^^^^
-       |
-       = help: use `Vec<String>` in place of `Names`, or remove the `Deref` impl and give `Names` methods that keep its invariant
-       = note: `#[warn(forwarding_newtype)]` on by default
-
-    warning: `impl DerefMut for Names` exposes every method of the wrapped `Vec<String>` on `Names`
-      --> tools/dylint/examples/forwarding_newtype_deref.rs:18:1
-       |
-    18 | impl DerefMut for Names {
-       | ^^^^^^^^^^^^^^^^^^^^^^^
-       |
-       = help: use `Vec<String>` in place of `Names`, or remove the `DerefMut` impl and give `Names` methods that keep its invariant
-
-    warning: `impl Deref for Scores` exposes every method of the wrapped `Vec<u32>` on `Scores`
-      --> tools/dylint/examples/forwarding_newtype_deref.rs:22:26
-       |
-    22 | #[derive(Debug, Default, derive_more::Deref)]
-       |                          ^^^^^^^^^^^^^^^^^^
-       |
-       = help: use `Vec<u32>` in place of `Scores`, or remove the `Deref` impl and give `Scores` methods that keep its invariant
-
-    warning: `impl Deref for Exported` exposes every method of the wrapped `Vec<u8>` on `Exported`
-      --> tools/dylint/examples/forwarding_newtype_deref.rs:50:1
-       |
-    50 | impl Deref for Exported {
-       | ^^^^^^^^^^^^^^^^^^^^^^^
-       |
-       = help: use `Vec<u8>` in place of `Exported`, or remove the `Deref` impl and give `Exported` methods that keep its invariant
-    ");
-}
-
-fn manual_enum_map(found: &str) {
-    insta::assert_snapshot!(found, @"
-    warning: `BTreeMap` holds one entry per variant of `Unit`
-      --> tools/dylint/examples/manual_enum_map.rs:21:18
-       |
-    21 |     let counts = BTreeMap::from([(Unit::Meter, 0_u32), (Unit::Foot, 0)]);
-       |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-       |
-       = help: derive `enum_map::Enum` on `Unit` and build `enum_map::EnumMap<Unit, u32>` with `enum_map::enum_map!`
-       = note: `#[warn(manual_enum_map)]` on by default
-
-    warning: `BTreeMap` holds one entry per variant of `Unit`
-      --> tools/dylint/examples/manual_enum_map.rs:22:21
-       |
-    22 |     let collected = [(Unit::Meter, 1_u32), (Unit::Foot, 2)].into_iter().collect::<BTreeMap<_, _>>();
-       |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-       |
-       = help: derive `enum_map::Enum` on `Unit` and build `enum_map::EnumMap<Unit, u32>` with `enum_map::enum_map!`
-
-    warning: `HashMap` holds one entry per variant of `Unit`
-      --> tools/dylint/examples/manual_enum_map.rs:27:37
-       |
-    27 | fn hashed() -> HashMap<Unit, u32> { HashMap::from([(Unit::Meter, 0_u32), (Unit::Foot, 0)]) }
-       |                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-       |
-       = help: derive `enum_map::Enum` on `Unit` and build `enum_map::EnumMap<Unit, u32>` with `enum_map::enum_map!`
-
-    warning: `BTreeMap` holds one entry per variant of `Unit`
-      --> tools/dylint/examples/manual_enum_map_collect.rs:32:20
-       |
-    32 |     let iterated = Unit::iter().map(|unit| (unit, weight(unit))).collect::<BTreeMap<_, _>>();
-       |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-       |
-       = help: derive `enum_map::Enum` on `Unit` and build `enum_map::EnumMap<Unit, u32>` with `enum_map::enum_map!`
-       = note: `#[warn(manual_enum_map)]` on by default
-
-    warning: `BTreeMap` holds one entry per variant of `Unit`
-      --> tools/dylint/examples/manual_enum_map_collect.rs:33:18
-       |
-    33 |     let listed = Unit::VARIANTS.iter().map(|unit| (*unit, weight(*unit))).collect::<BTreeMap<_, _>>();
-       |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-       |
-       = help: derive `enum_map::Enum` on `Unit` and build `enum_map::EnumMap<Unit, u32>` with `enum_map::enum_map!`
-
-    warning: `BTreeMap` holds one entry per variant of `Unit`
-      --> tools/dylint/examples/manual_enum_map_collect.rs:34:18
-       |
-    34 |     let copied = Unit::VARIANTS.iter().copied().map(|unit| (unit, 0_u32)).collect::<BTreeMap<_, _>>();
-       |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-       |
-       = help: derive `enum_map::Enum` on `Unit` and build `enum_map::EnumMap<Unit, u32>` with `enum_map::enum_map!`
-
-    warning: `BTreeMap` holds one entry per variant of `Unit`
-      --> tools/dylint/examples/manual_enum_map_collect.rs:37:18
-       |
-    37 |     let zipped = Unit::iter().zip([1_u32, 3]).collect::<BTreeMap<_, _>>();
-       |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-       |
-       = help: derive `enum_map::Enum` on `Unit` and build `enum_map::EnumMap<Unit, u32>` with `enum_map::enum_map!`
-
-    warning: `BTreeMap` holds one entry per variant of `Unit`
-       --> tools/dylint/examples/variant_constant_functions.rs:106:18
-        |
-    106 |     let counts = BTreeMap::from([(Unit::Meter, 0_u32), (Unit::Foot, 0)]);
-        |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-        |
-        = help: derive `enum_map::Enum` on `Unit` and build `enum_map::EnumMap<Unit, u32>` with `enum_map::enum_map!`
-        = note: `#[warn(manual_enum_map)]` on by default
+       = help: derive `derive_more::AsMut` on `Title` with `#[as_mut(String)]` and delete the impl
     ");
 }
 
@@ -289,76 +210,63 @@ fn manual_serialization(found: &str) {
     ");
 }
 
-fn manual_slot_map(found: &str) {
-    insta::assert_snapshot!(found, @"
-    warning: `Store` tracks reusable indexes of `items` in free list `next` by hand
-     --> tools/dylint/examples/manual_slot_map.rs:7:1
-      |
-    7 | struct Store<T> {
-      | ^^^^^^^^^^^^^^^
-      |
-      = help: replace `items` and `next` with one `slotmap::SlotMap<K, T>` keyed by a `slotmap::new_key_type!` key
-      = note: `#[warn(manual_slot_map)]` on by default
-
-    warning: `Pool` tracks reusable indexes of `entries` in free list `vacant` by hand
-      --> tools/dylint/examples/manual_slot_map.rs:36:1
-       |
-    36 | struct Pool {
-       | ^^^^^^^^^^^
-       |
-       = help: replace `entries` and `vacant` with one `slotmap::SlotMap<K, u32>` keyed by a `slotmap::new_key_type!` key
-    ");
-}
-
 fn manual_variant_array(found: &str) {
     insta::assert_snapshot!(found, @"
-    warning: array lists every variant of `Mode` in declaration order
-      --> tools/dylint/examples/manual_variant_array.rs:13:24
+    warning: borrowed slice lists every variant of `Mode` in declaration order
+      --> tools/dylint/examples/manual_variant_array.rs:53:79
        |
-    13 | const ALL: [Mode; 2] = [Mode::Fast, Mode::Slow];
-       |                        ^^^^^^^^^^^^^^^^^^^^^^^^
+    53 |     black_box(&([ALL.len(), HOT.len(), PRIORITY.len(), Mode::VARIANTS.len()], [Mode::Fast, Mode::Slow].contains(&Mode::Slow)));
+       |                                                                               ^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: derive `strum::VariantArray` on `Mode` and read `Mode::VARIANTS`
+       = help: read `<Mode as strum::VariantArray>::VARIANTS`; add `#[derive(strum::VariantArray)]` where the trait is absent
        = note: `#[warn(manual_variant_array)]` on by default
 
-    warning: array lists every variant of `Mode` in declaration order
-      --> tools/dylint/examples/manual_variant_array.rs:19:65
+    warning: borrowed slice lists every variant of `Measure<4>` in declaration order
+      --> tools/dylint/examples/manual_variant_array.rs:54:15
        |
-    19 | fn main() { black_box(&([ALL.len(), HOT.len(), PRIORITY.len()], [Mode::Fast, Mode::Slow].contains(&Mode::Slow))); }
-       |                                                                 ^^^^^^^^^^^^^^^^^^^^^^^^
+    54 |     black_box([Measure::<4>::Low, Measure::<4>::High].contains(&Measure::<4>::High));
+       |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: derive `strum::VariantArray` on `Mode` and read `Mode::VARIANTS`
+       = help: read `<Measure<4> as strum::VariantArray>::VARIANTS`; add `#[derive(strum::VariantArray)]` where the trait is absent
+
+    warning: borrowed slice lists every variant of `Visible` in declaration order
+      --> tools/dylint/examples/manual_variant_array.rs:58:15
+       |
+    58 |     black_box([Visible::Shown, Visible::Hidden].contains(&Visible::Hidden));
+       |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+       |
+       = help: read `<Visible as strum::VariantArray>::VARIANTS`; add `#[derive(strum::VariantArray)]` where the trait is absent
     ");
 }
 
 fn needless_reference_field(found: &str) {
     insta::assert_snapshot!(found, @"
     warning: `Walker` holds `cx` by reference only to copy `cx.tcx`
-      --> tools/dylint/examples/needless_reference_field.rs:25:5
-       |
-    25 |     cx: &'cx Context<'tcx>,
-       |     ^^^^^^^^^^^^^^^^^^^^^^
-       |
+       --> tools/dylint/examples/needless_reference_field.rs:25:5
+        |
+     25 |     cx: &'cx Context<'tcx>,
+        |     ^^^^^^^^^^^^^^^^^^^^^^
+        |
     note: `cx.tcx` copied here
-      --> tools/dylint/examples/needless_reference_field.rs:95:55
-       |
-    95 |     const fn interner(&self) -> Interner<'tcx> { self.cx.tcx }
-       |                                                       ^^^^^^
-       = help: store the `Interner<'tcx>` of `cx.tcx` in place of `cx` and remove `'cx`
-       = note: `#[warn(needless_reference_field)]` on by default
+       --> tools/dylint/examples/needless_reference_field.rs:130:55
+        |
+    130 |     const fn interner(&self) -> Interner<'tcx> { self.cx.tcx }
+        |                                                       ^^^^^^
+        = help: store the `Interner<'tcx>` of `cx.tcx` in place of `cx` and remove `'cx`
+        = note: `#[warn(needless_reference_field)]` on by default
 
     warning: `Shared` holds `settings` by reference only to copy `settings.port`
-      --> tools/dylint/examples/needless_reference_field.rs:29:5
-       |
-    29 |     settings: &'settings Settings,
-       |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-       |
+       --> tools/dylint/examples/needless_reference_field.rs:29:5
+        |
+     29 |     settings: &'settings Settings,
+        |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        |
     note: `settings.port` copied here
-      --> tools/dylint/examples/needless_reference_field.rs:99:40
-       |
-    99 |     const fn port(&self) -> u16 { self.settings.port }
-       |                                        ^^^^^^^^^^^^^
-       = help: store the `u16` of `settings.port` in place of `settings`
+       --> tools/dylint/examples/needless_reference_field.rs:134:40
+        |
+    134 |     const fn port(&self) -> u16 { self.settings.port }
+        |                                        ^^^^^^^^^^^^^
+        = help: store the `u16` of `settings.port` in place of `settings`
 
     warning: `Exposed` holds `settings` by reference only to copy `settings.port`
        --> tools/dylint/examples/needless_reference_field.rs:39:5
@@ -367,9 +275,9 @@ fn needless_reference_field(found: &str) {
         |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         |
     note: `settings.port` copied here
-       --> tools/dylint/examples/needless_reference_field.rs:109:40
+       --> tools/dylint/examples/needless_reference_field.rs:144:40
         |
-    109 |     const fn port(&self) -> u16 { self.settings.port }
+    144 |     const fn port(&self) -> u16 { self.settings.port }
         |                                        ^^^^^^^^^^^^^
         = help: store the `u16` of `settings.port` in place of `settings` and remove `'settings`
 
@@ -380,9 +288,9 @@ fn needless_reference_field(found: &str) {
         |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         |
     note: `settings.port` copied here
-       --> tools/dylint/examples/needless_reference_field.rs:142:40
+       --> tools/dylint/examples/needless_reference_field.rs:177:40
         |
-    142 |     const fn port(&self) -> u16 { self.settings.port }
+    177 |     const fn port(&self) -> u16 { self.settings.port }
         |                                        ^^^^^^^^^^^^^
         = help: store the `u16` of `settings.port` in place of `settings` and remove `'settings`
 
@@ -393,11 +301,24 @@ fn needless_reference_field(found: &str) {
         |                          ^^^^^^^^^^^^^^^^^^^
         |
     note: `0.retries` copied here
-       --> tools/dylint/examples/needless_reference_field.rs:158:42
+       --> tools/dylint/examples/needless_reference_field.rs:193:42
         |
-    158 |     const fn retries(&self) -> u8 { self.0.retries }
+    193 |     const fn retries(&self) -> u8 { self.0.retries }
         |                                          ^^^^^^^^^
         = help: store the `u8` of `0.retries` in place of `0` and remove `'settings`
+
+    warning: `Scoped` holds `source` by reference only to copy `source.value`
+       --> tools/dylint/examples/needless_reference_field.rs:111:5
+        |
+    111 |     source: &'value Projected<T>,
+        |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        |
+    note: `source.value` copied here
+       --> tools/dylint/examples/needless_reference_field.rs:208:40
+        |
+    208 |     fn value(&self) -> T::Value { self.source.value }
+        |                                        ^^^^^^^^^^^^
+        = help: store the `<T as Width>::Value` of `source.value` in place of `source` and remove `'value`
     ");
 }
 
@@ -456,311 +377,6 @@ fn option_fields_as_result(found: &str) {
        |     ^^^^^^^^^^^^^^^^^^^^^^
        = help: replace `value` and `error` with one `Result<u32, String>` field
     ");
-}
-
-fn primitive_domain_binding(found: &str) {
-    insta::assert_snapshot!(found, @r#"
-    warning: `wait_millis` holds a duration as `u64`
-      --> tools/dylint/examples/primitive_domain_binding.rs:56:9
-       |
-    56 |     let wait_millis = base.saturating_mul(2);
-       |         ^^^^^^^^^^^
-       |
-       = help: declare `wait_millis` as `core::time::Duration` and build it with `Duration::from_millis`
-       = note: `#[warn(primitive_domain_binding)]` on by default
-
-    warning: `retry_delay` holds a duration as `u64`
-      --> tools/dylint/examples/primitive_domain_binding.rs:57:9
-       |
-    57 |     let retry_delay = 500_u64;
-       |         ^^^^^^^^^^^
-       |
-       = help: declare `retry_delay` as `core::time::Duration`
-
-    warning: `cache_dir` holds a path as `String`
-      --> tools/dylint/examples/primitive_domain_binding.rs:62:9
-       |
-    62 |     let cache_dir = format!("{root}/cache");
-       |         ^^^^^^^^^
-       |
-       = help: declare `cache_dir` as `std::path::PathBuf`
-
-    warning: `data_file` holds a path as `String`
-      --> tools/dylint/examples/primitive_domain_binding.rs:63:9
-       |
-    63 |     let data_file = format!("{root}/data.json");
-       |         ^^^^^^^^^
-       |
-       = help: declare `data_file` as `std::path::PathBuf`
-
-    warning: `log_file` holds a path as `String`
-      --> tools/dylint/examples/primitive_domain_binding.rs:64:9
-       |
-    64 |     let log_file = format!("{root}/run.log");
-       |         ^^^^^^^^
-       |
-       = help: declare `log_file` as `std::path::PathBuf`
-
-    warning: `created_at` holds an instant as `i64`
-      --> tools/dylint/examples/primitive_domain_binding.rs:74:9
-       |
-    74 |     let created_at = base.saturating_add(1);
-       |         ^^^^^^^^^^
-       |
-       = help: declare `created_at` as `jiff::Timestamp`
-
-    warning: `since_epoch` holds an instant as `i64`
-      --> tools/dylint/examples/primitive_domain_binding.rs:75:9
-       |
-    75 |     let since_epoch = base.saturating_add(2);
-       |         ^^^^^^^^^^^
-       |
-       = help: declare `since_epoch` as `jiff::Timestamp`
-
-    warning: `epoch_ms` holds an instant as `i64`
-      --> tools/dylint/examples/primitive_domain_binding.rs:76:9
-       |
-    76 |     let epoch_ms = base.saturating_add(3);
-       |         ^^^^^^^^
-       |
-       = help: declare `epoch_ms` as `jiff::Timestamp` and build it with `Timestamp::from_millisecond`
-
-    warning: `timestamp` holds an instant as `i64`
-      --> tools/dylint/examples/primitive_domain_binding.rs:77:9
-       |
-    77 |     let timestamp = base.saturating_add(4);
-       |         ^^^^^^^^^
-       |
-       = help: declare `timestamp` as `jiff::Timestamp`
-
-    warning: `start_date` holds a calendar value as `String`
-      --> tools/dylint/examples/primitive_domain_binding.rs:82:9
-       |
-    82 |     let start_date = format!("2026-10-{day:02}");
-       |         ^^^^^^^^^^
-       |
-       = help: declare `start_date` as `jiff::civil::Date`
-
-    warning: `length_mm` holds a physical quantity as `f64`
-      --> tools/dylint/examples/primitive_domain_binding.rs:87:9
-       |
-    87 |     let length_mm = base * 2.0;
-       |         ^^^^^^^^^
-       |
-       = help: declare `length_mm` as `uom::si::f64::Length` and build it with `Length::new::<uom::si::length::millimeter>`
-
-    warning: `angle_degrees` holds a physical quantity as `f64`
-      --> tools/dylint/examples/primitive_domain_binding.rs:88:9
-       |
-    88 |     let angle_degrees = length_mm / 3.0;
-       |         ^^^^^^^^^^^^^
-       |
-       = help: declare `angle_degrees` as `uom::si::f64::Angle` and build it with `Angle::new::<uom::si::angle::degree>`
-
-    warning: `scan_dpi` holds a physical quantity as `f64`
-      --> tools/dylint/examples/primitive_domain_binding.rs:89:9
-       |
-    89 |     let scan_dpi = angle_degrees * 300.0;
-       |         ^^^^^^^^
-       |
-       = help: declare `scan_dpi` as `uom::si::f64::LinearNumberDensity` and build it with `LinearNumberDensity::new::<uom::si::linear_number_density::per_inch>`
-
-    warning: `declared_ms` holds a duration as `u64`
-      --> tools/dylint/examples/primitive_domain_binding.rs:95:9
-       |
-    95 |     let declared_ms: u64 = base;
-       |         ^^^^^^^^^^^
-       |
-       = help: declare `declared_ms` as `core::time::Duration` and build it with `Duration::from_millis`
-
-    warning: `total_bytes` holds a byte size as `u64`
-       --> tools/dylint/examples/primitive_domain_binding.rs:106:9
-        |
-    106 |     let total_bytes = base.saturating_mul(2);
-        |         ^^^^^^^^^^^
-        |
-        = help: declare `total_bytes` as `bytesize::ByteSize` and build it with `ByteSize::b`
-
-    warning: `load_percent` holds a physical quantity as `f64`
-       --> tools/dylint/examples/primitive_domain_binding.rs:112:9
-        |
-    112 |     let load_percent = base / 2.0;
-        |         ^^^^^^^^^^^^
-        |
-        = help: declare `load_percent` as `uom::si::f64::Ratio` and build it with `Ratio::new::<uom::si::ratio::percent>`
-
-    warning: `margin_mm` holds a physical quantity as `f32`
-       --> tools/dylint/examples/primitive_domain_binding.rs:117:9
-        |
-    117 |     let margin_mm = base * 2.0;
-        |         ^^^^^^^^^
-        |
-        = help: declare `margin_mm` as `uom::si::f32::Length` and build it with `Length::new::<uom::si::length::millimeter>`
-
-    warning: `samples_per_mm` holds a physical quantity as `f64`
-       --> tools/dylint/examples/primitive_domain_binding.rs:118:9
-        |
-    118 |     let samples_per_mm = f64::from(margin_mm) * dpi;
-        |         ^^^^^^^^^^^^^^
-        |
-        = help: declare `samples_per_mm` as `uom::si::f64::LinearNumberDensity` and build it with `LinearNumberDensity::new::<uom::si::linear_number_density::per_millimeter>`
-
-    warning: `retry_delay` holds a duration as `u64`
-       --> tools/dylint/examples/primitive_domain_binding.rs:125:9
-        |
-    125 |     let retry_delay: u64 = 500;
-        |         ^^^^^^^^^^^
-        |
-        = help: declare `retry_delay` as `core::time::Duration`
-
-    warning: `timeout_ms` holds a duration as `u64`
-       --> tools/dylint/examples/primitive_domain_binding.rs:144:23
-        |
-    144 |     let waited_for = |timeout_ms: u64| timeout_ms.saturating_add(1);
-        |                       ^^^^^^^^^^
-        |
-        = help: declare `timeout_ms` as `core::time::Duration` and build it with `Duration::from_millis`
-
-    warning: `POLL_INTERVAL` holds a duration as `u64`
-      --> tools/dylint/examples/primitive_domain_binding.rs:12:7
-       |
-    12 | const POLL_INTERVAL: u64 = 250;
-       |       ^^^^^^^^^^^^^
-       |
-       = help: declare `POLL_INTERVAL` as `core::time::Duration`
-
-    warning: `CONFIG_PATH` holds a path as `&str`
-      --> tools/dylint/examples/primitive_domain_binding.rs:13:8
-       |
-    13 | static CONFIG_PATH: &str = "config.toml";
-       |        ^^^^^^^^^^^
-       |
-       = help: declare `CONFIG_PATH` as `&std::path::Path` through `Path::new` under `#![feature(const_convert)]`
-
-    warning: `SHEET_WIDTH_MM` holds a physical quantity as `f64`
-      --> tools/dylint/examples/primitive_domain_binding.rs:15:7
-       |
-    15 | const SHEET_WIDTH_MM: f64 = 210.0;
-       |       ^^^^^^^^^^^^^^
-       |
-       = help: declare `SHEET_WIDTH_MM` as `uom::si::f64::Length` through a `Length { dimension: PhantomData, units: PhantomData, value }` literal holding its value in base units
-       = note: `Length::new::<uom::si::length::millimeter>` builds it outside a const context
-
-    warning: `timeout_ms` holds a duration as `u64`
-      --> tools/dylint/examples/primitive_domain_binding.rs:21:5
-       |
-    21 |     timeout_ms: u64,
-       |     ^^^^^^^^^^
-       |
-       = help: declare `timeout_ms` as `core::time::Duration` and build it with `Duration::from_millis`
-
-    warning: `output_dir` holds a path as `String`
-      --> tools/dylint/examples/primitive_domain_binding.rs:22:5
-       |
-    22 |     output_dir: String,
-       |     ^^^^^^^^^^
-       |
-       = help: declare `output_dir` as `std::path::PathBuf`
-
-    warning: `started_at` holds an instant as `i64`
-      --> tools/dylint/examples/primitive_domain_binding.rs:24:5
-       |
-    24 |     started_at: i64,
-       |     ^^^^^^^^^^
-       |
-       = help: declare `started_at` as `jiff::Timestamp`
-
-    warning: `width_mm` holds a physical quantity as `f64`
-      --> tools/dylint/examples/primitive_domain_binding.rs:25:5
-       |
-    25 |     width_mm: f64,
-       |     ^^^^^^^^
-       |
-       = help: declare `width_mm` as `uom::si::f64::Length` and build it with `Length::new::<uom::si::length::millimeter>`
-
-    warning: `sample_bytes` holds a byte size as `u64`
-      --> tools/dylint/examples/primitive_domain_binding.rs:35:5
-       |
-    35 |     sample_bytes: u64,
-       |     ^^^^^^^^^^^^
-       |
-       = help: declare `sample_bytes` as `bytesize::ByteSize` and build it with `ByteSize::b`
-       = note: `ByteSize` serializes as text in human-readable formats
-
-    warning: `created_at` holds an instant as `i64`
-      --> tools/dylint/examples/primitive_domain_binding.rs:36:5
-       |
-    36 |     created_at: i64,
-       |     ^^^^^^^^^^
-       |
-       = help: declare `created_at` as `jiff::Timestamp` with `#[serde_as(as = "TimestampSeconds<i64>")]`
-       = note: `TimestampMilliSeconds`, `TimestampMicroSeconds`, and `TimestampNanoSeconds` encode other wire units
-
-    warning: `window_secs` holds a duration as `u64`
-      --> tools/dylint/examples/primitive_domain_binding.rs:37:5
-       |
-    37 |     window_secs: u64,
-       |     ^^^^^^^^^^^
-       |
-       = help: declare `window_secs` as `core::time::Duration` with `#[serde_as(as = "DurationSeconds<u64>")]`
-
-    warning: `payload_bytes` holds a byte size as `usize`
-      --> tools/dylint/examples/primitive_domain_binding.rs:50:13
-       |
-    50 |     Sized { payload_bytes: usize },
-       |             ^^^^^^^^^^^^^
-       |
-       = help: declare `payload_bytes` as `bytesize::ByteSize` and build it with `ByteSize::b`
-
-    warning: `dpi` holds a physical quantity as `f64`
-       --> tools/dylint/examples/primitive_domain_binding.rs:116:23
-        |
-    116 | fn printed(base: f32, dpi: f64) -> f64 {
-        |                       ^^^
-        |
-        = help: declare `dpi` as `uom::si::f64::LinearNumberDensity` and build it with `LinearNumberDensity::new::<uom::si::linear_number_density::per_inch>`
-
-    warning: `retry_secs` holds a duration as `u64`
-       --> tools/dylint/examples/primitive_domain_binding.rs:129:25
-        |
-    129 | fn scheduled(job: &Job, retry_secs: u64, cache_file: &str, note_file: &str) -> io::Result<String> {
-        |                         ^^^^^^^^^^
-        |
-        = help: declare `retry_secs` as `core::time::Duration` and build it with `Duration::from_secs`
-
-    warning: `cache_file` holds a path as `&str`
-       --> tools/dylint/examples/primitive_domain_binding.rs:129:42
-        |
-    129 | fn scheduled(job: &Job, retry_secs: u64, cache_file: &str, note_file: &str) -> io::Result<String> {
-        |                                          ^^^^^^^^^^
-        |
-        = help: declare `cache_file` as `&std::path::Path`
-
-    warning: `delay_ms` holds a duration as `u64`
-     --> tools/dylint/examples/primitive_domain_binding.rs:7:20
-      |
-    7 |     fn wait(&self, delay_ms: u64);
-      |                    ^^^^^^^^
-      |
-      = help: declare `delay_ms` as `core::time::Duration` and build it with `Duration::from_millis`
-
-    warning: `cache_dir` holds a path as `String`
-     --> tools/dylint/examples/primitive_domain_binding_exported.rs:5:9
-      |
-    5 |     pub cache_dir: String,
-      |         ^^^^^^^^^
-      |
-      = help: declare `cache_dir` as `std::path::PathBuf`
-      = note: `#[warn(primitive_domain_binding)]` on by default
-
-    warning: `log_file` holds a path as `&str`
-      --> tools/dylint/examples/primitive_domain_binding_exported.rs:11:15
-       |
-    11 | pub fn opened(log_file: &str, settings: &Settings) -> usize { log_file.len().saturating_add(settings.label_path.len()) }
-       |               ^^^^^^^^
-       |
-       = help: declare `log_file` as `&std::path::Path`
-    "#);
 }
 
 fn redundant_option_flag(found: &str) {
@@ -876,86 +492,181 @@ fn restated_constant(found: &str) {
 
 fn sentinel_default(found: &str) {
     insta::assert_snapshot!(found, @r#"
-    warning: `unwrap_or` turns `None` into a `u32` default that a later test reads as absence
-      --> tools/dylint/examples/sentinel_default.rs:47:23
+    warning: `unwrap_or_default` replaces `None` with a `u32` default tested immediately
+      --> tools/dylint/examples/sentinel_default.rs:90:48
        |
-    47 |     let count = value.unwrap_or(0);
-       |                       ^^^^^^^^^^^^
+    90 | fn numeric(value: Option<u32>) -> bool { value.unwrap_or_default() == 0 }
+       |                                                ^^^^^^^^^^^^^^^^^^^
        |
     note: tested here
-      --> tools/dylint/examples/sentinel_default.rs:48:8
+      --> tools/dylint/examples/sentinel_default.rs:90:42
        |
-    48 |     if count == 0 { "none" } else { "some" }
-       |        ^^^^^^^^^^
-       = help: keep the `Option` and match `None` where the test acts on absence
+    90 | fn numeric(value: Option<u32>) -> bool { value.unwrap_or_default() == 0 }
+       |                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+       = help: test the `Option` directly with `is_none_or`, `is_some_and`, or a match; preserve mapping and `Some` values equal to the default
        = note: `#[warn(sentinel_default)]` on by default
 
-    warning: `unwrap_or_default` turns `None` into a `Vec<u32>` default that a later test reads as absence
-      --> tools/dylint/examples/sentinel_default.rs:51:58
+    warning: `unwrap_or` replaces `None` with a `&str` default tested immediately
+      --> tools/dylint/examples/sentinel_default.rs:92:49
        |
-    51 | fn listed_empty(value: Option<Vec<u32>>) -> bool { value.unwrap_or_default().is_empty() }
-       |                                                          ^^^^^^^^^^^^^^^^^^^
+    92 | fn textual(value: Option<&str>) -> bool { value.unwrap_or("").is_empty() }
+       |                                                 ^^^^^^^^^^^^^
        |
     note: tested here
-      --> tools/dylint/examples/sentinel_default.rs:51:52
+      --> tools/dylint/examples/sentinel_default.rs:92:43
        |
-    51 | fn listed_empty(value: Option<Vec<u32>>) -> bool { value.unwrap_or_default().is_empty() }
-       |                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-       = help: keep the `Option` and match `None` where the test acts on absence
+    92 | fn textual(value: Option<&str>) -> bool { value.unwrap_or("").is_empty() }
+       |                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+       = help: test the `Option` directly with `is_none_or`, `is_some_and`, or a match; preserve mapping and `Some` values equal to the default
 
-    warning: `unwrap_or` turns `None` into a `&str` default that a later test reads as absence
-      --> tools/dylint/examples/sentinel_default.rs:55:16
+    warning: `unwrap_or_default` replaces `None` with a `&[u8]` default tested immediately
+      --> tools/dylint/examples/sentinel_default.rs:94:51
        |
-    53 | macro_rules! tested {
-    54 |     ($value:expr) => {
-    55 |         $value.unwrap_or("") == ""
-       |                ^^^^^^^^^^^^^
-    ...
-    59 | fn both(left: Option<&str>, right: Option<&str>) -> bool { tested!(left) && tested!(right) }
-       |                                                            ------------- in this macro invocation
+    94 | fn borrowed(value: Option<&[u8]>) -> bool { value.unwrap_or_default().is_empty() }
+       |                                                   ^^^^^^^^^^^^^^^^^^^
        |
     note: tested here
-      --> tools/dylint/examples/sentinel_default.rs:55:9
+      --> tools/dylint/examples/sentinel_default.rs:94:45
        |
-    55 |         $value.unwrap_or("") == ""
-       |         ^^^^^^^^^^^^^^^^^^^^^^^^^^
-    ...
-    59 | fn both(left: Option<&str>, right: Option<&str>) -> bool { tested!(left) && tested!(right) }
-       |                                                            ------------- in this macro invocation
-       = help: keep the `Option` and match `None` where the test acts on absence
+    94 | fn borrowed(value: Option<&[u8]>) -> bool { value.unwrap_or_default().is_empty() }
+       |                                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+       = help: test the `Option` directly with `is_none_or`, `is_some_and`, or a match; preserve mapping and `Some` values equal to the default
 
-    warning: `unwrap_or` turns `None` into a `&str` default that a later test reads as absence
-      --> tools/dylint/examples/sentinel_default.rs:55:16
+    warning: `map_or` replaces `None` with a `u32` default tested immediately
+      --> tools/dylint/examples/sentinel_default.rs:96:52
        |
-    53 | macro_rules! tested {
-    54 |     ($value:expr) => {
-    55 |         $value.unwrap_or("") == ""
-       |                ^^^^^^^^^^^^^
-    ...
-    59 | fn both(left: Option<&str>, right: Option<&str>) -> bool { tested!(left) && tested!(right) }
-       |                                                                             -------------- in this macro invocation
+    96 | fn mapped_test(value: Option<u32>) -> bool { value.map_or(0, |value| value.saturating_mul(2)) == 0 }
+       |                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
     note: tested here
-      --> tools/dylint/examples/sentinel_default.rs:55:9
+      --> tools/dylint/examples/sentinel_default.rs:96:46
        |
-    55 |         $value.unwrap_or("") == ""
-       |         ^^^^^^^^^^^^^^^^^^^^^^^^^^
-    ...
-    59 | fn both(left: Option<&str>, right: Option<&str>) -> bool { tested!(left) && tested!(right) }
-       |                                                                             -------------- in this macro invocation
-       = help: keep the `Option` and match `None` where the test acts on absence
+    96 | fn mapped_test(value: Option<u32>) -> bool { value.map_or(0, |value| value.saturating_mul(2)) == 0 }
+       |                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+       = help: test the `Option` directly with `is_none_or`, `is_some_and`, or a match; preserve mapping and `Some` values equal to the default
+
+    warning: `unwrap_or_default` replaces `None` with a `char` default tested immediately
+       --> tools/dylint/examples/sentinel_default.rs:99:17
+        |
+     99 |     match value.unwrap_or_default() {
+        |                 ^^^^^^^^^^^^^^^^^^^
+        |
+    note: tested here
+       --> tools/dylint/examples/sentinel_default.rs:99:5
+        |
+     99 | /     match value.unwrap_or_default() {
+    100 | |         '\0' => false,
+    101 | |         _ => true,
+    102 | |     }
+        | |_____^
+        = help: test the `Option` directly with `is_none_or`, `is_some_and`, or a match; preserve mapping and `Some` values equal to the default
     "#);
 }
 
 fn single_impl_trait(found: &str) {
     insta::assert_snapshot!(found, @"
-    warning: trait `Small` is implemented only for `Result<u8, ParseIntError>`
-      --> tools/dylint/examples/partition_by_result.rs:10:1
+    warning: trait `Toggle` is implemented only for `&mut bool`
+     --> tools/dylint/examples/manual_bool_toggle.rs:9:1
+      |
+    9 | trait Toggle {
+      | ^^^^^^^^^^^^
+      |
+      = help: replace `Toggle` with functions and constants for `&mut bool`
+      = note: `#[warn(single_impl_trait)]` on by default
+
+    warning: trait `New` is implemented only for `Vec<u8, System>`
+      --> tools/dylint/examples/manual_default_field_values.rs:10:1
        |
-    10 | trait Small {
+    10 | trait New {
+       | ^^^^^^^^^
+       |
+       = help: replace `New` with functions and constants for `Vec<u8, System>`
+       = note: `#[warn(single_impl_trait)]` on by default
+
+    warning: trait `converted::From` is implemented only for `String`
+       --> tools/dylint/examples/manual_default_field_values.rs:416:5
+        |
+    416 |     trait From {
+        |     ^^^^^^^^^^
+        |
+        = help: replace `converted::From` with functions and constants for `String`
+
+    warning: trait `Measured` is implemented only for `VecDeque<u32>`
+     --> tools/dylint/examples/manual_retain_back.rs:6:1
+      |
+    6 | trait Measured {
+      | ^^^^^^^^^^^^^^
+      |
+      = help: replace `Measured` with functions and constants for `VecDeque<u32>`
+      = note: `#[warn(single_impl_trait)]` on by default
+
+    warning: trait `Retained` is implemented only for `&mut VecDeque<u32>`
+      --> tools/dylint/examples/manual_retain_back.rs:14:1
+       |
+    14 | trait Retained {
+       | ^^^^^^^^^^^^^^
+       |
+       = help: replace `Retained` with functions and constants for `&mut VecDeque<u32>`
+
+    warning: trait `shadowed_option::Presence` is implemented only for `Option<T>`
+       --> tools/dylint/examples/manual_retain_back.rs:284:5
+        |
+    284 |     trait Presence {
+        |     ^^^^^^^^^^^^^^
+        |
+        = help: replace `shadowed_option::Presence` with functions and constants for `Option<T>`
+
+    warning: trait `Measured` is implemented only for `[u8; 4]`
+      --> tools/dylint/examples/manual_slice_as_array.rs:10:1
+       |
+    10 | trait Measured {
+       | ^^^^^^^^^^^^^^
+       |
+       = help: replace `Measured` with functions and constants for `[u8; 4]`
+       = note: `#[warn(single_impl_trait)]` on by default
+
+    warning: trait `View` is implemented only for `Borrowed<'_>`
+      --> tools/dylint/examples/manual_upcast.rs:48:1
+       |
+    48 | trait View {
+       | ^^^^^^^^^^
+       |
+       = help: replace `View` with an inherent `impl Borrowed<'_>` block
+       = note: `#[warn(single_impl_trait)]` on by default
+
+    warning: trait `FixedView` is implemented only for `Square`
+       --> tools/dylint/examples/manual_upcast.rs:81:1
+        |
+     81 | trait FixedView: Configured {
+        | ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        |
+    note: `dyn FixedView` always holds `Square`
+       --> tools/dylint/examples/manual_upcast.rs:315:17
+        |
+    315 |     let fixed: &dyn FixedView<Item = u8> = &square;
+        |                 ^^^^^^^^^^^^^^^^^^^^^^^^
+        = help: replace `FixedView` with an inherent `impl Square` block
+
+    warning: trait `Projected` is implemented only for `Square`
+       --> tools/dylint/examples/manual_upcast.rs:94:1
+        |
+     94 | trait Projected<T: Witness<Value = Self>>: Display {
+        | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        |
+    note: `dyn Projected` always holds `Square`
+       --> tools/dylint/examples/manual_upcast.rs:313:21
+        |
+    313 |     let projected: &dyn Projected<()> = &square;
+        |                     ^^^^^^^^^^^^^^^^^
+        = help: replace `Projected` with an inherent `impl Square` block
+
+    warning: trait `Small` is implemented only for `Result<u8, ParseIntError>`
+      --> tools/dylint/examples/partition_by_result.rs:13:1
+       |
+    13 | trait Small {
        | ^^^^^^^^^^^
        |
-       = help: delete `Small` and declare each method as a function taking `Result<u8, ParseIntError>`
+       = help: replace `Small` with functions and constants for `Result<u8, ParseIntError>`
        = note: `#[warn(single_impl_trait)]` on by default
 
     warning: trait `Store` is implemented only for `Memory`
@@ -965,9 +676,9 @@ fn single_impl_trait(found: &str) {
         | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         |
     note: `dyn Store` always holds `Memory`
-       --> tools/dylint/examples/single_impl_trait.rs:113:16
+       --> tools/dylint/examples/single_impl_trait.rs:127:16
         |
-    113 |     store: Arc<dyn Send + Store>,
+    127 |     store: Arc<dyn Send + Store>,
         |                ^^^^^^^^^^^^^^^^
         = help: replace `Store` with an inherent `impl Memory` block
         = note: `#[warn(single_impl_trait)]` on by default
@@ -987,38 +698,46 @@ fn single_impl_trait(found: &str) {
         | ^^^^^^^^^^^^
         |
     note: `dyn Lookup` always holds `Borrowed<'_>`
-       --> tools/dylint/examples/single_impl_trait.rs:144:19
+       --> tools/dylint/examples/single_impl_trait.rs:158:19
         |
-    144 | fn first(lookup: &dyn Lookup) -> Option<u32> { lookup.lookup(0) }
+    158 | fn first(lookup: &dyn Lookup) -> Option<u32> { lookup.lookup(0) }
         |                   ^^^^^^^^^^
         = help: replace `Lookup` with an inherent `impl Borrowed<'_>` block
 
-    warning: trait `Doubled` is implemented only for `u32`
+    warning: trait `Adjusted` is implemented only for `F`
       --> tools/dylint/examples/single_impl_trait.rs:46:1
        |
-    46 | trait Doubled {
+    46 | trait Adjusted {
+       | ^^^^^^^^^^^^^^
+       |
+       = help: replace `Adjusted` with the `Fn(u32) -> u32` bound and retain behavior in generic functions
+
+    warning: trait `Doubled` is implemented only for `u32`
+      --> tools/dylint/examples/single_impl_trait.rs:56:1
+       |
+    56 | trait Doubled {
        | ^^^^^^^^^^^^^
        |
-       = help: delete `Doubled` and declare each method as a function taking `u32`
+       = help: replace `Doubled` with functions and constants for `u32`
 
     warning: trait `Handler` is implemented only for `F`
-       --> tools/dylint/examples/single_impl_trait.rs:158:1
+       --> tools/dylint/examples/single_impl_trait.rs:179:1
         |
-    158 | trait Handler {
+    179 | trait Handler {
         | ^^^^^^^^^^^^^
         |
-        = help: replace `Handler` with `trait Handler = Fn(u32) -> u32;` under `#![feature(trait_alias)]` and call the bound in place of `handle`
+        = help: replace `Handler` with the `Fn(u32) -> u32` bound and retain behavior in generic functions
 
     warning: trait `Source` is implemented only for `Port`
-       --> tools/dylint/examples/untyped_error.rs:31:1
+       --> tools/dylint/examples/untyped_error.rs:32:1
         |
-     31 | pub trait Source {
+     32 | pub trait Source {
         | ^^^^^^^^^^^^^^^^
         |
     note: `dyn Source` always holds `Port`
-       --> tools/dylint/examples/untyped_error.rs:363:18
+       --> tools/dylint/examples/untyped_error.rs:440:18
         |
-    363 |     let source: &dyn Source = &Port;
+    440 |     let source: &dyn Source = &Port;
         |                  ^^^^^^^^^^
         = help: replace `Source` with an inherent `impl Port` block
         = note: `#[warn(single_impl_trait)]` on by default
@@ -1037,18 +756,26 @@ fn stringified_uuid(found: &str) {
        = note: `#[warn(stringified_uuid)]` on by default
 
     warning: field `key` holds a `Uuid` rendered to text
-      --> tools/dylint/examples/stringified_uuid.rs:28:50
-       |
-    28 | fn session(id: Uuid) -> Session { Session { key: format!("session-{id}") } }
-       |                                                  ^^^^^^^^^^^^^^^^^^^^^^^
-       |
-       = help: declare `key` as `newtype_uuid::TypedUuid<K>` for an entity identifier, or as `uuid::Uuid`
-
-    warning: field `key` holds a `Uuid` rendered to text
       --> tools/dylint/examples/stringified_uuid.rs:32:19
        |
     32 |     session.key = fresh.hyphenated().to_string();
        |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+       |
+       = help: declare `key` as `newtype_uuid::TypedUuid<K>` for an entity identifier, or as `uuid::Uuid`
+
+    warning: field `key` holds a `Uuid` rendered to text
+      --> tools/dylint/examples/stringified_uuid.rs:44:52
+       |
+    44 | fn formatted(id: Uuid) -> Session { Session { key: format!("{id}") } }
+       |                                                    ^^^^^^^^^^^^^^^
+       |
+       = help: declare `key` as `newtype_uuid::TypedUuid<K>` for an entity identifier, or as `uuid::Uuid`
+
+    warning: field `key` holds a `Uuid` rendered to text
+      --> tools/dylint/examples/stringified_uuid.rs:48:52
+       |
+    48 | fn qualified(id: Uuid) -> Session { Session { key: ToString::to_string(&id.hyphenated()) } }
+       |                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
        = help: declare `key` as `newtype_uuid::TypedUuid<K>` for an entity identifier, or as `uuid::Uuid`
     "#);
@@ -1098,253 +825,126 @@ fn stringly_typed_value(found: &str) {
        |     ^^^^^^^^^^^^
        |
     note: branched on here
-      --> tools/dylint/examples/stringly_typed_value.rs:65:5
+      --> tools/dylint/examples/stringly_typed_value.rs:73:5
        |
-    65 | /     match &job.kind {
-    66 | |         "build" => build(job),
-    67 | |         "test" => test(job),
-    68 | |         _ => 0,
-    69 | |     }
+    73 | /     match &job.kind {
+    74 | |         "build" => build(job),
+    75 | |         "test" => test(job),
+    76 | |         _ => 0,
+    77 | |     }
        | |_____^
        = help: declare `kind` as a `strum::EnumString` enum with a variant per value and parse the text where it enters
 
     warning: field `state` holds one of `"done"`, `"pending"` as text
-      --> tools/dylint/examples/stringly_typed_value.rs:39:5
+      --> tools/dylint/examples/stringly_typed_value.rs:47:5
        |
-    39 |     state: &'static str,
+    47 |     state: &'static str,
        |     ^^^^^^^^^^^^^^^^^^^
        |
     note: branched on here
-      --> tools/dylint/examples/stringly_typed_value.rs:74:67
+      --> tools/dylint/examples/stringly_typed_value.rs:82:67
        |
-    74 | fn finished(steps: &[Step]) -> usize { steps.iter().filter(|step| step.state == DONE).count() }
+    82 | fn finished(steps: &[Step]) -> usize { steps.iter().filter(|step| step.state == DONE).count() }
        |                                                                   ^^^^^^^^^^^^^^^^^^
        = help: declare `state` as a `strum::EnumString` enum with a variant per value and parse the text where it enters
 
     warning: `level` holds one of `"warn"`, `"info"` as text
-      --> tools/dylint/examples/stringly_typed_value.rs:78:11
+      --> tools/dylint/examples/stringly_typed_value.rs:86:11
        |
-    78 | fn logged(level: &str, text: &str) -> String { if level == "warn" { text.to_uppercase() } else { text.to_owned() } }
+    86 | fn logged(level: &str, text: &str) -> String { if level == "warn" { text.to_uppercase() } else { text.to_owned() } }
        |           ^^^^^
        |
     note: branched on here
-      --> tools/dylint/examples/stringly_typed_value.rs:78:51
+      --> tools/dylint/examples/stringly_typed_value.rs:86:51
        |
-    78 | fn logged(level: &str, text: &str) -> String { if level == "warn" { text.to_uppercase() } else { text.to_owned() } }
+    86 | fn logged(level: &str, text: &str) -> String { if level == "warn" { text.to_uppercase() } else { text.to_owned() } }
        |                                                   ^^^^^^^^^^^^^^^
        = help: declare `level` as a `strum::EnumString` enum with a variant per value and parse the text where it enters
 
     warning: `mode` holds one of `"fast"`, `"slow"`, `"pause"` as text
-      --> tools/dylint/examples/stringly_typed_value.rs:91:9
-       |
-    91 |     let mode = "fast";
-       |         ^^^^
-       |
+       --> tools/dylint/examples/stringly_typed_value.rs:107:9
+        |
+    107 |     let mode = "fast";
+        |         ^^^^
+        |
     note: branched on here
-      --> tools/dylint/examples/stringly_typed_value.rs:92:5
-       |
-    92 | /     match mode {
-    93 | |         "fast" => input.len(),
-    94 | |         "slow" => input.len().strict_mul(2),
-    95 | |         PAUSE => input.len().strict_add(1),
-    96 | |         _ => 0,
-    97 | |     }
-       | |_____^
-       = help: declare `mode` as a `strum::EnumString` enum with a variant per value and parse the text where it enters
+       --> tools/dylint/examples/stringly_typed_value.rs:108:5
+        |
+    108 | /     match mode {
+    109 | |         "fast" => input.len(),
+    110 | |         "slow" => input.len().strict_mul(2),
+    111 | |         PAUSE => input.len().strict_add(1),
+    112 | |         _ => 0,
+    113 | |     }
+        | |_____^
+        = help: declare `mode` as a `strum::EnumString` enum with a variant per value and parse the text where it enters
 
     warning: `level` holds one of `"warn"`, `"info"` as text
-       --> tools/dylint/examples/stringly_typed_value.rs:131:12
+       --> tools/dylint/examples/stringly_typed_value.rs:147:12
         |
-    131 | fn leveled(level: &str, text: &str) -> usize {
+    147 | fn leveled(level: &str, text: &str) -> usize {
         |            ^^^^^
         |
     note: branched on here
-       --> tools/dylint/examples/stringly_typed_value.rs:132:8
+       --> tools/dylint/examples/stringly_typed_value.rs:148:8
         |
-    132 |     if level == "warn" {
+    148 |     if level == "warn" {
         |        ^^^^^^^^^^^^^^^
-    133 |         text.len()
-    134 |     } else if level == "info" {
+    149 |         text.len()
+    150 |     } else if level == "info" {
         |               ^^^^^^^^^^^^^^^
         = help: declare `level` as a `strum::EnumString` enum with a variant per value and parse the text where it enters
 
     warning: `mode` holds one of `"fast"`, `"slow"` as text
-       --> tools/dylint/examples/stringly_typed_value.rs:154:10
+       --> tools/dylint/examples/stringly_typed_value.rs:170:10
         |
-    154 | fn speed(mode: &str) -> u32 {
+    170 | fn speed(mode: &str) -> u32 {
         |          ^^^^
         |
     note: branched on here
-       --> tools/dylint/examples/stringly_typed_value.rs:155:5
+       --> tools/dylint/examples/stringly_typed_value.rs:171:5
         |
-    155 | /     match mode {
-    156 | |         "fast" => 1,
-    157 | |         "slow" => 2,
-    158 | |         _ => 3,
-    159 | |     }
+    171 | /     match mode {
+    172 | |         "fast" => 1,
+    173 | |         "slow" => 2,
+    174 | |         _ => 3,
+    175 | |     }
         | |_____^
         = help: declare `mode` as a `strum::EnumString` enum with a variant per value and parse the text where it enters
 
     warning: field `kind` holds one of `"json"`, `"text"` as text
-       --> tools/dylint/examples/stringly_typed_value.rs:172:5
+       --> tools/dylint/examples/stringly_typed_value.rs:188:5
         |
-    172 |     pub kind: String,
+    188 |     pub kind: String,
         |     ^^^^^^^^^^^^^^^^
         |
     note: branched on here
-       --> tools/dylint/examples/stringly_typed_value.rs:176:8
+       --> tools/dylint/examples/stringly_typed_value.rs:192:8
         |
-    176 |     if request.kind == "json" {
+    192 |     if request.kind == "json" {
         |        ^^^^^^^^^^^^^^^^^^^^^^
-    177 |         1
-    178 |     } else if request.kind == "text" {
+    193 |         1
+    194 |     } else if request.kind == "text" {
         |               ^^^^^^^^^^^^^^^^^^^^^^
         = help: declare `kind` as a `strum::EnumString` enum with a variant per value and parse the text where it enters
 
     warning: text-keyed `tally` is addressed by fixed keys `"ok"`, `"err"`
-       --> tools/dylint/examples/stringly_typed_value.rs:148:9
+       --> tools/dylint/examples/stringly_typed_value.rs:164:9
         |
-    148 |     let mut tally = BTreeMap::new();
+    164 |     let mut tally = BTreeMap::new();
         |         ^^^^^^^^^
         |
     note: addressed here
-       --> tools/dylint/examples/stringly_typed_value.rs:149:18
+       --> tools/dylint/examples/stringly_typed_value.rs:165:18
         |
-    149 |     tally.insert("ok", words.len());
+    165 |     tally.insert("ok", words.len());
         |                  ^^^^
-    150 |     tally.insert("err", 0);
+    166 |     tally.insert("err", 0);
         |                  ^^^^^
-    151 |     tally.get("ok").copied().unwrap_or_default().strict_add(tally["err"])
+    167 |     tally.get("ok").copied().unwrap_or_default().strict_add(tally["err"])
         |               ^^^^                                                ^^^^^
         = help: key `tally` by an enum with a variant per key, or replace it with a struct holding a field per key
     "#);
-}
-
-fn unchecked_construction(found: &str) {
-    insta::assert_snapshot!(found, @r#"
-    warning: field `0` lets code outside the module skip the `u16` check of `Port::try_from`
-      --> tools/dylint/examples/unchecked_construction.rs:12:28
-       |
-    12 |     pub(crate) struct Port(pub u16);
-       |                            ^^^^^^^
-       |
-    note: `Port::try_from` declared here
-      --> tools/dylint/examples/unchecked_construction.rs:17:9
-       |
-    17 | ...   fn try_from(value: u16) -> Result<Self, Self::Error> { if value < 1024 { Err(RangeError(u32::from(value))) } else { Ok(Self(va...
-       |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-       = help: make `0` private and expose it read-only through `#[as_ref]` of `derive_more::AsRef`
-       = note: `#[warn(unchecked_construction)]` on by default
-
-    warning: field `width` lets code outside the module skip the `u32` check of `Window::new`
-      --> tools/dylint/examples/unchecked_construction.rs:22:9
-       |
-    22 |         pub width: u32,
-       |         ^^^^^^^^^^^^^^
-       |
-    note: `Window::new` declared here
-      --> tools/dylint/examples/unchecked_construction.rs:27:9
-       |
-    27 | ...   pub(crate) const fn new(width: u32, height: u32) -> Option<Self> { if width == 0 || height == 0 { None } else { Some(Self { wi...
-       |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-       = help: make `width` private and expose it read-only through `#[as_ref]` of `derive_more::AsRef`
-
-    warning: field `height` lets code outside the module skip the `u32` check of `Window::new`
-      --> tools/dylint/examples/unchecked_construction.rs:23:9
-       |
-    23 |         pub height: u32,
-       |         ^^^^^^^^^^^^^^^
-       |
-    note: `Window::new` declared here
-      --> tools/dylint/examples/unchecked_construction.rs:27:9
-       |
-    27 | ...   pub(crate) const fn new(width: u32, height: u32) -> Option<Self> { if width == 0 || height == 0 { None } else { Some(Self { wi...
-       |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-       = help: make `height` private and expose it read-only through `#[as_ref]` of `derive_more::AsRef`
-
-    warning: building `Weight` from a `u32` parameter skips `Weight::try_from`
-      --> tools/dylint/examples/unchecked_construction.rs:42:62
-       |
-    42 |         pub(crate) const fn unchecked(weight: u32) -> Self { Self(weight) }
-       |                                                              ^^^^^^^^^^^^
-       |
-    note: `Weight::try_from` declared here
-      --> tools/dylint/examples/unchecked_construction.rs:38:9
-       |
-    38 |         fn try_from(value: u32) -> Result<Self, Self::Error> { if value > 500 { Err(RangeError(value)) } else { Ok(Self(value)) } }
-       |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-       = help: build `Weight` through `Weight::try_from`
-
-    warning: field `value` lets code outside the module skip the `u8` check of `Level::new`
-      --> tools/dylint/examples/unchecked_construction.rs:67:9
-       |
-    67 |         pub value: u8,
-       |         ^^^^^^^^^^^^^
-       |
-    note: `Level::new` declared here
-      --> tools/dylint/examples/unchecked_construction.rs:72:9
-       |
-    72 |         pub(crate) fn new(value: u8) -> Option<Self> { (value <= 10).then_some(Self { value, label: "level" }) }
-       |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-       = help: make `value` private and expose it read-only through `#[as_ref]` of `derive_more::AsRef`
-
-    warning: building `Weight` from a `u32` parameter skips `Weight::try_from`
-      --> tools/dylint/examples/unchecked_construction.rs:85:57
-       |
-    85 |     pub(crate) const fn weighed(value: u32) -> Weight { Weight(value) }
-       |                                                         ^^^^^^^^^^^^^
-       |
-    note: `Weight::try_from` declared here
-      --> tools/dylint/examples/unchecked_construction.rs:38:9
-       |
-    38 |         fn try_from(value: u32) -> Result<Self, Self::Error> { if value > 500 { Err(RangeError(value)) } else { Ok(Self(value)) } }
-       |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-       = help: build `Weight` through `Weight::try_from`
-
-    warning: derived `Deserialize` builds `Decoded` without the `u16` check of `Decoded::try_from`
-      --> tools/dylint/examples/unchecked_construction.rs:88:23
-       |
-    88 |     pub(crate) struct Decoded(u16);
-       |                       ^^^^^^^
-       |
-    note: `Decoded::try_from` declared here
-      --> tools/dylint/examples/unchecked_construction.rs:93:9
-       |
-    93 | ...   fn try_from(value: u16) -> Result<Self, Self::Error> { if value < 1024 { Err(RangeError(u32::from(value))) } else { Ok(Self(va...
-       |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-       = help: add `#[serde(try_from = "u16")]` to `Decoded`
-    "#);
-}
-
-fn unparsed_field(found: &str) {
-    insta::assert_snapshot!(found, @"
-    warning: field `level` holds text every read parses into `u8`
-      --> tools/dylint/examples/unparsed_field.rs:15:5
-       |
-    15 |     level: String,
-       |     ^^^^^^^^^^^^^
-       |
-    note: parsed here
-      --> tools/dylint/examples/unparsed_field.rs:31:64
-       |
-    31 | fn verbosity(options: &Options) -> Result<u8, ParseIntError> { options.level.parse() }
-       |                                                                ^^^^^^^^^^^^^^^^^^^^^
-       = help: declare `level` as `u8` and parse the text where it enters
-       = note: `#[warn(unparsed_field)]` on by default
-
-    warning: field `level` holds text every read parses into `u8`
-      --> tools/dylint/examples/unparsed_field.rs:26:5
-       |
-    26 |     pub level: String,
-       |     ^^^^^^^^^^^^^^^^^
-       |
-    note: parsed here
-      --> tools/dylint/examples/unparsed_field.rs:43:69
-       |
-    43 | pub fn exported(exported: &Exported) -> Result<u8, ParseIntError> { exported.level.parse() }
-       |                                                                     ^^^^^^^^^^^^^^^^^^^^^^
-       = help: declare `level` as `u8` and parse the text where it enters
-    ");
 }
 
 fn untyped_json_access(found: &str) {
@@ -1477,28 +1077,4 @@ fn variant_constant_functions(found: &str) {
     ");
 }
 
-// --- [COMPOSITION] ---------------------------------------------------------------------
-
-snapshots!(
-    fn_pointer_iterator_type,
-    formatted_tracing_value,
-    forwarding_newtype,
-    manual_enum_map,
-    manual_serialization,
-    manual_slot_map,
-    manual_variant_array,
-    needless_reference_field,
-    needless_struct,
-    option_fields_as_result,
-    primitive_domain_binding,
-    redundant_option_flag,
-    restated_constant,
-    sentinel_default,
-    single_impl_trait,
-    stringified_uuid,
-    stringly_typed_value,
-    unchecked_construction,
-    unparsed_field,
-    untyped_json_access,
-    variant_constant_functions
-);
+}

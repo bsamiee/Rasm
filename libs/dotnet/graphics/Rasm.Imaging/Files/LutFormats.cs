@@ -22,7 +22,7 @@ namespace Rasm.Imaging.Files;
 [SmartEnum<string>]
 public sealed partial class LutFormat {
     public static readonly LutFormat Cube = Text("cube", ParseCube, RenderCube);
-    public static readonly LutFormat Spi1d = Text("spi1d", ParseSpi1d, RenderSpi1d);
+    public static readonly LutFormat Spi1d = Text("spi1d", static text => ParseSpi1d(text).Map<LutTable>(static curve => new LutTable.ChannelCurve(curve)), RenderSpi1d);
     public static readonly LutFormat Spi3d = Text("spi3d", ParseSpi3d, RenderSpi3d);
     public static readonly LutFormat SpiMatrix = Text("spimtx", ParseSpiMatrix, RenderSpiMatrix);
     public static readonly LutFormat Autodesk = Text("3dl", Parse3dl, Render3dl);
@@ -71,9 +71,20 @@ public sealed partial class LutFormat {
              Fin.Fail<LutTable>(ImagingFault.Of(ImagingReason.UnknownFormat, path)),
              (held, format) => held.BindFail(_ => format.Decode(bytes))))
          select table)
-            .Catch(
+            | @catch(
                 static error => error.HasException<IOException>() || error.HasException<UnauthorizedAccessException>(),
                 error => IO.fail<LutTable>(ImagingFault.Of(ImagingReason.Unreadable, path, inner: error)));
+
+    public static Fin<Lut1D> ParseSpi1d(string text) =>
+        from scan in Scan.Of(text, [Version, From, Length, Components, "{", "}"])
+        from stated in (scan.Stated(Version, static value => value is "1" ? Some(unit) : None), scan.Stated(From, Interval), scan.Stated(Length, Single<int>), scan.Stated(Components, static value => Single<int>(value).Filter(static width => width is 1 or 3)))
+            .Apply(static (_, domain, length, width) => (Domain: domain.IfNone(UnitDomain), Length: length, Width: width))
+            .As()
+        from shape in (stated.Length.ToFin(ImagingFault.Of(ImagingReason.Missing, Length)), stated.Width.ToFin(ImagingFault.Of(ImagingReason.Missing, Components)))
+            .Apply(static (length, width) => (Length: length, Width: width)).As()
+        from rows in scan.Table(0, shape.Width, shape.Length)
+        from table in Lut1D.From(shape.Width is 3 ? rows : Interleaved(rows.Span, rows.Span, rows.Span), stated.Domain.Low, stated.Domain.High)
+        select table;
 
     private static LutFormat Text(string key, Func<string, Fin<LutTable>> parse, Func<LutTable, string, Option<string>> render) =>
         new(key, $".{key}",
@@ -92,10 +103,14 @@ public sealed partial class LutFormat {
                 using Image<RgbaVector> owned = image;
                 int edge = (int)double.Round(double.Cbrt((double)owned.Width * owned.Height), MidpointRounding.ToEven);
                 return ImagingFault.Unless(Cubed(edge) == (long)owned.Width * owned.Height && width(edge) == owned.Width, ImagingReason.UnknownFormat, (owned.Width, owned.Height)).Bind(_ => {
-                    Vector4[] pixels = GC.AllocateUninitializedArray<Vector4>(owned.Width * owned.Height);
-                    float[] samples = GC.AllocateUninitializedArray<float>(3 * pixels.Length);
-                    owned.CopyPixelDataTo(MemoryMarshal.Cast<Vector4, RgbaVector>(pixels.AsSpan()));
-                    Walk(new Span2D<Vector4>(pixels, owned.Height, owned.Width), samples, edge, start, read: true);
+                    float[] samples = GC.AllocateUninitializedArray<float>(3 * owned.Width * owned.Height);
+                    owned.ProcessPixelRows(rows => {
+                        int runs = rows.Width / edge;
+                        for (int row = 0; row < rows.Height; row++)
+                            for (int run = 0; run < runs; run++)
+                                MemoryMarshal.Cast<RgbaVector, float>(rows.GetRowSpan(row).Slice(run * edge, edge)).AsSpan2D(edge, 4)[.., ..3]
+                                    .CopyTo(samples.AsSpan(3 * start(row, run, runs, edge), 3 * edge).AsSpan2D(edge, 3));
+                    });
                     return Lattice(edge, samples, UnitDomain);
                 });
             }),
@@ -139,17 +154,6 @@ public sealed partial class LutFormat {
                 text = Rows(text, lattice.Data, 3);
             return text.ToString();
         });
-
-    private static Fin<LutTable> ParseSpi1d(string text) =>
-        from scan in Scan.Of(text, [Version, From, Length, Components, "{", "}"])
-        from stated in (scan.Stated(Version, static value => value is "1" ? Some(unit) : None), scan.Stated(From, Interval), scan.Stated(Length, Single<int>), scan.Stated(Components, static value => Single<int>(value).Filter(static width => width is 1 or 3)))
-            .Apply(static (_, domain, length, width) => (Domain: domain.IfNone(UnitDomain), Length: length, Width: width))
-            .As()
-        from shape in (stated.Length.ToFin(ImagingFault.Of(ImagingReason.Missing, Length)), stated.Width.ToFin(ImagingFault.Of(ImagingReason.Missing, Components)))
-            .Apply(static (length, width) => (Length: length, Width: width)).As()
-        from rows in scan.Table(0, shape.Width, shape.Length)
-        from table in Curve(shape.Width is 3 ? rows : Interleaved(rows.Span, rows.Span, rows.Span), stated.Domain)
-        select table;
 
     private static Option<string> RenderSpi1d(LutTable table, string name) =>
         from parts in Parts(table)
@@ -302,21 +306,15 @@ public sealed partial class LutFormat {
     }
 
     private static PixelFrame Filled(PixelFrame frame, Lut3D cube, Func<int, int, int, int, int> start) {
-        Walk(frame.View.Span, cube.Data.ToArray(), cube.Size, start, read: false);
+        int edge = cube.Size;
+        int runs = frame.Size.Width / edge;
+        frame.Rows((row, _, y) => {
+            row.Fill(Vector4.UnitW);
+            for (int run = 0; run < runs; run++)
+                cube.Data.Slice(3 * start(y, run, runs, edge), 3 * edge).AsSpan2D(edge, 3)
+                    .CopyTo(MemoryMarshal.Cast<Vector4, float>(row.Slice(run * edge, edge)).AsSpan2D(edge, 4)[.., ..3]);
+        });
         return frame;
-    }
-
-    private static void Walk(Span2D<Vector4> image, Span<float> nodes, int edge, Func<int, int, int, int, int> start, bool read) {
-        int runs = image.Width / edge;
-        for (int row = 0; row < image.Height; row++)
-            for (int run = 0; run < runs; run++) {
-                Span2D<float> tile = MemoryMarshal.Cast<Vector4, float>(image.GetRowSpan(row).Slice(run * edge, edge)).AsSpan2D(edge, 4)[.., ..3];
-                Span2D<float> entries = nodes.Slice(3 * start(row, run, runs, edge), 3 * edge).AsSpan2D(edge, 3);
-                if (read)
-                    tile.CopyTo(entries);
-                else
-                    entries.CopyTo(tile);
-            }
     }
 
     private static Fin<LutTable> Volume(ReadOnlyMemory<byte> bytes) {

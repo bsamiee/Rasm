@@ -23,7 +23,7 @@ use rmcp::{
         CompleteRequestParams, CompleteResult, CustomRequest, CustomResult, GetMeta as _, GetPromptRequest, GetPromptRequestParams, GetPromptResponse, GetPromptResult, GetTaskParams, GetTaskRequest,
         GetTaskResult, Implementation, ListPromptsRequest, ListPromptsResult, ListResourceTemplatesRequest, ListResourceTemplatesResult, ListResourcesRequest, ListResourcesResult, ListToolsRequest,
         ListToolsResult, MetaObject, PaginatedRequestParams, ProtocolVersion, ReadResourceRequest, ReadResourceRequestParams, ReadResourceResponse, ReadResourceResult, RequestMetaObject, ResultType,
-        ServerCapabilities, ServerConfig, ServerNotification, ServerPeerInfo, ServerRequest, ServerResult, SubscriptionFilter, Tool, UpdateTaskParams, UpdateTaskRequest,
+        ServerConfig, ServerNotification, ServerPeerInfo, ServerRequest, ServerResult, SubscriptionFilter, Tool, UpdateTaskParams, UpdateTaskRequest,
     },
     service::{ClientInitializeError, NotificationContext, PeerRequestOptions, RequestContext, SubscriptionEnd, serve_client_with_lifecycle_and_ct},
     transport::{IntoTransport, TokioChildProcess},
@@ -31,24 +31,23 @@ use rmcp::{
 use tokio::{
     io::{AsyncBufReadExt as _, BufReader},
     process::Command,
-    sync::oneshot,
+    sync::{broadcast, oneshot},
 };
 use tokio_stream::wrappers::{BroadcastStream, SplitStream, errors::BroadcastStreamRecvError};
 use tokio_util::{sync::CancellationToken, task::AbortOnDropHandle};
 
-use crate::{Endpoint, McpError, Meta, Notifier, Progress, Response, Update, host::Host, internal, list_changes, resynced};
+use crate::{Endpoint, McpError, Meta, Progress, Response, Update, host::Host, internal, list_changes, resynced};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Tools = ArcSwap<HashMap<Cow<'static, str>, Tool>>;
-type Linking = Shared<BoxFuture<'static, Result<Arc<Link>, Arc<McpError>>>>;
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
 #[derive(Debug)]
 struct Upstream {
     config: ClientConfig,
-    notifier: Notifier,
+    notifier: broadcast::Sender<ServerNotification>,
     progress: ProgressDispatcher,
 }
 
@@ -67,28 +66,22 @@ impl Service<RoleClient> for Upstream {
 }
 
 #[derive(Debug)]
-struct Link {
+pub struct Proxy {
     peer: Peer<RoleClient>,
     info: ServerConfig,
     version: ProtocolVersion,
+    notifier: broadcast::Sender<ServerNotification>,
+    progress: ProgressDispatcher,
+    tools: Arc<Tools>,
     stop: CancellationToken,
     ended: Shared<BoxFuture<'static, ()>>,
     _stderr: Option<AbortOnDropHandle<()>>,
 }
 
-#[derive(Debug)]
-pub struct Proxy {
-    identity: Implementation,
-    notifier: Notifier,
-    progress: ProgressDispatcher,
-    tools: Arc<Tools>,
-    link: Linking,
-}
-
 impl Proxy {
-    pub fn spawn(mut command: Command, host: Host) -> Result<Self, McpError> {
+    pub async fn spawn(mut command: Command, host: Host) -> Result<Self, McpError> {
         let program = command.as_std().get_program().to_owned();
-        rasm_telemetry::inject(&Context::current(), &mut command);
+        rasm_telemetry::inject(&Context::current(), command.as_std_mut());
         let Host { identity, filter: _, notifier } = host;
         let mut wrapped = CommandWrap::from(command);
         wrapped.wrap(KillOnDrop).wrap(cfg_select! {
@@ -101,63 +94,52 @@ impl Proxy {
                 SplitStream::new(BufReader::new(stderr).split(b'\n')).map_ok(|line| tracing::info!(target: "upstream", message = %String::from_utf8_lossy(line.trim_ascii_end()))).try_collect::<()>();
             AbortOnDropHandle::new(tokio::spawn(logged.unwrap_or_else(|error| tracing::warn!({ EXCEPTION_MESSAGE } = %Report::new(error), "cannot read upstream stderr"))))
         });
-        Ok(Self::linked(transport, identity, notifier, stderr))
+        Self::linked(transport, identity, notifier, stderr).await
     }
 
-    pub fn connect<T, E, A>(transport: T, identity: Implementation, notifier: Notifier) -> Self
+    pub async fn connect<T, E, A>(transport: T, identity: Implementation, notifier: broadcast::Sender<ServerNotification>) -> Result<Self, McpError>
     where
         T: IntoTransport<RoleClient, E, A> + Send + 'static,
         E: Error + Send + Sync + 'static,
         A: Send + 'static,
     {
-        Self::linked(transport, identity, notifier, None)
+        Self::linked(transport, identity, notifier, None).await
     }
 
-    fn linked<T, E, A>(transport: T, identity: Implementation, notifier: Notifier, stderr: Option<AbortOnDropHandle<()>>) -> Self
+    async fn linked<T, E, A>(transport: T, identity: Implementation, notifier: broadcast::Sender<ServerNotification>, stderr: Option<AbortOnDropHandle<()>>) -> Result<Self, McpError>
     where
         T: IntoTransport<RoleClient, E, A> + Send + 'static,
         E: Error + Send + Sync + 'static,
         A: Send + 'static,
     {
-        let (progress, tools, stop, fallback) = (ProgressDispatcher::new(), Arc::<Tools>::default(), CancellationToken::new(), identity.clone());
+        let (progress, stop) = (ProgressDispatcher::new(), CancellationToken::new());
         let upstream = Upstream {
             config: ClientConfig::new(ClientCapabilities::default(), identity.clone()).with_protocol_version(ProtocolVersion::LATEST_WITH_INITIALIZE),
             notifier: notifier.clone(),
             progress: progress.clone(),
         };
-        let link = async move {
+        let initialized = async {
             let handshake = |source| McpError::Handshake { source: Box::new(source) };
-            let linked = async {
-                let service = serve_client_with_lifecycle_and_ct(upstream, transport, ClientLifecycleMode::Initialize, stop.clone()).await.map_err(handshake)?;
-                let peer = service.peer().clone();
-                let ServerPeerInfo { protocol_version: version, mut capabilities, server_info, instructions, meta, .. } =
-                    Arc::unwrap_or_clone(peer.peer_info().ok_or_else(|| handshake(ClientInitializeError::ExpectedInitResult(None)))?);
-                capabilities.logging = None;
-                capabilities.resources.iter_mut().filter(|_| version.has_initialize()).for_each(|resources| resources.subscribe = None);
-                let mut info = ServerConfig::new(capabilities).with_server_info(server_info.unwrap_or(fallback));
-                (info.instructions, info.meta) = (instructions, meta);
-                let ended = service.waiting().map(|reason| tracing::info!(reason = ?reason, "upstream server ended")).boxed().shared();
-                Ok::<_, McpError>(Link { peer, info, version, stop: stop.clone(), ended, _stderr: None })
-            };
-            match linked.await {
-                Ok(link) => Ok(Arc::new(Link { _stderr: stderr, ..link })),
-                Err(error) => {
-                    if let Some(Err(failure)) = OptionFuture::from(stderr).await {
-                        tracing::warn!({ EXCEPTION_MESSAGE } = %Report::new(failure), "upstream stderr relay ended before upstream exit");
-                    }
-                    Err(Arc::new(error))
+            let service = serve_client_with_lifecycle_and_ct(upstream, transport, ClientLifecycleMode::Initialize, stop.clone()).await.map_err(handshake)?;
+            let info = service.peer().peer_info().ok_or_else(|| handshake(ClientInitializeError::ExpectedInitResult(None)))?;
+            Ok::<_, McpError>((service, Arc::unwrap_or_clone(info)))
+        };
+        let (service, ServerPeerInfo { protocol_version: version, mut capabilities, server_info, instructions, meta, .. }) = match initialized.await {
+            Ok(initialized) => initialized,
+            Err(error) => {
+                if let Some(Err(failure)) = OptionFuture::from(stderr).await {
+                    tracing::warn!({ EXCEPTION_MESSAGE } = %Report::new(failure), "upstream stderr relay ended before upstream exit");
                 }
+                return Err(error);
             }
         };
-        Self { identity, notifier, progress, tools, link: link.boxed().shared() }
-    }
-
-    fn link(&self) -> Result<&Arc<Link>, McpError> {
-        match self.link.peek() {
-            Some(Ok(link)) => Ok(link),
-            Some(Err(failure)) => Err(McpError::Unavailable { source: Arc::clone(failure) }),
-            None => Err(McpError::Starting),
-        }
+        capabilities.logging = None;
+        capabilities.resources.iter_mut().filter(|_| version.has_initialize()).for_each(|resources| resources.subscribe = None);
+        let mut info = ServerConfig::new(capabilities).with_server_info(server_info.unwrap_or(identity));
+        (info.instructions, info.meta) = (instructions, meta);
+        let peer = service.peer().clone();
+        let ended = service.waiting().map(|reason| tracing::info!(reason = ?reason, "upstream server ended")).boxed().shared();
+        Ok(Self { peer, info, version, notifier, progress, tools: Arc::default(), stop, ended, _stderr: stderr })
     }
 
     async fn forward<R, T>(&self, request: R, context: RequestContext<RoleServer>) -> Result<T, ErrorData>
@@ -169,7 +151,6 @@ impl Proxy {
             ServiceError::McpError(data) => data,
             other => internal(other),
         };
-        let link = self.link()?;
         let mut request = request.into();
         let meta = request.get_meta_mut();
         *meta = context.meta.clone();
@@ -178,13 +159,13 @@ impl Proxy {
             propagator.fields().for_each(|field| drop(meta.remove(field)));
             propagator.inject_context(&Context::current(), &mut Meta(&mut meta.0));
         });
-        let downstream = context.client_info().zip(context.client_capabilities()).filter(|_| !link.version.has_initialize());
+        let downstream = context.client_info().zip(context.client_capabilities()).filter(|_| !self.version.has_initialize());
         let options = downstream
             .into_iter()
-            .fold(PeerRequestOptions::no_options(), |options, (client, capabilities)| options.with_meta(RequestMetaObject::with_client_context(link.version.clone(), client, capabilities)));
+            .fold(PeerRequestOptions::no_options(), |options, (client, capabilities)| options.with_meta(RequestMetaObject::with_client_context(self.version.clone(), client, capabilities)));
         let (progress, cancelled) = (Progress::default(), context.ct.clone());
         let forwarded = async {
-            let mut handle = link.peer.send_cancellable_request(request, options).await.map_err(fault)?;
+            let mut handle = self.peer.send_cancellable_request(request, options).await.map_err(fault)?;
             let mut updates = self.progress.subscribe(handle.progress_token.clone()).await;
             loop {
                 tokio::select! {
@@ -250,14 +231,12 @@ impl ServerHandler for Proxy {
 
     fn get_tool(&self, name: &str) -> Option<Tool> { self.tools.load().get(name).cloned() }
 
-    fn get_info(&self) -> ServerConfig { self.link().map_or_else(|_| ServerConfig::new(ServerCapabilities::default()).with_server_info(self.identity.clone()), |link| link.info.clone()) }
+    fn get_info(&self) -> ServerConfig { self.info.clone() }
 }
 
 impl Endpoint for Proxy {
-    fn ready(&self) -> Result<(), McpError> { self.link().and(Ok(())) }
-
     fn watch(&self, uri: &str) -> Result<impl Future<Output = ()> + Send + 'static, McpError> {
-        self.link().map(|link| follow(link.peer.clone(), self.notifier.clone(), SubscriptionFilter::builder().resource_subscription(uri).build()))
+        Ok(follow(self.peer.clone(), self.notifier.clone(), SubscriptionFilter::builder().resource_subscription(uri).build()))
     }
 }
 
@@ -278,28 +257,22 @@ impl Lifetime for Proxy {
                 })
                 .await;
         }
-        let Some(linked) = stopping.run_until_cancelled(self.link.clone()).await else { return Ok(()) };
-        let link = linked.map_err(|source| McpError::Unavailable { source })?;
-        tracing::info!(version = %link.version, "upstream linked");
-        let changes = list_changes(&link.info.capabilities);
+        tracing::info!(version = %self.version, "upstream linked");
+        let changes = list_changes(&self.info.capabilities);
         let _following =
-            (!link.version.has_initialize() && changes != SubscriptionFilter::default()).then(|| AbortOnDropHandle::new(tokio::spawn(follow(link.peer.clone(), self.notifier.clone(), changes))));
-        let _refreshing = link
-            .info
-            .capabilities
-            .tools
-            .is_some()
-            .then(|| AbortOnDropHandle::new(tokio::spawn(refresh(link.peer.clone(), Arc::clone(&self.tools), BroadcastStream::new(self.notifier.0.subscribe())))));
-        let closed = stopping.run_until_cancelled(link.ended.clone()).await.is_none().ok_or(McpError::Ended);
-        link.stop.cancel();
-        link.ended.clone().await;
+            (!self.version.has_initialize() && changes != SubscriptionFilter::default()).then(|| AbortOnDropHandle::new(tokio::spawn(follow(self.peer.clone(), self.notifier.clone(), changes))));
+        let _refreshing =
+            self.info.capabilities.tools.is_some().then(|| AbortOnDropHandle::new(tokio::spawn(refresh(self.peer.clone(), Arc::clone(&self.tools), BroadcastStream::new(self.notifier.subscribe())))));
+        let closed = stopping.run_until_cancelled(self.ended.clone()).await.is_none().ok_or(McpError::Ended);
+        self.stop.cancel();
+        self.ended.clone().await;
         closed
     }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-async fn follow(peer: Peer<RoleClient>, notifier: Notifier, filter: SubscriptionFilter) {
+async fn follow(peer: Peer<RoleClient>, notifier: broadcast::Sender<ServerNotification>, filter: SubscriptionFilter) {
     let followed = async {
         let mut subscription = peer.listen(filter).await?;
         loop {
@@ -318,9 +291,9 @@ async fn follow(peer: Peer<RoleClient>, notifier: Notifier, filter: Subscription
     followed.unwrap_or_else(|error| tracing::warn!({ EXCEPTION_MESSAGE } = %Report::new(error), "upstream subscription failed")).await;
 }
 
-fn upstreamed(notifier: &Notifier, mut notification: ServerNotification) {
+fn upstreamed(notifier: &broadcast::Sender<ServerNotification>, mut notification: ServerNotification) {
     scrub(notification.get_meta_mut());
-    notifier.notify(notification);
+    drop(notifier.send(notification));
 }
 
 fn scrub(meta: &mut MetaObject) {

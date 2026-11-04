@@ -56,7 +56,9 @@ pub fn optima<K>(
     starts: DMatrixView<'_, f64>,
     settings: &Settings<'_>,
 ) -> Result<Vec<Result<Optimum, NEVec<FormError>>>, NEVec<FormError>>
-where K: Ord + Sync {
+where
+    K: Ord + Sync,
+{
     let (first, _) = space.values().next();
     let side = (!first.contains(&0.0)).then_some(first.start.is_sign_positive());
     let dimensions = space.keys().into_iter().enumerate().map(|(dimension, key)| (key, dimension)).collect::<BTreeMap<_, _>>();
@@ -96,17 +98,18 @@ where K: Ord + Sync {
     Ok(starts
         .par_column_iter()
         .map(|start| -> Result<Optimum, NEVec<FormError>> {
-            let solution = optimize(space, start.into_owned(), Target::Minimize, |point: &[f64], slot: Option<&mut [f64]>| objective(network, &resolved, &grouping, point, slot), settings)
-                .map_err(|failure| failure.either(NEVec::new, |failures| failures.into_nonempty_iter().map(FormError::from).collect()))?;
-            let densities = densities(&grouping, solution.point.as_slice());
-            let Solved { factor: _, sign: _, spans, free } = solved(network, &densities).map_err(NEVec::new)?;
-            Ok(Optimum { solution, form: form(network, &free, &spans, &densities, balance(network, &spans, &densities)) })
+            let mut densities = DVector::zeros(grouping.nrows());
+            let solution =
+                optimize(space, start.into_owned(), Target::Minimize, |point: &[f64], slot: Option<&mut [f64]>| objective(network, &resolved, &grouping, &mut densities, point, slot), settings)
+                    .map_err(|failure| failure.either(NEVec::new, |failures| failures.into_nonempty_iter().map(FormError::from).collect()))?;
+            grouped(&grouping, solution.point.as_slice(), &mut densities);
+            let Solved { factor: _, sign: _, spans, free } = solved(network, densities.as_view()).map_err(NEVec::new)?;
+            Ok(Optimum { solution, form: form(network, &free, &spans, densities.as_view(), balance(network, &spans, densities.as_view())) })
         })
         .collect())
 }
 
-fn densities(grouping: &SparseColMat<usize, f64>, point: &[f64]) -> DVector<f64> {
-    let mut densities = DVector::zeros(grouping.nrows());
+fn grouped(grouping: &SparseColMat<usize, f64>, point: &[f64], densities: &mut DVector<f64>) {
     sparse_dense_matmul(
         MatMut::from_column_major_slice_mut(densities.as_mut_slice(), grouping.nrows(), 1),
         Accum::Replace,
@@ -115,12 +118,11 @@ fn densities(grouping: &SparseColMat<usize, f64>, point: &[f64]) -> DVector<f64>
         1.0,
         get_global_parallelism(),
     );
-    densities
 }
 
-fn objective(network: &Network, goals: &[(usize, Goal)], grouping: &SparseColMat<usize, f64>, point: &[f64], slot: Option<&mut [f64]>) -> Result<f64, FormError> {
-    let densities = densities(grouping, point);
-    let Solved { factor, sign, spans, free } = solved(network, &densities)?;
+fn objective(network: &Network, goals: &[(usize, Goal)], grouping: &SparseColMat<usize, f64>, densities: &mut DVector<f64>, point: &[f64], slot: Option<&mut [f64]>) -> Result<f64, FormError> {
+    grouped(grouping, point, densities);
+    let Solved { factor, sign, spans, free } = solved(network, densities.as_view())?;
     let edge = |column: usize| Unit::try_new_and_get(spans.column(column).into_owned(), 0.0).map_or_else(|| (Vector3::zeros(), 0.0), |(direction, length)| (direction.into_inner(), length));
     let terms = goals.iter().map(|&(column, Goal { weight, measure })| match measure {
         Measure::Position { node: _, target } => {
@@ -145,9 +147,8 @@ fn objective(network: &Network, goals: &[(usize, Goal)], grouping: &SparseColMat
     match slot {
         None => Ok(terms.map(|(value, _)| value).sum()),
         Some(slot) => {
-            let (value, mut nodal, spanned, explicit) = terms.fold(
-                (0.0, Matrix3xX::zeros(free.ncols()), Matrix3xX::zeros(spans.ncols()), DVector::zeros(spans.ncols())),
-                |(total, mut nodal, mut spanned, mut explicit), (value, partial)| {
+            let (value, mut nodal, spanned, explicit) =
+                terms.fold((0.0, Matrix3xX::zeros(free.ncols()), Matrix3xX::zeros(spans.ncols()), DVector::zeros(spans.ncols())), |(total, mut nodal, mut spanned, mut explicit), (value, partial)| {
                     match partial {
                         Either::Left((column, gradient)) => nodal.column_mut(column).axpy(1.0, &gradient, 1.0),
                         Either::Right((column, gradient, density)) => {
@@ -156,8 +157,7 @@ fn objective(network: &Network, goals: &[(usize, Goal)], grouping: &SparseColMat
                         }
                     }
                     (total + value, nodal, spanned, explicit)
-                },
-            );
+                });
             sparse_dense_matmul(view_mut(&mut nodal), Accum::Add, network.free.transpose(), view(&spanned), 1.0, get_global_parallelism());
             factor.solve_in_place(view_mut(&mut nodal));
             let mut adjoint = Matrix3xX::zeros(spans.ncols());

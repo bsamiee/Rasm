@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-collect-into-try-container
-language: rust
+language: rustlang
 severity: error
 rule:
     kind: call_expression
@@ -12,6 +12,5 @@ rule:
         - not: {inside: {kind: source_file, stopBy: end, has: {stopBy: end, kind: use_declaration, regex: '\bItertools\b'}}}
 constraints:
     C: {not: {regex: '^(\w+::)*NE[A-Z]\w*<'}}
-fix: $R.try_collect::<$C>()
 message: '`collect` names the `Result` or `Option` wrapper around `$C` by hand'
-note: 'Call `<iterator>.try_collect::<<container>>()` (`#![feature(iterator_try_collect)]`) on a temporary or `let mut` binding, or `Itertools::process_results` where adapters over the `Ok` values precede the collect, a nonempty-collections container lacking `FromIterator` collecting a `NonEmptyIterator` through `FromNonEmptyIterator`'
+note: 'Call `try_collect::<Container>()` on a mutable iterator or temporary, or `Itertools::process_results` for success adapters'

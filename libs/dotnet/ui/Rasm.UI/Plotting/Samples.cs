@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Numerics;
 using System.Numerics.Tensors;
 using System.Runtime.InteropServices;
@@ -31,7 +32,7 @@ public sealed class Samples(ReadOnlyMemory<float> values) : IInterpolated<Sample
             return new Samples(blended);
         });
 
-    internal Iterable<float> Finite => MemoryMarshal.ToEnumerable(values).Where(float.IsFinite).AsIterable();
+    internal IEnumerable<float> Finite => MemoryMarshal.ToEnumerable(values).Where(float.IsFinite);
 
     internal Option<float> At(int index) => (uint)index < (uint)Values.Length ? Some(Values.Span[index]) : None;
 
@@ -84,7 +85,7 @@ public sealed class Samples(ReadOnlyMemory<float> values) : IInterpolated<Sample
             <= 4 => toSeq(Range(start, end - start)).Map(Sample),
             <= Block => toSeq(Seq(start, start + TensorPrimitives.IndexOfMin(Values.Span[start..end]), start + TensorPrimitives.IndexOfMax(Values.Span[start..end]), end - 1).Distinct().Order()).Map(Sample),
             _ => Spread(start, end, pyramid.Value.Count - 1) switch {
-                var spread => Sample(start).Cons((Values.Span[start] <= Values.Span[end - 1] ? Seq(spread.Low, spread.High) : Seq(spread.High, spread.Low)).Map(value => new Vector2(Across(domain, (start + end) / 2), value))).Add(Sample(end - 1)),
+                var spread => Sample(start).Cons((Values.Span[start] <= Values.Span[end - 1] ? Seq(spread.Low, spread.High) : Seq(spread.High, spread.Low)).Map(value => new Vector2(Across(domain, start + ((end - start) / 2)), value))).Add(Sample(end - 1)),
             },
         };
     }
@@ -92,7 +93,7 @@ public sealed class Samples(ReadOnlyMemory<float> values) : IInterpolated<Sample
     private (float Low, float High) Spread(int start, int end, int level) {
         if (level < 0) return (TensorPrimitives.MinNumber(Values.Span[start..end]), TensorPrimitives.MaxNumber(Values.Span[start..end]));
         int size = 1 << (Shift * (level + 1));
-        (int first, int last) = ((start + size - 1) / size, end / size);
+        (int first, int last) = ((int)(((long)start + size - 1) / size), end / size);
         if (first >= last) return Spread(start, end, level - 1);
         (ReadOnlyMemory<float> lows, ReadOnlyMemory<float> highs) = pyramid.Value[level];
         return ((start < first * size ? Seq(Spread(start, first * size, level - 1)) : []) + (last * size < end ? Seq(Spread(last * size, end, level - 1)) : []))
@@ -101,7 +102,7 @@ public sealed class Samples(ReadOnlyMemory<float> values) : IInterpolated<Sample
     }
 
     private static (ReadOnlyMemory<float> Low, ReadOnlyMemory<float> High) Coarsened(ReadOnlyMemory<float> low, ReadOnlyMemory<float> high) {
-        int count = (low.Length + Block - 1) / Block;
+        int count = (int)(((long)low.Length + Block - 1) / Block);
         float[] lows = new float[count];
         float[] highs = new float[count];
         for (int block = 0; block < count; block++) {
@@ -110,7 +111,7 @@ public sealed class Samples(ReadOnlyMemory<float> values) : IInterpolated<Sample
         }
         return (lows, highs);
 
-        static ReadOnlySpan<float> Chunk(ReadOnlySpan<float> span, int block) => span[(block * Block)..int.Min((block + 1) * Block, span.Length)];
+        static ReadOnlySpan<float> Chunk(ReadOnlySpan<float> span, int block) => span.Slice(block * Block, int.Min(Block, span.Length - (block * Block)));
     }
 }
 
@@ -131,9 +132,9 @@ public sealed partial class Summary : IInterpolated<Summary> {
             .Map(_ => new Summary(minimum, lower, median, upper, maximum));
 
     public static Fin<Summary> Of(Samples samples) =>
-        samples.Finite.FiveNumberSummary() switch {
-            var five => Validated(five[0], five[1], five[2], five[3], five[4]),
-        };
+        samples.Finite.AsIterableNE().ToFin(new UIFault(nameof(samples), UIReason.Missing)).Map(static values => values.FiveNumberSummary() switch {
+            var five => new Summary(five[0], five[1], five[2], five[3], five[4]),
+        });
 
     public Option<Summary> Toward(Summary to, float progress) =>
         Validated(float.Lerp(Minimum, to.Minimum, progress), float.Lerp(Lower, to.Lower, progress), float.Lerp(Median, to.Median, progress), float.Lerp(Upper, to.Upper, progress), float.Lerp(Maximum, to.Maximum, progress)).ToOption();

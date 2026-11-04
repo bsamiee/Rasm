@@ -1,8 +1,8 @@
-using System.Buffers;
 using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.Document.Units;
 using Rhino;
 using Rhino.ApplicationSettings;
+using Rhino.Commands;
 using Rhino.UI;
 
 namespace Rasm.Rhino.Persistence;
@@ -13,13 +13,11 @@ namespace Rasm.Rhino.Persistence;
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 [ValidationError<RhinoFault>]
 public sealed partial class CommandName {
-    private static readonly SearchValues<char> Separators = SearchValues.Create(" ,;\b\v\r\n\t");
-
     public static Fin<CommandName> Validated(string value) => TryCreate(value, out CommandName? name, out RhinoFault? fault) ? name : fault;
 
     static partial void ValidateFactoryArguments(ref RhinoFault? validationError, ref string value) {
         string? trimmed = value.TrimOrNullify();
-        validationError = trimmed is { } name && !name.AsSpan().ContainsAny(Separators) ? null : new RhinoFault(value, RhinoReason.Unqualified);
+        validationError = trimmed is { } name && Command.IsValidCommandName(name) ? null : new RhinoFault(value, RhinoReason.Unqualified);
         value = trimmed ?? value;
     }
 }

@@ -82,6 +82,7 @@ utils:
                             stopBy: end
                             has:
                                 stopBy: end
+                                kind: 'record_declaration, class_declaration'
                                 matches:
                                     thinktecture-union:
                                         name: {pattern: $UNION}
@@ -113,7 +114,7 @@ utils:
         inside:
             kind: compilation_unit
             stopBy: end
-            has: {stopBy: end, matches: stateless-union}
+            has: {stopBy: end, kind: 'record_declaration, class_declaration', matches: stateless-union}
     typed-receiver:
         any:
             - matches: {csharp-declared-type: {type: {matches: {csharp-type-name: {name: {pattern: $UNION}}}}}}
@@ -153,7 +154,7 @@ rule:
           all:
             - has: {field: function, kind: 'identifier, generic_name', regex: '^(Switch|Map)(<.+>)?$'}
             - has: {field: arguments, has: {matches: case-argument, has: {stopBy: end, matches: preset}}}
-            - inside: {stopBy: end, matches: stateless-union}
+            - inside: {stopBy: end, kind: 'record_declaration, class_declaration', matches: stateless-union}
             - has: {field: arguments, matches: preset-arms}
 message: "Stateless `$UNION` cases each select one static preset of `$HOST`"
 note: 'Replace `<union>` with `<host>` and pass the preset at each caller'

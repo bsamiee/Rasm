@@ -7,11 +7,12 @@ from pathlib import Path
 from typing import override, Self
 
 import bpy
-from expression import Error, Nothing, Ok, Option, Some
+from expression import Option, Some
 from expression.extra.result import catch
 import msgspec
 import numpy as np
 import numpy.typing as npt
+import PyOpenColorIO
 
 from blender.bpy.data.ids.images import filled, loaded, Tag
 from blender.bpy.data.ids.ownership import kept, Mark, Ownership
@@ -20,7 +21,8 @@ from blender.bpy.data.rna.paths import definition, RnaPath, struct_at
 from blender.bpy.data.rna.snapshots import assigned, Snapshot
 from blender.bpy.extension.identity import Identity
 from blender.bpy.nodes.desired import Content
-from blender.records.faults import Fault, Outcome, Reason
+from blender.imaging.color.processors import called
+from blender.records.faults import Error, Fault, Nothing, Ok, Outcome, paired, Reason
 from blender.records.fields import Unit
 from blender.records.stores import content_hash, ContentHash
 from blender.records.trees import Owner, Tree
@@ -211,18 +213,17 @@ class Loaded(Content, frozen=True, kw_only=True):
 
     @override
     def holds(self, live: bpy.types.Node, identity: Identity, /) -> Outcome[bool]:
-        def shown(image: bpy.types.Image) -> bool:
-            return (
-                Path(os.path.normpath(bpy.path.abspath(image.filepath, library=image.library))) == Path(os.path.normpath(bpy.path.abspath(str(self.path))))
-                and (image.source == "SEQUENCE") == self.tag.sequence
+        def shown(image: bpy.types.Image) -> Outcome[bool]:
+            return self.tag.members().map(
+                lambda members: (
+                    Path(os.path.normpath(bpy.path.abspath(image.filepath, library=image.library))) == Path(os.path.normpath(bpy.path.abspath(str(self.path)))) and not differing(image, members)
+                )
             )
 
-        return (
-            self.frames
-            .map(lambda want: _framed(live).map(lambda user: not differing(user, want.members)))
-            .default_value(Ok(True))
-            .map(lambda framed: framed and struct_at(live, ("image",), bpy.types.Image).map(shown).default_value(False))
-        )
+        return paired(
+            self.frames.map(lambda want: _framed(live).map(lambda user: not differing(user, want.members))).default_value(Ok(value=True)),
+            struct_at(live, ("image",), bpy.types.Image).map(shown).default_value(Ok(value=False)),
+        ).map(all)
 
     @override
     def write(self, live: bpy.types.Node, identity: Identity, /) -> Outcome[None]:
@@ -252,6 +253,40 @@ class Generated(Content, frozen=True, kw_only=True, eq=False):
         Returns:
             Owned image, refusal fault of any host call.
         """
+        return self._context().bind(lambda context: self._made(identity, *context, of))
+
+    @property
+    @override
+    def digest_form(self) -> object:
+        """Ownership key, content hash, name, and requested reading, without reading the plane."""
+        return (self.ownership.key, self.content, self.name, self.tag)
+
+    @override
+    def holds(self, live: bpy.types.Node, identity: Identity, /) -> Outcome[bool]:
+        return self._context().map(
+            lambda context: (
+                struct_at(live, ("image",), bpy.types.Image)
+                .map(lambda image: Mark.read(identity, image) == Some(Mark(key=self.ownership.key, content=Some(context[1]))))
+                .default_with(lambda: Mark.read(identity, live).map(lambda mark: mark.content == Some(context[1])).default_value(value=False))
+            )
+        )
+
+    @override
+    def write(self, live: bpy.types.Node, identity: Identity, /) -> Outcome[None]:
+        return self._context().bind(
+            lambda context: self._made(identity, *context, Nothing).bind(
+                lambda image: written(live, ("image",), image.to_optional()).bind(lambda _: _stamped(identity, live, Some(context[1]) if image.is_none() else Nothing))
+            )
+        )
+
+    def _context(self) -> Outcome[tuple[PyOpenColorIO.Config, ContentHash]]:
+        """Captures the native configuration and hashes its identity with requested content and reading."""
+        return called(PyOpenColorIO.GetCurrentConfig, self.name).bind(
+            lambda config: called(config.getCacheID, self.name).map(lambda cache: (config, content_hash(type(self), self.digest_form, cache)))
+        )
+
+    def _made(self, identity: Identity, config: PyOpenColorIO.Config, content: ContentHash, of: Option[bpy.types.ID]) -> Outcome[Option[bpy.types.Image]]:
+        """Reuses or packs pixels under one captured configuration and content identity."""
 
         def built(values: npt.NDArray[np.float32]) -> Outcome[bpy.types.Image]:
             height, width, channels = values.shape
@@ -259,7 +294,8 @@ class Generated(Content, frozen=True, kw_only=True, eq=False):
                 catch(bpy.data.images.new, exception=RuntimeError)(self.name, width, height, alpha=channels == 4, float_buffer=True).map_error(partial(Fault.of, Reason.REFUSED, self.name)),
                 lambda image: (
                     self.tag
-                    .applied(image)
+                    .members(Some(config))
+                    .bind(partial(assigned, image))
                     .bind(lambda _: filled(image, values))
                     .bind(lambda _: catch(image.pack, exception=RuntimeError)().map_error(partial(Fault.of, Reason.REFUSED, repr(image))))
                     .map(lambda _: image)
@@ -267,32 +303,14 @@ class Generated(Content, frozen=True, kw_only=True, eq=False):
             )
 
         def owned(values: npt.NDArray[np.float32]) -> Outcome[Option[bpy.types.Image]]:
-            return built(values).bind(lambda image: self.ownership.owned(identity, image, of=of, content=Some(self.content))).map(Some)
+            return built(values).bind(lambda image: self.ownership.owned(identity, image, of=of, content=Some(content))).map(Some)
 
         return (
             self.ownership
-            .reused(identity, of=of, content=Some(self.content))
+            .reused(identity, of=of, content=Some(content))
             .map(lambda image: Ok(Some(image)))
             .default_with(lambda: self.plane().bind(lambda values: values.map(owned).default_value(Ok(Nothing))))
         )
-
-    @property
-    @override
-    def digest_form(self) -> object:
-        """Ownership key, content hash, name, and tag, the plane read only when the image is made."""
-        return (self.ownership.key, self.content, self.name, msgspec.to_builtins(self.tag))
-
-    @override
-    def holds(self, live: bpy.types.Node, identity: Identity, /) -> Outcome[bool]:
-        return Ok(
-            struct_at(live, ("image",), bpy.types.Image)
-            .map(lambda image: Mark.read(identity, image) == Some(Mark(key=self.ownership.key, content=Some(self.content))))
-            .default_with(lambda: Mark.read(identity, live).map(lambda mark: mark.content == Some(self.content)).default_value(False))
-        )
-
-    @override
-    def write(self, live: bpy.types.Node, identity: Identity, /) -> Outcome[None]:
-        return self.made(identity).bind(lambda image: written(live, ("image",), image.to_optional()).bind(lambda _: _stamped(identity, live, Some(self.content) if image.is_none() else Nothing)))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

@@ -6,34 +6,19 @@ utils:
     defaulted:
         kind: function_call
         all:
-            - has: {field: name, regex: '(?i)^(ifnull|coalesce)$'}
-            - has: {field: arguments, kind: normal_function_arguments, not: {has: {nthChild: 3}}}
-    left-defaulted:
-        matches: defaulted
-        has:
-            field: arguments
-            all:
-                - has: {nthChild: 1, any: [{matches: sql-operator-expression, pattern: _AG}, {pattern: _A}]}
-                - has: {nthChild: 2, pattern: _X}
-    right-defaulted:
-        matches: defaulted
-        has:
-            field: arguments
-            all:
-                - has: {nthChild: 1, any: [{matches: sql-operator-expression, pattern: _BG}, {pattern: _B}]}
-                - has: {nthChild: 2, pattern: _X}
+            - has: {field: name, regex: '(?i-u)^["`\[]?(ifnull|coalesce)["`\]]?$'}
+            - has:
+                field: arguments
+                kind: normal_function_arguments
+                all:
+                    - not: {has: {nthChild: {position: 3, ofRule: &named {not: {kind: 'line_comment, block_comment'}}}}}
+                    - has: {nthChild: {position: 2, ofRule: *named}, pattern: $X}
 rule:
     kind: binary_expression
-    pattern: _COMPARISON
+    pattern: $COMPARISON
     all:
-        - has: {field: operator, regex: '^(==?|<>|!=)$', pattern: __OPERATOR}
-        - has: {field: left, matches: left-defaulted, pattern: _LEFT}
-        - has: {field: right, matches: right-defaulted, pattern: _RIGHT}
-transform:
-    EQUAL: {replace: {source: $OPERATOR, replace: '^==?$', by: ' not'}}
-    NEGATION: {replace: {source: $EQUAL, replace: '^(<>|!=)$', by: ''}}
-    GROUPED_A: {replace: {source: $AG, replace: '(?s)^(.+)$', by: '($1)'}}
-    GROUPED_B: {replace: {source: $BG, replace: '(?s)^(.+)$', by: '($1)'}}
-fix: '$A$GROUPED_A is$NEGATION distinct from $B$GROUPED_B'
-message: '`$COMPARISON` counts NULL equal to `$X`'
-note: 'Write `<a> is not distinct from <b>`, `<a> is distinct from <b>` for `<>` or `!=`'
+        - has: {field: operator, regex: '^(==?|<>|!=)$'}
+        - has: {field: left, matches: defaulted}
+        - has: {field: right, matches: defaulted}
+message: '`$COMPARISON` replaces NULL with `$X` before comparison'
+note: 'Use a NULL-aware comparison when `<default>` differs from every non-NULL value'

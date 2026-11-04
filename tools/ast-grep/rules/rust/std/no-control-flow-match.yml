@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-control-flow-match
-language: rust
+language: rustlang
 severity: error
 utils:
     break-variant:
@@ -50,15 +50,9 @@ rule:
             field: body
             matches: two-arms
             any:
-                - {matches: break-ok, pattern: $BREAK_OK}
-                - {matches: continue-ok, pattern: $CONTINUE_OK}
-                - {matches: break-value, pattern: $BREAK_VALUE}
-                - {matches: continue-value, pattern: $CONTINUE_VALUE}
-transform:
-    BREAK_OK_NAME: {replace: {source: $BREAK_OK, replace: '^[\s\S]+$', by: 'break_ok'}}
-    CONTINUE_OK_NAME: {replace: {source: $CONTINUE_OK, replace: '^[\s\S]+$', by: 'continue_ok'}}
-    BREAK_VALUE_NAME: {replace: {source: $BREAK_VALUE, replace: '^[\s\S]+$', by: 'break_value'}}
-    CONTINUE_VALUE_NAME: {replace: {source: $CONTINUE_VALUE, replace: '^[\s\S]+$', by: 'continue_value'}}
-fix: $CF.$BREAK_OK_NAME$CONTINUE_OK_NAME$BREAK_VALUE_NAME$CONTINUE_VALUE_NAME()
-message: '`match` on `$CF` rewraps each `ControlFlow` payload unchanged'
+                - matches: break-ok
+                - matches: continue-ok
+                - matches: break-value
+                - matches: continue-value
+message: '`match` on `$CF` rewraps each `ControlFlow` variant''s value unchanged'
 note: 'Call `<control flow>.break_ok()` or `.continue_ok()` for a `Result`, and `.break_value()` or `.continue_value()` for an `Option`'

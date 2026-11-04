@@ -1,28 +1,25 @@
 """Requirements a build meets per genre and treatment, the findings that measure them, and approved shaping expectations."""
 
+import sys
 from typing import Annotated
 lazy from functools import partial
-lazy from hashlib import sha256
 lazy from pathlib import Path
 lazy import re
 lazy import subprocess
 lazy from tempfile import TemporaryDirectory
-lazy import unicodedata
 
-from expression import Nothing, Option
 from expression.extra.result import catch
 import msgspec
 lazy import ots
 
 from typography.faces.declaration import Band, Em, Ratio
-from typography.shaping.runs import Shaper
 lazy from typography.faces.coverage import Coverage as Covered
 lazy from typography.faces.declaration import Contour, Face, Faces, OrnamentFace, Ringed, Segmented, Shadow, Sheared
 lazy from typography.faces.faults import accumulated, Fault, Outcome, Reason
 lazy from typography.faces.glyphs import Source
 lazy from typography.shaping.corpus import Corpus
 lazy from typography.shaping.expectations import encoded, expected
-lazy from typography.shaping.runs import Binary, encoded as mapped
+lazy from typography.shaping.runs import Binary
 lazy from typography.verification.geometry import Breach, clearance, distinct, identity, join_parity, ligature_ink, mark_line, metrics, reachable, seam
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -51,7 +48,7 @@ class Expectations(_Requirement, frozen=True, kw_only=True):
 class Reachable(_Requirement, frozen=True, kw_only=True):
     """No corpus line shapes to glyph 0 under any shaper and language."""
 
-    shapers: tuple[Shaper, ...] = (Shaper.OT, Shaper.CORETEXT)
+    shapers: tuple[str, ...] = ("ot", *(("coretext",) if sys.platform == "darwin" else ()))
 
 
 class Coverage(_Requirement, frozen=True, kw_only=True):
@@ -103,13 +100,7 @@ class Identity(_Requirement, frozen=True, kw_only=True):
     """Dots and hamzas of each letter form the original draws meet the original's, piece for piece."""
 
 
-class Reproducible(_Requirement, frozen=True, kw_only=True):
-    """Built bytes hash to the recorded hash."""
-
-    hash: str
-
-
-type Requirements = Sanitized | Profile | Expectations | Reachable | Coverage | MarkClearance | MarkLine | LigatureInk | JoinParity | Seam | Distinct | Metrics | Identity | Reproducible
+type Requirements = Sanitized | Profile | Expectations | Reachable | Coverage | MarkClearance | MarkLine | LigatureInk | JoinParity | Seam | Distinct | Metrics | Identity
 
 # --- [FINDINGS]
 
@@ -145,17 +136,15 @@ class _Report(msgspec.Struct, frozen=True, kw_only=True):
 # --- [REQUIREMENTS]
 
 
-def requirements(face: Faces, /, *, recorded: Option[str] = Nothing) -> tuple[Requirements, ...]:
+def requirements(face: Faces, /) -> tuple[Requirements, ...]:
     """Derives the requirements of a face from its genre and treatments, an ornament face holding the ones art without letters meets.
 
     Args:
         face: Declared face.
-        recorded: Hash an earlier build of the same inputs recorded, adding `Reproducible`.
 
     Returns:
         The requirements in measure order.
     """
-    held = tuple(Reproducible(hash=value) for value in recorded.to_list())
     match face:
         case Face(genre=genre, treatments=treatments):
             drawn = not any(isinstance(treatment, Ringed | Contour | Shadow | Segmented) for treatment in treatments)
@@ -174,21 +163,19 @@ def requirements(face: Faces, /, *, recorded: Option[str] = Nothing) -> tuple[Re
                 Distinct(),
                 Metrics(pitch=genre.pitch),
                 *((Identity(),) if upright else ()),
-                *held,
             )
         case OrnamentFace():
-            return (Sanitized(), Profile(excluded=("opentype/monospace",)), Coverage(), Metrics(), *held)
+            return (Sanitized(), Profile(excluded=("opentype/monospace",)), Coverage(), Metrics())
 
 
-def _covered(face: Faces, binary: Binary, /) -> tuple[Breach, ...]:
-    """Unmapped required and unrecorded mapped code points, an ornament face requiring its Private Use run contiguous from its first code beside every other code it maps."""
-    codes = mapped(binary)
-    match face:
+def _covered(source: Source, binary: Binary, /) -> tuple[Breach, ...]:
+    """Unmapped required and unrecorded mapped code points, ornament mappings derived from the planned source."""
+    codes = binary.encoded
+    match source.face:
         case Face(genre=genre):
             coverage = genre.coverage
-        case OrnamentFace(first=first):
-            used = sum(1 for code in codes if code >= first and unicodedata.category(chr(code)) == "Co")
-            coverage = Covered(required=frozenset({*range(first, first + used), *(code for code in codes if unicodedata.category(chr(code)) != "Co")}), excluded=(), blocks=frozenset())
+        case OrnamentFace():
+            coverage = Covered(required=frozenset(source.encoded), excluded=(), blocks=frozenset())
     return (*((f"U+{code:04X}", "unmapped", "required") for code in coverage.uncovered(codes)), *((f"U+{code:04X}", "mapped", "required, excluded, or kept") for code in coverage.unrecorded(codes)))
 
 
@@ -196,16 +183,12 @@ def _covered(face: Faces, binary: Binary, /) -> tuple[Breach, ...]:
 
 
 @catch(exception=OSError)
-def _staged(folder: Path, tests: Path | None, /) -> tuple[str, ...]:
-    """Copies approved expectations alone into a test directory and writes the configuration naming it, no option where no expectations are staged."""
-    match tests:
-        case Path():
-            (directory := folder / "shaping").mkdir()
-            (directory / tests.name).write_bytes(tests.read_bytes())
-            (configuration := folder / "configuration.json").write_bytes(msgspec.json.encode({"shaping": {"test_directory": str(directory)}}))
-            return ("--configuration", str(configuration))
-        case None:
-            return ()
+def _staged(folder: Path, tests: Path, /) -> tuple[str, ...]:
+    """Isolates one approval through a symlink and writes the native configuration naming its directory."""
+    (directory := folder / "shaping").mkdir()
+    (directory / tests.name).symlink_to(tests.resolve(strict=True))
+    (configuration := folder / "configuration.json").write_bytes(msgspec.json.encode({"shaping": {"test_directory": str(directory)}}))
+    return ("--configuration", str(configuration))
 
 
 @catch(exception=OSError)
@@ -213,28 +196,36 @@ def _launched(argv: tuple[str, ...], /) -> subprocess.CompletedProcess[bytes]:
     return subprocess.run(argv, capture_output=True, check=False)
 
 
-def _checked(path: Path, /, *options: str, tests: Path | None = None) -> Outcome[tuple[Breach, ...]]:
-    """Runs fontspector over a font file in a scratch folder, one breach per FAIL, ERROR, or FATAL result of its report and per changed input of a shaping regression, its error output the cause where it writes none."""
+def _checked(path: Path, /, *options: str) -> Outcome[tuple[Breach, ...]]:
+    """Decodes fontspector's native stdout report, one breach per failed check and changed shaping input."""
     failed = partial(Fault.of, Reason.FAILED, "fontspector")
-    with TemporaryDirectory() as scratch:
-        report = (folder := Path(scratch)) / "report.json"
-        return (
-            _staged(folder, tests)
-            .map_error(partial(Fault.of, Reason.UNREADABLE, str(tests)))
-            .bind(lambda staged: _launched(("fontspector", *options, *staged, "--quiet", "--skip-network", "--json", str(report), str(path))).map_error(failed))
-            .bind(lambda done: catch(Path.read_bytes, exception=OSError)(report).map_error(lambda error: failed(done.stderr.decode().strip() or error)))
-            .bind(lambda raw: catch(msgspec.json.Decoder(_Report).decode, exception=msgspec.DecodeError)(raw).map_error(partial(Fault.of, Reason.INVALID, str(report))))
-            .map(
-                lambda decoded: tuple(
-                    (subject, result.severity, "WARN")
-                    for sections in decoded.results.values()
-                    for checks in sections.values()
-                    for check in checks
-                    for result in check.subresults
-                    if result.severity in {"FAIL", "ERROR", "FATAL"}
-                    for subject in re.findall(r"^Shaping did not match: (.+)$", result.message, re.MULTILINE) or [f"{check.check_id} {result.code}".strip()]
-                )
+    return (
+        _launched(("fontspector", *options, "--quiet", "--skip-network", "--json", "-", str(path)))
+        .map_error(failed)
+        .bind(
+            lambda done: catch(lambda: msgspec.json.decode(done.stdout, type=_Report), exception=msgspec.DecodeError)().map_error(lambda error: Fault.of(Reason.INVALID, "fontspector", (done, error)))
+        )
+        .map(
+            lambda decoded: tuple(
+                (subject, result.severity, "WARN")
+                for sections in decoded.results.values()
+                for checks in sections.values()
+                for check in checks
+                for result in check.subresults
+                if result.severity in {"FAIL", "ERROR", "FATAL"}
+                for subject in tuple(match.group() for match in re.finditer(r"(?<=^Shaping did not match: ).+$", result.message, re.MULTILINE)) or (f"{check.check_id} {result.code}".strip(),)
             )
+        )
+    )
+
+
+def _compared(path: Path, tests: Path, /) -> Outcome[tuple[Breach, ...]]:
+    """Runs shaping regression with one isolated approval file."""
+    with TemporaryDirectory() as scratch:
+        return (
+            _staged(Path(scratch), tests)
+            .map_error(partial(Fault.of, Reason.UNREADABLE, str(tests)))
+            .bind(lambda options: _checked(path, *options, "--profile", "googlefonts", "--checkid", "shaping/regression"))
         )
 
 
@@ -249,7 +240,7 @@ def _held(outcome: Outcome[tuple[Breach, ...]], /) -> tuple[Breach, ...]:
 def _measured(requirement: Requirements, binary: Binary, /, *, source: Source, original: Binary, corpus: Corpus, path: Path, approved: Path) -> tuple[Breach, ...]:
     match requirement:
         case Sanitized():
-            return () if (done := ots.sanitize(str(path), capture_output=True)).returncode == 0 else ((path.name, done.stderr.decode().strip() or f"exit {done.returncode}", "accepted"),)
+            return () if (done := ots.sanitize(str(path), capture_output=True)).returncode == 0 else ((path.name, done.stderr.decode().strip() or f"exit {done.returncode}", "accepted"),)  # type: ignore[no-untyped-call] # ty: ignore[unsound-return-statement]
         case Profile(profiles=profiles, excluded=excluded):
             return _held(
                 accumulated(_checked(path, "--profile", profile, *(f"--exclude-checkid={check}" for check in excluded)) for profile in profiles).map(
@@ -257,11 +248,11 @@ def _measured(requirement: Requirements, binary: Binary, /, *, source: Source, o
                 )
             )
         case Expectations():
-            return _held(_checked(path, "--profile", "googlefonts", "--checkid", "shaping/regression", tests=approved)) if approved.is_file() else ((str(approved), "absent", "approved"),)
+            return _held(_compared(path, approved))
         case Reachable(shapers=shapers):
             return reachable(binary, corpus, shapers)
         case Coverage():
-            return _covered(source.face, binary)
+            return _covered(source, binary)
         case MarkClearance(gap=floor):
             return clearance(binary, corpus, floor)
         case MarkLine(tolerance=tolerance):
@@ -278,8 +269,6 @@ def _measured(requirement: Requirements, binary: Binary, /, *, source: Source, o
             return metrics(binary, original, corpus, pitch)
         case Identity():
             return identity(binary, original, corpus)
-        case Reproducible(hash=recorded):
-            return () if (built := sha256(binary.data).hexdigest()) == recorded else (("sha256", built, recorded),)
 
 
 def verified(binary: Binary, requirements: tuple[Requirements, ...], /, *, source: Source, original: Binary, corpus: Corpus, path: Path, approved: Path) -> tuple[Finding, ...]:
@@ -335,7 +324,6 @@ __all__ = [
     "Metrics",
     "Profile",
     "Reachable",
-    "Reproducible",
     "Requirements",
     "Sanitized",
     "Seam",

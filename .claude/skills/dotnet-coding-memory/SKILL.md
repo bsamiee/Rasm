@@ -9,7 +9,7 @@ Covers C# passes over spans and pooled buffers. `CommunityToolkit.HighPerformanc
 
 ## [01]-[OWNERSHIP]
 
-Pooled and pinned buffers stay inside the pass that rents them, and a domain signature takes spans for one call and returns a published value. Lease length selects the type a member takes or holds:
+Lease length selects storage, and ownership transfers explicitly:
 
 | [INDEX] | [LEASE]                                     | [TYPE]                                                      |
 | :-----: | :------------------------------------------ | :---------------------------------------------------------- |
@@ -17,13 +17,14 @@ Pooled and pinned buffers stay inside the pass that rents them, and a domain sig
 |  [02]   | Field, closure, `await`, or parallel action | `ReadOnlyMemory<T>` or `Memory2D<T>`, `.Span` read per step |
 |  [03]   | Scratch of one scope                        | `using SpanOwner<T>`                                        |
 |  [04]   | Scratch a parallel action or builder reads  | `using MemoryOwner<T>`, `.Memory` passed on                 |
-|  [05]   | Buffer its receiver releases                | `MemoryOwner<T>` in the signature                           |
-|  [06]   | Published result                            | `ImmutableArray<T>`                                         |
+|  [05]   | Buffer its receiver releases                | `IMemoryOwner<T>` in the signature                          |
+|  [06]   | Contiguous published result                 | `ImmutableArray<T>`                                         |
 
-- `Memory<T>` taken from an owner views, after `Dispose`, an array its next renter writes, and an owner outlives every view of it
+- Owners outlive every view and asynchronous consumer, including canceled operations until completion
+- Read-only views restrict writes through the view, another alias can still mutate storage
 - `MemoryOwner<T>.Slice` moves its array into a returned owner and disposes its parent
 - Buffers one native call reads pin for the call (`using MemoryHandle` from `Pin()`, `fixed`)
-- Buffers native objects read across calls are arrays from `GC.AllocateUninitializedArray<T>(length, pinned: true)` that outlive the objects
+- Retained native buffers stay rooted through final use, with `MemoryHandle` or `GC.AllocateUninitializedArray<T>(length, pinned: true)`
 
 Effects hold an owner under `use`, release it at `Bracket`, and slice its span by the count each read returns:
 
@@ -38,7 +39,7 @@ internal static class Digests {
 
 ## [02]-[SCRATCH]
 
-Scratch exists for a value an in-place write destroys and for nothing else. `TensorPrimitives` destinations alias an input exactly or not at all, and a chain of calls rewrites one destination with no scratch:
+Scratch holds values a later step needs or workspace a kernel requires. Bulk kernels write directly into their destination under each member's alias contract:
 
 ```csharp
 internal sealed record Levels(float Max) {
@@ -64,10 +65,10 @@ internal static class Stages {
 }
 ```
 
-- Scratch with a length its format or type states is one `stackalloc` before any loop, a length the data decides takes `SpanOwner<T>`
-- Rented arrays hold their previous renter's data, `AllocationMode.Clear` serves a buffer a pass reads before writing every element
+- Small bounded scratch uses one `stackalloc` outside loops, larger or data-sized scratch takes `SpanOwner<T>`
+- Uninitialized and rented storage must be written before reading, `AllocationMode.Clear` supplies zeroed pooled scratch
 - Output of unknown length fills an `ArrayPoolBufferWriter<T>` (`Utf8JsonWriter`, `TryFormat` into `GetSpan`) its scope reads as `WrittenSpan`
-- Neighbor passes hold state in a padded two-row `Span2D<T>` ring, `line & 1` selects its current row, boundary taps read padding with no bounds test
+- Stencil workspace derives row count and padding from dependency radius, a ring retains only rows later taps need
 
 ## [03]-[VIEWS]
 
@@ -85,13 +86,14 @@ internal static class Planes {
 ```
 
 - Pitch is the element gap after each row (`stride - width`), and a view with a nonzero pitch reads row by row through `GetRowSpan`
-- Storable views (`Memory2D<T>`, a `Memory<T>.Cast` result) are built once and held, each `Memory<T>.Cast` call allocates a manager
+- Nonempty array-backed `Memory<T>.Cast` allocates a manager, retain stored casts and use `MemoryMarshal.Cast` for synchronous views
 - Column views (`GetColumn(c)`) take `Fill`, `CopyTo`, and `span.CopyTo(column)`, a channel plane needs no hand index
 - Planes of one pinned array start at `Marshal.UnsafeAddrOfPinnedArrayElement(array, offset)`, and `new Span2D<T>(array, offset, height, width, 0)` views each
+- `MemoryMarshal.Cast` reinterprets native layout and truncates incomplete target elements, external formats establish size and byte order first
 
 ## [04]-[KERNELS]
 
-Elementwise and reduction work over a scalar plane is one `TensorPrimitives` call per span or row. Loops stay where each element is a pixel vector or reads neighbors, and an operation that varies is a `struct` type argument the JIT specializes. Kernel sets are a smart enum, one private generic subclass holds the loop, and each item constructs it over a stateless kernel struct:
+Elementwise and reduction work uses native bulk kernels per span or row, preserving rounding, NaN, and alias contracts. `MultiplyAdd` combines passes with separate rounding, `FusedMultiplyAdd` rounds once, and `MultiplyAddEstimate` varies with hardware. Loops stay for operations no bulk member supplies, and a varying operation is a small `struct` type argument the JIT specializes. Kernel sets use one private generic subclass over stateless structs:
 
 ```csharp
 internal interface IBlend {
@@ -152,35 +154,9 @@ internal abstract partial class SampleDepth {
 }
 ```
 
-Filtering loops write every sample and advance the count by `Keeps`, with no branch around the write:
-
-```csharp
-internal interface ISample<out T> {
-    public T Sample(Vector4 pixel);
-    public bool Keeps(Vector4 pixel);
-}
-
-internal readonly struct Luma(Vector3 weights) : ISample<float> {
-    public float Sample(Vector4 pixel) => Vector3.Dot(pixel.AsVector3(), weights);
-    public bool Keeps(Vector4 pixel) => pixel.W > 0f;
-}
-
-internal static class Samples {
-    public static ImmutableArray<T> Kept<T, TKernel>(ReadOnlySpan<Vector4> pixels, TKernel kernel) where TKernel : struct, ISample<T> {
-        T[] kept = GC.AllocateUninitializedArray<T>(pixels.Length);
-        int count = 0;
-        for (int x = 0; x < pixels.Length; x++) {
-            kept[count] = kernel.Sample(pixels[x]);
-            count += kernel.Keeps(pixels[x]) ? 1 : 0;
-        }
-        return ImmutableCollectionsMarshal.AsImmutableArray(kept[..count]);
-    }
-}
-```
-
 ## [05]-[LANES]
 
-`Vector4` and `Vector128<T>` lanes accelerate on x64 and Arm64 and run per-pixel work no `TensorPrimitives` call states. `Vector256<T>` and `Vector512<T>` accelerate on x64 alone, and on Arm64 (`IsHardwareAccelerated` false) a `Vector256` loop runs slower than its scalar form. Lane decisions are a comparison mask into `ConditionalSelect`, and pixels of mixed alpha take no branch:
+Native kernels select vector widths and handle remainders. Custom SIMD uses runtime support and measured workload costs, `IsHardwareAccelerated` describes support rather than relative speed. Per-pixel work uses `Vector4` or supported intrinsic vectors, and `ConditionalSelect` applies lane masks:
 
 ```csharp
 internal static class Alpha {
@@ -196,12 +172,12 @@ internal static class Alpha {
 ```
 
 - Double-precision pixels split into `Vector128<double>` halves by `WidenLower` and `WidenUpper`, and one `Narrow(lower, upper)` stores them
-- Span loops with no `TensorPrimitives` member step `Vector128<T>.Count` elements through `Vector128.LoadUnsafe` and `StoreUnsafe`
-- Destinations apart from their source finish on one vector at `length - Count` in place of a scalar remainder
+- Custom kernels load through `Vector128.Create(span)` and store through `CopyTo`, measured lower-level access uses element offsets
+- Overlapping tail vectors require a full vector and repeated writes that preserve results, in-place transforms need an untouched input
 
 ## [06]-[PARALLEL_PASSES]
 
-`ParallelHelper` splits an index range into batches, and each batch runs a sequential loop over one shared copy of a `readonly struct` action. Results leave through reference members (a `Memory2D<T>` target, an array written at `[i]`, a `StrongBox<int>` under `Interlocked`), and a mutable field races across workers. Accumulating passes give each band one row of a `bands × bins` buffer and merge rows with `TensorPrimitives.Add`, and one generic action over a fold struct serves every histogram:
+`ParallelHelper` batches ranges through one shared action, use a `readonly struct` and disjoint output slices. Accumulating passes give each band one row of a `bands × bins` buffer and merge rows with `TensorPrimitives.Add`. Caller-supplied band count bounds workspace and concurrency:
 
 ```csharp
 internal interface IRowFold {
@@ -210,12 +186,11 @@ internal interface IRowFold {
 }
 
 internal readonly struct Bands<TFold>(ReadOnlyMemory2D<Vector4> rows, Memory2D<int> counts, TFold fold) : IAction where TFold : struct, IRowFold {
-    public static ImmutableArray<int> Counted(ReadOnlyMemory2D<Vector4> rows, TFold fold) {
-        int height = int.Clamp(rows.Height, 1, Environment.ProcessorCount);
-        Memory2D<int> counts = new(new int[height * fold.Bins], height, fold.Bins);
-        ParallelHelper.For(0, height, new Bands<TFold>(rows, counts, fold));
+    public static ImmutableArray<int> Counted(ReadOnlyMemory2D<Vector4> rows, TFold fold, int bands) {
+        Memory2D<int> counts = new(new int[bands * fold.Bins], bands, fold.Bins);
+        ParallelHelper.For(0, bands, new Bands<TFold>(rows, counts, fold));
         Span2D<int> merged = counts.Span;
-        for (int band = 1; band < height; band++)
+        for (int band = 1; band < bands; band++)
             TensorPrimitives.Add(merged.GetRowSpan(0), merged.GetRowSpan(band), merged.GetRowSpan(0));
         return [.. merged.GetRowSpan(0)];
     }
@@ -231,51 +206,46 @@ internal readonly struct Bands<TFold>(ReadOnlyMemory2D<Vector4> rows, Memory2D<i
 }
 ```
 
-- Batches cover whole rows or bands, and a body of nanoseconds per element runs a row per `Invoke` or raises `minimumActionsPerThread`
-- Actions receive no token and no per-worker state, `Invoke` reads a token its action holds and rents its own row scratch
+- Parallelize one level with rows or bands, nested native kernels and outer passes share one concurrency budget
+- Measure sequential work against partitioning costs, `minimumActionsPerThread` bounds batch count but supplies no measured threshold
+- `Parallel.For` supports cancellation and partition-local state, retain its overload when those contracts select the operation
+- `ParallelHelper` supplies neither token nor worker state, row scratch belongs to a band and a retained token enters through action data
 - `For2D(..outer, ..inner, action)` batches its outer range and calls `IAction2D.Invoke(i, j)` per cell, one destination row per cell
 - `ForEach` over `Memory2D<T>` writes elements in place through `IRefAction<T>`, and a read-only memory takes `IInAction<T>`
 - Overloads without an action argument run `default(TAction)`, an action holding data passes its instance and every type argument infers
 
 ## [07]-[PUBLISHED_RESULTS]
 
-Results publish a filled array as `ImmutableArray<T>` through `ImmutableCollectionsMarshal.AsImmutableArray`, and a later array write changes the published value. Records and value objects compare an `ImmutableArray<T>` member by reference: a member a span pass reads takes one sequence-equality accessor, and a member no pass spans is a `Seq<A>`:
+Filled arrays transfer to `ImmutableArray<T>` through `ImmutableCollectionsMarshal.AsImmutableArray` only when every mutable alias ends. Unknown result counts use `ImmutableArray<T>.Builder.DrainToImmutable`, which transfers full storage or copies a partial buffer. Records and value objects compare array members by reference, content equality requires an accessor matching element equality and hashing:
 
 ```csharp
-public sealed class SequenceEquality<T> : IEqualityComparerAccessor<ImmutableArray<T>> {
+public sealed class SequenceEquality<T> : IEqualityComparerAccessor<ImmutableArray<T>> where T : notnull {
     public static IEqualityComparer<ImmutableArray<T>> EqualityComparer { get; } =
-        EqualityComparer<ImmutableArray<T>>.Create(static (left, right) => left.SequenceEqual(right), static items => toSeq(items).GetHashCode());
-}
-
-[ComplexValueObject(SkipFactoryMethods = true, SkipToString = true)]
-public sealed partial class Response {
-    [MemberEqualityComparer<SequenceEquality<float>, ImmutableArray<float>>]
-    public ImmutableArray<float> Samples { get; }
-
-    public static Response Scaled(ReadOnlySpan<float> source, float gain) {
-        float[] samples = GC.AllocateUninitializedArray<float>(source.Length);
-        TensorPrimitives.Multiply(source, gain, samples);
-        return new(ImmutableCollectionsMarshal.AsImmutableArray(samples));
-    }
+        EqualityComparer<ImmutableArray<T>>.Create(static (left, right) => left.AsSpan().SequenceEqual(right.AsSpan()), static items => items.AsSpan().GetDjb2HashCode());
 }
 ```
 
-- `CollectionsMarshal.AsSpan` views a list's backing array until its next growth
-- `CollectionsMarshal.GetValueRefOrAddDefault` counts or merges with one lookup inside a builder that publishes its dictionary
+- `CollectionsMarshal.AsSpan` borrows list storage, additions and removals wait until every span use ends
+- `CollectionsMarshal.GetValueRefOrAddDefault` merges with one lookup, additions and removals wait until every returned ref use ends
+- Byte hashes match byte equality, numeric equality folds representations element equality treats alike
 
 ## [08]-[SPAN_TEXT]
 
-Parsers read ranges of their source span and allocate their result alone. `SplitAny` over empty separators splits at Unicode whitespace into a pooled `System.Range` buffer, and generic parsing writes each token into its slot of the result:
+Parsers enumerate source ranges through `Split` or `SplitAny` without token storage, empty character separators select Unicode whitespace. Result builders collect parsed values and drain once:
 
 ```csharp
 internal static class Numbers {
-    public static Option<T[]> Parsed<T>(ReadOnlySpan<char> text) where T : struct, INumberBase<T> {
-        using SpanOwner<System.Range> tokens = SpanOwner<System.Range>.Allocate(text.Length + 1);
-        T[] values = new T[text.SplitAny(tokens.Span, ReadOnlySpan<char>.Empty, StringSplitOptions.RemoveEmptyEntries)];
-        int at = 0;
-        while (at < values.Length && T.TryParse(text[tokens.Span[at]], NumberStyles.Float, CultureInfo.InvariantCulture, out values[at]))
-            at++;
-        return at == values.Length ? values : None;
+    public static Option<ImmutableArray<T>> Parsed<T>(ReadOnlySpan<char> text) where T : struct, INumberBase<T> {
+        ImmutableArray<T>.Builder values = ImmutableArray.CreateBuilder<T>();
+        foreach (System.Range range in text.SplitAny(ReadOnlySpan<char>.Empty)) {
+            ReadOnlySpan<char> token = text[range];
+            if (token.IsEmpty)
+                continue;
+            if (!T.TryParse(token, NumberStyles.Float, CultureInfo.InvariantCulture, out T value))
+                return None;
+            values.Add(value);
+        }
+        return values.DrainToImmutable();
     }
 }
 ```
@@ -309,10 +279,10 @@ internal static class SharedExponent {
 - Blocks in machine byte order reinterpret through `MemoryMarshal.Cast<byte, T>`, a foreign order swaps in place through span `ReverseEndianness`
 - Headers read into a `stackalloc` span through `ReadAtLeast(span, span.Length, throwOnEndOfStream: false)`, a short count refuses the file
 - Headers write each field through `BinaryPrimitives.Write*` into one `stackalloc` span and leave in one `Stream.Write(span)`
-- Reads at an offset call `RandomAccess.Read(handle, span, offset)` on a `File.OpenHandle` handle
+- Offset reads use `RandomAccess.Read` when consumers handle short counts, fixed-size records retain `ReadExactly` or `ReadAtLeast`
 - `SequenceReader<byte>` reads segmented input (`TryReadLittleEndian`, `TryReadTo`), and `IsSingleSegment` with `FirstSpan` takes one span
 
-Persisted and cross-process keys digest canonical bytes through `XxHash128`, and `HashCode` and `string.GetHashCode` seed per process. One extension family appends each field kind, integers little-endian, text as UTF-8 after its byte count, and floats with NaN and `-0` folded, and callers chain fields from `new XxHash128()` to `GetCurrentHashAsUInt128()`:
+Persisted noncryptographic keys hash canonical bytes through `XxHash128`, `HashCode` and `string.GetHashCode` seed per process. Serialization defines field boundaries and byte order, floating-point normalization follows key equality. Numeric keys fold equal NaNs and signed zero, bit-identity keys preserve representations:
 
 ```csharp
 internal static class Canonical {
@@ -352,14 +322,14 @@ internal static class Canonical {
 |  [06]   | Delegate or interface call per element                           | `struct` type argument the JIT specializes            |
 |  [07]   | Item or member per kernel, each with its own loop                | Private generic subclass over a kernel struct         |
 |  [08]   | Literal key or byte size per item over an element type           | Facts derived from the type argument                  |
-|  [09]   | `Vector256<T>` lanes on Arm64                                    | `Vector128<T>` lanes or `Vector4`                     |
+|  [09]   | Fixed SIMD width selected from processor name                    | Native kernel or runtime-supported vector width       |
 |  [10]   | Branch per pixel on a lane value                                 | `ConditionalSelect` over a comparison mask            |
 |  [11]   | Hand `[(y * width) + x]` index or `DivRem` row recovery          | `Span2D<T>` rows and columns                          |
 |  [12]   | `array.AsSpan2D(height, width)` assigned to `Span2D<T>`          | `new Span2D<T>(array, height, width)`                 |
-|  [13]   | `Parallel.For` closure over an array                             | `ParallelHelper` action over `Memory2D<T>`            |
+|  [13]   | Per-element scheduling or shared action mutation                 | Batched native parallel API with disjoint outputs     |
 |  [14]   | `Interlocked` on one shared accumulator per element              | Band rows merged after the pass                       |
 |  [15]   | `ToArray()` over a filled array to publish it                    | `ImmutableCollectionsMarshal.AsImmutableArray`        |
 |  [16]   | Hand `Equals` and `GetHashCode` over a buffer member             | Sequence-equality accessor                            |
 |  [17]   | `dictionary[span.ToString()]` per lookup                         | `GetAlternateLookup<ReadOnlySpan<char>>()`            |
-|  [18]   | `Position` set before each `ReadExactly`                         | `RandomAccess.Read` at the offset                     |
+|  [18]   | Single `RandomAccess.Read` assumed to fill its destination       | Returned count or exact-read stream contract          |
 |  [19]   | Digest fields concatenated with no byte count                    | Length-prefixed field through `Bytes`                 |

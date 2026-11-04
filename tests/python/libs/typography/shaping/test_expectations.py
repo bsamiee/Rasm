@@ -1,45 +1,40 @@
-"""Fontspector shaping expectations recorded from the test font and their JSON codec."""
+"""Native fontspector wire records and corpus shaping approvals."""
 
-from expression import Ok, Result
+from expression import Result
 import msgspec
 import pytest
 
 from typography.faces.faults import Fault, Reason
 from typography.shaping.corpus import Corpus
-from typography.shaping.expectations import decoded, Defaults, encoded, Expectation, expected
+from typography.shaping.expectations import Configuration, decoded, encoded, Expectation, Expectations, expected
 from typography.shaping.runs import Binary
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def test_expected_records_each_line_under_each_language(binary: Binary, sample: Corpus) -> None:
-    """One test per distinct line and language, `.notdef` forbidden, direction and the default system left to the shaper."""
-    approved = expected(binary, sample)
-    assert (approved.configuration.defaults, approved.configuration.forbidden_glyphs, len(approved.tests)) == (Defaults(), (".notdef",), 4 * 3)
-    assert approved.tests[:3] == (
-        Expectation(input="بب", expectation="uni0628.fina=2+500|uni0628.init=0+500", language="fa"),
-        Expectation(input="بب", expectation="uni0628.fina=2+500|uni0628.init=0+500", language="ar"),
-        Expectation(input="بب", expectation="uni0628.fina=2+500|uni0628.init=0+500"),
-    )
+def test_approvals_cover_each_language_and_distinct_input(binary: Binary, sample: Corpus) -> None:
+    """Every corpus line and language receives its native serialized shaping result exactly once."""
+    approval = expected(binary, sample)
+    assert {(test.input, test.language) for test in approval.tests} == {(line, language) for line in sample.lines for language in sample.languages}
+    assert len(approval.tests) == len(sample.lines) * len(sample.languages)
+    assert approval.configuration.forbidden_glyphs == binary.order[:1]
+    assert approval.tests[0].expectation == "uni0628.fina=2+500|uni0628.init=0+500"
+    assert all(test.expectation == binary.shaped(test.input, language=test.language).serialized for test in approval.tests)
 
 
-def test_encoded_writes_fontspector_keys_and_decodes_back(binary: Binary, sample: Corpus) -> None:
-    """JSON holding only set options, decoded to the same record."""
-    approved = expected(binary, sample)
-    raw = encoded(approved)
-    match msgspec.json.decode(raw):
-        case {"configuration": {"forbidden_glyphs": [".notdef"]} as configuration, "tests": [{"input": "بب", "language": "fa"}, _, {"input": "بب", "expectation": str()} as bare, *_]}:
-            assert "language" not in bare
-            assert "defaults" not in configuration
-        case written:
-            pytest.fail(str(written))
-    assert decoded(raw) == Ok(approved)
+def test_native_wire_keeps_required_empty_configuration_and_selectors() -> None:
+    """Empty configuration remains present and fontspector's only/exclude selectors keep their wire names."""
+    approval = Expectations(configuration=Configuration(), tests=(Expectation(input="text", expectation="glyph=0+100", only=("Test.ttf",), exclude=("Other.ttf",)),))
+    raw = encoded(approval)
+    assert msgspec.json.decode(raw) == {"configuration": {}, "tests": [{"input": "text", "expectation": "glyph=0+100", "only": ["Test.ttf"], "exclude": ["Other.ttf"]}]}
+    assert decoded(raw).default_with(lambda faults: pytest.fail(str(faults))) == approval
 
 
-def test_decoded_refuses_a_test_without_expectation() -> None:
-    """Test entry missing its expectation, refused as invalid."""
-    match decoded(b'{"tests": [{"input": "x"}]}'):
-        case Result(error=(Fault(reason=Reason.INVALID),)):
+@pytest.mark.parametrize("raw", [b'{"tests": []}', b'{"configuration": {}, "tests": [{"input": "x"}]}', b'{"configuration": {}, "tests": [{"input": "x", "expectation": "", "only": [1]}]}', b"{"])
+def test_native_wire_refusals_keep_the_decode_cause(raw: bytes) -> None:
+    """Required native fields, selector types, and JSON syntax fail at the input boundary."""
+    match decoded(raw):
+        case Result(error=(Fault(reason=Reason.INVALID, cause=msgspec.DecodeError()),)):
             pass
-        case refused:
-            pytest.fail(str(refused))
+        case outcome:
+            pytest.fail(str(outcome))

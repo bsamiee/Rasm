@@ -1,6 +1,6 @@
 #![feature(deref_patterns)]
 
-use core::hint::black_box;
+use core::{hint::black_box, ops::Deref};
 use std::{
     collections::BTreeMap,
     io::{self, BufRead},
@@ -28,6 +28,14 @@ trait Severity {
 struct Job {
     kind: String,
     name: String,
+}
+
+struct Trimmed(String);
+
+impl Deref for Trimmed {
+    type Target = str;
+
+    fn deref(&self) -> &str { self.0.trim() }
 }
 
 impl Severity for Job {
@@ -76,6 +84,14 @@ fn finished(steps: &[Step]) -> usize { steps.iter().filter(|step| step.state == 
 fn labels(steps: &[Step]) -> Vec<&'static str> { steps.iter().map(|step| step.label).collect() }
 
 fn logged(level: &str, text: &str) -> String { if level == "warn" { text.to_uppercase() } else { text.to_owned() } }
+
+fn trimmed(mode: &Trimmed) -> u32 {
+    match &**mode {
+        "run" => 1,
+        "stop" => 2,
+        _ => 3,
+    }
+}
 
 fn command(input: &str) -> String { input.trim().to_lowercase() }
 
@@ -213,5 +229,6 @@ fn main() {
         (PAUSE, build(&job), test(&job)),
         (tallied(&[&input]), counted(&[&input]).len()),
         (speed(&input), flag(&input), format_of(&Request { kind: input.clone() })),
+        trimmed(&Trimmed(input.clone())),
     ));
 }

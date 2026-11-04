@@ -5,10 +5,27 @@
 
     <ItemGroup Label="Analyzer Authoring">
         <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" PrivateAssets="all" />
-        <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" PrivateAssets="all" />
+        <PackageReference Include="Microsoft.CodeAnalysis.Common" ExcludeAssets="runtime" PrivateAssets="all" />
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" ExcludeAssets="runtime" PrivateAssets="all" />
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" ExcludeAssets="runtime" PrivateAssets="all" />
+        <PackageReference Include="Microsoft.CodeAnalysis.Workspaces.Common" ExcludeAssets="runtime" PrivateAssets="all" />
+    </ItemGroup>
+
+    <ItemGroup Label="Collections">
+        <PackageReference Include="System.Collections.Immutable" ExcludeAssets="runtime" PrivateAssets="all" />
+    </ItemGroup>
+
+    <ItemGroup Label="Graphs">
+        <PackageReference Include="QuikGraph" />
     </ItemGroup>
 
     <ItemGroup Label="Workspace Projects">
         <ProjectReference Include="../Rasm.Analyzers/Rasm.Analyzers.csproj" />
     </ItemGroup>
+
+    <Target Name="GetAnalyzerDependencies" BeforeTargets="GetTargetPath" DependsOnTargets="ResolvePackageAssets">
+        <ItemGroup>
+            <TargetPathWithTargetPlatformMoniker Include="@(RuntimeCopyLocalItems)" IncludeRuntimeDependency="false" ResolveableAssembly="false" />
+        </ItemGroup>
+    </Target>
 </Project>

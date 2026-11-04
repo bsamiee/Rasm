@@ -5,6 +5,11 @@
         <SolutionDir>$([MSBuild]::EnsureTrailingSlash($([MSBuild]::GetDirectoryNameOfFileAbove('$(MSBuildProjectDirectory)', 'Workspace.slnx'))))</SolutionDir>
     </PropertyGroup>
 
+    <ItemGroup Label="Compiler Settings">
+        <_CompilerOptionsFile Include="$(TargetDir)$(TargetName).compiler.rsp" />
+        <CustomAdditionalCompileOutputs Include="@(_CompilerOptionsFile)" />
+    </ItemGroup>
+
     <ItemGroup Label="Rhino">
         <PackageReference Include="RhinoCommon" />
         <PackageReference Include="System.Drawing.Common" />
@@ -16,13 +21,31 @@
 
     <ItemGroup Label="Testing">
         <PackageReference Include="CsCheck" />
+        <PackageReference Include="Microsoft.CodeAnalysis.Common" />
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
         <PackageReference Include="Microsoft.CodeAnalysis.CSharp.CodeFix.Testing" />
+        <PackageReference Include="Microsoft.CodeAnalysis.Workspaces.Common" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions.SourceGenerator" GeneratePathProperty="true" PrivateAssets="all" />
+        <Reference Include="Thinktecture.Runtime.Extensions.SourceGenerator" HintPath="$(PkgThinktecture_Runtime_Extensions_SourceGenerator)/analyzers/dotnet/cs/Thinktecture.Runtime.Extensions.SourceGenerator.dll" />
         <PackageReference Include="Verify.XunitV3" />
         <PackageReference Include="xunit.v3.mtp-v2" />
+    </ItemGroup>
+
+    <ItemGroup Label="Collections">
+        <PackageReference Include="System.Collections.Immutable" />
     </ItemGroup>
 
     <ItemGroup Label="Workspace Projects">
         <ProjectReference Include="../../../../../tools/roslyn/Rasm.Analyzers/Rasm.Analyzers.csproj" />
         <ProjectReference Include="../../../../../tools/roslyn/Rasm.Analyzers.CodeFixes/Rasm.Analyzers.CodeFixes.csproj" />
     </ItemGroup>
+
+    <Target Name="WriteCompilerOptions" AfterTargets="CoreCompile"
+            Inputs="$(MSBuildAllProjects);@(IntermediateAssembly)" Outputs="@(_CompilerOptionsFile)">
+        <WriteLinesToFile File="@(_CompilerOptionsFile)" Lines="$([MSBuild]::Escape('/nowarn:$(NoWarn)'))"
+                          Overwrite="true" />
+        <ItemGroup>
+            <FileWrites Include="@(_CompilerOptionsFile)" />
+        </ItemGroup>
+    </Target>
 </Project>

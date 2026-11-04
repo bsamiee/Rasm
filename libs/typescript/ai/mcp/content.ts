@@ -17,7 +17,7 @@ const make = <S extends Schema.Top>(schema: S, description: string, block: (valu
     });
 const Content = Object.assign(make, {
     image: (mimeType: string) => make(Schema.Uint8Array, 'Media type of image content block', (data) => [McpSchema.ImageContent.make({ data, mimeType }), mimeType]),
-    attachment: <S extends Schema.Top & { readonly Type: { readonly uri: string; readonly mimeType: Option.Option<string>; readonly data: Uint8Array } }>(schema: S) =>
+    attachment: <S extends Schema.Schema<{ readonly uri: string; readonly mimeType: Option.Option<string>; readonly data: Uint8Array }>>(schema: S) =>
         make(schema, 'URI of file content block', ({ uri, mimeType, data }) => [
             Option.match(Option.filter(mimeType, String.startsWith('image/')), {
                 onSome: (imageType) => McpSchema.ImageContent.make({ data, mimeType: imageType }),

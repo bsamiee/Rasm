@@ -3,82 +3,58 @@ id: no-subquery-ordered-aggregate
 language: sql
 severity: error
 utils:
-    order-sensitive-aggregate:
-        kind: function_call
-        all:
-            - any: [{matches: sql-string-aggregate}, {has: {field: name, regex: '(?i)^(json_group_array|json_group_object|jsonb_group_array|jsonb_group_object)$'}}]
-            - has: {field: arguments, kind: normal_function_arguments, not: {has: {kind: order_by_clause}}}
-            - not: {has: {field: over, kind: over_clause}}
     ordered-subquery:
         kind: select_clause
-        has: {field: order_by, pattern: _ORDER}
+        has: {field: order_by, kind: order_by_clause}
     ordered-cte:
         kind: with_clause
+        pattern: $WITH
         has:
             kind: cte_definition
             all:
-                - has: {field: name, pattern: _CTE}
-                - has: {field: body, matches: ordered-subquery, pattern: _SUBQUERY}
-    unwrappable:
-        matches: ordered-subquery
-        all:
-            - not: {has: {field: limit, kind: limit_clause}}
-            - not: {has: {field: modifier, regex: '(?i)^distinct$'}}
-            - has:
-                field: columns
-                not:
-                    has:
-                        kind: expression_result_column
-                        any: [{has: {field: alias, regex: '.'}}, {not: {has: {field: expression, kind: column_reference}}}]
-            - has:
-                field: from
-                all:
-                    - has: {field: source, has: {kind: qualified_table_name, pattern: _TABLE}}
-                    - not: {has: {field: join, kind: join_step}}
-            - not: {has: {field: where, kind: where_clause}}
-            - not: {has: {field: group_by, kind: group_by_clause}}
+                - has: {field: name, pattern: $CTE}
+                - has: {field: body, matches: ordered-subquery}
 rule:
-    kind: select_statement, select_clause
-    pattern: _QUERY
+    kind: function_call
+    pattern: $AGGREGATE
     all:
-        - has: {field: columns, has: {matches: order-sensitive-aggregate, stopBy: {kind: select_clause}, pattern: _AGGREGATE}}
-        - any:
-            - has: {field: from, has: {kind: table_or_subquery, stopBy: {kind: select_clause}, has: {matches: ordered-subquery, pattern: _SUBQUERY}}}
-            - all:
-                - has: {field: from, has: {kind: table_or_subquery, stopBy: {kind: select_clause}, has: {kind: qualified_table_name, has: {field: name, pattern: _CTE}}}}
-                - any: [{has: {field: with, matches: ordered-cte}}, {inside: {stopBy: end, has: {field: with, matches: ordered-cte}}}]
-        - any:
-            - pattern: _FIXABLE
-              has:
-                field: from
-                all:
-                    - has: {field: source, has: {matches: unwrappable, pattern: _SUBQUERY}}
-                    - not: {has: {field: join, kind: join_step}}
-            - pattern: _KEPT
-rewriters:
-    - id: ordered
-      rule:
-        kind: normal_function_arguments
-        pattern: _ARGUMENTS
-        inside:
-            field: arguments
-            matches: order-sensitive-aggregate
-            inside:
-                kind: result_column_list
-                stopBy: {kind: select_clause}
-                inside: {has: {field: from, has: {field: source, has: {matches: unwrappable}}}}
-      fix: $ARGUMENTS $ORDER
-    - id: unwrapped
-      rule:
-        kind: table_or_subquery
-        all:
-            - has: {matches: unwrappable}
-            - any: [{has: {field: alias, pattern: _ALIAS}}, {not: {has: {field: alias, kind: identifier}}}]
-      transform:
-        ALIASED: {replace: {source: $ALIAS, replace: '^(.+)$', by: ' $1'}}
-      fix: $TABLE$ALIASED
-transform:
-    FIXED: {rewrite: {source: $FIXABLE, rewriters: [ordered, unwrapped]}}
-fix: $FIXED$KEPT
-message: '`$AGGREGATE` ignores the input order `$ORDER` sets'
-note: 'Move `order by <key>` from the subquery or CTE into the call, `<aggregate>(<arguments> order by <key>)`'
+        - any: [{matches: sql-string-aggregate}, {has: {field: name, regex: '(?i-u)^["`\[]?(json_group_array|json_group_object|jsonb_group_array|jsonb_group_object)["`\]]?$'}}]
+        - has: {field: arguments, kind: normal_function_arguments, not: {has: {kind: order_by_clause}}}
+        - not: {has: {field: over, kind: over_clause}}
+        - inside:
+            kind: result_column_list
+            stopBy: {kind: 'select_statement, select_clause'}
+            precedes:
+                kind: from_clause
+                stopBy: {not: {kind: 'line_comment, block_comment'}}
+                has:
+                    kind: table_or_subquery
+                    stopBy: {kind: select_clause}
+                    any:
+                        - has: {matches: ordered-subquery}
+                        - all:
+                            - not: {has: {regex: '^\($'}}
+                            - has:
+                                kind: qualified_table_name
+                                all:
+                                    - not: {has: {field: schema, pattern: $_}}
+                                    - has: {field: name, pattern: $CTE}
+                            - inside:
+                                kind: &scope 'select_statement, select_clause, insert_statement, update_statement, delete_statement'
+                                stopBy: end
+                                has: {field: with, matches: ordered-cte}
+                            - not:
+                                inside:
+                                    kind: *scope
+                                    stopBy: end
+                                    all:
+                                        - has:
+                                            field: with
+                                            not: {pattern: $WITH}
+                                            has: {kind: cte_definition, has: {field: name, pattern: $CTE}}
+                                        - inside:
+                                            kind: *scope
+                                            stopBy: end
+                                            has: {field: with, pattern: $WITH}
+message: '`$AGGREGATE` takes ordered rows without an aggregate `order by` clause'
+note: 'Order aggregate inputs inside the call and retain subquery ordering that selects limited rows'

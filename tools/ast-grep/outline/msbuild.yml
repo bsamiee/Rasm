@@ -3,15 +3,14 @@ language: xml
 role: item
 symbolType: module
 rule:
-    kind: STag, EmptyElemTag
-    pattern: _TAG
-    has: {kind: Name, regex: '^Project$'}
-    inside: {kind: element, inside: {kind: document}}
-transform:
-    LINE: {replace: {source: $TAG, replace: '\s*\n\s*', by: ' '}}
-    HEADER: {replace: {source: $LINE, replace: '^<[^\s/>]+\s*/?>$', by: ''}}
+    kind: Name
+    regex: '^Project$'
+    inside:
+        kind: STag, EmptyElemTag
+        pattern: $TAG
+        inside: {kind: element, inside: {kind: document, field: root}}
 name: Project
-signature: $HEADER
+signature: $TAG
 isExported: false
 
 ---
@@ -23,16 +22,51 @@ rule:
     kind: element
     has:
         kind: STag, EmptyElemTag
-        pattern: _TAG
+        pattern: $TAG
         all:
             - has: {kind: Name, regex: '^Import$'}
-            - has: {kind: Attribute, all: [{has: {kind: Name, regex: '^Project$'}}, {has: {kind: AttValue, pattern: _PATH}}]}
-    inside: {kind: content, stopBy: {not: {any: [{kind: content}, {kind: element, has: {kind: STag, has: {kind: Name, regex: '^ImportGroup$'}}}]}}, inside: {kind: element, inside: {kind: document}}}
+            - has: {kind: Attribute, all: [{has: {kind: Name, regex: '^Project$'}}, {has: {kind: AttValue, pattern: $PATH}}]}
+    inside:
+        kind: content
+        stopBy: {not: {any: [{kind: content}, {kind: element, has: {kind: STag, has: {kind: Name, regex: '^ImportGroup$'}}}]}}
+        inside: {kind: element, has: {kind: STag, has: {kind: Name, regex: '^Project$'}}, inside: {kind: document, field: root}}
 transform:
     NAME: substring($PATH, startChar=1, endChar=-1)
-    LINE: {replace: {source: $TAG, replace: '\s*\n\s*', by: ' '}}
 name: $NAME
-signature: $LINE
+signature: $TAG
+isImport: true
+isExported: false
+
+---
+id: msbuild-sdk
+language: xml
+role: item
+symbolType: module
+rule:
+    any:
+        - kind: Attribute
+          pattern: $TAG
+          all:
+              - has: {kind: Name, regex: '^Sdk$'}
+              - has: {kind: AttValue, pattern: $VALUE}
+              - inside:
+                    kind: STag, EmptyElemTag
+                    has: {kind: Name, regex: '^Project$'}
+                    inside: {kind: element, inside: {kind: document, field: root}}
+        - kind: element
+          has:
+              kind: STag, EmptyElemTag
+              pattern: $TAG
+              all:
+                  - has: {kind: Name, regex: '^Sdk$'}
+                  - has: {kind: Attribute, all: [{has: {kind: Name, regex: '^Name$'}}, {has: {kind: AttValue, pattern: $VALUE}}]}
+          inside:
+              kind: content
+              inside: {kind: element, has: {kind: STag, has: {kind: Name, regex: '^Project$'}}, inside: {kind: document, field: root}}
+transform:
+    NAME: substring($VALUE, startChar=1, endChar=-1)
+name: $NAME
+signature: $TAG
 isImport: true
 isExported: false
 
@@ -45,17 +79,17 @@ rule:
     kind: element
     has:
         kind: STag, EmptyElemTag
-        pattern: _TAG
+        pattern: $TAG
         all:
             - has: {kind: Name, regex: '^UsingTask$'}
-            - has: {kind: Attribute, all: [{has: {kind: Name, regex: '^TaskName$'}}, {has: {kind: AttValue, pattern: _TASK}}]}
-    inside: {kind: content, inside: {kind: element, inside: {kind: document}}}
+            - has: {kind: Attribute, all: [{has: {kind: Name, regex: '^TaskName$'}}, {has: {kind: AttValue, pattern: $TASK}}]}
+    inside:
+        kind: content
+        inside: {kind: element, has: {kind: STag, has: {kind: Name, regex: '^Project$'}}, inside: {kind: document, field: root}}
 transform:
     NAME: substring($TASK, startChar=1, endChar=-1)
-    LINE: {replace: {source: $TAG, replace: '\s*\n\s*', by: ' '}}
 name: $NAME
-signature: $LINE
-isExported: false
+signature: $TAG
 
 ---
 id: msbuild-group
@@ -66,20 +100,25 @@ rule:
     kind: element
     has:
         kind: STag, EmptyElemTag
-        pattern: _TAG
-        has: {kind: Name, regex: '^(PropertyGroup|ItemGroup)$'}
+        pattern: $TAG
+        has: {kind: Name, regex: '^(PropertyGroup|ItemGroup|ItemDefinitionGroup)$'}
     inside:
         kind: content
         stopBy: {not: {any: [{kind: content}, {kind: element, has: {kind: STag, has: {kind: Name, regex: '^(Choose|When|Otherwise)$'}}}]}}
-        inside: {kind: element, inside: {kind: document}}
+        inside: {kind: element, has: {kind: STag, has: {kind: Name, regex: '^Project$'}}, inside: {kind: document, field: root}}
+rewriters:
+    - id: group-name
+      rule: {kind: Name, pattern: $GROUP, inside: {kind: 'STag, EmptyElemTag'}}
+      fix: $GROUP
+    - id: group-label
+      rule: {kind: AttValue, pattern: $LABEL_VALUE, regex: '^["''][\s\S]+["'']$', inside: {kind: Attribute, has: {kind: Name, regex: '^Label$'}}}
+      transform:
+          LABEL: substring($LABEL_VALUE, startChar=1, endChar=-1)
+      fix: $LABEL
 transform:
-    LABELED: {replace: {source: $TAG, replace: '^<(\w+)(?:[\s\S]*\sLabel=["'']([^"'']*)["''])?[\s\S]*$', by: '$1 $2'}}
-    NAME: {replace: {source: $LABELED, replace: '\s+$', by: ''}}
-    LINE: {replace: {source: $TAG, replace: '\s*\n\s*', by: ' '}}
-    HEADER: {replace: {source: $LINE, replace: '^<[^\s/>]+\s*/?>$', by: ''}}
+    NAME: {rewrite: {source: $TAG, rewriters: [group-name, group-label], joinBy: ' '}}
 name: $NAME
-signature: $HEADER
-isExported: false
+signature: $TAG
 
 ---
 id: msbuild-target
@@ -90,54 +129,56 @@ rule:
     kind: element
     has:
         kind: STag, EmptyElemTag
-        pattern: _TAG
+        pattern: $TAG
         all:
             - has: {kind: Name, regex: '^Target$'}
-            - has: {kind: Attribute, all: [{has: {kind: Name, regex: '^Name$'}}, {has: {kind: AttValue, pattern: _VALUE}}]}
-    inside: {kind: content, inside: {kind: element, inside: {kind: document}}}
+            - has: {kind: Attribute, all: [{has: {kind: Name, regex: '^Name$'}}, {has: {kind: AttValue, pattern: $VALUE}}]}
+    inside:
+        kind: content
+        inside: {kind: element, has: {kind: STag, has: {kind: Name, regex: '^Project$'}}, inside: {kind: document, field: root}}
 transform:
     NAME: substring($VALUE, startChar=1, endChar=-1)
-    LINE: {replace: {source: $TAG, replace: '\s*\n\s*', by: ' '}}
 name: $NAME
-signature: $LINE
-isExported: false
+signature: $TAG
 
 ---
 id: msbuild-property
 language: xml
 role: member
-parentRuleIds: [msbuild-group]
+parentRuleIds: [msbuild-group, msbuild-target]
 symbolType: property
 rule:
     kind: element
-    pattern: _PROPERTY
-    has: {kind: 'STag, EmptyElemTag', has: {kind: Name, pattern: _NAME}}
+    pattern: $PROPERTY
+    has: {kind: 'STag, EmptyElemTag', has: {kind: Name, pattern: $NAME}}
     inside: {kind: content, inside: {kind: element, has: {kind: STag, has: {kind: Name, regex: '^PropertyGroup$'}}}}
-transform:
-    LINE: {replace: {source: $PROPERTY, replace: '\s*\n\s*', by: ' '}}
 name: $NAME
-signature: $LINE
+signature: $PROPERTY
 
 ---
 id: msbuild-item
 language: xml
 role: member
-parentRuleIds: [msbuild-group]
+parentRuleIds: [msbuild-group, msbuild-target]
 symbolType: variable
 rule:
     kind: element
-    has:
-        kind: STag, EmptyElemTag
-        pattern: _TAG
-        all:
-            - has: {kind: Name, pattern: _NAME}
-            - has: {kind: Attribute, all: [{has: {kind: Name, regex: '^(Include|Update|Remove)$'}}, {has: {kind: AttValue, pattern: _VALUE}}]}
-    inside: {kind: content, inside: {kind: element, has: {kind: STag, has: {kind: Name, regex: '^ItemGroup$'}}}}
+    pattern: $ITEM
+    has: {kind: 'STag, EmptyElemTag', pattern: $TAG}
+    inside: {kind: content, inside: {kind: element, has: {kind: STag, has: {kind: Name, regex: '^(ItemGroup|ItemDefinitionGroup)$'}}}}
+rewriters:
+    - id: item-name
+      rule: {kind: Name, pattern: $ITEM_NAME, inside: {kind: 'STag, EmptyElemTag'}}
+      fix: $ITEM_NAME
+    - id: item-specification
+      rule: {kind: AttValue, pattern: $ITEM_VALUE, inside: {kind: Attribute, has: {kind: Name, regex: '^(Include|Update|Remove)$'}}}
+      transform:
+          SPECIFICATION: substring($ITEM_VALUE, startChar=1, endChar=-1)
+      fix: $SPECIFICATION
 transform:
-    SPEC: substring($VALUE, startChar=1, endChar=-1)
-    LINE: {replace: {source: $TAG, replace: '\s*\n\s*', by: ' '}}
-name: '$NAME $SPEC'
-signature: $LINE
+    NAME: {rewrite: {source: $TAG, rewriters: [item-name, item-specification], joinBy: ' '}}
+name: $NAME
+signature: $ITEM
 
 ---
 id: msbuild-target-group
@@ -146,19 +187,23 @@ role: member
 parentRuleIds: [msbuild-target]
 symbolType: object
 rule:
-    kind: element
-    has:
-        kind: STag, EmptyElemTag
-        pattern: _TAG
-        has: {kind: Name, regex: '^(PropertyGroup|ItemGroup)$'}
-    inside: {kind: content, inside: {kind: element, has: {kind: STag, has: {kind: Name, regex: '^Target$'}}}}
+    kind: STag, EmptyElemTag
+    pattern: $TAG
+    has: {kind: Name, regex: '^(PropertyGroup|ItemGroup)$'}
+    inside: {kind: element, inside: {kind: content, inside: {kind: element, has: {kind: STag, has: {kind: Name, regex: '^Target$'}}}}}
+rewriters:
+    - id: group-name
+      rule: {kind: Name, pattern: $GROUP, inside: {kind: 'STag, EmptyElemTag'}}
+      fix: $GROUP
+    - id: group-label
+      rule: {kind: AttValue, pattern: $LABEL_VALUE, regex: '^["''][\s\S]+["'']$', inside: {kind: Attribute, has: {kind: Name, regex: '^Label$'}}}
+      transform:
+          LABEL: substring($LABEL_VALUE, startChar=1, endChar=-1)
+      fix: $LABEL
 transform:
-    LABELED: {replace: {source: $TAG, replace: '^<(\w+)(?:[\s\S]*\sLabel=["'']([^"'']*)["''])?[\s\S]*$', by: '$1 $2'}}
-    NAME: {replace: {source: $LABELED, replace: '\s+$', by: ''}}
-    LINE: {replace: {source: $TAG, replace: '\s*\n\s*', by: ' '}}
-    HEADER: {replace: {source: $LINE, replace: '^<[^\s/>]+\s*/?>$', by: ''}}
+    NAME: {rewrite: {source: $TAG, rewriters: [group-name, group-label], joinBy: ' '}}
 name: $NAME
-signature: $HEADER
+signature: $TAG
 
 ---
 id: msbuild-task
@@ -167,14 +212,90 @@ role: member
 parentRuleIds: [msbuild-target]
 symbolType: method
 rule:
+    kind: STag, EmptyElemTag
+    pattern: $TAG
+    has: {kind: Name, pattern: $NAME, not: {regex: '^(PropertyGroup|ItemGroup|OnError)$'}}
+    inside: {kind: element, inside: {kind: content, inside: {kind: element, has: {kind: STag, has: {kind: Name, regex: '^Target$'}}}}}
+name: $NAME
+signature: $TAG
+
+---
+id: msbuild-task-parameter
+language: xml
+role: member
+parentRuleIds: [msbuild-using-task]
+symbolType: property
+rule:
+    kind: element
+    has: {kind: 'STag, EmptyElemTag', pattern: $TAG, has: {kind: Name, pattern: $NAME}}
+    inside:
+        kind: content
+        inside:
+            kind: element
+            has: {kind: STag, has: {kind: Name, regex: '^ParameterGroup$'}}
+            inside: {kind: content, inside: {kind: element, has: {kind: STag, has: {kind: Name, regex: '^UsingTask$'}}}}
+name: $NAME
+signature: $TAG
+
+---
+id: msbuild-output-property
+language: xml
+role: member
+parentRuleIds: [msbuild-target]
+symbolType: property
+rule:
     kind: element
     has:
         kind: STag, EmptyElemTag
-        pattern: _TAG
-        has: {kind: Name, pattern: _NAME, not: {regex: '^(PropertyGroup|ItemGroup)$'}}
-    inside: {kind: content, inside: {kind: element, has: {kind: STag, has: {kind: Name, regex: '^Target$'}}}}
+        pattern: $TAG
+        all:
+            - has: {kind: Name, regex: '^Output$'}
+            - has: {kind: Attribute, all: [{has: {kind: Name, regex: '^PropertyName$'}}, {has: {kind: AttValue, pattern: $VALUE}}]}
+    inside:
+        kind: content
+        inside:
+            kind: element
+            has: {kind: STag, has: {kind: Name, not: {regex: '^(PropertyGroup|ItemGroup|OnError)$'}}}
+            inside: {kind: content, inside: {kind: element, has: {kind: STag, has: {kind: Name, regex: '^Target$'}}}}
 transform:
-    LINE: {replace: {source: $TAG, replace: '\s*\n\s*', by: ' '}}
-    HEADER: {replace: {source: $LINE, replace: '^<[^\s/>]+\s*/?>$', by: ''}}
+    NAME: substring($VALUE, startChar=1, endChar=-1)
 name: $NAME
-signature: $HEADER
+signature: $TAG
+
+---
+id: msbuild-output-item
+language: xml
+role: member
+parentRuleIds: [msbuild-target]
+symbolType: variable
+rule:
+    kind: element
+    has:
+        kind: STag, EmptyElemTag
+        pattern: $TAG
+        all:
+            - has: {kind: Name, regex: '^Output$'}
+            - has: {kind: Attribute, all: [{has: {kind: Name, regex: '^ItemName$'}}, {has: {kind: AttValue, pattern: $VALUE}}]}
+    inside:
+        kind: content
+        inside:
+            kind: element
+            has: {kind: STag, has: {kind: Name, not: {regex: '^(PropertyGroup|ItemGroup|OnError)$'}}}
+            inside: {kind: content, inside: {kind: element, has: {kind: STag, has: {kind: Name, regex: '^Target$'}}}}
+transform:
+    NAME: substring($VALUE, startChar=1, endChar=-1)
+name: $NAME
+signature: $TAG
+
+---
+id: msbuild-on-error
+language: xml
+role: member
+parentRuleIds: [msbuild-target]
+symbolType: event
+rule:
+    kind: element
+    has: {kind: 'STag, EmptyElemTag', pattern: $TAG, has: {kind: Name, regex: '^OnError$'}}
+    inside: {kind: content, inside: {kind: element, has: {kind: STag, has: {kind: Name, regex: '^Target$'}}}}
+name: OnError
+signature: $TAG

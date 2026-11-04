@@ -11,7 +11,7 @@ namespace Rasm.UI.Typography;
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record Span(string Text) {
-    public Option<Role> Role { get; init; }
+    public Option<Key> Role { get; init; }
     public HashSet<Condition> Conditions { get; init; }
     public Option<CultureInfo> Language { get; init; }
     public Option<Part> Part { get; init; }
@@ -25,15 +25,6 @@ public sealed record Span(string Text) {
             toSeq(held.Second.Cons(toSeq(offsets.Filter(at => at > held.Second && at < held.Second + held.First.Text.Length).Distinct().Order())).Add(held.Second + held.First.Text.Length)
                 .AsIterable().Window(2, cut => held.First with { Text = held.First.Text[(cut[0] - held.Second)..(cut[1] - held.Second)] })))
             .Filter(static piece => piece.Text.Length > 0);
-}
-
-[SmartEnum]
-public sealed partial class Truncation {
-    public static readonly Truncation End = new(Fraction.MaxValue);
-    public static readonly Truncation Middle = new(Fraction.Half);
-    public static readonly Truncation Start = new(Fraction.MinValue);
-
-    internal Fraction Head { get; }
 }
 
 public sealed record Halo(ColorValue Color, float Width, float Blur);
@@ -92,9 +83,12 @@ internal sealed record TextStyle : IStyle {
     public UnderlineStyle Underline { get; init; }
     public StrikeThroughStyle StrikeThrough { get; init; }
     public float LineHeight { get; init; }
-    public SKColor TextColor { get; init; }
-    public SKColor BackgroundColor { get; init; }
-    public SKColor HaloColor { get; init; }
+    public SKColorF TextColor { get; init; }
+    public SKColorF BackgroundColor { get; init; }
+    public SKColorF HaloColor { get; init; }
+    SKColor IStyle.TextColor => (SKColor)TextColor;
+    SKColor IStyle.BackgroundColor => (SKColor)BackgroundColor;
+    SKColor IStyle.HaloColor => (SKColor)HaloColor;
     public float HaloWidth { get; init; }
     public float HaloBlur { get; init; }
     public float LetterSpacing { get; init; }

@@ -25,7 +25,7 @@ Shared mutable state creates problems:
 - Hidden coupling, every reader depends on every code path that can change the shared object
 - Loss of purity, changing state outside a function's local scope is an observable side effect
 
-Locks protect one update, and atomicity grows harder to reason about as one business action reaches more objects or subsystems. Asynchronous and parallel execution raise the hazards of threads, and a system combining concurrency with shared mutation cannot be shown free of race conditions. Mutation confined to a function keeps the function pure, and `Fold` expresses a local accumulator hidden from callers.
+Locks protect one update, atomicity across objects or subsystems needs coordinated ownership. Asynchronous and parallel operations can interleave accesses. Mutation confined to a function keeps the function pure, `Fold` expresses a local accumulator hidden from callers.
 
 ## [03]-[VALUES_AND_ENTITIES]
 
@@ -81,53 +81,15 @@ Immutable updates allocate a new top-level object and raise garbage collection. 
 - Mutable designs can require locks and defensive copying
 - Safety comes first, optimization goes to a measured hot path alone
 
-## [07]-[PERSISTENT_LISTS]
+## [07]-[PERSISTENT_SEQUENCES]
 
-Functional singly linked lists are recursive, and persistent means earlier in-memory versions stay available after an update, with nothing written to disk:
+Persistence keeps earlier in-memory versions available after an update, independently of representation. `Head`, `Tail`, `Match`, and `Cons` describe sequence operations without implying linked nodes or constant-time prepends. Aggregate a long history with `Fold`, direct recursion grows the CLR stack.
 
-```text
-List<T> = Empty | Cons(head: T, tail: List<T>)
-```
-
-`Seq<A>` represents both cases through `Head`, `Tail`, and `Match`, a traversal recurses through the tail, and `Seq(a, b, c)` and `toSeq` build a sequence in the caller's order:
-
-```csharp
-internal static class Histories {
-    public static Seq<Entry> Prepend(Entry entry, Seq<Entry> history) => entry.Cons(history);
-    public static Option<Entry> Newest(Seq<Entry> history) => history.Head;
-    public static Seq<Entry> Older(Seq<Entry> history) => history.Tail;
-    public static decimal Balance(Seq<Entry> history) =>
-        history.Match(
-            Empty: static () => 0m,
-            Tail: static (head, tail) => head.Amount + Balance(tail));
-    public static Lst<Entry> Corrected(Lst<Entry> ledger, int index, Entry corrected) => ledger.SetItem(index, corrected);
-}
-```
-
-Prepends share the whole existing list, and the immutable tail lets the original and every derived list coexist:
-
-```text
-original:       A -> B -> C
-prepend X: X -> A -> B -> C
-prepend Y: Y -> A -> B -> C
-```
-
-Operation costs stay within the order of magnitude of the mutable structure:
-- Prepend is `O(1)` with one new node, and removing the head is `O(1)` by returning the tail
-- `Map`, `Filter`, and a full aggregation are `O(n)`
-- Inserting or removing at index `m` is `O(m)` traversal with `m` rebuilt prefix nodes
-- Indexed operations belong on `Lst<A>` with `Insert`, `RemoveAt`, and `SetItem` over a balanced tree
-- Repeated appends at the end fit poorly, a queue-like workload takes another structure
-
-When emptiness matters, consume the sequence through `Match`. Recursion can overflow the stack on a long list, and a long history folds with `Fold`.
+Use `dotnet-coding-languageext` for collection representations and operation costs.
 
 ## [08]-[PERSISTENT_TREES]
 
-Binary trees are defined recursively, `Map<K, V>` implements the model, `Select` rebuilds the same shape with transformed values, and `Fold` threads an accumulator through the tree:
-
-```text
-Tree<T> = Leaf(value: T) | Branch(left: Tree<T>, right: Tree<T>)
-```
+`Map<K, V>` stores ordered keys in a balanced tree, and updates share unchanged subtrees. `Select` transforms values and `Fold` threads an accumulator through them.
 
 `Add`, `Find`, and `SetItem` associate an entity identity with its current snapshot. `Add` throws for a present key and `SetItem` for an absent one, both programming errors:
 
@@ -147,4 +109,4 @@ old root                 new root
 L      R         ->      L    rebuilt R
 ```
 
-Insertions into a balanced tree of `n` elements create about `log n + 2` objects with the tree's arity as logarithm base, and a higher-arity tree stays shallow for a large collection. `Map<K, V>` balances itself on every `Add` to keep the rebuilt path within the bound. Immutable snapshots and persistent structures remove time-dependent behavior from data access, and components share values without coordinating changes.
+Balanced-tree insertion rebuilds an `O(log n)` path, rotations preserve balance while untouched subtrees stay shared. Immutable snapshots let components share values without coordinating changes.

@@ -70,7 +70,6 @@ public sealed partial class TargetFile {
     private static IO<Unit> Windowed(RhinoDoc doc, SaveSource source, OutputTarget target, FileMetadata metadata, OutputPath path, bool overwrite) =>
         IO.lift(() => Path.Join(Path.GetTempPath(), $"{Guid.NewGuid():N}{Path.GetExtension(path)}")).Bind(scratch =>
             (from saved in IO.lift(() => source.Rendering.SaveRenderImageAs(scratch, target.Alpha))
-             from found in IO.lift(() => DarkroomFault.Unless(File.Exists(scratch), DarkroomReason.Unsaved, (string)path))
              from written in FilePublication.Write(path, overwrite, stream =>
                  (from read in use(() => File.OpenRead(scratch))
                   from copied in IO.liftAsync(environment => read.CopyToAsync(stream, environment.Token).ToUnit())

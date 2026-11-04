@@ -3,8 +3,6 @@ id: no-fourth-nesting-level-csharp
 language: csharplang
 severity: error
 utils:
-    declaration:
-        kind: method_declaration, constructor_declaration, destructor_declaration, operator_declaration, conversion_operator_declaration, accessor_declaration
     binding:
         kind: switch_expression
         all:
@@ -19,7 +17,7 @@ utils:
               not: {inside: {kind: if_statement, field: alternative}}
             - kind: conditional_expression
               not: {inside: {kind: conditional_expression, field: alternative, stopBy: {not: {kind: parenthesized_expression}}}}
-    scope: {any: [{matches: control}, {kind: &closure 'lambda_expression, anonymous_method_expression, local_function_statement'}, {matches: declaration}]}
+    scope: {any: [{matches: control}, &declaration {kind: 'lambda_expression, anonymous_method_expression, local_function_statement, method_declaration, constructor_declaration, destructor_declaration, operator_declaration, conversion_operator_declaration, accessor_declaration'}]}
     conditioned:
         any:
             - inside: {kind: 'if_statement, while_statement, do_statement, for_statement, conditional_expression', field: condition, stopBy: &scope {matches: scope}}
@@ -30,30 +28,19 @@ utils:
             - nthChild: 1
               inside: {matches: control, kind: switch_expression}
             - inside: {nthChild: 1, inside: {matches: control, kind: switch_expression}, stopBy: *scope}
-    nested-body:
-        any:
-            - has: {kind: block, has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
-            - has: {matches: control, stopBy: {kind: *closure}}
     level:
-        any:
-            - matches: control
-              not: {matches: conditioned}
-            - kind: *closure
-              all:
-                - inside: {matches: control, stopBy: {matches: declaration}}
-                - not: {matches: conditioned}
-                - matches: nested-body
+        matches: control
+        not: {matches: conditioned}
     body:
         any:
             - inside: {matches: level, field: body}
             - inside: {matches: level, field: consequence}
             - inside: {matches: level, field: alternative}
             - {kind: switch_expression_arm, inside: {matches: level}}
-            - {kind: block, inside: {kind: anonymous_method_expression, matches: level}}
     within-first:
         any:
             - {matches: body, inside: {matches: level}}
-            - inside: {matches: body, stopBy: &declaration {matches: declaration}, inside: {matches: level}}
+            - inside: {matches: body, stopBy: *declaration, inside: {matches: level}}
     second: {matches: level, all: [{matches: within-first}]}
     within-second:
         any:
@@ -70,15 +57,16 @@ utils:
             - {matches: body, inside: {matches: fourth}}
             - inside: {matches: body, stopBy: *declaration, inside: {matches: fourth}}
 rule:
-    matches: fourth
     pattern: $SCOPE
-    not: {matches: within-fourth}
-    inside:
-        matches: body
-        stopBy: *declaration
-        inside: {matches: level, pattern: $OUTER, not: {matches: within-first}}
+    all:
+        - matches: fourth
+        - not: {matches: within-fourth}
+        - inside:
+            matches: body
+            stopBy: *declaration
+            inside: {matches: level, pattern: $OUTER, not: {matches: within-first}}
 labels:
     SCOPE: {style: primary, message: Fourth nesting level}
     OUTER: {style: secondary, message: First nesting level}
 message: Nesting reaches a fourth level
-note: 'Rebuild nested decisions, loops, or lambdas as one switch expression, query expression, or pipeline over their inputs'
+note: 'Rebuild nested decisions or loops as one switch expression, query expression, or pipeline over their inputs'

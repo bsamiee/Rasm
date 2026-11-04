@@ -105,15 +105,11 @@ Cargo owns resolution, lock, and build through root `Cargo.toml`.
 
 ## [09]-[LINT_LIBRARIES]
 
-- One crate `lints` at `tools/dylint/` holds every lint
-- `lints` is a workspace member `[workspace.metadata.dylint]` names, catalog rows and `[workspace.lints]` reach it as any member
-- `lints` exports `register_lints` through `__maybe_mangle!` beside `dylint_library!()`, `unsafe_code = "forbid"` passes the macro-written export
-- Lint modules hold one pass and its `Warn` lints in Clippy file order: one root `lint!` call, the pass's own `new` if any, then `impl LateLintPass`
-- Lint modules are plain `mod` items rustfmt reaches, one root `lints!` call registers each pass by `<module path>::<Pass>`
-- `lint!` writes a unit `Pass` and `new`, `default <Pass>` derives `new` from `Default`, passes holding resolved items write `new` from `TyCtxt`
-- Forms a lint splits by export belong to the lint whatever their `pub` text, an ast-grep rule over the same form excludes it through one shared util
-- `host:dylint` members take no `coverage`, the dylint driver runs their lints outside instrumentation
-- Drivers stay under `~/.dylint_drivers`, dylint refuses a missing driver directory and `rasm:clean` removes `.cache`
+`[workspace.metadata.dylint]` selects workspace lint libraries with inherited dependencies and lint policy:
+- Export `register_lints` through `__maybe_mangle!` beside `dylint_library!()` for native exports under `unsafe_code = "forbid"`
+- Resolved types and effective visibility belong to Dylint; overlapping ast-grep rules exclude those forms through shared utilities
+- Lint libraries stay outside application coverage; Dylint's driver executes their diagnostics
+- Drivers use Dylint's native cache outside project cleanup
 
 ## [10]-[MODULES]
 

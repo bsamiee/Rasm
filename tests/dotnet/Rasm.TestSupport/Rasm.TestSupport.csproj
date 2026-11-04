@@ -3,6 +3,10 @@
         <Description>Property and reference checks over generated edge-case inputs</Description>
     </PropertyGroup>
 
+    <ItemGroup Label="Mathematics">
+        <PackageReference Include="MathNet.Numerics" />
+    </ItemGroup>
+
     <ItemGroup Label="Testing">
         <PackageReference Include="CsCheck" />
         <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />

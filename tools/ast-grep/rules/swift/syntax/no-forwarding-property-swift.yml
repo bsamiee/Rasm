@@ -14,6 +14,7 @@ utils:
         has: {field: target, matches: swift-member-reference, not: {regex: '^[A-Z]'}}
     own-call:
         kind: call_expression
+        pattern: $READ
         any:
             - all:
                 - has: {matches: own-callee}
@@ -34,12 +35,8 @@ utils:
     getter:
         kind: statements
         any:
-            - all:
-                - matches: swift-forwarded-member
-                - has: {stopBy: end, kind: navigation_expression, pattern: $READ}
-            - all:
-                - matches: {swift-single-statement: {first: {matches: own-call-statement}}}
-                - has: {stopBy: end, kind: call_expression, pattern: $READ}
+            - matches: {swift-forwarded-member: {read: {pattern: $READ}}}
+            - matches: {swift-single-statement: {first: {matches: own-call-statement}}}
     setter-value:
         kind: simple_identifier
         any:
@@ -69,6 +66,7 @@ rule:
         - has: {field: name, has: {field: bound_identifier, pattern: $NAME}}
         - not: {has: {field: name, regex: '^body$'}}
         - not: {matches: host-member}
+        - not: {has: {field: computed_value, has: {kind: computed_init}}}
         - has:
             field: computed_value
             any:

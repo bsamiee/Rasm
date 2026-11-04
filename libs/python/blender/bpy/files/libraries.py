@@ -7,14 +7,14 @@ from pathlib import Path
 from typing import Literal, Self, TYPE_CHECKING, TypedDict, Unpack
 
 import bpy
-from expression import Nothing, Ok, Option, try_downcast
+from expression import Option, try_downcast
 from expression.extra.result import catch
 import msgspec
 
 from blender.bpy.data.ids.store import Handle, member, STORES
 from blender.bpy.data.rna.descriptors import Descriptor, written
 from blender.bpy.data.rna.paths import parsed
-from blender.records.faults import accumulated, Fault, Outcome, Reason
+from blender.records.faults import accumulated, Error, Fault, Nothing, Ok, Outcome, Reason
 from blender.records.stores import folder_made
 
 if TYPE_CHECKING:
@@ -87,10 +87,10 @@ class OverrideResync(msgspec.Struct, frozen=True, kw_only=True):
     @classmethod
     def read(cls) -> Self:
         """Returns resync-flagged libraries and `OVERRIDE_RESYNC_LEFTOVERS` objects."""
-        leftovers: bpy.types.Collection | None = bpy.data.collections.get("OVERRIDE_RESYNC_LEFTOVERS")
+        leftovers = catch(lambda: bpy.data.collections["OVERRIDE_RESYNC_LEFTOVERS"], exception=KeyError)().to_option()
         return cls(
             libraries=tuple(Handle.of(library) for library in bpy.data.libraries if library.needs_liboverride_resync),
-            leftovers=tuple(Handle.of(block) for held in Option.of_optional(leftovers).to_list() for block in held.all_objects),
+            leftovers=tuple(Handle.of(block) for held in leftovers.to_list() for block in held.all_objects),
         )
 
 
@@ -141,19 +141,21 @@ def sourced[T](
 @contextmanager
 def inspected(path: Path) -> Generator[Outcome[bpy.types.BlendData]]:
     """Yields temporary BlendData of another file until scope exit, libraries and workspaces left unlinked."""
-    stores = tuple(identifier for kind, identifier in STORES.items() if not issubclass(kind, bpy.types.Library | bpy.types.WorkSpace))
+    stores = frozenset(identifier for kind, identifier in STORES.items() if not issubclass(kind, bpy.types.Library | bpy.types.WorkSpace))
     with bpy.data.temp_data(filepath="") as data:  # type: ignore[var-annotated]
-        yield sourced(data, path, lambda source: (None, {name: names for name in stores for names in Option.of_optional(getattr(source, name, None)).to_list()}), link=True).map(lambda _: data)  # ty: ignore[unsound-yield]
+        yield sourced(data, path, lambda source: (None, {name: getattr(source, name) for name in dir(source) if name in stores}), link=True).map(lambda _: data)  # ty: ignore[unsound-yield]
 
 
 def _listing(source: object, kind: type[bpy.types.ID], path: Path) -> Outcome[tuple[str, Sequence[str]]]:
     store = member(kind)
-    return (
-        Option
-        .of_optional(None if issubclass(kind, bpy.types.Library) else getattr(source, store, None))
-        .map(lambda names: (store, names))
-        .to_result_with(lambda: Fault.of(Reason.ABSENT, str(path), member=store))
-    )
+    absent = partial(Fault.of, Reason.ABSENT, str(path), member=store)
+    if issubclass(kind, bpy.types.Library):
+        return Error(absent())
+    try:
+        names: Sequence[str] = getattr(source, store)  # ty: ignore[unsound-assignment]
+    except AttributeError as error:
+        return Error(absent(error))
+    return Ok((store, names))
 
 
 def listed(path: Path, kind: type[bpy.types.ID], **load: bool) -> Outcome[tuple[str, ...]]:
@@ -180,7 +182,7 @@ def blocks_loaded[T: bpy.types.ID](path: Path, kind: type[T], names: tuple[str, 
                 lambda selected: (listing[0], selected)
             )
         )
-        return found, found.map(lambda selected: {selected[0]: selected[1]}).default_value({})
+        return found, dict(found.to_option().to_list())
 
     return sourced(bpy.data, path, chosen, **load).bind(
         lambda answer: answer[0].bind(

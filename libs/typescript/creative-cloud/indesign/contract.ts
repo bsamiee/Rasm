@@ -1,13 +1,11 @@
-import { HostError, ObjectModel, Reference, Requests, request } from '@rasm/automation/requests';
-import { Typesetting } from '@rasm/automation/typesetting';
-import { Settings } from '@rasm/typography/settings';
-import { Source } from '@rasm/typography/source';
-import { Manifest } from '@rasm/uxp/manifest';
+import { HostError, ObjectModel, Reference, Requests, request, Typesetting } from '@rasm/automation';
+import { Settings, Source } from '@rasm/typography';
+import { UxpManifest } from '@rasm/uxp';
 import { Effect, Option, Record, Schema, SchemaTransformation, Struct } from 'effect';
 import { RpcMiddleware } from 'effect/rpc';
-import { Slice } from '#/dom/slice';
-import { Specifier } from '#/dom/specifier';
-import { Value } from '#/dom/value';
+import { Slice } from '#/internal/slice';
+import { Specifier } from '#/internal/specifier';
+import { Value } from '#/internal/value';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -223,6 +221,19 @@ class Inspect extends Schema.Class<Inspect, { readonly brand: unique symbol }>('
     });
     static readonly Items = Schema.TaggedStruct('Items', { specifier: Schema.String, total: Schema.Int, items: Schema.Array(Reference.mapFields(Struct.assign({ fields: Inspect.Readings }))) });
     static readonly Result = Schema.Union([Inspect.Object, Inspect.Items]);
+    static readonly Extent = Extent;
+    static readonly Application = Application;
+    static readonly Document = Document;
+    static readonly Page = Page;
+    static readonly Spread = Spread;
+    static readonly Layer = Layer;
+    static readonly Style = Style;
+    static readonly Swatch = Swatch;
+    static readonly Link = Link;
+    static readonly Story = Story;
+    static readonly Text = Text;
+    static readonly Font = Font;
+    static readonly PreflightProcess = PreflightProcess;
 }
 class Change extends Schema.Class<Change, { readonly brand: unique symbol }>('Change')({ target: Specifier.Path, values: Value.Fields }) {
     static readonly Result = Reference.Written;
@@ -302,9 +313,9 @@ const InDesign = {
     Contract: Requests.add(request('inspect', Inspect), request('change', Change), request('call', Call), request('find_change', FindChange), request('font', FontFile), request('menu', Menu), request('invoke', Invoke), request('preflight', Preflight)).merge(Typesetting).middleware(ScriptPreferences),
     ScriptPreferences,
     manifest: { host: { app: 'ID', minVersion: '18.5.0' }, requiredPermissions: { localFileSystem: 'fullAccess', allowCodeGenerationFromStrings: true } },
-    target: Manifest.target,
+    target: UxpManifest.target,
 } as const;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Application, Call, Change, Document, Extent, FindChange, Font, FontFile, InDesign, Inspect, Invoke, Layer, Link, Menu, Page, Preflight, PreflightProcess, Spread, Story, Style, Swatch, Text };
+export { Call, Change, FindChange, FontFile, InDesign, Inspect, Invoke, Menu, Preflight };
