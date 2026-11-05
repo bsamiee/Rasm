@@ -12,18 +12,18 @@ utils:
                     all:
                         - has: {field: value, kind: identifier, pattern: $STATE}
                         - has: {field: field, matches: rust-growing-method}
-                - not: {all: [{has: {field: function, has: {field: field, regex: '^(push|push_mut|push_back|push_back_mut|push_front|push_front_mut|push_str|extend|extend_from_slice|append)$'}}}, {has: {field: arguments, has: {nthChild: 2}}}]}
+                - not: {all: [{has: {field: function, has: {field: field, regex: '^(push|push_mut|push_back|push_back_mut|push_front|push_front_mut|push_str|extend|extend_from_slice|append)$'}}}, {has: {field: arguments, has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}]}
             - kind: 'compound_assignment_expr, assignment_expression'
               has: {field: left, kind: identifier, pattern: $STATE}
     write-statement:
         kind: expression_statement
-        has: {nthChild: 1, matches: state-write}
+        has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: state-write}
     exit-statement:
         any:
             - kind: 'break_expression, continue_expression'
               not: {has: {pattern: $_, not: {kind: label}}}
             - kind: expression_statement
-              has: {nthChild: 1, kind: 'break_expression, continue_expression', not: {has: {pattern: $_, not: {kind: label}}}}
+              has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: 'break_expression, continue_expression', not: {has: {pattern: $_, not: {kind: label}}}}
     effect-free-let:
         kind: let_declaration
         not:
@@ -37,27 +37,27 @@ utils:
         kind: block
         all:
             - has: {matches: write-statement}
-            - not: {has: {matches: rust-statement, not: {any: [{matches: write-statement}, {matches: exit-statement}, {matches: effect-free-let}, {kind: expression_statement, has: {nthChild: 1, matches: index-step}}]}}}
+            - not: {has: {matches: rust-statement, not: {any: [{matches: write-statement}, {matches: exit-statement}, {matches: effect-free-let}, {kind: expression_statement, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: index-step}}]}}}
     guarded-write:
         kind: expression_statement
         has:
-            nthChild: 1
+            nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}
             kind: if_expression
             all:
                 - not: {has: {field: alternative, pattern: $_}}
                 - has: {field: consequence, matches: write-block}
     valued-return:
         kind: return_expression
-        has: {pattern: $_, not: {kind: call_expression, all: [{has: {field: function, regex: '^Some$'}}, {has: {field: arguments, has: {nthChild: 1, kind: identifier, pattern: $ELEMENT}, not: {has: {nthChild: 2}}}}]}}
+        has: {pattern: $_, not: {kind: call_expression, all: [{has: {field: function, regex: '^Some$'}}, {has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: identifier, pattern: $ELEMENT}, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}}]}}
     return-block:
         kind: block
         all:
-            - has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, kind: expression_statement, has: {nthChild: 1, matches: valued-return}}
+            - has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, kind: expression_statement, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: valued-return}}
             - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}
     guarded-return:
         kind: expression_statement
         has:
-            nthChild: 1
+            nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}
             kind: if_expression
             all:
                 - not: {has: {field: alternative, pattern: $_}}
@@ -106,7 +106,7 @@ utils:
     iterating-while:
         kind: while_expression
         all:
-            - has: {field: condition, kind: let_condition, has: {field: value, kind: call_expression, all: [{has: {field: function, kind: field_expression, has: {field: field, regex: '^get$'}}}, {has: {field: arguments, has: {nthChild: 1, kind: identifier, pattern: $INDEX}, not: {has: {nthChild: 2}}}}]}}
+            - has: {field: condition, kind: let_condition, has: {field: value, kind: call_expression, all: [{has: {field: function, kind: field_expression, has: {field: field, regex: '^get$'}}}, {has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: identifier, pattern: $INDEX}, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}}]}}
             - has: {field: body, has: {stopBy: end, matches: index-step}}
 rule:
     any:

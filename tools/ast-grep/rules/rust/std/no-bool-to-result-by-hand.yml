@@ -28,8 +28,8 @@ utils:
             - any:
                 - all: [{matches: ok-first}, {has: {field: condition, matches: postfix-expression, pattern: $P}}]
                 - all: [{matches: ok-first}, {has: {field: condition, matches: compound, pattern: $Q}}]
-                - all: [{matches: error-first}, {has: {field: condition, matches: negation, has: {nthChild: 1, matches: postfix-expression, pattern: $P}}}]
-                - all: [{matches: error-first}, {has: {field: condition, matches: negation, has: {nthChild: 1, matches: compound, pattern: $Q}}}]
+                - all: [{matches: error-first}, {has: {field: condition, matches: negation, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: postfix-expression, pattern: $P}}}]
+                - all: [{matches: error-first}, {has: {field: condition, matches: negation, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: compound, pattern: $Q}}}]
                 - all: [{matches: error-first}, {has: {field: condition, not: {matches: negation}, matches: postfix-expression, pattern: $NP}}]
                 - all: [{matches: error-first}, {has: {field: condition, not: {matches: negation}, matches: compound, pattern: $NQ}}]
             - not: {matches: rust-const-context}

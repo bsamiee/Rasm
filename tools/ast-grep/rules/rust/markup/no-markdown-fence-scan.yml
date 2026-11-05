@@ -14,7 +14,7 @@ utils:
             - kind: call_expression
               all:
                 - has: {field: function, regex: '^((::)?regex::)?(bytes::)?(Regex|RegexBuilder|RegexSet)::new$'}
-                - has: {field: arguments, has: {nthChild: 1, kind: 'string_literal, raw_string_literal', regex: '```|~~~|`\{3[,}]|~\{3[,}]'}}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: 'string_literal, raw_string_literal', regex: '```|~~~|`\{3[,}]|~\{3[,}]'}}
             - kind: binary_expression
               all:
                 - has: {field: operator, regex: '^(==|!=)$'}
@@ -24,7 +24,8 @@ utils:
               inside: {kind: match_pattern, stopBy: end}
 rule:
     kind: 'call_expression, binary_expression, string_literal'
-    pattern: $SCAN
-    matches: fence-scan
+    all:
+        - matches: fence-scan
+        - pattern: $SCAN
 message: '`$SCAN` finds Markdown code fences by line text'
 note: 'Parse with `comrak::parse_document` and read `info` and `literal` of each `comrak::nodes::NodeValue::CodeBlock`'

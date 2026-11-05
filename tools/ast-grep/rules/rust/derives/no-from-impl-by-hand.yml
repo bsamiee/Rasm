@@ -7,15 +7,15 @@ utils:
     local-enum:
         inside: {kind: source_file, stopBy: end, has: {stopBy: end, kind: enum_item, has: {field: name, pattern: $B}}}
     single-argument:
-        all: [{has: {nthChild: 1, kind: identifier, pattern: $P}}, {not: {has: {nthChild: 2}}}]
+        all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: identifier, pattern: $P}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}]
     single-field:
         all:
-            - has: {nthChild: 1, any: [{kind: shorthand_field_initializer, pattern: $P}, {kind: field_initializer, has: {field: value, kind: identifier, pattern: $P}}]}
-            - not: {has: {nthChild: 2}}
+            - has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, any: [{kind: shorthand_field_initializer, pattern: $P}, {kind: field_initializer, has: {field: value, kind: identifier, pattern: $P}}]}
+            - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}
     constructor:
         kind: function_item
         all:
-            - has: {field: parameters, all: [{has: {nthChild: 1, kind: parameter, has: {field: pattern, kind: identifier, pattern: $Q}}}, {not: {has: {nthChild: 2}}}]}
+            - has: {field: parameters, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: parameter, has: {field: pattern, kind: identifier, pattern: $Q}}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}]}
             - has:
                 field: body
                 all:
@@ -23,11 +23,11 @@ utils:
                         nthChild: {position: 1, ofRule: {matches: rust-statement}}
                         any:
                             - kind: call_expression
-                              all: [{has: {field: function, kind: identifier, matches: target-name}}, {has: {field: arguments, all: [{has: {nthChild: 1, kind: identifier, pattern: $Q}}, {not: {has: {nthChild: 2}}}]}}]
+                              all: [{has: {field: function, kind: identifier, matches: target-name}}, {has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: identifier, pattern: $Q}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}]}}]
                             - kind: struct_expression
                               all:
                                 - has: {field: name, matches: target-name}
-                                - has: {field: body, all: [{has: {nthChild: 1, any: [{kind: shorthand_field_initializer, pattern: $Q}, {kind: field_initializer, has: {field: value, kind: identifier, pattern: $Q}}]}}, {not: {has: {nthChild: 2}}}]}
+                                - has: {field: body, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, any: [{kind: shorthand_field_initializer, pattern: $Q}, {kind: field_initializer, has: {field: value, kind: identifier, pattern: $Q}}]}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}]}
                     - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}
     wrapping:
         any:
@@ -71,7 +71,7 @@ utils:
         any:
             - matches: wrapping
             - kind: 'return_expression, become_expression, expression_statement'
-              has: {nthChild: 1, matches: result}
+              has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: result}
     body-statement:
         nthChild: {position: 1, ofRule: {matches: rust-statement}}
     second-statement:
@@ -83,16 +83,16 @@ utils:
             - has:
                 field: parameters
                 all:
-                    - not: {has: {nthChild: 2}}
+                    - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}
                     - has:
-                        nthChild: 1
+                        nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}
                         kind: parameter
                         has:
                             field: pattern
                             any:
                                 - {kind: identifier, pattern: $P}
                                 - kind: tuple_struct_pattern
-                                  all: [{has: {field: type, pattern: $A}}, {has: {nthChild: 2, kind: identifier, pattern: $D}}, {not: {has: {nthChild: 3}}}]
+                                  all: [{has: {field: type, pattern: $A}}, {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: identifier, pattern: $D}}, {not: {has: {nthChild: {position: 3, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}]
             - has:
                 field: body
                 any:
@@ -106,7 +106,7 @@ utils:
 rule:
     kind: impl_item
     all:
-        - has: {field: trait, kind: generic_type, pattern: $TRAIT, all: [{has: {field: type, regex: '^((::)?(std|core)::)?(convert::)?From$'}}, {has: {field: type_arguments, has: {nthChild: 1, pattern: $A}}}]}
+        - has: {field: trait, kind: generic_type, pattern: $TRAIT, all: [{has: {field: type, regex: '^((::)?(std|core)::)?(convert::)?From$'}}, {has: {field: type_arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, pattern: $A}}}]}
         - has: {field: type, any: [{kind: generic_type, has: {field: type, pattern: $B}}, {pattern: $B}]}
         - has: {field: body, has: {matches: from-method}}
         - not: {has: {field: body, has: {kind: function_item, nthChild: {position: 2, ofRule: {kind: function_item}}}}}

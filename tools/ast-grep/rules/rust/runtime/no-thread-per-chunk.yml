@@ -33,7 +33,7 @@ rule:
                 - matches: scope-handle
             - all:
                 - has: {field: function, kind: field_expression, has: {field: field, regex: '^spawn_scoped$'}}
-                - has: {field: arguments, has: {nthChild: 1, kind: identifier, pattern: $S}}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: identifier, pattern: $S}}
                 - matches: scope-handle
             - has: {field: function, regex: '^((::)?std::)?(thread::)?spawn$|^((::)?tokio::)?(task::)?spawn_blocking$'}
         - matches: per-chunk

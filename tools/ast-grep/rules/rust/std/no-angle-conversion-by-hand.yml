@@ -3,7 +3,8 @@ language: rustlang
 severity: error
 rule:
     kind: 'binary_expression, call_expression'
-    pattern: $CONVERSION
-    matches: rust-angle-conversion
+    all:
+        - matches: rust-angle-conversion
+        - pattern: $CONVERSION
 message: '`$CONVERSION` converts an angle between degrees and radians by hand'
 note: 'Call `<value>.to_radians()` or `<value>.to_degrees()` of `f32` or `f64`'

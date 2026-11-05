@@ -22,20 +22,21 @@ utils:
                     - has: {field: left, kind: binary_expression, all: [{has: {field: operator, regex: '^/$'}}, {has: {field: right, matches: kibi}}]}
 rule:
     kind: 'string_literal, raw_string_literal, array_expression, binary_expression'
-    pattern: $FORMAT
-    any:
-        - kind: 'string_literal, raw_string_literal'
-          regex: '(^|[^{])\{[^{}]*\}\p{Pattern_White_Space}?([KMGTPE]i?B|kB)(?-u:\b)'
-          not: {matches: rust-macro-argument}
-        - kind: string_literal
-          matches: unit-name
-          not: {any: [{matches: rust-macro-argument}, {inside: {kind: array_expression}}]}
-        - kind: array_expression
-          all:
-            - has: {nthChild: 2, matches: unit-name}
-            - has: {nthChild: 3, matches: unit-name}
-        - all:
-            - matches: scaled-division
-            - not: {inside: {matches: scaled-division}}
+    all:
+        - any:
+            - kind: 'string_literal, raw_string_literal'
+              regex: '(^|[^{])\{[^{}]*\}\p{Pattern_White_Space}?([KMGTPE]i?B|kB)(?-u:\b)'
+              not: {matches: rust-macro-argument}
+            - kind: string_literal
+              matches: unit-name
+              not: {any: [{matches: rust-macro-argument}, {inside: {kind: array_expression}}]}
+            - kind: array_expression
+              all:
+                - has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: unit-name}
+                - has: {nthChild: {position: 3, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: unit-name}
+            - all:
+                - matches: scaled-division
+                - not: {inside: {matches: scaled-division}}
+        - pattern: $FORMAT
 message: '`$FORMAT` scales or labels a byte count by hand'
 note: 'Format `bytesize::ByteSize::b(<bytes>)`, with `.display().si()` for decimal units and `as_kib`, `as_mib`, or `as_gib` for a scaled count'

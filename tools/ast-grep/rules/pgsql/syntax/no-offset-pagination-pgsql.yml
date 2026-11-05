@@ -7,9 +7,10 @@ utils:
         pattern: $SKIP
         not: {regex: '^[0-9]+$'}
 rule:
-    pattern: $LIMIT
-    any:
-        - {kind: offset_clause, has: {matches: variable}}
-        - {kind: limit_clause, all: [{has: {regex: '^,$'}}, {has: {matches: variable, follows: {regex: '^,$'}}}]}
+    all:
+        - any:
+            - {kind: offset_clause, has: {matches: variable}}
+            - {kind: limit_clause, all: [{has: {regex: '^,$'}}, {has: {matches: variable, follows: {regex: '^,$'}}}]}
+        - pattern: $LIMIT
 message: '`$LIMIT` pages through offset `$SKIP`'
 note: 'Page by key with `where <key> > <last key> order by <key> limit <count>` on a unique `<key>`'

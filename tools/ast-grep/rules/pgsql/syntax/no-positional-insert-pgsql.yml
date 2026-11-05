@@ -4,7 +4,7 @@ severity: error
 rule:
     kind: InsertStmt
     all:
-        - has: {kind: insert_rest, all: [{has: {kind: 'select_no_parens, select_with_parens'}}, {not: {has: {kind: 'insert_column_list, substitution'}}}, {not: {has: {stopBy: {kind: simple_select}, kind: simple_select, has: {kind: substitution, nthChild: 1}}}}]}
+        - has: {kind: insert_rest, all: [{has: {kind: 'select_no_parens, select_with_parens'}}, {not: {has: {kind: 'insert_column_list, substitution'}}}, {not: {has: {stopBy: {kind: simple_select}, kind: simple_select, has: {kind: substitution, nthChild: {position: 1, ofRule: {not: {kind: comment}}}}}}}]}
         - has: {kind: insert_target, has: {kind: qualified_name, pattern: $TABLE}}
 message: 'Insert into `$TABLE` assigns values by column position'
 note: 'Name the columns in `insert into <table> (<column>, ...)`'

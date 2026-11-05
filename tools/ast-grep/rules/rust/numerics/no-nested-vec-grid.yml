@@ -16,33 +16,34 @@ utils:
                 - has: {stopBy: end, kind: range_expression}
     row-closure:
         kind: closure_expression
-        has: {field: body, any: [{matches: filled-row}, {kind: block, has: {matches: filled-row}, not: {has: {nthChild: 2}}}]}
+        has: {field: body, any: [{matches: filled-row}, {kind: block, has: {matches: filled-row}, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}]}
     repeated-row:
         kind: call_expression
         any:
             - all:
                 - has: {field: function, regex: '(^|::)repeat_with$'}
-                - has: {field: arguments, has: {nthChild: 1, matches: row-closure}}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: row-closure}}
             - all:
                 - has: {field: function, regex: '(^|::)repeat(_n)?$'}
-                - has: {field: arguments, has: {nthChild: 1, matches: filled-row}}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: filled-row}}
 rule:
     kind: 'macro_invocation, call_expression'
-    pattern: $GRID
-    any:
-        - kind: macro_invocation
-          all:
-            - has: {field: macro, regex: '^((::)?(std|alloc)::)?vec$'}
-            - has:
-                kind: token_tree
-                all:
-                    - has: {nthChild: 1, pattern: vec, precedes: {regex: '^!$', precedes: {kind: token_tree, has: {regex: '^;$'}}}}
-                    - has: {regex: '^;$'}
-        - kind: call_expression
-          all:
-            - any:
-                - pattern: $ROWS.collect()
-                - pattern: $ROWS.collect::<$TYPE>()
-            - has: {field: function, has: {field: value, any: [{matches: repeated-row}, {has: {stopBy: end, matches: repeated-row}}]}}
+    all:
+        - any:
+            - kind: macro_invocation
+              all:
+                - has: {field: macro, regex: '^((::)?(std|alloc)::)?vec$'}
+                - has:
+                    kind: token_tree
+                    all:
+                        - has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, pattern: vec, precedes: {regex: '^!$', precedes: {kind: token_tree, has: {regex: '^;$'}}}}
+                        - has: {regex: '^;$'}
+            - kind: call_expression
+              all:
+                - any:
+                    - pattern: $ROWS.collect()
+                    - pattern: $ROWS.collect::<$TYPE>()
+                - has: {field: function, has: {field: value, any: [{matches: repeated-row}, {has: {stopBy: end, matches: repeated-row}}]}}
+        - pattern: $GRID
 message: '`$GRID` builds a rectangular grid as a vector of row vectors'
 note: 'Allocate `ndarray::Array2::from_elem((<rows>, <cols>), <value>)` or `from_shape_fn`, a `nalgebra::DMatrix` or `faer::Mat` for linear algebra'

@@ -679,5 +679,5 @@ Configured shapes by grammar, extensions included:
 - Rust doc comments read `line_comment(outer: outer_doc_comment_marker, doc: doc_comment)`, `token_tree` drops operator leaves from named children
 - Swift holds no supertypes, enums hold `enum_class_body`, extensions `class_declaration name: user_type`, `function_declaration` `name` is `multiple`, and declarations name `type_name`, `function_name`, `case_name`, `init_keyword`, `deinit_keyword`, `subscript_keyword`, `referenceable_operator`
 - XML `Attribute` holds `Name` and `value: AttText`, `AttValue` sits under `DefaultDecl` alone, `EntityValue` holds `value: EntityText`, `extras` is empty with whitespace in `_S`, and `word` is `Name` over XML 1.0 name ranges
-- Postgres holds `kw_*` named keyword nodes, `opt_*` wrappers, no fields, `$$…$$` at `Sconst(dollar_quoted_string)`
+- Postgres holds keywords anonymous, few `opt_*` wrappers, `a_expr` and `b_expr` operand and operator fields, a lone hidden child named by its rule, `$$…$$` at `AexprConst(dollar_quoted_string)`
 - TOML single-line strings alias a `string_content` per run between escapes, multi-line ones one holding escapes, escape tests take `stopBy: end`

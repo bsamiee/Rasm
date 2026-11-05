@@ -6,7 +6,23 @@ utils:
         any:
             - kind: ternary_expression
             - kind: parenthesized_expression
-              has: {nthChild: 1, kind: ternary_expression}
+              has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, kind: ternary_expression}
+    fold:
+        kind: call_expression
+        has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)(Array|Boolean|Effect|Exit|Option|Result|UndefinedOr)$'}, member: {regex: '^match(Cause|CauseEager|Eager|Left|Right)?$'}}}}
+    tag-fold:
+        kind: call_expression
+        has:
+            field: function
+            any:
+                - matches: {effect-module-member: {module: {regex: '(?-u:\b)Match$'}, member: {regex: '^(tags|tagsExhaustive|typeTags|valueTags)$'}}}
+                - kind: call_expression
+                  has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Match$'}, member: {regex: '^(discriminators|discriminatorsExhaustive)$'}}}}
+    case-fold:
+        any:
+            - matches: {effect-module-member: {module: {regex: '(?-u:\b)Match$'}, member: {regex: '^(not|orElse|tag|tagStartsWith|when|whenAnd|whenOr)$'}}}
+            - kind: call_expression
+              has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Match$'}, member: {regex: '^(discriminator|discriminatorStartsWith)$'}}}}
 rule:
     kind: arrow_function
     all:
@@ -15,14 +31,14 @@ rule:
             - inside:
                 kind: pair
                 field: value
-                all:
-                    - has: {field: key, pattern: $ARM, regex: '^(onNone|onSome|onSuccess|onFailure|onEmpty|onNonEmpty|onTrue|onFalse|onLeft|onRight)$'}
-                    - inside:
-                        kind: object
-                        inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)(Option|Result|Array|Boolean|Exit)$'}, member: {regex: '^match$'}}}}}}
-            - nthChild: {position: 1, reverse: true}
-              inside:
-                kind: arguments
-                inside: {kind: call_expression, has: {field: function, pattern: $ARM, matches: {effect-module-member: {module: {regex: '(?-u:\b)Match$'}, member: {regex: '^(when|whenOr|whenAnd|tag|not|orElse)$'}}}}}
+                has: {field: key, pattern: $ARM}
+                inside: {kind: object, inside: {kind: arguments, inside: {matches: tag-fold}}}
+            - inside:
+                kind: pair
+                field: value
+                has: {field: key, pattern: $ARM, regex: '^(onDefined|onEmpty|onFailure|onFalse|onNonEmpty|onNone|onSome|onSuccess|onTrue|onUndefined)$'}
+                inside: {kind: object, inside: {kind: arguments, inside: {matches: fold}}}
+            - nthChild: {position: 1, reverse: true, ofRule: {not: {kind: comment}}}
+              inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, pattern: $ARM, matches: case-fold}}}
 message: '`$ARM` decides inside a fold arm'
 note: 'Fold once over every decision input, `Match.value({ ... })` with one arm per case, or move the test into fold input'

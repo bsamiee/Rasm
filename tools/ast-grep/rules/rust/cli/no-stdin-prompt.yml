@@ -57,7 +57,7 @@ utils:
             - kind: macro_invocation
               all:
                 - matches: {rust-std-macro: {name: {regex: '^write$'}}}
-                - has: {kind: token_tree, has: {nthChild: 1, kind: identifier, matches: console-value}}
+                - has: {kind: token_tree, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: identifier, matches: console-value}}
             - kind: call_expression
               has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^write_all$'}}, {has: {field: value, matches: console-value}}]}
     prompt:
@@ -65,12 +65,12 @@ utils:
         pattern: $PROMPT
         has: {any: [{matches: prompt-write}, {kind: try_expression, has: {matches: prompt-write}}, {kind: await_expression, has: {matches: prompt-write}}, {kind: try_expression, has: {kind: await_expression, has: {matches: prompt-write}}}]}
 rule:
-    pattern: $READ
     all:
         - matches: line-read
         - any:
             - follows: {stopBy: end, matches: prompt}
             - inside: {stopBy: {inside: {kind: block}}, follows: {stopBy: end, matches: prompt}}
+        - pattern: $READ
 labels:
     READ: {style: primary, message: 'Reads the answer'}
     PROMPT: {style: secondary, message: 'Prints the prompt'}

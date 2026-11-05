@@ -1,0 +1,7 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: pgsql
+severity: error
+files: ['**/*.pgsql']
+rule: {kind: substitution}
+message: '`.pgsql` file holds a host hole no host fills'
+note: Write the value in SQL or move its statement into a host template

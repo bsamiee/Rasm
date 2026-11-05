@@ -3,7 +3,8 @@ language: rustlang
 severity: error
 rule:
     kind: 'string_literal, raw_string_literal'
-    pattern: $TEXT
-    matches: rust-geometry-format-text
+    all:
+        - matches: rust-geometry-format-text
+        - pattern: $TEXT
 message: '`$TEXT` spells geometry interchange text by hand'
 note: 'Read and write the shape through its format crate (`geojson`, `geozero` for WKT, `kurbo::BezPath::to_svg`, `stl_io`, `tobj`, `ply_rs_bw`)'

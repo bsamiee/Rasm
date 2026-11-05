@@ -2,27 +2,29 @@
 language: pgsql
 severity: error
 rule:
-    pattern: $NODE
-    any:
-        - {kind: qual_Op, regex: '^!=$'}
-        - {kind: join_type, regex: '(?i-u)^inner$|(?-u:\b)outer$'}
-        - {kind: OptTemp, regex: '(?i-u)temporary$'}
-        - {kind: a_expr, has: {regex: '(?i-u)^(isnull|notnull)$', not: {pattern: $_}}}
-        - kind: a_expr
-          all:
-            - has: {regex: '(?i-u)^distinct$', not: {pattern: $_}}
-            - has: {field: right, matches: pgsql-wrapper, has: {stopBy: {not: {matches: pgsql-wrapper}}, kind: AexprConst, regex: '(?i-u)^null$'}}
-        - kind: TransactionStmt, TransactionStmtLegacy
-          any:
-            - regex: '(?i-u)^(abort|end)\b'
-            - all:
-                - has: {regex: '(?i-u)^(work|transaction)$', not: {pattern: $_}}
-                - not: {has: {regex: '(?i-u)^prepare$', not: {pattern: $_}}}
-        - kind: func_application
-          all:
-            - has: {kind: func_name, regex: '(?i-u)^"?count"?$'}
-            - not: {has: {regex: '(?i-u)^distinct$', not: {pattern: $_}}}
-            - has: {kind: func_arg_list, not: {has: {kind: func_arg_list}}, has: {kind: func_arg_expr, has: {stopBy: {not: {matches: pgsql-wrapper}}, kind: AexprConst, not: {regex: '(?i-u)^null$'}}}}
-        - {kind: func_name, regex: '(?i-u)^"?(ceiling|pow|character_length|log10)"?$'}
+    all:
+        - any:
+            - {kind: 'a_expr, b_expr', has: {field: operator, regex: '^!=$'}}
+            - {kind: subquery_Op, regex: '^!=$'}
+            - {kind: join_type, regex: '(?i-u)^inner$|(?-u:\b)outer$'}
+            - {kind: OptTemp, regex: '(?i-u)temporary$'}
+            - {kind: a_expr, has: {regex: '(?i-u)^(isnull|notnull)$', not: {pattern: $_}}}
+            - kind: a_expr
+              all:
+                - has: {regex: '(?i-u)^distinct$', not: {pattern: $_}}
+                - has: {field: right, matches: pgsql-null}
+            - kind: TransactionStmt, TransactionStmtLegacy
+              any:
+                - regex: '(?i-u)^(abort|end)\b'
+                - all:
+                    - has: {regex: '(?i-u)^(work|transaction)$', not: {pattern: $_}}
+                    - not: {has: {regex: '(?i-u)^prepare$', not: {pattern: $_}}}
+            - kind: func_application
+              all:
+                - has: {kind: func_name, regex: '(?i-u)^"?count"?$'}
+                - not: {has: {regex: '(?i-u)^distinct$', not: {pattern: $_}}}
+                - has: {kind: func_arg_list, not: {has: {kind: func_arg_list}}, has: {kind: func_arg_expr, has: {stopBy: {not: {matches: pgsql-wrapper}}, kind: AexprConst, not: {regex: '(?i-u)^null$'}}}}
+            - {kind: func_name, regex: '(?i-u)^"?(ceiling|pow|character_length|log10)"?$'}
+        - pattern: $NODE
 message: '`$NODE` uses an alternate SQL spelling'
 note: 'Use `<>`, plain `join`, `left join`, `temp`, `is null`, `is not null`, `begin`, `commit`, `rollback`, `count(*)`, `ceil`, `power`, `char_length`, `log`'

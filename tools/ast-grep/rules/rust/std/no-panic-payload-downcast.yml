@@ -31,10 +31,10 @@ rule:
         - any:
             - all:
                 - has: {field: function, has: {field: value, matches: literal-side}}
-                - has: {field: arguments, has: {nthChild: 1, matches: owned-fallback}}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: owned-fallback}}
             - all:
                 - has: {field: function, has: {field: value, matches: owned-side}}
-                - has: {field: arguments, has: {nthChild: 1, matches: literal-fallback}}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: literal-fallback}}
 constraints:
     COPY: {regex: '^(copied|cloned)$'}
 message: '`$I` downcasts its panic payload to `&str` and `String` by hand'

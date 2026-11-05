@@ -12,7 +12,7 @@ utils:
             - has:
                 field: arguments
                 has:
-                    nthChild: 1
+                    nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}
                     any:
                         - matches: placeholder
                         - kind: reference_expression
@@ -22,7 +22,7 @@ utils:
         kind: macro_invocation
         all:
             - matches: {rust-std-macro: {name: {regex: '^format$'}}}
-            - has: {kind: token_tree, has: {nthChild: 1, kind: string_literal, regex: '^"(\$?\{\{(\{\{)?\p{Pattern_White_Space}*\{[^{}]*\}\p{Pattern_White_Space}*(\}\})?\}\}|%\{[^{}]*\}%|\$\{[^{}]*\})"$'}}
+            - has: {kind: token_tree, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: string_literal, regex: '^"(\$?\{\{(\{\{)?\p{Pattern_White_Space}*\{[^{}]*\}\p{Pattern_White_Space}*(\}\})?\}\}|%\{[^{}]*\}%|\$\{[^{}]*\})"$'}}
 rule:
     matches: placeholder-replace
     not: {inside: {kind: field_expression, field: value, inside: {kind: call_expression, field: function, matches: placeholder-replace}}}

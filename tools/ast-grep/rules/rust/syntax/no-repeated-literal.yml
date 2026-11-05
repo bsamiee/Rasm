@@ -57,11 +57,11 @@ utils:
             - inside: {stopBy: end, kind: 'function_item, impl_item, trait_item', has: {stopBy: end, kind: 'const_item, static_item', matches: owner-value}}
 rule:
     kind: 'integer_literal, float_literal, string_literal, raw_string_literal'
-    pattern: $LITERAL
     all:
         - matches: site
         - inside: {stopBy: end, kind: 'function_item, impl_item, trait_item'}
         - not: {matches: rust-test-scope}
+        - pattern: $LITERAL
         - any:
             - all:
                 - not: {matches: negated}

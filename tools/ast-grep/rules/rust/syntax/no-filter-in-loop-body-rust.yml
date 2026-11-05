@@ -10,7 +10,7 @@ utils:
         any:
             - kind: 'continue_expression, unit_expression'
             - kind: block
-              not: {has: {matches: rust-statement, not: {any: [{kind: continue_expression}, {kind: expression_statement, has: {nthChild: 1, kind: continue_expression}}]}}}
+              not: {has: {matches: rust-statement, not: {any: [{kind: continue_expression}, {kind: expression_statement, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: continue_expression}}]}}}
     continue-block:
         kind: block
         all:
@@ -18,13 +18,13 @@ utils:
                 nthChild: {position: 1, ofRule: {matches: rust-statement}}
                 any:
                     - kind: continue_expression
-                    - {kind: expression_statement, has: {nthChild: 1, kind: continue_expression}}
+                    - {kind: expression_statement, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: continue_expression}}
             - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}
     exit:
         any:
             - {matches: rust-diverging, not: {kind: continue_expression}}
             - kind: expression_statement
-              has: {nthChild: 1, matches: rust-diverging, not: {kind: continue_expression}}
+              has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: rust-diverging, not: {kind: continue_expression}}
     plain-if:
         kind: if_expression
         all:
@@ -78,18 +78,18 @@ rule:
                         nthChild: {position: 1, ofRule: {matches: rust-statement}}
                         kind: expression_statement
                         has:
-                            nthChild: 1
+                            nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}
                             matches: plain-if
                             not: {has: {field: condition, any: [{matches: loop-variable-flatten}, {kind: let_condition, has: {field: value, matches: lending-binding}}]}}
                     - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}
                 - all:
-                    - has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, kind: expression_statement, has: {nthChild: 1, matches: selecting-match}}
+                    - has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, kind: expression_statement, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: selecting-match}}
                     - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}
                 - has:
                     nthChild: {position: 1, ofRule: {matches: rust-statement}}
                     any:
                         - kind: expression_statement
-                          has: {nthChild: 1, matches: plain-if, has: {field: consequence, matches: continue-block}}
+                          has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: plain-if, has: {field: consequence, matches: continue-block}}
                         - kind: let_declaration
                           all:
                             - has: {field: pattern, pattern: $TEST}

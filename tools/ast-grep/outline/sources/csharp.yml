@@ -1,0 +1,580 @@
+utils:
+    failed: {has: {stopBy: end, kind: ERROR}}
+    named: {has: {field: name, pattern: {context: 'class $NAME;', selector: identifier}}}
+    enclosing: {kind: 'class_declaration, enum_declaration, interface_declaration, record_declaration, struct_declaration, union_declaration'}
+    tooling: {kind: attribute, has: {field: name, regex: '(?:^|[.:])(?:Debugger.+|StackTraceHidden|ExcludeFromCodeCoverage|(?:Unconditional)?SuppressMessage|EditorBrowsable|StringSyntax)(?:Attribute)?$'}}
+    public: {any: [{has: {kind: modifier, regex: 'public|protected', stopBy: {not: {kind: preproc_if}}}, not: {has: {kind: modifier, regex: private, stopBy: {not: {kind: preproc_if}}}}}, {has: {kind: explicit_interface_specifier}}, {inside: {stopBy: {matches: enclosing}, kind: interface_declaration}, not: {has: {kind: modifier, regex: 'private|internal', stopBy: {not: {kind: preproc_if}}}}}]}
+    visible: {matches: public, not: {inside: {stopBy: end, matches: enclosing, inside: {stopBy: end, matches: enclosing}, not: {matches: public}}}}
+    plain: {not: {has: {stopBy: {kind: 'declaration_list, enum_member_declaration_list'}, any: [{kind: 'attribute_list, preproc_if_in_attribute_list, preproc_if, argument, ERROR, comment, preproc_region, preproc_endregion, preproc_line, preproc_pragma, preproc_nullable, preproc_error, preproc_warning, preproc_define, preproc_undef'}, {kind: parameter, has: {regex: '^=$'}}]}}, pattern: $PLAIN}
+    owned: {any: [{inside: {stopBy: end, matches: enclosing, has: {field: name, pattern: {context: 'class $OWNER;', selector: identifier}}, inside: {stopBy: end, matches: enclosing}}}, {not: {kind: ERROR}}]}
+    nesting: {has: {stopBy: end, kind: 'local_function_statement, ERROR'}}
+rewriters:
+    - {id: broken, rule: {kind: ERROR}, fix: "\n"}
+    - {id: trivia, rule: {kind: 'comment, preproc_region, preproc_endregion, preproc_line, preproc_pragma, preproc_nullable, preproc_error, preproc_warning, preproc_define, preproc_undef'}, fix: "\n"}
+    - {id: body, rule: {kind: 'declaration_list, enum_member_declaration_list', inside: {field: body, matches: enclosing}}, fix: ''}
+    - {id: arguments, rule: {kind: argument_list, has: {kind: argument}, inside: {kind: 'base_list, primary_constructor_base_type, constructor_initializer'}}, fix: '(…)'}
+    - {id: tool-list, rule: {kind: attribute_list, not: {has: {kind: attribute, not: {matches: tooling}}}}, fix: "\n"}
+    - {id: tool, rule: {kind: attribute, matches: tooling}, fix: {template: "\n", expandStart: {regex: '^,$'}, expandEnd: {regex: '^,$', not: {follows: {regex: '^,$', stopBy: end}}}}}
+    - {id: attributed, rule: {kind: attribute_argument_list, has: {kind: attribute_argument}}, fix: '(…)'}
+    - {id: branch, rule: {kind: 'preproc_else, preproc_elif'}, fix: ''}
+    - id: parameters
+      rule: {kind: parameter_list, inside: {kind: 'class_declaration, record_declaration, struct_declaration, delegate_declaration'}, pattern: {context: 'record R($$$PARAMETERS);', selector: parameter_list}}
+      transform: {KEPT: {rewrite: {source: $$$PARAMETERS, rewriters: [default, tool-list, tool, attributed, branch, broken, trivia]}}}
+      fix: ($KEPT)
+    - {id: default, rule: {not: {kind: ERROR}, inside: {kind: parameter, field: value}}, fix: …}
+    - {id: before, rule: {kind: variable_declarator, precedes: {stopBy: end, kind: variable_declarator, has: {field: name, pattern: {context: 'class $NAME;', selector: identifier}}}}, fix: {template: "\n", expandEnd: {regex: '^,$'}}}
+    - {id: after, rule: {kind: variable_declarator, follows: {stopBy: end, kind: variable_declarator, has: {field: name, pattern: {context: 'class $NAME;', selector: identifier}}}}, fix: {template: "\n", expandStart: {regex: '^,$'}}}
+    - {id: value, rule: {kind: variable_declarator, not: {has: {kind: bracketed_argument_list}}, has: {field: name, pattern: {context: 'class $DECLARED;', selector: identifier}}}, fix: $DECLARED}
+    - id: lineage
+      rule:
+        kind: identifier
+        pattern: {context: 'class $SELF;', selector: identifier}
+        inside: {field: name, matches: enclosing, any: [{inside: {stopBy: end, matches: enclosing, has: {field: name, pattern: {context: 'class $UP;', selector: identifier}}, inside: {stopBy: end, matches: enclosing}}}, {matches: enclosing}]}
+      transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}}
+      fix: $ABOVE$SELF.
+    - {id: accessor, rule: {kind: 'block, arrow_expression_clause', inside: {kind: accessor_declaration, field: body}}, fix: {template: "\n;", expandEnd: {regex: ';'}}}
+transform:
+    CLEAN: {replace: {source: $NAME, replace: '(?:;|[\t-\r\x{85}\p{Zs}\x{2028}\x{2029}\x{FEFF}])+$|[\t-\r\x{85}\p{Zs}\x{2028}\x{2029}\x{FEFF}]*\n[\t-\r\x{85}\p{Zs}\x{2028}\x{2029}\x{FEFF}]*', by: ''}}
+    HEADER: rewrite($DECLARATION, rewriters=[body, arguments, parameters, tool-list, tool, attributed, branch, broken, trivia])
+    LINES: {replace: {source: $HEADER, replace: '(?:;|[\t-\r\x{85}\p{Zs}\x{2028}\x{2029}\x{FEFF}])+$|[\t-\r\x{85}\p{Zs}\x{2028}\x{2029}\x{FEFF}]*\n[\t-\r\x{85}\p{Zs}\x{2028}\x{2029}\x{FEFF}]*|#(?:if|endif)[^\n]*', by: "\n "}}
+    SIGNATURE: {replace: {source: $LINES, replace: '([(\[<.])(?:\n )+|(?:\n )+([)\]>.,;])|^(?:\n )+|(?:\n )+$|(?:\n )*\n( )', by: '$1$2$3'}}
+    PLAIN_LINES: {replace: {source: $PLAIN, replace: '(?s)[\t-\r\x{85}\p{Zs}\x{2028}\x{2029}\x{FEFF}]*(?:\{|=>|;[\t-\r\x{85}\p{Zs}\x{2028}\x{2029}\x{FEFF}]*$).*|[\t-\r\x{85}\p{Zs}\x{2028}\x{2029}\x{FEFF}]*\n[\t-\r\x{85}\p{Zs}\x{2028}\x{2029}\x{FEFF}]*', by: "\n "}}
+    PLAIN_SIGNATURE: {replace: {source: $PLAIN_LINES, replace: '([(\[<.])(?:\n )+|(?:\n )+([)\]>.,;])|^(?:\n )+|(?:\n )+$|(?:\n )*\n( )', by: '$1$2$3'}}
+    QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage], joinBy: ''}}
+    RECEIVER_PREFIX: {replace: {source: $RECEIVER, replace: '^(?s:.*)$', by: 'extension($0) '}}
+    EXTENSION: {replace: {source: $EXTENDED, replace: '(?s)[\t-\r\x{85}\p{Zs}\x{2028}\x{2029}\x{FEFF}]*\{.*|[\t-\r\x{85}\p{Zs}\x{2028}\x{2029}\x{FEFF}]*\n[\t-\r\x{85}\p{Zs}\x{2028}\x{2029}\x{FEFF}]*', by: ' '}}
+variants:
+    item-type:
+        utils:
+            visible: {matches: public, not: {inside: {stopBy: end, matches: enclosing, not: {matches: public}}}}
+    callable:
+        utils:
+            plain: {not: {has: {stopBy: {kind: 'block, arrow_expression_clause'}, any: [{kind: 'attribute_list, preproc_if_in_attribute_list, preproc_if, argument, ERROR, comment, preproc_region, preproc_endregion, preproc_line, preproc_pragma, preproc_nullable, preproc_error, preproc_warning, preproc_define, preproc_undef'}, {kind: parameter, has: {regex: '^=$'}}]}}, pattern: $PLAIN}
+    local-function:
+        rewriters:
+            - {id: body, rule: {kind: 'block, arrow_expression_clause', inside: {kind: local_function_statement, field: body}}, fix: ''}
+            - id: parameters
+              rule: {kind: parameter_list, inside: {kind: local_function_statement}, pattern: {context: 'record R($$$PARAMETERS);', selector: parameter_list}}
+              transform: {KEPT: {rewrite: {source: $$$PARAMETERS, rewriters: [default, tool-list, tool, attributed, branch, broken, trivia]}}}
+              fix: ($KEPT)
+    listed-type:
+        transform:
+            HEADER: rewrite($DECLARATION, rewriters=[body, arguments, tool-list, tool, attributed, branch, broken, trivia])
+    function:
+        transform:
+            HEADER: rewrite($DECLARATION, rewriters=[body, parameters, tool-list, tool, attributed, branch, broken, trivia])
+    local-value:
+        transform:
+            HEADER: rewrite($DECLARATION, rewriters=[before, after, value, branch, broken, trivia])
+    field:
+        transform:
+            HEADER: rewrite($DECLARATION, rewriters=[before, after, value, tool-list, tool, attributed, branch, broken, trivia])
+---
+id: csharp-import
+role: item
+symbolType: module
+utils:
+    named: {pattern: $NAME}
+rule:
+    any:
+        - {kind: using_directive, pattern: $DECLARATION, all: [{not: {matches: failed}}, {has: {matches: named, nthChild: {position: 1, reverse: true, ofRule: {not: {kind: comment}}}}}]}
+        - {kind: extern_alias_directive, pattern: $DECLARATION, all: [{not: {matches: failed}}, {has: {field: name, matches: named}}]}
+        - {kind: file_based_directive, pattern: $DECLARATION, has: {field: kind, regex: 'sdk|package|project|ref'}, all: [{has: {field: name, matches: named}}]}
+        - kind: alias_qualified_name, generic_name, identifier, qualified_name
+          matches: named
+          all:
+            - any: [{inside: {kind: using_directive, matches: failed, pattern: $DECLARATION}, nthChild: {position: 1, reverse: true, ofRule: {not: {kind: 'comment, ERROR'}}}}, {inside: {kind: extern_alias_directive, field: name, matches: failed, pattern: $DECLARATION}}]
+            - not: {matches: failed}
+transform:
+    HEADER: rewrite($DECLARATION, rewriters=[broken, trivia])
+name: $CLEAN
+signature: $SIGNATURE
+isImport: true
+isExported: false
+---
+id: csharp-file-property
+role: item
+symbolType: property
+rule:
+    kind: file_based_directive
+    has: {field: kind, regex: property}
+    all: [{has: {field: name, pattern: {context: '#:property $NAME=x', selector: directive_name}}}]
+name: $NAME
+isExported: false
+---
+id: csharp-file-selection
+role: item
+symbolType: file
+rule:
+    kind: file_based_directive
+    has: {field: kind, regex: 'include|exclude'}
+    all: [{has: {field: name, pattern: {context: '#:include $NAME', selector: directive_name}}}]
+name: $NAME
+isImport: {has: {field: kind, regex: include}}
+isExported: false
+---
+id: csharp-attribute
+role: item
+symbolType: property
+rule: {kind: attribute, has: {field: name, pattern: $NAME}, all: [{inside: {kind: global_attribute, has: {regex: '^(?:assembly|module)$', pattern: $$TARGET}}}, {pattern: $ATTRIBUTE}]}
+transform:
+    CLEAN: {replace: {source: $ATTRIBUTE, replace: '[\t-\r\x{85}\p{Zs}\x{2028}\x{2029}\x{FEFF}]*\n[\t-\r\x{85}\p{Zs}\x{2028}\x{2029}\x{FEFF}]*', by: ' '}}
+name: $NAME
+signature: '[$TARGET: $CLEAN]'
+isExported: false
+---
+id: csharp-section
+role: item
+symbolType: namespace
+rule: {kind: comment, regex: '^// --- \[[0-9A-Z_]+\](?: -+)?$', pattern: $DIVIDER, not: {inside: {kind: ERROR}}}
+transform:
+    LABEL: {replace: {source: $DIVIDER, replace: '^// --- \[([0-9A-Z_]+)\].*', by: '${1}'}}
+    SIGNATURE: {replace: {source: $DIVIDER, replace: ' -+$', by: ' ---'}}
+name: $LABEL
+signature: $SIGNATURE
+isExported: false
+---
+id: csharp-namespace
+role: item
+symbolType: namespace
+rule:
+    kind: alias_qualified_name, generic_name, identifier, qualified_name
+    pattern: $NAME
+    inside: {kind: 'namespace_declaration, file_scoped_namespace_declaration', field: name}
+name: $CLEAN
+signature: namespace $CLEAN
+isExported: false
+---
+id: csharp-interface
+role: item
+symbolType: interface
+variants: [item-type, listed-type]
+rule:
+    kind: interface_declaration
+    has: {field: name, pattern: {context: 'class $NAME;', selector: identifier}}
+    all: [{any: [{matches: plain}, {pattern: $DECLARATION}]}]
+name: $NAME
+signature: $PLAIN_SIGNATURE$SIGNATURE
+isExported: {matches: visible}
+---
+id: csharp-class
+role: item
+symbolType: class
+variants: [item-type]
+rule:
+    kind: class_declaration, record_declaration
+    has: {field: name, pattern: {context: 'class $NAME;', selector: identifier}}
+    not: {has: {regex: '^struct$'}}
+    all: [{any: [{matches: plain}, {pattern: $DECLARATION}]}]
+name: $NAME
+signature: $PLAIN_SIGNATURE$SIGNATURE
+isExported: {matches: visible}
+---
+id: csharp-struct
+role: item
+symbolType: struct
+variants: [item-type]
+rule:
+    any: [{kind: 'struct_declaration, delegate_declaration'}, {kind: record_declaration, has: {regex: '^struct$'}}]
+    has: {field: name, pattern: {context: 'class $NAME;', selector: identifier}}
+    all: [{any: [{matches: plain}, {pattern: $DECLARATION}]}]
+name: $NAME
+signature: $PLAIN_SIGNATURE$SIGNATURE
+isExported: {matches: visible}
+---
+id: csharp-enum
+role: item
+symbolType: enum
+variants: [item-type, listed-type]
+rule:
+    kind: enum_declaration, union_declaration
+    has: {field: name, pattern: {context: 'class $NAME;', selector: identifier}}
+    all: [{any: [{matches: plain}, {pattern: $DECLARATION}]}]
+name: $NAME
+signature: $PLAIN_SIGNATURE$SIGNATURE
+isExported: {matches: visible}
+---
+id: csharp-function
+role: item
+symbolType: function
+variants: [callable, local-function, function]
+rule:
+    kind: local_function_statement
+    inside: {kind: 'global_statement, compilation_unit, ERROR', stopBy: {not: {kind: 'preproc_if, preproc_elif, preproc_else'}}}
+    has: {field: name, pattern: {context: 'class $NAME;', selector: identifier}}
+    all: [{any: [{matches: plain}, {pattern: $DECLARATION}]}]
+name: $NAME
+signature: $PLAIN_SIGNATURE$SIGNATURE
+isExported: false
+---
+id: csharp-variable
+role: item
+symbolType: variable
+variants: [local-value]
+utils:
+    declared: {kind: local_declaration_statement, pattern: $DECLARATION, not: {has: {kind: modifier, regex: const}}, inside: {kind: 'global_statement, compilation_unit, ERROR', stopBy: {not: {kind: 'preproc_if, preproc_elif, preproc_else'}}}}
+rule:
+    any:
+        - {kind: local_declaration_statement, matches: declared, has: {kind: variable_declaration, not: {has: {kind: variable_declarator, nthChild: {position: 2, ofRule: {kind: variable_declarator}}}}, has: {kind: variable_declarator, matches: named}}, all: [{not: {matches: failed}}]}
+        - {kind: variable_declarator, any: [{matches: named}, {has: {kind: tuple_pattern, pattern: $NAME}}], all: [{inside: {kind: variable_declaration, inside: {matches: declared}}}, {not: {matches: failed}}]}
+        - kind: identifier, tuple_pattern
+          any: [{kind: tuple_pattern, pattern: $NAME}, {inside: {field: name, kind: variable_declarator}, pattern: {context: 'class $NAME;', selector: identifier}}]
+          inside: {kind: variable_declarator, all: [{inside: {kind: variable_declaration, inside: {matches: declared}}}, {matches: failed}]}
+rewriters:
+    - {id: value, rule: {kind: variable_declarator, not: {has: {kind: bracketed_argument_list}}, any: [{has: {field: name, pattern: {context: 'class $DECLARED;', selector: identifier}}}, {has: {kind: tuple_pattern, pattern: $DECLARED}}]}, fix: $DECLARED}
+name: $NAME
+signature: $SIGNATURE
+isExported: false
+---
+id: csharp-constant
+role: item
+symbolType: constant
+variants: [local-value]
+utils:
+    declared: {kind: local_declaration_statement, pattern: $DECLARATION, has: {kind: modifier, regex: const}, inside: {kind: 'global_statement, compilation_unit, ERROR', stopBy: {not: {kind: 'preproc_if, preproc_elif, preproc_else'}}}}
+rule:
+    any:
+        - {kind: local_declaration_statement, matches: declared, has: {kind: variable_declaration, not: {has: {kind: variable_declarator, nthChild: {position: 2, ofRule: {kind: variable_declarator}}}}, has: {kind: variable_declarator, matches: named}}, all: [{not: {matches: failed}}]}
+        - {kind: variable_declarator, matches: named, all: [{inside: {kind: variable_declaration, inside: {matches: declared}}}, {not: {matches: failed}}]}
+        - {kind: identifier, pattern: {context: 'class $NAME;', selector: identifier}, inside: {field: name, kind: variable_declarator, all: [{inside: {kind: variable_declaration, inside: {matches: declared}}}, {matches: failed}]}}
+name: $NAME
+signature: $SIGNATURE
+isExported: false
+---
+id: csharp-error
+role: item
+symbolType: 'null'
+rule:
+    any:
+        - {kind: ERROR, not: {has: {stopBy: end, kind: 'using_directive, extern_alias_directive, file_based_directive, global_attribute, namespace_declaration, file_scoped_namespace_declaration, interface_declaration, class_declaration, record_declaration, struct_declaration, enum_declaration, union_declaration, delegate_declaration, local_function_statement, local_declaration_statement'}}}
+        - {kind: 'identifier, comment', all: [{inside: {kind: ERROR}}, {not: {follows: {kind: 'identifier, comment', stopBy: end}}}, {nthChild: {position: 1, ofRule: {kind: 'identifier, comment'}}}]}
+name: ERROR
+signature: ''
+isImport: false
+isExported: false
+---
+id: csharp-member-constructor
+role: member
+symbolType: constructor
+parentRuleIds: [csharp-class, csharp-struct, csharp-interface, csharp-enum, csharp-function]
+variants: [callable]
+utils:
+    declared:
+        kind: constructor_declaration, destructor_declaration
+        matches: owned
+        any: [{kind: constructor_declaration, has: {field: name, pattern: {context: 'class $NAME;', selector: identifier}}}, {has: {field: name, pattern: {context: 'class $DESTRUCTOR;', selector: identifier}}}]
+        all: [{any: [{matches: plain}, {pattern: $DECLARATION}]}]
+rule:
+    any:
+        - {kind: 'constructor_declaration, destructor_declaration', all: [{matches: declared}, {not: {matches: nesting}}]}
+        - {kind: parameter_list, inside: {kind: 'constructor_declaration, destructor_declaration', field: parameters, all: [{matches: declared}, {matches: nesting}]}, not: {has: {stopBy: end, kind: ERROR}}}
+        - {kind: modifier, nthChild: {position: 1, ofRule: {kind: modifier}}, inside: {kind: 'constructor_declaration, destructor_declaration', all: [{matches: declared}, {has: {field: parameters, has: {stopBy: end, kind: ERROR}}}]}}
+rewriters:
+    - id: parameters
+      rule: {kind: parameter_list, inside: {kind: constructor_declaration}, pattern: {context: 'record R($$$PARAMETERS);', selector: parameter_list}}
+      transform: {KEPT: {rewrite: {source: $$$PARAMETERS, rewriters: [default, tool-list, tool, attributed, branch, broken, trivia]}}}
+      fix: ($KEPT)
+    - {id: body, rule: {kind: 'block, arrow_expression_clause', inside: {kind: 'constructor_declaration, destructor_declaration', field: body}}, fix: ''}
+transform:
+    TILDE: {replace: {source: $DESTRUCTOR, replace: '^', by: '~'}}
+name: $QUALIFIER$TILDE$NAME
+signature: $PLAIN_SIGNATURE$SIGNATURE
+isPublic: {any: [{kind: 'constructor_declaration, destructor_declaration', matches: visible}, {inside: {kind: 'constructor_declaration, destructor_declaration', matches: visible}}]}
+---
+id: csharp-member-method
+role: member
+symbolType: method
+parentRuleIds: [csharp-class, csharp-struct, csharp-interface, csharp-enum, csharp-function]
+variants: [callable, function]
+utils:
+    declared:
+        kind: method_declaration
+        any:
+            - inside:
+                kind: extension_body
+                stopBy: {not: {kind: 'preproc_if, preproc_elif, preproc_else'}}
+                inside:
+                    kind: extension_declaration
+                    any:
+                        - not: {has: {kind: 'type_parameter_list, type_parameter_constraints_clause, attribute_list, preproc_if_in_attribute_list, comment'}}
+                          has: {kind: receiver_parameter, not: {regex: "\n"}, pattern: {context: 'static class C { extension($RECEIVER) {} }', selector: receiver_parameter}}
+                        - pattern: $EXTENDED
+            - matches: owned
+        all:
+            - has: {field: name, pattern: {context: 'class $NAME;', selector: identifier}}
+            - any: [{has: {kind: explicit_interface_specifier, pattern: $EXPLICIT}}, {kind: method_declaration}]
+            - any: [{matches: plain}, {pattern: $DECLARATION}]
+rule:
+    any:
+        - {kind: method_declaration, all: [{matches: declared}, {not: {matches: nesting}}]}
+        - {kind: parameter_list, inside: {kind: method_declaration, field: parameters, all: [{matches: declared}, {matches: nesting}]}, not: {has: {stopBy: end, kind: ERROR}}}
+        - {kind: modifier, nthChild: {position: 1, ofRule: {kind: modifier}}, inside: {kind: method_declaration, all: [{matches: declared}, {has: {field: parameters, has: {stopBy: end, kind: ERROR}}}]}}
+rewriters:
+    - {id: body, rule: {kind: 'block, arrow_expression_clause', inside: {kind: method_declaration, field: body}}, fix: ''}
+    - id: parameters
+      rule: {kind: parameter_list, inside: {kind: method_declaration}, pattern: {context: 'record R($$$PARAMETERS);', selector: parameter_list}}
+      transform: {KEPT: {rewrite: {source: $$$PARAMETERS, rewriters: [default, tool-list, tool, attributed, branch, broken, trivia]}}}
+      fix: ($KEPT)
+name: $QUALIFIER$EXPLICIT$NAME
+signature: $RECEIVER_PREFIX$EXTENSION$PLAIN_SIGNATURE$SIGNATURE
+isPublic: {any: [{kind: method_declaration, matches: visible}, {inside: {kind: method_declaration, matches: visible}}]}
+---
+id: csharp-member-property
+role: member
+symbolType: property
+parentRuleIds: [csharp-class, csharp-struct, csharp-interface, csharp-enum, csharp-function]
+utils:
+    public: {any: [{kind: parameter}, {has: {kind: modifier, regex: 'public|protected', stopBy: {not: {kind: preproc_if}}}, not: {has: {kind: modifier, regex: private, stopBy: {not: {kind: preproc_if}}}}}, {has: {kind: explicit_interface_specifier}}, {inside: {stopBy: {matches: enclosing}, kind: interface_declaration}, not: {has: {kind: modifier, regex: 'private|internal', stopBy: {not: {kind: preproc_if}}}}}]}
+    declared:
+        pattern: $DECLARATION
+        any:
+            - {kind: property_declaration, has: {field: name, pattern: {context: 'class $NAME;', selector: identifier}}}
+            - {kind: indexer_declaration, has: {regex: '^this$', pattern: $$NAME}}
+            - {kind: parameter, has: {field: name, pattern: {context: 'class $NAME;', selector: identifier}}, inside: {kind: parameter_list, inside: {kind: record_declaration}}}
+        all:
+            - any:
+                - inside:
+                    kind: extension_body
+                    stopBy: {not: {kind: 'preproc_if, preproc_elif, preproc_else'}}
+                    inside:
+                        kind: extension_declaration
+                        any:
+                            - not: {has: {kind: 'type_parameter_list, type_parameter_constraints_clause, attribute_list, preproc_if_in_attribute_list, comment'}}
+                              has: {kind: receiver_parameter, not: {regex: "\n"}, pattern: {context: 'static class C { extension($RECEIVER) {} }', selector: receiver_parameter}}
+                            - pattern: $EXTENDED
+                - matches: owned
+            - any: [{has: {kind: explicit_interface_specifier, pattern: $EXPLICIT}}, {not: {kind: ERROR}}]
+rule:
+    any:
+        - {kind: 'property_declaration, indexer_declaration, parameter', all: [{matches: declared}, {not: {matches: nesting}}]}
+        - {kind: modifier, nthChild: {position: 1, ofRule: {kind: modifier}}, inside: {kind: property_declaration, all: [{matches: declared}, {matches: nesting}]}}
+        - {kind: bracketed_parameter_list, inside: {kind: indexer_declaration, field: parameters, all: [{matches: declared}, {matches: nesting}]}, not: {has: {stopBy: end, kind: ERROR}}}
+rewriters:
+    - {id: value, rule: {not: {kind: ERROR}, inside: {kind: 'property_declaration, indexer_declaration', field: value}}, fix: {template: "\n", expandStart: {regex: "^=$"}}}
+transform:
+    HEADER: rewrite($DECLARATION, rewriters=[value, default, accessor, tool-list, tool, attributed, branch, broken, trivia])
+name: $QUALIFIER$EXPLICIT$NAME
+signature: $RECEIVER_PREFIX$EXTENSION$SIGNATURE
+isPublic: {any: [{kind: 'property_declaration, indexer_declaration, parameter', matches: visible}, {inside: {kind: 'property_declaration, indexer_declaration', matches: visible}}]}
+---
+id: csharp-member-constant
+role: member
+symbolType: constant
+parentRuleIds: [csharp-class, csharp-struct, csharp-interface, csharp-enum, csharp-function]
+variants: [field]
+utils:
+    declared: {kind: field_declaration, pattern: $DECLARATION, has: {kind: modifier, regex: const}, matches: owned}
+rule:
+    any:
+        - {kind: field_declaration, matches: declared, has: {kind: variable_declaration, not: {has: {kind: variable_declarator, nthChild: {position: 2, ofRule: {kind: variable_declarator}}}}, has: {kind: variable_declarator, matches: named}}, all: [{not: {matches: nesting}}]}
+        - {kind: variable_declarator, matches: named, all: [{inside: {kind: variable_declaration, has: {kind: variable_declarator, nthChild: {position: 2, ofRule: {kind: variable_declarator}}}, inside: {matches: declared}}}, {not: {matches: nesting}}]}
+        - {kind: modifier, nthChild: {position: 1, ofRule: {kind: modifier}}, inside: {kind: field_declaration, all: [{matches: declared}, {has: {kind: variable_declaration, not: {has: {kind: variable_declarator, nthChild: {position: 2, ofRule: {kind: variable_declarator}}}}, has: {kind: variable_declarator, matches: named}}}, {matches: nesting}]}}
+name: $QUALIFIER$NAME
+signature: $SIGNATURE
+isPublic: {any: [{kind: field_declaration, matches: visible}, {inside: {kind: field_declaration, matches: visible}}, {inside: {kind: variable_declaration, inside: {matches: visible}}}]}
+---
+id: csharp-member-field
+role: member
+symbolType: field
+parentRuleIds: [csharp-class, csharp-struct, csharp-interface, csharp-enum, csharp-function]
+variants: [field]
+utils:
+    declared: {kind: field_declaration, pattern: $DECLARATION, not: {has: {kind: modifier, regex: const}}, matches: owned}
+rule:
+    any:
+        - {kind: field_declaration, matches: declared, has: {kind: variable_declaration, not: {has: {kind: variable_declarator, nthChild: {position: 2, ofRule: {kind: variable_declarator}}}}, has: {kind: variable_declarator, matches: named}}, all: [{not: {matches: nesting}}]}
+        - {kind: variable_declarator, matches: named, all: [{inside: {kind: variable_declaration, has: {kind: variable_declarator, nthChild: {position: 2, ofRule: {kind: variable_declarator}}}, inside: {matches: declared}}}, {not: {matches: nesting}}]}
+        - {kind: modifier, nthChild: {position: 1, ofRule: {kind: modifier}}, inside: {kind: field_declaration, all: [{matches: declared}, {has: {kind: variable_declaration, not: {has: {kind: variable_declarator, nthChild: {position: 2, ofRule: {kind: variable_declarator}}}}, has: {kind: variable_declarator, matches: named}}}, {matches: nesting}]}}
+name: $QUALIFIER$NAME
+signature: $SIGNATURE
+isPublic: {any: [{kind: field_declaration, matches: visible}, {inside: {kind: field_declaration, matches: visible}}, {inside: {kind: variable_declaration, inside: {matches: visible}}}]}
+---
+id: csharp-member-operator
+role: member
+symbolType: operator
+parentRuleIds: [csharp-class, csharp-struct, csharp-interface, csharp-enum, csharp-function]
+variants: [callable, function]
+utils:
+    named: {pattern: $$NAME}
+    declared:
+        any:
+            - {kind: operator_declaration, has: {field: operator, matches: named}}
+            - {kind: conversion_operator_declaration, has: {field: type, matches: named}}
+        all:
+            - any:
+                - inside:
+                    kind: extension_body
+                    stopBy: {not: {kind: 'preproc_if, preproc_elif, preproc_else'}}
+                    inside:
+                        kind: extension_declaration
+                        any:
+                            - not: {has: {kind: 'type_parameter_list, type_parameter_constraints_clause, attribute_list, preproc_if_in_attribute_list, comment'}}
+                              has: {kind: receiver_parameter, not: {regex: "\n"}, pattern: {context: 'static class C { extension($RECEIVER) {} }', selector: receiver_parameter}}
+                            - pattern: $EXTENDED
+                - matches: owned
+            - any: [{has: {kind: explicit_interface_specifier, pattern: $EXPLICIT}}, {not: {kind: ERROR}}]
+            - any: [{matches: plain}, {pattern: $DECLARATION}]
+rule:
+    any:
+        - {kind: 'operator_declaration, conversion_operator_declaration', all: [{matches: declared}, {not: {matches: nesting}}]}
+        - {kind: parameter_list, inside: {kind: 'operator_declaration, conversion_operator_declaration', field: parameters, all: [{matches: declared}, {matches: nesting}]}, not: {has: {stopBy: end, kind: ERROR}}}
+        - {kind: modifier, nthChild: {position: 1, ofRule: {kind: modifier}}, inside: {kind: 'operator_declaration, conversion_operator_declaration', all: [{matches: declared}, {has: {field: parameters, has: {stopBy: end, kind: ERROR}}}]}}
+rewriters:
+    - {id: body, rule: {kind: 'block, arrow_expression_clause', inside: {kind: 'conversion_operator_declaration, operator_declaration', field: body}}, fix: ''}
+    - id: parameters
+      rule: {kind: parameter_list, inside: {kind: 'conversion_operator_declaration, operator_declaration'}, pattern: {context: 'record R($$$PARAMETERS);', selector: parameter_list}}
+      transform: {KEPT: {rewrite: {source: $$$PARAMETERS, rewriters: [default, tool-list, tool, attributed, branch, broken, trivia]}}}
+      fix: ($KEPT)
+transform:
+    CLEAN: {replace: {source: $NAME, replace: '(?:;|[\t-\r\x{85}\p{Zs}\x{2028}\x{2029}\x{FEFF}])+$|[\t-\r\x{85}\p{Zs}\x{2028}\x{2029}\x{FEFF}]*\n[\t-\r\x{85}\p{Zs}\x{2028}\x{2029}\x{FEFF}]*', by: ' '}}
+name: $QUALIFIER$EXPLICIToperator $CLEAN
+signature: $RECEIVER_PREFIX$EXTENSION$PLAIN_SIGNATURE$SIGNATURE
+isPublic: {any: [{kind: 'operator_declaration, conversion_operator_declaration', matches: visible}, {inside: {kind: 'operator_declaration, conversion_operator_declaration', matches: visible}}]}
+---
+id: csharp-member-event
+role: member
+symbolType: event
+parentRuleIds: [csharp-class, csharp-struct, csharp-interface, csharp-enum, csharp-function]
+utils:
+    declared: {pattern: $DECLARATION, matches: owned}
+    accessed: {kind: event_declaration, matches: declared, all: [{matches: named}, {any: [{has: {kind: explicit_interface_specifier, pattern: $EXPLICIT}}, {kind: event_declaration}]}]}
+rule:
+    any:
+        - {kind: event_declaration, all: [{matches: accessed}, {not: {matches: nesting}}]}
+        - {kind: event_field_declaration, matches: declared, has: {kind: variable_declaration, not: {has: {kind: variable_declarator, nthChild: {position: 2, ofRule: {kind: variable_declarator}}}}, has: {kind: variable_declarator, matches: named}}, all: [{not: {matches: nesting}}]}
+        - {kind: variable_declarator, matches: named, all: [{inside: {kind: variable_declaration, has: {kind: variable_declarator, nthChild: {position: 2, ofRule: {kind: variable_declarator}}}, inside: {kind: event_field_declaration, matches: declared}}}, {not: {matches: nesting}}]}
+        - {kind: modifier, nthChild: {position: 1, ofRule: {kind: modifier}}, inside: {any: [{kind: event_declaration, all: [{matches: accessed}, {matches: nesting}]}, {kind: event_field_declaration, all: [{matches: declared}, {has: {kind: variable_declaration, not: {has: {kind: variable_declarator, nthChild: {position: 2, ofRule: {kind: variable_declarator}}}}, has: {kind: variable_declarator, matches: named}}}, {matches: nesting}]}]}}
+transform:
+    HEADER: rewrite($DECLARATION, rewriters=[before, after, value, accessor, tool-list, tool, attributed, branch, broken, trivia])
+name: $QUALIFIER$EXPLICIT$NAME
+signature: $SIGNATURE
+isPublic: {any: [{kind: 'event_declaration, event_field_declaration', matches: visible}, {inside: {kind: 'event_declaration, event_field_declaration', matches: visible}}, {inside: {kind: variable_declaration, inside: {matches: visible}}}]}
+---
+id: csharp-member-case
+role: member
+symbolType: enumMember
+parentRuleIds: [csharp-class, csharp-struct, csharp-interface, csharp-enum, csharp-function]
+rule:
+    all:
+        - any:
+            - {kind: enum_member_declaration, pattern: $DECLARATION, has: {field: name, pattern: {context: 'class $NAME;', selector: identifier}}, all: [{not: {matches: nesting}}]}
+            - {kind: attribute_list, nthChild: {position: 1, ofRule: {kind: attribute_list}}, inside: {kind: enum_member_declaration, pattern: $DECLARATION, has: {field: name, pattern: {context: 'class $NAME;', selector: identifier}}, matches: nesting}}
+            - {kind: 'alias_qualified_name, array_type, function_pointer_type, generic_name, identifier, implicit_type, nullable_type, pointer_type, predefined_type, qualified_name, ref_type, scoped_type, tuple_type', pattern: $CASE, inside: {kind: union_case_list}}
+        - matches: owned
+rewriters:
+    - {id: value, rule: {not: {kind: ERROR}, inside: {kind: enum_member_declaration, field: value}}, fix: {template: "\n", expandStart: {regex: "^=$"}}}
+transform:
+    CLEAN: {replace: {source: $CASE, replace: '(?:;|[\t-\r\x{85}\p{Zs}\x{2028}\x{2029}\x{FEFF}])+$|[\t-\r\x{85}\p{Zs}\x{2028}\x{2029}\x{FEFF}]*\n[\t-\r\x{85}\p{Zs}\x{2028}\x{2029}\x{FEFF}]*', by: ''}}
+    HEADER: rewrite($DECLARATION, rewriters=[value, tool-list, tool, attributed, branch, broken, trivia])
+name: $QUALIFIER$NAME$CLEAN
+signature: $SIGNATURE$CLEAN
+isPublic: {not: {inside: {stopBy: end, matches: enclosing, inside: {stopBy: end, matches: enclosing}, not: {matches: public}}}}
+---
+id: csharp-member-class
+role: member
+symbolType: class
+parentRuleIds: [csharp-class, csharp-struct, csharp-interface, csharp-enum, csharp-function]
+rule:
+    kind: identifier
+    pattern: {context: 'class $NAME;', selector: identifier}
+    inside: {kind: 'class_declaration, record_declaration', field: name, not: {has: {regex: '^struct$'}}, matches: owned, inside: {stopBy: end, matches: enclosing}, all: [{any: [{matches: plain}, {pattern: $DECLARATION}]}]}
+name: $QUALIFIER$NAME
+signature: $PLAIN_SIGNATURE$SIGNATURE
+isPublic: {inside: {field: name, matches: visible}}
+---
+id: csharp-member-struct
+role: member
+symbolType: struct
+parentRuleIds: [csharp-class, csharp-struct, csharp-interface, csharp-enum, csharp-function]
+rule:
+    kind: identifier
+    pattern: {context: 'class $NAME;', selector: identifier}
+    inside:
+        any: [{kind: 'struct_declaration, delegate_declaration'}, {kind: record_declaration, has: {regex: '^struct$'}}]
+        field: name
+        matches: owned
+        inside: {stopBy: end, matches: enclosing}
+        all: [{any: [{matches: plain}, {pattern: $DECLARATION}]}]
+name: $QUALIFIER$NAME
+signature: $PLAIN_SIGNATURE$SIGNATURE
+isPublic: {inside: {field: name, matches: visible}}
+---
+id: csharp-member-interface
+role: member
+symbolType: interface
+parentRuleIds: [csharp-class, csharp-struct, csharp-interface, csharp-enum, csharp-function]
+variants: [listed-type]
+rule:
+    kind: identifier
+    pattern: {context: 'class $NAME;', selector: identifier}
+    inside: {kind: interface_declaration, field: name, matches: owned, inside: {stopBy: end, matches: enclosing}, all: [{any: [{matches: plain}, {pattern: $DECLARATION}]}]}
+name: $QUALIFIER$NAME
+signature: $PLAIN_SIGNATURE$SIGNATURE
+isPublic: {inside: {field: name, matches: visible}}
+---
+id: csharp-member-enum
+role: member
+symbolType: enum
+parentRuleIds: [csharp-class, csharp-struct, csharp-interface, csharp-enum, csharp-function]
+variants: [listed-type]
+rule:
+    kind: identifier
+    pattern: {context: 'class $NAME;', selector: identifier}
+    inside: {kind: 'enum_declaration, union_declaration', field: name, matches: owned, inside: {stopBy: end, matches: enclosing}, all: [{any: [{matches: plain}, {pattern: $DECLARATION}]}]}
+name: $QUALIFIER$NAME
+signature: $PLAIN_SIGNATURE$SIGNATURE
+isPublic: {inside: {field: name, matches: visible}}
+---
+id: csharp-member-function
+role: member
+symbolType: function
+parentRuleIds: [csharp-class, csharp-struct, csharp-interface, csharp-enum, csharp-function]
+variants: [callable, local-function, function]
+utils:
+    item: {kind: local_function_statement, inside: {kind: 'global_statement, compilation_unit', stopBy: {not: {kind: 'preproc_if, preproc_elif, preproc_else'}}}}
+    holder:
+        any:
+            - {kind: 'method_declaration, constructor_declaration, destructor_declaration, local_function_statement, property_declaration, event_declaration'}
+            - {kind: variable_declarator, inside: {kind: variable_declaration, inside: {kind: 'field_declaration, event_field_declaration'}}}
+        not: {matches: item}
+    declared:
+        kind: local_function_statement
+        matches: owned
+        has: {field: name, pattern: {context: 'class $NAME;', selector: identifier}}
+        all:
+            - not: {matches: item}
+            - any: [{inside: {stopBy: end, matches: holder, has: {field: name, pattern: {context: 'class $CALLER;', selector: identifier}}}}, {kind: local_function_statement}]
+            - any: [{matches: plain}, {pattern: $DECLARATION}]
+rule:
+    any:
+        - {kind: local_function_statement, all: [{matches: declared}, {not: {matches: nesting}}]}
+        - {kind: parameter_list, inside: {kind: local_function_statement, field: parameters, all: [{matches: declared}, {matches: nesting}]}, not: {has: {stopBy: end, kind: ERROR}}}
+        - {kind: modifier, nthChild: {position: 1, ofRule: {kind: modifier}}, inside: {kind: local_function_statement, all: [{matches: declared}, {has: {field: parameters, has: {stopBy: end, kind: ERROR}}}]}}
+rewriters:
+    - id: unmaking
+      rule: {kind: identifier, pattern: {context: 'class $SELF;', selector: identifier}, inside: {field: name, kind: destructor_declaration}}
+      fix: ~$SELF.
+    - id: calling
+      rule:
+        kind: identifier
+        pattern: {context: 'class $SELF;', selector: identifier}
+        inside: {field: name, matches: holder, any: [{inside: {stopBy: end, matches: holder, has: {field: name, pattern: {context: 'class $UP;', selector: identifier}}}}, {matches: holder}]}
+      transform: {ABOVE: {rewrite: {source: $UP, rewriters: [unmaking, calling], joinBy: ''}}}
+      fix: $ABOVE$SELF.
+transform:
+    CALLED: {rewrite: {source: $CALLER, rewriters: [unmaking, calling], joinBy: ''}}
+name: $QUALIFIER$CALLED$NAME
+signature: $PLAIN_SIGNATURE$SIGNATURE
+isPublic: false
+---
+id: csharp-member-error
+role: member
+parentRuleIds: [csharp-class, csharp-struct, csharp-interface, csharp-enum, csharp-function]
+symbolType: 'null'
+rule:
+    any:
+        - {kind: ERROR, not: {has: {stopBy: end, kind: 'constructor_declaration, destructor_declaration, method_declaration, property_declaration, indexer_declaration, field_declaration, operator_declaration, conversion_operator_declaration, event_declaration, event_field_declaration, enum_member_declaration, union_case_list, class_declaration, record_declaration, struct_declaration, interface_declaration, enum_declaration, union_declaration, local_function_statement, delegate_declaration'}}}
+        - {kind: 'identifier, comment', all: [{inside: {kind: ERROR}}, {not: {follows: {kind: 'identifier, comment', stopBy: end}}}, {nthChild: {position: 1, ofRule: {kind: 'identifier, comment'}}}]}
+name: ERROR
+signature: ''
+isPublic: false

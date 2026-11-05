@@ -26,11 +26,12 @@ utils:
                         stopBy: end
                         has: {stopBy: end, matches: prefix-test, has: {field: arguments, has: {stopBy: end, kind: identifier, pattern: $NAME}}}
 rule:
-    pattern: $LIT
-    not: {matches: rust-macro-argument}
-    any:
-        - matches: verbatim-prefix
-        - kind: scoped_identifier
-          regex: '(^|::)Prefix::Verbatim(Disk|UNC)?$'
+    all:
+        - any:
+            - matches: verbatim-prefix
+            - kind: scoped_identifier
+              regex: '(^|::)Prefix::Verbatim(Disk|UNC)?$'
+        - not: {matches: rust-macro-argument}
+        - pattern: $LIT
 message: '`$LIT` tests or strips the Windows verbatim path prefix by hand'
 note: 'Pass the path through `dunce::simplified(<path>)`, a canonical path through `dunce::simplified(&fs_err::canonicalize(<path>)?)`'

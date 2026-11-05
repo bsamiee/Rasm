@@ -5,7 +5,7 @@ rule:
     kind: expression_statement
     all:
         - has:
-            nthChild: 1
+            nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}
             kind: while_expression
             all:
                 - has: {field: condition, pattern: '!$S.is_char_boundary($I)'}
@@ -16,7 +16,7 @@ rule:
                             first:
                                 kind: expression_statement
                                 has:
-                                    nthChild: 1
+                                    nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}
                                     any:
                                         - kind: compound_assignment_expr
                                           all:

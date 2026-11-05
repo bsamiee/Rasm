@@ -14,9 +14,9 @@ utils:
             - has: {kind: sub_type, regex: '(?i-u)^all$'}
 rule:
     kind: a_expr
-    has: {kind: select_with_parens}
-    any:
-        - matches: negated-in
-        - matches: unequal-all
-message: 'Negated `in` comparison can become NULL when a compared value is NULL'
+    all:
+        - has: {kind: select_with_parens}
+        - any: [{matches: negated-in}, {matches: unequal-all}]
+        - pattern: $TEST
+message: '`$TEST` yields NULL when a compared value is NULL'
 note: 'Preserve nullable operand behavior when replacing the comparison with `not exists`'

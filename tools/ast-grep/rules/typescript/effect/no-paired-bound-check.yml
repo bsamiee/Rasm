@@ -8,7 +8,7 @@ utils:
         kind: call_expression
         any:
             - has: {field: function, kind: member_expression, has: {field: property, regex: '^(check|pipe|makeFilterGroup)$'}}
-            - has: {field: function, matches: effect-pipe-function}
+            - has: {field: function, matches: {effect-function: {name: {regex: '^pipe$'}}}}
     link:
         any:
             - matches: composer

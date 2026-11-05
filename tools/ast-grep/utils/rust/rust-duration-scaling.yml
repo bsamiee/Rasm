@@ -37,52 +37,52 @@ utils:
         kind: call_expression
         all:
             - has: {field: function, kind: scoped_identifier, all: [{has: {field: path, regex: '(^|::)Duration$'}}, {has: {field: name, regex: '^from_(secs|millis|micros|nanos)$'}}]}
-            - has: {field: arguments, not: {has: {nthChild: 2}}}
+            - has: {field: arguments, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}
             - any:
                 - all:
                     - has: {field: function, has: {field: name, regex: '^from_secs$'}}
                     - has:
                         field: arguments
                         has:
-                            nthChild: 1
+                            nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}
                             matches: scaled
                             any:
                                 - all: [{has: {field: right, matches: seconds-literal}}, {has: {field: left, matches: operand}}]
                                 - all: [{has: {field: left, matches: seconds-literal}}, {has: {field: right, matches: operand}}]
-                                - all: [{matches: mul-call}, {has: {field: arguments, has: {nthChild: 1, matches: seconds-literal}}}, {has: {field: function, has: {field: value, matches: operand}}}]
+                                - all: [{matches: mul-call}, {has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: seconds-literal}}}, {has: {field: function, has: {field: value, matches: operand}}}]
                 - all:
                     - has: {field: function, has: {field: name, regex: '^from_millis$'}}
                     - has:
                         field: arguments
                         has:
-                            nthChild: 1
+                            nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}
                             matches: scaled
                             any:
                                 - all: [{has: {field: right, matches: millis-literal}}, {has: {field: left, matches: operand}}]
                                 - all: [{has: {field: left, matches: millis-literal}}, {has: {field: right, matches: operand}}]
-                                - all: [{matches: mul-call}, {has: {field: arguments, has: {nthChild: 1, matches: millis-literal}}}, {has: {field: function, has: {field: value, matches: operand}}}]
+                                - all: [{matches: mul-call}, {has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: millis-literal}}}, {has: {field: function, has: {field: value, matches: operand}}}]
                 - all:
                     - has: {field: function, has: {field: name, regex: '^from_micros$'}}
                     - has:
                         field: arguments
                         has:
-                            nthChild: 1
+                            nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}
                             matches: scaled
                             any:
                                 - all: [{has: {field: right, matches: micros-literal}}, {has: {field: left, matches: operand}}]
                                 - all: [{has: {field: left, matches: micros-literal}}, {has: {field: right, matches: operand}}]
-                                - all: [{matches: mul-call}, {has: {field: arguments, has: {nthChild: 1, matches: micros-literal}}}, {has: {field: function, has: {field: value, matches: operand}}}]
+                                - all: [{matches: mul-call}, {has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: micros-literal}}}, {has: {field: function, has: {field: value, matches: operand}}}]
                 - all:
                     - has: {field: function, has: {field: name, regex: '^from_nanos$'}}
                     - has:
                         field: arguments
                         has:
-                            nthChild: 1
+                            nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}
                             matches: scaled
                             any:
                                 - all: [{has: {field: right, matches: nanos-literal}}, {has: {field: left, matches: operand}}]
                                 - all: [{has: {field: left, matches: nanos-literal}}, {has: {field: right, matches: operand}}]
-                                - all: [{matches: mul-call}, {has: {field: arguments, has: {nthChild: 1, matches: nanos-literal}}}, {has: {field: function, has: {field: value, matches: operand}}}]
+                                - all: [{matches: mul-call}, {has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: nanos-literal}}}, {has: {field: function, has: {field: value, matches: operand}}}]
     seconds-read:
         kind: call_expression
         all:

@@ -14,11 +14,11 @@ utils:
         kind: call_expression
         all:
             - has: {field: function, regex: '^((::)?(std|core)::)?(iter::)?successors$'}
-            - has: {field: arguments, all: [{has: {nthChild: 1, pattern: Some($E)}}, {has: {nthChild: 2, matches: source-step}}, {not: {has: {nthChild: 3}}}]}
+            - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, pattern: Some($E)}}, {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: source-step}}, {not: {has: {nthChild: {position: 3, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}]}
     cursor-loop:
         kind: while_expression
         all:
-            - has: {field: condition, kind: let_condition, all: [{has: {field: pattern, kind: tuple_struct_pattern, all: [{has: {field: type, regex: '^Some$'}}, {has: {nthChild: 2, kind: identifier, pattern: $CAUSE}}]}}, {has: {field: value, kind: identifier, pattern: $CURRENT}}]}
+            - has: {field: condition, kind: let_condition, all: [{has: {field: pattern, kind: tuple_struct_pattern, all: [{has: {field: type, regex: '^Some$'}}, {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: identifier, pattern: $CAUSE}}]}}, {has: {field: value, kind: identifier, pattern: $CURRENT}}]}
             - has:
                 field: body
                 has:

@@ -17,9 +17,9 @@ utils:
                   has: {field: function, matches: channel-path}
     unread-receiver:
         any:
-            - not: {has: {nthChild: 2, kind: identifier}}
+            - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: identifier}}
             - all:
-                - has: {nthChild: 2, kind: identifier, pattern: $RECEIVER}
+                - has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: identifier, pattern: $RECEIVER}
                 - not: {inside: {kind: function_item, stopBy: {kind: function_item}, has: {stopBy: end, kind: identifier, pattern: $RECEIVER, not: {inside: {kind: tuple_pattern}}}}}
     tuple-binding:
         kind: let_declaration

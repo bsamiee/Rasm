@@ -21,10 +21,10 @@ utils:
             - any:
                 - all:
                     - has: {field: function, kind: field_expression, has: {field: field, regex: '^(r?split|split_terminator)$'}}
-                    - has: {field: arguments, all: [{has: {nthChild: 1, matches: delimiter}}, {not: {has: {nthChild: 2}}}]}
+                    - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: delimiter}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}]}
                 - all:
                     - has: {field: function, kind: field_expression, has: {field: field, regex: '^r?splitn$'}}
-                    - has: {field: arguments, all: [{has: {nthChild: 2, matches: delimiter}}, {not: {has: {nthChild: 3}}}]}
+                    - has: {field: arguments, all: [{has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: delimiter}}, {not: {has: {nthChild: {position: 3, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}]}
             - has: {field: function, has: {field: value, matches: line-receiver}}
             - inside:
                 stopBy: {kind: 'function_item, closure_expression, for_expression'}
@@ -60,18 +60,19 @@ utils:
         kind: call_expression
         all:
             - has: {field: function, kind: field_expression, has: {field: field, regex: '^join$'}}
-            - has: {field: arguments, all: [{has: {nthChild: 1, kind: string_literal, regex: '^"(,|;|\\t)"$'}}, {not: {has: {nthChild: 2}}}]}
+            - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: string_literal, regex: '^"(,|;|\\t)"$'}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}]}
             - any:
                 - inside: {kind: macro_invocation, stopBy: {kind: 'function_item, closure_expression'}, matches: printing}
                 - inside:
                     kind: function_item
                     stopBy: {kind: function_item}
-                    has: {stopBy: end, kind: call_expression, all: [{has: {field: function, kind: field_expression, has: {field: field, regex: '^join$'}}}, {has: {field: arguments, has: {nthChild: 1, kind: string_literal, regex: '^"(\\r)?\\n"$'}}}]}
+                    has: {stopBy: end, kind: call_expression, all: [{has: {field: function, kind: field_expression, has: {field: field, regex: '^join$'}}}, {has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: string_literal, regex: '^"(\\r)?\\n"$'}}}]}
 rule:
-    pattern: $SITE
-    any:
-        - matches: line-split
-        - matches: record-write
-        - matches: record-join
+    all:
+        - any:
+            - matches: line-split
+            - matches: record-write
+            - matches: record-join
+        - pattern: $SITE
 message: '`$SITE` reads or writes delimited records by hand'
 note: 'Read through `csv::ReaderBuilder` and `deserialize::<<Row>>()`, write through `WriterBuilder` and `serialize`, both with `delimiter(<byte>)`'

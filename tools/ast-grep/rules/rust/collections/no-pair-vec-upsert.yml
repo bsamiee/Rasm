@@ -29,12 +29,12 @@ utils:
         kind: call_expression
         all:
             - pattern: $V.push($PAIR)
-            - has: {field: arguments, has: {nthChild: 1, kind: tuple_expression}}
+            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: tuple_expression}}
     sorted-insert:
         kind: call_expression
         all:
             - pattern: $V.insert($AT, $PAIR)
-            - has: {field: arguments, has: {nthChild: 2, kind: tuple_expression}}
+            - has: {field: arguments, has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: tuple_expression}}
     appends:
         any:
             - matches: append

@@ -8,7 +8,7 @@ utils:
               regex: '^b"(\\x[0-9A-Fa-f]{2}|\\.|[^"\\]){2,}"$'
             - kind: array_expression
               all:
-                - has: {nthChild: 2}
+                - has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}
                 - not: {has: {kind: 'identifier, call_expression, field_expression, binary_expression, range_expression'}}
                 - has: {kind: 'integer_literal, char_literal', regex: '^(0x[0-9A-Fa-f]+(_?u8)?|b''.*'')$'}
     magic-constant:

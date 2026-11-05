@@ -39,7 +39,7 @@ url                         = "http://127.0.0.1:7404/"
 [mcp_servers.github]
 default_tools_approval_mode = "approve"
 url                         = "https://api.githubcopilot.com/mcp/"
-http_headers_helper         = "doppler secrets get GH_PROJECTS_TOKEN --plain --project agent-runtime --config dev | jq -R '{\"Authorization\": \"Bearer \\(.)\"}'"
+http_headers_helper         = "doppler secrets get GH_PROJECTS_TOKEN --plain --project agent-runtime --config dev | jq -R '{Authorization: \"Bearer \\(.)\"}'"
 
 [mcp_servers.github.http_headers]
 X-MCP-Toolsets      = "context,repos,issues,pull_requests,actions,git,dependabot,github_support_docs_search"
@@ -49,12 +49,12 @@ X-MCP-Features      = "file_blame,issue_dependencies"
 [mcp_servers.exa]
 default_tools_approval_mode = "approve"
 url                         = "https://mcp.exa.ai/mcp?tools=web_fetch_exa,web_search_advanced_exa,agent_run"
-http_headers_helper         = "doppler secrets get EXA_API_KEY --plain --project agent-runtime --config dev | jq -R '{\"x-api-key\": \"\\(.)\"}'"
+http_headers_helper         = "doppler secrets get EXA_API_KEY --plain --project agent-runtime --config dev | jq -R '{\"x-api-key\": .}'"
 
 [mcp_servers.context7]
 default_tools_approval_mode = "approve"
 url                         = "https://mcp.context7.com/mcp"
-http_headers_helper         = "doppler secrets get CONTEXT7_API_KEY --plain --project agent-runtime --config dev | jq -R '{\"Authorization\": \"Bearer \\(.)\"}'"
+http_headers_helper         = "doppler secrets get CONTEXT7_API_KEY --plain --project agent-runtime --config dev | jq -R '{Authorization: \"Bearer \\(.)\"}'"
 
 [mcp_servers.deepwiki]
 default_tools_approval_mode = "approve"
@@ -62,7 +62,7 @@ url                         = "https://mcp.deepwiki.com/mcp"
 
 [mcp_servers.greptile]
 url                 = "https://api.greptile.com/mcp"
-http_headers_helper = "doppler secrets get GREPTILE_API_KEY --plain --project agent-runtime --config dev | jq -R '{\"Authorization\": \"Bearer \\(.)\"}'"
+http_headers_helper = "doppler secrets get GREPTILE_API_KEY --plain --project agent-runtime --config dev | jq -R '{Authorization: \"Bearer \\(.)\"}'"
 enabled             = false
 
 [mcp_servers.openaiDeveloperDocs]
@@ -74,9 +74,8 @@ default_tools_approval_mode = "approve"
 url                         = "https://code.claude.com/docs/mcp"
 
 [mcp_servers.illustrator]
-url                         = "http://localhost:18412/v1/mcp"
-http_headers_helper         = "eng/scripts/illustrator-token.sh"
-default_tools_approval_mode = "auto"
+url                 = "http://localhost:18412/v1/mcp"
+http_headers_helper = "eng/scripts/illustrator-token.sh"
 
 [mcp_servers.arena]
 url     = "https://mcp.are.na/mcp"
@@ -101,11 +100,34 @@ NODE_REPL_WORKER_WRAPPER = '["/bin/sh", "-c", "shift; exec mise exec -- \"$@\"",
 default_tools_approval_mode = "approve"
 url                         = "http://127.0.0.1:7406/"
 tool_timeout_sec            = 600
+disabled_tools              = [
+    "run_python",
+    "g1_apply_graph",
+    "g1_clear_canvas",
+    "g1_connect",
+    "g1_connect_many",
+    "g1_delete_component",
+    "g1_describe_component",
+    "g1_get_canvas_graph",
+    "g1_place_component",
+    "g1_place_slider",
+    "g1_search_components",
+    "g1_solve_graph",
+    "g1_start",
+]
 
 [mcp_servers.blender]
 default_tools_approval_mode = "approve"
 url                         = "http://127.0.0.1:7407/"
 tool_timeout_sec            = 600
+disabled_tools              = [
+    "execute_blender_code_for_cli",
+    "get_blendfile_summary_datablocks_for_cli",
+    "get_blendfile_summary_missing_files_for_cli",
+    "get_blendfile_summary_of_linked_libraries_for_cli",
+    "get_blendfile_summary_path_info_for_cli",
+    "get_blendfile_summary_usage_guess_for_cli",
+]
 
 [mcp_servers.mcp-for-blender]
 default_tools_approval_mode = "approve"
@@ -141,10 +163,3 @@ matcher = "^Bash$"
 type    = "command"
 command = 'node "$(git rev-parse --show-toplevel)/plugins/function-hooks/codex.ts" || exit 2'
 timeout = 30
-
-[[hooks.PreToolUse]]
-matcher = "^(?:mcp__rhino_mcp_platform__run_python|mcp__rhino_mcp_platform__g1_.*|mcp__blender__.*_for_cli)$"
-
-[[hooks.PreToolUse.hooks]]
-type    = "command"
-command = "jq -c '{hookSpecificOutput: {hookEventName: .hook_event_name, permissionDecision: \"deny\", permissionDecisionReason: \"\\(.tool_name) is denied\"}}'"

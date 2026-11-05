@@ -56,6 +56,7 @@ const specialized = optional(choice('default', 'final'));
 const aliased = ({ type }) => type === 'ALIAS';
 const bodiless = ($, trailing) => seq(repeat(choice($.attribute_item, $.inner_attribute_item)), field('pattern', $.match_pattern), trailing);
 const contracted = before(optionalOf(symbol('where_clause')), ($) => optional($.function_contract));
+const pathed = replace(symbol('_path'), (_, part) => field('path', part));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
@@ -91,6 +92,7 @@ export default extend(rust, {
             ),
         ),
         _keyword_prefix: () => 'k#',
+        attribute: ($, original) => choice(pathed($, original), seq('unsafe', '(', pathed($, original), ')')),
         _declaration_statement: ($, original) => choice(replace(symbol('attribute_item'), (_, part) => prec(1, part))($, original), $.trait_alias, $.delegation_item, $.const_block_item),
         declaration_list: widen(symbol('_declaration_statement'), ($) => $.const_block),
         const_block_item: ($) => seq($.visibility_modifier, $.const_block),
@@ -347,6 +349,7 @@ export default extend(rust, {
             located(rust.grammar.rules._expression_except_range, aliased),
             ($) => $._reserved_identifier,
         ),
+        unary_expression: replace(choiceOf(string('-')), (_, part) => field('operator', part)),
         binary_expression: replace(string('<='), () => token(prec(2, '<='))),
         _non_special_token: (_, original) => choice(original, '~'),
         _tokens: ($, original) => choice(original, prec(-1, '$'), $.metavariable_expression),

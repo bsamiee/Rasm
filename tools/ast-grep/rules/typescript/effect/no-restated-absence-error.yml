@@ -55,7 +55,7 @@ utils:
             - matches: lift
             - matches: lifted
               nthChild: 1
-              inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, matches: effect-pipe-function}}}
+              inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, matches: {effect-function: {name: {regex: '^pipe$'}}}}}}
     previous-option-step:
         matches: previous-step
         any:

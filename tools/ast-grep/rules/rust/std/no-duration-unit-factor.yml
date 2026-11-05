@@ -3,7 +3,8 @@ language: rustlang
 severity: error
 rule:
     kind: 'call_expression, binary_expression'
-    pattern: $FACTOR
-    matches: rust-duration-scaling
+    all:
+        - matches: rust-duration-scaling
+        - pattern: $FACTOR
 message: '`$FACTOR` converts a duration unit by a literal factor'
 note: 'Call the count''s unit `Duration` constructor, or `as_millis_f64()` (`#![feature(duration_millis_float)]`) for `as_secs_f64() * 1000.0`'

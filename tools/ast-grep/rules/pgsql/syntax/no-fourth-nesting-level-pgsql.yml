@@ -2,35 +2,36 @@
 language: pgsql
 severity: error
 rule:
-    pattern: $SCOPE
-    any:
-        - any: &query
-            - kind: common_table_expr
-            - kind: select_with_parens
-              inside: {kind: 'a_expr, c_expr, table_ref'}
-          inside:
-            any: *query
-            stopBy: &query-boundary {any: *query}
-            inside:
+    all:
+        - any:
+            - any: &query
+                - kind: common_table_expr
+                - kind: select_with_parens
+                  inside: {kind: 'a_expr, c_expr, table_ref'}
+              inside:
                 any: *query
-                stopBy: *query-boundary
+                stopBy: &query-boundary {any: *query}
                 inside:
                     any: *query
                     stopBy: *query-boundary
-                    not: {inside: {any: *query, stopBy: *query-boundary}}
-        - all: &choice
-            - kind: case_expr
-            - not: {inside: {kind: case_default, stopBy: {not: {matches: pgsql-wrapper}}}}
-          inside:
-            all: *choice
-            stopBy: &boundary {any: [{all: *choice}, {kind: &scope 'simple_select, select_no_parens, common_table_expr'}]}
-            inside:
+                    inside:
+                        any: *query
+                        stopBy: *query-boundary
+                        not: {inside: {any: *query, stopBy: *query-boundary}}
+            - all: &choice
+                - kind: case_expr
+                - not: {inside: {kind: case_default, stopBy: {not: {matches: pgsql-wrapper}}}}
+              inside:
                 all: *choice
-                stopBy: *boundary
+                stopBy: &boundary {any: [{all: *choice}, {kind: &scope 'simple_select, select_no_parens, common_table_expr'}]}
                 inside:
                     all: *choice
                     stopBy: *boundary
-                    not: {inside: {all: *choice, stopBy: {kind: *scope}}}
+                    inside:
+                        all: *choice
+                        stopBy: *boundary
+                        not: {inside: {all: *choice, stopBy: {kind: *scope}}}
+        - pattern: $SCOPE
 transform:
     HEAD: {replace: {source: $SCOPE, replace: '(?s)\n.*$', by: ''}}
 message: '`$HEAD` opens a fourth nesting level of its statement'

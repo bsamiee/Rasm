@@ -194,10 +194,11 @@ const identified = ($, name, rule) => (identifiers.includes(name) ? choice(...ar
 // --- [ROLES]
 
 const spoken = (part) => part.type === 'STRING' || (part.type === 'ALIAS' && !part.named) || (part.type === 'CHOICE' && part.members.every(spoken));
-const operator = (operand) => (part) => spoken(part) || Option.exists(referenced(part), (held) => !reachable.get(held).has(operand));
+const operator = (operand) => (part) => spoken(part) || Option.exists(referenced(part), (held) => !identifiers.includes(held) && !reachable.get(held).has(operand));
+const combining = (name) => arms(RULES[name]).some((arm) => sequence(arm).length > 2 && refers(sequence(arm)[0], name) && refers(sequence(arm).at(-1), name));
 const infix = (name, members) => {
     const middle = members.slice(1, -1);
-    return middle.length > 0 && Option.exists(referenced(members[0]), (operand) => refers(members.at(-1), operand) && middle.every(operator(operand)) && (operand === name || middle.some(spoken)));
+    return middle.length > 0 && Option.exists(referenced(members[0]), (operand) => refers(members.at(-1), operand) && middle.every(operator(operand)) && (combining(name) || arms(RULES[operand]).some((arm) => refers(arm, name))));
 };
 const prefix = (name, members) => members.length >= 2 && refers(members.at(-1), name) && members.slice(0, -1).every(operator(name));
 const role = (name, part) => {

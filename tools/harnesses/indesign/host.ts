@@ -11,7 +11,7 @@ import { HarnessError, thrown } from '#/harness-error';
 import { ENGINES, Encoded, Engine, type Held, HostCase, HostOutcome, Recorded, Reply, Survey } from '#/indesign/contract';
 import { precondition } from '#/indesign/precondition';
 import { checked, Launched, plist, printedLines } from '#/instance';
-import { linked, panelled, type Route } from '#/link';
+import { linked, type Route } from '#/link';
 import { copied } from '#/precondition';
 import { HOME, type Rule } from '#/report';
 import { type Batch, Harness, type Instance, installation, type Live, type Services, scripted } from '#/session';
@@ -109,13 +109,6 @@ const plugins =
     (live: Live, ...values: readonly string[]) =>
         Effect.flatMap(scripted(live, { direct, values, language: ENGINES.uxpscript.language }), ({ reply }) => (Predicate.isString(reply) && String.isNonEmpty(reply) ? HarnessError.unavailable(`${subject} ${values.join(' ')}`)(reply) : Effect.void));
 const route: Route = { load: plugins('plugin', LOAD), show: plugins('panel', SHOW) };
-const finished = Effect.fnUntraced(function* (batch: Batch<typeof Survey.Type, typeof HostCase.Type>, link: Option.Option<Parameters<typeof panelled>[0]>, pending: typeof Held.Type) {
-    const [item, connected] = yield* Effect.orDie(Effect.fromOption(Option.all([Option.filter(Array.get(batch.cases, pending.index), HostCase.isAnyOf(['Panel'])), link])));
-    const failed = (reason: string) => HostOutcome.make({ name: item.name, completion: { _tag: 'Failed', reason } });
-    const outcome = 'failed' in pending ? failed(pending.failed) : yield* Effect.orElseSucceed(Effect.map(panelled(connected, item, pending.opened), HostOutcome.make), ({ message }) => failed(message));
-    const [fs, line] = yield* Effect.all([FileSystem.FileSystem, Schema.encodeEffect(Recorded)({ _tag: 'Finished', outcome })]);
-    yield* fs.writeFileString(batch.records, `${line}\n`, { flag: 'a' });
-});
 const send = Effect.fn('send')(function* (live: Live, batch: Batch<typeof Survey.Type, typeof HostCase.Type>) {
     const scripts = Array.getSomes(batch.cases.map((row) => Option.map(Option.fromUndefinedOr('source' in row ? row.source : undefined), Struct.get('script'))));
     const held = Option.isNone(batch.survey) ? 'uxpscript' : yield* Effect.fromResult(engine(scripts));
@@ -126,7 +119,14 @@ const send = Effect.fn('send')(function* (live: Live, batch: Batch<typeof Survey
             Effect.flatMap((encoded) => scripted(live, { direct, values: [encoded], language: ENGINES[held].language })),
             Effect.flatMap(({ reply }) => Reply.replied(`${held} batch`)(reply)),
         );
-    const rest = (reply: Effect.Success<ReturnType<typeof call>>): Effect.Effect<void, Error, Services> => UndefinedOr.match(reply.held, { onUndefined: () => Effect.void, onDefined: (pending) => finished(batch, link, pending).pipe(Effect.andThen(call(pending.index + 1)), Effect.flatMap(rest)) });
+    const finished = Effect.fnUntraced(function* (pending: typeof Held.Type) {
+        const [item, { panelled }] = yield* Effect.orDie(Effect.fromOption(Option.all([Option.filter(Array.get(batch.cases, pending.index), HostCase.isAnyOf(['Panel'])), link])));
+        const failed = (reason: string) => HostOutcome.make({ name: item.name, completion: { _tag: 'Failed', reason } });
+        const outcome = 'failed' in pending ? failed(pending.failed) : yield* Effect.orElseSucceed(Effect.map(panelled(item, pending.opened), HostOutcome.make), ({ message }) => failed(message));
+        const [fs, line] = yield* Effect.all([FileSystem.FileSystem, Schema.encodeEffect(Recorded)({ _tag: 'Finished', outcome })]);
+        yield* fs.writeFileString(batch.records, `${line}\n`, { flag: 'a' });
+    });
+    const rest = (reply: Effect.Success<ReturnType<typeof call>>): Effect.Effect<void, Error, Services> => UndefinedOr.match(reply.held, { onUndefined: () => Effect.void, onDefined: (pending) => finished(pending).pipe(Effect.andThen(call(pending.index + 1)), Effect.flatMap(rest)) });
     const header = yield* call(0);
     yield* rest(header);
     return header;

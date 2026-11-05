@@ -10,20 +10,21 @@ utils:
     float-type:
         any: [{matches: float}, {has: {stopBy: end, matches: float}}]
 rule:
-    pattern: $DECLARATION
-    any:
-        - kind: 'const_item, static_item, field_declaration, parameter, let_declaration'
-          all:
-            - any: [{has: {field: name, matches: money-name}}, {has: {field: pattern, kind: identifier, matches: money-name}}]
-            - has: {field: type, matches: float-type}
-            - not: {inside: {kind: parameters, inside: {matches: rust-trait-impl-or-extern-function}}}
-        - kind: identifier
-          matches: money-name
-          inside:
-            kind: function_item
-            field: name
-            all:
-                - has: {field: return_type, matches: float-type}
-                - not: {matches: rust-trait-impl-or-extern-function}
+    all:
+        - any:
+            - kind: 'const_item, static_item, field_declaration, parameter, let_declaration'
+              all:
+                - any: [{has: {field: name, matches: money-name}}, {has: {field: pattern, kind: identifier, matches: money-name}}]
+                - has: {field: type, matches: float-type}
+                - not: {inside: {kind: parameters, inside: {matches: rust-trait-impl-or-extern-function}}}
+            - kind: identifier
+              matches: money-name
+              inside:
+                kind: function_item
+                field: name
+                all:
+                    - has: {field: return_type, matches: float-type}
+                    - not: {matches: rust-trait-impl-or-extern-function}
+        - pattern: $DECLARATION
 message: '`$DECLARATION` holds money as a binary float'
 note: 'Type the amount as `rust_decimal::Decimal` and round through `round_dp_with_strategy(<places>, RoundingStrategy::<strategy>)`'

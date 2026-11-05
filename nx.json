@@ -16,12 +16,19 @@
                     "typecheck:tsc": {},
                     "typecheck:swift": { "command": "swift build --build-tests --disable-automatic-resolution", "parallelism": false },
                     "typecheck:clippy": { "command": "cargo clippy --locked --workspace --lib --bins --tests", "inputs": [ "rustWorkspace", "{workspaceRoot}/clippy.toml" ], "parallelism": false },
-                    "typecheck:javac": { "command": "fd --hidden --extension java --exec-batch javac -Xlint:all,-path -Werror -d .cache/javac -cp \"$(fd --type f --full-path --glob '**/lib/*.jar' --absolute-path \"$GHIDRA_INSTALL_DIR/Ghidra\" | paste -sd: -)\"", "inputs": [ "ghidra" ], "outputs": [ "{workspaceRoot}/.cache/javac" ] },
+                    "typecheck:javac": {
+                        "command": "fd --hidden --extension java --exec-batch javac -Xlint:all,-path -Werror -d .cache/javac -cp \"$(fd --type f --full-path --glob '**/lib/*.jar' --absolute-path \"$GHIDRA_INSTALL_DIR/Ghidra\" | paste -sd: -)\"",
+                        "inputs": [ "ghidra" ],
+                        "outputs": [ "{workspaceRoot}/.cache/javac" ]
+                    },
                     "lint:dotnet-format": { "command": "fd --hidden --extension cs --exec-batch dotnet format whitespace --folder --verify-no-changes --include", "inputs": [ "{workspaceRoot}/global.json", "{workspaceRoot}/**/.editorconfig", "{workspaceRoot}/**/*.cs", { "externalDependencies": [] } ] },
                     "lint:ruff": { "dependsOn": [ { "target": "lint:ruff:*", "params": "forward" } ] },
                     "lint:ruff:check": { "command": "ruff check" },
                     "lint:ruff:format": { "command": "ruff format --check" },
-                    "lint:biome": { "command": "biome check --error-on-warnings", "inputs": [ "{workspaceRoot}/.editorconfig", "{workspaceRoot}/**/.{gitignore,ignore}", "{workspaceRoot}/pnpm-workspace.yaml", "{workspaceRoot}/**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,json,jsonc,css,graphql,html,vue,svelte,astro,svg,grit}", { "externalDependencies": [ "@biomejs/biome" ] } ] },
+                    "lint:biome": {
+                        "command": "biome check --error-on-warnings",
+                        "inputs": [ "{workspaceRoot}/.editorconfig", "{workspaceRoot}/**/.{gitignore,ignore}", "{workspaceRoot}/pnpm-workspace.yaml", "{workspaceRoot}/**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,json,jsonc,css,graphql,html,vue,svelte,astro,svg,grit}", { "externalDependencies": [ "@biomejs/biome" ] } ]
+                    },
                     "lint:rustfmt": { "command": "cargo fmt --check", "inputs": [ "rustWorkspace", "{workspaceRoot}/rustfmt.toml" ] },
                     "lint:dylint": { "command": "cargo dylint --fail-on-no-libraries --all --workspace -- --locked --lib --bins --tests", "inputs": [ "rustWorkspace", { "runtime": "cargo dylint --version" } ], "parallelism": false },
                     "lint:swift-format": { "command": "fd --hidden --extension swift --exec-batch xcrun swift-format lint --strict --parallel", "inputs": [ "swiftFiles", "{workspaceRoot}/.swift-format", { "externalDependencies": [] }, { "runtime": "xcrun swift-format --version" } ] },
@@ -52,7 +59,18 @@
                     "lint:tombi:format": { "command": "tombi format --check" },
                     "lint:yamllint": { "command": "fd --hidden --extension yaml --extension yml --strip-cwd-prefix --exec-batch yamllint --strict", "inputs": [ "python", "yamlFiles" ] },
                     "lint:yamlfmt": { "command": "fd --hidden --extension yaml --extension yml --strip-cwd-prefix --exec-batch yamlfmt -conf .config/yamlfmt.yaml -lint", "inputs": [ "yamlFiles", { "externalDependencies": [] }, { "runtime": "yamlfmt -version" } ] },
-                    "lint:actionlint": { "command": "actionlint", "inputs": [ "{workspaceRoot}/.github/actionlint.yaml", "{workspaceRoot}/.github/workflows/*.{yml,yaml}", "{workspaceRoot}/.github/actions/*/action.{yml,yaml}", "{workspaceRoot}/.shellcheckrc", { "externalDependencies": [] }, { "runtime": "actionlint --version" }, { "runtime": "shellcheck --version" } ] },
+                    "lint:actionlint": {
+                        "command": "actionlint",
+                        "inputs": [
+                            "{workspaceRoot}/.github/actionlint.yaml",
+                            "{workspaceRoot}/.github/workflows/*.{yml,yaml}",
+                            "{workspaceRoot}/.github/actions/*/action.{yml,yaml}",
+                            "{workspaceRoot}/.shellcheckrc",
+                            { "externalDependencies": [] },
+                            { "runtime": "actionlint --version" },
+                            { "runtime": "shellcheck --version" }
+                        ]
+                    },
                     "lint:shellcheck": { "command": "fd --hidden --extension sh --exec-batch shellcheck --", "inputs": [ "shellFiles", "{workspaceRoot}/.shellcheckrc", { "externalDependencies": [] }, { "runtime": "shellcheck --version" } ] },
                     "lint:shfmt": { "command": "fd --hidden --extension sh --exec-batch shfmt -d --", "inputs": [ "shellFiles", "{workspaceRoot}/**/.editorconfig", { "externalDependencies": [] }, { "runtime": "shfmt --version" } ] },
                     "format": { "executor": "./:format", "dependsOn": [ "format:nx", "format:dotnet-format", { "projects": [ "tag:language:dotnet" ], "target": "format" } ], "parallelism": false },
@@ -94,7 +112,16 @@
         }
     ],
     "pluginsConfig": { "@nx/js": { "analyzeSourceFiles": false, "projectsAffectedByDependencyUpdates": "auto" } },
-    "sync": { "globalGenerators": [ "./tools/nx/sync/generators.json:agents", "./tools/nx/sync/generators.json:barrels", "./tools/nx/sync/generators.json:build-settings", "./tools/nx/sync/generators.json:catalog-mirror", "./tools/nx/sync/generators.json:hosting-bindings", "./tools/nx/sync/generators.json:outline-catalogs", "./tools/nx/sync/generators.json:rust-analyzer" ] },
+    "sync": {
+        "globalGenerators": [
+            "./tools/nx/sync/generators.json:barrels",
+            "./tools/nx/sync/generators.json:build-settings",
+            "./tools/nx/sync/generators.json:catalog-mirror",
+            "./tools/nx/sync/generators.json:hosting-bindings",
+            "./tools/nx/sync/generators.json:outline-catalogs",
+            "./tools/nx/sync/generators.json:rust-analyzer"
+        ]
+    },
     "release": {
         "projectsRelationship": "independent",
         "releaseTag": { "pattern": "{releaseGroupName}-{projectName}-v{version}" },

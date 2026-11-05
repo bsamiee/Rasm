@@ -22,7 +22,7 @@ utils:
             kind: member_expression
             all:
                 - has: {field: property, regex: '^(head|last|get|findFirst|findLast)$'}
-                - has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)(Array|Chunk|HashMap|Iterable|Record)$'}}}}
+                - has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)(Array|Chunk|(Mutable)?HashMap|Iterable|Record)$'}}}}
     empty-fallback:
         kind: arrow_function
         has: {field: body, matches: empty-string}

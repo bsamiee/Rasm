@@ -16,16 +16,16 @@ utils:
         inside: {kind: field_expression, field: value, has: {field: field, regex: '^join$'}}
 rule:
     kind: call_expression
-    pattern: $JOIN
     all:
         - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^join$'}}, {has: {field: value, kind: identifier, pattern: $V}}]}
-        - has: {field: arguments, has: {nthChild: 1, not: {regex: '^""$'}}, not: {has: {nthChild: 2}}}
+        - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, not: {regex: '^""$'}}, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}
         - inside:
             kind: block
             stopBy: {kind: 'function_item, closure_expression'}
             all:
                 - has: {matches: vec-collect}
                 - not: {has: {stopBy: end, kind: identifier, pattern: $V, not: {any: [{inside: {kind: let_declaration, field: pattern}}, {matches: join-receiver}]}}}
+        - pattern: $JOIN
 labels:
     JOIN: {style: primary, message: 'Joins collected items'}
     COLLECT: {style: secondary, message: 'Collects items only for the join'}

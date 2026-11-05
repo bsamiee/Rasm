@@ -38,11 +38,11 @@ utils:
         kind: call_expression
         all:
             - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^contains$'}}, {has: {field: value, matches: text-receiver}}]}
-            - has: {field: arguments, has: {nthChild: 1, matches: needle}, not: {has: {nthChild: 2}}}
+            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: needle}, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}
     literal-needles:
         kind: array_expression
         all:
-            - has: {nthChild: 3}
+            - has: {nthChild: {position: 3, ofRule: {not: {kind: 'line_comment, block_comment'}}}}
             - not: {has: {pattern: $_, not: {kind: string_literal}}}
     needle-list:
         any:
@@ -62,7 +62,7 @@ utils:
         kind: call_expression
         all:
             - has: {field: function, kind: field_expression, has: {field: field, regex: '^replace$'}}
-            - has: {field: arguments, all: [{has: {nthChild: 1, any: [{kind: char_literal}, {matches: constant-text}]}}, {has: {nthChild: 2, matches: constant-text}}], not: {has: {nthChild: 3}}}
+            - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, any: [{kind: char_literal}, {matches: constant-text}]}}, {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: constant-text}}], not: {has: {nthChild: {position: 3, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}
     replaced-text:
         any:
             - matches: literal-replace
@@ -75,7 +75,7 @@ utils:
     char-run:
         all:
             - matches: literal-replace
-            - has: {field: arguments, all: [{has: {nthChild: 1, kind: char_literal}}, {has: {nthChild: 2, pattern: $TO}}]}
+            - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: char_literal}}, {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}, pattern: $TO}}]}
             - has: {field: function, has: {field: value, any: [{not: {matches: literal-replace}}, {matches: char-run}]}}
     escaped-replace:
         any: [{matches: rust-entity-escape}, {matches: rust-html-tag-scan}, {matches: rust-template-replace}]
@@ -89,28 +89,29 @@ utils:
             - not: {any: [{matches: escaped-replace}, {has: {stopBy: end, matches: escaped-replace}}]}
 rule:
     kind: 'call_expression, binary_expression'
-    pattern: $SCAN
-    any:
-        - matches: replace-chain
-        - kind: call_expression
-          all:
-            - has:
-                field: function
-                kind: field_expression
-                all:
-                    - has: {field: field, regex: '^(any|all|find|position|filter)$'}
-                    - has: {field: value, kind: call_expression, has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(iter|into_iter)$'}}, {has: {field: value, matches: needle-list}}]}}
-            - has:
-                field: arguments
-                has:
-                    nthChild: 1
-                    kind: closure_expression
-                    has: {field: body, any: [{matches: probe}, {kind: unary_expression, regex: '^!', has: {matches: probe}}]}
-        - kind: binary_expression
-          any:
-            - pattern: $RECEIVER.contains($A) || $RECEIVER.contains($B) || $RECEIVER.contains($C)
-            - pattern: {context: '!$RECEIVER.contains($A) && !$RECEIVER.contains($B) && !$RECEIVER.contains($C);', selector: binary_expression}
-          has: {field: right, has: {stopBy: end, kind: field_expression, has: {field: value, matches: text-receiver}}}
+    all:
+        - any:
+            - matches: replace-chain
+            - kind: call_expression
+              all:
+                - has:
+                    field: function
+                    kind: field_expression
+                    all:
+                        - has: {field: field, regex: '^(any|all|find|position|filter)$'}
+                        - has: {field: value, kind: call_expression, has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(iter|into_iter)$'}}, {has: {field: value, matches: needle-list}}]}}
+                - has:
+                    field: arguments
+                    has:
+                        nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}
+                        kind: closure_expression
+                        has: {field: body, any: [{matches: probe}, {kind: unary_expression, regex: '^!', has: {matches: probe}}]}
+            - kind: binary_expression
+              any:
+                - pattern: $RECEIVER.contains($A) || $RECEIVER.contains($B) || $RECEIVER.contains($C)
+                - pattern: {context: '!$RECEIVER.contains($A) && !$RECEIVER.contains($B) && !$RECEIVER.contains($C);', selector: binary_expression}
+              has: {field: right, has: {stopBy: end, kind: field_expression, has: {field: value, matches: text-receiver}}}
+        - pattern: $SCAN
 constraints:
     A: {kind: string_literal}
     B: {kind: string_literal}

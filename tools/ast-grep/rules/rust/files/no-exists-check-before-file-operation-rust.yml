@@ -15,7 +15,7 @@ utils:
         any:
             - all:
                 - has: {field: function, regex: '^((::)?tokio::fs::|fs::|(::)?fs_err::(tokio::)?)(metadata|symlink_metadata)$'}
-                - has: {field: arguments, has: {nthChild: 1, matches: path-argument}}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: path-argument}}
             - all:
                 - has: {field: function, kind: field_expression, all: [{has: {field: value, pattern: $PATH}}, {has: {field: field, regex: '^fs_err_(metadata|symlink_metadata)$'}}]}
                 - matches: no-arguments
@@ -27,11 +27,11 @@ utils:
                 - matches: no-arguments
             - all:
                 - has: {field: function, regex: '^((::)?tokio::fs::|fs::|(::)?fs_err::(tokio::)?)(exists|try_exists)$'}
-                - has: {field: arguments, has: {nthChild: 1, matches: path-argument}}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: path-argument}}
     metadata-test:
         kind: call_expression
         all:
-            - has: {field: function, kind: field_expression, has: {field: value, any: [{matches: metadata-read}, {kind: await_expression, has: {nthChild: 1, matches: metadata-read}}]}}
+            - has: {field: function, kind: field_expression, has: {field: value, any: [{matches: metadata-read}, {kind: await_expression, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: metadata-read}}]}}
             - matches: no-arguments
     present:
         any:
@@ -39,7 +39,7 @@ utils:
             - matches: metadata-test
               has: {field: function, has: {field: field, regex: '^is_ok$'}}
             - kind: 'try_expression, await_expression, parenthesized_expression'
-              has: {nthChild: 1, matches: present}
+              has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: present}
     absent:
         any:
             - kind: unary_expression
@@ -48,20 +48,20 @@ utils:
             - matches: metadata-test
               has: {field: function, has: {field: field, regex: '^is_err$'}}
             - kind: parenthesized_expression
-              has: {nthChild: 1, matches: absent}
+              has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: absent}
     operation:
         kind: call_expression
         pattern: $SITE
         any:
             - all:
                 - has: {field: function, regex: '^(((::)?(std|tokio)::)?fs::|(::)?fs_err::(tokio::)?)(read|read_to_string|read_dir|read_link|metadata|symlink_metadata|canonicalize|remove_file|remove_dir|remove_dir_all|create_dir|create_dir_all|copy|rename|hard_link|File::open|File::create_new)$|^File::(open|create_new)$'}
-                - has: {field: arguments, has: {nthChild: 1, matches: path-argument}}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: path-argument}}
             - all:
                 - has: {field: function, kind: field_expression, all: [{has: {field: value, pattern: $PATH}}, {has: {field: field, regex: '^(fs_err_)?(metadata|symlink_metadata|read_dir|read_link|canonicalize)$'}}]}
                 - matches: no-arguments
             - all:
                 - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^open$'}}, {has: {field: value, regex: '^(((::)?(std|tokio)::)?(fs::)?|(::)?fs_err::(tokio::)?)OpenOptions::new\(\)'}}]}
-                - has: {field: arguments, has: {nthChild: 1, matches: path-argument}}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: path-argument}}
     diverging:
         any:
             - matches: rust-diverging

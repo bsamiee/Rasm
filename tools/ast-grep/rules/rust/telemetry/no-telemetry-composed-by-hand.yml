@@ -34,7 +34,7 @@ utils:
                             - has:
                                 field: parameters
                                 has:
-                                    nthChild: 1
+                                    nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}
                                     any:
                                         - {kind: identifier, pattern: $PREVIOUS}
                                         - {kind: parameter, has: {field: pattern, kind: identifier, pattern: $PREVIOUS}}

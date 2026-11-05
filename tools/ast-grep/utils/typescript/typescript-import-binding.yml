@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: typescript-import-binding
+language: tsxlang
+rule:
+    kind: identifier, undefined
+    any:
+        - inside: {kind: 'import_clause, namespace_import, import_require_clause'}
+        - nthChild: {position: 1, reverse: true, ofRule: {kind: 'identifier, undefined'}}
+          inside: {kind: import_specifier}

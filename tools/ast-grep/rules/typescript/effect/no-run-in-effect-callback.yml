@@ -4,23 +4,7 @@ severity: error
 utils:
     run-invocation:
         kind: call_expression
-        has:
-            field: function
-            any:
-                - matches: {typescript-import-reference: {source: {regex: '^effect/Effect$'}, exported: {regex: '^run(Promise|PromiseExit|Sync|SyncExit|Fork|Callback)$'}}}
-                - kind: member_expression
-                  all:
-                    - has: {field: property, regex: '^run(Promise|PromiseExit|Sync|SyncExit|Fork|Callback)$'}
-                    - has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Effect$'}}}}
-                - kind: call_expression
-                  has:
-                    field: function
-                    any:
-                        - matches: {typescript-import-reference: {source: {regex: '^effect/Effect$'}, exported: {regex: '^run(Promise|PromiseExit|Sync|SyncExit|Fork|Callback)With$'}}}
-                        - kind: member_expression
-                          all:
-                            - has: {field: property, regex: '^run(Promise|PromiseExit|Sync|SyncExit|Fork|Callback)With$'}
-                            - has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Effect$'}}}}
+        has: {field: function, regex: '(?-u:\b)run', matches: {effect-runner: {name: {regex: '^run'}}}}
     effect-combinator:
         kind: call_expression
         any:
@@ -37,10 +21,7 @@ utils:
                                         (?x)(?-u:\b)(Effect|Stream|Layer|Channel|Sink|Schedule|Ref|SynchronizedRef|SubscriptionRef|TxRef|Cache|ScopedCache
                                         |Pool|RcMap|RcRef|Resource|ScopedRef|PubSub|Queue|Deferred|Fiber|FiberMap|FiberSet|FiberHandle|Request
                                         |RequestResolver|Logger|Metric)$
-                    - not:
-                        all:
-                            - has: {field: property, regex: '^run'}
-                            - has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Effect$'}}}}
+                    - not: {matches: {effect-runner: {name: {regex: '^run'}}}}
             - has: {field: function, kind: call_expression, matches: effect-combinator}
     callback:
         matches: typescript-function-boundary
@@ -59,9 +40,10 @@ rule:
                 matches: callback
                 has:
                     stopBy: {matches: typescript-function-boundary}
-                    matches: run-invocation
-                    pattern: $RUN
-                    not: {inside: {matches: effect-generator-function, stopBy: end}}
+                    all:
+                        - matches: run-invocation
+                        - pattern: $RUN
+                        - not: {inside: {matches: effect-generator-function, stopBy: {matches: typescript-function-boundary}}}
         - matches: effect-combinator
 transform:
     RUN_HEAD: {replace: {source: $RUN, replace: '(?s)^([^(]+)\(.*$', by: '$1'}}

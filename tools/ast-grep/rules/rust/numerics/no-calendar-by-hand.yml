@@ -3,7 +3,8 @@ language: rustlang
 severity: error
 rule:
     kind: 'binary_expression, call_expression, array_expression, match_pattern, compound_assignment_expr, string_literal, raw_string_literal, const_item, static_item, let_declaration'
-    pattern: $SITE
-    matches: rust-calendar-site
+    all:
+        - matches: rust-calendar-site
+        - pattern: $SITE
 message: '`$SITE` restates a calendar fact by hand'
 note: 'Type the value as `jiff` `civil::Date`, `Timestamp`, or `SignedDuration` and call `in_leap_year`, `days_in_month`, `as_hours`, or `strftime`'

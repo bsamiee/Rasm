@@ -16,7 +16,7 @@ constraints:
             - kind: call_expression
               all:
                 - has: {field: function, kind: field_expression, all: [{has: {field: value, pattern: $I}}, {has: {field: field, regex: '^(strict|checked|saturating|wrapping)_add$'}}]}
-                - has: {field: arguments, has: {nthChild: 1, regex: '^1$'}, not: {has: {nthChild: 2}}}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, regex: '^1$'}, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}
             - kind: try_expression
               has: {kind: call_expression, pattern: $I.checked_add(1)}
     PAIR: {kind: tuple_expression}

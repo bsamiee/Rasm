@@ -139,7 +139,7 @@ Host resolution:
 
 Documents:
 - Each `$CONTENT` match is one document over the full host source with one included range, nothing merges across matches
-- Hole-bearing regions reach the parser as source, grammar-level hole tokens parse them, holes glued to a word (`CREATE ${x}INDEX`, `${t}_log`) included
+- Hole-bearing regions reach the parser as source, grammar-level hole tokens parse them with a word glued after (`${t}_log`), one glued before (`idx_${t}`) fails
 - Injected coordinates are host coordinates, nothing maps back
 - Root-kind rules report the first token, a region's bounds come from the `$CONTENT` kind
 - Injections parse raw captured source without decoding strings, removing block-scalar headers, or deindenting

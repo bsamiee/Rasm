@@ -69,11 +69,11 @@ utils:
                 - kind: call_expression
                   all:
                     - has: {field: function, kind: field_expression, has: {field: field, regex: &method '^(((checked|saturating|wrapping|strict|overflowing)_)?(mul|div|rem)|(div|rem)_euclid|div_(ceil|floor))$'}}
-                    - has: {field: arguments, has: {nthChild: 1, matches: second-count}, not: {has: {nthChild: 2}}}
+                    - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: second-count}, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}
                 - kind: call_expression
                   all:
                     - has: {field: function, kind: scoped_identifier, all: [{has: {field: path, regex: '^[iu](8|16|32|64|128|size)$'}}, {has: {field: name, regex: *method}}]}
-                    - has: {field: arguments, has: {nthChild: 2, matches: second-count}}
+                    - has: {field: arguments, has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: second-count}}
             - not: {matches: duration-argument}
     named-count:
         kind: 'const_item, static_item, let_declaration'

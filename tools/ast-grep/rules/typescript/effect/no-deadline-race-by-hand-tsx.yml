@@ -11,13 +11,13 @@ utils:
             - kind: call_expression
               any:
                 - has: {field: function, kind: member_expression, has: {field: object, matches: sleep-call}}
-                - has: {field: arguments, has: {nthChild: 1, matches: sleep-call}}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: sleep-call}}
 rule:
     kind: call_expression
     pattern: $RACE
     all:
-        - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^race$'}}}}
-        - has: {field: arguments, has: {matches: sleep-branch}}
+        - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^race(All)?(First)?$'}}}}
+        - has: {field: arguments, has: {any: [{matches: sleep-branch}, {kind: array, has: {matches: sleep-branch}}]}}
 transform:
     HEAD: {replace: {source: $RACE, replace: '(?s)^([^(]+)\(.*$', by: '$1'}}
 message: '`$HEAD` races its source against `Effect.sleep` for a deadline fallback'

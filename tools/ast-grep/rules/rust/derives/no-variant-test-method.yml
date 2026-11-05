@@ -27,7 +27,7 @@ utils:
         has:
             field: body
             all:
-                - not: {has: {nthChild: 3}}
+                - not: {has: {nthChild: {position: 3, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}
                 - not: {has: {kind: match_arm, not: {matches: bool-arm}}}
                 - has: {matches: bool-arm, has: {field: pattern, matches: variant-pattern}}
                 - has: {kind: match_arm, has: {field: value, kind: boolean_literal, regex: '^true$'}}

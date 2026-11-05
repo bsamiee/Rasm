@@ -49,14 +49,8 @@ const reading = (reads: Panel['read']) => ['const read = {}, failed = {};', ...R
 const completed = (error: Error): (typeof Outcome.Type)['completion'] =>
     Schema.is(HostError)(error) && HostError.fields.reason.isAnyOf(['Thrown'])(error.reason) ? { _tag: 'Thrown', message: error.subject, ...Record.getSomes({ line: Option.map(error.reason.line, (line) => line - 1) }) } : { _tag: 'Failed', reason: error.message };
 
-const captured = Effect.fn('captured')(function* (pid: number, folder: string) {
-    const [automation, path] = yield* Effect.all([Automation, Path.Path]);
-    const shots = yield* automation.screenshot({ pid, directory: yield* path.toFileUrl(folder), window: Option.none(), longestSide: Option.none() });
-    return Record.getFailures(Record.mapKeys(shots, (number) => `${number}.png`));
-});
-
 const linked = Effect.fn('linked')(function* (live: Live, configs: Array.NonEmptyReadonlyArray<string>, route: Route) {
-    const [path, listened] = yield* Effect.all([Path.Path, Deferred.make<Effect.Success<typeof LISTENING>>()]);
+    const [path, automation, listened] = yield* Effect.all([Path.Path, Automation, Deferred.make<Effect.Success<typeof LISTENING>>()]);
     const served = HttpRouter.serve(Layer.effectDiscard(Effect.flatMap(LISTENING, (held) => Deferred.succeed(listened, held))), { disableLogger: true, disableListenLog: true });
     const context = yield* Layer.build(Layer.provideMerge(served, layerServer(createServer, { host: NetAddress.formatHost(LOOPBACK), port: LOOPBACK.port })));
     const { address } = Context.get(context, HttpServer.HttpServer);
@@ -77,31 +71,31 @@ const linked = Effect.fn('linked')(function* (live: Live, configs: Array.NonEmpt
             Effect.flatMap((invoke) => invoke('execute_script', ExecuteScript.make({ code: ExecuteScript.expression(body, false) }))),
             Effect.map(({ result }) => Option.getOrNull(result)),
         );
-    return { live, route, plugins, called };
-});
-const panelled = Effect.fn('panelled')(function* ({ live, route, plugins, called }: Effect.Success<ReturnType<typeof linked>>, item: Panel, opened: readonly Schema.Json[]) {
-    const plugin = yield* Effect.fromOption(
-        Array.findFirst(plugins, ({ config }) => config === item.plugin),
-        () => HarnessError.unavailable(item.name)(`plugin ${item.plugin} holds no build`),
-    );
-    const reads = Effect.flatMap(called(reading(item.read)), Schema.decodeUnknownEffect(Read));
-    yield* route.show(live, plugin.id, item.panel);
-    const before = yield* reads;
-    const evaluated = yield* Effect.result(called(`return (${item.evaluate});`));
-    yield* Effect.transposeOption(Option.map(Option.fromUndefinedOr(item.until), (until) => Effect.repeat(called(`return Boolean(${until});`), { until: Equal.equals(true) })));
-    const after = yield* reads;
-    const failed = item.capture === true ? yield* captured(live.pid, item.folder) : {};
-    return {
-        name: item.name,
-        opened,
-        before: before.read,
-        beforeFailed: before.failed,
-        read: after.read,
-        readFailed: { ...after.failed, ...Record.map(failed, Struct.get('message')) },
-        ...Result.match(evaluated, { onSuccess: (value) => ({ completion: { _tag: 'Ran' as const }, value }), onFailure: (error) => ({ completion: completed(error) }) }),
-    };
+    const reads = (item: Panel) => Effect.flatMap(called(reading(item.read)), Schema.decodeUnknownEffect(Read));
+    const panelled = Effect.fn('panelled')(function* (item: Panel, opened: readonly Schema.Json[]) {
+        const plugin = yield* Effect.fromOption(
+            Array.findFirst(plugins, ({ config }) => config === item.plugin),
+            () => HarnessError.unavailable(item.name)(`plugin ${item.plugin} holds no build`),
+        );
+        yield* route.show(live, plugin.id, item.panel);
+        const before = yield* reads(item);
+        const evaluated = yield* Effect.result(called(`return (${item.evaluate});`));
+        yield* Effect.transposeOption(Option.map(Option.fromUndefinedOr(item.until), (until) => Effect.repeat(called(`return Boolean(${until});`), { until: Equal.equals(true) })));
+        const after = yield* reads(item);
+        const failed = item.capture === true ? Record.getFailures(Record.mapKeys(yield* automation.screenshot({ pid: live.pid, directory: yield* path.toFileUrl(item.folder), window: Option.none(), longestSide: Option.none() }), (window) => `${window}.png`)) : {};
+        return {
+            name: item.name,
+            opened,
+            before: before.read,
+            beforeFailed: before.failed,
+            read: after.read,
+            readFailed: { ...after.failed, ...Record.map(failed, Struct.get('message')) },
+            ...Result.match(evaluated, { onSuccess: (value) => ({ completion: { _tag: 'Ran' as const }, value }), onFailure: (error) => ({ completion: completed(error) }) }),
+        };
+    });
+    return { panelled };
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { linked, type Panel, panelled, type Route };
+export { linked, type Panel, type Route };

@@ -29,7 +29,6 @@ utils:
             - matches: worklist-push
 rule:
     kind: call_expression
-    pattern: $READ
     all:
         - any:
             - has: {field: function, regex: '^((((::)?(std|tokio|async_std)::)?fs::|(::)?fs_err::(tokio::)?)read_dir|read_dir)$'}
@@ -59,6 +58,7 @@ rule:
                     stopBy: end
                     kind: expression_statement
                     has: {kind: while_expression, all: [{has: {field: condition, has: {stopBy: end, pattern: $ENTRIES}}}, {has: {field: body, has: {stopBy: {kind: function_item}, matches: descent, pattern: $STEP}}}]}
+        - pattern: $READ
 labels:
     READ: {style: primary, message: 'Lists one directory level'}
     STEP: {style: secondary, message: 'Descends into each entry'}

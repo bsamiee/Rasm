@@ -16,12 +16,12 @@ rule:
                 field: arguments
                 all:
                     - has:
-                        nthChild: 2
+                        nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}
                         kind: closure_expression
                         any:
                             - pattern: '|$BUILDER, $ITEM| $BUILDER.$STEP($ITEM)'
                             - pattern: '|$BUILDER, $ITEM| $BUILDER.$STEP($ITEM.$CONVERT())'
-                    - not: {has: {nthChild: 3}}
+                    - not: {has: {nthChild: {position: 3, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}
 constraints:
     BUILDER: {kind: identifier}
     ITEM: {kind: identifier}

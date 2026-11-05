@@ -21,7 +21,6 @@ utils:
         regex: '(?s)^#\[\p{Pattern_White_Space}*group\p{Pattern_White_Space}*\(.*(?-u:\b)(required|multiple|requires|requires_all|conflicts_with|conflicts_with_all)(?-u:\b)'
 rule:
     kind: 'string_literal, raw_string_literal'
-    pattern: $NAME
     all:
         - regex: '^r?#*"[A-Za-z][A-Za-z0-9]*([-_][A-Za-z0-9]+)*"#*$'
         - not: {regex: '^r?#*"(self|Self|super|crate)"#*$'}
@@ -30,9 +29,9 @@ rule:
             kind: attribute
             stopBy: {kind: attribute}
             any:
-                - has: {nthChild: 1, kind: identifier, regex: '^(arg|clap|command|value)$'}
+                - has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: identifier, regex: '^(arg|clap|command|value)$'}
                 - all:
-                    - has: {nthChild: 1, pattern: group}
+                    - has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, pattern: group}
                     - not:
                         inside:
                             kind: attribute_item
@@ -41,5 +40,6 @@ rule:
                                 - precedes: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, matches: semantic-group}
                                 - follows: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, matches: semantic-group}
         - not: {matches: rust-test-scope}
+        - pattern: $NAME
 message: '`$KEY` spells `$NAME`, a name clap derives from the item or package'
 note: 'Rename item or package to the literal and delete key or `long` value, `#[value(rename_all)]` on `ValueEnum` and `#[group(skip)]` on `Args`'

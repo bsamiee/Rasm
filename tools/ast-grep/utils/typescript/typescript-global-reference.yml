@@ -8,20 +8,6 @@ rule:
           not:
             any:
                 - matches: {typescript-local-binding: {owner: {pattern: $_}}}
-                - inside:
-                    kind: program
-                    stopBy: end
-                    has:
-                        kind: import_statement
-                        has:
-                            kind: import_clause
-                            any:
-                                - has: {kind: 'identifier, undefined', pattern: $GLOBAL}
-                                - has: {kind: namespace_import, has: {kind: 'identifier, undefined', pattern: $GLOBAL}}
-                                - has:
-                                    kind: named_imports
-                                    has:
-                                        kind: import_specifier
-                                        has: {kind: 'identifier, undefined', pattern: $GLOBAL, nthChild: {position: 1, reverse: true, ofRule: {kind: 'identifier, undefined'}}}
+                - inside: {kind: program, stopBy: end, has: {kind: import_statement, has: {stopBy: end, pattern: $GLOBAL, matches: typescript-import-binding}}}
         - kind: member_expression
           has: {field: object, matches: typescript-global-reference}

@@ -12,7 +12,7 @@ utils:
             - kind: generic_type
               all:
                 - has: {field: type, regex: '^((std|core)::option::)?Option$'}
-                - has: {field: type_arguments, has: {kind: 'primitive_type, unit_type', any: [{matches: plain-type}, {kind: unit_type}]}, not: {has: {nthChild: 2}}}
+                - has: {field: type_arguments, has: {kind: 'primitive_type, unit_type', any: [{matches: plain-type}, {kind: unit_type}]}, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}
     flag-type:
         any: [{matches: plain-type}, {matches: wrapped-type}]
     packed-type:

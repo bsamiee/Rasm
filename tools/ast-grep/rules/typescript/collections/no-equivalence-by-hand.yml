@@ -11,6 +11,12 @@ rule:
             kind: arguments
             inside:
                 kind: call_expression
-                has: {field: function, pattern: $CALL, matches: {effect-module-member: {module: {regex: '(?-u:\b)(Array|Chunk|Iterable)$'}, member: {regex: '^(dedupeWith|dedupeAdjacentWith|containsWith|differenceWith|unionWith|intersectionWith)$'}}}}
+                has:
+                    field: function
+                    pattern: $CALL
+                    any:
+                        - matches: {effect-module-member: {module: {regex: '(?-u:\b)Array$'}, member: {regex: '^(containsWith|dedupeAdjacentWith|dedupeWith|differenceWith|groupWith|intersectionWith|unionWith)$'}}}
+                        - matches: {effect-module-member: {module: {regex: '(?-u:\b)Chunk$'}, member: {regex: '^(containsWith|differenceWith)$'}}}
+                        - matches: {effect-module-member: {module: {regex: '(?-u:\b)Iterable$'}, member: {regex: '^(containsWith|dedupeAdjacentWith|groupWith)$'}}}
 message: '`$CALL` compares by `$K` through a hand `===` callback'
 note: 'Pass `Equivalence.mapInput(<equivalence>, Struct.get(''<key>''))`, declared once beside its type'

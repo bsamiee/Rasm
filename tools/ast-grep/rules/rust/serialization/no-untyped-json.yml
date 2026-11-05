@@ -18,7 +18,7 @@ utils:
             - kind: call_expression
               all:
                 - has: {field: function, regex: '^((::)?(std::)?(string::)?)?String::from$'}
-                - has: {field: arguments, has: {nthChild: 1, kind: string_literal}}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: string_literal}}
             - kind: call_expression
               all:
                 - has: {field: function, kind: field_expression, all: [{has: {field: value, kind: string_literal}}, {has: {field: field, regex: '^(to_owned|to_string|into)$'}}]}
@@ -36,15 +36,15 @@ utils:
     keyed-entry:
         kind: tuple_expression
         all:
-            - has: {nthChild: 1, matches: key-literal}
-            - has: {nthChild: 2, matches: json-value}
-            - not: {has: {nthChild: 3}}
+            - has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: key-literal}
+            - has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: json-value}
+            - not: {has: {nthChild: {position: 3, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}
             - inside: {kind: array_expression}
     keyed-insert:
         kind: call_expression
         all:
             - has: {field: function, kind: field_expression, has: {field: field, regex: '^insert$'}}
-            - has: {field: arguments, all: [{has: {nthChild: 1, matches: key-literal}}, {has: {nthChild: 2, matches: json-value}}, {not: {has: {nthChild: 3}}}]}
+            - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: key-literal}}, {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: json-value}}, {not: {has: {nthChild: {position: 3, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}]}
     json-text:
         kind: string_literal
         regex: '^"\{\p{Pattern_White_Space}*\\"[^"\\]+\\"\p{Pattern_White_Space}*:'
@@ -53,7 +53,6 @@ utils:
             - inside: {field: value, kind: field_expression, has: {field: field, regex: '^(to_owned|to_string|into)$'}}
             - inside: {kind: binary_expression, has: {field: operator, regex: '^\+$'}}
 rule:
-    pattern: $DOCUMENT
     all:
         - any:
             - all:
@@ -64,6 +63,7 @@ rule:
             - matches: json-text
               not: {matches: rust-geometry-format-text}
         - not: {matches: rust-test-scope}
+        - pattern: $DOCUMENT
 transform:
     HEAD: {replace: {source: $DOCUMENT, replace: '(?s)\n.*$', by: ''}}
 message: '`$HEAD` builds a JSON document as text or a string-keyed value with no declared type'

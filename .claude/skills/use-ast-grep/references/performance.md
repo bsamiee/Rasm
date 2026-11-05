@@ -36,9 +36,10 @@ Pattern sites cost what parsing their snippet costs, a bare `$X` or literal `L` 
 |  [08]   | XML        |     0.04 |        0.02 |         0.07 | Bare, `pattern`   |
 |  [09]   | Bash       |     0.04 |        0.02 |         0.07 | Bare, `pattern`   |
 |  [10]   | Swift      |     0.04 |        0.02 |         0.08 | Bare, `pattern`   |
-|  [11]   | Rust       |     0.01 |        0.02 |         0.08 | Bare, `pattern`   |
+|  [11]   | Rust       |     0.03 |        0.02 |         0.05 | Bare, `pattern`   |
 
-- Selector forms fit a kind a lone metavariable parses as, composite and multi-kind sites stay bare unless an `any:` of selectors loads cheaper
+- Selector forms fit a kind a lone metavariable parses as and stay where a `kind` beside a bare capture costs more walk than its load saving
+- Composite and multi-kind sites stay bare unless an `any:` of selectors loads cheaper
 - Anchored literals (`regex: '^L$'`) take `pattern: L` with no sibling `kind` where `L` parses clean to a named terminal of the one kind its position holds
 - Literal patterns match about 500 fewer instructions per node, anonymous tokens keep `regex` since a pattern compares their kind alone
 - Alternations (`^(?:a|b|c)$`) keep `regex`, an `any:` of patterns loads cheaper and matches dearer per node from a third member on
@@ -48,6 +49,7 @@ Pattern sites cost what parsing their snippet costs, a bare `$X` or literal `L` 
 Regexes compile eagerly per document with no sharing across documents or rules, `replace` included. Compile cost follows the engine a pattern selects and not its length, rising in order: unanchored literal or literal alternation, `$`, ASCII class and literal prefix (`^foo`), `\b` under either mode, Unicode `\d` at twice `[0-9]`, Unicode `\s` at six times an ASCII class, Unicode `\w` at ten times `[0-9A-Za-z_]`, `\p{XID_Start}\p{XID_Continue}*`:
 - Only an ASCII class saves over `\s`, an explicit `\p{White_Space}` class costs the same
 - `.` costs as much as `^\s`
+- Always-true arms (an optional capture's last, a lineage end) name the node's own kinds where known, `regex: ''` compiling one regex per site
 - Gates that only skip work take the cheapest literal superset (`concat|All|prepend`), over-matching costs walk and never findings or rows
 - Text a capture's presence decides (a separator, a constant) comes from a rewriter with a literal fix, a `replace` over `(.)\z` compiling an anchored regex per site
 - Unicode `\b` makes lazy and full DFAs quit at a non-ASCII byte, the search reruns on a slower engine
@@ -63,7 +65,8 @@ Candidate kind sets decide how many nodes attempt a matcher:
 - Kind tests leading an ordered `all` repeat the candidate kind filter, a map's `regex` already runs on those kinds alone
 - Climbing to ancestors or scanning a scope before the candidate's own name test is the most frequent cost defect
 - ESQuery selectors compile to existing matchers, shorter syntax changes no underlying traversal cost
-- `transform` runs on every match, `rewrite` walks its whole source per rewriter, below nodes already replaced included, a kindless rewriter tries each node
+- `transform` runs on every match whether its source is bound or not, fixed text belongs in the `fix` or template
+- `rewrite` walks its whole source per rewriter, below nodes already replaced included, a kindless rewriter tries each node
 - Rewriters take a `kind`, a signature's source holds no body, built from header captures or cut at the body
 - Every listed rewriter costs a walk where it never matches, one scoped to a construct nests in that construct's rewriter `transform`
 - Kind tables size to a document's highest candidate kind id, a top-level `ERROR` (65,535) costing about 1.1 M instructions per file
@@ -90,7 +93,7 @@ Relations reuse parsed trees, ancestor searches do not parse source again:
 - Rule stops on `has` prune matching subtrees
 - Rule stops repeating a target's kinds compile a second list, `end` replaces them only where the target accepts every node of those kinds
 - Sibling scans run first toward the nearer target, test `has` before `kind`, and join targets in one kindless `any:`
-- Root `regex` on a literal every arm needs (`__all__`) ahead of `has` scans root text once per candidate, under a tenth of the walk it skips
+- `regex` on a literal a candidate's text must hold gates a `has` (`{regex: '^async', has: …}`, root `__all__`), one text scan in place of the walk it skips
 - Positive relations add `secondary` captures whose complete text is repeated in JSON and diagnostic labels
 - For predicates with no exported captures, retain explicit candidate kinds and use double `not` to discard new bindings
 - Walk targets and stopping predicates use atomic kinds when a kind alone states their boundary

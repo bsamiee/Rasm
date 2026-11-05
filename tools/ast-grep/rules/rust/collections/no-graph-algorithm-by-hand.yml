@@ -120,12 +120,13 @@ utils:
                                 has: {field: value, any: [{matches: adjacency-read}, {has: {stopBy: end, matches: adjacency-read}}]}
 rule:
     kind: 'call_expression, assignment_expression'
-    pattern: $SITE
-    any:
-        - matches: dijkstra-relax
-        - matches: kahn-release
-        - matches: path-compression
-        - matches: visited-worklist
+    all:
+        - any:
+            - matches: dijkstra-relax
+            - matches: kahn-release
+            - matches: path-compression
+            - matches: visited-worklist
+        - pattern: $SITE
 constraints:
     PUSH: {regex: '^(push|push_back|push_front)$'}
     POP: {regex: '^(pop|pop_back|pop_front)$'}

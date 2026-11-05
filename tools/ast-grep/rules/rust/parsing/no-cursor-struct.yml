@@ -26,8 +26,8 @@ utils:
         any:
             - kind: index_expression
               all:
-                - has: {nthChild: 1, any: [{matches: input-field}, {has: {stopBy: end, matches: input-field}}]}
-                - has: {nthChild: 2, any: [{matches: self-field}, {has: {stopBy: end, matches: self-field}}]}
+                - has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, any: [{matches: input-field}, {has: {stopBy: end, matches: input-field}}]}
+                - has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}, any: [{matches: self-field}, {has: {stopBy: end, matches: self-field}}]}
             - kind: call_expression
               all:
                 - has: {field: function, has: {stopBy: end, matches: input-field}}

@@ -14,21 +14,22 @@ utils:
     text-type:
         any: [{matches: text}, {kind: reference_type, has: {field: type, matches: text}}]
 rule:
-    pattern: $DECLARATION
-    any:
-        - kind: 'field_declaration, parameter, let_declaration, const_item, static_item'
-          all:
-            - any: [{has: {field: name, matches: currency-name}}, {has: {field: pattern, kind: identifier, matches: currency-name}}]
-            - has: {field: type, matches: text-type}
-            - not: {inside: {kind: parameters, inside: {matches: rust-trait-impl-or-extern-function}}}
-            - not: {matches: rust-text-decoder}
-        - kind: identifier
-          matches: currency-name
-          inside:
-            kind: function_item
-            field: name
-            all:
-                - has: {field: return_type, matches: text-type}
-                - not: {matches: rust-trait-impl-or-extern-function}
+    all:
+        - any:
+            - kind: 'field_declaration, parameter, let_declaration, const_item, static_item'
+              all:
+                - any: [{has: {field: name, matches: currency-name}}, {has: {field: pattern, kind: identifier, matches: currency-name}}]
+                - has: {field: type, matches: text-type}
+                - not: {inside: {kind: parameters, inside: {matches: rust-trait-impl-or-extern-function}}}
+                - not: {matches: rust-text-decoder}
+            - kind: identifier
+              matches: currency-name
+              inside:
+                kind: function_item
+                field: name
+                all:
+                    - has: {field: return_type, matches: text-type}
+                    - not: {matches: rust-trait-impl-or-extern-function}
+        - pattern: $DECLARATION
 message: '`$DECLARATION` holds an ISO 4217 currency code as text'
 note: 'Type the code as `iso_currency::Currency`, parsed at its boundary through `Currency::from_code`, `FromStr`, or serde'

@@ -10,7 +10,7 @@ utils:
                 - has: {field: arguments, not: {has: {pattern: $_}}}
             - all:
                 - has: {field: function, regex: '^((::)?(std|core)::)?(primitive::)?f(16|32|64|128)::to_bits$'}
-                - has: {field: arguments, has: {nthChild: 1}, not: {has: {nthChild: 2}}}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}}, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}
     float-struct:
         kind: struct_item
         all:
@@ -27,34 +27,35 @@ utils:
                 - has: {field: function, kind: field_expression, has: {field: field, regex: '^(unwrap|expect|unwrap_or|unwrap_or_else)$'}}
                 - has: {field: function, has: {field: value, kind: call_expression, has: {field: function, kind: field_expression, has: {field: field, regex: '^partial_cmp$'}}}}
 rule:
-    pattern: $SITE
-    any:
-        - kind: call_expression
-          all:
-            - has: {field: function, kind: field_expression, all: [{has: {field: value, matches: bits}}, {has: {field: field, regex: '^hash$'}}]}
-            - has: {field: arguments, has: {nthChild: 1}, not: {has: {nthChild: 2}}}
-        - kind: call_expression
-          all:
-            - has: {field: function, regex: '^((::)?(std|core)::)?(hash::)?Hash::hash$'}
-            - has: {field: arguments, has: {nthChild: 1, any: [{matches: bits}, {kind: reference_expression, has: {field: value, matches: bits}}]}}
-        - kind: call_expression
-          all:
-            - has: {field: function, kind: field_expression, has: {field: field, regex: '^write_(u|i)(16|32|64|128)$'}}
-            - has: {field: arguments, has: {nthChild: 1, any: [{matches: bits}, {kind: type_cast_expression, has: {field: value, matches: bits}}]}}
-        - kind: impl_item
-          all:
-            - has: {field: trait, regex: '^((::)?(std|core)::)?(cmp::)?Eq$'}
-            - has: {field: type, matches: impl-target}
-            - has: {field: body, not: {has: {pattern: $_}}}
-            - inside: {kind: source_file, stopBy: end, has: {stopBy: end, matches: float-struct}}
-        - matches: float-order
-          inside:
-            kind: impl_item
-            stopBy: {kind: 'impl_item, closure_expression'}
-            all:
-                - has: {field: trait, regex: '^((::)?(std|core)::)?(cmp::)?Ord$'}
+    all:
+        - any:
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: field_expression, all: [{has: {field: value, matches: bits}}, {has: {field: field, regex: '^hash$'}}]}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}}, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}
+            - kind: call_expression
+              all:
+                - has: {field: function, regex: '^((::)?(std|core)::)?(hash::)?Hash::hash$'}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, any: [{matches: bits}, {kind: reference_expression, has: {field: value, matches: bits}}]}}
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: field_expression, has: {field: field, regex: '^write_(u|i)(16|32|64|128)$'}}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, any: [{matches: bits}, {kind: type_cast_expression, has: {field: value, matches: bits}}]}}
+            - kind: impl_item
+              all:
+                - has: {field: trait, regex: '^((::)?(std|core)::)?(cmp::)?Eq$'}
                 - has: {field: type, matches: impl-target}
+                - has: {field: body, not: {has: {pattern: $_}}}
                 - inside: {kind: source_file, stopBy: end, has: {stopBy: end, matches: float-struct}}
+            - matches: float-order
+              inside:
+                kind: impl_item
+                stopBy: {kind: 'impl_item, closure_expression'}
+                all:
+                    - has: {field: trait, regex: '^((::)?(std|core)::)?(cmp::)?Ord$'}
+                    - has: {field: type, matches: impl-target}
+                    - inside: {kind: source_file, stopBy: end, has: {stopBy: end, matches: float-struct}}
+        - pattern: $SITE
 transform:
     HEAD: {replace: {source: $SITE, replace: '(?s)\p{Pattern_White_Space}*\{?\p{Pattern_White_Space}*\n.*$', by: ''}}
 message: '`$HEAD` treats a float as a total order or a hash key by hand'

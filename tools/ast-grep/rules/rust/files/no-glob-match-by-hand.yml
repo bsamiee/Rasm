@@ -12,14 +12,15 @@ utils:
                     - has:
                         field: arguments
                         has:
-                            nthChild: 1
+                            nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}
                             any:
                                 - {kind: string_literal, regex: '\*', not: {regex: '\.\*'}}
                                 - {pattern: '''*'''}
-                - has: {field: arguments, has: {nthChild: 1, kind: string_literal, regex: '^"(\*\.[^"]*|\*\*/[^"]*)"$'}}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: string_literal, regex: '^"(\*\.[^"]*|\*\*/[^"]*)"$'}}
 rule:
     kind: call_expression
-    pattern: $CALL
-    matches: star-cut
+    all:
+        - matches: star-cut
+        - pattern: $CALL
 message: '`$CALL` matches a glob pattern by cutting it at `*` by hand'
 note: 'Compile the pattern once with `globset::Glob::new(<pattern>)?.compile_matcher()`, or a `globset::GlobSetBuilder` for a pattern list'

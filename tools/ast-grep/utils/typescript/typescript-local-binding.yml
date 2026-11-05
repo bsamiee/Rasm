@@ -22,26 +22,20 @@ utils:
             - kind: expression_statement
               has: {kind: internal_module, has: {field: name, pattern: $NAME}}
             - kind: import_alias
-              has: {kind: 'identifier, undefined', nthChild: {position: 1, ofRule: &code {not: {kind: 'comment, html_comment'}}}, pattern: $NAME}
+              has: {kind: 'identifier, undefined', nthChild: {position: 1, ofRule: {kind: 'identifier, undefined'}}, pattern: $NAME}
             - kind: import_statement
-              has: {kind: import_require_clause, has: {kind: 'identifier, undefined', nthChild: {position: 1, ofRule: *code}, pattern: $NAME}}
+              has: {kind: import_require_clause, has: {pattern: $NAME, matches: typescript-import-binding}}
             - kind: export_statement
               has: {matches: declaration}
     value-import:
         kind: import_statement
         all:
-            - has:
-                kind: import_clause
-                any:
-                    - has: {kind: identifier, pattern: $NAME}
-                    - has: {kind: namespace_import, has: {kind: identifier, pattern: $NAME}}
-                    - has:
-                        kind: named_imports
-                        has:
-                            kind: import_specifier
-                            has: {kind: identifier, pattern: $NAME, nthChild: {position: 1, reverse: true, ofRule: {kind: identifier}}}
-                            not: {has: {regex: '^type$', not: {pattern: $_}}}
             - not: {has: {regex: '^type$', not: {pattern: $_}}}
+            - has:
+                stopBy: end
+                pattern: $NAME
+                matches: typescript-import-binding
+                not: {inside: {any: [{kind: import_require_clause}, {kind: import_specifier, has: {regex: '^type$', not: {pattern: $_}}}]}}
 rule:
     kind: identifier, undefined, shorthand_property_identifier
     pattern: $NAME

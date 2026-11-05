@@ -97,7 +97,7 @@ Steps name tools in the form the harness runs:
 
 [CODEX_TOOLS]:
 - Skills list each entry as `<skill>: <description> (file: <root>/<folder>/SKILL.md)` over a table of roots, inherited by every agent
-- Agents render from the Claude Code agent file: `description`, the body as `developer_instructions` after one line per `skills` entry to read it, and `name` and each plugin server tool prefix `mcp__<server>__` with every character outside letters, digits, and `_` written `_`
+- Steps read `references/<file>.md` beside the `SKILL.md` of `<skill>`
 
 [CLI_TOOLS]:
 - Commands take the documented form with flags `--help` prints

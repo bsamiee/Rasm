@@ -3,7 +3,8 @@ language: rustlang
 severity: error
 rule:
     kind: use_declaration
-    has: {kind: visibility_modifier, regex: '^pub$'}
-    pattern: $USE
+    all:
+        - has: {kind: visibility_modifier, regex: '^pub$'}
+        - pattern: $USE
 message: '`$USE` re-exports an item another module owns'
 note: 'Declare the owning module `pub` and reach each item through its path'

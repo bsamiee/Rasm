@@ -16,7 +16,7 @@ utils:
             - kind: call_expression
               all:
                 - has: {field: function, kind: field_expression, has: {field: field, regex: '^(rem_euclid|wrapping_rem|strict_rem)$'}}
-                - has: {field: arguments, has: {nthChild: 1, matches: divisor}, not: {has: {nthChild: 2}}}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: divisor}, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}
                 - has: {field: function, has: {field: value, matches: dividend}}
 rule:
     any:
@@ -29,5 +29,5 @@ rule:
         - kind: call_expression
           all:
             - has: {field: function, kind: field_expression, has: {field: field, regex: '^is_multiple_of$'}}
-            - has: {field: arguments, has: {nthChild: 1, matches: divisor}, not: {has: {nthChild: 2}}}
+            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: divisor}, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}
             - has: {field: function, has: {field: value, matches: dividend}}

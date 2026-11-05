@@ -20,7 +20,7 @@ utils:
             - matches: typescript-expression-wrapper
               has: {matches: rendered}
     hashed-module:
-        matches: {effect-module: {name: {regex: '(?-u:\b)(Mutable)?Hash(Map|Set)$'}}}
+        matches: {effect-module: {name: {regex: '(?-u:\b)(Mutable|Tx)?Hash(Map|Set)$'}}}
 rule:
     kind: call_expression
     any:

@@ -15,6 +15,6 @@ rule:
     kind: call_expression
     all:
         - has: {field: function, kind: scoped_identifier, regex: '^((nonempty_collections::)?(vector::)?NEVec|(nonempty_collections::)?(vector::)?NonEmpty)::try_from_vec$'}
-        - has: {field: arguments, all: [{has: {nthChild: 1, matches: collected}}, {not: {has: {nthChild: 2}}}]}
+        - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: collected}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}]}
 message: '`$ITEMS` collects into a `Vec` only for `try_from_vec` to test it for an item'
 note: 'Map `try_into_nonempty_iter()` through `NonEmptyIterator::collect::<NEVec<_>>`, importing `nonempty_collections::IntoIteratorExt`'

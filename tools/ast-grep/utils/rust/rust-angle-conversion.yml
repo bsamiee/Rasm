@@ -41,4 +41,4 @@ rule:
             - has: {field: operator, regex: '^/$'}
             - has: {field: right, matches: factor}
         - pattern: $_VALUE.mul_add($_FACTOR, $_OFFSET)
-          has: {field: arguments, has: {nthChild: 1, matches: factor}}
+          has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: factor}}

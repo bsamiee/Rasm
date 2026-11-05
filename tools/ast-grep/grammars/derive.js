@@ -3,6 +3,7 @@ import refa from 'refa';
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const MAXIMUM = 0x10_ff_ff;
+const HEXADECIMAL = 16;
 const NON_ASCII = refa.CharSet.fromRange(MAXIMUM, { min: 0x80, max: MAXIMUM });
 const LEXICAL = new Set(['STRING', 'PATTERN', 'TOKEN', 'IMMEDIATE_TOKEN']);
 
@@ -34,7 +35,7 @@ const minimal = (fa) => {
     dfa.minimize();
     return dfa;
 };
-const point = (code) => `\\u{${code.toString(16)}}`;
+const point = (code) => `\\u{${code.toString(HEXADECIMAL)}}`;
 const span = ({ min, max }) => (min === max ? point(min) : `${point(min)}-${point(max)}`);
 const bound = (max) => (Number.isFinite(max) ? String(max) : '');
 const quantity = ({ type, min, max }) => (type === 'Quantifier' ? `{${min},${bound(max)}}` : '');
@@ -123,7 +124,8 @@ const expanded = (members) => {
 };
 const leading = (grammar, rule) => {
     const seen = new Set();
-    const heads = (part) => expanded([part]).flatMap(([head]) => (head.type !== 'SYMBOL' ? [head] : seen.has(head.name) || !(head.name in grammar.rules) ? [] : (seen.add(head.name), heads(grammar.rules[head.name]))));
+    const fresh = (name) => name in grammar.rules && !seen.has(name) && seen.add(name).has(name);
+    const heads = (part) => expanded([part]).flatMap(([head]) => (head.type === 'SYMBOL' ? [head.name].filter(fresh).flatMap((name) => heads(grammar.rules[name])) : [head]));
     return heads(rule);
 };
 const headOf = ([head]) => head.name ?? JSON.stringify(head);
@@ -213,7 +215,7 @@ const classes = ({ identifier, whitespace }, parse) => {
 };
 const spans = ({ ranges }) => seq(...ranges.flatMap(({ min, max }) => [String(min), String(max)]));
 const outermost = (rule) => (lexical(rule) ? [rule] : children(rule).flatMap(outermost));
-const folded = (characters) => [...new Set(characters.ranges.flatMap(({ min, max }) => Array.from({ length: max - min + 1 }, (_, at) => String.fromCodePoint(min + at).toLowerCase())))];
+const folded = (set) => set.map((characters) => [...new Set(characters.ranges.flatMap(({ min, max }) => Array.from({ length: max - min + 1 }, (_, at) => String.fromCodePoint(min + at).toLowerCase())))]).reduce((held, letters) => held.flatMap((prefix) => letters.map((letter) => prefix + letter)), ['']);
 const spellings = (grammar) => {
     const name = minimal(automaton({ type: 'CHOICE', members: lexemes(grammar).identifier }));
     const leaves = [
@@ -224,8 +226,8 @@ const spellings = (grammar) => {
         ).values(),
     ];
     const finite = leaves.map((leaf) => minimal(automaton(leaf))).filter(({ isFinite }) => isFinite);
-    const words = finite.flatMap((fa) => [...fa.wordSets()].flatMap((set) => set.reduce((held, characters) => held.flatMap((prefix) => folded(characters).map((letter) => prefix + letter)), [''])));
-    return [...new Set(words)].filter((word) => word.length > 0 && name.test([...word].map((letter) => letter.codePointAt(0)))).toSorted();
+    const words = finite.flatMap((fa) => [...fa.wordSets()].flatMap(folded));
+    return [...new Set(words)].filter((word) => word.length > 0 && name.test([...word].map((letter) => letter.codePointAt(0)))).toSorted((left, right) => Number(left > right) - Number(left < right));
 };
 
 // --- [EDITS]

@@ -19,9 +19,10 @@ utils:
             inside: {kind: if_expression, has: {field: condition, any: [{matches: markup-test}, {has: {stopBy: end, matches: markup-test}}]}}
 rule:
     kind: 'call_expression, match_expression, string_literal'
-    pattern: $ESCAPE
-    any:
-        - matches: rust-entity-escape
-        - matches: entity-branch
+    all:
+        - any:
+            - matches: rust-entity-escape
+            - matches: entity-branch
+        - pattern: $ESCAPE
 message: '`$ESCAPE` converts between markup characters and entities by hand'
 note: 'Call `quick_xml::escape::escape`, `partial_escape`, or `minimal_escape` to write text and `quick_xml::escape::unescape` to read it'

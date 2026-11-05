@@ -74,7 +74,7 @@
                     "complexity": {
                         "noExcessiveCognitiveComplexity": { "level": "error", "options": { "maxAllowedComplexity": 20 } },
                         "noExcessiveLinesPerFunction": "off",
-                        "noExcessiveNestedCallbacks": { "level": "error", "options": { "max": 2 } },
+                        "noExcessiveNestedCallbacks": { "level": "error", "options": { "max": 3 } },
                         "noForEach": "off",
                         "useMaxParams": { "level": "error", "options": { "max": 10 } }
                     },

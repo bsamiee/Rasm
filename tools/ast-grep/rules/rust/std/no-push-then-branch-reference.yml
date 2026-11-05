@@ -4,7 +4,7 @@ severity: error
 utils:
     pushed:
         kind: expression_statement
-        has: {nthChild: 1, pattern: $V.$PUSH($$$ARGS)}
+        has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, pattern: $V.$PUSH($$$ARGS)}
 rule:
     kind: 'expression_statement, let_declaration, call_expression, try_expression'
     all:

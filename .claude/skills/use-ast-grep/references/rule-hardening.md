@@ -30,7 +30,7 @@ Rules widen to siblings that take the same correction for the same reason, one a
 4. Report contract-equivalent violations, keeping diagnostic coverage independent of automatic-fix coverage
 
 Package references resolve through imports, aliases, and bindings the language's scoping makes visible:
-- Nested modules see no parent import, block-local functions and constants shadow one, module-level declarations cannot clash with a value import
+- Nested modules see no parent import, a block-local `use`, function, or constant shadows one, module-level declarations cannot clash with a value import
 - Names inside a path (`f` in `a::f::g`) are no imported name
 - Semantic identity takes language tooling, an escaped module name its decoded value
 - Local names bind at the call in an ordered `all:` before the import compares against them, an `inside` evaluated first binds the first import and stops there

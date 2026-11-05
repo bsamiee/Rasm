@@ -6,16 +6,16 @@ utils:
         regex: '^((::)?(std|core)::num::)?NonZero(::<\p{XID_Continue}+>)?::MIN$'
 rule:
     kind: call_expression
-    pattern: $COMPUTED
     all:
         - has: {field: arguments, has: {kind: integer_literal}}
         - not: {inside: {kind: field_declaration, stopBy: {kind: 'block, field_declaration'}}}
         - any:
             - all:
                 - has: {field: function, kind: scoped_identifier, regex: '^((::)?(std|core)::num::)?NonZero(::<\p{XID_Continue}+>)?::saturating_add$'}
-                - has: {field: arguments, all: [{has: {nthChild: 1, matches: minimum}}, {has: {nthChild: 2, kind: integer_literal}}, {not: {has: {nthChild: 3}}}]}
+                - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: minimum}}, {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: integer_literal}}, {not: {has: {nthChild: {position: 3, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}]}
             - all:
                 - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^saturating_add$'}}, {has: {field: value, matches: minimum}}]}
-                - has: {field: arguments, all: [{has: {nthChild: 1, kind: integer_literal}}, {not: {has: {nthChild: 2}}}]}
+                - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: integer_literal}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}]}
+        - pattern: $COMPUTED
 message: '`$COMPUTED` computes a `NonZero` constant from `NonZero::MIN`'
 note: 'Write a `NonZero` constant as `const { NonZero::new(<value>).unwrap() }`, Clippy permits `unwrap` in a `const` block'

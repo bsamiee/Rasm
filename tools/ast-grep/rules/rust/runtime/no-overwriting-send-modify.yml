@@ -20,10 +20,10 @@ utils:
         has: {matches: overwrite}
     closure:
         kind: closure_expression
-        has: {field: parameters, all: [{has: {nthChild: 1, any: [{kind: identifier, pattern: $VALUE}, {kind: parameter, has: {field: pattern, kind: identifier, pattern: $VALUE}}]}}, {not: {has: {nthChild: 2}}}]}
+        has: {field: parameters, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, any: [{kind: identifier, pattern: $VALUE}, {kind: parameter, has: {field: pattern, kind: identifier, pattern: $VALUE}}]}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}]}
     sole-argument:
         kind: arguments
-        not: {has: {nthChild: 2}}
+        not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}
 rule:
     kind: call_expression
     all:
@@ -36,7 +36,7 @@ rule:
                     field: arguments
                     matches: sole-argument
                     has:
-                        nthChild: 1
+                        nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}
                         matches: closure
                         has:
                             field: body
@@ -52,14 +52,14 @@ rule:
                     field: arguments
                     matches: sole-argument
                     has:
-                        nthChild: 1
+                        nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}
                         matches: closure
                         has:
                             field: body
                             kind: block
                             all:
-                                - has: {nthChild: 1, matches: statement}
-                                - has: {nthChild: 2, kind: boolean_literal, regex: '^true$'}
-                                - not: {has: {nthChild: 3}}
+                                - has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: statement}
+                                - has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: boolean_literal, regex: '^true$'}
+                                - not: {has: {nthChild: {position: 3, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}
 message: '`$SENDER.$METHOD` overwrites the whole watched value through a closure'
 note: 'Call `<sender>.send_replace(<value>)`'

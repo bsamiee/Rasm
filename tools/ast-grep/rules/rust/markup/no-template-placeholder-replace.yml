@@ -3,7 +3,8 @@ language: rustlang
 severity: error
 rule:
     kind: call_expression
-    pattern: $RENDER
-    matches: rust-template-replace
+    all:
+        - matches: rust-template-replace
+        - pattern: $RENDER
 message: '`$RENDER` fills template placeholders through string replacement'
 note: 'Render through `minijinja::Environment::render_str(<template>, minijinja::context! { .. })`, a reused template through `add_template`'

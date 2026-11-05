@@ -7,8 +7,8 @@ utils:
         has: {field: field, regex: '^(get_mut|first_mut|last_mut)$'}
     element-site:
         any:
-            - nthChild: 1
-              inside: {kind: index_expression, not: {has: {nthChild: 2, kind: range_expression}}}
+            - nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}
+              inside: {kind: index_expression, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: range_expression}}}
             - inside: {kind: field_expression, field: value, matches: element-call, inside: {kind: call_expression, field: function}}
     looped:
         kind: 'for_expression, while_expression, loop_expression, closure_expression'

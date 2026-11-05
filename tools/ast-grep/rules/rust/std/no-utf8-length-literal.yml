@@ -41,17 +41,18 @@ utils:
                     - not: {matches: shadowed-buffer}
 rule:
     kind: integer_literal
-    pattern: $LEN
-    inside: {kind: array_expression, field: length}
-    any:
-        - all:
-            - regex: '^4(_?usize)?$'
-            - inside: {kind: array_expression, any: [{matches: inline-utf8}, {matches: bound-utf8}]}
-            - pattern: $UTF8
-        - all:
-            - regex: '^2(_?usize)?$'
-            - inside: {kind: array_expression, any: [{matches: inline-utf16}, {matches: bound-utf16}]}
-            - pattern: $UTF16
+    all:
+        - any:
+            - all:
+                - regex: '^4(_?usize)?$'
+                - inside: {kind: array_expression, any: [{matches: inline-utf8}, {matches: bound-utf8}]}
+                - pattern: $UTF8
+            - all:
+                - regex: '^2(_?usize)?$'
+                - inside: {kind: array_expression, any: [{matches: inline-utf16}, {matches: bound-utf16}]}
+                - pattern: $UTF16
+        - inside: {kind: array_expression, field: length}
+        - pattern: $LEN
 transform:
     UTF8_OUT: {replace: {source: $UTF8, replace: '^[\p{Pattern_White_Space}\P{Pattern_White_Space}]+$', by: 'char::MAX_LEN_UTF8'}}
     UTF16_OUT: {replace: {source: $UTF16, replace: '^[\p{Pattern_White_Space}\P{Pattern_White_Space}]+$', by: 'char::MAX_LEN_UTF16'}}

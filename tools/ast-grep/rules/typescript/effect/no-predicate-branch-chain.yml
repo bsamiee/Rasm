@@ -39,7 +39,7 @@ rule:
                     - pattern: $ALT
                     - has: {field: arguments, all: [{has: {nthChild: 1, matches: lifted}}, {has: {nthChild: 2}}]}
                 - all:
-                    - has: {field: function, matches: effect-pipe-function}
+                    - has: {field: function, matches: {effect-function: {name: {regex: '^pipe$'}}}}
                     - has: {field: arguments, all: [{has: {nthChild: 1, matches: lifted}}, {has: {pattern: $ALT}}]}
                 - all:
                     - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^pipe$'}}, {has: {field: object, matches: lifted}}]}

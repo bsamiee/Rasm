@@ -3,16 +3,17 @@ language: rustlang
 severity: error
 rule:
     kind: trait_bounds
-    pattern: $BOUNDS
-    inside:
-        kind: 'type_parameter, lifetime_parameter'
-        field: bounds
-        has: {field: name, pattern: $PARAM}
-        inside:
-            kind: type_parameters
+    all:
+        - inside:
+            kind: 'type_parameter, lifetime_parameter'
+            field: bounds
+            has: {field: name, pattern: $PARAM}
             inside:
-                kind: 'impl_item, trait_item, struct_item, enum_item, union_item, associated_type, type_item'
-                field: type_parameters
-                not: {all: [{kind: type_item}, {not: {inside: {kind: declaration_list}}}]}
+                kind: type_parameters
+                inside:
+                    kind: 'impl_item, trait_item, struct_item, enum_item, union_item, associated_type, type_item'
+                    field: type_parameters
+                    not: {all: [{kind: type_item}, {not: {inside: {kind: declaration_list}}}]}
+        - pattern: $BOUNDS
 message: '`$PARAM$BOUNDS` bounds `$PARAM` inside its generic parameter list'
 note: 'Move the bound into a `where` clause, `where <parameter>: <bound>`'

@@ -47,7 +47,7 @@ utils:
                     - all:
                         - pattern: '$_F($_INNER, $G)'
                         - has: {field: arguments, has: {nthChild: 1, matches: applied-decoder}}
-                        - has: {field: function, matches: effect-pipe-function}
+                        - has: {field: function, matches: {effect-function: {name: {regex: '^pipe$'}}}}
                     - all:
                         - pattern: $_INNER.pipe($G)
                         - has: {field: function, has: {field: object, matches: applied-decoder}}

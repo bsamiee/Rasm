@@ -6,12 +6,12 @@ utils:
         kind: trait_bounds
         all:
             - has:
-                nthChild: 1
+                nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}
                 kind: generic_type
                 all:
                     - has: {field: type, regex: '^((::)?(std|core)::future::)?Future$'}
-                    - has: {field: type_arguments, all: [{has: {nthChild: 1, kind: type_binding, has: {field: name, regex: '^Output$'}}}, {not: {has: {nthChild: 2}}}]}
-            - not: {has: {nthChild: 2}}
+                    - has: {field: type_arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: type_binding, has: {field: name, regex: '^Output$'}}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}]}
+            - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}
     exempt-site:
         any:
             - inside: {kind: function_type, field: return_type, has: {field: trait, regex: '^(Fn|FnMut|FnOnce)$'}}

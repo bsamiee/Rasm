@@ -43,7 +43,7 @@ rule:
                       not: {has: {nthChild: {position: 2, ofRule: *code}}}
                 has: {stopBy: {kind: call_expression}, kind: call_expression, pattern: '$MAP.set($KEY, $VALUE)'}
 constraints:
-    MAP: {kind: identifier, matches: {typescript-collection-receiver: {collection: {regex: '^Map$'}}}}
+    MAP: {matches: {typescript-collection-receiver: {collection: {regex: '^(Weak)?Map$'}}}}
     KEY: {matches: stable-key}
     VALUE:
         not:

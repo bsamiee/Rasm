@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: effect-runner
+language: tsxlang
+arguments: [name]
+rule:
+    any:
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^run(Callback|Fork|Promise|PromiseExit|Sync|SyncExit)$', matches: name}}}
+        - kind: identifier
+          regex: '^run'
+          matches: {typescript-import-reference: {source: {regex: '^effect/Effect$'}, exported: {regex: '^run(Callback|Fork|Promise|PromiseExit|Sync|SyncExit)$', matches: name}}}
+        - kind: call_expression
+          has:
+            field: function
+            any:
+                - matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^run(Callback|Fork|Promise|PromiseExit|Sync|SyncExit)With$', matches: name}}}
+                - kind: identifier
+                  regex: '^run'
+                  matches: {typescript-import-reference: {source: {regex: '^effect/Effect$'}, exported: {regex: '^run(Callback|Fork|Promise|PromiseExit|Sync|SyncExit)With$', matches: name}}}

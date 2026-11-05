@@ -3,8 +3,9 @@ language: rustlang
 severity: error
 rule:
     kind: string_literal
-    pattern: $HEADER
-    not: {matches: rust-macro-argument}
     regex: '^b?"((?i:(authorization|proxy-authorization):\p{Pattern_White_Space}*)?(?i:bearer|basic) (\{[\p{XID_Continue}:]*\}|")|(?i:(range|content-range):\p{Pattern_White_Space}*)?bytes[= ](\{|[0-9]|"))'
+    all:
+        - not: {matches: rust-macro-argument}
+        - pattern: $HEADER
 message: '`$HEADER` spells an `Authorization` or byte-range header value by hand'
 note: 'Write and read typed `headers::Authorization`, `Range`, or `ContentRange` values through `HeaderMapExt::typed_insert` and `typed_get`'

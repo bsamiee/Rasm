@@ -1,0 +1,6 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: pgsql-null
+language: pgsql
+rule:
+    matches: pgsql-wrapper
+    has: {stopBy: {not: {matches: pgsql-wrapper}}, kind: AexprConst, regex: '(?i-u)^null$'}

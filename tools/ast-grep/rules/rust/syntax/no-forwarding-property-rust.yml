@@ -103,7 +103,7 @@ utils:
                 - has: {field: arguments, not: {has: {pattern: $_, not: {matches: passed-argument}}}}
             - all:
                 - has: {field: function, kind: scoped_identifier, has: {field: name, pattern: $FORWARDED}}
-                - has: {field: arguments, all: [{has: {nthChild: 1, matches: forwarded-field}}, {not: {has: {pattern: $_, not: {any: [{matches: passed-argument}, {matches: forwarded-field}]}}}}]}
+                - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: forwarded-field}}, {not: {has: {pattern: $_, not: {any: [{matches: passed-argument}, {matches: forwarded-field}]}}}}]}
     same-name-forward:
         kind: function_item
         all:

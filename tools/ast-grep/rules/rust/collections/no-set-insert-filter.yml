@@ -32,17 +32,16 @@ utils:
             - inside: {kind: field_expression, field: value, has: {field: field, regex: '^insert$'}}
 rule:
     kind: call_expression
-    pattern: $SITE
     all:
         - any:
             - kind: call_expression
               all:
                 - has: {field: function, kind: field_expression, has: {field: field, regex: '^(filter|retain)$'}}
-                - has: {field: arguments, has: {nthChild: 1, kind: closure_expression, has: {field: body, matches: insert-test}}}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: closure_expression, has: {field: body, matches: insert-test}}}
             - kind: call_expression
               all:
                 - has: {field: function, kind: field_expression, has: {field: field, regex: '^(filter_map|flat_map)$'}}
-                - has: {field: arguments, has: {nthChild: 1, kind: closure_expression, has: {field: body, any: [{matches: insert-option}, {kind: block, has: {matches: insert-option}}]}}}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: closure_expression, has: {field: body, any: [{matches: insert-option}, {kind: block, has: {matches: insert-option}}]}}}
             - matches: set-insert
               inside:
                 kind: if_expression
@@ -56,5 +55,6 @@ rule:
             all:
                 - has: {matches: empty-set}
                 - not: {has: {stopBy: end, kind: identifier, pattern: $SET, not: {matches: own-read}}}
+        - pattern: $SITE
 message: '`$SITE` keeps first occurrences through inserts into local set `$SET`'
 note: 'Use `Itertools::unique` or `unique_by` before `collect`, consuming retained vectors through `into_iter`'

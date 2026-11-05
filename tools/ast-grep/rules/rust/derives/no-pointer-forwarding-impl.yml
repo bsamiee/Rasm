@@ -17,7 +17,7 @@ utils:
         any:
             - matches: forwarded-call
             - kind: 'await_expression, expression_statement, return_expression, become_expression'
-              has: {nthChild: 1, matches: forwarding-statement}
+              has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: forwarding-statement}
     forwarder:
         kind: function_item
         all:
@@ -34,7 +34,7 @@ utils:
             - kind: generic_type
               all:
                 - has: {field: type, regex: '^((::)?(std|alloc)::(boxed|sync|rc)::)?(Box|Arc|Rc)$'}
-                - has: {field: type_arguments, all: [{has: {nthChild: 1, kind: type_identifier, pattern: $T}}, {not: {has: {nthChild: 2}}}]}
+                - has: {field: type_arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: type_identifier, pattern: $T}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}]}
 rule:
     kind: impl_item
     all:

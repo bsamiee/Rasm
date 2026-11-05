@@ -11,19 +11,19 @@ utils:
     named-pair:
         kind: tuple_expression
         all:
-            - not: {has: {nthChild: 3}}
+            - not: {has: {nthChild: {position: 3, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}
             - any:
-                - all: [{has: {nthChild: 1, matches: name}}, {has: {nthChild: 2, matches: variant}}]
-                - all: [{has: {nthChild: 1, matches: variant}}, {has: {nthChild: 2, matches: name}}]
+                - all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: name}}, {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: variant}}]
+                - all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: variant}}, {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: name}}]
 rule:
     kind: array_expression
-    pattern: $TABLE
     all:
-        - has: {nthChild: 1, matches: named-pair}
-        - has: {nthChild: 2}
+        - has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: named-pair}
+        - has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}
         - not: {has: {pattern: $_, not: {matches: named-pair}}}
         - not: {has: {kind: tuple_expression, has: {kind: scoped_identifier, pattern: $V}, precedes: {stopBy: end, kind: tuple_expression, has: {kind: scoped_identifier, pattern: $V}}}}
         - inside: {kind: source_file, stopBy: end, has: {stopBy: end, kind: enum_item, has: {field: name, pattern: $E}}}
+        - pattern: $TABLE
 transform:
     HEAD: {replace: {source: $TABLE, replace: '(?s)^\[\p{Pattern_White_Space}*([^\n]*?)\p{Pattern_White_Space}*\n.*$', by: '[$1 ..]'}}
 message: '`$HEAD` pairs each variant of `$E` with its name by hand'

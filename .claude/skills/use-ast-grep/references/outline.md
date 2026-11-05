@@ -110,7 +110,7 @@ Documents hold extractor keys and rule-core keys alone:
 - Flag predicates run on a borrowed environment, a template reading a capture one binds renders empty, a transform reading it fails the load
 - `parentRuleIds` name item ids of the same language, an absent or member id fails the load
 - Ids need no uniqueness, a member naming a repeated id attaches under every item holding it
-- Documents hold every util, rewriter, and transform they use, YAML anchors stop at `---` and `utilDirs` never load, a generator writes shared fragments
+- Documents hold every util, rewriter, and transform they use, YAML anchors stop at `---` and `utilDirs` never load
 
 `symbolType` takes any LSP symbol kind, one kind per construct family across every catalog keeps rows comparable, `file`, `namespace`, `package`, `operator`, `typeParameter`, and data-file `string`, `number`, `boolean`, `array`, `key` name their construct, quoted `'null'` names a parse failure:
 
@@ -272,12 +272,12 @@ One cursor walk from the root serves items and members:
 - Member walks start at the item's children, a header-token arm lists its own item, so its copy for same-kind items needs a strict same-kind ancestor
 - Member guards name the direct body kind under parent owner kinds, `inside: {kind: <body>, inside: {kind: <owners>}}`
 - Members owning a body match the whole declaration while the body holds no member kind at any depth
-- Members whose body holds one match a header token outside the body (a name, Python `parameters`) so the walk reaches the body, the row's `range` and `astKind` are that token's
+- Members whose body holds one match a header token rare in bodies (parameter list, first modifier) to reach the body, its range the row's
 - Items whose leaf bodies hold member candidate kinds split into a leaf document no member names and an owner document members name
 - Nested owner members name the full owner path, a separator no name segment holds (`.`, Rust `::`), and `$NAME`
 - Nearest-owner names collide in a file, a nested owner repeating its parent's name runs over the parent's later members
 - Paths come from a `lineage` rewriter over the owner's name token that calls itself once per enclosing owner and writes the separator in its fix
-- Lineage rules end in an always-true arm (`regex: ''`), a climb missing its owner under a broken tree still printing the separator
+- Lineage rules end in an always-true arm, a climb missing its owner under a broken tree still printing the separator
 - Type arguments stating an instance shape (`Data.Class<{…}>`) are a member scope, a brand argument is none
 - Owner tests climb (`inside: {stopBy: end, kind: <owners>}`) past unnamed scopes, a parent-step chain misreads owners recovered under `ERROR`
 - Each lineage level keeps captures it leaves unbound from the level below, so arms binding different captures take separate rewriters
@@ -350,6 +350,8 @@ Over `def fn(alpha, beta=1, *rest, gamma: int = 2):` and `def none(): pass`, `--
 ## [07]-[CATALOGS]
 
 Each outlined language holds one catalog file, registered as its `outlineRules`:
+- Catalogs sharing fragments are written from `tools/ast-grep/outline/sources/<lang>.yml` by a sync generator, edits go to the source since sync overwrites the catalog
+- Sources open with an idless document of shared utils, rewriters, transforms, and variants, each document receiving what it calls and its `language`
 - Kinds and fields come from the grammar's `node-types.json`, never from what current sources hold
 - Every declaration kind a body accepts, supertypes expanded through `subtypes`, holds a document, expression, statement, and text kinds hold none
 - Every catalog covers items, members, nested owners, visibility, signatures, and parse failures, a failed parse never reading as absence

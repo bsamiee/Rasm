@@ -56,19 +56,19 @@ utils:
                 - has: {stopBy: {matches: rust-try-boundary}, kind: 'try_expression, yeet_expression'}
     returned-error:
         kind: return_expression
-        has: {kind: call_expression, all: [{has: {field: function, regex: '^Err$'}}, {has: {field: arguments, has: {nthChild: 1, pattern: $RET, matches: mapped-error}}}]}
+        has: {kind: call_expression, all: [{has: {field: function, regex: '^Err$'}}, {has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, pattern: $RET, matches: mapped-error}}}]}
     ok-binding:
         kind: tuple_struct_pattern
         all:
             - has: {field: type, regex: '^(\p{XID_Continue}+::)*Ok$'}
-            - has: {nthChild: 2, kind: identifier, pattern: $V}
-            - not: {has: {nthChild: 3}}
+            - has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: identifier, pattern: $V}
+            - not: {has: {nthChild: {position: 3, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}
     err-binding:
         kind: tuple_struct_pattern
         all:
             - has: {field: type, regex: '^(\p{XID_Continue}+::)*Err$'}
-            - has: {nthChild: 2, kind: identifier, pattern: $E}
-            - not: {has: {nthChild: 3}}
+            - has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: identifier, pattern: $E}
+            - not: {has: {nthChild: {position: 3, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}
     ok-arm:
         kind: match_arm
         has: {field: pattern, matches: plain-arm, has: {matches: ok-binding}}
@@ -85,12 +85,12 @@ utils:
         kind: call_expression
         all:
             - has: {field: function, regex: '^Ok$'}
-            - has: {field: arguments, has: {nthChild: 1, pattern: $A}}
+            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, pattern: $A}}
     err-wrap:
         kind: call_expression
         all:
             - has: {field: function, regex: '^Err$'}
-            - has: {field: arguments, has: {nthChild: 1, pattern: $B}}
+            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, pattern: $B}}
     mapping-match:
         kind: match_expression
         all:
@@ -122,18 +122,18 @@ rule:
                             - has: {matches: ok-arm, has: {field: value, kind: identifier, pattern: $V}}
                             - has: {matches: err-arm, has: {field: value, matches: returned-error}}
                         - all:
-                            - has: {matches: ok-arm, has: {field: value, matches: ok-wrap, has: {field: arguments, has: {nthChild: 1, not: {pattern: $V}, has: {stopBy: end, pattern: $V}}}}}
-                            - has: {matches: err-arm, has: {field: value, matches: err-wrap, has: {field: arguments, has: {nthChild: 1, matches: mapped-error}}}}
+                            - has: {matches: ok-arm, has: {field: value, matches: ok-wrap, has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, not: {pattern: $V}, has: {stopBy: end, pattern: $V}}}}}
+                            - has: {matches: err-arm, has: {field: value, matches: err-wrap, has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: mapped-error}}}}
                         - all:
-                            - has: {matches: ok-arm, has: {field: value, matches: ok-wrap, has: {field: arguments, has: {nthChild: 1, not: {pattern: $V}, has: {stopBy: end, pattern: $V}}}}}
-                            - has: {matches: err-arm, has: {field: value, kind: call_expression, all: [{has: {field: function, regex: '^Err$'}}, {has: {field: arguments, has: {nthChild: 1, pattern: $E}}}]}}
+                            - has: {matches: ok-arm, has: {field: value, matches: ok-wrap, has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, not: {pattern: $V}, has: {stopBy: end, pattern: $V}}}}}
+                            - has: {matches: err-arm, has: {field: value, kind: call_expression, all: [{has: {field: function, regex: '^Err$'}}, {has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, pattern: $E}}}]}}
                         - all:
-                            - has: {matches: ok-arm, has: {field: value, kind: call_expression, all: [{has: {field: function, regex: '^Ok$'}}, {has: {field: arguments, has: {nthChild: 1, pattern: $V}}}]}}
-                            - has: {matches: err-arm, has: {field: value, matches: err-wrap, has: {field: arguments, has: {nthChild: 1, matches: mapped-error}}}}
+                            - has: {matches: ok-arm, has: {field: value, kind: call_expression, all: [{has: {field: function, regex: '^Ok$'}}, {has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, pattern: $V}}}]}}
+                            - has: {matches: err-arm, has: {field: value, matches: err-wrap, has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: mapped-error}}}}
             - kind: expression_statement
               all:
                 - inside: {kind: block, inside: {kind: 'function_item, closure_expression'}}
-                - not: {all: [{nthChild: 1}, {inside: {kind: block, inside: {kind: closure_expression, field: body}}}]}
+                - not: {all: [{nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}}, {inside: {kind: block, inside: {kind: closure_expression, field: body}}}]}
                 - has: {matches: guard}
                 - any:
                     - all:

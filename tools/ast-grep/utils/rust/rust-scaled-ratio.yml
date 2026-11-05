@@ -35,4 +35,4 @@ rule:
                 - has: {field: left, matches: grouped-ratio}
                 - has: {field: right, matches: grouped-ratio}
         - pattern: $_VALUE.mul_add($_RATIO, $_OFFSET)
-          has: {field: arguments, has: {nthChild: 1, matches: grouped-ratio}}
+          has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: grouped-ratio}}

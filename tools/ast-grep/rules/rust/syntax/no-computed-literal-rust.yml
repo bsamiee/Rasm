@@ -25,7 +25,7 @@ utils:
             - has:
                 kind: token_tree
                 all:
-                    - has: {nthChild: 1, kind: string_literal, not: {any: [{regex: '\{[_\p{XID_Start}]'}, {regex: '\{[^}]*[0-9][^}]*\}'}, {regex: '^"\{(:\?)?\}"$'}]}}
+                    - has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: string_literal, not: {any: [{regex: '\{[_\p{XID_Start}]'}, {regex: '\{[^}]*[0-9][^}]*\}'}, {regex: '^"\{(:\?)?\}"$'}]}}
                     - has: {regex: '^,$'}
                     - not: {has: {pattern: $_, not: {matches: fixed-token}}}
                     - not: {has: {regex: '^(default|union|gen|raw|self|crate|super)$'}}
@@ -36,7 +36,7 @@ utils:
             - has:
                 kind: token_tree
                 all:
-                    - has: {nthChild: 2, kind: 'string_literal, raw_string_literal, char_literal, integer_literal, float_literal, boolean_literal'}
+                    - has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: 'string_literal, raw_string_literal, char_literal, integer_literal, float_literal, boolean_literal'}
                     - not: {has: {pattern: $_, not: {kind: 'string_literal, raw_string_literal, char_literal, integer_literal, float_literal, boolean_literal'}}}
     literal-path-join:
         kind: call_expression
@@ -51,8 +51,8 @@ utils:
                         kind: call_expression
                         all:
                             - has: {field: function, regex: '^((::)?(std::path::|camino::))?(Utf8)?Path(Buf)?::(new|from)$'}
-                            - has: {field: arguments, has: {nthChild: 1, matches: text}, not: {has: {nthChild: 2}}}
-            - has: {field: arguments, has: {nthChild: 1, matches: text, not: {regex: '^r?#*"(/|[A-Za-z]:|\\)'}}, not: {has: {nthChild: 2}}}
+                            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: text}, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}
+            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: text, not: {regex: '^r?#*"(/|[A-Za-z]:|\\)'}}, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}
     literal-array-join:
         kind: call_expression
         all:
@@ -74,12 +74,13 @@ utils:
                     - has: {field: field, regex: '^(to_uppercase|to_lowercase|to_ascii_uppercase|to_ascii_lowercase|trim|trim_start|trim_end|trim_matches|trim_start_matches|trim_end_matches|replace|replacen|strip_prefix|strip_suffix)$'}
             - not: {has: {field: arguments, has: {pattern: $_, not: {matches: literal}}}}
 rule:
-    pattern: $COMPUTED
-    any:
-        - matches: fixed-format
-        - matches: fixed-concat
-        - matches: literal-path-join
-        - matches: literal-array-join
-        - matches: literal-text-method
+    all:
+        - any:
+            - matches: fixed-format
+            - matches: fixed-concat
+            - matches: literal-path-join
+            - matches: literal-array-join
+            - matches: literal-text-method
+        - pattern: $COMPUTED
 message: '`$COMPUTED` builds text from literals'
 note: 'Write one literal, `PathBuf::from("<base>/<segment>")` for path segments, or `concat!(<piece>, env!("<NAME>"))` for text with `env!`'

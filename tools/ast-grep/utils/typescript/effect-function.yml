@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: effect-function
+language: tsxlang
+arguments: [name]
+rule:
+    any:
+        - kind: identifier
+          matches: {typescript-import-reference: {source: {regex: '^effect(/Function)?$'}, exported: {matches: name}}}
+        - matches: {effect-module-member: {module: {regex: '(?-u:\b)Function$'}, member: {matches: name}}}

@@ -4,7 +4,8 @@ severity: error
 files: [tools/dylint/**]
 rule:
     kind: call_expression
-    pattern: $CALL
-    matches: rustc-trait-of-assoc-test
+    all:
+        - matches: rustc-trait-of-assoc-test
+        - pattern: $CALL
 message: '`$CALL` tests an associated item''s trait as a diagnostic or lang item by hand'
 note: 'Test `<item>.opt_parent(cx)` through `is_diag_item`, `is_lang_item`, or `opt_diag_name` (`use clippy_utils::res::MaybeDef as _;`)'

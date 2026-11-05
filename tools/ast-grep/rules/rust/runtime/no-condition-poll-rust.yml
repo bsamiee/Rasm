@@ -6,7 +6,7 @@ utils:
         any:
             - kind: await_expression
               has:
-                nthChild: 1
+                nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}
                 kind: call_expression
                 any:
                     - has: {field: function, regex: '^((::)?(tokio::)?time::)?sleep(_until)?$|^((::)?(tokio::)?task::)?yield_now$'}

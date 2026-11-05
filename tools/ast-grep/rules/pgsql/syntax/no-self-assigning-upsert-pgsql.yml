@@ -2,9 +2,6 @@
 language: pgsql
 severity: error
 utils:
-    assignment:
-        kind: set_clause
-        inside: {kind: set_clause_list, stopBy: {not: {kind: set_clause_list}}}
     current-a: {kind: a_expr, matches: pgsql-wrapper, has: {stopBy: &wrapper {not: {matches: pgsql-wrapper}}, kind: columnref, any: [{all: [{not: {has: {kind: indirection}}}, {has: {kind: ColId, has: {pattern: $A}}}]}, {all: [{has: {kind: ColId, has: {pattern: $TABLE}}}, {has: {kind: indirection, not: {has: {kind: indirection}}, has: {kind: indirection_el, has: {kind: ColLabel, has: {pattern: $A}}}}}]}]}}
     current-b: {kind: a_expr, matches: pgsql-wrapper, has: {stopBy: *wrapper, kind: columnref, any: [{all: [{not: {has: {kind: indirection}}}, {has: {kind: ColId, has: {pattern: $B}}}]}, {all: [{has: {kind: ColId, has: {pattern: $TABLE}}}, {has: {kind: indirection, not: {has: {kind: indirection}}, has: {kind: indirection_el, has: {kind: ColLabel, has: {pattern: $B}}}}}]}]}}
     current-c: {kind: a_expr, matches: pgsql-wrapper, has: {stopBy: *wrapper, kind: columnref, any: [{all: [{not: {has: {kind: indirection}}}, {has: {kind: ColId, has: {pattern: $C}}}]}, {all: [{has: {kind: ColId, has: {pattern: $TABLE}}}, {has: {kind: indirection, not: {has: {kind: indirection}}, has: {kind: indirection_el, has: {kind: ColLabel, has: {pattern: $C}}}}}]}]}}
@@ -40,6 +37,6 @@ rule:
                             any:
                                 - all: [{not: {has: {kind: indirection}}}, {has: {kind: ColId, has: {pattern: $TABLE}}}]
                                 - has: {kind: indirection, has: {kind: indirection_el, has: {kind: ColLabel, has: {pattern: $TABLE}}}}
-        - not: {has: {stopBy: {not: {kind: set_clause_list}}, matches: assignment, not: {matches: self-assignment}}}
-message: 'Upsert rewrites each conflicting row with current values'
+        - not: {has: {stopBy: {not: {kind: set_clause_list}}, kind: set_clause, not: {matches: self-assignment}}}
+message: 'Upsert into `$TABLE` rewrites each conflicting row with its current values'
 note: 'Use `on conflict (<key>) do nothing returning <columns>` and select existing rows in one transaction'

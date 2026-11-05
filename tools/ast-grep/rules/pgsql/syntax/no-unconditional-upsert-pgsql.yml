@@ -2,9 +2,6 @@
 language: pgsql
 severity: error
 utils:
-    assignment:
-        kind: set_clause
-        inside: {kind: set_clause_list, stopBy: {not: {kind: set_clause_list}}}
     excluded-value:
         kind: a_expr
         matches: pgsql-wrapper
@@ -30,6 +27,6 @@ rule:
     all:
         - has: {kind: set_clause_list}
         - not: {has: {kind: where_clause, follows: {kind: set_clause_list, stopBy: end}}}
-        - not: {has: {stopBy: {not: {kind: set_clause_list}}, matches: assignment, not: {matches: incoming}}}
+        - not: {has: {stopBy: {not: {kind: set_clause_list}}, kind: set_clause, not: {matches: incoming}}}
 message: '`$UPSERT` rewrites rows that hold every incoming value'
 note: 'Skip unchanged updates only when triggers and returning readers require no update'

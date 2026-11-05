@@ -11,7 +11,7 @@ utils:
             - kind: generic_type
               all:
                 - has: {field: type, regex: '^(Option|Vec|VecDeque|BTreeSet|HashSet|IndexSet|NEVec|Box|Arc|Rc)$'}
-                - has: {field: type_arguments, has: {nthChild: 1, matches: uuid-type}, not: {has: {nthChild: 2}}}
+                - has: {field: type_arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: uuid-type}, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}
             - kind: array_type
               has: {field: element, matches: uuid-type}
             - kind: reference_type
@@ -20,31 +20,32 @@ utils:
         kind: generic_type
         all:
             - has: {field: type, regex: '^(BTreeMap|HashMap|IndexMap)$'}
-            - has: {field: type_arguments, has: {nthChild: 1, matches: uuid}}
+            - has: {field: type_arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: uuid}}
     id-name:
         regex: '^(r#)?(id|ids|uuid|uuids|guid|\p{XID_Continue}+_(id|ids|uuid|uuids|guid))$'
     declared:
         kind: 'field_declaration, parameter, let_declaration, const_item, static_item'
         not: {inside: {kind: parameters, inside: {matches: rust-trait-impl-or-extern-function}}}
 rule:
-    pattern: $SITE
-    any:
-        - matches: declared
-          all:
-            - any: [{has: {field: name, matches: id-name}}, {has: {field: pattern, kind: identifier, matches: id-name}}]
-            - has: {field: type, matches: uuid-type}
-        - matches: declared
-          has: {field: type, any: [{matches: uuid-keyed}, {kind: reference_type, has: {field: type, matches: uuid-keyed}}]}
-        - kind: identifier
-          matches: id-name
-          inside:
-            kind: function_item
-            field: name
-            all:
-                - has: {field: return_type, matches: uuid-type}
-                - not: {matches: rust-trait-impl-or-extern-function}
-        - kind: 'string_literal, raw_string_literal'
-          regex: '\{\p{XID_Continue}*:08x\}-\{\p{XID_Continue}*:04x\}-\{\p{XID_Continue}*:04x\}-'
-          inside: {kind: token_tree, inside: {kind: macro_invocation}}
+    all:
+        - any:
+            - matches: declared
+              all:
+                - any: [{has: {field: name, matches: id-name}}, {has: {field: pattern, kind: identifier, matches: id-name}}]
+                - has: {field: type, matches: uuid-type}
+            - matches: declared
+              has: {field: type, any: [{matches: uuid-keyed}, {kind: reference_type, has: {field: type, matches: uuid-keyed}}]}
+            - kind: identifier
+              matches: id-name
+              inside:
+                kind: function_item
+                field: name
+                all:
+                    - has: {field: return_type, matches: uuid-type}
+                    - not: {matches: rust-trait-impl-or-extern-function}
+            - kind: 'string_literal, raw_string_literal'
+              regex: '\{\p{XID_Continue}*:08x\}-\{\p{XID_Continue}*:04x\}-\{\p{XID_Continue}*:04x\}-'
+              inside: {kind: token_tree, inside: {kind: macro_invocation}}
+        - pattern: $SITE
 message: '`$SITE` holds or spells an identifier as an untyped UUID'
 note: 'Type the identifier `newtype_uuid::TypedUuid<<Kind>>` and format UUID text through its `Display` impl'

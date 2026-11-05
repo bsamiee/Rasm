@@ -14,7 +14,7 @@ utils:
     mysql-type: {kind: *name, regex: '^MySql(?:Pool|Connection|Connect|Executor|Transaction)?(?:Options)?$'}
     dialect-type: {any: [{matches: sqlite-type}, {matches: pg-type}, {matches: mysql-type}]}
     executor-type: {any: [{matches: dialect-type}, {kind: *name, regex: '^Any(?:Pool|Connection|Connect|Executor|Transaction)?(?:Options)?$'}]}
-    turbofish: {kind: generic_function, has: {field: type_arguments, has: {nthChild: 1, any: [{matches: dialect-type}, {has: {field: name, matches: dialect-type}}]}}}
+    turbofish: {kind: generic_function, has: {field: type_arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, any: [{matches: dialect-type}, {has: {field: name, matches: dialect-type}}]}}}
     stated-function:
         any:
             - matches: {rust-single-dialect-function: {dialect: {matches: sqlite-type}, executor: {matches: executor-type}}}
@@ -25,7 +25,7 @@ rule:
         - kind: call_expression
           all:
             - has: {field: function, pattern: $CALLEE, any: [{matches: sqlx-callee}, {kind: generic_function, has: {field: function, matches: sqlx-callee}, not: {matches: turbofish}}]}
-            - has: {field: arguments, has: {nthChild: 1, matches: sql-text}}
+            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: sql-text}}
         - kind: macro_invocation
           all:
             - has: {field: macro, pattern: $CALLEE, matches: sqlx-callee}

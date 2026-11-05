@@ -5,13 +5,11 @@ arguments: [source]
 utils:
     module-import:
         kind: import_statement
-        all:
-            - has: {field: source, all: [{has: {kind: string_fragment, matches: source}}, {not: {has: {kind: escape_sequence}}}]}
-            - has:
-                kind: import_clause
-                any:
-                    - has: {kind: identifier, pattern: $IMPORTED}
-                    - has: {kind: namespace_import, has: {kind: identifier, pattern: $IMPORTED}}
+        has: {field: source, all: [{has: {kind: string_fragment, matches: source}}, {not: {has: {kind: escape_sequence}}}]}
+    module-name:
+        pattern: $IMPORTED
+        matches: typescript-import-binding
+        inside: {kind: 'import_clause, namespace_import'}
     type-position:
         inside: {kind: 'nested_type_identifier, type_query', stopBy: {not: {kind: 'nested_identifier, member_expression'}}}
 rule:
@@ -20,7 +18,7 @@ rule:
     all:
         - any:
             - matches: type-position
-              inside: {kind: program, stopBy: end, has: {matches: module-import}}
+              inside: {kind: program, stopBy: end, has: {all: [{matches: module-import}, {has: {stopBy: end, matches: module-name}}]}}
             - not: {matches: type-position}
-              inside: {kind: program, stopBy: end, has: {all: [{matches: module-import}, {not: {has: {regex: '^type$', not: {pattern: $_}}}}]}}
+              inside: {kind: program, stopBy: end, has: {all: [{matches: module-import}, {not: {has: {regex: '^type$', not: {pattern: $_}}}}, {has: {stopBy: end, matches: module-name}}]}}
         - not: {matches: {typescript-local-binding: {owner: {pattern: $_}}}}

@@ -8,14 +8,14 @@ rule:
         - inside: {kind: block}
         - any:
             - all:
-                - follows: {has: {nthChild: 1, pattern: $V.push($X)}}
+                - follows: {has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, pattern: $V.push($X)}}
                 - any: [{pattern: $V.last_mut()}, {has: {stopBy: {matches: boundary}, pattern: $V.last_mut()}}]
             - all:
-                - follows: {has: {nthChild: 1, pattern: $V.push_back($X)}}
+                - follows: {has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, pattern: $V.push_back($X)}}
                 - any: [{pattern: $V.back_mut()}, {has: {stopBy: {matches: boundary}, pattern: $V.back_mut()}}]
             - all:
-                - follows: {has: {nthChild: 1, pattern: $V.push_front($X)}}
+                - follows: {has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, pattern: $V.push_front($X)}}
                 - any: [{pattern: $V.front_mut()}, {has: {stopBy: {matches: boundary}, pattern: $V.front_mut()}}]
             - all:
-                - follows: {has: {nthChild: 1, pattern: '$V.insert($I, $X)'}}
+                - follows: {has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, pattern: '$V.insert($I, $X)'}}
                 - has: {stopBy: {matches: boundary}, pattern: '&mut $V[$I]'}

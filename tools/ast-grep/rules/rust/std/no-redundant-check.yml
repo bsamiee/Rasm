@@ -11,15 +11,15 @@ utils:
         kind: call_expression
         all:
             - has: {field: function, kind: field_expression, all: [{has: {field: value, pattern: $M}}, {has: {field: field, regex: '^contains_key$'}}]}
-            - has: {field: arguments, has: {nthChild: 1, pattern: $K}}
+            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, pattern: $K}}
     keyed-read:
         any:
             - kind: call_expression
               all:
                 - has: {field: function, kind: field_expression, all: [{has: {field: value, pattern: $M}}, {has: {field: field, regex: '^(get|get_mut|get_key_value|remove|remove_entry)$'}}]}
-                - has: {field: arguments, has: {nthChild: 1, pattern: $K}}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, pattern: $K}}
             - kind: index_expression
-              all: [{has: {nthChild: 1, pattern: $M}}, {has: {nthChild: 2, pattern: $K}}]
+              all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, pattern: $M}}, {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}, pattern: $K}}]
     diverging:
         any:
             - matches: rust-diverging
@@ -70,7 +70,7 @@ utils:
                 any:
                     - matches: consumer
                     - kind: expression_statement
-                      has: {nthChild: 1, matches: consumer}
+                      has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: consumer}
             - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}
 rule:
     kind: if_expression

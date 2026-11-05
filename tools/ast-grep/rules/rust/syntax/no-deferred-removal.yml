@@ -6,12 +6,12 @@ rule:
         - kind: attribute
           pattern: $MARK
           any:
-            - has: {nthChild: 1, pattern: deprecated}
+            - has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, pattern: deprecated}
             - all:
-                - has: {nthChild: 1, pattern: cfg_attr}
+                - has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, pattern: cfg_attr}
                 - has: {field: arguments, has: {pattern: deprecated, follows: {regex: '^,$'}}}
             - all:
-                - has: {nthChild: 1, kind: identifier, regex: '^cfg(_attr)?$'}
+                - has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: identifier, regex: '^cfg(_attr)?$'}
                 - has: {field: arguments, regex: '^\(\p{Pattern_White_Space}*(any\p{Pattern_White_Space}*\(\p{Pattern_White_Space}*\)|false|not\p{Pattern_White_Space}*\(\p{Pattern_White_Space}*all\p{Pattern_White_Space}*\(\p{Pattern_White_Space}*\)\p{Pattern_White_Space}*\))\p{Pattern_White_Space}*[,)]'}
         - kind: 'function_item, struct_item, enum_item, union_item, const_item, static_item, type_item, trait_item, trait_alias, mod_item, macro_definition'
           has: {field: name, regex: '^_\p{XID_Continue}', pattern: $MARK}

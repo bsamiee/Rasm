@@ -30,7 +30,7 @@ utils:
                 any:
                     - has: {matches: url-text, regex: '://[^"/?]*[/?]([^"]*[^{])?\{[\p{XID_Continue}:}]'}
                     - has: {kind: string_literal, regex: '[?&][\p{XID_Continue}.~-]+=\{[\p{XID_Continue}:}]'}
-                    - has: {matches: open-url, not: {nthChild: 1}}
+                    - has: {matches: open-url, not: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}
     concatenated-url:
         kind: binary_expression
         all:
@@ -48,7 +48,7 @@ utils:
                     field: value
                     kind: array_expression
                     all:
-                        - has: {nthChild: 1, matches: url-text}
+                        - has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: url-text}
                         - has: {matches: placed}
     url-binding:
         kind: identifier
@@ -62,7 +62,7 @@ utils:
             - kind: call_expression
               all:
                 - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^push_str$'}}, {has: {field: value, kind: identifier, pattern: $S}}]}
-                - has: {field: arguments, has: {nthChild: 1, matches: placed}}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: placed}}
                 - has: {field: function, has: {field: value, matches: url-binding}}
             - kind: compound_assignment_expr
               all:
@@ -84,7 +84,7 @@ utils:
         kind: call_expression
         all:
             - has: {field: function, kind: field_expression, has: {field: field, regex: '^(split|split_terminator|rsplit)$'}}
-            - has: {field: arguments, has: {nthChild: 1, any: [{kind: 'char_literal, string_literal', regex: '^[''"]&[''"]$'}, {kind: array_expression, has: {pattern: '''&'''}}]}}
+            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, any: [{kind: 'char_literal, string_literal', regex: '^[''"]&[''"]$'}, {kind: array_expression, has: {pattern: '''&'''}}]}}
     query-split:
         matches: pair-split
         any:
@@ -98,13 +98,14 @@ utils:
                 has: {field: value, any: [{matches: amp-split}, {has: {stopBy: end, matches: amp-split}}]}
 rule:
     kind: 'macro_invocation, binary_expression, call_expression, compound_assignment_expr'
-    pattern: $URL
-    any:
-        - matches: formatted-url
-        - matches: concatenated-url
-        - matches: joined-url
-        - matches: appended-url
-        - matches: percent-encoding
-        - matches: query-split
+    all:
+        - any:
+            - matches: formatted-url
+            - matches: concatenated-url
+            - matches: joined-url
+            - matches: appended-url
+            - matches: percent-encoding
+            - matches: query-split
+        - pattern: $URL
 message: '`$URL` builds or parses URL text by hand'
 note: 'Extend a `url::Url` through `path_segments_mut` and `query_pairs_mut().append_pair`, read a query through `url::form_urlencoded::parse`'

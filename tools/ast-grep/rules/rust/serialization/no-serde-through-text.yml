@@ -26,13 +26,13 @@ utils:
         any:
             - all:
                 - has: {field: function, kind: field_expression, has: {field: field, regex: '^serialize_str$'}}
-                - has: {field: arguments, has: {nthChild: 1, matches: text-rendering}}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: text-rendering}}
             - has: {field: function, kind: field_expression, has: {field: field, regex: '^collect_str$'}}
             - all:
                 - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^serialize$'}}, {has: {field: value, matches: text-rendering}}]}
             - all:
                 - has: {field: function, regex: '^((serde::)?(ser::)?Serialize::)serialize$'}
-                - has: {field: arguments, has: {nthChild: 1, matches: text-rendering}}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: text-rendering}}
     text-type:
         regex: '^(String|&\p{Pattern_White_Space}*(''\p{XID_Continue}+\p{Pattern_White_Space}+)?str|(std::borrow::)?Cow<\p{Pattern_White_Space}*(''\p{XID_Continue}+\p{Pattern_White_Space}*,\p{Pattern_White_Space}*)?str\p{Pattern_White_Space}*>)$'
     text-read:
@@ -58,18 +58,19 @@ utils:
             - inside: {kind: declaration_list, inside: {kind: impl_item, has: {field: trait, regex: '(^|::)Visitor\p{Pattern_White_Space}*<'}}}
             - has: {field: body, has: {stopBy: end, matches: text-parse}}
 rule:
-    pattern: $SITE
-    any:
-        - matches: display-write
-          inside: {kind: function_item, stopBy: {kind: function_item}, matches: serde-method}
-        - matches: text-read
-          inside:
-            kind: function_item
-            stopBy: {kind: function_item}
-            all:
-                - matches: serde-method
-                - has: {field: body, has: {stopBy: end, matches: text-parse}}
-        - matches: parsing-visitor
+    all:
+        - any:
+            - matches: display-write
+              inside: {kind: function_item, stopBy: {kind: function_item}, matches: serde-method}
+            - matches: text-read
+              inside:
+                kind: function_item
+                stopBy: {kind: function_item}
+                all:
+                    - matches: serde-method
+                    - has: {field: body, has: {stopBy: end, matches: text-parse}}
+            - matches: parsing-visitor
+        - pattern: $SITE
 transform:
     HEAD: {replace: {source: $SITE, replace: '(?s)\p{Pattern_White_Space}*\{?\p{Pattern_White_Space}*\n.*$', by: ''}}
 message: '`$HEAD` serializes or deserializes a value through `Display` or `FromStr` text by hand'

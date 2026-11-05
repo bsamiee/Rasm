@@ -130,7 +130,7 @@ Captures bind in clause order and export from what matched:
 - Captures re-match their text in a later `not: {has: ...}` or `not: {inside: ...}` stopping at owner kinds, the form for a fact every sibling repeats
 - Metavariables bound in `all`, relational rules, and the matching `any:` arm export to `fix`, `message`, and `transform`
 - Failed `any:` arms bind nothing, the next arm binds the same name again
-- Optional captures take an `any:` whose last arm always matches (`regex: ''`), a template over the unbound capture renders empty
+- Optional captures take an `any:` whose last arm always matches, a template over the unbound capture renders empty
 - `any:` keeps the first structurally matching arm with no `constraints` retry, the wrapped pattern precedes the unwrapped one
 
 Constraints test single captures after the rule matches, in unspecified order, `$$$` captures pass unfiltered:

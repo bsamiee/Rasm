@@ -6,13 +6,13 @@ utils:
         kind: call_expression
         all:
             - has: {field: function, kind: field_expression, all: [{has: {field: value, pattern: $A}}, {has: {field: field, regex: '^compare_exchange(_weak)?$'}}]}
-            - has: {field: arguments, has: {nthChild: 1, pattern: $CUR}}
+            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, pattern: $CUR}}
     failure:
         kind: tuple_struct_pattern
         all:
             - has: {field: type, regex: '^Err$'}
-            - has: {nthChild: 2, kind: identifier, pattern: $X}
-            - not: {has: {nthChild: 3}}
+            - has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: identifier, pattern: $X}
+            - not: {has: {nthChild: {position: 3, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}
     reload:
         kind: assignment_expression
         all:
@@ -32,7 +32,7 @@ utils:
         kind: tuple_struct_pattern
         all:
             - has: {field: type, regex: '^Ok$'}
-            - any: [{regex: '^Ok\p{Pattern_White_Space}*\(\p{Pattern_White_Space}*_\p{Pattern_White_Space}*\)$'}, {all: [{has: {nthChild: 2, kind: identifier, pattern: $DONE}}, {not: {has: {nthChild: 3}}}]}]
+            - any: [{regex: '^Ok\p{Pattern_White_Space}*\(\p{Pattern_White_Space}*_\p{Pattern_White_Space}*\)$'}, {all: [{has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: identifier, pattern: $DONE}}, {not: {has: {nthChild: {position: 3, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}]}]
     done:
         kind: match_arm
         all:
@@ -47,7 +47,7 @@ utils:
                 all:
                     - has: {kind: match_arm, matches: done}
                     - has: {kind: match_arm, matches: retry}
-                    - not: {has: {nthChild: 3}}
+                    - not: {has: {nthChild: {position: 3, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}
 rule:
     any:
         - kind: loop_expression
@@ -55,7 +55,7 @@ rule:
             field: body
             kind: block
             all:
-                - has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, any: [{matches: retry-match}, {kind: expression_statement, has: {nthChild: 1, matches: retry-match}}]}
+                - has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, any: [{matches: retry-match}, {kind: expression_statement, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: retry-match}}]}
                 - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}
         - kind: while_expression
           all:

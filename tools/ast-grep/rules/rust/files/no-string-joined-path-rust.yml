@@ -12,11 +12,11 @@ utils:
         regex: '(?i)(^|_)(path|dir|directory|file|root|folder)$'
         not: {regex: '(?i)(^|_)(url|uri|route|endpoint|request)_'}
     rooted-format:
-        has: {kind: token_tree, has: {nthChild: 1, kind: string_literal, regex: '^"/'}}
+        has: {kind: token_tree, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: string_literal, regex: '^"/'}}
     joined:
         any:
             - matches: rust-interpolating-format
-              has: {kind: token_tree, has: {nthChild: 1, kind: string_literal, regex: '(\}|^")/|/(\{|"$)', not: {regex: '://'}}}
+              has: {kind: token_tree, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: string_literal, regex: '(\}|^")/|/(\{|"$)', not: {regex: '://'}}}
             - kind: binary_expression
               all:
                 - has: {field: operator, regex: '^\+$'}
@@ -25,7 +25,7 @@ utils:
             - kind: call_expression
               all:
                 - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^join$'}}, {has: {field: value, kind: array_expression, has: {pattern: $_, not: {matches: literal}}}}]}
-                - has: {field: arguments, has: {nthChild: 1, matches: slash}, not: {has: {nthChild: 2}}}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: slash}, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}
     path-call:
         kind: call_expression
         has:
@@ -39,20 +39,21 @@ utils:
         kind: call_expression
         all:
             - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(push_str|push)$'}}, {has: {field: value, matches: path-name}}]}
-            - has: {field: arguments, has: {nthChild: 1, matches: slash}, not: {has: {nthChild: 2}}}
+            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: slash}, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}
 rule:
-    pattern: $JOINED
-    any:
-        - all:
-            - matches: joined
-            - any:
-                - inside: {kind: arguments, inside: {matches: path-call}}
-                - inside: {kind: reference_expression, inside: {kind: arguments, inside: {matches: path-call}}}
-                - all:
-                    - not: {matches: rooted-format}
-                    - any:
-                        - inside: {kind: let_declaration, has: {field: pattern, kind: identifier, matches: path-name}}
-                        - inside: {kind: assignment_expression, has: {field: left, matches: path-name}}
-        - matches: pushed-slash
+    all:
+        - any:
+            - all:
+                - matches: joined
+                - any:
+                    - inside: {kind: arguments, inside: {matches: path-call}}
+                    - inside: {kind: reference_expression, inside: {kind: arguments, inside: {matches: path-call}}}
+                    - all:
+                        - not: {matches: rooted-format}
+                        - any:
+                            - inside: {kind: let_declaration, has: {field: pattern, kind: identifier, matches: path-name}}
+                            - inside: {kind: assignment_expression, has: {field: left, matches: path-name}}
+            - matches: pushed-slash
+        - pattern: $JOINED
 message: '`$JOINED` joins a file-system path with a `/` literal'
 note: 'Join through `<base>.join(<segment>)` on a `Path` or `PathBuf`, or `[<a>, <b>].iter().collect::<PathBuf>()`'

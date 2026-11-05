@@ -26,7 +26,7 @@ utils:
             - kind: call_expression
               all:
                 - has: {field: function, kind: field_expression, has: {field: field, regex: '^(saturating_sub|checked_sub|wrapping_sub|abs_diff)$'}}
-                - has: {field: arguments, has: {nthChild: 1, matches: length}}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: length}}
             - kind: 'parenthesized_expression, try_expression'
               has: {matches: shortfall}
             - kind: call_expression
@@ -41,35 +41,36 @@ utils:
     count:
         any: [{matches: shortfall}, {matches: relayed}]
 rule:
-    pattern: $PAD
-    any:
-        - kind: call_expression
-          any:
-            - all:
-                - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^repeat$'}}, {has: {field: value, matches: fill}}]}
-                - has: {field: arguments, has: {nthChild: 1, matches: count}}
-            - all:
-                - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^repeat$'}}, {has: {field: value, matches: fill, not: {regex: '^.\^.$'}}}]}
-                - has: {field: arguments, has: {nthChild: 1, matches: length}}
-            - all:
-                - has: {field: function, regex: '^((::)?(std|core)::)?(iter::)?repeat_n$'}
-                - has: {field: arguments, all: [{has: {nthChild: 1, matches: fill}}, {has: {nthChild: 2, matches: count}}]}
-            - all:
-                - has:
-                    field: function
-                    kind: field_expression
-                    all:
-                        - has: {field: field, regex: '^take$'}
-                        - has:
-                            field: value
-                            kind: call_expression
-                            all:
-                                - has: {field: function, regex: '^((::)?(std|core)::)?(iter::)?repeat$'}
-                                - has: {field: arguments, has: {nthChild: 1, matches: fill}}
-                - has: {field: arguments, has: {nthChild: 1, matches: count}}
-        - kind: tuple_expression
-          all:
-            - has: {kind: 'string_literal, raw_string_literal', regex: '\{[^{}]*:[^{}]*\$\}'}
-            - has: {stopBy: end, matches: shortfall}
+    all:
+        - any:
+            - kind: call_expression
+              any:
+                - all:
+                    - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^repeat$'}}, {has: {field: value, matches: fill}}]}
+                    - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: count}}
+                - all:
+                    - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^repeat$'}}, {has: {field: value, matches: fill, not: {regex: '^.\^.$'}}}]}
+                    - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: length}}
+                - all:
+                    - has: {field: function, regex: '^((::)?(std|core)::)?(iter::)?repeat_n$'}
+                    - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: fill}}, {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: count}}]}
+                - all:
+                    - has:
+                        field: function
+                        kind: field_expression
+                        all:
+                            - has: {field: field, regex: '^take$'}
+                            - has:
+                                field: value
+                                kind: call_expression
+                                all:
+                                    - has: {field: function, regex: '^((::)?(std|core)::)?(iter::)?repeat$'}
+                                    - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: fill}}
+                    - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: count}}
+            - kind: tuple_expression
+              all:
+                - has: {kind: 'string_literal, raw_string_literal', regex: '\{[^{}]*:[^{}]*\$\}'}
+                - has: {stopBy: end, matches: shortfall}
+        - pattern: $PAD
 message: '`$PAD` pads text by byte or char count in place of display width'
 note: 'Pad by `<column>.saturating_sub(<text>.width())` with `unicode_width::UnicodeWidthStr`'

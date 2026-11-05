@@ -5,5 +5,5 @@ rule:
     kind: a_expr, c_expr, func_expr, func_arg_expr
     not:
         any:
-            - has: {nthChild: 2}
+            - has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}
             - has: {not: {any: [{pattern: $_}, {regex: '^[()]$'}]}}

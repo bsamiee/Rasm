@@ -28,7 +28,7 @@ utils:
             - matches: module-mapped
             - all:
                 - has: {field: arguments, has: {nthChild: {position: 1, reverse: true}, matches: mapping-step}}
-                - any: [{matches: method-pipe}, {has: {field: function, matches: effect-pipe-function}}]
+                - any: [{matches: method-pipe}, {has: {field: function, matches: {effect-function: {name: {regex: '^pipe$'}}}}}]
 rule:
     kind: call_expression
     any:

@@ -95,14 +95,15 @@ utils:
               has: {field: function, has: {field: path, regex: '^(f16|f32|f64|f128)$'}}
 rule:
     kind: 'binary_expression, call_expression'
-    pattern: $SITE
-    any:
-        - matches: cross-sum
-        - all:
-            - matches: cross-term
-            - not: {inside: {stopBy: end, matches: cross-sum}}
-        - matches: local-cross-term
-        - matches: dot
+    all:
+        - any:
+            - matches: cross-sum
+            - all:
+                - matches: cross-term
+                - not: {inside: {stopBy: end, matches: cross-sum}}
+            - matches: local-cross-term
+            - matches: dot
+        - pattern: $SITE
 constraints:
     X: {regex: '^(x|y|z|0|1|2)$'}
     Y: {regex: '^(x|y|z|0|1|2)$'}

@@ -19,7 +19,7 @@ utils:
             - matches: conditional
             - kind: expression_statement
               all:
-                - has: {nthChild: 1, matches: conditional}
+                - has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: conditional}
                 - not: {has: {regex: '^;$'}}
     plain-read:
         any:
@@ -27,7 +27,7 @@ utils:
             - kind: field_expression
               has: {field: value, matches: plain-read}
             - kind: 'reference_expression, parenthesized_expression'
-              has: {nthChild: 1, matches: plain-read}
+              has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: plain-read}
             - kind: unary_expression
               regex: '^\*'
               has: {matches: plain-read}
@@ -59,7 +59,7 @@ utils:
         any:
             - matches: consuming-match
             - kind: expression_statement
-              has: {nthChild: 1, matches: consuming-match}
+              has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: consuming-match}
     nested-block:
         kind: block
         all:
@@ -68,7 +68,7 @@ utils:
     nested-match-block:
         kind: block
         all:
-            - has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, any: [{matches: selecting-match}, {kind: expression_statement, has: {nthChild: 1, matches: selecting-match}}], not: {matches: consuming-tail}}
+            - has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, any: [{matches: selecting-match}, {kind: expression_statement, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: selecting-match}}], not: {matches: consuming-tail}}
             - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}
     nested-value:
         any:
@@ -148,7 +148,7 @@ rule:
                               has:
                                 kind: expression_statement
                                 not: {nthChild: {position: 1, reverse: true, ofRule: {matches: rust-statement}}}
-                                has: {nthChild: 1, kind: 'if_expression, match_expression'}
+                                has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: 'if_expression, match_expression'}
         - kind: call_expression
           pattern: Some($VALUE).filter($TEST).unwrap_or_else($FALLBACK)
 message: '`if`, `match`, `map_or`, `map_or_else`, `unwrap_or_else`, or `filter(..).unwrap_or_else` value nests another decision'

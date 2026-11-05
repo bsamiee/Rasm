@@ -48,7 +48,7 @@ One pitchfork supervisor runs `[daemons]` rows, each local MCP server once as a 
 - `docker` row takes no `boot_start`, and nothing stops the engine on idle
 - `TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE` names socket inside the engine's host, Ryuk mounts it and fails on Colima's client socket path
 - Container images name `latest` with an always-pull policy, each run starts the newest image
-- Claude, Codex, and plugin MCP rows hold each port row's literal loopback URL, written by the `agents` sync generator from `[daemons]`
+- Harness rows hold service URLs and read no `[env]` value into MCP config
 - Servers speaking stdio alone run as `rasm-mcp-bridge --listen 127.0.0.1:$PORT --grace 4s -- <command>`, `--grace` above the bridge's 3s stdin close and below the 5s stop timeout ends the upstream on every stop
 - Bridge rows take `ready_http` at status `406`, the bridge binds before its upstream handshake and answers a plain `GET` with 406 once the upstream is up, so `ready_port` passes first
 - `doppler run` rows take `--forward-signals=false`, the group's SIGTERM reaches the bridge once and a forwarded second signal abandons its drain

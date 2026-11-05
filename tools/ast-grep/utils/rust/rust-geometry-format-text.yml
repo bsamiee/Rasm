@@ -16,7 +16,7 @@ utils:
             - matches: geojson-type
               follows: {regex: '^:$', follows: {kind: string_literal, regex: '^"type"$'}}
             - matches: geojson-type
-              inside: {kind: arguments, all: [{has: {nthChild: 1, kind: string_literal, regex: '^"type"$'}}, {not: {has: {nthChild: 3}}}]}
+              inside: {kind: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: string_literal, regex: '^"type"$'}}, {not: {has: {nthChild: {position: 3, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}]}
             - regex: '\\?"type\\?"\p{Pattern_White_Space}*:\p{Pattern_White_Space}*\\?"(Feature|FeatureCollection|GeometryCollection|Point|MultiPoint|LineString|MultiLineString|Polygon|MultiPolygon)\\?"'
     wkt:
         regex: '^r?#*"(SRID=[^;"]*;)?(POINT|LINESTRING|POLYGON|MULTIPOINT|MULTILINESTRING|MULTIPOLYGON|GEOMETRYCOLLECTION|TRIANGLE|TIN|POLYHEDRALSURFACE)( ?(Z|M|ZM))? ?(\(|EMPTY(?-u:\b))'

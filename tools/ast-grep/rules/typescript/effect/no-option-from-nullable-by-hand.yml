@@ -64,7 +64,7 @@ rule:
             - has: {field: arguments, has: {nthChild: 1, matches: mapped-lift}}
         - all:
             - has: {field: arguments, all: [{has: {nthChild: 1, matches: nullable-decode}}, {has: {nthChild: 2, matches: mapped-lift}}]}
-            - has: {field: function, matches: effect-pipe-function}
+            - has: {field: function, matches: {effect-function: {name: {regex: '^pipe$'}}}}
         - all:
             - has: {field: function, matches: lift}
             - has:

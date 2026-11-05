@@ -14,17 +14,17 @@ utils:
     two-arms:
         kind: match_block
         all:
-            - not: {has: {nthChild: 3}}
+            - not: {has: {nthChild: {position: 3, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}
     break-arm:
         kind: match_arm
         all:
-            - has: {field: pattern, kind: match_pattern, all: [{not: {has: {field: condition, pattern: $_}}}, {has: {kind: tuple_struct_pattern, all: [{has: {field: type, matches: break-variant}}, {has: {nthChild: 2, kind: identifier, pattern: $BV}}, {not: {has: {nthChild: 3}}}]}}]}
-            - has: {field: value, kind: call_expression, has: {field: arguments, all: [{has: {nthChild: 1, pattern: $BV}}, {not: {has: {nthChild: 2}}}]}}
+            - has: {field: pattern, kind: match_pattern, all: [{not: {has: {field: condition, pattern: $_}}}, {has: {kind: tuple_struct_pattern, all: [{has: {field: type, matches: break-variant}}, {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: identifier, pattern: $BV}}, {not: {has: {nthChild: {position: 3, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}]}}]}
+            - has: {field: value, kind: call_expression, has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, pattern: $BV}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}]}}
     continue-arm:
         kind: match_arm
         all:
-            - has: {field: pattern, kind: match_pattern, all: [{not: {has: {field: condition, pattern: $_}}}, {has: {kind: tuple_struct_pattern, all: [{has: {field: type, matches: continue-variant}}, {has: {nthChild: 2, kind: identifier, pattern: $CV}}, {not: {has: {nthChild: 3}}}]}}]}
-            - has: {field: value, kind: call_expression, has: {field: arguments, all: [{has: {nthChild: 1, pattern: $CV}}, {not: {has: {nthChild: 2}}}]}}
+            - has: {field: pattern, kind: match_pattern, all: [{not: {has: {field: condition, pattern: $_}}}, {has: {kind: tuple_struct_pattern, all: [{has: {field: type, matches: continue-variant}}, {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: identifier, pattern: $CV}}, {not: {has: {nthChild: {position: 3, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}]}}]}
+            - has: {field: value, kind: call_expression, has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, pattern: $CV}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}]}}
     break-ok:
         all:
             - has: {matches: break-arm, has: {field: value, has: {field: function, regex: '^Ok$'}}}

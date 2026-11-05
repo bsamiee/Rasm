@@ -183,6 +183,6 @@ rule:
             - has: {field: arguments, has: {nthChild: 2, kind: object, has: {kind: pair, all: [{has: {field: key, regex: '^onNonEmpty$'}}, {has: {field: value, matches: succeeded-arm}}]}}}
             - has: {field: arguments, has: {nthChild: 2, kind: object, has: {kind: pair, all: [{has: {field: key, regex: '^onEmpty$'}}, {has: {field: value, matches: refused-arm}}]}}}
 constraints:
-    PIPE: {matches: effect-pipe-function}
+    PIPE: {matches: {effect-function: {name: {regex: '^pipe$'}}}}
 message: '`$V` enters `$M` through a predicate branch written by hand'
 note: 'Call `<module>.liftPredicate` (`Result` takes `orFailWith`), `Effect.filterOrFail`, or `map` after `filter` for a tagged case'

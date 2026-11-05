@@ -20,7 +20,7 @@ utils:
             - kind: call_expression
               all:
                 - has: {field: function, kind: field_expression, has: {field: field, regex: '^(random_range|gen_range|usize|u32|u64)$'}}
-                - has: {field: arguments, has: {nthChild: 1, matches: covering-range}}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: covering-range}}
             - kind: call_expression
               all:
                 - has: {field: function, regex: '(^|::)(random_range|gen_range)$|^((::)?fastrand::)usize$'}
@@ -40,15 +40,15 @@ utils:
                 has: {kind: let_declaration, all: [{has: {field: pattern, pattern: $J}}, {has: {field: value, matches: draw}}]}
 rule:
     kind: call_expression
-    pattern: $SWAP
     all:
         - has: {field: function, kind: field_expression, has: {field: field, regex: '^swap$'}}
         - any:
             - all:
-                - has: {field: arguments, has: {nthChild: 1, kind: identifier, pattern: $I}}
-                - has: {field: arguments, has: {nthChild: 2, matches: drawn}}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: identifier, pattern: $I}}
+                - has: {field: arguments, has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: drawn}}
             - all:
-                - has: {field: arguments, has: {nthChild: 2, kind: identifier, pattern: $I}}
-                - has: {field: arguments, has: {nthChild: 1, matches: drawn}}
+                - has: {field: arguments, has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: identifier, pattern: $I}}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: drawn}}
+        - pattern: $SWAP
 message: '`$SWAP` shuffles values by hand'
 note: 'Call `<values>.shuffle(&mut <rng>)` from `rand::seq::SliceRandom`, or `<values>.partial_shuffle(&mut <rng>, <amount>)` for a prefix'

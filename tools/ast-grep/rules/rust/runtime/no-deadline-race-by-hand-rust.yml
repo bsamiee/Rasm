@@ -21,7 +21,7 @@ utils:
             - kind: call_expression
               all:
                 - has: {field: function, regex: '^((::)?(std::)?boxed::)?Box::pin$'}
-                - has: {field: arguments, has: {nthChild: 1, matches: deadline-call}}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: deadline-call}}
             - kind: call_expression
               has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^boxed$'}}, {has: {field: value, matches: deadline-call}}]}
             - kind: macro_invocation

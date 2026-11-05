@@ -8,5 +8,5 @@ rule:
         - has:
             kind: token_tree
             any:
-                - has: {nthChild: 1, kind: string_literal, regex: '\{[_\p{XID_Start}]'}
+                - has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: string_literal, regex: '\{[_\p{XID_Start}]'}
                 - has: {kind: identifier, follows: {stopBy: end, regex: '^,$'}, not: {any: [{regex: '^(std|core|alloc)$'}, {precedes: {regex: '^(!|::)$'}}]}}

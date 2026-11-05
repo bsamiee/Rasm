@@ -59,7 +59,7 @@ const compose = (base, { name, fragments, slots, rules, conflicts }) => {
         externals: ($, original) => [...original, $._hole, $._hole_end],
         conflicts: ($, original) => [...original, [$.substitution], ...conflicts($)],
         rules: {
-            substitution: ($) => repeat1(seq($._hole, $._hole_end)),
+            substitution: ($) => prec.dynamic(1, repeat1(seq($._hole, $._hole_end))),
             _hole_forms: () => seq(...hosts.flatMap(({ hole: { opening, closing } }) => [opening, closing])),
             _hole_tail: () => spans(classes(lexemes(dialect)).identifier),
             _hole_words: () => seq(...spellings(dialect)),

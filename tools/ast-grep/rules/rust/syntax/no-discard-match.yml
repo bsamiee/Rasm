@@ -23,7 +23,7 @@ rule:
                 - has:
                     kind: match_arm
                     all:
-                        - has: {field: pattern, kind: match_pattern, all: [{has: {nthChild: 1, kind: or_pattern, pattern: $PATTERN}}, {not: {has: {field: condition, pattern: $_}}}, {not: {has: {stopBy: end, matches: binding}}}]}
+                        - has: {field: pattern, kind: match_pattern, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: or_pattern, pattern: $PATTERN}}, {not: {has: {field: condition, pattern: $_}}}, {not: {has: {stopBy: end, matches: binding}}}]}
                         - has: {field: value, matches: plain-value}
                 - not: {has: {kind: match_arm, nthChild: {position: 2, ofRule: {kind: match_arm}}}}
 message: '`match $VALUE` discards the value through one arm `$PATTERN`'

@@ -1,10 +1,5 @@
 {
     "generators": {
-        "agents": {
-            "factory": "./settings/agents.ts#agents",
-            "schema": "./schema.json",
-            "description": "Writes Claude and Codex MCP rows, plugin catalogs and manifests, and Codex agents from mise.toml daemons and each plugin"
-        },
         "build-settings": {
             "factory": "./settings/build-settings.ts#buildSettings",
             "schema": "./schema.json",

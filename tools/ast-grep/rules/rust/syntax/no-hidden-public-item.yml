@@ -6,10 +6,10 @@ utils:
         kind: attribute
         any:
             - all:
-                - has: {nthChild: 1, pattern: doc}
+                - has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, pattern: doc}
                 - has: {field: arguments, has: {pattern: hidden}}
             - all:
-                - has: {nthChild: 1, pattern: cfg_attr}
+                - has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, pattern: cfg_attr}
                 - has: {field: arguments, has: {kind: token_tree, follows: {pattern: doc}, has: {pattern: hidden}}}
     exported:
         kind: visibility_modifier
@@ -25,7 +25,6 @@ utils:
               matches: {rust-attributed: {attribute: {regex: '^#\[\p{Pattern_White_Space}*macro_export(?-u:\b)'}}}
 rule:
     kind: attribute_item
-    pattern: $ATTRIBUTE
     all:
         - has: {matches: hidden}
         - precedes:
@@ -35,5 +34,6 @@ rule:
             any:
                 - has: {field: name, pattern: $NAME}
                 - has: {field: argument, pattern: $NAME}
+        - pattern: $ATTRIBUTE
 message: '`$ATTRIBUTE` hides `$NAME` from the API it belongs to'
 note: 'Narrow an item its crate alone reads to `pub(crate)` or `pub(super)`, else delete the attribute'

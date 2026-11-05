@@ -9,7 +9,7 @@ utils:
             - kind: call_expression
               all:
                 - has: {field: function, regex: '^(Some|Ok)$'}
-                - has: {field: arguments, all: [{has: {nthChild: 1, kind: scoped_identifier, has: {field: path, pattern: $E}}}, {not: {has: {nthChild: 2}}}]}
+                - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: scoped_identifier, has: {field: path, pattern: $E}}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}]}
             - kind: block
               all:
                 - has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, matches: variant-value}

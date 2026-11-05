@@ -12,9 +12,9 @@ rule:
     any:
         - all:
             - has: {field: function, matches: collected}
-            - has: {field: arguments, all: [{has: {nthChild: 1, kind: integer_literal}}, {not: {has: {nthChild: 2}}}]}
+            - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: integer_literal}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}]}
         - all:
             - has: {field: function, kind: generic_function, has: {field: function, matches: collected}}
-            - has: {field: arguments, not: {has: {nthChild: 1}}}
+            - has: {field: arguments, not: {has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}
 message: '`$R` collects into a `Vec` only to read its windows or chunks'
 note: 'Use `map_windows(|window: &[_; N]| ..)` or `array_chunks::<N>()` when outputs borrow nothing from the source slice'
