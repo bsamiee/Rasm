@@ -2,329 +2,449 @@ id: python-import
 language: pythonlang
 role: item
 symbolType: module
+utils:
+    reexported:
+        has:
+            field: name
+            all:
+                - any: [{kind: dotted_name, pattern: $EXPORT}, {kind: aliased_import, has: {field: alias, pattern: $EXPORT}}]
+                - inside: {kind: module, stopBy: end, has: {kind: expression_statement, has: {kind: assignment, all: [{has: {field: left, regex: '^__all__$'}}, {has: {field: right, has: {kind: string_content, stopBy: end, pattern: $EXPORT}}}]}}}
 rule:
-    kind: import_statement
-    pattern: $DECLARATION
-rewriters:
-    - id: module
-      rule: {kind: 'dotted_name, aliased_import', pattern: $MODULE, inside: {kind: import_statement}}
-      fix: $MODULE
-transform:
-    NAME: {rewrite: {source: $DECLARATION, rewriters: [module], joinBy: ', '}}
-name: $NAME
-signature: $DECLARATION
-isImport: true
-isExported: false
----
-id: python-import-from
-language: pythonlang
-role: item
-symbolType: module
-rule:
-    kind: 'import_from_statement, future_import_statement'
+    kind: 'import_statement, import_from_statement, future_import_statement'
     pattern: $DECLARATION
     any:
-        - has: {field: module_name, pattern: $NAME}
-        - has: {pattern: $$NAME, regex: '^__future__$'}
-name: $NAME
-signature: $DECLARATION
+        - {kind: import_statement, pattern: $LIST}
+        - has: {field: module_name, pattern: $MODULE}
+        - has: {pattern: $$MODULE, regex: '^__future__$'}
+rewriters:
+    - id: module
+      rule: {kind: 'dotted_name, aliased_import', pattern: $IMPORTED, inside: {kind: import_statement, field: name}}
+      fix: $IMPORTED
+transform:
+    MODULES: {rewrite: {source: $LIST, rewriters: [module], joinBy: ', '}}
+    SIGNATURE: {replace: {source: $DECLARATION, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*', by: ' '}}
+name: $MODULES$MODULE
+signature: $SIGNATURE
 isImport: true
-isExported: false
+isExported: {matches: reexported}
 ---
 id: python-type-alias
 language: pythonlang
 role: item
 symbolType: struct
+utils:
+    listed: {inside: {kind: module, stopBy: end, has: {kind: expression_statement, has: {kind: assignment, all: [{has: {field: left, regex: '^__all__$'}}, {has: {field: right, has: {kind: string_content, stopBy: end, pattern: $NAME}}}]}}}}
+    unlisted: {not: {inside: {kind: module, stopBy: end, has: {kind: expression_statement, has: {kind: assignment, has: {field: left, regex: '^__all__$'}}}}}}
 rule:
     kind: type_alias_statement
     pattern: $DECLARATION
-    has:
-        field: left
-        any:
-            - has: {kind: identifier, pattern: $NAME}
-            - has: {kind: generic_type, has: {kind: identifier, pattern: $NAME}}
+    has: {field: left, any: [{has: {kind: identifier, pattern: $NAME}}, {has: {kind: generic_type, has: {kind: identifier, pattern: $NAME}}}]}
+transform:
+    SIGNATURE: {replace: {source: $DECLARATION, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*', by: ' '}}
 name: $NAME
-signature: $DECLARATION
-isExported:
-    not:
-        any:
-            - {has: {field: left, any: [{has: {kind: identifier, regex: '^_'}}, {has: {kind: generic_type, has: {kind: identifier, regex: '^_'}}}]}}
-            - {inside: {kind: 'class_definition, function_definition, lambda', stopBy: end}}
+signature: $SIGNATURE
+isExported: {any: [{matches: listed}, {all: [{not: {has: {field: left, any: [{has: {kind: identifier, regex: '^_'}}, {has: {kind: generic_type, has: {kind: identifier, regex: '^_'}}}]}}}, {matches: unlisted}]}]}
+---
+id: python-enum
+language: pythonlang
+role: item
+symbolType: enum
+utils:
+    listed: {inside: {kind: module, stopBy: end, has: {kind: expression_statement, has: {kind: assignment, all: [{has: {field: left, regex: '^__all__$'}}, {has: {field: right, has: {kind: string_content, stopBy: end, pattern: $NAME}}}]}}}}
+    unlisted: {not: {inside: {kind: module, stopBy: end, has: {kind: expression_statement, has: {kind: assignment, has: {field: left, regex: '^__all__$'}}}}}}
+    enumerated: {has: {field: superclasses, has: {any: [{kind: identifier, regex: '^(?:Str|Int)?(?:Enum|Flag)$'}, {kind: attribute, has: {field: attribute, regex: '^(?:Str|Int)?(?:Enum|Flag)$'}}]}}}
+    header:
+        kind: class_definition
+        all:
+            - has: {field: name, all: [{pattern: $NAME}, {pattern: $HEAD}]}
+            - any: [{has: {field: type_parameters, pattern: $TP}}, {pattern: $_}]
+            - any: [{has: {field: superclasses, pattern: $SUPER}}, {pattern: $_}]
+rule:
+    kind: 'class_definition, decorated_definition'
+    any:
+        - all: [{matches: enumerated}, {matches: header}]
+        - {kind: decorated_definition, pattern: $DECORATED, has: {field: definition, kind: class_definition, all: [{matches: enumerated}, {has: {field: name, pattern: $NAME}}]}}
+rewriters:
+    - id: body
+      rule: {kind: block, inside: {kind: 'class_definition, function_definition', field: body}}
+      fix: {template: '', expandStart: {regex: '^:$', stopBy: end}}
+transform:
+    CLASS: {replace: {source: $HEAD, replace: '^', by: 'class '}}
+    HEADER: {rewrite: {source: $DECORATED, rewriters: [body]}}
+    DECORATED_SIGNATURE: {replace: {source: $HEADER, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*', by: ' '}}
+name: $NAME
+signature: '$CLASS$TP$SUPER$DECORATED_SIGNATURE:'
+isExported: {any: [{matches: listed}, {all: [{not: {any: [{has: {field: name, regex: '^_'}}, {has: {field: definition, has: {field: name, regex: '^_'}}}]}}, {matches: unlisted}]}]}
+---
+id: python-interface
+language: pythonlang
+role: item
+symbolType: interface
+utils:
+    listed: {inside: {kind: module, stopBy: end, has: {kind: expression_statement, has: {kind: assignment, all: [{has: {field: left, regex: '^__all__$'}}, {has: {field: right, has: {kind: string_content, stopBy: end, pattern: $NAME}}}]}}}}
+    unlisted: {not: {inside: {kind: module, stopBy: end, has: {kind: expression_statement, has: {kind: assignment, has: {field: left, regex: '^__all__$'}}}}}}
+    protocol: {any: [{kind: identifier, regex: '^Protocol$'}, {kind: attribute, has: {field: attribute, regex: '^Protocol$'}}]}
+    structural: {has: {field: superclasses, has: {any: [{matches: protocol}, {kind: subscript, has: {field: value, matches: protocol}}]}}}
+    header:
+        kind: class_definition
+        all:
+            - has: {field: name, all: [{pattern: $NAME}, {pattern: $HEAD}]}
+            - any: [{has: {field: type_parameters, pattern: $TP}}, {pattern: $_}]
+            - any: [{has: {field: superclasses, pattern: $SUPER}}, {pattern: $_}]
+rule:
+    kind: 'class_definition, decorated_definition'
+    any:
+        - all: [{matches: structural}, {matches: header}]
+        - {kind: decorated_definition, pattern: $DECORATED, has: {field: definition, kind: class_definition, all: [{matches: structural}, {has: {field: name, pattern: $NAME}}]}}
+rewriters:
+    - id: body
+      rule: {kind: block, inside: {kind: 'class_definition, function_definition', field: body}}
+      fix: {template: '', expandStart: {regex: '^:$', stopBy: end}}
+transform:
+    CLASS: {replace: {source: $HEAD, replace: '^', by: 'class '}}
+    HEADER: {rewrite: {source: $DECORATED, rewriters: [body]}}
+    DECORATED_SIGNATURE: {replace: {source: $HEADER, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*', by: ' '}}
+name: $NAME
+signature: '$CLASS$TP$SUPER$DECORATED_SIGNATURE:'
+isExported: {any: [{matches: listed}, {all: [{not: {any: [{has: {field: name, regex: '^_'}}, {has: {field: definition, has: {field: name, regex: '^_'}}}]}}, {matches: unlisted}]}]}
 ---
 id: python-class
 language: pythonlang
 role: item
 symbolType: class
+utils:
+    listed: {inside: {kind: module, stopBy: end, has: {kind: expression_statement, has: {kind: assignment, all: [{has: {field: left, regex: '^__all__$'}}, {has: {field: right, has: {kind: string_content, stopBy: end, pattern: $NAME}}}]}}}}
+    unlisted: {not: {inside: {kind: module, stopBy: end, has: {kind: expression_statement, has: {kind: assignment, has: {field: left, regex: '^__all__$'}}}}}}
+    header:
+        kind: class_definition
+        all:
+            - has: {field: name, all: [{pattern: $NAME}, {pattern: $HEAD}]}
+            - any: [{has: {field: type_parameters, pattern: $TP}}, {pattern: $_}]
+            - any: [{has: {field: superclasses, pattern: $SUPER}}, {pattern: $_}]
 rule:
     kind: 'class_definition, decorated_definition'
-    pattern: $DECLARATION
     any:
-        - has: {field: name, pattern: $NAME}
-        - has: {field: definition, kind: class_definition, has: {field: name, pattern: $NAME}}
+        - matches: header
+        - {kind: decorated_definition, pattern: $DECORATED, has: {field: definition, kind: class_definition, has: {field: name, pattern: $NAME}}}
 rewriters:
     - id: body
-      rule:
-          any:
-              - {kind: block, inside: {kind: class_definition, field: body}}
-              - kind: comment
-                inside: {kind: class_definition}
-                follows: {regex: '^:$', stopBy: {not: {kind: comment}}}
-      fix: ''
+      rule: {kind: block, inside: {kind: 'class_definition, function_definition', field: body}}
+      fix: {template: '', expandStart: {regex: '^:$', stopBy: end}}
 transform:
-    HEADER: rewrite($DECLARATION, rewriters=[body])
-    SIGNATURE: {replace: {source: $HEADER, replace: '\s+$', by: ''}}
+    CLASS: {replace: {source: $HEAD, replace: '^', by: 'class '}}
+    HEADER: {rewrite: {source: $DECORATED, rewriters: [body]}}
+    DECORATED_SIGNATURE: {replace: {source: $HEADER, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*', by: ' '}}
 name: $NAME
-signature: $SIGNATURE
-isExported:
-    all:
-        - not:
-              any:
-                  - has: {field: name, regex: '^_'}
-                  - has: {field: definition, has: {field: name, regex: '^_'}}
-        - not: {inside: {kind: 'class_definition, function_definition, lambda', stopBy: end}}
+signature: '$CLASS$TP$SUPER$DECORATED_SIGNATURE:'
+isExported: {any: [{matches: listed}, {all: [{not: {any: [{has: {field: name, regex: '^_'}}, {has: {field: definition, has: {field: name, regex: '^_'}}}]}}, {matches: unlisted}]}]}
 ---
 id: python-function
 language: pythonlang
 role: item
 symbolType: function
+utils:
+    listed: {inside: {kind: module, stopBy: end, has: {kind: expression_statement, has: {kind: assignment, all: [{has: {field: left, regex: '^__all__$'}}, {has: {field: right, has: {kind: string_content, stopBy: end, pattern: $NAME}}}]}}}}
+    unlisted: {not: {inside: {kind: module, stopBy: end, has: {kind: expression_statement, has: {kind: assignment, has: {field: left, regex: '^__all__$'}}}}}}
+    header:
+        kind: function_definition
+        all:
+            - has: {field: name, all: [{pattern: $NAME}, {pattern: $HEAD}]}
+            - has: {field: parameters, pattern: $PARAMS}
+            - any: [{has: {pattern: $$ASYNC, regex: '^async$'}}, {pattern: $_}]
+            - any: [{has: {field: type_parameters, pattern: $TP}}, {pattern: $_}]
+            - any: [{has: {field: return_type, pattern: $RETURN}}, {pattern: $_}]
 rule:
     kind: 'function_definition, decorated_definition'
-    pattern: $DECLARATION
     any:
-        - has: {field: name, pattern: $NAME}
-        - has: {field: definition, kind: function_definition, has: {field: name, pattern: $NAME}}
-    not: {inside: {kind: class_definition, stopBy: {kind: 'class_definition, function_definition, lambda'}}}
+        - matches: header
+        - {kind: decorated_definition, pattern: $DECORATED, has: {field: definition, kind: function_definition, has: {field: name, pattern: $NAME}}}
 rewriters:
     - id: body
-      rule:
-          any:
-              - {kind: block, inside: {kind: function_definition, field: body}}
-              - kind: comment
-                inside: {kind: function_definition}
-                follows: {regex: '^:$', stopBy: {not: {kind: comment}}}
-      fix: ''
+      rule: {kind: block, inside: {kind: 'class_definition, function_definition', field: body}}
+      fix: {template: '', expandStart: {regex: '^:$', stopBy: end}}
 transform:
-    HEADER: rewrite($DECLARATION, rewriters=[body])
-    SIGNATURE: {replace: {source: $HEADER, replace: '\s+$', by: ''}}
+    PREFIX: {replace: {source: $ASYNC, replace: '$', by: ' '}}
+    DEF: {replace: {source: $HEAD, replace: '^', by: 'def '}}
+    PARAMETERS: {replace: {source: $PARAMS, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*', by: ' '}}
+    RETURNS: {replace: {source: $RETURN, replace: '^', by: ' -> '}}
+    ARROW: {replace: {source: $RETURNS, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*', by: ' '}}
+    HEADER: {rewrite: {source: $DECORATED, rewriters: [body]}}
+    DECORATED_SIGNATURE: {replace: {source: $HEADER, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*', by: ' '}}
 name: $NAME
-signature: $SIGNATURE
-isExported:
-    all:
-        - not:
-              any:
-                  - has: {field: name, regex: '^_'}
-                  - has: {field: definition, has: {field: name, regex: '^_'}}
-        - not: {inside: {kind: 'class_definition, function_definition, lambda', stopBy: end}}
+signature: '$PREFIX$DEF$TP$PARAMETERS$ARROW$DECORATED_SIGNATURE:'
+isExported: {any: [{matches: listed}, {all: [{not: {any: [{has: {field: name, regex: '^_'}}, {has: {field: definition, has: {field: name, regex: '^_'}}}]}}, {matches: unlisted}]}]}
 ---
 id: python-export-list
 language: pythonlang
 role: item
 symbolType: variable
-rule:
-    kind: expression_statement
-    pattern: $DECLARATION
-    inside: {kind: module}
-    has: {kind: assignment, has: {field: left, regex: '^__all__$', pattern: $NAME}}
+rule: {kind: expression_statement, pattern: $DECLARATION, inside: {kind: module}, has: {kind: assignment, has: {field: left, regex: '^__all__$', pattern: $NAME}}}
+transform:
+    SIGNATURE: {replace: {source: $DECLARATION, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*', by: ' '}}
 name: $NAME
-signature: $DECLARATION
+signature: $SIGNATURE
 isExported: false
 ---
 id: python-constant
 language: pythonlang
 role: item
 symbolType: constant
+utils:
+    listed: {inside: {kind: module, stopBy: end, has: {kind: expression_statement, has: {kind: assignment, all: [{has: {field: left, regex: '^__all__$'}}, {has: {field: right, has: {kind: string_content, stopBy: end, pattern: $NAME}}}]}}}}
+    unlisted: {not: {inside: {kind: module, stopBy: end, has: {kind: expression_statement, has: {kind: assignment, has: {field: left, regex: '^__all__$'}}}}}}
+    unpacked: {kind: 'pattern_list, tuple_pattern, list_pattern, list_splat_pattern'}
 rule:
     kind: identifier
     pattern: $NAME
     regex: '^[A-Z_][A-Z0-9_]*$'
-    not: {inside: {kind: class_definition, stopBy: {kind: 'class_definition, function_definition, lambda'}}}
     any:
-        - inside:
-              kind: assignment
-              field: left
-              any:
-                  - has: {field: type, pattern: $TYPE}
-                  - pattern: $_
+        - inside: {kind: assignment, field: left, any: [{has: {field: type, pattern: $TYPE}}, {pattern: $_}]}
         - not: {regex: '^_$'}
-          inside:
-              kind: 'pattern_list, tuple_pattern, list_pattern, list_splat_pattern'
-              stopBy: {not: {kind: 'pattern_list, tuple_pattern, list_pattern, list_splat_pattern'}}
-              inside: {kind: assignment, field: left}
+          inside: {matches: unpacked, stopBy: {not: {matches: unpacked}}, inside: {kind: assignment, field: left}}
 transform:
-    ANNOTATION: {replace: {source: $TYPE, replace: '(?s)^.+$', by: ': $0'}}
+    TYPED: {replace: {source: $TYPE, replace: '^', by: ': '}}
+    ANNOTATION: {replace: {source: $TYPED, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*', by: ' '}}
 name: $NAME
 signature: $NAME$ANNOTATION
-isExported:
-    all:
-        - not: {regex: '^_'}
-        - not: {inside: {kind: 'class_definition, function_definition, lambda', stopBy: end}}
+isExported: {any: [{matches: listed}, {all: [{not: {regex: '^_'}}, {matches: unlisted}]}]}
 ---
 id: python-variable
 language: pythonlang
 role: item
 symbolType: variable
+utils:
+    listed: {inside: {kind: module, stopBy: end, has: {kind: expression_statement, has: {kind: assignment, all: [{has: {field: left, regex: '^__all__$'}}, {has: {field: right, has: {kind: string_content, stopBy: end, pattern: $NAME}}}]}}}}
+    unlisted: {not: {inside: {kind: module, stopBy: end, has: {kind: expression_statement, has: {kind: assignment, has: {field: left, regex: '^__all__$'}}}}}}
+    unpacked: {kind: 'pattern_list, tuple_pattern, list_pattern, list_splat_pattern'}
 rule:
     kind: identifier
     pattern: $NAME
-    not:
-        any:
-            - regex: '^[A-Z_][A-Z0-9_]*$'
-            - {inside: {kind: class_definition, stopBy: {kind: 'class_definition, function_definition, lambda'}}}
     any:
-        - inside:
-              kind: assignment
-              field: left
-              any:
-                  - has: {field: type, pattern: $TYPE}
-                  - pattern: $_
-        - inside:
-              kind: 'pattern_list, tuple_pattern, list_pattern, list_splat_pattern'
-              stopBy: {not: {kind: 'pattern_list, tuple_pattern, list_pattern, list_splat_pattern'}}
-              inside: {kind: assignment, field: left}
+        - inside: {kind: assignment, field: left, any: [{has: {field: type, pattern: $TYPE}}, {pattern: $_}]}
+        - not: {regex: '^_$'}
+          inside: {matches: unpacked, stopBy: {not: {matches: unpacked}}, inside: {kind: assignment, field: left}}
 transform:
-    ANNOTATION: {replace: {source: $TYPE, replace: '(?s)^.+$', by: ': $0'}}
+    TYPED: {replace: {source: $TYPE, replace: '^', by: ': '}}
+    ANNOTATION: {replace: {source: $TYPED, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*', by: ' '}}
 name: $NAME
 signature: $NAME$ANNOTATION
-isExported:
-    all:
-        - not: {regex: '^_'}
-        - not: {inside: {kind: 'class_definition, function_definition, lambda', stopBy: end}}
+isExported: {any: [{matches: listed}, {all: [{not: {regex: '^_'}}, {matches: unlisted}]}]}
 ---
-id: python-class-field
+id: python-enum-member
+language: pythonlang
+role: member
+symbolType: enumMember
+parentRuleIds: [python-enum]
+rule:
+    kind: identifier
+    pattern: $NAME
+    not: {regex: '^_'}
+    inside: {kind: assignment, field: left, inside: {kind: class_definition, stopBy: {kind: 'class_definition, function_definition'}, not: {inside: {kind: 'class_definition, function_definition', stopBy: end}}}}
+name: $NAME
+---
+id: python-member-constructor
+language: pythonlang
+role: member
+symbolType: constructor
+parentRuleIds: [python-class, python-interface, python-enum, python-function]
+utils:
+    owner: {inside: {kind: class_definition, stopBy: {kind: 'class_definition, function_definition'}, any: [{all: [{inside: {kind: 'class_definition, function_definition', stopBy: end}}, {has: {field: name, pattern: $OWNER}}]}, {pattern: $_}]}}
+    header:
+        kind: function_definition
+        all:
+            - has: {field: name, regex: '^__(?:init|new|post_init)__$', all: [{pattern: $NAME}, {pattern: $HEAD}]}
+            - has: {field: parameters, pattern: $PARAMS}
+            - any: [{has: {pattern: $$ASYNC, regex: '^async$'}}, {pattern: $_}]
+            - any: [{has: {field: type_parameters, pattern: $TP}}, {pattern: $_}]
+            - any: [{has: {field: return_type, pattern: $RETURN}}, {pattern: $_}]
+rule:
+    kind: 'function_definition, decorated_definition'
+    all:
+        - matches: owner
+        - any:
+              - matches: header
+              - {kind: decorated_definition, pattern: $DECORATED, has: {field: definition, kind: function_definition, has: {field: name, regex: '^__(?:init|new|post_init)__$', pattern: $NAME}}}
+rewriters:
+    - id: body
+      rule: {kind: block, inside: {kind: 'class_definition, function_definition', field: body}}
+      fix: {template: '', expandStart: {regex: '^:$', stopBy: end}}
+transform:
+    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: '.'}}
+    PREFIX: {replace: {source: $ASYNC, replace: '$', by: ' '}}
+    DEF: {replace: {source: $HEAD, replace: '^', by: 'def '}}
+    PARAMETERS: {replace: {source: $PARAMS, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*', by: ' '}}
+    RETURNS: {replace: {source: $RETURN, replace: '^', by: ' -> '}}
+    ARROW: {replace: {source: $RETURNS, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*', by: ' '}}
+    HEADER: {rewrite: {source: $DECORATED, rewriters: [body]}}
+    DECORATED_SIGNATURE: {replace: {source: $HEADER, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*', by: ' '}}
+name: $QUALIFIER$NAME
+signature: '$PREFIX$DEF$TP$PARAMETERS$ARROW$DECORATED_SIGNATURE:'
+---
+id: python-member-property
+language: pythonlang
+role: member
+symbolType: property
+parentRuleIds: [python-class, python-interface, python-enum, python-function]
+utils:
+    owner: {inside: {kind: class_definition, stopBy: {kind: 'class_definition, function_definition'}, any: [{all: [{inside: {kind: 'class_definition, function_definition', stopBy: end}}, {has: {field: name, pattern: $OWNER}}]}, {pattern: $_}]}}
+    property: {regex: '^(?:cached_)?property$'}
+rule:
+    kind: decorated_definition
+    pattern: $DECORATED
+    all:
+        - matches: owner
+        - has: {kind: decorator, has: {any: [{kind: identifier, matches: property}, {kind: attribute, has: {field: attribute, matches: property}}]}}
+        - has: {field: definition, kind: function_definition, has: {field: name, pattern: $NAME}}
+rewriters:
+    - id: body
+      rule: {kind: block, inside: {kind: 'class_definition, function_definition', field: body}}
+      fix: {template: '', expandStart: {regex: '^:$', stopBy: end}}
+transform:
+    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: '.'}}
+    HEADER: {rewrite: {source: $DECORATED, rewriters: [body]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*', by: ' '}}
+name: $QUALIFIER$NAME
+signature: '$SIGNATURE:'
+isPublic: {not: {has: {field: definition, has: {field: name, regex: '^_', not: {regex: '^__.*__$'}}}}}
+---
+id: python-member-method
+language: pythonlang
+role: member
+symbolType: method
+parentRuleIds: [python-class, python-interface, python-enum, python-function]
+utils:
+    owner: {inside: {kind: class_definition, stopBy: {kind: 'class_definition, function_definition'}, any: [{all: [{inside: {kind: 'class_definition, function_definition', stopBy: end}}, {has: {field: name, pattern: $OWNER}}]}, {pattern: $_}]}}
+    header:
+        kind: function_definition
+        all:
+            - has: {field: name, all: [{pattern: $NAME}, {pattern: $HEAD}]}
+            - has: {field: parameters, pattern: $PARAMS}
+            - any: [{has: {pattern: $$ASYNC, regex: '^async$'}}, {pattern: $_}]
+            - any: [{has: {field: type_parameters, pattern: $TP}}, {pattern: $_}]
+            - any: [{has: {field: return_type, pattern: $RETURN}}, {pattern: $_}]
+rule:
+    kind: 'function_definition, decorated_definition'
+    all:
+        - matches: owner
+        - any:
+              - matches: header
+              - {kind: decorated_definition, pattern: $DECORATED, has: {field: definition, kind: function_definition, has: {field: name, pattern: $NAME}}}
+rewriters:
+    - id: body
+      rule: {kind: block, inside: {kind: 'class_definition, function_definition', field: body}}
+      fix: {template: '', expandStart: {regex: '^:$', stopBy: end}}
+transform:
+    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: '.'}}
+    PREFIX: {replace: {source: $ASYNC, replace: '$', by: ' '}}
+    DEF: {replace: {source: $HEAD, replace: '^', by: 'def '}}
+    PARAMETERS: {replace: {source: $PARAMS, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*', by: ' '}}
+    RETURNS: {replace: {source: $RETURN, replace: '^', by: ' -> '}}
+    ARROW: {replace: {source: $RETURNS, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*', by: ' '}}
+    HEADER: {rewrite: {source: $DECORATED, rewriters: [body]}}
+    DECORATED_SIGNATURE: {replace: {source: $HEADER, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*', by: ' '}}
+name: $QUALIFIER$NAME
+signature: '$PREFIX$DEF$TP$PARAMETERS$ARROW$DECORATED_SIGNATURE:'
+isPublic: {not: {any: [{has: {field: name, regex: '^_', not: {regex: '^__.*__$'}}}, {has: {field: definition, has: {field: name, regex: '^_', not: {regex: '^__.*__$'}}}}]}}
+---
+id: python-member-field
 language: pythonlang
 role: member
 symbolType: field
-parentRuleIds: [python-class]
+parentRuleIds: [python-class, python-interface, python-enum, python-function]
+utils:
+    owner: {inside: {kind: class_definition, stopBy: {kind: 'class_definition, function_definition'}, any: [{all: [{inside: {kind: 'class_definition, function_definition', stopBy: end}}, {has: {field: name, pattern: $OWNER}}]}, {pattern: $_}]}}
+    unpacked: {kind: 'pattern_list, tuple_pattern, list_pattern, list_splat_pattern'}
 rule:
     kind: identifier
     pattern: $NAME
     any:
-        - inside:
-              kind: assignment
-              field: left
-              any:
-                  - has: {field: type, pattern: $TYPE}
-                  - pattern: $_
+        - inside: {kind: assignment, field: left, all: [{matches: owner}, {any: [{has: {field: type, pattern: $TYPE}}, {pattern: $_}]}]}
         - not: {regex: '^_$'}
-          inside:
-              kind: 'pattern_list, tuple_pattern, list_pattern, list_splat_pattern'
-              stopBy: {not: {kind: 'pattern_list, tuple_pattern, list_pattern, list_splat_pattern'}}
-              inside: {kind: assignment, field: left}
+          inside: {matches: unpacked, stopBy: {not: {matches: unpacked}}, inside: {kind: assignment, field: left, matches: owner}}
 transform:
-    ANNOTATION: {replace: {source: $TYPE, replace: '(?s)^.+$', by: ': $0'}}
-name: $NAME
+    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: '.'}}
+    TYPED: {replace: {source: $TYPE, replace: '^', by: ': '}}
+    ANNOTATION: {replace: {source: $TYPED, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*', by: ' '}}
+name: $QUALIFIER$NAME
 signature: $NAME$ANNOTATION
 isPublic: {any: [{not: {regex: '^_'}}, {regex: '^__.*__$'}]}
----
-id: python-nested-class
-language: pythonlang
-role: member
-symbolType: class
-parentRuleIds: [python-class, python-function]
-rule:
-    kind: 'class_definition, decorated_definition'
-    pattern: $DECLARATION
-    any:
-        - has: {field: name, pattern: $NAME}
-        - has: {field: definition, kind: class_definition, has: {field: name, pattern: $NAME}}
-    not: {inside: {kind: decorated_definition}}
-rewriters:
-    - id: body
-      rule:
-          any:
-              - {kind: block, inside: {kind: class_definition, field: body}}
-              - kind: comment
-                inside: {kind: class_definition}
-                follows: {regex: '^:$', stopBy: {not: {kind: comment}}}
-      fix: ''
-transform:
-    HEADER: rewrite($DECLARATION, rewriters=[body])
-    SIGNATURE: {replace: {source: $HEADER, replace: '\s+$', by: ''}}
-name: $NAME
-signature: $SIGNATURE
-isPublic:
-    not:
-        any:
-            - has: {field: name, regex: '^_', not: {regex: '^__.*__$'}}
-            - has: {field: definition, has: {field: name, regex: '^_', not: {regex: '^__.*__$'}}}
 ---
 id: python-member-type-alias
 language: pythonlang
 role: member
 symbolType: struct
-parentRuleIds: [python-class, python-function]
+parentRuleIds: [python-class, python-interface, python-enum, python-function]
+utils:
+    owner: {inside: {kind: 'class_definition, function_definition', stopBy: {kind: 'class_definition, function_definition'}, any: [{all: [{inside: {kind: 'class_definition, function_definition', stopBy: end}}, {has: {field: name, pattern: $OWNER}}]}, {pattern: $_}]}}
 rule:
     kind: type_alias_statement
     pattern: $DECLARATION
-    has:
-        field: left
-        any:
-            - has: {kind: identifier, pattern: $NAME}
-            - has: {kind: generic_type, has: {kind: identifier, pattern: $NAME}}
-name: $NAME
-signature: $DECLARATION
-isPublic:
-    not: {has: {field: left, any: [{has: {kind: identifier, regex: '^_', not: {regex: '^__.*__$'}}}, {has: {kind: generic_type, has: {kind: identifier, regex: '^_', not: {regex: '^__.*__$'}}}}]}}
+    all:
+        - matches: owner
+        - has: {field: left, any: [{has: {kind: identifier, pattern: $NAME}}, {has: {kind: generic_type, has: {kind: identifier, pattern: $NAME}}}]}
+transform:
+    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: '.'}}
+    SIGNATURE: {replace: {source: $DECLARATION, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*', by: ' '}}
+name: $QUALIFIER$NAME
+signature: $SIGNATURE
+isPublic: {not: {has: {field: left, any: [{has: {kind: identifier, regex: '^_', not: {regex: '^__.*__$'}}}, {has: {kind: generic_type, has: {kind: identifier, regex: '^_', not: {regex: '^__.*__$'}}}}]}}}
 ---
-id: python-method
+id: python-member-class
 language: pythonlang
 role: member
-symbolType: method
-parentRuleIds: [python-class]
+symbolType: class
+parentRuleIds: [python-class, python-interface, python-enum, python-function]
+utils:
+    owner: {inside: {kind: 'class_definition, function_definition', stopBy: {kind: 'class_definition, function_definition'}, any: [{all: [{inside: {kind: 'class_definition, function_definition', stopBy: end}}, {has: {field: name, pattern: $OWNER}}]}, {pattern: $_}]}}
 rule:
-    kind: 'function_definition, decorated_definition'
-    pattern: $DECLARATION
-    any:
-        - has: {field: name, pattern: $NAME}
-        - has: {field: definition, kind: function_definition, has: {field: name, pattern: $NAME}}
-rewriters:
-    - id: body
-      rule:
-          any:
-              - {kind: block, inside: {kind: function_definition, field: body}}
-              - kind: comment
-                inside: {kind: function_definition}
-                follows: {regex: '^:$', stopBy: {not: {kind: comment}}}
-      fix: ''
+    kind: identifier
+    pattern: $NAME
+    inside:
+        kind: class_definition
+        field: name
+        all:
+            - matches: owner
+            - any: [{has: {field: type_parameters, pattern: $TP}}, {pattern: $_}]
+            - any: [{has: {field: superclasses, pattern: $SUPER}}, {pattern: $_}]
 transform:
-    HEADER: rewrite($DECLARATION, rewriters=[body])
-    SIGNATURE: {replace: {source: $HEADER, replace: '\s+$', by: ''}}
-name: $NAME
-signature: $SIGNATURE
-isPublic:
-    not:
-        any:
-            - has: {field: name, regex: '^_', not: {regex: '^__.*__$'}}
-            - has: {field: definition, has: {field: name, regex: '^_', not: {regex: '^__.*__$'}}}
+    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: '.'}}
+name: $QUALIFIER$NAME
+signature: 'class $NAME$TP$SUPER:'
+isPublic: {not: {regex: '^_', not: {regex: '^__.*__$'}}}
 ---
-id: python-nested-function
+id: python-function-function
 language: pythonlang
 role: member
 symbolType: function
 parentRuleIds: [python-function]
+utils:
+    header:
+        kind: function_definition
+        all:
+            - has: {field: name, all: [{pattern: $NAME}, {pattern: $HEAD}]}
+            - has: {field: parameters, pattern: $PARAMS}
+            - any: [{has: {pattern: $$ASYNC, regex: '^async$'}}, {pattern: $_}]
+            - any: [{has: {field: type_parameters, pattern: $TP}}, {pattern: $_}]
+            - any: [{has: {field: return_type, pattern: $RETURN}}, {pattern: $_}]
 rule:
     kind: 'function_definition, decorated_definition'
-    pattern: $DECLARATION
-    any:
-        - has: {field: name, pattern: $NAME}
-        - has: {field: definition, kind: function_definition, has: {field: name, pattern: $NAME}}
-    not: {inside: {kind: decorated_definition}}
+    all:
+        - inside: {kind: function_definition, stopBy: {kind: 'class_definition, function_definition'}}
+        - any:
+              - matches: header
+              - {kind: decorated_definition, pattern: $DECORATED, has: {field: definition, kind: function_definition, has: {field: name, pattern: $NAME}}}
 rewriters:
     - id: body
-      rule:
-          any:
-              - {kind: block, inside: {kind: function_definition, field: body}}
-              - kind: comment
-                inside: {kind: function_definition}
-                follows: {regex: '^:$', stopBy: {not: {kind: comment}}}
-      fix: ''
+      rule: {kind: block, inside: {kind: 'class_definition, function_definition', field: body}}
+      fix: {template: '', expandStart: {regex: '^:$', stopBy: end}}
 transform:
-    HEADER: rewrite($DECLARATION, rewriters=[body])
-    SIGNATURE: {replace: {source: $HEADER, replace: '\s+$', by: ''}}
+    PREFIX: {replace: {source: $ASYNC, replace: '$', by: ' '}}
+    DEF: {replace: {source: $HEAD, replace: '^', by: 'def '}}
+    PARAMETERS: {replace: {source: $PARAMS, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*', by: ' '}}
+    RETURNS: {replace: {source: $RETURN, replace: '^', by: ' -> '}}
+    ARROW: {replace: {source: $RETURNS, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*', by: ' '}}
+    HEADER: {rewrite: {source: $DECORATED, rewriters: [body]}}
+    DECORATED_SIGNATURE: {replace: {source: $HEADER, replace: '[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\n[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*', by: ' '}}
 name: $NAME
-signature: $SIGNATURE
-isPublic:
-    not:
-        any:
-            - has: {field: name, regex: '^_', not: {regex: '^__.*__$'}}
-            - has: {field: definition, has: {field: name, regex: '^_', not: {regex: '^__.*__$'}}}
+signature: '$PREFIX$DEF$TP$PARAMETERS$ARROW$DECORATED_SIGNATURE:'
+isPublic: {not: {any: [{has: {field: name, regex: '^_', not: {regex: '^__.*__$'}}}, {has: {field: definition, has: {field: name, regex: '^_', not: {regex: '^__.*__$'}}}}]}}

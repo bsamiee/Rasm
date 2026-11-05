@@ -315,6 +315,7 @@
         "tree-sitter-c-sharp": "catalog:",
         "tree-sitter-java": "catalog:",
         "tree-sitter-javascript": "catalog:",
+        "tree-sitter-postgres": "catalog:",
         "tree-sitter-python": "catalog:",
         "tree-sitter-rust": "catalog:",
         "tree-sitter-sqlite3": "catalog:",

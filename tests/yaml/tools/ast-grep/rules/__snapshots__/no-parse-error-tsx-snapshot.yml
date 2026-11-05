@@ -1,8 +1,0 @@
-id: no-parse-error-tsx
-snapshots:
-  const x = ;:
-    labels: []
-  "function f( {}":
-    labels: []
-  import defer x from "y";:
-    labels: []

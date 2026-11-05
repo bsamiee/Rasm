@@ -8,11 +8,8 @@ rule:
     any:
         - kind: ERROR, malformed_blob_literal, malformed_number_id
           not: {matches: unreported}
-        - any:
-            - {kind: host_comment, regex: '^//'}
-            - {kind: host_html_comment, regex: '^<!--'}
-            - kind: host_whitespace
-          not: {inside: {kind: 'ERROR, host_template_substitution', stopBy: end}}
+        - kind: host_comment, host_whitespace
+          not: {inside: {kind: 'ERROR, substitution', stopBy: end}}
         - kind: source_file
           has:
             stopBy: end

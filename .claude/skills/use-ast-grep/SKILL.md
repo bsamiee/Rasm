@@ -121,11 +121,11 @@ Patterns are valid code under the language's tree-sitter grammar with whole-node
 
 ## [05]-[CONFIG]
 
-Custom-language libraries load under `--custom-languages allow` for one call or through trust in a canonical config path, default `ignore` skips them with a warning. `ast-grep --custom-languages trust --version` records trust from an interactive terminal, `revoke` forgets it, `AST_GREP_TRUST_DIR` relocates the per-user store, and `--config` naming another file loads untrusted. MCP calls pass no flag and load through trust. Place subcommands before options, default-run detection can reinterpret a later subcommand as a path.
+Custom-language libraries load under `--custom-languages allow` for one call or through trust in a canonical config path, default `ignore` skips them with a warning. `ast-grep --custom-languages trust --version` records trust from an interactive terminal, `revoke` forgets it, `ignore` and `revoke` also skip `outlineRules`, `AST_GREP_TRUST_DIR` relocates the per-user store, and `--config` naming another file loads untrusted. MCP calls pass no flag and load through trust. Place subcommands before options, default-run detection can reinterpret a later subcommand as a path.
 
 - `ruleDirs` and `utilDirs` resolve relative to `sgconfig.yml`
 - `languageGlobs.<language>` maps file globs to a language ahead of extension detection
-- `customLanguages.<name>` sets `libraryPath`, `extensions`, optional `languageSymbol`, `outlineRules`, `metaVarChar`, and `expandoChar`
+- `customLanguages.<name>` sets `libraryPath`, `extensions`, optional `languageSymbol`, `outlineRules`, `metaVarChar`, and `expandoChar`, `outlineRules` names one extractor file per custom language
 - Custom language names are alphanumeric, names resolve built-in languages first and extensions custom languages first
 - Newer grammars of a built-in language take a new name
 - `-l` and MCP `language` use configured language names, a built-in name misses files mapped to a custom replacement

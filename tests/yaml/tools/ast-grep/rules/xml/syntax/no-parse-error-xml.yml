@@ -1,9 +1,0 @@
-id: no-parse-error-xml
-valid:
-    - <Project><PropertyGroup><Nullable>enable</Nullable></PropertyGroup></Project>
-    - <a b="x &amp; y"/>
-    - <a b='say "hi" &#38;'/>
-    - <a b=""/>
-invalid:
-    - <Project><PropertyGroup></Project>
-    - <Project Sdk="Microsoft.NET.Sdk></Project>

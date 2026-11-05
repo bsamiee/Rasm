@@ -7,28 +7,19 @@ rule:
     pattern: $DECLARATION
     has: {kind: 'scoped_identifier, identifier', pattern: $NAME}
 transform:
-    HEADER: {replace: {source: $DECLARATION, replace: ';\s*$', by: ''}}
+    SIGNATURE: {replace: {source: $DECLARATION, replace: '(?:;|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}])+$', by: ''}}
 name: $NAME
-signature: $HEADER
+signature: $SIGNATURE
 isExported: false
 ---
 id: java-import
 language: javalang
 role: item
 symbolType: module
-rule:
-    kind: import_declaration
-    pattern: $DECLARATION
-    all:
-        - has: {kind: 'identifier, scoped_identifier', pattern: $PATH}
-        - any:
-            - has: {kind: asterisk, pattern: $STAR}
-            - not: {has: {kind: asterisk}}
+rule: {kind: import_declaration, pattern: $DECLARATION}
 transform:
-    HEADER: {replace: {source: $DECLARATION, replace: ';\s*$', by: ''}}
-    WILDCARD: {replace: {source: $STAR, replace: '^\*$', by: '.*'}}
-name: $PATH$WILDCARD
-signature: $HEADER
+    NAME: {replace: {source: $DECLARATION, replace: '^import[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]+(?:static[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}]+)?|(?:;|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}])+$', by: ''}}
+name: $NAME
 isImport: true
 isExported: false
 ---
@@ -42,11 +33,11 @@ rule:
     has: {field: name, pattern: $NAME}
 rewriters:
     - id: body
-      rule: {kind: module_body, inside: {kind: module_declaration, field: body}}
+      rule: {kind: 'class_body, interface_body, annotation_type_body, enum_body, module_body, constructor_body, block', inside: {kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration, module_declaration, method_declaration, constructor_declaration, compact_constructor_declaration', field: body}}
       fix: ''
 transform:
     HEADER: rewrite($DECLARATION, rewriters=[body])
-    SIGNATURE: {replace: {source: $HEADER, replace: '(?:\s*;)?\s*$', by: ''}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '(?:;|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}])+$', by: ''}}
 name: $NAME
 signature: $SIGNATURE
 ---
@@ -54,123 +45,158 @@ id: java-class
 language: javalang
 role: item
 symbolType: class
+utils:
+    exposed:
+        any:
+            - has: {kind: modifiers, has: {regex: '^(?:public|protected)$'}}
+            - inside: {kind: 'interface_body, annotation_type_body'}
+              not: {has: {kind: modifiers, has: {regex: '^private$'}}}
+    reachable:
+        all:
+            - not: {inside: {kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration', stopBy: end, not: {matches: exposed}}}
+            - not: {inside: {kind: program, stopBy: end, has: {kind: 'method_declaration, field_declaration'}}}
 rule:
     kind: class_declaration, record_declaration
     pattern: $DECLARATION
     has: {field: name, pattern: $NAME}
 rewriters:
     - id: body
-      rule: {kind: class_body, inside: {kind: 'class_declaration, record_declaration', field: body}}
+      rule: {kind: 'class_body, interface_body, annotation_type_body, enum_body, module_body, constructor_body, block', inside: {kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration, module_declaration, method_declaration, constructor_declaration, compact_constructor_declaration', field: body}}
       fix: ''
 transform:
     HEADER: rewrite($DECLARATION, rewriters=[body])
-    SIGNATURE: {replace: {source: $HEADER, replace: '(?:\s*;)?\s*$', by: ''}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '(?:;|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}])+$', by: ''}}
 name: $NAME
 signature: $SIGNATURE
-isExported:
-    any:
-        - has: {kind: modifiers, has: {regex: '^(public|protected)$'}}
-        - inside: {kind: 'interface_body, annotation_type_body'}
+isExported: {all: [{matches: exposed}, {matches: reachable}]}
 ---
 id: java-interface
 language: javalang
 role: item
 symbolType: interface
+utils:
+    exposed:
+        any:
+            - has: {kind: modifiers, has: {regex: '^(?:public|protected)$'}}
+            - inside: {kind: 'interface_body, annotation_type_body'}
+              not: {has: {kind: modifiers, has: {regex: '^private$'}}}
+    reachable:
+        all:
+            - not: {inside: {kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration', stopBy: end, not: {matches: exposed}}}
+            - not: {inside: {kind: program, stopBy: end, has: {kind: 'method_declaration, field_declaration'}}}
 rule:
     kind: interface_declaration, annotation_type_declaration
     pattern: $DECLARATION
     has: {field: name, pattern: $NAME}
 rewriters:
     - id: body
-      rule: {kind: 'interface_body, annotation_type_body', inside: {kind: 'interface_declaration, annotation_type_declaration', field: body}}
+      rule: {kind: 'class_body, interface_body, annotation_type_body, enum_body, module_body, constructor_body, block', inside: {kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration, module_declaration, method_declaration, constructor_declaration, compact_constructor_declaration', field: body}}
       fix: ''
 transform:
     HEADER: rewrite($DECLARATION, rewriters=[body])
-    SIGNATURE: {replace: {source: $HEADER, replace: '(?:\s*;)?\s*$', by: ''}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '(?:;|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}])+$', by: ''}}
 name: $NAME
 signature: $SIGNATURE
-isExported:
-    any:
-        - has: {kind: modifiers, has: {regex: '^(public|protected)$'}}
-        - inside: {kind: 'interface_body, annotation_type_body'}
+isExported: {all: [{matches: exposed}, {matches: reachable}]}
 ---
 id: java-enum
 language: javalang
 role: item
 symbolType: enum
+utils:
+    exposed:
+        any:
+            - has: {kind: modifiers, has: {regex: '^(?:public|protected)$'}}
+            - inside: {kind: 'interface_body, annotation_type_body'}
+              not: {has: {kind: modifiers, has: {regex: '^private$'}}}
+    reachable:
+        all:
+            - not: {inside: {kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration', stopBy: end, not: {matches: exposed}}}
+            - not: {inside: {kind: program, stopBy: end, has: {kind: 'method_declaration, field_declaration'}}}
 rule:
     kind: enum_declaration
     pattern: $DECLARATION
     has: {field: name, pattern: $NAME}
 rewriters:
     - id: body
-      rule: {kind: enum_body, inside: {kind: enum_declaration, field: body}}
+      rule: {kind: 'class_body, interface_body, annotation_type_body, enum_body, module_body, constructor_body, block', inside: {kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration, module_declaration, method_declaration, constructor_declaration, compact_constructor_declaration', field: body}}
       fix: ''
 transform:
     HEADER: rewrite($DECLARATION, rewriters=[body])
-    SIGNATURE: {replace: {source: $HEADER, replace: '(?:\s*;)?\s*$', by: ''}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '(?:;|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}])+$', by: ''}}
 name: $NAME
 signature: $SIGNATURE
-isExported:
-    any:
-        - has: {kind: modifiers, has: {regex: '^(public|protected)$'}}
-        - inside: {kind: 'interface_body, annotation_type_body'}
+isExported: {all: [{matches: exposed}, {matches: reachable}]}
 ---
 id: java-method
 language: javalang
 role: item
 symbolType: method
+utils:
+    exposed:
+        any:
+            - has: {kind: modifiers, has: {regex: '^(?:public|protected)$'}}
+            - inside: {kind: 'interface_body, annotation_type_body'}
+              not: {has: {kind: modifiers, has: {regex: '^private$'}}}
+    reachable:
+        all:
+            - not: {inside: {kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration', stopBy: end, not: {matches: exposed}}}
+            - not: {inside: {kind: program, stopBy: end, has: {kind: 'method_declaration, field_declaration'}}}
 rule:
-    kind: method_declaration
+    kind: method_declaration, annotation_type_element_declaration
     pattern: $DECLARATION
     has: {field: name, pattern: $NAME}
 rewriters:
     - id: body
-      rule: {kind: block, inside: {kind: method_declaration, field: body}}
+      rule: {kind: 'class_body, interface_body, annotation_type_body, enum_body, module_body, constructor_body, block', inside: {kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration, module_declaration, method_declaration, constructor_declaration, compact_constructor_declaration', field: body}}
       fix: ''
 transform:
     HEADER: rewrite($DECLARATION, rewriters=[body])
-    SIGNATURE: {replace: {source: $HEADER, replace: '(?:\s*;)?\s*$', by: ''}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '(?:;|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}])+$', by: ''}}
 name: $NAME
 signature: $SIGNATURE
-isExported:
-    any:
-        - has: {kind: modifiers, has: {regex: '^(public|protected)$'}}
-        - inside: {kind: interface_body}
-          not: {has: {kind: modifiers, has: {regex: '^private$'}}}
+isExported: {all: [{matches: exposed}, {matches: reachable}]}
 ---
-id: java-variable
+id: java-field
 language: javalang
 role: item
 symbolType: field
-rule:
-    kind: local_variable_declaration
-    inside: {kind: program}
-    pattern: $DECLARATION
+utils:
+    exposed:
+        any:
+            - has: {kind: modifiers, has: {regex: '^(?:public|protected)$'}}
+            - inside: {kind: 'interface_body, annotation_type_body'}
+              not: {has: {kind: modifiers, has: {regex: '^private$'}}}
+    reachable:
+        all:
+            - not: {inside: {kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration', stopBy: end, not: {matches: exposed}}}
+            - not: {inside: {kind: program, stopBy: end, has: {kind: 'method_declaration, field_declaration'}}}
+rule: {kind: 'field_declaration, constant_declaration', pattern: $DECLARATION}
 rewriters:
     - id: name
       rule:
         kind: variable_declarator
+        inside: {kind: 'field_declaration, constant_declaration'}
         has: {field: name, pattern: $DECLARED}
       fix: $DECLARED
     - id: declarator
       rule:
         kind: variable_declarator
-        all:
-            - has: {field: name, pattern: $DECLARED}
-            - any:
-                - has: {field: dimensions, pattern: $DIMENSIONS}
-                - not: {has: {field: dimensions, pattern: $_}}
+        inside: {kind: 'field_declaration, constant_declaration'}
+        has: {field: name, pattern: $DECLARED}
+        any:
+            - has: {field: dimensions, pattern: $DIMENSIONS}
+            - pattern: $_
       fix: $DECLARED$DIMENSIONS
 transform:
     NAMES: {rewrite: {source: $DECLARATION, rewriters: [name], joinBy: ', '}}
     HEADER: rewrite($DECLARATION, rewriters=[declarator])
-    SIGNATURE: {replace: {source: $HEADER, replace: '(?:\s*;)?\s*$', by: ''}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '(?:;|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}])+$', by: ''}}
 name: $NAMES
 signature: $SIGNATURE
-isExported: {has: {kind: modifiers, has: {regex: '^(public|protected)$'}}}
+isExported: {all: [{matches: exposed}, {matches: reachable}]}
 ---
-id: java-member-module-directive
+id: java-module-directive
 language: javalang
 role: member
 parentRuleIds: [java-module]
@@ -184,240 +210,451 @@ rule:
         - has: {field: type, pattern: $NAME}
         - has: {field: provided, pattern: $NAME}
 transform:
-    HEADER: {replace: {source: $DECLARATION, replace: ';\s*$', by: ''}}
+    SIGNATURE: {replace: {source: $DECLARATION, replace: '(?:;|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}])+$', by: ''}}
 name: $NAME
-signature: $HEADER
+signature: $SIGNATURE
+---
+id: java-member-class
+language: javalang
+role: member
+parentRuleIds: [java-class, java-interface, java-enum]
+symbolType: class
+utils:
+    scope:
+        any:
+            - kind: class_body, interface_body, annotation_type_body
+              inside: {kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_constant', field: body}
+            - kind: enum_body_declarations
+    exposed:
+        any:
+            - has: {kind: modifiers, has: {regex: '^(?:public|protected)$'}}
+            - inside: {kind: 'interface_body, annotation_type_body'}
+              not: {has: {kind: modifiers, has: {regex: '^private$'}}}
+    reachable:
+        all:
+            - not: {inside: {kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration', stopBy: end, not: {matches: exposed}}}
+            - not: {inside: {kind: program, stopBy: end, has: {kind: 'method_declaration, field_declaration'}}}
+rule:
+    kind: identifier
+    pattern: $NAME
+    inside:
+        kind: class_declaration, record_declaration
+        field: name
+        pattern: $DECLARATION
+        inside:
+            matches: scope
+            inside:
+                kind: class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration, enum_constant
+                stopBy: end
+                any:
+                    - has: {field: name, pattern: $OWNER}
+                      not: {inside: {kind: program}}
+                    - pattern: $_
+rewriters:
+    - id: body
+      rule: {kind: 'class_body, interface_body, annotation_type_body, enum_body, module_body, constructor_body, block', inside: {kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration, module_declaration, method_declaration, constructor_declaration, compact_constructor_declaration', field: body}}
+      fix: ''
+transform:
+    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: '.'}}
+    HEADER: rewrite($DECLARATION, rewriters=[body])
+    SIGNATURE: {replace: {source: $HEADER, replace: '(?:;|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}])+$', by: ''}}
+name: $QUALIFIER$NAME
+signature: $SIGNATURE
+isPublic: {inside: {field: name, all: [{matches: exposed}, {matches: reachable}]}}
+---
+id: java-member-interface
+language: javalang
+role: member
+parentRuleIds: [java-class, java-interface, java-enum]
+symbolType: interface
+utils:
+    scope:
+        any:
+            - kind: class_body, interface_body, annotation_type_body
+              inside: {kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_constant', field: body}
+            - kind: enum_body_declarations
+    exposed:
+        any:
+            - has: {kind: modifiers, has: {regex: '^(?:public|protected)$'}}
+            - inside: {kind: 'interface_body, annotation_type_body'}
+              not: {has: {kind: modifiers, has: {regex: '^private$'}}}
+    reachable:
+        all:
+            - not: {inside: {kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration', stopBy: end, not: {matches: exposed}}}
+            - not: {inside: {kind: program, stopBy: end, has: {kind: 'method_declaration, field_declaration'}}}
+rule:
+    kind: identifier
+    pattern: $NAME
+    inside:
+        kind: interface_declaration, annotation_type_declaration
+        field: name
+        pattern: $DECLARATION
+        inside:
+            matches: scope
+            inside:
+                kind: class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration, enum_constant
+                stopBy: end
+                any:
+                    - has: {field: name, pattern: $OWNER}
+                      not: {inside: {kind: program}}
+                    - pattern: $_
+rewriters:
+    - id: body
+      rule: {kind: 'class_body, interface_body, annotation_type_body, enum_body, module_body, constructor_body, block', inside: {kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration, module_declaration, method_declaration, constructor_declaration, compact_constructor_declaration', field: body}}
+      fix: ''
+transform:
+    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: '.'}}
+    HEADER: rewrite($DECLARATION, rewriters=[body])
+    SIGNATURE: {replace: {source: $HEADER, replace: '(?:;|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}])+$', by: ''}}
+name: $QUALIFIER$NAME
+signature: $SIGNATURE
+isPublic: {inside: {field: name, all: [{matches: exposed}, {matches: reachable}]}}
+---
+id: java-member-enum
+language: javalang
+role: member
+parentRuleIds: [java-class, java-interface, java-enum]
+symbolType: enum
+utils:
+    scope:
+        any:
+            - kind: class_body, interface_body, annotation_type_body
+              inside: {kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_constant', field: body}
+            - kind: enum_body_declarations
+    exposed:
+        any:
+            - has: {kind: modifiers, has: {regex: '^(?:public|protected)$'}}
+            - inside: {kind: 'interface_body, annotation_type_body'}
+              not: {has: {kind: modifiers, has: {regex: '^private$'}}}
+    reachable:
+        all:
+            - not: {inside: {kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration', stopBy: end, not: {matches: exposed}}}
+            - not: {inside: {kind: program, stopBy: end, has: {kind: 'method_declaration, field_declaration'}}}
+rule:
+    kind: identifier
+    pattern: $NAME
+    inside:
+        kind: enum_declaration
+        field: name
+        pattern: $DECLARATION
+        inside:
+            matches: scope
+            inside:
+                kind: class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration, enum_constant
+                stopBy: end
+                any:
+                    - has: {field: name, pattern: $OWNER}
+                      not: {inside: {kind: program}}
+                    - pattern: $_
+rewriters:
+    - id: body
+      rule: {kind: 'class_body, interface_body, annotation_type_body, enum_body, module_body, constructor_body, block', inside: {kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration, module_declaration, method_declaration, constructor_declaration, compact_constructor_declaration', field: body}}
+      fix: ''
+transform:
+    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: '.'}}
+    HEADER: rewrite($DECLARATION, rewriters=[body])
+    SIGNATURE: {replace: {source: $HEADER, replace: '(?:;|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}])+$', by: ''}}
+name: $QUALIFIER$NAME
+signature: $SIGNATURE
+isPublic: {inside: {field: name, all: [{matches: exposed}, {matches: reachable}]}}
+---
+id: java-member-component
+language: javalang
+role: member
+parentRuleIds: [java-class, java-interface, java-enum]
+symbolType: field
+utils:
+    exposed:
+        any:
+            - has: {kind: modifiers, has: {regex: '^(?:public|protected)$'}}
+            - inside: {kind: 'interface_body, annotation_type_body'}
+              not: {has: {kind: modifiers, has: {regex: '^private$'}}}
+    reachable:
+        all:
+            - not: {inside: {kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration', stopBy: end, not: {matches: exposed}}}
+            - not: {inside: {kind: program, stopBy: end, has: {kind: 'method_declaration, field_declaration'}}}
+rule:
+    kind: formal_parameter, spread_parameter
+    pattern: $DECLARATION
+    inside:
+        kind: formal_parameters
+        inside:
+            kind: record_declaration
+            field: parameters
+            any:
+                - has: {field: name, pattern: $OWNER}
+                  not: {inside: {kind: program}}
+                - pattern: $_
+    any:
+        - has: {field: name, pattern: $NAME}
+        - has: {kind: variable_declarator, has: {field: name, pattern: $NAME}}
+transform:
+    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: '.'}}
+name: $QUALIFIER$NAME
+signature: $DECLARATION
+isPublic: {matches: reachable}
+---
+id: java-enum-constant
+language: javalang
+role: member
+parentRuleIds: [java-class, java-interface, java-enum]
+symbolType: enumMember
+utils:
+    exposed:
+        any:
+            - has: {kind: modifiers, has: {regex: '^(?:public|protected)$'}}
+            - inside: {kind: 'interface_body, annotation_type_body'}
+              not: {has: {kind: modifiers, has: {regex: '^private$'}}}
+    reachable:
+        all:
+            - not: {inside: {kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration', stopBy: end, not: {matches: exposed}}}
+            - not: {inside: {kind: program, stopBy: end, has: {kind: 'method_declaration, field_declaration'}}}
+rule:
+    kind: identifier
+    pattern: $NAME
+    inside:
+        kind: enum_constant
+        field: name
+        any:
+            - has: {field: arguments, pattern: $ARGUMENTS}
+            - pattern: $_
+        inside:
+            kind: enum_body
+            inside:
+                kind: enum_declaration
+                field: body
+                any:
+                    - has: {field: name, pattern: $OWNER}
+                      not: {inside: {kind: program}}
+                    - pattern: $_
+transform:
+    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: '.'}}
+name: $QUALIFIER$NAME
+signature: $NAME$ARGUMENTS
+isPublic: {matches: reachable}
 ---
 id: java-member-method
 language: javalang
 role: member
 parentRuleIds: [java-class, java-interface, java-enum]
 symbolType: method
+utils:
+    scope:
+        any:
+            - kind: class_body, interface_body, annotation_type_body
+              inside: {kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_constant', field: body}
+            - kind: enum_body_declarations
+    exposed:
+        any:
+            - has: {kind: modifiers, has: {regex: '^(?:public|protected)$'}}
+            - inside: {kind: 'interface_body, annotation_type_body'}
+              not: {has: {kind: modifiers, has: {regex: '^private$'}}}
+    reachable:
+        all:
+            - not: {inside: {kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration', stopBy: end, not: {matches: exposed}}}
+            - not: {inside: {kind: program, stopBy: end, has: {kind: 'method_declaration, field_declaration'}}}
 rule:
-    kind: method_declaration
+    kind: method_declaration, annotation_type_element_declaration
     pattern: $DECLARATION
     has: {field: name, pattern: $NAME}
+    inside:
+        matches: scope
+        inside:
+            kind: class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration, enum_constant
+            stopBy: end
+            any:
+                - has: {field: name, pattern: $OWNER}
+                  not: {inside: {kind: program}}
+                - pattern: $_
 rewriters:
     - id: body
-      rule: {kind: block, inside: {kind: method_declaration, field: body}}
+      rule: {kind: 'class_body, interface_body, annotation_type_body, enum_body, module_body, constructor_body, block', inside: {kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration, module_declaration, method_declaration, constructor_declaration, compact_constructor_declaration', field: body}}
       fix: ''
 transform:
+    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: '.'}}
     HEADER: rewrite($DECLARATION, rewriters=[body])
-    SIGNATURE: {replace: {source: $HEADER, replace: '(?:\s*;)?\s*$', by: ''}}
-name: $NAME
+    SIGNATURE: {replace: {source: $HEADER, replace: '(?:;|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}])+$', by: ''}}
+name: $QUALIFIER$NAME
 signature: $SIGNATURE
-isPublic:
-    any:
-        - has: {kind: modifiers, has: {regex: '^(public|protected)$'}}
-        - inside: {kind: interface_body}
-          not: {has: {kind: modifiers, has: {regex: '^private$'}}}
+isPublic: {all: [{matches: exposed}, {matches: reachable}]}
 ---
 id: java-member-constructor
 language: javalang
 role: member
-parentRuleIds: [java-class, java-enum]
+parentRuleIds: [java-class, java-interface, java-enum]
 symbolType: constructor
+utils:
+    scope:
+        any:
+            - kind: class_body, interface_body, annotation_type_body
+              inside: {kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_constant', field: body}
+            - kind: enum_body_declarations
+    exposed:
+        any:
+            - has: {kind: modifiers, has: {regex: '^(?:public|protected)$'}}
+            - inside: {kind: 'interface_body, annotation_type_body'}
+              not: {has: {kind: modifiers, has: {regex: '^private$'}}}
+    reachable:
+        all:
+            - not: {inside: {kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration', stopBy: end, not: {matches: exposed}}}
+            - not: {inside: {kind: program, stopBy: end, has: {kind: 'method_declaration, field_declaration'}}}
 rule:
-    kind: constructor_declaration, compact_constructor_declaration, static_initializer, block
+    kind: constructor_declaration, compact_constructor_declaration
     pattern: $DECLARATION
-    any:
-        - kind: constructor_declaration, compact_constructor_declaration
-          has: {field: name, pattern: $NAME}
-        - kind: static_initializer
-          has: {pattern: $$NAME, regex: '^static$'}
-        - kind: block
-          inside: {kind: 'class_body, enum_body_declarations'}
-          has: {pattern: $$INITIALIZER, regex: '^\{$'}
+    has: {field: name, pattern: $NAME}
+    inside:
+        matches: scope
+        inside:
+            kind: class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration, enum_constant
+            stopBy: end
+            any:
+                - has: {field: name, pattern: $OWNER}
+                  not: {inside: {kind: program}}
+                - pattern: $_
 rewriters:
     - id: body
-      rule:
-        kind: constructor_body, block
-        any:
-            - inside: {kind: 'constructor_declaration, compact_constructor_declaration', field: body}
-            - inside: {kind: 'static_initializer, class_body, enum_body_declarations'}
+      rule: {kind: 'class_body, interface_body, annotation_type_body, enum_body, module_body, constructor_body, block', inside: {kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration, module_declaration, method_declaration, constructor_declaration, compact_constructor_declaration', field: body}}
       fix: ''
 transform:
-    INITIALIZER_NAME: {replace: {source: $INITIALIZER, replace: '^\{$', by: 'initializer'}}
+    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: '.'}}
     HEADER: rewrite($DECLARATION, rewriters=[body])
-    SIGNATURE: {replace: {source: $HEADER, replace: '(?:\s*;)?\s*$', by: ''}}
-name: $NAME$INITIALIZER_NAME
+    SIGNATURE: {replace: {source: $HEADER, replace: '(?:;|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}])+$', by: ''}}
+name: $QUALIFIER$NAME
 signature: $SIGNATURE
-isPublic: {has: {kind: modifiers, has: {regex: '^(public|protected)$'}}}
+isPublic: {all: [{matches: exposed}, {matches: reachable}]}
 ---
-id: java-member-field
+id: java-member-initializer
 language: javalang
 role: member
-parentRuleIds: [java-class, java-enum]
-symbolType: field
+parentRuleIds: [java-class, java-interface, java-enum]
+symbolType: constructor
+utils:
+    scope:
+        any:
+            - kind: class_body, interface_body, annotation_type_body
+              inside: {kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_constant', field: body}
+            - kind: enum_body_declarations
 rule:
-    kind: field_declaration
-    pattern: $DECLARATION
-rewriters:
-    - id: name
-      rule:
-        kind: variable_declarator
-        has: {field: name, pattern: $DECLARED}
-      fix: $DECLARED
-    - id: declarator
-      rule:
-        kind: variable_declarator
-        all:
-            - has: {field: name, pattern: $DECLARED}
-            - any:
-                - has: {field: dimensions, pattern: $DIMENSIONS}
-                - not: {has: {field: dimensions, pattern: $_}}
-      fix: $DECLARED$DIMENSIONS
+    kind: static_initializer
+    has: {pattern: $$NAME, regex: '^static$'}
+    inside:
+        matches: scope
+        inside:
+            kind: class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration, enum_constant
+            stopBy: end
+            any:
+                - has: {field: name, pattern: $OWNER}
+                  not: {inside: {kind: program}}
+                - pattern: $_
 transform:
-    NAMES: {rewrite: {source: $DECLARATION, rewriters: [name], joinBy: ', '}}
-    HEADER: rewrite($DECLARATION, rewriters=[declarator])
-    SIGNATURE: {replace: {source: $HEADER, replace: '(?:\s*;)?\s*$', by: ''}}
-name: $NAMES
-signature: $SIGNATURE
-isPublic: {has: {kind: modifiers, has: {regex: '^(public|protected)$'}}}
+    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: '.'}}
+name: $QUALIFIER$NAME
+signature: $NAME
+isPublic: false
 ---
 id: java-member-constant
 language: javalang
 role: member
-parentRuleIds: [java-interface]
+parentRuleIds: [java-class, java-interface, java-enum]
 symbolType: constant
+utils:
+    scope:
+        any:
+            - kind: class_body, interface_body, annotation_type_body
+              inside: {kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_constant', field: body}
+            - kind: enum_body_declarations
+    exposed:
+        any:
+            - has: {kind: modifiers, has: {regex: '^(?:public|protected)$'}}
+            - inside: {kind: 'interface_body, annotation_type_body'}
+              not: {has: {kind: modifiers, has: {regex: '^private$'}}}
+    reachable:
+        all:
+            - not: {inside: {kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration', stopBy: end, not: {matches: exposed}}}
+            - not: {inside: {kind: program, stopBy: end, has: {kind: 'method_declaration, field_declaration'}}}
 rule:
-    kind: constant_declaration
+    kind: field_declaration, constant_declaration
     pattern: $DECLARATION
+    any:
+        - kind: constant_declaration
+        - has: {kind: modifiers, all: [{has: {regex: '^static$'}}, {has: {regex: '^final$'}}]}
+    inside:
+        matches: scope
+        inside:
+            kind: class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration, enum_constant
+            stopBy: end
+            any:
+                - has: {field: name, pattern: $OWNER}
+                  not: {inside: {kind: program}}
+                - pattern: $_
 rewriters:
     - id: name
       rule:
         kind: variable_declarator
+        inside: {kind: 'field_declaration, constant_declaration'}
+        has: {field: name, pattern: $DECLARED}
+      fix: $DECLARED
+transform:
+    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: '.'}}
+    NAMES: {rewrite: {source: $DECLARATION, rewriters: [name], joinBy: ', '}}
+    SIGNATURE: {replace: {source: $DECLARATION, replace: '(?:;|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}])+$', by: ''}}
+name: $QUALIFIER$NAMES
+signature: $SIGNATURE
+isPublic: {all: [{matches: exposed}, {matches: reachable}]}
+---
+id: java-member-field
+language: javalang
+role: member
+parentRuleIds: [java-class, java-interface, java-enum]
+symbolType: field
+utils:
+    scope:
+        any:
+            - kind: class_body, interface_body, annotation_type_body
+              inside: {kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_constant', field: body}
+            - kind: enum_body_declarations
+    exposed:
+        any:
+            - has: {kind: modifiers, has: {regex: '^(?:public|protected)$'}}
+            - inside: {kind: 'interface_body, annotation_type_body'}
+              not: {has: {kind: modifiers, has: {regex: '^private$'}}}
+    reachable:
+        all:
+            - not: {inside: {kind: 'class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration', stopBy: end, not: {matches: exposed}}}
+            - not: {inside: {kind: program, stopBy: end, has: {kind: 'method_declaration, field_declaration'}}}
+rule:
+    kind: field_declaration
+    pattern: $DECLARATION
+    inside:
+        matches: scope
+        inside:
+            kind: class_declaration, record_declaration, interface_declaration, annotation_type_declaration, enum_declaration, enum_constant
+            stopBy: end
+            any:
+                - has: {field: name, pattern: $OWNER}
+                  not: {inside: {kind: program}}
+                - pattern: $_
+rewriters:
+    - id: name
+      rule:
+        kind: variable_declarator
+        inside: {kind: 'field_declaration, constant_declaration'}
         has: {field: name, pattern: $DECLARED}
       fix: $DECLARED
     - id: declarator
       rule:
         kind: variable_declarator
-        all:
-            - has: {field: name, pattern: $DECLARED}
-            - any:
-                - has: {field: dimensions, pattern: $DIMENSIONS}
-                - not: {has: {field: dimensions, pattern: $_}}
+        inside: {kind: 'field_declaration, constant_declaration'}
+        has: {field: name, pattern: $DECLARED}
+        any:
+            - has: {field: dimensions, pattern: $DIMENSIONS}
+            - pattern: $_
       fix: $DECLARED$DIMENSIONS
 transform:
+    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: '.'}}
     NAMES: {rewrite: {source: $DECLARATION, rewriters: [name], joinBy: ', '}}
     HEADER: rewrite($DECLARATION, rewriters=[declarator])
-    SIGNATURE: {replace: {source: $HEADER, replace: '(?:\s*;)?\s*$', by: ''}}
-name: $NAMES
+    SIGNATURE: {replace: {source: $HEADER, replace: '(?:;|[\t-\r \x{85}\x{A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}])+$', by: ''}}
+name: $QUALIFIER$NAMES
 signature: $SIGNATURE
----
-id: java-member-record-component
-language: javalang
-role: member
-parentRuleIds: [java-class]
-symbolType: field
-rule:
-    kind: formal_parameter, spread_parameter
-    pattern: $DECLARATION
-    inside: {kind: formal_parameters, inside: {kind: record_declaration, field: parameters}}
-    any:
-        - has: {field: name, pattern: $NAME}
-        - has: {kind: variable_declarator, has: {field: name, pattern: $NAME}}
-name: $NAME
-signature: $DECLARATION
----
-id: java-member-enum-constant
-language: javalang
-role: member
-parentRuleIds: [java-enum]
-symbolType: enumMember
-rule:
-    kind: enum_constant
-    pattern: $DECLARATION
-    has: {field: name, pattern: $NAME}
-rewriters:
-    - id: body
-      rule: {kind: class_body, inside: {kind: enum_constant, field: body}}
-      fix: ''
-transform:
-    HEADER: rewrite($DECLARATION, rewriters=[body])
-    SIGNATURE: {replace: {source: $HEADER, replace: '(?:\s*;)?\s*$', by: ''}}
-name: $NAME
-signature: $SIGNATURE
----
-id: java-member-annotation-element
-language: javalang
-role: member
-parentRuleIds: [java-interface]
-symbolType: method
-rule:
-    kind: annotation_type_element_declaration
-    pattern: $DECLARATION
-    has: {field: name, pattern: $NAME}
-transform:
-    HEADER: {replace: {source: $DECLARATION, replace: ';\s*$', by: ''}}
-name: $NAME
-signature: $HEADER
----
-id: java-member-nested-class
-language: javalang
-role: member
-parentRuleIds: [java-class, java-interface, java-enum]
-symbolType: class
-rule:
-    kind: class_declaration, record_declaration
-    pattern: $DECLARATION
-    has: {field: name, pattern: $NAME}
-rewriters:
-    - id: body
-      rule: {kind: class_body, inside: {kind: 'class_declaration, record_declaration', field: body}}
-      fix: ''
-transform:
-    HEADER: rewrite($DECLARATION, rewriters=[body])
-    SIGNATURE: {replace: {source: $HEADER, replace: '(?:\s*;)?\s*$', by: ''}}
-name: $NAME
-signature: $SIGNATURE
-isPublic:
-    any:
-        - has: {kind: modifiers, has: {regex: '^(public|protected)$'}}
-        - inside: {kind: 'interface_body, annotation_type_body'}
----
-id: java-member-nested-interface
-language: javalang
-role: member
-parentRuleIds: [java-class, java-interface, java-enum]
-symbolType: interface
-rule:
-    kind: interface_declaration, annotation_type_declaration
-    pattern: $DECLARATION
-    has: {field: name, pattern: $NAME}
-rewriters:
-    - id: body
-      rule: {kind: 'interface_body, annotation_type_body', inside: {kind: 'interface_declaration, annotation_type_declaration', field: body}}
-      fix: ''
-transform:
-    HEADER: rewrite($DECLARATION, rewriters=[body])
-    SIGNATURE: {replace: {source: $HEADER, replace: '(?:\s*;)?\s*$', by: ''}}
-name: $NAME
-signature: $SIGNATURE
-isPublic:
-    any:
-        - has: {kind: modifiers, has: {regex: '^(public|protected)$'}}
-        - inside: {kind: 'interface_body, annotation_type_body'}
----
-id: java-member-nested-enum
-language: javalang
-role: member
-parentRuleIds: [java-class, java-interface, java-enum]
-symbolType: enum
-rule:
-    kind: enum_declaration
-    pattern: $DECLARATION
-    has: {field: name, pattern: $NAME}
-rewriters:
-    - id: body
-      rule: {kind: enum_body, inside: {kind: enum_declaration, field: body}}
-      fix: ''
-transform:
-    HEADER: rewrite($DECLARATION, rewriters=[body])
-    SIGNATURE: {replace: {source: $HEADER, replace: '(?:\s*;)?\s*$', by: ''}}
-name: $NAME
-signature: $SIGNATURE
-isPublic:
-    any:
-        - has: {kind: modifiers, has: {regex: '^(public|protected)$'}}
-        - inside: {kind: 'interface_body, annotation_type_body'}
+isPublic: {all: [{matches: exposed}, {matches: reachable}]}

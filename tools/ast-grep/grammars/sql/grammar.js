@@ -1,166 +1,85 @@
 import refa from 'refa';
 import sqlite from 'tree-sitter-sqlite3/grammar.js';
-import { automaton, classes, pattern } from '../derive.js';
+import { compose, keywords, mandatory } from '../compose.js';
+import csharp from '../csharp/grammar.js';
+import { automaton, children, extend, token as literal, named, pattern, reaches, rewrite, symbol } from '../derive.js';
 import tsx from '../typescript/grammar.js';
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const BYTE_ORDER_MARK = '\u{FEFF}';
+const TRIVIA = ['\f', BYTE_ORDER_MARK];
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const keyword = (word) => alias(new RegExp([...word].map((c) => `[${c.toUpperCase()}${c.toLowerCase()}]`).join(''), 'u'), word.toUpperCase());
-const hostName = (name) => (name.startsWith('_') ? `_host${name}` : `host_${name}`);
-const hostExtras = Object.groupBy(tsx.grammar.extras, ({ type }) => type);
-const hostSymbol = (rule) => (rule.type === 'SYMBOL' ? sym(hostName(rule.name)) : rule);
-const mapChildren = (rule, map) => ({ ...('members' in rule ? { members: rule.members.map(map) } : {}), ...('content' in rule ? { content: map(rule.content) } : {}) });
-const hostRule = (rule) =>
-    rule.type === 'STRING' && rule.value === sqlite.grammar.rules.line_comment.content.members[0].value
-        ? token(prec(1, rule))
-        : {
-              ...rule,
-              ...mapChildren(rule, hostRule),
-              ...(rule.type === 'SYMBOL' ? { name: hostName(rule.name) } : {}),
-              ...((rule.type === 'ALIAS' && rule.named) || (rule.type.startsWith('PREC') && typeof rule.value === 'string') ? { value: hostName(rule.value) } : {}),
-              ...(rule.type === 'RESERVED' ? { context_name: hostName(rule.context_name) } : {}),
-          };
-const byteOrderMark = '\uFEFF';
-const sqlWhitespaceExtras = ['\f', byteOrderMark];
-const sqlToken = automaton(sqlite.grammar.rules[sqlite.grammar.word]);
-const nonAscii = refa.CharSet.fromRange(sqlToken.maxCharacter, { min: 0x80, max: sqlToken.maxCharacter });
-const sqlIdentifier = refa.NFA.fromTransitionIterator(
-    refa.FAIterators.mapOut(sqlToken.transitionIterator(), (transitions) => new Map(Array.from(transitions, ([state, characters]) => [state, characters.union(nonAscii)]))),
-    { maxCharacter: sqlToken.maxCharacter },
+// --- [IDENTIFIER]
+
+const word = automaton(sqlite.grammar.rules[sqlite.grammar.word]);
+const nonAscii = refa.CharSet.fromRange(word.maxCharacter, { min: 0x80, max: word.maxCharacter });
+const widened = refa.NFA.fromTransitionIterator(
+    refa.FAIterators.mapOut(word.transitionIterator(), (transitions) => new Map(Array.from(transitions, ([state, characters]) => [state, characters.union(nonAscii)]))),
+    { maxCharacter: word.maxCharacter },
 );
-const withoutInitialByteOrderMark = refa.DFA.fromFA(
+const marked = refa.DFA.fromFA(
     automaton({
         type: 'SEQ',
         members: [
-            { type: 'STRING', value: byteOrderMark },
+            { type: 'STRING', value: BYTE_ORDER_MARK },
             { type: 'PATTERN', value: '(?s:.)*' },
         ],
     }),
 );
-withoutInitialByteOrderMark.complement();
-const sqlWord = refa.DFA.fromIntersection(sqlIdentifier, withoutInitialByteOrderMark);
-const hostWord = automaton(tsx.grammar.rules[tsx.grammar.word]);
-const commonIdentifier = refa.DFA.fromIntersection(sqlWord, hostWord);
-commonIdentifier.minimize();
-const outsideCommon = commonIdentifier.copy();
-outsideCommon.complement();
-const exclusiveIdentifier = (fa) => {
-    const exclusive = refa.DFA.fromIntersection(fa, outsideCommon);
-    exclusive.minimize();
-    return pattern(exclusive);
-};
-const sqlWhitespace = classes({ ...sqlite.grammar, extras: [...sqlite.grammar.extras, ...sqlWhitespaceExtras.map((value) => ({ type: 'STRING', value }))] }).whitespace;
-const hostWhitespace = refa.DFA.fromCharSet(classes(tsx.grammar).whitespace.characters.without(sqlWhitespace.characters));
+marked.complement();
+const identifier = refa.DFA.fromIntersection(widened, marked);
+identifier.minimize();
+
+// --- [DIALECT]
+
+const keyword = keywords(sqlite);
+const dialect = extend(sqlite, {
+    extras: (_, original) => [...original, ...TRIVIA],
+    rules: { [sqlite.grammar.word]: () => pattern(identifier) },
+});
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export default grammar(sqlite, {
-    name: sqlite.grammar.name,
-    conflicts: ($, original) => [...original, ...tsx.grammar.conflicts.map((names) => names.map((name) => $[hostName(name)]))],
-    externals: (_, original) => [...original, ...tsx.grammar.externals.map(hostSymbol)],
-    extras: ($, original) => [...original, ...sqlWhitespaceExtras, ...hostExtras.SYMBOL.map(hostSymbol), $.host_whitespace],
-    inline: ($, original) => [...original, ...tsx.grammar.inline.map((name) => $[hostName(name)]), $[sqlite.grammar.word], $[hostName(tsx.grammar.word)]],
-    supertypes: ($, original) => [...original, ...tsx.grammar.supertypes.map((name) => $[hostName(name)])],
-    precedences: (_, original) => [...original, ...tsx.grammar.precedences.map((rules) => rules.map((rule) => (rule.type === 'STRING' ? { ...rule, value: hostName(rule.value) } : hostSymbol(rule))))],
-    reserved: { host: () => [] },
-    word: ($) => $.common_identifier,
+export default compose(dialect, {
+    name: 'sql',
+    hosts: [
+        { grammar: tsx, entry: 'template_string', hole: 'template_substitution' },
+        { grammar: csharp, entry: 'interpolated_string_expression', hole: 'interpolation' },
+    ],
+    fragments: ['_expression', 'order_term', 'expression_result_column', 'upsert_clause', 'order_by_clause', 'limit_clause'],
+    slots: {
+        _statement: [],
+        _expression: [],
+        _id: [],
+        _function_name: [],
+        upsert_clause: [],
+        set_assignment: [],
+        trigger_event: [],
+        insert_statement: ['source'],
+        create_index_statement: ['unique'],
+        create_trigger_statement: ['body'],
+        cte_definition: ['body'],
+    },
+    conflicts: ($) => [[$.insert_statement, $._id]],
     rules: {
-        ...Object.fromEntries(Object.keys(tsx.grammar.rules).map((name) => [hostName(name), () => hostRule(tsx.grammar.rules[name])])),
-        common_identifier: () => pattern(commonIdentifier),
-        _sql_identifier_token: () => exclusiveIdentifier(sqlWord),
-        _host_identifier_token: () => exclusiveIdentifier(hostWord),
-        [sqlite.grammar.word]: ($) => choice(alias(reserved('sql', $.common_identifier), $[sqlite.grammar.word]), alias($._sql_identifier_token, $[sqlite.grammar.word])),
-        [hostName(tsx.grammar.word)]: ($) => choice(alias(reserved('host', $.common_identifier), $[hostName(tsx.grammar.word)]), alias($._host_identifier_token, $[hostName(tsx.grammar.word)])),
-        host_whitespace: () => pattern(hostWhitespace),
-        source_file: ($, original) =>
-            choice(
-                original,
-                seq(
-                    '`',
-                    choice(
-                        original,
-                        $._expression,
-                        alias(seq($._expression, choice(keyword('asc'), keyword('desc'))), $.order_term),
-                        alias(seq(field('expression', $._expression), keyword('as'), field('alias', $._id)), $.expression_result_column),
-                        seq($.template_substitution, choice(seq(field('order_by', $.order_by_clause), optional(field('limit', $.limit_clause))), field('limit', $.limit_clause))),
-                        $.upsert_clause,
-                    ),
-                    '`',
-                ),
-            ),
-        upsert_clause: ($, original) => choice(original, $.template_substitution),
-        template_substitution: ($) => prec.right(repeat1($.host_template_substitution)),
-        _statement: ($, original) => choice(original, $.template_substitution),
-        _expression: ($, original) => choice(original, prec(1, $.template_substitution)),
-        _id: ($, original) => choice(original, $.template_substitution),
-        _function_name: ($) => choice(...sqlite.grammar.rules._id.members.filter((name) => name.type !== 'PREC' || name.content.name !== 'string_literal'), $.template_substitution),
-        function_call: ($, original) => seq(...original.members.map((rule) => (rule.type === 'FIELD' && rule.name === 'name' ? field(rule.name, $._function_name) : rule))),
-        in_list_expression: ($, original) => choice(original, prec.left(original.value + 1, seq(field('operand', $._expression), optional(keyword('not')), keyword('in'), field('values', $.template_substitution)))),
-        insert_statement: ($, original) =>
-            choice(
-                original,
-                prec.dynamic(
-                    1,
-                    seq(
-                        optional(field('with', $.with_clause)),
-                        field('kind', choice(seq(keyword('insert'), optional(seq(keyword('or'), field('conflict_resolution', $._resolve_type)))), keyword('replace'))),
-                        keyword('into'),
-                        field('target', $.qualified_table_name),
-                        field('source', $.template_substitution),
-                        repeat(field('upsert', $.upsert_clause)),
-                        optional(field('returning', $.returning_clause)),
-                    ),
-                ),
-            ),
-        values_clause: ($, original) => choice(original, seq(keyword('values'), $.template_substitution)),
-        set_assignment: ($, original) => choice(original, $.template_substitution),
-        table_options: ($, original) => choice(seq(original, optional($.template_substitution)), $.template_substitution),
-        create_index_statement: ($, original) =>
-            choice(
-                original,
-                seq(
-                    keyword('create'),
-                    field('unique', $.template_substitution),
-                    keyword('index'),
-                    optional($._if_not_exists),
-                    field('name', $.qualified_table_name),
-                    keyword('on'),
-                    field('table', $._id),
-                    '(',
-                    field('column', $.indexed_column),
-                    repeat(seq(',', field('column', $.indexed_column))),
-                    ')',
-                    optional(field('where', $.where_clause)),
-                ),
-            ),
-        trigger_event: ($, original) => choice(original, $.template_substitution),
-        create_trigger_statement: ($, original) =>
-            choice(
-                original,
-                seq(
-                    keyword('create'),
-                    optional(field('temporary', choice(keyword('temp'), keyword('temporary')))),
-                    keyword('trigger'),
-                    optional($._if_not_exists),
-                    field('name', $.qualified_table_name),
-                    optional(field('timing', choice(keyword('before'), keyword('after'), seq(keyword('instead'), keyword('of'))))),
-                    field('event', $.trigger_event),
-                    keyword('on'),
-                    field('table', $.qualified_table_name),
-                    optional(seq(keyword('for'), keyword('each'), keyword('row'))),
-                    optional(seq(keyword('when'), field('when', $._expression))),
-                    keyword('begin'),
-                    field('body', $.template_substitution),
-                    keyword('end'),
-                ),
-            ),
+        _function_name: () => choice(...children(sqlite.grammar.rules._id).filter((member) => !reaches(member, symbol('string_literal')))),
+        function_call: ($, original) => rewrite(original, (rule) => (named('name')(rule) ? field('name', $._function_name) : rule)),
+        in_list_expression: ($, original) => choice(original, prec.left(original.value, seq(...original.content.members.slice(0, original.content.members.findIndex(literal('('))), field('values', $.substitution)))),
+        _select_core: ($, original) => {
+            const trailing = original.members.slice(original.members.findIndex((member) => reaches(member, named('order_by'))));
+            return choice(original, seq($.substitution, choice(...trailing.map((member, index) => seq(mandatory(member), ...trailing.slice(index + 1))))));
+        },
+        values_clause: ($, original) => choice(original, seq(original.members[0], $.substitution)),
+        table_options: ($, original) => choice(seq(original, optional($.substitution)), $.substitution),
+        reindex_statement: (_, original) => choice(original, seq(original.members[0], keyword('expressions'))),
         alter_table_statement: ($, original) =>
             choice(
                 original,
                 seq(
-                    keyword('alter'),
-                    keyword('table'),
-                    field('name', $.qualified_table_name),
+                    ...original.members.filter((_, index, members) => index <= members.findIndex(named('name'))),
                     choice(
                         seq(keyword('drop'), keyword('constraint'), field('constraint', $._id)),
                         seq(keyword('alter'), optional(keyword('column')), field('altered_column', $._id), choice(seq(keyword('drop'), keyword('not'), keyword('null')), seq(keyword('set'), keyword('not'), keyword('null'), optional($._on_conflict_clause)))),

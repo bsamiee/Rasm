@@ -82,8 +82,9 @@ const LITERAL = /^(?:[\w./~@%+:,=-]+|'[\w./~@%+:,=-]+'|"[\w./~@%+:,=-]+"|"?\$!"?
 const REFERENCE = /^\$\{?(?<name>\w+)\}?$/u;
 const REFERENCES = /\$(?:(?<bare>[A-Za-z_]\w*)|\{(?<braced>[A-Za-z_]\w*)\})/gu;
 const VALUE = { kind: 'word, string, raw_string, concatenation, simple_expansion, expansion, command_substitution, number' };
-const SCOPE = { kind: 'program, subshell, command_substitution, process_substitution, pipeline', not: { has: { field: 'operator', regex: String.raw`^\$\{` } } };
+const SCOPE = { kind: 'program, subshell, command_substitution, process_substitution, pipeline, coproc_command', not: { has: { field: 'operator', regex: String.raw`^\$\{` } } };
 const CONTROL = { kind: 'if_statement, case_statement, while_statement, for_statement, c_style_for_statement, negated_command' };
+const WRAPPER = { kind: 'list, pipeline, negated_command, time_command, coproc_command' };
 const FLOW = { any: [SCOPE, CONTROL, { kind: 'function_definition, variable_assignment' }] };
 const UTILS = {
     owner: { any: [{ inside: { kind: 'command', pattern: '$BODY' } }, { inside: { kind: 'heredoc_redirect', inside: { kind: 'redirected_statement', matches: 'statement' } } }, { inside: { kind: 'redirected_statement', matches: 'statement' } }] },
@@ -91,13 +92,13 @@ const UTILS = {
     last: {
         any: [
             { kind: 'command', pattern: '$BODY' },
-            { kind: 'list, pipeline, negated_command', has: { matches: 'last', nthChild: { position: 1, reverse: true } } },
+            { ...WRAPPER, has: { matches: 'last', nthChild: { position: 1, reverse: true } } },
         ],
     },
     list: { kind: 'list', not: { inside: { kind: 'list', stopBy: FLOW } } },
     input: { any: [{ kind: 'heredoc_redirect' }, { kind: 'herestring_redirect' }, { kind: 'file_redirect', regex: '^0?<' }] },
-    tail: { any: [{ inside: { kind: 'redirected_statement', field: 'body', has: { matches: 'input' } } }, { nthChild: { position: 1, reverse: true }, inside: { kind: 'list, pipeline, negated_command', matches: 'tail' } }] },
-    piped: { any: [{ inside: { kind: 'pipeline' }, not: { nthChild: 1 } }, { nthChild: 1, inside: { kind: 'list, pipeline, negated_command', matches: 'piped' } }, { inside: { kind: 'pipeline', inside: { kind: 'heredoc_redirect' } } }] },
+    tail: { any: [{ inside: { kind: 'redirected_statement', field: 'body', has: { matches: 'input' } } }, { nthChild: { position: 1, reverse: true }, inside: { ...WRAPPER, matches: 'tail' } }] },
+    piped: { any: [{ inside: { kind: 'pipeline' }, not: { nthChild: 1 } }, { nthChild: 1, inside: { ...WRAPPER, matches: 'piped' } }, { inside: { kind: 'pipeline', inside: { kind: 'heredoc_redirect' } } }] },
     stage: { any: [{ matches: 'tail' }, { matches: 'piped' }] },
 };
 const RULES = [
@@ -132,7 +133,7 @@ const RULES = [
         { id: 'in-busy-loop', rule: { inside: { stopBy: 'end', kind: 'while_statement', has: { field: 'body', kind: 'do_group', not: { has: { stopBy: 'end', kind: 'command', not: { regex: '^(?::|true)$' } } } } } } },
         { id: 'in-substitution', rule: { inside: { stopBy: 'end', kind: 'process_substitution' } } },
         { id: 'pipes-output', rule: { any: [{ inside: { kind: 'pipeline' }, not: { nthChild: { position: 1, reverse: true } } }, { inside: { kind: 'redirected_statement', not: { nthChild: { position: 1, reverse: true } }, inside: { kind: 'pipeline' } } }] } },
-        { id: 'has-input', rule: { any: [{ has: { matches: 'input' } }, { matches: 'stage' }, { inside: { stopBy: 'end', not: { kind: 'list, pipeline, negated_command' }, matches: 'stage' } }] } },
+        { id: 'has-input', rule: { any: [{ has: { matches: 'input' } }, { matches: 'stage' }, { inside: { stopBy: 'end', not: WRAPPER, matches: 'stage' } }] } },
     ].map(({ id, rule }) => ({ id, rule: { kind: 'command', not: { not: rule } } })),
     { id: 'background', rule: { pattern: '&' } },
     {

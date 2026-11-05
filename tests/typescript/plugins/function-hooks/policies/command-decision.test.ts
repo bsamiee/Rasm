@@ -201,6 +201,9 @@ it.layer(layer, { timeout: 60_000 })('function-hooks', (methods) => {
             { kind: 'rewrite', command: `analyzeHeadless "$GHIDRA_PROJECT_DIR" name -process x -postScript Rtti.java -log ${ROOT}/.artifacts/logs/ghidra.log -scriptlog ${ROOT}/.artifacts/logs/ghidra-script.log`, background: false },
         ],
         ['tracked script files stay unparsed', 'bash .claude/skills/manage-repo/scripts/maintain.sh --help', foreground, false, { kind: 'allow' }],
+        ['named descriptor redirect opens no program', 'exec {fd}>f', foreground, false, { kind: 'allow' }],
+        ['timed command reads its redirect', 'time cat < f', foreground, false, { kind: 'allow' }],
+        ['coprocess reads its pipe', 'printf x | coproc cat', foreground, false, { kind: 'allow' }],
     ] as const)('rewrites: %s', ([, command, request, installed, expected]) => decided(command, request, installed, expected));
     methods.effect.each([
         ['biome check --error-on-warnings --no-errors-on-unmatched nx.json', { kind: 'rewrite', command: "nx run rasm:lint:biome --args='--no-errors-on-unmatched nx.json'" }],
@@ -292,6 +295,9 @@ it.layer(layer, { timeout: 60_000 })('function-hooks', (methods) => {
         ['dir=/safe; local dir=/; rm -rf "$dir"', 'allow'],
         ['dir=/safe; answer=${ if false; then local dir; fi; dir=/; }; rm -rf "$dir"', 'deny'],
         ['dir=/safe; answer=${ if false; then local dir; else dir=/; fi; }; rm -rf "$dir"', 'deny'],
+        ['dir=/safe; coproc { dir=/; }; rm -rf "$dir"', 'allow'],
+        ['dir=/; coproc { dir=/safe; }; rm -rf "$dir"', 'deny'],
+        ['dir=/safe; time dir=/; rm -rf "$dir"', 'deny'],
     ] as const)('resolves Bash scope for %s', ([command, kind]) => decided(command, foreground, false, { kind }));
     methods.effect.each([
         ['sleep 1; echo hi', blind],
@@ -364,6 +370,11 @@ it.layer(layer, { timeout: 60_000 })('function-hooks', (methods) => {
         ['git stash', 'git stash hides uncommitted work'],
         ['cat', 'cat waits on stdin with no input'],
         ['bash -n', 'bash waits on stdin with no input'],
+        ['time cat', 'cat waits on stdin with no input'],
+        ['time git push -f', 'git push -f rewrites or deletes remote history'],
+        ['time -p git push -f | tee x', 'git push -f rewrites or deletes remote history'],
+        ['coproc { rm -rf .; }', 'covers the repository root'],
+        ['coproc NAME ( rm -rf . )', 'covers the repository root'],
     ] as const)('denies %s', ([command, reason]) => decided(command, foreground, false, { kind: 'deny', reason: expect.stringContaining(reason) }));
     methods.effect.each([
         ['wait.sh', 'until ! pgrep -f analyzeHeadless >/dev/null; do /bin/sleep 5; done\n', [], { kind: 'deny', reason: expect.stringContaining(blind) }],

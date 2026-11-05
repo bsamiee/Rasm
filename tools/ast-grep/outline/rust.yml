@@ -5,16 +5,39 @@ symbolType: module
 rule:
     kind: 'use_declaration, extern_crate_declaration'
     pattern: $DECLARATION
+    not: {has: {kind: visibility_modifier}}
     any:
+        - has: {field: argument, has: {field: path, pattern: $NAME}}
+        - has: {field: argument, kind: use_wildcard, has: {kind: 'crate, identifier, metavariable, scoped_identifier, self, super', pattern: $NAME}}
         - has: {field: argument, pattern: $NAME}
         - has: {field: name, pattern: $NAME}
 transform:
-    SIGNATURE: {replace: {source: $DECLARATION, replace: '\s*;$', by: ''}}
+    TRIMMED: {replace: {source: $DECLARATION, replace: ';$', by: ''}}
+    SIGNATURE: {replace: {source: $TRIMMED, replace: '\p{White_Space}*\n\p{White_Space}*', by: ' '}}
 name: $NAME
 signature: $SIGNATURE
 isImport: true
-isExported: {has: {kind: visibility_modifier}}
-
+isExported: false
+---
+id: rust-reexport
+language: rustlang
+role: item
+symbolType: module
+rule:
+    kind: 'use_declaration, extern_crate_declaration'
+    pattern: $DECLARATION
+    has: {kind: visibility_modifier}
+    any:
+        - has: {field: argument, pattern: $ARGUMENT}
+        - has: {field: name, pattern: $ARGUMENT}
+transform:
+    NAME: {replace: {source: $ARGUMENT, replace: '\p{White_Space}*\n\p{White_Space}*', by: ' '}}
+    TRIMMED: {replace: {source: $DECLARATION, replace: ';$', by: ''}}
+    SIGNATURE: {replace: {source: $TRIMMED, replace: '\p{White_Space}*\n\p{White_Space}*', by: ' '}}
+name: $NAME
+signature: $SIGNATURE
+isImport: true
+isExported: true
 ---
 id: rust-mod
 language: rustlang
@@ -24,17 +47,13 @@ rule:
     kind: mod_item
     pattern: $DECLARATION
     has: {field: name, pattern: $NAME}
-rewriters:
-    - id: body
-      rule: {kind: declaration_list, inside: {pattern: $DECLARATION}}
-      fix: ''
+rewriters: [{id: mod-body, rule: {kind: declaration_list, inside: {kind: mod_item, field: body}}, fix: ''}]
 transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
-    SIGNATURE: {replace: {source: $HEADER, replace: '\s*;?\s*$', by: ''}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [mod-body]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\p{White_Space}*;?$', by: ''}}
 name: $NAME
 signature: $SIGNATURE
 isExported: {has: {kind: visibility_modifier}}
-
 ---
 id: rust-function
 language: rustlang
@@ -45,17 +64,14 @@ rule:
     pattern: $DECLARATION
     has: {field: name, pattern: $NAME}
     not: {inside: {kind: declaration_list, inside: {kind: 'impl_item, trait_item'}}}
-rewriters:
-    - id: body
-      rule: {kind: block, inside: {pattern: $DECLARATION}}
-      fix: ''
+rewriters: [{id: function-body, rule: {kind: block, inside: {kind: function_item, field: body}}, fix: ''}]
 transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
-    SIGNATURE: {replace: {source: $HEADER, replace: '\s*;?\s*$', by: ''}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [function-body]}}
+    FOLDED: {replace: {source: $HEADER, replace: '\p{White_Space}+;?$|\p{White_Space}*\n\p{White_Space}*', by: ' '}}
+    SIGNATURE: {replace: {source: $FOLDED, replace: ' ?;?$', by: ''}}
 name: $NAME
 signature: $SIGNATURE
 isExported: {has: {kind: visibility_modifier}}
-
 ---
 id: rust-method
 language: rustlang
@@ -66,77 +82,53 @@ rule:
     pattern: $DECLARATION
     has: {field: name, pattern: $NAME}
     inside: {kind: declaration_list, inside: {kind: 'impl_item, trait_item'}}
-rewriters:
-    - id: body
-      rule: {kind: block, inside: {pattern: $DECLARATION}}
-      fix: ''
+rewriters: [{id: function-body, rule: {kind: block, inside: {kind: function_item, field: body}}, fix: ''}]
 transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
-    SIGNATURE: {replace: {source: $HEADER, replace: '\s*;?\s*$', by: ''}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [function-body]}}
+    FOLDED: {replace: {source: $HEADER, replace: '\p{White_Space}+;?$|\p{White_Space}*\n\p{White_Space}*', by: ' '}}
+    SIGNATURE: {replace: {source: $FOLDED, replace: ' ?;?$', by: ''}}
 name: $NAME
 signature: $SIGNATURE
 isExported:
     any:
         - has: {kind: visibility_modifier}
-        - inside: {kind: declaration_list, inside: {kind: trait_item}}
-        - inside: {kind: declaration_list, inside: {kind: impl_item, has: {field: trait, pattern: $_}}}
-
+        - inside: {kind: declaration_list, inside: {any: [{kind: trait_item}, {kind: impl_item, has: {field: trait, pattern: $_}}]}}
 ---
 id: rust-type
 language: rustlang
 role: item
 symbolType: struct
 rule:
-    kind: 'type_item, associated_type'
+    kind: 'struct_item, union_item, type_item'
     pattern: $DECLARATION
     has: {field: name, pattern: $NAME}
     not: {inside: {kind: declaration_list, inside: {kind: 'impl_item, trait_item'}}}
+rewriters: [{id: struct-body, rule: {kind: field_declaration_list, inside: {kind: 'struct_item, union_item', field: body}}, fix: ''}]
 transform:
-    SIGNATURE: {replace: {source: $DECLARATION, replace: '\s*;$', by: ''}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [struct-body]}}
+    FOLDED: {replace: {source: $HEADER, replace: '\p{White_Space}+;?$|\p{White_Space}*\n\p{White_Space}*', by: ' '}}
+    SIGNATURE: {replace: {source: $FOLDED, replace: ' ?;?$', by: ''}}
 name: $NAME
 signature: $SIGNATURE
 isExported: {has: {kind: visibility_modifier}}
-
 ---
 id: rust-associated-type
 language: rustlang
 role: item
 symbolType: typeParameter
 rule:
-    kind: 'type_item, associated_type'
+    kind: 'associated_type, type_item'
     pattern: $DECLARATION
     has: {field: name, pattern: $NAME}
     inside: {kind: declaration_list, inside: {kind: 'impl_item, trait_item'}}
 transform:
-    SIGNATURE: {replace: {source: $DECLARATION, replace: '\s*;$', by: ''}}
+    SIGNATURE: {replace: {source: $DECLARATION, replace: ';$', by: ''}}
 name: $NAME
 signature: $SIGNATURE
 isExported:
     any:
         - has: {kind: visibility_modifier}
-        - inside: {kind: declaration_list, inside: {kind: trait_item}}
-        - inside: {kind: declaration_list, inside: {kind: impl_item, has: {field: trait, pattern: $_}}}
-
----
-id: rust-struct
-language: rustlang
-role: item
-symbolType: struct
-rule:
-    kind: 'struct_item, union_item'
-    pattern: $DECLARATION
-    has: {field: name, pattern: $NAME}
-rewriters:
-    - id: body
-      rule: {kind: field_declaration_list, inside: {pattern: $DECLARATION}}
-      fix: ''
-transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
-    SIGNATURE: {replace: {source: $HEADER, replace: '\s*;?\s*$', by: ''}}
-name: $NAME
-signature: $SIGNATURE
-isExported: {has: {kind: visibility_modifier}}
-
+        - inside: {kind: declaration_list, inside: {any: [{kind: trait_item}, {kind: impl_item, has: {field: trait, pattern: $_}}]}}
 ---
 id: rust-enum
 language: rustlang
@@ -146,52 +138,30 @@ rule:
     kind: enum_item
     pattern: $DECLARATION
     has: {field: name, pattern: $NAME}
-rewriters:
-    - id: body
-      rule: {kind: enum_variant_list, inside: {pattern: $DECLARATION}}
-      fix: ''
+rewriters: [{id: enum-body, rule: {kind: enum_variant_list, inside: {kind: enum_item, field: body}}, fix: ''}]
 transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
-    SIGNATURE: {replace: {source: $HEADER, replace: '\s+$', by: ''}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [enum-body]}}
+    FOLDED: {replace: {source: $HEADER, replace: '\p{White_Space}+;?$|\p{White_Space}*\n\p{White_Space}*', by: ' '}}
+    SIGNATURE: {replace: {source: $FOLDED, replace: ' ?;?$', by: ''}}
 name: $NAME
 signature: $SIGNATURE
 isExported: {has: {kind: visibility_modifier}}
-
 ---
 id: rust-trait
 language: rustlang
 role: item
 symbolType: interface
 rule:
-    kind: trait_item
+    kind: 'trait_item, trait_alias'
     pattern: $DECLARATION
     has: {field: name, pattern: $NAME}
-rewriters:
-    - id: body
-      rule: {kind: declaration_list, inside: {pattern: $DECLARATION}}
-      fix: ''
+rewriters: [{id: trait-body, rule: {kind: declaration_list, inside: {kind: trait_item, field: body}}, fix: ''}]
 transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
-    SIGNATURE: {replace: {source: $HEADER, replace: '\s+$', by: ''}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [trait-body]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\p{White_Space}*;?$', by: ''}}
 name: $NAME
 signature: $SIGNATURE
 isExported: {has: {kind: visibility_modifier}}
-
----
-id: rust-trait-alias
-language: rustlang
-role: item
-symbolType: interface
-rule:
-    kind: trait_alias
-    pattern: $DECLARATION
-    has: {field: name, pattern: $NAME}
-transform:
-    SIGNATURE: {replace: {source: $DECLARATION, replace: '\s*;$', by: ''}}
-name: $NAME
-signature: $SIGNATURE
-isExported: {has: {kind: visibility_modifier}}
-
 ---
 id: rust-impl
 language: rustlang
@@ -200,18 +170,35 @@ symbolType: object
 rule:
     kind: impl_item
     pattern: $DECLARATION
-    has: {field: type, pattern: $NAME}
-rewriters:
-    - id: body
-      rule: {kind: declaration_list, inside: {pattern: $DECLARATION}}
-      fix: ''
+    not: {has: {field: trait, pattern: $_}}
+    has: {field: type, any: [{kind: 'type_identifier, primitive_type', pattern: $NAME}, {has: {stopBy: end, kind: 'type_identifier, primitive_type', pattern: $NAME}}, {pattern: $NAME}]}
+rewriters: [{id: impl-body, rule: {kind: declaration_list, inside: {kind: impl_item, field: body}}, fix: ''}]
 transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
-    SIGNATURE: {replace: {source: $HEADER, replace: '\s*;?\s*$', by: ''}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [impl-body]}}
+    FOLDED: {replace: {source: $HEADER, replace: '\p{White_Space}+;?$|\p{White_Space}*\n\p{White_Space}*', by: ' '}}
+    SIGNATURE: {replace: {source: $FOLDED, replace: ' ?;?$', by: ''}}
 name: $NAME
 signature: $SIGNATURE
 isExported: false
-
+---
+id: rust-trait-impl
+language: rustlang
+role: item
+symbolType: object
+rule:
+    kind: impl_item
+    pattern: $DECLARATION
+    all:
+        - has: {field: trait, any: [{kind: type_identifier, pattern: $TRAIT}, {has: {stopBy: end, kind: type_identifier, pattern: $TRAIT}}, {pattern: $TRAIT}]}
+        - has: {field: type, any: [{kind: 'type_identifier, primitive_type', pattern: $NAME}, {has: {stopBy: end, kind: 'type_identifier, primitive_type', pattern: $NAME}}, {pattern: $NAME}]}
+rewriters: [{id: impl-body, rule: {kind: declaration_list, inside: {kind: impl_item, field: body}}, fix: ''}]
+transform:
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [impl-body]}}
+    FOLDED: {replace: {source: $HEADER, replace: '\p{White_Space}+;?$|\p{White_Space}*\n\p{White_Space}*', by: ' '}}
+    SIGNATURE: {replace: {source: $FOLDED, replace: ' ?;?$', by: ''}}
+name: $TRAIT for $NAME
+signature: $SIGNATURE
+isExported: true
 ---
 id: rust-const
 language: rustlang
@@ -223,15 +210,16 @@ rule:
     has: {field: name, pattern: $NAME}
 rewriters:
     - id: value
-      rule: {inside: {pattern: $DECLARATION, field: value}, pattern: $_}
+      rule:
+          kind: 'array_expression, assignment_expression, async_block, await_expression, binary_expression, block, boolean_literal, break_expression, call_expression, char_literal, closure_expression, compound_assignment_expr, const_block, continue_expression, field_expression, float_literal, for_expression, gen_block, generic_function, identifier, if_expression, index_expression, integer_literal, loop_expression, macro_invocation, match_expression, metavariable, parenthesized_expression, range_expression, raw_string_literal, reference_expression, return_expression, scoped_identifier, self, string_literal, struct_expression, try_block, try_expression, tuple_expression, type_cast_expression, unary_expression, unit_expression, unsafe_block, while_expression, yield_expression'
+          inside: {kind: 'const_item, static_item', field: value}
       fix: ''
 transform:
     HEADER: {rewrite: {source: $DECLARATION, rewriters: [value]}}
-    SIGNATURE: {replace: {source: $HEADER, replace: '\s*=?\s*;$', by: ''}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\p{White_Space}*(?:=\p{White_Space}*)?;$', by: ''}}
 name: $NAME
 signature: $SIGNATURE
 isExported: {has: {kind: visibility_modifier}}
-
 ---
 id: rust-static
 language: rustlang
@@ -243,15 +231,16 @@ rule:
     has: {field: name, pattern: $NAME}
 rewriters:
     - id: value
-      rule: {inside: {pattern: $DECLARATION, field: value}, pattern: $_}
+      rule:
+          kind: 'array_expression, assignment_expression, async_block, await_expression, binary_expression, block, boolean_literal, break_expression, call_expression, char_literal, closure_expression, compound_assignment_expr, const_block, continue_expression, field_expression, float_literal, for_expression, gen_block, generic_function, identifier, if_expression, index_expression, integer_literal, loop_expression, macro_invocation, match_expression, metavariable, parenthesized_expression, range_expression, raw_string_literal, reference_expression, return_expression, scoped_identifier, self, string_literal, struct_expression, try_block, try_expression, tuple_expression, type_cast_expression, unary_expression, unit_expression, unsafe_block, while_expression, yield_expression'
+          inside: {kind: 'const_item, static_item', field: value}
       fix: ''
 transform:
     HEADER: {rewrite: {source: $DECLARATION, rewriters: [value]}}
-    SIGNATURE: {replace: {source: $HEADER, replace: '\s*=?\s*;$', by: ''}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\p{White_Space}*(?:=\p{White_Space}*)?;$', by: ''}}
 name: $NAME
 signature: $SIGNATURE
 isExported: {has: {kind: visibility_modifier}}
-
 ---
 id: rust-macro
 language: rustlang
@@ -267,7 +256,6 @@ isExported:
         kind: attribute_item
         has: {kind: attribute, has: {kind: identifier, regex: '^macro_export$'}}
         stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}
-
 ---
 id: rust-macro-invocation
 language: rustlang
@@ -276,10 +264,10 @@ symbolType: event
 rule:
     kind: macro_invocation
     has: {field: macro, pattern: $NAME}
+    inside: {any: [{kind: 'source_file, declaration_list'}, {kind: expression_statement, inside: {kind: source_file}}]}
 name: $NAME
 signature: $NAME!
 isExported: false
-
 ---
 id: rust-foreign-block
 language: rustlang
@@ -289,77 +277,107 @@ rule:
     kind: foreign_mod_item
     pattern: $DECLARATION
     has: {kind: extern_modifier, pattern: $NAME}
-rewriters:
-    - id: body
-      rule: {kind: declaration_list, inside: {pattern: $DECLARATION}}
-      fix: ''
+rewriters: [{id: foreign-body, rule: {kind: declaration_list, inside: {kind: foreign_mod_item, field: body}}, fix: ''}]
 transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
-    SIGNATURE: {replace: {source: $HEADER, replace: '\s+$', by: ''}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [foreign-body]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\p{White_Space}*;?$', by: ''}}
 name: $NAME
 signature: $SIGNATURE
 isExported: false
-
 ---
-id: rust-attribute
-language: rustlang
-role: item
-symbolType: event
-rule:
-    kind: 'attribute_item, inner_attribute_item'
-    pattern: $ATTRIBUTE
-    has:
-        kind: attribute
-        has:
-            kind: 'crate, identifier, metavariable, scoped_identifier, self, super'
-            pattern: $NAME
-            not: {inside: {kind: attribute, field: value}}
-name: $NAME
-signature: $ATTRIBUTE
-isExported: false
-
----
-id: rust-field
+id: rust-assoc-method
 language: rustlang
 role: member
-parentRuleIds: [rust-struct]
-symbolType: field
+parentRuleIds: [rust-impl, rust-trait-impl, rust-trait]
+symbolType: method
 rule:
-    kind: field_declaration
+    kind: 'function_item, function_signature_item'
+    pattern: $DECLARATION
+    has: {field: name, pattern: $NAME}
+    inside: {kind: declaration_list, inside: {kind: 'impl_item, trait_item'}}
+rewriters: [{id: function-body, rule: {kind: block, inside: {kind: function_item, field: body}}, fix: ''}]
+transform:
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [function-body]}}
+    FOLDED: {replace: {source: $HEADER, replace: '\p{White_Space}+;?$|\p{White_Space}*\n\p{White_Space}*', by: ' '}}
+    SIGNATURE: {replace: {source: $FOLDED, replace: ' ?;?$', by: ''}}
+name: $NAME
+signature: $SIGNATURE
+isPublic:
+    any:
+        - has: {kind: visibility_modifier}
+        - inside: {kind: declaration_list, inside: {any: [{kind: trait_item}, {kind: impl_item, has: {field: trait, pattern: $_}}]}}
+---
+id: rust-assoc-type
+language: rustlang
+role: member
+parentRuleIds: [rust-impl, rust-trait-impl, rust-trait]
+symbolType: typeParameter
+rule:
+    kind: 'associated_type, type_item'
+    pattern: $DECLARATION
+    has: {field: name, pattern: $NAME}
+    inside: {kind: declaration_list, inside: {kind: 'impl_item, trait_item'}}
+transform:
+    SIGNATURE: {replace: {source: $DECLARATION, replace: ';$', by: ''}}
+name: $NAME
+signature: $SIGNATURE
+isPublic:
+    any:
+        - has: {kind: visibility_modifier}
+        - inside: {kind: declaration_list, inside: {any: [{kind: trait_item}, {kind: impl_item, has: {field: trait, pattern: $_}}]}}
+---
+id: rust-assoc-const
+language: rustlang
+role: member
+parentRuleIds: [rust-impl, rust-trait-impl, rust-trait]
+symbolType: constant
+rule:
+    kind: const_item
+    pattern: $DECLARATION
+    has: {field: name, pattern: $NAME}
+    inside: {kind: declaration_list, inside: {kind: 'impl_item, trait_item'}}
+rewriters:
+    - id: value
+      rule:
+          kind: 'array_expression, assignment_expression, async_block, await_expression, binary_expression, block, boolean_literal, break_expression, call_expression, char_literal, closure_expression, compound_assignment_expr, const_block, continue_expression, field_expression, float_literal, for_expression, gen_block, generic_function, identifier, if_expression, index_expression, integer_literal, loop_expression, macro_invocation, match_expression, metavariable, parenthesized_expression, range_expression, raw_string_literal, reference_expression, return_expression, scoped_identifier, self, string_literal, struct_expression, try_block, try_expression, tuple_expression, type_cast_expression, unary_expression, unit_expression, unsafe_block, while_expression, yield_expression'
+          inside: {kind: 'const_item, static_item', field: value}
+      fix: ''
+transform:
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [value]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\p{White_Space}*(?:=\p{White_Space}*)?;$', by: ''}}
+name: $NAME
+signature: $SIGNATURE
+isPublic:
+    any:
+        - has: {kind: visibility_modifier}
+        - inside: {kind: declaration_list, inside: {any: [{kind: trait_item}, {kind: impl_item, has: {field: trait, pattern: $_}}]}}
+---
+id: rust-mod-function
+language: rustlang
+role: member
+parentRuleIds: [rust-mod]
+symbolType: function
+rule:
+    kind: 'function_item, function_signature_item'
     pattern: $DECLARATION
     has: {field: name, pattern: $NAME}
     inside:
-        kind: field_declaration_list
-        inside:
-            kind: &owners 'struct_item, union_item'
-            not: {inside: {kind: *owners, stopBy: end}}
-name: $NAME
-signature: $DECLARATION
+        kind: declaration_list
+        inside: {kind: mod_item, any: [{has: {field: name, pattern: $OWNER}, inside: {kind: declaration_list}}, {kind: mod_item}]}
+rewriters: [{id: function-body, rule: {kind: block, inside: {kind: function_item, field: body}}, fix: ''}]
+transform:
+    QUALIFIER: {replace: {source: $OWNER, replace: '(?s)^(.+)$', by: '${1}::'}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [function-body]}}
+    FOLDED: {replace: {source: $HEADER, replace: '\p{White_Space}+;?$|\p{White_Space}*\n\p{White_Space}*', by: ' '}}
+    SIGNATURE: {replace: {source: $FOLDED, replace: ' ?;?$', by: ''}}
+name: $QUALIFIER$NAME
+signature: $SIGNATURE
 isPublic: {has: {kind: visibility_modifier}}
-
 ---
-id: rust-enum-variant
+id: rust-mod-method
 language: rustlang
 role: member
-parentRuleIds: [rust-enum]
-symbolType: enumMember
-rule:
-    kind: enum_variant
-    pattern: $DECLARATION
-    has: {field: name, pattern: $NAME}
-    inside:
-        kind: enum_variant_list
-        inside:
-            kind: enum_item
-            not: {inside: {kind: enum_item, stopBy: end}}
-name: $NAME
-signature: $DECLARATION
-
----
-id: rust-impl-method
-language: rustlang
-role: member
-parentRuleIds: [rust-impl]
+parentRuleIds: [rust-mod]
 symbolType: method
 rule:
     kind: 'function_item, function_signature_item'
@@ -368,139 +386,68 @@ rule:
     inside:
         kind: declaration_list
         inside:
-            kind: impl_item
-            not: {inside: {kind: impl_item, stopBy: end}}
-rewriters:
-    - id: body
-      rule: {kind: block, inside: {pattern: $DECLARATION}}
-      fix: ''
+            inside: {kind: declaration_list, inside: {kind: mod_item}}
+            any:
+                - {kind: trait_item, has: {field: name, pattern: $OWNER}}
+                - {kind: impl_item, has: {field: type, any: [{kind: 'type_identifier, primitive_type', pattern: $OWNER}, {has: {stopBy: end, kind: 'type_identifier, primitive_type', pattern: $OWNER}}, {pattern: $OWNER}]}}
+rewriters: [{id: function-body, rule: {kind: block, inside: {kind: function_item, field: body}}, fix: ''}]
 transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
-    SIGNATURE: {replace: {source: $HEADER, replace: '\s*;?\s*$', by: ''}}
-name: $NAME
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [function-body]}}
+    FOLDED: {replace: {source: $HEADER, replace: '\p{White_Space}+;?$|\p{White_Space}*\n\p{White_Space}*', by: ' '}}
+    SIGNATURE: {replace: {source: $FOLDED, replace: ' ?;?$', by: ''}}
+name: $OWNER::$NAME
 signature: $SIGNATURE
 isPublic:
     any:
         - has: {kind: visibility_modifier}
-        - inside: {kind: declaration_list, inside: {kind: impl_item, has: {field: trait, pattern: $_}}}
-
+        - inside: {kind: declaration_list, inside: {any: [{kind: trait_item}, {kind: impl_item, has: {field: trait, pattern: $_}}]}}
 ---
-id: rust-trait-method
+id: rust-mod-type
 language: rustlang
 role: member
-parentRuleIds: [rust-trait]
-symbolType: method
+parentRuleIds: [rust-mod]
+symbolType: struct
 rule:
-    kind: 'function_item, function_signature_item'
+    kind: 'struct_item, union_item, type_item'
     pattern: $DECLARATION
     has: {field: name, pattern: $NAME}
     inside:
         kind: declaration_list
-        inside: {kind: trait_item, not: {inside: {kind: trait_item, stopBy: end}}}
-rewriters:
-    - id: body
-      rule: {kind: block, inside: {pattern: $DECLARATION}}
-      fix: ''
+        inside: {kind: mod_item, any: [{has: {field: name, pattern: $OWNER}, inside: {kind: declaration_list}}, {kind: mod_item}]}
+rewriters: [{id: struct-body, rule: {kind: field_declaration_list, inside: {kind: 'struct_item, union_item', field: body}}, fix: ''}]
 transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
-    SIGNATURE: {replace: {source: $HEADER, replace: '\s*;?\s*$', by: ''}}
-name: $NAME
+    QUALIFIER: {replace: {source: $OWNER, replace: '(?s)^(.+)$', by: '${1}::'}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [struct-body]}}
+    FOLDED: {replace: {source: $HEADER, replace: '\p{White_Space}+;?$|\p{White_Space}*\n\p{White_Space}*', by: ' '}}
+    SIGNATURE: {replace: {source: $FOLDED, replace: ' ?;?$', by: ''}}
+name: $QUALIFIER$NAME
 signature: $SIGNATURE
-
+isPublic: {has: {kind: visibility_modifier}}
 ---
-id: rust-impl-associated-type
+id: rust-mod-associated-type
 language: rustlang
 role: member
-parentRuleIds: [rust-impl]
+parentRuleIds: [rust-mod]
 symbolType: typeParameter
 rule:
-    kind: 'type_item, associated_type'
+    kind: 'associated_type, type_item'
     pattern: $DECLARATION
     has: {field: name, pattern: $NAME}
     inside:
         kind: declaration_list
         inside:
-            kind: impl_item
-            not: {inside: {kind: impl_item, stopBy: end}}
+            inside: {kind: declaration_list, inside: {kind: mod_item}}
+            any:
+                - {kind: trait_item, has: {field: name, pattern: $OWNER}}
+                - {kind: impl_item, has: {field: type, any: [{kind: 'type_identifier, primitive_type', pattern: $OWNER}, {has: {stopBy: end, kind: 'type_identifier, primitive_type', pattern: $OWNER}}, {pattern: $OWNER}]}}
 transform:
-    SIGNATURE: {replace: {source: $DECLARATION, replace: '\s*;$', by: ''}}
-name: $NAME
+    SIGNATURE: {replace: {source: $DECLARATION, replace: ';$', by: ''}}
+name: $OWNER::$NAME
 signature: $SIGNATURE
 isPublic:
     any:
         - has: {kind: visibility_modifier}
-        - inside: {kind: declaration_list, inside: {kind: impl_item, has: {field: trait, pattern: $_}}}
-
----
-id: rust-trait-associated-type
-language: rustlang
-role: member
-parentRuleIds: [rust-trait]
-symbolType: typeParameter
-rule:
-    kind: 'type_item, associated_type'
-    pattern: $DECLARATION
-    has: {field: name, pattern: $NAME}
-    inside:
-        kind: declaration_list
-        inside: {kind: trait_item, not: {inside: {kind: trait_item, stopBy: end}}}
-transform:
-    SIGNATURE: {replace: {source: $DECLARATION, replace: '\s*;$', by: ''}}
-name: $NAME
-signature: $SIGNATURE
-
----
-id: rust-impl-const
-language: rustlang
-role: member
-parentRuleIds: [rust-impl]
-symbolType: constant
-rule:
-    kind: const_item
-    pattern: $DECLARATION
-    has: {field: name, pattern: $NAME}
-    inside:
-        kind: declaration_list
-        inside:
-            kind: impl_item
-            not: {inside: {kind: impl_item, stopBy: end}}
-rewriters:
-    - id: value
-      rule: {inside: {pattern: $DECLARATION, field: value}, pattern: $_}
-      fix: ''
-transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [value]}}
-    SIGNATURE: {replace: {source: $HEADER, replace: '\s*=?\s*;$', by: ''}}
-name: $NAME
-signature: $SIGNATURE
-isPublic:
-    any:
-        - has: {kind: visibility_modifier}
-        - inside: {kind: declaration_list, inside: {kind: impl_item, has: {field: trait, pattern: $_}}}
-
----
-id: rust-trait-const
-language: rustlang
-role: member
-parentRuleIds: [rust-trait]
-symbolType: constant
-rule:
-    kind: const_item
-    pattern: $DECLARATION
-    has: {field: name, pattern: $NAME}
-    inside:
-        kind: declaration_list
-        inside: {kind: trait_item, not: {inside: {kind: trait_item, stopBy: end}}}
-rewriters:
-    - id: value
-      rule: {inside: {pattern: $DECLARATION, field: value}, pattern: $_}
-      fix: ''
-transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [value]}}
-    SIGNATURE: {replace: {source: $HEADER, replace: '\s*=?\s*;$', by: ''}}
-name: $NAME
-signature: $SIGNATURE
-
+        - inside: {kind: declaration_list, inside: {any: [{kind: trait_item}, {kind: impl_item, has: {field: trait, pattern: $_}}]}}
 ---
 id: rust-mod-const
 language: rustlang
@@ -513,39 +460,30 @@ rule:
     has: {field: name, pattern: $NAME}
     inside:
         kind: declaration_list
-        inside: {kind: mod_item, not: {inside: {kind: mod_item, stopBy: end}}}
+        inside:
+            any:
+                - {kind: mod_item, has: {field: name, pattern: $OWNER}, inside: {kind: declaration_list}}
+                - {kind: mod_item}
+                - {kind: trait_item, has: {field: name, pattern: $OWNER}, inside: {kind: declaration_list, inside: {kind: mod_item}}}
+                - kind: impl_item
+                  has: {field: type, any: [{kind: 'type_identifier, primitive_type', pattern: $OWNER}, {has: {stopBy: end, kind: 'type_identifier, primitive_type', pattern: $OWNER}}, {pattern: $OWNER}]}
+                  inside: {kind: declaration_list, inside: {kind: mod_item}}
 rewriters:
     - id: value
-      rule: {inside: {pattern: $DECLARATION, field: value}, pattern: $_}
+      rule:
+          kind: 'array_expression, assignment_expression, async_block, await_expression, binary_expression, block, boolean_literal, break_expression, call_expression, char_literal, closure_expression, compound_assignment_expr, const_block, continue_expression, field_expression, float_literal, for_expression, gen_block, generic_function, identifier, if_expression, index_expression, integer_literal, loop_expression, macro_invocation, match_expression, metavariable, parenthesized_expression, range_expression, raw_string_literal, reference_expression, return_expression, scoped_identifier, self, string_literal, struct_expression, try_block, try_expression, tuple_expression, type_cast_expression, unary_expression, unit_expression, unsafe_block, while_expression, yield_expression'
+          inside: {kind: 'const_item, static_item', field: value}
       fix: ''
 transform:
+    QUALIFIER: {replace: {source: $OWNER, replace: '(?s)^(.+)$', by: '${1}::'}}
     HEADER: {rewrite: {source: $DECLARATION, rewriters: [value]}}
-    SIGNATURE: {replace: {source: $HEADER, replace: '\s*=?\s*;$', by: ''}}
-name: $NAME
+    SIGNATURE: {replace: {source: $HEADER, replace: '\p{White_Space}*(?:=\p{White_Space}*)?;$', by: ''}}
+name: $QUALIFIER$NAME
 signature: $SIGNATURE
-isPublic: {has: {kind: visibility_modifier}}
-
----
-id: rust-foreign-static
-language: rustlang
-role: member
-parentRuleIds: [rust-foreign-block]
-symbolType: variable
-rule:
-    kind: static_item
-    pattern: $DECLARATION
-    has: {field: name, pattern: $NAME}
-    inside:
-        kind: declaration_list
-        inside:
-            kind: foreign_mod_item
-            not: {inside: {kind: foreign_mod_item, stopBy: end}}
-transform:
-    SIGNATURE: {replace: {source: $DECLARATION, replace: '\s*;$', by: ''}}
-name: $NAME
-signature: $SIGNATURE
-isPublic: {has: {kind: visibility_modifier}}
-
+isPublic:
+    any:
+        - has: {kind: visibility_modifier}
+        - inside: {kind: declaration_list, inside: {any: [{kind: trait_item}, {kind: impl_item, has: {field: trait, pattern: $_}}]}}
 ---
 id: rust-mod-static
 language: rustlang
@@ -558,342 +496,22 @@ rule:
     has: {field: name, pattern: $NAME}
     inside:
         kind: declaration_list
-        inside: {kind: mod_item, not: {inside: {kind: mod_item, stopBy: end}}}
+        inside: {kind: mod_item, any: [{has: {field: name, pattern: $OWNER}, inside: {kind: declaration_list}}, {kind: mod_item}]}
 rewriters:
     - id: value
-      rule: {inside: {pattern: $DECLARATION, field: value}, pattern: $_}
+      rule:
+          kind: 'array_expression, assignment_expression, async_block, await_expression, binary_expression, block, boolean_literal, break_expression, call_expression, char_literal, closure_expression, compound_assignment_expr, const_block, continue_expression, field_expression, float_literal, for_expression, gen_block, generic_function, identifier, if_expression, index_expression, integer_literal, loop_expression, macro_invocation, match_expression, metavariable, parenthesized_expression, range_expression, raw_string_literal, reference_expression, return_expression, scoped_identifier, self, string_literal, struct_expression, try_block, try_expression, tuple_expression, type_cast_expression, unary_expression, unit_expression, unsafe_block, while_expression, yield_expression'
+          inside: {kind: 'const_item, static_item', field: value}
       fix: ''
 transform:
+    QUALIFIER: {replace: {source: $OWNER, replace: '(?s)^(.+)$', by: '${1}::'}}
     HEADER: {rewrite: {source: $DECLARATION, rewriters: [value]}}
-    SIGNATURE: {replace: {source: $HEADER, replace: '\s*=?\s*;$', by: ''}}
-name: $NAME
+    SIGNATURE: {replace: {source: $HEADER, replace: '\p{White_Space}*(?:=\p{White_Space}*)?;$', by: ''}}
+name: $QUALIFIER$NAME
 signature: $SIGNATURE
 isPublic: {has: {kind: visibility_modifier}}
-
 ---
-id: rust-foreign-function
-language: rustlang
-role: member
-parentRuleIds: [rust-foreign-block]
-symbolType: function
-rule:
-    kind: function_signature_item
-    pattern: $DECLARATION
-    has: {field: name, pattern: $NAME}
-    inside:
-        kind: declaration_list
-        inside:
-            kind: foreign_mod_item
-            not: {inside: {kind: foreign_mod_item, stopBy: end}}
-transform:
-    SIGNATURE: {replace: {source: $DECLARATION, replace: '\s*;$', by: ''}}
-name: $NAME
-signature: $SIGNATURE
-isPublic: {has: {kind: visibility_modifier}}
-
----
-id: rust-mod-function
-language: rustlang
-role: member
-parentRuleIds: [rust-mod]
-symbolType: function
-rule:
-    kind: function_item
-    pattern: $DECLARATION
-    has: {field: name, pattern: $NAME}
-    inside:
-        kind: declaration_list
-        inside: {kind: mod_item, not: {inside: {kind: mod_item, stopBy: end}}}
-rewriters:
-    - id: body
-      rule: {kind: block, inside: {pattern: $DECLARATION}}
-      fix: ''
-transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
-    SIGNATURE: {replace: {source: $HEADER, replace: '\s+$', by: ''}}
-name: $NAME
-signature: $SIGNATURE
-isPublic: {has: {kind: visibility_modifier}}
-
----
-id: rust-foreign-type
-language: rustlang
-role: member
-parentRuleIds: [rust-foreign-block]
-symbolType: struct
-rule:
-    kind: associated_type
-    pattern: $DECLARATION
-    has: {field: name, pattern: $NAME}
-    inside:
-        kind: declaration_list
-        inside:
-            kind: foreign_mod_item
-            not: {inside: {kind: foreign_mod_item, stopBy: end}}
-transform:
-    SIGNATURE: {replace: {source: $DECLARATION, replace: '\s*;$', by: ''}}
-name: $NAME
-signature: $SIGNATURE
-isPublic: {has: {kind: visibility_modifier}}
-
----
-id: rust-impl-macro-invocation
-language: rustlang
-role: member
-parentRuleIds: [rust-impl]
-symbolType: event
-rule:
-    kind: macro_invocation
-    pattern: $INVOCATION
-    has: {field: macro, pattern: $NAME}
-    inside:
-        any:
-            - kind: declaration_list
-              inside: &owner
-                  kind: impl_item
-                  not: {inside: {kind: impl_item, stopBy: end}}
-            - kind: expression_statement
-              inside: {kind: declaration_list, inside: *owner}
-transform:
-    SIGNATURE: {replace: {source: $INVOCATION, replace: '\s*;$', by: ''}}
-name: $NAME
-signature: $SIGNATURE
-isPublic: false
-
----
-id: rust-trait-macro-invocation
-language: rustlang
-role: member
-parentRuleIds: [rust-trait]
-symbolType: event
-rule:
-    kind: macro_invocation
-    pattern: $INVOCATION
-    has: {field: macro, pattern: $NAME}
-    inside:
-        any:
-            - kind: declaration_list
-              inside: &owner
-                  kind: trait_item
-                  not: {inside: {kind: trait_item, stopBy: end}}
-            - kind: expression_statement
-              inside: {kind: declaration_list, inside: *owner}
-transform:
-    SIGNATURE: {replace: {source: $INVOCATION, replace: '\s*;$', by: ''}}
-name: $NAME
-signature: $SIGNATURE
-isPublic: false
-
----
-id: rust-mod-macro-invocation
-language: rustlang
-role: member
-parentRuleIds: [rust-mod]
-symbolType: event
-rule:
-    kind: macro_invocation
-    pattern: $INVOCATION
-    has: {field: macro, pattern: $NAME}
-    inside:
-        any:
-            - kind: declaration_list
-              inside: &owner
-                  kind: mod_item
-                  not: {inside: {kind: mod_item, stopBy: end}}
-            - kind: expression_statement
-              inside: {kind: declaration_list, inside: *owner}
-transform:
-    SIGNATURE: {replace: {source: $INVOCATION, replace: '\s*;$', by: ''}}
-name: $NAME
-signature: $SIGNATURE
-isPublic: false
-
----
-id: rust-foreign-macro-invocation
-language: rustlang
-role: member
-parentRuleIds: [rust-foreign-block]
-symbolType: event
-rule:
-    kind: macro_invocation
-    pattern: $INVOCATION
-    has: {field: macro, pattern: $NAME}
-    inside:
-        any:
-            - kind: declaration_list
-              inside: &owner
-                  kind: foreign_mod_item
-                  not: {inside: {kind: foreign_mod_item, stopBy: end}}
-            - kind: expression_statement
-              inside: {kind: declaration_list, inside: *owner}
-transform:
-    SIGNATURE: {replace: {source: $INVOCATION, replace: '\s*;$', by: ''}}
-name: $NAME
-signature: $SIGNATURE
-isPublic: false
-
----
-id: rust-mod-attribute
-language: rustlang
-role: member
-parentRuleIds: [rust-mod]
-symbolType: event
-rule:
-    kind: 'attribute_item, inner_attribute_item'
-    pattern: $ATTRIBUTE
-    has:
-        kind: attribute
-        has:
-            kind: 'crate, identifier, metavariable, scoped_identifier, self, super'
-            pattern: $NAME
-            not: {inside: {kind: attribute, field: value}}
-    inside:
-        kind: declaration_list
-        inside: {kind: mod_item, not: {inside: {kind: mod_item, stopBy: end}}}
-name: $NAME
-signature: $ATTRIBUTE
-isPublic: false
-
----
-id: rust-struct-attribute
-language: rustlang
-role: member
-parentRuleIds: [rust-struct]
-symbolType: event
-rule:
-    kind: attribute_item
-    pattern: $ATTRIBUTE
-    has:
-        kind: attribute
-        has:
-            kind: 'crate, identifier, metavariable, scoped_identifier, self, super'
-            pattern: $NAME
-            not: {inside: {kind: attribute, field: value}}
-    inside:
-        kind: field_declaration_list
-        inside:
-            kind: &owners 'struct_item, union_item'
-            not: {inside: {kind: *owners, stopBy: end}}
-name: $NAME
-signature: $ATTRIBUTE
-isPublic: false
-
----
-id: rust-enum-attribute
-language: rustlang
-role: member
-parentRuleIds: [rust-enum]
-symbolType: event
-rule:
-    kind: attribute_item
-    pattern: $ATTRIBUTE
-    has:
-        kind: attribute
-        has:
-            kind: 'crate, identifier, metavariable, scoped_identifier, self, super'
-            pattern: $NAME
-            not: {inside: {kind: attribute, field: value}}
-    inside:
-        kind: enum_variant_list
-        inside: {kind: enum_item, not: {inside: {kind: enum_item, stopBy: end}}}
-name: $NAME
-signature: $ATTRIBUTE
-isPublic: false
-
----
-id: rust-trait-attribute
-language: rustlang
-role: member
-parentRuleIds: [rust-trait]
-symbolType: event
-rule:
-    kind: 'attribute_item, inner_attribute_item'
-    pattern: $ATTRIBUTE
-    has:
-        kind: attribute
-        has:
-            kind: 'crate, identifier, metavariable, scoped_identifier, self, super'
-            pattern: $NAME
-            not: {inside: {kind: attribute, field: value}}
-    inside:
-        kind: declaration_list
-        inside: {kind: trait_item, not: {inside: {kind: trait_item, stopBy: end}}}
-name: $NAME
-signature: $ATTRIBUTE
-isPublic: false
-
----
-id: rust-impl-attribute
-language: rustlang
-role: member
-parentRuleIds: [rust-impl]
-symbolType: event
-rule:
-    kind: 'attribute_item, inner_attribute_item'
-    pattern: $ATTRIBUTE
-    has:
-        kind: attribute
-        has:
-            kind: 'crate, identifier, metavariable, scoped_identifier, self, super'
-            pattern: $NAME
-            not: {inside: {kind: attribute, field: value}}
-    inside:
-        kind: declaration_list
-        inside: {kind: impl_item, not: {inside: {kind: impl_item, stopBy: end}}}
-name: $NAME
-signature: $ATTRIBUTE
-isPublic: false
-
----
-id: rust-foreign-attribute
-language: rustlang
-role: member
-parentRuleIds: [rust-foreign-block]
-symbolType: event
-rule:
-    kind: 'attribute_item, inner_attribute_item'
-    pattern: $ATTRIBUTE
-    has:
-        kind: attribute
-        has:
-            kind: 'crate, identifier, metavariable, scoped_identifier, self, super'
-            pattern: $NAME
-            not: {inside: {kind: attribute, field: value}}
-    inside:
-        kind: declaration_list
-        inside: {kind: foreign_mod_item, not: {inside: {kind: foreign_mod_item, stopBy: end}}}
-name: $NAME
-signature: $ATTRIBUTE
-isPublic: false
-
----
-id: rust-mod-member-type
-language: rustlang
-role: member
-parentRuleIds: [rust-mod]
-symbolType: struct
-rule:
-    kind: 'struct_item, union_item, type_item'
-    pattern: $DECLARATION
-    has: {field: name, pattern: $NAME}
-    inside:
-        kind: declaration_list
-        inside:
-            kind: mod_item
-            not: {inside: {kind: mod_item, stopBy: end}}
-rewriters:
-    - id: body
-      rule: {kind: field_declaration_list, inside: {pattern: $DECLARATION}}
-      fix: ''
-transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
-    SIGNATURE: {replace: {source: $HEADER, replace: '\s*;?\s*$', by: ''}}
-name: $NAME
-signature: $SIGNATURE
-isPublic: {has: {kind: visibility_modifier}}
-
----
-id: rust-mod-member-enum
+id: rust-mod-enum
 language: rustlang
 role: member
 parentRuleIds: [rust-mod]
@@ -904,102 +522,18 @@ rule:
     has: {field: name, pattern: $NAME}
     inside:
         kind: declaration_list
-        inside:
-            kind: mod_item
-            not: {inside: {kind: mod_item, stopBy: end}}
-rewriters:
-    - id: body
-      rule: {kind: enum_variant_list, inside: {pattern: $DECLARATION}}
-      fix: ''
+        inside: {kind: mod_item, any: [{has: {field: name, pattern: $OWNER}, inside: {kind: declaration_list}}, {kind: mod_item}]}
+rewriters: [{id: enum-body, rule: {kind: enum_variant_list, inside: {kind: enum_item, field: body}}, fix: ''}]
 transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
-    SIGNATURE: {replace: {source: $HEADER, replace: '\s+$', by: ''}}
-name: $NAME
+    QUALIFIER: {replace: {source: $OWNER, replace: '(?s)^(.+)$', by: '${1}::'}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [enum-body]}}
+    FOLDED: {replace: {source: $HEADER, replace: '\p{White_Space}+;?$|\p{White_Space}*\n\p{White_Space}*', by: ' '}}
+    SIGNATURE: {replace: {source: $FOLDED, replace: ' ?;?$', by: ''}}
+name: $QUALIFIER$NAME
 signature: $SIGNATURE
 isPublic: {has: {kind: visibility_modifier}}
-
 ---
-id: rust-mod-member-trait
-language: rustlang
-role: member
-parentRuleIds: [rust-mod]
-symbolType: interface
-rule:
-    kind: 'trait_item, trait_alias'
-    pattern: $DECLARATION
-    has: {field: name, pattern: $NAME}
-    inside:
-        kind: declaration_list
-        inside:
-            kind: mod_item
-            not: {inside: {kind: mod_item, stopBy: end}}
-rewriters:
-    - id: body
-      rule: {kind: declaration_list, inside: {pattern: $DECLARATION}}
-      fix: ''
-transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
-    SIGNATURE: {replace: {source: $HEADER, replace: '\s*;?\s*$', by: ''}}
-name: $NAME
-signature: $SIGNATURE
-isPublic: {has: {kind: visibility_modifier}}
-
----
-id: rust-mod-member-impl
-language: rustlang
-role: member
-parentRuleIds: [rust-mod]
-symbolType: object
-rule:
-    kind: impl_item
-    pattern: $DECLARATION
-    has: {field: type, pattern: $NAME}
-    inside:
-        kind: declaration_list
-        inside:
-            kind: mod_item
-            not: {inside: {kind: mod_item, stopBy: end}}
-rewriters:
-    - id: body
-      rule: {kind: declaration_list, inside: {pattern: $DECLARATION}}
-      fix: ''
-transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
-    SIGNATURE: {replace: {source: $HEADER, replace: '\s*;?\s*$', by: ''}}
-name: $NAME
-signature: $SIGNATURE
-isPublic: false
-
----
-id: rust-mod-member-module
-language: rustlang
-role: member
-parentRuleIds: [rust-mod]
-symbolType: module
-rule:
-    kind: 'mod_item, use_declaration, extern_crate_declaration'
-    pattern: $DECLARATION
-    any:
-        - has: {field: name, pattern: $NAME}
-        - has: {field: argument, pattern: $NAME}
-    inside:
-        kind: declaration_list
-        inside:
-            kind: mod_item
-            not: {inside: {kind: mod_item, stopBy: end}}
-rewriters:
-    - id: body
-      rule: {kind: declaration_list, inside: {pattern: $DECLARATION}}
-      fix: ''
-transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
-    SIGNATURE: {replace: {source: $HEADER, replace: '\s*;?\s*$', by: ''}}
-name: $NAME
-signature: $SIGNATURE
-isPublic: {has: {kind: visibility_modifier}}
-
----
-id: rust-mod-member-macro
+id: rust-mod-macro
 language: rustlang
 role: member
 parentRuleIds: [rust-mod]
@@ -1009,19 +543,18 @@ rule:
     has: {field: name, pattern: $NAME}
     inside:
         kind: declaration_list
-        inside:
-            kind: mod_item
-            not: {inside: {kind: mod_item, stopBy: end}}
-name: $NAME
+        inside: {kind: mod_item, any: [{has: {field: name, pattern: $OWNER}, inside: {kind: declaration_list}}, {kind: mod_item}]}
+transform:
+    QUALIFIER: {replace: {source: $OWNER, replace: '(?s)^(.+)$', by: '${1}::'}}
+name: $QUALIFIER$NAME
 signature: macro_rules! $NAME
 isPublic:
     follows:
         kind: attribute_item
         has: {kind: attribute, has: {kind: identifier, regex: '^macro_export$'}}
         stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}
-
 ---
-id: rust-mod-member-foreign-block
+id: rust-mod-foreign-block
 language: rustlang
 role: member
 parentRuleIds: [rust-mod]
@@ -1032,16 +565,197 @@ rule:
     has: {kind: extern_modifier, pattern: $NAME}
     inside:
         kind: declaration_list
-        inside:
-            kind: mod_item
-            not: {inside: {kind: mod_item, stopBy: end}}
-rewriters:
-    - id: body
-      rule: {kind: declaration_list, inside: {pattern: $DECLARATION}}
-      fix: ''
+        inside: {kind: mod_item, any: [{has: {field: name, pattern: $OWNER}, inside: {kind: declaration_list}}, {kind: mod_item}]}
+rewriters: [{id: foreign-body, rule: {kind: declaration_list, inside: {kind: foreign_mod_item, field: body}}, fix: ''}]
 transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
-    SIGNATURE: {replace: {source: $HEADER, replace: '\s+$', by: ''}}
+    QUALIFIER: {replace: {source: $OWNER, replace: '(?s)^(.+)$', by: '${1}::'}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [foreign-body]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\p{White_Space}*;?$', by: ''}}
+name: $QUALIFIER$NAME
+signature: $SIGNATURE
+isPublic: false
+---
+id: rust-mod-mod
+language: rustlang
+role: member
+parentRuleIds: [rust-mod]
+symbolType: module
+rule:
+    any:
+        - kind: identifier
+          pattern: $NAME
+          inside:
+              kind: mod_item
+              field: name
+              pattern: $DECLARATION
+              inside:
+                  kind: declaration_list
+                  inside: {kind: mod_item, any: [{has: {field: name, pattern: $OWNER}, inside: {kind: declaration_list}}, {kind: mod_item}]}
+        - kind: 'use_declaration, extern_crate_declaration'
+          pattern: $DECLARATION
+          any:
+              - has: {field: argument, has: {field: path, pattern: $NAME}}
+              - has: {field: argument, kind: use_wildcard, has: {kind: 'crate, identifier, metavariable, scoped_identifier, self, super', pattern: $NAME}}
+              - has: {field: argument, pattern: $NAME}
+              - has: {field: name, pattern: $NAME}
+          inside:
+              kind: declaration_list
+              inside: {kind: mod_item, any: [{has: {field: name, pattern: $OWNER}, inside: {kind: declaration_list}}, {kind: mod_item}]}
+rewriters: [{id: mod-body, rule: {kind: declaration_list, inside: {kind: mod_item, field: body}}, fix: ''}]
+transform:
+    QUALIFIER: {replace: {source: $OWNER, replace: '(?s)^(.+)$', by: '${1}::'}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [mod-body]}}
+    FOLDED: {replace: {source: $HEADER, replace: '\p{White_Space}+;?$|\p{White_Space}*\n\p{White_Space}*', by: ' '}}
+    SIGNATURE: {replace: {source: $FOLDED, replace: ' ?;?$', by: ''}}
+name: $QUALIFIER$NAME
+signature: $SIGNATURE
+isPublic: {any: [{has: {kind: visibility_modifier}}, {inside: {kind: mod_item, field: name, has: {kind: visibility_modifier}}}]}
+---
+id: rust-mod-trait
+language: rustlang
+role: member
+parentRuleIds: [rust-mod]
+symbolType: interface
+rule:
+    any:
+        - kind: type_identifier
+          pattern: $NAME
+          inside:
+              kind: trait_item
+              field: name
+              pattern: $DECLARATION
+              inside:
+                  kind: declaration_list
+                  inside: {kind: mod_item, any: [{has: {field: name, pattern: $OWNER}, inside: {kind: declaration_list}}, {kind: mod_item}]}
+        - kind: trait_alias
+          pattern: $DECLARATION
+          has: {field: name, pattern: $NAME}
+          inside:
+              kind: declaration_list
+              inside: {kind: mod_item, any: [{has: {field: name, pattern: $OWNER}, inside: {kind: declaration_list}}, {kind: mod_item}]}
+rewriters: [{id: trait-body, rule: {kind: declaration_list, inside: {kind: trait_item, field: body}}, fix: ''}]
+transform:
+    QUALIFIER: {replace: {source: $OWNER, replace: '(?s)^(.+)$', by: '${1}::'}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [trait-body]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\p{White_Space}*;?$', by: ''}}
+name: $QUALIFIER$NAME
+signature: $SIGNATURE
+isPublic: {any: [{has: {kind: visibility_modifier}}, {inside: {kind: trait_item, field: name, has: {kind: visibility_modifier}}}]}
+---
+id: rust-mod-impl
+language: rustlang
+role: member
+parentRuleIds: [rust-mod]
+symbolType: object
+rule:
+    kind: 'abstract_type, array_type, bounded_type, dynamic_type, function_type, generic_type, macro_invocation, metavariable, never_type, pointer_type, primitive_type, reference_type, removed_trait_bound, scoped_type_identifier, tuple_type, type_identifier, unit_type'
+    any: [{kind: 'type_identifier, primitive_type', pattern: $NAME}, {has: {stopBy: end, kind: 'type_identifier, primitive_type', pattern: $NAME}}, {pattern: $NAME}]
+    inside:
+        kind: impl_item
+        field: type
+        pattern: $DECLARATION
+        any:
+            - has: {field: trait, any: [{kind: type_identifier, pattern: $TRAIT}, {has: {stopBy: end, kind: type_identifier, pattern: $TRAIT}}, {pattern: $TRAIT}]}
+            - kind: impl_item
+        inside:
+            kind: declaration_list
+            inside: {kind: mod_item, any: [{has: {field: name, pattern: $OWNER}, inside: {kind: declaration_list}}, {kind: mod_item}]}
+rewriters: [{id: impl-body, rule: {kind: declaration_list, inside: {kind: impl_item, field: body}}, fix: ''}]
+transform:
+    QUALIFIER: {replace: {source: $OWNER, replace: '(?s)^(.+)$', by: '${1}::'}}
+    FOR: {replace: {source: $TRAIT, replace: '(?s)^(.+)$', by: '${1} for '}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [impl-body]}}
+    FOLDED: {replace: {source: $HEADER, replace: '\p{White_Space}+;?$|\p{White_Space}*\n\p{White_Space}*', by: ' '}}
+    SIGNATURE: {replace: {source: $FOLDED, replace: ' ?;?$', by: ''}}
+name: $QUALIFIER$FOR$NAME
+signature: $SIGNATURE
+isPublic: {inside: {kind: impl_item, field: type, has: {field: trait, pattern: $_}}}
+---
+id: rust-foreign-function
+language: rustlang
+role: member
+parentRuleIds: [rust-foreign-block]
+symbolType: function
+rule:
+    kind: 'function_item, function_signature_item'
+    pattern: $DECLARATION
+    has: {field: name, pattern: $NAME}
+    inside: {kind: declaration_list, inside: {kind: foreign_mod_item}}
+transform:
+    TRIMMED: {replace: {source: $DECLARATION, replace: ';$', by: ''}}
+    SIGNATURE: {replace: {source: $TRIMMED, replace: '\p{White_Space}*\n\p{White_Space}*', by: ' '}}
 name: $NAME
 signature: $SIGNATURE
+isPublic: {has: {kind: visibility_modifier}}
+---
+id: rust-foreign-static
+language: rustlang
+role: member
+parentRuleIds: [rust-foreign-block]
+symbolType: variable
+rule:
+    kind: static_item
+    pattern: $DECLARATION
+    has: {field: name, pattern: $NAME}
+    inside: {kind: declaration_list, inside: {kind: foreign_mod_item}}
+transform:
+    SIGNATURE: {replace: {source: $DECLARATION, replace: ';$', by: ''}}
+name: $NAME
+signature: $SIGNATURE
+isPublic: {has: {kind: visibility_modifier}}
+---
+id: rust-foreign-type
+language: rustlang
+role: member
+parentRuleIds: [rust-foreign-block]
+symbolType: struct
+rule:
+    kind: 'type_item, associated_type'
+    pattern: $DECLARATION
+    has: {field: name, pattern: $NAME}
+    inside: {kind: declaration_list, inside: {kind: foreign_mod_item}}
+transform:
+    SIGNATURE: {replace: {source: $DECLARATION, replace: ';$', by: ''}}
+name: $NAME
+signature: $SIGNATURE
+isPublic: {has: {kind: visibility_modifier}}
+---
+id: rust-type-field
+language: rustlang
+role: member
+parentRuleIds: [rust-type]
+symbolType: field
+rule:
+    kind: field_declaration
+    has: {field: name, pattern: $NAME}
+    inside: {kind: field_declaration_list, inside: {kind: 'struct_item, union_item'}}
+name: $NAME
+isPublic: {has: {kind: visibility_modifier}}
+---
+id: rust-enum-variant
+language: rustlang
+role: member
+parentRuleIds: [rust-enum]
+symbolType: enumMember
+rule:
+    kind: enum_variant
+    pattern: $DECLARATION
+    has: {field: name, pattern: $NAME}
+    inside: {kind: enum_variant_list, inside: {kind: enum_item}}
+transform:
+    SIGNATURE: {replace: {source: $DECLARATION, replace: '\p{White_Space}*\n\p{White_Space}*', by: ' '}}
+name: $NAME
+signature: $SIGNATURE
+---
+id: rust-member-macro-invocation
+language: rustlang
+role: member
+parentRuleIds: [rust-impl, rust-trait-impl, rust-trait, rust-mod, rust-foreign-block]
+symbolType: event
+rule:
+    kind: macro_invocation
+    has: {field: macro, pattern: $NAME}
+    inside: {kind: declaration_list}
+name: $NAME
+signature: $NAME!
 isPublic: false

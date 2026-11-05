@@ -2,33 +2,27 @@ id: sql-table
 language: sql
 role: item
 symbolType: struct
+isExported: false
 rule:
-    kind: &table create_table_statement, create_virtual_table_statement
+    kind: create_table_statement, create_virtual_table_statement
     pattern: $DECLARATION
     has: {field: name, pattern: $NAME}
 rewriters:
-    - id: header
+    - id: body
       rule:
-        all:
-            - inside: {kind: *table}
-            - any:
-                - inside: {kind: *table, field: name}
-                - inside: {kind: create_table_statement, field: options}
-                - inside: {kind: create_virtual_table_statement, field: module}
-                - kind: vtab_module_arg
-                - regex: '^[(),]$'
-                  inside: {kind: create_virtual_table_statement}
-                - all:
-                    - not: {pattern: $_}
-                    - regex: '(?i)^(create|temp|temporary|virtual|table|if|not|exists|using)$'
-            - pattern: $$PART
-      fix: $PART
+        any:
+            - kind: column_definition, table_constraint, vtab_module_arg, select_clause, line_comment, block_comment, host_comment
+            - {regex: '^[(),]$', inside: {kind: 'create_table_statement, create_virtual_table_statement'}}
+            - {regex: '(?i)^as$', inside: {kind: create_table_statement}}
+      fix: ' '
 transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [header], joinBy: ' '}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
+    FOLDED: {replace: {source: $HEADER, replace: '[\t\n\f\r ]+', by: ' '}}
+    SIGNATURE: {replace: {source: $FOLDED, replace: '^ | $', by: ''}}
 name: $NAME
-signature: $HEADER
+signature: $SIGNATURE
 ---
-id: sql-column
+id: sql-table-column
 language: sql
 role: member
 symbolType: field
@@ -37,10 +31,17 @@ rule:
     kind: column_definition
     pattern: $DECLARATION
     has: {field: name, pattern: $NAME}
+rewriters:
+    - id: trivia
+      rule: {kind: 'line_comment, block_comment, host_comment'}
+      fix: ' '
+transform:
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [trivia]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '[\t\n\f\r ]+', by: ' '}}
 name: $NAME
-signature: $DECLARATION
+signature: $SIGNATURE
 ---
-id: sql-constraint
+id: sql-table-constraint
 language: sql
 role: member
 symbolType: key
@@ -48,33 +49,63 @@ parentRuleIds: [sql-table]
 rule:
     kind: table_constraint
     pattern: $DECLARATION
-    has: {field: name, pattern: $NAME}
+    any:
+        - has: {field: name, pattern: $NAME}
+        - pattern: $UNNAMED
+rewriters:
+    - id: target
+      rule:
+        any:
+            - kind: line_comment, block_comment, host_comment
+            - {regex: '.', inside: {kind: table_constraint}, follows: {regex: '^\)$', stopBy: end}}
+      fix: ' '
+    - id: trivia
+      rule: {kind: 'line_comment, block_comment, host_comment'}
+      fix: ' '
+transform:
+    LABEL: {rewrite: {source: $UNNAMED, rewriters: [target]}}
+    FOLDED: {replace: {source: $LABEL, replace: '[\t\n\f\r ]+', by: ' '}}
+    KIND: {replace: {source: $FOLDED, replace: ' (\()| $', by: '$1'}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [trivia]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '[\t\n\f\r ]+', by: ' '}}
+name: $NAME$KIND
+signature: $SIGNATURE
+---
+id: sql-table-argument
+language: sql
+role: member
+symbolType: field
+parentRuleIds: [sql-table]
+rule:
+    kind: vtab_module_arg
+    pattern: $ARGUMENT
+transform:
+    NAME: {replace: {source: $ARGUMENT, replace: '^[\t\n\f\r ]+|[\t\n\f\r ]+$', by: ''}}
 name: $NAME
-signature: $DECLARATION
 ---
 id: sql-view
 language: sql
 role: item
 symbolType: interface
+isExported: false
 rule:
     kind: create_view_statement
     pattern: $DECLARATION
     has: {field: name, pattern: $NAME}
 rewriters:
-    - id: header
+    - id: body
       rule:
-        all:
-            - inside: {kind: create_view_statement}
-            - not:
-                any:
-                    - kind: select_clause, line_comment, block_comment
-                    - all: [{not: {pattern: $_}}, {regex: '(?i)^as$'}]
-            - pattern: $$PART
-      fix: $PART
+        any:
+            - kind: line_comment, block_comment, host_comment
+            - {kind: select_clause, inside: {kind: create_view_statement, field: body}}
+            - {regex: '(?i)^as$', inside: {kind: create_view_statement}}
+      fix: ' '
 transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [header], joinBy: ' '}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
+    FOLDED: {replace: {source: $HEADER, replace: '[\t\n\f\r ]+', by: ' '}}
+    SIGNATURE: {replace: {source: $FOLDED, replace: '^ | $', by: ''}}
 name: $NAME
-signature: $HEADER
+signature: $SIGNATURE
 ---
 id: sql-view-column
 language: sql
@@ -82,9 +113,20 @@ role: member
 symbolType: field
 parentRuleIds: [sql-view]
 rule:
-    kind: identifier, quoted_identifier, string_literal, template_substitution
-    pattern: $NAME
-    inside: {kind: create_view_statement}
+    any:
+        - kind: identifier, quoted_identifier, string_literal, substitution
+          pattern: $NAME
+          inside: {kind: create_view_statement}
+        - kind: expression_result_column
+          any:
+            - has: {field: alias, pattern: $NAME}
+            - has: {field: expression, kind: column_reference, has: {field: name, pattern: $NAME}}
+          inside:
+            kind: result_column_list
+            inside:
+                kind: select_clause
+                field: columns
+                inside: {kind: create_view_statement, field: body, not: {has: {field: column, kind: 'identifier, quoted_identifier, string_literal, substitution'}}}
 name: $NAME
 signature: $NAME
 ---
@@ -92,40 +134,77 @@ id: sql-index
 language: sql
 role: item
 symbolType: key
+isExported: false
 rule:
     kind: create_index_statement
     pattern: $DECLARATION
     has: {field: name, pattern: $NAME}
+rewriters:
+    - id: trivia
+      rule: {kind: 'line_comment, block_comment, host_comment'}
+      fix: ' '
+transform:
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [trivia]}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '[\t\n\f\r ]+', by: ' '}}
 name: $NAME
-signature: $DECLARATION
+signature: $SIGNATURE
 ---
 id: sql-trigger
 language: sql
 role: item
 symbolType: event
+isExported: false
 rule:
     kind: create_trigger_statement
     pattern: $DECLARATION
     has: {field: name, pattern: $NAME}
 rewriters:
-    - id: header
+    - id: body
       rule:
-        all:
-            - inside: {kind: create_trigger_statement}
-            - any:
-                - inside: {kind: create_trigger_statement, field: name}
-                - inside: {kind: create_trigger_statement, field: table}
-                - inside: {kind: create_trigger_statement, field: event}
-                - inside: {kind: create_trigger_statement, field: when}
-                - all:
-                    - not: {pattern: $_}
-                    - regex: '(?i)^(create|temp|temporary|trigger|if|not|exists|before|after|instead|of|on|for|each|row|when)$'
-            - pattern: $$PART
-      fix: $PART
+        any:
+            - kind: line_comment, block_comment, host_comment
+            - {kind: 'select_statement, insert_statement, update_statement, delete_statement', inside: {kind: create_trigger_statement}}
+            - {kind: substitution, inside: {kind: create_trigger_statement}, follows: {regex: '(?i)^begin$', stopBy: end}}
+            - {regex: '(?i)^(begin|end|;)$', inside: {kind: create_trigger_statement}}
+      fix: ' '
 transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [header], joinBy: ' '}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
+    FOLDED: {replace: {source: $HEADER, replace: '[\t\n\f\r ]+', by: ' '}}
+    SIGNATURE: {replace: {source: $FOLDED, replace: '^ | $', by: ''}}
 name: $NAME
-signature: $HEADER
+signature: $SIGNATURE
+---
+id: sql-trigger-statement
+language: sql
+role: member
+symbolType: operator
+parentRuleIds: [sql-trigger]
+rule:
+    kind: select_statement, insert_statement, update_statement, delete_statement
+    pattern: $DECLARATION
+    inside: {kind: create_trigger_statement}
+    any:
+        - has: {field: target, pattern: $SUBJECT}
+        - has: {field: from, has: {field: source, has: {kind: qualified_table_name, pattern: $SUBJECT}}}
+        - has: {kind: select_clause, has: {field: from, has: {field: source, has: {kind: qualified_table_name, pattern: $SUBJECT}}}}
+        - has: {field: columns, pattern: $SUBJECT}
+        - has: {kind: select_clause, has: {field: columns, pattern: $SUBJECT}}
+rewriters:
+    - id: clause
+      rule:
+        any:
+            - kind: where_clause, order_by_clause, limit_clause, returning_clause, upsert_clause, with_clause, window_clause, group_by_clause, values_clause, line_comment, block_comment, host_comment
+            - kind: set_assignment
+            - {kind: 'select_clause, values_clause, default_values_clause, substitution', inside: {kind: insert_statement, field: source}}
+            - {regex: '(?i)^(set|,)$', inside: {kind: update_statement}}
+      fix: ' '
+transform:
+    NAME: {replace: {source: $SUBJECT, replace: '[\t\n\f\r ]+', by: ' '}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [clause]}}
+    FOLDED: {replace: {source: $HEADER, replace: '[\t\n\f\r ]+', by: ' '}}
+    SIGNATURE: {replace: {source: $FOLDED, replace: '^ | $', by: ''}}
+name: $NAME
+signature: $SIGNATURE
 ---
 id: sql-statement
 language: sql
@@ -133,111 +212,61 @@ role: item
 symbolType: operator
 isExported: false
 rule:
-    kind: select_statement, insert_statement, update_statement, delete_statement, alter_table_statement, drop_table_statement, drop_view_statement, drop_index_statement, drop_trigger_statement
+    kind: select_statement, insert_statement, update_statement, delete_statement, pragma_statement, alter_table_statement, drop_table_statement, drop_view_statement, drop_index_statement, drop_trigger_statement, analyze_statement, reindex_statement, vacuum_statement, attach_statement, detach_statement, savepoint_statement, release_statement
     pattern: $DECLARATION
-    all:
-        - inside: {kind: source_file}
-        - any:
-            - has: {field: target, pattern: $NAME}
-            - has: {field: name, pattern: $NAME}
-            - has: {field: from, has: {field: source, has: {kind: qualified_table_name, pattern: $NAME}}}
+    any:
+        - has: {field: target, pattern: $SUBJECT}
+        - has: {field: name, pattern: $SUBJECT}
+        - has: {field: schema, pattern: $SUBJECT}
+        - has: {field: from, has: {field: source, has: {kind: qualified_table_name, pattern: $SUBJECT}}}
+        - has: {kind: select_clause, has: {field: from, has: {field: source, has: {kind: qualified_table_name, pattern: $SUBJECT}}}}
+        - has: {field: columns, pattern: $SUBJECT}
+        - has: {kind: select_clause, has: {field: columns, pattern: $SUBJECT}}
 rewriters:
-    - id: schema
-      rule: {kind: 'alter_table_statement, drop_table_statement, drop_view_statement, drop_index_statement, drop_trigger_statement', pattern: $$PART}
-      fix: $PART
-    - id: header
+    - id: clause
       rule:
-        all:
-            - inside: {kind: 'select_statement, insert_statement, update_statement, delete_statement'}
-            - any:
-                - inside: {kind: 'insert_statement, update_statement, delete_statement', field: target}
-                - inside: {kind: 'insert_statement, update_statement, delete_statement', field: alias}
-                - kind: column_name_list
-                - all: [{kind: 'result_column_list, from_clause'}, {inside: {kind: select_statement}}]
-                - all:
-                    - not: {pattern: $_}
-                    - regex: '(?i)^(select|distinct|all|insert|or|rollback|abort|fail|ignore|replace|into|update|delete|from|as|\(|\))$'
-            - pattern: $$PART
-      fix: $PART
+        any:
+            - kind: where_clause, order_by_clause, limit_clause, returning_clause, upsert_clause, with_clause, window_clause, group_by_clause, values_clause, line_comment, block_comment, host_comment
+            - kind: set_assignment
+            - {kind: 'select_clause, values_clause, default_values_clause, substitution', inside: {kind: insert_statement, field: source}}
+            - {regex: '(?i)^(set|,)$', inside: {kind: update_statement}}
+      fix: ' '
 transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [schema, header], joinBy: ' '}}
+    NAME: {replace: {source: $SUBJECT, replace: '[\t\n\f\r ]+', by: ' '}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [clause]}}
+    FOLDED: {replace: {source: $HEADER, replace: '[\t\n\f\r ]+', by: ' '}}
+    SIGNATURE: {replace: {source: $FOLDED, replace: '^ | $', by: ''}}
 name: $NAME
-signature: $HEADER
+signature: $SIGNATURE
 ---
-id: sql-query-member
+id: sql-member-query
 language: sql
 role: member
 symbolType: variable
 parentRuleIds: [sql-table, sql-view, sql-statement]
 rule:
-    kind: cte_definition, named_window
-    pattern: $DECLARATION
-    has: {field: name, pattern: $NAME}
-    inside:
-        kind: with_clause, window_clause
-        inside:
-            any:
-                - kind: select_statement, insert_statement, update_statement, delete_statement
-                  inside: {kind: source_file}
-                - kind: select_clause
-                  inside: {kind: 'create_table_statement, create_view_statement, insert_statement'}
+    any:
+        - kind: cte_definition, named_window
+          pattern: $DECLARATION
+          has: {field: name, pattern: $NAME}
+        - kind: table_or_subquery
+          pattern: $DECLARATION
+          all: [{has: {kind: select_clause}}, {has: {field: alias, pattern: $NAME}}]
 rewriters:
-    - id: window
-      rule: {kind: named_window, pattern: $$PART}
-      fix: $PART
-    - id: header
-      rule:
-        all:
-            - inside: {kind: cte_definition}
-            - any:
-                - kind: identifier, quoted_identifier, string_literal, template_substitution
-                - all: [{not: {pattern: $_}}, {regex: '(?i)^(as|not|materialized|,)$'}]
-                - regex: '^\($'
-                  follows: {pattern: $NAME, stopBy: &comments {not: {kind: 'line_comment, block_comment'}}}
-                - regex: '^\)$'
-                  precedes: {regex: '(?i)^as$', not: {pattern: $_}, stopBy: *comments}
-            - pattern: $$PART
-      fix: $PART
     - id: body
-      rule: {kind: select_clause, inside: {kind: cte_definition, field: body}}
-      fix: ''
-transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [window, header, body], joinBy: ' '}}
-    SIGNATURE: {replace: {source: $HEADER, replace: '^\s+|\s+$', by: ''}}
-name: $NAME
-signature: $SIGNATURE
----
-id: sql-query-declaration
-language: sql
-role: item
-symbolType: variable
-isExported: false
-rule:
-    kind: cte_definition, named_window
-    pattern: $DECLARATION
-    has: {field: name, pattern: $NAME}
-rewriters:
-    - id: window
-      rule: {kind: named_window, pattern: $$PART}
-      fix: $PART
-    - id: header
+      utils:
+        query: {any: [{kind: select_clause, inside: {kind: table_or_subquery}}, {kind: 'select_clause, substitution', inside: {kind: cte_definition, field: body}}]}
       rule:
-        all:
-            - inside: {kind: cte_definition}
-            - any:
-                - kind: identifier, quoted_identifier, string_literal, template_substitution
-                - all: [{not: {pattern: $_}}, {regex: '(?i)^(as|not|materialized|,)$'}]
-                - regex: '^\($'
-                  follows: {pattern: $NAME, stopBy: &comments {not: {kind: 'line_comment, block_comment'}}}
-                - regex: '^\)$'
-                  precedes: {regex: '(?i)^as$', not: {pattern: $_}, stopBy: *comments}
-            - pattern: $$PART
-      fix: $PART
-    - id: body
-      rule: {kind: select_clause, inside: {kind: cte_definition, field: body}}
-      fix: ''
+        any:
+            - matches: query
+            - kind: line_comment, block_comment, host_comment
+            - {regex: '^\($', precedes: {matches: query}}
+            - {regex: '^\)$', follows: {matches: query}}
+            - {regex: '(?i)^as$', inside: {kind: table_or_subquery}}
+      fix: ' '
 transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [window, header, body], joinBy: ' '}}
-    SIGNATURE: {replace: {source: $HEADER, replace: '^\s+|\s+$', by: ''}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
+    FOLDED: {replace: {source: $HEADER, replace: '[\t\n\f\r ]+', by: ' '}}
+    SIGNATURE: {replace: {source: $FOLDED, replace: '^ | $', by: ''}}
 name: $NAME
 signature: $SIGNATURE

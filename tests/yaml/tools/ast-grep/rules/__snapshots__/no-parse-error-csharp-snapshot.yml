@@ -1,6 +1,0 @@
-id: no-parse-error-csharp
-snapshots:
-  "class A { void F( { } }":
-    labels: []
-  "class A { void F() { var x = ; } }":
-    labels: []

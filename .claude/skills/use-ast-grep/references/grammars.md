@@ -121,3 +121,27 @@ Fixes emit walrus conditionals as `(v := (a if b else c))`.
 - Top-level queries are `select_statement`, CTE, view, and subquery bodies `select_clause`
 - `normal_function_arguments` holds `distinct` in unnamed field `modifier`, outside the arguments and `order_by_clause` `nthChild` counts
 - Operator tokens of `binary_expression`, `unary_expression`, `like_expression`, and `is_null_expression` sit in field `operator`
+
+| [INDEX] | [PGSQL]                                          | [SHAPE]                                                                                |
+| :-----: | :----------------------------------------------- | :------------------------------------------------------------------------------------- |
+|  [01]   | `${name}` as a name or type                      | `ColId` or `Typename` > `substitution`, the hidden `_ident` slot                       |
+|  [02]   | `${value}` as an operand                         | `c_expr` > `substitution`, `Sconst` > `substitution` in a string-constant position     |
+|  [03]   | `a ${op} b`, `${from} ${op} ARRAY[...]`          | `a_expr` with `operator: qual_Op` > `substitution`, `left`/`right` or `operand`        |
+|  [04]   | `(e)${cast}`                                     | `a_expr_prec` with a trailing `substitution` in place of `::` and `Typename`           |
+|  [05]   | `FROM ${t}`, `${t} CROSS JOIN f(x) q`            | `table_ref` > `substitution`                                                           |
+|  [06]   | `${source} ORDER BY ${keys}`                     | `select_no_parens` with `substitution` as its `select_clause` and `sort_clause`        |
+|  [07]   | `WITH n AS (${query})`                           | `common_table_expr` with `preparable_stmt: substitution`                               |
+|  [08]   | `INSERT INTO t ${rows}`, `UPDATE t SET ${pairs}` | `insert_rest` > `substitution`, `set_clause` > `substitution`                          |
+|  [09]   | `ALTER TABLE ${t} ${commands}`                   | `AlterTableStmt` with one `substitution` for the relation and its commands             |
+|  [10]   | `ALTER TABLE t ${command}`                       | `alter_table_cmd` > `substitution`, `ColConstraintElem` > `substitution` likewise      |
+|  [11]   | `ADD CONSTRAINT ${name} ${body} NOT VALID`       | `TableConstraint` with one `substitution` and `ConstraintAttributeSpec`                |
+|  [12]   | `ADD ${body} NOT VALID`                          | `ConstraintElem` with `substitution` and `ConstraintAttributeSpec`                     |
+|  [13]   | `ADD COLUMN ${name} ${type} GENERATED ...`       | `columnDef` with one `substitution` for name and type, then `ColQualList`              |
+|  [14]   | `${create} ON COMMIT DROP`                       | `CreateStmt` with a leading `substitution` and `OnCommitOption`                        |
+|  [15]   | `COMMENT ON ${target} IS`, `COLUMN ${t}.${c}`    | `comment_target` > `substitution`, or the target alone as a fragment                   |
+|  [16]   | `WITH (OLD AS ${o}) ${columns}`                  | `returning_list` fragment, `returning_clause` is `RETURNING` and `returning_list`      |
+|  [17]   | `ALTER TEXT SEARCH CONFIGURATION ${n} ${cmd}`    | `AlterTSConfigurationStmt` with one `substitution`, `alter_ts_configuration_cmd` alone |
+
+- Adjacent holes form one `substitution`, so a form whose consecutive members all take holes holds one `substitution` for the run
+- A template whose text starts mid-statement parses as a fragment: `a_expr`, `target_el`, `table_ref`, `sortby`, `opt_on_conflict`, `alter_table_cmd`, `ColConstraintElem`, `TableConstraint`, `comment_target`, `returning_list`, `alter_ts_configuration_cmd`
+- TSX template strings are the one composed host, C# holes reach `pgsql` through plain-string entries

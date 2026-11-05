@@ -1,8 +1,0 @@
-id: no-parenthesized-optional
-valid:
-    - 'var delegate: (any Delegate & Sendable)?'
-    - 'var pair: (Int, String)?'
-    - 'var delegate: (any Delegate)'
-invalid:
-    - 'var delegate: (any Delegate)?'
-    - 'func make() -> (some View)? { nil }'

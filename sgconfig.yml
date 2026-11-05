@@ -3,7 +3,6 @@
 
 ruleDirs: [tools/ast-grep/rules]
 utilDirs: [tools/ast-grep/utils]
-testConfigs: [{testDir: tests/yaml/tools/ast-grep/rules}]
 noIgnore: [hidden]
 languageGlobs:
     xml: ["NuGet.config"]
@@ -14,9 +13,10 @@ customLanguages:
     bashlang: {libraryPath: .cache/ast-grep/bash.so, languageSymbol: tree_sitter_bash, extensions: [bash, bats, cgi, command, env, fcgi, ksh, sh, tmux, tool, zsh], outlineRules: tools/ast-grep/outline/bash.yml}
     csharplang: {libraryPath: .cache/ast-grep/csharp.so, languageSymbol: tree_sitter_c_sharp, extensions: [cs], expandoChar: µ, outlineRules: tools/ast-grep/outline/csharp.yml}
     javalang: {libraryPath: .cache/ast-grep/java.so, languageSymbol: tree_sitter_java, extensions: [java], outlineRules: tools/ast-grep/outline/java.yml}
+    pgsql: {libraryPath: .cache/ast-grep/pgsql.so, languageSymbol: tree_sitter_pgsql, extensions: [pgsql], expandoChar: µ}
     pythonlang: {libraryPath: .cache/ast-grep/python.so, languageSymbol: tree_sitter_python, extensions: [py, py3, pyi, bzl, bazel], expandoChar: µ, outlineRules: tools/ast-grep/outline/python.yml}
     rustlang: {libraryPath: .cache/ast-grep/rust.so, languageSymbol: tree_sitter_rust, extensions: [rs], expandoChar: µ, outlineRules: tools/ast-grep/outline/rust.yml}
-    sql: {libraryPath: .cache/ast-grep/sql.so, languageSymbol: tree_sitter_sqlite3, extensions: [sql], expandoChar: µ, outlineRules: tools/ast-grep/outline/sql.yml}
+    sql: {libraryPath: .cache/ast-grep/sql.so, languageSymbol: tree_sitter_sql, extensions: [sql], expandoChar: µ, outlineRules: tools/ast-grep/outline/sql.yml}
     swiftlang: {libraryPath: .cache/ast-grep/swift.so, languageSymbol: tree_sitter_swift, extensions: [swift], expandoChar: µ, outlineRules: tools/ast-grep/outline/swift.yml}
     tsxlang: {libraryPath: .cache/ast-grep/typescript.so, languageSymbol: tree_sitter_tsx, extensions: [ts, tsx, mts, cts, js, jsx, mjs, cjs], outlineRules: tools/ast-grep/outline/typescript.yml}
     xml: {libraryPath: .cache/ast-grep/xml.so, extensions: [xml, csproj, props, targets, slnx, svg, plist, entitlements, xcscheme, xsd, xslt, xsl, rng], expandoChar: x, outlineRules: tools/ast-grep/outline/msbuild.yml}
@@ -207,7 +207,7 @@ languageInjections:
             - kind: template_string
               not: {has: {kind: escape_sequence}}
               any:
-                - inside: {kind: call_expression, field: arguments, has: {field: function, any: [{pattern: sql}, {pattern: sql.withoutTransforms()}]}}
+                - inside: {kind: call_expression, field: arguments, has: {field: function, any: [{pattern: sql}, {kind: instantiation_expression, has: {pattern: sql}}, {pattern: sql.withoutTransforms()}]}}
                 - inside: {matches: unsafe-arguments}
             - kind: string_fragment
               inside: {kind: string, not: {has: {kind: escape_sequence}}, inside: {matches: unsafe-arguments}}

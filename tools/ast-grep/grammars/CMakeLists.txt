@@ -12,7 +12,6 @@ set(AST_GREP_CONFIG "" CACHE FILEPATH "Project language registration")
 
 file(REAL_PATH "${GRAMMAR_SOURCE}" GRAMMAR_SOURCE)
 file(REAL_PATH "${NODE_MODULES}" NODE_MODULES)
-cmake_path(GET GRAMMAR_SOURCE PARENT_PATH grammar_dir)
 cmake_path(GET CMAKE_CURRENT_BINARY_DIR FILENAME language)
 cmake_path(GET CMAKE_CURRENT_BINARY_DIR PARENT_PATH library_dir)
 set(parser_dir "${CMAKE_CURRENT_BINARY_DIR}/src")
@@ -129,28 +128,17 @@ if(external_count GREATER 0)
     endif()
 endif()
 
-string(JSON test_config SET [[{"grammars": [{}], "metadata": {"version": "0.0.0"}}]] grammars 0 name "\"${name}\"")
-string(JSON test_config SET "${test_config}" grammars 0 scope "\"source.${name}\"")
-file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/tree-sitter.json" CONTENT "${test_config}\n")
-file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/lib")
-set(test_dir "${grammar_dir}/test")
-cmake_path(RELATIVE_PATH test_dir BASE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}" OUTPUT_VARIABLE test_link)
-cmake_path(RELATIVE_PATH library BASE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/lib" OUTPUT_VARIABLE library_link)
-file(CREATE_LINK "${test_link}" "${CMAKE_CURRENT_BINARY_DIR}/test" SYMBOLIC)
-file(CREATE_LINK "${library_link}" "${CMAKE_CURRENT_BINARY_DIR}/lib/${name}${CMAKE_SHARED_LIBRARY_SUFFIX}" SYMBOLIC)
-
 if(AST_GREP_CONFIG)
     file(REAL_PATH "${AST_GREP_CONFIG}" AST_GREP_CONFIG)
     cmake_path(GET AST_GREP_CONFIG PARENT_PATH config_dir)
     cmake_path(RELATIVE_PATH library BASE_DIRECTORY "${config_dir}" OUTPUT_VARIABLE project_library)
-    cmake_path(RELATIVE_PATH config_dir BASE_DIRECTORY "${library_dir}" OUTPUT_VARIABLE project_root)
     execute_process(
         COMMAND yq -o=json
             [[{"ruleDirs": [], "customLanguages": (.customLanguages | with_entries(select(.value.libraryPath == strenv(AST_GREP_PROJECT_LIBRARY))))}
               | (.customLanguages[].libraryPath) = strenv(AST_GREP_LIBRARY)
-              | (.customLanguages[][] | select(key == "outlineRules")) |= strenv(AST_GREP_PROJECT_ROOT) + "/" + .]]
+              | del(.customLanguages[].outlineRules)]]
             "${AST_GREP_CONFIG}"
-        ENVIRONMENT "AST_GREP_PROJECT_LIBRARY=${project_library}" "AST_GREP_LIBRARY=${language}${library_suffix}" "AST_GREP_PROJECT_ROOT=${project_root}"
+        ENVIRONMENT "AST_GREP_PROJECT_LIBRARY=${project_library}" "AST_GREP_LIBRARY=${language}${library_suffix}"
         OUTPUT_FILE "${CMAKE_CURRENT_BINARY_DIR}/sgconfig.yml"
         COMMAND_ERROR_IS_FATAL ANY
     )

@@ -22,7 +22,8 @@ const APPS = 'apps';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const PythonRuntime = Schema.fromJsonString(Schema.Struct({ versions: Schema.NonEmptyArray(Schema.String) }).pipe(Schema.encodeKeys({ versions: 'active_versions' })));
+const JsonDocument = Schema.fromJsonString(Schema.Unknown);
+const PythonRuntime = Schema.Struct({ versions: Schema.NonEmptyArray(Schema.String) }).pipe(Schema.encodeKeys({ versions: 'active_versions' }));
 const JsonListRecord = Schema.fromJsonString(Schema.Record(Schema.String, Schema.Array(Schema.String)));
 const Release = Schema.String.check(Schema.isPattern(/^\d+\.\d+$/u));
 const PythonRequirement = Schema.Struct({ minimum: Schema.TemplateLiteralParser(['>=', Schema.Trim.pipe(Schema.decodeTo(Release))]) }).pipe(Schema.encodeKeys({ minimum: 'requires-python' }));
@@ -54,31 +55,27 @@ const MemberPyproject = TextFormat.Toml.pipe(
         }),
     ),
 );
-const PylockExport = TextFormat.Toml.pipe(Schema.decodeTo(Schema.Struct({ packages: Schema.Array(Schema.Struct({ directory: Schema.OptionFromOptionalKey(Schema.Struct({ path: Schema.String })) })) })));
-const CargoMetadata = Schema.fromJsonString(
-    Schema.Struct({
-        packages: Schema.Array(
-            Schema.Struct({
-                name: Schema.String,
-                manifest: Schema.String,
-                targets: Schema.Array(Schema.Struct({ name: Schema.String, kind: Schema.NonEmptyArray(Schema.String), types: Schema.Array(Schema.String), source: Schema.String, test: Schema.Boolean }).pipe(Schema.encodeKeys({ types: 'crate_types', source: 'src_path' }))),
-                dependencies: Schema.Array(Schema.Struct({ name: Schema.String, path: Schema.OptionFromOptionalKey(Schema.String) })),
-                metadata: Schema.OptionFromNullOr(Schema.Struct({ nx: Schema.OptionFromOptionalKey(Schema.Record(Schema.String, Schema.Unknown)) })),
-            }).pipe(Schema.encodeKeys({ manifest: 'manifest_path' })),
+const PylockExport = Schema.Struct({ packages: Schema.Array(Schema.Struct({ directory: Schema.OptionFromOptionalKey(Schema.Struct({ path: Schema.String })) })) });
+const CargoMetadata = Schema.Struct({
+    packages: Schema.Array(
+        Schema.Struct({
+            name: Schema.String,
+            manifest: Schema.String,
+            targets: Schema.Array(Schema.Struct({ name: Schema.String, kind: Schema.NonEmptyArray(Schema.String), types: Schema.Array(Schema.String), source: Schema.String, test: Schema.Boolean }).pipe(Schema.encodeKeys({ types: 'crate_types', source: 'src_path' }))),
+            dependencies: Schema.Array(Schema.Struct({ name: Schema.String, path: Schema.OptionFromOptionalKey(Schema.String) })),
+            metadata: Schema.OptionFromNullOr(Schema.Struct({ nx: Schema.OptionFromOptionalKey(Schema.Record(Schema.String, Schema.Unknown)) })),
+        }).pipe(Schema.encodeKeys({ manifest: 'manifest_path' })),
+    ),
+});
+const SwiftPackage = Schema.Struct({
+    targets: Schema.Array(
+        Schema.Struct({ name: Schema.String, c99name: Schema.String, type: Schema.Literals(['executable', 'library', 'test', 'macro', 'plugin', 'snippet', 'system-target', 'binary']), path: Schema.String, locals: Schema.Array(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) }).pipe(
+            Schema.encodeKeys({ locals: 'target_dependencies' }),
         ),
-    }),
-);
-const SwiftPackage = Schema.fromJsonString(
-    Schema.Struct({
-        targets: Schema.Array(
-            Schema.Struct({ name: Schema.String, c99name: Schema.String, type: Schema.Literals(['executable', 'library', 'test', 'macro', 'plugin', 'snippet', 'system-target', 'binary']), path: Schema.String, locals: Schema.Array(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) }).pipe(
-                Schema.encodeKeys({ locals: 'target_dependencies' }),
-            ),
-        ),
-        products: Schema.Array(Schema.Struct({ name: Schema.String, targets: Schema.Array(Schema.String) })),
-        platforms: Schema.Array(Schema.Struct({ name: Schema.String, version: Schema.String })),
-    }),
-);
+    ),
+    products: Schema.Array(Schema.Struct({ name: Schema.String, targets: Schema.Array(Schema.String) })),
+    platforms: Schema.Array(Schema.Struct({ name: Schema.String, version: Schema.String })),
+});
 const NxReleaseConfiguration = Schema.Struct({ releaseTag: Schema.Struct({ pattern: Schema.String }), groups: Schema.Record(Schema.String, Schema.Struct({ projects: Schema.ArrayEnsure(Schema.String) })) });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -119,21 +116,26 @@ const openWorkspace = Effect.fnUntraced(function* ({ workspaceRoot, nxJsonConfig
     const [fs, path, scope] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Effect.scope]);
     const configReads = new Set<string>();
     const cache = yield* Effect.acquireRelease(
-        Effect.sync(() => new PluginCache<Record<'hash' | 'output', string>>(path.join(workspaceDataDirectory, 'workspace.hash'))),
+        Effect.sync(() => new PluginCache<Record<'hash' | 'output', string>>(path.join(workspaceDataDirectory, 'workspace.cache'))),
         (held) => Effect.sync(held.writeToDisk.bind(held)),
     );
-    const cached = <A>(schema: Schema.Codec<A, string>, inputs: string[], [command, ...args]: readonly [string, ...string[]]) => {
-        const key = [command, ...args].join(' ');
+    const cached = <A, I>(document: Schema.Codec<unknown, string>, schema: Schema.Codec<A, I>, inputs: string[], [command, ...args]: readonly [string, ...string[]]) => {
+        const [key, held] = [[command, ...args].join(' '), Schema.fromJsonString(schema)];
         return Effect.tryPromise(() => hashWithWorkspaceContext(workspaceRoot, inputs)).pipe(
             Effect.bindTo('hash'),
-            Effect.bind('text', ({ hash }) => Option.fromUndefinedOr(cache.get(key)).pipe(Option.filter(Predicate.Struct({ hash: Equal.equals(hash) })), Option.map(Struct.get('output')), Option.match({ onSome: Effect.succeed, onNone: () => runCommand(command, args, { cwd: workspaceRoot }) }))),
-            Effect.bind('value', Function.flow(Struct.get('text'), Schema.decodeEffect(schema))),
-            Effect.tap(({ hash, text }) => Effect.sync(cache.set.bind(cache, key, { hash, output: text }))),
+            Effect.bind('value', ({ hash }) =>
+                Option.fromUndefinedOr(cache.get(key)).pipe(
+                    Option.filter(Predicate.Struct({ hash: Equal.equals(hash) })),
+                    Option.match({ onSome: ({ output }) => Schema.decodeEffect(held)(output), onNone: () => Effect.flatMap(runCommand(command, args, { cwd: workspaceRoot }), Schema.decodeEffect(document.pipe(Schema.decodeTo(schema)))) }),
+                ),
+            ),
+            Effect.bind('output', ({ value }) => Schema.encodeEffect(held)(value)),
+            Effect.tap(({ hash, output }) => Effect.sync(cache.set.bind(cache, key, { hash, output }))),
             Effect.map(Struct.get('value')),
         );
     };
-    const lockedPackages = (project: string) => cached(PylockExport, ['uv.lock', `**/${PYPROJECT}`], ['uv', 'export', '--frozen', '--format', 'pylock.toml', '--no-hashes', '--no-emit-project', '--project', project]);
-    const crates = yield* Effect.cached(Effect.map(cached(CargoMetadata, [`**/${CARGO_MANIFEST}`, '**/*.rs'], ['cargo', 'metadata', '--format-version', '1', '--no-deps']), Function.flow(Struct.get('packages'), Array.map(Struct.evolve({ manifest: path.relative.bind(null, workspaceRoot) })))));
+    const lockedPackages = (project: string) => cached(TextFormat.Toml, PylockExport, ['uv.lock', `**/${PYPROJECT}`], ['uv', 'export', '--frozen', '--format', 'pylock.toml', '--no-hashes', '--no-emit-project', '--project', project]);
+    const crates = yield* Effect.cached(Effect.map(cached(JsonDocument, CargoMetadata, [`**/${CARGO_MANIFEST}`, '**/*.rs'], ['cargo', 'metadata', '--format-version', '1', '--no-deps']), Function.flow(Struct.get('packages'), Array.map(Struct.evolve({ manifest: path.relative.bind(null, workspaceRoot) })))));
     const patterns = ['pnpm-lock.yaml', 'tools/*/examples/**'];
     return {
         workspaceRoot,
@@ -187,9 +189,9 @@ const openWorkspace = Effect.fnUntraced(function* ({ workspaceRoot, nxJsonConfig
                     }),
                 ),
             ),
-            python: Effect.cached(cached(PythonRuntime, [Mise.file], ['mise', 'tool', 'python', '--json'])),
+            python: Effect.cached(cached(JsonDocument, PythonRuntime, [Mise.file], ['mise', 'tool', 'python', '--json'])),
             swift: Effect.cached(
-                Effect.map(cached(SwiftPackage, [SWIFT_MANIFEST], ['swift', 'package', 'describe', '--type', 'json']), (described) => ({
+                Effect.map(cached(JsonDocument, SwiftPackage, [SWIFT_MANIFEST], ['swift', 'package', 'describe', '--type', 'json']), (described) => ({
                     ...described,
                     tests: Array.partition(described.targets, Filter.fromPredicate<(typeof described.targets)[number]>(Predicate.Struct({ type: Equal.equals('test') }))),
                 })),

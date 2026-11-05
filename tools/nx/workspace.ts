@@ -40,7 +40,6 @@ const Sgconfig = TextFormat.Yaml.pipe(
         Schema.Struct({
             ruleDirs: Schema.Array(Schema.String),
             utilDirs: Schema.Array(Schema.String),
-            testConfigs: Schema.Array(Schema.Struct({ testDir: Schema.String })),
             customLanguages: Schema.Record(Schema.String, Schema.Struct({ libraryPath: Schema.String, extensions: Schema.Array(Schema.String), outlineRules: Schema.OptionFromOptionalKey(Schema.String) })),
             languageGlobs: Schema.Record(Schema.String, Schema.Array(Schema.String)),
             languageInjections: Schema.Array(Schema.Struct({ hostLanguage: Schema.String })),
@@ -342,7 +341,7 @@ const infer = Effect.fnUntraced(
 
 // --- [ROOT]
 const pythonVersions = Effect.fnUntraced(function* ({ workspaceRoot, hosts, pyproject, python, scanExclusions }: Workspace) {
-    const [path, folders, { requirements, deptry, fawltydeps }, exclusions, { ruleDirs, utilDirs, testConfigs, customLanguages, languageGlobs, languageInjections }] = yield* Effect.all([Path.Path, hosts, pyproject, scanExclusions, decodeFile(Sgconfig, workspaceRoot, SGCONFIG)]);
+    const [path, folders, { requirements, deptry, fawltydeps }, exclusions, { ruleDirs, utilDirs, customLanguages, languageGlobs, languageInjections }] = yield* Effect.all([Path.Path, hosts, pyproject, scanExclusions, decodeFile(Sgconfig, workspaceRoot, SGCONFIG)]);
     const [{ versions }, scopes, rules] = yield* Effect.all(
         [
             python,
@@ -470,18 +469,17 @@ const pythonVersions = Effect.fnUntraced(function* ({ workspaceRoot, hosts, pypr
                 root: '.',
                 targets: {
                     ...split('lint:ast-grep', { tree: { command: tree, inputs: treeInputs }, classes: { command: 'node tools/ast-grep/classes/main.ts', inputs: classInputs }, ...hosted }),
-                    'test:ast-grep': { command: 'ast-grep test --custom-languages allow', dependsOn: ['grammar'], cache: true, inputs: ['astGrep', ...testConfigs.map(({ testDir }) => `{workspaceRoot}/${testDir}/**/*.yml`), ...ruleInputs] },
                     ...split(
                         'rewrite',
                         Record.map({ tree: { command: walk(offs), inputs: treeInputs }, ...hosted }, ({ command, ...configuration }) => ({ ...configuration, command: `${lock} ${command} --update-all` })),
                     ),
                     ...split(
                         'typecheck:ty',
-                        Record.map(commands, ({ inputs, ty }) => ({ command: ty, inputs, options: { env: { TY_UV: '1', UV_LOCKED: '1' } } })),
+                        Record.map(commands, ({ inputs, ty }) => ({ command: ty, inputs: [...inputs, 'python'], options: { env: { TY_UV: '1', UV_LOCKED: '1' } } })),
                     ),
                     ...split(
                         'typecheck:mypy',
-                        Record.map(commands, ({ inputs, mypy, native }) => ({ command: mypy, inputs: [...inputs, '{workspaceRoot}/tools/refurb/**/*.py'], configurations: { native: { command: native } } })),
+                        Record.map(commands, ({ inputs, mypy, native }) => ({ command: mypy, inputs: [...inputs, '{workspaceRoot}/tools/refurb/**/*.py', 'python'], configurations: { native: { command: native } } })),
                     ),
                     'lint:refurb': { dependsOn: [{ target: 'typecheck:mypy', params: 'forward' }] },
                     ...Record.fromIterableWith(Object.keys(commands), (scope) => [`lint:refurb:${scope}`, { dependsOn: [{ target: `typecheck:mypy:${scope}`, params: 'forward' }] } satisfies TargetConfiguration]),
@@ -547,40 +545,36 @@ const generated = Effect.fnUntraced(function* (libraries: Readonly<Record<string
     const library = yield* Effect.fromOption(Record.get(libraries, stem), () => WorkspaceError.missing(stem, `${SGCONFIG} customLanguages libraryPath`));
     return path.join(path.dirname(library), stem, 'src', 'grammar.json');
 });
-const grammarTargets = Effect.fnUntraced(function* (workspaceRoot: string, libraries: Readonly<Record<string, string>>, scanned: readonly string[], [stem, library]: readonly [string, string]) {
+const grammarTarget = Effect.fnUntraced(function* (workspaceRoot: string, libraries: Readonly<Record<string, string>>, scanned: readonly string[], [stem, library]: readonly [string, string]) {
     const path = yield* Path.Path;
     const entry = path.join(GRAMMARS, stem, GRAMMAR);
     const binary = path.join(path.dirname(library), stem);
     const grammarFile = (file: string) => path.basename(file) === GRAMMAR && path.dirname(path.dirname(file)) === GRAMMARS;
-    const folder = (dir: string) => [`{workspaceRoot}/${dir}/**/*`, `!{workspaceRoot}/${dir}/test/**/*`];
     const direct = yield* imports(workspaceRoot, entry);
     const graph = yield* reach(workspaceRoot, direct.files, { [entry]: direct });
     const hosts = Object.entries(graph).filter(([file]) => direct.files.includes(file) && grammarFile(file));
     const [own, output, hosted] = yield* Effect.all([scanners(workspaceRoot, scanned, entry, direct), generated(libraries, entry), Effect.forEach(hosts, ([file, held]) => Effect.all({ found: scanners(workspaceRoot, scanned, file, held), json: generated(libraries, file) }))]);
     const components = [...own.map(({ scanner, upstream }) => [scanner, Option.getOrElse(upstream, Function.constant(output))] as const), ...hosted.flatMap(({ found, json }) => Array.cartesian(found.map(Struct.get('scanner')), [json]))];
     return [
-        [
-            `grammar:${stem}`,
-            {
-                options: {
-                    commands: [
-                        `cmake --fresh -S ${GRAMMARS} -B ${binary} -DCMAKE_BUILD_TYPE=Release -DGRAMMAR_SOURCE:FILEPATH="${path.relative(GRAMMARS, entry)}" -DNODE_MODULES:PATH="$NX_WORKSPACE_ROOT/node_modules" -DCOMPONENTS="${components.map(([scanner, json]) => `${path.relative(GRAMMARS, scanner)}|${path.relative(GRAMMARS, json)}`).join(';')}" {args.cmakeArguments}`,
-                        { command: `cmake --build ${binary} --config Release`, forwardAllArgs: false },
-                    ],
-                },
-                dependsOn: hosts.map(([file]) => `grammar:${path.basename(path.dirname(file))}`),
-                inputs: [...Array.dedupe(Object.keys(graph).flatMap((file) => (grammarFile(file) ? folder(path.dirname(file)) : [`{workspaceRoot}/${file}`]))), { externalDependencies: Array.dedupe(Object.values(graph).flatMap(Struct.get('specifiers')).map(packageName)) }],
-                outputs: [`{workspaceRoot}/${library}`, `{workspaceRoot}/${binary}.yml`, `{workspaceRoot}/${binary}/{src/grammar.json,src/parser.c,tree-sitter.json,lib,test}`],
+        `grammar:${stem}`,
+        {
+            options: {
+                commands: [
+                    `cmake --fresh -S ${GRAMMARS} -B ${binary} -DCMAKE_BUILD_TYPE=Release -DGRAMMAR_SOURCE:FILEPATH="${path.relative(GRAMMARS, entry)}" -DNODE_MODULES:PATH="$NX_WORKSPACE_ROOT/node_modules" -DCOMPONENTS="${components.map(([scanner, json]) => `${path.relative(GRAMMARS, scanner)}|${path.relative(GRAMMARS, json)}`).join(';')}" {args.cmakeArguments}`,
+                    { command: `cmake --build ${binary} --config Release`, forwardAllArgs: false },
+                ],
             },
-        ],
-        [`test:grammar:${stem}`, { command: 'tree-sitter test', options: { cwd: binary, env: { TREE_SITTER_LIBDIR: 'lib' } }, dependsOn: [`grammar:${stem}`], inputs: [`{workspaceRoot}/${path.dirname(entry)}/test/**/*`] }],
-    ] as const satisfies readonly (readonly [string, TargetConfiguration])[];
+            dependsOn: hosts.map(([file]) => `grammar:${path.basename(path.dirname(file))}`),
+            inputs: [...Array.dedupe(Object.keys(graph).map((file) => `{workspaceRoot}/${grammarFile(file) ? `${path.dirname(file)}/**/*` : file}`)), { externalDependencies: Array.dedupe(Object.values(graph).flatMap(Struct.get('specifiers')).map(packageName)) }],
+            outputs: [`{workspaceRoot}/${library}`, `{workspaceRoot}/${binary}.yml`, `{workspaceRoot}/${binary}/src/{grammar.json,parser.c}`],
+        },
+    ] as const satisfies readonly [string, TargetConfiguration];
 });
 const grammars = Effect.fnUntraced(function* ({ workspaceRoot }: Workspace) {
     const [path, { customLanguages }, scanned] = yield* Effect.all([Path.Path, decodeFile(Sgconfig, workspaceRoot, SGCONFIG), glob(workspaceRoot, [`${GRAMMARS}/*/scanner.c`])]);
     const libraries = Record.fromIterableWith(Object.values(customLanguages), ({ libraryPath }) => [path.basename(libraryPath, path.extname(libraryPath)), libraryPath] as const);
-    const inferred = yield* Effect.forEach(Record.toEntries(libraries), (language) => grammarTargets(workspaceRoot, libraries, scanned, language), { concurrency: 'unbounded' });
-    return { projects: { '.': { root: '.', targets: Object.fromEntries(inferred.flat()) } } } satisfies CreateNodesResult;
+    const inferred = yield* Effect.forEach(Record.toEntries(libraries), (language) => grammarTarget(workspaceRoot, libraries, scanned, language), { concurrency: 'unbounded' });
+    return { projects: { '.': { root: '.', targets: Object.fromEntries(inferred) } } } satisfies CreateNodesResult;
 });
 const roots = { [PYPROJECT]: pythonVersions, [SWIFT_MANIFEST]: swiftModules, [SGCONFIG]: grammars } as const;
 

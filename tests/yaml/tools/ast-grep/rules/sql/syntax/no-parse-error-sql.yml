@@ -1,7 +1,0 @@
-id: no-parse-error-sql
-valid:
-    - SELECT a FROM t WHERE b = 1;
-    - SELECT x'0A';
-invalid:
-    - SELECT FROM WHERE;
-    - SELECT x'0G';

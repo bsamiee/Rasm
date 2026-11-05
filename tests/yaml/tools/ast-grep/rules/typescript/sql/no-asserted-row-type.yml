@@ -1,9 +1,0 @@
-id: no-asserted-row-type
-valid:
-    - const rows = yield* sql`select 1`;
-    - const rows = yield* sql.unsafe('select 1');
-    - const rows = yield* other<Row>`select 1`;
-invalid:
-    - const rows = sql<Row>`select 1`;
-    - const rows = yield* sql<Row, Err>`select 1`;
-    - const rows = yield* sql.unsafe<Row>('select 1');

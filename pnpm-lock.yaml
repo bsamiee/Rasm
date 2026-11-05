@@ -918,6 +918,9 @@ catalogs:
     tree-sitter-javascript:
       specifier: 0.25.0
       version: 0.25.0
+    tree-sitter-postgres:
+      specifier: 19.0.0-beta.4.1
+      version: 19.0.0-beta.4.1
     tree-sitter-python:
       specifier: 0.25.0
       version: 0.25.0
@@ -1011,6 +1014,7 @@ overrides:
   '@pulumi/pulumi': 3.274.0-alpha.x95dc869
   cloudevents>uuid: 14.0.2
   '@tree-sitter-grammars/tree-sitter-xml>tree-sitter': '-'
+  tree-sitter-postgres>tree-sitter: '-'
   tree-sitter-swift>tree-sitter: '-'
   tree-sitter-swift>tree-sitter-cli: '-'
   vite-plugin-inspect>@vitejs/devtools-kit: 0.8.0
@@ -1952,6 +1956,9 @@ importers:
       tree-sitter-javascript:
         specifier: 'catalog:'
         version: 0.25.0
+      tree-sitter-postgres:
+        specifier: 'catalog:'
+        version: 19.0.0-beta.4.1
       tree-sitter-python:
         specifier: 'catalog:'
         version: 0.25.0
@@ -14601,6 +14608,9 @@ packages:
     peerDependenciesMeta:
       tree-sitter:
         optional: true
+
+  tree-sitter-postgres@19.0.0-beta.4.1:
+    resolution: {integrity: sha512-ungI+c5OEZPhYPMQvDhvFevletBsUw5XVAH7P0qMBidAbOAS4LjlMHjfbCmv9VS3Gra/IwMUmK4h6pHbymxmpQ==}
 
   tree-sitter-python@0.25.0:
     resolution: {integrity: sha512-eCmJx6zQa35GxaCtQD+wXHOhYqBxEL+bp71W/s3fcDMu06MrtzkVXR437dRrCrbrDbyLuUDJpAgycs7ncngLXw==}
@@ -29779,6 +29789,11 @@ snapshots:
       node-gyp-build: 4.8.4
 
   tree-sitter-javascript@0.25.0:
+    dependencies:
+      node-addon-api: 8.9.2
+      node-gyp-build: 4.8.4
+
+  tree-sitter-postgres@19.0.0-beta.4.1:
     dependencies:
       node-addon-api: 8.9.2
       node-gyp-build: 4.8.4
