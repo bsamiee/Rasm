@@ -7,7 +7,7 @@ utils:
         any:
             - kind: object, array, string, template_string, number, regex
             - matches: typescript-expression-wrapper
-              has: {nthChild: 1, matches: uncallable}
+              has: {nthChild: {position: 1, ofRule: &code {not: {kind: 'comment, html_comment'}}}, matches: uncallable}
     query:
         any:
             - matches: uncallable
@@ -30,7 +30,7 @@ rule:
             pattern: $FIND
             all:
                 - has: {field: function, kind: member_expression, has: {field: property, regex: '^(find|findLast)$'}}
-                - has: {field: arguments, has: {nthChild: 1, not: {matches: query}}, not: {has: {nthChild: 2}}}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: *code}, not: {matches: query}}, not: {has: {nthChild: {position: 2, ofRule: *code}}}}
                 - not: {has: {field: function, has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)[A-Z][^\x00-#%-/:-@\[-\^`{-~\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*$'}}}}}}
 message: '`$FIND` reads an absent element as `undefined` through optional chaining'
 note: 'Map `Array.findFirst(<list>, <predicate>)` or `Array.findLast` through `Option.map` and fold absence once'

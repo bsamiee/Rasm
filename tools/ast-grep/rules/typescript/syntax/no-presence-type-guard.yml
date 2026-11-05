@@ -14,7 +14,7 @@ utils:
             - kind: call_expression
               all:
                 - has: {field: function, regex: '^(Predicate\.)?is[A-Z][A-Za-z]*$'}
-                - has: {field: arguments, has: {nthChild: 1, matches: member}}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: &code {not: {kind: 'comment, html_comment'}}}, matches: member}}
             - kind: binary_expression
               any:
                 - pattern: typeof $_ === $_
@@ -71,7 +71,7 @@ utils:
         kind: call_expression
         all:
             - has: {field: function, regex: '^((Predicate\.)?hasProperty|Object\.hasOwn|Reflect\.has)$'}
-            - has: {field: arguments, has: {nthChild: 1, kind: 'identifier, member_expression', pattern: $TYPE}}
+            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: *code}, kind: 'identifier, member_expression', pattern: $TYPE}}
     in-presence:
         kind: binary_expression
         all:
@@ -106,7 +106,7 @@ rule:
                             kind: generic_type
                             all:
                                 - has: {field: name, regex: '^(Predicate\.)?Refinement$'}
-                                - has: {field: type_arguments, has: {nthChild: 2, pattern: $TYPE}}
+                                - has: {field: type_arguments, has: {nthChild: {position: 2, ofRule: *code}, pattern: $TYPE}}
             - matches: tested-body
     not: {inside: {kind: program, stopBy: end, matches: extendscript-file}}
 message: '`$TYPE` narrows on a test in place of its schema'

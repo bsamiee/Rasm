@@ -36,7 +36,7 @@ utils:
                 - has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Option$'}}}}
     piped-default:
         matches: get-or-else
-        has: {field: arguments, has: {nthChild: 1, matches: empty-fallback}, not: {has: {nthChild: 2}}}
+        has: {field: arguments, has: {nthChild: {position: 1, ofRule: &code {not: {kind: 'comment, html_comment'}}}, matches: empty-fallback}, not: {has: {nthChild: {position: 2, ofRule: *code}}}}
     concatenation:
         any:
             - kind: binary_expression
@@ -61,17 +61,17 @@ rule:
         - kind: call_expression
           all:
             - matches: get-or-else
-            - has: {field: arguments, all: [{has: {nthChild: 1, matches: option-lookup}}, {has: {nthChild: 2, matches: empty-fallback}}], not: {has: {nthChild: 3}}}
+            - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: *code}, matches: option-lookup}}, {has: {nthChild: {position: 2, ofRule: *code}, matches: empty-fallback}}], not: {has: {nthChild: {position: 3, ofRule: *code}}}}
             - not: {matches: concatenated}
         - kind: call_expression
           all:
             - has: {field: function, regex: '^pipe$'}
-            - has: {field: arguments, all: [{has: {nthChild: 1, matches: option-lookup}}, {has: {nthChild: 2, matches: piped-default}}], not: {has: {nthChild: 3}}}
+            - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: *code}, matches: option-lookup}}, {has: {nthChild: {position: 2, ofRule: *code}, matches: piped-default}}], not: {has: {nthChild: {position: 3, ofRule: *code}}}}
             - not: {matches: concatenated}
         - kind: call_expression
           all:
             - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^pipe$'}}, {has: {field: object, matches: option-lookup}}]}
-            - has: {field: arguments, has: {nthChild: 1, matches: piped-default}, not: {has: {nthChild: 2}}}
+            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: *code}, matches: piped-default}, not: {has: {nthChild: {position: 2, ofRule: *code}}}}
             - not: {matches: concatenated}
 transform:
     HEAD: {replace: {source: $ELEMENT, replace: '(?s)^([^(]+)\(.*$', by: '$1'}}

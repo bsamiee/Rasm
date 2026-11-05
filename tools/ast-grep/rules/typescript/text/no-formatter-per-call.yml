@@ -11,13 +11,13 @@ rule:
         - kind: call_expression
           all:
             - has: {field: function, kind: member_expression, pattern: $FORMATTER, has: {field: property, regex: '^(toLocaleString|toLocaleDateString|toLocaleTimeString)$'}}
-            - has: {field: arguments, has: {nthChild: 1}}
+            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: &code {not: {kind: 'comment, html_comment'}}}}}
             - not: {has: {field: arguments, has: {pattern: $_, not: {matches: typescript-literal-expression}}}}
             - inside: {stopBy: end, kind: *boundary}
         - kind: call_expression
           all:
             - has: {field: function, kind: member_expression, pattern: $FORMATTER, has: {field: property, regex: '^localeCompare$'}}
-            - has: {field: arguments, has: {nthChild: 2}}
+            - has: {field: arguments, has: {nthChild: {position: 2, ofRule: *code}}}
             - not: {has: {field: arguments, has: {nthChild: 'n+2', not: {matches: typescript-literal-expression}}}}
             - inside: {stopBy: end, kind: *boundary}
     not: {inside: {kind: program, stopBy: end, matches: extendscript-file}}

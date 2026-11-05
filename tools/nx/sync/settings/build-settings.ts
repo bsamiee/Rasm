@@ -3,8 +3,8 @@ import type { Tree } from '@nx/devkit';
 import { readNxJsonFromDisk } from '@nx/devkit/internal';
 import { Array, Effect, Optic, Result, Schema, Struct } from 'effect';
 import { Identity } from '#/eng/typescript/manifest';
-import { openWorkspace, SWIFT_MANIFEST } from '#/tools/nx/internal/open-workspace';
-import { decodeTree, syncGenerator } from '#/tools/nx/internal/plugin-runtime';
+import { decodeTree, syncGenerator } from '#/tools/nx/sync/tree';
+import { openWorkspace, SWIFT_MANIFEST } from '#/tools/nx/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

@@ -8,7 +8,7 @@ rule:
         - has:
             field: arguments
             has:
-                nthChild: {position: 1, reverse: true}
+                nthChild: {position: 1, reverse: true, ofRule: {not: {kind: 'comment, html_comment'}}}
                 not:
                     any:
                         - {kind: array, not: {has: {kind: spread_element}}}

@@ -19,7 +19,7 @@ utils:
               all:
                 - has: {kind: template_substitution}
                 - not: {has: {kind: 'string_fragment, escape_sequence'}}
-                - not: {has: {kind: template_substitution, nthChild: 2}}
+                - not: {has: {kind: template_substitution, nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}
     member-name:
         kind: string
         regex: '^.[A-Z][A-Z0-9_]*.$'

@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: python-import-binding
+language: pythonlang
+arguments: [name]
+rule:
+    any:
+        - kind: import_statement
+          has:
+            any:
+                - kind: dotted_name
+                  has: {nthChild: 1, kind: identifier, matches: name}
+                - kind: aliased_import
+                  has: {field: alias, matches: name}
+        - kind: import_from_statement
+          has:
+            any:
+                - kind: wildcard_import
+                - kind: dotted_name
+                  matches: name
+                  not: {inside: {kind: import_from_statement, field: module_name}}
+                - kind: aliased_import
+                  has: {field: alias, matches: name}

@@ -9,7 +9,7 @@
         { "plugin": "@nx/playwright/plugin", "options": { "ciTargetName": "" } },
         { "plugin": "@nx/dotnet", "options": { "clean": false, "pack": false, "publish": false, "run": false, "watch": false } },
         {
-            "plugin": "./tools/nx/workspace.ts",
+            "plugin": "./tools/nx/graph/plugin.ts",
             "options": {
                 "root": {
                     "restore": { "options": { "args": [ "Workspace.slnx" ] } },
@@ -94,7 +94,7 @@
         }
     ],
     "pluginsConfig": { "@nx/js": { "analyzeSourceFiles": false, "projectsAffectedByDependencyUpdates": "auto" } },
-    "sync": { "globalGenerators": [ "./tools/nx/generators.json:agents", "./tools/nx/generators.json:barrels", "./tools/nx/generators.json:build-settings", "./tools/nx/generators.json:catalog-mirror", "./tools/nx/generators.json:hosting-bindings", "./tools/nx/generators.json:outline-catalogs", "./tools/nx/generators.json:rust-analyzer" ] },
+    "sync": { "globalGenerators": [ "./tools/nx/sync/generators.json:agents", "./tools/nx/sync/generators.json:barrels", "./tools/nx/sync/generators.json:build-settings", "./tools/nx/sync/generators.json:catalog-mirror", "./tools/nx/sync/generators.json:hosting-bindings", "./tools/nx/sync/generators.json:outline-catalogs", "./tools/nx/sync/generators.json:rust-analyzer" ] },
     "release": {
         "projectsRelationship": "independent",
         "releaseTag": { "pattern": "{releaseGroupName}-{projectName}-v{version}" },

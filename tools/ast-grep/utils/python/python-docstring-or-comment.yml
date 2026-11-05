@@ -5,4 +5,7 @@ rule:
     any:
         - kind: comment
         - kind: expression_statement
-          has: {kind: 'string, concatenated_string', not: {has: {stopBy: end, kind: string_start, not: {regex: "^(?i:r|u)?[\"']"}}}}
+          has:
+            any:
+                - {kind: string, matches: python-text-string}
+                - {kind: concatenated_string, not: {has: {kind: string, not: {matches: python-text-string}}}}

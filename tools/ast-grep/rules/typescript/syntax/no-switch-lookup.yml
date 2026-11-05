@@ -26,7 +26,7 @@ utils:
     returning-case:
         kind: switch_case, switch_default
         all:
-            - not: {has: {nthChild: {position: 3, ofRule: {not: {kind: comment}}}}}
+            - not: {has: {nthChild: {position: 3, ofRule: &code {not: {kind: 'comment, html_comment'}}}}}
             - not: {has: {field: body, not: {matches: value-return}}}
     literal-case:
         kind: switch_case
@@ -48,7 +48,7 @@ utils:
                     - matches: value-return
                     - kind: statement_block
                       has: {matches: value-return}
-                      not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+                      not: {has: {nthChild: {position: 2, ofRule: *code}}}
             - not: {has: {field: alternative, pattern: $_}}
     match-value:
         matches: {effect-module-member: {module: {regex: '^Match$'}, member: {regex: '^value$'}}}
@@ -68,7 +68,7 @@ utils:
             - has:
                 field: arguments
                 all:
-                    - has: {nthChild: {position: 1, reverse: true, ofRule: {not: {kind: comment}}}, matches: literal-handler}
+                    - has: {nthChild: {position: 1, reverse: true, ofRule: *code}, matches: literal-handler}
                     - not: {has: {pattern: $_, not: {any: [{kind: comment}, {matches: literal}, {matches: literal-handler}, {kind: object, not: {has: {pattern: $_, not: {kind: pair, has: {field: value, matches: literal}}}}}]}}}
     literal-close:
         any:
@@ -91,12 +91,12 @@ rule:
           not: {follows: {matches: returning-if}}
         - kind: call_expression
           all:
-            - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^pipe$'}}, {has: {field: object, kind: call_expression, all: [{has: {field: function, matches: match-value}}, {has: {field: arguments, has: {nthChild: 1, matches: key}}}]}}]}
+            - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^pipe$'}}, {has: {field: object, kind: call_expression, all: [{has: {field: function, matches: match-value}}, {has: {field: arguments, has: {nthChild: {position: 1, ofRule: *code}, matches: key}}}]}}]}
             - has:
                 field: arguments
                 all:
                     - has: {matches: literal-arm, nthChild: {position: 2, ofRule: {matches: literal-arm}}}
-                    - has: {nthChild: {position: 1, reverse: true, ofRule: {not: {kind: comment}}}, matches: literal-close}
+                    - has: {nthChild: {position: 1, reverse: true, ofRule: *code}, matches: literal-close}
                     - not: {has: {pattern: $_, not: {any: [{kind: comment}, {matches: literal-arm}, {matches: literal-close}]}}}
 message: '`$KEY` selects one value per literal case'
 note: 'Index a literal-keyed record by the key or its `_tag`, a raw key decoded at entry through `Schema.Literals(Struct.keys(<record>))`'

@@ -73,7 +73,7 @@ Candidate kind sets decide how many nodes attempt a matcher:
 No match result caches across candidates, each candidate reruns every relation and util, and a finding is the node that matched:
 - Membership joins (a name in `__all__`, a later `export { x }`) cost linear work per candidate, quadratic over a file's items
 - No rule resolves a scope's import set once for its uses, each use resolves it again
-- Cheap tests of a necessary fact (name text, an enclosing scope's header) precede a resolving util, a renamed import reports once at its alias
+- Cheap tests of a necessary fact (name text, scope header, a kind-only climb as deep as a util chain's) precede a resolving util
 - Scopes deciding the correction report their declaration once, uses needing correction reject other callees or names before resolving ownership
 - Parameterized utils run at every candidate of the caller's kind set, each parameter reference naming no kind and building a fresh environment
 - Param-free tests (kind, field, text) precede the call in a caller and the first parameter reference in a util
@@ -97,7 +97,8 @@ Relations reuse parsed trees, ancestor searches do not parse source again:
 - Repeated atomic boundaries share a YAML anchor, a kind-only util adds a registry lookup at every visited node
 - Consumers needing scope ownership can collect each boundary once and join source ranges instead of repeating ancestor text per match
 - Bind source references once under distinct captures for identity and scope constraints, compare declaration names separately
-- `nthChild` filters all named siblings on each evaluation, use direct fields for grammar roles and a list pattern for arity (`{context: 'f($A, $B)', selector: <list>}`)
+- `nthChild` filters all named siblings on each evaluation, quadratic over a wide parent, direct fields state grammar roles and a list pattern arity (`{context: 'f($A, $B)', selector: <list>}`)
+- First-of-kind tests run `not: {follows: {kind: <k>, stopBy: end}}`, stopping at the nearest earlier match, then `nthChild: {position: 1, ofRule: {kind: <k>}}` for siblings an error-recovered parent hides from that walk
 - `nthChild.ofRule` can supply candidate kinds, matching the same filter outside it repeats work unless captures require ordering
 
 ## [05]-[OUTLINE]

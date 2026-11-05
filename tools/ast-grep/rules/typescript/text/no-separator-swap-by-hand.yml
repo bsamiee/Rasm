@@ -8,11 +8,11 @@ rule:
     any:
         - all:
             - has: {field: function, kind: member_expression, has: {field: property, regex: '^replace(All)?$'}}
-            - has: {field: arguments, matches: typescript-separator-swap, has: {nthChild: 1, pattern: $SEARCH}}
-            - not: {all: [{has: {field: function, has: {field: property, regex: '^replace$'}}}, {has: {field: arguments, has: {nthChild: 1, kind: string}}}]}
+            - has: {field: arguments, matches: typescript-separator-swap, has: {nthChild: {position: 1, ofRule: &code {not: {kind: 'comment, html_comment'}}}, pattern: $SEARCH}}
+            - not: {all: [{has: {field: function, has: {field: property, regex: '^replace$'}}}, {has: {field: arguments, has: {nthChild: {position: 1, ofRule: *code}, kind: string}}}]}
         - all:
             - matches: typescript-separator-swap
-            - has: {field: function, has: {field: object, has: {field: arguments, has: {nthChild: 1, pattern: $SEARCH}}}}
+            - has: {field: function, has: {field: object, has: {field: arguments, has: {nthChild: {position: 1, ofRule: *code}, pattern: $SEARCH}}}}
     not: {inside: {kind: program, stopBy: end, matches: extendscript-file}}
 transform:
     KEBAB: {replace: {source: $SEARCH, replace: '^.*-.*$', by: kebabToSnake}}

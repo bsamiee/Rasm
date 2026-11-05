@@ -13,7 +13,7 @@
 - Workspace plugin `grammars` option holds rows of project `grammars`, a project apart keeps root rows out of grammar hashes
 - `analytics: false` disables telemetry `neverConnectToCloud` leaves on, without a boolean Nx prompts and rewrites `nx.json` expanded
 - `useDaemonProcess: false` stays: concurrent agents race daemon starts into a socket error and a disabled marker only `nx reset` clears, and a live daemon recomputes the graph on every file another agent writes
-- Sync generators take one `tools/nx/<name>.ts` and one `generators.json` row, `sync.globalGenerators` lists every one
+- Sync generators take one `tools/nx/sync/<written kind>/<name>.ts` and one `tools/nx/sync/generators.json` row, `sync.globalGenerators` lists every one
 - `lint:nx` reports generator drift and `format:nx` writes it, `nx.json` `inputs` name each file a generator reads or writes, the plugin adds imports
 - Generators on a target rerun `createNodes` per run and off a TTY refuse the task over another writer's drift
 

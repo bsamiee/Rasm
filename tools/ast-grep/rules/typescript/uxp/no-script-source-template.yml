@@ -54,14 +54,14 @@ rule:
     any:
         - all:
             - has: {field: function, kind: member_expression, pattern: $CALLEE, has: {field: property, regex: '^doScript$'}}
-            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: built-source}}
+            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: &code {not: {kind: 'comment, html_comment'}}}, matches: built-source}}
             - inside: {kind: program, stopBy: end, matches: {typescript-module-importer: {module: {regex: '^(adobe:)?indesign$'}}}}
         - all:
             - has: {field: function, kind: member_expression, pattern: $CALLEE, has: {field: property, regex: '^(script|execute)$'}}
             - has:
                 field: arguments
                 has:
-                    nthChild: {position: 1, ofRule: {not: {kind: comment}}}
+                    nthChild: {position: 1, ofRule: *code}
                     kind: object
                     any:
                         - has: {matches: encoded-entry}

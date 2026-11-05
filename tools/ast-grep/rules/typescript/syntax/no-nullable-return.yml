@@ -34,7 +34,7 @@ utils:
                             - has: {field: name, regex: '^(Async)?Generator$'}
                             - has:
                                 field: type_arguments
-                                has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}, matches: no-value-type}
+                                has: {nthChild: {position: 2, ofRule: &code {not: {kind: 'comment, html_comment'}}}, matches: no-value-type}
     null-or-nan-result:
         any:
             - kind: 'null'
@@ -69,7 +69,7 @@ utils:
             - has: {field: return_type, has: {stopBy: end, kind: 'type_identifier, nested_type_identifier', regex: '^(React\.)?(JSX\.Element|ReactNode|ReactElement)$'}}
     replacer:
         matches: typescript-function-boundary
-        nthChild: 2
+        nthChild: {position: 2, ofRule: *code}
         inside:
             kind: arguments
             inside: {kind: call_expression, has: {field: function, regex: '^((globalThis|window|self)\.)?JSON\.stringify$', matches: typescript-global-reference}}

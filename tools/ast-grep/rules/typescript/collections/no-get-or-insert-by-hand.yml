@@ -26,13 +26,13 @@ rule:
     any:
         - kind: expression_statement
           has:
-            nthChild: 1
+            nthChild: {position: 1, ofRule: &code {not: {kind: 'comment, html_comment'}}}
             any:
                 - pattern: '$MAP.has($KEY) || $MAP.set($KEY, $VALUE)'
                 - pattern: '!$MAP.has($KEY) && $MAP.set($KEY, $VALUE)'
         - kind: if_statement
           all:
-            - has: {field: condition, has: {nthChild: 1, pattern: '!$MAP.has($KEY)'}}
+            - has: {field: condition, has: {nthChild: {position: 1, ofRule: *code}, pattern: '!$MAP.has($KEY)'}}
             - not: {has: {field: alternative, kind: else_clause}}
             - has:
                 field: consequence
@@ -40,7 +40,7 @@ rule:
                     - kind: expression_statement
                     - kind: statement_block
                       has: {kind: expression_statement}
-                      not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+                      not: {has: {nthChild: {position: 2, ofRule: *code}}}
                 has: {stopBy: {kind: call_expression}, kind: call_expression, pattern: '$MAP.set($KEY, $VALUE)'}
 constraints:
     MAP: {kind: identifier, matches: {typescript-collection-receiver: {collection: {regex: '^Map$'}}}}

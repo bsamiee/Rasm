@@ -53,6 +53,7 @@ export default extend(java, {
         record_pattern: ($, original) => choice(original, seq($.scoped_type_identifier, $.record_pattern_body)),
         type_pattern: binding,
         record_pattern_component: binding,
+        method_reference: widen(choiceOf(symbol('super')), ($) => seq($.primary_expression, '.', $.super)),
         instanceof_expression: unnamed,
         lambda_expression: unnamed,
         inferred_parameters: unnamed,

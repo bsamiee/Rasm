@@ -6,27 +6,27 @@ utils:
         kind: object_type
         all:
             - has: {kind: property_signature, has: {field: name, regex: '^cause$'}}
-            - not: {has: {nthChild: 2}}
+            - not: {has: {nthChild: {position: 2, ofRule: &code {not: {kind: 'comment, html_comment'}}}}}
     cause-fields:
         kind: object
         all:
             - has: {any: [{kind: pair, has: {field: key, regex: '^cause$'}}, {kind: shorthand_property_identifier, regex: '^cause$'}]}
-            - not: {has: {nthChild: 2}}
+            - not: {has: {nthChild: {position: 2, ofRule: *code}}}
     cause-heritage:
         matches: effect-error-heritage
         any:
-            - has: {field: type_arguments, has: {nthChild: 1, matches: cause-type}, not: {has: {nthChild: 2}}}
+            - has: {field: type_arguments, has: {nthChild: {position: 1, ofRule: *code}, matches: cause-type}, not: {has: {nthChild: {position: 2, ofRule: *code}}}}
             - has:
                 field: value
                 kind: call_expression
                 all:
                     - has: {field: function, kind: call_expression}
-                    - has: {field: arguments, has: {nthChild: {position: 1, reverse: true}, any: [{matches: cause-fields}, {matches: cause-reason}]}}
+                    - has: {field: arguments, has: {nthChild: {position: 1, reverse: true, ofRule: *code}, any: [{matches: cause-fields}, {matches: cause-reason}]}}
     cause-reason:
         kind: object
         all:
             - has: {kind: pair, all: [{has: {field: key, regex: '^reason$'}}, {has: {field: value, kind: identifier, pattern: $REASON}}]}
-            - not: {has: {nthChild: 2}}
+            - not: {has: {nthChild: {position: 2, ofRule: *code}}}
             - inside:
                 kind: program
                 stopBy: end
@@ -41,7 +41,7 @@ utils:
                                 kind: call_expression
                                 all:
                                     - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Schema$'}, member: {regex: '^TaggedUnion$'}}}}
-                                    - has: {field: arguments, has: {nthChild: 1, kind: object, all: [{has: {kind: pair, has: {field: value, matches: cause-fields}}}, {not: {has: {nthChild: 2}}}]}}
+                                    - has: {field: arguments, has: {nthChild: {position: 1, ofRule: *code}, kind: object, all: [{has: {kind: pair, has: {field: value, matches: cause-fields}}}, {not: {has: {nthChild: {position: 2, ofRule: *code}}}}]}}
     message-getter:
         kind: method_definition
         all:

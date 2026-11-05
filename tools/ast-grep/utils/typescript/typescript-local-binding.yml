@@ -22,9 +22,9 @@ utils:
             - kind: expression_statement
               has: {kind: internal_module, has: {field: name, pattern: $NAME}}
             - kind: import_alias
-              has: {kind: 'identifier, undefined', nthChild: 1, pattern: $NAME}
+              has: {kind: 'identifier, undefined', nthChild: {position: 1, ofRule: &code {not: {kind: 'comment, html_comment'}}}, pattern: $NAME}
             - kind: import_statement
-              has: {kind: import_require_clause, has: {kind: 'identifier, undefined', nthChild: 1, pattern: $NAME}}
+              has: {kind: import_require_clause, has: {kind: 'identifier, undefined', nthChild: {position: 1, ofRule: *code}, pattern: $NAME}}
             - kind: export_statement
               has: {matches: declaration}
     value-import:

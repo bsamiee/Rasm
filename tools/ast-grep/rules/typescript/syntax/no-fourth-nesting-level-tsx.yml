@@ -13,7 +13,7 @@ utils:
             - inside: {kind: switch_statement, field: value, stopBy: *scope}
     nested-body:
         any:
-            - has: {field: body, kind: statement_block, has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+            - has: {field: body, kind: statement_block, has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}
             - has: {field: body, any: [{matches: typescript-control-flow}, {has: {matches: typescript-control-flow, stopBy: {matches: closure}}}]}
     level:
         any:

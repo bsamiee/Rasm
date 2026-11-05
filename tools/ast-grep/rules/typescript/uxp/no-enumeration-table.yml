@@ -13,9 +13,9 @@ utils:
     member-entry:
         kind: array
         all:
-            - has: {kind: 'string, template_string', nthChild: 1}
-            - has: {nthChild: 2, matches: member}
-            - not: {has: {nthChild: 3}}
+            - has: {kind: 'string, template_string', nthChild: {position: 1, ofRule: &code {not: {kind: 'comment, html_comment'}}}}
+            - has: {nthChild: {position: 2, ofRule: *code}, matches: member}
+            - not: {has: {nthChild: {position: 3, ofRule: *code}}}
     host-member:
         has: {field: object, matches: indesign-enumeration-reference}
 rule:
@@ -28,7 +28,7 @@ rule:
         - kind: array
           all:
             - has: {kind: array, nthChild: {position: 2, ofRule: {kind: array}}}
-            - has: {matches: member-entry, has: {nthChild: 2, matches: host-member}}
+            - has: {matches: member-entry, has: {nthChild: {position: 2, ofRule: *code}, matches: host-member}}
             - not: {has: {pattern: $_, not: {any: [{kind: comment}, {matches: member-entry}]}}}
 message: 'Table restates members of `$ENUMERATION` under keys of its own'
 note: 'Read `Reflect.get(<enum>, <name>)` through one `instanceof <module>.Enumerator` guard; use upper snake, camel, or lowercase'

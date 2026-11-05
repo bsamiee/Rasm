@@ -1,42 +1,42 @@
 {
     "generators": {
         "agents": {
-            "factory": "./agents.ts#agents",
+            "factory": "./settings/agents.ts#agents",
             "schema": "./schema.json",
             "description": "Writes Claude and Codex MCP rows, plugin catalogs and manifests, and Codex agents from mise.toml daemons and each plugin"
         },
         "build-settings": {
-            "factory": "./build-settings.ts#buildSettings",
+            "factory": "./settings/build-settings.ts#buildSettings",
             "schema": "./schema.json",
             "description": "Writes Xcode.xcconfig, .swiftlint.yml, Directory.Build.props, mise.toml and pixi platform rows from root package.json and Package.swift"
         },
         "barrels": {
-            "factory": "./barrels.ts#barrels",
+            "factory": "./packages/barrels.ts#barrels",
             "schema": "./schema.json",
             "description": "Writes each library's index.ts barrels from its package.json exports and modules"
         },
         "catalog-mirror": {
-            "factory": "./catalog-mirror.ts#catalogMirror",
+            "factory": "./packages/catalog-mirror.ts#catalogMirror",
             "schema": "./schema.json",
             "description": "Writes every default pnpm catalog key into root devDependencies"
         },
         "injection-utils": {
-            "factory": "./injection-utils.ts#injectionUtils",
+            "factory": "./ast-grep/injection-utils.ts#injectionUtils",
             "schema": "./schema.json",
             "description": "Writes each ast-grep rule's injection-utils metadata entry rule and utils it calls from sgconfig.yml languageInjections"
         },
         "outline-catalogs": {
-            "factory": "./outline-catalogs.ts#outlineCatalogs",
+            "factory": "./ast-grep/outline-catalogs.ts#outlineCatalogs",
             "schema": "./schema.json",
             "description": "Writes each sgconfig.yml outlineRules catalog from its sources document, its language, and the shared utils, rewriters, and transforms each document calls"
         },
         "rust-analyzer": {
-            "factory": "./rust-analyzer.ts#rustAnalyzer",
+            "factory": "./settings/rust-analyzer.ts#rustAnalyzer",
             "schema": "./schema.json",
             "description": "Writes .vscode/settings.json rust-analyzer check and rustc rows from the argus .lsp.json rust row"
         },
         "hosting-bindings": {
-            "factory": "./hosting-bindings.ts#hostingBindings",
+            "factory": "./settings/hosting-bindings.ts#hostingBindings",
             "schema": "./schema.json",
             "description": "Writes each .openai/hosting.json d1 and r2 members from its cloudflare.config.ts bindings"
         }

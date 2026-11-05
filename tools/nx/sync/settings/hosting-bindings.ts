@@ -1,8 +1,8 @@
 import { loadAndParseConfig } from '@cloudflare/config';
 import type { Tree } from '@nx/devkit';
 import { Array, Effect, Option, Path, Record, Schema, Struct } from 'effect';
-import { CLOUDFLARE_CONFIG, glob } from '#/tools/nx/internal/open-workspace';
-import { syncGenerator } from '#/tools/nx/internal/plugin-runtime';
+import { syncGenerator } from '#/tools/nx/sync/tree';
+import { CLOUDFLARE_CONFIG, glob } from '#/tools/nx/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

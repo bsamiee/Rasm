@@ -22,7 +22,7 @@ utils:
         any:
             - matches: construction
             - matches: typescript-expression-wrapper
-              has: {nthChild: 1, matches: built}
+              has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: built}
     collection-declared:
         any: [{has: {field: type, matches: collection-type}}, {has: {field: value, matches: built}}]
     static-member:

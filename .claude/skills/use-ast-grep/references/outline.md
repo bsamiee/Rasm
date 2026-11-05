@@ -312,7 +312,7 @@ Template behavior:
 - Attribute arguments that compute (a call, lambda, operator, collection) print as `…`, a name, attribute, or literal stays
 - Extras can split a header, fold `<ws>*\n<ws>*` (`<ws>` the grammar's whitespace class) to one space
 - Folds join line breaks inside literals, fold only captures that can span lines and trim the end only where a rewriter leaves whitespace
-- Multi-line `object_type` or `arguments` collapse by layout, a rewriter on `{kind: <kind>, regex: "\n"}` with fix `{…}` or `(…)`
+- Multi-line `arguments` collapse to `(…)` through a rewriter on `{kind: <kind>, regex: "\n"}`, a shape (`object_type`) to `{…}` only where its members print as member rows, elsewhere the fold joins its lines
 - `replace` groups expand in `by`, a missing group leaves its separators
 - Lone declarators match their declaration, a grouped declaration's bindings match per declarator and read that binding's fields
 - Rewriting a grouped declaration per binding costs quadratic work
@@ -361,7 +361,7 @@ Each outlined language holds one catalog file, registered as its `outlineRules`:
 - Opening leaves test a kind-only climb to the nearest `ERROR`, statement list, or root first, so clean files pay one climb per walked leaf
 - Leaf row documents take `not: {has: {stopBy: end, any: [{kind: ERROR}, {regex: '^$'}]}}` so the walk reaches the failure, a kinded test misses anonymous `MISSING`
 - Failures whose named children are all rows print one, the `ERROR` itself (Swift `if #foo`) or its first row child (XML second root) giving up its rows
-- `MISSING` tokens match one regex-first arm, `{regex: '^$', any: [<named kinds>, {pattern: <token>}]}`, less kinds zero-width when valid
+- `MISSING` tokens match one regex-first arm, `{regex: '^$', any: [<named kinds>, {pattern: <token>}]}` with a pattern per token recovery inserts, a statement separator (`;`) included, less kinds zero-width when valid
 - Anonymous `MISSING` tokens match a pattern peeling to them (SQL `)`), else the node they close (`has: {regex: '^$'}` on the kinds closing with them)
 - Parse failure rows take `name: ERROR`, `signature: ''`, and literal false flags
 - Catalogs classify by local syntax with no import resolution or shadowing analysis, a library call shape enters only as a callee test

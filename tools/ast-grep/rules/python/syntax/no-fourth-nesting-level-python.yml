@@ -38,7 +38,9 @@ utils:
                 - matches: nested-body
     boundary: {any: [{matches: level}, {kind: function_definition}]}
 rule:
+    kind: &levels 'if_statement, for_statement, while_statement, match_statement, conditional_expression, lambda, function_definition'
     all:
+        - inside: {stopBy: end, kind: *levels, inside: {stopBy: end, kind: *levels, inside: {stopBy: end, kind: *levels}}}
         - matches: level
         - inside:
             matches: level

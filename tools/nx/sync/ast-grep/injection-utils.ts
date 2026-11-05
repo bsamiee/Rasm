@@ -3,9 +3,8 @@ import { Array, Effect, Equal, Match, Option, Predicate, Stream, String } from '
 import { type Document, isNode, Pair, parseAllDocuments, parseDocument, Scalar, visit, YAMLMap, YAMLSeq } from 'yaml';
 import { Sgconfig } from '#/eng/typescript/manifest';
 import { runCommand } from '#/eng/typescript/run-command';
-import { glob } from '#/tools/nx/internal/open-workspace';
-import { decodeTree, syncGenerator, treeText } from '#/tools/nx/internal/plugin-runtime';
-import { WorkspaceError } from '#/tools/nx/internal/workspace-error';
+import { decodeTree, syncGenerator, treeText } from '#/tools/nx/sync/tree';
+import { glob, WorkspaceError } from '#/tools/nx/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

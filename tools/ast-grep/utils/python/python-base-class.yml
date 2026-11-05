@@ -11,22 +11,7 @@ utils:
     binding:
         any:
             - matches: {python-binding: {name: {pattern: $BASE}}}
-            - kind: import_statement
-              has:
-                any:
-                    - kind: dotted_name
-                      has: {nthChild: 1, kind: identifier, pattern: $BASE}
-                    - kind: aliased_import
-                      has: {field: alias, pattern: $BASE}
-            - kind: import_from_statement
-              has:
-                any:
-                    - kind: wildcard_import
-                    - kind: dotted_name
-                      pattern: $BASE
-                      not: {inside: {kind: import_from_statement, field: module_name}}
-                    - kind: aliased_import
-                      has: {field: alias, pattern: $BASE}
+            - matches: {python-import-binding: {name: {pattern: $BASE}}}
     binding-statement:
         any:
             - matches: binding

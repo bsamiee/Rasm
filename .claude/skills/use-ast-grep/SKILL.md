@@ -65,11 +65,11 @@ Patterns debug through `--debug-query`, `pattern` prints the compiled pattern wi
 
 Identifier tokens hold Unicode classes per grammar, JavaScript and TypeScript accepting `\u` escapes:
 
-| [INDEX] | [LANGUAGE] | [START]                 | [CONTINUE]                                                                                        |
-| :-----: | :--------- | :---------------------- | :------------------------------------------------------------------------------------------------ |
-|  [01]   | Rust       | `(r#)?[_\p{XID_Start}]` | `[_\p{XID_Continue}]*`                                                                            |
-|  [02]   | Python     | `[_\p{XID_Start}]`      | `[_\p{XID_Continue}]*`                                                                            |
-|  [03]   | JS, TS     | Continue set, no digit  | No control, whitespace, `\p{Zs}`, punctuation but `$` `_`, U+200B, U+2028, U+2029, U+2060, U+FEFF |
+| [INDEX] | [LANGUAGE] | [START]                 | [CONTINUE]                                                                                     |
+| :-----: | :--------- | :---------------------- | :--------------------------------------------------------------------------------------------- |
+|  [01]   | Rust       | `(r#)?[_\p{XID_Start}]` | `[_\p{XID_Continue}]*`                                                                         |
+|  [02]   | Python     | `[_\p{XID_Start}]`      | `[_\p{XID_Continue}]*`                                                                         |
+|  [03]   | JS, TS     | Continue set, no digit  | No C0 control, `\p{Zs}`, ASCII punctuation but `$` `_`, U+200B, U+2028, U+2029, U+2060, U+FEFF |
 
 ## [02]-[RULES]
 
@@ -117,7 +117,8 @@ Relations test one node along one axis:
 - `has` with `field` and a rule `stopBy` reads the field child and its children alone and misses `((b))`, `has: {field: <role>, any: [<target>, {kind: <wrapper>, has: {stopBy: <stop>, <target>}}]}` descends
 - Unnamed token fields (`operator`) take `has: {field: <role>, pattern: $$_X}`
 - `has` and `inside` with `field` test a repeated field's first child alone, later children take a fieldless relation with kind and direct parent
-- Default `follows` reads the adjacent sibling alone, a comment or unnamed token (`,`) between siblings needs `stopBy: end`
+- Default `follows` and `precedes` read the adjacent sibling, a comment or unnamed token (`,`) between siblings takes a `stopBy`
+- Stopped `follows` and `precedes` walks locate the candidate by its start byte, under an error-recovered parent they can yield no sibling
 - `has` visits unnamed children and comments, restrict named children with `not: {has: {pattern: $_, not: {any: [<allowed>, {kind: <comment kinds>}]}}}`
 
 Captures bind in clause order and export from what matched:

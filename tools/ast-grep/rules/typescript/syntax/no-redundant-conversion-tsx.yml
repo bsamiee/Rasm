@@ -18,7 +18,7 @@ rule:
     all:
         - not: {has: {kind: 'string_fragment, escape_sequence'}}
         - has: {kind: template_substitution, has: {matches: string-parameter}}
-        - not: {has: {kind: template_substitution, nthChild: 2}}
+        - not: {has: {kind: template_substitution, nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}
 fix: $X
 message: '`$CONVERSION` converts `string` parameter `$X` to `string`'
 note: 'Read the parameter directly'

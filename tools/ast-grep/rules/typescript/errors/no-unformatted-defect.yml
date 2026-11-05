@@ -11,7 +11,7 @@ utils:
             - has: {field: function, matches: schema-member, has: {field: property, regex: '^Defect$'}}
             - all:
                 - has: {field: function, matches: schema-member}
-                - has: {field: arguments, has: {nthChild: 1, matches: defect-schema}}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: &code {not: {kind: 'comment, html_comment'}}}, matches: defect-schema}}
     message-getter:
         kind: method_definition
         all:
@@ -53,7 +53,7 @@ utils:
                 kind: call_expression
                 all:
                     - has: {field: function, matches: schema-member, has: {field: property, regex: '^TaggedUnion$'}}
-                    - has: {field: arguments, has: {nthChild: 1, kind: object, has: {matches: union-arm}}}
+                    - has: {field: arguments, has: {nthChild: {position: 1, ofRule: *code}, kind: object, has: {matches: union-arm}}}
     refinement:
         any:
             - kind: member_expression

@@ -4,7 +4,7 @@ import { Duration, Effect, Option, Predicate, Record, Schema, Struct } from 'eff
 import { NetAddress } from 'effect/net';
 import { Identity, Mise, Package } from '#/eng/typescript/manifest';
 import { TextFormat } from '#/eng/typescript/text-format';
-import { decodeTree, formatted, patched, syncGenerator, treeText } from '#/tools/nx/internal/plugin-runtime';
+import { decodeTree, formatted, patched, syncGenerator, treeText } from '#/tools/nx/sync/tree';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

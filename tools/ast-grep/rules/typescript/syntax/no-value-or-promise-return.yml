@@ -17,13 +17,13 @@ utils:
         kind: generic_type
         all:
             - has: {field: name, regex: '^(Promise|PromiseLike)$'}
-            - has: {field: type_arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, pattern: $T}}
-            - has: {field: type_arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, pattern: $ARG}}
+            - has: {field: type_arguments, has: {nthChild: {position: 1, ofRule: &code {not: {kind: 'comment, html_comment'}}}, pattern: $T}}
+            - has: {field: type_arguments, has: {nthChild: {position: 1, ofRule: *code}, pattern: $ARG}}
     promise-of-readonly:
         kind: generic_type
         all:
             - has: {field: name, regex: '^(Promise|PromiseLike)$'}
-            - has: {field: type_arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, kind: readonly_type, pattern: $ARG, has: {pattern: $T}}}
+            - has: {field: type_arguments, has: {nthChild: {position: 1, ofRule: *code}, kind: readonly_type, pattern: $ARG, has: {pattern: $T}}}
 rule:
     any:
         - kind: union_type

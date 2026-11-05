@@ -24,7 +24,7 @@ rule:
                     kind: array
                     pattern: $LIST
                     all:
-                        - has: {nthChild: 2, kind: string}
+                        - has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}, kind: string}
                         - not: {has: {pattern: $_, not: {kind: 'string, comment'}}}
                         - not:
                             has:

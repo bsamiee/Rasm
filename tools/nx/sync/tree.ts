@@ -1,18 +1,11 @@
-import { layerPosix } from '@effect/platform-node/NodePath';
-import { layer } from '@effect/platform-node/NodeServices';
 import type { Tree } from '@nx/devkit';
-import { Array, Effect, Equal, Layer, ManagedRuntime, Record, Schema, type Scope, Stream, String, Struct } from 'effect';
+import { Array, Effect, Equal, Record, Schema, type Scope, Stream, String, Struct } from 'effect';
 import { applyEdits, modify } from 'jsonc-parser';
 import { runCommand } from '#/eng/typescript/run-command';
+import { type PluginServices, runPlugin } from '#/tools/nx/workspace';
 
-// --- [TYPES] ---------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
-type PluginServices = ManagedRuntime.ManagedRuntime.Services<typeof pluginRuntime>;
-
-// --- [COMPOSITION] ---------------------------------------------------------------------
-
-const pluginRuntime = ManagedRuntime.make(Layer.merge(layer, layerPosix));
-const runPlugin = <A, E>(effect: Effect.Effect<A, E, Scope.Scope | PluginServices>) => pluginRuntime.runPromise(Effect.scoped(effect));
 const treeText = (tree: Tree, file: string) => Effect.fromNullishOr(tree.read(file, 'utf-8'));
 const decodeTree = <A>(tree: Tree, schema: Schema.Codec<A, string>, file: string) => Effect.flatMap(treeText(tree, file), Schema.decodeEffect(schema));
 const formatted = (tree: Tree, file: string, text: string) => {
@@ -25,6 +18,9 @@ const patched = Effect.fnUntraced(function* (tree: Tree, file: string, current: 
     const next = moved.reduce((held, [key, value]) => applyEdits(held, modify(held, [key], value, { getInsertionIndex: (properties) => properties.findLastIndex(String.startsWith(Array.headNonEmpty(String.split(key, '.')))) + 1 })), text);
     return { file, next: Array.isArrayNonEmpty(moved) ? yield* formatted(tree, file, next) : text };
 });
+
+// --- [COMPOSITION] ---------------------------------------------------------------------
+
 const syncGenerator =
     <E>(outOfSyncMessage: string, rows: (tree: Tree) => Effect.Effect<readonly { readonly file: string; readonly next?: string }[], E, Scope.Scope | PluginServices>) =>
     (tree: Tree) =>
@@ -38,4 +34,4 @@ const syncGenerator =
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { decodeTree, formatted, patched, pluginRuntime, runPlugin, syncGenerator, treeText };
+export { decodeTree, formatted, patched, syncGenerator, treeText };

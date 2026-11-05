@@ -30,7 +30,7 @@ rule:
                                         - kind: generic_type
                                           all:
                                             - has: {field: name, regex: '^(Array|ReadonlyArray|Iterable)$'}
-                                            - has: {field: type_arguments, all: [{has: {nthChild: 1, kind: type_identifier, pattern: $U}}, {not: {has: {nthChild: 2}}}]}
+                                            - has: {field: type_arguments, all: [{has: {nthChild: {position: 1, ofRule: &code {not: {kind: 'comment, html_comment'}}}, kind: type_identifier, pattern: $U}}, {not: {has: {nthChild: {position: 2, ofRule: *code}}}}]}
                     - not:
                         has:
                             stopBy: end

@@ -12,10 +12,10 @@ const FILES = 'nx run rasm:format:files --'
 
 const owned = (row) => ({
   ...row,
-  pathspec: [...row.pathspec, ...row.outlines.flatMap((key) => [`':(glob)tools/ast-grep/*/${key}/**'`, `'tools/ast-grep/outline/${key}.yml'`])],
+  pathspec: [...row.pathspec, ...row.outlines.flatMap((key) => [`':(glob)tools/ast-grep/*/${key}/**'`, `'tools/ast-grep/outline/${key}.yml'`, `'tools/ast-grep/outline/sources/${key}.yml'`])],
   owners: [...row.owners, {
     name: 'ast-grep',
-    paths: row.outlines.flatMap((key) => [`tools/ast-grep/rules/${key}`, `tools/ast-grep/utils/${key}`, `tools/ast-grep/outline/${key}.yml`]),
+    paths: row.outlines.flatMap((key) => [`tools/ast-grep/rules/${key}`, `tools/ast-grep/utils/${key}`, `tools/ast-grep/outline/${key}.yml`, `tools/ast-grep/outline/sources/${key}.yml`]),
     decides: 'a form syntax decides alone, as a rule, a util its rules call or an outline row',
     skills: ['use-ast-grep'],
     targets: ['nx run rasm:lint:ast-grep', 'nx run rasm:lint:yamllint', 'nx run rasm:lint:yamlfmt'],

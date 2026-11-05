@@ -6,7 +6,7 @@ rule:
         - kind: template_string
           all:
             - has: {kind: template_substitution}
-            - has: {kind: 'string_fragment, escape_sequence, template_substitution', nthChild: 2}
+            - has: {kind: 'string_fragment, escape_sequence, template_substitution', nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}
         - kind: binary_expression
           all:
             - has: {field: operator, regex: '^\+$'}

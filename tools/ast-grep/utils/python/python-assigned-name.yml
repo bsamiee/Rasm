@@ -10,17 +10,10 @@ utils:
             - kind: named_expression
               all: [{has: {field: name, pattern: $NAME}}, {has: {field: value, matches: value}}]
     binding:
-        kind: &binding 'identifier, typed_parameter, list_splat_pattern, dictionary_splat_pattern, default_parameter, typed_default_parameter, assignment, augmented_assignment, for_statement, for_in_clause, named_expression, as_pattern, function_definition, class_definition, type_alias_statement, delete_statement, aliased_import, dotted_name'
+        kind: &binding 'identifier, typed_parameter, list_splat_pattern, dictionary_splat_pattern, default_parameter, typed_default_parameter, assignment, augmented_assignment, for_statement, for_in_clause, named_expression, as_pattern, function_definition, class_definition, type_alias_statement, delete_statement, import_statement, import_from_statement'
         any:
             - matches: {python-binding: {name: {pattern: $NAME}}}
-            - kind: aliased_import
-              has: {field: alias, pattern: $NAME}
-            - kind: dotted_name
-              pattern: $NAME
-              any:
-                - inside: {kind: import_statement}
-                - inside: {kind: import_from_statement}
-                  not: {inside: {kind: import_from_statement, field: module_name}}
+            - matches: {python-import-binding: {name: {pattern: $NAME}}}
     conflicting-binding:
         all:
             - matches: binding

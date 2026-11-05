@@ -4,7 +4,7 @@ language: tsxlang
 utils:
     handler:
         kind: object
-        nthChild: 2
+        nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}
         inside:
             kind: arguments
             inside: {kind: new_expression, has: {field: constructor, regex: '^((globalThis|window|self)\.)?Proxy$', matches: typescript-global-reference}}

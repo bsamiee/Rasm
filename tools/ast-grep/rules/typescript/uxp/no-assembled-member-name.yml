@@ -8,7 +8,7 @@ utils:
             - inside: {matches: typescript-expression-wrapper, inside: {kind: subscript_expression, field: index}}
             - inside: {kind: binary_expression, field: left, has: {field: operator, regex: '^in$'}}
             - inside: {kind: computed_property_name}
-            - nthChild: {position: 2, ofRule: {not: {kind: comment}}}
+            - nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}
               inside:
                 kind: arguments
                 inside:

@@ -20,7 +20,7 @@ rule:
         - kind: call_expression
           all:
             - has: {field: function, regex: '^(Reflect\.(set|defineProperty)|Object\.defineProperty)$'}
-            - has: {field: arguments, has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}, matches: properties-key}}
+            - has: {field: arguments, has: {nthChild: {position: 2, ofRule: &code {not: {kind: 'comment, html_comment'}}}, matches: properties-key}}
         - kind: call_expression
           all:
             - has: {field: function, regex: '^Object\.assign$'}
@@ -28,7 +28,7 @@ rule:
                 field: arguments
                 has:
                     kind: object
-                    not: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}}
+                    not: {nthChild: {position: 1, ofRule: *code}}
                     has:
                         any:
                             - {kind: pair, has: {field: key, matches: properties-key}}

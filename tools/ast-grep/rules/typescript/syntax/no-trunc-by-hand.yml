@@ -39,7 +39,7 @@ utils:
             - kind: call_expression
               all:
                 - has: {field: function, matches: math-ceil}
-                - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $N}}, {not: {has: {nthChild: 2}}}]}
+                - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: &code {not: {kind: 'comment, html_comment'}}}, pattern: $N}}, {not: {has: {nthChild: {position: 2, ofRule: *code}}}}]}
             - kind: unary_expression
               all:
                 - has: {field: operator, regex: '^-$'}
@@ -48,7 +48,7 @@ utils:
                     kind: call_expression
                     all:
                         - has: {field: function, matches: math-floor}
-                        - has: {field: arguments, all: [{has: {nthChild: 1, matches: negated}}, {not: {has: {nthChild: 2}}}]}
+                        - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: *code}, matches: negated}}, {not: {has: {nthChild: {position: 2, ofRule: *code}}}}]}
             - kind: parenthesized_expression
               has: {matches: ceiling}
     flooring:
@@ -56,7 +56,7 @@ utils:
             - kind: call_expression
               all:
                 - has: {field: function, matches: math-floor}
-                - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $N}}, {not: {has: {nthChild: 2}}}]}
+                - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: *code}, pattern: $N}}, {not: {has: {nthChild: {position: 2, ofRule: *code}}}}]}
             - kind: unary_expression
               all:
                 - has: {field: operator, regex: '^-$'}
@@ -65,14 +65,14 @@ utils:
                     kind: call_expression
                     all:
                         - has: {field: function, matches: math-ceil}
-                        - has: {field: arguments, all: [{has: {nthChild: 1, matches: negated}}, {not: {has: {nthChild: 2}}}]}
+                        - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: *code}, matches: negated}}, {not: {has: {nthChild: {position: 2, ofRule: *code}}}}]}
             - kind: parenthesized_expression
               has: {matches: flooring}
     sign:
         kind: call_expression
         all:
             - has: {field: function, kind: member_expression, regex: '^((globalThis|window|self)\.)?Math\.sign$', matches: typescript-global-reference, has: {field: object, pattern: $MATH}}
-            - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $N}}, {not: {has: {nthChild: 2}}}]}
+            - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: *code}, pattern: $N}}, {not: {has: {nthChild: {position: 2, ofRule: *code}}}}]}
     floored-magnitude:
         kind: call_expression
         all:
@@ -80,13 +80,13 @@ utils:
             - has:
                 field: arguments
                 all:
-                    - not: {has: {nthChild: 2}}
+                    - not: {has: {nthChild: {position: 2, ofRule: *code}}}
                     - has:
-                        nthChild: 1
+                        nthChild: {position: 1, ofRule: *code}
                         kind: call_expression
                         all:
                             - has: {field: function, kind: member_expression, regex: '^((globalThis|window|self)\.)?Math\.abs$', matches: typescript-global-reference, has: {field: object, pattern: $MATH}}
-                            - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $N}}, {not: {has: {nthChild: 2}}}]}
+                            - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: *code}, pattern: $N}}, {not: {has: {nthChild: {position: 2, ofRule: *code}}}}]}
 rule:
     any:
         - kind: ternary_expression

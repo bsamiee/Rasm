@@ -8,10 +8,10 @@ utils:
             - inside: {kind: pair, field: value, has: {field: key, kind: property_identifier, pattern: $TRAP}}
     reflect:
         has: {field: object, regex: '^((globalThis|window|self)\.)?Reflect$', matches: typescript-global-reference}
-    parameter-1: {kind: required_parameter, nthChild: 1, has: {field: pattern, kind: identifier, pattern: $A}}
-    parameter-2: {kind: required_parameter, nthChild: 2, has: {field: pattern, kind: identifier, pattern: $B}}
-    parameter-3: {kind: required_parameter, nthChild: 3, has: {field: pattern, kind: identifier, pattern: $C}}
-    parameter-4: {kind: required_parameter, nthChild: 4, has: {field: pattern, kind: identifier, pattern: $D}}
+    parameter-1: {kind: required_parameter, nthChild: {position: 1, ofRule: &code {not: {kind: 'comment, html_comment'}}}, has: {field: pattern, kind: identifier, pattern: $A}}
+    parameter-2: {kind: required_parameter, nthChild: {position: 2, ofRule: *code}, has: {field: pattern, kind: identifier, pattern: $B}}
+    parameter-3: {kind: required_parameter, nthChild: {position: 3, ofRule: *code}, has: {field: pattern, kind: identifier, pattern: $C}}
+    parameter-4: {kind: required_parameter, nthChild: {position: 4, ofRule: *code}, has: {field: pattern, kind: identifier, pattern: $D}}
     reflect-1:
         kind: call_expression
         all:
@@ -39,7 +39,7 @@ utils:
             - has: {field: arguments, pattern: {context: f(...$A), selector: arguments}}
     single-return:
         kind: statement_block
-        not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+        not: {has: {nthChild: {position: 2, ofRule: *code}}}
     forwarded-1: {any: [{matches: reflect-1}, {matches: single-return, has: {kind: return_statement, has: {matches: reflect-1}}}]}
     forwarded-2: {any: [{matches: reflect-2}, {matches: single-return, has: {kind: return_statement, has: {matches: reflect-2}}}]}
     forwarded-3: {any: [{matches: reflect-3}, {matches: single-return, has: {kind: return_statement, has: {matches: reflect-3}}}]}
@@ -54,19 +54,19 @@ rule:
         - matches: typescript-proxy-trap
         - any:
             - all:
-                - any: [{has: {field: parameter, kind: identifier, pattern: $A}}, {has: {field: parameters, has: {matches: parameter-1}, not: {has: {nthChild: 2}}}}]
+                - any: [{has: {field: parameter, kind: identifier, pattern: $A}}, {has: {field: parameters, has: {matches: parameter-1}, not: {has: {nthChild: {position: 2, ofRule: *code}}}}}]
                 - has: {field: body, matches: forwarded-1}
             - all:
-                - has: {field: parameters, all: [{has: {matches: parameter-1}}, {has: {matches: parameter-2}}], not: {has: {nthChild: 3}}}
+                - has: {field: parameters, all: [{has: {matches: parameter-1}}, {has: {matches: parameter-2}}], not: {has: {nthChild: {position: 3, ofRule: *code}}}}
                 - has: {field: body, matches: forwarded-2}
             - all:
-                - has: {field: parameters, all: [{has: {matches: parameter-1}}, {has: {matches: parameter-2}}, {has: {matches: parameter-3}}], not: {has: {nthChild: 4}}}
+                - has: {field: parameters, all: [{has: {matches: parameter-1}}, {has: {matches: parameter-2}}, {has: {matches: parameter-3}}], not: {has: {nthChild: {position: 4, ofRule: *code}}}}
                 - has: {field: body, matches: forwarded-3}
             - all:
-                - has: {field: parameters, all: [{has: {matches: parameter-1}}, {has: {matches: parameter-2}}, {has: {matches: parameter-3}}, {has: {matches: parameter-4}}], not: {has: {nthChild: 5}}}
+                - has: {field: parameters, all: [{has: {matches: parameter-1}}, {has: {matches: parameter-2}}, {has: {matches: parameter-3}}, {has: {matches: parameter-4}}], not: {has: {nthChild: {position: 5, ofRule: *code}}}}
                 - has: {field: body, matches: forwarded-4}
             - all:
-                - has: {field: parameters, has: {kind: required_parameter, nthChild: 1, has: {field: pattern, kind: rest_pattern, has: {kind: identifier, pattern: $A}}}, not: {has: {nthChild: 2}}}
+                - has: {field: parameters, has: {kind: required_parameter, nthChild: {position: 1, ofRule: *code}, has: {field: pattern, kind: rest_pattern, has: {kind: identifier, pattern: $A}}}, not: {has: {nthChild: {position: 2, ofRule: *code}}}}
                 - has: {field: body, matches: forwarded-rest}
 message: '`$TRAP` trap forwards its arguments to `Reflect.$TRAP` unchanged'
 note: 'Delete the trap, default behavior performs it'

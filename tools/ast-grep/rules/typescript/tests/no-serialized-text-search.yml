@@ -16,7 +16,7 @@ utils:
         kind: call_expression
         all:
             - has: {field: function, regex: '^expect(\.soft)?$'}
-            - has: {field: arguments, has: {nthChild: 1, matches: serialized-read}}
+            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: serialized-read}}
 rule:
     kind: call_expression
     any:

@@ -19,38 +19,38 @@ utils:
         all:
             - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^split$'}}, {not: {has: {field: object, matches: string-module}}}]}
             - has: {field: function, pattern: $_SF}
-            - has: {field: arguments, all: [{has: {nthChild: 1, matches: separator, pattern: $_A}}, {not: {has: {nthChild: 2}}}]}
+            - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: &code {not: {kind: 'comment, html_comment'}}}, matches: separator, pattern: $_A}}, {not: {has: {nthChild: {position: 2, ofRule: *code}}}}]}
     module-split:
         kind: call_expression
         all:
             - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^split$'}}, {has: {field: object, matches: string-module}}]}
-            - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $_S}}, {has: {nthChild: 2, matches: separator, pattern: $_A}}, {not: {has: {nthChild: 3}}}]}
+            - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: *code}, pattern: $_S}}, {has: {nthChild: {position: 2, ofRule: *code}, matches: separator, pattern: $_A}}, {not: {has: {nthChild: {position: 3, ofRule: *code}}}}]}
     piped-split:
         kind: call_expression
         all:
             - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^split$'}}, {has: {field: object, matches: string-module}}]}
-            - has: {field: arguments, all: [{has: {nthChild: 1, matches: separator}}, {not: {has: {nthChild: 2}}}]}
+            - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: *code}, matches: separator}}, {not: {has: {nthChild: {position: 2, ofRule: *code}}}}]}
     piped-join:
         kind: call_expression
         all:
             - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^join$'}}, {has: {field: object, matches: array-module}}]}
-            - has: {field: arguments, all: [{has: {nthChild: 1}}, {not: {has: {nthChild: 2}}}]}
+            - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: *code}}}, {not: {has: {nthChild: {position: 2, ofRule: *code}}}}]}
     joined-split:
         kind: call_expression
         any:
             - all:
                 - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^join$'}}, {has: {field: object, any: [{matches: native-split}, {matches: module-split}]}}]}
-                - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $_T}}, {not: {has: {nthChild: 2}}}]}
+                - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: *code}, pattern: $_T}}, {not: {has: {nthChild: {position: 2, ofRule: *code}}}}]}
             - all:
                 - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^join$'}}, {has: {field: object, matches: array-module}}]}
-                - has: {field: arguments, all: [{has: {nthChild: 1, any: [{matches: native-split}, {matches: module-split}]}}, {has: {nthChild: 2, pattern: $_T}}, {not: {has: {nthChild: 3}}}]}
+                - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: *code}, any: [{matches: native-split}, {matches: module-split}]}}, {has: {nthChild: {position: 2, ofRule: *code}, pattern: $_T}}, {not: {has: {nthChild: {position: 3, ofRule: *code}}}}]}
 rule:
     kind: call_expression
     pattern: $CALL
     any:
         - all:
             - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^(replace|replaceAll)$'}}, {not: {has: {field: object, matches: string-module}}}]}
-            - has: {field: arguments, all: [{has: {nthChild: 1, matches: fixed-regex}}, {has: {nthChild: 2}}, {not: {has: {nthChild: 3}}}]}
+            - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: *code}, matches: fixed-regex}}, {has: {nthChild: {position: 2, ofRule: *code}}}, {not: {has: {nthChild: {position: 3, ofRule: *code}}}}]}
             - not: {has: {field: arguments, matches: typescript-separator-swap}}
         - all:
             - matches: joined-split

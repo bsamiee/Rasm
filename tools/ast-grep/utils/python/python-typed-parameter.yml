@@ -9,19 +9,12 @@ utils:
             - any: [{has: {kind: identifier, nthChild: {position: 1, ofRule: {not: {kind: comment}}}, pattern: $PARAMETER}}, {has: {field: name, pattern: $PARAMETER}}]
             - has: {field: type, matches: type}
     binding:
-        kind: 'identifier, typed_parameter, list_splat_pattern, dictionary_splat_pattern, default_parameter, typed_default_parameter, assignment, augmented_assignment, for_statement, for_in_clause, named_expression, as_pattern, function_definition, class_definition, type_alias_statement, delete_statement, global_statement, aliased_import, dotted_name'
+        kind: 'identifier, typed_parameter, list_splat_pattern, dictionary_splat_pattern, default_parameter, typed_default_parameter, assignment, augmented_assignment, for_statement, for_in_clause, named_expression, as_pattern, function_definition, class_definition, type_alias_statement, delete_statement, global_statement, import_statement, import_from_statement'
         any:
             - matches: {python-binding: {name: {pattern: $PARAMETER}}}
+            - matches: {python-import-binding: {name: {pattern: $PARAMETER}}}
             - kind: global_statement
               has: {kind: identifier, pattern: $PARAMETER}
-            - kind: aliased_import
-              has: {field: alias, pattern: $PARAMETER}
-            - kind: dotted_name
-              pattern: $PARAMETER
-              any:
-                - inside: {kind: import_statement}
-                - inside: {kind: import_from_statement}
-                  not: {inside: {kind: import_from_statement, field: module_name}}
     bound:
         has:
             stopBy: {kind: 'function_definition, class_definition, lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression'}

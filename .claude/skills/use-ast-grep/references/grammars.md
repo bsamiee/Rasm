@@ -326,8 +326,8 @@ External scanners run first at each position where the parse state holds an exte
 
 Recovery and zero-width tokens:
 - Row 1 of `ts_external_scanner_states` marks every pure external valid, an external naming an internal token holds it only if that token enters the error state
-- Unused sentinels anywhere in `externals` detect recovery (Rust `_error_sentinel`, Bash `__error_recovery`), a sentinel stays a pure external
-- Impossible valid pairs detect it with no sentinel (Python `STRING_CONTENT && INDENT`, TSX `TEMPLATE_CHARS && AUTOMATIC_SEMICOLON`)
+- Unused sentinels anywhere in `externals` detect recovery (Rust `_error_sentinel`, Bash and TSX `__error_recovery`), a sentinel stays a pure external
+- Impossible valid pairs detect it with no sentinel (Python `STRING_CONTENT && INDENT`)
 - Zero-width tokens with no state change drop during recovery, before the parser advances past an error, and when marked extra
 - Externals in `extras` hold row validity in every state, the scanner runs at every token and that bit holds no state
 - Literals in `externals` give the scanner their validity to read and are never emitted, a false return lets the lexer produce them (TSX `||`, Python `except`)

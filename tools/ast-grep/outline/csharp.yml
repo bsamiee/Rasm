@@ -331,7 +331,7 @@ symbolType: 'null'
 rule:
     any:
         - {kind: ERROR, not: {has: {stopBy: end, kind: 'using_directive, extern_alias_directive, file_based_directive, global_attribute, namespace_declaration, file_scoped_namespace_declaration, interface_declaration, class_declaration, record_declaration, struct_declaration, enum_declaration, union_declaration, delegate_declaration, local_function_statement, local_declaration_statement'}}}
-        - {kind: 'identifier, comment', all: [{inside: {kind: ERROR}}, {nthChild: {position: 1, ofRule: {kind: 'identifier, comment'}}}]}
+        - {kind: 'identifier, comment', all: [{inside: {kind: ERROR}}, {not: {follows: {kind: 'identifier, comment', stopBy: end}}}, {nthChild: {position: 1, ofRule: {kind: 'identifier, comment'}}}]}
 name: ERROR
 signature: ''
 isImport: false
@@ -1044,7 +1044,7 @@ symbolType: 'null'
 rule:
     any:
         - {kind: ERROR, not: {has: {stopBy: end, kind: 'constructor_declaration, destructor_declaration, method_declaration, property_declaration, indexer_declaration, field_declaration, operator_declaration, conversion_operator_declaration, event_declaration, event_field_declaration, enum_member_declaration, union_case_list, class_declaration, record_declaration, struct_declaration, interface_declaration, enum_declaration, union_declaration, local_function_statement, delegate_declaration'}}}
-        - {kind: 'identifier, comment', all: [{inside: {kind: ERROR}}, {nthChild: {position: 1, ofRule: {kind: 'identifier, comment'}}}]}
+        - {kind: 'identifier, comment', all: [{inside: {kind: ERROR}}, {not: {follows: {kind: 'identifier, comment', stopBy: end}}}, {nthChild: {position: 1, ofRule: {kind: 'identifier, comment'}}}]}
 name: ERROR
 signature: ''
 isPublic: false

@@ -3,9 +3,8 @@ import { Array, Effect, Equivalence, Function, Option, Path, Record, String, Str
 import { parseSync } from 'vite';
 import { accumulate } from '#/eng/typescript/accumulate';
 import { ClaudeHooks, libraryRoot, Package } from '#/eng/typescript/manifest';
-import { glob } from '#/tools/nx/internal/open-workspace';
-import { decodeTree, formatted, syncGenerator, treeText } from '#/tools/nx/internal/plugin-runtime';
-import { WorkspaceError } from '#/tools/nx/internal/workspace-error';
+import { decodeTree, formatted, syncGenerator, treeText } from '#/tools/nx/sync/tree';
+import { glob, WorkspaceError } from '#/tools/nx/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

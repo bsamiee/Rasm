@@ -5,12 +5,12 @@ utils:
     class-test:
         kind: call_expression
         all:
-            - has: {field: arguments, all: [{has: {nthChild: 1, kind: 'identifier, member_expression', pattern: $ERROR}}, {not: {has: {nthChild: 2}}}]}
+            - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: &code {not: {kind: 'comment, html_comment'}}}, kind: 'identifier, member_expression', pattern: $ERROR}}, {not: {has: {nthChild: {position: 2, ofRule: *code}}}}]}
             - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Schema$'}, member: {regex: '^is$'}}}}
     applied-test:
         kind: call_expression
         all:
-            - has: {field: arguments, all: [{has: {nthChild: 1, kind: identifier, pattern: $FAILURE}}, {not: {has: {nthChild: 2}}}]}
+            - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: *code}, kind: identifier, pattern: $FAILURE}}, {not: {has: {nthChild: {position: 2, ofRule: *code}}}}]}
             - has: {field: function, matches: class-test}
     predicate:
         any:
@@ -19,7 +19,7 @@ utils:
               all:
                 - any:
                     - has: {field: parameter, kind: identifier, pattern: $FAILURE}
-                    - has: {field: parameters, all: [{has: {nthChild: 1, kind: required_parameter, has: {field: pattern, kind: identifier, pattern: $FAILURE}}}, {not: {has: {nthChild: 2}}}]}
+                    - has: {field: parameters, all: [{has: {nthChild: {position: 1, ofRule: *code}, kind: required_parameter, has: {field: pattern, kind: identifier, pattern: $FAILURE}}}, {not: {has: {nthChild: {position: 2, ofRule: *code}}}}]}
                 - has: {stopBy: {kind: 'arrow_function, function_expression'}, matches: applied-test}
 rule:
     kind: call_expression

@@ -4,5 +4,5 @@ language: pythonlang
 rule:
     kind: string
     all:
-        - has: {kind: string_start, regex: '^[rRuU]?["'']'}
+        - matches: python-text-string
         - has: {kind: string_content, regex: '^[\p{XID_Start}_]\p{XID_Continue}*$'}

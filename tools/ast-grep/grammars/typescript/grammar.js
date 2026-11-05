@@ -1,7 +1,7 @@
 import { Array, Record } from 'effect';
 import javascript from 'tree-sitter-javascript/grammar.js';
 import tsx from 'tree-sitter-typescript/tsx/grammar.js';
-import { after, chain, choiceOf, collected, drop, extend, named, optionalOf, reaches, rewrite, string, symbol, widen } from '../derive.js';
+import { after, chain, choiceOf, classes, collected, drop, extend, lexical, named, optionalOf, reaches, rewrite, spans, string, symbol, widen } from '../derive.js';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -27,7 +27,8 @@ const TYPE_KEYWORDS = Array.dedupe(
 const PREDEFINED_TYPES = new Set(tsx.grammar.rules.predefined_type.members.filter(({ type }) => type === 'STRING').map(({ value }) => value));
 const TYPE_NAMES = Array.dedupe([...collected(tsx.grammar.rules._reserved_identifier, ({ type }) => type === 'STRING').map(({ value }) => value), ...CONTEXTUAL]).filter((word) => !RESERVED_WORDS.has(word) && !PREDEFINED_TYPES.has(word) && !TYPE_KEYWORDS.includes(word));
 const DEFAULT_VALUES = ['function_expression', 'generator_function', 'class'];
-const CHARACTER_REFERENCE = /&(?:#(?:[xX][0-9a-fA-F]{1,6}|[0-9]{1,7})|[A-Za-z]{1,30});/u;
+const REFERENCE_LIMITS = { HEXADECIMAL_REFERENCE_DIGITS: 6, DECIMAL_REFERENCE_DIGITS: 7, NAMED_REFERENCE_LETTERS: 30 };
+const CHARACTER_REFERENCE = new RegExp(`&(?:#(?:[xX][0-9a-fA-F]{1,${REFERENCE_LIMITS.HEXADECIMAL_REFERENCE_DIGITS}}|[0-9]{1,${REFERENCE_LIMITS.DECIMAL_REFERENCE_DIGITS}})|[A-Za-z]{1,${REFERENCE_LIMITS.NAMED_REFERENCE_LETTERS}});`, 'u');
 const DIRECTIVE = /#(?:include|includepath|target|targetengine|script|strict|engine)/u;
 const DIRECTIVE_VALUE = /[^\s"';]+/u;
 
@@ -95,6 +96,8 @@ export default extend(tsx, {
         expression: ($, original) => choice(original, $.type_assertion),
         using_declaration: () => javascript.grammar.rules.using_declaration,
         html_character_reference: () => CHARACTER_REFERENCE,
+        _constants: () => seq(...Object.entries(REFERENCE_LIMITS).flatMap(([name, value]) => [name, String(value)])),
+        _space: () => spans(classes({ identifier: [], whitespace: tsx.grammar.extras.filter(lexical) }).whitespace),
         _import_identifier: ($, original) => choice(original, ...[...Object.keys(PHASES), 'as'].map((word) => alias(word, $.identifier))),
         _module_export_name: ($, original) => choice(original, alias('as', $.identifier), alias('type', $.identifier)),
         import_statement: ($, original) => {
@@ -167,7 +170,7 @@ export default extend(tsx, {
                 $,
                 arms(tsx.grammar.rules.ambient_declaration).find((arm) => reaches(arm, string('global'))),
             ),
-        class_body: ($, original) => rewrite(original, (rule) => (rule.type === 'SEQ' && rule.members.some(symbol('method_definition')) ? seq(choice($.method_definition, alias($._decorated_method_definition, $.method_definition)), ...rule.members.slice(2)) : rule)),
+        class_body: ($, original) => rewrite(original, (rule) => (rule.type === 'SEQ' && rule.members.some(symbol('method_definition')) ? seq(choice($.method_definition, alias($._decorated_method_definition, $.method_definition)), ...rule.members.filter((member) => !symbol('method_definition')(member) && !reaches(member, named('decorator')))) : rule)),
         _decorated_method_definition: ($) => seq(repeat1(field('decorator', $.decorator)), tsx.grammar.rules.method_definition),
         public_field_definition: ($, original) =>
             rewrite(original, (rule) =>

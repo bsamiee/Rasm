@@ -1,7 +1,7 @@
 import type { Tree } from '@nx/devkit';
 import { Array, Effect, Equal, Order, Predicate, Record, Tuple } from 'effect';
 import { Package, Workspace } from '#/eng/typescript/manifest';
-import { decodeTree, patched, syncGenerator } from '#/tools/nx/internal/plugin-runtime';
+import { decodeTree, patched, syncGenerator } from '#/tools/nx/sync/tree';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

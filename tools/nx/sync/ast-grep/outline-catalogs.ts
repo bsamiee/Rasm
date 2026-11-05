@@ -3,8 +3,8 @@ import { Array, Effect, Match, Option, Path, Predicate, Record, Stream } from 'e
 import { type Document, Pair, parseAllDocuments, Scalar, visit, YAMLMap, YAMLSeq } from 'yaml';
 import { Sgconfig } from '#/eng/typescript/manifest';
 import { runCommand } from '#/eng/typescript/run-command';
-import { decodeTree, syncGenerator, treeText } from '#/tools/nx/internal/plugin-runtime';
-import { WorkspaceError } from '#/tools/nx/internal/workspace-error';
+import { decodeTree, syncGenerator, treeText } from '#/tools/nx/sync/tree';
+import { WorkspaceError } from '#/tools/nx/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -20,8 +20,8 @@ interface Shared {
 
 const LAYOUT = { indent: 4, lineWidth: 0, flowCollectionPadding: false, singleQuote: true } as const;
 const KINDS = { utils: ['rule'], rewriters: ['transform', 'name'], transform: ['name'] } as const satisfies Record.ReadonlyRecord<string, readonly string[]>;
-const VARIABLE = /\$+([A-Z_][A-Z0-9_]*)/g;
-const LISTED = /rewriters=\[([^\]]*)\]/g;
+const VARIABLE = /\$+([A-Z_][A-Z0-9_]*)/gu;
+const LISTED = /rewriters=\[([^\]]*)\]/gu;
 const READS = ['name', 'signature', 'transform'];
 const CAPTURES = ['rule', 'constraints', 'utils'];
 const SELECTOR = 'variants';
@@ -46,11 +46,7 @@ const listed = (nodes: readonly unknown[]) => [
     ...strings(nodes).flatMap((text) => Array.getSomes([...text.matchAll(LISTED)].map(([, names]) => Option.fromNullishOr(names))).flatMap((names) => names.split(',').map((name) => name.trim()))),
 ];
 const entries = (kind: Kind, node: unknown): ReadonlyMap<string, Pair> =>
-    new Map(
-        kind === 'rewriters'
-            ? (node instanceof YAMLSeq ? [...node] : []).filter((item): item is YAMLMap => item instanceof YAMLMap).map((item) => [named(item.get('id')), new Pair(item.get('id'), item)] as const)
-            : (node instanceof YAMLMap ? [...node.pairs()] : []).map((pair) => [named(pair.key), pair] as const),
-    );
+    new Map(kind === 'rewriters' ? (node instanceof YAMLSeq ? [...node] : []).filter((item): item is YAMLMap => item instanceof YAMLMap).map((item) => [named(item.get('id')), new Pair(item.get('id'), item)] as const) : (node instanceof YAMLMap ? [...node.pairs()] : []).map((pair) => [named(pair.key), pair] as const));
 const table = (node: unknown): Table => Record.map(KINDS, (_, kind) => entries(kind, node instanceof YAMLMap ? node.get(kind) : undefined));
 const merged = (base: Table, over: Table): Table => Record.map(KINDS, (_, kind) => new Map([...base[kind], ...over[kind]]));
 const unanchored = (doc: Document) => {
@@ -75,9 +71,15 @@ const closure = (definitions: Table, local: Table, pairs: readonly Pair[], captu
     const captured = new Set([...captures, ...variables(within(CAPTURES, ['utils']))]);
     const grown = (kind: Kind, names: Iterable<string>) => new Set([...current[kind], ...[...names].filter((name) => definitions[kind].has(name) && !local[kind].has(name))]);
     const next: Held = {
-        utils: grown('utils', keyed(everything, 'matches').map(({ value }) => named(value))),
+        utils: grown(
+            'utils',
+            keyed(everything, 'matches').map(({ value }) => named(value)),
+        ),
         rewriters: grown('rewriters', listed(everything)),
-        transform: grown('transform', [...variables(within(READS, ['transform']))].filter((name) => !captured.has(name))),
+        transform: grown(
+            'transform',
+            [...variables(within(READS, ['transform']))].filter((name) => !captured.has(name)),
+        ),
     };
     const shadowed = [...next.transform].filter((name) => captured.has(name));
     return Match.value(next).pipe(
@@ -113,11 +115,22 @@ const placed = (pairs: readonly Pair[], key: string, value: Option.Option<unknow
 const gathered = (kind: Kind, schema: YAMLMap['schema'], items: readonly Pair[]) =>
     Array.match(items, {
         onEmpty: () => Option.none(),
-        onNonEmpty: (held) => Option.some(kind === 'rewriters' ? new YAMLSeq(schema, held.map(({ value }) => value)) : new YAMLMap(schema, [...held])),
+        onNonEmpty: (held) =>
+            Option.some(
+                kind === 'rewriters'
+                    ? new YAMLSeq(
+                          schema,
+                          held.map(({ value }) => value),
+                      )
+                    : new YAMLMap(schema, [...held]),
+            ),
     });
 const written = (catalog: Shared, language: string, source: string) => (doc: Document, index: number) =>
     Effect.gen(function* () {
-        const map = yield* Effect.fromOption(Option.liftPredicate(doc.value, (value): value is YAMLMap => value instanceof YAMLMap), () => WorkspaceError.missing(source, `mapping at document ${index + 1}`));
+        const map = yield* Effect.fromOption(
+            Option.liftPredicate(doc.value, (value): value is YAMLMap => value instanceof YAMLMap),
+            () => WorkspaceError.missing(source, `mapping at document ${index + 1}`),
+        );
         const selector = map.get(SELECTOR);
         const variants = yield* Effect.forEach(selector instanceof YAMLSeq ? [...selector].map(named) : [], (name) => Effect.fromOption(Record.get(catalog.variants, name), () => WorkspaceError.missing(source, `${SELECTOR} entry ${name}`)));
         const definitions = variants.reduce(merged, catalog.table);
@@ -142,7 +155,14 @@ const generated = Effect.fnUntraced(function* (tree: Tree, language: string, fil
 });
 const rows = Effect.fnUntraced(function* (tree: Tree) {
     const [path, { customLanguages }] = yield* Effect.all([Path.Path, decodeTree(tree, Sgconfig.schema, Sgconfig.file)]);
-    const sourced = Array.getSomes(Record.collect(customLanguages, (language, { outlineRules }) => Option.filter(Option.map(outlineRules, (file) => ({ language, file, source: path.join(path.dirname(file), 'sources', path.basename(file)) })), ({ source }) => tree.exists(source))));
+    const sourced = Array.getSomes(
+        Record.collect(customLanguages, (language, { outlineRules }) =>
+            Option.filter(
+                Option.map(outlineRules, (file) => ({ language, file, source: path.join(path.dirname(file), 'sources', path.basename(file)) })),
+                ({ source }) => tree.exists(source),
+            ),
+        ),
+    );
     return yield* Effect.forEach(sourced, ({ language, file, source }) => generated(tree, language, file, source));
 });
 

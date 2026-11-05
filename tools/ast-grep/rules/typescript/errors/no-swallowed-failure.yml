@@ -24,7 +24,7 @@ utils:
                     - has: {field: object, matches: failure-constructor}
             - all:
                 - has: {field: function, regex: '^(Function\.)?pipe$'}
-                - has: {field: arguments, has: {nthChild: 1, matches: failure-constructor}}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: &code {not: {kind: 'comment, html_comment'}}}, matches: failure-constructor}}
     predicate:
         kind: member_expression
         all:
@@ -47,7 +47,7 @@ rule:
         - kind: call_expression
           all:
             - has: {field: function, matches: predicate, pattern: $CALL}
-            - has: {field: arguments, has: {nthChild: 1, matches: failure-constructor}}
+            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: *code}, matches: failure-constructor}}
         - kind: call_expression
           all:
             - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^match$'}}, {matches: effect-member}], pattern: $CALL}
@@ -62,7 +62,7 @@ rule:
                             - has: {field: value, matches: boolean-handler}
             - any:
                 - not: {has: {field: arguments, has: {kind: object, has: {matches: boolean-pair}}}}
-                - has: {field: arguments, has: {nthChild: 1, matches: failure-constructor}}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: *code}, matches: failure-constructor}}
                 - inside: {kind: arguments, inside: {matches: failure-pipe}}
 message: '`$CALL` collapses a typed failure into a boolean'
 note: 'Return the effect with its typed failure for a `_tag` match'

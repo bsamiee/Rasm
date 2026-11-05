@@ -1,7 +1,7 @@
 import type { Tree } from '@nx/devkit';
 import { Effect, Record, Schema } from 'effect';
 import { TextFormat } from '#/eng/typescript/text-format';
-import { decodeTree, patched, syncGenerator } from '#/tools/nx/internal/plugin-runtime';
+import { decodeTree, patched, syncGenerator } from '#/tools/nx/sync/tree';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

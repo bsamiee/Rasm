@@ -60,15 +60,15 @@ utils:
               all:
                 - any:
                     - has: {field: parameter, kind: identifier, pattern: $MATCH}
-                    - has: {field: parameters, has: {kind: required_parameter, nthChild: 1, has: {field: pattern, kind: identifier, pattern: $MATCH}}}
+                    - has: {field: parameters, has: {kind: required_parameter, nthChild: {position: 1, ofRule: &code {not: {kind: 'comment, html_comment'}}}, has: {field: pattern, kind: identifier, pattern: $MATCH}}}
                 - any:
                     - has: {field: body, matches: prefixed-match}
                     - has:
                         field: body
                         kind: statement_block
                         all:
-                            - has: {kind: return_statement, nthChild: 1, has: {matches: prefixed-match}}
-                            - not: {has: {nthChild: 2}}
+                            - has: {kind: return_statement, nthChild: {position: 1, ofRule: *code}, has: {matches: prefixed-match}}
+                            - not: {has: {nthChild: {position: 2, ofRule: *code}}}
 rule:
     kind: call_expression
     pattern: $CALL
@@ -77,9 +77,9 @@ rule:
         - has:
             field: arguments
             all:
-                - not: {has: {nthChild: 3}}
-                - has: {nthChild: 2, matches: escaping-replacement}
-                - has: {nthChild: 1, matches: escaped-pattern}
+                - not: {has: {nthChild: {position: 3, ofRule: *code}}}
+                - has: {nthChild: {position: 2, ofRule: *code}, matches: escaping-replacement}
+                - has: {nthChild: {position: 1, ofRule: *code}, matches: escaped-pattern}
         - any:
             - has: {field: function, has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)String$'}}}}}
             - has: {field: function, not: {has: {kind: optional_chain}}, has: {field: object, pattern: $_}}

@@ -1,4 +1,14 @@
+#include <stdbool.h>
+#include <stdint.h>
 #include <string.h>
+#include <wctype.h>
+
+#include "constants.h"
+#include "space.h"
+
+static inline bool is_space(int32_t character);
+
+#define iswspace is_space
 
 #include "tree-sitter-typescript/common/scanner.h"
 
@@ -6,15 +16,29 @@
 
 enum { ADJACENT_TYPE_ARGUMENTS_OPEN = ERROR_RECOVERY + 1 };
 
+typedef struct {
+    int32_t min;
+    int32_t max;
+} Span;
+
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-enum { DECIMAL_REFERENCE_DIGITS = 7, HEXADECIMAL_REFERENCE_DIGITS = 6, NAMED_REFERENCE_LETTERS = 30 };
+static const Span SPACES[] = {SPACE};
 
 static const char TYPE_CONTINUATIONS[] = "`,.;*%>=?^|&/:";
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [CHARACTERS]
+
+static inline bool is_space(int32_t character) {
+    for (size_t index = 0; index < sizeof(SPACES) / sizeof(*SPACES); index++) {
+        if (character >= SPACES[index].min && character <= SPACES[index].max) {
+            return true;
+        }
+    }
+    return false;
+}
 
 static bool is_ascii_letter(int32_t character) { return (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z'); }
 
@@ -220,7 +244,7 @@ bool tree_sitter_tsx_external_scanner_scan(void *payload, TSLexer *lexer, const 
             return true;
         }
     }
-    if (valid_symbols[TEMPLATE_CHARS] && !valid_symbols[AUTOMATIC_SEMICOLON]) {
+    if (valid_symbols[TEMPLATE_CHARS] && !valid_symbols[ERROR_RECOVERY]) {
         return scan_template_text(lexer);
     }
     if ((valid_symbols[AUTOMATIC_SEMICOLON] || valid_symbols[FUNCTION_SIGNATURE_AUTOMATIC_SEMICOLON]) && !valid_symbols[LOGICAL_OR] && !valid_symbols[TEMPLATE_CHARS] && !valid_symbols[JSX_TEXT] && !valid_symbols[ERROR_RECOVERY]) {

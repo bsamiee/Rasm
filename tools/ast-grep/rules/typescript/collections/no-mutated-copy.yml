@@ -13,10 +13,10 @@ rule:
                 field: object
                 any:
                     - kind: array
-                      all: [{has: {nthChild: 1, kind: spread_element, has: {pattern: $LIST}}}, {not: {has: {nthChild: 2}}}]
+                      all: [{has: {nthChild: {position: 1, ofRule: &code {not: {kind: 'comment, html_comment'}}}, kind: spread_element, has: {pattern: $LIST}}}, {not: {has: {nthChild: {position: 2, ofRule: *code}}}}]
                     - kind: call_expression
                       all:
                         - has: {field: function, regex: '^((globalThis|window|self)\.)?Array\.from$', matches: typescript-global-reference}
-                        - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $LIST}}, {not: {has: {nthChild: 2}}}]}
+                        - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: *code}, pattern: $LIST}}, {not: {has: {nthChild: {position: 2, ofRule: *code}}}}]}
 message: '`$MUTATE` reorders a copy of `$LIST` in place'
 note: 'Call `<list>.toReversed()` or `<list>.toSorted(<compare>)` on an array, `Array.reverse` or `Array.sort` from `effect` on an iterable'

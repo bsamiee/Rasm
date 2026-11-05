@@ -14,18 +14,18 @@ utils:
             - has: {field: function, kind: member_expression, has: {field: property, regex: '^filter$'}}
             - any:
                 - all:
-                    - has: {field: arguments, has: {nthChild: 1}, not: {has: {nthChild: 2}}}
+                    - has: {field: arguments, has: {nthChild: {position: 1, ofRule: &code {not: {kind: 'comment, html_comment'}}}}, not: {has: {nthChild: {position: 2, ofRule: *code}}}}
                     - has: {field: function, has: {field: object, pattern: $R, not: {matches: module-object}}}
                 - all:
-                    - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $R}}, {has: {nthChild: 2}}, {not: {has: {nthChild: 3}}}]}
+                    - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: *code}, pattern: $R}}, {has: {nthChild: {position: 2, ofRule: *code}}}, {not: {has: {nthChild: {position: 3, ofRule: *code}}}}]}
                     - has: {field: function, has: {field: object, matches: list-module}}
                 - all:
-                    - has: {field: arguments, has: {nthChild: 1}, not: {has: {nthChild: 2}}}
+                    - has: {field: arguments, has: {nthChild: {position: 1, ofRule: *code}}, not: {has: {nthChild: {position: 2, ofRule: *code}}}}
                     - any:
-                        - nthChild: 1
+                        - nthChild: {position: 1, ofRule: *code}
                           inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^pipe$'}}, {has: {field: object, pattern: $R}}]}}}
-                        - nthChild: 2
-                          inside: {kind: arguments, has: {nthChild: 1, pattern: $R}, inside: {kind: call_expression, has: {field: function, regex: '^pipe$'}}}
+                        - nthChild: {position: 2, ofRule: *code}
+                          inside: {kind: arguments, has: {nthChild: {position: 1, ofRule: *code}, pattern: $R}, inside: {kind: call_expression, has: {field: function, regex: '^pipe$'}}}
                     - has: {field: function, has: {field: object, matches: list-module}}
     negating:
         any:
@@ -57,16 +57,16 @@ rule:
         - matches: filtering
         - any:
             - all:
-                - has: {field: arguments, has: {nthChild: {position: 1, reverse: true}, matches: negating}}
+                - has: {field: arguments, has: {nthChild: {position: 1, reverse: true, ofRule: *code}, matches: negating}}
                 - inside:
                     kind: &scope 'statement_block, arrow_function, program'
                     stopBy: &unconditional
                         not:
                             kind: 'call_expression, member_expression, arguments, lexical_declaration, variable_declarator, expression_statement, return_statement, array, object, pair, spread_element, parenthesized_expression, await_expression, assignment_expression, as_expression, satisfies_expression, non_null_expression'
-                    has: {stopBy: *unconditional, matches: filtering, has: {field: arguments, has: {nthChild: {position: 1, reverse: true}, matches: passing}}}
+                    has: {stopBy: *unconditional, matches: filtering, has: {field: arguments, has: {nthChild: {position: 1, reverse: true, ofRule: *code}, matches: passing}}}
             - all:
-                - has: {field: arguments, has: {nthChild: {position: 1, reverse: true}, matches: negated}}
+                - has: {field: arguments, has: {nthChild: {position: 1, reverse: true, ofRule: *code}, matches: negated}}
                 - inside:
                     kind: *scope
                     stopBy: *unconditional
-                    has: {stopBy: *unconditional, matches: filtering, has: {field: arguments, has: {nthChild: {position: 1, reverse: true}, matches: kept}}}
+                    has: {stopBy: *unconditional, matches: filtering, has: {field: arguments, has: {nthChild: {position: 1, reverse: true, ofRule: *code}, matches: kept}}}

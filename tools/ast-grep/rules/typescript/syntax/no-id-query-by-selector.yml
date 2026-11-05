@@ -17,9 +17,9 @@ rule:
         - has:
             field: arguments
             all:
-                - not: {has: {nthChild: 2}}
+                - not: {has: {nthChild: {position: 2, ofRule: &code {not: {kind: 'comment, html_comment'}}}}}
                 - has:
-                    nthChild: 1
+                    nthChild: {position: 1, ofRule: *code}
                     any:
                         - pattern: '`#${$CSS.escape($ID)}`'
                         - pattern: "'#' + $CSS.escape($ID)"

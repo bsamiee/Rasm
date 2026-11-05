@@ -42,7 +42,7 @@ utils:
             - kind: call_expression
               all:
                 - has: {field: function, kind: member_expression, has: {field: property, regex: '^isArray$'}}
-                - has: {field: arguments, all: [{has: {nthChild: 1, matches: parameter-reference}}, {not: {has: {nthChild: 2}}}]}
+                - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: &code {not: {kind: 'comment, html_comment'}}}, matches: parameter-reference}}, {not: {has: {nthChild: {position: 2, ofRule: *code}}}}]}
                 - has:
                     field: function
                     any:
@@ -51,7 +51,7 @@ utils:
             - kind: call_expression
               all:
                 - has: {field: function, kind: member_expression, has: {field: property, regex: '^is(String|Number|Boolean|BigInt|Symbol)$'}}
-                - has: {field: arguments, all: [{has: {nthChild: 1, matches: parameter-reference}}, {not: {has: {nthChild: 2}}}]}
+                - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: *code}, matches: parameter-reference}}, {not: {has: {nthChild: {position: 2, ofRule: *code}}}}]}
                 - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Predicate$'}, member: {regex: '^is(String|Number|Boolean|BigInt|Symbol)$'}}}}
 rule:
     any:

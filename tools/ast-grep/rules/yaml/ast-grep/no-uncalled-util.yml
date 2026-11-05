@@ -2,6 +2,7 @@
 language: yamllang
 severity: error
 files: ['sgconfig.yml', 'tools/ast-grep/outline/**', 'tools/ast-grep/rules/**', 'tools/ast-grep/utils/**']
+ignores: ['tools/ast-grep/outline/sources/**']
 rule:
     kind: &pair block_mapping_pair, flow_pair
     all:

@@ -6,8 +6,8 @@ rule:
     pattern: $TEMPLATE
     all:
         - not: {has: {kind: 'string_fragment, escape_sequence'}}
-        - has: {kind: template_substitution, nthChild: 1, has: {pattern: $VALUE}}
-        - not: {has: {kind: template_substitution, nthChild: 2}}
+        - has: {kind: template_substitution, nthChild: {position: 1, ofRule: &code {not: {kind: 'comment, html_comment'}}}, has: {pattern: $VALUE}}
+        - not: {has: {kind: template_substitution, nthChild: {position: 2, ofRule: *code}}}
         - any:
             - inside: {kind: member_expression, field: object}
             - inside: {kind: template_substitution}

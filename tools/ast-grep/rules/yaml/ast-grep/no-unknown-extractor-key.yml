@@ -2,6 +2,7 @@
 language: yamllang
 severity: error
 files: ['tools/ast-grep/outline/**']
+ignores: ['tools/ast-grep/outline/sources/**']
 rule:
     kind: document
     has:
