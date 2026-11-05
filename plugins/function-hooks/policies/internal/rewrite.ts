@@ -1,14 +1,14 @@
 import { Maybe } from '../../monads.ts';
 import { type Command, parse, type Word } from './command.ts';
 import { argumentGroups, basename, type Invocation, informational, operands } from './invocation.ts';
-import { checkerTarget, launches, optionKeys, projectTargets } from './nx-target.ts';
+import { cachedTarget, checkerTarget, launches, optionKeys, projectTargets } from './nx-target.ts';
 import { type Call, edit, editOrRefuse, MAX_TIMEOUT, refuse, type Verdict } from './verdict.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const ESCAPED_NEWLINE = /(?<!\\)(?:\\\\)*\\n/u;
 const DURATION = /^(?<value>\d+(?:\.\d+)?)(?<unit>[smh]?)$/u;
-const CACHED_TARGET = /^(?:check|typecheck(?::.+)?)$/u;
+const CACHE_FLAGS: readonly string[] = ['--skip-nx-cache', '--skipNxCache', '--disable-nx-cache', '--disableNxCache'];
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -70,11 +70,19 @@ const sdFixes = (invocation: Invocation, [head, ...rest]: readonly Word[]): read
     ];
 };
 
-const nxCacheFlags = (invocation: Invocation, words: readonly Word[]): readonly Verdict[] => {
-    const { inputs, values } = operands(invocation);
+const nxCacheFlags = async (call: Call, invocation: Invocation, words: readonly Word[]): Promise<readonly Verdict[]> => {
+    const { inputs, options, values } = operands(invocation);
+    const [root] = call.system.root.values;
+    if (root === undefined || !CACHE_FLAGS.some((flag) => options.includes(flag))) {
+        return [];
+    }
     const listed = values.flatMap(([name, value]) => (['-t', '--targets', '--target'].includes(name) ? value.split(',') : []));
-    const targets = inputs[0] === 'run' ? inputs.slice(1, 2).flatMap((word) => (word.includes(':') ? [word.slice(word.indexOf(':') + 1)] : [])) : [...listed, ...inputs.slice(0, listed.length === 0 ? 1 : 0)];
-    return targets.length > 0 && targets.every((target) => CACHED_TARGET.test(target)) ? optionRespellings('nx', words, Object.fromEntries(['--skip-nx-cache', '--skipNxCache', '--disable-nx-cache', '--disableNxCache'].map((name) => [name, ''])), `, ${targets.join(' ')} inputs hash every source`) : [];
+    const addresses = inputs[0] === 'run' ? inputs.slice(1, 2).flatMap((word) => (word.includes(':') ? [{ project: word.slice(0, word.indexOf(':')), target: word.slice(word.indexOf(':') + 1) }] : [])) : [];
+    const named = values.flatMap(([name, value]) => (['-p', '--projects'].includes(name) ? value.split(',') : []));
+    const projects = named.length > 0 ? named : ['.'];
+    const asked = inputs[0] === 'run' ? addresses : [...listed, ...inputs.slice(0, listed.length === 0 ? 1 : 0)].flatMap((target) => projects.map((project) => ({ project, target })));
+    const cached = await Promise.all(asked.map(async ({ project, target }) => (await projectTargets(call, project, root)).values.some((held) => cachedTarget(held, target))));
+    return asked.length > 0 && cached.every(Boolean) ? optionRespellings('nx', words, Object.fromEntries(CACHE_FLAGS.map((name) => [name, ''])), `, ${[...new Set(asked.map(({ target }) => target))].join(' ')} inputs hash every source`) : [];
 };
 
 const forwardedDuplicates = async (call: Call, invocation: Invocation, words: readonly Word[]): Promise<readonly Verdict[]> => {
@@ -128,7 +136,7 @@ const programRewrites = async (call: Call, invocation: Invocation, words: readon
         case 'stubtest':
             return stated(['--mypy-config-file']) ? [] : call.system.root.values.map((root) => edit(head.span.end, head.span.end, ` --mypy-config-file ${root}/.config/stubtest.ini`));
         case 'nx':
-            return [...nxCacheFlags(invocation, rest), ...(await forwardedDuplicates(call, invocation, words))];
+            return [...(await nxCacheFlags(call, invocation, rest)), ...(await forwardedDuplicates(call, invocation, words))];
         default:
             return [];
     }

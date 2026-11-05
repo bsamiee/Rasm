@@ -15,6 +15,7 @@
 - Host questions run as case files through `harness <host> <target>` under a `watch-apps` Monitor, answers read through `harness <host> log`
 - Tools agents run outside Nx targets answer in one command with no path or flag beyond the question, and log, observe, and clean up automatically
 - Checks, tests, and host probes run once when work is done, a loop that reruns them after each change is a defect
+- Changes to root files, `eng/`, `infra/`, and `tools/` extend the owning target, setting, or package, a parallel script or one-off flag is a defect
 
 ## [01]-[LANGUAGE_STANDARDS]
 

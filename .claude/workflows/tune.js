@@ -6,7 +6,7 @@ export const meta = {
     { title: 'Map', detail: 'the diff packed into the units one reader reads whole and judges well, per unit a reader naming each improvement and regression its hunks show with its owner and the owner files it changes', model: 'opus' },
     { title: 'Checks', detail: 'per checker, and per rule folder for ast-grep, one writer holding every finding for it, disjoint writers at once and overlapping ones in order, rerouted findings in one later round' },
     { title: 'Skills', detail: 'per skill with findings a writer, an adversary over its diff, a clean-prose pass' },
-    { title: 'Close', detail: 'renamed ids, owning targets once, changed ast-grep rules\' instruction counts beside their parse-error rules, one fix pass at the cause, one rerun' },
+    { title: 'Close', detail: 'renamed ids, owning targets once, skill snippets, one fix pass at the cause, one rerun' },
   ],
 }
 
@@ -138,16 +138,14 @@ const close = (written, skills) => {
   const owners = OWNERS.filter((owner) => touched.some((done) => done.group.owner === owner))
   const renamed = [...new Set(touched.flatMap((done) => done.result.renamed).map((pair) => `\`${pair.from}\` to \`${pair.to}\``))]
   const removed = [...new Set(touched.flatMap((done) => done.result.removed).map((id) => `\`${id}\``))]
-  const costed = [...Map.groupBy(touched.filter((done) => done.group.owner === SYNTAX).flatMap((done) => done.result.files.map(relative).filter((path) => path.startsWith('tools/ast-grep/rules/') && done.result.changed.some((id) => path.endsWith(`/${id}.yml`)))), (path) => path.split('/').slice(0, 4).join('/'))]
-    .map(([rules, paths]) => `${rules}: ${[...new Set(paths)].map((path) => `\`${path.split('/').at(-1).replace('.yml', '')}\``).join(', ')}`)
   const commands = [...new Set(owners.flatMap((owner) => owner.targets))].map((command) => `\`${command}\``)
   const snippets = row.snippet && skills.length > 0 ? [`each snippet \`git diff HEAD -- ${skills.map((skill) => `.claude/skills/${skill}`).join(' ')}\` changes, piped through \`${row.snippet}\``] : []
-  return touched.length + snippets.length === 0 ? Promise.resolve('no check or snippet changed') : once(`Load ${loads([...owners.flatMap((owner) => owner.skills), row.skills[0]])}${costed.length > 0 ? ', and read use-ast-grep\'s references/performance.md' : ''}. ${BAR}
+  return touched.length + snippets.length === 0 ? Promise.resolve('no check or snippet changed') : once(`Load ${loads([...owners.flatMap((owner) => owner.skills), row.skills[0]])}. ${BAR}
 Close over ${[...new Set(touched.flatMap((done) => done.result.files.map(relative)))].join(', ') || 'the skill snippets'}. Writer reports:
 ${touched.map((done) => `## ${done.group.label}\n${done.result.report}`).join('\n\n') || 'no check changed'}
 ${renamed.length + removed.length > 0 ? `Update every mention across the tree (skills, config reasons, per-line ignores, sgconfig.yml) of each id renamed (${renamed.join(', ') || 'none'}) or removed (${removed.join(', ') || 'none'}). ` : ''}Run each command once in the foreground, a command taking paths over the changed files it reads:
-${listed([...commands, ...snippets])}${costed.length > 0 ? `\nMeasure the rules below with performance.md's rule cost command in the foreground, one run per folder, each beside the id of that folder's \`syntax/no-parse-error-*.yml\`, with \`<globs>\` read from sgconfig.yml through \`yq\` for the rule's language:\n${listed(costed)}` : ''}
-Fix each finding once at its cause (the code it names, or the check when it misfires)${exclude.length > 0 ? `, except findings under ${exclude.join(', ')}` : ''}, then rerun once each command that failed. Return at most 10 lines: findings fixed, any left${costed.length > 0 ? ", and each changed rule's instruction count beside its parse-error rule" : ''}.`, { label: 'close', phase: 'Close' })
+${listed([...commands, ...snippets])}
+Fix each finding once at its cause (the code it names, or the check when it misfires)${exclude.length > 0 ? `, except findings under ${exclude.join(', ')}` : ''}, then rerun once each command that failed. Return at most 10 lines: findings fixed, any left.`, { label: 'close', phase: 'Close' })
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

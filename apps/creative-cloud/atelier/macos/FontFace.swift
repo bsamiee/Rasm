@@ -1,24 +1,24 @@
 import CoreText
-public import Foundation
-public import Results
+import Foundation
+import Results
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public struct FontFace: Codable, Hashable, Sendable {
-    public let postscriptName: String
-    public let family: String
-    public let style: String
-    public let displayName: String
-    public let file: URL
+struct FontFace: Codable, Hashable, Sendable {
+    let postscriptName: String
+    let family: String
+    let style: String
+    let displayName: String
+    let file: URL
 }
 
 extension FontFace {
-    public static func available() -> [Self] {
+    static func available() -> [Self] {
         let collection: CTFontCollection = CTFontCollectionCreateFromAvailableFonts([kCTFontCollectionRemoveDuplicatesOption as String: true] as CFDictionary)
         return (CTFontCollectionCreateMatchingFontDescriptors(collection) as? [CTFontDescriptor] ?? []).compactMap(Self.init(_:))
     }
 
-    public init(named name: String) throws(Unmatched) {
+    init(named name: String) throws(Unmatched) {
         let query: CTFontDescriptor = CTFontDescriptorCreateWithAttributes([kCTFontNameAttribute: name] as CFDictionary)
         guard let face: Self = CTFontDescriptorCreateMatchingFontDescriptor(query, nil).flatMap(Self.init(_:)) else {
             throw Unmatched(

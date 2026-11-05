@@ -118,7 +118,8 @@ extension ApplicationFailure: Encodable {
             case .noReport(let limit): try fields.encode(limit / .seconds(1), forKey: .limit)
             case .event(let failure): try fields.encodeIfPresent(failure.status, forKey: .status)
             case .system(let error): try fields.encode(error.rawValue, forKey: .error)
-            case .untrusted, .noCaptureAccess, .unanswered, .noProcess, .unresolved, .disabled, .refused(.none), .noIdentifier, .noPath, .noHandler, .noWindow, .noImage, .noExtension, .noEncoder, .host,
+            case .untrusted, .noCaptureAccess, .unanswered, .noProcess, .unresolved, .disabled, .refused(.none), .noIdentifier, .noPath, .noHandler, .noWindow, .noImage, .noExtension, .noEncoder,
+                .host,
                 .cancelled, .unwatched:
                 break
         }

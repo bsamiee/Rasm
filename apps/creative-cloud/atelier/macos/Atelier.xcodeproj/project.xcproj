@@ -83,6 +83,10 @@
           "build-phase": { "build-phase": "frameworks" },
         }, {
           "package": "..",
+          "product-name": "ApplicationServer",
+          "build-phase": { "build-phase": "frameworks" },
+        }, {
+          "package": "..",
           "product-name": "Applications",
           "build-phase": { "build-phase": "frameworks" },
         }, {

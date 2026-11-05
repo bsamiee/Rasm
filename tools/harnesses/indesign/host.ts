@@ -1,9 +1,9 @@
 import { pathToFileURL } from 'node:url';
-import { Automation } from '@rasm/automation/node';
+import { Automation } from '@rasm/applications/node';
 import { parse } from 'acorn';
 import { findNodeAt } from 'acorn-walk';
 import { Array, Effect, Option, Result, Schema, String, Struct } from 'effect';
-import { crashes, REPORTER, uxp } from '#/adobe';
+import { ADOBE, crashes, REPORTER, uxp } from '#/adobe';
 import { HarnessError, thrown } from '#/harness-error';
 import { ENGINES, Encoded, Engine, HostCase, HostOutcome, Reply, Survey } from '#/indesign/contract';
 import { precondition } from '#/indesign/precondition';
@@ -11,7 +11,7 @@ import uxpscript from '#/indesign/uxpscript/script.config';
 import { checked, Launched, plist, printedLines } from '#/instance';
 import { copied } from '#/precondition';
 import { HOME, type Rule } from '#/report';
-import { type Batch, Harness, type Instance, installation, type Live } from '#/session';
+import { type Batch, Harness, type Instance, installation, type Live, scripted } from '#/session';
 import { assembled, engineOf } from '#/source';
 import manifest from './uxpscript/package.json' with { type: 'json' };
 
@@ -36,7 +36,7 @@ const bundle = Effect.map(
 );
 const installed = Effect.gen(function* () {
     const [automation, toOpen] = yield* Effect.all([Automation, bundle]);
-    const [opening, rows] = yield* Effect.all([automation.opening(toOpen), automation.installed]);
+    const [opening, rows] = yield* Effect.all([automation.opening(toOpen, ADOBE), automation.installed(ADOBE)]);
     return yield* Effect.forEach(opening, (row) => installation(row, rows, [REPORTER]));
 });
 
@@ -75,12 +75,11 @@ const logs = Effect.fn('logs')(function* (instance: Instance) {
 
 // --- [TRANSPORT]
 const send = Effect.fn('send')(function* (live: Live, batch: Batch<typeof Survey.Type, typeof HostCase.Type>) {
-    const automation = yield* Automation;
     const scripts = Array.getSomes(batch.cases.map((row) => Option.map(Option.fromUndefinedOr(row._tag === 'Probe' ? undefined : row.source), Struct.get('script'))));
     const held = Option.isNone(batch.survey) ? 'uxpscript' : yield* Effect.fromResult(engine(scripts));
     const encoded = yield* Schema.encodeEffect(Encoded)({ records: batch.records, label: batch.label, enumerations: Option.match(batch.survey, { onNone: () => ({}), onSome: ({ enumerations }) => enumerations }), survey: Option.isNone(batch.survey), cases: batch.cases });
     const direct = held === 'extendscript' ? (yield* assembled(ENGINE)).code : { _tag: 'file' as const, url: (yield* bundle).href };
-    const { reply } = yield* automation.script({ pid: live.pid, direct, values: [encoded], language: ENGINES[held].language });
+    const { reply } = yield* scripted(live, { direct, values: [encoded], language: ENGINES[held].language });
     return yield* Reply.replied(`${held} batch`)(reply);
 });
 
@@ -98,7 +97,7 @@ const indesign = Harness({
     placed: copied,
     refusal,
     installed,
-    launch: () => Effect.succeed(new Launched({ fresh: false })),
+    launch: () => Effect.succeed(new Launched({})),
     send,
     quit: (live) => Effect.flatMap(Automation, (automation) => Effect.asVoid(automation.execute({ pid: live.pid, command: 'quit', arguments: { saving: { _tag: 'enumerator', name: 'no' } } }))),
     canonical: (file, bytes) => (file.endsWith('.idml') ? unpacked(file) : Effect.succeed([bytes])),

@@ -180,6 +180,7 @@
         <GenerateDependencyFile>false</GenerateDependencyFile>
         <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
         <MinVerTagPrefix>rhino-$(MSBuildProjectName)-v</MinVerTagPrefix>
+        <MinVerIgnoreHeight>true</MinVerIgnoreHeight>
         <_PlugInIconSource Condition="'$(_PlugInIconSource)' == ''">$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', 'EmbeddedResources', 'icon.svg'))</_PlugInIconSource>
         <_PlugInPackageIcon Condition="Exists('$(_PlugInIconSource)')">icon.png</_PlugInPackageIcon>
         <_PlugInPackageIconSize>64</_PlugInPackageIconSize>

@@ -58,7 +58,6 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate, NSTableViewDat
         scenarios.addItem(withTitle: "disabled", action: nil, keyEquivalent: "")
         for submenu: NSMenu in [application, scenarios] { bar.addItem(withTitle: submenu.title, action: nil, keyEquivalent: "").submenu = submenu }
         NSApp.mainMenu = bar
-        if settings.hidden { NSApp.hide(nil) }
         windows = (0..<max(1, settings.windows)).map(window)
         if let scenario: Scenario = settings.scenario, scenario.atLaunch { run(scenario) }
     }
@@ -141,7 +140,6 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate, NSTableViewDat
             window.contentView = Swatch(frame: NSRect(origin: .zero, size: Swatch.size))
             window.center()
             for shown: NSWindow in windows { shown.orderOut(nil) }
-            NSApp.unhideWithoutActivation()
             window.orderBack(nil)
             return window
         }
@@ -191,6 +189,10 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate, NSTableViewDat
             case .saveSheet: windows.first.map { window in NSSavePanel().beginSheetModal(for: window) { _ in } }
             case .systemDialog: windows.append(panel("System dialog", style: [.titled], subrole: .systemDialog))
             case .floatingPanel: windows.append(panel("Floating panel", style: [.titled, .utilityWindow], level: .modalPanel))
+            case .hidingPanel:
+                let hiding: NSPanel = panel("Hiding panel", style: [.titled, .utilityWindow])
+                hiding.hidesOnDeactivate = true
+                windows.append(hiding)
             case .edited: windows.first?.isDocumentEdited = true
             case .minimize: windows.first?.miniaturize(nil)
             case .hangBlocked:
@@ -202,6 +204,17 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate, NSTableViewDat
                     while !held.released.load(ordering: .relaxed) {}
                 }
             case .hangQuiet: Hang().waiting.wait()
+            case .hangWindow:
+                let held: Hang = Hang()
+                deferred(titled: "Blocked") {
+                    self.windows.append(panel("Blocking panel", style: [.titled]))
+                    held.waiting.wait()
+                }
+            case .modalBlocked:
+                let held: Hang = Hang()
+                let blocking: Timer = Timer(timeInterval: 0, repeats: false) { _ in held.waiting.wait() }
+                RunLoop.current.add(blocking, forMode: .modalPanel)
+                alert("Blocked modal alert").runModal()
             case .stop: raise(SIGSTOP)
             case .fault: unsafe UnsafeMutablePointer<Int>(bitPattern: 8).unsafelyUnwrapped.pointee = 1
             case .abort: abort()
@@ -214,9 +227,11 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate, NSTableViewDat
     private func helper() -> Task<Void, Never> {
         Task { [logger] in
             do {
-                let arguments: [String] = Settings(role: .helper).arguments
+                let helping: [Environment.Key: String?] = Dictionary(
+                    uniqueKeysWithValues: Settings(role: .helper).environment.map { key, value in (Environment.Key(stringLiteral: key), Optional(value)) }
+                )
                 let executable: FilePath = FilePath(ProcessInfo.processInfo.arguments[0])
-                _ = try await Subprocess.run(.path(executable), arguments: Arguments(arguments), platformOptions: .session(), input: .none, output: .discarded, error: .discarded) {
+                _ = try await Subprocess.run(.path(executable), environment: .inherit.updating(helping), platformOptions: .session(), input: .none, output: .discarded, error: .discarded) {
                     execution in logger.notice("Helper \(execution.processIdentifier.value, privacy: .public) started")
                 }
             } catch {

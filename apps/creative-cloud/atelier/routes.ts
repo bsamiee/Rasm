@@ -1,11 +1,11 @@
-import { Installation, Pid, type RunningInstance } from '@rasm/automation';
-import { Automation } from '@rasm/automation/node';
+import { Installation, Pid, type RunningInstance } from '@rasm/applications';
 import { Route, Server } from '@rasm/mcp';
 import { Unmatched } from '@rasm/search';
 import { Peer } from '@rasm/uxp/peer';
 import { Array, Context, Effect, Function, flow, Match, Option, Predicate, Schema, Struct, SubscriptionRef } from 'effect';
 import { Tool } from 'effect/ai';
 import type { RpcGroup } from 'effect/rpc';
+import { Adobe } from '#/adobe';
 import { type Libraries, library, type listening } from '#/libraries';
 import type { status } from '#/status';
 
@@ -23,8 +23,8 @@ const EXECUTE_SCRIPT = 'execute_script' as const satisfies Tag;
 const names = (installation: Installation) => Array.of(installation.name);
 const runningIn = (instances: readonly RunningInstance[]) => (installation: Installation) => instances.some(Installation.runs(installation));
 const routes = Effect.fnUntraced(function* ({ answering }: Effect.Success<typeof status>, links: Effect.Success<typeof listening>) {
-    const automation = yield* Automation;
-    const current = Effect.all({ installed: automation.installed, instances: SubscriptionRef.get(automation.instances), peers: links.peers });
+    const { installed: listing, instances: tracked } = yield* Adobe;
+    const current = Effect.all({ installed: listing, instances: SubscriptionRef.get(tracked), peers: links.peers });
     const registered = yield* current;
     const linked = (tag: Tag) => (installation: Installation, peers: readonly Peer[]) => Option.filter(library(installation), ({ Contract }) => Contract.requests.has(tag) && peers.some(Peer.serves(installation.url)));
     const connected =

@@ -449,11 +449,7 @@ where E: Endpoint
 
 fn duration(name: &'static str) -> Histogram<f64> {
     const BOUNDARIES: [f64; 14] = [0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0, 30.0, 60.0, 120.0, 300.0];
-    global::meter_with_scope(InstrumentationScope::builder(env!("CARGO_PKG_NAME")).with_schema_url(SCHEMA_URL).build())
-        .f64_histogram(name)
-        .with_unit("s")
-        .with_boundaries(BOUNDARIES.to_vec())
-        .build()
+    global::meter_with_scope(InstrumentationScope::builder(env!("CARGO_PKG_NAME")).with_schema_url(SCHEMA_URL).build()).f64_histogram(name).with_unit("s").with_boundaries(BOUNDARIES.to_vec()).build()
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

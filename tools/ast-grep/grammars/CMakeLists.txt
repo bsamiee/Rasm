@@ -12,12 +12,12 @@ set(AST_GREP_CONFIG "" CACHE FILEPATH "Project language registration")
 
 file(REAL_PATH "${GRAMMAR_SOURCE}" GRAMMAR_SOURCE)
 file(REAL_PATH "${NODE_MODULES}" NODE_MODULES)
-cmake_path(GET CMAKE_CURRENT_BINARY_DIR FILENAME language)
-cmake_path(GET CMAKE_CURRENT_BINARY_DIR PARENT_PATH library_dir)
+cmake_path(GET CMAKE_CURRENT_BINARY_DIR PARENT_PATH published_dir)
+cmake_path(GET published_dir FILENAME language)
+cmake_path(GET published_dir PARENT_PATH library_dir)
 set(parser_dir "${CMAKE_CURRENT_BINARY_DIR}/src")
 set(library_suffix ".so")
 
-file(REMOVE_RECURSE "${parser_dir}")
 execute_process(COMMAND tree-sitter generate --output "${parser_dir}" "${GRAMMAR_SOURCE}" COMMAND_ERROR_IS_FATAL ANY)
 file(READ "${parser_dir}/grammar.json" grammar)
 string(JSON name GET "${grammar}" name)
@@ -25,7 +25,14 @@ string(JSON name GET "${grammar}" name)
 add_library(${PROJECT_NAME} MODULE "${parser_dir}/parser.c")
 target_include_directories(${PROJECT_NAME} PRIVATE "${parser_dir}" "${NODE_MODULES}" "${CMAKE_CURRENT_BINARY_DIR}")
 target_compile_features(${PROJECT_NAME} PRIVATE c_std_11)
-set_target_properties(${PROJECT_NAME} PROPERTIES PREFIX "" SUFFIX "${library_suffix}" OUTPUT_NAME "${language}" C_VISIBILITY_PRESET hidden LIBRARY_OUTPUT_DIRECTORY "$<PATH:NORMAL_PATH,${library_dir}>")
+set_target_properties(${PROJECT_NAME} PROPERTIES PREFIX "" SUFFIX "${library_suffix}" OUTPUT_NAME "${language}" C_VISIBILITY_PRESET hidden)
+file(MAKE_DIRECTORY "${published_dir}/src")
+add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+    COMMAND "${CMAKE_COMMAND}" -E rename "${parser_dir}/grammar.json" "${published_dir}/src/grammar.json"
+    COMMAND "${CMAKE_COMMAND}" -E rename "${parser_dir}/node-types.json" "${published_dir}/src/node-types.json"
+    COMMAND "${CMAKE_COMMAND}" -E rename "$<TARGET_FILE:${PROJECT_NAME}>" "${library_dir}/${language}${library_suffix}"
+    VERBATIM
+)
 set(scanner_options "$<$<C_COMPILER_ID:GNU>:-fno-strict-aliasing>" ${SCANNER_COMPILE_OPTIONS})
 
 set(component_names "")
@@ -110,5 +117,5 @@ if(AST_GREP_CONFIG)
         OUTPUT_FILE "${CMAKE_CURRENT_BINARY_DIR}/sgconfig.yml"
         COMMAND_ERROR_IS_FATAL ANY
     )
-    file(RENAME "${CMAKE_CURRENT_BINARY_DIR}/sgconfig.yml" "${CMAKE_CURRENT_BINARY_DIR}.yml")
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD COMMAND "${CMAKE_COMMAND}" -E rename "${CMAKE_CURRENT_BINARY_DIR}/sgconfig.yml" "${library_dir}/${language}.yml" VERBATIM)
 endif()

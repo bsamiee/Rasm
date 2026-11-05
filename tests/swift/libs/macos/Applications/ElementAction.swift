@@ -8,40 +8,50 @@ import Testing
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 private let action: Generator<ElementAction, AnySequence<Any>> = zip(
-    Gen<UInt8>.value().array(of: 0...48).map { bytes in Data(bytes) },
+    Gen<UInt8>.value().array(of: 0...48).map { bytes in Data(bytes).base64EncodedString() },
     Gen<Character>.character(in: "\u{20}"..."\u{10FF}").string(of: 0...24),
     Gen<Bool>.bool,
 )
-.map { element, text, performs in performs ? ElementAction.perform(element: element, action: text) : ElementAction.set(element: element, value: text) }
+.compactMap { text, value, performs in
+    Element.ID(base64Encoded: text).map { element in performs ? ElementAction.perform(element: element, action: value) : ElementAction.set(element: element, value: value) }
+}
 .eraseToAny()
-private let decoded: [(line: String, action: ElementAction)] = [
-    (#"{"perform":{"element":"AAEC","action":"AXPress"}}"#, .perform(element: Data([0, 1, 2]), action: "AXPress")),
-    (#"{"set":{"element":"/w==","value":"Größe ✓"}}"#, .set(element: Data([255]), value: "Größe ✓")),
-]
 private let malformed: [String] = [
     #"{"perform":{"element":"not base64!","action":"AXPress"}}"#, #"{"perform":{"element":"AAEC"}}"#, #"{"press":{"element":"AAEC","action":"AXPress"}}"#,
-    #"{"set":{"element":"AAEC","value":7}}"#,
+    #"{"set":{"element":"AAEC","value":7}}"#, #"{"key":{"process":1}}"#,
 ]
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+private func id(_ text: String) throws -> Element.ID { try #require(Element.ID(base64Encoded: text)) }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 struct ElementActions {
     @Test
-    func actionEncodesWirePerformShapeAndRoundTrips() async {
+    func actionEncodesWireShapeAndRoundTrips() async {
         await propertyCheck(input: action) { action in
             let expected: JSONValue =
                 switch action {
-                    case .perform(let element, let name): .object(["perform": .object(["element": .string(element.base64EncodedString()), "action": .string(name)])])
-                    case .set(let element, let value): .object(["set": .object(["element": .string(element.base64EncodedString()), "value": .string(value)])])
+                    case .perform(let element, let name): .object(["perform": .object(["element": .string(element.description), "action": .string(name)])])
+                    case .set(let element, let value): .object(["set": .object(["element": .string(element.description), "value": .string(value)])])
+                    case .key(let process, let code): .object(["key": .object(["process": .number(Double(process)), "code": .number(Double(code))])])
                 }
             expectNoDifference(try wire(action), expected)
             expectNoDifference(try JSONDecoder().decode(ElementAction.self, from: JSONEncoder().encodeLine(action)), action)
         }
     }
 
-    @Test(arguments: decoded)
-    func wireActionDecodes(line: String, action: ElementAction) throws {
-        expectNoDifference(try JSONDecoder().decode(ElementAction.self, from: Data(line.utf8)), action)
+    @Test
+    func wireActionsDecode() throws {
+        let decoded: [(line: String, action: ElementAction)] = [
+            (#"{"perform":{"element":"AAEC","action":"AXPress"}}"#, .perform(element: try id("AAEC"), action: "AXPress")),
+            (#"{"set":{"element":"/w==","value":"Größe ✓"}}"#, .set(element: try id("/w=="), value: "Größe ✓")),
+            (#"{"key":{"process":4242,"code":36}}"#, .key(process: 4242, code: 36)),
+        ]
+        for (line, action): (String, ElementAction) in decoded {
+            expectNoDifference(try JSONDecoder().decode(ElementAction.self, from: Data(line.utf8)), action)
+        }
     }
 
     @Test(arguments: malformed)

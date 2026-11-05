@@ -140,6 +140,7 @@
         "@quran.ws/tajwid-annotations": "catalog:",
         "@quran.ws/tajwid-rules": "catalog:",
         "@quran.ws/text": "catalog:",
+        "@rasm/applications": "workspace:*",
         "@rasm/cep": "workspace:*",
         "@rasm/database": "workspace:*",
         "@rasm/function-hooks": "workspace:*",

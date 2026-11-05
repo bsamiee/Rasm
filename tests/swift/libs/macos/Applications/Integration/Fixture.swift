@@ -1,5 +1,6 @@
 import AppKit
 import CasePaths
+import CasePathsCore
 import CustomDump
 import Encoding
 import Foundation
@@ -32,54 +33,44 @@ func installation() throws -> Installation {
 }
 
 func launched(_ instance: NSRunningApplication, fileID: StaticString = #fileID, filePath: StaticString = #filePath, line: UInt = #line, column: UInt = #column) async {
-    let settled: InstanceState? = await instance.states(ending: termination(of: instance.processIdentifier)).first { state in !state.isLaunching }
+    let settled: InstanceState? = await instance.states().first { state in state[case: \.running]?.status.settled != false }
     expectNoDifference(settled?.phase, .responding, fileID: fileID, filePath: filePath, line: line, column: column)
 }
 
-func launched() async throws -> (installation: Installation, instance: NSRunningApplication) {
+func launched(_ settings: Settings = Settings()) async throws -> (installation: Installation, instance: NSRunningApplication) {
     try checkAccessibilityTrust()
     let installation: Installation = try installation()
-    let instance: NSRunningApplication = try #require(TestApplication.instance)
+    let instance: NSRunningApplication = try await NSWorkspace.shared.launch(installation, environment: settings.environment).instance
     await launched(instance)
-    expectNoDifference(instance.activationPolicy, .accessory)
+    expectNoDifference(instance.activationPolicy, .regular)
     return (installation, instance)
 }
 
-func launched(_ settings: Settings) async throws -> (installation: Installation, instance: NSRunningApplication) {
-    try checkAccessibilityTrust()
-    let installation: Installation = try installation()
-    let instance: NSRunningApplication = try await NSWorkspace.shared.launch(installation, arguments: settings.arguments).instance
-    await launched(instance)
-    expectNoDifference(instance.activationPolicy, .accessory)
-    return (installation, instance)
-}
-
-func read(_ instance: NSRunningApplication) async throws -> [Element] {
+func read(_ instance: NSRunningApplication) async throws -> InstanceState.Running {
     let state: InstanceState = await instance.state { _ in true }
-    let responding: [Element]? = state[case: \.running]?.status[case: \.responding]?.elements
-    return try #require(responding, "read \(state.phase)")
+    return try #require(state[case: \.running], "read \(state.phase)")
 }
 
 func numbered(_ title: String, in instance: NSRunningApplication) async throws -> CGWindowID {
-    let window: CGWindowID? = try await read(instance).first { element in element.title == title }?.window
+    let window: CGWindowID? = try await read(instance).windows.first { row in row.element?.title == title }?.number
     return try #require(window, "window \(title)")
 }
 
-func menu(_ title: String, in elements: [Element]) throws -> [Control] {
-    let bar: Element = try #require(elements.first { element in element.role == kAXMenuBarRole })
+func menu(_ title: String, in running: InstanceState.Running) throws -> [Control] {
+    let bar: Element = try #require(running.menus.first { element in element.role == kAXMenuBarRole })
     return try #require(bar.detail?.controls.first { control in control.label == title }?.items, "menu \(title)")
 }
 
 func run(_ scenario: Scenario, in instance: NSRunningApplication) async throws {
     let item: Control = try #require(try menu(String(describing: Scenario.self), in: try await read(instance)).first { item in item.label == scenario.rawValue })
-    try await ElementAction.perform(element: item.id, action: kAXPressAction).perform()
+    _ = try await ElementAction.perform(element: item.id, action: kAXPressAction).perform()
 }
 
 func json(_ text: String) throws -> JSONValue {
     try JSONDecoder().decode(JSONValue.self, from: Data(text.utf8))
 }
 
-func shape(_ value: some Encodable, dropping dropped: Set<String> = ["id", "window", "detail", "items"]) throws -> JSONValue {
+func shape(_ value: some Encodable, dropping dropped: Set<String> = ["id", "detail", "items", "answers"]) throws -> JSONValue {
     let encoded: JSONValue = try JSONDecoder().decode(JSONValue.self, from: JSONEncoder().encodeLine(value))
     return switch encoded {
         case .object(let fields): .object(fields.filter { key, _ in !dropped.contains(key) })
@@ -106,7 +97,7 @@ func observe(
     acting act: () async throws -> Void = {},
 ) async throws -> [InstanceState] {
     var seen: [InstanceState] = []
-    for await state: InstanceState in instance.states(ending: termination(of: instance.processIdentifier)) {
+    for await state: InstanceState in instance.states() {
         seen.append(state)
         if seen.count == 1 { try await act() }
         if done(seen) { break }
@@ -114,19 +105,22 @@ func observe(
     return seen
 }
 
-extension InstanceState {
-    var elements: [Element] { self[case: \.running]?.status[case: \.responding]?.elements ?? [] }
+extension InstanceState.Window {
+    var element: Element? { description[case: \.element] }
+}
 
-    var windows: [Window]? {
-        switch self[case: \.running]?.status {
-            case .launching(let windows), .responding(_, let windows), .unresponsive(_, let windows): windows
-            case nil: nil
-        }
-    }
+extension InstanceState.Running {
+    var elements: [Element] { windows.compactMap(\.element) }
+}
+
+extension InstanceState {
+    var elements: [Element] { self[case: \.running]?.elements ?? [] }
+
+    var rows: [Window] { self[case: \.running]?.windows ?? [] }
 
     var usage: Result<ResourceUsage, Errno>? { self[case: \.running]?.usage }
 
-    var asking: Element? { elements.first(where: \.requiresAnswer) }
+    var asking: Element? { self[case: \.running]?.asking.lazy.compactMap(\.element).first }
 
     var phase: Phase {
         switch self {
@@ -134,7 +128,7 @@ extension InstanceState {
                 switch running.status {
                     case .launching: .launching
                     case .responding: .responding
-                    case .unresponsive(let process, _): .unresponsive(process)
+                    case .unresponsive(let process): .unresponsive(process)
                 }
             case .failed: .failed
             case .exited(.failure, _): .unread

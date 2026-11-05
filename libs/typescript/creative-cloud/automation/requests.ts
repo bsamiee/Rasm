@@ -1,7 +1,7 @@
+import { LongestSide } from '@rasm/applications';
 import { Unmatched } from '@rasm/search';
 import { Array, Cause, Context, Effect, Option, Schema, SchemaTransformation, String, Struct } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
-import { LongestSide } from '#/applications';
 import { HostError } from '#/host-error';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -15,6 +15,7 @@ const BODY = 'function body() {';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
+const Version = Schema.String.check(Schema.isPattern(/^\d+(?:\.\d+){0,3}$/u)).annotate({ description: 'major[.minor[.patch[.build]]]' });
 const Member = Schema.Struct({
     name: Schema.String,
     type: Schema.OptionFromOptionalKey(Schema.String),
@@ -110,4 +111,4 @@ const Requests = RpcGroup.make(request(EXECUTE_SCRIPT, ExecuteScript), request('
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ExecuteScript, ObjectModel, Open, Reference, Render, Requests, request };
+export { ExecuteScript, ObjectModel, Open, Reference, Render, Requests, request, Version };

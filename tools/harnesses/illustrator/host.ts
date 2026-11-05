@@ -1,10 +1,10 @@
 import { matchesGlob } from 'node:path';
-import { Automation } from '@rasm/automation/node';
+import { Automation } from '@rasm/applications/node';
 import { parse } from 'acorn';
 import { findNodeAt } from 'acorn-walk';
 import { Array, DateTime, Effect, FileSystem, Number, Option, Path, Record, Result, Schema, Struct } from 'effect';
 import jsesc from 'jsesc';
-import { crashes, REPORTER, uxp } from '#/adobe';
+import { ADOBE, crashes, REPORTER, uxp } from '#/adobe';
 import { EXTENDSCRIPT } from '#/cases';
 import { HarnessError, thrown } from '#/harness-error';
 import { Engine, HostCase, HostOutcome, type Install, PASTEBOARD, Reply, Sent, Survey } from '#/illustrator/contract';
@@ -12,7 +12,7 @@ import { precondition } from '#/illustrator/precondition';
 import { checked, Launched, output, plist } from '#/instance';
 import { copied } from '#/precondition';
 import { failing, HOME, lifetime, lined, local, type Rule } from '#/report';
-import { type Batch, Harness, type Installed, type Instance, installation, type Live } from '#/session';
+import { type Batch, Harness, type Installed, type Instance, installation, type Live, scripted } from '#/session';
 import { assembled, engineOf } from '#/source';
 import { JsonObject } from '#/values';
 
@@ -55,7 +55,7 @@ const shadowed = Schema.is(Schema.Literals(['Window', 'alert', 'confirm', 'promp
 
 // --- [INSTALLATIONS]
 const installed = Effect.gen(function* () {
-    const rows = yield* (yield* Automation).installed;
+    const rows = yield* (yield* Automation).installed(ADOBE);
     return yield* Effect.forEach(
         rows.filter((row) => row.scriptable && row.identifier.startsWith('com.adobe.illustrator')),
         (row) => installation(row, rows, [REPORTER]),
@@ -146,9 +146,8 @@ const pasteboard = (mode: 'save' | 'restore', file: string) =>
         (script) => checked('osascript', ['-l', 'JavaScript', script, mode, file]),
     );
 const called = Effect.fn('called')(function* (live: Live, sent: typeof Sent.Type) {
-    const automation = yield* Automation;
     const encoded = jsesc(yield* Schema.encodeEffect(Sent)(sent), { json: true });
-    const { reply } = yield* automation.script({ pid: live.pid, direct: (yield* assembled(ENGINE)).code, values: [encoded] });
+    const { reply } = yield* scripted(live, { direct: (yield* assembled(ENGINE)).code, values: [encoded] });
     return yield* Reply.replied(`${sent._tag} batch`)(reply);
 });
 const send = Effect.fn('send')(function* (live: Live, batch: Batch<typeof Survey.Type, typeof HostCase.Type>) {

@@ -21,14 +21,14 @@ const Halted = Schema.TaggedUnion({
         frames: Schema.optionalKey(Schema.Array(Schema.String).annotate({ description: 'Faulting thread frames of the crash report' })),
     },
     Hung: {
-        process: Schema.optionalKey(Schema.Literals(['running', 'sleeping', 'stopped']).annotate({ description: 'Main thread state watch-apps read when the instance stopped answering' })),
+        process: Schema.optionalKey(Schema.Literals(['running', 'sleeping', 'stopped']).annotate({ description: 'Main thread state when the instance stopped answering' })),
         cpu: Schema.optionalKey(Schema.Finite.annotate({ description: 'CPU seconds when the instance stopped answering' })),
         footprint: Schema.optionalKey(Schema.Finite.annotate({ description: 'Physical footprint bytes when the instance stopped answering' })),
         threads: Schema.optionalKey(Schema.Int),
         sample: Schema.String.annotate({ description: 'sample report path of the instance' }),
         frames: recorded(Schema.String.annotate({ description: 'Main thread frame along the heaviest sample path, leaf first' })),
     },
-    Dialog: { title: Schema.optionalKey(Schema.String), text: Schema.Array(Schema.String), buttons: Schema.Array(Schema.String) },
+    Dialog: { kind: Schema.optionalKey(Schema.String.annotate({ description: 'Window kind of the state row' })), number: Schema.optionalKey(Schema.Int), title: Schema.optionalKey(Schema.String), text: Schema.Array(Schema.String), buttons: Schema.Array(Schema.String) },
 }).annotate({ description: 'Instance exit while or after the case ran, case past the limit with no record, or dialog no case press answers, a hung or dialog instance left running for the agent' });
 const Outcome = Object.assign(
     Schema.Struct({

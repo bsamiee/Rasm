@@ -257,7 +257,10 @@ impl Options {
         let level = iter::chain(default_directives.clone(), log.clone()).filter_map(|directive| directive.parse::<LevelFilter>().ok()).next_back().unwrap_or(LevelFilter::OFF);
         let (accepted, refused): (Vec<Directive>, Vec<_>) = log.map(|directive| directive.parse().map_err(|source: ParseError| (directive, source))).partition_result();
         let resource = Resource::builder_empty()
-            .with_schema_url(iter::chain([KeyValue::new(SERVICE_NAME, command.get_name().to_owned())], command.get_version().map(|version| KeyValue::new(SERVICE_VERSION, version.to_owned()))), SCHEMA_URL)
+            .with_schema_url(
+                iter::chain([KeyValue::new(SERVICE_NAME, command.get_name().to_owned())], command.get_version().map(|version| KeyValue::new(SERVICE_VERSION, version.to_owned()))),
+                SCHEMA_URL,
+            )
             .with_detector(Box::new(ServiceInstanceIdResourceDetector));
         let resource = if exported {
             resource

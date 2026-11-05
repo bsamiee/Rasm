@@ -1,4 +1,4 @@
-import { HostError, ObjectModel, Reference, Requests, request, Typesetting } from '@rasm/automation';
+import { HostError, ObjectModel, Reference, Requests, request } from '@rasm/automation';
 import { Settings, Source } from '@rasm/typography';
 import { UxpManifest } from '@rasm/uxp';
 import { Effect, Option, Record, Schema, SchemaTransformation, Struct } from 'effect';
@@ -6,6 +6,7 @@ import { RpcMiddleware } from 'effect/rpc';
 import { Slice } from '#/internal/slice';
 import { Specifier } from '#/internal/specifier';
 import { Value } from '#/internal/value';
+import { Typesetting } from '#/typesetting';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

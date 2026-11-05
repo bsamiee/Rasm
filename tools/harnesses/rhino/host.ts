@@ -1,12 +1,14 @@
 import { fileURLToPath } from 'node:url';
+import type { Installation } from '@rasm/applications';
+import { Automation } from '@rasm/applications/node';
 import { Array, Deferred, Effect, FileSystem, identity, Option, Path, type PlatformError, Predicate, Record, Result, Schema, Struct, UndefinedOr } from 'effect';
 import type { ChildProcessSpawner } from 'effect/process';
 import { HarnessError } from '#/harness-error';
-import { appeared, Launched, output, Progress, plist, printedLines } from '#/instance';
+import { appeared, Launched, output, Progress } from '#/instance';
 import { failing, HOME, lined } from '#/report';
-import { Closed, Engine, HostCase, HostOutcome, Info, LoaderRequest, REFUSED, Rows, Sarif, Session, Source, Survey } from '#/rhino/contract';
+import { Closed, Engine, HostCase, HostOutcome, LoaderRequest, REFUSED, Rows, Sarif, Session, Source, Survey } from '#/rhino/contract';
 import { precondition } from '#/rhino/precondition';
-import { type Batch, Harness, type Installed, type Live } from '#/session';
+import { type Batch, Harness, type Installed, installation, type Live } from '#/session';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -76,20 +78,15 @@ const LOADER = [
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [INSTALLATIONS]
-const installation = Effect.fn('installation')(function* (app: string, info: typeof Info.Type) {
-    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-    const contents = path.join(app, 'Contents');
-    const apps = (yield* fs.glob('**/*.app', { root: contents })).map((inner) => path.join(contents, inner));
-    const nested = yield* Effect.forEach(apps, (inner) => plist(inner, Info));
-    const helpers = Array.dedupe(nested.map(({ CFBundleIdentifier }) => CFBundleIdentifier)).filter((held) => held !== info.CFBundleIdentifier && held.startsWith(PREFIX));
-    return { identifier: info.CFBundleIdentifier, name: info.CFBundleName, app, version: info.CFBundleVersion, helpers } satisfies Installed;
+const built = Effect.fn('built')(function* (row: Installation, rows: readonly Installation[]) {
+    const held = yield* installation(row, rows, []);
+    return { ...held, version: yield* Effect.fromOption(row.build, () => HarnessError.unavailable(row.name)('Launch Services reports no build')) } satisfies Installed;
 });
 const installed = Effect.gen(function* () {
-    const bundles = yield* printedLines('mdfind', [`kMDItemCFBundleIdentifier == '${PREFIX}*'`]);
-    const infos = yield* Effect.forEach(bundles, (bundle) => plist(bundle, Info));
+    const rows = yield* (yield* Automation).installed({ prefix: PREFIX });
     return yield* Effect.forEach(
-        Array.zip(bundles, infos).filter(([, { CFBundleIdentifier }]) => HOST.test(CFBundleIdentifier)),
-        ([app, info]) => installation(app, info),
+        rows.filter(({ identifier }) => HOST.test(identifier)),
+        (row) => built(row, rows),
     );
 });
 
@@ -221,7 +218,7 @@ const rhino = Harness({
     survey: { question: 'Language and environment the running instance reports', Schema: Survey },
     Case: HostCase,
     Outcome: HostOutcome,
-    progress: [new Progress({ title: 'Please Wait...', buttons: ['Cancel'] }), new Progress({ title: 'Preparing Plug-ins for First Use', buttons: ['Details', 'Close'], enabled: false })],
+    progress: [new Progress({ title: 'Please Wait...', buttons: ['Cancel'] })],
     engine: () => Result.succeed(Engine.literal),
     precondition,
     placed: (decoded, _folder, product) =>

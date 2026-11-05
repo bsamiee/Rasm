@@ -1,5 +1,5 @@
 import type { Application, CellStyle, CharacterStyle, Document, Font, InDesignDOMObject, InsertionPoint, MasterSpread, ObjectStyle, Page, PageItem, ParagraphStyle, PreflightProcess, Spread, TableStyle, Text, TextDefault, TextFrame, TextPath, TextStyleRange } from 'adobe:indesign';
-import { type Adjust, ExecuteScript, HostError, type Kerns, ObjectModel, type Open, type Render, type Runs, type Typeset } from '@rasm/automation';
+import { ExecuteScript, HostError, ObjectModel, type Open, type Render } from '@rasm/automation';
 import { Unmatched } from '@rasm/search';
 import { Peer } from '@rasm/uxp/peer';
 import { Uxp } from '@rasm/uxp/uxp';
@@ -8,6 +8,7 @@ import { Call, type Change, type FindChange, type FontFile, InDesign, Inspect, t
 import type { Slice } from '#/internal/slice';
 import { Specifier } from '#/internal/specifier';
 import { Value } from '#/internal/value';
+import type { Adjust, Kerns, Runs, Typeset } from '#/typesetting';
 import { InDesignModel } from '#/uxp/indesign-model';
 import { InDesignSettings } from '#/uxp/indesign-settings';
 import { AGGREGATE_FIELD, declaredMember, unavailableReason } from '#/uxp/internal/dictionary';

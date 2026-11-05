@@ -159,7 +159,7 @@ class Subscription(msgspec.Struct, frozen=True, kw_only=True):
 
     @contextmanager
     def held(self, identity: Identity, /) -> Generator[Outcome[None]]:
-        """Holds the subscription under its own msgbus owner until scope exit, notification faults held in the extension's reports."""
+        """Holds the subscription under its own msgbus owner until scope exit, notification faults logged by the extension's reports."""
         owner, body = object(), identity.reports.reported(self.body)
 
         def notified() -> None:
@@ -185,7 +185,7 @@ class Timer(msgspec.Struct, frozen=True, kw_only=True):
 
     @contextmanager
     def held(self, identity: Identity, /) -> Generator[Outcome[None]]:
-        """Holds the persistent timer until it stops or scope exits, body faults held in the extension's reports."""
+        """Holds the persistent timer until it stops or scope exits, body faults logged by the extension's reports."""
         body = identity.reports.reported(self.body)
 
         def ticked() -> float | None:
@@ -395,10 +395,12 @@ class Registration:
             _bpy._bl_owner_id_set(self.package)  # ruff: ignore[private-member-access]
             try:
                 outcome = Identity.read(self.package).bind(
-                    lambda identity: catch(stack.enter_context, exception=OSError)(identity.reports)
-                    .map_error(partial(Fault.of, Reason.UNWRITABLE, str(identity.folder)))
-                    .bind(lambda _: registered(stack, identity))
-                    .map(lambda _: identity)
+                    lambda identity: (
+                        catch(stack.enter_context, exception=OSError)(identity.reports)
+                        .map_error(partial(Fault.of, Reason.UNWRITABLE, str(identity.folder)))
+                        .bind(lambda _: registered(stack, identity))
+                        .map(lambda _: identity)
+                    )
                 )
             finally:
                 _bpy._bl_owner_id_set(owner)  # ruff: ignore[private-member-access]

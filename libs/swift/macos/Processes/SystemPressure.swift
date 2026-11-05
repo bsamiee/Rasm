@@ -44,7 +44,7 @@ extension SystemPressure {
         return Self(memory: DispatchSource.MemoryPressureEvent(rawValue: UInt(level)), thermal: ProcessInfo.processInfo.thermalState)
     }
 
-    public static func changes() -> some AsyncSequence<Result<Self, Errno>, Never> {
+    public static func changes() -> some AsyncSequence<Result<Self, Errno>, Never> & Sendable {
         let (memory, signal): (AsyncStream<Void>, AsyncStream<Void>.Continuation) = AsyncStream.makeStream(bufferingPolicy: .bufferingNewest(1))
         let source: any DispatchSourceMemoryPressure = DispatchSource.makeMemoryPressureSource(eventMask: [.normal, .warning, .critical], queue: .global())
         source.setEventHandler { signal.yield(()) }

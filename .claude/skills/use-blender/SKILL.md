@@ -55,14 +55,14 @@ Pictures come from the source that draws current state:
 
 Sessions open in order:
 1. `lsof -a -nP -iTCP:9876-9877 -sTCP:LISTEN` names the GUI pid
-2. With no listener, use the `watch-apps` skill to open a new Blender with `PYTHONPYCACHEPREFIX` and `--python-use-system-env`
+2. With no listener, open Blender with `PYTHONPYCACHEPREFIX` and `--python-use-system-env`
 3. One `ToolSearch` select line loads every `mcp__blender__*` and `mcp__mcp-for-blender__*` schema
 4. `mcp__blender__get_blendfile_summary_path_info` names the open file and its `is_dirty` state
 5. `mcp__mcp-for-blender__get_addon_status` answers `"source": "native"`, or `"error"` while replacing a quit GUI's socket, `native` on its next call
 
 - Files outside the task close through `bpy.ops.wm.read_homefile()`, after `bpy.ops.wm.save_mainfile()` for a named file
 
-Quitting saves preferences, the last GUI to quit overwriting what others saved. Restore preferences a task GUI changed before `watch-apps quit --pid <pid>` ends it. Blender draws menus and dialogs inside its windows, its Accessibility menu bar holding the Blender and Window menus alone. Quitting an edited file prints `refused` under a save prompt only `capture` shows, and `bpy.ops.wm.read_homefile()` before the quit discards a task GUI's edits.
+Quitting saves preferences, the last GUI to quit overwriting what others saved. Restore preferences a task GUI changed before quitting it. Blender draws menus and dialogs inside its windows, its Accessibility menu bar holding the Blender and Window menus alone. Quitting an edited file prints `refused` under a save prompt only `capture` shows, and `bpy.ops.wm.read_homefile()` before the quit discards a task GUI's edits.
 
 Script-driven task GUIs run a runner script:
 - `python -m eng.python.blender run <name> -- --python <runner.py>` runs one and returns once it quits
@@ -180,5 +180,4 @@ Blender resolves user folders through `BLENDER_USER_CONFIG|SCRIPTS|EXTENSIONS|DA
 - `python -m eng.python.blender run <name> -- <arguments>` runs Blender with the arguments and prints its output
 - `run` sets `PYTHONUSERBASE` and process `PYTHONPYCACHEPREFIX`, with `--python-use-system-env` before caller arguments enabling native user-site and `.pth` startup
 - `run` syncs selected `--package` and `--groups` dependencies into `purelib` from Blender's `sysconfig` user scheme, retaining editable sources
-- `watch-apps launch --new` starts macOS GUI runs hidden
 - Crash reports sit in the folder's root, and output sits in its `blender.log`

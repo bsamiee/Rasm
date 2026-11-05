@@ -1,64 +1,58 @@
-import AppKit
+public import AppKit
 import AsyncAlgorithms
-import OrderedCollections
+import CasePaths
+import CasePathsCore
+public import OrderedCollections
+import RegexBuilder
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-private let hosts: OrderedSet<String> = [
-    "com.apple.UserNotificationCenter", "com.apple.coreservices.uiagent", "com.apple.accessibility.universalAccessAuthWarn", "com.apple.SecurityAgent",
+let dialogHelpers: Set<String> = [
+    "com.apple.UserNotificationCenter", "com.apple.coreservices.uiagent", "com.apple.accessibility.universalAccessAuthWarn", "com.apple.SecurityAgent", "com.apple.tcc.AuthorizationPromptService",
+    "com.apple.CoreLocationAgent", "com.apple.ProblemReporter",
 ]
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+func isDialogHelper(_ process: pid_t) -> Bool {
+    NSRunningApplication(processIdentifier: process)?.isDialogHelper == true
+}
+
 extension StringProtocol {
     func holds(wholeWords name: String) -> Bool {
-        ranges(of: name).contains { range in
-            [self[..<range.lowerBound].last, self[range.upperBound...].first].allSatisfy { next in next.map { next in !next.isLetter && !next.isNumber } ?? true }
+        let word: Regex<Substring> = Regex {
+            Anchor.wordBoundary
+            name
+            Anchor.wordBoundary
         }
+        return String(self).firstMatch(of: word) != nil
     }
 }
 
 extension InstanceState {
-    fileprivate func prompting(_ names: [String]) -> Self? {
-        guard case .running(let running) = self, case .responding(let elements, let windows) = running.status else { return nil }
-        let asking: [Element] = elements.filter { element in
-            element.requiresAnswer && ([element.title].compactMap(\.self) + (element.detail?.text ?? [])).contains { text in names.contains(where: text.holds(wholeWords:)) }
-        }
-        return asking.isEmpty ? nil : .running(Running(status: .responding(elements: asking, windows: windows), usage: running.usage))
+    func prompting(_ names: [String]) -> [Window] {
+        self[case: \.running]?.windows.filter { window in
+            guard let element: Element = window.description[case: \.element], element.asking else { return false }
+            return ([element.title].compactMap(\.self) + (element.detail?.text ?? [])).contains { text in names.contains(where: text.holds(wholeWords:)) }
+        } ?? []
+    }
+
+    fileprivate func prompts(naming names: [String]) -> Self? {
+        guard case .running(let running) = self else { return nil }
+        let rows: [Window] = prompting(names)
+        return rows.isEmpty ? nil : .running(Running(status: running.status, active: running.active, windows: rows, menus: [], usage: running.usage))
     }
 }
 
 extension NSWorkspace {
-    @MainActor
-    func systemPrompts(naming names: [String]) -> AsyncStream<(host: String, prompts: OrderedDictionary<NSRunningApplication, InstanceState>)> {
-        AsyncStream { continuation in
-            let following: Task<Void, Never> = Task { @MainActor in
-                await withDiscardingTaskGroup { group in
-                    for host: String in hosts {
-                        let prompts: some AsyncSequence<OrderedDictionary<NSRunningApplication, InstanceState>, Never> & Sendable = instanceStates { instance in
-                            instance.bundleIdentifier == host
-                        }
-                        .map { held in held.compactMapValues { state in state.prompting(names) } }.drop(while: \.isEmpty).removeDuplicates()
-                        group.addTask { for await held: OrderedDictionary<NSRunningApplication, InstanceState> in prompts { continuation.yield((host, held)) } }
-                    }
-                }
-                continuation.finish()
-            }
-            continuation.onTermination = { _ in following.cancel() }
-        }
+    func dialogHelperStates(clock: some Clock<Duration> & Sendable) -> some AsyncSequence<OrderedDictionary<NSRunningApplication, InstanceState>, Never> & Sendable {
+        tracked(of: \.isDialogHelper, walking: \.asking, clock: clock)
     }
 
-    @MainActor
-    func currentPrompts(naming names: [String]) async -> [(host: String, prompts: OrderedDictionary<NSRunningApplication, InstanceState>)] {
-        let running: [String?: [NSRunningApplication]] = Dictionary(grouping: instances { instance in instance.bundleIdentifier.map(hosts.contains) == true }, by: \.bundleIdentifier)
-        return await Array(
-            hosts.async.compactMap { host in
-                let prompts: OrderedDictionary<NSRunningApplication, InstanceState> = await (running[host] ?? []).async.reduce(into: [:]) {
-                    prompts,
-                    instance in prompts[instance] = await instance.state(walking: \.requiresAnswer).prompting(names)
-                }
-                return prompts.isEmpty ? nil : (host, prompts)
-            }
-        )
+    public func systemPrompts(
+        naming names: [String],
+        clock: some Clock<Duration> & Sendable = ContinuousClock(),
+    ) -> some AsyncSequence<OrderedDictionary<NSRunningApplication, InstanceState>, Never> & Sendable {
+        dialogHelperStates(clock: clock).map { held in held.compactMapValues { state in state.prompts(naming: names) } }.drop(while: \.isEmpty).removeDuplicates()
     }
 }

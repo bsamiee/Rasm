@@ -17,7 +17,7 @@ enum FixtureApplication {
     @MainActor
     static func main() {
         UserDefaults.standard.register(defaults: ["ApplePersistenceIgnoreState": true])
-        let settings: Settings = Settings(defaults: .standard)
+        let settings: Settings = Settings(reading: ProcessInfo.processInfo.environment)
         let watchdog: any DispatchSourceProcess? = settings.owner.map(watch)
         switch settings.role {
             case .helper: withExtendedLifetime(watchdog) { dispatchMain() }

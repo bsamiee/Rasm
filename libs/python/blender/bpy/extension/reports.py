@@ -103,7 +103,12 @@ class Reports(AbstractContextManager["Reports"]):
         """Appends JSON lines to the extension's log through its own chain, sibling extensions sharing structlog's process configuration, and clears queued requests and logged faults after every file load until scope exit."""
         self.logger = structlog.wrap_logger(
             structlog.BytesLogger(self._scope.enter_context((self._folder / _LOG).open("ab"))),
-            processors=[add_log_level, TimeStamper(fmt="iso", utc=True), ExceptionRenderer(ExceptionDictTransformer(show_locals=False)), lambda _logger, _method, event_dict: _RECORD.encode(event_dict)],
+            processors=[
+                add_log_level,
+                TimeStamper(fmt="iso", utc=True),
+                ExceptionRenderer(ExceptionDictTransformer(show_locals=False)),
+                lambda _logger, _method, event_dict: _RECORD.encode(event_dict),
+            ],
             wrapper_class=structlog.make_filtering_bound_logger(logging.INFO),
             extension=self._extension,
         )

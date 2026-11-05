@@ -20,7 +20,7 @@ DYLD_FALLBACK_LIBRARY_PATH            = "{{config_root}}/.pixi/envs/default/lib:
 HYPOTHESIS_STORAGE_DIRECTORY          = "{{config_root}}/.cache/hypothesis"
 RUFF_CACHE_DIR                        = "{{config_root}}/.cache/ruff"
 MYPY_CACHE_DIR                        = "{{config_root}}/.cache/mypy"
-PYTEST_ADDOPTS                        = "-o 'cache_dir={{config_root}}/.cache/pytest'"
+PYTEST_ADDOPTS                        = "-o 'cache_dir={{config_root}}/.cache/pytest' --benchmark-storage=file://{{config_root}}/.artifacts/python/benchmarks"
 CARGO_LLVM_COV_DENY_WARNINGS          = "1"
 RUSTUP_TOOLCHAIN                      = false
 RUSTUP_AUTO_INSTALL                   = "0"

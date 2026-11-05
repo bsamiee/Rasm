@@ -1,12 +1,11 @@
-import type { State } from '@rasm/automation';
+import { Pressure } from '@rasm/applications';
 import { Effect, type LogLevel, Match, Option, type Path, Predicate, type Record, Result, Schema, Struct } from 'effect';
 import { HarnessError } from '#/harness-error';
-import { System } from '#/instance';
 import { Halted } from '#/results';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const STATES = { Launching: 'Info', Responding: 'Info', Unresponsive: 'Info', Failed: 'Warn', Exited: 'Info' } as const satisfies { readonly [K in keyof typeof State.cases]: LogLevel.Severity };
+const STATES = { launching: 'Info', responding: 'Info', unresponsive: 'Info', failed: 'Warn', exited: 'Info' } as const satisfies Record.ReadonlyRecord<string, LogLevel.Severity>;
 const RECORDS = 'records.jsonl';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -24,7 +23,7 @@ const Field = {
     completion: Schema.optionalKey(Schema.String),
     cases: Schema.optionalKey(Schema.Array(Schema.String)),
     kind: Schema.optionalKey(Kind),
-    state: Schema.optionalKey(Schema.Literals(Struct.keys(STATES))),
+    state: Schema.optionalKey(Schema.String),
     file: Schema.optionalKey(Schema.String),
     title: Schema.optionalKey(Schema.String),
     frames: Schema.optionalKey(Schema.Array(Schema.String)),
@@ -34,9 +33,8 @@ const grouped = Struct.pick(Field, ['pid', 'started', 'version', 'proof', 'case'
 const sighting = Schema.Struct({
     ...scoped,
     bundle: Schema.optionalKey(Schema.String),
-    window: Schema.optionalKey(Schema.Int),
-    id: Schema.optionalKey(Schema.String),
     number: Schema.optionalKey(Schema.Int),
+    kind: Schema.optionalKey(Schema.String),
     role: Schema.optionalKey(Schema.String),
     subrole: Schema.optionalKey(Schema.String),
     title: Field.title,
@@ -44,19 +42,19 @@ const sighting = Schema.Struct({
     edited: Schema.optionalKey(Schema.Boolean),
     modal: Schema.optionalKey(Schema.Boolean),
     identifier: Schema.optionalKey(Schema.String),
-    requiresAnswer: Schema.optionalKey(Schema.Boolean),
+    asking: Schema.optionalKey(Schema.Boolean),
     text: Schema.optionalKey(Schema.Array(Schema.String)),
     controls: Schema.optionalKey(Schema.Array(Schema.Json)),
 });
 const Messages = {
     'run started': Schema.Struct({ commit: Schema.String, args: Schema.Array(Schema.String), session: Schema.NullOr(Schema.String) }),
-    'instance launched': Schema.Struct({ ...scoped, app: Schema.String, created: Schema.Boolean, state: Schema.Literals(Struct.keys(STATES)), hidden: Schema.optionalKey(Schema.Boolean), watch: Schema.optionalKey(Schema.Int), shared: Schema.optionalKey(Schema.NonEmptyArray(Schema.Int)) }),
+    'instance launched': Schema.Struct({ ...scoped, app: Schema.String, created: Schema.Boolean, state: Schema.Literals(Struct.keys(STATES)), shared: Schema.optionalKey(Schema.NonEmptyArray(Schema.Int)) }),
     instance: Schema.Struct({
         ...scoped,
         bundle: Schema.optionalKey(Schema.String),
         state: Schema.Literals(Struct.keys(STATES)),
         ...Struct.pick(Halted.cases.Hung.fields, ['process', 'cpu', 'footprint', 'threads']),
-        duration: Schema.optionalKey(Schema.Finite.annotate({ description: 'Seconds from the unresponsive line opening the spell to the line this record closes it with, the stall having begun at least one watch-apps heartbeat earlier' })),
+        duration: Schema.optionalKey(Schema.Finite.annotate({ description: 'Seconds from the unresponsive state opening the spell to the state closing it, the stall having begun at least one heartbeat earlier' })),
         reason: Schema.optionalKey(Schema.String),
         status: Schema.optionalKey(Schema.Int),
         signal: Schema.optionalKey(Schema.Int),
@@ -70,7 +68,7 @@ const Messages = {
     'window changed': sighting,
     'window closed': sighting,
     'dialog answered': Schema.Struct({ ...scoped, title: Field.title, text: Schema.Array(Schema.String), pressed: Schema.String }),
-    'system pressure': System.fields.system,
+    'system pressure': Pressure,
     'case started': Schema.Struct({ ...grouped, case: Schema.String, call: Schema.Struct({ _tag: Schema.String, fn: Schema.optionalKey(Schema.String), script: Schema.optionalKey(Schema.String), args: Schema.optionalKey(Schema.Array(Schema.Json)) }) }),
     'case ended': Schema.StructWithRest(Schema.Struct({ ...grouped, case: Schema.String, completion: Schema.String, tag: Field.tag, error: Schema.optionalKey(Schema.String) }), [Schema.Record(Schema.String, Schema.Unknown)]),
     'cases not run': Schema.Struct({ ...grouped, cases: Schema.Array(Schema.String), error: Schema.String }),

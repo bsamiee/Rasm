@@ -1,153 +1,54 @@
-import AppKit
 import AppleEvents
+import ApplicationServer
 import Applications
 import CoreServices
 import Foundation
 import JSONRPC
-import Results
-import ScreenCaptureKit
-import UniformTypeIdentifiers
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+private let adobePrefix: String = "com.adobe."
+private let activatingCommands: KeyValuePairs<String, [String]> = [
+    "\(adobePrefix)InDesign": ["UIUIshow", "K2LKrvlO", "K2LKrvlB"],
+    "\(adobePrefix)Acrobat.Pro": ["CARObfrt"],
+    "\(adobePrefix)PremierePro": ["CR8RCRPr"],
+]
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-struct Artifact: Encodable, Sendable {
-    let uri: URL
-    let mimeType: String?
-    let data: Data
-}
-
-struct Executed: Encodable, Sendable {
-    let reply: AppleEventValue
-    let artifacts: [Outcome<Artifact>]
-
-    init(reply: AppleEventValue, reading files: [URL]) {
-        self.reply = reply
-        artifacts = files.map { file in
-            Outcome(Result { try Artifact(uri: file, mimeType: file.resourceValues(forKeys: [.contentTypeKey]).contentType?.preferredMIMEType, data: Data(contentsOf: file)) })
-        }
-    }
-}
-
-struct Launched: Encodable, Sendable {
-    let pid: pid_t
-    let created: Bool
-}
-
-struct RunningInstance: Encodable, Sendable {
-    private enum Key: CodingKey {
-        case pid, url, activationPolicy, state
+enum HelperRequest: Decodable, Sendable {
+    private enum Own: String, CodingKey {
+        case faces, face
     }
 
-    let instance: NSRunningApplication
-    let url: URL
-    let state: InstanceState
-
-    func encode(to encoder: any Encoder) throws {
-        let activationPolicy: String =
-            switch instance.activationPolicy {
-                case .regular: "regular"
-                case .accessory: "accessory"
-                case .prohibited: "prohibited"
-                @unknown default: String(instance.activationPolicy.rawValue)
-            }
-        var fields: KeyedEncodingContainer<Key> = encoder.container(keyedBy: Key.self)
-        try fields.encode(instance.processIdentifier, forKey: .pid)
-        try fields.encode(url, forKey: .url)
-        try fields.encode(activationPolicy, forKey: .activationPolicy)
-        try fields.encode(state, forKey: .state)
+    private struct Named: Decodable {
+        let name: String
     }
-}
 
-enum Request: Decodable, Sendable {
-    case installations
-    case instances
-    case applications(toOpen: URL)
-    case status(pid: pid_t)
-    case launch(url: URL)
-    case perform(pid: pid_t, actions: [ElementAction])
-    case terms(url: URL)
-    case definition(url: URL, kind: ScriptingDictionary.Kind, name: String)
-    case execute(pid: pid_t, command: String, arguments: [String: AppleEventValue], artifacts: [URL])
-    case screenshot(pid: pid_t, window: CGWindowID?, longestSide: Int?, file: URL)
+    case server(Request)
     case faces
     case face(name: String)
 
+    init(from decoder: any Decoder) throws {
+        let keys: KeyedDecodingContainer<Own> = try decoder.container(keyedBy: Own.self)
+        self =
+            switch keys.allKeys.first {
+                case .faces: .faces
+                case .face: .face(name: try keys.decode(Named.self, forKey: .face).name)
+                case nil: .server(try Request(from: decoder))
+            }
+    }
+
     func perform(definitions: ScriptingDefinitions) async throws -> Response {
         switch self {
-            case .installations:
-                return await .stream(
-                    Installation.search(
-                        NSPredicate(format: "%K BEGINSWITH %@", kMDItemCFBundleIdentifier as String, adobePrefix),
-                        in: FileManager.default.urls(for: .applicationDirectory, in: .allDomainsMask),
-                    )
-                    .map { listing -> any Encodable & Sendable in Outcome(listing) }
+            case .server(let request):
+                try await request.perform(
+                    admitting: NSPredicate(format: "%K BEGINSWITH %@", kMDItemCFBundleIdentifier as String, adobePrefix),
+                    refusing: { installation in Set(activatingCommands.first { stem, _ in installation.identifier.hasPrefix(stem) }?.value.compactMap(UInt64.init(sdef:)) ?? []) },
+                    definitions: definitions,
                 )
-            case .instances:
-                return await .stream(
-                    NSWorkspace.shared.instanceStates { instance in instance.bundleIdentifier?.hasPrefix(adobePrefix) == true }
-                        .map { states -> any Encodable & Sendable in
-                            states.compactMap { instance, state in instance.bundleURL.map { url in RunningInstance(instance: instance, url: url, state: state) } }
-                        }
-                )
-            case .applications(let file):
-                return .value(NSWorkspace.shared.urlsForApplications(toOpen: file))
-            case .status(let pid):
-                return try await .value(running(pid).instance.state(walking: \.requiresAnswer))
-            case .launch(let url):
-                let installation: Installation = try adobeInstallation(at: url)
-                var launched: Launched?
-                for await observation: Observation in await NSWorkspace.shared.observed(.launch([(installation, [])], arguments: [], environment: [:], newInstance: false)) {
-                    switch observation {
-                        case .instance(let instance, .running(let running)): launched = Launched(pid: instance.processIdentifier, created: running.created ?? false)
-                        case .instance(let instance, _): launched = Launched(pid: instance.processIdentifier, created: launched?.created ?? false)
-                        case .failure(_, let failure): throw failure
-                        case .states: continue
-                    }
-                }
-                guard let launched else { throw ApplicationFailure(subject: url.path(percentEncoded: false), reason: .cancelled(CancellationError())) }
-                return .value(launched)
-            case .perform(let pid, let actions):
-                _ = try running(pid)
-                for action: ElementAction in actions { try await action.perform(in: pid) }
-                return .value(nil)
-            case .terms(let url):
-                return try await .value(definitions.dictionary(of: adobeInstallation(at: url)))
-            case .definition(let url, let kind, let name):
-                return try await .value(definitions.dictionary(of: adobeInstallation(at: url)).text(of: kind, named: name))
-            case .execute(let pid, let command, let arguments, let artifacts):
-                let installation: Installation = try running(pid).installation
-                let dictionary: ScriptingDictionary = try await definitions.dictionary(of: installation)
-                let event: NSAppleEventDescriptor = try dictionary.event(
-                    dictionary.command(command, taking: Set(arguments.keys)),
-                    arguments: arguments,
-                    target: NSAppleEventDescriptor(processIdentifier: pid),
-                    refusing: Set(activatingCommands.first { stem, _ in installation.identifier.hasPrefix(stem) }?.value.compactMap(UInt64.init(sdef:)) ?? []),
-                )
-                do {
-                    return try await .value(Executed(reply: AppleEventValue(event.sent(), in: dictionary), reading: artifacts))
-                } catch  where error.status == OSStatus(errAETimeout) {
-                    throw try await UnansweredEvent(subject: error.subject, pid: pid, state: running(pid).instance.state(walking: \.requiresAnswer))
-                }
-            case .screenshot(let pid, let window, let longestSide, let file):
-                let configuration: SCScreenshotConfiguration = SCScreenshotConfiguration()
-                configuration.showsCursor = false
-                let captured: (output: SCScreenshotOutput, windows: [CGWindowID]) = try await running(pid).instance.screenshot(of: window, longestSide: longestSide, configuration: configuration)
-                try captured.output.write(to: file)
-                return .value(["windows": captured.windows])
-            case .faces:
-                return .value(FontFace.available())
-            case .face(let name):
-                return try .value(FontFace(named: name))
+            case .faces: .value(FontFace.available())
+            case .face(let name): try .value(FontFace(named: name))
         }
     }
-}
-
-// --- [ERRORS] --------------------------------------------------------------------------
-
-struct UnansweredEvent: TaggedError {
-    static let tag: String = "UnansweredEvent"
-
-    let subject: String
-    let pid: pid_t
-    let state: InstanceState
 }

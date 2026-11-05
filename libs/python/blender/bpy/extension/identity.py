@@ -114,7 +114,12 @@ class Identity(msgspec.Struct, frozen=True, kw_only=True, eq=False):
             .bind(catch(path.read_bytes, exception=OSError)(), lambda data: catch(lambda: msgspec.toml.decode(data, type=Manifest), exception=msgspec.DecodeError)())
             .map_error(partial(Fault.of, Reason.UNREADABLE, str(path)))
         )
-        folder = catch(bpy.utils.extension_path_user, exception=ValueError)(package, create=True).map_error(partial(Fault.of, Reason.UNREGISTERED, package)).filter(bool, Fault.of(Reason.UNWRITABLE, package, "host created no user folder")).map(Path)
+        folder = (
+            catch(bpy.utils.extension_path_user, exception=ValueError)(package, create=True)
+            .map_error(partial(Fault.of, Reason.UNREGISTERED, package))
+            .filter(bool, Fault.of(Reason.UNWRITABLE, package, "host created no user folder"))
+            .map(Path)
+        )
         return paired(manifest, folder).map(lambda pair: cls(package=package, manifest=pair[0], folder=pair[1], reports=Reports(package, pair[1], extension=pair[0].id)))
 
 

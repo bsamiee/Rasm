@@ -15,9 +15,9 @@ private let bundles: [(info: [String: any Sendable], line: String)] = [
     (
         [
             "CFBundleIdentifier": "dev.rasm.installation.full", "CFBundleName": "Full", "CFBundleShortVersionString": "1.2.3", "NSAppleScriptEnabled": true,
-            "OSAScriptingDefinition": "Full.sdef", "LSUIElement": true,
+            "OSAScriptingDefinition": "Full.sdef", "LSUIElement": true, "CFBundleVersion": "1.2.3.4",
         ],
-        #"{"identifier":"dev.rasm.installation.full","name":"Full","version":"1.2.3","scriptable":true,"scriptingDefinitionFile":"Full.sdef","agent":true}"#,
+        #"{"identifier":"dev.rasm.installation.full","name":"Full","version":"1.2.3","build":"1.2.3.4","scriptable":true,"scriptingDefinitionFile":"Full.sdef","agent":true}"#,
     ),
     (
         ["CFBundleIdentifier": "dev.rasm.installation.defaults", "CFBundleName": "Defaults"],
@@ -60,7 +60,7 @@ struct Installations {
         let url: URL = try bundle(named: name, in: "Applications", info: info)
         let installation: Installation = try Installation(at: url)
         let expected: JSONValue = try json(#"{"url":"\#(url.resolvingSymlinksInPath().absoluteString)",\#(line.dropFirst())"#)
-        let kept: Set<String> = ["url", "identifier", "name", "version", "scriptable", "scriptingDefinitionFile", "agent"]
+        let kept: Set<String> = ["url", "identifier", "name", "version", "build", "scriptable", "scriptingDefinitionFile", "agent"]
         let encoded: JSONValue =
             switch try wire(installation) {
                 case .object(let fields): .object(fields.filter { key, _ in kept.contains(key) })

@@ -132,7 +132,7 @@ const openRoute = async (system: System, request: CommandRequest, { cwd }: Comma
         return Maybe.some(refuse(`${program} ${foreign.join(' ')} launches ${target}, use ${watchApps('launch', target)}`));
     }
     const bundles = app === undefined ? [] : await appBundles(system, cwd, app, valued('-b').includes(app));
-    const infos = (await Promise.all(bundles.map((bundle) => bundleInfo(system, bundle)))).flatMap(({ values }) => values);
+    const infos = (await Promise.all(bundles.map((found) => bundleInfo(system, found)))).flatMap(({ values }) => values);
     if (infos.length > 0 && infos.every(({ background }) => background)) {
         return Maybe.none;
     }
@@ -205,7 +205,9 @@ const bundleRoute = async (system: System, invocation: Invocation, { assigned, w
         return Maybe.none;
     }
     const [info] = (await bundleInfo(system, groups.bundle)).values;
-    return info !== undefined && info.executable === groups.executable && !info.background ? Maybe.some({ kind: 'rewrite', program, start: assigned[0] ?? head, text: watchApps('launch', info.identifier, ...args.map(({ raw }) => `${ARGUMENT}=${raw}`), ...assigned.map(({ raw }) => `--environment=${raw}`)) }) : Maybe.none;
+    return info !== undefined && info.executable === groups.executable && !info.background
+        ? Maybe.some({ kind: 'rewrite', program, start: assigned[0] ?? head, text: watchApps('launch', info.identifier, ...args.map(({ raw }) => `${ARGUMENT}=${raw}`), ...assigned.map(({ raw }) => `--environment=${raw}`)) })
+        : Maybe.none;
 };
 
 const appRoute = async (system: System, request: CommandRequest, command: Command): Promise<Maybe<Route>> => {

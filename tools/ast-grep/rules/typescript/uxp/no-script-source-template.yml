@@ -66,6 +66,6 @@ rule:
                     any:
                         - has: {matches: encoded-entry}
                         - has: {kind: pair, all: [{has: {field: key, regex: '^arguments$'}}, {has: {field: value, kind: object, has: {matches: encoded-entry}}}]}
-            - inside: {kind: program, stopBy: end, matches: {typescript-module-importer: {module: {regex: '^@rasm/automation(/[[^\x00-#%-/:-@\[-\^`{-~\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]-]+)?$'}}}}
+            - inside: {kind: program, stopBy: end, matches: {typescript-module-importer: {module: {regex: '^@rasm/applications(/[[^\x00-#%-/:-@\[-\^`{-~\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]-]+)?$'}}}}
 message: '`$CALLEE` runs a script source built from values'
 note: 'Pass constant source with values in `doScript` `withArguments` or `values` beside `direct`, read through script arguments'

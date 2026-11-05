@@ -7,6 +7,7 @@ import Foundation
 private let labelAttributes: [String] = [kAXTitleAttribute, kAXDescriptionAttribute]
 private let absentAttribute: Set<AXError> = [.noValue, .attributeUnsupported, .invalidUIElement]
 private let menuMark: Data = Data("menu".utf8)
+let menuBars: [String] = [kAXMenuBarAttribute, kAXExtrasMenuBarAttribute]
 let messagingTimeout: Duration = .seconds(1)
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -56,12 +57,13 @@ extension AXUIElement {
     }
 
     static func element(_ id: Data) throws(ApplicationFailure) -> AXUIElement? {
-        guard id.starts(with: menuMark), id.count > menuMark.count, (id.count - menuMark.count).isMultiple(of: 4) else {
+        guard id.starts(with: menuMark), id.count > menuMark.count + 4, (id.count - menuMark.count).isMultiple(of: 4) else {
             return unsafe remoteElement(id as CFData)?.takeRetainedValue().timed
         }
         let words: [Int] = stride(from: id.startIndex + menuMark.count, to: id.endIndex, by: 4).map { start in id[start..<(start + 4)].reduce(0) { word, byte in word << 8 | Int(byte) } }
-        var node: AXUIElement? = try application(pid_t(truncatingIfNeeded: words[0])).values([kAXMenuBarAttribute])[kAXMenuBarAttribute].flatMap(checked)
-        for index: Int in words.dropFirst() {
+        let bar: String = menuBars[words[1]]
+        var node: AXUIElement? = try application(pid_t(truncatingIfNeeded: words[0])).values([bar])[bar].flatMap(checked)
+        for index: Int in words.dropFirst(2) {
             node = try node.flatMap { parent throws(ApplicationFailure) in try parent.elements(kAXChildrenAttribute).dropFirst(index).first }
         }
         return node
@@ -134,7 +136,7 @@ extension AXUIElement {
     func actionNames() throws(ApplicationFailure) -> [String] {
         var names: CFArray?
         return switch unsafe AXUIElementCopyActionNames(self, &names) {
-            case .success: (names as? [String] ?? []).filter { action in action != kAXRaiseAction }
+            case .success: names as? [String] ?? []
             case .failure, .invalidUIElement: []
             case let error: throw failure(error, reading: ["AXUIElementCopyActionNames"])
         }

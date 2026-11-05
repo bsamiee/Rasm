@@ -1,17 +1,18 @@
 import { createHash } from 'node:crypto';
-import type { AppleEventValue, Terms } from '@rasm/automation';
-import { Automation } from '@rasm/automation/node';
+import type { AppleEventValue, Terms } from '@rasm/applications';
+import { Automation } from '@rasm/applications/node';
 import { transformSync } from '@swc/core';
 import { Array, Effect, FileSystem, flow, Option, Path, Record, Result, Schema, SchemaGetter, Stream, String, Struct } from 'effect';
 import jsesc from 'jsesc';
 import { Answered, BOXES, Engine, EngineRequest, HostCase, HostOutcome, Install, Recorded, type Rooted, Survey, Surveyed } from '#/acrobat/contract';
 import { engine } from '#/acrobat/engine';
 import { precondition } from '#/acrobat/precondition';
+import { ADOBE } from '#/adobe';
 import { HarnessError } from '#/harness-error';
 import { entitlements, Launched, printed } from '#/instance';
 import { copied } from '#/precondition';
 import { HOME } from '#/report';
-import { type Batch, type Decoding, filesIn, Harness, inside, installation, LABEL, type Live } from '#/session';
+import { type Batch, type Decoding, filesIn, Harness, inside, installation, LABEL, type Live, scripted } from '#/session';
 import { JsonObject } from '#/values';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -37,7 +38,7 @@ const Entitlements = Schema.Struct({ [SANDBOX]: Schema.NonEmptyArray(Schema.NonE
 const declares = ({ suite, command }: Terms) => suite.some(({ code }) => code === CODES.suite) && command.some(({ code }) => code === CODES.script);
 const installed = Effect.gen(function* () {
     const automation = yield* Automation;
-    const rows = yield* automation.installed;
+    const rows = yield* automation.installed(ADOBE);
     const [read, unread] = yield* Effect.partition(
         Array.differenceWith(inside)(
             rows.filter((row) => row.scriptable && Option.isSome(row.scriptingDefinitionFile)),
@@ -131,35 +132,35 @@ const menu = Effect.fn('menu')(function* (pid: number, index: number) {
     );
 });
 const modalIn = (pid: number) => Effect.map(Stream.runCollect(Stream.paginate(1, (index) => Effect.map(menu(pid, index), (names) => [Option.toArray(names).flat(), Option.as(names, index + 1)] as const))), (pages) => pages.flat());
-const answered = Effect.fn('answered')(function* <A>(pid: number, Reply: Decoding<Result.Result<A, { readonly reason: string }>>, request: typeof EngineRequest.Type) {
-    const [automation, code] = yield* Effect.all([Automation, lowered]);
+const answered = Effect.fn('answered')(function* <A>(live: Live, Reply: Decoding<Result.Result<A, { readonly reason: string }>>, request: typeof EngineRequest.Type) {
+    const code = yield* lowered;
     const program = `(function (request) {\n${code}\nreturn engine.call(this, request);\n}).call(this, ${jsesc(yield* Schema.encodeEffect(EngineRequest)(request), { json: true })});`;
     const direct = `try { eval(${jsesc(program, { json: true })}); } catch (error) { encodeURIComponent(JSON.stringify({ _tag: 'Failure', failure: { reason: String(error && error.name) + ': ' + String(error && error.message) + ' at line ' + String(error && error.lineNumber) } })); }`;
-    const { reply } = yield* automation.script({ pid, direct });
-    return yield* Effect.mapError(Schema.decodeEffect(Reply)(reply), (error) => HarnessError.make({ reason: { _tag: 'Unavailable', because: `reply ${typeof reply} ${globalThis.String(reply)}` }, subject: `process ${pid}`, cause: error }));
+    const { reply } = yield* scripted(live, { direct });
+    return yield* Effect.mapError(Schema.decodeEffect(Reply)(reply), (error) => HarnessError.make({ reason: { _tag: 'Unavailable', because: `reply ${typeof reply} ${globalThis.String(reply)}` }, subject: `process ${live.pid}`, cause: error }));
 });
-const surveyed = Effect.fn('surveyed')(function* (pid: number, opened: Option.Option<Schema.Json>) {
-    const modal = yield* modalIn(pid);
-    const held = yield* answered(pid, Surveyed, EngineRequest.cases.Survey.make({ ...REQUESTED, modal }));
-    const { viewer, model } = yield* Effect.mapError(Effect.fromResult(held), ({ reason }) => HarnessError.unavailable(`process ${pid}`)(reason));
+const surveyed = Effect.fn('surveyed')(function* (live: Live, opened: Option.Option<Schema.Json>) {
+    const modal = yield* modalIn(live.pid);
+    const held = yield* answered(live, Surveyed, EngineRequest.cases.Survey.make({ ...REQUESTED, modal }));
+    const { viewer, model } = yield* Effect.mapError(Effect.fromResult(held), ({ reason }) => HarnessError.unavailable(`process ${live.pid}`)(reason));
     const host = yield* Effect.orDie(Schema.decodeUnknownEffect(Install)(Option.getOrUndefined(opened)));
     return { model: { ...model, modal }, viewer, host } satisfies typeof Survey.Type;
 });
-const cased = (pid: number, records: string, survey: typeof Survey.Type) =>
+const cased = (live: Live, records: string, survey: typeof Survey.Type) =>
     Effect.fn('cased')(function* (hosted: typeof HostCase.Type, index: number) {
         const fs = yield* FileSystem.FileSystem;
         const line = (entry: typeof Recorded.Type) => Effect.flatMap(Schema.encodeEffect(Recorded)(entry), (encoded) => fs.writeFileString(records, `${encoded}\n`, { flag: 'a' }));
         yield* line({ _tag: 'Started', index });
         const { hosted: held, inputs } = yield* staged(hosted);
-        const answer = yield* answered(pid, Answered, EngineRequest.cases.Case.make({ ...REQUESTED, modal: survey.model.modal, signatures: survey.model.signatures, case: held }));
+        const answer = yield* answered(live, Answered, EngineRequest.cases.Case.make({ ...REQUESTED, modal: survey.model.modal, signatures: survey.model.signatures, case: held }));
         yield* collected(hosted, [...inputs, ...Result.match(answer, { onSuccess: ({ kept }) => kept, onFailure: () => [] })]);
         yield* line({ _tag: 'Finished', outcome: Result.match(answer, { onSuccess: ({ outcome }) => outcome, onFailure: ({ reason }) => HostOutcome.make({ name: hosted.name, completion: { _tag: 'Failed', reason } }) }) });
     });
 const send = Effect.fn('send')(function* (live: Live, batch: Batch<typeof Survey.Type, typeof HostCase.Type>) {
     const header = { application: live.chosen.name, version: live.chosen.version };
     return yield* Option.match(batch.survey, {
-        onNone: () => Effect.map(surveyed(live.pid, batch.opened), (survey) => ({ ...header, survey })),
-        onSome: (survey) => Effect.as(Effect.forEach(batch.cases, cased(live.pid, batch.records, survey), { discard: true }), header),
+        onNone: () => Effect.map(surveyed(live, batch.opened), (survey) => ({ ...header, survey })),
+        onSome: (survey) => Effect.as(Effect.forEach(batch.cases, cased(live, batch.records, survey), { discard: true }), header),
     });
 });
 

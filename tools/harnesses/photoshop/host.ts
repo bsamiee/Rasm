@@ -1,13 +1,13 @@
-import type { Installation } from '@rasm/automation';
-import { Automation } from '@rasm/automation/node';
+import type { Installation } from '@rasm/applications';
+import { Automation } from '@rasm/applications/node';
 import { Effect, FileSystem, Option, Path, Schema } from 'effect';
-import { crashes, REPORTER, uxp } from '#/adobe';
+import { ADOBE, crashes, REPORTER, uxp } from '#/adobe';
 import { EXTENDSCRIPT } from '#/cases';
 import { checked, Launched, plist, printed } from '#/instance';
 import { Encoded, Engine, HostCase, HostOutcome, type Quit, Reply, SURVEY, Survey } from '#/photoshop/contract';
 import { precondition } from '#/photoshop/precondition';
 import { copied } from '#/precondition';
-import { type Batch, Harness, type Installed, installation, type Live } from '#/session';
+import { type Batch, Harness, type Installed, installation, type Live, scripted } from '#/session';
 import { assembled, engineOf } from '#/source';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -33,7 +33,7 @@ const released = Effect.fn('released')(function* (row: Installation, rows: reado
     return { ...held, version: `${held.version}+${own['Adobe Product Build']}.${own.RELEASECHANNEL}` } satisfies Installed;
 });
 const installed = Effect.gen(function* () {
-    const rows = yield* (yield* Automation).installed;
+    const rows = yield* (yield* Automation).installed(ADOBE);
     return yield* Effect.forEach(
         rows.filter((row) => row.scriptable && row.identifier === 'com.adobe.Photoshop'),
         (row) => released(row, rows),
@@ -52,10 +52,10 @@ const canonical = Effect.fn('canonical')(function* (file: string, bytes: Uint8Ar
 
 // --- [TRANSPORT]
 const executed = Effect.fn('executed')(function* (live: Live, argument: string) {
-    const [automation, fs, path] = yield* Effect.all([Automation, FileSystem.FileSystem, Path.Path]);
+    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const file = path.join(live.scratch, 'harness.jsx');
     yield* fs.writeFileString(file, (yield* assembled(ENGINE)).code);
-    const { reply } = yield* automation.script({ pid: live.pid, direct: '$.evalFile(new File(arguments[1]))', values: [argument, file] });
+    const { reply } = yield* scripted(live, { direct: '$.evalFile(new File(arguments[1]))', values: [argument, file] });
     return reply;
 });
 const send = Effect.fn('send')(function* (live: Live, batch: Batch<typeof Survey.Type, typeof HostCase.Type>) {

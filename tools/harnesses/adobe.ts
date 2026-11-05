@@ -6,6 +6,7 @@ import type { Instance } from '#/session';
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const REPORTER = 'com.adobe.crashreporter';
+const ADOBE = { prefix: 'com.adobe.' };
 const ENTRY = /\n(?=\[)/u;
 const ERROR = /^\[[^\]]*\]\[[^\]]*\]\[Error\]/u;
 
@@ -22,4 +23,4 @@ const crashes = Effect.fn('crashes')(function* (instance: Instance) {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { crashes, REPORTER, uxp };
+export { ADOBE, crashes, REPORTER, uxp };

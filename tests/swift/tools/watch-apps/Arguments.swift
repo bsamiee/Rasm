@@ -1,50 +1,46 @@
+import ApplicationServices
+import Carbon.HIToolbox
 import CustomDump
+import Encoding
 import Subprocess
 import TestSupport
 import Testing
-import WatchAppsWire
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
+private let absent: String = "dev.rasm.absent"
+private let absentProcess: String = String(Int32.max)
+
 private let helps: [(arguments: [String], names: [String])] = [
-    (["--help"], ["watch", "launch", "show", "read", "capture", "perform", "set", "quit"]),
+    (["--help"], ["watch", "launch", "read", "capture", "perform", "set", "key", "quit", "log", "serve"]),
     (["watch", "--help"], ["<names>"]),
     (["launch", "--help"], ["<names>", "--new", "--wait", "--document", "--arguments", "--environment"]),
-    (["show", "--help"], ["<names>", "--pid"]),
-    (["read", "--help"], ["<names>", "--pid"]),
+    (["read", "--help"], ["<names>", "--pid", "--window"]),
     (["capture", "--help"], ["<names>", "--pid", "--window", "--longest-side"]),
     (["perform", "--help"], ["<id>", "<action>"]),
     (["set", "--help"], ["<id>", "<value>"]),
+    (["key", "--help"], ["--pid", "<code>"]),
     (["quit", "--help"], ["<names>", "--pid", "--force"]),
+    (["log", "--help"], ["--pid"]),
 ]
 
-private let refusals: [(arguments: [String], key: String, reason: String)] = { (absent: String) -> [(arguments: [String], key: String, reason: String)] in
-    [
-        (["undeclared"], "watch-apps", "malformed"), (["watch"], "watch-apps", "malformed"), (["read", absent, "--undeclared"], "watch-apps", "malformed"),
-        (["read", absent, "--pid", "text"], "watch-apps", "malformed"), (["read", absent, "\(absent).second", "--pid", "1"], "watch-apps", "malformed"),
-        (["capture", absent, "--longest-side", "0"], "watch-apps", "malformed"), (["launch", absent, "--environment", "NAME"], "watch-apps", "malformed"),
-        (["launch", absent, "\(absent).second", "--wait"], "watch-apps", "malformed"), (["launch", "--wait", "--document", "/\(absent)/absent.txt"], "watch-apps", "malformed"),
-        (["launch", "--document", "/\(absent)/absent.txt"], "/\(absent)/absent.txt", "host"), (["perform", "not base64!", "AXPress"], "watch-apps", "malformed"),
-        (["set", "", "text"], "watch-apps", "malformed"), (["quit", absent, "--pid", "text"], "watch-apps", "malformed"),
-    ]
-}("dev.rasm.absent")
+private let malformed: [[String]] = [
+    ["undeclared"], ["watch"], ["read"], ["read", absent, "--undeclared"], ["read", absent, "--pid", "text"], ["read", absent, "\(absent).second", "--pid", "1"],
+    ["capture", absent, "--longest-side", "0"], ["launch"], ["launch", absent, "--environment", "NAME"], ["launch", absent, "\(absent).second", "--wait"],
+    ["launch", absent, "\(absent).second", "--document", "/\(absent)/absent.txt"], ["launch", "--wait", "--document", "/\(absent)/absent.txt"], ["perform", "not base64!", kAXPressAction],
+    ["set", "not base64!", "text"], ["key", "--pid", "text", String(kVK_Return)], ["key", "--pid", "1", "text"], ["quit", absent, "--pid", "text"],
+]
 
-// --- [MODELS] --------------------------------------------------------------------------
+private let failures: [(arguments: [String], key: String, reason: String)] = [
+    (["launch", absent], absent, "unmatched"),
+    (["launch", "--document", "/\(absent)/absent.txt"], "/\(absent)/absent.txt", "host"),
+    (["read", "--pid", absentProcess], absentProcess, "noProcess"),
+    (["capture", "--pid", absentProcess], absentProcess, "noProcess"),
+    (["quit", "--pid", absentProcess], absentProcess, "noProcess"),
+    (["key", "--pid", absentProcess, String(kVK_Return)], absentProcess, "noProcess"),
+]
 
-private struct Printed: Equatable {
-    let key: String
-    let reason: String?
-
-    init(key: String, reason: String?) {
-        self.key = key
-        self.reason = reason
-    }
-
-    init(_ line: WatchAppsLine) {
-        key = line.key
-        reason = if case .fail(let failure) = line.entry { failure.reason } else { nil }
-    }
-}
+private let refusals: [(arguments: [String], key: String, reason: String)] = failures + malformed.map { arguments in (arguments, "watch-apps", "malformed") }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -61,12 +57,9 @@ struct Arguments {
 
     @Test(arguments: refusals)
     func refusedArgumentsPrintOneFailLineNamingItsReason(arguments: [String], key: String, reason: String) async throws {
-        let run: (lines: [WatchAppsLine], status: TerminationStatus, standardError: String) = try await jsonLines(
-            of: .product(named: "watch-apps"),
-            arguments: arguments,
-            as: WatchAppsLine.self,
-        )
-        expectNoDifference(run.lines.map(Printed.init), [Printed(key: key, reason: reason)])
+        let run: (lines: [[String: [String: [String: JSONValue]]]], status: TerminationStatus, standardError: String) = try await jsonLines(of: .product(named: "watch-apps"), arguments: arguments)
+        let reasons: [JSONValue?] = run.lines.map { line in line[key]?["fail"]?["reason"] }
+        expectNoDifference(reasons, [.string(reason)])
         expectNoDifference(run.status, .exited(1))
     }
 }

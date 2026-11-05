@@ -1,8 +1,9 @@
-import { Execute, Terms } from '@rasm/automation';
-import { Automation } from '@rasm/automation/node';
+import { Execute, Terms } from '@rasm/applications';
+import { Automation } from '@rasm/applications/node';
 import { Content, Resource, Route } from '@rasm/mcp';
 import { Array, Effect, Schema, SchemaAST, Struct, SubscriptionRef } from 'effect';
 import { McpSchema, Tool } from 'effect/ai';
+import { Adobe } from '#/adobe';
 import type { routes } from '#/routes';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -13,12 +14,12 @@ const CommandResult = Execute.Result.pipe(Schema.fieldsAssign({ artifacts: Schem
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const dictionaries = Effect.fnUntraced(function* ({ dictionary }: Effect.Success<ReturnType<typeof routes>>) {
-    const automation = yield* Automation;
+    const [automation, { installations }] = yield* Effect.all([Automation, Adobe]);
     yield* Resource.template`dictionary/${Application}`({
         name: 'dictionary',
         schema: Terms,
         completion: dictionary.completion,
-        changes: SubscriptionRef.changes(automation.installations),
+        changes: SubscriptionRef.changes(installations),
         content: (_, given) => Effect.flatMap(dictionary.named(given), automation.terms),
     });
     yield* Resource.template`dictionary/${Application}/${McpSchema.param('kind', Terms.Kind)}/${McpSchema.param('name', Schema.String)}`({
@@ -26,7 +27,7 @@ const dictionaries = Effect.fnUntraced(function* ({ dictionary }: Effect.Success
         description: 'Scripting definition XML matching kind and name',
         mimeType: 'application/xml',
         schema: Schema.String,
-        changes: SubscriptionRef.changes(automation.installations),
+        changes: SubscriptionRef.changes(installations),
         completion: {
             ...dictionary.completion,
             kind: () => Effect.succeed([...Terms.Kind.literals]),

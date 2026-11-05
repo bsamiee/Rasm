@@ -1,5 +1,4 @@
 import AppKit
-import Applications
 import CasePaths
 import CustomDump
 import Encoding
@@ -9,6 +8,7 @@ import TestSupport
 import Testing
 
 @testable import AppKitFixture
+@testable import Applications
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -20,7 +20,7 @@ extension Integration {
     @Suite
     struct Crashes {
         @Test(
-            .application(FixtureApplication.self, arguments: Settings().arguments),
+            .application(FixtureApplication.self, launches: false),
             arguments: crashes,
         )
         func crashReadsSignalThenItsReportAndEnds(scenario: Scenario, signal: Int32, exception: String) async throws {

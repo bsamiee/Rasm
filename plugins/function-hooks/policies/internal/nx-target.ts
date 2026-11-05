@@ -13,6 +13,7 @@ interface Target {
         readonly forwardAllArgs?: boolean;
     };
     readonly configurations?: Readonly<Record<string, { readonly command?: string }>>;
+    readonly cache?: boolean;
     readonly dependsOn?: readonly (string | { readonly target: string })[];
 }
 
@@ -29,10 +30,12 @@ const optionKeys = (invocation: Invocation, known: (name: string) => boolean = (
     return new Set([...options.filter(known), ...values.flatMap(([name, value]) => (known(name) ? [`${name}=${value}`] : []))]);
 };
 
-const groupMembers = (graph: Readonly<Record<string, Target>>, parent: string): readonly string[] => {
-    const named = (graph[parent]?.dependsOn ?? []).map((entry) => (typeof entry === 'string' ? entry : entry.target));
+const groupMembers = (graph: Readonly<Record<string, Target>>, parent: string, project = ''): readonly string[] => {
+    const named = (graph[parent]?.dependsOn ?? []).map((entry) => (typeof entry === 'string' ? entry : entry.target)).map((name) => (name.startsWith(`${project}:`) ? name.slice(project.length + 1) : name));
     return Object.keys(graph).filter((candidate) => named.some((name) => name === candidate || (name.endsWith('*') && candidate.startsWith(name.slice(0, -1)))));
 };
+
+const cachedTarget = ({ name, targets }: { readonly name: string; readonly targets: Readonly<Record<string, Target>> }, target: string): boolean => targets[target]?.cache === true || groupMembers(targets, target, name).some((member) => cachedTarget({ name, targets }, member));
 
 const groupTarget = (graph: Readonly<Record<string, Target>>, target: string): string => {
     const parent = CHECK_TARGET.exec(target)?.[0] ?? target;
@@ -169,4 +172,4 @@ const checkerTarget = async (call: Call, { cwd, hasInput }: Command, invocation:
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { checkerTarget, launches, optionKeys, projectTargets, type Target };
+export { cachedTarget, checkerTarget, launches, optionKeys, projectTargets, type Target };

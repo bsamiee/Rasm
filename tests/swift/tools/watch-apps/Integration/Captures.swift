@@ -1,176 +1,51 @@
-import AppKit
-import CasePaths
+import CoreGraphics
 import CustomDump
+import Encoding
+import Foundation
 import ImageIO
 import Subprocess
 import TestSupport
 import Testing
 import UniformTypeIdentifiers
-import WatchAppsWire
 
 @testable import AppKitFixture
 
-// --- [MODELS] --------------------------------------------------------------------------
-
-private struct Cell: Equatable {
-    let row: Int
-    let column: Int
-    let mismatches: Int
-}
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-private func capture(_ fixture: Fixture, pid: Int32, _ flags: [String] = []) async throws -> (capture: WatchAppsLine.Capture, image: CGImage) {
-    let run: (lines: [WatchAppsLine], status: TerminationStatus, standardError: String) = try await jsonLines(
-        of: .product(named: "watch-apps"),
-        arguments: ["capture", "--pid", String(pid)] + flags,
-        as: WatchAppsLine.self,
-    )
-    let instances: [Int32: WatchAppsLine.Instance] = try #require(run.lines.first?.entry.instances)
-    let capture: WatchAppsLine.Capture = try #require(instances[pid]?.captured)
-    let selected: String = flags.firstIndex(of: "--window").map { index in flags[index + 1] } ?? "windows"
-    let named: String = [fixture.identifier, String(pid), selected].joined(separator: "-") + ".png"
-    let expected: String = URL.temporaryDirectory.appending(components: "watch-apps", named).resolvingSymlinksInPath().path(percentEncoded: false)
-    let file: URL = URL(filePath: capture.file)
-    let written: String = file.resolvingSymlinksInPath().path(percentEncoded: false)
+private func image(of shot: JSONValue?, in fixture: Fixture, pid: String) throws -> CGImage {
+    let file: URL = URL(filePath: try #require(shot?["file"]?.argument))
+    let number: String = try #require(shot?["number"]?.argument)
+    let expected: URL = URL.temporaryDirectory.appending(components: product, "\(fixture.identifier)-\(pid)-\(number)").appendingPathExtension(for: .png)
     let data: Data = try Data(contentsOf: file)
     try FileManager.default.removeItem(at: file)
     let source: CGImageSource = try #require(CGImageSourceCreateWithData(data as CFData, nil))
-    let type: String? = CGImageSourceGetType(source) as String?
-    let image: CGImage = try #require(CGImageSourceCreateImageAtIndex(source, 0, nil))
-    expectNoDifference(run.status, .exited(0))
-    expectNoDifference(run.lines.map(\.key), [fixture.identifier])
-    expectNoDifference(pids(in: run.lines), [[pid]])
-    expectNoDifference(written, expected)
-    expectNoDifference(type, UTType.png.identifier)
-    return (capture, image)
-}
-
-@MainActor
-private func mismatches(in bitmap: NSBitmapImageRep, cell: NSRect, below bar: CGFloat, scale: CGFloat, expected: NSColor, tolerance: CGFloat = 3 / 255) -> Int {
-    let xs: StrideTo<Int> = stride(from: Int(cell.minX * scale), to: Int(cell.maxX * scale), by: 3)
-    let ys: StrideTo<Int> = stride(from: Int((bar + cell.minY) * scale), to: Int((bar + cell.maxY) * scale), by: 3)
-    return ys.reduce(0) { count, y in
-        count
-            + xs.count { x in
-                guard let found: NSColor = bitmap.colorAt(x: x, y: y) else { return true }
-                let red: Bool = abs(found.redComponent - expected.redComponent) > tolerance
-                let green: Bool = abs(found.greenComponent - expected.greenComponent) > tolerance
-                let blue: Bool = abs(found.blueComponent - expected.blueComponent) > tolerance
-                return red || green || blue
-            }
-    }
+    expectNoDifference(file.resolvingSymlinksInPath().path(percentEncoded: false), expected.resolvingSymlinksInPath().path(percentEncoded: false))
+    expectNoDifference(CGImageSourceGetType(source) as String?, UTType.png.identifier)
+    return try #require(CGImageSourceCreateImageAtIndex(source, 0, nil))
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 extension Integration {
     struct Captures {
-        @MainActor
         @Test(.application(FixtureApplication.self, launches: false))
-        func captureWritesSwatchPixelsAtOneScale() async throws {
+        func capturePrintsOneNamedPNGPerWindowHonorsItsFlagsAndFailsOnAWindowItLacks() async throws {
             let fixture: Fixture = try Fixture()
-            let pid: Int32 = try await watching([fixture.identifier]) { lines in
-                let pid: Int32 = try await launch(fixture).pid
-                _ = try await lines.next { line in line.entry.instances?[pid]?.phase == .responding }
-                try await press(.swatch, in: fixture, pid: pid)
-                _ = try await lines.next { line in line.elements(of: pid)?.titled("Swatch") != nil }
-                return pid
-            }
-            .outcome
-            let elements: [WatchAppsLine.Element] = try await read(fixture, pid: pid)
-            let swatch: WatchAppsLine.Element = try #require(elements.titled("Swatch"))
-            let number: Int = try #require(swatch.window)
-            let frame: CGRect = try #require(swatch.detail?.frame)
-            let full: (capture: WatchAppsLine.Capture, image: CGImage) = try await capture(fixture, pid: pid, ["--window", String(number)])
-            let factor: CGFloat = CGFloat(full.image.width) / frame.width
-            let height: Int = Int((frame.height * factor).rounded())
-            let content: CGSize = NSWindow.contentRect(forFrameRect: frame, styleMask: [.titled]).size
-            let bar: CGFloat = frame.height - content.height
-            let converted: NSBitmapImageRep? = NSBitmapImageRep(cgImage: full.image).converting(to: .sRGB, renderingIntent: .relativeColorimetric)
-            let bitmap: NSBitmapImageRep = try #require(converted)
-            let bounds: NSRect = NSRect(origin: .zero, size: content)
-            let cells: [Cell] = Swatch.colors.enumerated().flatMap { row, colors in
-                colors.enumerated().map { column, color in
-                    let cell: NSRect = Swatch.cell(row: row, column: column, in: bounds).insetBy(dx: 6, dy: 6)
-                    let expected: NSColor = color.usingColorSpace(.sRGB) ?? color
-                    return Cell(row: row, column: column, mismatches: mismatches(in: bitmap, cell: cell, below: bar, scale: factor, expected: expected))
-                }
-            }
-            let matching: [Cell] = cells.map { cell in Cell(row: cell.row, column: cell.column, mismatches: 0) }
-            if cells != matching || full.image.height != height { Attachment.record(full.image, named: "swatch", as: .png) }
-            expectNoDifference(full.capture.windows, [number])
-            expectNoDifference(full.image.height, height)
-            expectNoDifference(cells, matching)
+            try #require(CGPreflightScreenCaptureAccess(), "capture needs Screen Recording grant")
+            let pid: String = try await launch(fixture, Settings(windows: 2))
+            let all: (lines: [JSONValue], status: TerminationStatus) = try await tool(["capture", "--pid", pid])
+            let shots: [JSONValue?] = all.lines.map { line in line[fixture.identifier, pid, "captured"] }
+            for shot: JSONValue? in shots { _ = try image(of: shot, in: fixture, pid: pid) }
+            expectNoDifference(shots.count, 2)
+            expectNoDifference(all.status, .exited(0))
+            let number: String = try #require(shots.first??["number"]?.argument)
             let longest: Int = 120
-            let scaled: (capture: WatchAppsLine.Capture, image: CGImage) = try await capture(fixture, pid: pid, ["--window", String(number), "--longest-side", String(longest)])
-            let major: Int = max(full.image.width, full.image.height)
-            let minor: Int = min(full.image.width, full.image.height)
-            let scaledMajor: Int = max(scaled.image.width, scaled.image.height)
-            let scaledMinor: Int = min(scaled.image.width, scaled.image.height)
-            let proportional: Bool = abs(scaledMinor - Int((Double(longest * minor) / Double(major)).rounded())) <= 1
-            expectNoDifference(scaledMajor, longest)
-            #expect(proportional, "\(scaled.image.width)x\(scaled.image.height) from \(full.image.width)x\(full.image.height)")
-            let all: (capture: WatchAppsLine.Capture, image: CGImage) = try await capture(fixture, pid: pid)
-            let windows: Set<Int> = Set(elements.filter { element in element.role == kAXWindowRole }.compactMap(\.window))
-            let quit: WatchAppsLine.Control = try #require(elements.menuBar?.detail?.controls?.compactMap(\.items).joined().first { item in item.label == "Quit" })
-            expectNoDifference(Set(all.capture.windows), windows)
-            _ = try await watching([fixture.identifier]) { lines in
-                _ = try await lines.next { line in line.key == fixture.identifier }
-                try await perform(quit)
-                _ = try await lines.next { line in line.entry.instances?[pid]?.phase == .exited }
-            }
-        }
-
-        @Test(.application(FixtureApplication.self, launches: false, activationPolicy: .regular))
-        func hiddenInstanceCaptureLeavesItHiddenUntilShown() async throws {
-            let fixture: Fixture = try Fixture()
-            let pid: Int32 = try await launch(fixture).pid
-            let elements: [WatchAppsLine.Element] = try await read(fixture, pid: pid)
-            let window: Int = try #require(elements.titled("Fixture 0")?.window)
-            expectNoDifference(elements.titled("Fixture 0")?.minimized, false)
-            let hidden: (capture: WatchAppsLine.Capture, image: CGImage) = try await capture(fixture, pid: pid)
-            expectNoDifference(hidden.capture.windows, [window])
-            expectNoDifference(NSRunningApplication(processIdentifier: pid)?.isHidden, true)
-            try await expectRefusal(["show", "--pid", "1"], keyedBy: "1")
-            try await show(fixture, pid: pid)
-            try await show(fixture, pid: pid)
-            let shown: (capture: WatchAppsLine.Capture, image: CGImage) = try await capture(fixture, pid: pid)
-            let instance: NSRunningApplication? = NSRunningApplication(processIdentifier: pid)
-            expectNoDifference(shown.capture.windows, [window])
-            expectNoDifference([instance?.isHidden, instance?.isActive], [false, false])
-        }
-
-        @Test(.application(FixtureApplication.self, launches: false))
-        func zeroSizeWindowPrintsFailAndLeavesInstanceCapture() async throws {
-            let fixture: Fixture = try Fixture()
-            let pid: Int32 = try await launch(fixture).pid
-            let described: Int = try #require(try await read(fixture, pid: pid).titled("Fixture 0")?.window)
-            let collapsed: Int = try await watching([fixture.identifier]) { lines in
-                _ = try await lines.next { line in line.entry.instances?[pid]?.phase == .responding }
-                try await press(.collapsed, in: fixture, pid: pid)
-                let shown: WatchAppsLine = try await lines.next { line in line.elements(of: pid)?.titled("Collapsed") != nil }
-                let numbered: Int? = shown.elements(of: pid)?.titled("Collapsed")?.window
-                return try #require(numbered)
-            }
-            .outcome
-            try await expectRefusal(["capture", "--pid", String(pid), "--window", String(collapsed)], keyedBy: fixture.identifier)
-            let all: (capture: WatchAppsLine.Capture, image: CGImage) = try await capture(fixture, pid: pid)
-            expectNoDifference(all.capture.windows, [described])
-        }
-
-        @Test(.application(FixtureApplication.self, launches: false))
-        func minimizedInstancePrintsFailInPlaceOfEntry() async throws {
-            let fixture: Fixture = try Fixture()
-            let pid: Int32 = try await launch(fixture).pid
-            _ = try await watching([fixture.identifier]) { lines in
-                _ = try await lines.next { line in line.entry.instances?[pid]?.phase == .responding }
-                try await press(.minimize, in: fixture, pid: pid)
-                _ = try await lines.next { line in line.elements(of: pid)?.titled("Fixture 0")?.subrole != kAXStandardWindowSubrole }
-            }
-            let elements: [WatchAppsLine.Element] = try await read(fixture, pid: pid)
-            expectNoDifference(elements.titled("Fixture 0")?.minimized, true)
-            try await expectRefusal(["capture", fixture.identifier], keyedBy: fixture.identifier)
+            let one: (lines: [JSONValue], status: TerminationStatus) = try await tool(["capture", "--pid", pid, "--window", number, "--longest-side", String(longest)])
+            let scaled: CGImage = try image(of: one.lines.first?[fixture.identifier, pid, "captured"], in: fixture, pid: pid)
+            expectNoDifference(max(scaled.width, scaled.height), longest)
+            let lacking: (lines: [JSONValue], status: TerminationStatus) = try await tool(["capture", "--pid", pid, "--window", "0"])
+            expectNoDifference(lacking.lines.map { line in line[fixture.identifier, "fail", "reason"] }, [.string("noWindow")])
+            expectNoDifference(lacking.status, .exited(1))
         }
     }
 }

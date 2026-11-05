@@ -19,4 +19,4 @@ rule:
                     - has: {stopBy: end, kind: special_variable_name, regex: '^[@*]$'}
                     - has: {stopBy: end, kind: subscript, has: {field: index, regex: '^[@*]$'}}
 message: Open call supplies no fixed background option
-note: Use `watch-apps launch <app>` to open applications without taking focus
+note: Pass `-g`, `open` then launches through LaunchServices with no activation

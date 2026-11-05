@@ -1,4 +1,4 @@
-import { Adjust, Typeset } from '@rasm/automation';
+import { Adjust, Typeset } from '@rasm/indesign/typesetting';
 import { InDesignModel, InDesignSettings, inDesignHandlers, type linkInDesign } from '@rasm/indesign/uxp';
 import { Settings } from '@rasm/typography';
 import { Array, Cause, Effect, Function, flow, MutableRef, Number, Option, Record, Schema, Struct } from 'effect';

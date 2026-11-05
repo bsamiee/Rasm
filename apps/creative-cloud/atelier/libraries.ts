@@ -1,5 +1,5 @@
 import { AfterEffects } from '@rasm/aftereffects';
-import type { Installation } from '@rasm/automation';
+import type { Installation } from '@rasm/applications';
 import { Illustrator } from '@rasm/illustrator';
 import { InDesign } from '@rasm/indesign';
 import { Photoshop } from '@rasm/photoshop';

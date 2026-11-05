@@ -23,6 +23,8 @@ Hooks fix a wrong call and let it run, the model keeps working:
 - Settings `PreToolUse` hooks run inside `next` on the rewritten command and return a refusal as an `isError` result
 - Registrations on one event nest in order, first outermost, and a repeated registration fails module load
 - Calls the hook cannot parse or judge are refused
+- App rules stop harm no core prevents, focus taken, keys posted to the frontmost app, another session's process ended, and a product under test runs as itself, a background-only or `LSUIElement` bundle included
+- `execute_script` bodies and computer-use action tools hold no rule, an agent's `request_access` alone is refused since it waits on a person with no timeout
 
 ## [02]-[OUTPUT]
 
@@ -41,6 +43,6 @@ Harness loads `hooks/register.ts` and its imports with no DOM and no Node. Modul
 - ALWAYS keep files `.codex/hooks/rewrite.ts` imports inside the plugin, with APIs both Node and the harness supply
 - ALWAYS compose faults through the result type in `monads.ts`
 - ALWAYS spawn a program by name, or by the path `mise which` prints in the repository when mise configuration changes the resolved path
-- `register.ts` tracks watch-apps and Atelier app instances by session and agent, quitting a subagent's at `turn.complete`, the rest at `session.end`
+- `register.ts` holds created watch-apps and Atelier instances as store rows by session and agent: a subagent's `turn.complete` sends a plain quit and keeps what stays open, `session.end` hands every row to one detached `sh`, the only form past its 1.5 s cut, and `--force` runs there alone
 - Modules that fail to load register no hook, and every call then runs unchecked
 - Every running session loads saved files at its next plugin reload, so each save leaves every module loadable and every name defined

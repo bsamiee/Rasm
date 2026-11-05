@@ -12,8 +12,7 @@ import Testing
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 private let sheet: Element = Element(
-    id: Data([1, 2, 3]),
-    window: 77,
+    id: Element.ID(token: Data([1, 2, 3])),
     role: kAXSheetRole,
     subrole: nil,
     modal: nil,
@@ -24,67 +23,98 @@ private let sheet: Element = Element(
     edited: nil,
     minimized: nil,
     actions: [],
-    requiresAnswer: true,
     detail: nil,
+    helper: false,
 )
-
-private let titled: Window = Window(number: 78, title: "Prompt", frame: CGRect(x: 1, y: 2, width: 3, height: 4), layer: 0, onScreen: true)
-private let untitled: Window = Window(number: 79, title: nil, frame: CGRect(x: 0, y: 0, width: 5, height: 6), layer: 3, onScreen: false)
-private let windows: String = #"[{"number":78,"title":"Prompt","frame":[[1,2],[3,4]],"layer":0,"onScreen":true},{"number":79,"frame":[[0,0],[5,6]],"layer":3,"onScreen":false}]"#
-
+private let frame: CGRect = CGRect(x: 1, y: 2, width: 3, height: 4)
+private let described: InstanceState.Window = InstanceState.Window(number: 77, title: nil, frame: frame, layer: 0, onScreen: true, description: .element(sheet), arrived: false)
+private let titled: InstanceState.Window = InstanceState.Window(number: 78, title: "Prompt", frame: frame, layer: 0, onScreen: true, description: .undescribed, arrived: true)
+private let helper: InstanceState.Window = InstanceState.Window(number: 79, title: nil, frame: frame, layer: 3, onScreen: false, description: .undescribed, arrived: false)
+private let alert: InstanceState.Window = InstanceState.Window(number: 20917, title: "Adobe InDesign", frame: frame, layer: 8, onScreen: false, description: .blocking, arrived: false)
+private let sheetRow: String =
+    #"{"asking":true,"element":{"id":"AQID","role":"AXSheet","identifier":"_NS:87","description":"alert","actions":[],"kind":"sheet","asking":true},"frame":[[1,2],[3,4]],"kind":"sheet","layer":0,"number":77,"onScreen":true}"#
+private let titledRow: String = #"{"frame":[[1,2],[3,4]],"kind":"undescribed","layer":0,"number":78,"onScreen":true,"title":"Prompt"}"#
+private let helperRow: String = #"{"frame":[[1,2],[3,4]],"kind":"undescribed","layer":3,"number":79,"onScreen":false,"presented":false}"#
+private let alertRow: String = #"{"asking":true,"frame":[[1,2],[3,4]],"kind":"blocking","layer":8,"number":20917,"onScreen":false,"title":"Adobe InDesign"}"#
 private let lines: [(state: InstanceState, line: String)] = [
+    (running(.launching, windows: [helper]), #"{"running":{"active":false,"status":"launching","windows":[\#(helperRow)]}}"#),
+    (running(.responding, windows: []), #"{"running":{"active":false,"status":"responding","windows":[]}}"#),
+    (running(.responding, windows: [titled, described]), #"{"running":{"active":false,"status":"responding","windows":[\#(sheetRow),\#(titledRow)]}}"#),
     (
-        .running(InstanceState.Running(status: .launching(windows: [titled]), usage: nil)),
-        #"{"running":{"status":{"launching":{"windows":[{"number":78,"title":"Prompt","frame":[[1,2],[3,4]],"layer":0,"onScreen":true}]}},"next":{"wait":{}}}}"#,
+        running(.unresponsive(.sleeping), windows: [helper, alert]), #"{"running":{"active":false,"process":"sleeping","status":"unresponsive","windows":[\#(alertRow),\#(helperRow)]}}"#,
     ),
-    (
-        .running(InstanceState.Running(status: .responding(elements: [], windows: []), usage: nil)),
-        #"{"running":{"status":{"responding":{"elements":[],"windows":[]}},"next":{"drive":{}}}}"#,
-    ),
-    (
-        .running(InstanceState.Running(status: .responding(elements: [sheet], windows: [titled, untitled]), usage: nil)),
-        #"""
-        {"running":{"status":{"responding":{"elements":[{"id":"AQID","window":77,"role":"AXSheet","identifier":"_NS:87","description":"alert","actions":[],"requiresAnswer":true}],
-        "windows":\#(windows)}},"next":{"answer":{"id":"AQID","buttons":[]}}}}
-        """#,
-    ),
-    (
-        .running(InstanceState.Running(status: .unresponsive(process: .sleeping, windows: []), usage: nil)),
-        #"{"running":{"status":{"unresponsive":{"process":"sleeping","windows":[]}},"next":{"wait":{}}}}"#,
-    ),
-    (
-        .running(InstanceState.Running(status: .unresponsive(process: .running, windows: [titled, untitled]), usage: nil)),
-        #"{"running":{"status":{"unresponsive":{"process":"running","windows":\#(windows)}},"next":{"wait":{}}}}"#,
-    ),
-    (
-        .running(InstanceState.Running(status: .unresponsive(process: .stopped, windows: []), usage: nil)),
-        #"{"running":{"status":{"unresponsive":{"process":"stopped","windows":[]}},"next":{"resume":{}}}}"#,
-    ),
+    (running(.unresponsive(.stopped), windows: []), #"{"running":{"active":false,"process":"stopped","status":"unresponsive","windows":[]}}"#),
     (.exited(.success(ProcessExit(status: .exited(0), detail: [])), report: nil), #"{"exited":{"status":0}}"#),
     (.exited(.success(ProcessExit(status: .exited(7), detail: [])), report: nil), #"{"exited":{"status":7}}"#),
     (.exited(.success(ProcessExit(status: .signaled(9), detail: .memory)), report: nil), #"{"exited":{"signal":9,"detail":["memory"]}}"#),
+    (.exited(.success(ProcessExit(status: .signaled(11), detail: [])), report: nil), #"{"exited":{"signal":11,"reporting":true}}"#),
+    (.exited(.success(ProcessExit(status: .signaled(9), detail: .csError)), report: nil), #"{"exited":{"signal":9,"detail":["codeSigning"],"reporting":true}}"#),
     (.exited(.failure(.noSuchProcess), report: nil), #"{"exited":{"statusFailure":"\#(Errno.noSuchProcess.description)"}}"#),
 ]
-private let statuses: [ApplicationStatus] = [
-    .launching(windows: []), .responding(elements: [sheet], windows: [titled]), .unresponsive(process: .running, windows: [untitled]),
+private let silent: [(previous: InstanceState, next: InstanceState)] = [
+    (running(.unresponsive(.running), windows: [titled]), running(.unresponsive(.sleeping), windows: [titled])),
+    (running(.unresponsive(.sleeping), windows: [titled]), running(.unresponsive(.sleeping), windows: [titled], usage: .failure(.noSuchProcess))),
+    (
+        running(.responding, windows: [titled]),
+        running(.responding, windows: [InstanceState.Window(number: 78, title: "Prompt", frame: .zero, layer: 0, onScreen: false, description: .undescribed, arrived: true)]),
+    ),
+    (running(.responding, windows: [titled]), running(.responding, windows: [titled, helper])),
 ]
+private let printed: [(previous: InstanceState, next: InstanceState)] = [
+    (running(.responding, windows: [titled]), running(.unresponsive(.sleeping), windows: [titled])),
+    (running(.unresponsive(.sleeping), windows: [titled]), running(.unresponsive(.stopped), windows: [titled])),
+    (running(.responding, windows: [titled]), running(.responding, windows: [titled], active: true)),
+    (running(.responding, windows: []), running(.responding, windows: [titled])),
+    (running(.responding, windows: [helper]), running(.responding, windows: [helper, alert])),
+    (running(.responding, windows: [described]), running(.responding, windows: [described.described(.undescribed, arrived: true)])),
+]
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+private func running(_ status: InstanceState.Running.Status, windows: [InstanceState.Window], active: Bool = false, usage: Result<ResourceUsage, Errno>? = nil) -> InstanceState {
+    .running(InstanceState.Running(status: status, active: active, windows: windows, menus: [], usage: usage))
+}
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 struct InstanceStates {
     @Test(arguments: lines)
-    func stateEncodesWireStateShape(state: InstanceState, line: String) throws {
+    func stateEncodesFlatWithAskingRowsFirst(state: InstanceState, line: String) throws {
         expectNoDifference(try wire(state), try json(line))
     }
 
+    @Test(arguments: silent)
+    func processUsageFrameAndUnpresentedRowsPrintNothing(previous: InstanceState, next: InstanceState) {
+        #expect(previous.printsSame(as: next))
+    }
+
+    @Test(arguments: printed)
+    func statusActiveRowsAndAskingPrint(previous: InstanceState, next: InstanceState) {
+        #expect(!previous.printsSame(as: next))
+    }
+
     @Test
-    func failedStateHoldsFailureFieldsAndNext() throws {
+    func promptRowsJoinAskingAndEncodeInOneWindowList() throws {
+        var state: InstanceState.Running = InstanceState.Running(status: .responding, active: false, windows: [titled], menus: [], usage: nil)
+        state.prompts = [described]
+        expectNoDifference(state.asking.map(\.number), [77])
+        expectNoDifference(try wire(state), try json(#"{"active":false,"status":"responding","windows":[\#(sheetRow),\#(titledRow)]}"#))
+    }
+
+    @Test
+    func undescribedRowsArePresentedOnceArrivedAndBlockingAsks() {
+        #expect(titled.presented)
+        #expect(!helper.presented)
+        #expect(described.presented)
+        #expect(alert.presented)
+        #expect(alert.asking)
+        #expect(!titled.asking)
+    }
+
+    @Test
+    func failedStateHoldsFailureFields() throws {
         let failure: ApplicationFailure = ApplicationFailure(subject: "Probe", reason: .untrusted)
-        let expected: JSONValue = .object([
-            "failed": .object([
-                "reason": .string("untrusted"), "subject": .string("Probe"), "message": .string(try #require(failure.errorDescription)), "next": .object(["grant": .object([:])]),
-            ])
-        ])
+        let expected: JSONValue = .object(["failed": .object(["reason": .string("untrusted"), "subject": .string("Probe"), "message": .string(try #require(failure.errorDescription))])])
         expectNoDifference(try wire(InstanceState.failed(failure)), expected)
     }
 
@@ -96,9 +126,7 @@ struct InstanceStates {
         let url: String = crashReports.appending(component: "Application-2026-11-01-120000.ips").absoluteString
         expectNoDifference(
             try wire(InstanceState.exited(.success(exit), report: .success(report))),
-            try json(
-                #"{"exited":{"signal":11,"report":{"url":"\#(url)","pid":4242,"bundleIdentifier":"dev.rasm.reports.application","exception":"EXC_BAD_ACCESS"},"next":{"report":{"url":"\#(url)"}}}}"#
-            ),
+            try json(#"{"exited":{"signal":11,"report":{"url":"\#(url)","pid":4242,"bundleIdentifier":"dev.rasm.reports.application","exception":"EXC_BAD_ACCESS"}}}"#),
         )
         expectNoDifference(
             try wire(InstanceState.exited(.success(exit), report: .failure(failure))),
@@ -106,19 +134,18 @@ struct InstanceStates {
         )
     }
 
-    @Test(arguments: statuses)
-    func usageSitsBesideStatus(status: ApplicationStatus) throws {
+    @Test
+    func usageSitsBesideStatus() throws {
         let usage: ResourceUsage = try ResourceUsage(of: getpid())
-        let sampled: InstanceState = .running(InstanceState.Running(status: status, usage: .success(usage)))
-        let next: JSONValue = try wire(try #require(sampled.next))
-        let expectedUsage: JSONValue = .object([
+        let expected: JSONValue = .object([
             "cpu": .number(Double(usage.cpu.components.seconds) + Double(usage.cpu.components.attoseconds) / 1e18), "footprint": .number(Double(usage.footprint)),
             "threads": .number(Double(usage.threads)),
         ])
-        expectNoDifference(try wire(sampled), .object(["running": .object(["status": try wire(status), "next": next, "usage": expectedUsage])]))
+        let base: [String: JSONValue] = ["active": .bool(false), "status": .string("responding"), "windows": .array([])]
+        expectNoDifference(try wire(running(.responding, windows: [], usage: .success(usage))), .object(["running": .object(base.merging(["usage": expected]) { _, next in next })]))
         expectNoDifference(
-            try wire(InstanceState.running(InstanceState.Running(status: status, usage: .failure(.noSuchProcess)))),
-            .object(["running": .object(["status": try wire(status), "next": next, "usageFailure": .string(Errno.noSuchProcess.description)])]),
+            try wire(running(.responding, windows: [], usage: .failure(.noSuchProcess))),
+            .object(["running": .object(base.merging(["usageFailure": .string(Errno.noSuchProcess.description)]) { _, next in next })]),
         )
     }
 }

@@ -35,7 +35,6 @@ Choose a matched construct that identifies the violation and contains the requir
 - Match modifier and wrapper differences that change the correction's applicability
 - Count control flow within its callable owner; a nested callable starts its own depth
 - `finally` alone establishes neither a handler nor error recovery
-- Prove a rule once over violating forms and conforming near misses through `scan -r <rule> --stdin`, an injected form through a host file, then the project at zero findings
 
 ## [04]-[REWRITES]
 

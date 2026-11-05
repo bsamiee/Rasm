@@ -63,7 +63,7 @@ const lifetimesOf = (records: readonly Printed[], now: DateTime.Utc) =>
                 }),
             ),
     ).map(({ pid, stamp, started, app }) => {
-        const exited = Array.findLast(records.filter(ours(pid, stamp)), ({ seen }) => seen.message === 'instance' && seen.state === 'Exited');
+        const exited = Array.findLast(records.filter(ours(pid, stamp)), ({ seen }) => seen.message === 'instance' && seen.state === 'exited');
         return { pid, stamp, lifetime: { pid, started, ended: Option.match(exited, { onNone: () => now, onSome: ({ seen }) => seen.at }), chosen: { app } } };
     });
 const unlinked =

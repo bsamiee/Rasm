@@ -45,7 +45,7 @@ const scriptDecision = async (system: System, source: Uint8Array, script: Script
     ).flat();
     const reasons = [...new Set(verdicts.flatMap((verdict) => (verdict.kind === 'refuse' ? [verdict.reason] : [])))];
     const spans = verdicts.flatMap((verdict) => (verdict.kind === 'edit' ? [verdict] : []));
-    const edits = spans.filter(({ start, end }) => !spans.some((wider) => wider.start <= start && end <= wider.end && wider.end - wider.start > end - start));
+    const edits = spans.filter(({ start, end }) => !spans.some((wider) => wider.start < start && start < wider.end && end <= wider.end));
     const backgrounds = verdicts.flatMap((verdict) => (verdict.kind === 'background' ? [verdict.notice] : []));
     const notices = [...new Set([...edits.flatMap(({ notice }) => notice.values), ...backgrounds])];
     const timeouts = edits.flatMap(({ timeout }) => timeout.values);

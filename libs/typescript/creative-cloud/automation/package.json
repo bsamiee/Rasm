@@ -1,19 +1,18 @@
 {
     "name": "@rasm/automation",
     "private": true,
-    "description": "Apple-event helper client driving Adobe applications, and the request contract their plugins serve",
+    "description": "Request contract Adobe plugins serve, the error they report, and their manifest version",
     "sideEffects": false,
     "type": "module",
     "imports": {
         "#/*": "./*.ts"
     },
     "exports": {
-        ".": "./index.ts",
-        "./node": "./node.ts"
+        ".": "./index.ts"
     },
     "dependencies": {
+        "@rasm/applications": "workspace:*",
         "@rasm/search": "workspace:*",
-        "@rasm/typography": "workspace:*",
         "effect": "catalog:"
     },
     "devDependencies": {

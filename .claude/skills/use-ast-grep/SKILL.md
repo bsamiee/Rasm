@@ -11,7 +11,7 @@ MCP tools answer one-off matches and syntax trees, the CLI runs project scans, o
 - [01]-[RULE_BUILDING](references/rule-building.md): Deriving what a new rule reports and rewrites from its correction's contract
 - [02]-[RULE_HARDENING](references/rule-hardening.md): Moving an existing rule's coverage and shape to what its correction requires
 - [03]-[OUTLINE](references/outline.md): Reading outlines and writing the extractor catalogs behind them
-- [04]-[PERFORMANCE](references/performance.md): Where scan and outline cost comes from and how to measure it
+- [04]-[PERFORMANCE](references/performance.md): Where scan and outline cost comes from
 - [05]-[GRAMMARS](references/grammars.md): Choosing, extending, and building the parsers custom languages load
 
 [TEMPLATES]:

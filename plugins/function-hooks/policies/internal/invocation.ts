@@ -602,7 +602,7 @@ const PROGRAMS: ReadonlyMap<string, Program> = new Map(
             informational: ['-h', '-V'],
             selectors: [],
         },
-        stubtest: { valueOptions: ['--mypy-config-file', '--allowlist', '--custom-typeshed-dir', '--check-typeshed'], informational: ['-h'] },
+        stubtest: { valueOptions: ['--mypy-config-file', '--allowlist', '--whitelist', '--custom-typeshed-dir'], informational: ['-h'] },
         osascript: { valueOptions: ['-e', '-l', '-s'] },
         open: { valueOptions: ['-a', '-b', '-s', '-u', '-i', '-o', '--env', '--stdin', '--stdout', '--stderr', '--arch', '--url'] },
         xed: { valueOptions: ['-l', '--line'], informational: ['-h', '-v'] },

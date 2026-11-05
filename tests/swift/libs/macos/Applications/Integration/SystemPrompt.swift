@@ -1,4 +1,6 @@
 import AppKit
+import CasePaths
+import CasePathsCore
 import CustomDump
 import Encoding
 import Foundation
@@ -21,20 +23,22 @@ extension Integration {
             let created: CFUserNotification? = CFUserNotificationCreate(nil, 0, kCFUserNotificationPlainAlertLevel, nil, header as CFDictionary)
             let alert: CFUserNotification = try #require(created)
             defer { CFUserNotificationCancel(alert) }
-            var shown: (host: String, element: Element)?
-            for await prompt: (host: String, prompts: OrderedDictionary<NSRunningApplication, InstanceState>) in await NSWorkspace.shared.systemPrompts(naming: [name]) {
-                guard let element: Element = prompt.prompts.values.lazy.flatMap(\.elements).first(where: \.requiresAnswer) else {
+            var shown: (host: String?, element: Element)?
+            for await prompts: OrderedDictionary<NSRunningApplication, InstanceState> in NSWorkspace.shared.systemPrompts(naming: [name]) {
+                guard let entry: (key: NSRunningApplication, value: InstanceState) = prompts.elements.first,
+                    let element: Element = entry.value[case: \.running]?.asking.lazy.compactMap({ row in row.description[case: \.element] }).first
+                else {
                     if shown != nil { break }
                     continue
                 }
                 if shown == nil {
-                    shown = (prompt.host, element)
+                    shown = (entry.key.bundleIdentifier, element)
                     CFUserNotificationCancel(alert)
                 }
             }
-            let prompt: (host: String, element: Element) = try #require(shown)
+            let prompt: (host: String?, element: Element) = try #require(shown)
             expectNoDifference(prompt.host, "com.apple.UserNotificationCenter")
-            expectNoDifference(prompt.element.subrole, kAXSystemDialogSubrole)
+            expectNoDifference(prompt.element.kind, .system)
             expectNoDifference(prompt.element.detail?.text.contains(name), true)
         }
     }

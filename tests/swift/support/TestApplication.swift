@@ -16,7 +16,7 @@ public struct TestApplication: SuiteTrait, TestTrait, TestScoping {
 
     let product: String
     let named: String?
-    let arguments: [String]
+    let environment: [String: String]
     let launches: Bool
     let activationPolicy: NSApplication.ActivationPolicy
 
@@ -52,8 +52,7 @@ public struct TestApplication: SuiteTrait, TestTrait, TestScoping {
             let configuration: NSWorkspace.OpenConfiguration = NSWorkspace.OpenConfiguration()
             configuration.activates = false
             configuration.addsToRecentItems = false
-            configuration.hides = activationPolicy != .regular
-            configuration.arguments = arguments
+            configuration.environment = environment
             return try await NSWorkspace.shared.openApplication(at: bundle, configuration: configuration)
         }
         func stop() async {
@@ -117,15 +116,15 @@ extension Trait where Self == TestApplication {
     public static func application(
         _ entry: any Any.Type,
         named name: String? = nil,
-        arguments: [String] = [],
+        environment: [String: String] = [:],
         launches: Bool = true,
-        activationPolicy: NSApplication.ActivationPolicy = .accessory,
+        activationPolicy: NSApplication.ActivationPolicy = .regular,
     ) -> Self {
         let product: String = String(String(reflecting: entry).prefix { character in character != "." })
         return Self(
             product: product,
             named: name,
-            arguments: arguments,
+            environment: environment,
             launches: launches,
             activationPolicy: activationPolicy,
         )

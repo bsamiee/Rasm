@@ -42,7 +42,7 @@ extension Installation {
                 }
             )
             guard let listed: [Self] = await listings(matching, in: directories).first(where: { @Sendable _ in true })?.installations else {
-                throw ApplicationFailure(subject: "Spotlight query for \(name)", reason: .cancelled(CancellationError()))
+                throw ApplicationFailure(subject: "Spotlight query for \(name)", reason: .cancelled)
             }
             return listed
         }

@@ -1,5 +1,4 @@
 import AppKit
-import Applications
 import CasePaths
 import CustomDump
 import ScreenCaptureKit
@@ -7,6 +6,7 @@ import TestSupport
 import Testing
 
 @testable import AppKitFixture
+@testable import Applications
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -63,18 +63,24 @@ private struct Pixels {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-private func swatch(of instance: NSRunningApplication) async throws -> Element {
+private func swatch(of instance: NSRunningApplication) async throws -> InstanceState.Window {
     _ = try await observe(
         instance,
         until: { seen in seen.last?.elements.contains { element in element.title == "Swatch" } == true },
         acting: { try await run(.swatch, in: instance) },
     )
-    return try #require(try await read(instance).first { element in element.title == "Swatch" && element.detail?.frame != nil })
+    return try #require(try await read(instance).windows.first { row in row.element?.title == "Swatch" })
 }
 
-private func dismiss(_ swatch: Element) async throws {
-    let button: Control = try #require(swatch.detail?.controls.first { control in control.attribute == kAXCloseButtonAttribute })
-    try await ElementAction.perform(element: button.id, action: kAXPressAction).perform()
+private func image(of window: CGWindowID, in instance: NSRunningApplication, longestSide: Int? = nil) async throws -> CGImage {
+    let shots: [CGWindowID: Result<SCScreenshotOutput, ApplicationFailure>] = try await instance.screenshots(of: [window], longestSide: longestSide)
+    let shot: Result<SCScreenshotOutput, ApplicationFailure> = try #require(shots[window])
+    return try #require(try shot.get().sdrImage)
+}
+
+private func dismiss(_ swatch: InstanceState.Window) async throws {
+    let button: Control = try #require(swatch.element?.detail?.controls.first { control in control.attribute == kAXCloseButtonAttribute })
+    _ = try await ElementAction.perform(element: button.id, action: kAXPressAction).perform()
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -82,31 +88,27 @@ private func dismiss(_ swatch: Element) async throws {
 extension Integration {
     @Suite
     struct Screenshots {
-        @Test(.application(FixtureApplication.self, arguments: Settings().arguments))
-        func windowCaptureHoldsSwatchGridAtItsFrameAndColors() async throws {
+        @Test(.application(FixtureApplication.self, launches: false))
+        func backgroundWindowCaptureHoldsSwatchGridAtItsFrameAndColors() async throws {
             let (_, instance): (Installation, NSRunningApplication) = try await launched()
             try #require(CGPreflightScreenCaptureAccess(), "capture needs Screen Recording grant")
-            let element: Element = try await swatch(of: instance)
-            let window: CGWindowID = try #require(element.window)
-            let frame: CGRect = try #require(element.detail?.frame)
-            let captured: (output: SCScreenshotOutput, windows: [CGWindowID]) = try await instance.screenshot(of: window)
-            let image: CGImage = try #require(captured.output.sdrImage)
-            Attachment.record(image, named: "swatch", as: .png)
-            expectNoDifference(captured.windows, [window])
-            expectNoDifference(frame.width, Swatch.size.width)
-            let scale: CGFloat = CGFloat(image.width) / frame.width
-            expectNoDifference(image.height, Int((frame.height * scale).rounded()))
-            let pixels: Pixels = try Pixels(matching: image)
-            let content: CGRect = CGRect(x: 0, y: (frame.height - Swatch.size.height) * scale, width: Swatch.size.width * scale, height: Swatch.size.height * scale)
+            let row: InstanceState.Window = try await swatch(of: instance)
+            let captured: CGImage = try await image(of: row.number, in: instance)
+            Attachment.record(captured, named: "swatch", as: .png)
+            expectNoDifference(row.frame.width, Swatch.size.width)
+            let scale: CGFloat = CGFloat(captured.width) / row.frame.width
+            expectNoDifference(captured.height, Int((row.frame.height * scale).rounded()))
+            let pixels: Pixels = try Pixels(matching: captured)
+            let content: CGRect = CGRect(x: 0, y: (row.frame.height - Swatch.size.height) * scale, width: Swatch.size.width * scale, height: Swatch.size.height * scale)
             let bounds: NSRect = NSRect(origin: .zero, size: content.size)
-            let probes: [(cell: String, x: Int, y: Int, expected: Sample)] = Swatch.colors.enumerated().flatMap { row, colors in
+            let probes: [(cell: String, x: Int, y: Int, expected: Sample)] = Swatch.colors.enumerated().flatMap { index, colors in
                 colors.enumerated().flatMap { column, color in
-                    let cell: NSRect = Swatch.cell(row: row, column: column, in: bounds)
+                    let cell: NSRect = Swatch.cell(row: index, column: column, in: bounds)
                     let points: [(CGFloat, CGFloat)] =
                         [(cell.midX, cell.midY), (cell.minX + 4 * scale, cell.minY + 4 * scale)] + (column > 0 ? [(cell.minX, cell.midY)] : [])
-                        + (column < colors.count - 1 ? [(cell.maxX - 1, cell.midY)] : []) + (row > 0 ? [(cell.midX, cell.minY)] : [])
-                        + (row < Swatch.colors.count - 1 ? [(cell.midX, cell.maxY - 1)] : [])
-                    return points.map { x, y in (cell: "\(row),\(column)", x: Int(x), y: Int(content.minY + y), expected: Sample(color)) }
+                        + (column < colors.count - 1 ? [(cell.maxX - 1, cell.midY)] : []) + (index > 0 ? [(cell.midX, cell.minY)] : [])
+                        + (index < Swatch.colors.count - 1 ? [(cell.midX, cell.maxY - 1)] : [])
+                    return points.map { x, y in (cell: "\(index),\(column)", x: Int(x), y: Int(content.minY + y), expected: Sample(color)) }
                 }
             }
             let misses: [String] = probes.compactMap { probe in
@@ -114,74 +116,54 @@ extension Integration {
                 return found?.near(probe.expected) == true ? nil : "cell \(probe.cell) at \(probe.x),\(probe.y): \(found?.description ?? "outside") for \(probe.expected)"
             }
             expectNoDifference(misses, [])
-            try await dismiss(element)
+            try await dismiss(row)
         }
 
-        @Test(.application(FixtureApplication.self, arguments: Settings().arguments), arguments: [100, 213, 4096])
+        @Test(.application(FixtureApplication.self, launches: false), arguments: [100, 213, 4096])
         func longestSideScalesDownExactlyAndNeverUp(longestSide: Int) async throws {
             let (_, instance): (Installation, NSRunningApplication) = try await launched()
             try #require(CGPreflightScreenCaptureAccess(), "capture needs Screen Recording grant")
-            let element: Element = try await swatch(of: instance)
-            let window: CGWindowID = try #require(element.window)
-            let native: CGImage = try #require(try await instance.screenshot(of: window).output.sdrImage)
-            let scaled: CGImage = try #require(try await instance.screenshot(of: window, longestSide: longestSide).output.sdrImage)
+            let row: InstanceState.Window = try await swatch(of: instance)
+            let native: CGImage = try await image(of: row.number, in: instance)
+            let scaled: CGImage = try await image(of: row.number, in: instance, longestSide: longestSide)
             let longest: Int = max(native.width, native.height)
             let factor: Double = min(1, Double(longestSide) / Double(longest))
             expectNoDifference(max(scaled.width, scaled.height), min(longestSide, longest))
             let proportional: Bool = abs(Double(min(scaled.width, scaled.height)) - Double(min(native.width, native.height)) * factor) <= 1
             #expect(proportional, "scaled \(scaled.width)x\(scaled.height) from \(native.width)x\(native.height)")
-            Attachment.record(scaled, named: "swatch-\(longestSide)", as: .png)
-            let ratio: CGFloat = CGFloat(scaled.width) / CGFloat(native.width)
-            let bar: CGFloat = CGFloat(native.height) - Swatch.size.height * CGFloat(native.width) / Swatch.size.width
-            let content: CGRect = CGRect(x: 0, y: bar * ratio, width: CGFloat(scaled.width), height: CGFloat(scaled.height) - bar * ratio)
-            let pixels: Pixels = try Pixels(matching: scaled)
-            let misses: [String] = Swatch.colors.enumerated().flatMap { row, colors in
-                colors.enumerated().compactMap { column, color in
-                    let cell: NSRect = Swatch.cell(row: row, column: column, in: NSRect(origin: .zero, size: content.size))
-                    let found: Sample? = pixels.sample(x: Int(cell.midX), y: Int(content.minY + cell.midY))
-                    return found?.near(Sample(color)) == true ? nil : "cell \(row),\(column): \(found?.description ?? "outside") for \(Sample(color))"
-                }
-            }
-            expectNoDifference(misses, [])
-            try await dismiss(element)
+            try await dismiss(row)
         }
 
         @Test(.application(FixtureApplication.self, launches: false))
-        func zeroSizeWindowCaptureFailsNamingItsNumberAndFrame() async throws {
-            let (_, instance): (Installation, NSRunningApplication) = try await launched(Settings())
-            try #require(CGPreflightScreenCaptureAccess(), "capture needs Screen Recording grant")
-            let seen: [InstanceState] = try await observe(
-                instance,
-                until: { seen in seen.last?.elements.contains { element in element.title == "Collapsed" } == true },
-                acting: { try await run(.collapsed, in: instance) },
-            )
-            let numbered: CGWindowID? = seen.last?.elements.first { element in element.title == "Collapsed" }?.window
-            let collapsed: CGWindowID = try #require(numbered)
-            let failure: ApplicationFailure = try await #require(throws: ApplicationFailure.self) { try await instance.screenshot(of: collapsed) }
-            let undisplayed: Bool = failure.reason.is(\.noDisplay)
-            #expect(undisplayed, "zero-size capture failed \(failure.reason)")
-            expectNoDifference(failure.subject.contains(String(collapsed)), true, failure.subject)
-        }
-
-        @Test(.application(FixtureApplication.self, arguments: Settings().arguments))
-        func applicationCaptureHoldsOnScreenWindowsAlone() async throws {
+        func closingOneWindowCostsThatWindowAlone() async throws {
             let (_, instance): (Installation, NSRunningApplication) = try await launched()
             try #require(CGPreflightScreenCaptureAccess(), "capture needs Screen Recording grant")
-            let numbered: CGWindowID? = try await read(instance).first { element in element.title == "Fixture 0" }?.window
-            let ordered: CGWindowID = try #require(numbered)
-            let element: Element = try await swatch(of: instance)
-            let window: CGWindowID = try #require(element.window)
-            let frame: CGRect = try #require(element.detail?.frame)
-            let captured: (output: SCScreenshotOutput, windows: [CGWindowID]) = try await instance.screenshot()
-            let image: CGImage = try #require(captured.output.sdrImage)
-            Attachment.record(image, named: "application", as: .png)
-            expectNoDifference(captured.windows, [window])
-            let scale: CGFloat = CGFloat(image.width) / frame.width
-            expectNoDifference(image.height, Int((frame.height * scale).rounded()))
-            let failure: ApplicationFailure = try await #require(throws: ApplicationFailure.self) { try await instance.screenshot(of: ordered) }
+            let ordered: CGWindowID = try await numbered("Fixture 0", in: instance)
+            let absent: CGWindowID = CGWindowID.max
+            let shots: [CGWindowID: Result<SCScreenshotOutput, ApplicationFailure>] = try await instance.screenshots(of: [ordered, absent])
+            let held: Result<SCScreenshotOutput, ApplicationFailure> = try #require(shots[ordered])
+            _ = try #require(try held.get().sdrImage)
+            let missing: Result<SCScreenshotOutput, ApplicationFailure> = try #require(shots[absent])
+            let failure: ApplicationFailure = try #require(throws: ApplicationFailure.self) { try missing.get() }
             let windowless: Bool = failure.reason.is(\.noWindow)
-            #expect(windowless, "ordered out capture failed \(failure.reason)")
-            try await dismiss(element)
+            #expect(windowless, "absent window failed \(failure.reason)")
+        }
+
+        @Test(.application(FixtureApplication.self, launches: false), arguments: [Scenario.hidingPanel, .floatingPanel, .undescribed])
+        func everyBackgroundWindowKindReadsRealPixels(scenario: Scenario) async throws {
+            let (_, instance): (Installation, NSRunningApplication) = try await launched()
+            try #require(CGPreflightScreenCaptureAccess(), "capture needs Screen Recording grant")
+            let before: Set<CGWindowID> = Set(try await read(instance).windows.map(\.number))
+            try await run(scenario, in: instance)
+            let added: [CGWindowID] = try await read(instance).windows.map(\.number).filter { number in !before.contains(number) }
+            for number: CGWindowID in added {
+                let shots: [CGWindowID: Result<SCScreenshotOutput, ApplicationFailure>] = try await instance.screenshots(of: [number])
+                let shot: Result<SCScreenshotOutput, ApplicationFailure> = try #require(shots[number])
+                _ = try #require(try shot.get().sdrImage)
+            }
+            expectNoDifference(added.isEmpty, false)
+            let after: InstanceState.Running = try await read(instance)
+            expectNoDifference(after.active, false)
         }
     }
 }

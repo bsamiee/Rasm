@@ -5,13 +5,13 @@ export const meta = {
   phases: [
     { title: 'Plan', detail: 'build: two brief readers and a planner without args.plan, an adversarial architect returning the package graph', model: 'opus' },
     { title: 'Write', detail: 'build: one writer per package over disjoint files once the packages it reads are written' },
-    { title: 'Map', detail: 'per root, files grouped with their importers and base counts measured; with args.plan outside build, one agent grouping the plan rows into units by the package and files they own, the rows of each unit into slices one editor lands at full depth' },
+    { title: 'Map', detail: 'per root, files grouped with their importers; with args.plan outside build, one agent grouping the plan rows into units by the package and files they own, the rows of each unit into slices one editor lands at full depth' },
     { title: 'Read', detail: 'without args.plan, per file group one reader over every facet of the mode; per root a reader of relations across file groups, with args.plan only what its rows do not state, none in build', model: 'opus' },
     { title: 'Edit', detail: 'one editor per file group over its local findings, or per slice of a unit over its plan rows, slices over disjoint files at once and slices sharing a file in plan order' },
     { title: 'Challenge', detail: 'per file group or unit two adversaries in sequence, editing in place', model: 'opus' },
     { title: 'Verdict', detail: 'per file group or unit, diff against base judged hunk by hunk in place' },
     { title: 'Cross-group', detail: 'one pass over the deduplicated spanning changes: per set over the same files an editor, moving the consumers its changes reach, then two adversaries and a verdict where it changed a file, disjoint sets at once and overlapping ones in order' },
-    { title: 'Lead', detail: 'counts against base, unneeded growth reverted, report' },
+    { title: 'Lead', detail: 'diff against base, unneeded growth reverted, report' },
     { title: 'Check', detail: 'owning targets and args.oracle once over touched files, one fix pass at the cause, one rerun' },
   ],
 }
@@ -39,7 +39,7 @@ const MODES = {
     ],
     finding: 'what it removes or adds, and one doing neither is dropped',
     lean: ', leaning to deepen: capability the plan rows, inputs and packages hold that the files still lack, narrow or hand-write lands as general logic at full depth, extending its categories where the domain justifies, in the existing file or a new one held to the same bar',
-    verdict: 'Every count above base names the capability that needs it, and growth naming none is reverted.',
+    verdict: 'Growth against base names the capability that needs it, and growth naming none is reverted.',
     report: 'strongest changes',
   },
   reduce: {
@@ -55,7 +55,7 @@ const MODES = {
     ],
     finding: 'what it removes, and one removing nothing is dropped',
     lean: ', leaning to reduce: facts an owner, package member or parameterized form states that the files still restate, and layers no caller branches on, fold away at full depth across the files and their consumers',
-    verdict: 'Every count above base names the hidden failure or invalid state that gained its case, and growth naming none is reverted.',
+    verdict: 'Growth against base names the hidden failure or invalid state that gained its case, and growth naming none is reverted.',
     report: 'strongest reductions',
   },
 }
@@ -78,7 +78,7 @@ const FINDINGS = { type: 'array', items: { type: 'object', properties: { files: 
 const FOUND = { type: 'object', properties: { findings: FINDINGS }, required: ['findings'] }
 const EDITED = { type: 'object', properties: { files: PATHS, spanning: FINDINGS }, required: ['files', 'spanning'] }
 const REPORTED = { type: 'object', properties: { files: PATHS, report: { type: 'string' } }, required: ['files', 'report'] }
-const MAPPED = { type: 'object', properties: { groups: { type: 'array', items: PATHS }, base: { type: 'string' } }, required: ['groups', 'base'] }
+const MAPPED = { type: 'object', properties: { groups: { type: 'array', items: PATHS } }, required: ['groups'] }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -132,11 +132,8 @@ const basis = (paths, target = paths.join(', ')) => {
 const brief = (paths, target) => `${basis(paths, target)}\n${mode.lines.join(' ')}`
 const own = (files) => `Edit only ${files.join(', ')} and files you add beside them, and return each change reaching another file as a finding.`
 const diff = (files) => `Read \`git diff ${args.base} -- ${files.join(' ')}\` with the untracked files \`git status --short -- ${files.join(' ')}\` lists, and the files whole.`
-const measure = (dir) => [`loc ${dir}`, `fd --type f . ${dir} | wc -l`, ...['structure', 'exports'].map((items) => `${OUTLINE} --items ${items} --view digest --json=stream ${dir} | jq -s '[.[].items[]] | {items: length, members: ([.[].members[]?] | length)}'`)]
-  .map((command) => `\`${command}\``).join(', ')
 const apart = exclude.length > 0 ? `, except files under ${exclude.join(', ')}` : ''
 const counted = (count, noun) => `${count} ${noun[PLURALS.select(count)]}`
-const based = (root) => `\`mktemp -d\` for the folder it prints, written below as <snapshot> and named literally in each command, \`git archive ${args.base} -- ${root} | tar -x -C <snapshot>\`, then ${measure(`<snapshot>/${root}`)}, then \`rm -rf <snapshot>\`, a root absent at base counting zero`
 
 // --- [LOSSES]
 const lost = []
@@ -289,16 +286,14 @@ phase('Map')
 const maps = (await parallel((rowed ? [] : roots).map((root) => () => once(`Target: ${root} in ${REPO}, base commit ${args.base}.
 List every file under ${root} its language's tools read with its line count, and every outside file importing from it, tests included${apart}.
 Group files into what one agent reads whole with its consumers and edits at full depth, counting outside files, a family folder with the file of its name, an outside file with the group it imports most that has room, else with other outside files.
-Measure the base: ${based(root)}.
-Edit nothing. Return (structured) groups as repository-relative paths and base counts in one line naming each command.`,
+Edit nothing. Return (structured) groups as repository-relative paths.`,
   { label: `map:${root}`, phase: 'Map', schema: MAPPED }).then((result) => result && { ...result, root })))).filter(Boolean)
 const units = rowed ? await once(`Target: ${roots.join(', ')} in ${REPO}, base commit ${args.base}.
 Inputs: ${inputs.join('; ')}.
 Read ${PLAN} whole and take each row whose change lands under ${roots.join(', ')}, a row with its nested lines. Group the rows into units by the package and files they own: a unit's files are every existing file its rows edit, consumers included, or for rows adding files alone the folder they join${apart}, no file in two units, and each unit is what two adversaries read whole with its reads and judge well. A unit's reads are the consumers it leaves unedited and the distilled files its rows link.
 Slice each unit's rows: rows touching the same files join one slice, and a slice holds no more rows than one editor lands at full depth, so a file more rows touch than one editor lands sits in several slices, listed in the order their rows land. A slice's files are the unit's files its rows edit, or the folder its added files join.
-Measure the base of each root: ${roots.map((root) => `${root}: ${based(root)}`).join('; ')}.
-Edit nothing. Return (structured) the units and their slices as repository-relative paths with each row as its first line number and its text verbatim, and base counts per root in one line naming each command.`,
-  { label: 'map:plan', phase: 'Map', schema: { type: 'object', properties: { units: { type: 'array', items: { type: 'object', properties: { files: PATHS, reads: PATHS, slices: { type: 'array', items: { type: 'object', properties: { files: PATHS, rows: { type: 'array', items: { type: 'object', properties: { line: { type: 'integer' }, text: { type: 'string' } }, required: ['line', 'text'] } } }, required: ['files', 'rows'] } } }, required: ['files', 'reads', 'slices'] } }, base: { type: 'string' } }, required: ['units', 'base'] } }) : null
+Edit nothing. Return (structured) the units and their slices as repository-relative paths with each row as its first line number and its text verbatim.`,
+  { label: 'map:plan', phase: 'Map', schema: { type: 'object', properties: { units: { type: 'array', items: { type: 'object', properties: { files: PATHS, reads: PATHS, slices: { type: 'array', items: { type: 'object', properties: { files: PATHS, rows: { type: 'array', items: { type: 'object', properties: { line: { type: 'integer' }, text: { type: 'string' } }, required: ['line', 'text'] } } }, required: ['files', 'rows'] } } }, required: ['files', 'reads', 'slices'] } } }, required: ['units'] } }) : null
 if (rowed && !units) throw new Error(`map agent grouped no row of ${PLAN} under ${roots.join(', ')}`)
 const claims = claimed(rowed
   ? units.units.map((unit) => ({ files: unit.files, reads: union(unit.reads), slices: unit.slices.map((slice) => ({ files: union(slice.files), rows: slice.rows.map((found) => `${PLAN} line ${found.line}: ${found.text}`) })) }))
@@ -334,13 +329,10 @@ log(`${counted(sets.length, NOUNS.set)} from ${counted(spanning.length, NOUNS.ch
 phase('Lead')
 const states = [...rebuilt, ...crossed]
 const edited = union(writes, ...states.map((state) => state.edited))
-const bases = rowed ? [units.base] : maps.map((map) => `${map.root}: ${map.base}`)
 const lead = await once(`${brief(roots)}
-Lead. Base counts:
-${listed(bases)}
-Measure the tree with ${roots.map(measure).join('; ')}, \`git diff --stat ${args.base} -- ${union(roots, edited).join(' ')}\` and \`git ls-files -z --others --exclude-standard -- ${union(roots, edited).join(' ')} | xargs -0 wc -l\`.
-${mode.verdict} Read the diff of each file the counts show growing, one file at a time.
-Return (structured) files you edited and at most 15 lines: counts before and after by command, ${mode.report} by file and line, reverts.`, { label: 'lead', phase: 'Lead', schema: REPORTED })
+Lead. Read \`git diff --stat ${args.base} -- ${union(roots, edited).join(' ')}\` and \`git ls-files -z --others --exclude-standard -- ${union(roots, edited).join(' ')} | xargs -0 wc -l\`.
+${mode.verdict} Read the diff of each file that grew, one file at a time.
+Return (structured) files you edited and at most 15 lines: ${mode.report} by file and line, reverts.`, { label: 'lead', phase: 'Lead', schema: REPORTED })
 const touched = union(edited, lead?.files ?? [])
 
 phase('Check')

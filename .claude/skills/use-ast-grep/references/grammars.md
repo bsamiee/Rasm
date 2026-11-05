@@ -4,7 +4,7 @@ Rules read only what a grammar parses, so a shape comes from parsing and a gap t
 
 ## [01]-[SELECTION]
 
-Parser choice follows accepted syntax, measured against the language's own parser:
+Parser choice follows the syntax the language's own parser accepts:
 - Truth sets come from that parser (`tsc`, `swiftc -parse`, `javac`, `bash -n`, libpg_query), fidelity outranks node readability
 - Grammars generated from a language's parser grammar keep its coverage, a shape layer over their rule objects fixes readability
 - Dialects with their own keywords and statements take their own language, a dialect flag over one parser mixes the syntaxes
@@ -135,10 +135,10 @@ Native builds take grammar sources, scanner implementations, and their imports a
 - Sibling grammar imports add that build as a dependency and its scanner as a component, upstream imports add their `src/scanner.c`
 - Empty `externals` in the generated `grammar.json` means no scanner
 - `tree-sitter build -o <lib> <dir>` compiles one grammar root with `src/scanner.c`, per-unit defines take one build system over every grammar
-- Reconfigure each run (`cmake --fresh`) so no cached variable outlives a changed `grammar.js`
-- Generation runs first into an emptied directory, a failure ends the command
-- Concurrent builds of one grammar delete `parser.c` under each other, one writer owns an output directory across processes
-- Libraries publish through atomic replacement, overwriting a mapped library can crash running scans
+- Each build configures, generates, and compiles in `<language>/$NX_TASK_HASH-$NX_INVOCATION_ANCESTOR_PIDS`, so no cached variable outlives a changed `grammar.js`
+- `NX_TASK_HASH` alone collides, concurrent `nx` processes missing the cache run one task under one hash, the ancestor pids add the process
+- Generated `grammar.json` of a grammar's own scanner reads from its work folder, a published copy belongs to an earlier build
+- Outputs publish after the build through `cmake -E rename` on one volume, overwriting a mapped library can crash running scans
 - Libraries compile with hidden visibility and export `tree_sitter_<name>` alone
 - Compatibility flags follow the compiler frontend and scope to affected scanner units
 - GNU takes `-fno-strict-aliasing` for `tree_sitter/array.h` casts, scanners widening `char` take `-funsigned-char` or `/J`
@@ -152,21 +152,7 @@ Native builds take grammar sources, scanner implementations, and their imports a
 - `--report-states-for-rule <rule>` attributes states, factoring a `choice` can cost more than per-alternative forms
 - Generation memory and time follow the table, the largest composite sets a build host's memory floor, `--no-parser` skips the table
 
-## [08]-[PROOF]
-
-Absence of `ERROR` or `MISSING` says nothing about structure, a well-formed wrong tree is the common defect:
-- Changes prove through `tree-sitter parse --no-ranges -l <lib> --lang-name <name> --paths <list>` trees before and after
-- Each changed site in a tree diff is expected, `src/node-types.json` diffs state moved kinds and fields, a rename fails rule and catalog loads
-- Pure refactors prove through `tree-sitter generate --no-parser` with byte-identical `grammar.json` and `node-types.json`
-- Upstream pull requests take the same diff before adoption, one fix can regress unrelated forms
-- Samples come from the language's test suite and specification, contextual keywords in identifier positions included
-- Named kinds in `node-types.json` that samples never parse mark unprobed syntax
-- Recovery nodes mark parser recovery, the language's parser separates unsupported syntax from source errors
-- Recovery can invent nodes around a failure, a rule match near `ERROR` proves nothing
-- `kind: ERROR` and `ast-grep run -k ERROR -l <lang>` find the recovered form
-- Source bent around a parser gap and rule arms excusing a form state a grammar defect, the grammar takes the fix
-
-## [09]-[NODE_SHAPES]
+## [08]-[NODE_SHAPES]
 
 Shapes read from the configured library, first command prints a tree with unnamed tokens, second a kind's contract, third each parent admitting a kind:
 

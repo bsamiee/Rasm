@@ -1,0 +1,23 @@
+{
+    "name": "@rasm/applications",
+    "private": true,
+    "description": "Client of a Mac application server, its wire schemas in the root entry",
+    "sideEffects": false,
+    "type": "module",
+    "imports": {
+        "#/*": "./*.ts"
+    },
+    "exports": {
+        ".": "./index.ts",
+        "./node": "./node.ts"
+    },
+    "dependencies": {
+        "@rasm/search": "workspace:*",
+        "effect": "catalog:"
+    },
+    "devDependencies": {
+        "@effect/vitest": "catalog:",
+        "@types/node": "catalog:",
+        "vitest": "catalog:"
+    }
+}

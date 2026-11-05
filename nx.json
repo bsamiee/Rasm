@@ -142,7 +142,7 @@
         "grammar:*": {
             "executor": "nx:run-commands",
             "options": { "parallel": false },
-            "inputs": [ "...", "{workspaceRoot}/tools/ast-grep/grammars/{CMakeLists.txt,build.cmake,compose.c}", { "runtime": "tree-sitter --version" }, { "runtime": "cmake --version" }, { "runtime": "node -p \"[process.version, process.platform, process.arch].join('-')\"" } ],
+            "inputs": [ "...", "{workspaceRoot}/tools/ast-grep/grammars/CMakeLists.txt", { "runtime": "tree-sitter --version" }, { "runtime": "cmake --version" }, { "runtime": "node -p \"[process.version, process.platform, process.arch].join('-')\"" } ],
             "cache": true,
             "parallelism": false
         },

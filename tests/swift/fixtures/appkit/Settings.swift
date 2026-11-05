@@ -16,11 +16,14 @@ public enum Scenario: String, CaseIterable, Sendable {
     case saveSheet
     case systemDialog
     case floatingPanel
+    case hidingPanel
     case edited
     case minimize
     case hangBlocked
     case hangBusy
     case hangQuiet
+    case hangWindow
+    case modalBlocked
     case stop
     case fault
     case abort
@@ -31,8 +34,8 @@ public enum Scenario: String, CaseIterable, Sendable {
     public var atLaunch: Bool {
         switch self {
             case .slowLaunch, .launchModal, .singleInstance: true
-            case .window, .undescribed, .collapsed, .swatch, .table, .sheet, .modal, .saveSheet, .systemDialog, .floatingPanel, .edited, .minimize, .hangBlocked, .hangBusy, .hangQuiet, .stop, .fault,
-                .abort, .exit, .helper, .terminate:
+            case .window, .undescribed, .collapsed, .swatch, .table, .sheet, .modal, .saveSheet, .systemDialog, .floatingPanel, .hidingPanel, .edited, .minimize, .hangBlocked, .hangBusy, .hangQuiet,
+                .hangWindow, .modalBlocked, .stop, .fault, .abort, .exit, .helper, .terminate:
                 false
         }
     }
@@ -45,14 +48,13 @@ public enum Role: String, Sendable {
 
 public struct Settings: Sendable {
     private enum Key: String {
-        case role
-        case scenario
-        case windows
-        case document
-        case edited
-        case hidden
-        case status
-        case owner
+        case role = "FIXTURE_ROLE"
+        case scenario = "FIXTURE_SCENARIO"
+        case windows = "FIXTURE_WINDOWS"
+        case document = "FIXTURE_DOCUMENT"
+        case edited = "FIXTURE_EDITED"
+        case status = "FIXTURE_STATUS"
+        case owner = "FIXTURE_OWNER"
     }
 
     public let role: Role
@@ -60,7 +62,6 @@ public struct Settings: Sendable {
     public let windows: Int
     public let document: URL?
     public let edited: Bool
-    public let hidden: Bool
     public let status: Int32
     public let owner: pid_t?
 
@@ -70,7 +71,6 @@ public struct Settings: Sendable {
         windows: Int = 1,
         document: URL? = nil,
         edited: Bool = false,
-        hidden: Bool = false,
         status: Int32 = 0,
         owner: pid_t? = getpid(),
     ) {
@@ -79,13 +79,12 @@ public struct Settings: Sendable {
         self.windows = windows
         self.document = document
         self.edited = edited
-        self.hidden = hidden
         self.status = status
         self.owner = owner
     }
 
-    init(defaults: UserDefaults) {
-        func text(_ key: Key) -> String? { defaults.string(forKey: key.rawValue) }
+    init(reading environment: [String: String]) {
+        func text(_ key: Key) -> String? { environment[key.rawValue] }
         let fallback: Self = Self(owner: nil)
         self.init(
             role: text(.role).flatMap(Role.init(rawValue:)) ?? fallback.role,
@@ -93,17 +92,16 @@ public struct Settings: Sendable {
             windows: text(.windows).flatMap { windows in Int(windows) } ?? fallback.windows,
             document: text(.document).map { path in URL(filePath: path) },
             edited: text(.edited).flatMap { edited in Bool(edited) } ?? fallback.edited,
-            hidden: text(.hidden).flatMap { hidden in Bool(hidden) } ?? fallback.hidden,
             status: text(.status).flatMap { status in Int32(status) } ?? fallback.status,
             owner: text(.owner).flatMap { owner in pid_t(owner) },
         )
     }
 
-    public var arguments: [String] {
+    public var environment: [String: String] {
         let values: [(key: Key, value: String?)] = [
             (.role, role.rawValue), (.scenario, scenario?.rawValue), (.windows, String(windows)), (.document, document?.path(percentEncoded: false)), (.edited, String(edited)),
-            (.hidden, String(hidden)), (.status, String(status)), (.owner, owner.map { owner in String(owner) }),
+            (.status, String(status)), (.owner, owner.map { owner in String(owner) }),
         ]
-        return values.flatMap { key, value in value.map { text in ["-\(key.rawValue)", text] } ?? [] }
+        return Dictionary(uniqueKeysWithValues: values.compactMap { key, value in value.map { text in (key.rawValue, text) } })
     }
 }

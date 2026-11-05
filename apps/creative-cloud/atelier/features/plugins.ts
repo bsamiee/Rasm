@@ -1,15 +1,17 @@
 import { SourceMap } from 'node:module';
-import { ExecuteScript, HostError, Launched, ObjectModel, Reference, Render } from '@rasm/automation';
-import { Automation } from '@rasm/automation/node';
+import { Launched } from '@rasm/applications';
+import { Automation } from '@rasm/applications/node';
+import { ExecuteScript, HostError, ObjectModel, Reference, Render } from '@rasm/automation';
 import { Completion, ExtensionManifest } from '@rasm/cep';
 import { runtime } from '@rasm/extendscript';
 import { Route, registerRpcGroup, Server } from '@rasm/mcp';
 import { Unmatched } from '@rasm/search';
 import { Peer } from '@rasm/uxp/peer';
 import { type JscTarget, transformSync } from '@swc/core';
-import { Array, Context, Duration, Effect, flow, Option, Path, Schema, Stream, Struct, Tuple } from 'effect';
+import { Array, Context, Duration, Effect, flow, Option, Path, Schema, Stream, Struct } from 'effect';
 import { Tool } from 'effect/ai';
 import { AbsolutePath } from '#/absolute-path';
+import { Adobe } from '#/adobe';
 import { Capture } from '#/features/applications';
 import { Libraries, library, type listening } from '#/libraries';
 import type { routes } from '#/routes';
@@ -57,8 +59,8 @@ const lowered = Effect.fnUntraced(function* (code: string, target: JscTarget, aw
     return { source, relined };
 });
 const opener = Effect.fnUntraced(function* (links: Effect.Success<typeof listening>, serves: ReturnType<Effect.Success<ReturnType<typeof routes>>['serving']>['serves'], file: URL) {
-    const automation = yield* Automation;
-    const [rows, peers] = yield* Effect.all([automation.opening(file), links.peers]);
+    const adobe = yield* Adobe;
+    const [rows, peers] = yield* Effect.all([adobe.opening(file), links.peers]);
     const candidates = rows.filter(
         flow(
             library,
@@ -71,7 +73,7 @@ const opener = Effect.fnUntraced(function* (links: Effect.Success<typeof listeni
         {
             onSome: (linked) => Effect.succeed([linked, Option.none()] as const),
             onNone: () =>
-                automation.launch({ url: first.url }).pipe(
+                adobe.launched({ url: first.url }).pipe(
                     Effect.tap(() => Stream.runHead(Stream.filter(links.changes, Array.some(Peer.serves(first.url))))),
                     Effect.timeoutOrElse({ duration: LINK_WAIT, orElse: () => Effect.fail(HostError.refused(`link from ${first.name} within ${Duration.format(LINK_WAIT)}`)()) }),
                     Effect.map((instance) => [first, Option.some(instance)] as const),
@@ -88,10 +90,11 @@ const plugins = Effect.fnUntraced(function* ({ serving, script }: Effect.Success
     const [opened, rendered] = [serving('open'), serving('render')];
     const rendering = (client: Effect.Success<ReturnType<typeof links.call>>) => (request: typeof Rendering.Type & { readonly file: URL }) => client(rendered.tag, request);
     const replying = yield* Effect.sync(() => transformSync(`var runtime = ${String(runtime)};`, { jsc: { target: ExtensionManifest.target, parser: { syntax: 'ecmascript' }, assumptions: { iterableIsArray: true } } }).code);
-    const scripted = Effect.fnUntraced(function* (code: string, { pid }: { readonly pid: number }) {
+    const scripted = Effect.fnUntraced(function* (code: string, { pid, installation: { url } }: { readonly pid: number; readonly installation: { readonly url: URL } }) {
         const { source, relined } = yield* lowered(code, ExtensionManifest.target, false);
         const { reply } = yield* automation.script({
             pid,
+            url,
             direct: `(function (self) { var body = ${source}\n${replying}\nreturn encodeURIComponent(runtime().reply(function () { return { result: body.call(self) }; }));\n})(this)`,
         });
         return yield* Schema.decodeUnknownEffect(Scripted)(reply).pipe(Effect.flatMap(Completion.answered(ResultJson, ExecuteScript.make({ code: source }).label)), Effect.catchTag('HostError', relined));
@@ -138,7 +141,7 @@ const plugins = Effect.fnUntraced(function* ({ serving, script }: Effect.Success
             parameters: Rendering,
             success: Capture,
         }).annotate(Tool.Readonly, true),
-        (payload, { client }) => Effect.map(Capture.written(payload, rendering(client)), Tuple.get(0)),
+        (payload, { client }) => Capture.written(payload, rendering(client)),
     );
     yield* registerRpcGroup(Libraries, {
         tools: {

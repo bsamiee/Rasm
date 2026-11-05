@@ -1,11 +1,11 @@
-import { AvailableFace } from '@rasm/automation';
-import { Automation } from '@rasm/automation/node';
 import { Inspect } from '@rasm/indesign';
 import { Resource, Route } from '@rasm/mcp';
 import { Settings, type Source } from '@rasm/typography';
 import { Face, Justification, ShapedText } from '@rasm/typography/shaping';
 import { Effect, FileSystem, Option, Schema, SchemaAST, Stream, Struct } from 'effect';
 import { Tool } from 'effect/ai';
+import { Adobe } from '#/adobe';
+import { AvailableFace } from '#/available-face';
 import type { listening } from '#/libraries';
 import type { routes } from '#/routes';
 
@@ -45,9 +45,9 @@ const composed = Effect.fnUntraced(function* (source: typeof Source.Type, instan
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const faces = Automation.use((automation) => Resource.register({ name: 'faces', description: 'CoreText faces with file holding each', schema: Faces, changes: Stream.empty, content: automation.faces() }));
+const faces = Effect.flatMap(Adobe, (adobe) => Resource.register({ name: 'faces', description: 'CoreText faces with file holding each', schema: Faces, changes: Stream.empty, content: adobe.faces() }));
 const font = Effect.fnUntraced(function* ({ serving }: Effect.Success<ReturnType<typeof routes>>) {
-    const [automation, route] = [yield* Automation, serving('font')];
+    const [adobe, route] = [yield* Adobe, serving('font')];
     const tool = Tool.make(route.tag, {
         description: 'Shapes text in CoreText face or instance by name, or returns application font with its specimen when application is given',
         parameters: FontRequest,
@@ -60,7 +60,7 @@ const font = Effect.fnUntraced(function* ({ serving }: Effect.Success<ReturnType
             return { ...applied.font, specimen: yield* Effect.transposeOption(Option.map(applied.source, shaped)) };
         });
         const shaping = Effect.gen(function* () {
-            const found = yield* automation.face({ name });
+            const found = yield* adobe.face({ name });
             return { ...found, specimen: yield* Effect.flatMap(found.source, shaped) };
         });
         return Option.match(chosen, { onNone: () => shaping, onSome: native });

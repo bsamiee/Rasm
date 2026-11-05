@@ -19,12 +19,14 @@ private struct BundleInfo: Decodable {
     private enum CodingKeys: String, CodingKey {
         case identifier = "CFBundleIdentifier"
         case version = "CFBundleShortVersionString"
+        case build = "CFBundleVersion"
         case scriptingDefinitionFile = "OSAScriptingDefinition"
         case agent = "LSUIElement"
     }
 
     let identifier: String?
     let version: Installation.Version?
+    let build: Installation.Version?
     let scriptingDefinitionFile: String?
     let agent: InfoFlag?
 }
@@ -52,6 +54,7 @@ public struct Installation: Encodable, Hashable, Sendable {
         case identifier
         case name
         case version
+        case build
         case scriptable
         case scriptingDefinitionFile
         case agent
@@ -61,6 +64,7 @@ public struct Installation: Encodable, Hashable, Sendable {
     public let identifier: String
     public let name: String
     public let version: Version?
+    public let build: Version?
     public let scriptable: Bool
     public let scriptingDefinitionFile: String?
     public let agent: Bool
@@ -77,7 +81,7 @@ extension Installation {
                 bundle.resourceValues(forKeys: [.applicationIsScriptableKey]),
             )
         } catch {
-            throw ApplicationFailure(subject: path, reason: .host(error))
+            throw ApplicationFailure(subject: path, reason: .host(error as NSError))
         }
         guard let identifier: String = info?.identifier else { throw ApplicationFailure(subject: path, reason: .noIdentifier) }
         self.init(
@@ -85,6 +89,7 @@ extension Installation {
             identifier: identifier,
             name: FileManager.default.displayName(atPath: path),
             version: info?.version,
+            build: info?.build,
             scriptable: values.applicationIsScriptable == true,
             scriptingDefinitionFile: info?.scriptingDefinitionFile,
             agent: info?.agent?.value == true,

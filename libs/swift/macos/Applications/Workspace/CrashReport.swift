@@ -74,7 +74,7 @@ extension CrashReport {
                     listed = true
                     if let report: Self = files.lazy.compactMap({ file in read(file)[case: \.success].flatMap(\.self) }).first(where: { report in report.pid == process }) { return report }
                 }
-                throw ApplicationFailure(subject: String(process), reason: .cancelled(CancellationError()))
+                throw ApplicationFailure(subject: String(process), reason: .cancelled)
             }
         }
     }
@@ -105,6 +105,6 @@ extension CrashReport {
     }
 
     private static func unread(_ file: URL, _ error: any Error) -> ApplicationFailure {
-        ApplicationFailure(subject: file.path(percentEncoded: false), reason: .host(error))
+        ApplicationFailure(subject: file.path(percentEncoded: false), reason: .host(error as NSError))
     }
 }

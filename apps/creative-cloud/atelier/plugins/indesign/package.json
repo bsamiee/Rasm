@@ -7,7 +7,6 @@
         "#/*": "./*.ts"
     },
     "dependencies": {
-        "@rasm/automation": "workspace:*",
         "@rasm/indesign": "workspace:*",
         "@rasm/typography": "workspace:*",
         "@rasm/uxp": "workspace:*",

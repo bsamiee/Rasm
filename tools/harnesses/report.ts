@@ -1,6 +1,6 @@
 import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import type { State } from '@rasm/automation';
+import type { State } from '@rasm/applications';
 import { Array, ByteSize, DateTime, Duration, Effect, FileSystem, type LogLevel, Option, Path, Predicate, Record, Schema, String, Struct, UndefinedOr } from 'effect';
 import type { ChildProcessSpawner } from 'effect/process';
 import { HarnessError } from '#/harness-error';
@@ -213,7 +213,7 @@ const spun = Effect.fn('spun')(function* (instance: Lifetime, kind: typeof Kind.
     const kept = shown.filter((line) => line.includes(`[${instance.pid}]`) && !line.includes('not sampling'));
     return Array.match(kept, { onEmpty: () => [], onNonEmpty: (lines): readonly Linked[] => [{ kind, at: instance.ended, file: Option.none(), facts: { lines } }] });
 });
-const crashed = Effect.fn('crashed')(function* (pid: number, exit: typeof State.cases.Exited.Type) {
+const crashed = Effect.fn('crashed')(function* (pid: number, exit: typeof State.Exited.Type) {
     const report = Option.map(Option.fromUndefinedOr(exit.report), ({ url }) => fileURLToPath(url));
     const held = yield* Effect.transposeOption(Option.map(report, (file) => read({ file })));
     const facts = Option.flatMap(Option.flatMap(held, Struct.get('contents')), (contents) => faulted(contents, { pid }));

@@ -1,9 +1,10 @@
+import { Automation } from '@rasm/applications/node';
 import { Config, Deferred, Effect, FileSystem, Match, Option, Path, Schema, String, Struct } from 'effect';
 import { Encoded, Engine, HostCase, HostOutcome, type Placed, Reply, SURVEY, Survey, Written } from '#/blender/contract';
 import { precondition } from '#/blender/precondition';
 import type { Case } from '#/cases';
 import { HarnessError } from '#/harness-error';
-import { appeared, Launched, plist, printed, printedLines, Spawned } from '#/instance';
+import { appeared, Launched, plist, printed, Spawned } from '#/instance';
 import { failing, lined, whole } from '#/report';
 import { Run } from '#/run';
 import { type Batch, Harness, type Installed, type Live, type Rebuilt } from '#/session';
@@ -41,9 +42,10 @@ const identify = Effect.fn('identify')(function* (app: string) {
     return { identifier: CFBundleIdentifier, name: CFBundleName, app, version, helpers: [] } satisfies Installed;
 });
 const installed = Effect.gen(function* () {
-    const [listed, userbase] = yield* Effect.all([printedLines('mdfind', ['kMDItemCFBundleIdentifier == "org.blenderfoundation.blender"']), Config.option(Config.String('PYTHONUSERBASE'))]);
+    const [automation, path] = yield* Effect.all([Automation, Path.Path]);
+    const [listed, userbase] = yield* Effect.all([automation.installed({ identifiers: ['org.blenderfoundation.blender'] }), Config.option(Config.String('PYTHONUSERBASE'))]);
     const startup = Option.getOrUndefined(Option.map(userbase, (PYTHONUSERBASE) => ({ environment: { PYTHONUSERBASE } })));
-    return (yield* Effect.forEach(listed, identify)).map((chosen) => ({ ...chosen, ...startup }));
+    return (yield* Effect.forEach(listed, ({ url }) => Effect.flatMap(path.fromFileUrl(url), identify))).map((chosen) => ({ ...chosen, ...startup }));
 });
 
 // --- [SOURCE]
@@ -78,7 +80,7 @@ const launch = Effect.fn('launch')(function* (chosen: Installed, scratch: string
     const { executable } = yield* bundle(chosen.app);
     const args = [...(chosen.environment === undefined ? [] : ['--python-use-system-env']), '--log-file', `${stem}${LOG}`, '--log', 'operator', '--log-level', 'debug', '--python-exit-code', '1', '--python', yield* path.fromFileUrl(ENGINE), '--', scratch, HOST, `${stem}${ERRORS}`, SESSION, QUIT];
     const environment = { ...chosen.environment, BLENDER_USER_RESOURCES: profile, TMPDIR: folder };
-    return shown ? new Launched({ arguments: ['--no-window-focus', '--enable-event-simulate', ...args], environment }) : new Spawned({ command: executable, arguments: ['--background', ...args], environment });
+    return shown ? new Launched({ several: true, arguments: ['--no-window-focus', '--enable-event-simulate', ...args], environment }) : new Spawned({ command: executable, arguments: ['--background', ...args], environment });
 });
 const opened = Effect.fn('opened')(function* (live: Live) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);

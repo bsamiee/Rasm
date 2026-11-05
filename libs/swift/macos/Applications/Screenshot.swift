@@ -1,7 +1,7 @@
 public import AppKit
 import ImageIO
 public import ScreenCaptureKit
-public import UniformTypeIdentifiers
+import UniformTypeIdentifiers
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

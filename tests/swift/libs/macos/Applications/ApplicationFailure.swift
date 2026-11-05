@@ -1,22 +1,22 @@
 import ApplicationServices
-import Applications
 import CustomDump
 import Foundation
 import Results
 import System
 import Testing
 
+@testable import Applications
+
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 private let subject: String = "perform on AQID"
 private let phrasings: [(reason: ApplicationFailure.Reason, phrases: [String])] = [
-    (.activating, [subject, "raising a window"]),
     (.refused(.actionUnsupported), [subject, String(AXError.actionUnsupported.rawValue)]),
     (.unresolved, [subject, "no longer exists", "read the app again"]),
     (.foreign(4242), [subject, "other than 4242"]),
-    (.unanswered(.perform(element: Data([1, 2, 3]), action: kAXPressAction)), [subject, "can have run"]),
+    (.unanswered(.perform(element: Element.ID(token: Data([1, 2, 3])), action: kAXPressAction)), [subject, "can have run"]),
     (.untrusted, ["Accessibility"]),
-    (.visibility(hidden: true, limit: .seconds(5)), [subject, "hidden", "5 seconds"]),
+    (.noCaptureAccess, [subject, "Screen Recording"]),
 ]
 private let causes: [(reason: ApplicationFailure.Reason, cause: any Error)] = [
     (.system(.permissionDenied), Errno.permissionDenied),

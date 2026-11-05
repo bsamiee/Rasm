@@ -1,8 +1,8 @@
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { type Installation, State } from '@rasm/automation';
-import type { Automation } from '@rasm/automation/node';
-import { Array, ByteSize, Data, DateTime, Deferred, Duration, Effect, Equal, Fiber, FileSystem, flow, HashMap, Match, Number, Option, Order, Path, type PlatformError, Predicate, Record, Ref, Result, Schema, Stream, String, Struct, SubscriptionRef, UndefinedOr } from 'effect';
+import { type Installation, State, type Terms } from '@rasm/applications';
+import { Automation } from '@rasm/applications/node';
+import { Array, Data, DateTime, Deferred, Duration, Effect, Equal, Fiber, FileSystem, flow, HashMap, Match, Number, Option, Order, Path, type PlatformError, Predicate, Record, Ref, Result, Schema, Stream, String, Struct, SubscriptionRef, UndefinedOr } from 'effect';
 import type { ChildProcessSpawner } from 'effect/process';
 import type { Case } from '#/cases';
 import { HarnessError } from '#/harness-error';
@@ -26,7 +26,6 @@ type Verdict = Data.TaggedEnum<{
     Lost: { readonly index: Option.Option<number>; readonly error: Error };
 }>;
 type Sighting = (typeof Messages)['window opened']['Encoded'];
-type Element = (typeof State.cases.Responding.Type)['elements'][number];
 interface Surveyed {
     readonly host: Schema.Json;
 }
@@ -138,6 +137,7 @@ type Session<S extends Surveyed, C extends Cased> = Pick<Harness<S, C>, 'progres
 const VERSIONS = new Intl.Collator('en', { numeric: true });
 const LABEL = npm.name.replaceAll(/\W+/gu, '-').replace(/^-/u, '');
 const ENGINE_LINE = / at line (?<line>\d+)$/u;
+const MODAL = 'Modal';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -312,64 +312,60 @@ const instanceOf = Effect.fnUntraced(function* (host: Pick<Harness, 'bundle'>, l
 });
 const reportsOf = (host: Pick<Harness, 'logs' | 'bundle'>, live: Live) => Effect.flatMap(instanceOf(host, live), (instance) => linked(host, instance));
 
-// --- [WATCHER]
-const usageOf = (state: typeof State.Type) =>
-    State.isAnyOf(['Unresponsive'])(state) ? { process: state.process, ...UndefinedOr.match(state.usage, { onUndefined: () => ({}), onDefined: ({ cpu, footprint, threads }) => ({ cpu: Duration.toSeconds(cpu), footprint: ByteSize.toNumberUnsafe(footprint), threads }) }) } : {};
-const factsOf = (state: typeof State.Type) =>
-    State.match(state, {
-        Launching: () => ({}),
-        Responding: () => ({}),
-        Unresponsive: () => usageOf(state),
-        Failed: ({ reason }) => ({ reason }),
-        Exited: ({ report, ...exit }) => ({ ...Struct.omit(exit, ['_tag', 'next']), ...UndefinedOr.match(report, { onUndefined: () => ({}), onDefined: ({ url, exception }) => ({ report: fileURLToPath(url), ...Record.getSomes({ exception: Option.fromUndefinedOr(exception) }) }) }) }),
-    });
-const keyOf = (element: Element) => `${element.window ?? element.id}`;
-const capturedOf = Match.type<(typeof State.Type)['next']>().pipe(
-    Match.when({ capture: Match.defined }, ({ capture }) => capture.windows),
-    Match.orElse(() => []),
-);
-const sightingOf = (element: Element): Sighting => ({
-    ...(element.window === undefined ? { id: element.id } : { window: element.window }),
-    ...Struct.pick(element, ['role', 'subrole', 'title', 'edited', 'modal', 'identifier', 'requiresAnswer']),
-    ...UndefinedOr.match(element.document, { onUndefined: () => ({}), onDefined: (url) => ({ document: fileURLToPath(url) }) }),
-    ...UndefinedOr.match(element.detail, { onUndefined: () => ({}), onDefined: ({ text, controls }) => ({ text, controls: controls.map(Struct.pick(['label', 'role', 'value', 'enabled', 'attribute'])) }) }),
+// --- [SCRIPTS]
+const scripted = Effect.fn('scripted')(function* ({ pid, chosen: { app } }: Pick<Live, 'pid' | 'chosen'>, script: Parameters<typeof Terms.script>[1]) {
+    const [automation, path] = yield* Effect.all([Automation, Path.Path]);
+    return yield* automation.script({ pid, url: yield* path.toFileUrl(app), ...script });
 });
-const windowsOf = (state: typeof State.Type, held: ReadonlyMap<string, Sighting>, ours: boolean): ReadonlyMap<string, Sighting> => {
-    const captured = ours ? capturedOf(state.next) : [];
-    const titled = (number: number) =>
-        Record.getSomes({
-            title: Option.flatMap(
-                Array.findFirst(State.isAnyOf(['Responding'])(state) ? state.windows : [], (window) => window.number === number),
-                ({ title }) => Option.fromUndefinedOr(title),
-            ),
-        });
-    return State.isAnyOf(['Responding'])(state) ? new Map<string, Sighting>([...state.elements.filter((element) => ours || element.requiresAnswer).map((element) => [keyOf(element), sightingOf(element)] as const), ...captured.map((number) => [`${number}`, { number, ...titled(number) }] as const)]) : held;
-};
+
+// --- [WATCHER]
+const usageOf = (state: typeof State.Type) => (Predicate.hasProperty(state, 'running') && state.running.status === 'unresponsive' ? { ...Struct.pick(state.running, ['process']), ...UndefinedOr.match(state.running.usage, { onUndefined: () => ({}), onDefined: Struct.pick(['cpu', 'footprint', 'threads']) }) } : {});
+const factsOf = (state: typeof State.Type) =>
+    State.match<object>(state, {
+        running: () => usageOf(state),
+        failed: ({ reason }) => ({ reason }),
+        exited: (exit) => ({
+            ...Struct.pick(exit, ['status', 'signal', 'detail', 'statusFailure', 'reportFailure']),
+            ...UndefinedOr.match(exit.report, { onUndefined: () => ({}), onDefined: ({ url, exception }) => ({ report: fileURLToPath(url), ...Record.getSomes({ exception: Option.fromUndefinedOr(exception) }) }) }),
+        }),
+    });
+const sightingOf = ({ number, kind, asking, title, element }: typeof State.Window.Type): Sighting => ({
+    number,
+    kind,
+    asking,
+    ...Record.getSomes({ title: Option.fromUndefinedOr(element?.title ?? title) }),
+    ...UndefinedOr.match(element, {
+        onUndefined: () => ({}),
+        onDefined: (held) => ({
+            ...Struct.pick(held, ['role', 'subrole', 'edited', 'modal', 'identifier']),
+            ...UndefinedOr.match(held.document, { onUndefined: () => ({}), onDefined: (url) => ({ document: fileURLToPath(url) }) }),
+            ...UndefinedOr.match(held.detail, { onUndefined: () => ({}), onDefined: ({ text, controls }) => ({ text, controls: controls.map(Struct.pick(['label', 'role', 'value', 'enabled', 'attribute'])) }) }),
+        }),
+    }),
+});
+const windowsOf = (state: typeof State.Type, held: ReadonlyMap<string, Sighting>, ours: boolean): ReadonlyMap<string, Sighting> =>
+    Predicate.hasProperty(state, 'running') ? new Map(state.running.windows.filter(({ presented, asking }) => presented && (ours || asking)).map((window) => [`${window.number}`, sightingOf(window)] as const)) : held;
 const seenOf = (prior: Option.Option<Seen>, row: typeof Observation.Type, ours: boolean): Seen => ({
     state: row.state,
-    since: State.isAnyOf(['Unresponsive'])(row.state) ? Option.orElseSome(Option.flatMap(prior, Struct.get('since')), () => row.at) : Option.none(),
+    since: Observation.tag(row.state) === 'unresponsive' ? Option.orElseSome(Option.flatMap(prior, Struct.get('since')), () => row.at) : Option.none(),
     windows: windowsOf(row.state, Option.match(prior, { onNone: () => new Map(), onSome: Struct.get('windows') }), ours),
 });
 const unchanged = Schema.toEquivalence(Messages.instance);
 const alike = Schema.toEquivalence(Messages['window changed']);
 const sighted = (row: typeof Observation.Type, before: Option.Option<Seen>, seen: Seen, ours: boolean, asked: Option.Option<Asked>) => {
     const prior = Option.match(before, { onNone: () => new Map<string, Sighting>(), onSome: (held) => held.windows });
-    const spell = Option.filter(Option.flatMap(before, Struct.get('since')), () => !State.isAnyOf(['Unresponsive'])(row.state));
-    const facts = { state: row.state._tag, ...factsOf(row.state), ...Record.getSomes({ duration: Option.map(spell, (since) => Duration.toSeconds(DateTime.distance(since, row.at))) }) };
-    const kept = Option.exists(before, (held) => held.state._tag === row.state._tag && (!State.isAnyOf(['Failed', 'Exited'])(row.state) || unchanged({ state: held.state._tag, ...factsOf(held.state) }, { state: row.state._tag, ...factsOf(row.state) })));
-    const dialog = Option.flatMap(asked, ({ answer }) =>
-        Option.map(
-            Array.findFirst(State.isAnyOf(['Responding'])(row.state) ? row.state.elements : [], ({ id }) => id === answer.id),
-            keyOf,
-        ),
-    );
+    const tag = Observation.tag(row.state);
+    const spell = Option.filter(Option.flatMap(before, Struct.get('since')), () => tag !== 'unresponsive');
+    const facts = { state: tag, ...factsOf(row.state), ...Record.getSomes({ duration: Option.map(spell, (since) => Duration.toSeconds(DateTime.distance(since, row.at))) }) };
+    const kept = Option.exists(before, (held) => Observation.tag(held.state) === tag && ((tag !== 'failed' && tag !== 'exited') || unchanged({ state: tag, ...factsOf(held.state) }, { state: tag, ...factsOf(row.state) })));
+    const dialog = Option.map(asked, ({ window }) => `${window.number}`);
     const level = (key: string) => (Option.contains(dialog, key) ? 'Warn' : 'Info');
     const opened = Array.fromIterable(seen.windows).filter(([key]) => !prior.has(key));
     const changed = Array.fromIterable(seen.windows).filter(([key, held]) => Option.exists(Option.fromUndefinedOr(prior.get(key)), (was) => !alike(was, held)));
     const closed = Array.fromIterable(prior).filter(([key]) => !seen.windows.has(key));
     return Effect.all(
         [
-            (ours || (State.isAnyOf(['Exited'])(row.state) && !clean(row.state))) && !kept ? record(STATES[row.state._tag], 'instance', facts) : Effect.void,
+            (ours || (Predicate.hasProperty(row.state, 'exited') && !clean(row.state.exited))) && !kept ? record(STATES[tag], 'instance', facts) : Effect.void,
             Effect.forEach(opened, ([key, held]) => record(level(key), 'window opened', held), { discard: true }),
             Effect.forEach(changed, ([key, held]) => record(level(key), 'window changed', held), { discard: true }),
             Effect.forEach(closed, ([, held]) => record('Info', 'window closed', held), { discard: true }),
@@ -378,9 +374,15 @@ const sighted = (row: typeof Observation.Type, before: Option.Option<Seen>, seen
     );
 };
 const within = (live: Live) => Effect.provideService(Run.Instance, Option.some(live));
-const owned = (live: Live, row: typeof Observation.Type) => row.identifier === live.chosen.identifier && row.pid === live.pid;
+const owned = (live: Live, row: typeof Observation.Type) => row.pid === live.pid;
+const noteOf = ({ element, number }: typeof State.Window.Type) => element?.id ?? `${number}`;
+const blocked = Effect.fnUntraced(function* (live: Live, state: typeof State.Type, dialog: typeof Halted.cases.Dialog.Type) {
+    const file = yield* sample(live.pid);
+    const frames = yield* stalled(file);
+    return frames.some(String.includes(MODAL)) ? dialog : ({ _tag: 'Hung', ...usageOf(state), sample: file, frames } satisfies typeof Halted.Type);
+});
 const answering = (live: Live, ours: boolean) =>
-    Effect.fnUntraced(function* ({ answer, dialog }: Asked) {
+    Effect.fnUntraced(function* ({ window, dialog }: Asked, pid: number, state: typeof State.Type) {
         const [trace, batch, notes] = yield* Effect.all([Ref.get(live.trace), Ref.get(live.batch), Ref.get(live.notes)]);
         const running = runningOf(trace);
         const used = notes.filter(({ index }) => Equal.equals(index, running)).length;
@@ -388,12 +390,13 @@ const answering = (live: Live, ours: boolean) =>
             Option.filter(() => ours),
             Option.flatMap((index) => Array.get(batch, index)),
             Option.flatMap(({ presses }) => Array.get(presses, used)),
-            Option.flatMap((press) => Progress.pressed(answer, press)),
+            Option.flatMap((press) => Progress.pressed(window.element?.answers, press)),
         );
+        const halting = (halted: typeof Halted.Type) => ended(live, (held) => Verdict.Halted({ index: runningOf(held), halted }));
         const answered = (press: string) => ({ ...Record.getSomes({ title: Option.fromUndefinedOr(dialog.title) }), text: dialog.text, pressed: press });
         yield* Option.match(control, {
-            onNone: () => ended(live, (held) => Verdict.Halted({ index: runningOf(held), halted: dialog })),
-            onSome: ({ press, id }) => Effect.catch(Effect.andThen(Effect.all([Ref.update(live.notes, Array.append({ index: running, element: answer.id, answered: answered(press) })), record('Info', 'dialog answered', answered(press))]), Observation.perform(id)), lost(live)),
+            onNone: () => Effect.flatMap(window.kind === 'blocking' && ours ? blocked(live, state, dialog) : Effect.succeed<typeof Halted.Type>(dialog), halting),
+            onSome: ({ press, id }) => Effect.catch(Effect.andThen(Effect.all([Ref.update(live.notes, Array.append({ index: running, element: noteOf(window), answered: answered(press) })), record('Info', 'dialog answered', answered(press))]), Observation.perform(pid, id)), lost(live)),
         });
     });
 const watcher = (host: Pick<Harness, 'logs' | 'bundle'>, live: Live, seen: Ref.Ref<HashMap.HashMap<number, Seen>>) =>
@@ -409,16 +412,11 @@ const watcher = (host: Pick<Harness, 'logs' | 'bundle'>, live: Live, seen: Ref.R
             yield* sighted(row, before, held, ours, asked);
             const noted = (yield* Ref.get(live.notes)).map(Struct.get('element'));
             yield* Option.match(
-                Option.filter(asked, ({ answer }) => !noted.includes(answer.id)),
-                { onNone: () => Effect.void, onSome: answering(live, ours) },
+                Option.filter(asked, ({ window }) => !noted.includes(noteOf(window))),
+                { onNone: () => Effect.void, onSome: (found) => answering(live, ours)(found, row.pid, row.state) },
             );
-            yield* State.match(row.state, {
-                Launching: () => Effect.void,
-                Responding: () => Effect.void,
-                Unresponsive: () => Effect.void,
-                Failed: ({ reason }) => (ours ? lost(live)(HarnessError.unavailable(`process ${row.pid}`)(reason)) : Effect.void),
-                Exited: (exit) => (ours && Observation.settled(exit) ? Effect.uninterruptible(Effect.andThen(Effect.flatMap(crashed(live.pid, exit), exitedWith(live)), reportsOf(host, live))) : Effect.void),
-            });
+            yield* Predicate.hasProperty(row.state, 'failed') && ours ? lost(live)(HarnessError.unavailable(`process ${row.pid}`)(row.state.failed.reason)) : Effect.void;
+            yield* ours && Observation.settled(row.state) ? Effect.uninterruptible(Effect.andThen(Effect.flatMap(crashed(live.pid, row.state.exited), exitedWith(live)), reportsOf(host, live))) : Effect.void;
         },
         (effect, row) =>
             owned(live, row)
@@ -443,12 +441,14 @@ const acquired = Effect.fn('acquired')(function* (host: Pick<Harness, 'progress'
     const passing = host.progress ?? [];
     const scratch = yield* fs.makeTempDirectoryScoped({ directory: root, prefix: 'instance-' });
     const spec = yield* host.launch(chosen, scratch, windowed);
-    const instance = yield* spec.start(chosen, passing, (held) => Ref.set(release, Option.some(held)));
+    const instance = yield* Effect.timeoutOrElse(
+        spec.start(chosen, passing, (held) => Ref.set(release, Option.some(held))),
+        { duration: limit, orElse: () => Effect.fail(refused(`launch past ${Duration.format(limit)}`)) },
+    );
     yield* Observation.settled(instance.state) ? refused(`instance ${instance.pid} ${Observation.described(instance.state)}`) : Effect.void;
     const starting = yield* starts(['-p', `${instance.pid}`]);
     const started = yield* Effect.fromOption(Option.fromUndefinedOr(starting.get(instance.pid)), () => HarnessError.unavailable(`process ${instance.pid}`)('ps reports no start time'));
     const engine = yield* Effect.transposeOption(Option.map(Option.fromUndefinedOr(host.assembled), assembled));
-    const alive = Option.liftPredicate(instance.state, State.isAnyOf(['Launching', 'Responding', 'Unresponsive']));
     const live: Live = {
         pid: instance.pid,
         started,
@@ -465,10 +465,8 @@ const acquired = Effect.fn('acquired')(function* (host: Pick<Harness, 'progress'
     yield* within(live)(
         record('Info', 'instance launched', {
             app: chosen.app,
-            created: Option.exists(alive, ({ created }) => created === true),
-            state: instance.state._tag,
-            ...Record.getSomes({ watch: instance.watch }),
-            ...Record.getSomes({ hidden: Option.flatMap(alive, ({ hidden }) => Option.fromUndefinedOr(hidden)) }),
+            created: instance.created,
+            state: Observation.tag(instance.state),
             ...Array.match(instance.shared, { onEmpty: () => ({}), onNonEmpty: (shared) => ({ shared }) }),
         }),
     );
@@ -482,7 +480,7 @@ const acquired = Effect.fn('acquired')(function* (host: Pick<Harness, 'progress'
     );
     yield* Effect.raceFirst(
         SubscriptionRef.changes(live.state).pipe(
-            Stream.filter((state) => State.isAnyOf(['Responding'])(state) && !state.answering),
+            Stream.filter((state) => Observation.tag(state) === 'responding' && Array.isReadonlyArrayEmpty(State.asking(state))),
             Stream.runHead,
         ),
         Effect.flatMap(Deferred.await(live.verdict), (over) => refused(blameOf(limit, instance.pid, [])(over).error)),
@@ -506,7 +504,7 @@ const quitted = Effect.fn('quitted')(
         const failed = Result.match(stopped, {
             onFailure: Option.some,
             onSuccess: flow(
-                Option.map((value) => (clean(value) ? Option.none() : Option.some(HarnessError.unavailable(`process ${live.pid}`)(Observation.described(value))))),
+                Option.map((value) => (clean(value.exited) ? Option.none() : Option.some(HarnessError.unavailable(`process ${live.pid}`)(Observation.described(value))))),
                 Option.getOrElse(() => Option.some(HarnessError.unavailable(`process ${live.pid}`)(`quit sent, running past ${Duration.format(limit)}, left running`))),
             ),
         });
@@ -667,4 +665,4 @@ const rerun = <S extends Surveyed, C extends Cased>(host: Session<S, C>, rebuilt
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { type Batch, type Cased, type Decoding, execute, filesIn, Harness, type Installed, type Instance, inside, installation, installations, LABEL, type Live, type Plan, type Prepared, type Rebuilt, rerun, type Session, type Surveyed };
+export { type Batch, type Cased, type Decoding, execute, filesIn, Harness, type Installed, type Instance, inside, installation, installations, LABEL, type Live, type Plan, type Prepared, type Rebuilt, rerun, type Session, type Surveyed, scripted };

@@ -1,4 +1,3 @@
-import AppleEvents
 import Applications
 import CurrentProcess
 import Encoding
@@ -70,6 +69,7 @@ enum Atelier {
             } catch {
                 logger.notice("Started without Accessibility trust, \(error, privacy: .public)")
             }
+            if !requestCaptureAccess() { logger.notice("Started without Screen Recording grant") }
             let updaterDelegate: UpdaterDelegate = UpdaterDelegate()
             let updater: SPUStandardUpdaterController = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: updaterDelegate, userDriverDelegate: nil)
             defer { extendLifetime((updater, updaterDelegate)) }
@@ -77,7 +77,7 @@ enum Atelier {
                 reading: FileHandle.standardInput.bytes.jsonLines,
                 writing: { line in try await withTaskExecutorPreference(output) { try FileHandle.standardOutput.write(contentsOf: line) } },
                 dropped: { failure in logger.debug("Dropped \(failure, privacy: .public)") },
-                { (request: Request) in try await withTaskExecutorPreference(calls) { try await request.perform(definitions: definitions) } },
+                { (request: HelperRequest) in try await withTaskExecutorPreference(calls) { try await request.perform(definitions: definitions) } },
             )
         } catch {
             logger.fault("Atelier stopped with \(error, privacy: .public)")

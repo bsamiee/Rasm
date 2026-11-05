@@ -12,7 +12,7 @@
     "bin": { "harness": "./main.ts" },
     "dependencies": {
         "@effect/platform-node": "catalog:",
-        "@rasm/automation": "workspace:*",
+        "@rasm/applications": "workspace:*",
         "@swc/core": "catalog:",
         "acorn": "catalog:",
         "acorn-walk": "catalog:",

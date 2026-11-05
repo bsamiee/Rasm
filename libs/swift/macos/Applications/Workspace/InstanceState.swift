@@ -1,6 +1,8 @@
 public import AppKit
+import AppleEvents
 import AsyncAlgorithms
 public import CasePaths
+import CasePathsCore
 public import OrderedCollections
 public import Processes
 import Subprocess
@@ -9,124 +11,151 @@ public import System
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-private let reportingSignals: Set<TerminationStatus> = Set([SIGQUIT, SIGILL, SIGTRAP, SIGABRT, SIGEMT, SIGFPE, SIGBUS, SIGSEGV, SIGSYS, SIGXCPU, SIGXFSZ].map(TerminationStatus.signaled))
+private let reportLimit: Duration = .seconds(60)
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 @CasePathable
 public enum InstanceState: Equatable, Sendable {
     public struct Running: Equatable, Sendable {
-        public let status: ApplicationStatus
-        public let usage: Result<ResourceUsage, Errno>?
-        public internal(set) var hidden: Bool?
-        public internal(set) var created: Bool?
-        public internal(set) var quitting: Bool = false
-    }
+        @CasePathable
+        public enum Status: Equatable, Sendable {
+            case launching
+            case responding
+            case unresponsive(ProcessStatus)
 
-    @CasePathable
-    public enum Next: Encodable, Equatable, Sendable {
-        public struct Button: Encodable, Equatable, Sendable {
-            public let id: Data
-            public let label: String
+            public var settled: Bool { self != .launching }
+
+            public var name: String {
+                switch self {
+                    case .launching: "launching"
+                    case .responding: "responding"
+                    case .unresponsive: "unresponsive"
+                }
+            }
         }
 
-        case wait
-        case drive
-        case answer(id: Data, buttons: [Button], accept: Data?, discard: Data?, cancel: Data?)
-        case capture(windows: [CGWindowID])
-        case resume
-        case force
-        case grant
-        case report(url: URL)
+        public let status: Status
+        public let active: Bool
+        public let windows: [Window]
+        public internal(set) var prompts: [Window] = []
+        public let menus: [Element]
+        public let usage: Result<ResourceUsage, Errno>?
+
+        public var asking: [Window] { (windows + prompts).filter(\.asking) }
+    }
+
+    public struct Window: Equatable, Sendable {
+        @CasePathable
+        public enum Description: Equatable, Sendable {
+            case element(Element)
+            case undescribed
+            case blocking
+        }
+
+        public let number: CGWindowID
+        public let title: String?
+        public let frame: CGRect
+        public let layer: Int
+        public let onScreen: Bool
+        public let description: Description
+        let arrived: Bool
+
+        public var asking: Bool {
+            switch description {
+                case .element(let element): element.asking
+                case .undescribed: false
+                case .blocking: true
+            }
+        }
+
+        public var presented: Bool {
+            switch description {
+                case .element, .blocking: true
+                case .undescribed: arrived
+            }
+        }
     }
 
     case running(Running)
     case failed(ApplicationFailure)
     case exited(Result<ProcessExit, Errno>, report: Result<CrashReport, ApplicationFailure>?)
+}
 
-    public var isLaunching: Bool { status?.is(\.launching) == true }
+extension InstanceState.Window {
+    init?(_ row: [String: Any]) {
+        guard let number: CGWindowID = row[kCGWindowNumber as String] as? CGWindowID, let layer: Int = row[kCGWindowLayer as String] as? Int, layer >= 0,
+            let frame: CGRect = (row[kCGWindowBounds as String] as? [String: Any]).flatMap({ bounds in CGRect(dictionaryRepresentation: bounds as CFDictionary) })
+        else { return nil }
+        self.init(
+            number: number,
+            title: (row[kCGWindowName as String] as? String).flatMap { title in title.isEmpty ? nil : title },
+            frame: frame,
+            layer: layer,
+            onScreen: row[kCGWindowIsOnscreen as String] as? Bool ?? false,
+            description: .undescribed,
+            arrived: false,
+        )
+    }
 
-    public var isUnresponsive: Bool { status?.is(\.unresponsive) == true }
+    static func owned(by process: pid_t) -> [Self] {
+        (CGWindowListCopyWindowInfo(.optionAll, kCGNullWindowID) as? [[String: Any]] ?? []).filter { row in row[kCGWindowOwnerPID as String] as? pid_t == process }.compactMap(Self.init)
+    }
 
-    public var requiresAnswer: Bool { status?[case: \.responding]?.elements.contains(where: \.requiresAnswer) == true }
+    static func listed(number: CGWindowID) -> Self? {
+        (CGWindowListCopyWindowInfo(.optionIncludingWindow, number) as? [[String: Any]] ?? []).compactMap(Self.init).first
+    }
 
-    private var status: ApplicationStatus? { self[case: \.running]?.status }
-
-    public var next: Next? {
-        let answer: Next? = status?[case: \.responding]?.elements.first(where: \.requiresAnswer).map { asking in
-            .answer(
-                id: asking.id,
-                buttons: (asking.detail?.controls ?? []).compactMap { control in
-                    switch (control.role, control.label) {
-                        case (kAXButtonRole, .some(let label)): Next.Button(id: control.id, label: label)
-                        case _: nil
-                    }
-                },
-                accept: asking.control(kAXDefaultButtonAttribute, otherwise: "OKButton"),
-                discard: asking.control(identifier: "DontSaveButton"),
-                cancel: asking.control(kAXCancelButtonAttribute, kAXCloseButtonAttribute, otherwise: "CancelButton"),
-            )
-        }
-        return switch self {
-            case .running(let running):
-                switch running.status {
-                    case .launching: .wait
-                    case .responding(_, let windows):
-                        switch (answer, windows.filter(\.onScreen).map(\.number)) {
-                            case (.some(let answer), _): answer
-                            case (.none, let shown) where !shown.isEmpty: .capture(windows: shown)
-                            case (.none, _): .drive
-                        }
-                    case .unresponsive(.stopped, _): .resume
-                    case .unresponsive where running.quitting: .force
-                    case .unresponsive: .wait
-                }
-            case .failed(let failure):
-                switch failure.reason {
-                    case .untrusted: .grant
-                    case .unanswered: .wait
-                    case _: nil
-                }
-            case .exited(_, .some(.success(let report))): .report(url: report.url)
-            case .exited: nil
-        }
+    func described(_ description: Description, arrived: Bool) -> Self {
+        Self(number: number, title: title, frame: frame, layer: layer, onScreen: onScreen, description: description, arrived: arrived)
     }
 }
 
-extension Element {
-    fileprivate func control(_ attributes: String..., otherwise identifier: String) -> Data? {
-        attributes.lazy.compactMap { attribute in self.detail?.controls.first { control in control.attribute == attribute }?.id }.first ?? control(identifier: identifier)
+extension InstanceState.Running {
+    fileprivate struct Printed: Equatable {
+        struct Row: Equatable {
+            let number: CGWindowID
+            let title: String?
+            let elementTitle: String?
+        }
+
+        let status: Status
+        let active: Bool
+        let asking: [CGWindowID]
+        let rows: [Row]
+        let menus: [Element.ID]
     }
 
-    fileprivate func control(identifier: String) -> Data? {
-        (detail?.controls.first { control in control.identifier == identifier })?.id
+    fileprivate var printed: Printed {
+        Printed(
+            status: status == .unresponsive(.running) ? .unresponsive(.sleeping) : status,
+            active: active,
+            asking: asking.map(\.number),
+            rows: windows.filter(\.presented).map { window in Printed.Row(number: window.number, title: window.title, elementTitle: window.description[case: \.element]?.title) },
+            menus: menus.filter { menu in menu.role == kAXMenuRole }.map(\.id),
+        )
+    }
+}
+
+extension InstanceState {
+    func printsSame(as other: Self) -> Bool {
+        switch (self, other) {
+            case (.running(let previous), .running(let next)): previous.printed == next.printed
+            case (_, _): self == other
+        }
     }
 }
 
 extension InstanceState: Encodable {
     private enum Key: CodingKey {
-        case running, failed, exited, status, next, usage, usageFailure, hidden, created, signal, detail, statusFailure, report, reportFailure
+        case running, failed, exited, status, signal, detail, statusFailure, report, reportFailure, reporting
     }
 
     public func encode(to encoder: any Encoder) throws {
         var state: KeyedEncodingContainer<Key> = encoder.container(keyedBy: Key.self)
         switch self {
-            case .running(let running):
-                var fields: KeyedEncodingContainer<Key> = state.nestedContainer(keyedBy: Key.self, forKey: .running)
-                try fields.encode(running.status, forKey: .status)
-                try fields.encodeIfPresent(next, forKey: .next)
-                try fields.encodeIfPresent(running.hidden, forKey: .hidden)
-                try fields.encodeIfPresent(running.created, forKey: .created)
-                switch running.usage {
-                    case .some(.success(let usage)): try fields.encode(usage, forKey: .usage)
-                    case .some(.failure(let error)): try fields.encode(error.description, forKey: .usageFailure)
-                    case .none: break
-                }
-            case .failed(let failure):
-                let failed: any Encoder = state.superEncoder(forKey: .failed)
-                try failure.encode(to: failed)
-                var fields: KeyedEncodingContainer<Key> = failed.container(keyedBy: Key.self)
-                try fields.encodeIfPresent(next, forKey: .next)
+            case .running(let running): try state.encode(running, forKey: .running)
+            case .failed(let failure): try state.encode(failure, forKey: .failed)
             case .exited(let termination, let report):
                 var fields: KeyedEncodingContainer<Key> = state.nestedContainer(keyedBy: Key.self, forKey: .exited)
                 switch termination {
@@ -136,6 +165,7 @@ extension InstanceState: Encodable {
                             case .signaled(let signal): try fields.encode(signal, forKey: .signal)
                         }
                         if !ended.detail.isEmpty { try fields.encode(ended.detail, forKey: .detail) }
+                        if report == nil, ended.reports { try fields.encode(true, forKey: .reporting) }
                     case .failure(let error): try fields.encode(error.description, forKey: .statusFailure)
                 }
                 switch report {
@@ -143,65 +173,176 @@ extension InstanceState: Encodable {
                     case .some(.failure(let failure)): try fields.encode(failure.name, forKey: .reportFailure)
                     case .none: break
                 }
-                try fields.encodeIfPresent(next, forKey: .next)
+        }
+    }
+}
+
+extension InstanceState.Running: Encodable {
+    private enum Key: CodingKey {
+        case active, menus, process, status, usage, usageFailure, windows
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var fields: KeyedEncodingContainer<Key> = encoder.container(keyedBy: Key.self)
+        try fields.encode(active, forKey: .active)
+        if !menus.isEmpty { try fields.encode(menus, forKey: .menus) }
+        try fields.encode(status.name, forKey: .status)
+        try fields.encodeIfPresent(status[case: \.unresponsive], forKey: .process)
+        switch usage {
+            case .some(.success(let usage)): try fields.encode(usage, forKey: .usage)
+            case .some(.failure(let error)): try fields.encode(error.description, forKey: .usageFailure)
+            case .none: break
+        }
+        try fields.encode(asking + windows.filter { window in !window.asking }, forKey: .windows)
+    }
+}
+
+extension InstanceState.Window: Encodable {
+    private enum Key: CodingKey {
+        case asking, element, frame, kind, layer, number, onScreen, presented, title
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var fields: KeyedEncodingContainer<Key> = encoder.container(keyedBy: Key.self)
+        if asking { try fields.encode(true, forKey: .asking) }
+        try fields.encode(frame, forKey: .frame)
+        try fields.encode(layer, forKey: .layer)
+        try fields.encode(number, forKey: .number)
+        try fields.encode(onScreen, forKey: .onScreen)
+        try fields.encodeIfPresent(title, forKey: .title)
+        if !presented { try fields.encode(false, forKey: .presented) }
+        switch description {
+            case .element(let element):
+                try fields.encode(element.kind, forKey: .kind)
+                try fields.encode(element, forKey: .element)
+            case .undescribed: try fields.encode("undescribed", forKey: .kind)
+            case .blocking: try fields.encode("blocking", forKey: .kind)
         }
     }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+extension InstanceState {
+    fileprivate func prompted(_ rows: [Window]) -> Self {
+        guard case .running(var running) = self else { return self }
+        running.prompts = rows
+        return .running(running)
+    }
+}
+
 extension NSRunningApplication {
-    func state(of status: Result<ApplicationStatus, ApplicationFailure>, sampling sampled: Bool) -> InstanceState {
-        switch status {
-            case .success(let status):
-                .running(
-                    InstanceState.Running(
-                        status: status,
-                        usage: sampled || status.is(\.unresponsive) ? Result { () throws(Errno) in try ResourceUsage(of: processIdentifier) } : nil,
-                        hidden: isHidden,
-                    )
-                )
-            case .failure(let failure): .failed(failure)
+    fileprivate var promptNames: [String] { [localizedName].compactMap(\.self) }
+
+    public func state(walking walked: @Sendable (Element) -> Bool = \.asking) async -> InstanceState {
+        let read: InstanceState = await beat(after: nil, walking: walked).state ?? .failed(ApplicationFailure(subject: String(processIdentifier), reason: .cancelled))
+        guard !isDialogHelper else { return read }
+        let prompts: [InstanceState.Window] = await NSWorkspace.shared.instances { instance in instance.isDialogHelper }.async.reduce(into: []) { rows, helper in
+            rows += await helper.beat(after: nil, walking: \.asking).state?.prompting(promptNames) ?? []
         }
+        return read.prompted(prompts)
     }
 
-    public func state(walking walked: @Sendable (Element) -> Bool) async -> InstanceState {
-        state(of: await status(walking: walked).status, sampling: true)
-    }
-
-    func states(
-        ending exits: AsyncStream<Result<ProcessExit, Errno>>,
-        reporting window: Duration = .seconds(60),
+    public func states(
+        walking walked: @escaping @Sendable (Element) -> Bool = \.asking,
         clock: some Clock<Duration> & Sendable = ContinuousClock(),
     ) -> some AsyncSequence<InstanceState, Never> & Sendable {
-        AsyncStream { continuation in
-            let (ticks, tick): (AsyncStream<Void>, AsyncStream<Void>.Continuation) = AsyncStream.makeStream(bufferingPolicy: .bufferingNewest(1))
-            let observer: Result<Observer, ApplicationFailure> = Result { () throws(ApplicationFailure) in try Observer(self, ticks: tick) }
-            let watching: Task<Void, Never> = Task {
-                for await change: Result<ApplicationStatus, ApplicationFailure> in self.statusChanges(walking: \.requiresAnswer, observer: observer, ticks: ticks, clock: clock) {
-                    continuation.yield(self.state(of: change, sampling: false))
-                }
-            }
-            let following: Task<Void, Never> = Task {
-                let exit: Result<ProcessExit, Errno>? = await exits.first { _ in true }
-                watching.cancel()
-                await watching.value
-                guard let exit: Result<ProcessExit, Errno> else { return continuation.finish() }
-                continuation.yield(.exited(exit, report: nil))
-                if case .success(let ended) = exit, ended.detail.contains(.csError) || reportingSignals.contains(ended.status) {
-                    continuation.yield(
-                        .exited(exit, report: await CrashReport.written(by: self.processIdentifier, since: self.launchDate ?? .distantPast, within: window, clock: clock))
-                    )
-                }
-                continuation.finish()
-            }
-            continuation.onTermination = { _ in
-                watching.cancel()
-                following.cancel()
-                observer[case: \.success]?.stop()
+        let names: [String] = promptNames
+        return lifetime(
+            combineLatest(beats(walking: walked, clock: clock), chain([OrderedDictionary<NSRunningApplication, InstanceState>()].async, NSWorkspace.shared.dialogHelperStates(clock: clock))).map {
+                state,
+                helpers in state.prompted(helpers.values.flatMap { helper in helper.prompting(names) })
+            },
+            clock: clock,
+        )
+    }
+
+    fileprivate func lifetime(
+        _ running: some AsyncSequence<InstanceState, Never> & Sendable,
+        clock: some Clock<Duration> & Sendable,
+    ) -> some AsyncSequence<InstanceState, Never> & Sendable {
+        chain([Result<ProcessExit, Errno>?.none].async, termination(of: processIdentifier).map(Optional.some))
+            .flatMapLatest { exit in chain(running.prefix(exit == nil ? .max : 0), self.ended(exit, clock: clock)) }
+            .removeDuplicates { previous, next in previous.printsSame(as: next) }
+    }
+
+    private func ended(_ exit: Result<ProcessExit, Errno>?, clock: some Clock<Duration> & Sendable) -> some AsyncSequence<InstanceState, Never> & Sendable {
+        [false, true].async.compactMap { reported -> InstanceState? in
+            switch (exit, reported) {
+                case (.none, _): nil
+                case (.some(let exit), false): .exited(exit, report: nil)
+                case (.some(.success(let ended)), true) where ended.reports:
+                    .exited(.success(ended), report: await CrashReport.written(by: self.processIdentifier, since: self.launchDate ?? .distantPast, within: reportLimit, clock: clock))
+                case (.some, true): nil
             }
         }
-        .removeDuplicates()
+    }
+
+    public func quit(clock: some Clock<Duration> & Sendable = ContinuousClock()) -> some AsyncSequence<Result<InstanceState, ApplicationFailure>, Never> & Sendable {
+        AsyncStream { output in
+            let states: some AsyncSequence<InstanceState, Never> & Sendable = states(clock: clock)
+            let following: Task<Void, Never> = Task {
+                let (replies, reply): (AsyncStream<Result<InstanceState, ApplicationFailure>>, AsyncStream<Result<InstanceState, ApplicationFailure>>.Continuation) = AsyncStream.makeStream()
+                var sending: Task<Void, Never>?
+                defer { sending?.cancel() }
+                for await event: Result<InstanceState, ApplicationFailure> in merge(states.map(Result.success), replies) {
+                    switch event {
+                        case .failure(let failure) where failure.reason.is(\.refused):
+                            let read: InstanceState = await state()
+                            guard case .running(let running) = read, !running.asking.isEmpty || running.status.is(\.unresponsive) else {
+                                if read.is(\.failed) { continue }
+                                output.yield(.failure(failure))
+                                return output.finish()
+                            }
+                            output.yield(.success(read))
+                            return output.finish()
+                        case .failure:
+                            output.yield(event)
+                            return output.finish()
+                        case .success(.exited):
+                            output.yield(event)
+                            if sending == nil { reply.finish() }
+                        case .success(.running(let running)) where !running.asking.isEmpty || running.status.is(\.unresponsive):
+                            output.yield(event)
+                            return output.finish()
+                        case .success(.failed):
+                            output.yield(event)
+                            return output.finish()
+                        case .success(.running):
+                            output.yield(event)
+                            guard sending == nil else { continue }
+                            sending = Task {
+                                if let refusal: ApplicationFailure = await requestQuit() {
+                                    if refusal.reason.is(\.refused) { _ = await Result { () async throws(any Error) in try await clock.sleep(for: messagingTimeout) } }
+                                    reply.yield(.failure(refusal))
+                                }
+                                reply.finish()
+                            }
+                    }
+                }
+                output.finish()
+            }
+            output.onTermination = { _ in following.cancel() }
+        }
+    }
+
+    private func requestQuit() async -> ApplicationFailure? {
+        let request: NSAppleEventDescriptor = NSAppleEventDescriptor(
+            eventClass: AEEventClass(kCoreEventClass),
+            eventID: AEEventID(kAEQuitApplication),
+            targetDescriptor: NSAppleEventDescriptor(processIdentifier: processIdentifier),
+            returnID: AEReturnID(kAutoGenerateReturnID),
+            transactionID: AETransactionID(kAnyTransactionID),
+        )
+        let subject: String = String(processIdentifier)
+        do {
+            _ = try await request.sent()
+            return nil
+        } catch  where error.status == OSStatus(userCanceledErr) {
+            return ApplicationFailure(subject: subject, reason: .refused(nil))
+        } catch {
+            return ApplicationFailure(subject: subject, reason: .event(error))
+        }
     }
 }
 
@@ -225,10 +366,26 @@ extension NSWorkspace {
         return exact.isEmpty ? instances { instance in instance.activationPolicy == .regular && instance.localizedName?.range(of: name, options: options) != nil } : exact
     }
 
-    @MainActor
     public func instanceStates(
         of matching: @escaping @Sendable (NSRunningApplication) -> Bool,
+        walking walked: @escaping @Sendable (Element) -> Bool = \.asking,
         clock: some Clock<Duration> & Sendable = ContinuousClock(),
+    ) -> some AsyncSequence<OrderedDictionary<NSRunningApplication, InstanceState>, Never> & Sendable {
+        combineLatest(tracked(of: matching, walking: walked, clock: clock), chain([OrderedDictionary<NSRunningApplication, InstanceState>()].async, dialogHelperStates(clock: clock)))
+            .map { states, helpers in
+                var joined: OrderedDictionary<NSRunningApplication, InstanceState> = states
+                for (instance, state): (NSRunningApplication, InstanceState) in states {
+                    joined[instance] = state.prompted(helpers.values.flatMap { helper in helper.prompting(instance.promptNames) })
+                }
+                return joined
+            }
+            .removeDuplicates()
+    }
+
+    func tracked(
+        of matching: @escaping @Sendable (NSRunningApplication) -> Bool,
+        walking walked: @escaping @Sendable (Element) -> Bool,
+        clock: some Clock<Duration> & Sendable,
     ) -> some AsyncSequence<OrderedDictionary<NSRunningApplication, InstanceState>, Never> & Sendable {
         let (inserted, insert): (AsyncStream<NSRunningApplication>, AsyncStream<NSRunningApplication>.Continuation) = AsyncStream.makeStream()
         let listed: Mutex<Set<NSRunningApplication>?> = Mutex(nil)
@@ -243,9 +400,9 @@ extension NSWorkspace {
                 await withDiscardingTaskGroup { group in
                     var followed: Set<NSRunningApplication> = []
                     for await instance: NSRunningApplication in inserted where followed.insert(instance).inserted {
-                        let exits: AsyncStream<Result<ProcessExit, Errno>> = termination(of: instance.processIdentifier)
+                        let states: some AsyncSequence<InstanceState, Never> & Sendable = instance.lifetime(instance.beats(walking: walked, clock: clock), clock: clock)
                         group.addTask {
-                            for await state: InstanceState in instance.states(ending: exits, clock: clock) { change.yield((instance, state)) }
+                            for await state: InstanceState in states { change.yield((instance, state)) }
                         }
                     }
                 }

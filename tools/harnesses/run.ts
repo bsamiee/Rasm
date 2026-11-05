@@ -1,7 +1,7 @@
 import { Array, Cause, Config, Console, Context, DateTime, Duration, Effect, FileSystem, Filter, Formatter, Layer, Logger, Match, MutableRef, Option, Path, Record, References, Schema, Stdio, String, Struct } from 'effect';
 import { SecureRandom } from 'effect/crypto';
 import { printed, sampled } from '#/instance';
-import { declared, Field, type Kind, messageOf, partition, RECORDS, record, Signed, type STATES, tagOf } from '#/log';
+import { declared, Field, type Kind, messageOf, partition, RECORDS, record, Signed, tagOf } from '#/log';
 import { since } from '#/query';
 import type { Live } from '#/session';
 
@@ -11,7 +11,7 @@ type Phase = 'run' | 'prove' | 'compare' | 'plan' | 'launch' | 'ready' | 'open' 
 interface Tally {
     readonly cases: { readonly ran: number; readonly failed: number; readonly notRun: number };
     readonly signatures: readonly (typeof Signed.Type)[];
-    readonly instances: readonly { readonly pid: number; readonly started: string; readonly state: keyof typeof STATES; readonly reports: readonly (typeof Kind.Type)[] }[];
+    readonly instances: readonly { readonly pid: number; readonly started: string; readonly state: string; readonly reports: readonly (typeof Kind.Type)[] }[];
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------

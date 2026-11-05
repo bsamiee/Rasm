@@ -51,7 +51,7 @@ uv resolves projects, workspace members, and dependency groups through native me
 - Checker cache inputs include implementation, imported source, settings, resolved dependencies, and the resolver-selected interpreter
 - Ruff, mypy, and pytest caches keep a `pyproject.toml` row and a `mise.toml` `[env]` row, no one setting reaches every run
 - `[env]` rows reach runs skipping the configuration (`--isolated`, `--config <file>`, `--config-file`, `-c`, `stubgen`), each default otherwise lands in the working folder
-- `pyproject.toml` rows reach runs outside mise, a windowed Blender through `watch-apps launch` and a shell started outside the checkout
+- `pyproject.toml` rows reach runs outside mise, a windowed Blender and a shell started outside the checkout
 - `mypy` skips dot-prefixed children during directory discovery, hidden source trees take explicit inputs
 - Ruff discovers nested interpreter requirements before an extended `target-version`
 - Compiler option snapshots decide interface cache compatibility

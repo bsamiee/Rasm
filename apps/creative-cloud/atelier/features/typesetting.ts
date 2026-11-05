@@ -1,5 +1,4 @@
-import { AvailableFace, Kerns, type Runs, Typeset } from '@rasm/automation';
-import { Automation } from '@rasm/automation/node';
+import { Kerns, type Runs, Typeset } from '@rasm/indesign/typesetting';
 import { progress, Route, registerTool } from '@rasm/mcp';
 import { Unmatched } from '@rasm/search';
 import { Settings } from '@rasm/typography';
@@ -8,6 +7,8 @@ import { Face, Kerning, Symbols, Word } from '@rasm/typography/shaping';
 import { Array, Cause, Effect, Equal, FileSystem, Number, Option, Order, Record, Schema, Stream, Struct } from 'effect';
 import { Tool } from 'effect/ai';
 import { AbsolutePath } from '#/absolute-path';
+import { Adobe } from '#/adobe';
+import { AvailableFace } from '#/available-face';
 import { applicationFont } from '#/features/fonts';
 import type { routes } from '#/routes';
 
@@ -128,8 +129,8 @@ const typeset = Effect.fnUntraced(function* (client: Client, { target, settings 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const typesetting = Effect.fnUntraced(function* ({ serving }: Effect.Success<ReturnType<typeof routes>>) {
-    const [automation, files] = yield* Effect.all([Automation, FileSystem.FileSystem]);
-    const faceOf = (name: typeof AvailableFace.Name.Type) => automation.face({ name }).pipe(Effect.flatMap(Struct.get('source')), Effect.flatMap(Face.open));
+    const [adobe, files] = yield* Effect.all([Adobe, FileSystem.FileSystem]);
+    const faceOf = (name: typeof AvailableFace.Name.Type) => adobe.face({ name }).pipe(Effect.flatMap(Struct.get('source')), Effect.flatMap(Face.open));
     const read = QuranSource.match({
         Csv: ({ ayahs, surahs, columns, riwayah }) => Effect.flatMap(Effect.all({ ayahs: files.readFileString(ayahs), surahs: files.readFileString(surahs) }), (csv) => Quran.decode(csv, columns, riwayah)),
         Mushaf: ({ file, render }) => Effect.flatMap(Effect.transposeOption(Option.map(file, (path) => files.readFileString(path))), (json) => Quran.mushaf(json, render)),
