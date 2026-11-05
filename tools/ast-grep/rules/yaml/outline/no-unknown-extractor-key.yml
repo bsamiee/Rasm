@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: yaml
+severity: error
+files: ['tools/ast-grep/outline/**']
+utils:
+    root-pair:
+        kind: 'document > :is(block_node, flow_node) > :is(block_mapping, flow_mapping) > :is(block_mapping_pair, flow_pair)'
+    item-document:
+        kind: block_mapping, flow_mapping
+        has: {kind: 'block_mapping_pair, flow_pair', all: [{has: {field: key, regex: '^["'']?role["'']?$'}}, {has: {field: value, regex: '^["'']?item["'']?$'}}]}
+    member-document:
+        kind: block_mapping, flow_mapping
+        has: {kind: 'block_mapping_pair, flow_pair', all: [{has: {field: key, regex: '^["'']?role["'']?$'}}, {has: {field: value, regex: '^["'']?member["'']?$'}}]}
+rule:
+    matches: root-pair
+    all:
+        - has: {field: key, pattern: $KEY}
+        - any:
+            - not: {has: {field: key, regex: '^["'']?(?:id|language|role|symbolType|rule|name|signature|constraints|utils|transform|rewriters|parentRuleIds|isImport|isExported|isPublic)["'']?$'}}
+            - all: [{has: {field: key, regex: '^["'']?(?:isImport|isExported)["'']?$'}}, {inside: {matches: member-document}}]
+            - all: [{has: {field: key, regex: '^["'']?(?:isPublic|parentRuleIds)["'']?$'}}, {inside: {matches: item-document}}]
+message: Outline loads extractor key `$KEY` silently and ignores it
+note: Items take `isImport` and `isExported`, members `isPublic` and `parentRuleIds`, every extractor `id`, `language`, `role`, `symbolType`, `rule`, `name`, `signature`, `constraints`, `utils`, `transform`, and `rewriters`
