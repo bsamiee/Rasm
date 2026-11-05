@@ -56,8 +56,7 @@ rule:
                     - has: {matches: cancel-binding, precedes: *fused}
         - kind: call_expression
           all:
-            - has: {field: arguments, all: [{has: {nthChild: 2}}, {not: {has: {nthChild: 3}}}]}
-            - has: {field: function, pattern: $RACE, matches: futures-select}
+            - has: {field: function, all: [{matches: futures-select}, {pattern: $RACE}]}
             - has: {field: arguments, has: {matches: cancel-operand}}
 message: '`$RACE$BANG` races one future against `$CANCELLED()` by hand'
 note: 'Await `<token>.run_until_cancelled(<future>)` (`run_until_cancelled_owned` on an owned token) and match `None` as cancellation'

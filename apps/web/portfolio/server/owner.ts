@@ -4,7 +4,6 @@ import { Array, Context, Effect, Layer, Option, Struct } from 'effect';
 import { HttpMethod, HttpServerRequest, HttpServerResponse } from 'effect/http';
 import { HttpApiError } from 'effect/http-api';
 import { Owner } from '#/model/api.ts';
-import { sites } from '#/model/sites.ts';
 import { owner } from '#/server/catalog.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -15,7 +14,7 @@ const address = new Intl.Collator(undefined, { usage: 'search', sensitivity: 'ac
 
 class OwnerAccount extends Context.Service<OwnerAccount, { readonly email: string }>()('@rasm/portfolio/server/owner/OwnerAccount') {
     static readonly session = Effect.gen(function* () {
-        const [{ email }, user] = yield* Effect.all([OwnerAccount, User.current(sites)]);
+        const [{ email }, user] = yield* Effect.all([OwnerAccount, User.current]);
         return yield* Option.match(user, {
             onNone: () => Effect.succeed('signedOut' as const),
             onSome: Effect.fnUntraced(function* (signed) {

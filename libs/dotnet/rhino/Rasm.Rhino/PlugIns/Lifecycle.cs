@@ -2,6 +2,8 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Runtime.Loader;
 using Eto;
+using Rasm.Rhino.Display;
+using Rasm.Rhino.Persistence;
 using Rasm.Rhino.PlugIns.Licenses;
 using Rasm.Rhino.Render.Effects;
 using Rasm.Rhino.UI;
@@ -28,7 +30,8 @@ internal sealed class PlugInBody {
     // --- [IDENTITY]
     public PlugInLoadTime LoadTime =>
         definition.LoadTime.IfNone(() =>
-            catalog.Rows.Exists(static view => view is View.Panel) ? PlugInLoadTime.WhenNeededOrTabbedDockBar
+            definition.Modes.IsSome || !definition.Themes.IsEmpty ? PlugInLoadTime.AtStartup
+            : catalog.Rows.Exists(static view => view is View.Panel) ? PlugInLoadTime.WhenNeededOrTabbedDockBar
             : catalog.Rows.Exists(static view => view is View.Page) ? PlugInLoadTime.WhenNeededOrOptionsDialog
             : PlugInLoadTime.WhenNeeded);
 
@@ -52,6 +55,8 @@ internal sealed class PlugInBody {
         from rewrites in DocumentArchive.Rewrites
         from following in EffectList.Following
         from endpoints in IO.lift(() => definition.Endpoints.Iter(static endpoint => HostUtils.RegisterComputeEndpoint(endpoint.Path, endpoint.Type)))
+        from modes in definition.Modes.Traverse(DisplayModes.Declared).As()
+        from themes in when(!definition.Themes.IsEmpty, RhinoTheme.Following(definition.Themes)).As()
         from loaded in definition.Load.TraverseM(identity).As()
         select unit;
 

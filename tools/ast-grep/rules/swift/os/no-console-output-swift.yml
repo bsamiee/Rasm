@@ -22,9 +22,7 @@ utils:
                         kind: class_body
                         inside:
                             kind: class_declaration
-                            all:
-                                - has: {kind: modifiers, has: {kind: attribute, regex: '^@main$'}}
-                                - has: {kind: inheritance_specifier, regex: 'ParsableCommand$'}
+                            has: {kind: inheritance_specifier, regex: 'ParsableCommand$'}
             - inside:
                 stopBy: {kind: 'function_declaration, lambda_literal, class_declaration, protocol_declaration, property_declaration, init_declaration, deinit_declaration, subscript_declaration'}
                 kind: source_file
@@ -68,7 +66,6 @@ utils:
 rule:
     any:
         - matches: diagnostic
-        - matches: result
-          not: {matches: host-entry}
+        - all: [{matches: result}, {not: {matches: host-entry}}]
 message: '`$OUT` writes a diagnostic outside `Logger` or a result outside the program entry'
-note: 'Log diagnostics through `Logger`, and write results to stdout from `main` of the `@main` type or from `main.swift`'
+note: 'Log diagnostics through `Logger`, and write results to stdout from `main` of the `@main` type, `run` of a `ParsableCommand`, or `main.swift`'

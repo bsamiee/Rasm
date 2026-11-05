@@ -19,8 +19,7 @@ utils:
     await-loop:
         any:
             - kind: for_statement
-              regex: '^for[\t-\r ]+(try[\t-\r ]+)?await(?-u:\b)'
-              has: {field: item, has: {field: bound_identifier, pattern: $L}}
+              has: {field: item, has: {field: bound_identifier, pattern: $L}, follows: {regex: '^await$'}}
             - kind: while_statement
               all:
                 - has: {field: bound_identifier, pattern: $L}

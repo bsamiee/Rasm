@@ -2,6 +2,7 @@
     <PropertyGroup Label="Test Platform" Condition="'$(IsTestingPlatformApplication)' == 'true'">
         <IsTestProject>true</IsTestProject>
         <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
+        <TestingPlatformCommandLineArguments>$(TestingPlatformCommandLineArguments) --results-directory &quot;$(ArtifactsPath)/TestResults/$(MSBuildProjectName)&quot;</TestingPlatformCommandLineArguments>
     </PropertyGroup>
 
     <ItemGroup Label="Test Analyzers" Condition="'$(ProjectRole)' == 'tests'">
@@ -54,9 +55,29 @@
         </ItemGroup>
     </Target>
 
+    <PropertyGroup Label="Fetched Files">
+        <_FetchedStore>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '.cache', 'fetched'))</_FetchedStore>
+    </PropertyGroup>
+
+    <ItemGroup Label="Fetched Files">
+        <FetchedResource Update="@(FetchedResource)" LogicalName="%(Filename)%(Extension)" WithCulture="false" />
+        <EmbeddedResource Include="@(FetchedResource->'$(_FetchedStore)%(Sha256)')" />
+    </ItemGroup>
+
+    <Target Name="FetchResources" BeforeTargets="CoreCompile" Condition="'@(FetchedResource)' != '' and '$(DesignTimeBuild)' != 'true'">
+        <DownloadFile SourceUrl="%(FetchedResource.Identity)" DestinationFolder="$(IntermediateOutputPath)" DestinationFileName="%(FetchedResource.Sha256)" Condition="!Exists('$(_FetchedStore)%(FetchedResource.Sha256)')" />
+        <VerifyFileHash File="$(IntermediateOutputPath)%(FetchedResource.Sha256)" Hash="%(FetchedResource.Sha256)" Condition="!Exists('$(_FetchedStore)%(FetchedResource.Sha256)')" />
+        <Move SourceFiles="$(IntermediateOutputPath)%(FetchedResource.Sha256)" DestinationFiles="$(_FetchedStore)%(FetchedResource.Sha256)" Condition="!Exists('$(_FetchedStore)%(FetchedResource.Sha256)')" />
+    </Target>
+
     <PropertyGroup Label="Rhino Host" Condition="'$(RhinoHost)' != ''">
         <DefaultItemExcludes Condition="'$(TargetPlatformIdentifier)' == 'Windows'">$(DefaultItemExcludes);**/Mac/**</DefaultItemExcludes>
         <DefaultItemExcludes Condition="'$(TargetPlatformIdentifier)' != 'Windows'">$(DefaultItemExcludes);**/Windows/**</DefaultItemExcludes>
+        <_RhinoHostProject>$(MSBuildThisFileDirectory)eng/dotnet/rhino/RhinoHost.proj</_RhinoHostProject>
+        <_RhinoHostBuildProperties>Configuration;TargetFramework;RuntimeIdentifier;_CommandLineDefinedRuntimeIdentifier;_IsPublishing;NoBuild;RhinoPlugIn;ArtifactsPivots;ArtifactsPath</_RhinoHostBuildProperties>
+        <_IconDir>$(IntermediateOutputPath)Icons/</_IconDir>
+        <IconLightStylesheet Condition="'$(IconLightStylesheet)' == ''">$(MSBuildThisFileDirectory)eng/dotnet/rhino/icon-light.css</IconLightStylesheet>
+        <IconDarkStylesheet Condition="'$(IconDarkStylesheet)' == ''">$(MSBuildThisFileDirectory)eng/dotnet/rhino/icon-dark.css</IconDarkStylesheet>
     </PropertyGroup>
 
     <ItemGroup Label="Rhino Host" Condition="'$(RhinoHost)' != ''">
@@ -65,166 +86,145 @@
         <FrameworkReference Include="Microsoft.WindowsDesktop.App.WPF" Condition="'$(TargetPlatformIdentifier)' == 'Windows'" />
         <Using Include="Rhino.Geometry" />
         <Using Include="Rhino.Geometry.Interval" Alias="Interval" />
-        <EmbeddedResource Include="**/*.ghicon" Exclude="Documentation/**" LogicalName="%(Filename)%(Extension)" WithCulture="false" />
-        <_IconMaster Include="**/*.svg" Exclude="Documentation/**" IconStem="%(Filename)" />
+        <EmbeddedResource Include="**/EmbeddedResources/**" Exclude="**/*.svg" LogicalName="%(Filename)%(Extension)" WithCulture="false" />
+        <_IconMaster Include="**/EmbeddedResources/**/*.svg" Exclude="$(PlugInIcon)" IconStem="%(Filename)" />
+        <_IconMaster Include="$(PlugInIcon)" IconStem="icon" Condition="Exists('$(PlugInIcon)')" />
+        <_IconMaster Update="@(_IconMaster)" Master="%(FullPath)" />
+        <_ThemedIcon Include="@(_IconMaster->'$(_IconDir)%(IconStem)%(Extension)')" Stylesheet="$(IconLightStylesheet)" />
+        <_ThemedIcon Include="@(_IconMaster->'$(_IconDir)%(IconStem)_darkmode%(Extension)')" Stylesheet="$(IconDarkStylesheet)" />
+        <EmbeddedResource Include="@(_ThemedIcon)" LogicalName="%(Filename)%(Extension)" WithCulture="false" />
+        <FileWrites Include="@(_ThemedIcon)" />
     </ItemGroup>
 
-    <PropertyGroup Label="Rhino Host Icons" Condition="'$(RhinoHost)' != ''">
-        <_IconInk>#212529</_IconInk>
-        <_IconInkDark>#e1e1e1</_IconInkDark>
-        <_IconAccent>#74c0fc</_IconAccent>
-        <_IconEdgeDark>#000000</_IconEdgeDark>
-        <_IconDir>$(IntermediateOutputPath)Icons/</_IconDir>
-    </PropertyGroup>
-
-    <Target Name="BuildThemedIcons" BeforeTargets="AssignTargetPaths" Condition="'@(_IconMaster)' != ''" Inputs="$(MSBuildThisFileFullPath);@(_IconMaster)" Outputs="$(_IconDir).stamp">
+    <Target Name="PaintIcons" BeforeTargets="CoreCompile" Condition="'@(_ThemedIcon)' != '' and '$(DesignTimeBuild)' != 'true'" Inputs="@(_ThemedIcon->'%(Master)');$(IconLightStylesheet);$(IconDarkStylesheet);$(MSBuildAllProjects)" Outputs="@(_ThemedIcon)">
         <MakeDir Directories="$(_IconDir)" />
-        <WriteLinesToFile File="$(_IconDir)%(_IconMaster.IconStem)%(_IconMaster.Extension)" Lines="$([MSBuild]::Escape($([System.IO.File]::ReadAllText('%(_IconMaster.FullPath)').Replace('currentColor', '$(_IconInk)').Replace('var(--accent)', '$(_IconAccent)').Replace('var(--edge)', '$(_IconInk)'))))" Overwrite="true" WriteOnlyWhenDifferent="true" />
-        <WriteLinesToFile File="$(_IconDir)%(_IconMaster.IconStem)_darkmode%(_IconMaster.Extension)" Lines="$([MSBuild]::Escape($([System.IO.File]::ReadAllText('%(_IconMaster.FullPath)').Replace('currentColor', '$(_IconInkDark)').Replace('var(--accent)', '$(_IconAccent)').Replace('var(--edge)', '$(_IconEdgeDark)'))))" Overwrite="true" WriteOnlyWhenDifferent="true" />
-        <Touch Files="$(_IconDir).stamp" AlwaysCreate="true" />
-        <ItemGroup>
-            <EmbeddedResource Include="$(_IconDir)%(_IconMaster.IconStem)%(_IconMaster.Extension)" LogicalName="%(_IconMaster.IconStem)%(_IconMaster.Extension)" WithCulture="false" />
-            <EmbeddedResource Include="$(_IconDir)%(_IconMaster.IconStem)_darkmode%(_IconMaster.Extension)" LogicalName="%(_IconMaster.IconStem)_darkmode%(_IconMaster.Extension)" WithCulture="false" />
-            <FileWrites Include="$(_IconDir)%(_IconMaster.IconStem)%(_IconMaster.Extension);$(_IconDir)%(_IconMaster.IconStem)_darkmode%(_IconMaster.Extension);$(_IconDir).stamp" />
-        </ItemGroup>
+        <Exec Command="usvg --stylesheet &quot;%(_ThemedIcon.Stylesheet)&quot; &quot;%(_ThemedIcon.Master)&quot; &quot;%(_ThemedIcon.FullPath)&quot;" LogStandardErrorAsError="true" />
     </Target>
-
-    <UsingTask TaskName="ReadRhinoHost" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)/Microsoft.Build.Tasks.Core.dll">
-        <ParameterGroup>
-            <Resources ParameterType="System.String" Required="true" />
-            <Packages ParameterType="Microsoft.Build.Framework.ITaskItem[]" />
-            <References ParameterType="Microsoft.Build.Framework.ITaskItem[]" />
-            <TargetFramework ParameterType="System.String" Output="true" />
-            <Libraries ParameterType="Microsoft.Build.Framework.ITaskItem[]" Output="true" />
-            <Supplied ParameterType="Microsoft.Build.Framework.ITaskItem[]" Output="true" />
-        </ParameterGroup>
-        <Task>
-            <Using Namespace="System.Reflection" />
-            <Using Namespace="System.Runtime.Serialization.Json" />
-            <Using Namespace="System.Xml" />
-            <Using Namespace="System.Xml.Linq" />
-            <Code Type="Fragment" Language="cs">
-                <![CDATA[
-                    XElement Json(string path) => XElement.Load(JsonReaderWriterFactory.CreateJsonReader(File.ReadAllBytes(path), XmlDictionaryReaderQuotas.Max));
-                    string runtime = Directory.GetFiles(Resources, "dotnetstart.*.runtimeconfig.json").Single();
-                    TargetFramework = Json(runtime).Element("runtimeOptions").Element("tfm").Value;
-                    XElement dependencies = Json(runtime.Replace(".runtimeconfig.json", ".deps.json"));
-                    ILookup<string, string> declared = dependencies.Descendants("assemblyVersion").ToLookup(version => Path.GetFileName(version.Parent.Attribute("item")?.Value ?? version.Parent.Name.LocalName), version => version.Value);
-                    Libraries = dependencies.Element("libraries").Elements()
-                        .Select(library => library.Attribute("item").Value.Split('/'))
-                        .Select(library => (ITaskItem)new TaskItem(library[0], new Dictionary<string, string> { ["Version"] = library[1] }))
-                        .ToArray();
-                    string[] api = Directory.GetDirectories(Path.Combine(Resources, "ManagedPlugIns"), "*.rhp").Prepend(Resources).ToArray();
-                    Supplied = (Packages ?? Array.Empty<ITaskItem>())
-                        .Select(package => (Package: package, Folders: new[] { Resources }))
-                        .Concat((References ?? Array.Empty<ITaskItem>()).Select(reference => (Package: reference, Folders: api)))
-                        .SelectMany(held => held.Folders
-                            .Select(folder => Path.Combine(folder, Path.GetFileName(held.Package.ItemSpec)))
-                            .Where(File.Exists)
-                            .Take(1)
-                            .Select(host => {
-                                TaskItem supplied = new TaskItem(held.Package);
-                                supplied.SetMetadata("Version", AssemblyName.GetAssemblyName(held.Package.ItemSpec).Version.ToString());
-                                supplied.SetMetadata("HostVersion", declared[Path.GetFileName(host)].DefaultIfEmpty(AssemblyName.GetAssemblyName(host).Version.ToString()).First());
-                                return (ITaskItem)supplied;
-                            }))
-                        .ToArray();
-                ]]>
-            </Code>
-        </Task>
-    </UsingTask>
 
     <Target Name="ResolveRhinoInstallation" AfterTargets="ResolvePackageAssets" Condition="'$(RhinoHost)' != ''">
         <PropertyGroup>
             <_RhinoCommonVersion>@(PackageVersion->WithMetadataValue('Identity', 'RhinoCommon')->'%(Version)')</_RhinoCommonVersion>
-            <_RhinoMajorVersion>$([System.Version]::Parse('$(_RhinoCommonVersion)').Major)</_RhinoMajorVersion>
+            <_RhinoMajorVersion>$(_RhinoCommonVersion.Split('.')[0])</_RhinoMajorVersion>
         </PropertyGroup>
-        <Exec Command="osascript -l JavaScript -e &quot;ObjC.import('AppKit'); \$.NSWorkspace.sharedWorkspace.URLForApplicationWithBundleIdentifier('com.mcneel.rhinoceros.$(_RhinoMajorVersion)').path?.js ?? ''&quot;" ConsoleToMSBuild="true" Condition="'$(RhinoInstallPath)' == '' and $([MSBuild]::IsOSPlatform('OSX'))">
-            <Output TaskParameter="ConsoleOutput" PropertyName="RhinoInstallPath" />
-        </Exec>
+        <MSBuild Projects="$(_RhinoHostProject)" Targets="ReadInstallation" Properties="RhinoMajorVersion=$(_RhinoMajorVersion)" RemoveProperties="$(_RhinoHostBuildProperties)">
+            <Output TaskParameter="TargetOutputs" ItemName="_RhinoInstallation" />
+        </MSBuild>
         <PropertyGroup>
-            <RhinoInstallPath Condition="'$(RhinoInstallPath)' == ''">$([MSBuild]::GetRegistryValue('HKEY_LOCAL_MACHINE\SOFTWARE\McNeel\Rhinoceros\$(_RhinoMajorVersion).0\Install', 'InstallPath'))</RhinoInstallPath>
-            <_RhinoResourcesDir>$([MSBuild]::NormalizeDirectory('$(RhinoInstallPath)', 'Contents', 'Frameworks', 'RhCore.framework', 'Versions', 'Current', 'Resources'))</_RhinoResourcesDir>
-            <_YakExecutable Condition="$([MSBuild]::IsOSPlatform('OSX'))">$([MSBuild]::NormalizePath('$(RhinoInstallPath)', 'Contents', 'Resources', 'bin', 'yak'))</_YakExecutable>
-            <_YakExecutable Condition="$([MSBuild]::IsOSPlatform('Windows'))">$([MSBuild]::NormalizePath('$(RhinoInstallPath)', 'System', 'yak.exe'))</_YakExecutable>
+            <RhinoInstallPath>@(_RhinoInstallation)</RhinoInstallPath>
+            <RhinoResourcesDir>@(_RhinoInstallation->'%(ResourcesDir)')</RhinoResourcesDir>
+            <RhinoTargetFramework>@(_RhinoInstallation->'%(TargetFramework)')</RhinoTargetFramework>
+            <_RhinoMacMinimumVersion>@(_RhinoInstallation->'%(MacMinimumVersion)')</_RhinoMacMinimumVersion>
+            <_YakExecutable>@(_RhinoInstallation->'%(YakExecutable)')</_YakExecutable>
         </PropertyGroup>
-        <Error Condition="'$(RhinoInstallPath)' == ''" Text="Rhino $(_RhinoMajorVersion) install not found, install Rhino $(_RhinoMajorVersion) or set RhinoInstallPath" />
-        <ItemGroup>
-            <_RhinoReference Include="@(ResolvedCompileFileDefinitions)" />
-            <_RhinoReference Remove="@(RuntimeCopyLocalItems)" MatchOnMetadata="NuGetPackageId" />
-        </ItemGroup>
-        <ReadRhinoHost Resources="$(_RhinoResourcesDir)" Packages="@(RuntimeCopyLocalItems)" References="@(_RhinoReference)">
-            <Output TaskParameter="TargetFramework" PropertyName="RhinoTargetFramework" />
-            <Output TaskParameter="Libraries" ItemName="RhinoHostLibrary" />
-            <Output TaskParameter="Supplied" ItemName="_RhinoSupplied" />
-        </ReadRhinoHost>
-        <Error Condition="$([MSBuild]::VersionGreaterThan($([MSBuild]::GetTargetFrameworkVersion('$(TargetFramework)')), $([MSBuild]::GetTargetFrameworkVersion('$(RhinoTargetFramework)'))))" Text="$(MSBuildProjectName) targets $(TargetFramework), newer than the $(RhinoTargetFramework) runtime Rhino $(_RhinoMajorVersion) loads from $(_RhinoResourcesDir)" />
+        <Error Condition="$([MSBuild]::VersionGreaterThan($([MSBuild]::GetTargetFrameworkVersion('$(TargetFramework)')), $([MSBuild]::GetTargetFrameworkVersion('$(RhinoTargetFramework)'))))" Text="$(MSBuildProjectName) targets $(TargetFramework), newer than the $(RhinoTargetFramework) runtime Rhino $(_RhinoMajorVersion) loads from $(RhinoResourcesDir)" />
     </Target>
 
     <Target Name="ResolveRhinoMacHost" BeforeTargets="ResolveAssemblyReferences;GetAssemblyAttributes" DependsOnTargets="ResolveRhinoInstallation" Condition="'$(RhinoHost)' != '' and '$(TargetPlatformIdentifier)' != 'Windows'">
-        <XmlPeek XmlInputPath="$(RhinoInstallPath)/Contents/Info.plist" Query="/plist/dict/key[.='LSMinimumSystemVersion']/following-sibling::*[1]/text()" ProhibitDtd="false">
-            <Output TaskParameter="Result" PropertyName="_RhinoMacMinimumVersion" />
-        </XmlPeek>
         <ItemGroup>
             <_RhinoMacAssembly Include="System.Drawing.Common;Eto.macOS;Microsoft.macOS" />
-            <Reference Include="@(_RhinoMacAssembly->'$(_RhinoResourcesDir)%(Identity).dll')" Private="false" />
+            <Reference Include="@(_RhinoMacAssembly->'$(RhinoResourcesDir)%(Identity).dll')" Private="false" />
             <AssemblyAttribute Include="System.Runtime.Versioning.SupportedOSPlatformAttribute">
                 <_Parameter1>macos$(_RhinoMacMinimumVersion)</_Parameter1>
             </AssemblyAttribute>
         </ItemGroup>
     </Target>
 
-    <PropertyGroup Label="Rhino Plug-In" Condition="'$(TargetExt)' == '.rhp'">
+    <PropertyGroup Label="Rhino Product" Condition="'$(TargetExt)' == '.rhp' or '$(TargetExt)' == '.rhs'">
+        <RhinoProduct>true</RhinoProduct>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
         <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
         <GenerateDependencyFile>false</GenerateDependencyFile>
         <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
-        <MinVerTagPrefix>rhino-$(MSBuildProjectName)-v</MinVerTagPrefix>
         <MinVerIgnoreHeight>true</MinVerIgnoreHeight>
-        <_PlugInIconSource Condition="'$(_PlugInIconSource)' == ''">$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', 'EmbeddedResources', 'icon.svg'))</_PlugInIconSource>
-        <_PlugInPackageIcon Condition="Exists('$(_PlugInIconSource)')">icon.png</_PlugInPackageIcon>
-        <_PlugInPackageIconSize>64</_PlugInPackageIconSize>
+        <PlugInIcon Condition="'$(PlugInIcon)' == ''">EmbeddedResources/icon.svg</PlugInIcon>
+    </PropertyGroup>
+
+    <ItemGroup Label="Rhino Product" Condition="'$(RhinoProduct)' == 'true'">
+        <PackageReference Include="MinVer" PrivateAssets="all" />
+    </ItemGroup>
+
+    <PropertyGroup Label="Rhino Skin" Condition="'$(TargetExt)' == '.rhs'">
+        <PublishDir>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '.artifacts', 'dotnet', 'skin', '$(MSBuildProjectName)'))</PublishDir>
+    </PropertyGroup>
+
+    <ItemGroup Label="Rhino Skin" Condition="'$(TargetExt)' == '.rhs'">
+        <None Update="*.rhw" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    </ItemGroup>
+
+    <PropertyGroup Label="Rhino Plug-In" Condition="'$(TargetExt)' == '.rhp'">
+        <PlugInIconPlate Condition="'$(PlugInIconPlate)' == ''">#323232</PlugInIconPlate>
+        <PlugInIconCorner Condition="'$(PlugInIconCorner)' == ''">0.046875</PlugInIconCorner>
+        <PlugInIconInset Condition="'$(PlugInIconInset)' == ''">0.125</PlugInIconInset>
+        <_PlugInPackageIcon>icon.png</_PlugInPackageIcon>
         <_PlugInAssetDir>$(IntermediateOutputPath)PlugInAssets/</_PlugInAssetDir>
         <_PlugInIcon>PlugIn.ico</_PlugInIcon>
         <_PlugInIconPngFrame>256</_PlugInIconPngFrame>
-        <_PlugInIconPlate>#323232</_PlugInIconPlate>
-        <_PlugInIconCorner>0.046875</_PlugInIconCorner>
-        <_PlugInIconInset>0.125</_PlugInIconInset>
-        <_PlugInIconStylesheet>$(_PlugInAssetDir)icon.css</_PlugInIconStylesheet>
         <_PlugInRui>$(IntermediateOutputPath)$(TargetName).rui</_PlugInRui>
         <_PlugInRuiReferences>$(IntermediateOutputPath)$(TargetName).rui.rsp</_PlugInRuiReferences>
         <_PlugInRuiStamp>$(IntermediateOutputPath)$(TargetName).rui.stamp</_PlugInRuiStamp>
-        <_YakPackageName>$(AssemblyTitle.Replace(' ', '-'))</_YakPackageName>
+        <_YakPackageDir>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '.artifacts', 'dotnet', 'yak', '$(MSBuildProjectName)'))</_YakPackageDir>
+        <_YakPlatform>mac</_YakPlatform>
+        <_YakPlatform Condition="'$(TargetPlatformIdentifier)' == 'Windows'">win</_YakPlatform>
     </PropertyGroup>
 
     <ItemGroup Label="Rhino Plug-In" Condition="'$(TargetExt)' == '.rhp'">
-        <PackageReference Include="MinVer" PrivateAssets="all" />
+        <AssemblyAttribute Include="System.Runtime.InteropServices.GuidAttribute"><_Parameter1>$(PlugInId)</_Parameter1></AssemblyAttribute>
         <_RhinoLibraryReference Include="@(ProjectReference->WithMetadataValue('Filename', 'Rasm.Rhino'))" />
-        <ProjectReference Include="$(MSBuildThisFileDirectory)eng/dotnet/rhino/Rasm.Rui/Rasm.Rui.csproj" ReferenceOutputAssembly="false" Private="false" OutputItemType="_RuiWriter" Condition="'@(_RhinoLibraryReference)' != ''" />
-        <_PlugInDescription Include="Organization" Value="$(Authors)" />
-        <_PlugInDescription Include="WebSite" Value="$(PackageProjectUrl)" />
+        <ProjectReference Include="$(MSBuildThisFileDirectory)eng/dotnet/rhino/Rasm.Rui/Rasm.Rui.csproj" ReferenceOutputAssembly="false" Private="false" OutputItemType="_RuiWriter" UndefineProperties="RuntimeIdentifier" Condition="'@(_RhinoLibraryReference)' != ''" />
+        <PlugInDescription Include="Organization" Exclude="@(PlugInDescription)" Value="$(Authors)" />
+        <PlugInDescription Include="WebSite" Exclude="@(PlugInDescription)" Value="$(PackageProjectUrl)" />
         <_GrasshopperPackage Include="@(PackageReference->WithMetadataValue('Identity', 'Grasshopper2'))" />
     </ItemGroup>
 
     <ItemGroup Label="Grasshopper 2 Plug-In" Condition="'@(_GrasshopperPackage)' != ''">
-        <None Update="Documentation/**" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+        <None Update="Documentation/**;Docs/**" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+        <_GrasshopperOnlyMarker Include="$(IntermediateOutputPath)$(TargetName)$(TargetExt).grasshopper-only" Condition="'$(GrasshopperOnly)' == 'true' or ('$(GrasshopperOnly)' == '' and '@(_RhinoLibraryReference)' == '')" />
+        <None Include="@(_GrasshopperOnlyMarker)" TargetPath="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+        <FileWrites Include="@(_GrasshopperOnlyMarker)" />
     </ItemGroup>
 
-    <Target Name="ExcludeRhinoHostAssemblies" AfterTargets="ResolvePackageAssets" DependsOnTargets="ResolveRhinoInstallation" Condition="'$(TargetExt)' == '.rhp' or ('$(RhinoHost)' != '' and '$(EnableDynamicLoading)' == 'true')">
-        <Error Condition="$([MSBuild]::VersionGreaterThan('%(_RhinoSupplied.Version)', '%(_RhinoSupplied.HostVersion)'))" Text="%(_RhinoSupplied.NuGetPackageId) %(_RhinoSupplied.NuGetPackageVersion) ships %(_RhinoSupplied.Filename) %(_RhinoSupplied.Version), above the %(_RhinoSupplied.HostVersion) Rhino $(_RhinoMajorVersion) loads from $(_RhinoResourcesDir)" />
+    <Target Name="WriteGrasshopperOnlyMarker" BeforeTargets="AssignTargetPaths" Condition="'@(_GrasshopperOnlyMarker)' != '' and '$(DesignTimeBuild)' != 'true'" Inputs="$(MSBuildAllProjects)" Outputs="@(_GrasshopperOnlyMarker)">
+        <Touch Files="@(_GrasshopperOnlyMarker)" AlwaysCreate="true" />
+    </Target>
+
+    <Target Name="ExcludeRhinoHostAssemblies" AfterTargets="ResolvePackageAssets" DependsOnTargets="ResolveRhinoInstallation" Condition="'$(RhinoProduct)' == 'true' or ('$(RhinoHost)' != '' and '$(EnableDynamicLoading)' == 'true')">
+        <MSBuild Projects="$(_RhinoHostProject)" Targets="ReadDeclaredAssemblies" Properties="RhinoMajorVersion=$(_RhinoMajorVersion)" RemoveProperties="$(_RhinoHostBuildProperties)">
+            <Output TaskParameter="TargetOutputs" ItemName="_RhinoDeclared" />
+        </MSBuild>
+        <ItemGroup>
+            <_RhinoPlugInAssembly Include="$(RhinoResourcesDir)ManagedPlugIns/*.rhp/*.dll" />
+            <_RhinoReference Include="@(ResolvedCompileFileDefinitions)" />
+            <_RhinoReference Remove="@(RuntimeCopyLocalItems)" MatchOnMetadata="NuGetPackageId" />
+            <_RhinoPackaged Include="@(RuntimeCopyLocalItems);@(_RhinoReference)" HostFile="$(RhinoResourcesDir)%(Filename)%(Extension)" Condition="Exists('$(RhinoResourcesDir)%(Filename)%(Extension)')" />
+            <_RhinoPackaged Include="@(_RhinoReference)" HostFile="@(_RhinoPlugInAssembly)" Condition="'%(Filename)' != '' and '@(_RhinoPlugInAssembly)' != ''" />
+        </ItemGroup>
+        <GetAssemblyIdentity AssemblyFiles="@(_RhinoPackaged)">
+            <Output TaskParameter="Assemblies" ItemName="_RhinoPackagedAssembly" />
+        </GetAssemblyIdentity>
+        <ItemGroup>
+            <_RhinoPackagedAssembly PackagedVersion="%(Version)" />
+        </ItemGroup>
+        <GetAssemblyIdentity AssemblyFiles="@(_RhinoPackagedAssembly->'%(HostFile)')">
+            <Output TaskParameter="Assemblies" ItemName="_RhinoSupplied" />
+        </GetAssemblyIdentity>
+        <ItemGroup>
+            <_RhinoSupplied Version="@(_RhinoDeclared->'%(Version)')" Condition="'%(Name)' != '' and '@(_RhinoDeclared)' != ''" />
+        </ItemGroup>
+        <Error Condition="$([MSBuild]::VersionGreaterThan('%(_RhinoSupplied.PackagedVersion)', '%(_RhinoSupplied.Version)'))" Text="%(_RhinoSupplied.NuGetPackageId) %(_RhinoSupplied.NuGetPackageVersion) ships %(_RhinoSupplied.Name) %(_RhinoSupplied.PackagedVersion), above the %(_RhinoSupplied.Version) Rhino $(_RhinoMajorVersion) loads from $(RhinoResourcesDir)" />
         <ItemGroup>
             <RuntimeCopyLocalItems Remove="@(_RhinoSupplied)" MatchOnMetadata="NuGetPackageId" />
             <NativeCopyLocalItems Remove="@(_RhinoSupplied)" MatchOnMetadata="NuGetPackageId" />
         </ItemGroup>
     </Target>
 
-    <Target Name="AssignPlugInLibraryCopies" BeforeTargets="AssignProjectConfiguration" DependsOnTargets="IncludeTransitiveProjectReferences" Condition="'$(TargetExt)' == '.rhp' and '$(DesignTimeBuild)' != 'true'">
+    <Target Name="AssignPlugInLibraryCopies" BeforeTargets="AssignProjectConfiguration" DependsOnTargets="IncludeTransitiveProjectReferences" Condition="'$(RhinoProduct)' == 'true' and '$(DesignTimeBuild)' != 'true'">
         <ItemGroup>
             <ProjectReference AdditionalProperties="RhinoPlugIn=$(MSBuildProjectName);ArtifactsPivots=$(MSBuildProjectName)_$(ArtifactsPivots)" />
+            <ProjectReference AdditionalProperties="RhinoPlugIn=$(MSBuildProjectName);ArtifactsPivots=$(MSBuildProjectName)_$(Configuration.ToLowerInvariant())" Condition="'%(OutputItemType)' == '_RuiWriter'" />
         </ItemGroup>
     </Target>
 
-    <Target Name="AssignPlugInAssemblyVersion" AfterTargets="MinVer" Condition="'$(TargetExt)' == '.rhp'">
+    <Target Name="AssignPlugInAssemblyVersion" AfterTargets="MinVer" Condition="'$(RhinoProduct)' == 'true'">
         <PropertyGroup>
             <AssemblyVersion>$(FileVersion)</AssemblyVersion>
         </PropertyGroup>
@@ -232,30 +232,28 @@
 
     <Target Name="AddPlugInDescriptions" AfterTargets="GetAssemblyAttributes" Condition="'$(TargetExt)' == '.rhp'">
         <ItemGroup>
-            <AssemblyAttribute Include="@(_PlugInDescription->'Rhino.PlugIns.PlugInDescriptionAttribute')" RemoveMetadata="Value">
-                <_Parameter1>Rhino.PlugIns.DescriptionType.%(_PlugInDescription.Identity)</_Parameter1>
+            <AssemblyAttribute Include="@(PlugInDescription->'Rhino.PlugIns.PlugInDescriptionAttribute')" RemoveMetadata="Value">
+                <_Parameter1>Rhino.PlugIns.DescriptionType.%(PlugInDescription.Identity)</_Parameter1>
                 <_Parameter1_IsLiteral>true</_Parameter1_IsLiteral>
-                <_Parameter2>%(_PlugInDescription.Value)</_Parameter2>
+                <_Parameter2>%(PlugInDescription.Value)</_Parameter2>
             </AssemblyAttribute>
         </ItemGroup>
     </Target>
 
-    <Target Name="BuildPlugInIcon" BeforeTargets="AssignTargetPaths" Condition="'$(DesignTimeBuild)' != 'true' and '$(_PlugInPackageIcon)' != ''" Inputs="$(MSBuildThisFileFullPath);$(_PlugInIconSource)" Outputs="$(_PlugInAssetDir)$(_PlugInIcon);$(_PlugInAssetDir)$(_PlugInPackageIcon)">
+    <Target Name="BuildPlugInIcon" BeforeTargets="AssignTargetPaths" Condition="'$(DesignTimeBuild)' != 'true' and '$(TargetExt)' == '.rhp' and Exists('$(PlugInIcon)')" Inputs="$(MSBuildAllProjects);$(IconDarkStylesheet);$(PlugInIcon)" Outputs="$(_PlugInAssetDir)$(_PlugInIcon);$(_PlugInAssetDir)$(_PlugInIconPngFrame).png">
         <ItemGroup>
             <_PlugInIconFrame Include="$(_PlugInIconPngFrame);48;32;24;16" />
-            <_PlugInRaster Include="$(_PlugInAssetDir)%(_PlugInIconFrame.Identity).png" Size="%(_PlugInIconFrame.Identity)" Frame="true" />
-            <_PlugInRaster Include="$(_PlugInAssetDir)$(_PlugInPackageIcon)" Size="$(_PlugInPackageIconSize)" Frame="false" />
+            <_PlugInRaster Include="@(_PlugInIconFrame->'$(_PlugInAssetDir)%(Identity).png')" />
         </ItemGroup>
         <MakeDir Directories="$(_PlugInAssetDir)" />
-        <WriteLinesToFile File="$(_PlugInIconStylesheet)" Lines="svg { color: $(_IconInkDark) }" Overwrite="true" WriteOnlyWhenDifferent="true" />
-        <Exec Command="resvg -w $([MSBuild]::Multiply(%(_PlugInRaster.Size), $([MSBuild]::Subtract(1, $([MSBuild]::Multiply(2, $(_PlugInIconInset))))))) --stylesheet &quot;$(_PlugInIconStylesheet)&quot; &quot;$(_PlugInIconSource)&quot; &quot;%(_PlugInRaster.FullPath)&quot;" />
-        <Exec Command="magick -size %(_PlugInRaster.Size)x%(_PlugInRaster.Size) xc:none -fill &quot;$(_PlugInIconPlate)&quot; -draw &quot;roundrectangle 0,0,$([MSBuild]::Subtract(%(_PlugInRaster.Size), 1)),$([MSBuild]::Subtract(%(_PlugInRaster.Size), 1)),$([MSBuild]::Multiply(%(_PlugInRaster.Size), $(_PlugInIconCorner))),$([MSBuild]::Multiply(%(_PlugInRaster.Size), $(_PlugInIconCorner)))&quot; &quot;%(_PlugInRaster.FullPath)&quot; -gravity center -composite &quot;%(_PlugInRaster.FullPath)&quot;" />
-        <Exec Command="magick @(_PlugInRaster->WithMetadataValue('Frame', 'true')->'&quot;%(Filename)%(Extension)&quot;', ' ') -define icon:png-compression-size=$(_PlugInIconPngFrame) &quot;$(_PlugInIcon)&quot;" WorkingDirectory="$(_PlugInAssetDir)" />
+        <Exec Command="resvg -w $([System.Math]::Round($([MSBuild]::Multiply(%(_PlugInRaster.Filename), $([MSBuild]::Subtract(1, $([MSBuild]::Multiply(2, $(PlugInIconInset))))))))) --stylesheet &quot;$(IconDarkStylesheet)&quot; &quot;$(PlugInIcon)&quot; &quot;%(_PlugInRaster.FullPath)&quot;" />
+        <Exec Command="magick -size %(_PlugInRaster.Filename)x%(_PlugInRaster.Filename) xc:none -fill &quot;$(PlugInIconPlate)&quot; -draw &quot;roundrectangle 0,0,$([MSBuild]::Subtract(%(_PlugInRaster.Filename), 1)),$([MSBuild]::Subtract(%(_PlugInRaster.Filename), 1)),$([MSBuild]::Multiply(%(_PlugInRaster.Filename), $(PlugInIconCorner))),$([MSBuild]::Multiply(%(_PlugInRaster.Filename), $(PlugInIconCorner)))&quot; &quot;%(_PlugInRaster.FullPath)&quot; -gravity center -composite &quot;%(_PlugInRaster.FullPath)&quot;" />
+        <Exec Command="magick @(_PlugInRaster->'&quot;%(Filename)%(Extension)&quot;', ' ') -define icon:png-compression-size=$(_PlugInIconPngFrame) &quot;$(_PlugInIcon)&quot;" WorkingDirectory="$(_PlugInAssetDir)" />
         <ItemGroup>
-            <None Include="$(_PlugInAssetDir)$(_PlugInPackageIcon)" TargetPath="$(_PlugInPackageIcon)" CopyToPublishDirectory="PreserveNewest" />
+            <None Include="$(_PlugInAssetDir)$(_PlugInIconPngFrame).png" TargetPath="$(_PlugInPackageIcon)" CopyToPublishDirectory="PreserveNewest" />
             <EmbeddedResource Include="$(_PlugInAssetDir)$(_PlugInIcon)" LogicalName="$(_PlugInIcon)" WithCulture="false" />
-            <_PlugInDescription Include="Icon" Value="$(_PlugInIcon)" />
-            <FileWrites Include="$(_PlugInAssetDir)$(_PlugInIcon);$(_PlugInIconStylesheet);@(_PlugInRaster)" />
+            <PlugInDescription Include="Icon" Value="$(_PlugInIcon)" />
+            <FileWrites Include="$(_PlugInAssetDir)$(_PlugInIcon);@(_PlugInRaster)" />
         </ItemGroup>
     </Target>
 
@@ -275,32 +273,41 @@
     </Target>
 
     <Target Name="BuildYakPackage" AfterTargets="Publish" DependsOnTargets="ResolveRhinoInstallation" Condition="'$(TargetExt)' == '.rhp'">
-        <PropertyGroup>
-            <_YakPlatform Condition="$(RuntimeIdentifier.StartsWith('osx'))">mac</_YakPlatform>
-            <_YakPlatform Condition="$(RuntimeIdentifier.StartsWith('win'))">win</_YakPlatform>
-        </PropertyGroup>
         <ItemGroup>
-            <_YakOutput Include="$(PublishDir)*.yak;$(PublishDir)manifest.yml" />
+            <_YakOutput Include="$(PublishDir)*.yak;$(PublishDir)manifest.yml;$(_YakPackageDir)*-$(_YakPlatform).yak" />
         </ItemGroup>
         <Delete Files="@(_YakOutput)" />
-        <Exec Command="&quot;$(_YakExecutable)&quot; spec --input $(TargetFileName)" WorkingDirectory="$(PublishDir)" StandardOutputImportance="low" LogStandardErrorAsError="true" />
-        <Exec Command="yq -i '.icon = strenv(ICON)' manifest.yml" EnvironmentVariables="ICON=$(_PlugInPackageIcon)" WorkingDirectory="$(PublishDir)" Condition="'$(_PlugInPackageIcon)' != ''" />
-        <Exec Command="yq -i '.keywords += [&quot;guid:&quot; + strenv(PLUGIN)]' manifest.yml" EnvironmentVariables="@(AssemblyAttribute->WithMetadataValue('Identity', 'System.Runtime.InteropServices.GuidAttribute')->'PLUGIN=%(_Parameter1)')" WorkingDirectory="$(PublishDir)" />
+        <Exec Command="&quot;$(_YakExecutable)&quot; spec --input &quot;$(TargetFileName)&quot;" WorkingDirectory="$(PublishDir)" StandardOutputImportance="low" LogStandardErrorAsError="true" />
+        <PropertyGroup>
+            <_YakIcon Condition="Exists('$(PlugInIcon)')">$(_PlugInPackageIcon)</_YakIcon>
+        </PropertyGroup>
+        <Exec Command="yq -i &quot;with(select(strenv(ICON) != \&quot;\&quot;); .icon = strenv(ICON)) | .keywords += ((strenv(TAGS) | split(\&quot;,\&quot;) | map(select(. != \&quot;\&quot;))) + [\&quot;guid:\&quot; + strenv(PLUGIN)])&quot; manifest.yml" EnvironmentVariables="ICON=$(_YakIcon);TAGS=$(PackageTags.Replace(';', ','));PLUGIN=$(PlugInId)" WorkingDirectory="$(PublishDir)" />
         <Exec Command="&quot;$(_YakExecutable)&quot; build --platform $(_YakPlatform)" WorkingDirectory="$(PublishDir)" LogStandardErrorAsError="true" />
-    </Target>
-
-    <Target Name="ResolveYakPackage" DependsOnTargets="ResolveRhinoInstallation" Condition="'$(TargetExt)' == '.rhp'">
         <ItemGroup>
-            <_YakPackage Include="$(PublishDir)*.yak" />
+            <_YakBuilt Include="$(PublishDir)*.yak" />
         </ItemGroup>
+        <Move SourceFiles="@(_YakBuilt)" DestinationFolder="$(_YakPackageDir)" />
     </Target>
 
-    <Target Name="InstallYakPackage" DependsOnTargets="ResolveYakPackage" Condition="'$(TargetExt)' == '.rhp'">
+    <Target Name="InstallYakPackage" DependsOnTargets="ResolveRhinoInstallation" Condition="'$(TargetExt)' == '.rhp'">
+        <Exec Command="yq .name manifest.yml" WorkingDirectory="$(PublishDir)" ConsoleToMSBuild="true" StandardOutputImportance="low">
+            <Output TaskParameter="ConsoleOutput" PropertyName="_YakPackageName" />
+        </Exec>
+        <ItemGroup>
+            <_YakPackage Include="$(_YakPackageDir)*-$(_YakPlatform).yak" />
+        </ItemGroup>
         <Exec Command="&quot;$(_YakExecutable)&quot; uninstall &quot;$(_YakPackageName)&quot;" LogStandardErrorAsError="true" />
-        <Exec Command="&quot;$(_YakExecutable)&quot; install &quot;@(_YakPackage->'%(FullPath)')&quot;" LogStandardErrorAsError="true" />
+        <Exec Command="&quot;$(_YakExecutable)&quot; install &quot;%(_YakPackage.FullPath)&quot;" LogStandardErrorAsError="true" />
     </Target>
 
-    <Target Name="PushYakPackage" DependsOnTargets="ResolveYakPackage" Condition="'$(TargetExt)' == '.rhp'">
-        <Exec Command="&quot;$(_YakExecutable)&quot; push &quot;@(_YakPackage->'%(FullPath)')&quot;" LogStandardErrorAsError="true" />
+    <Target Name="PushYakPackage" DependsOnTargets="ResolveRhinoInstallation" Condition="'$(TargetExt)' == '.rhp'">
+        <ItemGroup>
+            <_YakPackage Include="$(_YakPackageDir)*.yak" />
+        </ItemGroup>
+        <Exec Command="&quot;$(_YakExecutable)&quot; push &quot;%(_YakPackage.FullPath)&quot;" LogStandardErrorAsError="true" />
+    </Target>
+
+    <Target Name="InstallRhinoSkin" DependsOnTargets="ResolveRhinoInstallation" Condition="'$(TargetExt)' == '.rhs'">
+        <Exec Command="reg add &quot;HKLM\SOFTWARE\McNeel\Rhinoceros\$(_RhinoMajorVersion).0\Scheme: $(MSBuildProjectName)&quot; /v SkinDLLPath /t REG_SZ /d &quot;$([MSBuild]::NormalizePath('$(PublishDir)', '$(TargetFileName)'))&quot; /f" LogStandardErrorAsError="true" />
     </Target>
 </Project>

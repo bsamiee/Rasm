@@ -56,7 +56,7 @@ utils:
             - inside:
                 stopBy: {kind: 'function_item, closure_expression, for_expression'}
                 matches: iteration
-                has: {stopBy: end, regex: '<<\p{Pattern_White_Space}*4(?-u:\b)|\*\p{Pattern_White_Space}*16(?-u:\b)', kind: binary_expression}
+                has: {stopBy: end, kind: binary_expression, any: [{all: [{has: {field: operator, regex: '^<<$'}}, {has: {field: right, regex: '^4$'}}]}, {all: [{has: {field: operator, regex: '^\*$'}}, {has: {field: right, regex: '^16$'}}]}]}
 rule:
     kind: 'macro_invocation, call_expression, index_expression'
     pattern: $SITE

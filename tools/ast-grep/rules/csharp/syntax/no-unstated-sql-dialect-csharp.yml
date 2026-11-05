@@ -4,15 +4,18 @@ severity: error
 utils:
     sql-text: {kind: 'string_literal, raw_string_literal, verbatim_string_literal'}
     sqlite-evidence: {kind: identifier, regex: '^(?:Sqlite(?:Connection|Command|Transaction|DataReader)|UseSqlite)$'}
-    npgsql-evidence: {kind: identifier, regex: '^(?:Npgsql(?:Connection|Command|BatchCommand|DataSource|Transaction|DataReader)|UseNpgsql)$'}
-    foreign-evidence: {kind: identifier, regex: '^(?:(?:Sql|DuckDB|MySql|ClickHouse|SnowflakeDb)(?:Connection|Command|DataSource)|UseClickHouse)$'}
+    npgsql-evidence: {kind: identifier, regex: '^(?:Npgsql(?:Connection|Command|Batch(?:Command)?|(?:Slim)?DataSource(?:Builder)?|Transaction|DataReader)|UseNpgsql)$'}
+    foreign-evidence: {kind: identifier, regex: '^(?:(?:Sql|DuckDB|MySql|ClickHouse|SnowflakeDb)(?:Connection|Command|DataSource)|Use(?:ClickHouse|SqlServer|MySql|Oracle|Cosmos|Firebird))$'}
     stated-file:
         kind: compilation_unit
         any:
             - {has: {stopBy: end, matches: sqlite-evidence}, not: {has: {stopBy: end, any: [{matches: npgsql-evidence}, {matches: foreign-evidence}]}}}
             - {has: {stopBy: end, matches: npgsql-evidence}, not: {has: {stopBy: end, any: [{matches: sqlite-evidence}, {matches: foreign-evidence}]}}}
             - {has: {stopBy: end, matches: foreign-evidence}, not: {has: {stopBy: end, any: [{matches: sqlite-evidence}, {matches: npgsql-evidence}]}}}
-    typed-command: {kind: object_creation_expression, has: {field: type, matches: {csharp-type-name: {name: {regex: '^(?:Sqlite|Npgsql(?:Batch)?)Command$'}}}}}
+    typed-command:
+        any:
+            - {kind: object_creation_expression, has: {field: type, matches: {csharp-type-name: {name: {regex: '^(?:Sqlite|Npgsql(?:Batch)?)Command$'}}}}}
+            - {kind: implicit_object_creation_expression, inside: {stopBy: {kind: 'variable_declaration, property_declaration, method_declaration, local_function_statement'}, has: {regex: '(?:^|\.)(?:Sqlite|Npgsql(?:Batch)?)Command$'}}}
 rule:
     pattern: $SITE
     any:
@@ -26,5 +29,5 @@ rule:
             - has: {field: function, kind: member_access_expression, has: {field: name, matches: {csharp-simple-name: {name: {regex: '^(?:FromSql|SqlQuery|ExecuteSql)(?:Raw|Interpolated)?(?:Async)?$'}}}}}
             - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {any: [{matches: sql-text}, {kind: interpolated_string_expression}]}}}
     not: {inside: {stopBy: end, matches: stated-file}}
-message: '`$SITE` runs SQL text whose dialect no provider type in this file states'
-note: 'Construct the command as `new SqliteCommand(<sql>)` or `new NpgsqlCommand(<sql>)`, or keep one provider per file, so the `sql` or `pgsql` injection parses the text'
+message: '`$SITE` runs SQL text with a dialect no provider type in its file states'
+note: 'Construct the command as `new SqliteCommand(<sql>)` or `new NpgsqlCommand(<sql>)`, or keep one provider per file, for `sql` or `pgsql` injection to parse its text'

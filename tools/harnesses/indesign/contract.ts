@@ -29,7 +29,7 @@ const Placed = Schema.Struct({
     steps: Steps,
     menus: Schema.optionalKey(Schema.Boolean.annotate({ description: 'Capture script menu actions and invoke each onInvoke after the run' })),
 });
-const HostCase = hostCase({
+const HostCase = hostCase.linked({
     precondition: Placed,
     folder: Schema.String.annotate({ description: 'Case folder holding document copies and every file the case writes' }),
     interact: Schema.Boolean.annotate({ description: 'Body runs under INTERACT_WITH_ALL, every other step under NEVER_INTERACT' }),
@@ -40,6 +40,7 @@ const Batch = Schema.Struct({
     label: Schema.String.annotate({ description: 'Document label key every case document holds, a document holding it at batch start being a recovered one the engine closes' }),
     enumerations: Schema.Record(Schema.String, Schema.Array(Schema.String)).annotate({ description: 'Surveyed enumeration members the codec qualifies enumerators against' }),
     survey: Surveying,
+    from: Schema.Int.annotate({ description: 'Index of the first case this call runs, earlier cases recorded by an earlier call' }),
     cases: Schema.Array(HostCase),
 });
 const Survey = Schema.Struct({
@@ -56,7 +57,6 @@ const State = Schema.Struct({
     defaults: JsonObject.annotate({ description: 'Application preference objects read whole at batch start' }),
     unread: Schema.Array(Schema.String).annotate({ description: 'Application members the snapshot and restore could not cover, each with its error' }),
 }).annotate({ description: 'Shared instance state at batch start' });
-const Reply = reply({ state: State, survey: Schema.optionalKey(Survey) });
 const fields = {
     ...Outcome.common,
     dialogs: recorded(Schema.Json.annotate({ description: 'app.dialogs controls with their prefilled values' })),
@@ -64,9 +64,11 @@ const fields = {
     undo: recorded(Schema.String.annotate({ description: 'Undo step a case document recorded during the run, newest first' })),
 };
 const HostOutcome = Outcome.mapFields(Struct.assign(fields));
+const Held = Schema.Union([Schema.Struct({ index: Schema.Int, failed: Schema.String }), Schema.Struct({ index: Schema.Int, opened: Schema.Array(Schema.Json) })]).annotate({ description: 'Panel case whose Started line the call wrote, its precondition failed or applied and left open, its Finished line left to the link' });
+const Reply = reply({ state: State, survey: Schema.optionalKey(Survey), held: Schema.optionalKey(Held) });
 const Recorded = Records.line(HostOutcome);
 const Encoded = Schema.fromJsonString(Batch);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Added, ENGINES, Encoded, Engine, fields, HostCase, HostOutcome, Placed, Recorded, Reply, Survey };
+export { Added, ENGINES, Encoded, Engine, fields, Held, HostCase, HostOutcome, Placed, Recorded, Reply, Survey };

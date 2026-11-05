@@ -1,12 +1,18 @@
 import fs from 'adobe:fs';
 import uxp, { entrypoints } from 'adobe:uxp';
-import { Cause, Context, Effect, Fiber, FiberHandle, FiberSet, flow, Layer, ManagedRuntime, type Path, PlatformError, Predicate, Record, Schema, Scope, ScopedRef } from 'effect';
+import { inkColor } from '@rasm/mark';
+import { Cause, Context, Effect, Fiber, FiberHandle, FiberSet, Function, flow, Layer, ManagedRuntime, type Path, PlatformError, Predicate, Queue, Record, Schema, Scope, ScopedRef, Stream } from 'effect';
 import { Uxp } from '#/uxp/uxp';
 import { UxpManifest } from '#/uxp-manifest';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Panel<F> = (root: HTMLElement, fork: <A, X>(work: Effect.Effect<A, X, Uxp | UxpPlugin>) => void) => Effect.Effect<void, F, Scope.Scope | Uxp | UxpPlugin>;
+
+interface ThemeEvents {
+    readonly getCurrent: () => unknown;
+    readonly onUpdated: { readonly addListener: (listener: (theme: unknown) => void) => void; readonly removeListener: (listener: (theme: unknown) => void) => void };
+}
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -15,10 +21,17 @@ const MANIFEST = `plugin:/${UxpManifest.file}`;
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Entrypoints = Schema.Struct({ setup: Schema.declare(Predicate.isFunction) });
+const Themed = Schema.Struct({ theme: Schema.declare((held): held is ThemeEvents => Schema.is(Schema.Struct({ getCurrent: Schema.declare(Predicate.isFunction), onUpdated: Schema.Struct({ addListener: Schema.declare(Predicate.isFunction), removeListener: Schema.declare(Predicate.isFunction) }) }))(held)) });
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
 class UxpPlugin extends Context.Service<UxpPlugin, UxpManifest>()('@rasm/uxp/uxp/uxp-plugin/UxpPlugin') {
+    static readonly theme = Stream.callback<unknown, Schema.SchemaError>((queue) =>
+        Effect.flatMap(
+            Effect.suspend(() => Schema.decodeUnknownEffect(Themed)(document)),
+            ({ theme }) => followed(theme, queue),
+        ),
+    ).pipe(Stream.mapEffect((theme) => Schema.decodeUnknownEffect(UxpManifest.Theme)(theme)));
     static readonly serve = <E, F>({
         link,
         commands = {},
@@ -56,12 +69,30 @@ class UxpPlugin extends Context.Service<UxpPlugin, UxpManifest>()('@rasm/uxp/uxp
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const reported = <A, X, R>(effect: Effect.Effect<A, X, R>) => effect.pipe(Effect.tapCauseIf(Predicate.not(Cause.hasInterruptsOnly<X>), Effect.logError));
+const followed = <E>(theme: ThemeEvents, queue: Queue.Queue<unknown, E>) => {
+    const listener = (current: unknown): void => {
+        Queue.offerUnsafe(queue, current);
+    };
+    return Effect.acquireRelease(
+        Effect.sync(() => {
+            theme.onUpdated.addListener(listener);
+            listener(theme.getCurrent());
+        }),
+        Function.constant(Effect.sync(() => theme.onUpdated.removeListener(listener))),
+    );
+};
+const inked = (root: HTMLElement) =>
+    Stream.runForEach(UxpPlugin.theme, (theme) =>
+        Effect.sync(() => {
+            Object.assign(root.style, { color: inkColor(UxpManifest.inks[UxpManifest.themes[theme]]) });
+        }),
+    );
 const panel = Effect.fnUntraced(function* <E, F>(runtime: ManagedRuntime.ManagedRuntime<Uxp | UxpPlugin, E>, body: Panel<F>) {
     const held = yield* ScopedRef.fromAcquire(Effect.void);
     const run = <X>(effect: Effect.Effect<unknown, X, Uxp | UxpPlugin>): Promise<void> => runtime.runPromise(Effect.asVoid(reported(effect)));
     const fork = (element: HTMLElement) =>
         FiberSet.makeRuntime<Uxp | UxpPlugin, void, never>().pipe(
-            Effect.flatMap((forked) => body(element, flow(reported, Effect.ignore(), forked))),
+            Effect.flatMap((forked) => Effect.andThen(Effect.forkScoped(reported(inked(element))), body(element, flow(reported, Effect.ignore(), forked)))),
             reported,
             Effect.forkScoped,
             Effect.asVoid,

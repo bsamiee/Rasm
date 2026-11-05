@@ -4,5 +4,5 @@ language: rustlang
 arguments: [dialect, executor]
 rule:
     kind: function_item
-    has: {field: parameters, has: {stopBy: end, matches: dialect}}
-    not: {has: {field: parameters, has: {stopBy: end, matches: executor, not: {matches: dialect}}}}
+    has: {kind: &signature 'parameters, type_parameters, where_clause', has: {stopBy: end, matches: dialect}}
+    not: {has: {kind: *signature, has: {stopBy: end, matches: executor, not: {matches: dialect}}}}

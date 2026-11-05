@@ -3,7 +3,7 @@ import type { ComponentProps } from 'react';
 import { expect, it, vi } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-react';
-import { Default, Single } from '#/libs/typescript/web/ui/.storybook/reorderable-list.stories';
+import { Default, Single } from '../../../../../libs/typescript/web/ui/.storybook/reorderable-list.stories.tsx';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

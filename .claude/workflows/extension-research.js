@@ -14,7 +14,8 @@ export const meta = {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const REPO = '/Users/bardiasamiee/Developer/Rasm'
-const DIR = `${REPO}/docs/research/typescript-extension`
+const WORKFLOWS = '/Users/bardiasamiee/.claude/rasm/workflows'
+const DIR =`${REPO}/docs/research/typescript-extension`
 const HOST = `${REPO}/docs/research/applications/indesign`
 const COMPANION = `${REPO}/.claude/workflows/TYPESCRIPT.md`
 const BAR = `${REPO}/.claude/workflows/BAR.md`
@@ -38,7 +39,7 @@ const NOTES = {
   mcp: ['Model Context Protocol at its newest revision: tools, resources, prompts, tasks, elicitation, progress, subscriptions, pagination, completion, caching, middleware, telemetry and transports, and what automation and scripting hosts expose through it', []],
 }
 const PLANS = {
-  typography: [['typography', 'composition', 'perso-arabic'], [...TYPESETTING, ...RIGHT_TO_LEFT, ...COMPOSERS, `${REPO}/.artifacts/workflows/typescript-extension/inpage/PLAN.md`], ['graphics/typography']],
+  typography: [['typography', 'composition', 'perso-arabic'], [...TYPESETTING, ...RIGHT_TO_LEFT, ...COMPOSERS, `${WORKFLOWS}/typescript-extension/inpage/PLAN.md`], ['graphics/typography']],
   grids: [['grids'], GRIDS, ['graphics/grid']],
   color: [['color', 'print'], COLOR, ['graphics/color']],
   indesign: [['indesign'], DOCUMENT, ['creative-cloud/indesign', 'creative-cloud/indesign/events']],
@@ -57,7 +58,7 @@ const KEY = args?.key
 const PLANNING = args?.mode === 'plan'
 const table = PLANNING ? PLANS : NOTES
 if (![undefined, 'plan'].includes(args?.mode) || !Object.hasOwn(table, KEY)) throw new Error(`args take key (${Object.keys(NOTES).join(', ')}) or mode plan with key (${Object.keys(PLANS).join(', ')}), got ${JSON.stringify(args ?? null)}`)
-const SCRATCH = `${REPO}/.artifacts/workflows/extension-research/${PLANNING ? 'plan-' : ''}${KEY}`
+const SCRATCH = `${WORKFLOWS}/extension-research/${PLANNING ? 'plan-' : ''}${KEY}`
 const BASE = `${SCRATCH}/base`
 const NOTE_PATHS = Object.keys(NOTES).map((name) => `${DIR}/${name}.md`)
 const BASIS = `Load Skill(clean-prose) first and read ${COMPANION} for extension method, levels and the file owning each fact.`
@@ -111,7 +112,7 @@ Edit ${packages} in place, rereading it before editing: each chosen package with
 const plan = async () => {
   const [notes, evidence, rows] = PLANS[KEY]
   const matrix = `${DIR}/ARCHITECTURE.md`
-  const written = `${REPO}/.artifacts/workflows/typescript-extension/${KEY}/PLAN.md`
+  const written = `${WORKFLOWS}/typescript-extension/${KEY}/PLAN.md`
   const found = `${SCRATCH}/capability`
   const sources = [...notes.map((name) => `${DIR}/${name}.md`), `${DIR}/packages.md`]
   const folders = rows.map((row) => `${REPO}/libs/typescript/${row}`)

@@ -174,8 +174,7 @@ const snakeCased = <S extends Schema.Top & { readonly fields: Schema.Struct.Fiel
 - `fromJsonString(X)` keeps `typeof X.Encoded` a peer types against, where `toCodecJson` types it `Json`
 - Structured text builds through its encoder (`encodeEffect(fromJsonString(X, { space }))` for people, `NetAddress.formatInet`), a template restating it
 - Edits to a document go through its format library's concrete syntax tree, keeping comments and layout, a pattern rewrite restating it
-- Source no TypeScript library parses (Swift) edits through `ast-grep scan --inline-rules`, each rule an object typed `@ast-grep/napi` `Rule` that `yaml` `stringify` writes
-- Rule patterns and fixes come from one function, applied to metavariable names for the pattern and to values for the fix
+- Source no TypeScript library parses (Swift) edits through `@ast-grep/napi`, the `registerDynamicLanguage` row read from `sgconfig.yml`, `commitEdits` over each capture's `replace`
 - Facts a schema holds read from its AST (`SchemaAST.toEncoded(s.ast)`, `SchemaAST.resolveDescription(s.ast)`), a caller argument restating them
 - Values bound for host members encode through a struct reusing the host codec's fields, one `encodeEffect` yielding host units and member names
 - `Cause` errors crossing a wire declare their class through `Schema.declare` with a `toCodecJson` `Schema.link`, `ErrorInstance` dropping their tag

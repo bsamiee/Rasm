@@ -19,7 +19,7 @@ rule:
             - not: {has: {regex: '^[?!]$'}}
             - has: {field: target, matches: swift-fixed-value}
         - kind: value_argument
-          has: {field: value, regex: '^nil$'}
+          has: {field: value, kind: nil_literal}
         - kind: call_expression
           all:
             - has: {nthChild: 1, matches: swift-member-reference}

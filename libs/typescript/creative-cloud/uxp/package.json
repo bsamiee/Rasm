@@ -1,7 +1,7 @@
 {
     "name": "@rasm/uxp",
     "private": true,
-    "description": "UXP manifest schema, the UXP plugin and script runtime, the socket peer Adobe plugins dial, and the Vite builders of UXP plugins and scripts",
+    "description": "UXP manifest schema, the UXP plugin and script runtime, and the Vite builders of UXP plugins and scripts",
     "sideEffects": false,
     "type": "module",
     "imports": {
@@ -9,7 +9,6 @@
     },
     "exports": {
         ".": "./uxp-manifest.ts",
-        "./peer": "./peer.ts",
         "./uxp": "./uxp/index.ts",
         "./vite": "./vite.ts"
     },
@@ -17,10 +16,8 @@
         "@effect/platform-node": "catalog:",
         "@exodus/bytes": "catalog:",
         "@rasm/automation": "workspace:*",
-        "@rasm/search": "workspace:*",
+        "@rasm/mark": "workspace:*",
         "effect": "catalog:",
-        "fast-xml-builder": "catalog:",
-        "fast-xml-parser": "catalog:",
         "vite": "catalog:"
     },
     "devDependencies": {

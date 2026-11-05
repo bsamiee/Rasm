@@ -19,11 +19,11 @@ utils:
                     - inside:
                         kind: module, function_definition
                         stopBy: end
-                        has: {stopBy: {kind: 'function_definition, class_definition, lambda'}, kind: import_statement, matches: module-import}
+                        has: {stopBy: &statement-walk {not: {kind: 'module, block, if_statement, elif_clause, else_clause, for_statement, while_statement, try_statement, except_clause, finally_clause, with_statement, match_statement, case_clause, decorated_definition'}}, kind: import_statement, matches: module-import}
                     - inside:
                         kind: class_definition
                         stopBy: {kind: 'function_definition, lambda'}
-                        has: {stopBy: {kind: 'function_definition, class_definition, lambda'}, kind: import_statement, matches: module-import}
+                        has: {stopBy: *statement-walk, kind: import_statement, matches: module-import}
                 - not: {matches: {python-conflicting-import: {module: {matches: module}, name: {regex: '^$'}}}}
                 - not: {matches: python-shadowed-name}
             - kind: call
@@ -52,11 +52,11 @@ utils:
                 - inside:
                     kind: module, function_definition
                     stopBy: end
-                    has: {stopBy: {kind: 'function_definition, class_definition, lambda'}, kind: import_statement, matches: root-import}
+                    has: {stopBy: *statement-walk, kind: import_statement, matches: root-import}
                 - inside:
                     kind: class_definition
                     stopBy: {kind: 'function_definition, lambda'}
-                    has: {stopBy: {kind: 'function_definition, class_definition, lambda'}, kind: import_statement, matches: root-import}
+                    has: {stopBy: *statement-walk, kind: import_statement, matches: root-import}
             - not: {matches: {python-conflicting-import: {module: {pattern: $ROOT}, name: {regex: '^$'}}}}
             - not: {matches: python-shadowed-name}
     rooted:

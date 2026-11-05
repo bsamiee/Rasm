@@ -4,11 +4,9 @@ packages:
     - 'apps/**'
     - 'tests/typescript/*'
     - 'plugins/*'
-    - 'tools/harnesses'
-    - 'tools/harnesses/*/uxpscript'
+    - 'tools/harnesses/**'
 catalogMode: strict
 saveExact: true
-packageImportMethod: hardlink
 minimumReleaseAge: 0
 
 # --- [CATALOG] --------------------------------------------------------------------------
@@ -40,6 +38,9 @@ catalog:
     '@leeoniya/ufuzzy': 1.0.19 # Typo-tolerant ranking of MCP completion values and missed-name candidates
     plist: 5.0.0 # Property-list parser and builder
     yaml: 3.0.0-2
+    jsonc-parser: 3.3.1 # VS Code's JSONC parser and comment-preserving edits for settings and project files
+    json5: 2.2.3 # Xcode project file parser
+    '@decimalturn/toml-patch': 3.3.2 # TOML edits keeping layout and comments
     avsc: 5.7.9
     cloudevents: 10.0.0
     mqtt: 5.16.1
@@ -191,6 +192,7 @@ catalog:
     '@tanstack/store': 0.11.2
     '@use-gesture/react': 10.3.1
     lucide-react: 1.66.0
+    bootstrap-icons: 1.13.2 # Brand marks a Mac asset catalog links by Git symlink
     class-variance-authority: 0.7.1
     clsx: 2.1.1
     tailwindcss: 4.3.3
@@ -387,11 +389,11 @@ catalog:
     tree-sitter-python: 0.25.0
     tree-sitter-rust: github:tree-sitter/tree-sitter-rust#v0.24.2
     tree-sitter-sqlite3: 0.1.0
+    '@tree-sitter-grammars/tree-sitter-toml': 0.7.0
     tree-sitter-swift: github:alex-pinkus/tree-sitter-swift#9e3b87f66f1fd2f3b931376fd3723ab788e337c3
     tree-sitter-typescript: 0.23.2
     refa: 0.12.1
-    '@swc/core': 1.16.21
-    '@swc/cli': 0.8.2
+    '@swc/wasm': 1.16.21
     tslib: 2.9.1
     '@types/node': 26.6.6
     vite-plugin-static-copy: 4.1.1
@@ -402,7 +404,11 @@ catalog:
     '@rolldown/plugin-babel': 0.3.0
     rollup-plugin-visualizer: 7.1.1
     lightningcss: 1.33.0
+    postcss: 8.5.32
+    rolldown: 1.2.15
     vite-plugin-pwa: 2.0.0
+    '@vite-pwa/assets-generator': 2.0.0 # Favicon, Apple touch icon and head links from one painted master
+    '@types/web-app-manifest': 1.0.9
     vite-plugin-compression2: 2.5.4
     vite-plugin-csp-guard: 4.0.1
     vite-plugin-image-optimizer: 2.0.3
@@ -426,6 +432,7 @@ catalogs:
 overrides:
     '@pulumi/pulumi': 'catalog:'
     cloudevents>uuid: 14.0.2
+    '@tree-sitter-grammars/tree-sitter-toml>tree-sitter': '-'
     '@tree-sitter-grammars/tree-sitter-xml>tree-sitter': '-'
     tree-sitter-postgres>tree-sitter: '-'
     tree-sitter-swift>tree-sitter: '-'
@@ -438,17 +445,27 @@ overrides:
     '@effect/docgen>typescript': 'catalog:'
     'tsconfck>typescript': 'catalog:'
     '@effect/atom-react>scheduler': 'catalog:'
+    vite>rolldown: 'catalog:'
     vite>yaml: 'catalog:'
     vite>@vitejs/devtools: 'catalog:'
     '@modelcontextprotocol/inspector>yaml': 'catalog:'
     '@vitejs/plugin-react>oxc-transform-react': 'catalog:'
     '@xyflow/system>vitest': '-'
+    '@opentelemetry/api': 'catalog:'
+    '@effect/opentelemetry>@opentelemetry/resources': 'catalog:'
+    '@effect/opentelemetry>@opentelemetry/sdk-logs': 'catalog:'
+    '@effect/opentelemetry>@opentelemetry/sdk-metrics': 'catalog:'
+    '@vitejs/plugin-react>@rolldown/plugin-babel': 'catalog:'
 
 # --- [PEER_DEPENDENCIES] ----------------------------------------------------------------
 peerDependencyRules:
     allowedVersions:
         '@loaders.gl/core': '>=4.4.0'
         '@axe-core/playwright>playwright-core': '>=1.0.0-0'
+        '@storybook/react-vite>typescript': '>=7.0.0-0'
+        '@storybook/react>typescript': '>=7.0.0-0'
+        '@joshwooding/vite-plugin-react-docgen-typescript>typescript': '>=7.0.0-0'
+        react-docgen-typescript>typescript: '>=7.0.0-0'
 
 # --- [BUILDS] ---------------------------------------------------------------------------
 allowBuilds:
@@ -460,7 +477,7 @@ allowBuilds:
     '@pulumi/docker': false
     '@pulumi/docker-build': false
     '@pulumi/kubernetes': false
-    '@swc/core': true
+    '@tree-sitter-grammars/tree-sitter-toml': false
     '@tree-sitter-grammars/tree-sitter-xml': false
     core-js: true
     cpu-features: false

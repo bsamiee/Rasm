@@ -29,11 +29,17 @@ utils:
                     - matches: assignment
                     - kind: assignment
                       not: {has: {field: right, pattern: $_}}
+    assigns:
+        any:
+            - has: {stopBy: {not: {kind: 'block, expression_statement, assignment, if_statement, elif_clause, else_clause, for_statement, while_statement, try_statement, except_clause, finally_clause, with_statement, match_statement, case_clause, decorated_definition'}}, kind: assignment, matches: assignment}
+            - all:
+                - any: [{kind: module, regex: ':='}, {inside: {kind: module, stopBy: end, regex: ':='}}]
+                - has: {stopBy: &nested-scope {kind: 'module, function_definition, lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression, class_definition'}, kind: named_expression, matches: assignment}
     scope-binding:
-        has: {stopBy: &nested-scope {kind: 'module, function_definition, lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression, class_definition'}, kind: *binding, matches: binding}
+        has: {stopBy: *nested-scope, kind: *binding, matches: binding}
     assigned-scope:
         all:
-            - has: {stopBy: *nested-scope, all: [&assignment-node {kind: 'assignment, named_expression'}, {matches: assignment}]}
+            - matches: assigns
             - not: {has: {stopBy: *nested-scope, kind: *binding, matches: conflicting-binding}}
     bound-scope:
         any:
@@ -75,5 +81,5 @@ rule:
     kind: identifier
     all:
         - pattern: $NAME
-        - inside: {stopBy: end, all: [*nested-scope], has: {stopBy: *nested-scope, all: [*assignment-node, {matches: assignment}]}}
+        - inside: {stopBy: end, all: [*nested-scope], matches: assigns}
         - matches: lookup

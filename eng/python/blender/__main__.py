@@ -1,6 +1,5 @@
-"""Encodes icons, packs, installs, and publishes Blender extensions, syncs locked Python requirements and host constraints, and runs Blender in isolated profiles."""
+"""Writes extension assets, packs and installs Blender extensions, syncs host constraints, and runs Blender in isolated profiles."""
 
-lazy from pathlib import Path
 lazy import subprocess
 lazy import sys
 
@@ -12,36 +11,27 @@ lazy from blender.records.faults import Fault, Outcome
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _reported(result: Outcome[int | Path] | None) -> int:
-    """Returns command or failed child status, zero for help or a printed user base, and 1 for other faults."""
+def _reported(result: Outcome[int] | None) -> int:
+    """Returns the status of a command, of a lone failed child, 1 for other faults, and 0 for help."""
     match result:
         case None:
             return 0
-        case Result(tag="ok", ok=int(status)):
+        case Result(tag="ok", ok=status):
             return status
-        case Result(tag="ok", ok=Path() as base):
-            sys.stdout.write(f"{base}\n")
-            return 0
+        case Result(error=(Fault(cause=subprocess.CalledProcessError(returncode=status)) as fault,)):
+            sys.stderr.write(f"{fault.message}\n")
+            return status
         case Result(error=faults):
-            for fault in faults:
-                for data, stream in ((error.stdout, sys.stdout.buffer), (error.stderr, sys.stderr.buffer)) if isinstance(error := fault.cause, subprocess.CalledProcessError) else ():
-                    stream.writelines(filter(None, (data,)))
-                sys.stderr.write(f"{fault.message}\n")
-            match faults:
-                case (Fault(cause=subprocess.CalledProcessError(returncode=status)),):
-                    return status
-                case _:
-                    return 1
+            sys.stderr.writelines(f"{fault.message}\n" for fault in faults)
+            return 1
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 app = App(help=__doc__, result_action=(_reported, "sys_exit"))
-app.command("eng.python.blender.icons:icons")
+app.command("eng.python.blender.assets:assets")
 app.command("eng.python.blender.assembly:pack")
 app.command("eng.python.blender.install:install")
-app.command("eng.python.blender.assembly:publish")
-app.command("eng.python.blender.assembly:site")
 app.command("eng.python.blender.assembly:upgrade")
 app.command("eng.python.blender.evaluate:run")
 

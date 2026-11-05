@@ -27,14 +27,14 @@ utils:
                     stopBy: end
                     kind: enum_declaration
                     all:
-                        - has: {field: name, any: [{pattern: $A}, {pattern: $B}]}
+                        - has: {field: name, any: [{pattern: {context: 'class $A;', selector: identifier}}, {pattern: {context: 'class $B;', selector: identifier}}]}
                         - not:
                             has:
                                 field: body
                                 has:
                                     kind: enum_member_declaration
                                     all:
-                                        - has: {field: name, pattern: $NAME}
+                                        - has: {field: name, pattern: {context: 'class $NAME;', selector: identifier}}
                                         - not:
                                             inside:
                                                 stopBy: end
@@ -69,7 +69,7 @@ utils:
                     - kind: member_access_expression
                       all: [{has: {field: name, regex: '^ToString$'}}, {has: {field: expression, matches: declared-receiver}}]
                     - kind: conditional_access_expression
-                      all: [{has: {field: condition, matches: declared-receiver}}, {has: {kind: member_binding_expression, has: {field: name, regex: '^ToString$'}}}]
+                      all: [{has: {kind: member_binding_expression, has: {field: name, regex: '^ToString$'}}}, {has: {field: condition, matches: declared-receiver}}]
             - has: {field: arguments, kind: argument_list, matches: name-format}
     member-name:
         any:
@@ -110,7 +110,7 @@ utils:
             - matches: {csharp-block-local: {declarator: {has: {nthChild: 2, matches: name-value}}}}
             - kind: invocation_expression
               all:
-                - has: {field: function, kind: identifier, pattern: $HELPER}
+                - has: {field: function, pattern: {context: 'class $HELPER;', selector: identifier}}
                 - inside:
                     kind: compilation_unit
                     stopBy: end
@@ -118,7 +118,7 @@ utils:
                         stopBy: end
                         kind: 'method_declaration, local_function_statement'
                         all:
-                            - has: {field: name, pattern: $HELPER}
+                            - has: {field: name, pattern: {context: 'class $HELPER;', selector: identifier}}
                             - has: {field: body, kind: arrow_expression_clause, has: {matches: member-name}}
     any-name:
         any:
@@ -148,6 +148,7 @@ rule:
         - matches: same-name-switch
         - kind: invocation_expression
           all:
+            - has: {field: function, regex: Parse}
             - matches: {csharp-owner-call: {type: {regex: '^Enum$'}, member: {regex: '^(TryParse|Parse)$'}}}
             - has: {field: arguments, has: {kind: argument, has: {matches: name-value}}}
         - kind: invocation_expression
@@ -161,8 +162,8 @@ rule:
             - has: {field: arguments, has: {kind: argument, has: {kind: lambda_expression, has: {field: body, matches: name-equality}}}}
         - kind: switch_expression
           all:
-            - has: {nthChild: 1, matches: name-value}
             - has: {kind: switch_expression_arm, has: {nthChild: 1, kind: constant_pattern, has: {kind: string_literal}}}
+            - has: {nthChild: 1, matches: name-value}
 transform:
     HEAD: {replace: {source: $CONVERSION, replace: '(?s)^([@\p{XID_Continue}.]+).*$', by: '$1'}}
 message: '`$HEAD` converts between enums by member name'

@@ -10,7 +10,7 @@ import manifest from '#/package.json' with { type: 'json' };
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const PS_ROW = /^\s*(?<pid>\d+)\s+(?<ppid>\d+)\s+(?<uid>-?\d+)\s+(?<state>\S+)\s+(?:\?\??|(?<terminal>\S+))\s+(?<started>\S+ \S+\s+\S+ \S+ \S+)\s+(?<command>.*)$/u;
-const RESIDUES = ['.build', '.cache', '.artifacts', '.playwright-cli', '.playwright-mcp'];
+const RESIDUES = ['.build', '.swiftpm', '.cache', '.artifacts', '.playwright-cli'];
 const AGENT = 'dev.mise.';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -27,7 +27,7 @@ const LaunchdAgents = Schema.fromJsonString(Schema.Struct({ launchd: Schema.Stru
 const MiseInstalls = Schema.fromJsonString(Schema.Record(Schema.String, Schema.Array(Schema.Struct({ install_path: Schema.String }))));
 const MiseDaemons = Schema.fromJsonString(Schema.Array(Schema.Struct({ name: Schema.String, pid: Schema.OptionFromNullOr(Schema.Int) })));
 const CargoMetadata = Schema.fromJsonString(Schema.Struct({ packages: Schema.Array(Schema.Struct({ name: Schema.String })), build_directory: Schema.String }));
-const Editor = Schema.fromJsonString(Schema.Struct({ sdk: Schema.String }).pipe(Schema.encodeKeys({ sdk: 'js/ts.tsdk.path' })));
+const Editor = TextFormat.Json5.pipe(Schema.decodeTo(Schema.Struct({ sdk: Schema.String }).pipe(Schema.encodeKeys({ sdk: 'js/ts.tsdk.path' }))));
 const PulumiPlugins = Schema.fromJsonString(Schema.Array(Schema.Struct({ name: Schema.String, kind: Schema.String, version: Schema.String })));
 const PulumiProvider = Schema.fromJsonString(Schema.Struct({ pulumi: Schema.Struct({ resource: Schema.Literal(true), name: Schema.String, version: Schema.String }) }));
 const XcodeOptions = Schema.Struct({ env: Schema.Struct({ XCODE_DERIVED_DATA_PATH: Schema.String }) });
@@ -45,6 +45,12 @@ const entries = Effect.fn('entries')(function* (directory: string) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const names = yield* fs.readDirectory(directory).pipe(Effect.catchReason('PlatformError', 'NotFound', () => Effect.succeed([])));
     return names.map((name) => ({ name, path: path.join(directory, name) }));
+});
+const pinnedFiles = Effect.fn('pinnedFiles')(function* (root: string) {
+    const path = yield* Path.Path;
+    const [held, named] = yield* Effect.all([entries(path.join(root, '.cache/fetched')), runCommand.records('\n', 'git', ['grep', '-IohE', '[0-9a-f]{64}'], { cwd: root })], { concurrency: 'unbounded' });
+    const hashes = new Set(named);
+    return held.filter(({ name }) => hashes.has(name)).map(Struct.get('path'));
 });
 const metadata = (cwd: string) => runCommand('cargo', ['metadata', '--no-deps', '--format-version', '1'], { cwd }).pipe(Effect.flatMap(Schema.decodeEffect(CargoMetadata)));
 const attribute = (pid: number, record: typeof LsofRecord.Type) => Match.valueTags(record, { Process: (owner) => [owner.pid, Option.none()] as const, File: (file) => [pid, Option.some({ ...file, pid })] as const });
@@ -92,11 +98,12 @@ const cleanup = Effect.gen(function* () {
             { concurrency: 'unbounded' },
         ),
     );
-    const { graph, languages, sdk, worktrees, installed, developer, agents, launched, daemons, toolchains, products, own } = yield* Effect.all(
+    const { graph, languages, sdk, pinned, worktrees, installed, developer, agents, launched, daemons, toolchains, products, own } = yield* Effect.all(
         {
             graph: Effect.try(readCachedProjectGraph),
             languages: Sgconfig.read(root).pipe(Effect.map(flow(Struct.get('customLanguages'), Record.values)), Effect.map(Array.map(({ libraryPath }) => path.resolve(root, libraryPath)))),
             sdk: Effect.map(decodeFile(Editor, root, '.vscode/settings.json'), ({ sdk: directory }) => path.resolve(root, directory)),
+            pinned: pinnedFiles(root),
             worktrees: runCommand
                 .records('\0\0', 'git', ['worktree', 'list', '--porcelain', '-z'])
                 .pipe(Effect.map(flow(Array.filter(Predicate.not(String.includes('\0prunable'))), Array.flatMap(String.split('\0')))), Effect.map(Array.filterMap((field) => Schema.decodeUnknownResult(Worktree)(field))), Effect.map(Array.map(Tuple.get(1)))),
@@ -221,10 +228,10 @@ const cleanup = Effect.gen(function* () {
         ...launched.filter(({ Label: [, name] }) => agents[name] === true).flatMap(({ StandardOutPath, StandardErrorPath }) => Array.getSomes([StandardOutPath, StandardErrorPath])),
         ...languages,
         ...outputs.filter(Array.some(libraries.has.bind(libraries))).flat(),
+        ...pinned,
         sdk,
         cacheDir,
         pulumi,
-        path.join(root, '.artifacts', 'workflows'),
         ...Array.filterMap(tasks, flow(Tuple.get(1), Struct.get('options'), Schema.decodeUnknownResult(XcodeOptions))).map(({ env }) => path.resolve(root, env.XCODE_DERIVED_DATA_PATH)),
     ];
     const listed = new Set([...RESIDUES.map((entry) => path.join(root, entry)), own.build_directory, ...outputs.flat(), ...strays]);

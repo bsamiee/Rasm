@@ -6,7 +6,8 @@ utils:
         any:
             - kind: line_string_literal
               not: {has: {kind: 'line_str_text, interpolated_expression'}}
-            - pattern: String()
+            - kind: call_expression
+              regex: '^(Swift(\.|::))?String(\.init)?\([\t-\r ]*\)$'
     empty-result:
         any:
             - matches: empty-string
@@ -63,7 +64,7 @@ rule:
                 all:
                     - precedes: {stopBy: {kind: pattern}, follows: {regex: '^=$'}, matches: empty-string}
                     - any:
-                        - precedes: {stopBy: {kind: pattern}, kind: type_annotation, regex: '^:[\t-\r ]*String$'}
+                        - precedes: {stopBy: {kind: pattern}, kind: type_annotation, has: {field: name, regex: '^(Swift(\.|::))?String$'}}
                         - not: {precedes: {stopBy: {kind: pattern}, kind: type_annotation}}
 message: '`$SHAPE` yields an empty string standing for absence'
 note: 'Declare or return `String?` with `nil` for absence'

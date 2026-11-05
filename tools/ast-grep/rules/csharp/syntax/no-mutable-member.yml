@@ -3,9 +3,9 @@ language: csharplang
 severity: error
 utils:
     member-owner:
-        inside: {kind: declaration_list, inside: {kind: 'record_declaration, class_declaration, struct_declaration', not: {has: {regex: '^ref$'}}, has: {field: name, pattern: $TYPE}}}
+        inside: {kind: declaration_list, inside: {kind: 'record_declaration, class_declaration, struct_declaration', not: {has: {regex: '^ref$'}}, has: {field: name, pattern: {context: 'class $TYPE;', selector: identifier}}}}
     record-owner:
-        inside: {kind: declaration_list, inside: {kind: record_declaration, has: {field: name, pattern: $TYPE}}}
+        inside: {kind: declaration_list, inside: {kind: record_declaration, has: {field: name, pattern: {context: 'class $TYPE;', selector: identifier}}}}
     single-declarator:
         has:
             kind: variable_declaration
@@ -66,7 +66,7 @@ rule:
             - has: {kind: modifier, regex: '^(public|internal|protected)$'}
             - not: {has: {kind: modifier, regex: '^(readonly|const|required|private|static)$'}}
             - not: {matches: csharp-visible-member}
-            - inside: {kind: declaration_list, inside: {kind: 'class_declaration, struct_declaration', not: {has: {regex: '^ref$'}}, has: {field: name, pattern: $TYPE}}}
+            - inside: {kind: declaration_list, inside: {kind: 'class_declaration, struct_declaration', not: {has: {regex: '^ref$'}}, has: {field: name, pattern: {context: 'class $TYPE;', selector: identifier}}}}
         - kind: field_declaration
           all:
             - has: {kind: modifier, regex: '^required$'}
@@ -76,7 +76,7 @@ rule:
         - kind: record_declaration
           all:
             - has: {regex: '^struct$'}
-            - has: {field: name, pattern: $TYPE}
+            - has: {field: name, pattern: {context: 'class $TYPE;', selector: identifier}}
             - has: {kind: parameter_list, has: {kind: parameter}}
             - not: {has: {kind: modifier, regex: '^readonly$'}}
 message: '`$TYPE` holds a member that changes after construction'

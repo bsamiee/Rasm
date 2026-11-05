@@ -86,8 +86,8 @@ utils:
             - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^catch$'}}}}
             - has: {field: arguments, has: {matches: callback-parameter, has: {stopBy: end, pattern: $_MODULE.fail($E)}}}
 rule:
-    matches: error-handler
     all:
+        - matches: error-handler
         - has:
             field: arguments
             has:

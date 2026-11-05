@@ -1,15 +1,16 @@
 import python from 'tree-sitter-python/grammar.js';
-import { extend, named, replace, symbol, widen } from '../derive.js';
+import { drop, extend, named, replace, symbol, widen } from '../derive.js';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const lazyImport = (_, original) => seq(optional(field('lazy', 'lazy')), original);
-const listBody = widen(named('body'), ($) => $.list_splat);
+const starred = (matches) => widen(matches, ($) => $.list_splat);
+const comprehension = starred(named('body'));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 export default extend(python, {
-    conflicts: (_, original) => original.filter((set) => !set.some(symbol('type_alias_statement'))),
+    conflicts: ($, original) => [...original.filter((set) => !set.some(symbol('type_alias_statement'))), [$.type, $._type_slice]],
     rules: {
         import_statement: lazyImport,
         import_from_statement: lazyImport,
@@ -21,10 +22,17 @@ export default extend(python, {
         type_parameter: replace(symbol('type'), ($) => $._type_parameter),
         _type_parameter: ($) => seq($.type, optional(seq('=', field('default', choice($.expression, $.list_splat))))),
         generic_type: replace(symbol('type_parameter'), ($) => alias($._type_arguments, $.type_parameter)),
-        _type_arguments: () => python.grammar.rules.type_parameter,
-        list_comprehension: listBody,
-        set_comprehension: listBody,
-        generator_expression: listBody,
+        _type_arguments: ($) => widen(symbol('type'), () => alias($._type_slice, $.slice))($, python.grammar.rules.type_parameter),
+        _type_slice: () => prec.dynamic(1, prec(1, python.grammar.rules.slice)),
+        splat_type: widen(symbol('identifier'), ($) => $.generic_type),
+        primary_expression: drop((rule) => rule.type === 'ALIAS' && symbol('list_splat_pattern')(rule.content)),
+        expression_statement: ($, original) => choice(...original.members.map((arm) => (arm.type === 'SEQ' ? starred(symbol('expression'))($, arm) : arm))),
+        expression_list: starred(symbol('expression')),
+        match_statement: starred(named('subject')),
+        subscript: starred(named('subscript')),
+        list_comprehension: comprehension,
+        set_comprehension: comprehension,
+        generator_expression: comprehension,
         dictionary_comprehension: widen(named('body'), ($) => $.dictionary_splat),
     },
 });

@@ -35,7 +35,7 @@ utils:
             - matches:
                 csharp-unary-callback:
                     parameter: {pattern: $FAILED}
-                    body: {kind: invocation_expression, all: [{has: {field: function, matches: fail-group}}, {has: {field: arguments, has: {kind: argument, pattern: $FAILED}, not: {has: {kind: argument, nthChild: 2}}}}]}
+                    body: {kind: invocation_expression, all: [{has: {field: function, matches: fail-group}}, {has: {field: arguments, has: {kind: argument, pattern: {context: 'f($FAILED);', selector: argument}}, not: {has: {kind: argument, nthChild: 2}}}}]}
     case-relift:
         kind: invocation_expression
         all:
@@ -49,7 +49,7 @@ utils:
     relay:
         kind: identifier
         all:
-            - pattern: $RELAY
+            - pattern: {context: 'class $RELAY;', selector: identifier}
             - inside:
                 kind: compilation_unit
                 stopBy: end
@@ -57,13 +57,13 @@ utils:
                     stopBy: end
                     kind: method_declaration, local_function_statement
                     all:
-                        - has: {field: name, pattern: $RELAY}
-                        - not: {has: {field: type_parameters, pattern: $_}}
+                        - has: {field: name, pattern: {context: 'class $RELAY;', selector: identifier}}
+                        - not: {has: {field: type_parameters, kind: type_parameter_list}}
                         - has:
                             field: parameters
                             has:
                                 kind: parameter
-                                has: {field: name, pattern: $VALUE}
+                                has: {field: name, pattern: {context: 'class $VALUE;', selector: identifier}}
                                 not: {has: {kind: 'modifier, attribute_list'}}
                             not: {has: {kind: parameter, nthChild: 2}}
                         - has:
@@ -78,7 +78,7 @@ utils:
     relift-clause:
         kind: from_clause
         all:
-            - has: {field: name, pattern: $X}
+            - has: {field: name, pattern: {context: 'class $X;', selector: identifier}}
             - has: {kind: invocation_expression, matches: relift}
     fin-type:
         any:
@@ -94,13 +94,13 @@ utils:
                 - has: {field: name, kind: generic_name, all: [{has: {kind: identifier, regex: '^lift$'}}, {has: {kind: type_argument_list, has: {nthChild: 1, matches: fin-type}}}]}
     lifted-local:
         kind: identifier
-        pattern: $LIFTED
+        pattern: {context: 'class $LIFTED;', selector: identifier}
         inside:
             stopBy: end
             kind: block
             has:
                 kind: local_declaration_statement
-                has: {kind: variable_declaration, has: {kind: variable_declarator, all: [{has: {field: name, pattern: $LIFTED}}, {has: {matches: lifted-fin}}]}}
+                has: {kind: variable_declaration, has: {kind: variable_declarator, all: [{has: {field: name, pattern: {context: 'class $LIFTED;', selector: identifier}}}, {has: {matches: lifted-fin}}]}}
     held-receiver:
         any:
             - matches: lifted-fin
@@ -126,14 +126,17 @@ rule:
             - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Bind$'}}, {has: {field: expression, matches: held-receiver}}]}
             - has: {field: arguments, not: {has: {kind: argument, nthChild: 2}}}
             - not: {not: {has: {field: arguments, has: {kind: argument, matches: held-bind}}}}
-        - pattern:
-            context: 'class C { object F() => $IO.lift<$FIN>($_THUNK).Bind($BIND); }'
-            selector: invocation_expression
-            strictness: cst
-        - pattern:
-            context: 'class C { object F() => $IO.lift<$FIN>($_THUNK).As().Bind($BIND); }'
-            selector: invocation_expression
-            strictness: cst
+        - all:
+            - has: {field: function, regex: 'Bind$'}
+            - any:
+                - pattern:
+                    context: 'class C { object F() => $IO.lift<$FIN>($_THUNK).Bind($BIND); }'
+                    selector: invocation_expression
+                    strictness: cst
+                - pattern:
+                    context: 'class C { object F() => $IO.lift<$FIN>($_THUNK).As().Bind($BIND); }'
+                    selector: invocation_expression
+                    strictness: cst
         - kind: query_expression
           all:
             - has: {kind: from_clause, nthChild: 1, matches: lifted-source}
@@ -145,7 +148,7 @@ rule:
             - matches: lifted-source
             - precedes:
                 matches: relift-clause
-                not: {precedes: {stopBy: end, has: {stopBy: end, kind: identifier, pattern: $VALUE}}}
+                not: {precedes: {stopBy: end, has: {stopBy: end, kind: identifier, pattern: {context: 'class $VALUE;', selector: identifier}}}}
             - not:
                 all:
                     - nthChild: 1

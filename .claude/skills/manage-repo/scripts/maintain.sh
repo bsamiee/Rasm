@@ -9,14 +9,14 @@ readonly root
 main() {
     cd "$root"
     mise daemons stop
-    mise upgrade --local --no-prune
-    mise exec -- nx reset --onlyDaemon --onlyWorkspaceData
+    mise exec -- nx reset --onlyWorkspaceData
     mise exec -- nx run rasm:upgrade
-    mise exec -- nx reset --onlyDaemon --onlyWorkspaceData
+    mise exec -- nx reset --onlyWorkspaceData
+    mise exec -- nx run-many --targets=install --projects=tag:language:rust,tag:build:swiftpm,tag:output:command
     mise exec -- pnpm prune
     mise exec -- playwright install --only-shell chromium
     launchctl kickstart -k "gui/${EUID}/dev.mise.pitchfork"
-    watch-apps quit 'Visual Studio Code'
+    mise exec -- watch-apps quit 'Visual Studio Code'
     mise exec -- pixi run --locked -e hdf5 pixi run --locked -e default code .
     mise prune --yes
 }

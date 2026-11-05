@@ -4,7 +4,7 @@ language: csharplang
 arguments: [type]
 rule:
     kind: identifier
-    pattern: $DECLARED
+    pattern: {context: 'class $DECLARED;', selector: identifier}
     inside:
         stopBy: end
         any:
@@ -14,7 +14,7 @@ rule:
                 has:
                     kind: parameter
                     all:
-                        - has: {field: name, pattern: $DECLARED}
+                        - has: {field: name, pattern: {context: 'class $DECLARED;', selector: identifier}}
                         - has: {field: type, matches: type}
             - kind: block, switch_section
               has:
@@ -23,15 +23,15 @@ rule:
                     kind: variable_declaration
                     all:
                         - has: {field: type, matches: type}
-                        - has: {kind: variable_declarator, has: {field: name, pattern: $DECLARED}}
+                        - has: {kind: variable_declarator, has: {field: name, pattern: {context: 'class $DECLARED;', selector: identifier}}}
             - kind: block, switch_section
               has:
                 stopBy: {kind: 'block, lambda_expression, anonymous_method_expression, local_function_statement'}
                 kind: declaration_expression
                 all:
                     - has: {field: type, matches: type}
-                    - has: {field: name, pattern: $DECLARED}
+                    - has: {field: name, pattern: {context: 'class $DECLARED;', selector: identifier}}
             - kind: foreach_statement
               all:
                 - has: {field: type, matches: type}
-                - has: {field: left, pattern: $DECLARED}
+                - has: {field: left, pattern: {context: 'class $DECLARED;', selector: identifier}}

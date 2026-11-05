@@ -15,7 +15,7 @@ const BODY = 'function body() {';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Version = Schema.String.check(Schema.isPattern(/^\d+(?:\.\d+){0,3}$/u)).annotate({ description: 'major[.minor[.patch[.build]]]' });
+const Version = Schema.String.check(Schema.isPattern(/^\d+(?:\.\d+){0,2}$/u)).annotate({ description: 'major[.minor[.patch]]' });
 const Member = Schema.Struct({
     name: Schema.String,
     type: Schema.OptionFromOptionalKey(Schema.String),

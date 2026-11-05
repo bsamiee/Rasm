@@ -11,12 +11,12 @@ utils:
                 kind: declaration_list
                 inside:
                     all:
-                        - has: {field: name, pattern: $TRAIT_OWNER}
+                        - has: {field: name, pattern: {context: 'class $TRAIT_OWNER;', selector: identifier}}
                         - not: {has: {kind: type_parameter_list}}
-                        - has: {kind: base_list, has: {kind: generic_name, has: {kind: type_argument_list, has: {kind: identifier, pattern: $TRAIT_OWNER}}}}
+                        - has: {kind: base_list, has: {kind: generic_name, has: {kind: type_argument_list, has: {pattern: {context: 'class $TRAIT_OWNER;', selector: identifier}}}}}
             - any:
-                - has: {field: returns, has: {stopBy: end, kind: identifier, pattern: $TRAIT_OWNER}}
-                - has: {field: parameters, has: {stopBy: end, kind: identifier, pattern: $TRAIT_OWNER}}
+                - has: {field: returns, has: {stopBy: end, pattern: {context: 'class $TRAIT_OWNER;', selector: identifier}}}
+                - has: {field: parameters, has: {stopBy: end, pattern: {context: 'class $TRAIT_OWNER;', selector: identifier}}}
     plain-parameter:
         kind: parameter
         not:
@@ -26,18 +26,16 @@ utils:
                     - kind: modifier
                       regex: '^(ref|out|scoped)$'
     type-parameter-name:
-        kind: identifier
-        pattern: $TYPE_PARAMETER
+        pattern: {context: 'class $TYPE_PARAMETER;', selector: identifier}
         inside:
             stopBy: end
-            has: {kind: type_parameter_list, has: {kind: type_parameter, has: {kind: identifier, pattern: $TYPE_PARAMETER}}}
+            has: {kind: type_parameter_list, has: {kind: type_parameter, has: {pattern: {context: 'class $TYPE_PARAMETER;', selector: identifier}}}}
     parameter-name:
-        kind: identifier
-        pattern: $PARAMETER
+        pattern: {context: 'class $PARAMETER;', selector: identifier}
         inside:
             stopBy: {kind: &function 'method_declaration, local_function_statement'}
             kind: *function
-            has: {field: parameters, has: {kind: parameter, has: {field: name, pattern: $PARAMETER}}}
+            has: {field: parameters, has: {kind: parameter, has: {field: name, pattern: {context: 'class $PARAMETER;', selector: identifier}}}}
     static-root:
         any:
             - kind: identifier
@@ -57,15 +55,21 @@ utils:
             - matches: static-root
             - matches: parameter-root
     callee-name:
-        matches: {csharp-simple-name: {name: {pattern: $CALLEE}}}
+        matches: {csharp-simple-name: {name: {pattern: {context: 'class $CALLEE;', selector: identifier}}}}
+    validated-path-name:
+        pattern: {context: 'class $VALIDATED;', selector: identifier}
+        inside:
+            stopBy: {kind: *function}
+            kind: *function
+            has: {field: parameters, has: {kind: parameter, all: [{has: {field: name, pattern: {context: 'class $VALIDATED;', selector: identifier}}}, {has: {field: type, regex: '^(?:Input|Output)Path$'}}]}}
     parameter-argument:
         kind: argument
-        not: {has: {kind: modifier}}
+        not: {has: {any: [{kind: modifier}, {matches: validated-path-name}]}}
         has: {nthChild: {position: 1, reverse: true}, matches: parameter-name}
     call:
         kind: invocation_expression
         all:
-            - not: {has: {field: function, kind: identifier, pattern: $NAME}}
+            - not: {has: {field: function, pattern: {context: 'class $NAME;', selector: identifier}}}
             - has:
                 field: function
                 any:
@@ -78,11 +82,11 @@ utils:
                 field: arguments
                 all:
                     - not: {has: {kind: argument, not: {matches: parameter-argument}}}
-                    - not: {has: {kind: argument, has: {kind: identifier, pattern: $REPEATED}, follows: {stopBy: end, kind: argument, has: {kind: identifier, pattern: $REPEATED}}}}
+                    - not: {has: {kind: argument, has: {pattern: {context: 'class $REPEATED;', selector: identifier}}, follows: {stopBy: end, kind: argument, has: {pattern: {context: 'class $REPEATED;', selector: identifier}}}}}
             - not:
                 all:
-                    - has: {field: function, has: {stopBy: end, kind: identifier, pattern: $SHARED}}
-                    - has: {field: arguments, has: {kind: argument, has: {kind: identifier, pattern: $SHARED}}}
+                    - has: {field: function, has: {stopBy: end, pattern: {context: 'class $SHARED;', selector: identifier}}}
+                    - has: {field: arguments, has: {kind: argument, has: {pattern: {context: 'class $SHARED;', selector: identifier}}}}
     member-read:
         kind: member_access_expression
         all:
@@ -141,51 +145,47 @@ utils:
             - matches: unit-adapted
               has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, kind: expression_statement, has: {matches: forwarded}}
     hidden-owner:
-        kind: identifier
-        pattern: $HIDDEN
-        inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, kind: class_declaration, all: [{has: {field: name, pattern: $HIDDEN}}, {not: {has: {kind: modifier, regex: '^public$'}}}]}}
+        pattern: {context: 'class $HIDDEN;', selector: identifier}
+        inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, kind: class_declaration, all: [{has: {field: name, pattern: {context: 'class $HIDDEN;', selector: identifier}}}, {not: {has: {kind: modifier, regex: '^public$'}}}]}}
     mapper-owner:
-        kind: identifier
-        pattern: $MAPPER
+        pattern: {context: 'class $MAPPER;', selector: identifier}
         regex: .Mapper$
-        not: {inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, kind: class_declaration, all: [{has: {field: name, pattern: $MAPPER}}, {not: {matches: {csharp-attributed: {name: {regex: '^Mapper(Attribute)?$'}}}}}]}}}
+        not: {inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, kind: class_declaration, all: [{has: {field: name, pattern: {context: 'class $MAPPER;', selector: identifier}}}, {not: {matches: {csharp-attributed: {name: {regex: '^Mapper(Attribute)?$'}}}}}]}}}
     boundary-callee:
         kind: member_access_expression
         has: {field: expression, any: [{matches: hidden-owner}, {matches: mapper-owner}]}
     case-arguments:
         kind: argument_list
-        not: {has: {kind: argument, not: {has: {nthChild: {position: 1, reverse: true}, kind: member_access_expression, has: {field: expression, kind: identifier, pattern: $CASE}}}}}
+        not: {has: {kind: argument, not: {has: {nthChild: {position: 1, reverse: true}, kind: member_access_expression, has: {field: expression, pattern: {context: 'class $CASE;', selector: identifier}}}}}}
     case-call:
         kind: invocation_expression
         all:
-            - has: {field: function, kind: member_access_expression, has: {field: expression, kind: identifier, pattern: $TARGET}}
+            - has: {field: function, kind: member_access_expression, has: {field: expression, pattern: {context: 'class $TARGET;', selector: identifier}}}
             - has: {field: arguments, matches: case-arguments}
     state-arm:
         kind: lambda_expression
         all:
-            - has: {field: parameters, has: {kind: parameter, nthChild: 1, has: {field: name, pattern: $TARGET}}}
-            - has: {field: parameters, has: {kind: parameter, nthChild: 2, has: {field: name, pattern: $CASE}}}
+            - has: {field: parameters, has: {kind: parameter, nthChild: 1, has: {field: name, pattern: {context: 'class $TARGET;', selector: identifier}}}}
+            - has: {field: parameters, has: {kind: parameter, nthChild: 2, has: {field: name, pattern: {context: 'class $CASE;', selector: identifier}}}}
             - not: {has: {field: parameters, has: {kind: parameter, nthChild: 3}}}
             - has: {field: body, matches: case-call}
     capture-arm:
         kind: lambda_expression
         all:
-            - has: {field: parameters, any: [{kind: implicit_parameter, pattern: $CASE}, {kind: parameter_list, has: {kind: parameter, nthChild: 1, has: {field: name, pattern: $CASE}}, not: {has: {kind: parameter, nthChild: 2}}}]}
+            - has: {field: parameters, any: [{pattern: {context: 'f($CASE => 0);', selector: implicit_parameter}}, {kind: parameter_list, has: {kind: parameter, nthChild: 1, has: {field: name, pattern: {context: 'class $CASE;', selector: identifier}}}, not: {has: {kind: parameter, nthChild: 2}}}]}
             - has: {field: body, kind: invocation_expression, all: [{has: {field: function, kind: member_access_expression, has: {field: expression, pattern: $CALLEE}}}, {has: {field: arguments, matches: case-arguments}}]}
     switch-arm:
         kind: switch_expression_arm
         all:
-            - has: {nthChild: 1, kind: declaration_pattern, has: {field: name, pattern: $CASE}}
+            - has: {nthChild: 1, kind: declaration_pattern, has: {field: name, pattern: {context: 'class $CASE;', selector: identifier}}}
             - not: {has: {kind: when_clause}}
             - has: {nthChild: {position: 1, reverse: true}, kind: invocation_expression, all: [{has: {field: function, kind: member_access_expression, has: {field: expression, pattern: $CALLEE}}}, {has: {field: arguments, matches: case-arguments}}]}
     case-receiver:
-        kind: identifier
-        pattern: $CALLEE
+        pattern: {context: 'class $CALLEE;', selector: identifier}
         matches: parameter-name
     switch-subject:
-        kind: identifier
-        pattern: $SUBJECT
-        inside: {stopBy: end, kind: *function, has: {field: parameters, has: {kind: parameter, has: {field: name, pattern: $SUBJECT}}}}
+        pattern: {context: 'class $SUBJECT;', selector: identifier}
+        inside: {stopBy: end, kind: *function, has: {field: parameters, has: {kind: parameter, has: {field: name, pattern: {context: 'class $SUBJECT;', selector: identifier}}}}}
     switch-forward:
         any:
             - kind: invocation_expression
@@ -212,7 +212,12 @@ utils:
 rule:
     kind: *function
     all:
-        - has: {field: name, pattern: $NAME}
+        - has: {field: name, pattern: {context: 'class $NAME;', selector: identifier}}
+        - any:
+            - all:
+                - has: {field: body, matches: forwarding-body}
+                - not: {has: {field: parameters, has: {kind: parameter, not: {matches: plain-parameter}}}}
+            - has: {field: body, any: [{kind: arrow_expression_clause, has: {matches: switch-body}}, {matches: single-statement, has: {kind: return_statement, has: {matches: switch-body}}}]}
         - not:
             any:
                 - has: {kind: modifier, regex: '^(override|virtual|partial|extern|abstract|async)$'}
@@ -228,18 +233,13 @@ rule:
                     - has: {kind: modifier, regex: '^public$'}
                 - matches: trait-member
                 - matches: mapperly-mapping-method
-        - any:
-            - all:
-                - has: {field: body, matches: forwarding-body}
-                - not: {has: {field: parameters, has: {kind: parameter, not: {matches: plain-parameter}}}}
-            - has: {field: body, any: [{kind: arrow_expression_clause, has: {matches: switch-body}}, {matches: single-statement, has: {kind: return_statement, has: {matches: switch-body}}}]}
         - not:
             all:
                 - has: {kind: modifier, regex: '^public$'}
                 - has: {field: body, has: {stopBy: end, matches: languageext-io-lift}}
                 - inside:
                     kind: declaration_list
-                    has: {kind: method_declaration, all: [{has: {field: name, pattern: $CALLEE}}, {not: {has: {kind: modifier, regex: '^public$'}}}]}
+                    has: {kind: method_declaration, all: [{has: {field: name, pattern: {context: 'class $CALLEE;', selector: identifier}}}, {not: {has: {kind: modifier, regex: '^public$'}}}]}
         - not:
             all:
                 - has: {kind: modifier, regex: '^public$'}

@@ -208,6 +208,7 @@ final class ApplicationDelegate: NSObject, NSApplicationDelegate, NSTableViewDat
                 let held: Hang = Hang()
                 deferred(titled: "Blocked") {
                     self.windows.append(panel("Blocking panel", style: [.titled]))
+                    CATransaction.flush()
                     held.waiting.wait()
                 }
             case .modalBlocked:

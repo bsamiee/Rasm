@@ -13,7 +13,7 @@ utils:
             - matches: derivable-mutation
     empty-value:
         kind: call_expression
-        regex: '^(\[[^\]]*\]|(Array|ContiguousArray|Set|Dictionary|String|Data)(<[^()]*>)?)\([\t-\r ]*\)$'
+        regex: '^(\[[^\]]*\]|((Swift(\.|::))?(Array|ContiguousArray|Set|Dictionary|String)|(Foundation(\.|::))?Data)(<[^()]*>)?)\([\t-\r ]*\)$'
     derivable-mutation:
         kind: call_expression
         has:

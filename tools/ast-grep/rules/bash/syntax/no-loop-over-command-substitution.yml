@@ -12,30 +12,32 @@ utils:
     line-output-substitution:
         kind: command_substitution
         all:
-            - follows: {regex: '^in$'}
-            - precedes: {any: [{regex: '^;$'}, {kind: do_group}]}
             - not: {has: {nthChild: 2}}
             - any:
                 - has: {matches: line-tool}
                 - has: {kind: pipeline, not: {has: {pattern: $_, not: {matches: line-tool}}}}
                 - has: {kind: command, has: {field: name, regex: '^(ls|find)$'}}
+            - follows: {regex: '^in$'}
+            - precedes: {any: [{regex: '^;$'}, {kind: do_group}]}
 rule:
-    kind: command_substitution, simple_expansion, expansion
-    pattern: $SUB
-    any:
-        - kind: command_substitution
-        - has: {kind: variable_name}
-    inside: {kind: for_statement}
-    follows: {stopBy: end, regex: '^in$'}
-    not:
-        any:
-            - matches: line-output-substitution
-            - inside:
+    kind: for_statement
+    all:
+        - has:
+            kind: command_substitution, simple_expansion, expansion
+            pattern: $SUB
+            any:
+                - kind: command_substitution
+                - has: {kind: variable_name}
+            not: {matches: line-output-substitution}
+        - not:
+            inside:
                 kind: program
                 stopBy: end
                 has:
                     kind: comment
                     regex: '^#![\t-\r ]*([^\t-\r ]*/)?(?:env[\t-\r ]+(?:-S[\t-\r ]*|--split-string(?:=|[\t-\r ]+))?)?(sh|dash|ash)([\t-\r ]|$)'
                     not: {follows: {stopBy: end, pattern: $_}}
+labels:
+    SUB: {style: primary, message: Word-split and glob-expanded loop data}
 message: '`for` word-splits and glob-expands `$SUB`'
 note: 'Hold the items in an array, `mapfile -t <items> < <(<command>)` for command output, and loop over `"${<items>[@]}"`'

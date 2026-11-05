@@ -50,7 +50,7 @@ def checked(settings: Settings) -> Sequence[Error | str]:
         case Result(tag="ok", ok=result):
             compiled = perf_counter() - started
             types.BUILTINS_MYPY_FILE = result.files["builtins"]
-            visitor = RewriteVisitor(checks, settings, default_check=defaults.configured(result.types.get) if options.export_types else defaults.check)
+            visitor = RewriteVisitor(checks, settings, default_check=defaults.configured(result.types.get))
             noqa = re.compile(r"# noqa(: [^'\"]*)?$")
             errors: list[Error | str] = []
             timings: dict[str, int] = {}

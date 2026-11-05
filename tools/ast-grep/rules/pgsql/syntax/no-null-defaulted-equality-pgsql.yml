@@ -11,7 +11,7 @@ utils:
         matches: pgsql-wrapper
         has: {stopBy: {not: {matches: pgsql-wrapper}}, matches: coalesced}
 rule:
-    kind: a_expr, a_expr_prec
+    kind: a_expr
     pattern: $COMPARISON
     all:
         - has: {field: operator, regex: '^(=|<>|!=)$'}

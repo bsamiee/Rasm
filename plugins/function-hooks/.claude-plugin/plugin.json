@@ -1,6 +1,7 @@
 {
     "name": "function-hooks",
-    "description": "Policies that rewrite or refuse agent tool calls before they run",
+    "version": "1.0.0",
+    "description": "Hooks that correct agent commands and track app instances each session owns",
     "author": {
         "name": "Bardia Samiee"
     }

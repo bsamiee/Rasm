@@ -1,24 +1,29 @@
 {
     "generators": {
-        "deployment-target": {
-            "factory": "./deployment-target.ts#deploymentTarget",
+        "build-settings": {
+            "factory": "./build-settings.ts#buildSettings",
             "schema": "./schema.json",
-            "description": "Writes Package.swift macOS deployment target into Xcode.xcconfig and .swiftlint.yml"
+            "description": "Writes Xcode.xcconfig, .swiftlint.yml, Directory.Build.props, mise.toml and pixi platform rows from root package.json and Package.swift"
         },
         "barrels": {
             "factory": "./barrels.ts#barrels",
             "schema": "./schema.json",
             "description": "Writes each library's index.ts barrels from its package.json exports and modules"
         },
+        "catalog-mirror": {
+            "factory": "./catalog-mirror.ts#catalogMirror",
+            "schema": "./schema.json",
+            "description": "Writes every default pnpm catalog key into root devDependencies"
+        },
+        "rust-analyzer": {
+            "factory": "./rust-analyzer.ts#rustAnalyzer",
+            "schema": "./schema.json",
+            "description": "Writes .vscode/settings.json rust-analyzer check and rustc rows from the argus .lsp.json rust row"
+        },
         "hosting-bindings": {
             "factory": "./hosting-bindings.ts#hostingBindings",
             "schema": "./schema.json",
             "description": "Writes each .openai/hosting.json d1 and r2 members from its cloudflare.config.ts bindings"
-        },
-        "menu-bar-glyph": {
-            "factory": "./menu-bar-glyph.ts#menuBarGlyph",
-            "schema": "./schema.json",
-            "description": "Writes each app's menu bar imageset SVG from its AppIcon.icon layer master at the menu bar point size"
         }
     }
 }

@@ -27,8 +27,8 @@ utils:
 rule:
     kind: call_expression
     all:
+        - has: {field: function, kind: field_expression, all: [{has: {field: field, all: [{regex: '^send_(modify|if_modified)$'}, {pattern: $METHOD}]}}, {has: {field: value, pattern: $SENDER}}]}
         - inside: {kind: expression_statement}
-        - has: {field: function, kind: field_expression, all: [{has: {field: value, pattern: $SENDER}}, {has: {field: field, regex: '^send_(modify|if_modified)$', pattern: $METHOD}}]}
         - any:
             - all:
                 - has: {field: function, has: {field: field, regex: '^send_modify$'}}

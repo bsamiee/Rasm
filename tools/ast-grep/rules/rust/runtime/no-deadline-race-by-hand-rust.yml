@@ -68,8 +68,7 @@ rule:
                     - not: {has: {stopBy: end, kind: identifier, regex: '^reset$'}}
         - kind: call_expression
           all:
-            - has: {field: arguments, all: [{has: {nthChild: 2}}, {not: {has: {nthChild: 3}}}]}
-            - has: {field: function, pattern: $RACE, matches: futures-select}
+            - has: {field: function, all: [{matches: futures-select}, {pattern: $RACE}]}
             - has: {field: arguments, has: {matches: deadline-operand}}
 message: '`$RACE$BANG` races one future against `$SLEEP` by hand'
 note: 'Await `tokio::time::timeout(<duration>, <future>)`, or `timeout_at(<deadline>, <future>)` for a deadline, and match `Err(Elapsed)`'

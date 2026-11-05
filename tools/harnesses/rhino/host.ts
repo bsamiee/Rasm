@@ -83,7 +83,7 @@ const built = Effect.fn('built')(function* (row: Installation, rows: readonly In
     return { ...held, version: yield* Effect.fromOption(row.build, () => HarnessError.unavailable(row.name)('Launch Services reports no build')) } satisfies Installed;
 });
 const installed = Effect.gen(function* () {
-    const rows = yield* (yield* Automation).installed({ prefix: PREFIX });
+    const rows = yield* Automation.use((automation) => automation.installed({ prefix: PREFIX }));
     return yield* Effect.forEach(
         rows.filter(({ identifier }) => HOST.test(identifier)),
         (row) => built(row, rows),

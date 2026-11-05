@@ -6,11 +6,11 @@ rule:
     pattern: $SITE
     any:
         - all:
-            - has: {nthChild: 1, regex: '^((Darwin|Glibc|Musl)(\.|::))?fcntl$'}
+            - has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '^((Darwin|Glibc|Musl)(\.|::))?fcntl$'}
             - has: {stopBy: end, kind: simple_identifier, regex: '^F_SETFD$'}
             - has: {stopBy: end, kind: simple_identifier, regex: '^FD_CLOEXEC$'}
         - all:
-            - has: {nthChild: 1, regex: '^(((System|SystemPackage)(\.|::))?FileDescriptor)?\.pipe$'}
+            - has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '^(((System|SystemPackage)(\.|::))?FileDescriptor)?\.pipe$'}
             - has: {kind: call_suffix, regex: '^\(\)$'}
 message: '`$SITE` creates a descriptor without close-on-exec or sets the flag afterward'
 note: 'Pass `options: .closeOnExec` to `FileDescriptor.open` or `.pipe`, and a descriptor a child inherits to `posix_spawn_file_actions_addinherit_np`'

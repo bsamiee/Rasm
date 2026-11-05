@@ -74,64 +74,98 @@ internal static class RuiFiles {
         IO.lift(() => Toolbars.Declared(plugIn).Traverse(declared =>
             from file in Toolbars.Identity(plugIn)
             let text = Translations.Read(plugIn)
-            let toolbars = toSeq(Reached(declared.Toolbars + declared.Groups.Bind(static toolbarGroup => toSeq(toolbarGroup.Tabs))).DistinctBy(toolbar => BarId(file, toolbar)))
-            let placements = Toolbars.Placements(file, declared)
-            let macros = toSeq(Macros(toolbars.Bind(static toolbar => toolbar.Groups) + declared.Extensions.Bind(static menu => menu.Groups) + declared.Menus.Bind(static menu => menu.Groups))
-                .DistinctBy(held => MacroId(file, held.Macro)))
-            let arts = toSeq((toolbars.Choose(static toolbar => toolbar.Face.Icon) + macros.Choose(static held => held.Face.Icon)
-                + toolbars.Bind(static toolbar => toolbar.Groups.Flatten()).Choose(static command => command.Face.Icon)).DistinctBy(static art => art.Id, StringComparer.Ordinal))
-            from elements in (arts.Traverse(art => Icon(file, plugIn, art)).As(), toolbars.Traverse(toolbar => Bar(file, text, toolbar)).As())
-                .Apply(static (icons, bars) => (Icons: icons, Bars: bars)).As()
+            let groups = declared.Groups + declared.Groups.Bind(static toolbarGroup => toSeq(toolbarGroup.Tabs)).Choose(static tab => tab.Sidebar)
+            let toolbars = Reached(declared.Toolbars + groups.Bind(static toolbarGroup => toSeq(toolbarGroup.Tabs)).Map(static tab => tab.Toolbar))
+                .Map(toolbar => toolbar with { Face = toolbar.Face with { Icon = toolbar.Face.Icon | IconResource.PlugIn(plugIn) } })
+            let macros = Macros(toolbars.Bind(static toolbar => toolbar.Groups) + declared.Extensions.Bind(static menu => menu.Groups) + declared.Menus.Bind(static menu => menu.Groups))
+            let arts = toSeq((toolbars.Choose(static toolbar => toolbar.Face.Icon) + macros.Choose(static held => held.Face.Icon)).DistinctBy(art => IconId(file, art)))
+            from elements in (
+                    arts.Traverse(art => Icon(file, plugIn, art)).As(),
+                    toolbars.Traverse(toolbar => Bar(file, text, toolbar)).As().Bind(Unique),
+                    Unique(groups.Map(toolbarGroup => Group(file, text, toolbarGroup))),
+                    Unique(macros.Map(held => MacroItem(file, text, held.Macro, held.Face))))
+                .Apply(static (icons, bars, tabbed, scripts) => (Icons: icons, Bars: bars, Groups: tabbed, Macros: scripts)).As()
             select new XDocument(new XElement("RhinoUI",
                 new XAttribute("major_ver", 5), new XAttribute("minor_ver", 0), new XAttribute("guid", file), new XAttribute("plug_in_guid", file),
                 new XAttribute("localize", bool.FalseString), new XAttribute("default_language_id", Translations.English),
-                new XElement("extend_rhino_menus", placements.Filter(static placed => placed.Path.IsSome).IsEmpty ? Seq<XElement>() : Seq(Extended(file, text, plugIn, placements))),
-                new XElement("menus", placements.Filter(static placed => placed.Path.IsNone).Map(placed => Menu(file, text, placed))),
-                new XElement("tool_bar_groups", declared.Groups.Map(toolbarGroup => Group(file, text, toolbarGroup))),
+                new XElement("extend_rhino_menus", declared.Extensions.IsEmpty ? Seq<XElement>() : Seq(Extended(file, text, declared.Extensions))),
+                new XElement("menus", declared.Menus.Map(menu => Menu(file, text, menu))),
+                new XElement("tool_bar_groups", elements.Groups),
                 new XElement("tool_bars", elements.Bars),
-                new XElement("macros", macros.Map(held => MacroItem(file, text, held.Macro, held.Face))),
+                new XElement("macros", elements.Macros),
                 new XElement("icons", elements.Icons),
                 new XElement("bitmaps")))).As());
 
+    private static Fin<Seq<XElement>> Unique(Seq<XElement> elements) =>
+        toSeq(elements.GroupBy(static element => element.Attribute("guid")?.Value, StringComparer.Ordinal)).Traverse(static held => held.Distinct<XElement>(XNode.EqualityComparer).ToArray() switch {
+            [var only] => (Fin<XElement>)only,
+            var repeated => new RhinoFault(repeated[0].Elements("text").First().Value, RhinoReason.Repeated),
+        }).As();
+
     // --- [REACH]
     private static Seq<ToolbarRow> Reached(Seq<ToolbarRow> toolbars) =>
-        toolbars.Bind(static toolbar => toSeq(SuperEnumerable.TraverseDepthFirst(toolbar, static held => held.Groups.Flatten().Bind(static command => command.Switch(
-            run: static _ => Seq<ToolbarRow>(),
-            choice: static choice => Seq(Flyout(choice)),
-            menu: static menu => Seq(new ToolbarRow(menu.Face, menu.Groups)))))));
+        toolbars.Bind(static toolbar => toSeq(SuperEnumerable.TraverseDepthFirst(toolbar, static held => held.Groups.Flatten().Choose(Linked))));
 
-    private static ToolbarRow Flyout(Command<Macro>.Choice choice) => new(choice.Face, Seq(choice.Members.Map(static member => (Command<Macro>)member)));
+    private static Option<ToolbarRow> Linked(Command<Macro> command) =>
+        command.Switch(
+            run: static _ => Option<ToolbarRow>.None,
+            choice: static choice => Some(new ToolbarRow(choice.Face with { Display = None }, Seq(choice.Members.Map(static member => (Command<Macro>)member)))),
+            menu: static menu => Some(new ToolbarRow(menu.Face with { Display = None }, menu.Groups)));
 
-    private static Seq<(Macro Macro, CommandFace Face)> Macros(Seq<Seq<Command<Macro>>> groups) =>
+    private static (CommandFace Face, Option<Command<Macro>.Run> Pressed) Press(Command<Macro> command) =>
+        command.Switch(
+            run: static run => (run.Face, Some(run)),
+            choice: static choice => (choice.Face, choice.Members.Head),
+            menu: static menu => (menu.Face, menu.Primary));
+
+    private static Seq<(Option<Macro> Macro, CommandFace Face)> Macros(Seq<Seq<Command<Macro>>> groups) =>
         toSeq(groups.Flatten().SelectMany(static root => SuperEnumerable.TraverseDepthFirst(root, static command => command.Switch(
             run: static _ => Seq<Command<Macro>>(),
             choice: static choice => choice.Members.Map<Command<Macro>>(static member => member),
-            menu: static menu => menu.Primary.ToSeq().Map<Command<Macro>>(static primary => primary) + menu.Groups.Flatten())))
-            .OfType<Command<Macro>.Run>().SelectMany(static run => (run.Invoke, run.Face).Cons(run.Alternate.Map(static alternate => (alternate.Invoke, alternate.Face)).ToSeq())));
+            menu: static menu => menu.Groups.Flatten())))
+            .SelectMany(static command => Press(command) switch {
+                var (face, pressed) => (pressed.Map(static run => run.Invoke), face).Cons(pressed.Bind(static run => run.Alternate).Map(static alternate => (Some(alternate.Invoke), alternate.Face)).ToSeq()),
+            }));
 
     // --- [IDENTIFIERS]
     private static Guid BarId(Guid file, ToolbarRow toolbar) => Uuid.NewNameBased(file, $"tool_bar/{toolbar.Face.Name}");
 
-    private static Guid MacroId(Guid file, Macro macro) => Uuid.NewNameBased(file, $"macro_item/{macro.Text}");
+    private static Guid GroupId(Guid file, ToolbarGroupRow group) => Uuid.NewNameBased(file, $"tool_bar_group/{group.Face.Name}");
 
-    private static Guid IconId(Guid file, string resource) => Uuid.NewNameBased(file, $"icon/{resource}");
+    private static Guid MacroId(Guid file, Option<Macro> macro, CommandFace face) => Uuid.NewNameBased(file, $"macro_item/{face.Name}/{macro.Map(static held => held.Text).IfNone("")}");
+
+    private static Guid IconId(Guid file, IconResource art) => Uuid.NewNameBased(file, $"icon/{art.Assembly.GetName().Name}/{art.Id}");
 
     // --- [ELEMENTS]
     private static Seq<XAttribute> Platforms(RuiPlatforms platforms) =>
         platforms == RuiPlatforms.Both ? Seq<XAttribute>() : Seq(new XAttribute("platforms", platforms.Key));
 
+    private static RuiPlatforms Within(RuiPlatforms scope, RuiPlatforms own) => scope == RuiPlatforms.Both ? own : scope;
+
     private static XElement Group(Guid file, Translations text, ToolbarGroupRow group) =>
-        Uuid.NewNameBased(file, $"tool_bar_group/{group.Face.Name}") switch {
-            var id => new("tool_bar_group",
+        (Id: GroupId(file, group), Tabs: toSeq(group.Tabs)) switch {
+            var (id, tabs) => new("tool_bar_group",
                 new XAttribute("guid", id),
-                Platforms(group.Platforms),
+                new XAttribute("dock_bar_guid64", Uuid.NewNameBased(id, "dock_bar")),
+                Platforms(group.Face.Platforms),
+                new XAttribute("hide_single_tab", group.HideSingleTab),
+                group.Selected.Bind(selected => tabs.Map(static (tab, index) => (tab, index)).Find(held => BarId(file, held.tab.Toolbar) == BarId(file, selected)))
+                    .Map(held => new XAttribute("active_tool_bar_group", Toolbars.ItemId(id, "tool_bar_group_item", held.index))).ToSeq(),
                 text.Of("text", group.Face.Caption),
                 new XElement("dock_bar_info",
-                    new XAttribute("visible", group.Visible), new XAttribute("floating", group.Floating), new XAttribute("dock_location", group.Dock)),
-                toSeq(group.Tabs).Map((tab, index) => new XElement("tool_bar_group_item",
+                    new XAttribute("visible", group.Visible),
+                    new XAttribute("floating", group.Placement is ToolbarPlacement.Floating),
+                    new XAttribute("dock_location_u", group.Placement.Side.Site),
+                    new XAttribute("dock_location", group.Placement.Side.Key),
+                    (group.Placement as ToolbarPlacement.Floating)?.Bounds.ToSeq().Bind(static bounds => Seq(
+                        new XAttribute("float_point", string.Create(CultureInfo.InvariantCulture, $"{bounds.X},{bounds.Y}")),
+                        new XAttribute("float_size", string.Create(CultureInfo.InvariantCulture, $"{bounds.Width},{bounds.Height}"))))),
+                tabs.Map((tab, index) => new XElement("tool_bar_group_item",
                     new XAttribute("guid", Toolbars.ItemId(id, "tool_bar_group_item", index)),
-                    text.Of("text", tab.Face.Caption),
-                    new XElement("tool_bar_id", BarId(file, tab))))),
+                    Platforms(tab.Toolbar.Face.Platforms),
+                    text.Of("text", tab.Toolbar.Face.Caption),
+                    tab.Sidebar.Map(sidebar => new XElement("sidebar", GroupId(file, sidebar))).ToSeq(),
+                    new XElement("tool_bar_id", BarId(file, tab.Toolbar))))),
         };
 
     private static Fin<XElement> Bar(Guid file, Translations text, ToolbarRow toolbar) =>
@@ -140,65 +174,54 @@ internal static class RuiFiles {
         select new XElement("tool_bar",
             new XAttribute("guid", id),
             Bitmap(file, toolbar.Face).ToSeq(),
-            Platforms(toolbar.Platforms),
-            toolbar.Display == ButtonFace.Icon ? Seq<XAttribute>() : Seq(new XAttribute("item_display_style", toolbar.Display.Key)),
+            Platforms(toolbar.Face.Platforms),
+            toolbar.Face.Display.Map(static display => new XAttribute("item_display_style", display.Key)).ToSeq(),
             text.Of("text", toolbar.Face.Caption),
             groups.Intersperse(Seq(Spacer)).Flatten().Map((item, index) => item(Toolbars.ItemId(id, "tool_bar_item", index))));
 
     private static Fin<Func<Guid, XElement>> Button(Guid file, Translations text, Command<Macro> command) =>
-        command.Switch(
-            (File: file, Text: text),
-            run: static (at, run) => Pressed(at.File, at.Text, run.Face, run.Enabled, Some(run), None),
-            choice: static (at, choice) => Pressed(at.File, at.Text, choice.Face, choice.Enabled, choice.Members.Head, Some(Flyout(choice))),
-            menu: static (at, menu) => Pressed(at.File, at.Text, menu.Face, menu.Enabled, menu.Primary, Some(new ToolbarRow(menu.Face, menu.Groups))));
-
-    private static Fin<Func<Guid, XElement>> Pressed(Guid file, Translations text, CommandFace face, Option<RowRule> gate, Option<Command<Macro>.Run> pressed, Option<ToolbarRow> link) =>
-        pressed.Filter(run => gate.IsNone && run.Enabled.IsNone && run.Marked.IsNone)
-            .ToFin(new RhinoFault(face.Name, RhinoReason.Unsupported))
-            .Map(run => (Func<Guid, XElement>)(id => new XElement("tool_bar_item",
-                new XAttribute("guid", id),
-                Bitmap(file, face).ToSeq(),
-                text.Of("text", face.Caption),
-                new XElement("left_macro_id", MacroId(file, run.Invoke)),
-                run.Alternate.Map(alternate => new XElement("right_macro_id", MacroId(file, alternate.Invoke))).ToSeq(),
-                link.Map(bar => new XElement("link", new XAttribute("style", "normal"), BarId(file, bar))).ToSeq())));
+        Press(command) switch {
+            var (face, pressed) => RhinoFault.Unless(command.Enabled.IsNone && pressed.ForAll(static run => run.Enabled.IsNone && run.Marked.IsNone), RhinoReason.Unsupported, face.Name)
+                .Map(_ => (Func<Guid, XElement>)(id => new XElement("tool_bar_item",
+                    new XAttribute("guid", id),
+                    face.Presented.ToSeq().Bind(static display => Seq(new XAttribute("button_display_mode", display.Key), new XAttribute("display_style_from_parent", bool.FalseString))),
+                    Platforms(face.Platforms),
+                    text.Of("text", face.Caption),
+                    new XElement("left_macro_id", MacroId(file, pressed.Map(static run => run.Invoke), face)),
+                    pressed.Bind(static run => run.Alternate).Map(alternate => new XElement("right_macro_id", MacroId(file, alternate.Invoke, alternate.Face))).ToSeq(),
+                    Linked(command).Map(bar => new XElement("link", new XAttribute("style", command is Command<Macro>.Choice ? "float_to_top" : "normal"), BarId(file, bar))).ToSeq()))),
+        };
 
     private static XElement Spacer(Guid id) => new("tool_bar_item", new XAttribute("guid", id), new XAttribute("button_style", "spacer"));
 
-    private static XElement MacroItem(Guid file, Translations text, Macro macro, CommandFace face) =>
+    private static XElement MacroItem(Guid file, Translations text, Option<Macro> macro, CommandFace face) =>
         new("macro_item",
-            new XAttribute("guid", MacroId(file, macro)),
+            new XAttribute("guid", MacroId(file, macro, face)),
             Bitmap(file, face).ToSeq(),
+            Platforms(face.Platforms),
             text.Of("text", face.Caption),
             face.Help.Map(help => text.Of("tooltip", help)).ToSeq(),
             face.Help.Map(help => text.Of("help_text", help)).ToSeq(),
             text.Of("button_text", face.Caption),
             text.Of("menu_text", face.Caption),
-            new XElement("script", macro.Text));
+            macro.Map(static held => new XElement("script", held.Text)).ToSeq());
 
     // --- [ICONS]
     private static Option<XAttribute> Bitmap(Guid file, CommandFace face) =>
-        face.Icon.Map(art => new XAttribute("bitmap_id", IconId(file, art.Id)));
+        face.Icon.Map(art => new XAttribute("bitmap_id", IconId(file, art)));
 
-    private static Fin<XElement> Icon(Guid file, Assembly plugIn, IconResource art) =>
-        Internal.ScanEmbeddedResources(art.Assembly).GetValueOrDefault(art.Id) switch {
-            var variants =>
-                from light in Svg(art.Assembly, (plugIn.GetCustomAttribute<TargetPlatformAttribute>()?.PlatformName.StartsWith("Windows", StringComparison.OrdinalIgnoreCase) is true ? variants?.WindowsResourceName : variants?.MacResourceName) ?? art.Id)
-                    .ToFin(new RhinoFault(art.Id, RhinoReason.Missing))
-                select new XElement("icon",
-                    new XAttribute("guid", IconId(file, art.Id)),
-                    new XAttribute("name", art.Id),
-                    new XElement("light", Optional(variants?.DarkModeResourceName).Bind(dark => Svg(art.Assembly, dark)).Map(dark => Inked(light, dark)).IfNone(light))),
-        };
-
-    private static XElement Inked(XElement light, XElement dark) =>
-        new(light.Name,
-            light.Attributes(),
-            Seq("fill", "stroke").Choose(ink => Optional(dark.Attribute(ink)?.Value)
-                .Filter(value => !string.Equals(value, light.Attribute(ink)?.Value, StringComparison.OrdinalIgnoreCase))
-                .Map(value => new XAttribute($"{ink}-dark", value))),
-            light.Nodes().OfType<XText>(),
-            light.Elements().Zip(dark.Elements(), Inked));
+    private static Fin<XElement> Icon(Guid file, Assembly plugIn, IconResource art) {
+        Dictionary<string, ResourceFile> scanned = Internal.ScanEmbeddedResources(art.Assembly);
+        string drawn = (plugIn.GetCustomAttribute<TargetPlatformAttribute>()?.PlatformName.StartsWith("Windows", StringComparison.OrdinalIgnoreCase) is true
+            ? scanned.GetValueOrDefault(art.Id)?.WindowsResourceName
+            : scanned.GetValueOrDefault(art.Id)?.MacResourceName) ?? art.Id;
+        return from light in Svg(art.Assembly, drawn).ToFin(new RhinoFault(art.Id, RhinoReason.Missing))
+               select new XElement("icon",
+                   new XAttribute("guid", IconId(file, art)),
+                   new XAttribute("name", art.Id),
+                   new XElement("light", light),
+                   Optional(scanned.GetValueOrDefault(drawn)?.DarkModeResourceName).Bind(dark => Svg(art.Assembly, dark)).Map(static dark => new XElement("dark", dark)).ToSeq());
+    }
 
     private static Option<XElement> Svg(Assembly assembly, string key) {
         using Stream? stream = assembly.GetManifestResourceStream(key);
@@ -206,34 +229,32 @@ internal static class RuiFiles {
     }
 
     // --- [MENUS]
-    private static XElement Extended(Guid file, Translations text, Assembly plugIn, Seq<MenuPlacement> placed) =>
-        new("menu", new XAttribute("guid", Toolbars.MenuId(file, None)),
-            text.Of("text", Optional(plugIn.GetCustomAttribute<AssemblyTitleAttribute>()).Map(static title => title.Title).IfNone(() => plugIn.GetName().Name ?? "")),
-            from placement in placed
-            from path in placement.Path.ToSeq()
-            from entry in placement.Entries
-            select Entry(file, text, entry, Seq(new XAttribute("ExtendRhinoMenu", path)) + Platforms(placement.Platforms)));
+    private static XElement Extended(Guid file, Translations text, Seq<MenuExtension> extensions) =>
+        new("menu", new XAttribute("guid", Toolbars.ExtensionsId(file)),
+            from extension in extensions
+            from entry in Toolbars.Entries(file, extension)
+            select Entry(file, text, entry, Some(extension.Text), extension.Platforms));
 
-    private static XElement Menu(Guid file, Translations text, MenuPlacement placement) =>
-        new("menu", new XAttribute("guid", placement.Menu), Platforms(placement.Platforms), text.Of("text", placement.Face.Caption),
-            placement.Entries.Map(entry => Entry(file, text, entry, [])));
+    private static XElement Menu(Guid file, Translations text, MenuRow menu) =>
+        new("menu", new XAttribute("guid", Toolbars.MenuId(file, menu)), Platforms(menu.Face.Platforms), text.Of("text", menu.Face.Caption),
+            Toolbars.Entries(file, menu).Map(entry => Entry(file, text, entry, None, RuiPlatforms.Both)));
 
-    private static XElement Entry(Guid file, Translations text, MenuEntry entry, Seq<XAttribute> placed) {
-        XElement root = Shell(entry, placed);
-        SuperEnumerable.Consume(SuperEnumerable.TraverseDepthFirst((Entry: entry, Element: root), current =>
-            (current.Entry is MenuEntry.Submenu menu ? menu.Children : []).Map(child => {
-                XElement element = Shell(child, []);
-                current.Element.Add(element);
-                return (Entry: child, Element: element);
-            })));
-        return root;
-
-        XElement Shell(MenuEntry row, Seq<XAttribute> attributes) => row.Switch(
-            (File: file, Text: text, Placed: attributes),
-            separator: static (at, separator) => new XElement("menu_item", new XAttribute("guid", separator.Id), at.Placed, new XAttribute("item_type", "separator")),
-            item: static (at, item) => new XElement("menu_item", new XAttribute("guid", item.Id), at.Placed, at.Text.Of("text", item.Run.Face.Caption), new XElement("macro_id", MacroId(at.File, item.Run.Invoke))),
-            submenu: static (at, submenu) => new XElement("menu", new XAttribute("guid", submenu.Id), at.Placed, at.Text.Of("text", submenu.Menu.Face.Caption)));
-    }
+    private static XElement Entry(Guid file, Translations text, MenuEntry entry, Option<string> path, RuiPlatforms scope) =>
+        entry.Switch(
+            (File: file, Text: text, Placed: path.Map(static held => new XAttribute("ExtendRhinoMenu", held)).ToSeq(), Scope: scope),
+            separator: static (at, separator) => new XElement("menu_item", new XAttribute("guid", separator.Id), at.Placed, Platforms(at.Scope), new XAttribute("item_type", "separator")),
+            item: static (at, item) => new XElement("menu_item",
+                new XAttribute("guid", item.Id),
+                at.Placed,
+                Platforms(Within(at.Scope, item.Run.Face.Platforms)),
+                at.Text.Of("text", item.Run.Face.Caption),
+                new XElement("macro_id", MacroId(at.File, item.Run.Invoke, item.Run.Face))),
+            submenu: static (at, submenu) => new XElement("menu",
+                new XAttribute("guid", submenu.Id),
+                at.Placed,
+                Platforms(Within(at.Scope, submenu.Menu.Face.Platforms)),
+                at.Text.Of("text", submenu.Menu.Face.Caption),
+                submenu.Children.Map(child => Entry(at.File, at.Text, child, None, RuiPlatforms.Both))));
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

@@ -22,6 +22,6 @@ rule:
                     - has: {field: function, pattern: $F, matches: callee}
         - has: {kind: import_statement, has: {kind: import_clause, has: {stopBy: end, kind: identifier, pattern: $ROOT}}}
 message: 'Module forwards to `$F`'
-note: 'Make the package entry the build input and delete the module'
+note: 'Point build input at the package entry and delete forwarding module'
 labels:
     CALL: {style: primary, message: Forwarded call}

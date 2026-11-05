@@ -16,7 +16,7 @@ utils:
             - has:
                 field: arguments
                 all:
-                    - has: {kind: argument, nthChild: 1, matches: csharp-positional-argument, has: {pattern: $BOUND}}
+                    - has: {kind: argument, nthChild: 1, matches: csharp-positional-argument, has: {pattern: {context: 'class $BOUND;', selector: identifier}}}
                     - not: {has: {kind: argument, nthChild: 2}}
     some-value:
         any:
@@ -26,7 +26,7 @@ utils:
     bound-pattern:
         kind: recursive_pattern
         all:
-            - has: {field: name, pattern: $BOUND}
+            - has: {field: name, pattern: {context: 'class $BOUND;', selector: identifier}}
             - has: {kind: property_pattern_clause, not: {has: {pattern: $_}}}
             - not: {has: {field: type, pattern: $_}}
             - not: {has: {kind: positional_pattern_clause}}

@@ -7,46 +7,25 @@ utils:
 rule:
     kind: 'use_declaration, extern_crate_declaration'
     pattern: $DECLARATION
-    not: {has: {kind: visibility_modifier}}
     any:
+        - has: {field: argument, kind: use_as_clause, has: {field: path, any: [{has: {field: path, matches: argument}}, {matches: argument}]}}
         - has: {field: argument, has: {field: path, matches: argument}}
-        - has: {field: argument, kind: use_wildcard, has: {kind: 'crate, identifier, metavariable, scoped_identifier, self, super', matches: argument}}
+        - has: {field: argument, kind: use_wildcard, has: {matches: argument}}
         - has: {field: argument, matches: argument}
         - has: {field: name, matches: argument}
-rewriters: [{id: comment, rule: {kind: 'line_comment, block_comment'}, fix: ''}]
+rewriters:
+    - {id: annotation, rule: {kind: 'attribute_item, line_comment, block_comment'}, fix: ''}
 transform:
-    NAME: {replace: {source: $ARGUMENT, replace: '\p{Pattern_White_Space}+', by: ' '}}
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [comment]}}
+    PATH: {rewrite: {source: $ARGUMENT, rewriters: [annotation]}}
+    FOLDED: {replace: {source: $PATH, replace: '\p{Pattern_White_Space}+', by: ' '}}
+    NAME: {replace: {source: $FOLDED, replace: '[ ,;]+$|,? ([)\]}>])|([(\[{]) ', by: $1$2}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [annotation]}}
     LINE: {replace: {source: $HEADER, replace: '\p{Pattern_White_Space}+', by: ' '}}
-    SIGNATURE: {substring: {source: $LINE, endChar: -1}}
+    SIGNATURE: {replace: {source: $LINE, replace: '[ ,;]+$|,? ([)\]}>])|([(\[{]) ', by: $1$2}}
 name: $NAME
 signature: $SIGNATURE
 isImport: true
-isExported: false
----
-id: rust-reexport
-language: rustlang
-role: item
-symbolType: module
-utils:
-    argument: {pattern: $ARGUMENT}
-rule:
-    kind: 'use_declaration, extern_crate_declaration'
-    pattern: $DECLARATION
-    has: {kind: visibility_modifier}
-    any:
-        - has: {field: argument, matches: argument}
-        - has: {field: name, matches: argument}
-rewriters: [{id: comment, rule: {kind: 'line_comment, block_comment'}, fix: ''}]
-transform:
-    NAME: {replace: {source: $ARGUMENT, replace: '\p{Pattern_White_Space}+', by: ' '}}
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [comment]}}
-    LINE: {replace: {source: $HEADER, replace: '\p{Pattern_White_Space}+', by: ' '}}
-    SIGNATURE: {substring: {source: $LINE, endChar: -1}}
-name: $NAME
-signature: $SIGNATURE
-isImport: true
-isExported: true
+isExported: {has: {kind: visibility_modifier, regex: '^pub$'}}
 ---
 id: rust-mod
 language: rustlang
@@ -55,37 +34,61 @@ symbolType: module
 rule:
     kind: mod_item
     pattern: $DECLARATION
-    has: {field: name, pattern: $NAME}
+    has: {field: name, pattern: {context: 'mod $NAME;', selector: identifier}}
 rewriters:
-    - {id: mod-body, rule: {kind: declaration_list, inside: {kind: mod_item, field: body}}, fix: ' '}
-    - {id: comment, rule: {kind: 'line_comment, block_comment'}, fix: ''}
+    - {id: body, rule: {kind: declaration_list, inside: {kind: mod_item, field: body}}, fix: ' '}
+    - {id: annotation, rule: {kind: 'attribute_item, line_comment, block_comment'}, fix: ''}
 transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [mod-body, comment]}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, annotation]}}
     LINE: {replace: {source: $HEADER, replace: '\p{Pattern_White_Space}+', by: ' '}}
     SIGNATURE: {substring: {source: $LINE, endChar: -1}}
 name: $NAME
 signature: $SIGNATURE
-isExported: {has: {kind: visibility_modifier}}
+isExported: {has: {kind: visibility_modifier, regex: '^pub$'}}
 ---
 id: rust-function
 language: rustlang
 role: item
 symbolType: function
+utils:
+    nesting: {has: {field: body, has: {stopBy: end, kind: 'ERROR, const_item, delegation_item, enum_item, extern_crate_declaration, foreign_mod_item, function_item, impl_item, macro_definition, mod_item, static_item, struct_item, trait_alias, trait_item, type_item, union_item, use_declaration'}}}
 rule:
     kind: 'function_item, function_signature_item, delegation_item'
     pattern: $DECLARATION
-    not: {inside: {kind: declaration_list, inside: {kind: 'impl_item, trait_item'}}}
     has: {field: name, pattern: $NAME}
+    all: [{not: {inside: {kind: declaration_list, inside: {kind: 'impl_item, trait_item'}}}}, {not: {matches: nesting}}]
 rewriters:
-    - {id: function-body, rule: {kind: block, inside: {kind: 'function_item, delegation_item', field: body}}, fix: ' '}
-    - {id: comment, rule: {kind: 'line_comment, block_comment'}, fix: ''}
+    - {id: body, rule: {any: [{kind: function_contract}, {kind: block, inside: {kind: 'function_item, delegation_item', field: body}}]}, fix: ' '}
+    - {id: annotation, rule: {kind: 'attribute_item, line_comment, block_comment'}, fix: ''}
 transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [function-body, comment]}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, annotation]}}
     LINE: {replace: {source: $HEADER, replace: '\p{Pattern_White_Space}+', by: ' '}}
-    SIGNATURE: {substring: {source: $LINE, endChar: -1}}
+    SIGNATURE: {replace: {source: $LINE, replace: '[ ,;]+$|,? ([)\]>])|([(\[<]) ', by: $1$2}}
 name: $NAME
 signature: $SIGNATURE
-isExported: {has: {kind: visibility_modifier}}
+isExported: {has: {kind: visibility_modifier, regex: '^pub$'}}
+---
+id: rust-function-owner
+language: rustlang
+role: item
+symbolType: function
+utils:
+    nesting: {has: {field: body, has: {stopBy: end, kind: 'ERROR, const_item, delegation_item, enum_item, extern_crate_declaration, foreign_mod_item, function_item, impl_item, macro_definition, mod_item, static_item, struct_item, trait_alias, trait_item, type_item, union_item, use_declaration'}}}
+rule:
+    kind: 'function_item, function_signature_item, delegation_item'
+    pattern: $DECLARATION
+    has: {field: name, pattern: $NAME}
+    all: [{not: {inside: {kind: declaration_list, inside: {kind: 'impl_item, trait_item'}}}}, {matches: nesting}]
+rewriters:
+    - {id: body, rule: {any: [{kind: function_contract}, {kind: block, inside: {kind: 'function_item, delegation_item', field: body}}]}, fix: ' '}
+    - {id: annotation, rule: {kind: 'attribute_item, line_comment, block_comment'}, fix: ''}
+transform:
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, annotation]}}
+    LINE: {replace: {source: $HEADER, replace: '\p{Pattern_White_Space}+', by: ' '}}
+    SIGNATURE: {replace: {source: $LINE, replace: '[ ,;]+$|,? ([)\]>])|([(\[<]) ', by: $1$2}}
+name: $NAME
+signature: $SIGNATURE
+isExported: {has: {kind: visibility_modifier, regex: '^pub$'}}
 ---
 id: rust-method
 language: rustlang
@@ -93,83 +96,103 @@ role: item
 symbolType: method
 utils:
     owner: {pattern: $OWNER}
-    owner-head:
-        any:
-            - {kind: 'type_identifier, primitive_type', matches: owner}
-            - {kind: scoped_type_identifier, has: {field: name, matches: owner}}
-            - {kind: generic_type, has: {field: type, matches: owner-head}}
-            - {kind: 'reference_type, pointer_type', has: {field: type, matches: owner-head}}
-            - {kind: 'dynamic_type, abstract_type', has: {field: trait, matches: owner-head}}
+    owner-head: {any: [{kind: 'type_identifier, primitive_type', matches: owner}, {kind: scoped_type_identifier, has: {field: name, matches: owner}}, {kind: 'generic_type, reference_type, pointer_type', has: {field: type, matches: owner-head}}, {kind: 'dynamic_type, abstract_type', has: {field: trait, matches: owner-head}}, {matches: owner}]}
+    trait-name: {pattern: $TRAIT}
+    trait-head: {any: [{kind: type_identifier, matches: trait-name}, {kind: scoped_type_identifier, has: {field: name, matches: trait-name}}, {kind: generic_type, has: {field: type, matches: trait-head}}, {matches: trait-name}]}
+    traited: {pattern: $TRAITED}
+    traited-head: {any: [{kind: 'type_identifier, primitive_type', matches: traited}, {kind: scoped_type_identifier, has: {field: name, matches: traited}}, {kind: 'generic_type, reference_type, pointer_type', has: {field: type, matches: traited-head}}, {kind: 'dynamic_type, abstract_type', has: {field: trait, matches: traited-head}}, {matches: traited}]}
+    owned: {inside: {kind: declaration_list, inside: {any: [{kind: trait_item, has: {field: name, matches: owner}}, {kind: impl_item, all: [{has: {field: trait, matches: trait-head}}, {has: {field: type, matches: traited-head}}]}, {kind: impl_item, has: {field: type, matches: owner-head}}]}}}
+    implied: {inside: {kind: declaration_list, inside: {any: [{kind: trait_item}, {kind: impl_item, has: {field: trait, kind: 'type_identifier, scoped_type_identifier, generic_type'}}]}}}
+    nesting: {has: {field: body, has: {stopBy: end, kind: 'ERROR, const_item, delegation_item, enum_item, extern_crate_declaration, foreign_mod_item, function_item, impl_item, macro_definition, mod_item, static_item, struct_item, trait_alias, trait_item, type_item, union_item, use_declaration'}}}
 rule:
     kind: 'function_item, function_signature_item, delegation_item'
     pattern: $DECLARATION
-    inside: {kind: declaration_list, inside: {any: [{kind: trait_item, has: {field: name, matches: owner}}, {kind: impl_item, has: {field: type, any: [{matches: owner-head}, {matches: owner}]}}]}}
     has: {field: name, pattern: $NAME}
+    all: [{matches: owned}, {not: {matches: nesting}}]
 rewriters:
-    - {id: function-body, rule: {kind: block, inside: {kind: 'function_item, delegation_item', field: body}}, fix: ' '}
-    - {id: comment, rule: {kind: 'line_comment, block_comment'}, fix: ''}
+    - {id: body, rule: {any: [{kind: function_contract}, {kind: block, inside: {kind: 'function_item, delegation_item', field: body}}]}, fix: ' '}
+    - {id: annotation, rule: {kind: 'attribute_item, line_comment, block_comment'}, fix: ''}
 transform:
-    OWNED: {replace: {source: $OWNER, replace: '\p{Pattern_White_Space}+', by: ' '}}
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [function-body, comment]}}
+    OWNED: {replace: {source: $OWNER, replace: '\p{Pattern_White_Space}+', by: " "}}
+    QUALIFIER: {replace: {source: $OWNED, replace: '^(?s)(.+)$', by: '$1::'}}
+    TYPE_LINE: {replace: {source: $TRAITED, replace: '\p{Pattern_White_Space}+', by: ' '}}
+    OPEN: {replace: {source: $TYPE_LINE, replace: '^(?s)(.+)$', by: '<$1'}}
+    CLOSE: {replace: {source: $TRAIT, replace: '^(?s)(.+)$', by: ' as $1>::'}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, annotation]}}
     LINE: {replace: {source: $HEADER, replace: '\p{Pattern_White_Space}+', by: ' '}}
-    SIGNATURE: {substring: {source: $LINE, endChar: -1}}
-name: $OWNED::$NAME
+    SIGNATURE: {replace: {source: $LINE, replace: '[ ,;]+$|,? ([)\]>])|([(\[<]) ', by: $1$2}}
+name: $QUALIFIER$OPEN$CLOSE$NAME
 signature: $SIGNATURE
-isExported:
-    any:
-        - has: {kind: visibility_modifier}
-        - inside: {kind: declaration_list, inside: {any: [{kind: trait_item}, {kind: impl_item, has: {field: trait, kind: 'type_identifier, scoped_type_identifier, generic_type'}}]}}
+isExported: {any: [{has: {kind: visibility_modifier, regex: '^pub$'}}, {matches: implied}]}
+---
+id: rust-method-owner
+language: rustlang
+role: item
+symbolType: method
+utils:
+    owner: {pattern: $OWNER}
+    owner-head: {any: [{kind: 'type_identifier, primitive_type', matches: owner}, {kind: scoped_type_identifier, has: {field: name, matches: owner}}, {kind: 'generic_type, reference_type, pointer_type', has: {field: type, matches: owner-head}}, {kind: 'dynamic_type, abstract_type', has: {field: trait, matches: owner-head}}, {matches: owner}]}
+    trait-name: {pattern: $TRAIT}
+    trait-head: {any: [{kind: type_identifier, matches: trait-name}, {kind: scoped_type_identifier, has: {field: name, matches: trait-name}}, {kind: generic_type, has: {field: type, matches: trait-head}}, {matches: trait-name}]}
+    traited: {pattern: $TRAITED}
+    traited-head: {any: [{kind: 'type_identifier, primitive_type', matches: traited}, {kind: scoped_type_identifier, has: {field: name, matches: traited}}, {kind: 'generic_type, reference_type, pointer_type', has: {field: type, matches: traited-head}}, {kind: 'dynamic_type, abstract_type', has: {field: trait, matches: traited-head}}, {matches: traited}]}
+    owned: {inside: {kind: declaration_list, inside: {any: [{kind: trait_item, has: {field: name, matches: owner}}, {kind: impl_item, all: [{has: {field: trait, matches: trait-head}}, {has: {field: type, matches: traited-head}}]}, {kind: impl_item, has: {field: type, matches: owner-head}}]}}}
+    implied: {inside: {kind: declaration_list, inside: {any: [{kind: trait_item}, {kind: impl_item, has: {field: trait, kind: 'type_identifier, scoped_type_identifier, generic_type'}}]}}}
+    nesting: {has: {field: body, has: {stopBy: end, kind: 'ERROR, const_item, delegation_item, enum_item, extern_crate_declaration, foreign_mod_item, function_item, impl_item, macro_definition, mod_item, static_item, struct_item, trait_alias, trait_item, type_item, union_item, use_declaration'}}}
+rule:
+    kind: 'function_item, function_signature_item, delegation_item'
+    pattern: $DECLARATION
+    has: {field: name, pattern: $NAME}
+    all: [{matches: owned}, {matches: nesting}]
+rewriters:
+    - {id: body, rule: {any: [{kind: function_contract}, {kind: block, inside: {kind: 'function_item, delegation_item', field: body}}]}, fix: ' '}
+    - {id: annotation, rule: {kind: 'attribute_item, line_comment, block_comment'}, fix: ''}
+transform:
+    OWNED: {replace: {source: $OWNER, replace: '\p{Pattern_White_Space}+', by: " "}}
+    QUALIFIER: {replace: {source: $OWNED, replace: '^(?s)(.+)$', by: '$1::'}}
+    TYPE_LINE: {replace: {source: $TRAITED, replace: '\p{Pattern_White_Space}+', by: ' '}}
+    OPEN: {replace: {source: $TYPE_LINE, replace: '^(?s)(.+)$', by: '<$1'}}
+    CLOSE: {replace: {source: $TRAIT, replace: '^(?s)(.+)$', by: ' as $1>::'}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, annotation]}}
+    LINE: {replace: {source: $HEADER, replace: '\p{Pattern_White_Space}+', by: ' '}}
+    SIGNATURE: {replace: {source: $LINE, replace: '[ ,;]+$|,? ([)\]>])|([(\[<]) ', by: $1$2}}
+name: $QUALIFIER$OPEN$CLOSE$NAME
+signature: $SIGNATURE
+isExported: {any: [{has: {kind: visibility_modifier, regex: '^pub$'}}, {matches: implied}]}
 ---
 id: rust-type
 language: rustlang
 role: item
 symbolType: struct
+utils:
+    owner: {pattern: $OWNER}
+    owner-head: {any: [{kind: 'type_identifier, primitive_type', matches: owner}, {kind: scoped_type_identifier, has: {field: name, matches: owner}}, {kind: 'generic_type, reference_type, pointer_type', has: {field: type, matches: owner-head}}, {kind: 'dynamic_type, abstract_type', has: {field: trait, matches: owner-head}}, {matches: owner}]}
+    trait-name: {pattern: $TRAIT}
+    trait-head: {any: [{kind: type_identifier, matches: trait-name}, {kind: scoped_type_identifier, has: {field: name, matches: trait-name}}, {kind: generic_type, has: {field: type, matches: trait-head}}, {matches: trait-name}]}
+    traited: {pattern: $TRAITED}
+    traited-head: {any: [{kind: 'type_identifier, primitive_type', matches: traited}, {kind: scoped_type_identifier, has: {field: name, matches: traited}}, {kind: 'generic_type, reference_type, pointer_type', has: {field: type, matches: traited-head}}, {kind: 'dynamic_type, abstract_type', has: {field: trait, matches: traited-head}}, {matches: traited}]}
+    owned: {inside: {kind: declaration_list, inside: {any: [{kind: trait_item, has: {field: name, matches: owner}}, {kind: impl_item, all: [{has: {field: trait, matches: trait-head}}, {has: {field: type, matches: traited-head}}]}, {kind: impl_item, has: {field: type, matches: owner-head}}]}}}
+    implied: {inside: {kind: declaration_list, inside: {any: [{kind: trait_item}, {kind: impl_item, has: {field: trait, kind: 'type_identifier, scoped_type_identifier, generic_type'}}]}}}
 rule:
     kind: 'struct_item, union_item, type_item, associated_type'
     pattern: $DECLARATION
-    has: {field: name, pattern: $NAME}
-    not: {inside: {kind: declaration_list, inside: {kind: 'impl_item, trait_item'}}}
+    has: {field: name, pattern: {context: 'struct $NAME;', selector: type_identifier}}
+    any: [{matches: owned}, {kind: 'struct_item, union_item, type_item, associated_type'}]
 rewriters:
-    - {id: struct-body, rule: {kind: field_declaration_list, inside: {kind: 'struct_item, union_item', field: body}}, fix: ' '}
-    - {id: comment, rule: {kind: 'line_comment, block_comment'}, fix: ''}
+    - {id: body, rule: {kind: field_declaration_list, inside: {kind: 'struct_item, union_item', field: body}}, fix: ' '}
+    - {id: annotation, rule: {kind: 'attribute_item, line_comment, block_comment'}, fix: ''}
 transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [struct-body, comment]}}
+    OWNED: {replace: {source: $OWNER, replace: '\p{Pattern_White_Space}+', by: " "}}
+    QUALIFIER: {replace: {source: $OWNED, replace: '^(?s)(.+)$', by: '$1::'}}
+    TYPE_LINE: {replace: {source: $TRAITED, replace: '\p{Pattern_White_Space}+', by: ' '}}
+    OPEN: {replace: {source: $TYPE_LINE, replace: '^(?s)(.+)$', by: '<$1'}}
+    CLOSE: {replace: {source: $TRAIT, replace: '^(?s)(.+)$', by: ' as $1>::'}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, annotation]}}
     LINE: {replace: {source: $HEADER, replace: '\p{Pattern_White_Space}+', by: ' '}}
-    SIGNATURE: {substring: {source: $LINE, endChar: -1}}
-name: $NAME
+    SIGNATURE: {replace: {source: $LINE, replace: '[ ,;]+$|,? ([)\]>])|([(\[<]) ', by: $1$2}}
+name: $QUALIFIER$OPEN$CLOSE$NAME
 signature: $SIGNATURE
-isExported: {has: {kind: visibility_modifier}}
----
-id: rust-associated-type
-language: rustlang
-role: item
-symbolType: typeParameter
-utils:
-    owner: {pattern: $OWNER}
-    owner-head:
-        any:
-            - {kind: 'type_identifier, primitive_type', matches: owner}
-            - {kind: scoped_type_identifier, has: {field: name, matches: owner}}
-            - {kind: generic_type, has: {field: type, matches: owner-head}}
-            - {kind: 'reference_type, pointer_type', has: {field: type, matches: owner-head}}
-            - {kind: 'dynamic_type, abstract_type', has: {field: trait, matches: owner-head}}
-rule:
-    kind: 'associated_type, type_item'
-    pattern: $DECLARATION
-    has: {field: name, pattern: $NAME}
-    inside: {kind: declaration_list, inside: {any: [{kind: trait_item, has: {field: name, matches: owner}}, {kind: impl_item, has: {field: type, any: [{matches: owner-head}, {matches: owner}]}}]}}
-rewriters: [{id: comment, rule: {kind: 'line_comment, block_comment'}, fix: ''}]
-transform:
-    OWNED: {replace: {source: $OWNER, replace: '\p{Pattern_White_Space}+', by: ' '}}
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [comment]}}
-    LINE: {replace: {source: $HEADER, replace: '\p{Pattern_White_Space}+', by: ' '}}
-    SIGNATURE: {substring: {source: $LINE, endChar: -1}}
-name: $OWNED::$NAME
-signature: $SIGNATURE
-isExported:
-    any:
-        - has: {kind: visibility_modifier}
-        - inside: {kind: declaration_list, inside: {any: [{kind: trait_item}, {kind: impl_item, has: {field: trait, kind: 'type_identifier, scoped_type_identifier, generic_type'}}]}}
+isExported: {any: [{has: {kind: visibility_modifier, regex: '^pub$'}}, {matches: implied}]}
 ---
 id: rust-enum
 language: rustlang
@@ -178,17 +201,17 @@ symbolType: enum
 rule:
     kind: enum_item
     pattern: $DECLARATION
-    has: {field: name, pattern: $NAME}
+    has: {field: name, pattern: {context: 'struct $NAME;', selector: type_identifier}}
 rewriters:
-    - {id: enum-body, rule: {kind: enum_variant_list, inside: {kind: enum_item, field: body}}, fix: ' '}
-    - {id: comment, rule: {kind: 'line_comment, block_comment'}, fix: ''}
+    - {id: body, rule: {kind: enum_variant_list, inside: {kind: enum_item, field: body}}, fix: ' '}
+    - {id: annotation, rule: {kind: 'attribute_item, line_comment, block_comment'}, fix: ''}
 transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [enum-body, comment]}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, annotation]}}
     LINE: {replace: {source: $HEADER, replace: '\p{Pattern_White_Space}+', by: ' '}}
-    SIGNATURE: {substring: {source: $LINE, endChar: -1}}
+    SIGNATURE: {replace: {source: $LINE, replace: '[ ,;]+$|,? ([)\]>])|([(\[<]) ', by: $1$2}}
 name: $NAME
 signature: $SIGNATURE
-isExported: {has: {kind: visibility_modifier}}
+isExported: {has: {kind: visibility_modifier, regex: '^pub$'}}
 ---
 id: rust-trait
 language: rustlang
@@ -197,44 +220,38 @@ symbolType: interface
 rule:
     kind: 'trait_item, trait_alias'
     pattern: $DECLARATION
-    has: {field: name, pattern: $NAME}
+    has: {field: name, pattern: {context: 'struct $NAME;', selector: type_identifier}}
 rewriters:
-    - {id: trait-body, rule: {kind: declaration_list, inside: {kind: trait_item, field: body}}, fix: ' '}
-    - {id: comment, rule: {kind: 'line_comment, block_comment'}, fix: ''}
+    - {id: body, rule: {kind: declaration_list, inside: {kind: trait_item, field: body}}, fix: ' '}
+    - {id: annotation, rule: {kind: 'attribute_item, line_comment, block_comment'}, fix: ''}
 transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [trait-body, comment]}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, annotation]}}
     LINE: {replace: {source: $HEADER, replace: '\p{Pattern_White_Space}+', by: ' '}}
-    SIGNATURE: {substring: {source: $LINE, endChar: -1}}
+    SIGNATURE: {replace: {source: $LINE, replace: '[ ,;]+$|,? ([)\]>])|([(\[<]) ', by: $1$2}}
 name: $NAME
 signature: $SIGNATURE
-isExported: {has: {kind: visibility_modifier}}
+isExported: {has: {kind: visibility_modifier, regex: '^pub$'}}
 ---
 id: rust-impl
 language: rustlang
 role: item
 symbolType: object
 utils:
-    target: {pattern: $TARGET}
-    target-head:
-        any:
-            - {kind: 'type_identifier, primitive_type', matches: target}
-            - {kind: scoped_type_identifier, has: {field: name, matches: target}}
-            - {kind: generic_type, has: {field: type, matches: target-head}}
-            - {kind: 'reference_type, pointer_type', has: {field: type, matches: target-head}}
-            - {kind: 'dynamic_type, abstract_type', has: {field: trait, matches: target-head}}
+    target-name: {pattern: $TARGET}
+    target: {any: [{kind: 'type_identifier, primitive_type', matches: target-name}, {kind: scoped_type_identifier, has: {field: name, matches: target-name}}, {kind: 'generic_type, reference_type, pointer_type', has: {field: type, matches: target}}, {kind: 'dynamic_type, abstract_type', has: {field: trait, matches: target}}, {matches: target-name}]}
 rule:
     kind: impl_item
     pattern: $DECLARATION
     not: {has: {field: trait, kind: 'type_identifier, scoped_type_identifier, generic_type'}}
-    has: {field: type, any: [{matches: target-head}, {matches: target}]}
+    has: {field: type, matches: target}
 rewriters:
-    - {id: impl-body, rule: {kind: declaration_list, inside: {kind: impl_item, field: body}}, fix: ' '}
-    - {id: comment, rule: {kind: 'line_comment, block_comment'}, fix: ''}
+    - {id: body, rule: {kind: declaration_list, inside: {kind: impl_item, field: body}}, fix: ' '}
+    - {id: annotation, rule: {kind: 'attribute_item, line_comment, block_comment'}, fix: ''}
 transform:
     NAME: {replace: {source: $TARGET, replace: '\p{Pattern_White_Space}+', by: ' '}}
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [impl-body, comment]}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, annotation]}}
     LINE: {replace: {source: $HEADER, replace: '\p{Pattern_White_Space}+', by: ' '}}
-    SIGNATURE: {substring: {source: $LINE, endChar: -1}}
+    SIGNATURE: {replace: {source: $LINE, replace: '[ ,;]+$|,? ([)\]>])|([(\[<]) ', by: $1$2}}
 name: $NAME
 signature: $SIGNATURE
 isExported: false
@@ -244,35 +261,26 @@ language: rustlang
 role: item
 symbolType: object
 utils:
-    implemented: {pattern: $IMPLEMENTED}
-    trait-head:
-        any:
-            - {kind: type_identifier, matches: implemented}
-            - {kind: scoped_type_identifier, has: {field: name, matches: implemented}}
-            - {kind: generic_type, has: {field: type, matches: trait-head}}
-    target: {pattern: $TARGET}
-    target-head:
-        any:
-            - {kind: 'type_identifier, primitive_type', matches: target}
-            - {kind: scoped_type_identifier, has: {field: name, matches: target}}
-            - {kind: generic_type, has: {field: type, matches: target-head}}
-            - {kind: 'reference_type, pointer_type', has: {field: type, matches: target-head}}
-            - {kind: 'dynamic_type, abstract_type', has: {field: trait, matches: target-head}}
+    implemented-name: {pattern: $IMPLEMENTED}
+    implemented: {any: [{kind: type_identifier, matches: implemented-name}, {kind: scoped_type_identifier, has: {field: name, matches: implemented-name}}, {kind: generic_type, has: {field: type, matches: implemented}}, {matches: implemented-name}]}
+    target-name: {pattern: $TARGET}
+    target: {any: [{kind: 'type_identifier, primitive_type', matches: target-name}, {kind: scoped_type_identifier, has: {field: name, matches: target-name}}, {kind: 'generic_type, reference_type, pointer_type', has: {field: type, matches: target}}, {kind: 'dynamic_type, abstract_type', has: {field: trait, matches: target}}, {matches: target-name}]}
 rule:
     kind: impl_item
     pattern: $DECLARATION
     all:
-        - has: {field: trait, any: [{matches: trait-head}, {matches: implemented}]}
-        - has: {field: type, any: [{matches: target-head}, {matches: target}]}
+        - has: {field: trait, matches: implemented}
+        - has: {field: type, matches: target}
+        - any: [{has: {regex: '^!$', not: {kind: never_type}, pattern: $$NEGATION}}, {kind: impl_item}]
 rewriters:
-    - {id: impl-body, rule: {kind: declaration_list, inside: {kind: impl_item, field: body}}, fix: ' '}
-    - {id: comment, rule: {kind: 'line_comment, block_comment'}, fix: ''}
+    - {id: body, rule: {kind: declaration_list, inside: {kind: impl_item, field: body}}, fix: ' '}
+    - {id: annotation, rule: {kind: 'attribute_item, line_comment, block_comment'}, fix: ''}
 transform:
     NAME: {replace: {source: $TARGET, replace: '\p{Pattern_White_Space}+', by: ' '}}
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [impl-body, comment]}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, annotation]}}
     LINE: {replace: {source: $HEADER, replace: '\p{Pattern_White_Space}+', by: ' '}}
-    SIGNATURE: {substring: {source: $LINE, endChar: -1}}
-name: $IMPLEMENTED for $NAME
+    SIGNATURE: {replace: {source: $LINE, replace: '[ ,;]+$|,? ([)\]>])|([(\[<]) ', by: $1$2}}
+name: <$NAME as $NEGATION$IMPLEMENTED>
 signature: $SIGNATURE
 isExported: true
 ---
@@ -282,73 +290,53 @@ role: item
 symbolType: constant
 utils:
     owner: {pattern: $OWNER}
-    owner-head:
-        any:
-            - {kind: 'type_identifier, primitive_type', matches: owner}
-            - {kind: scoped_type_identifier, has: {field: name, matches: owner}}
-            - {kind: generic_type, has: {field: type, matches: owner-head}}
-            - {kind: 'reference_type, pointer_type', has: {field: type, matches: owner-head}}
-            - {kind: 'dynamic_type, abstract_type', has: {field: trait, matches: owner-head}}
+    owner-head: {any: [{kind: 'type_identifier, primitive_type', matches: owner}, {kind: scoped_type_identifier, has: {field: name, matches: owner}}, {kind: 'generic_type, reference_type, pointer_type', has: {field: type, matches: owner-head}}, {kind: 'dynamic_type, abstract_type', has: {field: trait, matches: owner-head}}, {matches: owner}]}
+    trait-name: {pattern: $TRAIT}
+    trait-head: {any: [{kind: type_identifier, matches: trait-name}, {kind: scoped_type_identifier, has: {field: name, matches: trait-name}}, {kind: generic_type, has: {field: type, matches: trait-head}}, {matches: trait-name}]}
+    traited: {pattern: $TRAITED}
+    traited-head: {any: [{kind: 'type_identifier, primitive_type', matches: traited}, {kind: scoped_type_identifier, has: {field: name, matches: traited}}, {kind: 'generic_type, reference_type, pointer_type', has: {field: type, matches: traited-head}}, {kind: 'dynamic_type, abstract_type', has: {field: trait, matches: traited-head}}, {matches: traited}]}
+    owned: {inside: {kind: declaration_list, inside: {any: [{kind: trait_item, has: {field: name, matches: owner}}, {kind: impl_item, all: [{has: {field: trait, matches: trait-head}}, {has: {field: type, matches: traited-head}}]}, {kind: impl_item, has: {field: type, matches: owner-head}}]}}}
+    implied: {inside: {kind: declaration_list, inside: {any: [{kind: trait_item}, {kind: impl_item, has: {field: trait, kind: 'type_identifier, scoped_type_identifier, generic_type'}}]}}}
 rule:
     kind: const_item
     pattern: $DECLARATION
-    has: {field: name, pattern: $NAME}
-    any:
-        - inside: {kind: declaration_list, inside: {any: [{kind: trait_item, has: {field: name, matches: owner}}, {kind: impl_item, has: {field: type, any: [{matches: owner-head}, {matches: owner}]}}]}}
-        - kind: const_item
+    has: {field: name, pattern: {context: 'mod $NAME;', selector: identifier}}
+    any: [{matches: owned}, {kind: const_item}]
 rewriters:
-    - id: value
-      rule:
-        kind: 'array_expression, assignment_expression, async_block, attributed_expression, await_expression, become_expression, binary_expression, block, boolean_literal, break_expression, builtin_expression, call_expression, char_literal, closure_expression, compound_assignment_expr, const_block, continue_expression, field_expression, float_literal, for_expression, gen_block, generic_function, identifier, if_expression, index_expression, integer_literal, loop_expression, macro_invocation, match_expression, metavariable, move_expression, parenthesized_expression, range_expression, raw_string_literal, reference_expression, return_expression, scoped_identifier, self, string_literal, struct_expression, try_block, try_expression, tuple_expression, type_cast_expression, unary_expression, unit_expression, unsafe_block, while_expression, yeet_expression, yield_expression'
-        inside: {kind: const_item, field: value}
-      fix: {template: ' ', expandStart: {regex: '^=$'}, expandEnd: {regex: '^;$'}}
-    - {id: comment, rule: {kind: 'line_comment, block_comment'}, fix: ''}
+    - {id: value, rule: {pattern: $VALUE, inside: {kind: 'const_item, static_item, let_declaration, field_declaration, enum_variant', field: value}}, fix: {template: ' ', expandStart: {regex: '^=$', stopBy: end}, expandEnd: {regex: '^;$'}}}
+    - {id: annotation, rule: {kind: 'attribute_item, line_comment, block_comment', not: {follows: {regex: '^=$', stopBy: {not: {kind: 'line_comment, block_comment'}}}}}, fix: ''}
 transform:
-    QUALIFIED: {replace: {source: $OWNER, replace: '$', by: '::'}}
-    QUALIFIER: {replace: {source: $QUALIFIED, replace: '\p{Pattern_White_Space}+', by: ' '}}
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [value, comment]}}
+    OWNED: {replace: {source: $OWNER, replace: '\p{Pattern_White_Space}+', by: " "}}
+    QUALIFIER: {replace: {source: $OWNED, replace: '^(?s)(.+)$', by: '$1::'}}
+    TYPE_LINE: {replace: {source: $TRAITED, replace: '\p{Pattern_White_Space}+', by: ' '}}
+    OPEN: {replace: {source: $TYPE_LINE, replace: '^(?s)(.+)$', by: '<$1'}}
+    CLOSE: {replace: {source: $TRAIT, replace: '^(?s)(.+)$', by: ' as $1>::'}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [value, annotation]}}
     LINE: {replace: {source: $HEADER, replace: '\p{Pattern_White_Space}+', by: ' '}}
-    SIGNATURE: {substring: {source: $LINE, endChar: -1}}
-name: $QUALIFIER$NAME
+    SIGNATURE: {replace: {source: $LINE, replace: '[ ,;]+$|,? ([)\]>])|([(\[<]) ', by: $1$2}}
+name: $QUALIFIER$OPEN$CLOSE$NAME
 signature: $SIGNATURE
-isExported:
-    any:
-        - has: {kind: visibility_modifier}
-        - inside: {kind: declaration_list, inside: {any: [{kind: trait_item}, {kind: impl_item, has: {field: trait, kind: 'type_identifier, scoped_type_identifier, generic_type'}}]}}
+isExported: {not: {has: {field: name, regex: '^_$'}}, any: [{has: {kind: visibility_modifier, regex: '^pub$'}}, {matches: implied}]}
 ---
 id: rust-static
 language: rustlang
 role: item
 symbolType: variable
 rule:
-    kind: static_item
     pattern: $DECLARATION
-    has: {field: name, pattern: $NAME}
+    any:
+        - {kind: static_item, has: {field: name, pattern: {context: 'mod $NAME;', selector: identifier}}}
+        - {kind: let_declaration, has: {field: pattern, pattern: $NAME}, inside: {kind: 'source_file, ERROR, declaration_list'}}
 rewriters:
-    - id: value
-      rule:
-        kind: 'array_expression, assignment_expression, async_block, attributed_expression, await_expression, become_expression, binary_expression, block, boolean_literal, break_expression, builtin_expression, call_expression, char_literal, closure_expression, compound_assignment_expr, const_block, continue_expression, field_expression, float_literal, for_expression, gen_block, generic_function, identifier, if_expression, index_expression, integer_literal, loop_expression, macro_invocation, match_expression, metavariable, move_expression, parenthesized_expression, range_expression, raw_string_literal, reference_expression, return_expression, scoped_identifier, self, string_literal, struct_expression, try_block, try_expression, tuple_expression, type_cast_expression, unary_expression, unit_expression, unsafe_block, while_expression, yeet_expression, yield_expression'
-        inside: {kind: static_item, field: value}
-      fix: {template: ' ', expandStart: {regex: '^=$'}, expandEnd: {regex: '^;$'}}
-    - {id: comment, rule: {kind: 'line_comment, block_comment'}, fix: ''}
+    - {id: value, rule: {pattern: $VALUE, inside: {kind: 'const_item, static_item, let_declaration, field_declaration, enum_variant', field: value}}, fix: {template: ' ', expandStart: {regex: '^=$', stopBy: end}, expandEnd: {regex: '^;$'}}}
+    - {id: annotation, rule: {kind: 'attribute_item, line_comment, block_comment', not: {follows: {regex: '^=$', stopBy: {not: {kind: 'line_comment, block_comment'}}}}}, fix: ''}
 transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [value, comment]}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [value, annotation]}}
     LINE: {replace: {source: $HEADER, replace: '\p{Pattern_White_Space}+', by: ' '}}
-    SIGNATURE: {substring: {source: $LINE, endChar: -1}}
+    SIGNATURE: {replace: {source: $LINE, replace: '[ ,;]+$|,? ([)\]>])|([(\[<]) ', by: $1$2}}
 name: $NAME
 signature: $SIGNATURE
-isExported: {has: {kind: visibility_modifier}}
----
-id: rust-let
-language: rustlang
-role: item
-symbolType: variable
-rule:
-    kind: let_declaration
-    has: {field: pattern, pattern: $NAME}
-    inside: {kind: 'source_file, declaration_list'}
-name: $NAME
-isExported: false
+isExported: {has: {kind: visibility_modifier, regex: '^pub$'}}
 ---
 id: rust-macro
 language: rustlang
@@ -356,22 +344,20 @@ role: item
 symbolType: function
 rule:
     kind: macro_definition
-    has: {field: name, pattern: $NAME}
+    has: {field: name, pattern: {context: 'mod $NAME;', selector: identifier}}
     all:
         - has: {regex: '^(?:macro_rules!|macro)$', pattern: $$KEYWORD}
         - any: [{has: {kind: visibility_modifier, pattern: $VISIBILITY}}, {kind: macro_definition}]
-rewriters: [{id: spaced, rule: {kind: visibility_modifier, pattern: $V}, fix: '$V '}]
+rewriters:
+    - {id: spaced, rule: {kind: visibility_modifier, pattern: $V}, fix: '$V '}
 transform:
     PREFIX: {rewrite: {source: $VISIBILITY, rewriters: [spaced]}}
 name: $NAME
 signature: $PREFIX$KEYWORD $NAME
 isExported:
     any:
-        - has: {kind: visibility_modifier}
-        - follows:
-            kind: attribute_item
-            has: {kind: attribute, has: {kind: identifier, regex: '^macro_export$'}}
-            stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}
+        - {has: {kind: visibility_modifier, regex: '^pub$'}}
+        - follows: {kind: attribute_item, has: {kind: attribute, has: {kind: identifier, regex: '^macro_export$'}}, stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}}
 ---
 id: rust-macro-invocation
 language: rustlang
@@ -380,7 +366,7 @@ symbolType: event
 rule:
     kind: macro_invocation
     has: {field: macro, pattern: $NAME}
-    inside: {any: [{kind: 'source_file, declaration_list'}, {kind: expression_statement, inside: {kind: source_file}}]}
+    inside: {any: [{kind: 'source_file, ERROR, declaration_list'}, {kind: expression_statement, inside: {kind: 'source_file, ERROR'}}]}
 name: $NAME
 signature: $NAME!
 isExported: false
@@ -394,690 +380,700 @@ rule:
     pattern: $DECLARATION
     has: {kind: extern_modifier, pattern: $NAME}
 rewriters:
-    - {id: foreign-body, rule: {kind: declaration_list, inside: {kind: foreign_mod_item, field: body}}, fix: ' '}
-    - {id: comment, rule: {kind: 'line_comment, block_comment'}, fix: ''}
+    - {id: body, rule: {kind: declaration_list, inside: {kind: foreign_mod_item, field: body}}, fix: ' '}
+    - {id: annotation, rule: {kind: 'attribute_item, line_comment, block_comment'}, fix: ''}
 transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [foreign-body, comment]}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, annotation]}}
     LINE: {replace: {source: $HEADER, replace: '\p{Pattern_White_Space}+', by: ' '}}
     SIGNATURE: {substring: {source: $LINE, endChar: -1}}
 name: $NAME
 signature: $SIGNATURE
 isExported: false
 ---
-id: rust-nested-function
+id: rust-error
 language: rustlang
-role: member
-parentRuleIds: [rust-mod, rust-function, rust-method, rust-impl, rust-trait-impl, rust-trait]
-symbolType: function
-utils:
-    scoped:
-        inside:
-            kind: 'declaration_list, block'
-            not: {inside: {kind: 'impl_item, trait_item, foreign_mod_item'}}
-            inside: {stopBy: end, kind: 'mod_item, function_item', any: [{has: {field: name, pattern: $OWNER}, inside: {kind: 'declaration_list, block'}}, {kind: 'mod_item, function_item'}]}
-    named: {pattern: $NAME}
-    declared: {pattern: $DECLARATION, any: [{matches: scoped}, {inside: {kind: declaration_list, inside: {kind: foreign_mod_item, matches: scoped}}}]}
-    exposed: {not: {inside: {stopBy: end, any: [{kind: block}, {kind: mod_item, inside: {kind: 'declaration_list, block'}}, {kind: trait_item}], not: {has: {kind: visibility_modifier}}}}}
-    visible: {any: [{has: {kind: visibility_modifier}}, {inside: {field: name, has: {kind: visibility_modifier}}}]}
+role: item
+symbolType: 'null'
 rule:
     any:
-        - kind: 'identifier, metavariable'
-          matches: named
-          inside: {kind: function_item, field: name, matches: declared}
-        - kind: 'function_signature_item, delegation_item'
-          matches: declared
-          has: {field: name, matches: named}
+        - {kind: ERROR, not: {has: {stopBy: end, kind: 'associated_type, const_item, delegation_item, enum_item, extern_crate_declaration, foreign_mod_item, function_item, function_signature_item, impl_item, let_declaration, macro_definition, macro_invocation, mod_item, static_item, struct_item, trait_alias, trait_item, type_item, union_item, use_declaration'}}}
+        - {kind: 'identifier, line_comment, block_comment', all: [{inside: {kind: ERROR}}, {nthChild: {position: 1, ofRule: {kind: 'identifier, line_comment, block_comment'}}}]}
+name: ERROR
+signature: ''
+isImport: false
+isExported: false
+---
+id: rust-member-function
+language: rustlang
+role: member
+parentRuleIds: [rust-mod, rust-method-owner, rust-trait, rust-impl, rust-trait-impl, rust-foreign-block]
+symbolType: function
+utils:
+    declared: {inside: {kind: 'declaration_list, block', not: {inside: {kind: 'impl_item, trait_item'}}}}
+    enclosing: {any: [{inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item', inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item'}, any: [{has: {field: name, any: [{pattern: {context: 'mod $OWNER;', selector: identifier}}, {pattern: {context: 'struct $OWNER;', selector: type_identifier}}]}}, {kind: impl_item, has: {field: type, pattern: $OWNER}}]}}, {kind: 'associated_type, const_item, delegation_item, enum_item, extern_crate_declaration, foreign_mod_item, function_item, function_signature_item, impl_item, let_declaration, macro_definition, macro_invocation, mod_item, static_item, struct_item, trait_alias, trait_item, type_item, union_item, use_declaration'}]}
+    nesting: {has: {field: body, has: {stopBy: end, kind: 'ERROR, const_item, delegation_item, enum_item, extern_crate_declaration, foreign_mod_item, function_item, impl_item, macro_definition, mod_item, static_item, struct_item, trait_alias, trait_item, type_item, union_item, use_declaration'}}}
+    exposed: {not: {inside: {stopBy: end, not: {has: {kind: visibility_modifier, regex: '^pub$'}}, any: [{kind: block}, {kind: 'mod_item, trait_item', inside: {kind: 'declaration_list, block'}}]}}}
+    visible: {any: [{has: {kind: visibility_modifier, regex: '^pub$'}}, {inside: {field: name, has: {kind: visibility_modifier}}}]}
+    above: {inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item', any: [{has: {field: name, any: [{pattern: {context: 'mod $UP;', selector: identifier}}, {pattern: {context: 'struct $UP;', selector: type_identifier}}]}}, {kind: impl_item, has: {field: type, pattern: $UP}}]}}
+    head: {any: [{kind: 'generic_type, reference_type, pointer_type', has: {field: type, matches: head}}, {kind: 'dynamic_type, abstract_type', has: {field: trait, matches: head}}, {kind: scoped_type_identifier, has: {field: name, matches: head}}, {pattern: $PART}]}
+    facet: {any: [{kind: generic_type, has: {field: type, matches: facet}}, {kind: scoped_type_identifier, has: {field: name, matches: facet}}, {pattern: $FACET}]}
+    declaration: {pattern: $DECLARATION}
+    name: {pattern: $NAME}
+rule:
+    any:
+        - {kind: 'function_item, function_signature_item, delegation_item', matches: declaration, all: [{matches: declared}, {not: {matches: nesting}}, {matches: enclosing}], has: {field: name, matches: name}}
+        - {kind: 'identifier, metavariable', matches: name, inside: {kind: 'function_item, delegation_item', field: name, matches: declaration, all: [{matches: declared}, {matches: enclosing}]}}
 rewriters:
-    - {id: function-body, rule: {kind: block, inside: {kind: 'function_item, delegation_item', field: body}}, fix: ' '}
-    - {id: comment, rule: {kind: 'line_comment, block_comment'}, fix: ''}
+    - {id: body, rule: {any: [{kind: function_contract}, {kind: block, inside: {kind: 'function_item, delegation_item', field: body}}]}, fix: ' '}
+    - {id: annotation, rule: {kind: 'attribute_item, line_comment, block_comment'}, fix: ''}
+    - {id: lineage, rule: {any: [{any: [{pattern: {context: 'mod $PART;', selector: identifier}}, {pattern: {context: 'struct $PART;', selector: type_identifier}}], inside: {field: name, kind: 'delegation_item, enum_item, function_item, mod_item, struct_item, trait_item, union_item', matches: above}}, {inside: {field: type, kind: impl_item, not: {has: {field: trait, kind: 'type_identifier, scoped_type_identifier, generic_type'}}, matches: above}, matches: head}]}, transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage, trait-lineage], joinBy: ''}}, PATH: {replace: {source: $PART, replace: '\p{Pattern_White_Space}+', by: ' '}}}, fix: '$ABOVE$PATH::'}
+    - {id: trait-lineage, rule: {inside: {field: type, kind: impl_item, has: {field: trait, matches: facet}, matches: above}, matches: head}, transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage, trait-lineage], joinBy: ''}}, PATH: {replace: {source: $PART, replace: '\p{Pattern_White_Space}+', by: ' '}}}, fix: '$ABOVE<$PATH as $FACET>::'}
 transform:
-    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: '::'}}
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [function-body, comment]}}
+    QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage, trait-lineage], joinBy: ''}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, annotation]}}
     LINE: {replace: {source: $HEADER, replace: '\p{Pattern_White_Space}+', by: ' '}}
-    SIGNATURE: {substring: {source: $LINE, endChar: -1}}
+    SIGNATURE: {replace: {source: $LINE, replace: '[ ,;]+$|,? ([)\]>])|([(\[<]) ', by: $1$2}}
 name: $QUALIFIER$NAME
 signature: $SIGNATURE
 isPublic: {all: [{matches: visible}, {matches: exposed}]}
 ---
-id: rust-nested-method
+id: rust-member-function-nested
 language: rustlang
 role: member
-parentRuleIds: [rust-mod, rust-function, rust-method, rust-impl, rust-trait-impl, rust-trait]
-symbolType: method
+parentRuleIds: [rust-function-owner]
+symbolType: function
 utils:
-    owner: {pattern: $OWNER}
-    owner-head:
-        any:
-            - {kind: 'type_identifier, primitive_type', matches: owner}
-            - {kind: scoped_type_identifier, has: {field: name, matches: owner}}
-            - {kind: generic_type, has: {field: type, matches: owner-head}}
-            - {kind: 'reference_type, pointer_type', has: {field: type, matches: owner-head}}
-            - {kind: 'dynamic_type, abstract_type', has: {field: trait, matches: owner-head}}
-    owned:
-        inside:
-            kind: declaration_list
-            inside:
-                inside: {kind: 'declaration_list, block'}
-                any: [{kind: trait_item, has: {field: name, matches: owner}}, {kind: impl_item, has: {field: type, any: [{matches: owner-head}, {matches: owner}]}}]
-    named: {pattern: $NAME}
-    declared: {pattern: $DECLARATION, matches: owned}
-    exposed: {not: {inside: {stopBy: end, any: [{kind: block}, {kind: mod_item, inside: {kind: 'declaration_list, block'}}, {kind: trait_item}], not: {has: {kind: visibility_modifier}}}}}
-    visible: {any: [{has: {kind: visibility_modifier}}, {inside: {field: name, has: {kind: visibility_modifier}}}]}
-    implied: {inside: {kind: declaration_list, inside: {any: [{kind: trait_item}, {kind: impl_item, has: {field: trait, kind: 'type_identifier, scoped_type_identifier, generic_type'}}]}}}
+    declared: {inside: {kind: 'declaration_list, block', not: {inside: {kind: 'impl_item, trait_item'}}}}
+    enclosing: {any: [{inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item', inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item'}, any: [{has: {field: name, any: [{pattern: {context: 'mod $OWNER;', selector: identifier}}, {pattern: {context: 'struct $OWNER;', selector: type_identifier}}]}}, {kind: impl_item, has: {field: type, pattern: $OWNER}}]}}, {kind: 'associated_type, const_item, delegation_item, enum_item, extern_crate_declaration, foreign_mod_item, function_item, function_signature_item, impl_item, let_declaration, macro_definition, macro_invocation, mod_item, static_item, struct_item, trait_alias, trait_item, type_item, union_item, use_declaration'}]}
+    nesting: {has: {field: body, has: {stopBy: end, kind: 'ERROR, const_item, delegation_item, enum_item, extern_crate_declaration, foreign_mod_item, function_item, impl_item, macro_definition, mod_item, static_item, struct_item, trait_alias, trait_item, type_item, union_item, use_declaration'}}}
+    exposed: {not: {inside: {stopBy: end, not: {has: {kind: visibility_modifier, regex: '^pub$'}}, any: [{kind: block}, {kind: 'mod_item, trait_item', inside: {kind: 'declaration_list, block'}}]}}}
+    visible: {any: [{has: {kind: visibility_modifier, regex: '^pub$'}}, {inside: {field: name, has: {kind: visibility_modifier}}}]}
+    above: {inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item', any: [{has: {field: name, any: [{pattern: {context: 'mod $UP;', selector: identifier}}, {pattern: {context: 'struct $UP;', selector: type_identifier}}]}}, {kind: impl_item, has: {field: type, pattern: $UP}}]}}
+    head: {any: [{kind: 'generic_type, reference_type, pointer_type', has: {field: type, matches: head}}, {kind: 'dynamic_type, abstract_type', has: {field: trait, matches: head}}, {kind: scoped_type_identifier, has: {field: name, matches: head}}, {pattern: $PART}]}
+    facet: {any: [{kind: generic_type, has: {field: type, matches: facet}}, {kind: scoped_type_identifier, has: {field: name, matches: facet}}, {pattern: $FACET}]}
+    declaration: {pattern: $DECLARATION}
+    name: {pattern: $NAME}
 rule:
     any:
-        - kind: 'identifier, metavariable'
-          matches: named
-          inside: {kind: function_item, field: name, matches: declared}
-        - kind: 'function_signature_item, delegation_item'
-          matches: declared
-          has: {field: name, matches: named}
+        - {kind: 'function_item, function_signature_item, delegation_item', matches: declaration, all: [{matches: declared}, {not: {matches: nesting}}, {matches: enclosing}], has: {field: name, matches: name}}
+        - {kind: 'identifier, metavariable', matches: name, inside: {kind: 'function_item, delegation_item', field: name, matches: declaration, all: [{matches: declared}, {matches: enclosing}], inside: {stopBy: end, kind: 'function_item, delegation_item', not: {inside: {kind: declaration_list, inside: {kind: 'impl_item, trait_item'}}}}}}
 rewriters:
-    - {id: function-body, rule: {kind: block, inside: {kind: 'function_item, delegation_item', field: body}}, fix: ' '}
-    - {id: comment, rule: {kind: 'line_comment, block_comment'}, fix: ''}
+    - {id: body, rule: {any: [{kind: function_contract}, {kind: block, inside: {kind: 'function_item, delegation_item', field: body}}]}, fix: ' '}
+    - {id: annotation, rule: {kind: 'attribute_item, line_comment, block_comment'}, fix: ''}
+    - {id: lineage, rule: {any: [{any: [{pattern: {context: 'mod $PART;', selector: identifier}}, {pattern: {context: 'struct $PART;', selector: type_identifier}}], inside: {field: name, kind: 'delegation_item, enum_item, function_item, mod_item, struct_item, trait_item, union_item', matches: above}}, {inside: {field: type, kind: impl_item, not: {has: {field: trait, kind: 'type_identifier, scoped_type_identifier, generic_type'}}, matches: above}, matches: head}]}, transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage, trait-lineage], joinBy: ''}}, PATH: {replace: {source: $PART, replace: '\p{Pattern_White_Space}+', by: ' '}}}, fix: '$ABOVE$PATH::'}
+    - {id: trait-lineage, rule: {inside: {field: type, kind: impl_item, has: {field: trait, matches: facet}, matches: above}, matches: head}, transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage, trait-lineage], joinBy: ''}}, PATH: {replace: {source: $PART, replace: '\p{Pattern_White_Space}+', by: ' '}}}, fix: '$ABOVE<$PATH as $FACET>::'}
 transform:
-    OWNED: {replace: {source: $OWNER, replace: '\p{Pattern_White_Space}+', by: ' '}}
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [function-body, comment]}}
+    QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage, trait-lineage], joinBy: ''}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, annotation]}}
     LINE: {replace: {source: $HEADER, replace: '\p{Pattern_White_Space}+', by: ' '}}
-    SIGNATURE: {substring: {source: $LINE, endChar: -1}}
-name: $OWNED::$NAME
+    SIGNATURE: {replace: {source: $LINE, replace: '[ ,;]+$|,? ([)\]>])|([(\[<]) ', by: $1$2}}
+name: $QUALIFIER$NAME
+signature: $SIGNATURE
+isPublic: {all: [{matches: visible}, {matches: exposed}]}
+---
+id: rust-member-method
+language: rustlang
+role: member
+parentRuleIds: [rust-mod, rust-function-owner, rust-trait, rust-impl, rust-trait-impl]
+symbolType: method
+utils:
+    assoc: {inside: {kind: declaration_list, inside: {kind: 'impl_item, trait_item'}}}
+    enclosing: {any: [{inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item', inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item'}, any: [{has: {field: name, any: [{pattern: {context: 'mod $OWNER;', selector: identifier}}, {pattern: {context: 'struct $OWNER;', selector: type_identifier}}]}}, {kind: impl_item, has: {field: type, pattern: $OWNER}}]}}, {kind: 'associated_type, const_item, delegation_item, enum_item, extern_crate_declaration, foreign_mod_item, function_item, function_signature_item, impl_item, let_declaration, macro_definition, macro_invocation, mod_item, static_item, struct_item, trait_alias, trait_item, type_item, union_item, use_declaration'}]}
+    nesting: {has: {field: body, has: {stopBy: end, kind: 'ERROR, const_item, delegation_item, enum_item, extern_crate_declaration, foreign_mod_item, function_item, impl_item, macro_definition, mod_item, static_item, struct_item, trait_alias, trait_item, type_item, union_item, use_declaration'}}}
+    exposed: {not: {inside: {stopBy: end, not: {has: {kind: visibility_modifier, regex: '^pub$'}}, any: [{kind: block}, {kind: 'mod_item, trait_item', inside: {kind: 'declaration_list, block'}}]}}}
+    visible: {any: [{has: {kind: visibility_modifier, regex: '^pub$'}}, {inside: {field: name, has: {kind: visibility_modifier}}}]}
+    implied: {inside: {kind: declaration_list, inside: {any: [{kind: trait_item}, {kind: impl_item, has: {field: trait, kind: 'type_identifier, scoped_type_identifier, generic_type'}}]}}}
+    above: {inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item', any: [{has: {field: name, any: [{pattern: {context: 'mod $UP;', selector: identifier}}, {pattern: {context: 'struct $UP;', selector: type_identifier}}]}}, {kind: impl_item, has: {field: type, pattern: $UP}}]}}
+    head: {any: [{kind: 'generic_type, reference_type, pointer_type', has: {field: type, matches: head}}, {kind: 'dynamic_type, abstract_type', has: {field: trait, matches: head}}, {kind: scoped_type_identifier, has: {field: name, matches: head}}, {pattern: $PART}]}
+    facet: {any: [{kind: generic_type, has: {field: type, matches: facet}}, {kind: scoped_type_identifier, has: {field: name, matches: facet}}, {pattern: $FACET}]}
+    declaration: {pattern: $DECLARATION}
+    name: {pattern: $NAME}
+rule:
+    any:
+        - {kind: 'function_item, function_signature_item, delegation_item', matches: declaration, all: [{matches: assoc}, {not: {matches: nesting}}, {matches: enclosing}], has: {field: name, matches: name}}
+        - {kind: 'identifier, metavariable', matches: name, inside: {kind: 'function_item, delegation_item', field: name, matches: declaration, all: [{matches: assoc}, {matches: enclosing}]}}
+rewriters:
+    - {id: body, rule: {any: [{kind: function_contract}, {kind: block, inside: {kind: 'function_item, delegation_item', field: body}}]}, fix: ' '}
+    - {id: annotation, rule: {kind: 'attribute_item, line_comment, block_comment'}, fix: ''}
+    - {id: lineage, rule: {any: [{any: [{pattern: {context: 'mod $PART;', selector: identifier}}, {pattern: {context: 'struct $PART;', selector: type_identifier}}], inside: {field: name, kind: 'delegation_item, enum_item, function_item, mod_item, struct_item, trait_item, union_item', matches: above}}, {inside: {field: type, kind: impl_item, not: {has: {field: trait, kind: 'type_identifier, scoped_type_identifier, generic_type'}}, matches: above}, matches: head}]}, transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage, trait-lineage], joinBy: ''}}, PATH: {replace: {source: $PART, replace: '\p{Pattern_White_Space}+', by: ' '}}}, fix: '$ABOVE$PATH::'}
+    - {id: trait-lineage, rule: {inside: {field: type, kind: impl_item, has: {field: trait, matches: facet}, matches: above}, matches: head}, transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage, trait-lineage], joinBy: ''}}, PATH: {replace: {source: $PART, replace: '\p{Pattern_White_Space}+', by: ' '}}}, fix: '$ABOVE<$PATH as $FACET>::'}
+transform:
+    QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage, trait-lineage], joinBy: ''}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, annotation]}}
+    LINE: {replace: {source: $HEADER, replace: '\p{Pattern_White_Space}+', by: ' '}}
+    SIGNATURE: {replace: {source: $LINE, replace: '[ ,;]+$|,? ([)\]>])|([(\[<]) ', by: $1$2}}
+name: $QUALIFIER$NAME
 signature: $SIGNATURE
 isPublic: {all: [{any: [{matches: visible}, {matches: implied}, {inside: {field: name, matches: implied}}]}, {matches: exposed}]}
 ---
-id: rust-nested-type
+id: rust-member-method-nested
 language: rustlang
 role: member
-parentRuleIds: [rust-mod, rust-function, rust-method, rust-impl, rust-trait-impl, rust-trait]
-symbolType: struct
+parentRuleIds: [rust-method-owner]
+symbolType: method
 utils:
-    scoped:
-        inside:
-            kind: 'declaration_list, block'
-            not: {inside: {kind: 'impl_item, trait_item, foreign_mod_item'}}
-            inside: {stopBy: end, kind: 'mod_item, function_item', any: [{has: {field: name, pattern: $OWNER}, inside: {kind: 'declaration_list, block'}}, {kind: 'mod_item, function_item'}]}
-    named: {pattern: $NAME}
-    declared: {pattern: $DECLARATION, any: [{matches: scoped}, {inside: {kind: declaration_list, inside: {kind: foreign_mod_item, matches: scoped}}}]}
-    exposed: {not: {inside: {stopBy: end, any: [{kind: block}, {kind: mod_item, inside: {kind: 'declaration_list, block'}}, {kind: trait_item}], not: {has: {kind: visibility_modifier}}}}}
-    visible: {any: [{has: {kind: visibility_modifier}}, {inside: {field: name, has: {kind: visibility_modifier}}}]}
+    assoc: {inside: {kind: declaration_list, inside: {kind: 'impl_item, trait_item'}}}
+    enclosing: {any: [{inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item', inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item'}, any: [{has: {field: name, any: [{pattern: {context: 'mod $OWNER;', selector: identifier}}, {pattern: {context: 'struct $OWNER;', selector: type_identifier}}]}}, {kind: impl_item, has: {field: type, pattern: $OWNER}}]}}, {kind: 'associated_type, const_item, delegation_item, enum_item, extern_crate_declaration, foreign_mod_item, function_item, function_signature_item, impl_item, let_declaration, macro_definition, macro_invocation, mod_item, static_item, struct_item, trait_alias, trait_item, type_item, union_item, use_declaration'}]}
+    nesting: {has: {field: body, has: {stopBy: end, kind: 'ERROR, const_item, delegation_item, enum_item, extern_crate_declaration, foreign_mod_item, function_item, impl_item, macro_definition, mod_item, static_item, struct_item, trait_alias, trait_item, type_item, union_item, use_declaration'}}}
+    exposed: {not: {inside: {stopBy: end, not: {has: {kind: visibility_modifier, regex: '^pub$'}}, any: [{kind: block}, {kind: 'mod_item, trait_item', inside: {kind: 'declaration_list, block'}}]}}}
+    visible: {any: [{has: {kind: visibility_modifier, regex: '^pub$'}}, {inside: {field: name, has: {kind: visibility_modifier}}}]}
+    implied: {inside: {kind: declaration_list, inside: {any: [{kind: trait_item}, {kind: impl_item, has: {field: trait, kind: 'type_identifier, scoped_type_identifier, generic_type'}}]}}}
+    above: {inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item', any: [{has: {field: name, any: [{pattern: {context: 'mod $UP;', selector: identifier}}, {pattern: {context: 'struct $UP;', selector: type_identifier}}]}}, {kind: impl_item, has: {field: type, pattern: $UP}}]}}
+    head: {any: [{kind: 'generic_type, reference_type, pointer_type', has: {field: type, matches: head}}, {kind: 'dynamic_type, abstract_type', has: {field: trait, matches: head}}, {kind: scoped_type_identifier, has: {field: name, matches: head}}, {pattern: $PART}]}
+    facet: {any: [{kind: generic_type, has: {field: type, matches: facet}}, {kind: scoped_type_identifier, has: {field: name, matches: facet}}, {pattern: $FACET}]}
+    declaration: {pattern: $DECLARATION}
+    name: {pattern: $NAME}
 rule:
     any:
-        - kind: type_identifier
-          matches: named
-          inside: {kind: 'struct_item, union_item', field: name, matches: declared}
-        - kind: 'type_item, associated_type'
-          matches: declared
-          has: {field: name, matches: named}
+        - {kind: 'function_item, function_signature_item, delegation_item', matches: declaration, all: [{matches: assoc}, {not: {matches: nesting}}, {matches: enclosing}], has: {field: name, matches: name}}
+        - {kind: 'identifier, metavariable', matches: name, inside: {kind: 'function_item, delegation_item', field: name, matches: declaration, all: [{matches: assoc}, {matches: enclosing}], inside: {stopBy: end, kind: 'function_item, delegation_item', inside: {kind: declaration_list, inside: {kind: 'impl_item, trait_item'}}}}}
 rewriters:
-    - {id: struct-body, rule: {kind: field_declaration_list, inside: {kind: 'struct_item, union_item', field: body}}, fix: ' '}
-    - {id: comment, rule: {kind: 'line_comment, block_comment'}, fix: ''}
+    - {id: body, rule: {any: [{kind: function_contract}, {kind: block, inside: {kind: 'function_item, delegation_item', field: body}}]}, fix: ' '}
+    - {id: annotation, rule: {kind: 'attribute_item, line_comment, block_comment'}, fix: ''}
+    - {id: lineage, rule: {any: [{any: [{pattern: {context: 'mod $PART;', selector: identifier}}, {pattern: {context: 'struct $PART;', selector: type_identifier}}], inside: {field: name, kind: 'delegation_item, enum_item, function_item, mod_item, struct_item, trait_item, union_item', matches: above}}, {inside: {field: type, kind: impl_item, not: {has: {field: trait, kind: 'type_identifier, scoped_type_identifier, generic_type'}}, matches: above}, matches: head}]}, transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage, trait-lineage], joinBy: ''}}, PATH: {replace: {source: $PART, replace: '\p{Pattern_White_Space}+', by: ' '}}}, fix: '$ABOVE$PATH::'}
+    - {id: trait-lineage, rule: {inside: {field: type, kind: impl_item, has: {field: trait, matches: facet}, matches: above}, matches: head}, transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage, trait-lineage], joinBy: ''}}, PATH: {replace: {source: $PART, replace: '\p{Pattern_White_Space}+', by: ' '}}}, fix: '$ABOVE<$PATH as $FACET>::'}
 transform:
-    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: '::'}}
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [struct-body, comment]}}
+    QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage, trait-lineage], joinBy: ''}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, annotation]}}
     LINE: {replace: {source: $HEADER, replace: '\p{Pattern_White_Space}+', by: ' '}}
-    SIGNATURE: {substring: {source: $LINE, endChar: -1}}
+    SIGNATURE: {replace: {source: $LINE, replace: '[ ,;]+$|,? ([)\]>])|([(\[<]) ', by: $1$2}}
+name: $QUALIFIER$NAME
+signature: $SIGNATURE
+isPublic: {all: [{any: [{matches: visible}, {matches: implied}, {inside: {field: name, matches: implied}}]}, {matches: exposed}]}
+---
+id: rust-member-type
+language: rustlang
+role: member
+parentRuleIds: [rust-mod, rust-function-owner, rust-method-owner, rust-trait, rust-impl, rust-trait-impl, rust-foreign-block]
+symbolType: struct
+utils:
+    declared: {inside: {kind: 'declaration_list, block', not: {inside: {kind: 'impl_item, trait_item'}}}}
+    bodied: {inside: {kind: 'declaration_list, block'}}
+    enclosing: {any: [{inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item', inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item'}, any: [{has: {field: name, any: [{pattern: {context: 'mod $OWNER;', selector: identifier}}, {pattern: {context: 'struct $OWNER;', selector: type_identifier}}]}}, {kind: impl_item, has: {field: type, pattern: $OWNER}}]}}, {kind: 'associated_type, const_item, delegation_item, enum_item, extern_crate_declaration, foreign_mod_item, function_item, function_signature_item, impl_item, let_declaration, macro_definition, macro_invocation, mod_item, static_item, struct_item, trait_alias, trait_item, type_item, union_item, use_declaration'}]}
+    holding: {has: {field: body, has: {kind: 'field_declaration, ERROR'}}}
+    exposed: {not: {inside: {stopBy: end, not: {has: {kind: visibility_modifier, regex: '^pub$'}}, any: [{kind: block}, {kind: 'mod_item, trait_item', inside: {kind: 'declaration_list, block'}}]}}}
+    visible: {any: [{has: {kind: visibility_modifier, regex: '^pub$'}}, {inside: {field: name, has: {kind: visibility_modifier}}}]}
+    implied: {inside: {kind: declaration_list, inside: {any: [{kind: trait_item}, {kind: impl_item, has: {field: trait, kind: 'type_identifier, scoped_type_identifier, generic_type'}}]}}}
+    above: {inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item', any: [{has: {field: name, any: [{pattern: {context: 'mod $UP;', selector: identifier}}, {pattern: {context: 'struct $UP;', selector: type_identifier}}]}}, {kind: impl_item, has: {field: type, pattern: $UP}}]}}
+    head: {any: [{kind: 'generic_type, reference_type, pointer_type', has: {field: type, matches: head}}, {kind: 'dynamic_type, abstract_type', has: {field: trait, matches: head}}, {kind: scoped_type_identifier, has: {field: name, matches: head}}, {pattern: $PART}]}
+    facet: {any: [{kind: generic_type, has: {field: type, matches: facet}}, {kind: scoped_type_identifier, has: {field: name, matches: facet}}, {pattern: $FACET}]}
+    declaration: {pattern: $DECLARATION}
+rule:
+    any:
+        - {kind: 'struct_item, union_item', matches: declaration, not: {matches: holding}, all: [{matches: declared}, {matches: enclosing}], has: {field: name, pattern: {context: 'struct $NAME;', selector: type_identifier}}}
+        - {pattern: {context: 'struct $NAME;', selector: type_identifier}, inside: {kind: 'struct_item, union_item', field: name, matches: declaration, all: [{matches: holding}, {matches: declared}, {matches: enclosing}]}}
+        - {kind: 'type_item, associated_type', matches: declaration, has: {field: name, pattern: {context: 'struct $NAME;', selector: type_identifier}}, all: [{matches: bodied}, {matches: enclosing}]}
+rewriters:
+    - {id: body, rule: {kind: field_declaration_list, inside: {kind: 'struct_item, union_item', field: body}}, fix: ' '}
+    - {id: annotation, rule: {kind: 'attribute_item, line_comment, block_comment'}, fix: ''}
+    - {id: lineage, rule: {any: [{any: [{pattern: {context: 'mod $PART;', selector: identifier}}, {pattern: {context: 'struct $PART;', selector: type_identifier}}], inside: {field: name, kind: 'delegation_item, enum_item, function_item, mod_item, struct_item, trait_item, union_item', matches: above}}, {inside: {field: type, kind: impl_item, not: {has: {field: trait, kind: 'type_identifier, scoped_type_identifier, generic_type'}}, matches: above}, matches: head}]}, transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage, trait-lineage], joinBy: ''}}, PATH: {replace: {source: $PART, replace: '\p{Pattern_White_Space}+', by: ' '}}}, fix: '$ABOVE$PATH::'}
+    - {id: trait-lineage, rule: {inside: {field: type, kind: impl_item, has: {field: trait, matches: facet}, matches: above}, matches: head}, transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage, trait-lineage], joinBy: ''}}, PATH: {replace: {source: $PART, replace: '\p{Pattern_White_Space}+', by: ' '}}}, fix: '$ABOVE<$PATH as $FACET>::'}
+transform:
+    QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage, trait-lineage], joinBy: ''}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, annotation]}}
+    LINE: {replace: {source: $HEADER, replace: '\p{Pattern_White_Space}+', by: ' '}}
+    SIGNATURE: {replace: {source: $LINE, replace: '[ ,;]+$|,? ([)\]>])|([(\[<]) ', by: $1$2}}
+name: $QUALIFIER$NAME
+signature: $SIGNATURE
+isPublic: {all: [{any: [{matches: visible}, {matches: implied}]}, {matches: exposed}]}
+---
+id: rust-member-field
+language: rustlang
+role: member
+parentRuleIds: [rust-mod, rust-function-owner, rust-method-owner, rust-trait, rust-impl, rust-trait-impl, rust-type]
+symbolType: field
+utils:
+    exposed: {not: {inside: {stopBy: end, not: {has: {kind: visibility_modifier, regex: '^pub$'}}, any: [{kind: block}, {kind: 'mod_item, trait_item', inside: {kind: 'declaration_list, block'}}]}}}
+    above: {inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item', any: [{has: {field: name, any: [{pattern: {context: 'mod $UP;', selector: identifier}}, {pattern: {context: 'struct $UP;', selector: type_identifier}}]}}, {kind: impl_item, has: {field: type, pattern: $UP}}]}}
+    head: {any: [{kind: 'generic_type, reference_type, pointer_type', has: {field: type, matches: head}}, {kind: 'dynamic_type, abstract_type', has: {field: trait, matches: head}}, {kind: scoped_type_identifier, has: {field: name, matches: head}}, {pattern: $PART}]}
+    facet: {any: [{kind: generic_type, has: {field: type, matches: facet}}, {kind: scoped_type_identifier, has: {field: name, matches: facet}}, {pattern: $FACET}]}
+rule:
+    kind: field_declaration
+    pattern: $DECLARATION
+    has: {field: name, pattern: {context: 'struct A { $NAME: u8 }', selector: field_identifier}}
+    inside: {kind: field_declaration_list, inside: {kind: 'struct_item, union_item', any: [{has: {field: name, pattern: $OWNER}, inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item'}}, {kind: 'struct_item, union_item'}]}}
+rewriters:
+    - {id: value, rule: {pattern: $VALUE, inside: {kind: 'const_item, static_item, let_declaration, field_declaration, enum_variant', field: value}}, fix: {template: ' ', expandStart: {regex: '^=$', stopBy: end}, expandEnd: {regex: '^;$'}}}
+    - {id: annotation, rule: {kind: 'attribute_item, line_comment, block_comment', not: {follows: {regex: '^=$', stopBy: {not: {kind: 'line_comment, block_comment'}}}}}, fix: ''}
+    - {id: lineage, rule: {any: [{any: [{pattern: {context: 'mod $PART;', selector: identifier}}, {pattern: {context: 'struct $PART;', selector: type_identifier}}], inside: {field: name, kind: 'delegation_item, enum_item, function_item, mod_item, struct_item, trait_item, union_item', matches: above}}, {inside: {field: type, kind: impl_item, not: {has: {field: trait, kind: 'type_identifier, scoped_type_identifier, generic_type'}}, matches: above}, matches: head}]}, transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage, trait-lineage], joinBy: ''}}, PATH: {replace: {source: $PART, replace: '\p{Pattern_White_Space}+', by: ' '}}}, fix: '$ABOVE$PATH::'}
+    - {id: trait-lineage, rule: {inside: {field: type, kind: impl_item, has: {field: trait, matches: facet}, matches: above}, matches: head}, transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage, trait-lineage], joinBy: ''}}, PATH: {replace: {source: $PART, replace: '\p{Pattern_White_Space}+', by: ' '}}}, fix: '$ABOVE<$PATH as $FACET>::'}
+transform:
+    QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage, trait-lineage], joinBy: ''}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [value, annotation]}}
+    LINE: {replace: {source: $HEADER, replace: '\p{Pattern_White_Space}+', by: ' '}}
+    SIGNATURE: {replace: {source: $LINE, replace: '[ ,;]+$|,? ([)\]>])|([(\[<]) ', by: $1$2}}
+name: $QUALIFIER$NAME
+signature: $SIGNATURE
+isPublic: {all: [{has: {kind: visibility_modifier, regex: '^pub$'}}, {matches: exposed}]}
+---
+id: rust-member-const
+language: rustlang
+role: member
+parentRuleIds: [rust-mod, rust-function-owner, rust-method-owner, rust-trait, rust-impl, rust-trait-impl]
+symbolType: constant
+utils:
+    bodied: {inside: {kind: 'declaration_list, block'}}
+    enclosing: {any: [{inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item', inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item'}, any: [{has: {field: name, any: [{pattern: {context: 'mod $OWNER;', selector: identifier}}, {pattern: {context: 'struct $OWNER;', selector: type_identifier}}]}}, {kind: impl_item, has: {field: type, pattern: $OWNER}}]}}, {kind: 'associated_type, const_item, delegation_item, enum_item, extern_crate_declaration, foreign_mod_item, function_item, function_signature_item, impl_item, let_declaration, macro_definition, macro_invocation, mod_item, static_item, struct_item, trait_alias, trait_item, type_item, union_item, use_declaration'}]}
+    exposed: {not: {inside: {stopBy: end, not: {has: {kind: visibility_modifier, regex: '^pub$'}}, any: [{kind: block}, {kind: 'mod_item, trait_item', inside: {kind: 'declaration_list, block'}}]}}}
+    implied: {inside: {kind: declaration_list, inside: {any: [{kind: trait_item}, {kind: impl_item, has: {field: trait, kind: 'type_identifier, scoped_type_identifier, generic_type'}}]}}}
+    above: {inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item', any: [{has: {field: name, any: [{pattern: {context: 'mod $UP;', selector: identifier}}, {pattern: {context: 'struct $UP;', selector: type_identifier}}]}}, {kind: impl_item, has: {field: type, pattern: $UP}}]}}
+    head: {any: [{kind: 'generic_type, reference_type, pointer_type', has: {field: type, matches: head}}, {kind: 'dynamic_type, abstract_type', has: {field: trait, matches: head}}, {kind: scoped_type_identifier, has: {field: name, matches: head}}, {pattern: $PART}]}
+    facet: {any: [{kind: generic_type, has: {field: type, matches: facet}}, {kind: scoped_type_identifier, has: {field: name, matches: facet}}, {pattern: $FACET}]}
+rule:
+    kind: const_item
+    pattern: $DECLARATION
+    has: {field: name, pattern: {context: 'mod $NAME;', selector: identifier}}
+    all: [{matches: bodied}, {matches: enclosing}]
+rewriters:
+    - {id: value, rule: {pattern: $VALUE, inside: {kind: 'const_item, static_item, let_declaration, field_declaration, enum_variant', field: value}}, fix: {template: ' ', expandStart: {regex: '^=$', stopBy: end}, expandEnd: {regex: '^;$'}}}
+    - {id: annotation, rule: {kind: 'attribute_item, line_comment, block_comment', not: {follows: {regex: '^=$', stopBy: {not: {kind: 'line_comment, block_comment'}}}}}, fix: ''}
+    - {id: lineage, rule: {any: [{any: [{pattern: {context: 'mod $PART;', selector: identifier}}, {pattern: {context: 'struct $PART;', selector: type_identifier}}], inside: {field: name, kind: 'delegation_item, enum_item, function_item, mod_item, struct_item, trait_item, union_item', matches: above}}, {inside: {field: type, kind: impl_item, not: {has: {field: trait, kind: 'type_identifier, scoped_type_identifier, generic_type'}}, matches: above}, matches: head}]}, transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage, trait-lineage], joinBy: ''}}, PATH: {replace: {source: $PART, replace: '\p{Pattern_White_Space}+', by: ' '}}}, fix: '$ABOVE$PATH::'}
+    - {id: trait-lineage, rule: {inside: {field: type, kind: impl_item, has: {field: trait, matches: facet}, matches: above}, matches: head}, transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage, trait-lineage], joinBy: ''}}, PATH: {replace: {source: $PART, replace: '\p{Pattern_White_Space}+', by: ' '}}}, fix: '$ABOVE<$PATH as $FACET>::'}
+transform:
+    QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage, trait-lineage], joinBy: ''}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [value, annotation]}}
+    LINE: {replace: {source: $HEADER, replace: '\p{Pattern_White_Space}+', by: ' '}}
+    SIGNATURE: {replace: {source: $LINE, replace: '[ ,;]+$|,? ([)\]>])|([(\[<]) ', by: $1$2}}
+name: $QUALIFIER$NAME
+signature: $SIGNATURE
+isPublic: {all: [{not: {has: {field: name, regex: '^_$'}}}, {any: [{has: {kind: visibility_modifier, regex: '^pub$'}}, {matches: implied}]}, {matches: exposed}]}
+---
+id: rust-member-static
+language: rustlang
+role: member
+parentRuleIds: [rust-mod, rust-function-owner, rust-method-owner, rust-trait, rust-impl, rust-trait-impl, rust-foreign-block]
+symbolType: variable
+utils:
+    declared: {inside: {kind: 'declaration_list, block', not: {inside: {kind: 'impl_item, trait_item'}}}}
+    enclosing: {any: [{inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item', inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item'}, any: [{has: {field: name, any: [{pattern: {context: 'mod $OWNER;', selector: identifier}}, {pattern: {context: 'struct $OWNER;', selector: type_identifier}}]}}, {kind: impl_item, has: {field: type, pattern: $OWNER}}]}}, {kind: 'associated_type, const_item, delegation_item, enum_item, extern_crate_declaration, foreign_mod_item, function_item, function_signature_item, impl_item, let_declaration, macro_definition, macro_invocation, mod_item, static_item, struct_item, trait_alias, trait_item, type_item, union_item, use_declaration'}]}
+    exposed: {not: {inside: {stopBy: end, not: {has: {kind: visibility_modifier, regex: '^pub$'}}, any: [{kind: block}, {kind: 'mod_item, trait_item', inside: {kind: 'declaration_list, block'}}]}}}
+    above: {inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item', any: [{has: {field: name, any: [{pattern: {context: 'mod $UP;', selector: identifier}}, {pattern: {context: 'struct $UP;', selector: type_identifier}}]}}, {kind: impl_item, has: {field: type, pattern: $UP}}]}}
+    head: {any: [{kind: 'generic_type, reference_type, pointer_type', has: {field: type, matches: head}}, {kind: 'dynamic_type, abstract_type', has: {field: trait, matches: head}}, {kind: scoped_type_identifier, has: {field: name, matches: head}}, {pattern: $PART}]}
+    facet: {any: [{kind: generic_type, has: {field: type, matches: facet}}, {kind: scoped_type_identifier, has: {field: name, matches: facet}}, {pattern: $FACET}]}
+rule:
+    pattern: $DECLARATION
+    any:
+        - {kind: static_item, has: {field: name, pattern: {context: 'mod $NAME;', selector: identifier}}}
+        - {kind: let_declaration, has: {field: pattern, pattern: $NAME}, inside: {kind: declaration_list}}
+    all: [{matches: declared}, {matches: enclosing}]
+rewriters:
+    - {id: value, rule: {pattern: $VALUE, inside: {kind: 'const_item, static_item, let_declaration, field_declaration, enum_variant', field: value}}, fix: {template: ' ', expandStart: {regex: '^=$', stopBy: end}, expandEnd: {regex: '^;$'}}}
+    - {id: annotation, rule: {kind: 'attribute_item, line_comment, block_comment', not: {follows: {regex: '^=$', stopBy: {not: {kind: 'line_comment, block_comment'}}}}}, fix: ''}
+    - {id: lineage, rule: {any: [{any: [{pattern: {context: 'mod $PART;', selector: identifier}}, {pattern: {context: 'struct $PART;', selector: type_identifier}}], inside: {field: name, kind: 'delegation_item, enum_item, function_item, mod_item, struct_item, trait_item, union_item', matches: above}}, {inside: {field: type, kind: impl_item, not: {has: {field: trait, kind: 'type_identifier, scoped_type_identifier, generic_type'}}, matches: above}, matches: head}]}, transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage, trait-lineage], joinBy: ''}}, PATH: {replace: {source: $PART, replace: '\p{Pattern_White_Space}+', by: ' '}}}, fix: '$ABOVE$PATH::'}
+    - {id: trait-lineage, rule: {inside: {field: type, kind: impl_item, has: {field: trait, matches: facet}, matches: above}, matches: head}, transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage, trait-lineage], joinBy: ''}}, PATH: {replace: {source: $PART, replace: '\p{Pattern_White_Space}+', by: ' '}}}, fix: '$ABOVE<$PATH as $FACET>::'}
+transform:
+    QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage, trait-lineage], joinBy: ''}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [value, annotation]}}
+    LINE: {replace: {source: $HEADER, replace: '\p{Pattern_White_Space}+', by: ' '}}
+    SIGNATURE: {replace: {source: $LINE, replace: '[ ,;]+$|,? ([)\]>])|([(\[<]) ', by: $1$2}}
+name: $QUALIFIER$NAME
+signature: $SIGNATURE
+isPublic: {all: [{has: {kind: visibility_modifier, regex: '^pub$'}}, {matches: exposed}]}
+---
+id: rust-member-enum
+language: rustlang
+role: member
+parentRuleIds: [rust-mod, rust-function-owner, rust-method-owner, rust-trait, rust-impl, rust-trait-impl]
+symbolType: enum
+utils:
+    declared: {inside: {kind: 'declaration_list, block', not: {inside: {kind: 'impl_item, trait_item'}}}}
+    enclosing: {any: [{inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item', inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item'}, any: [{has: {field: name, any: [{pattern: {context: 'mod $OWNER;', selector: identifier}}, {pattern: {context: 'struct $OWNER;', selector: type_identifier}}]}}, {kind: impl_item, has: {field: type, pattern: $OWNER}}]}}, {kind: 'associated_type, const_item, delegation_item, enum_item, extern_crate_declaration, foreign_mod_item, function_item, function_signature_item, impl_item, let_declaration, macro_definition, macro_invocation, mod_item, static_item, struct_item, trait_alias, trait_item, type_item, union_item, use_declaration'}]}
+    holding: {has: {field: body, has: {kind: 'enum_variant, ERROR'}}}
+    exposed: {not: {inside: {stopBy: end, not: {has: {kind: visibility_modifier, regex: '^pub$'}}, any: [{kind: block}, {kind: 'mod_item, trait_item', inside: {kind: 'declaration_list, block'}}]}}}
+    visible: {any: [{has: {kind: visibility_modifier, regex: '^pub$'}}, {inside: {field: name, has: {kind: visibility_modifier}}}]}
+    above: {inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item', any: [{has: {field: name, any: [{pattern: {context: 'mod $UP;', selector: identifier}}, {pattern: {context: 'struct $UP;', selector: type_identifier}}]}}, {kind: impl_item, has: {field: type, pattern: $UP}}]}}
+    head: {any: [{kind: 'generic_type, reference_type, pointer_type', has: {field: type, matches: head}}, {kind: 'dynamic_type, abstract_type', has: {field: trait, matches: head}}, {kind: scoped_type_identifier, has: {field: name, matches: head}}, {pattern: $PART}]}
+    facet: {any: [{kind: generic_type, has: {field: type, matches: facet}}, {kind: scoped_type_identifier, has: {field: name, matches: facet}}, {pattern: $FACET}]}
+    declaration: {pattern: $DECLARATION}
+rule:
+    any:
+        - {kind: enum_item, matches: declaration, not: {matches: holding}, all: [{matches: declared}, {matches: enclosing}], has: {field: name, pattern: {context: 'struct $NAME;', selector: type_identifier}}}
+        - {pattern: {context: 'struct $NAME;', selector: type_identifier}, inside: {kind: enum_item, field: name, matches: declaration, all: [{matches: holding}, {matches: declared}, {matches: enclosing}]}}
+rewriters:
+    - {id: body, rule: {kind: enum_variant_list, inside: {kind: enum_item, field: body}}, fix: ' '}
+    - {id: annotation, rule: {kind: 'attribute_item, line_comment, block_comment'}, fix: ''}
+    - {id: lineage, rule: {any: [{any: [{pattern: {context: 'mod $PART;', selector: identifier}}, {pattern: {context: 'struct $PART;', selector: type_identifier}}], inside: {field: name, kind: 'delegation_item, enum_item, function_item, mod_item, struct_item, trait_item, union_item', matches: above}}, {inside: {field: type, kind: impl_item, not: {has: {field: trait, kind: 'type_identifier, scoped_type_identifier, generic_type'}}, matches: above}, matches: head}]}, transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage, trait-lineage], joinBy: ''}}, PATH: {replace: {source: $PART, replace: '\p{Pattern_White_Space}+', by: ' '}}}, fix: '$ABOVE$PATH::'}
+    - {id: trait-lineage, rule: {inside: {field: type, kind: impl_item, has: {field: trait, matches: facet}, matches: above}, matches: head}, transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage, trait-lineage], joinBy: ''}}, PATH: {replace: {source: $PART, replace: '\p{Pattern_White_Space}+', by: ' '}}}, fix: '$ABOVE<$PATH as $FACET>::'}
+transform:
+    QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage, trait-lineage], joinBy: ''}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, annotation]}}
+    LINE: {replace: {source: $HEADER, replace: '\p{Pattern_White_Space}+', by: ' '}}
+    SIGNATURE: {replace: {source: $LINE, replace: '[ ,;]+$|,? ([)\]>])|([(\[<]) ', by: $1$2}}
 name: $QUALIFIER$NAME
 signature: $SIGNATURE
 isPublic: {all: [{matches: visible}, {matches: exposed}]}
 ---
-id: rust-nested-field
+id: rust-member-variant
 language: rustlang
 role: member
-parentRuleIds: [rust-mod, rust-function, rust-method, rust-impl, rust-trait-impl, rust-trait]
-symbolType: field
-utils:
-    exposed: {not: {inside: {stopBy: end, any: [{kind: block}, {kind: mod_item, inside: {kind: 'declaration_list, block'}}, {kind: trait_item}], not: {has: {kind: visibility_modifier}}}}}
-rule:
-    kind: field_declaration
-    pattern: $DECLARATION
-    has: {field: name, pattern: $NAME}
-    inside: {kind: field_declaration_list, inside: {kind: 'struct_item, union_item', has: {field: name, pattern: $OWNER}, inside: {kind: 'declaration_list, block'}}}
-rewriters: [{id: comment, rule: {kind: 'line_comment, block_comment'}, fix: ''}]
-transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [comment]}}
-    SIGNATURE: {replace: {source: $HEADER, replace: '\p{Pattern_White_Space}+', by: ' '}}
-name: $OWNER::$NAME
-signature: $SIGNATURE
-isPublic: {all: [{has: {kind: visibility_modifier}}, {matches: exposed}]}
----
-id: rust-nested-associated-type
-language: rustlang
-role: member
-parentRuleIds: [rust-mod, rust-function, rust-method, rust-impl, rust-trait-impl, rust-trait]
-symbolType: typeParameter
-utils:
-    owner: {pattern: $OWNER}
-    owner-head:
-        any:
-            - {kind: 'type_identifier, primitive_type', matches: owner}
-            - {kind: scoped_type_identifier, has: {field: name, matches: owner}}
-            - {kind: generic_type, has: {field: type, matches: owner-head}}
-            - {kind: 'reference_type, pointer_type', has: {field: type, matches: owner-head}}
-            - {kind: 'dynamic_type, abstract_type', has: {field: trait, matches: owner-head}}
-    owned:
-        inside:
-            kind: declaration_list
-            inside:
-                inside: {kind: 'declaration_list, block'}
-                any: [{kind: trait_item, has: {field: name, matches: owner}}, {kind: impl_item, has: {field: type, any: [{matches: owner-head}, {matches: owner}]}}]
-    exposed: {not: {inside: {stopBy: end, any: [{kind: block}, {kind: mod_item, inside: {kind: 'declaration_list, block'}}, {kind: trait_item}], not: {has: {kind: visibility_modifier}}}}}
-    implied: {inside: {kind: declaration_list, inside: {any: [{kind: trait_item}, {kind: impl_item, has: {field: trait, kind: 'type_identifier, scoped_type_identifier, generic_type'}}]}}}
-rule:
-    kind: 'associated_type, type_item'
-    pattern: $DECLARATION
-    has: {field: name, pattern: $NAME}
-    matches: owned
-rewriters: [{id: comment, rule: {kind: 'line_comment, block_comment'}, fix: ''}]
-transform:
-    OWNED: {replace: {source: $OWNER, replace: '\p{Pattern_White_Space}+', by: ' '}}
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [comment]}}
-    LINE: {replace: {source: $HEADER, replace: '\p{Pattern_White_Space}+', by: ' '}}
-    SIGNATURE: {substring: {source: $LINE, endChar: -1}}
-name: $OWNED::$NAME
-signature: $SIGNATURE
-isPublic: {all: [{any: [{has: {kind: visibility_modifier}}, {matches: implied}]}, {matches: exposed}]}
----
-id: rust-nested-const
-language: rustlang
-role: member
-parentRuleIds: [rust-mod, rust-function, rust-method, rust-impl, rust-trait-impl, rust-trait]
-symbolType: constant
-utils:
-    owner: {pattern: $OWNER}
-    owner-head:
-        any:
-            - {kind: 'type_identifier, primitive_type', matches: owner}
-            - {kind: scoped_type_identifier, has: {field: name, matches: owner}}
-            - {kind: generic_type, has: {field: type, matches: owner-head}}
-            - {kind: 'reference_type, pointer_type', has: {field: type, matches: owner-head}}
-            - {kind: 'dynamic_type, abstract_type', has: {field: trait, matches: owner-head}}
-    scoped:
-        inside:
-            kind: 'declaration_list, block'
-            not: {inside: {kind: 'impl_item, trait_item, foreign_mod_item'}}
-            inside: {stopBy: end, kind: 'mod_item, function_item', any: [{has: {field: name, pattern: $OWNER}, inside: {kind: 'declaration_list, block'}}, {kind: 'mod_item, function_item'}]}
-    owned:
-        inside:
-            kind: declaration_list
-            inside:
-                inside: {kind: 'declaration_list, block'}
-                any: [{kind: trait_item, has: {field: name, matches: owner}}, {kind: impl_item, has: {field: type, any: [{matches: owner-head}, {matches: owner}]}}]
-    exposed: {not: {inside: {stopBy: end, any: [{kind: block}, {kind: mod_item, inside: {kind: 'declaration_list, block'}}, {kind: trait_item}], not: {has: {kind: visibility_modifier}}}}}
-    implied: {inside: {kind: declaration_list, inside: {any: [{kind: trait_item}, {kind: impl_item, has: {field: trait, kind: 'type_identifier, scoped_type_identifier, generic_type'}}]}}}
-rule:
-    kind: const_item
-    pattern: $DECLARATION
-    has: {field: name, pattern: $NAME}
-    any: [{matches: owned}, {matches: scoped}]
-rewriters:
-    - id: value
-      rule:
-        kind: 'array_expression, assignment_expression, async_block, attributed_expression, await_expression, become_expression, binary_expression, block, boolean_literal, break_expression, builtin_expression, call_expression, char_literal, closure_expression, compound_assignment_expr, const_block, continue_expression, field_expression, float_literal, for_expression, gen_block, generic_function, identifier, if_expression, index_expression, integer_literal, loop_expression, macro_invocation, match_expression, metavariable, move_expression, parenthesized_expression, range_expression, raw_string_literal, reference_expression, return_expression, scoped_identifier, self, string_literal, struct_expression, try_block, try_expression, tuple_expression, type_cast_expression, unary_expression, unit_expression, unsafe_block, while_expression, yeet_expression, yield_expression'
-        inside: {kind: const_item, field: value}
-      fix: {template: ' ', expandStart: {regex: '^=$'}, expandEnd: {regex: '^;$'}}
-    - {id: comment, rule: {kind: 'line_comment, block_comment'}, fix: ''}
-transform:
-    QUALIFIED: {replace: {source: $OWNER, replace: '$', by: '::'}}
-    QUALIFIER: {replace: {source: $QUALIFIED, replace: '\p{Pattern_White_Space}+', by: ' '}}
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [value, comment]}}
-    LINE: {replace: {source: $HEADER, replace: '\p{Pattern_White_Space}+', by: ' '}}
-    SIGNATURE: {substring: {source: $LINE, endChar: -1}}
-name: $QUALIFIER$NAME
-signature: $SIGNATURE
-isPublic: {all: [{any: [{has: {kind: visibility_modifier}}, {matches: implied}]}, {matches: exposed}]}
----
-id: rust-nested-static
-language: rustlang
-role: member
-parentRuleIds: [rust-mod, rust-function, rust-method, rust-impl, rust-trait-impl, rust-trait]
-symbolType: variable
-utils:
-    scoped:
-        inside:
-            kind: 'declaration_list, block'
-            not: {inside: {kind: 'impl_item, trait_item, foreign_mod_item'}}
-            inside: {stopBy: end, kind: 'mod_item, function_item', any: [{has: {field: name, pattern: $OWNER}, inside: {kind: 'declaration_list, block'}}, {kind: 'mod_item, function_item'}]}
-    named: {pattern: $NAME}
-    exposed: {not: {inside: {stopBy: end, any: [{kind: block}, {kind: mod_item, inside: {kind: 'declaration_list, block'}}, {kind: trait_item}], not: {has: {kind: visibility_modifier}}}}}
-rule:
-    pattern: $DECLARATION
-    any:
-        - kind: static_item
-          has: {field: name, matches: named}
-          any: [{matches: scoped}, {inside: {kind: declaration_list, inside: {kind: foreign_mod_item, matches: scoped}}}]
-        - kind: let_declaration
-          has: {field: pattern, matches: named}
-          inside: {kind: declaration_list}
-          matches: scoped
-rewriters:
-    - id: value
-      rule:
-        kind: 'array_expression, assignment_expression, async_block, attributed_expression, await_expression, become_expression, binary_expression, block, boolean_literal, break_expression, builtin_expression, call_expression, char_literal, closure_expression, compound_assignment_expr, const_block, continue_expression, field_expression, float_literal, for_expression, gen_block, generic_function, identifier, if_expression, index_expression, integer_literal, loop_expression, macro_invocation, match_expression, metavariable, move_expression, parenthesized_expression, range_expression, raw_string_literal, reference_expression, return_expression, scoped_identifier, self, string_literal, struct_expression, try_block, try_expression, tuple_expression, type_cast_expression, unary_expression, unit_expression, unsafe_block, while_expression, yeet_expression, yield_expression'
-        inside: {kind: 'static_item, let_declaration', field: value}
-      fix: {template: ' ', expandStart: {regex: '^=$'}, expandEnd: {regex: '^;$'}}
-    - {id: comment, rule: {kind: 'line_comment, block_comment'}, fix: ''}
-transform:
-    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: '::'}}
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [value, comment]}}
-    LINE: {replace: {source: $HEADER, replace: '\p{Pattern_White_Space}+', by: ' '}}
-    SIGNATURE: {substring: {source: $LINE, endChar: -1}}
-name: $QUALIFIER$NAME
-signature: $SIGNATURE
-isPublic: {all: [{has: {kind: visibility_modifier}}, {matches: exposed}]}
----
-id: rust-nested-enum
-language: rustlang
-role: member
-parentRuleIds: [rust-mod, rust-function, rust-method, rust-impl, rust-trait-impl, rust-trait]
-symbolType: enum
-utils:
-    scoped:
-        inside:
-            kind: 'declaration_list, block'
-            not: {inside: {kind: 'impl_item, trait_item, foreign_mod_item'}}
-            inside: {stopBy: end, kind: 'mod_item, function_item', any: [{has: {field: name, pattern: $OWNER}, inside: {kind: 'declaration_list, block'}}, {kind: 'mod_item, function_item'}]}
-    exposed: {not: {inside: {stopBy: end, any: [{kind: block}, {kind: mod_item, inside: {kind: 'declaration_list, block'}}, {kind: trait_item}], not: {has: {kind: visibility_modifier}}}}}
-rule:
-    kind: type_identifier
-    pattern: $NAME
-    inside: {kind: enum_item, field: name, pattern: $DECLARATION, matches: scoped}
-rewriters:
-    - {id: enum-body, rule: {kind: enum_variant_list, inside: {kind: enum_item, field: body}}, fix: ' '}
-    - {id: comment, rule: {kind: 'line_comment, block_comment'}, fix: ''}
-transform:
-    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: '::'}}
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [enum-body, comment]}}
-    LINE: {replace: {source: $HEADER, replace: '\p{Pattern_White_Space}+', by: ' '}}
-    SIGNATURE: {substring: {source: $LINE, endChar: -1}}
-name: $QUALIFIER$NAME
-signature: $SIGNATURE
-isPublic: {all: [{inside: {field: name, has: {kind: visibility_modifier}}}, {matches: exposed}]}
----
-id: rust-nested-variant
-language: rustlang
-role: member
-parentRuleIds: [rust-mod, rust-function, rust-method, rust-impl, rust-trait-impl, rust-trait]
+parentRuleIds: [rust-mod, rust-function-owner, rust-method-owner, rust-trait, rust-impl, rust-trait-impl, rust-enum]
 symbolType: enumMember
 utils:
-    exposed: {not: {inside: {stopBy: end, any: [{kind: block}, {kind: mod_item, inside: {kind: 'declaration_list, block'}}, {kind: trait_item}], not: {has: {kind: visibility_modifier}}}}}
+    exposed: {not: {inside: {stopBy: end, not: {has: {kind: visibility_modifier, regex: '^pub$'}}, any: [{kind: block}, {kind: 'mod_item, trait_item', inside: {kind: 'declaration_list, block'}}]}}}
+    above: {inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item', any: [{has: {field: name, any: [{pattern: {context: 'mod $UP;', selector: identifier}}, {pattern: {context: 'struct $UP;', selector: type_identifier}}]}}, {kind: impl_item, has: {field: type, pattern: $UP}}]}}
+    head: {any: [{kind: 'generic_type, reference_type, pointer_type', has: {field: type, matches: head}}, {kind: 'dynamic_type, abstract_type', has: {field: trait, matches: head}}, {kind: scoped_type_identifier, has: {field: name, matches: head}}, {pattern: $PART}]}
+    facet: {any: [{kind: generic_type, has: {field: type, matches: facet}}, {kind: scoped_type_identifier, has: {field: name, matches: facet}}, {pattern: $FACET}]}
 rule:
     kind: enum_variant
     pattern: $DECLARATION
-    has: {field: name, pattern: $NAME}
-    inside: {kind: enum_variant_list, inside: {kind: enum_item, has: {field: name, pattern: $OWNER}, inside: {kind: 'declaration_list, block'}}}
-rewriters: [{id: comment, rule: {kind: 'line_comment, block_comment'}, fix: ''}]
+    has: {field: name, pattern: {context: 'mod $NAME;', selector: identifier}}
+    inside: {kind: enum_variant_list, inside: {kind: enum_item, any: [{has: {field: name, pattern: $OWNER}, inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item'}}, {kind: enum_item}]}}
+rewriters:
+    - {id: value, rule: {pattern: $VALUE, inside: {kind: 'const_item, static_item, let_declaration, field_declaration, enum_variant', field: value}}, fix: {template: ' ', expandStart: {regex: '^=$', stopBy: end}, expandEnd: {regex: '^;$'}}}
+    - {id: annotation, rule: {kind: 'attribute_item, line_comment, block_comment', not: {follows: {regex: '^=$', stopBy: {not: {kind: 'line_comment, block_comment'}}}}}, fix: ''}
+    - {id: lineage, rule: {any: [{any: [{pattern: {context: 'mod $PART;', selector: identifier}}, {pattern: {context: 'struct $PART;', selector: type_identifier}}], inside: {field: name, kind: 'delegation_item, enum_item, function_item, mod_item, struct_item, trait_item, union_item', matches: above}}, {inside: {field: type, kind: impl_item, not: {has: {field: trait, kind: 'type_identifier, scoped_type_identifier, generic_type'}}, matches: above}, matches: head}]}, transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage, trait-lineage], joinBy: ''}}, PATH: {replace: {source: $PART, replace: '\p{Pattern_White_Space}+', by: ' '}}}, fix: '$ABOVE$PATH::'}
+    - {id: trait-lineage, rule: {inside: {field: type, kind: impl_item, has: {field: trait, matches: facet}, matches: above}, matches: head}, transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage, trait-lineage], joinBy: ''}}, PATH: {replace: {source: $PART, replace: '\p{Pattern_White_Space}+', by: ' '}}}, fix: '$ABOVE<$PATH as $FACET>::'}
 transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [comment]}}
-    SIGNATURE: {replace: {source: $HEADER, replace: '\p{Pattern_White_Space}+', by: ' '}}
-name: $OWNER::$NAME
+    QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage, trait-lineage], joinBy: ''}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [value, annotation]}}
+    LINE: {replace: {source: $HEADER, replace: '\p{Pattern_White_Space}+', by: ' '}}
+    SIGNATURE: {replace: {source: $LINE, replace: '[ ,;]+$|,? ([)\]>])|,( \})|([(\[<]) ', by: $1$2$3}}
+name: $QUALIFIER$NAME
 signature: $SIGNATURE
-isPublic: {all: [{inside: {kind: enum_variant_list, inside: {has: {kind: visibility_modifier}}}}, {matches: exposed}]}
+isPublic: {all: [{not: {inside: {kind: enum_variant_list, inside: {inside: {kind: 'declaration_list, block'}, not: {has: {kind: visibility_modifier, regex: '^pub$'}}}}}}, {matches: exposed}]}
 ---
-id: rust-nested-macro
+id: rust-member-macro
 language: rustlang
 role: member
-parentRuleIds: [rust-mod, rust-function, rust-method, rust-impl, rust-trait-impl, rust-trait]
+parentRuleIds: [rust-mod, rust-function-owner, rust-method-owner, rust-trait, rust-impl, rust-trait-impl]
 symbolType: function
 utils:
-    scoped:
-        inside:
-            kind: 'declaration_list, block'
-            not: {inside: {kind: 'impl_item, trait_item, foreign_mod_item'}}
-            inside: {stopBy: end, kind: 'mod_item, function_item', any: [{has: {field: name, pattern: $OWNER}, inside: {kind: 'declaration_list, block'}}, {kind: 'mod_item, function_item'}]}
-    exposed: {not: {inside: {stopBy: end, any: [{kind: block}, {kind: mod_item, inside: {kind: 'declaration_list, block'}}, {kind: trait_item}], not: {has: {kind: visibility_modifier}}}}}
+    declared: {inside: {kind: 'declaration_list, block', not: {inside: {kind: 'impl_item, trait_item'}}}}
+    enclosing: {any: [{inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item', inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item'}, any: [{has: {field: name, any: [{pattern: {context: 'mod $OWNER;', selector: identifier}}, {pattern: {context: 'struct $OWNER;', selector: type_identifier}}]}}, {kind: impl_item, has: {field: type, pattern: $OWNER}}]}}, {kind: 'associated_type, const_item, delegation_item, enum_item, extern_crate_declaration, foreign_mod_item, function_item, function_signature_item, impl_item, let_declaration, macro_definition, macro_invocation, mod_item, static_item, struct_item, trait_alias, trait_item, type_item, union_item, use_declaration'}]}
+    exposed: {not: {inside: {stopBy: end, not: {has: {kind: visibility_modifier, regex: '^pub$'}}, any: [{kind: block}, {kind: 'mod_item, trait_item', inside: {kind: 'declaration_list, block'}}]}}}
+    above: {inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item', any: [{has: {field: name, any: [{pattern: {context: 'mod $UP;', selector: identifier}}, {pattern: {context: 'struct $UP;', selector: type_identifier}}]}}, {kind: impl_item, has: {field: type, pattern: $UP}}]}}
+    head: {any: [{kind: 'generic_type, reference_type, pointer_type', has: {field: type, matches: head}}, {kind: 'dynamic_type, abstract_type', has: {field: trait, matches: head}}, {kind: scoped_type_identifier, has: {field: name, matches: head}}, {pattern: $PART}]}
+    facet: {any: [{kind: generic_type, has: {field: type, matches: facet}}, {kind: scoped_type_identifier, has: {field: name, matches: facet}}, {pattern: $FACET}]}
 rule:
     kind: macro_definition
-    has: {field: name, pattern: $NAME}
-    matches: scoped
+    has: {field: name, pattern: {context: 'mod $NAME;', selector: identifier}}
     all:
         - has: {regex: '^(?:macro_rules!|macro)$', pattern: $$KEYWORD}
         - any: [{has: {kind: visibility_modifier, pattern: $VISIBILITY}}, {kind: macro_definition}]
-rewriters: [{id: spaced, rule: {kind: visibility_modifier, pattern: $V}, fix: '$V '}]
+        - {matches: declared}
+        - {matches: enclosing}
+rewriters:
+    - {id: spaced, rule: {kind: visibility_modifier, pattern: $V}, fix: '$V '}
+    - {id: lineage, rule: {any: [{any: [{pattern: {context: 'mod $PART;', selector: identifier}}, {pattern: {context: 'struct $PART;', selector: type_identifier}}], inside: {field: name, kind: 'delegation_item, enum_item, function_item, mod_item, struct_item, trait_item, union_item', matches: above}}, {inside: {field: type, kind: impl_item, not: {has: {field: trait, kind: 'type_identifier, scoped_type_identifier, generic_type'}}, matches: above}, matches: head}]}, transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage, trait-lineage], joinBy: ''}}, PATH: {replace: {source: $PART, replace: '\p{Pattern_White_Space}+', by: ' '}}}, fix: '$ABOVE$PATH::'}
+    - {id: trait-lineage, rule: {inside: {field: type, kind: impl_item, has: {field: trait, matches: facet}, matches: above}, matches: head}, transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage, trait-lineage], joinBy: ''}}, PATH: {replace: {source: $PART, replace: '\p{Pattern_White_Space}+', by: ' '}}}, fix: '$ABOVE<$PATH as $FACET>::'}
 transform:
-    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: '::'}}
+    QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage, trait-lineage], joinBy: ''}}
     PREFIX: {rewrite: {source: $VISIBILITY, rewriters: [spaced]}}
 name: $QUALIFIER$NAME
 signature: $PREFIX$KEYWORD $NAME
 isPublic:
     any:
-        - all: [{has: {kind: visibility_modifier}}, {matches: exposed}]
-        - follows:
-            kind: attribute_item
-            has: {kind: attribute, has: {kind: identifier, regex: '^macro_export$'}}
-            stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}
+        - all: [{has: {kind: visibility_modifier, regex: '^pub$'}}, {matches: exposed}]
+        - follows: {kind: attribute_item, has: {kind: attribute, has: {kind: identifier, regex: '^macro_export$'}}, stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}}
 ---
-id: rust-nested-foreign-block
+id: rust-member-foreign-block
 language: rustlang
 role: member
-parentRuleIds: [rust-mod, rust-function, rust-method, rust-impl, rust-trait-impl, rust-trait]
+parentRuleIds: [rust-mod, rust-function-owner, rust-method-owner, rust-trait, rust-impl, rust-trait-impl]
 symbolType: namespace
 utils:
-    scoped:
-        inside:
-            kind: 'declaration_list, block'
-            not: {inside: {kind: 'impl_item, trait_item, foreign_mod_item'}}
-            inside: {stopBy: end, kind: 'mod_item, function_item', any: [{has: {field: name, pattern: $OWNER}, inside: {kind: 'declaration_list, block'}}, {kind: 'mod_item, function_item'}]}
+    declared: {inside: {kind: 'declaration_list, block', not: {inside: {kind: 'impl_item, trait_item'}}}}
+    enclosing: {any: [{inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item', inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item'}, any: [{has: {field: name, any: [{pattern: {context: 'mod $OWNER;', selector: identifier}}, {pattern: {context: 'struct $OWNER;', selector: type_identifier}}]}}, {kind: impl_item, has: {field: type, pattern: $OWNER}}]}}, {kind: 'associated_type, const_item, delegation_item, enum_item, extern_crate_declaration, foreign_mod_item, function_item, function_signature_item, impl_item, let_declaration, macro_definition, macro_invocation, mod_item, static_item, struct_item, trait_alias, trait_item, type_item, union_item, use_declaration'}]}
+    holding: {has: {field: body, has: {kind: 'ERROR, associated_type, const_item, delegation_item, enum_item, extern_crate_declaration, foreign_mod_item, function_item, function_signature_item, impl_item, let_declaration, macro_definition, macro_invocation, mod_item, static_item, struct_item, trait_alias, trait_item, type_item, union_item, use_declaration'}}}
+    above: {inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item', any: [{has: {field: name, any: [{pattern: {context: 'mod $UP;', selector: identifier}}, {pattern: {context: 'struct $UP;', selector: type_identifier}}]}}, {kind: impl_item, has: {field: type, pattern: $UP}}]}}
+    head: {any: [{kind: 'generic_type, reference_type, pointer_type', has: {field: type, matches: head}}, {kind: 'dynamic_type, abstract_type', has: {field: trait, matches: head}}, {kind: scoped_type_identifier, has: {field: name, matches: head}}, {pattern: $PART}]}
+    facet: {any: [{kind: generic_type, has: {field: type, matches: facet}}, {kind: scoped_type_identifier, has: {field: name, matches: facet}}, {pattern: $FACET}]}
+    declaration: {pattern: $DECLARATION}
+    name: {pattern: $NAME}
 rule:
-    kind: extern_modifier
-    pattern: $NAME
-    inside: {kind: foreign_mod_item, pattern: $DECLARATION, matches: scoped}
+    any:
+        - {kind: foreign_mod_item, matches: declaration, not: {matches: holding}, all: [{matches: declared}, {matches: enclosing}], has: {kind: extern_modifier, matches: name}}
+        - {kind: extern_modifier, matches: name, inside: {kind: foreign_mod_item, matches: declaration, all: [{matches: holding}, {matches: declared}, {matches: enclosing}]}}
 rewriters:
-    - {id: foreign-body, rule: {kind: declaration_list, inside: {kind: foreign_mod_item, field: body}}, fix: ' '}
-    - {id: comment, rule: {kind: 'line_comment, block_comment'}, fix: ''}
+    - {id: body, rule: {kind: declaration_list, inside: {kind: foreign_mod_item, field: body}}, fix: ' '}
+    - {id: annotation, rule: {kind: 'attribute_item, line_comment, block_comment'}, fix: ''}
+    - {id: lineage, rule: {any: [{any: [{pattern: {context: 'mod $PART;', selector: identifier}}, {pattern: {context: 'struct $PART;', selector: type_identifier}}], inside: {field: name, kind: 'delegation_item, enum_item, function_item, mod_item, struct_item, trait_item, union_item', matches: above}}, {inside: {field: type, kind: impl_item, not: {has: {field: trait, kind: 'type_identifier, scoped_type_identifier, generic_type'}}, matches: above}, matches: head}]}, transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage, trait-lineage], joinBy: ''}}, PATH: {replace: {source: $PART, replace: '\p{Pattern_White_Space}+', by: ' '}}}, fix: '$ABOVE$PATH::'}
+    - {id: trait-lineage, rule: {inside: {field: type, kind: impl_item, has: {field: trait, matches: facet}, matches: above}, matches: head}, transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage, trait-lineage], joinBy: ''}}, PATH: {replace: {source: $PART, replace: '\p{Pattern_White_Space}+', by: ' '}}}, fix: '$ABOVE<$PATH as $FACET>::'}
 transform:
-    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: '::'}}
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [foreign-body, comment]}}
+    QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage, trait-lineage], joinBy: ''}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, annotation]}}
     LINE: {replace: {source: $HEADER, replace: '\p{Pattern_White_Space}+', by: ' '}}
     SIGNATURE: {substring: {source: $LINE, endChar: -1}}
 name: $QUALIFIER$NAME
 signature: $SIGNATURE
 isPublic: false
 ---
-id: rust-nested-mod
+id: rust-member-mod
 language: rustlang
 role: member
-parentRuleIds: [rust-mod, rust-function, rust-method, rust-impl, rust-trait-impl, rust-trait]
+parentRuleIds: [rust-function-owner, rust-method-owner, rust-trait, rust-impl, rust-trait-impl]
 symbolType: module
 utils:
-    scoped:
-        inside:
-            kind: 'declaration_list, block'
-            not: {inside: {kind: 'impl_item, trait_item, foreign_mod_item'}}
-            inside: {stopBy: end, kind: 'mod_item, function_item', any: [{has: {field: name, pattern: $OWNER}, inside: {kind: 'declaration_list, block'}}, {kind: 'mod_item, function_item'}]}
+    declared: {inside: {kind: 'declaration_list, block', not: {inside: {kind: 'impl_item, trait_item'}}}}
+    enclosing: {any: [{inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item', inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item'}, any: [{has: {field: name, any: [{pattern: {context: 'mod $OWNER;', selector: identifier}}, {pattern: {context: 'struct $OWNER;', selector: type_identifier}}]}}, {kind: impl_item, has: {field: type, pattern: $OWNER}}]}}, {kind: 'associated_type, const_item, delegation_item, enum_item, extern_crate_declaration, foreign_mod_item, function_item, function_signature_item, impl_item, let_declaration, macro_definition, macro_invocation, mod_item, static_item, struct_item, trait_alias, trait_item, type_item, union_item, use_declaration'}]}
+    holding: {has: {field: body, has: {kind: 'ERROR, associated_type, const_item, delegation_item, enum_item, extern_crate_declaration, foreign_mod_item, function_item, function_signature_item, impl_item, let_declaration, macro_definition, macro_invocation, mod_item, static_item, struct_item, trait_alias, trait_item, type_item, union_item, use_declaration'}}}
+    exposed: {not: {inside: {stopBy: end, not: {has: {kind: visibility_modifier, regex: '^pub$'}}, any: [{kind: block}, {kind: 'mod_item, trait_item', inside: {kind: 'declaration_list, block'}}]}}}
+    visible: {any: [{has: {kind: visibility_modifier, regex: '^pub$'}}, {inside: {field: name, has: {kind: visibility_modifier}}}]}
+    above: {inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item', any: [{has: {field: name, any: [{pattern: {context: 'mod $UP;', selector: identifier}}, {pattern: {context: 'struct $UP;', selector: type_identifier}}]}}, {kind: impl_item, has: {field: type, pattern: $UP}}]}}
+    head: {any: [{kind: 'generic_type, reference_type, pointer_type', has: {field: type, matches: head}}, {kind: 'dynamic_type, abstract_type', has: {field: trait, matches: head}}, {kind: scoped_type_identifier, has: {field: name, matches: head}}, {pattern: $PART}]}
+    facet: {any: [{kind: generic_type, has: {field: type, matches: facet}}, {kind: scoped_type_identifier, has: {field: name, matches: facet}}, {pattern: $FACET}]}
+    declaration: {pattern: $DECLARATION}
     argument: {pattern: $ARGUMENT}
-    declared: {pattern: $DECLARATION, matches: scoped}
-    exposed: {not: {inside: {stopBy: end, any: [{kind: block}, {kind: mod_item, inside: {kind: 'declaration_list, block'}}, {kind: trait_item}], not: {has: {kind: visibility_modifier}}}}}
-    visible: {any: [{has: {kind: visibility_modifier}}, {inside: {field: name, has: {kind: visibility_modifier}}}]}
 rule:
     any:
-        - kind: identifier
-          matches: argument
-          inside: {kind: mod_item, field: name, matches: declared}
+        - {kind: mod_item, matches: declaration, not: {matches: holding}, all: [{matches: declared}, {matches: enclosing}], has: {field: name, pattern: {context: 'mod $ARGUMENT;', selector: identifier}}}
+        - {pattern: {context: 'mod $ARGUMENT;', selector: identifier}, inside: {kind: mod_item, field: name, matches: declaration, all: [{matches: holding}, {matches: declared}, {matches: enclosing}]}}
         - kind: 'use_declaration, extern_crate_declaration'
-          matches: declared
+          matches: declaration
+          all: [{matches: declared}, {matches: enclosing}]
           any:
-            - has: {field: argument, has: {field: path, matches: argument}}
-            - has: {field: argument, kind: use_wildcard, has: {kind: 'crate, identifier, metavariable, scoped_identifier, self, super', matches: argument}}
-            - has: {field: argument, matches: argument}
-            - has: {field: name, matches: argument}
+              - has: {field: argument, kind: use_as_clause, has: {field: path, any: [{has: {field: path, matches: argument}}, {matches: argument}]}}
+              - has: {field: argument, has: {field: path, matches: argument}}
+              - has: {field: argument, kind: use_wildcard, has: {matches: argument}}
+              - has: {field: argument, matches: argument}
+              - has: {field: name, matches: argument}
 rewriters:
-    - {id: mod-body, rule: {kind: declaration_list, inside: {kind: mod_item, field: body}}, fix: ' '}
-    - {id: comment, rule: {kind: 'line_comment, block_comment'}, fix: ''}
+    - {id: body, rule: {kind: declaration_list, inside: {kind: mod_item, field: body}}, fix: ' '}
+    - {id: annotation, rule: {kind: 'attribute_item, line_comment, block_comment'}, fix: ''}
+    - {id: lineage, rule: {any: [{any: [{pattern: {context: 'mod $PART;', selector: identifier}}, {pattern: {context: 'struct $PART;', selector: type_identifier}}], inside: {field: name, kind: 'delegation_item, enum_item, function_item, mod_item, struct_item, trait_item, union_item', matches: above}}, {inside: {field: type, kind: impl_item, not: {has: {field: trait, kind: 'type_identifier, scoped_type_identifier, generic_type'}}, matches: above}, matches: head}]}, transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage, trait-lineage], joinBy: ''}}, PATH: {replace: {source: $PART, replace: '\p{Pattern_White_Space}+', by: ' '}}}, fix: '$ABOVE$PATH::'}
+    - {id: trait-lineage, rule: {inside: {field: type, kind: impl_item, has: {field: trait, matches: facet}, matches: above}, matches: head}, transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage, trait-lineage], joinBy: ''}}, PATH: {replace: {source: $PART, replace: '\p{Pattern_White_Space}+', by: ' '}}}, fix: '$ABOVE<$PATH as $FACET>::'}
 transform:
-    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: '::'}}
-    NAME: {replace: {source: $ARGUMENT, replace: '\p{Pattern_White_Space}+', by: ' '}}
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [mod-body, comment]}}
+    QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage, trait-lineage], joinBy: ''}}
+    PATH: {rewrite: {source: $ARGUMENT, rewriters: [annotation]}}
+    FOLDED: {replace: {source: $PATH, replace: '\p{Pattern_White_Space}+', by: ' '}}
+    NAME: {replace: {source: $FOLDED, replace: '[ ,;]+$|,? ([)\]}>])|([(\[{]) ', by: $1$2}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, annotation]}}
     LINE: {replace: {source: $HEADER, replace: '\p{Pattern_White_Space}+', by: ' '}}
-    SIGNATURE: {substring: {source: $LINE, endChar: -1}}
+    SIGNATURE: {replace: {source: $LINE, replace: '[ ,;]+$|,? ([)\]}>])|([(\[{]) ', by: $1$2}}
 name: $QUALIFIER$NAME
 signature: $SIGNATURE
 isPublic: {all: [{matches: visible}, {matches: exposed}]}
 ---
-id: rust-nested-trait
+id: rust-member-mod-nested
 language: rustlang
 role: member
-parentRuleIds: [rust-mod, rust-function, rust-method, rust-impl, rust-trait-impl, rust-trait]
+parentRuleIds: [rust-mod]
+symbolType: module
+utils:
+    declared: {inside: {kind: 'declaration_list, block', not: {inside: {kind: 'impl_item, trait_item'}}}}
+    enclosing: {any: [{inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item', inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item'}, any: [{has: {field: name, any: [{pattern: {context: 'mod $OWNER;', selector: identifier}}, {pattern: {context: 'struct $OWNER;', selector: type_identifier}}]}}, {kind: impl_item, has: {field: type, pattern: $OWNER}}]}}, {kind: 'associated_type, const_item, delegation_item, enum_item, extern_crate_declaration, foreign_mod_item, function_item, function_signature_item, impl_item, let_declaration, macro_definition, macro_invocation, mod_item, static_item, struct_item, trait_alias, trait_item, type_item, union_item, use_declaration'}]}
+    holding: {has: {field: body, has: {kind: 'ERROR, associated_type, const_item, delegation_item, enum_item, extern_crate_declaration, foreign_mod_item, function_item, function_signature_item, impl_item, let_declaration, macro_definition, macro_invocation, mod_item, static_item, struct_item, trait_alias, trait_item, type_item, union_item, use_declaration'}}}
+    exposed: {not: {inside: {stopBy: end, not: {has: {kind: visibility_modifier, regex: '^pub$'}}, any: [{kind: block}, {kind: 'mod_item, trait_item', inside: {kind: 'declaration_list, block'}}]}}}
+    visible: {any: [{has: {kind: visibility_modifier, regex: '^pub$'}}, {inside: {field: name, has: {kind: visibility_modifier}}}]}
+    above: {inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item', any: [{has: {field: name, any: [{pattern: {context: 'mod $UP;', selector: identifier}}, {pattern: {context: 'struct $UP;', selector: type_identifier}}]}}, {kind: impl_item, has: {field: type, pattern: $UP}}]}}
+    head: {any: [{kind: 'generic_type, reference_type, pointer_type', has: {field: type, matches: head}}, {kind: 'dynamic_type, abstract_type', has: {field: trait, matches: head}}, {kind: scoped_type_identifier, has: {field: name, matches: head}}, {pattern: $PART}]}
+    facet: {any: [{kind: generic_type, has: {field: type, matches: facet}}, {kind: scoped_type_identifier, has: {field: name, matches: facet}}, {pattern: $FACET}]}
+    declaration: {pattern: $DECLARATION}
+    argument: {pattern: $ARGUMENT}
+rule:
+    any:
+        - {kind: mod_item, matches: declaration, not: {matches: holding}, all: [{matches: declared}, {matches: enclosing}], has: {field: name, pattern: {context: 'mod $ARGUMENT;', selector: identifier}}}
+        - {pattern: {context: 'mod $ARGUMENT;', selector: identifier}, inside: {kind: mod_item, field: name, matches: declaration, all: [{matches: holding}, {matches: declared}, {matches: enclosing}], inside: {stopBy: end, kind: mod_item}}}
+        - kind: 'use_declaration, extern_crate_declaration'
+          matches: declaration
+          all: [{matches: declared}, {matches: enclosing}]
+          any:
+              - has: {field: argument, kind: use_as_clause, has: {field: path, any: [{has: {field: path, matches: argument}}, {matches: argument}]}}
+              - has: {field: argument, has: {field: path, matches: argument}}
+              - has: {field: argument, kind: use_wildcard, has: {matches: argument}}
+              - has: {field: argument, matches: argument}
+              - has: {field: name, matches: argument}
+rewriters:
+    - {id: body, rule: {kind: declaration_list, inside: {kind: mod_item, field: body}}, fix: ' '}
+    - {id: annotation, rule: {kind: 'attribute_item, line_comment, block_comment'}, fix: ''}
+    - {id: lineage, rule: {any: [{any: [{pattern: {context: 'mod $PART;', selector: identifier}}, {pattern: {context: 'struct $PART;', selector: type_identifier}}], inside: {field: name, kind: 'delegation_item, enum_item, function_item, mod_item, struct_item, trait_item, union_item', matches: above}}, {inside: {field: type, kind: impl_item, not: {has: {field: trait, kind: 'type_identifier, scoped_type_identifier, generic_type'}}, matches: above}, matches: head}]}, transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage, trait-lineage], joinBy: ''}}, PATH: {replace: {source: $PART, replace: '\p{Pattern_White_Space}+', by: ' '}}}, fix: '$ABOVE$PATH::'}
+    - {id: trait-lineage, rule: {inside: {field: type, kind: impl_item, has: {field: trait, matches: facet}, matches: above}, matches: head}, transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage, trait-lineage], joinBy: ''}}, PATH: {replace: {source: $PART, replace: '\p{Pattern_White_Space}+', by: ' '}}}, fix: '$ABOVE<$PATH as $FACET>::'}
+transform:
+    QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage, trait-lineage], joinBy: ''}}
+    PATH: {rewrite: {source: $ARGUMENT, rewriters: [annotation]}}
+    FOLDED: {replace: {source: $PATH, replace: '\p{Pattern_White_Space}+', by: ' '}}
+    NAME: {replace: {source: $FOLDED, replace: '[ ,;]+$|,? ([)\]}>])|([(\[{]) ', by: $1$2}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, annotation]}}
+    LINE: {replace: {source: $HEADER, replace: '\p{Pattern_White_Space}+', by: ' '}}
+    SIGNATURE: {replace: {source: $LINE, replace: '[ ,;]+$|,? ([)\]}>])|([(\[{]) ', by: $1$2}}
+name: $QUALIFIER$NAME
+signature: $SIGNATURE
+isPublic: {all: [{matches: visible}, {matches: exposed}]}
+---
+id: rust-member-trait
+language: rustlang
+role: member
+parentRuleIds: [rust-mod, rust-function-owner, rust-method-owner, rust-impl, rust-trait-impl]
 symbolType: interface
 utils:
-    scoped:
-        inside:
-            kind: 'declaration_list, block'
-            not: {inside: {kind: 'impl_item, trait_item, foreign_mod_item'}}
-            inside: {stopBy: end, kind: 'mod_item, function_item', any: [{has: {field: name, pattern: $OWNER}, inside: {kind: 'declaration_list, block'}}, {kind: 'mod_item, function_item'}]}
-    named: {pattern: $NAME}
-    declared: {pattern: $DECLARATION, matches: scoped}
-    exposed: {not: {inside: {stopBy: end, any: [{kind: block}, {kind: mod_item, inside: {kind: 'declaration_list, block'}}, {kind: trait_item}], not: {has: {kind: visibility_modifier}}}}}
-    visible: {any: [{has: {kind: visibility_modifier}}, {inside: {field: name, has: {kind: visibility_modifier}}}]}
+    declared: {inside: {kind: 'declaration_list, block', not: {inside: {kind: 'impl_item, trait_item'}}}}
+    enclosing: {any: [{inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item', inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item'}, any: [{has: {field: name, any: [{pattern: {context: 'mod $OWNER;', selector: identifier}}, {pattern: {context: 'struct $OWNER;', selector: type_identifier}}]}}, {kind: impl_item, has: {field: type, pattern: $OWNER}}]}}, {kind: 'associated_type, const_item, delegation_item, enum_item, extern_crate_declaration, foreign_mod_item, function_item, function_signature_item, impl_item, let_declaration, macro_definition, macro_invocation, mod_item, static_item, struct_item, trait_alias, trait_item, type_item, union_item, use_declaration'}]}
+    holding: {has: {field: body, has: {kind: 'ERROR, associated_type, const_item, delegation_item, enum_item, extern_crate_declaration, foreign_mod_item, function_item, function_signature_item, impl_item, let_declaration, macro_definition, macro_invocation, mod_item, static_item, struct_item, trait_alias, trait_item, type_item, union_item, use_declaration'}}}
+    exposed: {not: {inside: {stopBy: end, not: {has: {kind: visibility_modifier, regex: '^pub$'}}, any: [{kind: block}, {kind: 'mod_item, trait_item', inside: {kind: 'declaration_list, block'}}]}}}
+    visible: {any: [{has: {kind: visibility_modifier, regex: '^pub$'}}, {inside: {field: name, has: {kind: visibility_modifier}}}]}
+    above: {inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item', any: [{has: {field: name, any: [{pattern: {context: 'mod $UP;', selector: identifier}}, {pattern: {context: 'struct $UP;', selector: type_identifier}}]}}, {kind: impl_item, has: {field: type, pattern: $UP}}]}}
+    head: {any: [{kind: 'generic_type, reference_type, pointer_type', has: {field: type, matches: head}}, {kind: 'dynamic_type, abstract_type', has: {field: trait, matches: head}}, {kind: scoped_type_identifier, has: {field: name, matches: head}}, {pattern: $PART}]}
+    facet: {any: [{kind: generic_type, has: {field: type, matches: facet}}, {kind: scoped_type_identifier, has: {field: name, matches: facet}}, {pattern: $FACET}]}
+    declaration: {pattern: $DECLARATION}
 rule:
     any:
-        - kind: type_identifier
-          matches: named
-          inside: {kind: trait_item, field: name, matches: declared}
-        - kind: trait_alias
-          matches: declared
-          has: {field: name, matches: named}
+        - {kind: 'trait_item, trait_alias', matches: declaration, not: {matches: holding}, all: [{matches: declared}, {matches: enclosing}], has: {field: name, pattern: {context: 'struct $NAME;', selector: type_identifier}}}
+        - {pattern: {context: 'struct $NAME;', selector: type_identifier}, inside: {kind: trait_item, field: name, matches: declaration, all: [{matches: holding}, {matches: declared}, {matches: enclosing}]}}
 rewriters:
-    - {id: trait-body, rule: {kind: declaration_list, inside: {kind: trait_item, field: body}}, fix: ' '}
-    - {id: comment, rule: {kind: 'line_comment, block_comment'}, fix: ''}
+    - {id: body, rule: {kind: declaration_list, inside: {kind: trait_item, field: body}}, fix: ' '}
+    - {id: annotation, rule: {kind: 'attribute_item, line_comment, block_comment'}, fix: ''}
+    - {id: lineage, rule: {any: [{any: [{pattern: {context: 'mod $PART;', selector: identifier}}, {pattern: {context: 'struct $PART;', selector: type_identifier}}], inside: {field: name, kind: 'delegation_item, enum_item, function_item, mod_item, struct_item, trait_item, union_item', matches: above}}, {inside: {field: type, kind: impl_item, not: {has: {field: trait, kind: 'type_identifier, scoped_type_identifier, generic_type'}}, matches: above}, matches: head}]}, transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage, trait-lineage], joinBy: ''}}, PATH: {replace: {source: $PART, replace: '\p{Pattern_White_Space}+', by: ' '}}}, fix: '$ABOVE$PATH::'}
+    - {id: trait-lineage, rule: {inside: {field: type, kind: impl_item, has: {field: trait, matches: facet}, matches: above}, matches: head}, transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage, trait-lineage], joinBy: ''}}, PATH: {replace: {source: $PART, replace: '\p{Pattern_White_Space}+', by: ' '}}}, fix: '$ABOVE<$PATH as $FACET>::'}
 transform:
-    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: '::'}}
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [trait-body, comment]}}
+    QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage, trait-lineage], joinBy: ''}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, annotation]}}
     LINE: {replace: {source: $HEADER, replace: '\p{Pattern_White_Space}+', by: ' '}}
-    SIGNATURE: {substring: {source: $LINE, endChar: -1}}
+    SIGNATURE: {replace: {source: $LINE, replace: '[ ,;]+$|,? ([)\]>])|([(\[<]) ', by: $1$2}}
 name: $QUALIFIER$NAME
 signature: $SIGNATURE
 isPublic: {all: [{matches: visible}, {matches: exposed}]}
 ---
-id: rust-nested-impl
+id: rust-member-trait-nested
 language: rustlang
 role: member
-parentRuleIds: [rust-mod, rust-function, rust-method, rust-impl, rust-trait-impl, rust-trait]
+parentRuleIds: [rust-trait]
+symbolType: interface
+utils:
+    declared: {inside: {kind: 'declaration_list, block', not: {inside: {kind: 'impl_item, trait_item'}}}}
+    enclosing: {any: [{inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item', inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item'}, any: [{has: {field: name, any: [{pattern: {context: 'mod $OWNER;', selector: identifier}}, {pattern: {context: 'struct $OWNER;', selector: type_identifier}}]}}, {kind: impl_item, has: {field: type, pattern: $OWNER}}]}}, {kind: 'associated_type, const_item, delegation_item, enum_item, extern_crate_declaration, foreign_mod_item, function_item, function_signature_item, impl_item, let_declaration, macro_definition, macro_invocation, mod_item, static_item, struct_item, trait_alias, trait_item, type_item, union_item, use_declaration'}]}
+    holding: {has: {field: body, has: {kind: 'ERROR, associated_type, const_item, delegation_item, enum_item, extern_crate_declaration, foreign_mod_item, function_item, function_signature_item, impl_item, let_declaration, macro_definition, macro_invocation, mod_item, static_item, struct_item, trait_alias, trait_item, type_item, union_item, use_declaration'}}}
+    exposed: {not: {inside: {stopBy: end, not: {has: {kind: visibility_modifier, regex: '^pub$'}}, any: [{kind: block}, {kind: 'mod_item, trait_item', inside: {kind: 'declaration_list, block'}}]}}}
+    visible: {any: [{has: {kind: visibility_modifier, regex: '^pub$'}}, {inside: {field: name, has: {kind: visibility_modifier}}}]}
+    above: {inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item', any: [{has: {field: name, any: [{pattern: {context: 'mod $UP;', selector: identifier}}, {pattern: {context: 'struct $UP;', selector: type_identifier}}]}}, {kind: impl_item, has: {field: type, pattern: $UP}}]}}
+    head: {any: [{kind: 'generic_type, reference_type, pointer_type', has: {field: type, matches: head}}, {kind: 'dynamic_type, abstract_type', has: {field: trait, matches: head}}, {kind: scoped_type_identifier, has: {field: name, matches: head}}, {pattern: $PART}]}
+    facet: {any: [{kind: generic_type, has: {field: type, matches: facet}}, {kind: scoped_type_identifier, has: {field: name, matches: facet}}, {pattern: $FACET}]}
+    declaration: {pattern: $DECLARATION}
+rule:
+    any:
+        - {kind: 'trait_item, trait_alias', matches: declaration, not: {matches: holding}, all: [{matches: declared}, {matches: enclosing}], has: {field: name, pattern: {context: 'struct $NAME;', selector: type_identifier}}}
+        - {pattern: {context: 'struct $NAME;', selector: type_identifier}, inside: {kind: trait_item, field: name, matches: declaration, all: [{matches: holding}, {matches: declared}, {matches: enclosing}], inside: {stopBy: end, kind: trait_item}}}
+rewriters:
+    - {id: body, rule: {kind: declaration_list, inside: {kind: trait_item, field: body}}, fix: ' '}
+    - {id: annotation, rule: {kind: 'attribute_item, line_comment, block_comment'}, fix: ''}
+    - {id: lineage, rule: {any: [{any: [{pattern: {context: 'mod $PART;', selector: identifier}}, {pattern: {context: 'struct $PART;', selector: type_identifier}}], inside: {field: name, kind: 'delegation_item, enum_item, function_item, mod_item, struct_item, trait_item, union_item', matches: above}}, {inside: {field: type, kind: impl_item, not: {has: {field: trait, kind: 'type_identifier, scoped_type_identifier, generic_type'}}, matches: above}, matches: head}]}, transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage, trait-lineage], joinBy: ''}}, PATH: {replace: {source: $PART, replace: '\p{Pattern_White_Space}+', by: ' '}}}, fix: '$ABOVE$PATH::'}
+    - {id: trait-lineage, rule: {inside: {field: type, kind: impl_item, has: {field: trait, matches: facet}, matches: above}, matches: head}, transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage, trait-lineage], joinBy: ''}}, PATH: {replace: {source: $PART, replace: '\p{Pattern_White_Space}+', by: ' '}}}, fix: '$ABOVE<$PATH as $FACET>::'}
+transform:
+    QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage, trait-lineage], joinBy: ''}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, annotation]}}
+    LINE: {replace: {source: $HEADER, replace: '\p{Pattern_White_Space}+', by: ' '}}
+    SIGNATURE: {replace: {source: $LINE, replace: '[ ,;]+$|,? ([)\]>])|([(\[<]) ', by: $1$2}}
+name: $QUALIFIER$NAME
+signature: $SIGNATURE
+isPublic: {all: [{matches: visible}, {matches: exposed}]}
+---
+id: rust-member-impl
+language: rustlang
+role: member
+parentRuleIds: [rust-mod, rust-function-owner, rust-method-owner, rust-trait]
 symbolType: object
 utils:
-    scoped:
-        inside:
-            kind: 'declaration_list, block'
-            not: {inside: {kind: 'impl_item, trait_item, foreign_mod_item'}}
-            inside: {stopBy: end, kind: 'mod_item, function_item', any: [{has: {field: name, pattern: $OWNER}, inside: {kind: 'declaration_list, block'}}, {kind: 'mod_item, function_item'}]}
-    exposed: {not: {inside: {stopBy: end, any: [{kind: block}, {kind: mod_item, inside: {kind: 'declaration_list, block'}}, {kind: trait_item}], not: {has: {kind: visibility_modifier}}}}}
-    implemented: {pattern: $IMPLEMENTED}
-    trait-head:
-        any:
-            - {kind: type_identifier, matches: implemented}
-            - {kind: scoped_type_identifier, has: {field: name, matches: implemented}}
-            - {kind: generic_type, has: {field: type, matches: trait-head}}
-    target: {pattern: $TARGET}
-    target-head:
-        any:
-            - {kind: 'type_identifier, primitive_type', matches: target}
-            - {kind: scoped_type_identifier, has: {field: name, matches: target}}
-            - {kind: generic_type, has: {field: type, matches: target-head}}
-            - {kind: 'reference_type, pointer_type', has: {field: type, matches: target-head}}
-            - {kind: 'dynamic_type, abstract_type', has: {field: trait, matches: target-head}}
+    declared: {inside: {kind: 'declaration_list, block', not: {inside: {kind: 'impl_item, trait_item'}}}}
+    enclosing: {any: [{inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item', inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item'}, any: [{has: {field: name, any: [{pattern: {context: 'mod $OWNER;', selector: identifier}}, {pattern: {context: 'struct $OWNER;', selector: type_identifier}}]}}, {kind: impl_item, has: {field: type, pattern: $OWNER}}]}}, {kind: 'associated_type, const_item, delegation_item, enum_item, extern_crate_declaration, foreign_mod_item, function_item, function_signature_item, impl_item, let_declaration, macro_definition, macro_invocation, mod_item, static_item, struct_item, trait_alias, trait_item, type_item, union_item, use_declaration'}]}
+    holding: {has: {field: body, has: {kind: 'ERROR, associated_type, const_item, delegation_item, enum_item, extern_crate_declaration, foreign_mod_item, function_item, function_signature_item, impl_item, let_declaration, macro_definition, macro_invocation, mod_item, static_item, struct_item, trait_alias, trait_item, type_item, union_item, use_declaration'}}}
+    exposed: {not: {inside: {stopBy: end, not: {has: {kind: visibility_modifier, regex: '^pub$'}}, any: [{kind: block}, {kind: 'mod_item, trait_item', inside: {kind: 'declaration_list, block'}}]}}}
+    implemented-name: {pattern: $IMPLEMENTED}
+    implemented: {any: [{kind: type_identifier, matches: implemented-name}, {kind: scoped_type_identifier, has: {field: name, matches: implemented-name}}, {kind: generic_type, has: {field: type, matches: implemented}}, {matches: implemented-name}]}
+    target-name: {pattern: $TARGET}
+    target: {any: [{kind: 'type_identifier, primitive_type', matches: target-name}, {kind: scoped_type_identifier, has: {field: name, matches: target-name}}, {kind: 'generic_type, reference_type, pointer_type', has: {field: type, matches: target}}, {kind: 'dynamic_type, abstract_type', has: {field: trait, matches: target}}, {matches: target-name}]}
+    above: {inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item', any: [{has: {field: name, any: [{pattern: {context: 'mod $UP;', selector: identifier}}, {pattern: {context: 'struct $UP;', selector: type_identifier}}]}}, {kind: impl_item, has: {field: type, pattern: $UP}}]}}
+    head: {any: [{kind: 'generic_type, reference_type, pointer_type', has: {field: type, matches: head}}, {kind: 'dynamic_type, abstract_type', has: {field: trait, matches: head}}, {kind: scoped_type_identifier, has: {field: name, matches: head}}, {pattern: $PART}]}
+    facet: {any: [{kind: generic_type, has: {field: type, matches: facet}}, {kind: scoped_type_identifier, has: {field: name, matches: facet}}, {pattern: $FACET}]}
+    declaration: {pattern: $DECLARATION}
 rule:
-    kind: 'abstract_type, array_type, bounded_type, dynamic_type, function_type, generic_type, macro_invocation, metavariable, never_type, pointer_type, primitive_type, reference_type, removed_trait_bound, scoped_type_identifier, tuple_type, type_identifier, unit_type, unsafe_binder_type'
-    any: [{matches: target-head}, {matches: target}]
-    inside:
-        kind: impl_item
-        field: type
-        pattern: $DECLARATION
-        matches: scoped
-        any:
-            - has: {field: trait, any: [{matches: trait-head}, {matches: implemented}]}
-            - kind: impl_item
+    any:
+        - kind: impl_item
+          matches: declaration
+          all: [{matches: declared}, {not: {matches: holding}}, {matches: enclosing}, {has: {field: type, matches: target}}, {any: [{has: {field: trait, matches: implemented}}, {kind: impl_item}]}, {any: [{has: {regex: '^!$', not: {kind: never_type}, pattern: $$NEGATION}}, {kind: impl_item}]}]
+        - kind: 'abstract_type, array_type, bounded_type, dynamic_type, function_type, generic_type, macro_invocation, metavariable, never_type, pointer_type, primitive_type, reference_type, removed_trait_bound, scoped_type_identifier, tuple_type, type_identifier, unit_type, unsafe_binder_type'
+          all: [{inside: {kind: impl_item, field: type, matches: declaration, all: [{matches: holding}, {matches: declared}, {matches: enclosing}], any: [{has: {field: trait, matches: implemented}}, {kind: impl_item}]}}, {matches: target}]
 rewriters:
-    - {id: impl-body, rule: {kind: declaration_list, inside: {kind: impl_item, field: body}}, fix: ' '}
-    - {id: comment, rule: {kind: 'line_comment, block_comment'}, fix: ''}
+    - {id: body, rule: {kind: declaration_list, inside: {kind: impl_item, field: body}}, fix: ' '}
+    - {id: annotation, rule: {kind: 'attribute_item, line_comment, block_comment'}, fix: ''}
+    - {id: lineage, rule: {any: [{any: [{pattern: {context: 'mod $PART;', selector: identifier}}, {pattern: {context: 'struct $PART;', selector: type_identifier}}], inside: {field: name, kind: 'delegation_item, enum_item, function_item, mod_item, struct_item, trait_item, union_item', matches: above}}, {inside: {field: type, kind: impl_item, not: {has: {field: trait, kind: 'type_identifier, scoped_type_identifier, generic_type'}}, matches: above}, matches: head}]}, transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage, trait-lineage], joinBy: ''}}, PATH: {replace: {source: $PART, replace: '\p{Pattern_White_Space}+', by: ' '}}}, fix: '$ABOVE$PATH::'}
+    - {id: trait-lineage, rule: {inside: {field: type, kind: impl_item, has: {field: trait, matches: facet}, matches: above}, matches: head}, transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage, trait-lineage], joinBy: ''}}, PATH: {replace: {source: $PART, replace: '\p{Pattern_White_Space}+', by: ' '}}}, fix: '$ABOVE<$PATH as $FACET>::'}
 transform:
-    QUALIFIER: {replace: {source: $OWNER, replace: '$', by: '::'}}
+    QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage, trait-lineage], joinBy: ''}}
     NAME: {replace: {source: $TARGET, replace: '\p{Pattern_White_Space}+', by: ' '}}
-    FOR: {replace: {source: $IMPLEMENTED, replace: '$', by: ' for '}}
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [impl-body, comment]}}
+    OPEN: {replace: {source: $IMPLEMENTED, replace: '^(?s).+$', by: '<'}}
+    FOR: {replace: {source: $IMPLEMENTED, replace: '^(?s).+$', by: ' as '}}
+    CLOSE: {replace: {source: $IMPLEMENTED, replace: '^(?s).+$', by: '>'}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, annotation]}}
     LINE: {replace: {source: $HEADER, replace: '\p{Pattern_White_Space}+', by: ' '}}
-    SIGNATURE: {substring: {source: $LINE, endChar: -1}}
-name: $QUALIFIER$FOR$NAME
+    SIGNATURE: {replace: {source: $LINE, replace: '[ ,;]+$|,? ([)\]>])|([(\[<]) ', by: $1$2}}
+name: $QUALIFIER$OPEN$NAME$FOR$NEGATION$IMPLEMENTED$CLOSE
 signature: $SIGNATURE
-isPublic: {all: [{inside: {kind: impl_item, field: type, has: {field: trait, kind: 'type_identifier, scoped_type_identifier, generic_type'}}}, {matches: exposed}]}
+isPublic: {all: [{any: [{has: {field: trait, kind: 'type_identifier, scoped_type_identifier, generic_type'}}, {inside: {kind: impl_item, field: type, has: {field: trait, kind: 'type_identifier, scoped_type_identifier, generic_type'}}}]}, {matches: exposed}]}
 ---
-id: rust-assoc-method
+id: rust-member-impl-nested
 language: rustlang
 role: member
-parentRuleIds: [rust-impl, rust-trait-impl, rust-trait]
-symbolType: method
+parentRuleIds: [rust-impl, rust-trait-impl]
+symbolType: object
 utils:
-    named: {pattern: $NAME}
-    declared: {pattern: $DECLARATION, inside: {kind: declaration_list, inside: {kind: 'impl_item, trait_item'}}}
-    visible: {any: [{has: {kind: visibility_modifier}}, {inside: {field: name, has: {kind: visibility_modifier}}}]}
-    implied: {inside: {kind: declaration_list, inside: {any: [{kind: trait_item}, {kind: impl_item, has: {field: trait, kind: 'type_identifier, scoped_type_identifier, generic_type'}}]}}}
+    declared: {inside: {kind: 'declaration_list, block', not: {inside: {kind: 'impl_item, trait_item'}}}}
+    enclosing: {any: [{inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item', inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item'}, any: [{has: {field: name, any: [{pattern: {context: 'mod $OWNER;', selector: identifier}}, {pattern: {context: 'struct $OWNER;', selector: type_identifier}}]}}, {kind: impl_item, has: {field: type, pattern: $OWNER}}]}}, {kind: 'associated_type, const_item, delegation_item, enum_item, extern_crate_declaration, foreign_mod_item, function_item, function_signature_item, impl_item, let_declaration, macro_definition, macro_invocation, mod_item, static_item, struct_item, trait_alias, trait_item, type_item, union_item, use_declaration'}]}
+    holding: {has: {field: body, has: {kind: 'ERROR, associated_type, const_item, delegation_item, enum_item, extern_crate_declaration, foreign_mod_item, function_item, function_signature_item, impl_item, let_declaration, macro_definition, macro_invocation, mod_item, static_item, struct_item, trait_alias, trait_item, type_item, union_item, use_declaration'}}}
+    exposed: {not: {inside: {stopBy: end, not: {has: {kind: visibility_modifier, regex: '^pub$'}}, any: [{kind: block}, {kind: 'mod_item, trait_item', inside: {kind: 'declaration_list, block'}}]}}}
+    implemented-name: {pattern: $IMPLEMENTED}
+    implemented: {any: [{kind: type_identifier, matches: implemented-name}, {kind: scoped_type_identifier, has: {field: name, matches: implemented-name}}, {kind: generic_type, has: {field: type, matches: implemented}}, {matches: implemented-name}]}
+    target-name: {pattern: $TARGET}
+    target: {any: [{kind: 'type_identifier, primitive_type', matches: target-name}, {kind: scoped_type_identifier, has: {field: name, matches: target-name}}, {kind: 'generic_type, reference_type, pointer_type', has: {field: type, matches: target}}, {kind: 'dynamic_type, abstract_type', has: {field: trait, matches: target}}, {matches: target-name}]}
+    above: {inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item', any: [{has: {field: name, any: [{pattern: {context: 'mod $UP;', selector: identifier}}, {pattern: {context: 'struct $UP;', selector: type_identifier}}]}}, {kind: impl_item, has: {field: type, pattern: $UP}}]}}
+    head: {any: [{kind: 'generic_type, reference_type, pointer_type', has: {field: type, matches: head}}, {kind: 'dynamic_type, abstract_type', has: {field: trait, matches: head}}, {kind: scoped_type_identifier, has: {field: name, matches: head}}, {pattern: $PART}]}
+    facet: {any: [{kind: generic_type, has: {field: type, matches: facet}}, {kind: scoped_type_identifier, has: {field: name, matches: facet}}, {pattern: $FACET}]}
+    declaration: {pattern: $DECLARATION}
 rule:
     any:
-        - kind: 'identifier, metavariable'
-          matches: named
-          inside: {kind: function_item, field: name, matches: declared}
-        - kind: 'function_signature_item, delegation_item'
-          matches: declared
-          has: {field: name, matches: named}
+        - kind: impl_item
+          matches: declaration
+          all: [{matches: declared}, {not: {matches: holding}}, {matches: enclosing}, {has: {field: type, matches: target}}, {any: [{has: {field: trait, matches: implemented}}, {kind: impl_item}]}, {any: [{has: {regex: '^!$', not: {kind: never_type}, pattern: $$NEGATION}}, {kind: impl_item}]}]
+        - kind: 'abstract_type, array_type, bounded_type, dynamic_type, function_type, generic_type, macro_invocation, metavariable, never_type, pointer_type, primitive_type, reference_type, removed_trait_bound, scoped_type_identifier, tuple_type, type_identifier, unit_type, unsafe_binder_type'
+          all: [{inside: {kind: impl_item, field: type, matches: declaration, all: [{matches: holding}, {matches: declared}, {matches: enclosing}], any: [{has: {field: trait, matches: implemented}}, {kind: impl_item}], inside: {stopBy: end, kind: impl_item}}}, {matches: target}]
 rewriters:
-    - {id: function-body, rule: {kind: block, inside: {kind: 'function_item, delegation_item', field: body}}, fix: ' '}
-    - {id: comment, rule: {kind: 'line_comment, block_comment'}, fix: ''}
+    - {id: body, rule: {kind: declaration_list, inside: {kind: impl_item, field: body}}, fix: ' '}
+    - {id: annotation, rule: {kind: 'attribute_item, line_comment, block_comment'}, fix: ''}
+    - {id: lineage, rule: {any: [{any: [{pattern: {context: 'mod $PART;', selector: identifier}}, {pattern: {context: 'struct $PART;', selector: type_identifier}}], inside: {field: name, kind: 'delegation_item, enum_item, function_item, mod_item, struct_item, trait_item, union_item', matches: above}}, {inside: {field: type, kind: impl_item, not: {has: {field: trait, kind: 'type_identifier, scoped_type_identifier, generic_type'}}, matches: above}, matches: head}]}, transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage, trait-lineage], joinBy: ''}}, PATH: {replace: {source: $PART, replace: '\p{Pattern_White_Space}+', by: ' '}}}, fix: '$ABOVE$PATH::'}
+    - {id: trait-lineage, rule: {inside: {field: type, kind: impl_item, has: {field: trait, matches: facet}, matches: above}, matches: head}, transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage, trait-lineage], joinBy: ''}}, PATH: {replace: {source: $PART, replace: '\p{Pattern_White_Space}+', by: ' '}}}, fix: '$ABOVE<$PATH as $FACET>::'}
 transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [function-body, comment]}}
+    QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage, trait-lineage], joinBy: ''}}
+    NAME: {replace: {source: $TARGET, replace: '\p{Pattern_White_Space}+', by: ' '}}
+    OPEN: {replace: {source: $IMPLEMENTED, replace: '^(?s).+$', by: '<'}}
+    FOR: {replace: {source: $IMPLEMENTED, replace: '^(?s).+$', by: ' as '}}
+    CLOSE: {replace: {source: $IMPLEMENTED, replace: '^(?s).+$', by: '>'}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, annotation]}}
     LINE: {replace: {source: $HEADER, replace: '\p{Pattern_White_Space}+', by: ' '}}
-    SIGNATURE: {substring: {source: $LINE, endChar: -1}}
-name: $NAME
+    SIGNATURE: {replace: {source: $LINE, replace: '[ ,;]+$|,? ([)\]>])|([(\[<]) ', by: $1$2}}
+name: $QUALIFIER$OPEN$NAME$FOR$NEGATION$IMPLEMENTED$CLOSE
 signature: $SIGNATURE
-isPublic: {any: [{matches: visible}, {matches: implied}, {inside: {field: name, matches: implied}}]}
----
-id: rust-assoc-type
-language: rustlang
-role: member
-parentRuleIds: [rust-impl, rust-trait-impl, rust-trait]
-symbolType: typeParameter
-rule:
-    kind: 'associated_type, type_item'
-    pattern: $DECLARATION
-    has: {field: name, pattern: $NAME}
-    inside: {kind: declaration_list, inside: {kind: 'impl_item, trait_item'}}
-rewriters: [{id: comment, rule: {kind: 'line_comment, block_comment'}, fix: ''}]
-transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [comment]}}
-    LINE: {replace: {source: $HEADER, replace: '\p{Pattern_White_Space}+', by: ' '}}
-    SIGNATURE: {substring: {source: $LINE, endChar: -1}}
-name: $NAME
-signature: $SIGNATURE
-isPublic:
-    any:
-        - has: {kind: visibility_modifier}
-        - inside: {kind: declaration_list, inside: {any: [{kind: trait_item}, {kind: impl_item, has: {field: trait, kind: 'type_identifier, scoped_type_identifier, generic_type'}}]}}
----
-id: rust-assoc-const
-language: rustlang
-role: member
-parentRuleIds: [rust-impl, rust-trait-impl, rust-trait]
-symbolType: constant
-rule:
-    kind: const_item
-    pattern: $DECLARATION
-    has: {field: name, pattern: $NAME}
-    inside: {kind: declaration_list, inside: {kind: 'impl_item, trait_item'}}
-rewriters:
-    - id: value
-      rule:
-        kind: 'array_expression, assignment_expression, async_block, attributed_expression, await_expression, become_expression, binary_expression, block, boolean_literal, break_expression, builtin_expression, call_expression, char_literal, closure_expression, compound_assignment_expr, const_block, continue_expression, field_expression, float_literal, for_expression, gen_block, generic_function, identifier, if_expression, index_expression, integer_literal, loop_expression, macro_invocation, match_expression, metavariable, move_expression, parenthesized_expression, range_expression, raw_string_literal, reference_expression, return_expression, scoped_identifier, self, string_literal, struct_expression, try_block, try_expression, tuple_expression, type_cast_expression, unary_expression, unit_expression, unsafe_block, while_expression, yeet_expression, yield_expression'
-        inside: {kind: const_item, field: value}
-      fix: {template: ' ', expandStart: {regex: '^=$'}, expandEnd: {regex: '^;$'}}
-    - {id: comment, rule: {kind: 'line_comment, block_comment'}, fix: ''}
-transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [value, comment]}}
-    LINE: {replace: {source: $HEADER, replace: '\p{Pattern_White_Space}+', by: ' '}}
-    SIGNATURE: {substring: {source: $LINE, endChar: -1}}
-name: $NAME
-signature: $SIGNATURE
-isPublic:
-    any:
-        - has: {kind: visibility_modifier}
-        - inside: {kind: declaration_list, inside: {any: [{kind: trait_item}, {kind: impl_item, has: {field: trait, kind: 'type_identifier, scoped_type_identifier, generic_type'}}]}}
----
-id: rust-foreign-function
-language: rustlang
-role: member
-parentRuleIds: [rust-foreign-block]
-symbolType: function
-rule:
-    kind: 'function_item, function_signature_item'
-    pattern: $DECLARATION
-    has: {field: name, pattern: $NAME}
-    inside: {kind: declaration_list, inside: {kind: foreign_mod_item}}
-rewriters: [{id: comment, rule: {kind: 'line_comment, block_comment'}, fix: ''}]
-transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [comment]}}
-    LINE: {replace: {source: $HEADER, replace: '\p{Pattern_White_Space}+', by: ' '}}
-    SIGNATURE: {substring: {source: $LINE, endChar: -1}}
-name: $NAME
-signature: $SIGNATURE
-isPublic: {has: {kind: visibility_modifier}}
----
-id: rust-foreign-static
-language: rustlang
-role: member
-parentRuleIds: [rust-foreign-block]
-symbolType: variable
-rule:
-    kind: static_item
-    pattern: $DECLARATION
-    has: {field: name, pattern: $NAME}
-    inside: {kind: declaration_list, inside: {kind: foreign_mod_item}}
-rewriters: [{id: comment, rule: {kind: 'line_comment, block_comment'}, fix: ''}]
-transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [comment]}}
-    LINE: {replace: {source: $HEADER, replace: '\p{Pattern_White_Space}+', by: ' '}}
-    SIGNATURE: {substring: {source: $LINE, endChar: -1}}
-name: $NAME
-signature: $SIGNATURE
-isPublic: {has: {kind: visibility_modifier}}
----
-id: rust-foreign-type
-language: rustlang
-role: member
-parentRuleIds: [rust-foreign-block]
-symbolType: struct
-rule:
-    kind: 'type_item, associated_type'
-    pattern: $DECLARATION
-    has: {field: name, pattern: $NAME}
-    inside: {kind: declaration_list, inside: {kind: foreign_mod_item}}
-rewriters: [{id: comment, rule: {kind: 'line_comment, block_comment'}, fix: ''}]
-transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [comment]}}
-    LINE: {replace: {source: $HEADER, replace: '\p{Pattern_White_Space}+', by: ' '}}
-    SIGNATURE: {substring: {source: $LINE, endChar: -1}}
-name: $NAME
-signature: $SIGNATURE
-isPublic: {has: {kind: visibility_modifier}}
----
-id: rust-type-field
-language: rustlang
-role: member
-parentRuleIds: [rust-type]
-symbolType: field
-rule:
-    kind: field_declaration
-    pattern: $DECLARATION
-    has: {field: name, pattern: $NAME}
-    inside: {kind: field_declaration_list, inside: {kind: 'struct_item, union_item'}}
-rewriters: [{id: comment, rule: {kind: 'line_comment, block_comment'}, fix: ''}]
-transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [comment]}}
-    SIGNATURE: {replace: {source: $HEADER, replace: '\p{Pattern_White_Space}+', by: ' '}}
-name: $NAME
-signature: $SIGNATURE
-isPublic: {has: {kind: visibility_modifier}}
----
-id: rust-enum-variant
-language: rustlang
-role: member
-parentRuleIds: [rust-enum]
-symbolType: enumMember
-rule:
-    kind: enum_variant
-    pattern: $DECLARATION
-    has: {field: name, pattern: $NAME}
-    inside: {kind: enum_variant_list, inside: {kind: enum_item}}
-rewriters: [{id: comment, rule: {kind: 'line_comment, block_comment'}, fix: ''}]
-transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [comment]}}
-    SIGNATURE: {replace: {source: $HEADER, replace: '\p{Pattern_White_Space}+', by: ' '}}
-name: $NAME
-signature: $SIGNATURE
+isPublic: {all: [{any: [{has: {field: trait, kind: 'type_identifier, scoped_type_identifier, generic_type'}}, {inside: {kind: impl_item, field: type, has: {field: trait, kind: 'type_identifier, scoped_type_identifier, generic_type'}}}]}, {matches: exposed}]}
 ---
 id: rust-member-macro-invocation
 language: rustlang
 role: member
-parentRuleIds: [rust-impl, rust-trait-impl, rust-trait, rust-mod, rust-function, rust-method, rust-foreign-block]
+parentRuleIds: [rust-mod, rust-function-owner, rust-method-owner, rust-trait, rust-impl, rust-trait-impl, rust-foreign-block]
 symbolType: event
+utils:
+    enclosing: {any: [{inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item', inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item'}, any: [{has: {field: name, any: [{pattern: {context: 'mod $OWNER;', selector: identifier}}, {pattern: {context: 'struct $OWNER;', selector: type_identifier}}]}}, {kind: impl_item, has: {field: type, pattern: $OWNER}}]}}, {kind: 'associated_type, const_item, delegation_item, enum_item, extern_crate_declaration, foreign_mod_item, function_item, function_signature_item, impl_item, let_declaration, macro_definition, macro_invocation, mod_item, static_item, struct_item, trait_alias, trait_item, type_item, union_item, use_declaration'}]}
+    above: {inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item', any: [{has: {field: name, any: [{pattern: {context: 'mod $UP;', selector: identifier}}, {pattern: {context: 'struct $UP;', selector: type_identifier}}]}}, {kind: impl_item, has: {field: type, pattern: $UP}}]}}
+    head: {any: [{kind: 'generic_type, reference_type, pointer_type', has: {field: type, matches: head}}, {kind: 'dynamic_type, abstract_type', has: {field: trait, matches: head}}, {kind: scoped_type_identifier, has: {field: name, matches: head}}, {pattern: $PART}]}
+    facet: {any: [{kind: generic_type, has: {field: type, matches: facet}}, {kind: scoped_type_identifier, has: {field: name, matches: facet}}, {pattern: $FACET}]}
 rule:
     kind: macro_invocation
     has: {field: macro, pattern: $NAME}
     inside: {kind: declaration_list}
-name: $NAME
+    matches: enclosing
+rewriters:
+    - {id: lineage, rule: {any: [{any: [{pattern: {context: 'mod $PART;', selector: identifier}}, {pattern: {context: 'struct $PART;', selector: type_identifier}}], inside: {field: name, kind: 'delegation_item, enum_item, function_item, mod_item, struct_item, trait_item, union_item', matches: above}}, {inside: {field: type, kind: impl_item, not: {has: {field: trait, kind: 'type_identifier, scoped_type_identifier, generic_type'}}, matches: above}, matches: head}]}, transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage, trait-lineage], joinBy: ''}}, PATH: {replace: {source: $PART, replace: '\p{Pattern_White_Space}+', by: ' '}}}, fix: '$ABOVE$PATH::'}
+    - {id: trait-lineage, rule: {inside: {field: type, kind: impl_item, has: {field: trait, matches: facet}, matches: above}, matches: head}, transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage, trait-lineage], joinBy: ''}}, PATH: {replace: {source: $PART, replace: '\p{Pattern_White_Space}+', by: ' '}}}, fix: '$ABOVE<$PATH as $FACET>::'}
+transform:
+    QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage, trait-lineage], joinBy: ''}}
+name: $QUALIFIER$NAME
 signature: $NAME!
+isPublic: false
+---
+id: rust-member-error
+language: rustlang
+role: member
+parentRuleIds: [rust-mod, rust-function-owner, rust-method-owner, rust-trait, rust-impl, rust-trait-impl, rust-type, rust-enum, rust-foreign-block]
+symbolType: 'null'
+rule:
+    kind: ERROR
+    not: {has: {stopBy: end, kind: 'associated_type, const_item, delegation_item, enum_item, enum_variant, extern_crate_declaration, field_declaration, foreign_mod_item, function_item, function_signature_item, impl_item, let_declaration, macro_definition, macro_invocation, mod_item, static_item, struct_item, trait_alias, trait_item, type_item, union_item, use_declaration'}}
+name: ERROR
+signature: ''
 isPublic: false

@@ -28,4 +28,4 @@ rule:
           has: {field: result, matches: registration}
     precedes: {pattern: $CHECK}
 message: 'Handler statement `$CHECK` runs again by hand after `observe` registration for the initial value'
-note: 'Add `.initial` to the `observe(_:options:changeHandler:)` options and delete the repeated statement'
+note: 'Add `.initial` to `observe(_:options:changeHandler:)` options and delete the repeated statement'

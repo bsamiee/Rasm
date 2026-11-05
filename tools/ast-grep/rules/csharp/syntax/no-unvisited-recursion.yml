@@ -4,7 +4,7 @@ severity: error
 files: ['libs/dotnet/rhino/Rasm.Rhino/**', 'libs/dotnet/rhino/Rasm.Grasshopper/**']
 utils:
     function-name:
-        matches: {csharp-simple-name: {name: {pattern: $NAME}}}
+        matches: {csharp-simple-name: {name: {pattern: {context: 'class $NAME;', selector: identifier}}}}
     recursion:
         kind: invocation_expression
         has:
@@ -17,14 +17,13 @@ utils:
                     - has: {field: expression, any: [{regex: '^this$'}, {kind: identifier, regex: '^[a-z_]'}]}
     passes-successor:
         any:
-            - has: {field: function, kind: member_access_expression, has: {field: expression, kind: identifier, pattern: $NEXT}}
+            - has: {field: function, kind: member_access_expression, has: {field: expression, pattern: {context: 'class $NEXT;', selector: identifier}}}
             - all:
                 - not: {has: {field: function, kind: member_access_expression, has: {field: expression, not: {regex: '^this$'}}}}
-                - has: {field: arguments, has: {stopBy: end, kind: identifier, pattern: $NEXT}}
+                - has: {field: arguments, has: {stopBy: end, pattern: {context: 'class $NEXT;', selector: identifier}}}
     node:
-        kind: identifier
-        pattern: $NODE
-        inside: {stopBy: {kind: &function 'method_declaration, local_function_statement'}, kind: *function, has: {field: parameters, has: {kind: parameter, has: {field: name, pattern: $NODE}}}}
+        pattern: {context: 'class $NODE;', selector: identifier}
+        inside: {stopBy: {kind: &function 'method_declaration, local_function_statement'}, kind: *function, has: {field: parameters, has: {kind: parameter, has: {field: name, pattern: {context: 'class $NODE;', selector: identifier}}}}}
     relation:
         regex: '(?i)(parents|predecessors|successors|dependencies|dependents|deps|importers|imports|callers|callees|references|referrers|neighbors|neighbours|supertypes|superclasses|bases|edges|incoming|outgoing)$'
     relation-lookup:
@@ -64,7 +63,8 @@ utils:
 rule:
     kind: *function
     all:
-        - has: {field: name, pattern: $NAME}
+        - has: {field: name, pattern: {context: 'class $NAME;', selector: identifier}}
+        - has: {field: body, has: {stopBy: end, pattern: {context: 'class $NAME;', selector: identifier}}}
         - any:
             - has:
                 field: body
@@ -79,13 +79,13 @@ rule:
                                 stopBy: {kind: *function}
                                 all:
                                     - has: {field: right, matches: successors}
-                                    - has: {field: left, kind: identifier, pattern: $NEXT}
+                                    - has: {field: left, pattern: {context: 'class $NEXT;', selector: identifier}}
                             - inside:
                                 kind: 'lambda_expression, anonymous_method_expression'
                                 stopBy: {kind: *function}
                                 all:
                                     - matches: successor-call
-                                    - has: {field: parameters, any: [{kind: implicit_parameter, pattern: $NEXT}, {kind: parameter_list, has: {kind: parameter, has: {field: name, pattern: $NEXT}}}]}
+                                    - has: {field: parameters, any: [{pattern: {context: 'f($NEXT => 0);', selector: implicit_parameter}}, {kind: parameter_list, has: {kind: parameter, has: {field: name, pattern: {context: 'class $NEXT;', selector: identifier}}}}]}
                         - matches: passes-successor
             - has:
                 field: body

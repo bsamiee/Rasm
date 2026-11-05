@@ -9,7 +9,6 @@
     },
     "exports": {
         ".": "./contract.ts",
-        "./typesetting": "./typesetting.ts",
         "./uxp": "./uxp/index.ts"
     },
     "dependencies": {

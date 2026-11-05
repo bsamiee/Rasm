@@ -30,4 +30,4 @@ rule:
 transform:
     HEAD: {replace: {source: $VALUE, replace: '(?s)\n.*$', by: ''}}
 message: '`$HEAD` selects a value through a nested conditional'
-note: 'Select with one `if` expression per test, a `switch` over the combined subjects (`switch (<a>, <b>)`), or a `where` clause on the case'
+note: 'Select with one `if` expression per test, a `switch` over combined subjects (`switch (<a>, <b>)`), or a `where` clause on the case'

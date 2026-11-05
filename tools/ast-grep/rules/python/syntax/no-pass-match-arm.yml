@@ -7,7 +7,7 @@ utils:
         has:
             field: consequence
             matches: python-single-statement-block
-            has: {any: [{kind: pass_statement}, {kind: expression_statement, regex: '^\.\.\.$'}]}
+            has: {any: [{kind: pass_statement}, {kind: expression_statement, has: {kind: ellipsis}, not: {has: {nthChild: 2}}}]}
     flat-arm:
         kind: case_clause
         not:

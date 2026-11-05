@@ -1,7 +1,7 @@
-import { Array, Cause, Config, Console, Context, DateTime, Duration, Effect, FileSystem, Filter, Formatter, Layer, Logger, Match, MutableRef, Option, Path, Record, References, Schema, Stdio, String, Struct } from 'effect';
+import { Array, Cause, Config, Console, Context, DateTime, Duration, Effect, FileSystem, Filter, Formatter, Layer, Logger, Match, MutableRef, Option, Path, Record, References, Schema, Stdio, Struct } from 'effect';
 import { SecureRandom } from 'effect/crypto';
-import { printed, sampled } from '#/instance';
-import { declared, Field, type Kind, messageOf, partition, RECORDS, record, Signed, tagOf } from '#/log';
+import { sampled } from '#/instance';
+import { declared, Field, Kind, messageOf, partition, RECORDS, record, Signed, tagOf } from '#/log';
 import { since } from '#/query';
 import type { Live } from '#/session';
 
@@ -28,15 +28,15 @@ const session = Config.option(Config.String('CLAUDE_CODE_SESSION_ID'));
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Run extends Context.Service<Run, { readonly folder: string; readonly phase: MutableRef.MutableRef<Phase> }>()('@rasm/harnesses/run') {
+class Run extends Context.Service<Run, { readonly commit: string; readonly folder: string; readonly phase: MutableRef.MutableRef<Phase> }>()('@rasm/harnesses/run') {
     static readonly Instance = Context.Reference<Option.Option<Pick<Live, 'pid' | 'started'>>>('@rasm/harnesses/run/Run/Instance', { defaultValue: Option.none });
-    static readonly layer = Effect.fnUntraced(function* (host: string, root: Config.Config<string>) {
-        const { run, folder, file } = yield* begun(host, root);
-        const held = { folder, phase: MutableRef.make<Phase>('run') };
+    static readonly layer = Effect.fnUntraced(function* (host: string, logs: string, commit: string) {
+        const { run, folder, file } = yield* begun(host, logs);
+        const held = { commit, folder, phase: MutableRef.make<Phase>('run') };
         const tally = MutableRef.make(EMPTY);
         const summary = Effect.gen(function* () {
             const { cases, signatures: signed, instances } = MutableRef.get(tally);
-            const signatures = yield* Array.match(signed, { onEmpty: () => Effect.succeedNone, onNonEmpty: (listed) => Effect.asSome(since(root, host, listed)) });
+            const signatures = yield* Array.match(signed, { onEmpty: () => Effect.succeedNone, onNonEmpty: (listed) => Effect.asSome(since(logs, host, listed)) });
             yield* Console.log(Formatter.formatJson({ run, log: file, cases, ...Record.getSomes({ signatures }), instances }));
         });
         yield* Effect.addFinalizer(() => Effect.orDie(summary));
@@ -91,7 +91,7 @@ const counted =
                     Option.map(Option.firstSomeOf([Option.fromUndefinedOr(state), Option.map(prior, Struct.get('state'))]), (current) => ({
                         ...held,
                         state: current,
-                        reports: Array.union(Option.match(prior, { onNone: () => [], onSome: Struct.get('reports') }), kind !== undefined && level === 'Warn' ? [kind] : []),
+                        reports: Array.union(Option.match(prior, { onNone: () => [], onSome: Struct.get('reports') }), Schema.is(Kind)(kind) && level === 'Warn' ? [kind] : []),
                     })),
                 );
                 return {
@@ -117,8 +117,8 @@ const written =
     };
 
 // --- [LIFECYCLE]
-const begun = Effect.fn('begun')(function* (host: string, root: Config.Config<string>) {
-    const [fs, path, run, logs, now] = yield* Effect.all([FileSystem.FileSystem, Path.Path, SecureRandom.SecureRandom.use((random) => random.uuidV7()), root, DateTime.now]);
+const begun = Effect.fn('begun')(function* (host: string, logs: string) {
+    const [fs, path, run, now] = yield* Effect.all([FileSystem.FileSystem, Path.Path, SecureRandom.SecureRandom.use((random) => random.uuidV7()), DateTime.now]);
     const folder = partition(path, logs, host, run);
     yield* fs.makeDirectory(folder, { recursive: true });
     const runs = yield* fs.glob(partition(path, logs, host, '*'));
@@ -128,7 +128,7 @@ const begun = Effect.fn('begun')(function* (host: string, root: Config.Config<st
     yield* Effect.forEach(stale, (held) => fs.remove(held, { recursive: true, force: true }), { discard: true });
     return { run, folder, file: path.join(folder, RECORDS) };
 });
-const starting = Effect.flatMap(Effect.all([Effect.map(printed('git', ['rev-parse', 'HEAD']), String.trim), Stdio.Stdio.use((stdio) => stdio.args), session]), ([commit, args, owner]) => record('Info', 'run started', { commit, args, session: Option.getOrNull(owner) }));
+const starting = Effect.flatMap(Effect.all([Run, Stdio.Stdio.use((stdio) => stdio.args), session]), ([{ commit }, args, owner]) => record('Info', 'run started', { commit, args, session: Option.getOrNull(owner) }));
 const ran = <A, E, R>(self: Effect.Effect<A, E, R>) => starting.pipe(Effect.andThen(self), Effect.tap(record('Info', 'run ended', {})), phase('run'));
 
 // --- [EXPORTS] -------------------------------------------------------------------------

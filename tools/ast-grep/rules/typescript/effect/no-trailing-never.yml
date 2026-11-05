@@ -42,7 +42,6 @@ rule:
                 - all: [{has: {matches: endless-sleep}}, {inside: {kind: expression_statement, matches: last-statement}}]
         - kind: call_expression
           all:
-            - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^(andThen|flatMap)$'}}}}
             - has:
                 field: arguments
                 has:
@@ -53,10 +52,11 @@ rule:
                           all:
                             - not: {has: {field: parameters, has: {pattern: $_}}}
                             - has: {field: body, matches: never}
+            - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^(andThen|flatMap)$'}}}}
         - kind: call_expression
           all:
-            - has: {field: arguments, has: {nthChild: 1, matches: never}}
             - has: {field: function, matches: finalize}
+            - has: {field: arguments, has: {nthChild: 1, matches: never}}
         - kind: call_expression
           any:
             - all:

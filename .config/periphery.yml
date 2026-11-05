@@ -1,6 +1,8 @@
 # --- [SCAN] -----------------------------------------------------------------------------
 generic_project_config: .config/periphery.json
+index_exclude: ['.cache/**']
 retain_encodable_properties: true
+retain_unused_imported_modules: [CurrentProcess]
 strict: true
 relative_results: true
 quiet: true

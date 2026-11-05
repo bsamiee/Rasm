@@ -3,59 +3,49 @@ language: rustlang
 severity: error
 ignores: ['libs/rust/cli/command/**', 'tools/dylint/examples/**']
 utils:
-    runtime-build:
+    qualified-path:
+        regex: '^(::)?(tokio::)?runtime::((Local)?Runtime::new|Builder::new_(multi|current)_thread)$|^(::)?((tokio::)?signal::)?(unix::signal|(windows::)?ctrl_c|windows::ctrl_(break|close|logoff|shutdown))$|(^|::)CompleteEnv::with_factory$|^(::)?(clap_complete::)?((aot|generator)::)?generate(_to)?$|^(::)?clap_mangen::(Man::new|generate_to)$'
+    imported-constructor:
         any:
-            - kind: scoped_identifier
-              regex: '^(::)?(tokio::)?runtime::((Local)?Runtime::new|Builder::new_(multi|current)_thread)$'
-            - kind: scoped_identifier
-              all:
-                - regex: '^((Local)?Runtime::new|Builder::new_(multi|current)_thread)$'
-                - has: {field: path, matches: {rust-imported-name: {source: {regex: '(?-u:\b)tokio(?-u:\b)'}, name: {regex: '^((Local)?Runtime|Builder)$'}}}}
-            - kind: identifier
-              inside: {kind: token_tree}
-              any:
-                - {regex: '^new$', follows: {regex: '^::$', follows: {kind: identifier, regex: '^(Local)?Runtime$'}}}
-                - {regex: '^new_(multi|current)_thread$', follows: {regex: '^::$', follows: {kind: identifier, regex: '^Builder$'}}}
-            - kind: 'identifier, scoped_identifier'
-              inside: {kind: attribute}
-              any:
-                - regex: '^(::)?tokio::main$'
-                - matches: {rust-imported-name: {source: {regex: '(?-u:\b)tokio(?-u:\b)'}, name: {regex: '^main$'}}}
-    signal-listener:
+            - regex: '::new$'
+              has: {field: path, matches: {rust-imported-name: {source: {regex: '(?-u:\b)(tokio|clap_mangen)(?-u:\b)'}, name: {regex: '^((Local)?Runtime|Man)$'}}}}
+            - regex: '::new_(multi|current)_thread$'
+              has: {field: path, matches: {rust-imported-name: {source: &tokio {regex: '(?-u:\b)tokio(?-u:\b)'}, name: {regex: '^Builder$'}}}}
+    macro-path:
+        inside: {kind: token_tree}
         any:
-            - kind: scoped_identifier
-              regex: '^(::)?((tokio::)?signal::)?(unix::signal|(windows::)?ctrl_c|windows::ctrl_(break|close|logoff|shutdown))$'
-            - kind: identifier
-              inside: {kind: token_tree}
-              any:
-                - {regex: '^signal$', follows: {regex: '^::$', follows: {kind: identifier, regex: '^unix$'}}}
-                - {regex: '^ctrl_c$', follows: {regex: '^::$', follows: {kind: identifier, regex: '^(signal|windows)$'}}}
-                - {regex: '^ctrl_(break|close|logoff|shutdown)$', follows: {regex: '^::$', follows: {kind: identifier, regex: '^windows$'}}}
-    completion-script:
-        kind: scoped_identifier
-        regex: '(^|::)CompleteEnv::with_factory$|^(::)?(clap_complete::)?((aot|generator)::)?generate(_to)?$'
-    man-page:
-        any:
-            - kind: scoped_identifier
-              regex: '^(::)?clap_mangen::(Man::new|generate_to)$'
-            - kind: scoped_identifier
-              all:
-                - regex: '^Man::new$'
-                - has: {field: path, matches: {rust-imported-name: {source: {regex: '(?-u:\b)clap_mangen(?-u:\b)'}, name: {regex: '^Man$'}}}}
+            - {regex: '^new$', follows: {regex: '^::$', follows: {kind: identifier, regex: '^(Local)?Runtime$'}}}
+            - {regex: '^new_(multi|current)_thread$', follows: {regex: '^::$', follows: {kind: identifier, regex: '^Builder$'}}}
+            - {regex: '^signal$', follows: {regex: '^::$', follows: {kind: identifier, regex: '^unix$'}}}
+            - {regex: '^ctrl_c$', follows: {regex: '^::$', follows: {kind: identifier, regex: '^(signal|windows)$'}}}
+            - {regex: '^ctrl_(break|close|logoff|shutdown)$', follows: {regex: '^::$', follows: {kind: identifier, regex: '^windows$'}}}
+    entry-attribute:
+        regex: '^((::)?tokio::)?main$'
+        inside: {kind: attribute}
 rule:
-    kind: 'identifier, scoped_identifier'
-    pattern: $SITE
     all:
-        - not:
-            any:
-                - inside: {kind: scoped_identifier}
-                - inside: {kind: use_declaration, stopBy: end}
         - any:
-            - matches: runtime-build
-            - matches: signal-listener
-            - matches: completion-script
-            - matches: man-page
-            - matches: {rust-imported-name: {source: {regex: '(?-u:\b)(tokio|clap_complete|clap_mangen)(?-u:\b)'}, name: {regex: '^(signal|ctrl_(c|break|close|logoff|shutdown)|generate(_to)?)$'}}}
+            - kind: scoped_identifier
+              all:
+                - any:
+                    - matches: qualified-path
+                    - matches: imported-constructor
+                    - matches: entry-attribute
+                - not: {inside: {kind: &use-tree 'scoped_identifier, use_declaration, use_list, scoped_use_list, use_as_clause, use_wildcard'}}
+            - kind: identifier
+              all:
+                - any:
+                    - matches: macro-path
+                    - all:
+                        - matches: entry-attribute
+                        - matches: {rust-imported-name: {source: *tokio, name: {regex: '^main$'}}}
+                    - all:
+                        - regex: &entry-name '^(signal|ctrl_(c|break|close|logoff|shutdown)|generate(_to)?)$'
+                        - matches: {rust-imported-name: {source: &entry-source {regex: '(?-u:\b)(tokio|clap_complete|clap_mangen)(?-u:\b)'}, name: {regex: *entry-name}}}
+                - not: {inside: {kind: *use-tree}}
+            - kind: use_as_clause
+              matches: {rust-renamed-import: {source: *entry-source, name: {regex: '^(signal|ctrl_(c|break|close|logoff|shutdown)|generate(_to)?|main)$'}}}
+        - pattern: $SITE
         - not: {matches: rust-test-scope}
 message: '`$SITE` builds a runtime, signal listener, completion script, or man page outside `rasm-command`'
 note: 'Run the entry through `rasm_command::run` and read `Process::signals`'

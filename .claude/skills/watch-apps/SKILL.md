@@ -1,6 +1,6 @@
 ---
 name: watch-apps
-description: "Use when opening, driving, observing, or quitting a desktop app, covering background control through Accessibility"
+description: "Use when opening, driving, observing, or quitting a desktop app, covering background control through Accessibility and computer-use"
 ---
 
 # [WATCH_APPS]
@@ -32,7 +32,7 @@ Monitor {"command": "watch-apps watch <app> [<helper>]...",
 - `quit`, `read`, and `capture` act on every instance a name matches, and print `{"<name>": {}}` when none runs
 - `launch` opens the newest installed release a name matches, equal versions at different paths printing a `fail` line naming each path
 - One instance per app: `launch` reuses the instance running at the app's path unless `--new` is passed
-- Apps are never hidden: background means launched without activation and visible behind the owner's windows, a window already in front stays the owner's business, and new instances open with no state restored, no recent item added, and no prompt
+- Apps are never hidden: `launch` withholds activation, and new instances open with no state restored, no recent item added, and no prompt
 - `launch` prints `{"<bundle>":{"<pid>":{"launched":{"created":<bool>}}}}` first, false for a reused instance
 - `launch` prints lines until `status` settles or a row asks, or until exit with `--wait`, then exits leaving the app running
 - `launch --wait` returns the app's exit status, or 128 plus its signal
@@ -44,8 +44,12 @@ Monitor {"command": "watch-apps watch <app> [<helper>]...",
 - `--arguments` and `--environment` reach only an instance `launch` creates, one value per flag, launchd's environment fills the rest
 - Launches take Rhino `-nosplash` and Blender `--no-window-focus` (absent `-b` or `--background`), other app switches pass through `--arguments`
 - `launch` captures neither the app's output nor error stream
-- PreToolUse hooks rewrite app launch, quit, and kill commands into `watch-apps` forms
-- Claude Code quits each instance its session created (`created: true`) when the session ends
+- Hooks rewrite `open`, `xed`, a launching `osascript`, and a bundle's executable into `launch`, a headless switch and a background-only or `LSUIElement` bundle running as written
+- Hooks rewrite `killall` and `pkill` into `kill` of their pids when each descends from the session, and refuse any other kill of every match
+- Hooks run `watch` in a Monitor alone, drop a filter piped after it, and refuse a loop polling `read` or `watch`
+- Hooks refuse `osascript` posting through System Events, taking focus, or scripting a `tools/harnesses` host past its launch
+- Claude Code watches each app a session launches, reuses, or drives through Rhino or Blender MCP, sending dialogs, hangs, and crashes to its agent
+- Claude Code quits each instance an agent created (`created: true`) when that agent's turn ends and the session's when it ends, `--force` staying an agent's command
 
 Every command exits 1 after printing a `fail` line and 0 otherwise, and ends when the process that started it exits, its reader closes, or SIGTERM, SIGINT, or SIGHUP arrives. Malformed arguments and a missing Accessibility grant print a `fail` line keyed by `watch-apps`.
 
@@ -132,6 +136,33 @@ Hold script calls while a `blocking` row stands, calls sent before get no answer
 ## [04]-[FOCUS]
 
 Actions go to the app's process through AX actions on its elements and leave the frontmost app unchanged:
-- Dialogs and sheets of a background app take no focus and order below the frontmost app's front window, above other apps' windows
+- Background windows, dialogs, and sheets take no focus and order below the frontmost app's front window, above other apps' windows
 - System Events `keystroke` and `key code` post to the frontmost app whatever process the script names
 - `activate`, `AXRaise`, and an `AXFrontmost` write take focus from the frontmost app
+
+## [05]-[COMPUTER_USE]
+
+`computer-use` presses what no script or Accessibility action reaches, on a machine the owner's message hands over, while `launch`, Atelier, and `read` open and read the app:
+1. Leads run `request_access` once by bundle id for every app and flag of the run while the owner answers
+2. Agents run `list_granted_applications` before a first action, and report an absent app with the state that needed it
+3. `capture --window <number>` reads the window first, and work stops there while the owner uses the machine
+4. `computer_batch` clicks and takes its image, `read` confirms the state
+
+- `request_access` serves the lead, it blocks with no timeout until a person answers, and a new flag asks again for a granted app
+- `list_granted_applications` serves any agent, grants last for the session and reach every agent in it
+- Grants name a bundle id, side-by-side releases sharing one stay apart only by `pid` in `watch-apps` and Atelier
+- `screenshot` and `zoom` serve click coordinates alone, `capture` serves reading
+- `left_click`, `double_click`, and `computer_batch` serve an alert in `unresponsive` `windows`, a control in a `capture` image, a press that left its state unchanged, and a populated window with an empty `detail`
+- `type` and `key` serve input that needs the app's change tracking, after a click on the field, input going to the frontmost granted app
+- `left_click_drag` and `scroll` serve a canvas or slider no element exposes
+- `open_application` serves raising one running granted app above another, `launch` and Atelier open every app
+- `switch_display` serves a target `request_access` lists on another display
+- `read_clipboard` serves a value only a copy exposes, and returns the owner's clipboard when the copy misses
+
+- Every action hides each ungranted app, hosts of other agents and system dialogs included, and moves the real cursor
+- Hidden apps and the Esc key return when the lead's turn ends
+- Host terminals stay above every target and absent from every image, `would land on` naming one means moving the target by script
+- Coordinates come from the last `computer-use` image, `frame` values never feed a click
+- One agent acts at a time, and no script or other `computer-use` call shares its block
+- Harness cases hold no `computer-use`, and products never depend on it
+- Tools named `app_*`, where a session lists them, act without the screen and replace the display tools above

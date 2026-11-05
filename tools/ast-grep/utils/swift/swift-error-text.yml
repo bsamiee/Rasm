@@ -3,14 +3,14 @@ id: swift-error-text
 language: swiftlang
 utils:
     error-type:
-        regex: '^(?:(?:any|some)[\t-\r ]+)?Swift(\.|::)Error$|^Foundation(\.|::)NSError$'
+        regex: '^(?:(?:any|some)[\t-\r ]+)?(Swift(\.|::))?Error$|^(Foundation(\.|::))?NSError$'
     error-value:
         any:
             - all:
                 - kind: simple_identifier
-                - matches: {swift-parameter-use: {type: {matches: error-type}}}
+                - matches: {swift-typed-use: {type: {matches: error-type}}}
             - kind: call_expression
-              has: {nthChild: 1, kind: 'navigation_expression, identifier', regex: '^Foundation(\.|::)NSError(\.init)?$'}
+              has: {nthChild: 1, regex: '^(Foundation(\.|::))?NSError(\.init)?$'}
             - kind: tuple_expression
               not: {has: {nthChild: 2}}
               has: {field: value, matches: error-value}
@@ -28,7 +28,7 @@ rule:
             - has: {field: target, pattern: $ERROR}
         - kind: call_expression
           all:
-            - has: {nthChild: 1, kind: 'navigation_expression, identifier', regex: '^Swift(\.|::)String(\.init)?$'}
+            - has: {nthChild: 1, regex: '^(Swift(\.|::))?String(\.init)?$'}
             - has:
                 kind: call_suffix
                 has:
@@ -54,6 +54,6 @@ rule:
                     kind: value_arguments
                     regex: '^\['
                     not: {has: {kind: value_argument, follows: {stopBy: end, kind: value_argument}}}
-                    has: {kind: value_argument, has: {field: value, regex: '^Foundation(\.|::)NS(Localized(Description|FailureReason(Error)?|RecoverySuggestion(Error)?)|DebugDescriptionError)Key$'}}
+                    has: {kind: value_argument, has: {field: value, regex: '^(Foundation(\.|::))?NS(Localized(Description|FailureReason(Error)?|RecoverySuggestion(Error)?)|DebugDescriptionError)Key$'}}
 constraints:
     ERROR: {matches: error-value}

@@ -22,4 +22,4 @@ rule:
             - inside: {stopBy: end, kind: *boundary}
     not: {inside: {kind: program, stopBy: end, matches: extendscript-file}}
 message: '`$FORMATTER` builds an `Intl` object from constant arguments at each call'
-note: 'Build the `Intl` object once in a module `const` and call its `format` or `compare` inside the function'
+note: 'Build `Intl` object once in a module `const` and call its `format` or `compare` inside the function'

@@ -20,7 +20,7 @@ utils:
 rule:
     matches: member
     all:
-        - has: {field: name, pattern: $NAME}
+        - has: {field: name, pattern: {context: 'class $NAME;', selector: identifier}}
         - has: {stopBy: &member-body-path {not: {kind: 'accessor_list, accessor_declaration'}}, matches: member-body, has: {nthChild: 1, matches: split-part}}
         - any:
             - follows: {stopBy: end, matches: member, pattern: $OTHER, has: {stopBy: *member-body-path, matches: member-body, has: {nthChild: 1, matches: part}}}

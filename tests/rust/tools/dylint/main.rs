@@ -63,24 +63,7 @@ mod representation;
 fn ui() -> Result<(), NEVec<Failure>> {
     let package = env!("CARGO_PKG_NAME");
     let output = Command::new(env!("CARGO"))
-        .args([
-            "dylint",
-            "--lib",
-            package,
-            "-p",
-            package,
-            "--fail-on-no-libraries",
-            "--",
-            "--locked",
-            "--profile",
-            "dylint",
-            "--examples",
-            "--test",
-            package,
-            "--message-format=json",
-            "--config",
-            "build.warnings='warn'",
-        ])
+        .args(["dylint", "--lib", package, "-p", package, "--fail-on-no-libraries", "--", "--locked", "--examples", "--test", package, "--message-format=json", "--config", "build.warnings='warn'"])
         .stderr(Stdio::inherit())
         .output()
         .map_err(|source| Failure::Io { step: Step::Spawn, source })?;

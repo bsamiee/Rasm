@@ -1,28 +1,31 @@
-#ifndef SCANNER
-#define SCANNER(fn) tree_sitter_bash_external_scanner_##fn
-#endif
-#define tree_sitter_bash_external_scanner_create SCANNER(create)
-#define tree_sitter_bash_external_scanner_destroy SCANNER(destroy)
-#define tree_sitter_bash_external_scanner_serialize SCANNER(serialize)
 #include <string.h>
-#pragma push_macro("tree_sitter_bash_external_scanner_scan")
-#pragma push_macro("tree_sitter_bash_external_scanner_deserialize")
-#define tree_sitter_bash_external_scanner_scan bash_upstream_scan
-#define tree_sitter_bash_external_scanner_deserialize bash_upstream_deserialize
+#define tree_sitter_bash_external_scanner_scan(...) bash_upstream_scan(__VA_ARGS__)
+#define tree_sitter_bash_external_scanner_deserialize(...) bash_upstream_deserialize(__VA_ARGS__)
+#define tree_sitter_bash_external_scanner_serialize(...) bash_upstream_serialize(__VA_ARGS__)
+#define tree_sitter_bash_external_scanner_create(...) bash_upstream_create(__VA_ARGS__)
 #define strcmp(left, right) (strcmp(left, right) != 0 || !(lexer->eof(lexer) || lexer->lookahead == '\n'))
 #include "tree-sitter-bash/src/scanner.c"
 #undef strcmp
-#pragma pop_macro("tree_sitter_bash_external_scanner_deserialize")
-#pragma pop_macro("tree_sitter_bash_external_scanner_scan")
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-enum { TIME_POSIX = ERROR_RECOVERY + 1, TIME_END, CLOSED, EXTGLOB_WORD, BRACE_OPEN, BACKTICK_END, HEREDOC_DUE };
+enum { TIME_POSIX = ERROR_RECOVERY + 1, TIME_END, CLOSED, EXTGLOB_WORD, BRACE_OPEN, BACKTICK_END, HEREDOC_DUE, QUOTED_BACKTICK, ESCAPED_QUOTE, STRING_SPACE, TOKEN_COUNT };
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 static const char METACHARACTERS[] = " \t\n;&|()<>";
-static const char *const CLOSERS[] = {"}", "do", "done", "elif", "else", "fi", "then"};
+static const char EXPANDED_OPERATORS[] = ";&|)<>";
+static const char SPECIAL_PARAMETERS[] = "*@?-";
+static const char GLOB_BOUNDS[] = "\"'$`;&|)]";
+static const char STRING_BOUNDS[] = "\"$`";
+static const char *const CLOSERS[] = {"do", "done", "elif", "else", "fi", "then"};
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+typedef struct {
+    Scanner upstream;
+    bool quoted;
+} Context;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -54,6 +57,10 @@ static inline bool bounds(TSLexer *lexer) {
 
 static inline bool blank(TSLexer *lexer) {
     return lexer->lookahead == ' ' || lexer->lookahead == '\t';
+}
+
+static inline bool spacing(TSLexer *lexer, const bool *valid_symbols, bool queued) {
+    return blank(lexer) || (lexer->lookahead == '\n' && !queued && !valid_symbols[NEWLINE]);
 }
 
 static inline bool plain(const bool *valid_symbols) {
@@ -150,29 +157,54 @@ static bool flag(TSLexer *lexer, const bool *valid_symbols) {
     return bounds(lexer);
 }
 
-static bool closed(TSLexer *lexer) {
+static bool closed(TSLexer *lexer, const bool *valid_symbols) {
     lexer->result_symbol = CLOSED;
     lexer->mark_end(lexer);
+    if (lexer->lookahead == '}') {
+        advance(lexer);
+        return bounds(lexer);
+    }
     char word[sizeof "then"] = {0};
-    for (size_t length = 0; length < sizeof word - 1 && ascii(lexer->lookahead) && !bounds(lexer); length++) {
-        word[length] = (char)lexer->lookahead;
+    size_t length = 0;
+    for (; named(lexer->lookahead, length == 0); length++) {
+        if (length < sizeof word - 1) {
+            word[length] = (char)lexer->lookahead;
+        }
         advance(lexer);
     }
-    if (!bounds(lexer)) {
+    if (bounds(lexer)) {
+        for (size_t index = 0; length < sizeof word && index < sizeof CLOSERS / sizeof *CLOSERS; index++) {
+            if (strcmp(word, CLOSERS[index]) == 0) {
+                return true;
+            }
+        }
         return false;
     }
-    for (size_t index = 0; index < sizeof CLOSERS / sizeof *CLOSERS; index++) {
-        if (strcmp(word, CLOSERS[index]) == 0) {
-            return true;
-        }
+    if (!valid_symbols[VARIABLE_NAME] || length == 0 || !among("=+[", lexer->lookahead)) {
+        return false;
     }
-    return false;
+    lexer->result_symbol = VARIABLE_NAME;
+    lexer->mark_end(lexer);
+    if (lexer->lookahead == '+') {
+        advance(lexer);
+        return lexer->lookahead == '=';
+    }
+    return true;
+}
+
+static bool string_space(TSLexer *lexer) {
+    while (iswspace(lexer->lookahead)) {
+        advance(lexer);
+    }
+    lexer->mark_end(lexer);
+    lexer->result_symbol = STRING_SPACE;
+    return among(STRING_BOUNDS, lexer->lookahead);
 }
 
 static bool concat(TSLexer *lexer) {
     lexer->result_symbol = CONCAT;
     lexer->mark_end(lexer);
-    if (lexer->lookahead == ')') {
+    if (lexer->lookahead != '\\') {
         return true;
     }
     advance(lexer);
@@ -268,18 +300,106 @@ static bool extglob(TSLexer *lexer) {
     return found;
 }
 
+static void classed(TSLexer *lexer) {
+    advance(lexer);
+    if (lexer->lookahead == '^' || lexer->lookahead == '!') {
+        advance(lexer);
+    }
+    if (lexer->lookahead == ']') {
+        advance(lexer);
+    }
+    while (!lexer->eof(lexer) && lexer->lookahead != ']' && lexer->lookahead != '\n') {
+        const bool opening = lexer->lookahead == '[';
+        advance(lexer);
+        if (opening && lexer->lookahead == ':') {
+            while (!lexer->eof(lexer) && lexer->lookahead != ']') {
+                advance(lexer);
+            }
+            advance(lexer);
+        }
+    }
+    advance(lexer);
+}
+
+static bool grouped(TSLexer *lexer) {
+    lexer->result_symbol = EXTGLOB_PATTERN;
+    uint32_t depth = 0;
+    while (!lexer->eof(lexer) && !iswspace(lexer->lookahead) && !(depth == 0 && among(GLOB_BOUNDS, lexer->lookahead))) {
+        const int32_t character = lexer->lookahead;
+        if (character == '[') {
+            classed(lexer);
+            continue;
+        }
+        depth += (character == '(') - (character == ')');
+        advance(lexer);
+        if (character == '\\' && !lexer->eof(lexer)) {
+            advance(lexer);
+        }
+    }
+    lexer->mark_end(lexer);
+    return depth == 0;
+}
+
+static bool pattern(TSLexer *lexer) {
+    lexer->result_symbol = REGEX_NO_SLASH;
+    if (lexer->lookahead == '"') {
+        return false;
+    }
+    lexer->mark_end(lexer);
+    bool advanced = false;
+    bool quoted = false;
+    for (uint32_t braces = 0; !lexer->eof(lexer);) {
+        const int32_t character = lexer->lookahead;
+        if (character == '/') {
+            lexer->mark_end(lexer);
+            return advanced;
+        }
+        if (character == '}' && braces == 0 && !quoted) {
+            return true;
+        }
+        braces += (character == '{' && !quoted) - (character == '}' && !quoted);
+        quoted = quoted != (character == '\'');
+        advance(lexer);
+        advanced = true;
+        if (character == '\\' && !lexer->eof(lexer) && lexer->lookahead != '[' && lexer->lookahead != '/') {
+            advance(lexer);
+        }
+        if (character == '\\' || quoted || !iswspace(character)) {
+            lexer->mark_end(lexer);
+        }
+    }
+    return false;
+}
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-void SCANNER(deserialize)(void *payload, const char *buffer, unsigned length) {
+void *(tree_sitter_bash_external_scanner_create)(void) {
+    Context *context = calloc(1, sizeof *context);
+    array_init(&context->upstream.heredocs);
+    return context;
+}
+
+unsigned(tree_sitter_bash_external_scanner_serialize)(void *payload, char *buffer) {
+    const unsigned size = bash_upstream_serialize(payload, buffer);
+    if (size == 0) {
+        return 0;
+    }
+    buffer[size] = (char)((Context *)payload)->quoted;
+    return size + 1;
+}
+
+void(tree_sitter_bash_external_scanner_deserialize)(void *payload, const char *buffer, unsigned length) {
     Scanner *scanner = payload;
     bash_upstream_deserialize(payload, buffer, length);
+    ((Context *)payload)->quoted = length > 0 && buffer[length - 1];
     if (length > 0) {
         truncated(scanner, (unsigned char)buffer[3]);
     }
 }
 
-bool SCANNER(scan)(void *payload, TSLexer *lexer, const bool *valid_symbols) {
+bool(tree_sitter_bash_external_scanner_scan)(void *payload, TSLexer *lexer, const bool *valid_symbols) {
     Scanner *scanner = payload;
+    Context *context = payload;
     if (!in_error_recovery(valid_symbols) && valid_symbols[HEREDOC_END] && lexer->eof(lexer) && scanner->heredocs.size > 0) {
         truncated(scanner, scanner->heredocs.size - 1);
         lexer->result_symbol = HEREDOC_END;
@@ -288,6 +408,9 @@ bool SCANNER(scan)(void *payload, TSLexer *lexer, const bool *valid_symbols) {
     }
     if (in_error_recovery(valid_symbols)) {
         return bash_upstream_scan(payload, lexer, valid_symbols);
+    }
+    if (valid_symbols[STRING_SPACE] && iswspace(lexer->lookahead)) {
+        return string_space(lexer);
     }
     if (valid_symbols[HEREDOC_BODY_BEGINNING] || valid_symbols[SIMPLE_HEREDOC_BODY] || valid_symbols[HEREDOC_CONTENT] || valid_symbols[HEREDOC_END]) {
         const bool scanned = bash_upstream_scan(payload, lexer, valid_symbols);
@@ -306,12 +429,38 @@ bool SCANNER(scan)(void *payload, TSLexer *lexer, const bool *valid_symbols) {
     const bool head = valid_symbols[FILE_DESCRIPTOR] && !valid_symbols[EXPANSION_WORD] && !valid_symbols[CLOSING_BRACE];
     const bool timed = valid_symbols[TIME_POSIX] || valid_symbols[TIME_END];
     const bool dollar = valid_symbols[BARE_DOLLAR] && plain(valid_symbols);
-    bool separated[HEREDOC_DUE + 1];
+    bool separated[TOKEN_COUNT];
     memcpy(separated, valid_symbols, sizeof separated);
-    if (blank(lexer) && !valid_symbols[EMPTY_VALUE] && (queued || head || closes || timed || ((word || dollar) && !valid_symbols[CLOSING_BRACE]))) {
+    if (spacing(lexer, valid_symbols, queued) && !valid_symbols[EMPTY_VALUE] && (queued || head || closes || timed || ((word || dollar) && !valid_symbols[CLOSING_BRACE]))) {
         separated[CONCAT] = false;
-        while (blank(lexer)) {
+        while (spacing(lexer, valid_symbols, queued)) {
             skip(lexer);
+        }
+    }
+    separated[VARIABLE_NAME] = valid_symbols[VARIABLE_NAME] && (valid_symbols[EXPANSION_WORD] || !among(SPECIAL_PARAMETERS, lexer->lookahead));
+    if (valid_symbols[QUOTED_BACKTICK] && lexer->lookahead == '`') {
+        context->quoted = !context->quoted;
+        advance(lexer);
+        lexer->mark_end(lexer);
+        lexer->result_symbol = QUOTED_BACKTICK;
+        return true;
+    }
+    if (valid_symbols[ESCAPED_QUOTE] && context->quoted && lexer->lookahead == '\\') {
+        advance(lexer);
+        lexer->result_symbol = ESCAPED_QUOTE;
+        if (lexer->lookahead != '"') {
+            return false;
+        }
+        advance(lexer);
+        lexer->mark_end(lexer);
+        return true;
+    }
+    if (valid_symbols[EXTGLOB_PATTERN] && !valid_symbols[ESAC] && !valid_symbols[CONCAT] && !queued) {
+        while (iswspace(lexer->lookahead)) {
+            skip(lexer);
+        }
+        if (lexer->lookahead == '(') {
+            return grouped(lexer);
         }
     }
     if (queued && lexer->lookahead == '\n') {
@@ -327,7 +476,7 @@ bool SCANNER(scan)(void *payload, TSLexer *lexer, const bool *valid_symbols) {
         return flag(lexer, valid_symbols);
     }
     if (closes && among("}deft", lexer->lookahead)) {
-        return closed(lexer);
+        return closed(lexer, valid_symbols);
     }
     if (head && lexer->lookahead == '{' && !separated[CONCAT]) {
         return descriptor(lexer, valid_symbols);
@@ -352,5 +501,8 @@ bool SCANNER(scan)(void *payload, TSLexer *lexer, const bool *valid_symbols) {
             return true;
         }
     }
-    return separated[CONCAT] && (lexer->lookahead == '\\' || (lexer->lookahead == ')' && valid_symbols[CLOSING_BRACE])) ? concat(lexer) : bash_upstream_scan(payload, lexer, separated);
+    if (valid_symbols[REGEX_NO_SLASH] && lexer->lookahead != '$') {
+        return pattern(lexer);
+    }
+    return separated[CONCAT] && (lexer->lookahead == '\\' || (valid_symbols[CLOSING_BRACE] && among(EXPANDED_OPERATORS, lexer->lookahead))) ? concat(lexer) : bash_upstream_scan(payload, lexer, separated);
 }

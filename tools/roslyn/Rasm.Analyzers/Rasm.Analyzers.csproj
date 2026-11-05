@@ -4,12 +4,12 @@
     </PropertyGroup>
 
     <ItemGroup Label="Analyzer Authoring">
-        <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" PrivateAssets="all" />
-        <PackageReference Include="Microsoft.CodeAnalysis.Common" ExcludeAssets="runtime" PrivateAssets="all" />
-        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" ExcludeAssets="runtime" PrivateAssets="all" />
+        <PackageReference Include="Microsoft.CodeAnalysis.Analyzers" />
+        <PackageReference Include="Microsoft.CodeAnalysis.Common" />
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
     </ItemGroup>
 
     <ItemGroup Label="Collections">
-        <PackageReference Include="System.Collections.Immutable" ExcludeAssets="runtime" PrivateAssets="all" />
+        <PackageReference Include="System.Collections.Immutable" />
     </ItemGroup>
 </Project>

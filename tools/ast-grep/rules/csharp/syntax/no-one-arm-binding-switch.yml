@@ -3,14 +3,12 @@ language: csharplang
 severity: error
 utils:
     read:
-        kind: identifier
-        pattern: $NAME
+        pattern: {context: 'class $NAME;', selector: identifier}
         not: {inside: {kind: 'member_access_expression, member_binding_expression', field: name}}
     other-read:
-        kind: identifier
-        pattern: $OTHER
+        pattern: {context: 'class $OTHER;', selector: identifier}
         not: {inside: {kind: 'member_access_expression, member_binding_expression', field: name}}
-    prior-read:
+    holds-read:
         not: {kind: declaration_pattern}
         any: [{matches: read}, {has: {stopBy: end, matches: read}}]
     repeat-read:
@@ -19,15 +17,15 @@ utils:
             - inside:
                 stopBy: end
                 kind: 'lambda_expression, anonymous_method_expression, local_function_statement, query_expression'
-                inside: &declaring {stopBy: end, kind: switch_expression_arm, has: {nthChild: 1, kind: declaration_pattern, has: {stopBy: end, kind: identifier, pattern: $NAME}}}
-            - follows: {stopBy: end, matches: prior-read}
-            - inside: {stopBy: end, follows: {stopBy: end, matches: prior-read}, inside: *declaring}
+                inside: &declaring {stopBy: end, kind: switch_expression_arm, has: {nthChild: 1, kind: declaration_pattern, has: {stopBy: end, pattern: {context: 'class $NAME;', selector: identifier}}}}
+            - precedes: {stopBy: end, matches: holds-read}
+            - inside: {stopBy: end, precedes: {stopBy: end, matches: holds-read}, inside: *declaring}
     shared-argument:
         kind: argument
         inside: {kind: argument_list, inside: {kind: invocation_expression}}
         all:
-            - has: {nthChild: 1, kind: identifier, pattern: $SHARED}
-            - inside: {stopBy: end, kind: switch_expression_arm, follows: {stopBy: end, has: {stopBy: end, kind: identifier, pattern: $SHARED}}}
+            - has: {nthChild: 1, pattern: {context: 'class $SHARED;', selector: identifier}}
+            - inside: {stopBy: end, kind: switch_expression_arm, follows: {stopBy: end, has: {stopBy: end, pattern: {context: 'class $SHARED;', selector: identifier}}}}
     prior-shared-argument:
         not: {kind: declaration_pattern}
         any: [{matches: shared-argument}, {has: {stopBy: end, matches: shared-argument}}]
@@ -37,20 +35,16 @@ utils:
             - follows: {stopBy: end, matches: prior-shared-argument}
             - inside: {stopBy: end, follows: {stopBy: end, matches: prior-shared-argument}, inside: *declaring}
     late-name:
-        kind: identifier
-        pattern: $NAME
+        pattern: {context: 'class $NAME;', selector: identifier}
         inside: {stopBy: {kind: declaration_pattern}, kind: declaration_pattern, precedes: {stopBy: end, any: [{matches: late-read}, {has: {stopBy: end, matches: late-read}}]}}
     reused-name:
-        kind: identifier
-        pattern: $NAME
+        pattern: {context: 'class $NAME;', selector: identifier}
         inside: {stopBy: {kind: declaration_pattern}, kind: declaration_pattern, precedes: {stopBy: end, any: [{matches: repeat-read}, {has: {stopBy: end, matches: repeat-read}}]}}
     read-name:
-        kind: identifier
-        pattern: $NAME
+        pattern: {context: 'class $NAME;', selector: identifier}
         inside: {stopBy: {kind: declaration_pattern}, kind: declaration_pattern, precedes: {stopBy: end, any: [{matches: read}, {has: {stopBy: end, matches: read}}]}}
     other-read-name:
-        kind: identifier
-        pattern: $OTHER
+        pattern: {context: 'class $OTHER;', selector: identifier}
         not: {pattern: $NAME}
         inside: {stopBy: {kind: declaration_pattern}, kind: declaration_pattern, precedes: {stopBy: end, any: [{matches: other-read}, {has: {stopBy: end, matches: other-read}}]}}
     binding-arm:
@@ -68,4 +62,4 @@ rule:
         - not: {has: {kind: switch_expression_arm, nthChild: {position: 2, ofRule: {kind: switch_expression_arm}}}}
         - has: {matches: binding-arm}
 message: 'One-arm switch binds `$PATTERN` for at most one read'
-note: 'Write `$VALUE` at the read and drop the switch'
+note: 'Write `$VALUE` at its read and drop the switch'

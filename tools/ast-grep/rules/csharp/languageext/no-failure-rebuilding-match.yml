@@ -35,18 +35,18 @@ utils:
             - kind: invocation_expression
               all:
                 - has: {field: function, any: [{matches: failure-group}, {matches: {csharp-type-name: {name: {regex: '^(Fail|Left)$'}}}}]}
-                - has: {field: arguments, has: {kind: argument, pattern: $ERROR}, not: {has: {kind: argument, nthChild: 2}}}
+                - has: {field: arguments, has: {kind: argument, pattern: {context: 'f($ERROR);', selector: argument}}, not: {has: {kind: argument, nthChild: 2}}}
             - kind: object_creation_expression
               all:
                 - has: {field: type, kind: qualified_name, any: [{all: [{has: {field: qualifier, matches: {csharp-type-name: {name: {regex: '^Fin$'}}}}}, {has: {field: name, regex: '^Fail$'}}]}, {all: [{has: {field: qualifier, matches: {csharp-type-name: {name: {regex: '^Either$'}}}}}, {has: {field: name, regex: '^Left$'}}]}]}
-                - has: {field: arguments, has: {kind: argument, pattern: $ERROR}, not: {has: {kind: argument, nthChild: 2}}}
+                - has: {field: arguments, has: {kind: argument, pattern: {context: 'f($ERROR);', selector: argument}}, not: {has: {kind: argument, nthChild: 2}}}
             - kind: cast_expression
               all:
                 - has: {field: type, matches: {csharp-type-name: {name: {regex: '^(Fin|Either|Validation)$'}}}}
-                - has: {field: value, pattern: $ERROR}
+                - has: {field: value, pattern: {context: 'class $ERROR;', selector: identifier}}
     failure-rebuild:
         any:
-            - pattern: $ERROR
+            - pattern: {context: 'class $ERROR;', selector: identifier}
             - matches: failure-constructor
     error-lambda:
         kind: lambda_expression
@@ -54,9 +54,9 @@ utils:
             field: parameters
             any:
                 - kind: implicit_parameter
-                  pattern: $ERROR
+                  pattern: {context: 'var f = $ERROR => 0;', selector: implicit_parameter}
                 - kind: parameter_list
-                  has: {kind: parameter, has: {field: name, pattern: $ERROR}}
+                  has: {kind: parameter, has: {field: name, pattern: {context: 'class $ERROR;', selector: identifier}}}
                   not: {has: {kind: parameter, nthChild: 2}}
     rebuild-body:
         any:
@@ -68,19 +68,23 @@ utils:
                 has: {matches: failure-rebuild}
             - kind: arrow_expression_clause
               has: {matches: failure-rebuild}
+    relay-declaration:
+        all:
+            - has: {field: name, pattern: {context: 'class $RELAY;', selector: identifier}}
+            - has: {field: parameters, has: {kind: parameter, has: {field: name, pattern: {context: 'class $ERROR;', selector: identifier}}}, not: {has: {kind: parameter, nthChild: 2}}}
+            - has: {field: body, matches: rebuild-body}
     relay:
         kind: identifier
-        pattern: $RELAY
-        inside:
-            stopBy: end
-            kind: compilation_unit
-            has:
+        pattern: {context: 'class $RELAY;', selector: identifier}
+        any:
+            - inside: {stopBy: end, kind: 'block, switch_section', has: {kind: local_function_statement, matches: relay-declaration}}
+            - inside:
                 stopBy: end
-                kind: method_declaration, local_function_statement
-                all:
-                    - has: {field: name, pattern: $RELAY}
-                    - has: {field: parameters, has: {kind: parameter, has: {field: name, pattern: $ERROR}}, not: {has: {kind: parameter, nthChild: 2}}}
-                    - has: {field: body, matches: rebuild-body}
+                kind: compilation_unit
+                has:
+                    stopBy: {not: {kind: 'compilation_unit, global_statement, namespace_declaration, declaration_list, class_declaration, struct_declaration, record_declaration, interface_declaration, union_declaration, extension_declaration, extension_body, parameter_list, preproc_if, preproc_elif, preproc_else'}}
+                    kind: method_declaration, local_function_statement
+                    matches: relay-declaration
     fail-arm:
         any:
             - matches: failure-group
@@ -106,11 +110,12 @@ utils:
     member-match:
         kind: invocation_expression
         all:
-            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, matches: {csharp-simple-name: {name: {regex: '^Match$'}}}}}, {has: {field: expression, pattern: $VALUE}}]}
+            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Match', matches: {csharp-simple-name: {name: {regex: '^Match$'}}}}}, {has: {field: expression, pattern: $VALUE}}]}
             - has: {field: arguments, all: [{has: {kind: argument, nthChild: 2}}, {not: {has: {kind: argument, nthChild: 3}}}]}
     prelude-match:
         kind: invocation_expression
         all:
+            - has: {field: function, regex: 'match'}
             - matches: {csharp-named-call: {name: {regex: '^match$'}}}
             - has: {field: arguments, all: [{has: {kind: argument, nthChild: 3}}, {not: {has: {kind: argument, nthChild: 4}}}]}
             - has: {field: arguments, has: {nthChild: 1, matches: csharp-positional-argument, has: {pattern: $VALUE}}}
@@ -141,8 +146,11 @@ rule:
             - matches: prelude-match
             - not: {has: {field: arguments, has: {kind: argument, not: {matches: csharp-positional-argument}}}}
             - has: {field: arguments, has: {kind: argument, nthChild: 3, has: {matches: none-arm}}}
-        - pattern: {context: 'class C { object F() => $VALUE.Map($CONTINUE).IfNone($ABSENT); }', selector: invocation_expression, strictness: cst}
-        - pattern: {context: 'class C { object F() => $VALUE.Map($CONTINUE).$UNWRAP($REFAIL); }', selector: invocation_expression, strictness: cst}
+        - all:
+            - has: {field: function, regex: 'If(None|Fail|Left)$'}
+            - any:
+                - pattern: {context: 'class C { object F() => $VALUE.Map($CONTINUE).IfNone($ABSENT); }', selector: invocation_expression, strictness: cst}
+                - pattern: {context: 'class C { object F() => $VALUE.Map($CONTINUE).$UNWRAP($REFAIL); }', selector: invocation_expression, strictness: cst}
 constraints:
     UNWRAP: {regex: '^If(Fail|Left)$'}
     ABSENT: {kind: argument, has: {matches: none-arm}}

@@ -24,7 +24,6 @@
   ],
   "files": [
     { "path": "../../../../.artifacts/apps/creative-cloud/atelier/atelier", "target-membership": [ { "build-phase": "Atelier/copy/Embed Server", "code-sign-on-copy": true } ] },
-    { "path": "../../../../.artifacts/apps/creative-cloud/atelier/swc.darwin-arm64.node", "target-membership": [ { "build-phase": "Atelier/copy/Embed Server Addons", "code-sign-on-copy": true } ] },
     { "path": "../../../../.artifacts/apps/creative-cloud/atelier/LaunchAgents", "target-membership": [ "Atelier/copy/Embed Server Agent" ] },
     { "path": "<PROJECT>/../../../../Xcode.xcconfig" },
     {
@@ -37,7 +36,6 @@
         {
           "target": "Atelier",
           "exclusions": [
-            "Info.plist",
             "buildServer.json",
           ],
         },
@@ -46,15 +44,17 @@
       "kind": "group",
       "name": "Products",
       "children": [
-        { "path": "<PRODUCTS>/Atelier.app", "id": "DF819D1F3089FBAF00B8A072", "type": "wrapper.application", "index": false },
+        { "path": "<PRODUCTS>/.app", "id": "DF819D1F3089FBAF00B8A072", "type": "wrapper.application", "index": false },
       ],
     },
+    { "path": "../../../../.artifacts/apps/creative-cloud/atelier/plugins/indesign.ccx", "target-membership": [ "Atelier/copy/Embed Plugins" ] },
+    { "path": "../../../../.artifacts/apps/creative-cloud/atelier/plugins/photoshop.ccx", "target-membership": [ "Atelier/copy/Embed Plugins" ] },
   ],
   "targets": [
     {
       "name": "Atelier",
       "id": "DF819D1E3089FBAF00B8A072",
-      "product": "Products/Atelier.app",
+      "product": "Products/.app",
       "product-type": "application",
       "build-phases": [
         "compile-sources",
@@ -67,13 +67,14 @@
           "relative-path": "Helpers",
         }, {
           "kind": "copy",
-          "name": "Embed Server Addons",
-          "bundle-base-path": "frameworks-directory",
-        }, {
-          "kind": "copy",
           "name": "Embed Server Agent",
           "bundle-base-path": "contents-directory",
           "relative-path": "Library",
+        }, {
+          "kind": "copy",
+          "name": "Embed Plugins",
+          "bundle-base-path": "resources-directory",
+          "relative-path": "Plugins",
         },
       ],
       "package-product-members": [
@@ -112,17 +113,13 @@
         },
       ],
       "build-settings": {
-        "ARCHS": "arm64",
-        "ASSETCATALOG_COMPILER_APPICON_NAME": "AppIcon",
         "AUTOMATION_APPLE_EVENTS": "YES",
-        "GENERATE_INFOPLIST_FILE": "YES",
-        "INFOPLIST_FILE": "Info.plist",
+        "CODE_SIGN_ENTITLEMENTS": "../../../../.config/Enhanced.entitlements",
+        "INFOPLIST_FILE": "../../../../.config/Sparkle-Info.plist",
         "INFOPLIST_KEY_LSApplicationCategoryType": "public.app-category.utilities",
         "INFOPLIST_KEY_LSBackgroundOnly": "YES",
         "INFOPLIST_KEY_NSAppleEventsUsageDescription": "Atelier runs scripting commands in Adobe apps when an MCP client requests them.",
-        "LD_RUNPATH_SEARCH_PATHS": "@executable_path/../Frameworks",
         "PRODUCT_BUNDLE_IDENTIFIER": "app.rasm.atelier",
-        "PRODUCT_NAME": "$(TARGET_NAME)",
       },
     },
   ],

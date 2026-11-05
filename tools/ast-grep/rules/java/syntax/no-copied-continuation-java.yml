@@ -19,8 +19,8 @@ utils:
                 - not: {has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: *comment}}, matches: holds-tail}}}
             - all:
                 - has: {field: name, regex: '^(addAll|appendAll|plusAll)$'}
-                - has: {field: arguments, has: {matches: holds-tail}}
                 - has: {field: object, kind: method_invocation, has: {field: name, regex: '^(add|append|plus)$'}}
+                - has: {field: arguments, has: {matches: holds-tail}}
             - all:
                 - has: {field: name, regex: '^(prepend|prependAll)$'}
                 - has: {field: object, matches: tail}

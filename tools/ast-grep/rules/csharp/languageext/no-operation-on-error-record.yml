@@ -9,8 +9,8 @@ utils:
     argument-read:
         any:
             - kind: identifier
-              pattern: $NAME
-              inside: {stopBy: end, kind: method_declaration, has: {field: parameters, has: {kind: parameter, has: {field: name, pattern: $NAME}}}}
+              pattern: {context: 'class $NAME;', selector: identifier}
+              inside: {stopBy: end, kind: method_declaration, has: {field: parameters, has: {kind: parameter, has: {field: name, pattern: {context: 'class $NAME;', selector: identifier}}}}}
             - kind: member_access_expression
               has: {field: expression, matches: argument-read}
     limit-name:
@@ -35,15 +35,15 @@ utils:
         all:
             - has: {field: name, regex: '^Of$'}
             - has: {kind: modifier, regex: '^static$'}
-            - has: {field: returns, kind: identifier, pattern: $SELF}
+            - has: {field: returns, kind: identifier, pattern: {context: 'class $SELF;', selector: identifier}}
             - has: {field: body, kind: arrow_expression_clause, has: {kind: 'object_creation_expression, implicit_object_creation_expression'}}
-            - inside: {stopBy: end, kind: record_declaration, has: {field: name, pattern: $SELF}}
+            - inside: {stopBy: end, kind: record_declaration, has: {field: name, pattern: {context: 'class $SELF;', selector: identifier}}}
     guarded-value:
         any:
             - regex: '^unit$'
             - matches: argument-read
             - kind: identifier
-              pattern: $NARROWED
+              pattern: {context: 'class $NARROWED;', selector: identifier}
               inside:
                 kind: conditional_expression
                 has:
@@ -51,7 +51,7 @@ utils:
                     kind: is_pattern_expression
                     all:
                         - has: {field: expression, matches: argument-read}
-                        - has: {field: pattern, kind: 'declaration_pattern, recursive_pattern', has: {field: name, pattern: $NARROWED}, not: {has: {stopBy: end, kind: relational_pattern}}}
+                        - has: {field: pattern, kind: 'declaration_pattern, recursive_pattern', has: {field: name, pattern: {context: 'class $NARROWED;', selector: identifier}}, not: {has: {stopBy: end, kind: relational_pattern}}}
     guard-factory:
         kind: method_declaration
         all:
@@ -78,19 +78,19 @@ utils:
                             - not: {has: {stopBy: end, matches: limit-literal}}
                             - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^ToFin$'}}, {has: {field: expression, kind: invocation_expression, all: [{matches: {csharp-named-call: {name: {regex: '^Optional$'}}}}, {has: {field: arguments, has: {kind: argument, has: {matches: guarded-value}}, not: {has: {kind: argument, nthChild: 2}}}}]}}]}
                             - has: {field: arguments, has: {kind: argument, has: {matches: own-error}}, not: {has: {kind: argument, nthChild: 2}}}
-            - inside: {stopBy: end, kind: record_declaration, has: {field: name, pattern: $SELF}}
+            - inside: {stopBy: end, kind: record_declaration, has: {field: name, pattern: {context: 'class $SELF;', selector: identifier}}}
     validation-factory:
         kind: method_declaration
         all:
             - has: {field: name, regex: '^Create$'}
             - has: {kind: modifier, regex: '^static$'}
             - has: {field: parameters, has: {kind: parameter, has: {field: type, regex: '^string$'}}, not: {has: {kind: parameter, nthChild: 2}}}
-            - has: {field: returns, kind: identifier, pattern: $SELF}
+            - has: {field: returns, kind: identifier, pattern: {context: 'class $SELF;', selector: identifier}}
             - inside:
                 stopBy: end
                 kind: record_declaration
                 all:
-                    - has: {field: name, pattern: $SELF}
+                    - has: {field: name, pattern: {context: 'class $SELF;', selector: identifier}}
                     - has: {kind: base_list, has: {kind: generic_name, all: [{has: {kind: identifier, regex: '^IValidationError$'}}, {has: {kind: type_argument_list, has: {pattern: $SELF}, not: {has: {nthChild: 2}}}}]}}
     string-constant:
         all:
@@ -100,16 +100,16 @@ utils:
                 stopBy: end
                 kind: record_declaration
                 all:
-                    - has: {field: name, pattern: $OWNER}
-                    - has: {stopBy: end, kind: object_creation_expression, all: [{has: {field: type, pattern: $OWNER}}, {has: {field: arguments, has: {kind: argument, has: {kind: identifier, pattern: $MEMBER}}}}]}
+                    - has: {field: name, pattern: {context: 'class $OWNER;', selector: identifier}}
+                    - has: {stopBy: end, kind: object_creation_expression, all: [{has: {field: type, pattern: $OWNER}}, {has: {field: arguments, has: {kind: argument, has: {kind: identifier, pattern: {context: 'class $MEMBER;', selector: identifier}}}}}]}
     inherited:
         has: {kind: modifier, regex: '^(override|abstract)$'}
     type-argument-read:
         any:
             - kind: typeof_expression
               all:
-                - has: {field: type, kind: identifier, pattern: $PARAM}
-                - inside: {stopBy: end, kind: record_declaration, has: {kind: type_parameter_list, has: {kind: type_parameter, has: {field: name, pattern: $PARAM}}}}
+                - has: {field: type, kind: identifier, pattern: {context: 'class $PARAM;', selector: identifier}}
+                - inside: {stopBy: end, kind: record_declaration, has: {kind: type_parameter_list, has: {kind: type_parameter, has: {field: name, pattern: {context: 'class $PARAM;', selector: identifier}}}}}
             - kind: member_access_expression
               has: {field: expression, matches: type-argument-read}
     type-argument-property:
@@ -128,32 +128,33 @@ utils:
                                 - {kind: arrow_expression_clause, has: {matches: type-argument-read}}
                                 - {kind: block, has: {kind: return_statement, has: {matches: type-argument-read}}, not: {has: {nthChild: 2}}}
 rule:
-    any:
-        - kind: field_declaration
-          all:
-            - has: {kind: modifier, regex: '^(const|static)$'}
-            - has: {kind: variable_declaration, has: {kind: variable_declarator, has: {field: name, pattern: $MEMBER}}}
-            - not: {matches: string-constant}
-        - kind: property_declaration
-          all:
-            - has: {field: name, pattern: $MEMBER}
-            - any:
-                - has: {kind: modifier, regex: '^static$'}
-                - has: {field: value, kind: arrow_expression_clause}
-                - has: {field: accessors, has: {kind: accessor_declaration, has: {field: body, kind: 'arrow_expression_clause, block'}}}
-            - not: {any: [{matches: inherited}, {matches: type-argument-property}]}
-        - kind: indexer_declaration
-          all:
-            - has: {regex: '^this$', pattern: $$MEMBER}
-            - not: {matches: inherited}
-        - kind: operator_declaration
-          has: {field: operator, pattern: $$MEMBER}
-        - kind: conversion_operator_declaration
-          has: {field: type, pattern: $MEMBER}
-        - kind: method_declaration
-          all:
-            - has: {field: name, pattern: $MEMBER}
-            - not: {any: [{matches: guard-factory}, {matches: error-factory}, {matches: validation-factory}, {matches: inherited}]}
-    inside: {stopBy: end, kind: declaration_list, inside: {matches: languageext-error-record}}
+    all:
+        - inside: {stopBy: end, kind: declaration_list, inside: {matches: languageext-error-record}}
+        - any:
+            - kind: field_declaration
+              all:
+                - has: {kind: modifier, regex: '^(const|static)$'}
+                - has: {kind: variable_declaration, has: {kind: variable_declarator, has: {field: name, pattern: {context: 'class $MEMBER;', selector: identifier}}}}
+                - not: {matches: string-constant}
+            - kind: property_declaration
+              all:
+                - has: {field: name, pattern: {context: 'class $MEMBER;', selector: identifier}}
+                - any:
+                    - has: {kind: modifier, regex: '^static$'}
+                    - has: {field: value, kind: arrow_expression_clause}
+                    - has: {field: accessors, has: {kind: accessor_declaration, has: {field: body, kind: 'arrow_expression_clause, block'}}}
+                - not: {any: [{matches: inherited}, {matches: type-argument-property}]}
+            - kind: indexer_declaration
+              all:
+                - has: {regex: '^this$', pattern: $$MEMBER}
+                - not: {matches: inherited}
+            - kind: operator_declaration
+              has: {field: operator, pattern: $$MEMBER}
+            - kind: conversion_operator_declaration
+              has: {field: type, pattern: $MEMBER}
+            - kind: method_declaration
+              all:
+                - has: {field: name, pattern: {context: 'class $MEMBER;', selector: identifier}}
+                - not: {any: [{matches: guard-factory}, {matches: error-factory}, {matches: validation-factory}, {matches: inherited}]}
 message: '`$MEMBER` declares a limit or operation inside an error record'
 note: 'Move member to an operations class that raises the error'

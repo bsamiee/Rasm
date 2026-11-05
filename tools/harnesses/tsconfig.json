@@ -1,5 +1,5 @@
 {
     "extends": "../../tsconfig.base.json",
     "compilerOptions": { "types": [ "node" ] },
-    "exclude": [ "*/uxpscript/**" ]
+    "exclude": [ "*/uxpscript/**", "extendscript.ts", "illustrator/engine.ts", "indesign/engine.ts", "photoshop/engine.ts" ]
 }

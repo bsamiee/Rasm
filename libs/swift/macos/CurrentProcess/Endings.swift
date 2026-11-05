@@ -13,7 +13,13 @@ public func processEndings() -> AsyncStream<Int32?> {
                 return source
             } + [DispatchSource.makeProcessSource(identifier: getppid(), eventMask: .exit)]
         sources.last?.setEventHandler { ending.yield(nil) }
-        sources.forEach { source in source.activate() }
-        ending.onTermination = { _ in sources.forEach { source in source.cancel() } }
+        for source: any DispatchSourceProtocol in sources {
+            source.activate()
+        }
+        ending.onTermination = { _ in
+            for source: any DispatchSourceProtocol in sources {
+                source.cancel()
+            }
+        }
     }
 }

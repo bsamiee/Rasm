@@ -6,6 +6,7 @@ rule:
     kind: invocation_expression
     pattern: $RECUR
     all:
+        - has: {field: function, regex: 'recur'}
         - matches: {csharp-owner-call: {type: {regex: '^Monad$'}, member: {regex: '^recur$'}}}
         - has:
             field: arguments

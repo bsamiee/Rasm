@@ -29,14 +29,14 @@ utils:
         kind: return_statement, break_statement
 rule:
     any:
-        - matches: {python-first-item: {source: {matches: searched, any: [{matches: query, pattern: $SEARCH}, {has: {stopBy: end, matches: query, pattern: $SEARCH}}]}}}
+        - matches: {python-first-item: {source: {any: [{matches: query, pattern: $SEARCH}, {kind: 'generator_expression, list_comprehension', has: {kind: for_in_clause, has: {field: right, matches: query, pattern: $SEARCH}}}]}}}
         - kind: subscript
           all:
-            - has: {field: value, matches: listed}
             - has: {field: subscript, regex: '^-1$'}
+            - has: {field: value, matches: listed}
         - kind: call
           all:
-            - has: {field: function, kind: attribute, all: [{has: {field: object, matches: listed}}, {has: {field: attribute, regex: '^pop$'}}]}
+            - has: {field: function, kind: attribute, all: [{has: {field: attribute, regex: '^pop$'}}, {has: {field: object, matches: listed}}]}
             - has: {field: arguments, not: {has: {nthChild: 2}}}
         - kind: assignment
           all:

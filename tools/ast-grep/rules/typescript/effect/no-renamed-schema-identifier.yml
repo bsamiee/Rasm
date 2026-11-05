@@ -4,7 +4,7 @@ severity: error
 utils:
     schema-class:
         kind: member_expression
-        regex: '\.(Class|Error|TaggedClass|TaggedError)$'
+        has: {field: property, regex: '^(Class|Error|TaggedClass|TaggedError)$'}
         any:
             - matches: {effect-module-member: {module: {regex: '(?-u:\b)Schema$'}, member: {regex: '^(Class|Error|TaggedClass|TaggedError)$'}}}
             - matches: {effect-module-member: {module: {regex: '(?-u:\b)Model$'}, member: {regex: '^Class$'}}}

@@ -10,13 +10,13 @@ utils:
     continuation:
         kind: call_expression
         all:
-            - matches: step
             - has: {field: arguments, has: {matches: callback}}
+            - matches: step
     inner:
         kind: call_expression
         all:
-            - matches: step
             - has: {field: arguments, any: [{has: {matches: callback}}, {has: {nthChild: 2}}]}
+            - matches: step
 rule:
     pattern: $CALL
     matches: continuation

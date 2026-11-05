@@ -136,4 +136,4 @@ transform:
     TARGET_CLAUSE: {replace: {source: $SAVEPOINT, replace: '^(.+)$', by: ' to $1'}}
 fix: $VERB$MODE_CLAUSE$TARGET_CLAUSE
 message: '`$STATEMENT` uses an alternate transaction spelling'
-note: 'Use the transaction verb, mode, and savepoint target directly'
+note: 'Use the transaction keyword, mode, and savepoint target directly'

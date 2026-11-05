@@ -6,9 +6,6 @@
     "imports": {
         "#/*": "./*"
     },
-    "exports": {
-        "./sites": "./model/sites.ts"
-    },
     "dependencies": {
         "@effect/atom-react": "catalog:",
         "@effect/platform-node": "catalog:",

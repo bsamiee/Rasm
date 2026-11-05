@@ -5,7 +5,7 @@ ignores: ['tools/roslyn/**']
 rule:
     kind: invocation_expression
     all:
-        - has: {field: function, kind: member_access_expression, has: {field: name, pattern: $BIND}}
+        - has: {field: function, kind: member_access_expression, has: {field: name, pattern: $BIND, regex: '^(Bind|SelectMany)'}}
         - matches:
             languageext-bind-callback:
                 value: {pattern: $VALUE}
@@ -15,7 +15,7 @@ rule:
                           kind: invocation_expression
                           all:
                             - has: {field: function, kind: member_access_expression, has: {field: name, pattern: $STEP, matches: {csharp-simple-name: {name: {regex: '^(Bind|Map|Select|SelectMany|Filter|Where)$'}}}}}
-                            - has: {field: function, has: {field: expression, has: {stopBy: end, kind: identifier, pattern: $VALUE}}}
+                            - has: {field: function, has: {field: expression, has: {stopBy: end, kind: identifier, pattern: {context: 'class $VALUE;', selector: identifier}}}}
                             - has:
                                 field: arguments
                                 all:
@@ -23,7 +23,7 @@ rule:
                                     - has:
                                         kind: argument
                                         has: {kind: 'lambda_expression, anonymous_method_expression, identifier, member_access_expression, generic_name'}
-                                        not: {has: {stopBy: end, kind: identifier, pattern: $VALUE}}
+                                        not: {has: {stopBy: end, kind: identifier, pattern: {context: 'class $VALUE;', selector: identifier}}}
                         - kind: block
                           all:
                             - has: {kind: return_statement, nthChild: 1, has: *step}

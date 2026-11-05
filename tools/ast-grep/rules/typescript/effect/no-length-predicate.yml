@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: tsxlang
 severity: error
-ignores: ['.claude/workflows/*.js', 'plugins/function-hooks/**']
+ignores: ['.claude/workflows/*.js', 'plugins/function-hooks/hooks/**']
 rule:
     kind: arrow_function
     all:

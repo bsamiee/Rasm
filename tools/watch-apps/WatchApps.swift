@@ -88,17 +88,36 @@ extension Outline {
     }
 
     func fitted(measuring length: (Self) -> Int) -> Self {
-        var fitted: Self = self
-        while case let excess = length(fitted) - lineLimit, excess > 0 {
-            if let row: Int = fitted.asking.lastIndex(where: { row in !row.text.isEmpty }), let last: String = fitted.asking[row].text.popLast() {
-                if last.count > excess { fitted.asking[row].text.append(String(last.dropLast(excess))) }
-            } else if let row: Int = fitted.asking.lastIndex(where: { row in !row.options.isEmpty }) {
-                fitted.asking[row].options.removeLast()
-            } else if fitted.windows.popLast() == nil {
-                break
+        let excess: Int = length(self) - lineLimit
+        guard excess > 0 else { return self }
+        var cut: Self = self
+        if let row: Int = cut.asking.lastIndex(where: { row in !row.text.isEmpty }), let last: String = cut.asking[row].text.popLast() {
+            if last.count > excess { cut.asking[row].text.append(String(last.dropLast(excess))) }
+        } else if let row: Int = cut.asking.lastIndex(where: { row in !row.options.isEmpty }) {
+            cut.asking[row].options.removeLast()
+        } else if cut.windows.popLast() == nil {
+            return self
+        }
+        return cut.fitted(measuring: length)
+    }
+}
+
+extension Sequence<Record<[String: JSONValue]>> {
+    func runs(of session: String?) -> [Record<[String: JSONValue]>] {
+        reduce(into: (runs: [Record<[String: JSONValue]>](), active: [pid_t: Int]())) { folded, record in
+            switch (record.argv, folded.active[record.pid]) {
+                case (.some, _) where record.session == session:
+                    folded.active[record.pid] = folded.runs.endIndex
+                    folded.runs.append(record)
+                case (.some, _): folded.active[record.pid] = nil
+                case (.none, .some(let run)):
+                    folded.runs[run].line = (folded.runs[run].line ?? [:]).merging(record.line ?? [:]) { _, next in next }
+                    folded.runs[run].exit = record.exit
+                    if record.exit != nil { folded.active[record.pid] = nil }
+                case (.none, .none): break
             }
         }
-        return fitted
+        .runs
     }
 }
 
@@ -189,6 +208,33 @@ final class Run: Sendable {
             for (instance, state): (NSRunningApplication, InstanceState) in next { show(instance, state) }
             for (instance, state): (NSRunningApplication, InstanceState) in last where next[instance] == nil && !state.is(\.exited) { emit(instance.key, [String: String]()) }
             last = next
+        }
+    }
+
+    func follow(launching steps: some AsyncSequence<Launching, Never>, of identifier: String, waiting: Bool) async {
+        var last: RunningInstance?
+        for await step: Launching in steps {
+            switch step {
+                case .launched(let launched): emit(identifier, [String(launched.pid): ["launched": ["created": launched.created]]])
+                case .state(let state):
+                    show(state.instance, state.state)
+                    last = state
+                case .prompts(let prompts): for prompt: RunningInstance in prompts { show(prompt.instance, prompt.state) }
+                case .failed(let failure): fail(identifier, failure)
+            }
+        }
+        guard waiting, let last else { return }
+        var ended: InstanceState = last.state
+        if !ended.is(\.exited) {
+            for await state: InstanceState in last.instance.states() {
+                show(last.instance, state)
+                ended = state
+            }
+        }
+        guard case .exited(.success(let exit), _) = ended else { return }
+        switch exit.status {
+            case .exited(let code): set(ExitCode(code))
+            case .signaled(let signal): set(ExitCode(128 + signal))
         }
     }
 
@@ -411,30 +457,11 @@ struct Launch: AsyncParsableCommand {
                     let host: ArraySlice<String> = arguments.prefix { argument in argument != "--" }
                     let switches: [String] = appSwitches.filter { prefix, row in installation.identifier.hasPrefix(prefix) && row.unless.union([row.added]).isDisjoint(with: host) }.map(\.value.added)
                     group.addTask {
-                        var last: RunningInstance?
-                        for await step: Launching in NSWorkspace.shared.launching(installation, opening: documents, arguments: switches + arguments, environment: variables, newInstance: new) {
-                            switch step {
-                                case .launched(let launched): run.emit(installation.identifier, [String(launched.pid): ["launched": ["created": launched.created]]])
-                                case .state(let state):
-                                    run.show(state.instance, state.state)
-                                    last = state
-                                case .prompts(let prompts): for prompt: RunningInstance in prompts { run.show(prompt.instance, prompt.state) }
-                                case .failed(let failure): run.fail(installation.identifier, failure)
-                            }
-                        }
-                        guard wait, let last else { return }
-                        var ended: InstanceState = last.state
-                        if !ended.is(\.exited) {
-                            for await state: InstanceState in last.instance.states() {
-                                run.show(last.instance, state)
-                                ended = state
-                            }
-                        }
-                        guard case .exited(.success(let exit), _) = ended else { return }
-                        switch exit.status {
-                            case .exited(let code): run.set(ExitCode(code))
-                            case .signaled(let signal): run.set(ExitCode(128 + signal))
-                        }
+                        await run.follow(
+                            launching: NSWorkspace.shared.launching(installation, opening: documents, arguments: switches + arguments, environment: variables, newInstance: new),
+                            of: installation.identifier,
+                            waiting: wait,
+                        )
                     }
                 }
             }
@@ -586,20 +613,7 @@ struct Log: ParsableCommand {
                 printed = (start..<end).filter { index in records[index].pid == pid }.map { index in lines[index] + [UInt8(ascii: "\n")] }
             } else {
                 let session: String? = ProcessInfo.processInfo.environment[sessionVariable]
-                printed = try records.reduce(into: (runs: [Record<[String: JSONValue]>](), active: [pid_t: Int]())) { folded, record in
-                    switch (record.argv, folded.active[record.pid]) {
-                        case (.some, _) where record.session == session:
-                            folded.active[record.pid] = folded.runs.endIndex
-                            folded.runs.append(record)
-                        case (.some, _): folded.active[record.pid] = nil
-                        case (.none, .some(let run)):
-                            folded.runs[run].line = (folded.runs[run].line ?? [:]).merging(record.line ?? [:]) { _, next in next }
-                            folded.runs[run].exit = record.exit
-                            if record.exit != nil { folded.active[record.pid] = nil }
-                        case (.none, .none): break
-                    }
-                }
-                .runs.map(encoder.encodeLine)
+                printed = try records.runs(of: session).map(encoder.encodeLine)
             }
             for line: Data in printed { try FileHandle.standardOutput.write(contentsOf: line) }
         } catch {
@@ -619,15 +633,15 @@ struct Serve: AsyncParsableCommand {
         let definitions: ScriptingDefinitions = ScriptingDefinitions()
         let calls: DispatchQueue = DispatchQueue(label: "watch-apps.calls", attributes: .concurrent)
         let output: DispatchSerialQueue = DispatchSerialQueue(label: "watch-apps.output")
-        nonisolated(unsafe) let everything: NSPredicate = NSPredicate(value: true)
         try await serve(
             reading: FileHandle.standardInput.bytes.jsonLines,
             writing: { line in try await withTaskExecutorPreference(output) { try FileHandle.standardOutput.write(contentsOf: line) } },
             dropped: { failure in logger.debug("Dropped \(failure, privacy: .public)") },
             { (request: Request) in
-                let response: Response = try await withTaskExecutorPreference(calls) { try await request.perform(admitting: unsafe everything, refusing: { _ in [] }, definitions: definitions) }
-                guard case .launch(let url, _, _, _, _) = request, case .stream(let steps) = response else { return response }
-                return .stream(run.recordingLaunches(from: url, in: steps))
+                let response: Response = try await withTaskExecutorPreference(calls) {
+                    try await request.perform(admitting: { NSPredicate(value: true) }, refusing: { _ in [] }, definitions: definitions)
+                }
+                return if case .launch(let url, _, _, _, _) = request, case .stream(let steps) = response { .stream(run.recordingLaunches(from: url, in: steps)) } else { response }
             },
         )
         run.finish()

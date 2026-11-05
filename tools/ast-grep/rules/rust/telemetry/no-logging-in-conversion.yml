@@ -7,7 +7,7 @@ rule:
             - kind: macro_invocation
               has: {field: macro, pattern: $LOG, regex: '^(::)?((tracing|log)::)?((trace|debug|info|warn|error)(_span)?|event|span|log)$'}
             - kind: attribute_item
-              has: {kind: attribute, has: {stopBy: end, pattern: $LOG, regex: '^(::)?(tracing::)?instrument$'}}
+              has: {kind: attribute, has: {stopBy: end, kind: 'identifier, scoped_identifier', pattern: $LOG, regex: '^(::)?(tracing::)?instrument$'}}
         - inside:
             stopBy: end
             kind: impl_item

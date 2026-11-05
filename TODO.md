@@ -22,7 +22,7 @@ Libraries in every language and their consumers are rebuilt as general capabilit
 - Agents run commands in foreground and checks once at the end, editing only their own files; messages to agents inside a running workflow go nowhere
 - Desktop apps run through watch-apps, host probes through `tools/harnesses`, Ghidra through use-ghidra; function-hooks rewrites or refuses the rest
 - Defects are fixed at cause in the pass finding them, in every layer holding them (tool, hook, skill, library); nothing found is deferred or unacted
-- Distilled products evidence logic, never scripts to copy; findings in `.artifacts/workflows/` and `docs/research` are acted on, never rediscovered
+- Distilled products evidence logic, not scripts to copy; findings in `~/.claude/rasm/workflows/` and `docs/research` are acted on, not rediscovered
 - Prose (skills, rules, messages, guidance) changes through clean-prose by replacing the line owning a fact, with no appended clause
 - Owner reports hold results and decisions in few words; runs stopped by a usage limit resume, workflows with `args.finished` built from their journal
 - Each change commits locally; pushes come before each InPage package run and the first extension run, and after each font library round
@@ -43,8 +43,8 @@ Libraries in every language and their consumers are rebuilt as general capabilit
 
 - `docs/research/applications/<host>/`: `products/`, per product `decompiled/`, `internals/` with proofs, `distilled/` runnable TypeScript, `facts/`
 - `docs/research/typescript-extension/`: domain notes, `studies/`, `packages.md` alone choosing packages, `ARCHITECTURE.md` capability matrix, levels
-- `.artifacts/workflows/typescript-extension/`: `inpage/PLAN.md` rows linked to distilled sources, `base/` pre-clean notes, `review/` plan reviews
-- `.artifacts/workflows/fonts/`: font library's `DECISION.md`, `ARCHITECTURE.md`, `INTERFACES.md` and `deepen-brief.md`
+- `~/.claude/rasm/workflows/typescript-extension/`: `inpage/PLAN.md` rows citing distilled sources, `base/` pre-clean notes, `review/` plan reviews
+- `~/.claude/rasm/workflows/fonts/`: font library's `DECISION.md`, `ARCHITECTURE.md`, `INTERFACES.md` and `deepen-brief.md`
 - `docs/research` is ignored by git: runs rewriting a note snapshot it first and judge its diff against the snapshot
 
 ### [01.5]-[STATE]
@@ -74,11 +74,9 @@ Numbers run in order; a number with a letter runs beside the number it shares.
   - Fix: a set with no change skips its adversaries; consumers outside the paths move in the editor that changes their API
   - Fix: the lead and the check run before anything optional; each run is measured and reports its cost
   - Then read `tune.js`, `extension-research.js`, `harness-depth.js` and `guidance.js` for the same fan-out and closure faults
-- 1: InPage, one `deepen` run per package with `plan` `.artifacts/workflows/typescript-extension/inpage/PLAN.md`, its inputs and its oracle:
-  - Typography landed uncommitted edits (15 files, +1002/-321), type-checking clean with indesign, automation and atelier
-  - Finish typography: land `.artifacts/workflows/typescript-extension/inpage/LEFT.md`, then its lead review and check with the oracle
-  - Oracle `quran` family: the library now refuses partial ayah sets and always marks ayahs; marks become the caller's choice
-  - Then search and automation in one run, then indesign, then `apps/creative-cloud/atelier`
+- 1: InPage, one `deepen` run per package with `plan` `~/.claude/rasm/workflows/typescript-extension/inpage/PLAN.md`, its inputs and its oracle:
+  - Finish typography: its plan rows, then its lead review and check with the oracle
+  - Then search, then indesign, then `apps/creative-cloud/atelier`
   - Plan rows for `@rasm/grid` wait for the grid extension row
   - Then `tune` over TypeScript from `0305d5c82`, then push
 - 1a: Rust `deepen` runs beside 1, launched by a later session:
@@ -93,7 +91,7 @@ Numbers run in order; a number with a letter runs beside the number it shares.
 - 1c: Font library `libs/python/typography` and `tools/foundry` CLI, building, refining and verifying any font, Perso-Arabic one domain in depth:
   - Round one committed (3,049 lines in seven packages, `foundry ACTION DECLARATION [NAME] [DESTINATION]`), so push it first
   - Then two or three `deepen` rounds over both paths with `deepen-brief.md` input, each a fresh run from the prior round
-  - `lint:refurb:3.13` spends 7.5 s on `libs/python/blender/bpy/ui/resources/icons.py`'s literal-union `case _`; fix it at its cause
+  - `typecheck:mypy:3.13` spends 7.5 s on `libs/python/blender/bpy/ui/resources/icons.py`'s literal-union `case _`; fix it at its cause
   - First round folds type, class, constant and string spam into richer objects with higher-order operations for fonts in general
   - Each change rebuilds only what it reaches; CLI takes no flag a question does not need; nothing is tied to old tooling or one font
   - Then `tune` over Python
@@ -140,7 +138,7 @@ Extension is the repository's central deliverable, held to one standard:
    - Typography, perso-arabic, composition, grids, indesign, data, mcp, print, color
 6. Plans: after the InPage run and its tune commit, one `extension-research` `mode` plan run per domain at a time, in order:
    - Typography, grids, color, indesign, data, mcp
-   - Each run writes `.artifacts/workflows/typescript-extension/<domain>/PLAN.md` from its distilled products, rebuilt code and research
+   - Each run writes `~/.claude/rasm/workflows/typescript-extension/<domain>/PLAN.md` from its distilled products, rebuilt code and research
    - Each run writes its domain's `ARCHITECTURE.md` rows and `TYPESCRIPT.md` [03] rows
 7. Rows: one `deepen` run per `TYPESCRIPT.md` [03] row once its `[AFTER]` rows commit and its gates are answered:
    - `mode` build with `key`, and `base` the commit pushed before it
@@ -152,16 +150,16 @@ Extension is the repository's central deliverable, held to one standard:
 
 ### [02.4]-[STATE]
 
-- InPage: `.artifacts/workflows/typescript-extension/inpage/PLAN.md` holds 47 open rows grouped by owning package, each linked to distilled sources
+- InPage: `~/.claude/rasm/workflows/typescript-extension/inpage/PLAN.md` holds 31 open rows grouped by owning package, each citing distilled sources
   - Goal: universal Perso-Arabic typesetting on any installed font, real InDesign logic shaped by neither Atelier nor MCP, packages fully used
-  - Oracle `proof/ab.ts` in `docs/research/applications/indesign/products/typesetting/inpage-typesetting-tool`, failing on open plan rows alone
+  - Oracle `proof/ab.ts` in `docs/research/applications/indesign/products/typesetting/inpage-typesetting-tool`, exiting 0 against current libraries
 - InPage proofs: 164 functions binary-proven over 1494 cases, host proof impossible for the Windows-only plug-in
 - InPage distill: Persian and Arabic typesetting over any installed font, read from what each font states, Urdu-only forms out:
   - Nuqta and aerab position, letter adjustment, spacing tuner, kasheeda, overlap kerning, text carving, symbols, Quran glossary
 - Color: no further distill, evidence in the color research and in `docs/research/applications/indesign/`:
   - `distilled/internals/adobe-indesign-color`
   - `internals/adobe-indesign-color` README locating each rebuilt family
-- Research notes: cleaned to principles at their owners, pre-clean copies in `.artifacts/workflows/typescript-extension/base/`
+- Research notes: cleaned to principles at their owners, pre-clean copies in `~/.claude/rasm/workflows/typescript-extension/base/`
 - Fonts: proofs, probes and research examples set text in the faces under `assets/fonts`; library code reads what any face states and names none
 - Harnesses: one launch path for every host, each run logged under `.artifacts/logs/harnesses/` with its summary in the CLI result
   - Agents open, drive and quit apps through watch-apps, the hook routing every other form there

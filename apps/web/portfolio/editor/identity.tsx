@@ -6,7 +6,6 @@ import type { Atom } from 'effect/reactivity';
 import { PlacementFields } from '#/editor/placement-fields.tsx';
 import { draft, hero, portfolio } from '#/editor/state.ts';
 import { MediaFigure } from '#/media/media-figure.tsx';
-import { sites } from '#/model/sites.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -40,7 +39,7 @@ const Identity = ({ idPrefix, onChooseHero, ...state }: Pick<Atom.Success<typeof
                     </PlacementFields>
                 </>
             )}
-            <a className="mt-8.75 text-sm underline" href={User.href(sites, 'signout', '/')} target="_top">
+            <a className="mt-8.75 text-sm underline" href={User.href('signout', '/')} target="_top">
                 Sign out
             </a>
         </>

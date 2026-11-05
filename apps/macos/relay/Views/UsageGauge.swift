@@ -43,7 +43,7 @@ struct UsageGauge: View {
             .font(.subheadline)
 
             ProgressView(value: window.used.fraction)
-                .progressViewStyle(CapsuleProgressStyle(tint: isCurrent ? Color.accentColor : .secondary))
+                .tint(isCurrent ? Color.accentColor : .secondary)
                 .accessibilityHidden(true)
                 .help(detail)
         }
@@ -57,21 +57,5 @@ struct UsageGauge: View {
         } else {
             text
         }
-    }
-}
-
-struct CapsuleProgressStyle: ProgressViewStyle {
-    let tint: Color
-
-    func makeBody(configuration: Configuration) -> some View {
-        Capsule()
-            .fill(.quaternary)
-            .overlay {
-                Rectangle()
-                    .fill(tint)
-                    .scaleEffect(x: configuration.fractionCompleted ?? 0, y: 1, anchor: .leading)
-            }
-            .clipShape(Capsule())
-            .frame(height: 6)
     }
 }

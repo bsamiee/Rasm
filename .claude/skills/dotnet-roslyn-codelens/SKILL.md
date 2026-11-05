@@ -7,6 +7,8 @@ description: "Use when reading, diagnosing, or refactoring a file in a .NET solu
 
 Covers the roslyn-codelens MCP server over a loaded solution. Tools resolve every symbol through the compilation, and text search matches characters and misses aliases, partial types, generic instantiations, and metadata symbols.
 
+The server starts with no solution, a task's first call is `mcp__roslyn-codelens__list_solutions`, and `mcp__roslyn-codelens__load_solution` with the solution's absolute path follows when it lists none.
+
 ## [01]-[TOOL_SELECTION]
 
 Server tools are deferred, one `ToolSearch(query: "select:mcp__roslyn-codelens__<tool>,mcp__roslyn-codelens__<tool>")` loads the schema of each tool a task calls before the first call.

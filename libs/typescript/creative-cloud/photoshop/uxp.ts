@@ -1,8 +1,8 @@
 import photoshop, { action, app, constants, core, type Document, type ExecutionContext } from 'adobe:photoshop';
 import type { File } from 'adobe:uxp';
 import { ExecuteScript, HostError, ObjectModel, Reference } from '@rasm/automation';
+import { Peer } from '@rasm/automation/peer';
 import { Unmatched } from '@rasm/search';
-import { Peer } from '@rasm/uxp/peer';
 import { Uxp } from '@rasm/uxp/uxp';
 import { parse } from 'acorn';
 import { Array, Cause, Effect, Exit, flow, Layer, Match, Option, Path, Predicate, Record, Schema, String, Struct } from 'effect';

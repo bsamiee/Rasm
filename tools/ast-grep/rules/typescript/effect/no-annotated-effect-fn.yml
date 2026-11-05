@@ -25,4 +25,4 @@ rule:
                 - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^fnUntraced$'}}}}
                 - has: {field: function, kind: call_expression, has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^fn$'}}}}}
 message: '`$NAME` restates the parameters and result of its `Effect.fn` body in a function type'
-note: 'Annotate the generator `function* (<parameters>): Effect.fn.Return<A, E, R>` and drop the binding type'
+note: 'Annotate generator `function* (<parameters>): Effect.fn.Return<A, E, R>` and drop the binding type'

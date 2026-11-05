@@ -1,6 +1,6 @@
 {
     "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
-    "files": { "ignoreUnknown": true, "includes": [ "**", "!!.venv", "!!.pixi", "!!.cache", "!!.artifacts", "!!assets", "!!.claude/workflows", "!!**/indesign-uxp-types/**/*.ts", "!!**/*.{md,yml,yaml}", "!**/*.xcassets", "!**/*.icon" ] },
+    "files": { "ignoreUnknown": true, "includes": [ "**", "!!assets", "!!.claude/workflows", "!!**/indesign-uxp-types/**/*.ts", "!!**/*.{md,yml,yaml}", "!**/*.xcassets", "!**/*.icon", "!**/*.svg" ] },
     "formatter": { "useEditorconfig": true, "lineWidth": 320 },
     "javascript": { "formatter": { "quoteStyle": "single" }, "resolver": { "experimentalPnpmCatalogs": true } },
     "json": { "formatter": { "expand": "auto", "delimiterSpacing": true } },
@@ -160,7 +160,7 @@
             }
         },
         {
-            "includes": [ "libs/typescript/creative-cloud/extendscript/**", "libs/typescript/creative-cloud/{aftereffects,illustrator}/extendscript.ts" ],
+            "includes": [ "libs/typescript/creative-cloud/extendscript/**", "libs/typescript/creative-cloud/{aftereffects,illustrator}/extendscript.ts", "tools/harnesses/extendscript.ts", "tools/harnesses/{illustrator,indesign,photoshop}/engine.ts" ],
             "linter": {
                 "rules": {
                     "nursery": { "useIncludes": "off", "useModernMathApis": "off", "useStringStartsEndsWith": "off" },
@@ -169,9 +169,21 @@
                 }
             }
         },
+        {
+            "includes": [ "tools/harnesses/extendscript.ts", "tools/harnesses/{illustrator,indesign,photoshop}/engine.ts" ],
+            "linter": {
+                "rules": {
+                    "complexity": { "noArguments": "off", "noExcessiveCognitiveComplexity": "off", "useArrowFunction": "off" },
+                    "style": { "noContinue": "off", "noMagicNumbers": "off", "noNestedTernary": "off", "noParameterAssign": "off", "useErrorCause": "off", "useForOf": "off", "useSpreadOverApply": "off" },
+                    "nursery": { "noImpliedEval": "off", "noUselessCall": "off" },
+                    "security": { "noGlobalEval": "off" },
+                    "suspicious": { "noDoubleEquals": "off", "noEmptyBlockStatements": "off", "noShadow": "off" }
+                }
+            }
+        },
         { "includes": [ "**/.storybook/*.stories.tsx" ], "linter": { "rules": { "style": { "useComponentExportOnlyModules": "off" } } } },
         { "includes": [ "tests/typescript/support/playwright.ts" ], "linter": { "rules": { "style": { "useConsistentTestIt": "off" } } } },
-        { "includes": [ "plugins/function-hooks/**" ], "linter": { "rules": { "correctness": { "noUndeclaredDependencies": "off" } } } },
+        { "includes": [ "plugins/function-hooks/hooks/**" ], "linter": { "rules": { "correctness": { "noUndeclaredDependencies": "off" } } } },
         { "includes": [ "biome.json", "nx.json", "package.json" ], "json": { "formatter": { "expand": "never" } } }
     ]
 }

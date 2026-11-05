@@ -1,14 +1,13 @@
 import type { Application, CellStyle, CharacterStyle, Document, Font, InDesignDOMObject, InsertionPoint, MasterSpread, ObjectStyle, Page, PageItem, ParagraphStyle, PreflightProcess, Spread, TableStyle, Text, TextDefault, TextFrame, TextPath, TextStyleRange } from 'adobe:indesign';
 import { ExecuteScript, HostError, ObjectModel, type Open, type Render } from '@rasm/automation';
+import { Peer } from '@rasm/automation/peer';
 import { Unmatched } from '@rasm/search';
-import { Peer } from '@rasm/uxp/peer';
 import { Uxp } from '@rasm/uxp/uxp';
 import { Array, Cache, Cause, Effect, Equivalence, Filter, Function, flow, identity, Layer, Match, Number, Option, Path, Predicate, pipe, Record, Result, Schema, SchemaGetter, Scope, Semaphore, String, Struct } from 'effect';
-import { Call, type Change, type FindChange, type FontFile, InDesign, Inspect, type Invoke, Menu, Preflight } from '#/contract';
+import { type Adjust, Call, type Change, type FindChange, type FontFile, InDesign, Inspect, type Invoke, type Kerns, Menu, Preflight, type Runs, type Typeset } from '#/contract';
 import type { Slice } from '#/internal/slice';
 import { Specifier } from '#/internal/specifier';
 import { Value } from '#/internal/value';
-import type { Adjust, Kerns, Runs, Typeset } from '#/typesetting';
 import { InDesignModel } from '#/uxp/indesign-model';
 import { InDesignSettings } from '#/uxp/indesign-settings';
 import { AGGREGATE_FIELD, declaredMember, unavailableReason } from '#/uxp/internal/dictionary';

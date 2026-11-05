@@ -69,4 +69,4 @@ rule:
                 - has: {field: parameters, has: {kind: required_parameter, nthChild: 1, has: {field: pattern, kind: rest_pattern, has: {kind: identifier, pattern: $A}}}, not: {has: {nthChild: 2}}}
                 - has: {field: body, matches: forwarded-rest}
 message: '`$TRAP` trap forwards its arguments to `Reflect.$TRAP` unchanged'
-note: 'Delete the trap, the default trap performs it'
+note: 'Delete the trap, default behavior performs it'

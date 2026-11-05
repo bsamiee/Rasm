@@ -1,11 +1,12 @@
 """Font compilation, snapshot cache identity, cached checks, and publication."""
 
 from datetime import timedelta, UTC
+from functools import partial
 from inspect import getfile
 from io import BytesIO
 from pathlib import Path
-from types import SimpleNamespace
 
+import anyio
 from expression import Result, Some
 from fontTools.misc.timeTools import epoch_diff
 from fontTools.ttLib import TTFont
@@ -15,8 +16,7 @@ import pytest
 import ufoLib2
 from ufoLib2.objects.info import GaspBehavior, GaspRangeRecord
 
-from typography.builds import pipeline
-from typography.builds.pipeline import Action, Builds, Built, compiled, constructed, performed, published, written
+from typography.builds.pipeline import Action, Builds, Built, compiled, constructed, performed, published, Verdict, written
 from typography.faces.declaration import Face, Values
 from typography.faces.faults import Ok, Reason
 from typography.faces.glyphs import Source
@@ -24,7 +24,7 @@ from typography.rules.metrics import Metrics
 from typography.shaping.corpus import Corpus
 from typography.shaping.expectations import expected
 from typography.shaping.runs import Binary
-from typography.verification.requirements import Finding, inspected, requirements
+from typography.verification.requirements import requirements
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -69,50 +69,32 @@ def test_compilation_preserves_shaping_and_source_time(source: Source, original:
     assert compiled(source, native) == Ok(data)
 
 
-def test_current_build_uses_snapshot_inputs_and_detects_external_binary_changes(builds: Builds, original: Binary, recorded: tuple[Built, Source]) -> None:
+def test_current_build_uses_snapshot_inputs_and_detects_external_binary_changes(builds: Builds, original: Binary, recorded: Built) -> None:
     """A supplied original snapshot survives file races while changed declarations, snapshots, and built bytes invalidate the record."""
-    done, _ = recorded
+    done = recorded
     face = builds.declaration.set.faces[0]
     assert builds.current(face, original) == Some(done)
     assert builds.current(msgspec.structs.replace(face, values=Values(counter=0.05)), original).is_none()
     assert builds.current(face, Binary(data=original.data + b"\0")).is_none()
-    path = builds.declaration.original(face)
-    path.write_bytes(b"replaced after snapshot")
-    assert builds.original(path) == Ok(original)
-    assert Builds(declaration=builds.declaration, texts=builds.texts, closure=builds.closure).original(path).is_error()
+    builds.declaration.original(face).write_bytes(b"replaced after snapshot")
     assert builds.current(face, original) == Some(done)
     done.path.write_bytes(b"changed")
     assert builds.current(face, original).is_none()
 
 
-def test_run_checks_a_current_build_and_persists_findings(builds: Builds, original: Binary, recorded: tuple[Built, Source]) -> None:
-    """A cached build still receives a fresh report when run requests verification."""
-    done, _ = recorded
+def test_run_checks_a_current_build_and_answers_unmet_with_its_report(builds: Builds, original: Binary, recorded: Built) -> None:
+    """A cached build still receives a fresh report when run requests verification, findings answering in one fault naming that report."""
+    done = recorded
     declared = builds.declaration
     declared.corpus.write_bytes(msgspec.toml.encode(builds.texts))
-    reports = performed(Action.RUN, declared.root / "set.toml", output=declared.output).default_with(lambda faults: pytest.fail(str(faults)))
-    findings = msgspec.json.decode(declared.check(done.face).read_bytes(), type=tuple[Finding, ...])
-    assert reports[0].current
-    assert reports[0].findings == len(findings) > 0
+    match anyio.run(partial(performed, Action.RUN, declared.root / "set.toml", output=declared.output)):
+        case Result(error=(fault,)):
+            assert (fault.reason, fault.subject, fault.cause) == (Reason.UNMET, done.face.stem, declared.check(done.face))
+        case outcome:
+            pytest.fail(str(outcome))
+    assert msgspec.json.decode(declared.check(done.face).read_bytes(), type=Verdict).findings
     assert builds.current(done.face, original) == Some(done)
     assert msgspec.json.decode(declared.stamp(done.face).read_bytes(), type=tuple[str, str]) == (done.inputs, done.hash)
-
-
-@pytest.mark.usefixtures("recorded")
-def test_run_durations_leave_out_the_shared_fontspector_run(builds: Builds, monkeypatch: pytest.MonkeyPatch) -> None:
-    """A clock advancing only inside the shared run reports no elapsed time on any face."""
-    declared = builds.declaration
-    declared.corpus.write_bytes(msgspec.toml.encode(builds.texts))
-    elapsed = [0]
-
-    def timed(paths: tuple[Path, ...], configuration: Path, /) -> object:
-        elapsed[0] += 3_600_000_000_000
-        return inspected(paths, configuration)
-
-    monkeypatch.setattr(pipeline, "time", SimpleNamespace(monotonic_ns=lambda: elapsed[0]))
-    monkeypatch.setattr(pipeline, "inspected", timed)
-    reports = performed(Action.CHECK, declared.root / "set.toml", output=declared.output).default_with(lambda faults: pytest.fail(str(faults)))
-    assert tuple(report.duration for report in reports) == (timedelta(),)
 
 
 def test_input_identity_follows_build_modules_and_ignores_check_only_modules(builds: Builds, original: Binary, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -122,19 +104,19 @@ def test_input_identity_follows_build_modules_and_ignores_check_only_modules(bui
     def identity(edited: str, /) -> str:
         with monkeypatch.context() as patch:
             patch.setattr(Path, "read_bytes", lambda path: native(path) + b"\n" * (path == Path(edited)))
-            return Builds(declaration=builds.declaration, texts=builds.texts, closure=builds.closure).inputs(original, face)
+            return Builds.opened(builds.declaration, builds.texts, b"").inputs(original, face)
 
-    base = builds.inputs(original, face)
+    base = identity("")
     assert {identity(getfile(requirements)), identity(getfile(expected))} == {base}
     assert identity(getfile(compiled)) != base
 
 
-def test_approval_writes_a_formatted_file_for_a_face_requiring_shaping(builds: Builds, recorded: tuple[Built, Source]) -> None:
+def test_approval_writes_a_formatted_file_for_a_face_requiring_shaping(builds: Builds, recorded: Built) -> None:
     """A text face's approval lands in the set's shaping folder ending as the format pass leaves it."""
-    done, _ = recorded
+    done = recorded
     declared = builds.declaration
     declared.corpus.write_bytes(msgspec.toml.encode(builds.texts))
-    assert performed(Action.APPROVE, declared.root / "set.toml", output=declared.output).is_ok()
+    assert anyio.run(partial(performed, Action.APPROVE, declared.root / "set.toml", output=declared.output)).is_ok()
     assert declared.approved(done.face).read_bytes().endswith(b"}\n")
 
 
@@ -144,10 +126,9 @@ def test_approval_refuses_a_face_no_shaping_requirement_reads(builds: Builds) ->
     declared.corpus.write_bytes(msgspec.toml.encode(builds.texts))
     path = declared.root / "ornaments.toml"
     path.write_text(
-        f'name="Set"\ncorpus="corpus.toml"\nfontspector="{declared.set.fontspector}"\nfamilies=[]\n[[ornaments]]\nname="Marks"\noriginal="original"\n[[ornaments.faces]]\nstyle="Regular"\noriginal="Test-Regular.ttf"\n',
-        encoding="utf-8",
+        'name="Set"\ncorpus="corpus.toml"\nfamilies=[]\n[[ornaments]]\nname="Marks"\noriginal="original"\n[[ornaments.faces]]\nstyle="Regular"\noriginal="Test-Regular.ttf"\n', encoding="utf-8"
     )
-    match performed(Action.APPROVE, path, output=declared.output):
+    match anyio.run(partial(performed, Action.APPROVE, path, output=declared.output)):
         case Result(error=(fault,)):
             assert (fault.reason, fault.member) == (Reason.ABSENT, "shaping requirement")
         case outcome:
@@ -155,9 +136,9 @@ def test_approval_refuses_a_face_no_shaping_requirement_reads(builds: Builds) ->
     assert not declared.approvals.exists()
 
 
-def test_publication_creates_folders_and_keeps_native_font_tables(recorded: tuple[Built, Source], tmp_path: Path) -> None:
+def test_publication_creates_folders_and_keeps_native_font_tables(recorded: Built, tmp_path: Path) -> None:
     """New publication directories receive an exact TrueType copy and equivalent WOFF2 mappings and metrics."""
-    done, _ = recorded
+    done = recorded
     destination = tmp_path / "new" / "published"
     ttf, woff2 = published(done, destination).default_with(lambda faults: pytest.fail(str(faults)))
     assert (ttf, woff2) == (destination / done.path.name, (destination / done.path.name).with_suffix(".woff2"))
@@ -168,9 +149,9 @@ def test_publication_creates_folders_and_keeps_native_font_tables(recorded: tupl
         assert packed["hmtx"].metrics == plain["hmtx"].metrics
 
 
-def test_publication_reports_a_real_unwritable_parent(recorded: tuple[Built, Source], tmp_path: Path) -> None:
+def test_publication_reports_a_real_unwritable_parent(recorded: Built, tmp_path: Path) -> None:
     """A file occupying the destination folder returns the native write fault."""
-    done, _ = recorded
+    done = recorded
     destination = tmp_path / "occupied"
     destination.write_bytes(b"file")
     match published(done, destination):

@@ -3,18 +3,21 @@ language: rustlang
 severity: error
 utils:
     env-value:
-        all:
-            - any:
-                - follows: {regex: '^=$', follows: {kind: identifier, regex: '^env$'}}
-                - inside: {kind: token_tree, regex: '^\(', follows: {kind: identifier, regex: '^env$'}}
-            - inside: {kind: token_tree, stopBy: {kind: attribute}, inside: {kind: attribute}}
+        any:
+            - all:
+                - any:
+                    - follows: {regex: '^=$', follows: {kind: identifier, regex: '^env$'}}
+                    - inside: {kind: token_tree, regex: '^\(', follows: {kind: identifier, regex: '^env$'}}
+                - inside: {kind: token_tree, stopBy: {kind: attribute}, inside: {kind: attribute}}
+            - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '(^|::)env::(var|var_os|set_var|remove_var)$'}}}
+            - inside: {kind: token_tree, follows: {regex: '^!$', follows: {kind: identifier, regex: '^(option_)?env$'}}}
 rule:
     any:
         - kind: 'string_literal, raw_string_literal'
-          pattern: $NAME
           all:
             - regex: '^r?#*"([A-Z0-9]+_)*(OTLP|OTEL|OPENTELEMETRY|TELEMETRY)(_[A-Z0-9]+)*"#*$'
             - not: {regex: '^r?#*"OTEL_'}
+            - pattern: $NAME
             - any:
                 - matches: env-value
                 - all:

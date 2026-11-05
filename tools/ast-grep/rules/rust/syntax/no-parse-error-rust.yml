@@ -2,20 +2,29 @@
 language: rustlang
 severity: error
 utils:
-    empty-raw-string:
-        kind: string_content
-        inside: {kind: raw_string_literal}
-    unreported:
+    in-error:
+        inside: {kind: ERROR, stopBy: end}
+    opening:
         any:
-            - inside: {kind: ERROR, stopBy: end}
-            - matches: empty-raw-string
+            - has: {stopBy: end, all: [{not: {has: {pattern: $$_}}}, {not: {regex: '^$'}}, {pattern: $$TOKEN}]}
+            - pattern: $$TOKEN
 rule:
     any:
         - kind: ERROR
-          not: {matches: unreported}
+          all:
+            - not: {matches: in-error}
+            - matches: opening
         - kind: source_file
-          has: {stopBy: end, all: [{regex: '^$'}, {pattern: $$MISSING}, {not: {matches: unreported}}]}
+          has:
+            stopBy: end
+            all:
+                - regex: '^$'
+                - not: {kind: string_content, inside: {kind: raw_string_literal}}
+                - pattern: $$MISSING
+                - not: {matches: in-error}
+                - inside: {matches: opening}
 labels:
+    TOKEN: {style: primary, message: Opens the span}
     MISSING: {style: primary, message: Token the grammar inserted to recover}
-message: 'Grammar failed to parse the span'
-note: 'Fix invalid syntax, or extend the grammar in tools/ast-grep/grammars/rust for valid syntax it rejects'
+message: '`$TOKEN` opens a span the grammar failed to parse'
+note: Fix the syntax, or extend tools/ast-grep/grammars/rust for valid syntax it rejects

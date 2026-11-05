@@ -27,4 +27,4 @@ rule:
             - follows: {stopBy: end, matches: earlier-site}
             - inside: {stopBy: end, follows: {stopBy: end, matches: earlier-site}}
 message: '`$LOGGER` logs `$MSG`, a message naming no operation or repeating an earlier log call'
-note: 'Name the operation and its subject in each message, and log a failure several paths share once where they join'
+note: 'Name the operation and its subject in each message, and log a shared failure once where its paths join'

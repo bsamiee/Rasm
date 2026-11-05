@@ -46,8 +46,8 @@ utils:
         kind: argument_list
         any:
             - all:
-                - has: {kind: argument, all: [{has: {field: name, regex: '^Some$'}}, {has: {matches: some-arm}}]}
                 - has: {kind: argument, has: {field: name, regex: '^None$'}}
+                - has: {kind: argument, all: [{has: {field: name, regex: '^Some$'}}, {has: {matches: some-arm}}]}
             - all:
                 - has: {matches: first-argument, has: {matches: some-arm}}
                 - has: {matches: second-argument}
@@ -65,8 +65,8 @@ utils:
                 field: arguments
                 all:
                     - has: {matches: first-argument, has: {pattern: $OPTION}}
-                    - has: {kind: argument, all: [{has: {field: name, regex: '^Some$'}}, {has: {matches: some-arm}}]}
                     - has: {kind: argument, has: {field: name, regex: '^None$'}}
+                    - has: {kind: argument, all: [{has: {field: name, regex: '^Some$'}}, {has: {matches: some-arm}}]}
     mapped-fallback:
         kind: invocation_expression
         all:
@@ -101,4 +101,4 @@ constraints:
         kind: identifier
         matches: {csharp-declared-type: {type: {matches: {csharp-type-name: {name: {regex: '^Option$'}}}}}}
 message: '`$OPTION` runs an effect through `$RUN` inside its callback'
-note: 'Compose the callback as `IO` and run it once at the host boundary'
+note: 'Compose callback as `IO` and run it once at the host boundary'

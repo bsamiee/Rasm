@@ -26,7 +26,7 @@ let modules: [Target] = [
     .target(name: "Results", path: "libs/swift/core/Results"),
     .target(name: "JSONRPC", dependencies: ["Encoding", "Results"], path: "libs/swift/core/JSONRPC"),
     // --- [MACOS]
-    .target(name: "CurrentProcess", path: "libs/swift/macos/CurrentProcess"),
+    .target(name: "CurrentProcess", dependencies: ["Results"], path: "libs/swift/macos/CurrentProcess"),
     .target(
         name: "Files",
         dependencies: [
@@ -155,7 +155,8 @@ let suites: [Target] = [
     .testTarget(
         name: "ApplicationServerTests",
         dependencies: [
-            "AppleEvents", "ApplicationServer", "Applications", "Encoding", "JSONRPC", .product(name: "CustomDump", package: "swift-custom-dump"), .product(name: "IssueReportingTestSupport", package: "swift-issue-reporting"),
+            "AppleEvents", "ApplicationServer", "Applications", "Encoding", "JSONRPC", .product(name: "CustomDump", package: "swift-custom-dump"),
+            .product(name: "IssueReportingTestSupport", package: "swift-issue-reporting"),
         ],
         path: "tests/swift/libs/macos/ApplicationServer",
         exclude: ["Integration"],
@@ -163,7 +164,8 @@ let suites: [Target] = [
     .testTarget(
         name: "ApplicationServerIntegrationTests",
         dependencies: [
-            "ApplicationServer", "Applications", "TestSupport", "AppKitFixture", .product(name: "CasePaths", package: "swift-case-paths"), .product(name: "CasePathsCore", package: "swift-case-paths"),
+            "ApplicationServer", "Applications", "TestSupport", "AppKitFixture", .product(name: "CasePaths", package: "swift-case-paths"),
+            .product(name: "CasePathsCore", package: "swift-case-paths"),
             .product(name: "CustomDump", package: "swift-custom-dump"),
             .product(name: "IssueReportingTestSupport", package: "swift-issue-reporting"), .product(name: "Subprocess", package: "swift-subprocess"),
         ],

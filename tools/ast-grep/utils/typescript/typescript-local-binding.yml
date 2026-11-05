@@ -27,6 +27,21 @@ utils:
               has: {kind: import_require_clause, has: {kind: 'identifier, undefined', nthChild: 1, pattern: $NAME}}
             - kind: export_statement
               has: {matches: declaration}
+    value-import:
+        kind: import_statement
+        all:
+            - has:
+                kind: import_clause
+                any:
+                    - has: {kind: identifier, pattern: $NAME}
+                    - has: {kind: namespace_import, has: {kind: identifier, pattern: $NAME}}
+                    - has:
+                        kind: named_imports
+                        has:
+                            kind: import_specifier
+                            has: {kind: identifier, pattern: $NAME, nthChild: {position: 1, reverse: true, ofRule: {kind: identifier}}}
+                            not: {has: {regex: '^type$', not: {pattern: $_}}}
+            - not: {has: {regex: '^type$', not: {pattern: $_}}}
 rule:
     kind: identifier, undefined, shorthand_property_identifier
     pattern: $NAME
@@ -53,7 +68,10 @@ rule:
                     has: {field: name, matches: binding}
             - kind: catch_clause
               has: {field: parameter, matches: binding}
-            - kind: statement_block, program
+            - kind: statement_block
+              has: {matches: declaration}
+            - kind: program
+              not: {has: {matches: value-import}}
               has: {matches: declaration}
             - kind: switch_body
               has: {kind: 'switch_case, switch_default', has: {matches: declaration}}

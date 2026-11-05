@@ -3,10 +3,10 @@ language: pythonlang
 severity: error
 metadata: {python-below: '3.14'}
 rule:
-    pattern: $G
     matches:
         python-evaluated-subscript:
             value:
+                pattern: $G
                 any:
                     - matches: {python-builtin-name: {name: {regex: '^(classmethod|memoryview|staticmethod)$'}}}
                     - matches: {python-member-use: {module: {regex: '^(_?(abc|ctypes|sqlite3)|types)$'}, name: {regex: '^(abstractclassmethod|abstractstaticmethod|py_object|Binary|UnionType)$'}}}

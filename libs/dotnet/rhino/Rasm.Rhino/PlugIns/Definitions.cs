@@ -1,6 +1,8 @@
 using Eto.Forms;
 using Rasm.Rhino.Commands;
+using Rasm.Rhino.Display;
 using Rasm.Rhino.Document.Files;
+using Rasm.Rhino.Persistence;
 using Rasm.Rhino.PlugIns.Licenses;
 using Rasm.Rhino.Render.Content;
 using Rasm.Rhino.Render.Sessions;
@@ -21,6 +23,8 @@ public sealed record PlugInDefinition {
     public Seq<Action<ILoggingBuilder>> Logging { get; init; }
     public Seq<PlugInCommand> Commands { get; init; }
     public Seq<View> Views { get; init; }
+    public Option<DisplayModeSpec> Modes { get; init; }
+    public Seq<RhinoTheme> Themes { get; init; }
     public Seq<IO<Unit>> Load { get; init; }
     public Seq<ComputeEndpoint> Endpoints { get; init; }
     public Seq<DocumentFrame> Frames { get; init; }
@@ -56,6 +60,7 @@ public sealed record RendererDefinition {
 
 public sealed record SkinDefinition {
     public Seq<Action<ILoggingBuilder>> Logging { get; init; }
+    public Seq<Guid> PlugIns { get; init; }
     public Option<string> ApplicationName { get; init; }
     public Option<IO<Control>> Splash { get; init; }
     public Option<IO<Control>> About { get; init; }

@@ -39,4 +39,4 @@ rule:
 transform:
     HEAD: {replace: {source: $LOOP, replace: '(?si)[\t\n\x0B\f\r ]+loop(?-u:\b).*$', by: ''}}
 message: '`$HEAD` selects rows by a test at the top of its body'
-note: 'Move the test into the query `WHERE` so the loop reads only its rows'
+note: 'Move the test into query `WHERE` and loop over its rows alone'

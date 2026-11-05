@@ -10,6 +10,6 @@ rule:
             any:
                 - inside: {kind: attribute, field: attribute}
                 - inside: {kind: keyword_argument, field: name}
-                - inside: {kind: 'import_statement, import_from_statement', stopBy: end}
+                - inside: {kind: 'import_statement, import_from_statement', stopBy: {not: {kind: 'dotted_name, aliased_import, relative_import'}}}
                 - matches: python-shadowed-name
                 - matches: {python-conflicting-import: {module: {regex: '^builtins$'}, name: {matches: name}}}

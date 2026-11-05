@@ -4,7 +4,7 @@ language: rustlang
 utils:
     placeholder:
         kind: string_literal
-        regex: '^"(\$?\{\{?\p{Pattern_White_Space}*[A-Za-z_][\p{XID_Continue}.]*\p{Pattern_White_Space}*\}?\}|%[A-Za-z_]\p{XID_Continue}*%|\$[A-Za-z_]\p{XID_Continue}*)"$'
+        regex: '^"(\$?\{\{?\p{Pattern_White_Space}*[_\p{XID_Start}][\p{XID_Continue}.]*\p{Pattern_White_Space}*\}?\}|%[_\p{XID_Start}]\p{XID_Continue}*%|\$[_\p{XID_Start}]\p{XID_Continue}*)"$'
     placeholder-replace:
         kind: call_expression
         all:

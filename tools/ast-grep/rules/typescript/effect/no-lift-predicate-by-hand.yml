@@ -120,26 +120,33 @@ utils:
                         has:
                             has: {kind: 'identifier, shorthand_property_identifier', pattern: $V, stopBy: end}
                             not: {any: [{has: {matches: declaration-of-tested}}, {has: {kind: ternary_expression, pattern: $TERNARY, stopBy: end}}]}
+    lift-call:
+        kind: call_expression
+        has: {field: function, kind: member_expression, has: {field: property, regex: '^(succeed|some)$'}}
     lifted-then-filtered:
         kind: call_expression
         not: {has: {stopBy: end, kind: comment}}
-        any:
-            - all:
-                - any:
-                    - pattern: '$M.filterOrFail($M.succeed($V), $_, $_)'
-                    - pattern: '$M.succeed($V).pipe($M.filterOrFail($_, $_))'
-                    - pattern: '$M.succeed($V).pipe($M.filterOrFail($_, $_), $$$)'
-                    - pattern: '$PIPE($M.succeed($V), $M.filterOrFail($_, $_))'
-                    - pattern: '$PIPE($M.succeed($V), $M.filterOrFail($_, $_), $$$)'
-                - has: {stopBy: end, matches: result-module}
-            - all:
-                - any:
-                    - pattern: '$M.filter($M.some($V), $_)'
-                    - pattern: '$M.some($V).pipe($M.filter($_))'
-                    - pattern: '$M.some($V).pipe($M.filter($_), $$$)'
-                    - pattern: '$PIPE($M.some($V), $M.filter($_))'
-                    - pattern: '$PIPE($M.some($V), $M.filter($_), $$$)'
-                - has: {stopBy: end, matches: option-module}
+        all:
+            - any:
+                - has: {field: arguments, has: {nthChild: 1, matches: lift-call}}
+                - has: {field: function, kind: member_expression, has: {field: object, matches: lift-call}}
+            - any:
+                - all:
+                    - any:
+                        - pattern: '$M.filterOrFail($M.succeed($V), $_, $_)'
+                        - pattern: '$M.succeed($V).pipe($M.filterOrFail($_, $_))'
+                        - pattern: '$M.succeed($V).pipe($M.filterOrFail($_, $_), $$$)'
+                        - pattern: '$PIPE($M.succeed($V), $M.filterOrFail($_, $_))'
+                        - pattern: '$PIPE($M.succeed($V), $M.filterOrFail($_, $_), $$$)'
+                    - has: {stopBy: end, matches: result-module}
+                - all:
+                    - any:
+                        - pattern: '$M.filter($M.some($V), $_)'
+                        - pattern: '$M.some($V).pipe($M.filter($_))'
+                        - pattern: '$M.some($V).pipe($M.filter($_), $$$)'
+                        - pattern: '$PIPE($M.some($V), $M.filter($_))'
+                        - pattern: '$PIPE($M.some($V), $M.filter($_), $$$)'
+                    - has: {stopBy: end, matches: option-module}
 rule:
     any:
         - matches: lifted-then-filtered

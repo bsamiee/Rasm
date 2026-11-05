@@ -8,7 +8,7 @@ utils:
     declared-value:
         kind: invocation_expression
         all:
-            - has: {field: function, kind: identifier, pattern: $METHOD}
+            - has: {field: function, kind: identifier, pattern: {context: 'class $METHOD;', selector: identifier}}
             - inside:
                 stopBy: end
                 kind: compilation_unit
@@ -18,13 +18,13 @@ utils:
                         any:
                             - kind: method_declaration
                               all:
-                                - has: {field: name, pattern: $METHOD}
-                                - not: {has: {field: type_parameters, pattern: $_}}
+                                - has: {field: name, pattern: {context: 'class $METHOD;', selector: identifier}}
+                                - not: {has: {field: type_parameters, kind: type_parameter_list}}
                                 - not: {has: {field: returns, matches: overload-return}}
                             - kind: local_function_statement
                               all:
-                                - has: {field: name, pattern: $METHOD}
-                                - not: {has: {field: type_parameters, pattern: $_}}
+                                - has: {field: name, pattern: {context: 'class $METHOD;', selector: identifier}}
+                                - not: {has: {field: type_parameters, kind: type_parameter_list}}
                                 - not: {has: {field: type, matches: overload-return}}
                     - not:
                         has:
@@ -32,12 +32,12 @@ utils:
                             any:
                                 - kind: method_declaration
                                   all:
-                                    - has: {field: name, pattern: $METHOD}
-                                    - any: [{has: {field: type_parameters, pattern: $_}}, {has: {field: returns, matches: overload-return}}]
+                                    - has: {field: name, pattern: {context: 'class $METHOD;', selector: identifier}}
+                                    - any: [{has: {field: type_parameters, kind: type_parameter_list}}, {has: {field: returns, matches: overload-return}}]
                                 - kind: local_function_statement
                                   all:
-                                    - has: {field: name, pattern: $METHOD}
-                                    - any: [{has: {field: type_parameters, pattern: $_}}, {has: {field: type, matches: overload-return}}]
+                                    - has: {field: name, pattern: {context: 'class $METHOD;', selector: identifier}}
+                                    - any: [{has: {field: type_parameters, kind: type_parameter_list}}, {has: {field: type, matches: overload-return}}]
     lifted-thunk:
         kind: invocation_expression
         all:
@@ -71,10 +71,10 @@ utils:
 rule:
     kind: from_clause
     all:
-        - has: {field: name, pattern: $RANGE}
+        - has: {field: name, pattern: {context: 'class $RANGE;', selector: identifier}}
         - not: {has: {field: type, pattern: $_}}
-        - has: {kind: invocation_expression, pattern: $SOURCE, any: [{matches: lifted-thunk}, {matches: lifted-value}]}
+        - precedes: {kind: select_clause, has: {kind: identifier, pattern: {context: 'class $RANGE;', selector: identifier}}}
         - follows: {stopBy: end, kind: from_clause}
-        - precedes: {kind: select_clause, has: {kind: identifier, pattern: $RANGE}}
+        - has: {kind: invocation_expression, pattern: $SOURCE, any: [{matches: lifted-thunk}, {matches: lifted-value}]}
 message: 'Last `from` binds `$RANGE` to `$SOURCE` and selects it unchanged'
 note: 'Replace the last `from` and its `select` with `select <value>`'

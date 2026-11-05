@@ -20,14 +20,14 @@ rule:
     pattern: $HAND
     any:
         - all:
-            - has: {field: arguments, all: [{has: {nthChild: 2, kind: object}}, {has: {nthChild: 1, matches: from-undefined}}]}
             - has: {field: function, matches: option-match}
+            - has: {field: arguments, all: [{has: {nthChild: 2, kind: object}}, {has: {nthChild: 1, matches: from-undefined}}]}
         - all:
-            - has: {field: arguments, all: [{has: {nthChild: 1, matches: from-undefined}}, {not: {has: {nthChild: 2}}}]}
             - has: {field: function, matches: data-last-match}
+            - has: {field: arguments, all: [{has: {nthChild: 1, matches: from-undefined}}, {not: {has: {nthChild: 2}}}]}
         - all:
-            - has: {field: arguments, has: {nthChild: 1, matches: data-last-match}}
             - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^pipe$'}}, {has: {field: object, matches: from-undefined}}]}
+            - has: {field: arguments, has: {nthChild: 1, matches: data-last-match}}
         - all:
             - has: {field: arguments, all: [{has: {nthChild: 1, matches: from-undefined}}, {has: {nthChild: 2, matches: data-last-match}}]}
             - has: {field: function, matches: effect-pipe-function}

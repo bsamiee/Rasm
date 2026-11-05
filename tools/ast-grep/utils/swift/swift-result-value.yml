@@ -6,10 +6,10 @@ rule:
         - kind: call_expression
           has:
             nthChild: 1
-            kind: navigation_expression
             any:
-                - regex: '^Swift(\.|::)Result(\.(init|success|failure))?$'
-                - all:
+                - regex: '^(Swift(\.|::))?Result(\.(init|success|failure))?$'
+                - kind: navigation_expression
+                  all:
                     - has: {field: suffix, regex: '^\.(init|success|failure)$'}
                     - has: {field: target, matches: swift-result-type}
         - kind: constructor_expression
@@ -25,4 +25,4 @@ rule:
           has: {field: value, matches: swift-result-value}
         - all:
             - kind: simple_identifier
-            - matches: {swift-parameter-use: {type: {matches: swift-result-type}}}
+            - matches: {swift-typed-use: {type: {matches: swift-result-type}}}

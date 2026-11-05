@@ -89,6 +89,10 @@ rule:
         - all:
             - inside: {kind: 'if_statement, elif_clause, while_statement, assert_statement, conditional_expression, if_clause, not_operator, boolean_operator, match_statement, argument_list, keyword_argument'}
             - any:
+                - regex: '(?-u:\b)preferences(?-u:\b)'
+                - kind: identifier, parenthesized_expression
+                  inside: {kind: module, stopBy: end, regex: '(?-u:\b)preferences(?-u:\b)'}
+            - any:
                 - matches: truth-position
                 - inside: {kind: match_statement, field: subject, has: {field: body, has: {kind: case_clause, has: {matches: none-pattern}}}}
                 - nthChild: {position: 1, ofRule: {not: {kind: comment}}}

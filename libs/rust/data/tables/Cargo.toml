@@ -3,7 +3,7 @@
 [package]
 name              = "rasm-tables"
 edition.workspace = true
-publish           = false
+publish.workspace = true
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

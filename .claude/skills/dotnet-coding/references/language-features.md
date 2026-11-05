@@ -156,7 +156,7 @@ internal static class Faces {
 
 ## [06]-[UNSAFE_ACCESSORS]
 
-Typed `[UnsafeAccessor]` externs replace reflection by string for non-public host members, one class per concern. Each class cites proof that no public member, setting, or command states the same fact. `Viewport` is a host type with private `_scale` field and `Invalidate(bool)` method, `Host.Views` an internal type with static `Find(int)`:
+Typed `[UnsafeAccessor]` externs replace reflection by string for non-public host members whose signature is reachable, one class per concern, and `Krafs.Publicizer` takes a member whose signature crosses an inaccessible type as a generic, or a harness case reading any plug-in member. Each class cites proof that no public member, setting, or command states the same fact. `Viewport` is a host type with private `_scale` field and `Invalidate(bool)` method, `Host.Views` an internal type with static `Find(int)`:
 
 ```csharp
 internal static class Viewports {

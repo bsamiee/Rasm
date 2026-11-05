@@ -1,13 +1,14 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: <language>
 severity: error
-files: ["<folder cause covers, key omitted for syntax rules>/**"]
+files: ["<folder the cause covers, key omitted for syntax rules>/**"]
 rule:
     kind: <rarest kind correction names>
     all:
         - has: {field: <role>, regex: '^<leaf text>$'}
-        - pattern: <code with $VAR and $$$ARGS, or $NODE alone binding matched node, document included, for a transform>
+        - pattern: <code with $VAR and $$$ARGS>
         - inside: {kind: <owner kind>, stopBy: &owner {kind: '<owner kinds correction covers>'}}
         - not: {inside: {kind: <exempting-kind>, stopBy: *owner}}
+        - pattern: <$NODE binding the matched node for a transform, item omitted otherwise>
 message: <violation with captured or transformed values>
 note: <required form and its reason>

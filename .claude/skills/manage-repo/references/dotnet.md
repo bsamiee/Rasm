@@ -4,13 +4,13 @@ MSBuild directory files and central package versions own every shared .NET decla
 
 ## [01]-[UPGRADES]
 
-- Upgrades move each `Directory.Packages.props` row holding a version, prereleases included, and an exact `[<version>]` row inside its major.minor
+- Upgrades move each `Directory.Packages.props` row holding a version, prereleases included, a non-host exact `[<version>]` row inside its major.minor, a host row to the installed host's version, and a row a Rhino project references no higher than the host's assembly
 - Rows holding any other range stay
 - Releases come from nuget.org, the one `NuGet.config` source, a per-commit build on a dnceng feed (`dotnet-tools`) is no release
 - Version edits splice attribute text in place, `XmlDocument` or `ProjectRootElement` saves collapse row alignment
 - Newest release is the highest listed framework-compatible release by `NuGetVersion` across base versions, a stable release above its prereleases
 - Package metadata and downloads read NuGet's HTTP cache under its default age
-- Rows move down when their current version is unlisted or incompatible with the repository target framework
+- Rows move down when their current version is unlisted or incompatible with a consuming project's target framework
 - `global.json` `sdk.version` moves by hand to the newest `mise ls-remote dotnet` entry
 - SDK moves enable the new SDK's analyzer rules through `latest-all`, rules it leaves disabled (CA1021, CA1045) take their own `.config/analyzers.globalconfig` rows
 
@@ -29,9 +29,14 @@ C# file-based apps inherit `Directory.Build.*`, central package versions, and `.
 
 ## [03]-[PROJECTS]
 
-- `dotnet` targets name their binlog from `NX_TASK_TARGET_PROJECT` and `NX_TASK_TARGET_TARGET` and declare it an output
-- Projects holding `Windows/` sources take `platform:windows` and a `check` prerequisite `build:windows` compiling them for `win-x64`
-- Builds for a second runtime take their own `ArtifactsPath`, their restore rewrites `project.assets.json` for that runtime
+- `MSBUILD_LOGGING_ARGS` writes a `dotnet` project target's binlog and none for a file-based `.cs` target, which takes a `-bl:` argument
+- Plug-ins and projects holding `Windows/` sources take `platform:windows` and a `check` prerequisite `build:windows` compiling them for `win-x64`
+- `Directory.Build.props` gives a foreign runtime its own `ArtifactsPath`, its restore rewrites `project.assets.json` for that runtime
+- `dotnet build` walks its own references, serial per Nx task and uncached: a restored output's new timestamp recompiles every consumer
+- Copy-local files hard link into the package folder, a test app with native packages takes `UseCurrentRuntimeIdentifier` or every `runtimes/<rid>` folder copies
+- A runtime identifier turns on copy-local, a library holding one sets `CopyLocalLockFileAssemblies` false
+- `~/.nuget/packages` stays machine-wide beside pnpm's store and uv's cache, `rasm:clean` removes `.cache`
+- Solution restores read `RestoreUseStaticGraphEvaluation` from `Directory.Solution.props`, no project evaluates that file
 
 ## [04]-[CHECKERS]
 
@@ -60,14 +65,19 @@ Roslyn analyzers sit in `tools/roslyn/Rasm.Analyzers`, code fixes in `tools/rosl
 ## [06]-[RHINO_HOSTS]
 
 Installed Rhino owns the host assembly set, its target framework, and how each UI reads an icon:
-- `ReadRhinoHost` reads JSON through `JsonReaderWriterFactory`, `RoslynCodeTaskFactory` compiles against `netstandard` with no `System.Text.Json`
+- `eng/dotnet/rhino/RhinoHost.proj` reads the host once per build, the `MSBuild` task caching its results, `jq` over `dotnetstart.*.runtimeconfig.json` and `dotnetstart.*.deps.json`, `GetAssemblyIdentity` keeps each package item's metadata on its identity
 - Packages with an assembly in the host folder leave copy-local whole
 - Assembly version above the one `dotnetstart.*.deps.json` declares, or the host file's where it declares none, fails the build
 - `[<version>]` rows under `Label="Rhino Host"` hold packages the catalog sets above a host assembly version, and every package requiring them
-- SVG masters paint with `currentColor`, `var(--accent)`, and `var(--edge)`, `BuildThemedIcons` writes each mode's values into an embedded `<IconStem>.svg` and `<IconStem>_darkmode.svg`
+- SVG masters under `EmbeddedResources/` paint with `currentColor` and `class="accent"`, `PaintIcons` runs `usvg --stylesheet` with `IconLightStylesheet` and `IconDarkStylesheet` (default `eng/dotnet/rhino/icon-{light,dark}.css`, the inks of Rhino's toolbar set) into an embedded `<IconStem>.svg` and `<IconStem>_darkmode.svg`
+- A product states `TargetExt` (`.rhp`, or `.rhs` for a Windows skin with its `.rhw` beside it), `PlugInId`, `PlugInIcon` where the mark sits outside `EmbeddedResources/icon.svg`, `PlugInDescription` rows, `PackageTags` for Yak keywords, and `PlugInIconPlate`, `PlugInIconCorner`, `PlugInIconInset` over Rhino's dark panel plate
+- `EmbeddedResources/**` embeds under the file's own name
+- `PlugIn.ico`'s 256 PNG frame serves as the Yak `icon.png`, Package Manager draws it at 32 and 48 points
+- A direct `Grasshopper2` reference copies `Documentation/` or `Docs/` beside the plug-in and writes `<plug-in>.rhp.grasshopper-only`, keeping Rhino's package install off exported types it fails to load
+- A `Rasm.Rhino` reference marks a plug-in holding a Rhino plug-in class and writes no marker, `GrasshopperOnly` states the answer where that reference misleads
+- Grasshopper 2's scan walks a plug-in type's base chain inside its own assembly, so a library cannot hold its `Plugin` base class
 - `EtoAssets` selects a `_darkmode` resource by name and renders inline `fill-dark` and `stroke-dark` as their light colors
-- `ToolbarFile.GetSvg` returns `<light>` for both modes, a `<dark>` element changes no toolbar icon
-- `Rasm.Rui` merges each dark color into `<light>` as `fill-dark` or `stroke-dark`
+- A live toolbar draws an icon's `<dark>` element in dark mode, and `Rasm.Rui` writes each `_darkmode` resource there, `ToolbarFile.GetSvg` returning `<light>` for both modes
 - Rhino opens `<plug-in>.rui` in place beside the registered `.rhp`, an installed package's from its version folder
 - `yak build` adds a `guid:` keyword for Grasshopper 2 plug-ins alone, `BuildYakPackage` sets it on every `yak spec` manifest
 - `MinVerIgnoreHeight` keeps a plug-in's version folder between release tags, so a reinstall keeps its registered path

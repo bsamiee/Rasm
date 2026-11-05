@@ -44,15 +44,11 @@ utils:
                         - has: {field: property, regex: '^(runFork|runSync|runPromise|runCallback)$'}
                         - has: {field: object, matches: effect-module-object}
                 - has: {field: arguments, has: {nthChild: 1, matches: queue-offer}}
-rule:
-    kind: 'identifier, shorthand_property_identifier_pattern'
-    pattern: $QUEUE
-    any:
-        - inside: &declarator
-            kind: variable_declarator
-            field: name
-            has: {field: value, matches: queue-value}
-            inside:
+    queue-declarator:
+        kind: variable_declarator
+        all:
+            - has: {field: value, matches: queue-value}
+            - inside:
                 kind: lexical_declaration
                 inside:
                     kind: statement_block
@@ -60,7 +56,17 @@ rule:
                         stopBy: end
                         matches: typescript-function-boundary
                         has: {stopBy: end, matches: offer-call}
-        - inside: {kind: 'array_pattern, object_pattern', inside: *declarator}
-        - inside: {kind: pair_pattern, field: value, inside: {kind: object_pattern, inside: *declarator}}
+rule:
+    kind: 'identifier, shorthand_property_identifier_pattern'
+    pattern: $QUEUE
+    inside:
+        kind: 'variable_declarator, array_pattern, object_pattern, pair_pattern'
+        any:
+            - kind: variable_declarator
+              all: [{has: {field: name, pattern: $QUEUE}}, {matches: queue-declarator}]
+            - kind: 'array_pattern, object_pattern'
+              inside: {kind: variable_declarator, field: name, matches: queue-declarator}
+            - kind: pair_pattern
+              inside: {kind: object_pattern, inside: {kind: variable_declarator, field: name, matches: queue-declarator}}
 message: 'Callback feeds `$QUEUE` outside the effect that built it'
 note: 'Build through `Stream.callback`; fork a consumer with `Effect.forkScoped({ startImmediately: true })` before reading registration'

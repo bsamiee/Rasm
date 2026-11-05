@@ -3,7 +3,7 @@
 [package]
 name              = "rasm-linework"
 edition.workspace = true
-publish           = false
+publish.workspace = true
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

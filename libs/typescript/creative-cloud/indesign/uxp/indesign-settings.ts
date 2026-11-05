@@ -163,6 +163,7 @@ const kashida = Schema.Struct({
 );
 const marks = Schema.Struct(Struct.Record(['x', 'y'], thousandths)).pipe(Schema.encodeKeys({ x: 'xOffsetDiacritic', y: 'yOffsetDiacritic' }));
 const featureValues = Schema.Array(Schema.Tuple([Schema.String, Schema.Finite]));
+const heldFeatures = Schema.Struct({ capitalization: Schema.String, existing: featureValues });
 const features = Schema.Struct({
     otfStylisticSets: Schema.Int,
     ...Record.map(FEATURE_FLAGS, () => Schema.Boolean),
@@ -252,7 +253,7 @@ const retained = (target: Text | TextDefault, members: Record.ReadonlyRecord<str
     });
 const featureMembers = (target: Text | TextDefault, { capitalization, opentypeFeatures = [], ...flags }: typeof features.Encoded) =>
     Effect.map(
-        InDesignModel.read(Schema.Struct({ capitalization: Schema.String, existing: featureValues }), `features of ${target.toSpecifier()}`, () => ({ capitalization: target.capitalization, existing: 'opentypeFeatures' in target ? target.opentypeFeatures : [] })),
+        InDesignModel.read(heldFeatures, `features of ${target.toSpecifier()}`, () => ({ capitalization: target.capitalization, existing: 'opentypeFeatures' in target ? target.opentypeFeatures : [] })),
         ({ capitalization: current, existing }) => {
             const replaced = Record.toEntries({ ...Record.map(Record.fromEntries(existing), () => 0), ...Record.fromEntries(opentypeFeatures) });
             return {

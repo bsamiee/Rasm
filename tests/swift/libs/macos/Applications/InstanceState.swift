@@ -72,7 +72,7 @@ private let printed: [(previous: InstanceState, next: InstanceState)] = [
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 private func running(_ status: InstanceState.Running.Status, windows: [InstanceState.Window], active: Bool = false, usage: Result<ResourceUsage, Errno>? = nil) -> InstanceState {
-    .running(InstanceState.Running(status: status, active: active, windows: windows, menus: [], usage: usage))
+    .running(InstanceState.Running(status: status, active: active, windows: windows, prompts: [], menus: [], usage: usage))
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -95,8 +95,7 @@ struct InstanceStates {
 
     @Test
     func promptRowsJoinAskingAndEncodeInOneWindowList() throws {
-        var state: InstanceState.Running = InstanceState.Running(status: .responding, active: false, windows: [titled], menus: [], usage: nil)
-        state.prompts = [described]
+        let state: InstanceState.Running = InstanceState.Running(status: .responding, active: false, windows: [titled], prompts: [described], menus: [], usage: nil)
         expectNoDifference(state.asking.map(\.number), [77])
         expectNoDifference(try wire(state), try json(#"{"active":false,"status":"responding","windows":[\#(sheetRow),\#(titledRow)]}"#))
     }

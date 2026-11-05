@@ -24,7 +24,7 @@ utils:
 rule:
     kind: string_literal, verbatim_string_literal, raw_string_literal
     pattern: $TEXT
-    regex: '\{[A-Za-z_]\p{XID_Continue}*\}'
+    regex: '\{[_\p{XID_Start}]\p{XID_Continue}*\}'
     inside: {kind: argument, inside: {matches: message-arguments}}
 message: 'Error message `$TEXT` holds a `{Name}` placeholder nothing fills'
 note: 'Write an interpolated string `$"..."`, inside `string.Create(CultureInfo.InvariantCulture, $"...")` where a number formats'

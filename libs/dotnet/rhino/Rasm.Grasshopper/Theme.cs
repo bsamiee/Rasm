@@ -18,6 +18,8 @@ public sealed record GrasshopperTheme(string Name) {
     // --- [DECLARATION]
     public Func<PropertyId, Option<Binding>> Skin { get; init; } = static _ => None;
     public Option<Func<Guises, Guises>> Preview { get; init; }
+    public Seq<NamedColour> Swatches { get; init; }
+    public Seq<Rule> Tabs { get; init; }
     public Seq<IO<IO<Unit>>> Overrides { get; init; }
 
     // --- [DEFINITION]
@@ -52,13 +54,13 @@ public sealed record GrasshopperTheme(string Name) {
             let swatches = Path.Combine(Folders.ResourceFolder(ResourceFolder.Colours), Name + PaletteExtension)
             let palette = new NamedPalette(toSeq(definition.BoundProperties)
                 .Filter(id => SkinProperties.KindOf(id) is PropertyType.Colour && !definition[id].IsInherited)
-                .Map(id => new NamedColour($"{SkinProperties.Mode(id)} {SkinPropertyText.Title(id)}", definition.Resolve(id).ToEto(), source: Name)))
+                .Map(id => new NamedColour($"{SkinProperties.Mode(id)} {SkinPropertyText.Title(id)}", definition.Resolve(id).ToEto(), source: Name)) + Swatches)
             from coloured in Refreshed(swatches, listed(NamedPalette.WriteToStrings(palette)), path => listed(File.ReadAllLines(path)), IO.lift(() => NamedPalette.WriteToFile(swatches, palette)))
             from tabs in IO.lift(static () => new SettingsFolder("ComponentTabs"))
             let tint = definition.Resolve(SkinProperties.WithMode(PropertyId.Shade | PropertyId.Apex | PropertyId.Selected, PropertyId.Lit)).ToEto().ToHex(includeAlpha: false)
             let chapters = toSeq(ObjectProxies.Proxies.Where(proxy => proxy.Plugin == plugin).Select(static proxy => proxy.Nomen.Chapter).Distinct(StringComparer.Ordinal))
-            let rules = new NamedRules(Name + NamedRules.Extension, Rules.Empty.Add([Rule.CreateCiteRule(NamedRules.DefaultRules), .. chapters.Map(chapter => Rule.CreateTintRule(Selector.FromChapter(chapter), tint))]))
-            from tinted in when(!chapters.IsEmpty, Refreshed(tabs.Folder + rules.Name, Encoding.UTF8.GetBytes(rules.Rules.ToString()), File.ReadAllBytes,
+            let rules = new NamedRules(Name + NamedRules.Extension, Rules.Empty.Add([Rule.CreateCiteRule(NamedRules.DefaultRules), .. chapters.Map(chapter => Rule.CreateTintRule(Selector.FromChapter(chapter), tint)), .. Tabs]))
+            from tinted in when(!(chapters.IsEmpty && Tabs.IsEmpty), Refreshed(tabs.Folder + rules.Name, Encoding.UTF8.GetBytes(rules.Rules.ToString()), File.ReadAllBytes,
                 IO.lift(() => GrasshopperFault.Unless(rules.Store(tabs), GrasshopperReason.Declined, rules.Name)))).As()
             select unit).As()
         from followed in Active.Changed(Active.Write)

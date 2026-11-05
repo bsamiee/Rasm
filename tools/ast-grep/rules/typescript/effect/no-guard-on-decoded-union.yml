@@ -4,13 +4,13 @@ severity: error
 rule:
     kind: call_expression
     all:
-        - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $VALUE}}, {not: {has: {nthChild: 2}}}]}
         - has:
             field: function
             kind: member_expression
             all:
                 - has: {field: property, pattern: $CASE}
                 - has: {field: object, kind: member_expression, all: [{has: {field: property, regex: '^guards$'}}, {has: {field: object, pattern: $UNION}}]}
+        - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $VALUE}}, {not: {has: {nthChild: 2}}}]}
         - any:
             - all:
                 - has: {field: function, has: {field: object, has: {field: object, kind: member_expression, all: [{has: {field: property, pattern: $FIELD}}, {has: {field: object, kind: member_expression, has: {field: property, regex: '^fields$'}}}]}}}
@@ -27,5 +27,5 @@ rule:
                             all:
                                 - has: {field: pattern, pattern: $VALUE}
                                 - has: {field: type, has: {kind: type_query, has: {kind: member_expression, all: [{has: {field: object, pattern: $UNION}}, {has: {field: property, regex: '^Type$'}}]}}}
-message: '`$UNION.guards.$CASE` validates `$VALUE` in full, a value already decoded as `$UNION`'
+message: '`$UNION.guards.$CASE` validates `$VALUE` in full, a value decoded as `$UNION`'
 note: 'Test the tag of a decoded value with `<union>.isAnyOf([''<case>''])`, `guards` stays for unknown input'

@@ -7,6 +7,7 @@ const DOLLAR = /^\\\$/u;
 const CONTEXTUAL = ['safe', 'auto', 'pin', 'builtin'];
 const CONTEXTUAL_TYPES = [...CONTEXTUAL, 'reuse', 'raw', 'union', 'default'];
 const WHITESPACE = /\p{Pattern_White_Space}/u;
+const MACRO_RULES = token(/macro_rules\p{Pattern_White_Space}*!/u);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -19,7 +20,7 @@ const ranged = ({ value, content }, closed, prefix, open) => {
         [opened('..'), prefix],
         [() => true, open],
     ];
-    return choice(...content.members.map((member) => forms.find(([matches]) => matches(member))[1](value, member)));
+    return choice(...content.members.map((member) => forms.find(([matches]) => matches(member))[1](value, opened('..')(member) ? seq(choice('..', '..='), ...member.members.slice(1)) : member)));
 };
 const restricted = replace(symbol('_expression'), ($) => $._restricted_expression);
 const emptied = (separator) =>
@@ -61,7 +62,7 @@ const contracted = before(optionalOf(symbol('where_clause')), ($) => optional($.
 export default extend(rust, {
     transforms: [widen(choiceOf(string('f64')), 'f16', 'f128')],
     extras: ($, original) => [...original.map((rule) => (rule.type === 'PATTERN' ? WHITESPACE : rule)), $._keyword_prefix],
-    externals: ($, original) => [...original, $.frontmatter, $._shebang],
+    externals: ($, original) => [...original, $.frontmatter, $._shebang, $._lone_dollar],
     conflicts: ($, original) => [
         ...original.filter((set) => !(set.some(symbol('array_expression')) || (set.some(symbol('parameters')) && set.some(symbol('_pattern'))))),
         [$.function_modifiers, $.trait_item],
@@ -84,6 +85,10 @@ export default extend(rust, {
         source_file: chain(
             after(optionalOf(symbol('shebang')), ($) => optional($.frontmatter)),
             replace(symbol('shebang'), ($) => alias($._shebang, $.shebang)),
+            replace(
+                (rule) => rule.type === 'REPEAT' && symbol('_statement')(rule.content),
+                ($, part) => choice(part, prec(-1, $._expression)),
+            ),
         ),
         _keyword_prefix: () => 'k#',
         _declaration_statement: ($, original) => choice(replace(symbol('attribute_item'), (_, part) => prec(1, part))($, original), $.trait_alias, $.delegation_item, $.const_block_item),
@@ -92,7 +97,7 @@ export default extend(rust, {
         mod_item: before(string('mod'), optional('unsafe')),
         extern_modifier: widen(symbol('string_literal'), ($) => $.raw_string_literal),
         parameter: before(optionalOf(symbol('mutable_specifier')), optional('const')),
-        macro_invocation: ($, original) => choice(widen(named('macro'), located(rust.grammar.rules._pattern, aliased), alias(choice('try', 'reuse'), $.identifier))($, original), seq(field('macro', alias('macro_rules!', $.identifier)), alias($.delim_token_tree, $.token_tree))),
+        macro_invocation: ($, original) => choice(widen(named('macro'), located(rust.grammar.rules._pattern, aliased), alias(choice('try', 'reuse'), $.identifier))($, original), seq(field('macro', alias(MACRO_RULES, $.identifier)), alias($.delim_token_tree, $.token_tree))),
         fragment_specifier: widen(choiceOf(string('expr')), 'guard'),
         _reserved_identifier: widen(choiceOf(string('raw')), ...CONTEXTUAL),
         _type_identifier: ($, original) => choice(original, alias(choice(...CONTEXTUAL_TYPES), $.type_identifier)),
@@ -106,6 +111,7 @@ export default extend(rust, {
             ($) => $.builtin_expression,
             ($) => $.move_expression,
             ($) => prec(-1, alias(choice('try', 'reuse'), $.identifier)),
+            ($) => prec(rust.grammar.rules.closure_expression.value - 1, alias('async', $.identifier)),
         ),
         become_expression: ($) => prec.left(seq('become', $._expression)),
         yeet_expression: from(
@@ -122,6 +128,7 @@ export default extend(rust, {
         static_item: before(string('static'), optional(choice('safe', 'unsafe'))),
         const_item: chain(
             before(string('const'), specialized),
+            widen(named('name'), ($) => $._reserved_identifier),
             after(named('name'), ($) => field('type_parameters', optional($.type_parameters))),
             before(string(';'), ($) => optional($.where_clause)),
         ),
@@ -156,7 +163,7 @@ export default extend(rust, {
                 replace(named('trait'), (_, { content }) => field('name', content)),
             ),
         ),
-        macro_definition: ($, original) => choice(original, seq(optional($.visibility_modifier), 'macro', located(original, named('name')), choice(alias($._macro_signature, $.macro_rule), replace(string(';'), () => choice(',', ';'))($, located(original, opened('{')))))),
+        macro_definition: ($, original) => choice(replace(string('macro_rules!'), () => alias(MACRO_RULES, 'macro_rules!'))($, original), seq(optional($.visibility_modifier), 'macro', located(original, named('name')), choice(alias($._macro_signature, $.macro_rule), replace(string(';'), () => choice(',', ';'))($, located(original, opened('{')))))),
         macro_rule: before(named('left'), ($) => optional(seq(optional('unsafe'), choice('attr', 'derive'), field('arguments', $.token_tree_pattern)))),
         _macro_signature: from(
             'macro_rule',
@@ -179,12 +186,15 @@ export default extend(rust, {
             ($) => $.negative_literal,
             ($) => $.const_block,
         ),
-        type_binding: widen(
-            named('type'),
-            ($) => $._literal,
-            ($) => $.block,
-            ($) => $.const_block,
-            ($) => $.negative_literal,
+        type_binding: chain(
+            widen(
+                named('type'),
+                ($) => $._literal,
+                ($) => $.block,
+                ($) => $.const_block,
+                ($) => $.negative_literal,
+            ),
+            after(named('name'), optional('::')),
         ),
         type_parameters: emptied(','),
         trait_bounds: ($, original) => prec.right(chain(boundList, after(repeated('+'), optional('+')), emptied('+'))($, original)),
@@ -211,6 +221,7 @@ export default extend(rust, {
             ($) => alias(choice('_', 'try'), $.type_identifier),
             ($) => prec(-1, alias('dyn', $.type_identifier)),
             ($) => alias($._empty_primitive_generic, $.generic_type),
+            ($) => prec(rust.grammar.rules.bounded_type.value - 1, $.higher_ranked_trait_bound),
         ),
         _empty_primitive_generic: ($) => prec(-1, seq(field('type', located(rust.grammar.rules._type, aliased)), field('type_arguments', alias($._empty_type_arguments, $.type_arguments)))),
         _empty_type_arguments: () => seq('<', '>'),
@@ -297,6 +308,7 @@ export default extend(rust, {
             choiceOf(symbol('ref_pattern')),
             ($) => $.box_pattern,
             ($) => $.never_pattern,
+            ($) => $.builtin_expression,
             ($) => prec(-1, alias(choice('try', 'await', 'reuse'), $.identifier)),
         ),
         never_pattern: () => '!',
@@ -320,12 +332,22 @@ export default extend(rust, {
         ),
         async_block: captured,
         gen_block: chain(before(string('gen'), optional('async')), captured),
-        function_type: widen(named('parameters'), ($) => alias($.return_type_parameters, $.parameters)),
+        function_type: chain(
+            widen(named('parameters'), ($) => alias($.return_type_parameters, $.parameters)),
+            after(named('trait'), optional('::')),
+        ),
         return_type_parameters: (_) => seq('(', '..', ')'),
         where_predicate: chain(
             replace(named('left'), ($) => field('left', choice($.lifetime, $._type, $.higher_ranked_trait_bound))),
             before(named('left'), attributed),
         ),
+        _token_pattern: ($, original) => choice(original, alias($._lone_dollar, '$')),
+        generic_function: widen(
+            symbol('identifier'),
+            located(rust.grammar.rules._expression_except_range, aliased),
+            ($) => $._reserved_identifier,
+        ),
+        binary_expression: replace(string('<='), () => token(prec(2, '<='))),
         _non_special_token: (_, original) => choice(original, '~'),
         _tokens: ($, original) => choice(original, prec(-1, '$'), $.metavariable_expression),
         metavariable_expression: () => seq('$', located(rust.grammar.rules.token_tree, opened('{'))),

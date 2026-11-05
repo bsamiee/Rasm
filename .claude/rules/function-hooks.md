@@ -1,48 +1,47 @@
 ---
 paths:
   - "plugins/function-hooks/**"
-  - ".codex/hooks/**"
 ---
 
 # [FUNCTION_HOOKS]
 
-Claude Code's mod and `.codex/hooks/rewrite.ts` apply shared command policies through native host adapters.
+Hooks correct wrong commands and track app instances each session owns, a Node server deciding for Claude Code and `codex.ts` per call for Codex.
 
-- Use `plugin-authoring` skill for writing or changing a function hook
+- Use `plugin-authoring` skill for writing or changing `hooks/register.ts`
 
 ## [01]-[TOOL_CALLS]
 
 Hooks fix a wrong call and let it run, the model keeps working:
 - ALWAYS rewrite a call when its repository form follows from the call, and refuse only when no form follows
-- ALWAYS write each command policy as a pure function in `policies/` over the parsed call, folded into `commandDecision`
-- ALWAYS declare a program's options, bodies, input, and inner command as its `invocation.ts` row, an undeclared option's value parses as an operand
-- ALWAYS read process and path facts through the `System` each adapter builds once and passes to `commandDecision`
-- Discover tasks through native Nx JSON commands, hooks own no task catalog or command routing
-- Rewrites edit the call's own command (a variable delete takes its literal path), a nested body or script takes the refusal naming the form
-- Ghidra policies hold `analyzeHeadless` to `$GHIDRA_PROJECT_DIR`, refuse project copies and lock deletes, background imports and `Serve.java` alone
-- Settings `PreToolUse` hooks run inside `next` on the rewritten command and return a refusal as an `isError` result
-- Registrations on one event nest in order, first outermost, and a repeated registration fails module load
+- ALWAYS add a command as a `programs` row in each policy with a fix for it, one row holding its grammar, `shell/programs.ts` holding rows with no fix
+- ALWAYS take grammar from `carapace <program> export` or a dump, `flags` matching it to the installed binary or, with neither, listing options a target passes apart
+- ALWAYS route a checker call with options to the target its group forwards to, options on `--args`, a call no target reproduces staying direct
+- ALWAYS name an option by any spelling in a row, `Site.has` resolves it through the grammar
+- ALWAYS read shell structure from `shfmt --to-json` and Nx targets from `readCachedProjectGraph`, a target's commands deciding its route
+- Rewrites edit the call's own command, in a nested body or script a rewrite with a notice becomes a refusal naming it
 - Calls the hook cannot parse or judge are refused
-- App rules stop harm no core prevents, focus taken, keys posted to the frontmost app, another session's process ended, and a product under test runs as itself, a background-only or `LSUIElement` bundle included
-- `execute_script` bodies and computer-use action tools hold no rule, an agent's `request_access` alone is refused since it waits on a person with no timeout
+- App rows stop harm to the user's desktop and other sessions' processes
+- Products under test run as themselves, background-only and `LSUIElement` bundles included
+- `osascript` scripting a `tools/harnesses/<host>` app past a launch is refused toward `harness <host> <target>`, a product under test exempt
+- Computer-use tools and `execute_script` bodies run unchecked, an agent's `request_access` alone refused for waiting on a person with no timeout
 
 ## [02]-[OUTPUT]
 
-Texts reaching a model or harness (refusal, context, toast, log line) appear only when they change the next action:
+Texts reaching a model or harness appear only when they change the next action:
 - ALWAYS write one sentence stating the fact, then after a comma the action naming the replacement, under 10 words and passing `clean-prose`
-- ALWAYS state what the hook derived from the call and point to the owner (skill, file, target) of the rest
-- Enumerated cases, hardcoded values, and guessed fixes steer the model to a wrong form
+- ALWAYS build a text from its values and point to the owner (skill, file, target) of the rest
 - `context` is a note Claude reads after a tool result, and users never see it
-- `$.ui.toast` text reaches users alone
 
 ## [03]-[RUNTIME]
 
-Harness loads `hooks/register.ts` and its imports with no DOM and no Node. Modules import their own files by relative path and `claude-code` alone:
-- ALWAYS place each pure function in the folder of its concern, `hooks/register.ts` alone reads `$`
+`hooks/register.ts` runs in the engine with no DOM and no Node, everything else under Node with Effect:
+- ALWAYS limit `register.ts` to the server, its calls, and store rows, importing types alone from `claude-code` and `decision.ts`
 - ALWAYS pass `$` whole to functions declared at top level of `register.ts`, any other use of `$` fails module load
-- ALWAYS keep files `.codex/hooks/rewrite.ts` imports inside the plugin, with APIs both Node and the harness supply
-- ALWAYS compose faults through the result type in `monads.ts`
-- ALWAYS spawn a program by name, or by the path `mise which` prints in the repository when mise configuration changes the resolved path
-- `register.ts` holds created watch-apps and Atelier instances as store rows by session and agent: a subagent's `turn.complete` sends a plain quit and keeps what stays open, `session.end` hands every row to one detached `sh`, the only form past its 1.5 s cut, and `--force` runs there alone
-- Modules that fail to load register no hook, and every call then runs unchecked
-- Every running session loads saved files at its next plugin reload, so each save leaves every module loadable and every name defined
+- ALWAYS give a gating registration its `.catch`, a hook that fails otherwise lets the call run
+- ALWAYS write `decision.ts` against engine types alone, `typecheck:claude` checks it under them
+- `server.ts` starts once per Claude Code process and exits when its host dies or changed sources decide a probe call, the next call starting a new one
+- Codex runs a call unless its hook prints deny JSON or exits 2 with stderr, `codex.ts` encoding every failure as a denial behind `|| exit 2`
+- Subagent `turn.complete` and `session.end` send each owned instance a plain quit, `--force` left to an agent's command
+- `session.end` runs its quits in one detached `sh`, the one form outliving its 1.5 s limit
+- Sessions run one `watch-apps watch` per app they hold or drive through an MCP server, its notes reaching the owning agent through `$.session.send`, else the session through `$.prompt.submit`
+- Modules that fail to load register no hook, every call running unchecked

@@ -11,8 +11,6 @@ type Rule = readonly [string, string, IRegularForbiddenRuleType['from'], IRegula
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const RUNTIME_PACKAGES = ['@effect/platform-[^/]+/', '@effect/[^/]+-(?:browser|bun|node)/', 'react-dom/(?:client|profiling|server|static)\\b'];
-const BINARIES = '**/{*.wasm,*.node,binding.gyp}';
-const SCRIPTS = '**/*.{js,mjs,cjs}';
 const NESTED = ['**/node_modules/**'];
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -28,7 +26,7 @@ const library = Effect.fnUntraced(function* (directory: string) {
             libraryRoot(manifest),
             Effect.map(
                 Effect.forEach(Record.keys({ ...manifest.dependencies, ...manifest.devDependencies }), (name) => Effect.all([fs.realPath(path.join(directory, 'node_modules', name)), Effect.succeed(name)]), { concurrency: 'unbounded' }),
-                (rows) => ({ rows, entries: Record.values(Record.remove(manifest.exports, '.')).map(pattern), extendscript: Option.map(extendScriptEntry(manifest), pattern) }),
+                (rows) => ({ rows, entries: Object.values(Record.remove(manifest.exports, '.')).map(pattern), extendscript: Option.map(extendScriptEntry(manifest), pattern) }),
             ),
         ),
     );
@@ -36,7 +34,7 @@ const library = Effect.fnUntraced(function* (directory: string) {
 const install = Effect.fnUntraced(function* ([real, name]: readonly [string, string]) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const near = path.join(real, ...name.split('/').map(() => '..'));
-    const [{ dependencies, peerDependencies, napi }, binaries] = yield* Effect.all([Installed.read(real), fs.glob(BINARIES, { root: real, exclude: NESTED })]);
+    const [{ dependencies, peerDependencies, napi }, binaries] = yield* Effect.all([Installed.read(real), fs.glob('**/{*.wasm,*.node,binding.gyp}', { root: real, exclude: NESTED })]);
     const declared = [...Record.keys(dependencies).map((dependency) => Tuple.make(dependency, false)), ...Record.keys(peerDependencies).map((dependency) => Tuple.make(dependency, true))];
     const present = yield* Effect.filter(declared, ([dependency]) => fs.exists(path.join(near, dependency)), { concurrency: 'unbounded' });
     const edges = yield* Effect.forEach(present, ([dependency, peer]) => Effect.all([fs.realPath(path.join(near, dependency)), Effect.succeed(dependency), Effect.succeed(peer)]), { concurrency: 'unbounded' });
@@ -61,7 +59,7 @@ const walk = (seen: ReadonlyMap<string, Install>, pending: readonly (readonly [s
     );
 const named = Effect.fnUntraced(function* ({ real, edges }: Install, reaching: ReadonlySet<string>) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-    const files = yield* fs.glob(SCRIPTS, { root: real, exclude: NESTED });
+    const files = yield* fs.glob('**/*.{js,mjs,cjs}', { root: real, exclude: NESTED });
     const texts = yield* Effect.forEach(files, (file) => fs.readFileString(path.join(real, file)), { concurrency: 'unbounded' });
     const mentioned = new Set(
         Array.cartesian(edges, texts)

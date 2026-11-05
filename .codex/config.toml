@@ -18,7 +18,7 @@ max_concurrent_threads_per_session = 80
 
 [mcp_servers.atelier]
 default_tools_approval_mode = "approve"
-url                         = "http://127.0.0.1:7409/"
+url                         = "http://127.0.0.1:7490/"
 
 [mcp_servers.roslyn-codelens]
 default_tools_approval_mode = "approve"
@@ -155,4 +155,5 @@ matcher = "^Bash$"
 
 [[hooks.PreToolUse.hooks]]
 type    = "command"
-command = 'mise exec -- node "$(git rev-parse --show-toplevel)/.codex/hooks/rewrite.ts"'
+command = 'node "$(git rev-parse --show-toplevel)/plugins/function-hooks/codex.ts" || exit 2'
+timeout = 30

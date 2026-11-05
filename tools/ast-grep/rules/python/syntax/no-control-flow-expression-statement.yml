@@ -53,7 +53,7 @@ utils:
                 kind: assignment
                 all:
                     - has: {field: left, kind: identifier, regex: '^_$'}
-                    - has: {field: right, stopBy: {not: {kind: parenthesized_expression}}, matches: dropped}
+                    - has: {field: right, any: [{matches: dropped}, {kind: parenthesized_expression, has: {stopBy: {not: {kind: parenthesized_expression}}, matches: dropped}}]}
 rule:
     matches: dropping-statement
 message: 'Expression statement discards the value of its selection or iteration'

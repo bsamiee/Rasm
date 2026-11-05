@@ -25,4 +25,4 @@ rule:
                 kind: arguments
                 inside: {kind: call_expression, has: {field: function, pattern: $ARM, matches: {effect-module-member: {module: {regex: '(?-u:\b)Match$'}, member: {regex: '^(when|whenOr|whenAnd|tag|not|orElse)$'}}}}}
 message: '`$ARM` decides inside a fold arm'
-note: 'Fold once over every input the decision reads, `Match.value({ ... })` with one arm per case, or move the test into the value the fold receives'
+note: 'Fold once over every decision input, `Match.value({ ... })` with one arm per case, or move the test into fold input'

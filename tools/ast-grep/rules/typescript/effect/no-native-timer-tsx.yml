@@ -37,5 +37,5 @@ rule:
             all:
                 - has: {field: function, regex: 'clear(Timeout|Interval|Immediate)$'}
                 - inside: {matches: listener-callback, stopBy: {matches: typescript-function-boundary}}
-message: '`$NAME` drives the host timer outside the effect runtime'
+message: '`$NAME` drives host timer outside the effect runtime'
 note: 'Schedule through `Effect.sleep`, `Effect.repeat` with a `Schedule`, or `Effect.yieldNow`, with interruption in place of each clear call'

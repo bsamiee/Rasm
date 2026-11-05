@@ -1,6 +1,8 @@
 using System.Drawing;
 using System.Globalization;
+using System.Text;
 using System.Text.RegularExpressions;
+using IniParser;
 using IniParser.Model;
 using IniParser.Model.Configuration;
 using IniParser.Parser;
@@ -103,32 +105,43 @@ internal static partial class Ini {
         AssigmentSpacer = "",
         NewLineStr = "\r\n",
         SectionRegex = Sections,
+        CommentRegex = EmptyTextures,
     };
 
     [GeneratedRegex(@"^\[.*\]$")]
     private static partial Regex Sections { get; }
 
-    internal static HashMap<(string Section, string Key), string> Table(string text) {
-        IniData data = new IniDataParser(Configuration).Parse(text);
-        return HashMap<(string Section, string Key), string>().AddOrUpdateRange(
+    [GeneratedRegex("^=$")]
+    private static partial Regex EmptyTextures { get; }
+
+    internal static HashMap<(string Section, string Key), string> Read(OutputPath file) =>
+        Table(new FileIniDataParser(new IniDataParser(Configuration)).ReadFile(file, Encoding.UTF8));
+
+    internal static Unit Write(OutputPath file, Guid id, HashMap<(string Section, string Key), string> table) {
+        new FileIniDataParser(new IniDataParser(Configuration)).WriteFile(file, Data(id, table), Encoding.UTF8);
+        return unit;
+    }
+
+    internal static HashMap<(string Section, string Key), string> Table(string text) => Table(new IniDataParser(Configuration).Parse(text));
+
+    internal static string Rendered(Guid id, HashMap<(string Section, string Key), string> table) => Data(id, table).ToString();
+
+    internal static Seq<ModeKey> Merged(Seq<ModeKey> keys) =>
+        toSeq(HashMap<(string Section, string Key), ModeKey>().AddOrUpdateRange(keys.Map(static key => ((key.Section, key.Key), key))).Values).Strict();
+
+    private static HashMap<(string Section, string Key), string> Table(IniData data) =>
+        HashMap<(string Section, string Key), string>().AddOrUpdateRange(
             data.Global.Select(static key => (("", key.KeyName), key.Value))
                 .Concat(from section in data.Sections
                         let relative = section.SectionName.Split('\\', 3) is [_, _, var name] ? name : ""
                         from key in section.Keys
                         select ((relative, key.KeyName), key.Value)));
-    }
 
-    internal static Seq<ModeKey> Merged(Seq<ModeKey> keys) =>
-        toSeq(HashMap<(string Section, string Key), ModeKey>().AddOrUpdateRange(keys.Map(static key => ((key.Section, key.Key), key))).Values).Strict();
-
-    internal static string Rendered(Guid id, HashMap<(string Section, string Key), string> table) {
+    private static IniData Data(Guid id, HashMap<(string Section, string Key), string> table) {
         IniData data = new() { Configuration = Configuration };
-        foreach (IGrouping<string, ((string Section, string Key) Key, string Value)> section in Enumerable.GroupBy(table.AsIterable(), static row => row.Key.Section, StringComparer.Ordinal).OrderBy(static section => section.Key, StringComparer.Ordinal)) {
-            KeyDataCollection keys = data[section.Key.Length is 0 ? $@"DisplayMode\{id:D}" : $@"DisplayMode\{id:D}\{section.Key}"];
-            foreach (((string _, string key), string value) in section)
-                keys[key] = value;
-        }
-        return data.ToString();
+        _ = toSeq(Enumerable.OrderBy(table.AsIterable(), static row => row.Key.Section, StringComparer.Ordinal)).Iter(row =>
+            data[row.Key.Section.Length is 0 ? $@"DisplayMode\{id:D}" : $@"DisplayMode\{id:D}\{row.Key.Section}"][row.Key.Key] = row.Value);
+        return data;
     }
 
     // --- [NUMBERS]

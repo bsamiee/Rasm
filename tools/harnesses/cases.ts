@@ -41,13 +41,19 @@ const shared = {
     ...expected,
 };
 const Probe = Schema.Struct({ ...shared, evaluate: Expression });
+const Panel = Schema.Struct({
+    ...shared,
+    panel: Schema.NonEmptyString.annotate({ description: 'Panel entrypoint id of the batch plugin the host shows, evaluate, until, and read running in plugin scope over its document and host state' }),
+    evaluate: Expression,
+    capture: Schema.optionalKey(Schema.Boolean.annotate({ description: 'Write each instance window as <number>.png into the case folder after the reads' })),
+});
 const Call = Schema.Struct({ ...shared, call: Expression, args: Schema.Array(Schema.Json), fn: Schema.optionalKey(Schema.NonEmptyString), script: Schema.optionalKey(Schema.NonEmptyString), lines: Schema.optionalKey(Lines), keywords: Schema.optionalKey(Keywords) });
 const Run = Schema.Struct({ ...shared, script: Schema.optionalKey(Schema.NonEmptyString), fn: Schema.optionalKey(Schema.NonEmptyString), args: Schema.optionalKey(Schema.Array(Schema.Json)), keywords: Schema.optionalKey(Keywords) });
 const Batch = Schema.Struct({
     script: Schema.optionalKey(Schema.NonEmptyString.annotate({ description: 'Script path under the product folder for cases naming none' })),
     module: Schema.optionalKey(Schema.NonEmptyString.annotate({ description: 'Rebuilt module path under the product folder compare imports or runs in the host' })),
     limit: Schema.DurationFromString.pipe(Schema.withDecodingDefaultKey(Effect.succeed('2 minutes' as const))).annotate({ description: 'Bound on a launch, on a case writing no record before it records hung, and on the batch-end quit before the instance is reported left running' }),
-    plugin: Schema.optionalKey(Schema.NonEmptyString.annotate({ description: 'Plug-in binary under the product folder the host loads before the cases' })),
+    plugin: Schema.optionalKey(Schema.NonEmptyString.annotate({ description: 'Plug-in under the product folder the host loads before the cases, a binary or a UXP plugin project panel cases build' })),
     precondition: Schema.optionalKey(Precondition),
     read: Schema.optionalKey(Reads),
     ...expected,
@@ -57,7 +63,7 @@ const Batch = Schema.Struct({
             calls: Schema.Record(Schema.String, Expression).annotate({ description: 'Vector function to the original expression called with its args' }),
         }),
     ),
-    cases: Schema.Array(Schema.Union([Probe, Call, Run])),
+    cases: Schema.Array(Schema.Union([Panel, Probe, Call, Run])),
 });
 const Encoded = Schema.fromJsonString(Batch);
 
@@ -84,4 +90,4 @@ const expand = Effect.fn('expand')(function* (product: string, file: string) {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { answers, Batch, CASES, Call, type Case, EXTENDSCRIPT, Expression, expand, Keywords, Name, Probe, Reads, scriptOf };
+export { answers, Batch, CASES, Call, type Case, EXTENDSCRIPT, Expression, expand, Keywords, Name, Panel, Probe, Reads, scriptOf };

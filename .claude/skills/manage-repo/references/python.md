@@ -44,6 +44,7 @@ uv resolves projects, workspace members, and dependency groups through native me
 - Python import visibility follows installed files, `sys.path`, and import hooks
 - Native builds can reuse objects and build-system caches from earlier source builds
 - Modules named in `sys.stdlib_module_names` shadow standard libraries when earlier on the import path
+- Native library lookup sits on a pixi `python` task per OS, `pixi run` loses activation `DYLD_*` rows and an activation `LD_LIBRARY_PATH` reaches sdist builds
 
 ## [05]-[CHECKERS]
 

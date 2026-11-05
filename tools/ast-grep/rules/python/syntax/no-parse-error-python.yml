@@ -1,13 +1,29 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: pythonlang
 severity: error
+utils:
+    in-error:
+        inside: {kind: ERROR, stopBy: end}
+    opening:
+        any:
+            - has: {stopBy: end, all: [{not: {has: {pattern: $$_}}}, {not: {regex: '^$'}}, {pattern: $$TOKEN}]}
+            - pattern: $$TOKEN
 rule:
     any:
         - kind: ERROR
-          not: {inside: {kind: ERROR, stopBy: end}}
+          all:
+            - not: {matches: in-error}
+            - matches: opening
         - kind: module
-          has: {stopBy: end, all: [{regex: '^$'}, {pattern: $$MISSING}, {not: {inside: {kind: ERROR, stopBy: end}}}]}
+          has:
+            stopBy: end
+            all:
+                - regex: '^$'
+                - pattern: $$MISSING
+                - not: {matches: in-error}
+                - inside: {matches: opening}
 labels:
+    TOKEN: {style: primary, message: Opens the span}
     MISSING: {style: primary, message: Token the grammar inserted to recover}
-message: Grammar failed to parse the span
-note: Fix invalid syntax or update the Python grammar
+message: '`$TOKEN` opens a span the grammar failed to parse'
+note: Fix the syntax, or extend tools/ast-grep/grammars/python for valid syntax it rejects

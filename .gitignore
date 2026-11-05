@@ -4,6 +4,7 @@ node_modules/
 
 # --- [TOOL_WRITES] ----------------------------------------------------------------------
 
+.git/
 .cache/
 .build/
 .swiftpm/
@@ -11,7 +12,6 @@ node_modules/
 dist/
 .cloudflare/
 .artifacts/
-fetched/
 .vs/
 buildServer.json
 *.received.*

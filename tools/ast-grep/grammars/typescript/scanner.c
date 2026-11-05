@@ -1,8 +1,6 @@
-#include "tree-sitter-typescript/common/scanner.h"
+#include <string.h>
 
-#ifndef SCANNER
-#define SCANNER(fn) tree_sitter_tsx_external_scanner_##fn
-#endif
+#include "tree-sitter-typescript/common/scanner.h"
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -11,6 +9,8 @@ enum { ADJACENT_TYPE_ARGUMENTS_OPEN = ERROR_RECOVERY + 1 };
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 enum { DECIMAL_REFERENCE_DIGITS = 7, HEXADECIMAL_REFERENCE_DIGITS = 6, NAMED_REFERENCE_LETTERS = 30 };
+
+static const char TYPE_CONTINUATIONS[] = "`,.;*%>=?^|&/:";
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -132,6 +132,62 @@ static bool scan_adjacent_type_arguments_open(TSLexer *lexer) {
     return lexer->lookahead == '>';
 }
 
+static bool closes_annotated_pattern(TSLexer *lexer) {
+    do {
+        skip(lexer);
+    } while (iswspace(lexer->lookahead));
+    return lexer->lookahead == ':' || lexer->lookahead == '?';
+}
+
+static bool scan_type_position_semicolon(TSLexer *lexer, const bool *valid_symbols) {
+    bool scanned_comment = false;
+    lexer->result_symbol = AUTOMATIC_SEMICOLON;
+    lexer->mark_end(lexer);
+    while (iswspace(lexer->lookahead) && lexer->lookahead != '\n') {
+        skip(lexer);
+    }
+    if (lexer->lookahead == '\n') {
+        skip(lexer);
+        if (!scan_whitespace_and_comments(lexer, &scanned_comment)) {
+            return false;
+        }
+    } else if (lexer->lookahead != '}' && lexer->lookahead != 0) {
+        return false;
+    }
+    if (lexer->lookahead == '}') {
+        return !closes_annotated_pattern(lexer);
+    }
+    if (lexer->lookahead == '{') {
+        return !valid_symbols[FUNCTION_SIGNATURE_AUTOMATIC_SEMICOLON];
+    }
+    return lexer->lookahead == 0 || lexer->lookahead >= 0x80 || strchr(TYPE_CONTINUATIONS, lexer->lookahead) == NULL;
+}
+
+static bool scan_template_text(TSLexer *lexer) {
+    lexer->result_symbol = TEMPLATE_CHARS;
+    for (bool has_content = false;; has_content = true) {
+        lexer->mark_end(lexer);
+        if (lexer->eof(lexer)) {
+            return false;
+        }
+        if (lexer->lookahead == '`' || lexer->lookahead == '\\') {
+            return has_content;
+        }
+        bool dollar = lexer->lookahead == '$';
+        advance(lexer);
+        if (dollar && lexer->lookahead == '{') {
+            return has_content;
+        }
+    }
+}
+
+static bool scan_decimal_after_question(TSLexer *lexer) {
+    lexer->mark_end(lexer);
+    lexer->result_symbol = TERNARY_QMARK;
+    advance(lexer);
+    return iswdigit(lexer->lookahead);
+}
+
 static bool scan_jsx_text_from_ampersand(TSLexer *lexer, bool saw_text) {
     for (; lexer->lookahead == '&'; saw_text = true) {
         lexer->mark_end(lexer);
@@ -146,15 +202,15 @@ static bool scan_jsx_text_from_ampersand(TSLexer *lexer, bool saw_text) {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-void *SCANNER(create)(void) { return NULL; }
+void *tree_sitter_tsx_external_scanner_create(void) { return NULL; }
 
-void SCANNER(destroy)(void *payload) {}
+void tree_sitter_tsx_external_scanner_destroy(void *payload) {}
 
-unsigned SCANNER(serialize)(void *payload, char *buffer) { return 0; }
+unsigned tree_sitter_tsx_external_scanner_serialize(void *payload, char *buffer) { return 0; }
 
-void SCANNER(deserialize)(void *payload, const char *buffer, unsigned length) {}
+void tree_sitter_tsx_external_scanner_deserialize(void *payload, const char *buffer, unsigned length) {}
 
-bool SCANNER(scan)(void *payload, TSLexer *lexer, const bool *valid_symbols) {
+bool tree_sitter_tsx_external_scanner_scan(void *payload, TSLexer *lexer, const bool *valid_symbols) {
     if (valid_symbols[JSX_TEXT] && !valid_symbols[ERROR_RECOVERY]) {
         bool saw_text = scan_jsx_text(lexer);
         if (lexer->lookahead == '&') {
@@ -164,6 +220,17 @@ bool SCANNER(scan)(void *payload, TSLexer *lexer, const bool *valid_symbols) {
             return true;
         }
     }
-    return external_scanner_scan(payload, lexer, valid_symbols) ||
-           (valid_symbols[ADJACENT_TYPE_ARGUMENTS_OPEN] && valid_symbols[LOGICAL_OR] && !valid_symbols[ERROR_RECOVERY] && scan_adjacent_type_arguments_open(lexer));
+    if (valid_symbols[TEMPLATE_CHARS] && !valid_symbols[AUTOMATIC_SEMICOLON]) {
+        return scan_template_text(lexer);
+    }
+    if ((valid_symbols[AUTOMATIC_SEMICOLON] || valid_symbols[FUNCTION_SIGNATURE_AUTOMATIC_SEMICOLON]) && !valid_symbols[LOGICAL_OR] && !valid_symbols[TEMPLATE_CHARS] && !valid_symbols[JSX_TEXT] && !valid_symbols[ERROR_RECOVERY]) {
+        return scan_type_position_semicolon(lexer, valid_symbols);
+    }
+    if (external_scanner_scan(payload, lexer, valid_symbols)) {
+        return true;
+    }
+    if (valid_symbols[TERNARY_QMARK] && !valid_symbols[ERROR_RECOVERY] && lexer->lookahead == '.') {
+        return scan_decimal_after_question(lexer);
+    }
+    return (valid_symbols[ADJACENT_TYPE_ARGUMENTS_OPEN] && valid_symbols[LOGICAL_OR] && !valid_symbols[ERROR_RECOVERY] && scan_adjacent_type_arguments_open(lexer));
 }

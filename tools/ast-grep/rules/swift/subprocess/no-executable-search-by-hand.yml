@@ -9,7 +9,7 @@ utils:
               regex: '^(isExecutableFile|isExecutableKey)$'
             - kind: call_expression
               all:
-                - has: {nthChild: 1, regex: '^((Darwin|Glibc|Musl)(\.|::))?(access|faccessat)$'}
+                - has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '^((Darwin|Glibc|Musl)(\.|::))?(access|faccessat)$'}
                 - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: value, regex: '^X_OK$'}}}}
 rule:
     any:
@@ -23,4 +23,4 @@ rule:
         - kind: for_statement
           has: {stopBy: end, matches: executable-test}
 message: '`$TEST` tests candidate directories to find an executable by hand'
-note: 'Run `Executable.name(<name>)` to search the child environment''s `PATH`, or call `resolveExecutablePath(in:)` for the path alone'
+note: 'Run `Executable.name(<name>)` to search child environment `PATH`, or call `resolveExecutablePath(in:)` for the path alone'

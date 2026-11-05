@@ -20,9 +20,10 @@ utils:
 rule:
     pattern: $MEMBER
     any:
-        - matches: {effect-module-member: {module: {regex: '(?-u:\b)Schema$'}, member: {regex: '^(Any|Unknown|Void)$'}}}
-          not: {nthChild: {position: 1, reverse: true, ofRule: {not: {kind: comment}}}}
-          inside: {kind: array, inside: {kind: arguments, inside: {matches: union}}}
+        - all:
+            - matches: {effect-module-member: {module: {regex: '(?-u:\b)Schema$'}, member: {regex: '^(Any|Unknown|Void)$'}}}
+            - not: {nthChild: {position: 1, reverse: true, ofRule: {not: {kind: comment}}}}
+            - inside: {kind: array, inside: {kind: arguments, inside: {matches: union}}}
         - matches: open-record
           inside: {kind: array, has: {matches: tagged}, inside: {kind: arguments, inside: {matches: union}}}
 message: '`$MEMBER` accepts values meant for another union member'

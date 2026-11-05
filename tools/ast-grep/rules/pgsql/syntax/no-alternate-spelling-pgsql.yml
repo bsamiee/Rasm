@@ -23,6 +23,6 @@ rule:
             - has: {kind: func_name, regex: '(?i-u)^"?count"?$'}
             - not: {has: {regex: '(?i-u)^distinct$', not: {pattern: $_}}}
             - has: {kind: func_arg_list, not: {has: {kind: func_arg_list}}, has: {kind: func_arg_expr, has: {stopBy: {not: {matches: pgsql-wrapper}}, kind: AexprConst, not: {regex: '(?i-u)^null$'}}}}
-        - {kind: func_name, regex: '(?i-u)^"?(ceiling|pow|character_length)"?$'}
+        - {kind: func_name, regex: '(?i-u)^"?(ceiling|pow|character_length|log10)"?$'}
 message: '`$NODE` uses an alternate SQL spelling'
-note: 'Use `<>`, plain `join`, `left join`, `temp`, `is null`, `is not null`, `begin`, `commit`, `rollback`, `count(*)`, `ceil`, `power`, `char_length`'
+note: 'Use `<>`, plain `join`, `left join`, `temp`, `is null`, `is not null`, `begin`, `commit`, `rollback`, `count(*)`, `ceil`, `power`, `char_length`, `log`'

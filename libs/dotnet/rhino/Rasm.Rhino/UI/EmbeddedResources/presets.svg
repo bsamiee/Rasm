@@ -1,6 +1,6 @@
 <svg fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="0.5" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
-  <rect fill="var(--accent)" height="3.5" rx="1" stroke="var(--edge)" width="3.5" x="1.25" y="1.25"/>
-  <rect fill="var(--accent)" height="3.5" rx="1" stroke="var(--edge)" width="3.5" x="1.25" y="6.25"/>
-  <rect fill="var(--accent)" height="3.5" rx="1" stroke="var(--edge)" width="3.5" x="1.25" y="11.25"/>
+  <rect class="accent" height="3.5" rx="1" width="3.5" x="1.25" y="1.25"/>
+  <rect class="accent" height="3.5" rx="1" width="3.5" x="1.25" y="6.25"/>
+  <rect class="accent" height="3.5" rx="1" width="3.5" x="1.25" y="11.25"/>
   <path d="M7.75 2.75H14.75M7.75 7.75H14.75M7.75 12.75H14.75"/>
 </svg>

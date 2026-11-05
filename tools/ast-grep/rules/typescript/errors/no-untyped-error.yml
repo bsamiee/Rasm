@@ -15,7 +15,7 @@ utils:
         any:
             - kind: string, number, true, false, null, undefined, regex
             - kind: unary_expression
-              regex: '^[+-]'
+              all: [{has: {field: operator, regex: '^[+-]$'}}]
               has: {field: argument, kind: number}
             - kind: template_string
             - matches: typescript-expression-wrapper

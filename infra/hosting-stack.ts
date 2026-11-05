@@ -1,208 +1,94 @@
+import { join } from 'node:path';
 import process from 'node:process';
-import { type BuildOutput, readBuildOutput } from '@cloudflare/build-output-utils';
-import {
-    D1Database,
-    getZeroTrustOrganizationOutput,
-    getZones,
-    HyperdriveConfig,
-    Queue,
-    QueueConsumer,
-    R2Bucket,
-    Worker,
-    WorkersCronTrigger,
-    WorkersCustomDomain,
-    WorkersKvNamespace,
-    WorkersRoute,
-    WorkerVersion,
-    ZeroTrustAccessApplication,
-    ZeroTrustAccessIdentityProvider,
-    ZeroTrustAccessPolicy,
-} from '@pulumi/cloudflare';
+import { BUILD_OUTPUT_ROOT, type BuildOutput, readBuildOutput } from '@cloudflare/build-output-utils';
+import { getZeroTrustOrganizationOutput, Worker, ZeroTrustAccessApplication, ZeroTrustAccessIdentityProvider, ZeroTrustAccessPolicy } from '@pulumi/cloudflare';
+import { local } from '@pulumi/command';
 import { Container, type ContainerArgs, getRegistryImageOutput, Network, RemoteImage, Volume } from '@pulumi/docker';
 import { Image } from '@pulumi/docker-build';
 import { IamPolicy, IamUser, IamUserPolicyAttachment, Provider, S3Bucket } from '@pulumi/minio';
-import { type Input, interpolate, jsonStringify, secret } from '@pulumi/pulumi';
-import { RandomInteger } from '@pulumi/random';
-import { CloudflareAccess } from '@rasm/hosting';
-import { nodeBundle } from '@rasm/hosting/vite';
-import { sites } from '@rasm/portfolio/sites';
-import { Array, Cache, Cause, Config, Duration, Effect, Function, Match, Option, Order, Path, Predicate, Record, Redacted, String, Struct } from 'effect';
-import { resolveConfig } from 'vite';
-import { generatePassword } from '#/infra/generate-password';
-import { provisionDatabase } from '#/infra/provision-database';
+import { asset, type Input, interpolate, jsonStringify, secret } from '@pulumi/pulumi';
+import { RandomInteger, RandomPassword } from '@pulumi/random';
+import { User } from '@rasm/hosting';
+import { disposableName, hostingMode, ownerBinding } from '@rasm/hosting/cloudflare';
+import { CloudflareAccess } from '@rasm/hosting/cloudflare-access';
+import { nodeBundle } from '@rasm/hosting/node-bundle';
+import { Array, Cause, Config, Effect, Function, Match, Option, Path, Predicate, Record, Redacted, String, Struct } from 'effect';
+import { createBuilder, type ResolvedConfig } from 'vite';
+import { postgresRoles } from '#/infra/postgres-roles';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Trigger = NonNullable<BuildOutput['workers']['default']['config']['triggers']>[number];
 interface Stack {
     readonly name: string;
     readonly hostnames: readonly string[];
     readonly production: boolean;
-    readonly named: (variable: string) => string;
+    readonly tag: Option.Option<string>;
+    readonly resolved: ResolvedConfig;
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const refuse = (subject: string) => Effect.fail(new Cause.IllegalArgumentError(`${subject} has no hosting form`));
-const migrator = (variable: string) => `${variable}_MIGRATOR`;
-const cloudflare = function* ({ rootConfig, workers }: BuildOutput, { name, hostnames, production, named }: Stack) {
-    const { config, bundleDir, assetsDir } = workers.default;
-    const [path, accountId] = yield* Effect.all([Path.Path, rootConfig.accountId === undefined ? Config.String('CLOUDFLARE_ACCOUNT_ID') : Config.succeed(rootConfig.accountId)]);
-    const triggers = config.triggers ?? [];
-    const triggered = <K extends Trigger['type']>(type: K) => triggers.filter((trigger): trigger is Extract<Trigger, { readonly type: K }> => trigger.type === type);
-    yield* Effect.forEach(
-        triggers,
-        Match.type<Trigger>().pipe(
-            Match.whenOr({ type: 'fetch' }, { type: 'queue' }, { type: 'scheduled' }, () => Effect.void),
-            Match.orElse(({ type }) => refuse(`trigger of type ${type}`)),
-        ),
+const provisioned = (name: string, variable: string) => `${name}-${String.snakeToKebab(variable.toLowerCase())}`;
+const cloudflare = function* ({ root, rootConfig, workers }: BuildOutput, { name, hostnames, production, tag }: Stack) {
+    const { workersDev, previewUrls, env = {} } = workers.default.config;
+    const accountId = yield* rootConfig.accountId === undefined ? Config.String('CLOUDFLARE_ACCOUNT_ID') : Config.succeed(rootConfig.accountId);
+    const declared = Record.toEntries(Record.remove(env, CloudflareAccess.binding));
+    const secrets = yield* Effect.forEach(
+        declared.filter(([, { type }]) => type === 'secret'),
+        ([variable]) => Effect.map(Config.Redacted(variable), (value) => [variable, Redacted.value(value)] as const),
     );
-    const tails = yield* Effect.forEach(config.tailConsumers ?? [], (tail) => (tail.streaming === true ? refuse(`streaming tail consumer ${tail.worker}`) : Effect.succeed({ name: tail.worker })));
-    const placement = yield* Match.value(config.placement).pipe(
-        Match.whenOr(Predicate.isUndefined, { mode: 'off' }, () => Effect.undefined),
-        Match.when({ mode: 'smart', hint: Match.string }, ({ hint }) => refuse(`placement hint ${hint}`)),
-        Match.when({ mode: 'smart' }, () => Effect.succeed({ mode: 'smart' })),
-        Match.orElse((targeted) => Effect.succeed({ ...targeted, mode: 'targeted' })),
-    );
-    yield* Effect.forEach(Record.toEntries(config.exports ?? {}), ([className, declared]) =>
-        Match.value(declared).pipe(
-            Match.when({ type: 'workflow' }, () => refuse(`workflow export ${className}`)),
-            Match.when({ container: Match.string }, ({ container }) => refuse(`durable object ${className} in container ${container}`)),
-            Match.orElse(() => Effect.void),
-        ),
-    );
-    const queues = yield* Cache.make({ capacity: Number.POSITIVE_INFINITY, lookup: (queueName: string) => Effect.sync(() => new Queue(queueName, { accountId, queueName }, { protect: production })) });
-    const bindings = yield* Effect.forEach(Record.toEntries(config.env ?? {}), ([variable, binding]) => {
-        const resource = named(variable);
-        return Match.value(binding).pipe(
-            Match.whenOr({ type: 'ai' }, { type: 'assets' }, { type: 'browser' }, { type: 'images' }, { type: 'media' }, { type: 'version-metadata' }, () => Effect.succeed({})),
-            Match.when({ type: 'worker', props: Predicate.isObject }, () => refuse(`service binding ${variable} with props`)),
-            Match.when({ type: 'queue', deliveryDelay: Match.number }, ({ deliveryDelay }) => refuse(`queue binding ${variable} with delivery delay ${deliveryDelay}`)),
-            Match.discriminators('type')({
-                'ai-search': ({ name: instanceName }) => Effect.succeed({ instanceName }),
-                'ai-search-namespace': ({ namespace }) => Effect.succeed({ namespace }),
-                'analytics-engine-dataset': ({ name: dataset = resource }) => Effect.succeed({ type: 'analytics_engine', dataset }),
-                artifacts: ({ namespace }) => Effect.succeed({ namespace }),
-                d1: ({ id, name: database = resource }) => Effect.succeed({ id: id ?? new D1Database(resource, { accountId, name: database }, { protect: production }).uuid }),
-                'durable-object': ({ worker: scriptName, exportName: className }) => Effect.succeed({ type: 'durable_object_namespace', className, scriptName: scriptName === config.name ? undefined : scriptName }),
-                hyperdrive: () =>
-                    Effect.map(Config.URL(variable), (url) => {
-                        const server = { host: url.hostname, port: url.port === '' ? undefined : Number(url.port), database: url.pathname.slice(1) };
-                        const { migrator: owner, runtime } = provisionDatabase(resource, { ...server, username: decodeURIComponent(url.username), password: secret(decodeURIComponent(url.password)) }, production);
-                        return [
-                            { id: new HyperdriveConfig(resource, { accountId, name: resource, origin: { scheme: url.protocol.slice(0, -1), ...server, ...runtime }, caching: { disabled: true } }).id },
-                            { name: migrator(variable), type: 'secret_text', text: interpolate`${url.protocol}//${owner.user}:${owner.password}@${url.host}${url.pathname}${url.search}` },
-                        ];
-                    }),
-                json: ({ value }) => Effect.succeed({ json: jsonStringify(value) }),
-                k2: ({ stream }) => Effect.succeed({ stream }),
-                kv: ({ id }) => Effect.succeed({ type: 'kv_namespace', namespaceId: id ?? new WorkersKvNamespace(resource, { accountId, title: resource }, { protect: production }).id }),
-                'mtls-certificate': ({ id: certificateId }) => Effect.succeed({ certificateId }),
-                pipeline: ({ name: pipeline }) => Effect.succeed({ type: 'pipelines', pipeline }),
-                queue: ({ name: queueName = resource }) => Effect.map(Cache.get(queues, queueName), (queue) => ({ queueName: queue.queueName })),
-                r2: (bucket) => Effect.succeed({ type: 'r2_bucket', bucketName: new R2Bucket(resource, { accountId, name: bucket.name ?? resource, jurisdiction: bucket.jurisdiction }, { protect: production }).name, jurisdiction: bucket.jurisdiction }),
-                'rate-limit': ({ namespace: namespaceId, simple }) => Effect.succeed({ type: 'ratelimit', namespaceId, simple }),
-                secret: () => Effect.map(Config.Redacted(variable), (value) => ({ type: 'secret_text', text: secret(Redacted.value(value)) })),
-                'secrets-store-secret': ({ storeId, secretName }) => Effect.succeed({ storeId, secretName }),
-                'send-email': ({ destinationAddress, allowedDestinationAddresses, allowedSenderAddresses }) => Effect.succeed({ destinationAddress, allowedDestinationAddresses, allowedSenderAddresses }),
-                text: ({ value }) => Effect.succeed({ type: 'plain_text', text: value }),
-                vectorize: ({ name: indexName }) => Effect.succeed({ indexName }),
-                'vpc-network': ({ tunnelId, networkId }) => Effect.succeed({ tunnelId, networkId }),
-                'vpc-service': ({ id: serviceId }) => Effect.succeed({ serviceId }),
-                worker: ({ worker: service, exportName: entrypoint }) => Effect.succeed({ type: 'service', service: service === config.name ? name : service, entrypoint }),
-                workflow: ({ name: workflowName, worker: scriptName, exportName: className }) => Effect.succeed({ workflowName, scriptName, className }),
-            }),
-            Match.orElse(({ type }) => refuse(`binding ${variable} of type ${type}`)),
-            Effect.map((made) => ({ name: variable, type: String.kebabToSnake(binding.type), made: Array.ensure(made) })),
-        );
-    });
-    const worker = new Worker(name, { accountId, name, logpush: config.logpush, observability: config.observability, tailConsumers: tails, subdomain: { enabled: config.workersDev ?? true, previewsEnabled: config.previewUrls } });
+    const discarded = production
+        ? []
+        : yield* Effect.forEach(declared, ([variable, binding]) => {
+              const resource = provisioned(name, variable);
+              return Match.value(binding).pipe(
+                  Match.when({ type: 'd1', id: Predicate.isUndefined, name: Predicate.isUndefined }, () => Effect.succeed([`cf d1 delete "$(cf d1 list --name ${resource} | jq -er '.[0].uuid')" --force`])),
+                  Match.when({ type: 'r2', name: Predicate.isUndefined }, () =>
+                      Effect.succeed([`while keys=$(cf r2 objects list --bucket-name ${resource} --per-page 1000 | jq -ce 'map(.key) | select(length > 0)'); do cf r2 objects bulk-delete --bucket-name ${resource} --body "$keys" --force; done`, `cf r2 buckets delete ${resource} --force`]),
+                  ),
+                  Match.whenOr({ type: 'kv', id: Predicate.isUndefined }, { type: 'queue', name: Predicate.isUndefined }, ({ type }) => refuse(`disposable binding ${variable} of type ${type}`)),
+                  Match.orElse(() => Effect.succeed([])),
+              );
+          });
+    const worker = new Worker(name, { accountId, name, subdomain: { enabled: workersDev ?? true, previewsEnabled: previewUrls } });
     const pin = new ZeroTrustAccessIdentityProvider(name, { accountId, name, type: 'onetimepin', config: {} });
     const access = new ZeroTrustAccessApplication(name, {
         accountId,
         name,
         type: 'self_hosted',
-        destinations: worker.subdomain.apply(({ enabled, url }) => [...hostnames, ...(enabled ? [new URL(url).host] : [])].map((host) => ({ type: 'public', uri: `${host}${sites.paths.signin}` }))),
+        destinations: worker.subdomain.apply(({ enabled, url }) => [...hostnames, ...(enabled ? [new URL(url).host] : [])].map((host) => ({ type: 'public', uri: `${host}${User.sites.paths.signin}` }))),
         allowedIdps: [pin.id],
         autoRedirectToIdentity: true,
         policies: [{ id: new ZeroTrustAccessPolicy(name, { accountId, name, decision: 'allow', includes: [{ everyone: {} }] }).id, precedence: 1 }],
     });
     const issuer = interpolate`https://${getZeroTrustOrganizationOutput({ accountId }).authDomain}`;
-    const version = new WorkerVersion(name, {
-        accountId,
-        workerId: worker.id,
-        compatibilityDate: config.compatibilityDate,
-        compatibilityFlags: config.compatibilityFlags,
-        limits: config.limits,
-        cacheOptions: config.cache,
-        placement,
-        exports: config.exports,
-        ...(config.manifest === undefined || bundleDir === undefined
-            ? {}
-            : {
-                  mainModule: config.manifest.mainModule,
-                  modules: Record.collect(config.manifest.modules, (module, { type }) => ({
-                      name: module,
-                      contentFile: path.join(bundleDir, module),
-                      contentType: (
-                          {
-                              esm: 'application/javascript+module',
-                              cjs: 'application/javascript',
-                              json: 'application/json',
-                              text: 'text/plain',
-                              data: 'application/octet-stream',
-                              wasm: 'application/wasm',
-                              sourcemap: 'application/source-map',
-                              python: 'text/x-python',
-                              'python-requirement': 'text/x-python-requirement',
-                          } satisfies Record<typeof type, string>
-                      )[type],
-                  })),
-              }),
-        assets: assetsDir === undefined ? undefined : { directory: assetsDir, config: config.assets },
-        bindings: [
-            ...bindings.flatMap(({ made, ...binding }) => made.map((fields) => ({ ...binding, ...fields }))),
-            { name: CloudflareAccess.binding, type: 'secret_text', text: jsonStringify({ issuer, audience: access.aud, jwks: interpolate`${issuer}/cdn-cgi/access/certs`, logout: '/cdn-cgi/access/logout' } satisfies Record<keyof typeof CloudflareAccess.Encoded, Input<string>>) },
-        ],
-        deploy: true,
-    });
-    const zones = yield* Effect.cached(Effect.tryPromise({ try: () => getZones({ account: { id: accountId } }), catch: (cause) => new Cause.UnknownError(cause, `zones of account ${accountId} do not list`) }));
-    const routes = yield* Effect.forEach(
-        production ? triggered('fetch') : [],
-        Effect.fnUntraced(function* ({ pattern, zone }: Extract<Trigger, { readonly type: 'fetch' }>) {
-            const host = Array.headNonEmpty(String.split(pattern, '/')).replaceAll('*', '');
-            const owners = (yield* zones).results.filter((owner) => (zone === undefined ? host === owner.name || host.endsWith(`.${owner.name}`) : zone === owner.name));
-            const { id } = yield* Array.match(owners, { onEmpty: () => refuse(`route ${pattern} outside every zone of the account`), onNonEmpty: Function.flow(Array.max(Order.mapInput(Order.Number, (owner: (typeof owners)[number]) => owner.name.length)), Effect.succeed) });
-            return new WorkersRoute(`${name}-${pattern}`, { zoneId: id, pattern, script: worker.name }, { dependsOn: [version] }).pattern;
-        }),
+    const deploy = ['cf deploy --prebuilt --secrets-file /dev/stdin', ...Option.toArray(Option.map(tag, (value) => `--tag ${value}`))].join(' ');
+    const deployment = new local.Command(
+        name,
+        {
+            dir: root,
+            create: deploy,
+            update: deploy,
+            delete: discarded.flat().join(' && ') || undefined,
+            stdin: secret(
+                jsonStringify({
+                    ...Object.fromEntries(secrets),
+                    [CloudflareAccess.binding]: jsonStringify({ issuer, audience: access.aud, jwks: interpolate`${issuer}/cdn-cgi/access/certs`, logout: '/cdn-cgi/access/logout' } satisfies Record<keyof typeof CloudflareAccess.Encoded, Input<string>>),
+                }),
+            ),
+            triggers: [new asset.FileArchive(join(root, BUILD_OUTPUT_ROOT))],
+        },
+        { dependsOn: [worker, access] },
     );
-    const consumers = yield* Effect.forEach(
-        triggered('queue'),
-        Effect.fnUntraced(function* ({ name: queue, deadLetterQueue, maxBatchSize, maxBatchTimeout, maxConcurrency, maxRetries, retryDelay, visibilityTimeoutMs }: Extract<Trigger, { readonly type: 'queue' }>) {
-            const { queueId } = yield* Cache.get(queues, queue);
-            const settings = { batchSize: maxBatchSize, maxConcurrency: maxConcurrency ?? undefined, maxRetries, maxWaitTimeMs: maxBatchTimeout === undefined ? undefined : Duration.toMillis(Duration.seconds(maxBatchTimeout)), retryDelay, visibilityTimeoutMs };
-            return new QueueConsumer(`${name}-${queue}`, { accountId, queueId, scriptName: worker.name, type: 'worker', deadLetterQueue, settings }, { dependsOn: [version] }).queueName;
-        }),
-    );
-    return {
-        url: worker.subdomain.url,
-        version: version.id,
-        domains: hostnames.map((hostname) => new WorkersCustomDomain(`${name}-${hostname}`, { accountId, hostname, service: worker.name }, { dependsOn: [version] }).hostname),
-        routes,
-        consumers,
-        schedules: new WorkersCronTrigger(name, { accountId, scriptName: worker.name, schedules: triggered('scheduled').map(({ schedule }) => ({ cron: schedule })) }, { dependsOn: [version] }).schedules,
-    };
+    return { url: worker.subdomain.url, deployment: deployment.stdout };
 };
-const docker = function* ({ root, workers }: BuildOutput, { name, hostnames, production, named }: Stack) {
-    const [path, assets, email, resolved] = yield* Effect.all([
-        Path.Path,
-        Effect.fromNullishOr(workers.default.assetsDir).pipe(Effect.mapError(() => new Cause.NoSuchElementError(`worker ${workers.default.config.name} has no assets for the Node server`))),
-        Config.String('OWNER_EMAIL'),
-        Effect.tryPromise({ try: () => resolveConfig({ root }, 'build', 'production'), catch: (cause) => new Cause.UnknownError(cause, `Vite configuration at ${root} does not resolve`) }),
-    ]);
+const docker = function* ({ root, workers }: BuildOutput, { name, hostnames, production, resolved }: Stack) {
+    const [path, assets, email] = yield* Effect.all([Path.Path, Effect.fromNullishOr(workers.default.assetsDir).pipe(Effect.mapError(() => new Cause.NoSuchElementError(`worker ${name} has no assets for the Node server`))), Config.String(ownerBinding)]);
     const { build } = yield* Effect.fromNullishOr(resolved.environments[nodeBundle.layout.environment]).pipe(Effect.mapError(() => new Cause.NoSuchElementError(`Vite configuration at ${root} has no ${nodeBundle.layout.environment} environment`)));
     const env = workers.default.config.env ?? {};
     const port = 8080;
+    const password = (resource: string) => new RandomPassword(resource, { length: 40, special: false });
     const domains = Array.match(hostnames, { onEmpty: () => [`${name}.localhost`], onNonEmpty: Function.identity });
     const [internal, edge] = [new Network(name, { name, internal: true }), new Network(`${name}-edge`, { name: `${name}-edge` })];
     const volume = (resource: string, containerPath: string) => ({ volumeName: new Volume(resource, { name: resource }, { protect: production }).name, containerPath });
@@ -216,12 +102,12 @@ const docker = function* ({ root, workers }: BuildOutput, { name, hostnames, pro
     };
     const declared = Record.filterMap(env, (binding, variable) =>
         Match.value(binding).pipe(
-            Match.when({ type: 'r2' }, ({ name: bucket = named(variable) }) => bucket),
+            Match.when({ type: 'r2' }, ({ name: bucket = provisioned(name, variable) }) => bucket),
             Match.result,
         ),
     );
     const store = Option.map(Option.liftPredicate(declared, Predicate.not(Record.isEmptyRecord)), (buckets) => {
-        const [user, key, region] = [generatePassword(`${name}-store-access`).result, generatePassword(`${name}-store-secret`).result, 'us-east-1'];
+        const [user, key, region] = [password(`${name}-store-access`).result, password(`${name}-store-secret`).result, 'us-east-1'];
         const { address, server, endpoint } = reachable(`${name}-store`, 'rustfs/rustfs:latest', {
             listen: 9000,
             probe: (listen) => ['curl', '-fsS', `http://127.0.0.1:${listen}/health/ready`],
@@ -229,9 +115,9 @@ const docker = function* ({ root, workers }: BuildOutput, { name, hostnames, pro
             volumes: [volume(`${name}-store`, '/data')],
         });
         const provider = new Provider(`${name}-store`, { minioServer: interpolate`${address.host}:${address.port}`, minioUser: user, minioPassword: key, minioRegion: region }, { dependsOn: [server] });
-        const created = Record.map(buckets, (bucket, variable) => new S3Bucket(named(variable), { bucket, forceDestroy: !production }, { provider, protect: production }));
+        const created = Record.map(buckets, (bucket, variable) => new S3Bucket(provisioned(name, variable), { bucket, forceDestroy: !production }, { provider, protect: production }));
         const policy = new IamPolicy(name, { name, policy: jsonStringify({ Version: '2012-10-17', Statement: [{ Effect: 'Allow', Action: ['s3:*'], Resource: Object.values(created).flatMap(({ arn }) => [arn, interpolate`${arn}/*`]) }] }) }, { provider });
-        const account = new IamUser(name, { name, secret: generatePassword(`${name}-store-user`).result }, { provider });
+        const account = new IamUser(name, { name, secret: password(`${name}-store-user`).result }, { provider });
         return {
             envs: { ...Record.map(created, Struct.get('bucket')), AWS_ENDPOINT_URL_S3: interpolate`http://${endpoint}`, AWS_REGION: region, AWS_ACCESS_KEY_ID: new IamUserPolicyAttachment(name, { userName: account.name, policyName: policy.name }, { provider }).userName, AWS_SECRET_ACCESS_KEY: account.secret },
             volumes: [],
@@ -241,10 +127,10 @@ const docker = function* ({ root, workers }: BuildOutput, { name, hostnames, pro
         Match.value(binding).pipe(
             Match.whenOr({ type: 'assets' }, { type: 'r2' }, () => Effect.succeed({ envs: {}, volumes: [] })),
             Match.discriminators('type')({
-                d1: () => Effect.succeed({ envs: { [variable]: `/data/${variable}/database.sqlite` }, volumes: [volume(named(variable), `/data/${variable}`)] }),
+                d1: () => Effect.succeed({ envs: { [variable]: `/data/${variable}/database.sqlite` }, volumes: [volume(provisioned(name, variable), `/data/${variable}`)] }),
                 hyperdrive: () => {
-                    const database = named(variable);
-                    const { result } = generatePassword(database);
+                    const database = provisioned(name, variable);
+                    const { result } = password(database);
                     const { address, server, endpoint } = reachable(database, 'postgres:latest', {
                         listen: 5432,
                         probe: () => ['pg_isready', '-U', 'postgres'],
@@ -252,8 +138,7 @@ const docker = function* ({ root, workers }: BuildOutput, { name, hostnames, pro
                         envs: [interpolate`POSTGRES_PASSWORD=${result}`, 'POSTGRES_INITDB_ARGS=--locale-provider=builtin --builtin-locale=PG_UNICODE_FAST'],
                         volumes: [volume(database, '/var/lib/postgresql')],
                     });
-                    const urls = Record.map(provisionDatabase(database, { ...address, database: 'postgres', username: 'postgres', password: result, sslmode: 'disable' }, production, { dependsOn: server }), ({ user, password: key }) => interpolate`postgres://${user}:${key}@${endpoint}/postgres`);
-                    return Effect.succeed({ envs: { [variable]: urls.runtime, [migrator(variable)]: urls.migrator }, volumes: [] });
+                    return Effect.succeed({ envs: postgresRoles(database, variable, { ...address, password: result }, endpoint, production, { dependsOn: server }), volumes: [] });
                 },
                 json: ({ value }) => Effect.succeed({ envs: { [variable]: jsonStringify(value) }, volumes: [] }),
                 secret: () => Effect.map(Config.Redacted(variable), (value) => ({ envs: { [variable]: secret(Redacted.value(value)) }, volumes: [] })),
@@ -272,6 +157,7 @@ const docker = function* ({ root, workers }: BuildOutput, { name, hostnames, pro
             buildOnPreview: false,
             tags: [`${name}:latest`],
             context: { location: path.resolve(resolved.root, build.outDir), named: { assets: { location: assets } } },
+            pull: true,
             dockerfile: { inline: [`FROM node:${process.versions.node}-slim`, 'WORKDIR /app', `COPY --from=assets . ${nodeBundle.layout.assets}`, 'COPY . .', `ENV ${nodeBundle.layout.portVariable}=${port}`, `CMD ["node", "${nodeBundle.layout.entry}.js"]`].join('\n') },
         }).digest,
         {
@@ -279,7 +165,7 @@ const docker = function* ({ root, workers }: BuildOutput, { name, hostnames, pro
             volumes: parts.flatMap(({ volumes }) => volumes),
         },
     );
-    const owner = generatePassword(`${name}-owner`);
+    const owner = password(`${name}-owner`);
     const identity = container(`${name}-identity`, pull(`${name}-identity`, 'authelia/authelia:latest'), {
         uploads: Record.collect(
             {
@@ -288,12 +174,12 @@ const docker = function* ({ root, workers }: BuildOutput, { name, hostnames, pro
                     access_control: {
                         default_policy: 'bypass',
                         rules: [
-                            { domain: domains, resources: [`^${sites.paths.signin}([?].*)?$`], policy: 'one_factor' },
+                            { domain: domains, resources: [`^${User.sites.paths.signin}([?].*)?$`], policy: 'one_factor' },
                             { domain: domains, methods: ['POST', 'PUT', 'PATCH', 'DELETE'], policy: 'one_factor' },
                         ],
                     },
-                    session: { secret: generatePassword(`${name}-identity-session`).result, cookies: domains.map((site) => ({ domain: site, authelia_url: `https://auth.${site}`, default_redirection_url: `https://${site}/` })) },
-                    storage: { encryption_key: generatePassword(`${name}-identity-storage`).result, local: { path: '/var/lib/authelia/db.sqlite3' } },
+                    session: { secret: password(`${name}-identity-session`).result, cookies: domains.map((site) => ({ domain: site, authelia_url: `https://auth.${site}`, default_redirection_url: `https://${site}/` })) },
+                    storage: { encryption_key: password(`${name}-identity-storage`).result, local: { path: '/var/lib/authelia/db.sqlite3' } },
                     notifier: { filesystem: { filename: '/var/lib/authelia/notification.txt' } },
                     ntp: { disable_startup_check: true },
                 },
@@ -306,7 +192,7 @@ const docker = function* ({ root, workers }: BuildOutput, { name, hostnames, pro
     });
     const authelia = { handler: 'reverse_proxy', upstreams: [{ dial: interpolate`${identity.name}:9091` }] };
     const copies = Record.collect(
-        Record.mapKeys({ 'Remote-User': sites.headers.id, 'Remote-Email': sites.headers.email }, (answer) => `{http.reverse_proxy.header.${answer}}`),
+        Record.mapKeys({ 'Remote-User': User.sites.headers.id, 'Remote-Email': User.sites.headers.email }, (answer) => `{http.reverse_proxy.header.${answer}}`),
         (answer, header) => ({
             match: [{ vars_regexp: { [answer]: { pattern: '.' } } }],
             handle: [{ handler: 'headers', request: { set: { [header]: [answer] } } }],
@@ -314,11 +200,11 @@ const docker = function* ({ root, workers }: BuildOutput, { name, hostnames, pro
     );
     const redirects = Record.collect(
         {
-            signin: { source: `{http.request.uri.query.${sites.returnTo}}`, input_regexp: '^(/.*)$', location: 'https://{http.request.host}{target}' },
-            signout: { source: '{http.request.uri.query}', input_regexp: `(?:^|&)${sites.returnTo}=((?:/|%2[Ff])[^&]*)`, location: 'https://auth.{http.request.host}/logout?rd=https://{http.request.host}{target}' },
+            signin: { source: `{http.request.uri.query.${User.sites.returnTo}}`, input_regexp: '^(/.*)$', location: 'https://{http.request.host}{target}' },
+            signout: { source: '{http.request.uri.query}', input_regexp: `(?:^|&)${User.sites.returnTo}=((?:/|%2[Ff])[^&]*)`, location: 'https://auth.{http.request.host}/logout?rd=https://{http.request.host}{target}' },
         },
         (action, { source, input_regexp, location }) => ({
-            match: [{ path: [sites.paths[action]] }],
+            match: [{ path: [User.sites.paths[action]] }],
             handle: [
                 { handler: 'map', source, destinations: ['{target}'], mappings: [{ input_regexp, outputs: ['$1'] }], defaults: ['/'] },
                 { handler: 'static_response', status_code: 302, headers: { Location: [location] } },
@@ -330,11 +216,12 @@ const docker = function* ({ root, workers }: BuildOutput, { name, hostnames, pro
         {
             match: [{ host: domains }],
             handle: [
+                { handler: 'encode', encodings: { zstd: {}, gzip: {} }, prefer: ['zstd', 'gzip'] },
                 {
                     ...authelia,
                     rewrite: { method: 'GET', uri: '/api/authz/forward-auth' },
                     headers: { request: { set: { 'X-Forwarded-Method': ['{http.request.method}'], 'X-Forwarded-Uri': ['{http.request.uri}'] } } },
-                    handle_response: [{ match: { status_code: [2] }, routes: [{ handle: [{ handler: 'headers', request: { delete: Object.values(sites.headers) } }] }, ...copies] }],
+                    handle_response: [{ match: { status_code: [2] }, routes: [{ handle: [{ handler: 'headers', request: { delete: Object.values(User.sites.headers) } }] }, ...copies] }],
                 },
                 { handler: 'subroute', routes: redirects },
                 { handler: 'reverse_proxy', upstreams: [{ dial: interpolate`${app.name}:${port}` }] },
@@ -353,27 +240,28 @@ const docker = function* ({ root, workers }: BuildOutput, { name, hostnames, pro
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const hostingTargets = { cloudflare: Effect.fnUntraced(cloudflare), docker: Effect.fnUntraced(docker) };
-const hostingStack = Effect.fn('hostingStack')(function* (directory: string, target: keyof typeof hostingTargets, disposable: boolean) {
+const hostingTargets = { cloudflare: { modes: { production: hostingMode.edge, disposable: hostingMode.disposable }, program: Effect.fnUntraced(cloudflare) }, docker: { modes: { production: hostingMode.server, disposable: hostingMode.server }, program: Effect.fnUntraced(docker) } };
+const hostingStack = Effect.fn('hostingStack')(function* (directory: string, target: keyof typeof hostingTargets, disposable: boolean, tag: Option.Option<string>) {
+    const { modes, program } = hostingTargets[target];
+    const mode = disposable ? modes.disposable : modes.production;
+    const builder = yield* Effect.tryPromise({ try: () => createBuilder({ root: directory, mode, configLoader: 'native' }), catch: (cause) => new Cause.UnknownError(cause, `Vite configuration at ${directory} does not resolve`) });
+    yield* Effect.tryPromise({ try: () => builder.buildApp(), catch: (cause) => new Cause.UnknownError(cause, `build at ${directory} failed`) });
     const build = yield* Effect.tryPromise({ try: () => readBuildOutput(directory), catch: (cause) => new Cause.UnknownError(cause, `build output at ${directory} is unreadable`) });
     yield* Effect.forEach([...Record.keys(Record.remove(build.workers, 'default')).map((worker) => `worker ${worker}`), ...build.containers.map(({ configPath }) => `container at ${configPath}`)], refuse);
-    const { config } = build.workers.default;
-    const name = disposable ? `${config.name}-disposable` : config.name;
-    const domains = (config.domains ?? []).map((domain) => ({ domain, disposable }));
+    const { name: configured, domains = [] } = build.workers.default.config;
+    const name = disposable && mode === modes.production ? disposableName(configured) : configured;
     const hostnames = Array.filterMap(
         domains,
         Match.type<(typeof domains)[number]>().pipe(
-            Match.when({ domain: Match.string, disposable: false }, ({ domain: hostname }) => hostname),
-            Match.when({ domain: { production: true }, disposable: false }, ({ domain: { hostname } }) => hostname),
-            Match.when({ domain: { previews: true }, disposable: true }, ({ domain: { hostname } }) => `${name}.${hostname}`),
+            Match.when(Match.string, Function.identity<string>),
+            Match.when({ production: true }, ({ hostname }) => hostname),
             Match.result,
         ),
     );
     return {
         projectName: 'rasm-hosting',
-        select: 'createOrSelectStack' as const,
         stackName: `${name}.${target}`,
-        program: hostingTargets[target](build, { name, hostnames, production: !disposable, named: (variable) => `${name}-${variable}`.toLowerCase() }),
+        program: program(build, { name, hostnames, production: !disposable, tag, resolved: builder.config }),
     };
 });
 

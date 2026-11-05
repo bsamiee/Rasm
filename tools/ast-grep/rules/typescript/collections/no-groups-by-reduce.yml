@@ -39,7 +39,7 @@ utils:
                 - has: {field: index, pattern: $K}
             - kind: call_expression
               all:
-                - has: {field: function, kind: member_expression, all: [{has: {field: object, matches: accumulator-reference}}, {has: {field: property, regex: '^(get|getOrInsert|getOrInsertComputed)$'}}]}
+                - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^(get|getOrInsert|getOrInsertComputed)$'}}, {has: {field: object, matches: accumulator-reference}}]}
                 - has: {field: arguments, has: {nthChild: 1, pattern: $K}}
     alias:
         kind: identifier
@@ -93,7 +93,7 @@ utils:
               all: [{has: {field: left, matches: bucket}}, {has: {field: right, matches: extended}}]
             - kind: call_expression
               all:
-                - has: {field: function, kind: member_expression, all: [{has: {field: object, matches: accumulator-reference}}, {has: {field: property, regex: '^set$'}}]}
+                - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^set$'}}, {has: {field: object, matches: accumulator-reference}}]}
                 - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $K}}, {has: {nthChild: 2, matches: extended}}]}
             - kind: call_expression
               all:
@@ -144,7 +144,7 @@ utils:
               has: {nthChild: {position: 1, reverse: true}, matches: accumulator}
             - kind: call_expression
               any:
-                - has: {field: function, kind: member_expression, all: [{has: {field: object, matches: accumulator-reference}}, {has: {field: property, regex: '^set$'}}]}
+                - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^set$'}}, {has: {field: object, matches: accumulator-reference}}]}
                 - all:
                     - has: {field: function, any: [{pattern: Object.assign, matches: typescript-global-reference}, {kind: member_expression, all: [{has: {field: property, regex: '^set$'}}, {has: {field: object, matches: effect-record}}]}]}
                     - has: {field: arguments, has: {nthChild: 1, matches: accumulator-reference}}

@@ -3,7 +3,7 @@ language: csharplang
 severity: error
 utils:
     unreachable:
-        kind: 'throw_expression, throw_statement'
+        kind: &throw 'throw_expression, throw_statement'
         has: {kind: object_creation_expression, has: {field: type, matches: {csharp-type-name: {name: {regex: '^UnreachableException$'}}}}}
         not: {inside: {kind: switch_expression_arm, stopBy: &function {kind: 'lambda_expression, anonymous_method_expression, local_function_statement'}}}
     arm-name:
@@ -20,11 +20,11 @@ utils:
 rule:
     kind: argument
     all:
+        - has: {kind: 'lambda_expression, anonymous_method_expression', has: {stopBy: *function, kind: *throw, matches: unreachable}}
         - inside:
             kind: argument_list
             inside:
                 kind: invocation_expression
                 has: {field: function, pattern: $CALL, matches: arm-call}
-        - has: {kind: 'lambda_expression, anonymous_method_expression', has: {stopBy: *function, matches: unreachable}}
 message: 'Arm of `$CALL` throws `UnreachableException` for a case its value can hold'
 note: 'Narrow the value to a union or request type holding only cases its call handles'

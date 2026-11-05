@@ -6,7 +6,6 @@ Code a workflow run writes in any language meets every line, judged hunk by hunk
 
 - Capability: the domain's full capability under advanced use in the fewest names, as general logic any future app, tool or plugin composes
 - Reading: agents read code whole with its consumers, each package from source at its pinned release, and recorded findings as facts to act on
-- Recorded findings: `RUST.md`, `TYPESCRIPT.md`, `.artifacts/workflows/` and `docs/research`
 - Defects: fixed in the same pass at every layer holding them
 - Reduction: a struct, type, interface, enum, error variant, constant, string literal set or validation exists where a caller acts on it differently
 - Reduction: every other one folds into fewer objects holding their operations

@@ -47,15 +47,15 @@ rule:
                                 matches:
                                     csharp-unary-callback:
                                         parameter: {pattern: $USED}
-                                        body: {matches: finally, not: {has: {stopBy: end, kind: identifier, pattern: $USED}}}
+                                        body: {matches: finally, not: {has: {stopBy: end, kind: identifier, pattern: {context: 'class $USED;', selector: identifier}}}}
                             - has: {stopBy: end, matches: finally}
         - kind: query_expression
           all:
-            - has: {kind: from_clause, nthChild: 1, all: [{has: {field: name, pattern: $USED}}, {has: {matches: begin}}]}
-            - has: {kind: from_clause, nthChild: 2, all: [{has: {field: name, pattern: $VALUE}}, {has: {matches: finally}}]}
+            - has: {kind: from_clause, nthChild: 1, all: [{has: {field: name, pattern: {context: 'class $USED;', selector: identifier}}}, {has: {matches: begin}}]}
+            - has: {kind: from_clause, nthChild: 2, all: [{has: {field: name, pattern: {context: 'class $VALUE;', selector: identifier}}}, {has: {matches: finally}}]}
             - has: {kind: select_clause, nthChild: 3, has: {pattern: $VALUE}}
             - not: {has: {nthChild: 4}}
-            - not: {has: {kind: from_clause, nthChild: 2, has: {stopBy: end, kind: identifier, pattern: $USED}}}
+            - not: {has: {kind: from_clause, nthChild: 2, has: {stopBy: end, kind: identifier, pattern: {context: 'class $USED;', selector: identifier}}}}
 transform:
     BEGIN_HEAD: {replace: {source: $BEGIN, replace: '(?s)^(?:\(\)[\t-\r \x{A0}\x{3000}\x{FEFF}]*=>[\t-\r \x{A0}\x{3000}\x{FEFF}]*)?\{?[\t-\r \x{A0}\x{3000}\x{FEFF}]*([@\p{XID_Continue}.]+).*$', by: '$1'}}
     END_HEAD: {replace: {source: $END, replace: '(?s)^(?:\(\)[\t-\r \x{A0}\x{3000}\x{FEFF}]*=>[\t-\r \x{A0}\x{3000}\x{FEFF}]*)?\{?[\t-\r \x{A0}\x{3000}\x{FEFF}]*([@\p{XID_Continue}.]+).*$', by: '$1'}}

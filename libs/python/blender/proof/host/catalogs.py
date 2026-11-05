@@ -12,7 +12,6 @@ from blender.bpy.files.assets import AssetMark, published
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _LIBRARY = "Catalog Proof"
-_CATALOGS = "blender_assets.cats.txt"
 _MANIFEST = Manifest(id="catalog_proof", name="Catalog Proof", version="0")
 _MARKS = ("Probe/First", "Probe/Second")
 
@@ -66,7 +65,7 @@ def resaved() -> bool:
 
 def saved() -> dict[str, list[str]]:
     """Returns the published rows of the re-saved file, and the rows Blender added beside them, which only a native write puts there."""
-    lines = (_library() / _CATALOGS).read_text(encoding="utf-8").splitlines()
+    lines = (_library() / "blender_assets.cats.txt").read_text(encoding="utf-8").splitlines()
     rows = [line.split(":") for line in lines if line and not line.startswith(("#", "VERSION "))]
     return {"published": sorted(":".join(row) for row in rows if row[1] in _MARKS), "native": [row[1] for row in rows if row[1] not in _MARKS]}
 

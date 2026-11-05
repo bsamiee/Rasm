@@ -59,12 +59,18 @@ utils:
         any:
             - has: {kind: modifiers, any: [{has: {kind: attribute, regex: '^@(objc|IBOutlet|IBInspectable|NSManaged)(?-u:\b)'}}, {has: {regex: '^(override|dynamic)$'}}]}
             - inside: {kind: class_declaration, stopBy: end, has: {kind: modifiers, has: {kind: attribute, regex: '^@objcMembers$'}}}
+    converted-text:
+        all:
+            - has: {kind: pattern, has: {field: bound_identifier, regex: '^(description|debugDescription)$'}}
+            - has: {field: computed_value, has: {kind: statements, has: {kind: call_expression}}}
+            - inside: {kind: class_declaration, stopBy: {kind: class_declaration}, has: {kind: inheritance_specifier, regex: '^Custom(Debug)?StringConvertible$'}}
 rule:
     kind: property_declaration
     all:
         - has: {kind: pattern, has: {field: bound_identifier, pattern: $NAME}}
         - not: {has: {kind: pattern, regex: '^body$'}}
         - not: {matches: host-member}
+        - not: {matches: converted-text}
         - not: {has: {field: computed_value, has: {kind: computed_init}}}
         - has:
             field: computed_value
@@ -73,4 +79,4 @@ rule:
                 - has: {kind: computed_getter, has: {matches: getter}}
         - not: {has: {field: computed_value, has: {kind: 'computed_setter, computed_modify', not: {matches: forwarding-setter}}}}
 message: 'Property `$NAME` forwards `$READ` unchanged'
-note: 'Read `<owner>.<member>` or call `<owner>.<function>()` at each use and move a conformance the property satisfies to the forwarded type'
+note: 'Read `<owner>.<member>` or call `<owner>.<function>()` at each use and move a conformance its property satisfies to the forwarded type'

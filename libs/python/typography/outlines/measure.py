@@ -11,7 +11,7 @@ lazy from fontTools.pens.perimeterPen import PerimeterPen
 lazy from fontTools.pens.statisticsPen import StatisticsPen
 lazy from pathops import Path, PathOp
 lazy from scipy.optimize import minimize_scalar
-lazy from shapely import build_area, maximum_inscribed_circle, MultiLineString, MultiPolygon, Polygon
+lazy from shapely import build_area, linestrings, maximum_inscribed_circle, MultiLineString, multilinestrings, MultiPolygon, Polygon
 
 lazy from typography.faces.glyphs import Outline
 lazy from typography.outlines.paths import area, Axis, bounds, Box, combined, draw, offset, pieces, segments, transformed, union
@@ -90,9 +90,14 @@ def _flattened(outline: Outline, /) -> tuple[tuple[tuple[float, float], ...], tu
     return (tuple(*run for run in runs), tuple(*pairwise(run) for run in runs))  # ty: ignore[unsound-return-statement]
 
 
+def _strung(edges: tuple[tuple[tuple[float, float], tuple[float, float]], ...], /) -> MultiLineString:
+    """Edges as one geometry through the array constructors, an empty one for none."""
+    return multilinestrings(linestrings(edges)) if edges else MultiLineString()  # type: ignore[return-value] # ty: ignore[invalid-return-type]
+
+
 def inradius(outline: Outline, /) -> float:
     """Returns the largest inscribed circle's radius, 0 for edges enclosing no area, retaining holes and islands."""
-    match build_area(MultiLineString(_flattened(outline)[1])):
+    match build_area(_strung(_flattened(outline)[1])):
         case Polygon() | MultiPolygon() as ink:
             return float(maximum_inscribed_circle(ink, tolerance=0.25).length)
         case _:
@@ -120,7 +125,7 @@ def gap(a: Outline, b: Outline, /, axis: Axis | None = None) -> float:
         case ():
             (points, lines), (others, edges) = (_flattened(transformed(outline, (0.0, 1.0, 1.0, 0.0, 0.0, 0.0)) if axis == "x" else outline) for outline in (a, b))
             return (
-                (float(MultiLineString(lines).distance(MultiLineString(edges))) if lines and edges else math.inf)
+                (float(_strung(lines).distance(_strung(edges))) if lines and edges else math.inf)
                 if axis is None
                 else min((_apart(vertex, *edge) for vertices, spans in ((points, edges), (others, lines)) for vertex in vertices for edge in spans), default=math.inf)
             )

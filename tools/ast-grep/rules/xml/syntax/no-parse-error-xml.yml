@@ -2,20 +2,28 @@
 language: xml
 severity: error
 utils:
-    unreported:
+    in-error:
         inside: {kind: ERROR, stopBy: end}
+    opening:
+        any:
+            - has: {stopBy: end, all: [{not: {has: {pattern: $$_}}}, {not: {regex: '^$'}}, {pattern: $$TOKEN}]}
+            - pattern: $$TOKEN
 rule:
     any:
         - kind: ERROR
-          not: {matches: unreported}
+          all:
+            - not: {matches: in-error}
+            - matches: opening
         - kind: document
           has:
             stopBy: end
             all:
                 - regex: '^$'
                 - pattern: $$MISSING
-                - not: {matches: unreported}
+                - not: {matches: in-error}
+                - inside: {matches: opening}
 labels:
+    TOKEN: {style: primary, message: Opens the span}
     MISSING: {style: primary, message: Token the grammar inserted to recover}
-message: Grammar failed to parse the span
-note: Fix malformed XML, or extend tree-sitter-xml for accepted syntax
+message: '`$TOKEN` opens a span the grammar failed to parse'
+note: Fix the syntax, or extend tools/ast-grep/grammars/xml for valid syntax it rejects

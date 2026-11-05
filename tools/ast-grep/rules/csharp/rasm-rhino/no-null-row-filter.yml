@@ -141,7 +141,7 @@ utils:
             - kind: prefix_unary_expression
               all:
                 - regex: '^!'
-                - has: {kind: parenthesized_expression, has: {kind: is_pattern_expression, all: [{has: {field: expression, pattern: $SLOT}}, {has: {field: pattern, regex: '^null$'}}]}}
+                - has: {kind: parenthesized_expression, has: {kind: is_pattern_expression, all: [{has: {field: expression, pattern: $SLOT}}, {has: {field: pattern, kind: constant_pattern, has: {kind: null_literal}}}]}}
             - kind: parenthesized_expression
               has: {matches: null-test}
     receiver:

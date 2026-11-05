@@ -13,4 +13,4 @@ constraints:
     I: {kind: identifier}
     POS: {regex: '^r?position$'}
 message: '`$S.iter().$POS(..)` splits around a match of a predicate by hand'
-note: 'Call `<slice>.split_once(<predicate>)` for the first match or `<slice>.rsplit_once(<predicate>)` for the last'
+note: 'Call `<slice>.split_once(<predicate>)` for the first match or `<slice>.rsplit_once(<predicate>)` for last'

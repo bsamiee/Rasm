@@ -20,7 +20,8 @@ export const meta = {
 
 const { hosts, languages } = await workflow('languages')
 const REPO = '/Users/bardiasamiee/Developer/Rasm'
-const BAR = `${REPO}/.claude/workflows/BAR.md`
+const WORKFLOWS = '/Users/bardiasamiee/.claude/rasm/workflows'
+const BAR =`${REPO}/.claude/workflows/BAR.md`
 const OUTLINE = 'ast-grep outline'
 const RETURN = 'Return (structured) files you edited, added or deleted, and changes reaching other files.'
 const MODES = {
@@ -121,7 +122,7 @@ const basis = (paths, target = paths.join(', ')) => {
   const hosted = hosts.filter(([folder, , held]) => held.includes(args.language) && paths.some((path) => path.split('/').includes(folder))).flatMap(([, skills]) => skills)
   const skills = [...new Set([...row.skills, ...hosted])].map((skill) => `Skill(${skill})`)
   const families = row.families.length > 0 ? `, each of ${row.families.map((skill) => `Skill(${skill})`).join(', ')} whose description covers your files` : ''
-  const evidence = [...(row.companion ? [`companion ${row.companion}`] : []), ...(inputs.length > 0 ? [`evidence ${inputs.join(', ')}`] : []), `catalog ${row.catalog}`, ...sources(paths), 'recorded findings in .artifacts/workflows and docs/research']
+  const evidence = [...(row.companion ? [`companion ${row.companion}`] : []), ...(inputs.length > 0 ? [`evidence ${inputs.join(', ')}`] : []), `catalog ${row.catalog}`, ...sources(paths), `recorded findings in ${WORKFLOWS} and docs/research`]
   return [
     `Target: ${target} in ${REPO}, base commit ${args.base}.`,
     `Load ${skills.join(', ')}${families}, Skill(clean-prose) and Skill(search-code), and read ${BAR} first.`,
@@ -254,7 +255,7 @@ log(`${MODE} ${args.language} over ${roots.join(', ')}`)
 const writes = MODE !== 'build' ? [] : await (async () => {
   const root = roots[0]
   const target = `row \`${args.key}\` of ${row.companion} [03], folder ${root}`
-  const dir = `${REPO}/.artifacts/workflows/build/${args.language}/${args.key}`
+  const dir = `${WORKFLOWS}/build/${args.language}/${args.key}`
   const plan = PLAN ?? `${dir}/PLAN.md`
   phase('Plan')
   const GRAPH = { type: 'object', properties: { packages: { type: 'array', items: { type: 'object', properties: { id: { type: 'string' }, title: { type: 'string' }, section: { type: 'string' }, files: PATHS, needs: PATHS }, required: ['id', 'title', 'section', 'files', 'needs'] } } }, required: ['packages'] }

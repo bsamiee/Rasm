@@ -29,10 +29,10 @@ rule:
           has: {field: suffix, has: {field: suffix, regex: '^(homeDirectoryForCurrentUser|temporaryDirectory)$'}}
           not: {has: {field: target, regex: '^((Foundation(\.|::))?URL)$'}}
         - kind: call_expression
-          has: {nthChild: 1, regex: '^(Foundation(\.|::))?(NSHomeDirectory(ForUser)?|NSTemporaryDirectory)$'}
+          has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '^(Foundation(\.|::))?(NSHomeDirectory(ForUser)?|NSTemporaryDirectory)$'}
         - kind: call_expression
           all:
-            - has: {nthChild: 1, regex: '^(Foundation(\.|::))?NSSearchPathForDirectoriesInDomains$'}
+            - has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '^(Foundation(\.|::))?NSSearchPathForDirectoriesInDomains$'}
             - has: {matches: user-domain}
 message: '`$SITE` looks up a user directory in place of its `URL` member'
 note: 'Read the `URL` directory member (`applicationSupportDirectory`, `homeDirectory`, `temporaryDirectory`, `homeDirectory(forUser:)`)'

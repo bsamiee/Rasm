@@ -4,5 +4,5 @@
         "typeRoots": [ ".claude-plugin/types", "../../node_modules/@types" ],
         "types": [ "claude-code", "claude-code-tools", "node" ]
     },
-    "include": [ "**/*", "../../tests/typescript/plugins/function-hooks" ]
+    "include": [ "**/*" ]
 }

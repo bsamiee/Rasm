@@ -1,3 +1,17 @@
+id: xml-error
+language: xml
+role: item
+symbolType: 'null'
+rule:
+    any:
+        - {kind: ERROR, not: {has: {has: {pattern: $_}}}}
+        - {kind: 'Name, Comment, STag, EmptyElemTag, element', all: [{inside: {kind: ERROR}}, {nthChild: {position: 1, ofRule: {kind: 'Name, Comment, STag, EmptyElemTag, element'}}}]}
+        - {kind: Name, any: [{regex: '^$'}, {precedes: {stopBy: end, regex: '^$'}}]}
+name: ERROR
+signature: ''
+isImport: false
+isExported: false
+---
 id: xml-root
 language: xml
 role: item
@@ -5,9 +19,12 @@ symbolType: module
 rule:
     kind: Name
     pattern: $NAME
-    inside: {kind: 'STag, EmptyElemTag', pattern: $TAG, inside: {kind: element, inside: {kind: document}}}
+    inside: {kind: 'STag, EmptyElemTag', pattern: $TAG, inside: {kind: element, inside: {kind: 'document, ERROR'}}}
+rewriters:
+    - {id: elide, rule: {kind: 'AttText, EntityText', not: {inside: {has: {kind: Name, pattern: Condition}}}}, fix: '…'}
 transform:
-    SIGNATURE: replace($TAG, replace='[\t\n\r ]+', by=' ')
+    ELIDED: rewrite($TAG, rewriters=[elide])
+    SIGNATURE: replace($ELIDED, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
 name: $NAME
 signature: $SIGNATURE
 isExported: false
@@ -17,31 +34,14 @@ language: xml
 role: item
 symbolType: module
 utils:
-    project-child: {inside: {kind: content, inside: {kind: element, inside: {kind: document}, has: {kind: STag, has: {kind: Name, pattern: Project}}}}}
+    project-child: {inside: {kind: content, inside: {kind: element, inside: {kind: 'document, ERROR'}, has: {kind: STag, has: {kind: Name, pattern: Project}}}}}
 rule:
     any:
-        - kind: Attribute
-          pattern: $TAG
-          inside: {kind: 'STag, EmptyElemTag', inside: {kind: element, inside: {kind: document}}}
-          all:
-            - has: {kind: Name, regex: '^xmlns(?::|$)|(?:^|:)(?:noNamespaceS|s)chemaLocation$'}
-            - has: {field: value, pattern: $TARGET}
-        - kind: Attribute
-          pattern: $TAG
-          inside: {kind: 'STag, EmptyElemTag', has: {kind: Name, pattern: Project}, inside: {kind: element, inside: {kind: document}}}
-          all:
-            - has: {kind: Name, pattern: Sdk}
-            - has: {field: value, pattern: $TARGET}
-        - kind: StyleSheetPI, XmlModelPI
-          pattern: $TAG
-          has: {kind: PseudoAtt, all: [{has: {kind: Name, pattern: href}}, {has: {field: value, pattern: $TARGET}}]}
-        - kind: ExternalID
-          pattern: $TAG
-          not: {inside: {kind: NotationDecl}}
-          has: {kind: SystemLiteral, has: {kind: URI, pattern: $TARGET}}
-        - kind: PEReference
-          inside: {kind: doctypedecl}
-          all: [{pattern: $TAG}, {pattern: $TARGET}]
+        - {kind: Attribute, pattern: $TAG, inside: {kind: 'STag, EmptyElemTag', inside: {kind: element, inside: {kind: 'document, ERROR'}}}, all: [{has: {kind: Name, regex: 'xmlns|chemaLocation'}}, {has: {field: value, pattern: $TARGET}}]}
+        - {kind: Attribute, pattern: $TAG, inside: {kind: 'STag, EmptyElemTag', has: {kind: Name, pattern: Project}, inside: {kind: element, inside: {kind: 'document, ERROR'}}}, all: [{has: {kind: Name, pattern: Sdk}}, {has: {field: value, pattern: $TARGET}}]}
+        - {kind: 'StyleSheetPI, XmlModelPI', pattern: $TAG, has: {kind: PseudoAtt, all: [{has: {kind: Name, pattern: href}}, {has: {field: value, pattern: $TARGET}}]}}
+        - {kind: ExternalID, pattern: $TAG, not: {inside: {kind: NotationDecl}}, has: {kind: SystemLiteral, has: {kind: URI, pattern: $TARGET}}}
+        - {kind: PEReference, inside: {kind: doctypedecl}, all: [{pattern: $TAG}, {pattern: $TARGET}]}
         - kind: element
           has:
             kind: STag, EmptyElemTag
@@ -50,23 +50,36 @@ rule:
                 - has: {kind: Name, regex: '(?:^|:)(?:include|import|redefine|override|import-schema|use-package|externalRef)$'}
                 - has: {kind: Attribute, all: [{has: {kind: Name, any: [{pattern: name}, {pattern: href}, {pattern: namespace}, {pattern: schemaLocation}, {pattern: schema-location}]}}, {has: {field: value, pattern: $TARGET}}]}
         - kind: element
-          all:
-            - has:
-                kind: STag, EmptyElemTag
-                pattern: $TAG
-                all:
-                    - has: {kind: Name, any: [{pattern: Import}, {pattern: Sdk}]}
-                    - has: {kind: Attribute, all: [{has: {kind: Name, any: [{pattern: Project}, {pattern: Name}]}}, {has: {field: value, pattern: $TARGET}}]}
-            - any:
-                - inside: {kind: content, inside: {kind: element, matches: project-child, has: {kind: STag, pattern: $GROUP, has: {kind: Name, pattern: ImportGroup}}}}
-                - matches: project-child
+          has:
+            kind: STag, EmptyElemTag
+            pattern: $TAG
+            all:
+                - has: {kind: Name, any: [{pattern: Import}, {pattern: Sdk}]}
+                - has: {kind: Attribute, all: [{has: {kind: Name, any: [{pattern: Project}, {pattern: Name}]}}, {has: {field: value, pattern: $TARGET}}]}
+          any:
+            - inside: {kind: content, inside: {kind: element, matches: project-child, has: {kind: STag, pattern: $GROUP, has: {kind: Name, pattern: ImportGroup}}}}
+            - matches: project-child
+rewriters:
+    - {id: elide, rule: {kind: 'AttText, EntityText', not: {inside: {has: {kind: Name, pattern: Condition}}}}, fix: '…'}
 transform:
-    NAME: replace($TARGET, replace='[\t\n\r ]+', by=' ')
-    PREFIX_LINE: replace($GROUP, replace='[\t\n\r ]+|$', by=' ')
-    SIGNATURE: replace($TAG, replace='[\t\n\r ]+', by=' ')
+    NAME: replace($TARGET, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
+    PREFIX_LINE: replace($GROUP, replace='[\t\n\r ]*\n[\t\n\r ]*|$', by=' ')
+    ELIDED: rewrite($TAG, rewriters=[elide])
+    SIGNATURE: replace($ELIDED, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
 name: $NAME
 signature: $PREFIX_LINE$SIGNATURE
 isImport: true
+isExported: false
+---
+id: xml-divider
+language: xml
+role: item
+symbolType: namespace
+rule: {kind: Comment, regex: '^<!--[\t\n\r ]*\[[0-9A-Z_]+\][\t\n\r ]*-->$', pattern: $DIVIDER, not: {inside: {kind: ERROR}}}
+transform:
+    LABEL: {replace: {source: $DIVIDER, replace: '^<!--[\t\n\r ]*\[([0-9A-Z_]+)\][\t\n\r ]*-->$', by: '${1}'}}
+name: $LABEL
+signature: <!-- [$LABEL] -->
 isExported: false
 ---
 id: xml-interface
@@ -83,14 +96,12 @@ language: xml
 role: item
 symbolType: event
 rule:
-    pattern: $TAG
-    any:
-        - {kind: PI, has: {kind: PITarget, pattern: $NAME}}
-        - {kind: XMLDecl, has: {regex: '^xml$', pattern: $$NAME}}
+    any: [{kind: PI, has: {kind: PITarget, pattern: $TARGET}}, {kind: XMLDecl, pattern: $TAG, has: {regex: xml, pattern: $$NAME}}]
 transform:
-    SIGNATURE: replace($TAG, replace='[\t\n\r ]+', by=' ')
-name: $NAME
-signature: $SIGNATURE
+    SIGNATURE: replace($TAG, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
+    INSTRUCTION: replace($TARGET, replace='^(.+)$', by='<?$1?>')
+name: $NAME$TARGET
+signature: $SIGNATURE$INSTRUCTION
 isExported: false
 ---
 id: xml-namespace
@@ -99,16 +110,14 @@ role: item
 symbolType: namespace
 rule:
     kind: element
-    inside: {kind: content, inside: {kind: element, inside: {kind: document}, has: {kind: STag, has: {kind: Name, pattern: Solution}}}}
-    has:
-        kind: STag, EmptyElemTag
-        pattern: $TAG
-        all:
-            - has: {kind: Name, pattern: Folder}
-            - has: {kind: Attribute, all: [{has: {kind: Name, pattern: Name}}, {has: {field: value, pattern: $TARGET}}]}
+    inside: {kind: content, inside: {kind: element, inside: {kind: 'document, ERROR'}, has: {kind: STag, has: {kind: Name, pattern: Solution}}}}
+    has: {kind: 'STag, EmptyElemTag', pattern: $TAG, all: [{has: {kind: Name, pattern: Folder}}, {has: {kind: Attribute, all: [{has: {kind: Name, pattern: Name}}, {has: {field: value, pattern: $TARGET}}]}}]}
+rewriters:
+    - {id: elide, rule: {kind: 'AttText, EntityText', not: {inside: {has: {kind: Name, pattern: Condition}}}}, fix: '…'}
 transform:
-    NAME: replace($TARGET, replace='[\t\n\r ]+', by=' ')
-    SIGNATURE: replace($TAG, replace='[\t\n\r ]+', by=' ')
+    NAME: replace($TARGET, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
+    ELIDED: rewrite($TAG, rewriters=[elide])
+    SIGNATURE: replace($ELIDED, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
 name: $NAME
 signature: $SIGNATURE
 ---
@@ -118,16 +127,14 @@ role: item
 symbolType: module
 rule:
     kind: element
-    inside: {kind: content, inside: {kind: element, inside: {kind: document}, has: {kind: STag, has: {kind: Name, pattern: Solution}}}}
-    has:
-        kind: STag, EmptyElemTag
-        pattern: $TAG
-        all:
-            - has: {kind: Name, pattern: Project}
-            - has: {kind: Attribute, all: [{has: {kind: Name, pattern: Path}}, {has: {field: value, pattern: $TARGET}}]}
+    inside: {kind: content, inside: {kind: element, inside: {kind: 'document, ERROR'}, has: {kind: STag, has: {kind: Name, pattern: Solution}}}}
+    has: {kind: 'STag, EmptyElemTag', pattern: $TAG, all: [{has: {kind: Name, pattern: Project}}, {has: {kind: Attribute, all: [{has: {kind: Name, pattern: Path}}, {has: {field: value, pattern: $TARGET}}]}}]}
+rewriters:
+    - {id: elide, rule: {kind: 'AttText, EntityText', not: {inside: {has: {kind: Name, pattern: Condition}}}}, fix: '…'}
 transform:
-    NAME: replace($TARGET, replace='[\t\n\r ]+', by=' ')
-    SIGNATURE: replace($TAG, replace='[\t\n\r ]+', by=' ')
+    NAME: replace($TARGET, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
+    ELIDED: rewrite($TAG, rewriters=[elide])
+    SIGNATURE: replace($ELIDED, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
 name: $NAME
 signature: $SIGNATURE
 ---
@@ -137,16 +144,14 @@ role: item
 symbolType: class
 rule:
     kind: element
-    inside: {kind: content, inside: {kind: element, inside: {kind: document}, has: {kind: STag, has: {kind: Name, pattern: Project}}}}
-    has:
-        kind: STag, EmptyElemTag
-        pattern: $TAG
-        all:
-            - has: {kind: Name, pattern: UsingTask}
-            - has: {kind: Attribute, all: [{has: {kind: Name, pattern: TaskName}}, {has: {field: value, pattern: $TARGET}}]}
+    inside: {kind: content, inside: {kind: element, inside: {kind: 'document, ERROR'}, has: {kind: STag, has: {kind: Name, pattern: Project}}}}
+    has: {kind: 'STag, EmptyElemTag', pattern: $TAG, all: [{has: {kind: Name, pattern: UsingTask}}, {has: {kind: Attribute, all: [{has: {kind: Name, pattern: TaskName}}, {has: {field: value, pattern: $TARGET}}]}}]}
+rewriters:
+    - {id: elide, rule: {kind: 'AttText, EntityText', not: {inside: {has: {kind: Name, pattern: Condition}}}}, fix: '…'}
 transform:
-    NAME: replace($TARGET, replace='[\t\n\r ]+', by=' ')
-    SIGNATURE: replace($TAG, replace='[\t\n\r ]+', by=' ')
+    NAME: replace($TARGET, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
+    ELIDED: rewrite($TAG, rewriters=[elide])
+    SIGNATURE: replace($ELIDED, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
 name: $NAME
 signature: $SIGNATURE
 ---
@@ -155,30 +160,19 @@ language: xml
 role: item
 symbolType: function
 utils:
-    hidden:
-        any:
-            - all: [{has: {kind: Name, pattern: Name}}, {has: {field: value, regex: '^_'}}]
-            - all: [{has: {kind: Name, pattern: visibility}}, {has: {field: value, any: [{pattern: {context: '<a b="private"/>', selector: AttText}}, {pattern: {context: '<a b="hidden"/>', selector: AttText}}]}}]
+    hidden: {any: [{all: [{has: {kind: Name, pattern: Name}}, {has: {field: value, regex: '^_'}}]}, {all: [{has: {kind: Name, pattern: visibility}}, {has: {field: value, regex: 'private|hidden'}}]}]}
 rule:
     kind: element
     any:
-        - inside: {kind: content, inside: {kind: element, inside: {kind: document}, has: {kind: STag, has: {kind: Name, pattern: Project}}}}
-          has:
-            kind: STag, EmptyElemTag
-            pattern: $TAG
-            all:
-                - has: {kind: Name, pattern: Target}
-                - has: {kind: Attribute, all: [{has: {kind: Name, pattern: Name}}, {has: {field: value, pattern: $TARGET}}]}
-        - has:
-            kind: STag, EmptyElemTag
-            pattern: $TAG
-            has: {kind: Name, any: [{pattern: template}, {pattern: function}, {regex: ':(?:template|function)$'}]}
-            any:
-                - has: {kind: Attribute, all: [{has: {kind: Name, pattern: name}}, {has: {field: value, pattern: $TARGET}}]}
-                - has: {kind: Attribute, all: [{has: {kind: Name, pattern: match}}, {has: {field: value, pattern: $TARGET}}]}
+        - inside: {kind: content, inside: {kind: element, inside: {kind: 'document, ERROR'}, has: {kind: STag, has: {kind: Name, pattern: Project}}}}
+          has: {kind: 'STag, EmptyElemTag', pattern: $TAG, all: [{has: {kind: Name, pattern: Target}}, {has: {kind: Attribute, all: [{has: {kind: Name, pattern: Name}}, {has: {field: value, pattern: $TARGET}}]}}]}
+        - has: {kind: 'STag, EmptyElemTag', pattern: $TAG, has: {kind: Name, any: [{pattern: template}, {pattern: function}, {regex: ':(?:template|function)$'}]}, any: [{has: {kind: Attribute, all: [{has: {kind: Name, pattern: name}}, {has: {field: value, pattern: $TARGET}}]}}, {has: {kind: Attribute, all: [{has: {kind: Name, pattern: match}}, {has: {field: value, pattern: $TARGET}}]}}]}
+rewriters:
+    - {id: elide, rule: {kind: 'AttText, EntityText', not: {inside: {has: {kind: Name, pattern: Condition}}}}, fix: '…'}
 transform:
-    NAME: replace($TARGET, replace='[\t\n\r ]+', by=' ')
-    SIGNATURE: replace($TAG, replace='[\t\n\r ]+', by=' ')
+    NAME: replace($TARGET, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
+    ELIDED: rewrite($TAG, rewriters=[elide])
+    SIGNATURE: replace($ELIDED, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
 name: $NAME
 signature: $SIGNATURE
 isExported: {not: {has: {kind: 'STag, EmptyElemTag', has: {kind: Attribute, matches: hidden}}}}
@@ -190,18 +184,14 @@ symbolType: struct
 rule:
     any:
         - kind: element
-          has:
-            kind: STag, EmptyElemTag
-            pattern: $TAG
-            all:
-                - has: {kind: Name, regex: '(?:^|:)(?:complexType|simpleType|group|attributeGroup|element|define|attribute-set|character-map)$'}
-                - has: {kind: Attribute, all: [{has: {kind: Name, pattern: name}}, {has: {field: value, pattern: $TARGET}}]}
-        - kind: elementdecl, AttlistDecl
-          pattern: $TAG
-          has: {kind: 'Name, PEReference', pattern: $TARGET}
+          has: {kind: 'STag, EmptyElemTag', pattern: $TAG, all: [{has: {kind: Name, regex: '(?:^|:)(?:complexType|simpleType|group|attributeGroup|element|define|attribute-set|character-map)$'}}, {has: {kind: Attribute, all: [{has: {kind: Name, pattern: name}}, {has: {field: value, pattern: $TARGET}}]}}]}
+        - {kind: 'elementdecl, AttlistDecl', pattern: $TAG, has: {kind: 'Name, PEReference', pattern: $TARGET}}
+rewriters:
+    - {id: elide, rule: {kind: 'AttText, EntityText', not: {inside: {has: {kind: Name, pattern: Condition}}}}, fix: '…'}
 transform:
-    NAME: replace($TARGET, replace='[\t\n\r ]+', by=' ')
-    SIGNATURE: replace($TAG, replace='[\t\n\r ]+', by=' ')
+    NAME: replace($TARGET, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
+    ELIDED: rewrite($TAG, rewriters=[elide])
+    SIGNATURE: replace($ELIDED, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
 name: $NAME
 signature: $SIGNATURE
 ---
@@ -211,15 +201,13 @@ role: item
 symbolType: property
 rule:
     kind: element
-    has:
-        kind: STag, EmptyElemTag
-        pattern: $TAG
-        all:
-            - has: {kind: Name, any: [{pattern: attribute}, {regex: ':attribute$'}]}
-            - has: {kind: Attribute, all: [{has: {kind: Name, pattern: name}}, {has: {field: value, pattern: $TARGET}}]}
+    has: {kind: 'STag, EmptyElemTag', pattern: $TAG, all: [{has: {kind: Name, any: [{pattern: attribute}, {regex: ':attribute$'}]}}, {has: {kind: Attribute, all: [{has: {kind: Name, pattern: name}}, {has: {field: value, pattern: $TARGET}}]}}]}
+rewriters:
+    - {id: elide, rule: {kind: 'AttText, EntityText', not: {inside: {has: {kind: Name, pattern: Condition}}}}, fix: '…'}
 transform:
-    NAME: replace($TARGET, replace='[\t\n\r ]+', by=' ')
-    SIGNATURE: replace($TAG, replace='[\t\n\r ]+', by=' ')
+    NAME: replace($TARGET, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
+    ELIDED: rewrite($TAG, rewriters=[elide])
+    SIGNATURE: replace($ELIDED, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
 name: $NAME
 signature: $SIGNATURE
 ---
@@ -229,18 +217,17 @@ role: item
 symbolType: variable
 rule:
     kind: element
-    has:
-        kind: STag, EmptyElemTag
-        pattern: $TAG
-        all:
-            - has: {kind: Name, any: [{pattern: variable}, {pattern: param}, {regex: ':(?:variable|param)$'}]}
-            - has: {kind: Attribute, all: [{has: {kind: Name, pattern: name}}, {has: {field: value, pattern: $TARGET}}]}
+    has: {kind: 'STag, EmptyElemTag', pattern: $TAG, all: [{has: {kind: Name, any: [{pattern: variable}, {pattern: param}, {regex: ':(?:variable|param)$'}]}}, {has: {kind: Attribute, all: [{has: {kind: Name, pattern: name}}, {has: {field: value, pattern: $TARGET}}]}}]}
+    not: {has: {stopBy: end, any: [{kind: ERROR}, {regex: '^$'}]}}
+rewriters:
+    - {id: elide, rule: {kind: 'AttText, EntityText', not: {inside: {has: {kind: Name, pattern: Condition}}}}, fix: '…'}
 transform:
-    NAME: replace($TARGET, replace='[\t\n\r ]+', by=' ')
-    SIGNATURE: replace($TAG, replace='[\t\n\r ]+', by=' ')
+    NAME: replace($TARGET, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
+    ELIDED: rewrite($TAG, rewriters=[elide])
+    SIGNATURE: replace($ELIDED, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
 name: $NAME
 signature: $SIGNATURE
-isExported: {not: {has: {kind: 'STag, EmptyElemTag', has: {kind: Attribute, all: [{has: {kind: Name, pattern: visibility}}, {has: {field: value, any: [{pattern: {context: '<a b="private"/>', selector: AttText}}, {pattern: {context: '<a b="hidden"/>', selector: AttText}}]}}]}}}}
+isExported: {not: {has: {kind: 'STag, EmptyElemTag', has: {kind: Attribute, all: [{has: {kind: Name, pattern: visibility}}, {has: {field: value, regex: 'private|hidden'}}]}}}}
 ---
 id: xml-constant
 language: xml
@@ -248,19 +235,16 @@ role: item
 symbolType: constant
 rule:
     any:
-        - kind: Name, PEReference
-          pattern: $TARGET
-          inside: {kind: 'GEDecl, PEDecl, NotationDecl', pattern: $TAG}
+        - {kind: 'Name, PEReference', pattern: $TARGET, inside: {kind: 'GEDecl, PEDecl, NotationDecl', pattern: $TAG}}
         - kind: element
-          has:
-            kind: STag, EmptyElemTag
-            pattern: $TAG
-            all:
-                - has: {kind: Name, any: [{pattern: notation}, {regex: ':notation$'}]}
-                - has: {kind: Attribute, all: [{has: {kind: Name, pattern: name}}, {has: {field: value, pattern: $TARGET}}]}
+          has: {kind: 'STag, EmptyElemTag', pattern: $TAG, all: [{has: {kind: Name, any: [{pattern: notation}, {regex: ':notation$'}]}}, {has: {kind: Attribute, all: [{has: {kind: Name, pattern: name}}, {has: {field: value, pattern: $TARGET}}]}}]}
+    not: {has: {stopBy: end, any: [{kind: ERROR}, {regex: '^$'}]}}
+rewriters:
+    - {id: elide, rule: {kind: 'AttText, EntityText', not: {inside: {has: {kind: Name, pattern: Condition}}}}, fix: '…'}
 transform:
-    NAME: replace($TARGET, replace='[\t\n\r ]+', by=' ')
-    SIGNATURE: replace($TAG, replace='[\t\n\r ]+', by=' ')
+    NAME: replace($TARGET, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
+    ELIDED: rewrite($TAG, rewriters=[elide])
+    SIGNATURE: replace($ELIDED, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
 name: $NAME
 signature: $SIGNATURE
 ---
@@ -270,10 +254,13 @@ role: item
 symbolType: array
 rule:
     kind: element
-    inside: {kind: content, inside: {kind: element, inside: {kind: document}, has: {kind: STag, has: {kind: Name, pattern: configuration}}}}
+    inside: {kind: content, inside: {kind: element, inside: {kind: 'document, ERROR'}, has: {kind: STag, has: {kind: Name, pattern: configuration}}}}
     has: {kind: 'STag, EmptyElemTag', pattern: $TAG, has: {kind: Name, pattern: $NAME}}
+rewriters:
+    - {id: elide, rule: {kind: 'AttText, EntityText', not: {inside: {has: {kind: Name, pattern: Condition}}}}, fix: '…'}
 transform:
-    SIGNATURE: replace($TAG, replace='[\t\n\r ]+', by=' ')
+    ELIDED: rewrite($TAG, rewriters=[elide])
+    SIGNATURE: replace($ELIDED, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
 name: $NAME
 signature: $SIGNATURE
 ---
@@ -282,27 +269,30 @@ language: xml
 role: item
 symbolType: object
 utils:
-    project: {inside: {kind: element, stopBy: end, inside: {kind: document}, has: {kind: STag, has: {kind: Name, pattern: Project}}}}
+    project: {inside: {kind: element, stopBy: end, inside: {kind: 'document, ERROR'}, has: {kind: STag, has: {kind: Name, pattern: Project}}}}
 rule:
     kind: element
     inside: {kind: content}
-    all:
-        - has:
-            kind: STag, EmptyElemTag
-            has: {kind: Name, pattern: $TYPE, not: {all: [{any: [{pattern: Choose}, {pattern: When}, {pattern: Otherwise}, {pattern: ImportGroup}]}, {matches: project}]}}
-            any:
-                - has: {kind: Attribute, all: [{has: {kind: Name, regex: '^(?:id|Id|ID|xml:id|name|Name|key|Key|ref|label|Label|pattern)$'}}, {has: {field: value, pattern: $IDENTITY}}]}
-                - kind: STag, EmptyElemTag
-        - any:
-            - {pattern: $TAG, has: {kind: content, not: {any: [{regex: '^[\t\n\r ]*$'}, {has: {kind: 'element, CDSect, PI'}}]}}}
-            - has: {kind: 'STag, EmptyElemTag', pattern: $TAG}
-        - any:
-            - inside: {kind: content, inside: {kind: element, has: {kind: STag, pattern: $BRANCH, has: {kind: Name, any: [{pattern: When}, {pattern: Otherwise}]}}}}
-            - kind: element
+    has:
+        kind: STag, EmptyElemTag
+        pattern: $TAG
+        has: {kind: Name, pattern: $TYPE}
+        any:
+            - has: {kind: Attribute, all: [{has: {kind: Name, regex: '^(?:id|Id|ID|xml:id|name|key|Key|ref|label|Label|pattern)$|Name$'}}, {has: {field: value, pattern: $IDENTITY}}]}
+            - not: {inside: {kind: element, stopBy: end, inside: {kind: 'document, ERROR'}, has: {kind: STag, has: {kind: Name, regex: '(?:^|:)svg$'}}}}
+            - inside: {kind: element, has: {kind: content, has: {kind: Attribute, stopBy: end, has: {kind: Name, pattern: id}}}}
+    any:
+        - inside: {kind: content, inside: {kind: element, has: {kind: STag, pattern: $BRANCH, has: {kind: Name, any: [{pattern: When}, {pattern: Otherwise}]}}}}
+        - kind: element
+constraints:
+    TYPE: {not: {all: [{any: [{pattern: Choose}, {pattern: When}, {pattern: Otherwise}, {pattern: ImportGroup}]}, {matches: project}]}}
+rewriters:
+    - {id: elide, rule: {kind: 'AttText, EntityText', not: {inside: {has: {kind: Name, pattern: Condition}}}}, fix: '…'}
 transform:
-    SUFFIX_LINE: replace($IDENTITY, replace='^[\t\n\r ]*|[\t\n\r ]+', by=' ')
-    PREFIX_LINE: replace($BRANCH, replace='[\t\n\r ]+|$', by=' ')
-    SIGNATURE: replace($TAG, replace='[\t\n\r ]+', by=' ')
+    SUFFIX_LINE: replace($IDENTITY, replace='^[\t\n\r ]*|[\t\n\r ]*\n[\t\n\r ]*', by=' ')
+    PREFIX_LINE: replace($BRANCH, replace='[\t\n\r ]*\n[\t\n\r ]*|$', by=' ')
+    ELIDED: rewrite($TAG, rewriters=[elide])
+    SIGNATURE: replace($ELIDED, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
 name: $TYPE$SUFFIX_LINE
 signature: $PREFIX_LINE$SIGNATURE
 isExported: {has: {kind: 'STag, EmptyElemTag', has: {kind: Name, any: [{pattern: PropertyGroup}, {pattern: ItemGroup}, {pattern: ItemDefinitionGroup}], matches: project}}}
@@ -312,32 +302,25 @@ language: xml
 role: member
 parentRuleIds: [xml-element, xml-function, xml-using-task, xml-struct, xml-property]
 symbolType: property
-utils:
-    text:
-        any:
-            - {pattern: $TEXT, has: {kind: content, not: {has: {kind: 'element, CDSect, PI'}}}}
-            - has: {kind: 'STag, EmptyElemTag', pattern: $TEXT}
 rule:
     any:
         - kind: element
-          matches: text
-          has: {kind: 'STag, EmptyElemTag', has: {kind: Name, pattern: $TARGET}}
+          has: {kind: 'STag, EmptyElemTag', pattern: $TEXT, has: {kind: Name, pattern: $TARGET}}
           inside: {kind: content, inside: {kind: element, has: {kind: STag, has: {kind: Name, any: [{pattern: PropertyGroup}, {pattern: ParameterGroup}]}}}}
         - kind: element
-          matches: text
-          has:
-            kind: STag, EmptyElemTag
-            all:
-                - has: {kind: Name, any: [{pattern: Output}, {pattern: attribute}, {regex: ':attribute$'}]}
-                - has: {kind: Attribute, all: [{has: {kind: Name, any: [{pattern: PropertyName}, {pattern: name}, {pattern: ref}]}}, {has: {field: value, pattern: $TARGET}}]}
-        - kind: Name, PEReference
-          pattern: $TARGET
-          inside: {kind: AttDef, pattern: $TEXT}
+          has: {kind: 'STag, EmptyElemTag', pattern: $TEXT, all: [{has: {kind: Name, any: [{pattern: Output}, {pattern: attribute}, {regex: ':attribute$'}]}}, {has: {kind: Attribute, all: [{has: {kind: Name, any: [{pattern: PropertyName}, {pattern: name}, {pattern: ref}]}}, {has: {field: value, pattern: $TARGET}}]}}]}
+        - {kind: 'Name, PEReference', pattern: $TARGET, inside: {kind: AttDef, pattern: $DEFINITION}}
+    not: {has: {stopBy: end, any: [{kind: ERROR}, {regex: '^$'}]}}
+rewriters:
+    - {id: elide, rule: {kind: 'AttText, EntityText', not: {inside: {has: {kind: Name, pattern: Condition}}}}, fix: '…'}
 transform:
-    NAME: replace($TARGET, replace='[\t\n\r ]+', by=' ')
-    SIGNATURE: replace($TEXT, replace='[\t\n\r ]+', by=' ')
+    NAME: replace($TARGET, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
+    ELIDED: rewrite($TEXT, rewriters=[elide])
+    SIGNATURE: replace($ELIDED, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
+    DEFINITION_ELIDED: rewrite($DEFINITION, rewriters=[elide])
+    DEFINITION_LINE: replace($DEFINITION_ELIDED, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
 name: $NAME
-signature: $SIGNATURE
+signature: $SIGNATURE$DEFINITION_LINE
 isPublic: {not: {has: {kind: 'STag, EmptyElemTag', any: [{has: {kind: Name, regex: '^_'}}, {has: {kind: Attribute, all: [{has: {kind: Name, pattern: PropertyName}}, {has: {field: value, regex: '^_'}}]}}]}}}
 ---
 id: xml-member-variable
@@ -347,89 +330,30 @@ parentRuleIds: [xml-element, xml-function]
 symbolType: variable
 utils:
     item-group-child: {inside: {kind: content, inside: {kind: element, has: {kind: STag, has: {kind: Name, any: [{pattern: ItemGroup}, {pattern: ItemDefinitionGroup}]}}}}}
-    specification:
-        any:
-            - has: {kind: Attribute, all: [{has: {kind: Name, any: [{pattern: Include}, {pattern: Update}, {pattern: Remove}]}}, {has: {field: value, pattern: $SPECIFICATION}}]}
-            - kind: STag, EmptyElemTag
-    text:
-        any:
-            - {pattern: $TEXT, has: {kind: content, not: {has: {kind: 'element, CDSect, PI'}}}}
-            - has: {kind: 'STag, EmptyElemTag', pattern: $TEXT}
-    hidden:
-        any:
-            - has: {kind: Name, regex: '^_|(?:^|:)variable$'}
-            - has: {kind: Attribute, all: [{has: {kind: Name, pattern: ItemName}}, {has: {field: value, regex: '^_'}}]}
+    specification: {any: [{has: {kind: Attribute, all: [{has: {kind: Name, any: [{pattern: Include}, {pattern: Update}, {pattern: Remove}]}}, {has: {field: value, pattern: $SPECIFICATION}}]}}, {kind: 'STag, EmptyElemTag'}]}
+    hidden: {any: [{has: {kind: Name, regex: '^_|(?:^|:)variable$'}}, {has: {kind: Attribute, all: [{has: {kind: Name, pattern: ItemName}}, {has: {field: value, regex: '^_'}}]}}]}
 rule:
     any:
         - kind: element
           matches: item-group-child
           not: {has: {kind: content, has: {kind: element}}}
-          all:
-            - matches: text
-            - has: {kind: 'STag, EmptyElemTag', has: {kind: Name, pattern: $TARGET}, matches: specification}
-        - kind: STag
-          pattern: $TEXT
-          has: {kind: Name, pattern: $TARGET}
-          matches: specification
-          inside: {kind: element, matches: item-group-child, has: {kind: content, has: {kind: element}}}
+          has: {kind: 'STag, EmptyElemTag', pattern: $TEXT, has: {kind: Name, pattern: $TARGET}, matches: specification}
+        - {kind: STag, pattern: $TEXT, has: {kind: Name, pattern: $TARGET}, matches: specification, inside: {kind: element, matches: item-group-child, has: {kind: content, has: {kind: element}}}}
         - kind: element
-          matches: text
-          has:
-            kind: STag, EmptyElemTag
-            all:
-                - has: {kind: Name, any: [{pattern: Output}, {pattern: param}, {pattern: variable}, {regex: ':(?:param|variable)$'}]}
-                - has: {kind: Attribute, all: [{has: {kind: Name, any: [{pattern: ItemName}, {pattern: name}]}}, {has: {field: value, pattern: $TARGET}}]}
+          has: {kind: 'STag, EmptyElemTag', pattern: $TEXT, all: [{has: {kind: Name, any: [{pattern: Output}, {pattern: param}, {pattern: variable}, {regex: ':(?:param|variable)$'}]}}, {has: {kind: Attribute, all: [{has: {kind: Name, any: [{pattern: ItemName}, {pattern: name}]}}, {has: {field: value, pattern: $TARGET}}]}}]}
+    not: {has: {stopBy: end, any: [{kind: ERROR}, {regex: '^$'}]}}
+rewriters:
+    - {id: elide, rule: {kind: 'AttText, EntityText', not: {inside: {has: {kind: Name, pattern: Condition}}}}, fix: '…'}
 transform:
-    NAME: replace($TARGET, replace='[\t\n\r ]+', by=' ')
-    SUFFIX_LINE: replace($SPECIFICATION, replace='^[\t\n\r ]*|[\t\n\r ]+', by=' ')
-    SIGNATURE: replace($TEXT, replace='[\t\n\r ]+', by=' ')
+    NAME: replace($TARGET, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
+    SUFFIX_LINE: replace($SPECIFICATION, replace='^[\t\n\r ]*|[\t\n\r ]*\n[\t\n\r ]*', by=' ')
+    ELIDED: rewrite($TEXT, rewriters=[elide])
+    SIGNATURE: replace($ELIDED, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
 name: $NAME$SUFFIX_LINE
 signature: $SIGNATURE
 isPublic: {not: {any: [{matches: hidden}, {has: {kind: 'STag, EmptyElemTag', matches: hidden}}]}}
 ---
-id: xml-member-metadata
-language: xml
-role: member
-parentRuleIds: [xml-element, xml-function]
-symbolType: field
-rule:
-    kind: element
-    has: {kind: 'STag, EmptyElemTag', has: {kind: Name, pattern: $NAME}}
-    any:
-        - {pattern: $TEXT, has: {kind: content, not: {has: {kind: 'element, CDSect, PI'}}}}
-        - has: {kind: 'STag, EmptyElemTag', pattern: $TEXT}
-    inside:
-        kind: content
-        inside:
-            kind: element
-            has: {kind: STag, has: {kind: Name, pattern: $OWNER}}
-            inside: {kind: content, inside: {kind: element, has: {kind: STag, has: {kind: Name, any: [{pattern: ItemGroup}, {pattern: ItemDefinitionGroup}]}}}}
-transform:
-    SIGNATURE: replace($TEXT, replace='[\t\n\r ]+', by=' ')
-name: $OWNER.$NAME
-signature: $SIGNATURE
----
-id: xml-function-group
-language: xml
-role: member
-parentRuleIds: [xml-function]
-symbolType: object
-rule:
-    kind: STag, EmptyElemTag
-    pattern: $TAG
-    inside: {kind: element, inside: {kind: content, inside: {kind: element, has: {kind: STag, has: {kind: Name, pattern: Target}}}}}
-    has: {kind: Name, any: [{pattern: PropertyGroup}, {pattern: ItemGroup}], pattern: $GROUP}
-    any:
-        - has: {kind: Attribute, all: [{has: {kind: Name, pattern: Label}}, {has: {field: value, pattern: $LABEL}}]}
-        - kind: STag, EmptyElemTag
-transform:
-    SUFFIX: replace($LABEL, replace='^[\t\n\r ]*|[\t\n\r ]+', by=' ')
-    SIGNATURE: replace($TAG, replace='[\t\n\r ]+', by=' ')
-name: $GROUP$SUFFIX
-signature: $SIGNATURE
-isPublic: false
----
-id: xml-function-task
+id: xml-member-method
 language: xml
 role: member
 parentRuleIds: [xml-function]
@@ -439,8 +363,32 @@ rule:
     pattern: $TAG
     has: {kind: Name, pattern: $NAME, not: {any: [{pattern: PropertyGroup}, {pattern: ItemGroup}, {pattern: OnError}]}}
     inside: {kind: element, inside: {kind: content, inside: {kind: element, has: {kind: STag, has: {kind: Name, pattern: Target}}}}}
+    not: {has: {stopBy: end, any: [{kind: ERROR}, {regex: '^$'}]}}
+rewriters:
+    - {id: elide, rule: {kind: 'AttText, EntityText', not: {inside: {has: {kind: Name, pattern: Condition}}}}, fix: '…'}
 transform:
-    SIGNATURE: replace($TAG, replace='[\t\n\r ]+', by=' ')
+    ELIDED: rewrite($TAG, rewriters=[elide])
+    SIGNATURE: replace($ELIDED, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
+name: $NAME
+signature: $SIGNATURE
+isPublic: false
+---
+id: xml-member-object
+language: xml
+role: member
+parentRuleIds: [xml-function]
+symbolType: object
+rule:
+    kind: STag
+    pattern: $TAG
+    has: {kind: Name, pattern: $NAME, any: [{pattern: PropertyGroup}, {pattern: ItemGroup}]}
+    all: [{has: {kind: Attribute}}, {inside: {kind: element, inside: {kind: content, inside: {kind: element, has: {kind: STag, has: {kind: Name, pattern: Target}}}}}}]
+    not: {has: {stopBy: end, any: [{kind: ERROR}, {regex: '^$'}]}}
+rewriters:
+    - {id: elide, rule: {kind: 'AttText, EntityText', not: {inside: {has: {kind: Name, pattern: Condition}}}}, fix: '…'}
+transform:
+    ELIDED: rewrite($TAG, rewriters=[elide])
+    SIGNATURE: replace($ELIDED, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
 name: $NAME
 signature: $SIGNATURE
 isPublic: false
@@ -452,13 +400,17 @@ parentRuleIds: [xml-element, xml-function, xml-using-task, xml-struct]
 symbolType: event
 rule:
     any:
-        - kind: element
-          has: {kind: 'STag, EmptyElemTag', pattern: $TAG, has: {kind: Name, all: [{pattern: OnError}, {pattern: $NAME}]}}
-        - {kind: PI, pattern: $TAG, has: {kind: PITarget, pattern: $NAME}}
+        - {kind: element, has: {kind: 'STag, EmptyElemTag', pattern: $TAG, has: {kind: Name, all: [{pattern: OnError}, {pattern: $NAME}]}}}
+        - {kind: PI, has: {kind: PITarget, pattern: $TARGET}}
+    not: {has: {stopBy: end, any: [{kind: ERROR}, {regex: '^$'}]}}
+rewriters:
+    - {id: elide, rule: {kind: 'AttText, EntityText', not: {inside: {has: {kind: Name, pattern: Condition}}}}, fix: '…'}
 transform:
-    SIGNATURE: replace($TAG, replace='[\t\n\r ]+', by=' ')
-name: $NAME
-signature: $SIGNATURE
+    ELIDED: rewrite($TAG, rewriters=[elide])
+    SIGNATURE: replace($ELIDED, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
+    INSTRUCTION: replace($TARGET, replace='^(.+)$', by='<?$1?>')
+name: $NAME$TARGET
+signature: $SIGNATURE$INSTRUCTION
 isPublic: false
 ---
 id: xml-member-module
@@ -472,15 +424,15 @@ rule:
         kind: STag, EmptyElemTag
         pattern: $TAG
         any:
-            - all:
-                - has: {kind: Name, pattern: Project}
-                - has: {kind: Attribute, all: [{has: {kind: Name, pattern: Path}}, {has: {field: value, pattern: $TARGET}}]}
-            - all:
-                - has: {kind: Name, any: [{pattern: include}, {regex: ':include$'}]}
-                - has: {kind: Attribute, all: [{has: {kind: Name, pattern: href}}, {has: {field: value, pattern: $TARGET}}]}
+            - all: [{has: {kind: Name, pattern: Project}}, {has: {kind: Attribute, all: [{has: {kind: Name, pattern: Path}}, {has: {field: value, pattern: $TARGET}}]}}]
+            - all: [{has: {kind: Name, any: [{pattern: include}, {regex: ':include$'}]}}, {has: {kind: Attribute, all: [{has: {kind: Name, pattern: href}}, {has: {field: value, pattern: $TARGET}}]}}]
+    not: {has: {stopBy: end, any: [{kind: ERROR}, {regex: '^$'}]}}
+rewriters:
+    - {id: elide, rule: {kind: 'AttText, EntityText', not: {inside: {has: {kind: Name, pattern: Condition}}}}, fix: '…'}
 transform:
-    NAME: replace($TARGET, replace='[\t\n\r ]+', by=' ')
-    SIGNATURE: replace($TAG, replace='[\t\n\r ]+', by=' ')
+    NAME: replace($TARGET, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
+    ELIDED: rewrite($TAG, rewriters=[elide])
+    SIGNATURE: replace($ELIDED, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
 name: $NAME
 signature: $SIGNATURE
 ---
@@ -491,19 +443,18 @@ parentRuleIds: [xml-namespace]
 symbolType: file
 rule:
     kind: element
-    has:
-        kind: STag, EmptyElemTag
-        pattern: $TAG
-        all:
-            - has: {kind: Name, pattern: File}
-            - has: {kind: Attribute, all: [{has: {kind: Name, pattern: Path}}, {has: {field: value, pattern: $TARGET}}]}
+    has: {kind: 'STag, EmptyElemTag', pattern: $TAG, all: [{has: {kind: Name, pattern: File}}, {has: {kind: Attribute, all: [{has: {kind: Name, pattern: Path}}, {has: {field: value, pattern: $TARGET}}]}}]}
+    not: {has: {stopBy: end, any: [{kind: ERROR}, {regex: '^$'}]}}
+rewriters:
+    - {id: elide, rule: {kind: 'AttText, EntityText', not: {inside: {has: {kind: Name, pattern: Condition}}}}, fix: '…'}
 transform:
-    NAME: replace($TARGET, replace='[\t\n\r ]+', by=' ')
-    SIGNATURE: replace($TAG, replace='[\t\n\r ]+', by=' ')
+    NAME: replace($TARGET, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
+    ELIDED: rewrite($TAG, rewriters=[elide])
+    SIGNATURE: replace($ELIDED, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
 name: $NAME
 signature: $SIGNATURE
 ---
-id: xml-struct-enum-member
+id: xml-member-case
 language: xml
 role: member
 parentRuleIds: [xml-struct, xml-property]
@@ -511,17 +462,16 @@ symbolType: enumMember
 rule:
     any:
         - kind: element
-          has:
-            kind: STag, EmptyElemTag
-            pattern: $TAG
-            all:
-                - has: {kind: Name, any: [{pattern: enumeration}, {regex: ':enumeration$'}]}
-                - has: {kind: Attribute, all: [{has: {kind: Name, pattern: value}}, {has: {field: value, pattern: $TARGET}}]}
+          has: {kind: 'STag, EmptyElemTag', pattern: $TAG, all: [{has: {kind: Name, any: [{pattern: enumeration}, {regex: ':enumeration$'}]}}, {has: {kind: Attribute, all: [{has: {kind: Name, pattern: value}}, {has: {field: value, pattern: $TARGET}}]}}]}
         - {kind: Nmtoken, inside: {kind: Enumeration}, all: [{pattern: $TARGET}, {pattern: $TAG}]}
         - {kind: Name, inside: {kind: NotationType}, all: [{pattern: $TARGET}, {pattern: $TAG}]}
+    not: {has: {stopBy: end, any: [{kind: ERROR}, {regex: '^$'}]}}
+rewriters:
+    - {id: elide, rule: {kind: 'AttText, EntityText', not: {inside: {has: {kind: Name, pattern: Condition}}}}, fix: '…'}
 transform:
-    NAME: replace($TARGET, replace='[\t\n\r ]+', by=' ')
-    SIGNATURE: replace($TAG, replace='[\t\n\r ]+', by=' ')
+    NAME: replace($TARGET, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
+    ELIDED: rewrite($TAG, rewriters=[elide])
+    SIGNATURE: replace($ELIDED, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
 name: $NAME
 signature: $SIGNATURE
 ---
@@ -530,68 +480,135 @@ language: xml
 role: member
 parentRuleIds: [xml-element, xml-section]
 symbolType: key
+utils:
+    identity: {kind: Name, regex: '^(?:id|Id|ID|xml:id|name|key|Key|ref|label|Label|pattern)$|Name$'}
+    attributed: {has: {kind: Attribute, all: [{has: {kind: Name, pattern: key}}, {has: {field: value, pattern: $KEY}}]}}
+    owned: {inside: {kind: content, inside: {kind: element, inside: {kind: content}, has: {kind: STag, pattern: $OWNER}}}}
 rule:
     any:
-        - kind: STag, EmptyElemTag
-          pattern: $TEXT
-          has: {kind: Attribute, all: [{has: {kind: Name, pattern: key}}, {has: {field: value, pattern: $KEY}}]}
-          inside: {kind: element, inside: {kind: content, inside: {kind: element, inside: {kind: content}}}}
+        - {kind: element, matches: owned, not: {has: {kind: content, has: {kind: element}}}, has: {kind: 'STag, EmptyElemTag', pattern: $TEXT, matches: attributed}}
+        - {kind: STag, pattern: $TEXT, matches: attributed, inside: {kind: element, matches: owned, has: {kind: content, has: {kind: element}}}}
         - kind: element
           pattern: $TEXT
-          inside:
-            kind: content
-            inside:
-                kind: element
-                has: {kind: STag, has: {kind: Name, pattern: dict}}
-                any:
-                    - follows: {kind: element, stopBy: {kind: element}, all: [{has: {kind: STag, has: {kind: Name, pattern: key}}}, {has: {kind: content, pattern: $OWNER}}]}
-                    - kind: element
-          all:
-            - has: {kind: STag, has: {kind: Name, pattern: key}}
-            - has: {kind: content, pattern: $KEY}
+          inside: {kind: content, inside: {kind: element, has: {kind: STag, pattern: $OWNER, has: {kind: Name, pattern: dict}}}}
+          all: [{has: {kind: STag, has: {kind: Name, pattern: key}}}, {has: {kind: content, pattern: $KEY}}]
+          any: [{precedes: {kind: element, stopBy: {kind: element}, has: {kind: 'STag, EmptyElemTag', pattern: $VALUE}}}, {kind: element}]
+    not: {has: {stopBy: end, any: [{kind: ERROR}, {regex: '^$'}]}}
+rewriters:
+    - {id: elide, rule: {kind: 'AttText, EntityText', not: {inside: {has: {kind: Name, pattern: Condition}}}}, fix: '…'}
+    - {id: comment, rule: {kind: Comment}, fix: ''}
+    - id: entry
+      rule: {kind: content, pattern: $SEGMENT}
+      transform:
+          BARE: rewrite($SEGMENT, rewriters=[comment])
+      fix: $BARE/
+    - id: lineage
+      rule:
+          kind: STag
+          inside: {kind: element, inside: {kind: content, inside: {kind: element, inside: {kind: content}, has: {kind: STag, pattern: $UP}}}}
           any:
-            - precedes: {kind: element, stopBy: {kind: element}, pattern: $VALUE, not: {has: {kind: content, has: {kind: element}}}}
-            - kind: element
+              - inside: {kind: element, follows: {kind: element, stopBy: {kind: element}, all: [{has: {kind: STag, has: {kind: Name, pattern: key}}}, {has: {kind: content, pattern: $ENTRY}}]}}
+              - has: {kind: Attribute, all: [{has: {kind: Name, pattern: key}}, {has: {field: value, pattern: $KEYED}}]}
+              - all: [{has: {kind: Name, pattern: $KIND}}, {has: {kind: Attribute, all: [{has: {matches: identity}}, {has: {field: value, pattern: $LABEL}}]}}]
+              - kind: STag
+      transform:
+          ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
+          ENTRY_PART: {rewrite: {source: $ENTRY, rewriters: [entry], joinBy: ''}}
+          KEYED_PART: replace($KEYED, replace='$', by='/')
+          KIND_PART: replace($KIND, replace='$', by=' ')
+          LABEL_PART: replace($LABEL, replace='$', by='/')
+      fix: $ABOVE$ENTRY_PART$KEYED_PART$KIND_PART$LABEL_PART
 transform:
-    QUALIFIER: replace($OWNER, replace='$', by='.')
-    QUALIFIER_LINE: replace($QUALIFIER, replace='[\t\n\r ]+', by=' ')
-    NAME: replace($KEY, replace='[\t\n\r ]+', by=' ')
-    VALUE_LINE: replace($VALUE, replace='^|[\t\n\r ]+', by=' ')
-    SIGNATURE: replace($TEXT, replace='[\t\n\r ]+', by=' ')
+    QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage], joinBy: ''}}
+    QUALIFIER_LINE: replace($QUALIFIER, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
+    KEY_BARE: rewrite($KEY, rewriters=[comment])
+    NAME: replace($KEY_BARE, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
+    VALUE_LINE: replace($VALUE, replace='^|[\t\n\r ]*\n[\t\n\r ]*', by=' ')
+    ELIDED: rewrite($TEXT, rewriters=[elide, comment])
+    SIGNATURE: replace($ELIDED, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
 name: $QUALIFIER_LINE$NAME
 signature: $SIGNATURE$VALUE_LINE
 ---
 id: xml-member-field
 language: xml
 role: member
-parentRuleIds: [xml-element, xml-struct, xml-solution-project, xml-namespace, xml-section, xml-import, xml-property]
+parentRuleIds: [xml-element, xml-function, xml-struct, xml-solution-project, xml-namespace, xml-section, xml-import, xml-property]
 symbolType: field
 utils:
-    identity: {kind: Name, regex: '^(?:id|Id|ID|xml:id|name|Name|key|Key|ref|label|Label|pattern)$'}
-rule:
-    kind: STag, EmptyElemTag
-    has: {kind: Name, pattern: $TYPE}
-    any:
-        - pattern: $TAG
-          has: {kind: Attribute, all: [{has: {matches: identity}}, {has: {field: value, pattern: $IDENTITY}}]}
-        - precedes: {kind: content, not: {any: [{regex: '^[\t\n\r ]*$'}, {has: {kind: 'element, CDSect, PI'}}]}}
-          inside: {kind: element, pattern: $TAG}
-    inside:
-        kind: element
+    identity: {kind: Name, regex: '^(?:id|Id|ID|xml:id|name|key|Key|ref|label|Label|pattern)$|Name$'}
+    identified: {has: {kind: Attribute, all: [{has: {matches: identity}}, {has: {field: value, pattern: $IDENTITY}}]}}
+    owned:
         inside:
             kind: content
             inside:
                 kind: element
-                not: {has: {kind: STag, has: {kind: Name, any: [{pattern: dict}, {pattern: When}, {pattern: Otherwise}]}}}
+                not: {has: {kind: STag, has: {kind: Name, any: [{pattern: dict}, {pattern: When}, {pattern: Otherwise}, {pattern: Target}]}}}
                 inside: {kind: content}
-                any:
-                    - inside: {kind: content, inside: {kind: element, inside: {kind: document}}}
-                    - has: {kind: STag, has: {kind: Attribute, all: [{has: {matches: identity}}, {has: {field: value, pattern: $OWNER}}]}}
-                    - kind: element
+                has: {kind: STag, pattern: $OWNER}
+rule:
+    any:
+        - kind: element
+          has: {kind: 'STag, EmptyElemTag', pattern: $TAG, has: {kind: Name, pattern: $NAME}}
+          inside:
+            kind: content
+            inside:
+                kind: element
+                has: {kind: STag, has: {kind: Name, pattern: $METADATA}, any: [{has: {kind: Attribute, all: [{has: {kind: Name, any: [{pattern: Include}, {pattern: Update}, {pattern: Remove}]}}, {has: {field: value, pattern: $SPECIFICATION}}]}}, {kind: STag}]}
+                inside: {kind: content, inside: {kind: element, has: {kind: STag, has: {kind: Name, any: [{pattern: ItemGroup}, {pattern: ItemDefinitionGroup}]}}}}
+        - kind: element
+          matches: owned
+          not: {has: {kind: content, has: {kind: element}}}
+          has:
+            kind: STag, EmptyElemTag
+            pattern: $TAG
+            has: {kind: Name, pattern: $NAME}
+            any: [{matches: identified}, {kind: EmptyElemTag, not: {has: {kind: Attribute}}}, {precedes: {kind: content, not: {any: [{regex: '^[\t\n\r ]*$'}, {has: {kind: 'CDSect, PI'}}]}}}]
+        - {kind: STag, pattern: $TAG, has: {kind: Name, pattern: $NAME}, matches: identified, inside: {kind: element, matches: owned, has: {kind: content, has: {kind: element}}}}
+    not: {has: {stopBy: end, any: [{kind: ERROR}, {regex: '^$'}]}}
+rewriters:
+    - {id: elide, rule: {kind: 'AttText, EntityText', not: {inside: {has: {kind: Name, pattern: Condition}}}}, fix: '…'}
+    - {id: comment, rule: {kind: Comment}, fix: ''}
+    - id: entry
+      rule: {kind: content, pattern: $SEGMENT}
+      transform:
+          BARE: rewrite($SEGMENT, rewriters=[comment])
+      fix: $BARE/
+    - id: lineage
+      rule:
+          kind: STag
+          inside: {kind: element, inside: {kind: content, inside: {kind: element, inside: {kind: content}, has: {kind: STag, pattern: $UP}}}}
+          any:
+              - inside: {kind: element, follows: {kind: element, stopBy: {kind: element}, all: [{has: {kind: STag, has: {kind: Name, pattern: key}}}, {has: {kind: content, pattern: $ENTRY}}]}}
+              - has: {kind: Attribute, all: [{has: {kind: Name, pattern: key}}, {has: {field: value, pattern: $KEYED}}]}
+              - all: [{has: {kind: Name, pattern: $KIND}}, {has: {kind: Attribute, all: [{has: {matches: identity}}, {has: {field: value, pattern: $LABEL}}]}}]
+              - kind: STag
+      transform:
+          ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
+          ENTRY_PART: {rewrite: {source: $ENTRY, rewriters: [entry], joinBy: ''}}
+          KEYED_PART: replace($KEYED, replace='$', by='/')
+          KIND_PART: replace($KIND, replace='$', by=' ')
+          LABEL_PART: replace($LABEL, replace='$', by='/')
+      fix: $ABOVE$ENTRY_PART$KEYED_PART$KIND_PART$LABEL_PART
 transform:
-    QUALIFIER: replace($OWNER, replace='$', by='/')
-    QUALIFIER_LINE: replace($QUALIFIER, replace='[\t\n\r ]+', by=' ')
-    SUFFIX_LINE: replace($IDENTITY, replace='^[\t\n\r ]*|[\t\n\r ]+', by=' ')
-    SIGNATURE: replace($TAG, replace='[\t\n\r ]+', by=' ')
-name: $QUALIFIER_LINE$TYPE$SUFFIX_LINE
+    SPECIFICATION_LINE: replace($SPECIFICATION, replace='^[\t\n\r ]*|[\t\n\r ]*\n[\t\n\r ]*', by=' ')
+    PARENT: replace($METADATA, replace='.+', by='/')
+    QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage], joinBy: ''}}
+    QUALIFIER_LINE: replace($QUALIFIER, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
+    SUFFIX_LINE: replace($IDENTITY, replace='^[\t\n\r ]*|[\t\n\r ]*\n[\t\n\r ]*', by=' ')
+    ELIDED: rewrite($TAG, rewriters=[elide])
+    SIGNATURE: replace($ELIDED, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
+name: $METADATA$SPECIFICATION_LINE$PARENT$QUALIFIER_LINE$NAME$SUFFIX_LINE
 signature: $SIGNATURE
+---
+id: xml-member-error
+language: xml
+role: member
+parentRuleIds: [xml-element, xml-function, xml-using-task, xml-struct, xml-property, xml-namespace, xml-section, xml-solution-project, xml-import]
+symbolType: 'null'
+rule:
+    any:
+        - {kind: ERROR, not: {has: {has: {pattern: $_}}}}
+        - {kind: Name, any: [{regex: '^$'}, {precedes: {stopBy: end, regex: '^$'}}]}
+name: ERROR
+signature: ''
+isPublic: false

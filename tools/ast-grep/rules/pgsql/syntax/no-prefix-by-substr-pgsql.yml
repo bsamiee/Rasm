@@ -37,7 +37,7 @@ utils:
     compared:
         has: {stopBy: {not: {matches: pgsql-wrapper}}, not: {matches: pgsql-wrapper}, pattern: $PREFIX}
 rule:
-    kind: a_expr, a_expr_prec
+    kind: a_expr
     pattern: $TEST
     all:
         - has: {field: operator, regex: '^=$'}

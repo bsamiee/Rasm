@@ -4,6 +4,10 @@ severity: error
 rule:
     kind: call_expression
     all:
+        - inside:
+            stopBy: end
+            kind: call_expression
+            has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^(tryPromise|promise|try|sync)$'}}}}
         - has:
             field: function
             pattern: $CALL
@@ -11,9 +15,5 @@ rule:
                 typescript-import-reference:
                     source: {regex: '^(node:)?fs(/promises)?$'}
                     exported: {regex: '^(realpath|realpathSync|readFile|readFileSync|writeFile|writeFileSync|stat|statSync|lstat|readdir|readdirSync|mkdir|mkdirSync|rm|rmSync|copyFile|rename|symlink|readlink|access|mkdtemp|exists|existsSync|utimes|truncate|chmod)$'}
-        - inside:
-            stopBy: end
-            kind: call_expression
-            has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^(tryPromise|promise|try|sync)$'}}}}
-message: '`$CALL` reaches the file system around the `FileSystem` service'
-note: 'Call the `FileSystem.FileSystem` member, which fails with a `PlatformError` naming the path'
+message: '`$CALL` reaches the file system around `FileSystem` service'
+note: 'Call `FileSystem.FileSystem` member, which fails with a `PlatformError` naming the path'

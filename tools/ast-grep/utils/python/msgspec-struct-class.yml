@@ -12,4 +12,6 @@ utils:
               has: {matches: base}
 rule:
     kind: class_definition
-    has: {field: superclasses, has: {matches: base}}
+    all:
+        - inside: {kind: module, stopBy: end, regex: '(?-u:\b)msgspec(?-u:\b)'}
+        - has: {field: superclasses, has: {matches: base}}

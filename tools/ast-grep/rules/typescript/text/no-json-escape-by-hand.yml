@@ -18,4 +18,4 @@ rule:
                     - has: {field: function, regex: '^((globalThis|window|self)\.)?JSON\.stringify$', matches: typescript-global-reference}
                     - has: {field: arguments, all: [{has: {nthChild: 1}}, {not: {has: {nthChild: 2}}}]}
 message: '`$CALL` escapes text for JSON by slicing an encoded string'
-note: 'Substitute into the decoded `Schema.Json` value and encode it once, or decode the field through `SchemaGetter.transformEffect`'
+note: 'Substitute into the decoded `Schema.Json` value and encode it once, or decode field through `SchemaGetter.transformEffect`'

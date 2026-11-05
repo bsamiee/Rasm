@@ -7,7 +7,7 @@ rule:
     regex: '^#\[\p{Pattern_White_Space}*error\p{Pattern_White_Space}*\(\p{Pattern_White_Space}*"'
     all:
         - inside: {kind: enum_variant_list}
-        - not: {regex: '^#\[\p{Pattern_White_Space}*error\p{Pattern_White_Space}*\(\p{Pattern_White_Space}*("\{([0-9]+|[A-Za-z_]\p{XID_Continue}*)(:[^{}]*)?\}"|"\{\}"\p{Pattern_White_Space}*,\p{Pattern_White_Space}*\.\p{XID_Continue}+)\p{Pattern_White_Space}*,?\p{Pattern_White_Space}*\)\p{Pattern_White_Space}*\]$'}
+        - not: {regex: '^#\[\p{Pattern_White_Space}*error\p{Pattern_White_Space}*\(\p{Pattern_White_Space}*("\{([0-9]+|[_\p{XID_Start}]\p{XID_Continue}*)(:[^{}]*)?\}"|"\{\}"\p{Pattern_White_Space}*,\p{Pattern_White_Space}*\.\p{XID_Continue}+)\p{Pattern_White_Space}*,?\p{Pattern_White_Space}*\)\p{Pattern_White_Space}*\]$'}
         - precedes: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, kind: enum_variant, has: {field: name, pattern: $VARIANT}}
         - follows: {stopBy: end, kind: attribute_item, pattern: $ATTRIBUTE}
 message: '`$VARIANT` repeats an earlier variant''s `#[error]` message'

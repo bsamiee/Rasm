@@ -2,7 +2,7 @@ import { layer } from '@effect/platform-node/NodeServices';
 import { Array, Config, Effect, FileSystem, flow, Option, Path, Record } from 'effect';
 import { type ConfigEnv, loadConfigFromFile } from 'vite';
 import { mergeConfig, type ViteUserConfig, type ViteUserConfigFnPromise } from 'vitest/config';
-import { members, Package, Workspace } from '#/eng/typescript/manifest';
+import { Package, Workspace } from '#/eng/typescript/manifest';
 import { located } from '#/vite.shared';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -26,7 +26,7 @@ const defaults = Effect.fnUntraced(function* (directory: string) {
             dir: path.join(tests, ...segments.filter((segment, at) => at !== 1 || segment !== path.basename(tests))),
             coverage: {
                 exclude: ['**/*.d.ts', '**/*.config.ts', '**/tests/**', '**/.storybook/**'],
-                include: ['**/*.{ts,tsx,mts,cts}'],
+                include: ['**/*.{ts,tsx}'],
                 reporter: ['text', 'html'],
                 reportOnFailure: true,
                 reportsDirectory: path.join(results, 'coverage'),
@@ -37,7 +37,6 @@ const defaults = Effect.fnUntraced(function* (directory: string) {
             maxWorkers: '50%',
             pool: 'threads',
             provide: { artifacts: results },
-            reporters: ci ? ['dot', 'github-actions'] : ['tree'],
             sequence: { shuffle: ci },
             silent: 'passed-only',
             slowTestThreshold: 5000,
@@ -76,8 +75,8 @@ const vitestProject = (directory: string, config: ViteUserConfig = {}): ViteUser
 
 const rootConfig: () => Promise<ViteUserConfig> = Effect.fnUntraced(
     function* () {
-        const [{ test }, { packages }, projects] = yield* Effect.all([defaults(ROOT), Workspace.read(ROOT), members(ROOT, 'vitest.config.ts')], { concurrency: 'unbounded' });
-        return { test: { ...test, coverage: { ...test.coverage, include: Array.cartesianWith(packages, test.coverage.include, (glob, pattern) => `${glob}/${pattern}`) }, projects } };
+        const [{ test }, { packages }] = yield* Effect.all([defaults(ROOT), Workspace.read(ROOT)], { concurrency: 'unbounded' });
+        return { test: { ...test, coverage: { ...test.coverage, include: Array.cartesianWith(packages, test.coverage.include, (glob, pattern) => `${glob}/${pattern}`) }, projects: packages.map((glob) => `${glob}/vitest.config.ts`) } };
     },
     Effect.provide(layer),
     Effect.runPromise,

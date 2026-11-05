@@ -4,39 +4,40 @@ severity: error
 utils:
     listener-name:
         kind: 'identifier, scoped_identifier'
-        regex: '^((::)?tokio::)?(signal::)?((unix|windows)::)?(ctrl_c|ctrl_break|ctrl_close|ctrl_logoff|ctrl_shutdown)$'
+        regex: '^((::)?tokio::)?(signal::)?((unix|windows)::)?ctrl_(c|break|close|logoff|shutdown)$|^((::)?tokio::)?(signal::)?unix::signal$'
+    imported-signal:
+        kind: identifier
+        regex: '^signal$'
+        matches: {rust-imported-name: {source: {regex: '(?-u:\b)tokio::signal::unix(?-u:\b)'}, name: {regex: '^signal$'}}}
     registration:
         any:
             - kind: call_expression
-              has: {field: function, matches: listener-name}
-            - kind: call_expression
-              all:
-                - has: {field: function, kind: 'identifier, scoped_identifier', regex: '^((::)?tokio::)?(signal::)?(unix::)?signal$'}
-                - has: {field: arguments, regex: 'SignalKind'}
+              has: {field: function, any: [{matches: listener-name}, {matches: imported-signal}]}
             - kind: identifier
-              regex: '^(ctrl_c|ctrl_break|ctrl_close|ctrl_logoff|ctrl_shutdown)$'
+              regex: '^(signal|ctrl_(c|break|close|logoff|shutdown))$'
+              any:
+                - regex: '^ctrl_'
+                - follows: {regex: '^::$', follows: {kind: identifier, regex: '^unix$'}}
+                - matches: imported-signal
               inside: {kind: token_tree}
               precedes: {kind: token_tree, regex: '^\('}
-            - kind: identifier
-              regex: '^signal$'
-              inside: {kind: token_tree}
-              precedes: {kind: token_tree, regex: '^\([\p{Pattern_White_Space}\P{Pattern_White_Space}]*SignalKind'}
     repeating-call:
         kind: call_expression
         has: {field: function, regex: '(^|::)(repeat_with|unfold|try_unfold)$'}
 rule:
-    pattern: $SITE
-    any:
-        - matches: repeating-call
-          has: {field: arguments, has: {matches: listener-name}}
-        - matches: registration
-          inside:
-            stopBy: {kind: function_item}
-            any:
-                - kind: 'loop_expression, while_expression'
-                - kind: block
-                  inside: {kind: for_expression, field: body}
-                - kind: closure_expression
-                  inside: {kind: arguments, inside: {matches: repeating-call}}
+    all:
+        - any:
+            - matches: repeating-call
+              has: {field: arguments, has: {matches: listener-name}}
+            - matches: registration
+              inside:
+                stopBy: {kind: function_item}
+                any:
+                    - kind: 'loop_expression, while_expression'
+                    - kind: block
+                      inside: {kind: for_expression, field: body}
+                    - kind: closure_expression
+                      inside: {kind: arguments, inside: {matches: repeating-call}}
+        - pattern: $SITE
 message: '`$SITE` registers a signal listener on each repetition'
 note: 'Register one listener before the loop and await `recv()` or `tokio_stream::wrappers::SignalStream`, or pin one `ctrl_c()` for a single signal'

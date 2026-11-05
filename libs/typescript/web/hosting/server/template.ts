@@ -5,6 +5,10 @@ import { renderToReadableStream } from 'react-dom/server';
 import { HostingError } from '#/hosting-error';
 import type { Shell } from '#/shell';
 
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const POLICY = { 'default-src': ["'self'"], 'object-src': ["'none'"], 'base-uri': ["'self'"], 'form-action': ["'self'"], 'frame-ancestors': ["'none'"] } as const;
+
 // --- [SERVICES] ------------------------------------------------------------------------
 
 class Template extends Context.Service<Template, { readonly template: Effect.Effect<string, HostingError> }>()('@rasm/hosting/server/template') {
@@ -44,7 +48,7 @@ class Template extends Context.Service<Template, { readonly template: Effect.Eff
         upsert('title', '<title>').text((_, current) => Option.getOrElse(title, Function.constant(current)));
         const tagged = (attribute: string, contents: Record.ReadonlyRecord<string, string>) => Record.collect(contents, (key, content) => upsert(`meta[${attribute}="${key}"]`, '<meta>').attr({ [attribute]: key, content }));
         Record.collect(Record.map(meta, Record.getSomes), tagged);
-        return HttpServerResponse.html(document.html());
+        return HttpServerResponse.html(document.html()).pipe(import.meta.env.PROD ? HttpServerResponse.setHeader('Content-Security-Policy', Record.collect({ ...POLICY, ...shell.policy }, (directive, sources) => `${directive} ${sources.join(' ')}`).join('; ')) : Function.identity);
     });
 }
 

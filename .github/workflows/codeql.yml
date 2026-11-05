@@ -10,10 +10,6 @@ on:
 permissions:
     security-events: write
 
-defaults:
-    run:
-        shell: bash
-
 jobs:
     analyze:
         strategy:
@@ -24,6 +20,7 @@ jobs:
                     - {language: csharp, build-mode: none}
                     - {language: javascript-typescript}
                     - {language: python}
+                    - {language: rust}
         runs-on: ubuntu-26.04
         timeout-minutes: 120
         concurrency:

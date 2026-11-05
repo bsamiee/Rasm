@@ -1,4 +1,4 @@
-import { Kerns, type Runs, Typeset } from '@rasm/indesign/typesetting';
+import { Kerns, type Runs, Typeset } from '@rasm/indesign';
 import { progress, Route, registerTool } from '@rasm/mcp';
 import { Unmatched } from '@rasm/search';
 import { Settings } from '@rasm/typography';

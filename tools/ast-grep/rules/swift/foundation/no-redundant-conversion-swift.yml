@@ -14,4 +14,4 @@ rule:
 constraints:
     TYPE: {any: [{regex: '\.self$'}, {kind: simple_identifier, regex: '^[a-z_]'}]}
 message: '`$ENCODED` re-encodes a value in memory to decode `$TYPE` from it'
-note: 'Decode the target type in the read that produced the value, as `JSONDocument<Known>` when a write must keep unknown fields'
+note: 'Decode the target type at its read, as `JSONDocument<Known>` when a write must keep unknown fields'

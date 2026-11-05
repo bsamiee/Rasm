@@ -4,12 +4,12 @@ severity: error
 utils:
     run-body:
         kind: lambda_literal
-        inside: {kind: call_expression, stopBy: {kind: call_expression}, has: {nthChild: 1, regex: '^Subprocess(\.|::)run$'}}
+        inside: {kind: call_expression, stopBy: {kind: call_expression}, has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '^(Subprocess(\.|::))?run$'}}
     byte-copy:
         kind: call_expression
         all:
-            - has: {nthChild: 1, regex: '\.withUnsafeBytes$', has: {stopBy: end, kind: simple_identifier, pattern: $CHUNK}}
-            - has: {stopBy: end, kind: call_expression, regex: '\.append\(contentsOf:'}
+            - has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '\.withUnsafeBytes$', has: {stopBy: end, kind: simple_identifier, pattern: $CHUNK}}
+            - has: {stopBy: end, kind: call_expression, all: [{has: {kind: navigation_expression, has: {field: suffix, regex: '^\.append$'}}}, {has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, nthChild: 1, has: {field: name, regex: '^contentsOf$'}}}}}]}
     collect:
         kind: for_statement
         all:
@@ -40,7 +40,7 @@ rule:
                             stopBy: {kind: lambda_literal}
                             kind: call_expression
                             all:
-                                - has: {nthChild: 1, regex: '^Swift(\.|::)Result$'}
+                                - has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '^(Swift(\.|::))?Result$'}
                                 - has: {kind: call_suffix, has: {kind: lambda_literal, has: {matches: sole, has: {matches: subprocess-output-discarding-loop}}}}
         - matches: collect
           inside: {matches: run-body, stopBy: end}

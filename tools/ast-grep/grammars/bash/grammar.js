@@ -1,5 +1,9 @@
 import bash from 'tree-sitter-bash/grammar.js';
-import { choiceOf, drop, extend, located, named, optionalOf, reaches, rewrite, string, symbol, widen } from '../derive.js';
+import { after, automaton, chain, choiceOf, drop, extend, located, named, optionalOf, pattern, reaches, replace, rewrite, string, symbol, widen, without } from '../derive.js';
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const ESCAPED_CONTENT = pattern(without(automaton(bash.grammar.rules.string_content), automaton({ type: 'PATTERN', value: String.raw`[^]*\\"[^]*` })));
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -10,7 +14,7 @@ const coprocStatement = widen(symbol('command'), ($) => $.coproc_command);
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 export default extend(bash, {
-    externals: ($, original) => [...original, $._time_posix, $._time_end, $._closed, $._extglob_word, $._brace_open, $._backtick_end, $._heredoc_due],
+    externals: ($, original) => [...original, $._time_posix, $._time_end, $._closed, $._extglob_word, $._brace_open, $._backtick_end, $._heredoc_due, $._quoted_backtick, $._escaped_quote, $._string_space],
     extras: ($, original) => [...original, $._heredoc_body],
     conflicts: ($, original) => [...original.filter((set) => !set.some(symbol('pipeline'))), [$.command_name, $.coproc_command], [$.herestring_redirect]],
     rules: {
@@ -38,6 +42,8 @@ export default extend(bash, {
         test_command: ($, original) => rewrite(original, (part) => (symbol('redirected_statement')(part) ? choice(alias($._test_redirected, $.redirected_statement), prec.dynamic(-1, alias($._test_operand, $.command))) : part)),
         _test_redirected: ($) => choice(redirected($, alias($._test_operand, $.command)), field('redirect', repeat1($._redirect))),
         _test_operand: ($) => seq(optional('!'), field('name', $.command_name), repeat(field('argument', $._literal))),
+        _test_command_binary_expression: replace((rule) => rule.type === 'ALIAS' && symbol('_regex_no_space')(rule.content), ($) => $._extglob_blob),
+        parenthesized_expression: ($, original) => choice(original, rewrite(original, (part) => (part.type === 'STRING' ? { ...part, value: `\\${part.value}` } : part))),
         command: drop((rule) => named('argument')(rule) && (reaches(rule, string('==')) || reaches(rule, symbol('_bare_dollar')))),
         command_name: widen(symbol('_literal'), ($) => alias($._brace_name, $.concatenation)),
         _brace_name: ($) => seq(alias($._brace_open, $.word), repeat1(seq($._concat, choice($._primary_expression, alias($._special_character, $.word), alias($._comment_word, $.word))))),
@@ -49,15 +55,50 @@ export default extend(bash, {
         coproc_command: ($) => seq('coproc', choice(prec.dynamic(1, seq(optional(field('name', $.word)), field('body', choice(...compound($), alias($._redirected_compound, $.redirected_statement))))), field('body', choice($.command, alias($._redirected_command, $.redirected_statement))))),
         _redirected_compound: ($) => redirected($, choice(...compound($))),
         _redirected_command: ($) => redirected($, $.command),
+        variable_assignments: (_, original) => prec.dynamic(1, original),
         _literal: widen(symbol('concatenation'), ($) => alias($._bare_dollar, $.word)),
-        _primary_expression: widen(symbol('word'), ($) => alias($._extglob_word, $.extglob_pattern)),
+        _primary_expression: widen(
+            symbol('word'),
+            ($) => alias($._extglob_word, $.extglob_pattern),
+            ($) => alias($._escaped_string, $.string),
+        ),
+        string: widen(
+            symbol('command_substitution'),
+            ($) => alias($._quoted_substitution, $.command_substitution),
+            ($) => alias($._string_space, $.string_content),
+        ),
+        _quoted_substitution: ($) => seq(alias($._quoted_backtick, '`'), $._statements, alias($._quoted_backtick, '`')),
+        _escaped_string: ($) =>
+            rewrite(bash.grammar.rules.string, (part) => {
+                if (string('"')(part)) {
+                    return alias($._escaped_quote, '"');
+                }
+                return symbol('string_content')(part) ? alias(rewrite(bash.grammar.rules.string_content, (rule) => (rule.type === 'PATTERN' ? ESCAPED_CONTENT : rule)), $.string_content) : part;
+            }),
         command_substitution: ($, original) =>
             choice(
                 rewrite(original, (part) => (part.type === 'SEQ' && string('`')(part.members.at(-1)) ? { ...part, members: part.members.toSpliced(-1, 0, optional($._backtick_end)) } : part)),
                 seq(field('operator', choice(...[' ', '\t', '\n', '|'].map((separator) => alias(token(seq('${', repeat('\\\n'), separator)), separator === '|' ? '${|' : '${')))), optional($._terminated_statement), '}'),
             ),
         concatenation: drop(optionalOf((rule) => rule.type === 'SEQ' && reaches(rule, string('$')))),
+        number: widen(symbol('command_substitution'), ($) => $.simple_expansion),
+        _arithmetic_literal: widen(symbol('simple_expansion'), ($) => alias($._set_expansion, $.simple_expansion)),
+        _set_expansion: ($) => seq('$', field('operator', choice(token.immediate('+'), '#')), choice($.subscript, $._simple_variable_name)),
+        expansion: after(string('${'), ($) => optional(field('flags', $.expansion_flags))),
+        expansion_flags: () => token.immediate(/\([^)\n]*\)/u),
+        _expansion_body: chain(
+            widen(
+                symbol('subscript'),
+                ($) => $.expansion,
+                ($) => $.string,
+            ),
+            widen(
+                choiceOf((member) => member.type === 'IMMEDIATE_TOKEN' && string('=')(member.content)),
+                token.immediate('+'),
+            ),
+        ),
         _expansion_expression: drop(symbol('array')),
+        _expansion_regex: widen(choiceOf(string('%%')), ':#'),
         _expansion_regex_replacement: drop(symbol('array')),
         _concatenation_in_expansion: drop(symbol('variable_name'), symbol('array')),
     },

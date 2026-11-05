@@ -28,4 +28,4 @@ rule:
                                     - matches: owner-name
         - inside: {kind: protocol_body, inside: {kind: protocol_declaration, not: {has: {kind: inheritance_specifier}}}}
 message: '`$ALIAS` is another name for its type'
-note: 'Spell the type at each use or declare a type holding its fields, and delete the alias'
+note: 'Spell the type at each use or declare a type holding its fields, and delete its alias'

@@ -33,4 +33,4 @@ rule:
             - has: {matches: tag-test, has: {field: rhs, pattern: $FIRST}}
             - has: {kind: if_statement, has: {matches: tag-test, not: {has: {field: rhs, pattern: $FIRST}}}}
 message: 'Branch over `$SUBJECT` selects its arm by string literal'
-note: 'Declare the tokens as a `String`-backed enum, decode once at the boundary (`init(rawValue:)`, `Decodable`), and switch over its cases'
+note: 'Declare tokens as a `String`-backed enum, decode once at the boundary (`init(rawValue:)`, `Decodable`), and switch over its cases'

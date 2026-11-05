@@ -5,13 +5,12 @@ utils:
     assignment:
         any:
             - kind: assignment_expression
-              has: {field: operator, regex: '^=$'}
             - kind: parenthesized_expression
               has: {matches: assignment}
     target-assignment:
         any:
             - kind: assignment_expression
-              all: [{has: {field: left, pattern: $TARGET}}, {has: {field: operator, regex: '^=$'}}]
+              has: {field: left, pattern: $TARGET}
             - kind: parenthesized_expression
               has: {matches: target-assignment}
 rule:
@@ -19,8 +18,8 @@ rule:
     any:
         - kind: invocation_expression
           all:
-            - matches: {csharp-named-call: {name: {regex: '^ignore$'}}}
             - has: {field: arguments, has: {kind: argument, has: {matches: assignment}}}
+            - matches: {csharp-named-call: {name: {regex: '^ignore$'}}}
         - kind: binary_expression
           all:
             - has: {field: operator, regex: '^(==|!=)$'}

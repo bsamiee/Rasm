@@ -4,7 +4,7 @@ severity: error
 utils:
     endless:
         any:
-            - {kind: 'while_statement, do_statement', has: {field: condition, regex: '^true$'}}
+            - {kind: 'while_statement, do_statement', has: {field: condition, kind: boolean_literal, regex: '^true$'}}
             - {kind: for_statement, not: {has: {nthChild: 2}}}
             - {kind: while_statement, has: {field: condition, kind: prefix_unary_expression, regex: ^!, has: {kind: member_access_expression, has: {field: name, regex: '^IsCancellationRequested$'}}}}
             - {kind: while_statement, has: {field: condition, kind: await_expression, has: {kind: invocation_expression, has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(WaitForNextTickAsync|WaitToReadAsync)$'}}}}}
@@ -42,7 +42,7 @@ utils:
                 has:
                     kind: lambda_expression
                     all:
-                        - has: {field: parameters, any: [{kind: implicit_parameter, pattern: $HELD}, {kind: parameter_list, has: {kind: parameter, has: {field: name, pattern: $HELD}}}]}
+                        - has: {field: parameters, any: [{pattern: {context: 'f($HELD => 0);', selector: implicit_parameter}}, {kind: parameter_list, has: {kind: parameter, has: {field: name, pattern: {context: 'class $HELD;', selector: identifier}}}}]}
                         - has: {field: body, matches: grow-call, has: {field: function, has: {field: expression, pattern: $HELD}}}
     drain:
         any:
@@ -63,17 +63,17 @@ utils:
                 - has: {pattern: $GROWN}
     reset:
         kind: variable_declarator
-        has: {field: name, pattern: $GROWN}
+        has: {field: name, pattern: {context: 'class $GROWN;', selector: identifier}}
     declared:
         kind: parameter, variable_declarator
-        has: {field: name, pattern: $GROWN}
+        has: {field: name, pattern: {context: 'class $GROWN;', selector: identifier}}
 rule:
     kind: 'invocation_expression, assignment_expression'
     all:
         - any:
             - all:
-                - has: {field: function, kind: member_access_expression, has: {field: expression, matches: grown, pattern: $GROWN}}
                 - matches: grow-call
+                - has: {field: function, kind: member_access_expression, has: {field: expression, matches: grown, pattern: $GROWN}}
                 - not:
                     any:
                         - inside: {kind: lambda_expression, field: body, inside: {kind: argument, inside: {kind: argument_list, inside: {matches: swap}}}}
@@ -82,8 +82,8 @@ rule:
                 - has: {field: left, matches: grown, pattern: $GROWN}
                 - matches: grow-assign
             - all:
-                - has: {field: function, kind: member_access_expression, has: {field: expression, matches: grown, pattern: $GROWN}}
                 - matches: grow-swap
+                - has: {field: function, kind: member_access_expression, has: {field: expression, matches: grown, pattern: $GROWN}}
         - inside: {stopBy: {kind: *scope}, matches: endless, not: {has: {stopBy: end, matches: reset}}}
         - any:
             - inside: {stopBy: end, kind: *scope, has: {stopBy: end, matches: declared}, not: {has: {stopBy: end, matches: drain}}}

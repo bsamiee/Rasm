@@ -25,7 +25,7 @@ Rules here hold for every language, each reference holds tool behavior deciding 
 - Concerns with no owner take a new file named for the tool that reads it
 - Structure joins with its first consumer, a row, file, target, or value nothing reads goes
 - Row consumers are importers (`package.json` included), reading tools, targets, MCP rows, skills, `.gitattributes` filters, and `[CLI_TOOLING]` rows
-- Catalog rows, their overrides, and tool-plugin rows stay without an importer, catalogs hold packages for future projects
+- Catalog rows and their overrides stay without an importer, catalogs hold packages for future projects
 - Build chains and project kinds of a declared host stay while no project uses them
 - Rows naming a package, binary, or server point at one a project file or tool row installs
 - Root files hold policy every project shares, a row one project consumes sits in the project file
@@ -78,6 +78,6 @@ Rules here hold for every language, each reference holds tool behavior deciding 
 - New cases widen the rule holding their category, one category holds one rule per checker
 - Rule, checker, or file extension rows join with a tracked file they read and the tree passing them
 - Languages built into ast-grep take no `sgconfig.yml` row until a newer grammar release parses a form the bundled grammar fails
-- Grammars ast-grep lacks or bundles behind a newer release build from a catalog package through root `grammar` into a `customLanguages` row
+- Grammars ast-grep lacks or bundles behind a newer release build from a catalog package through project `grammars` into a `customLanguages` row
 - Host syntax a catalog grammar lacks (`${…}` template substitutions) joins `tools/ast-grep/grammars/<language>/grammar.js` extending that grammar
 - Embedded SQL injects into `sql` only where its dialect is SQLite, templates under a `pg` key or in a `Pg`-named declaration stay out of the parse

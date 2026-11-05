@@ -1,6 +1,8 @@
 using System.Drawing;
 using System.Numerics;
 using Rasm.Drafting;
+using Rasm.Rhino.Document;
+using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.Document.Tables;
 using Rasm.Rhino.Persistence;
 using Rhino;
@@ -44,6 +46,16 @@ public static class HatchPatterns {
                  from held in IO.lift(() => defaults.Find(row => Rows.Names<HatchPattern>().Equals(row.Name, name)).ToFin(error))
                  from index in IO.lift(() => Conversions.Required(Conversions.Present(TableKinds.HatchPatterns.Add(doc, held))))
                  select index).Bracket());
+
+    // --- [FILES]
+    public static IO<Seq<HatchPattern>> ReadFile(InputPath path) =>
+        Products.Many(() => HatchPattern.ReadFromFile(path, quiet: true));
+
+    public static IO<Unit> WriteFile(OutputPath path, Seq<HatchPattern> patterns) =>
+        Products.Accepted(() => HatchPattern.WriteToFile(path, patterns));
+
+    public static IO<Committed<ReconciledStyles>> Import(RhinoDoc doc, InputPath path, string name, RedrawPolicy redraw) =>
+        ReadFile(path).Bind(patterns => StyleTables.Reconcile(doc, new StyleSpec { HatchPatterns = patterns.Map(static pattern => (pattern.Name, (Func<HatchPattern>)(() => new HatchPattern(pattern)))) }, name, redraw)).Bracket();
 
     // --- [CURRENT]
     public static IO<Unit> SetCurrent(RhinoDoc doc, ComponentRef<HatchPattern> address) =>

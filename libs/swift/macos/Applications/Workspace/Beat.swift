@@ -25,7 +25,6 @@ struct Beat: Sendable {
     var answered: Set<CGWindowID>?
     var baseline: Set<CGWindowID>?
     var mainThread: Duration?
-    var silent: Bool = false
     var usage: Result<ResourceUsage, Errno>?
 }
 
@@ -33,19 +32,22 @@ struct Beat: Sendable {
 
 private func modalSessions(among windows: some Sequence<CGWindowID>) -> Set<CGWindowID> {
     guard let skyLight: UnsafeMutableRawPointer = unsafe dlopen("/System/Library/PrivateFrameworks/SkyLight.framework/SkyLight", RTLD_NOW) else { return [] }
-    func symbol<Function>(_ name: String, as _: Function.Type) -> Function? { unsafe dlsym(skyLight, name).map { address in unsafe unsafeBitCast(address, to: Function.self) } }
-    guard let connection = symbol("SLSMainConnectionID", as: (@convention(c) () -> Int32).self),
-        let query = unsafe symbol("SLSWindowQueryWindows", as: (@convention(c) (Int32, CFArray, Int32) -> Unmanaged<CFTypeRef>?).self),
-        let results = unsafe symbol("SLSWindowQueryResultCopyWindows", as: (@convention(c) (CFTypeRef) -> Unmanaged<CFTypeRef>?).self),
-        let advance = symbol("SLSWindowIteratorAdvance", as: (@convention(c) (CFTypeRef) -> Bool).self),
-        let tags = symbol("SLSWindowIteratorGetTags", as: (@convention(c) (CFTypeRef) -> UInt64).self)
+    func symbol<Function>(_ name: String) -> Function? { unsafe dlsym(skyLight, name).map { address in unsafe unsafeBitCast(address, to: Function.self) } }
+    guard let connection: @convention(c) () -> Int32 = symbol("SLSMainConnectionID"),
+        let query: @convention(c) (Int32, CFArray, Int32) -> Unmanaged<CFTypeRef>? = unsafe symbol("SLSWindowQueryWindows"),
+        let results: @convention(c) (CFTypeRef) -> Unmanaged<CFTypeRef>? = unsafe symbol("SLSWindowQueryResultCopyWindows"),
+        let advance: @convention(c) (CFTypeRef) -> Bool = symbol("SLSWindowIteratorAdvance"),
+        let tags: @convention(c) (CFTypeRef) -> UInt64 = symbol("SLSWindowIteratorGetTags")
     else { return [] }
     return Set(
         windows.filter { number in
-            guard let found: CFTypeRef = unsafe query(connection(), [NSNumber(value: number)] as CFArray, 1)?.takeRetainedValue(),
+            if let found: CFTypeRef = unsafe query(connection(), [NSNumber(value: number)] as CFArray, 1)?.takeRetainedValue(),
                 let iterator: CFTypeRef = unsafe results(found)?.takeRetainedValue(), advance(iterator)
-            else { return false }
-            return tags(iterator) & modalSessionTag != 0
+            {
+                tags(iterator) & modalSessionTag != 0
+            } else {
+                false
+            }
         }
     )
 }
@@ -73,13 +75,14 @@ extension NSRunningApplication {
     }
 
     private func answering(
-        after last: Beat?,
+        after held: Beat,
+        sampling: Bool,
         listed: [InstanceState.Window],
         walking walked: (Element) -> Bool,
         heartbeat: Bool,
         ticks: AsyncStream<Void>.Continuation?,
     ) throws(ApplicationFailure) -> Beat {
-        var next: Beat = last ?? Beat()
+        var next: Beat = held
         let application: AXUIElement = AXUIElement.application(processIdentifier)
         if let ticks {
             next.observer = next.observer ?? Result { () throws(ApplicationFailure) in try Observer(self, ticks: ticks) }
@@ -110,28 +113,25 @@ extension NSRunningApplication {
         next.numbers = numbers
         next.answered = numbers
         next.mainThread = nil
-        next.silent = false
-        if last != nil, status == .responding, next.baseline == nil { next.baseline = numbers }
-        return concluded(next, status: status, sampling: last == nil, listed: listed) { number in next.described[number].map(InstanceState.Window.Description.element) ?? .undescribed }
+        if !sampling, status == .responding, next.baseline == nil { next.baseline = numbers }
+        return concluded(next, status: status, sampling: sampling, listed: listed) { number in next.described[number].map(InstanceState.Window.Description.element) ?? .undescribed }
     }
 
-    private func silent(after last: Beat?, process: ProcessStatus, listed: [InstanceState.Window]) throws(ApplicationFailure) -> Beat {
-        var next: Beat = last ?? Beat()
+    private func silent(after held: Beat, sampling: Bool, process: ProcessStatus, listed: [InstanceState.Window]) throws(ApplicationFailure) -> Beat {
         let time: Duration
         do { time = try mainThreadUserTime(of: processIdentifier) } catch { throw ApplicationFailure(error, process: processIdentifier) }
         let tagged: Set<CGWindowID> = modalSessions(among: listed.map(\.number))
-        let flat: Bool = isFinishedLaunching && next.silent && next.mainThread == time
+        let flat: Bool = isFinishedLaunching && held.mainThread == time
         let status: InstanceState.Running.Status =
-            switch (isFinishedLaunching, next.silent, next.status) {
+            switch (isFinishedLaunching, held.mainThread == nil, held.status) {
                 case (false, _, _): .launching
-                case (true, false, .some(let held)): held
+                case (true, true, .some(let answered)): answered
                 case (true, _, _): .unresponsive(process)
             }
-        let held: Beat = next
+        var next: Beat = held
         next.status = status
         next.mainThread = time
-        next.silent = true
-        return concluded(next, status: status, sampling: last == nil, listed: listed) { number in blocking(number, in: held, tagged: tagged.contains(number), flat: flat) }
+        return concluded(next, status: status, sampling: sampling, listed: listed) { number in blocking(number, in: held, tagged: tagged.contains(number), flat: flat) }
     }
 
     private func concluded(
@@ -142,13 +142,19 @@ extension NSRunningApplication {
         _ description: (CGWindowID) -> InstanceState.Window.Description,
     ) -> Beat {
         var next: Beat = beat
-        let turned: Bool = status.is(\.unresponsive) && next.usage == nil
-        next.usage = sampling || turned ? Result { () throws(Errno) in try ResourceUsage(of: processIdentifier) } : (status.is(\.unresponsive) ? next.usage : nil)
+        if status.is(\.unresponsive), next.baseline == nil, isFinishedLaunching { next.baseline = [] }
+        next.usage =
+            switch (sampling, status, beat.usage) {
+                case (false, .unresponsive, .some(let usage)): usage
+                case (false, .launching, _), (false, .responding, _): nil
+                case (true, _, _), (false, .unresponsive, .none): Result { () throws(Errno) in try ResourceUsage(of: processIdentifier) }
+            }
         next.state = .running(
             InstanceState.Running(
                 status: status,
                 active: next.active ?? isActive,
                 windows: rows(listed, in: next, reading: sampling, description),
+                prompts: [],
                 menus: next.menus,
                 usage: next.usage,
             )
@@ -165,21 +171,25 @@ extension NSRunningApplication {
     ) async -> Beat {
         await withTaskExecutorPreference(accessibility) { () -> Beat in
             let listed: [InstanceState.Window] = InstanceState.Window.owned(by: processIdentifier).filter { window in !window.frame.isEmpty }
+            let held: Beat = last ?? Beat()
+            let sampling: Bool = last == nil
             do throws(ApplicationFailure) {
                 let process: ProcessStatus = try processStatus()
                 guard process != .stopped else {
-                    let held: Beat = last ?? Beat()
-                    return concluded(held, status: .unresponsive(.stopped), sampling: last == nil, listed: listed) { number in
+                    return concluded(held, status: .unresponsive(.stopped), sampling: sampling, listed: listed) { number in
                         held.described[number].map(InstanceState.Window.Description.element) ?? .undescribed
                     }
                 }
+                guard activationPolicy != .prohibited else {
+                    return concluded(held, status: .responding, sampling: sampling, listed: listed) { _ in .undescribed }
+                }
                 do throws(ApplicationFailure) {
-                    return try answering(after: last, listed: listed, walking: walked, heartbeat: heartbeat, ticks: ticks)
+                    return try answering(after: held, sampling: sampling, listed: listed, walking: walked, heartbeat: heartbeat, ticks: ticks)
                 } catch  where error.reason.is(\.unanswered) {
-                    return try silent(after: last, process: process, listed: listed)
+                    return try silent(after: held, sampling: sampling, process: process, listed: listed)
                 }
             } catch {
-                var failed: Beat = last ?? Beat()
+                var failed: Beat = held
                 failed.state = .failed(error)
                 return failed
             }

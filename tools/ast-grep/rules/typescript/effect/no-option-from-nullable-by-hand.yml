@@ -57,8 +57,8 @@ rule:
     pattern: $HAND
     any:
         - all:
-            - has: {field: function, matches: map}
             - has: {field: arguments, all: [{has: {nthChild: 1, matches: nullable-decode}}, {has: {nthChild: 2, matches: lifting}}]}
+            - has: {field: function, matches: map}
         - all:
             - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^pipe$'}}, {has: {field: object, matches: nullable-decode}}]}
             - has: {field: arguments, has: {nthChild: 1, matches: mapped-lift}}

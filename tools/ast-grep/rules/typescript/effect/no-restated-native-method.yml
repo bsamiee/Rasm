@@ -137,4 +137,4 @@ rule:
                     - has: {field: property, regex: '^values$'}
                     - has: {field: object, matches: record-module}
 message: '`$M.$F` restates a native array or object form'
-note: 'Call the native array member of the same name on `<list>`, or `Object.values(<record>)` for `Record.values`'
+note: 'Call the same-named native array member on `<list>`, or `Object.values(<record>)` for `Record.values`'

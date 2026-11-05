@@ -4,12 +4,12 @@ severity: error
 rule:
     kind: call_expression
     all:
-        - has: {nthChild: 1, regex: '^((Subprocess(\.|::))?run|(Subprocess(\.|::))?Configuration(\.init)?)$'}
+        - has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '^((Subprocess(\.|::))?run|(Subprocess(\.|::))?Configuration(\.init)?)$'}
         - has: {stopBy: end, kind: value_argument, all: [{has: {field: name, regex: '^environment$'}}, {has: {field: value, pattern: $ENVIRONMENT}}]}
         - has:
             stopBy: end
             kind: call_expression
-            regex: '^((Subprocess(\.|::))?Executable)?\.path\('
+            all: [{has: {kind: 'navigation_expression, prefix_expression', regex: '^((Subprocess(\.|::))?Executable)?\.path$'}}]
             pattern: $PATH
             has: {kind: call_suffix, has: {stopBy: end, kind: value_argument, has: {field: value, kind: simple_identifier, pattern: $RESOLVED}}}
         - inside:

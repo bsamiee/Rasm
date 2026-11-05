@@ -10,7 +10,12 @@
 - Task hashing reads files by project directory, a root naming a file owns none and its tasks fail to hash
 - Plugins infer each target and tag from project files, `targetDefaults` configure them, `package.json` files hold no `nx` field
 - Workspace plugin `root` option holds root targets under root `package.json` `name`, Nx infers a root project from an `nx` field alone
+- Workspace plugin `grammars` option holds rows of project `grammars`, a project apart keeps root rows out of grammar hashes
 - `analytics: false` disables telemetry `neverConnectToCloud` leaves on, without a boolean Nx prompts and rewrites `nx.json` expanded
+- `useDaemonProcess: false` stays: concurrent agents race daemon starts into a socket error and a disabled marker only `nx reset` clears, and a live daemon recomputes the graph on every file another agent writes
+- Sync generators take one `tools/nx/<name>.ts` and one `generators.json` row, `sync.globalGenerators` lists every one
+- `lint:nx` reports generator drift and `format:nx` writes it, `nx.json` `inputs` name each file a generator reads or writes, the plugin adds imports
+- Generators on a target rerun `createNodes` per run and off a TTY refuse the task over another writer's drift
 
 ## [02]-[DISCOVERY]
 
@@ -70,6 +75,7 @@ Use JSON discovery from workspace root:
 |  [06]   | `{ "dependentTasksOutputFiles": "<glob>" }`    | Outputs of dependency tasks, `transitive: true` recurses     |
 |  [07]   | `{ "json": "<path>", "fields": ["<field>"] }`  | Listed fields of a JSON file, `excludeFields` the rest       |
 
+- Every task hashes all targets of its project and `nx.json`, `.gitignore`, `.nxignore` whole, no input excludes them
 - File inputs include untracked files and exclude ignored files
 - `includeIgnored: true` on a `{ "fileset": "<glob>" }` entry hashes ignored matches from disk, on a `!` entry excludes ignored matches
 - Named inputs hold files every target naming them reads, an input one target reads inlines into it, one a plugin reads (`production`) stays

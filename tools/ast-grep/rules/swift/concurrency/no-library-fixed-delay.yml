@@ -10,7 +10,7 @@ rule:
             kind: call_expression
             pattern: $DELAY
             all:
-                - has: {nthChild: 1, regex: '^(Duration)?\.(seconds|milliseconds|microseconds|nanoseconds|attoseconds)$'}
+                - has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '^(Duration)?\.(seconds|milliseconds|microseconds|nanoseconds|attoseconds)$'}
                 - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: value, kind: 'integer_literal, real_literal'}}}}
         - any:
             - has: {field: name, regex: '^within$'}
@@ -20,6 +20,6 @@ rule:
                     kind: call_suffix
                     inside:
                         kind: call_expression
-                        has: {nthChild: 1, regex: '(^|\.)(sleep|withTimeout|AsyncTimerSequence|repeating|debounce|throttle)$'}
+                        has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '(^|\.)(sleep|withTimeout|AsyncTimerSequence|repeating|debounce|throttle)$'}
 message: '`$DELAY` sets a literal wait, timeout, or interval inside a library'
 note: 'Take the duration as a defaulted parameter, or derive it from an argument'

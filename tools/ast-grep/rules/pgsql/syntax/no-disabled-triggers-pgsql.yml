@@ -13,4 +13,4 @@ rule:
             - has: {kind: var_name, regex: '(?i-u)^"?session_replication_role"?$'}
             - has: {kind: var_list, regex: '(?i-u)^[''"]?replica[''"]?$'}
 message: '`$STATEMENT` stops foreign key and trigger enforcement for the rows written under it'
-note: 'Declare the constraint `deferrable` and order the writes inside one transaction under `set constraints <name> deferred`'
+note: 'Declare the constraint `deferrable` and order writes inside one transaction under `set constraints <name> deferred`'

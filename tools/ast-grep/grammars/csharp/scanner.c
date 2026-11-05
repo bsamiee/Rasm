@@ -1,11 +1,3 @@
-#ifndef SCANNER
-#define SCANNER(fn) tree_sitter_c_sharp_external_scanner_##fn
-#endif
-
-#define tree_sitter_c_sharp_external_scanner_create SCANNER(create)
-#define tree_sitter_c_sharp_external_scanner_destroy SCANNER(destroy)
-#define tree_sitter_c_sharp_external_scanner_serialize SCANNER(serialize)
-#define tree_sitter_c_sharp_external_scanner_deserialize SCANNER(deserialize)
 #define tree_sitter_c_sharp_external_scanner_scan(...) c_sharp_upstream_scan(__VA_ARGS__)
 
 #include "tree-sitter-c-sharp/src/scanner.c"
@@ -102,7 +94,7 @@ static bool scan_verbatim_quotes(Scanner *scanner, TSLexer *lexer) {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-bool(SCANNER(scan))(void *payload, TSLexer *lexer, const bool *valid_symbols) {
+bool(tree_sitter_c_sharp_external_scanner_scan)(void *payload, TSLexer *lexer, const bool *valid_symbols) {
     bool recovery = recovering(valid_symbols);
     if (!recovery && closes_verbatim(payload, lexer, valid_symbols)) {
         return scan_verbatim_quotes(payload, lexer);

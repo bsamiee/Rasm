@@ -7,26 +7,25 @@ utils:
         has:
             field: expression
             any:
-                - kind: identifier
-                  pattern: $ENUM
+                - pattern: {context: 'class $ENUM;', selector: identifier}
                 - kind: member_access_expression
                   has: {field: name, pattern: $ENUM}
     single-enum:
         kind: enum_declaration
         all:
-            - has: {field: name, pattern: $ENUM}
+            - has: {field: name, pattern: {context: 'class $ENUM;', selector: identifier}}
             - not: {matches: {csharp-attributed: {name: {regex: '^Flags(Attribute)?$'}}}}
     file-enum:
         inside:
             kind: compilation_unit
             stopBy: end
-            has: {stopBy: end, matches: single-enum}
+            has: {stopBy: &member-body {kind: 'block, arrow_expression_clause'}, matches: single-enum}
     two-member-file-enum:
         inside:
             kind: compilation_unit
             stopBy: end
             has:
-                stopBy: end
+                stopBy: *member-body
                 matches: single-enum
                 has:
                     kind: enum_member_declaration_list
@@ -50,7 +49,7 @@ utils:
             - kind: is_pattern_expression
               all: [{has: {field: expression, pattern: $SUBJECT}}, {has: {field: pattern, matches: member-pattern}}]
             - kind: member_access_expression
-              has: {field: expression, kind: is_pattern_expression, all: [{has: {field: expression, pattern: $SUBJECT}}, {has: {field: pattern, any: [{kind: constant_pattern, has: {kind: identifier, pattern: $ENUM}}, {kind: negated_pattern, has: {kind: constant_pattern, has: {kind: identifier, pattern: $ENUM}}}]}}]}
+              has: {field: expression, kind: is_pattern_expression, all: [{has: {field: expression, pattern: $SUBJECT}}, {has: {field: pattern, any: [{kind: constant_pattern, has: {pattern: {context: 'class $ENUM;', selector: identifier}}}, {kind: negated_pattern, has: {kind: constant_pattern, has: {pattern: {context: 'class $ENUM;', selector: identifier}}}}]}}]}
             - kind: parenthesized_expression
               has: {matches: member-test}
     else-chain:

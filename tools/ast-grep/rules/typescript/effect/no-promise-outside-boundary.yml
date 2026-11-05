@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: tsxlang
 severity: error
-ignores: ['plugins/function-hooks/**', '.claude/workflows/**']
+ignores: ['plugins/function-hooks/hooks/**', '.claude/workflows/**']
 utils:
     nx-type-declaration:
         any:
@@ -218,4 +218,4 @@ transform:
     RESOLVERS: {replace: {source: $REJECT, replace: '^withResolvers$', by: 'Deferred.make'}}
     FORM: {replace: {source: $RESOLVERS, replace: '^try$', by: 'Effect.try'}}
 message: '`$AWAITED_HEAD$ITERABLE_HEAD$CALLEE` runs as a promise outside a promise conversion or host callback in place of `$TRY$STREAM$FORM`'
-note: 'Convert the promise once to its effect form and compose the rest as effects'
+note: 'Convert the promise once to its effect form and compose remaining work as effects'

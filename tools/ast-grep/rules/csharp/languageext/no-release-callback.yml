@@ -10,10 +10,11 @@ rule:
     kind: generic_name
     pattern: $TYPE
     any:
-        - has: {kind: identifier, regex: '^Action$'}
-          all: [{has: {kind: type_argument_list, has: {nthChild: 1, matches: disposable}, not: {has: {nthChild: 2}}}}]
-        - has: {kind: identifier, regex: '^Func$'}
-          all:
+        - all:
+            - has: {kind: identifier, regex: '^Action$'}
+            - has: {kind: type_argument_list, has: {nthChild: 1, matches: disposable}, not: {has: {nthChild: 2}}}
+        - all:
+            - has: {kind: identifier, regex: '^Func$'}
             - has:
                 kind: type_argument_list
                 all:

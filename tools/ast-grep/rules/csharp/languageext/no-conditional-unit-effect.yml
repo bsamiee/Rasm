@@ -67,11 +67,12 @@ utils:
                     all:
                         - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Filter|Where)$'}}
                         - has: {field: function, has: {field: expression, kind: invocation_expression, matches: {csharp-named-call: {name: {regex: '^Some$'}}}}}
-                        - has: {field: arguments, has: {kind: argument, pattern: $CONDITION}, not: {has: {kind: argument, nthChild: 2}}}
+                        - has: {field: arguments, has: {kind: argument, pattern: {context: 'f($CONDITION);', selector: argument}}, not: {has: {kind: argument, nthChild: 2}}}
 rule:
     any:
         - kind: invocation_expression
           all:
+            - has: {field: function, regex: 'lift'}
             - matches: {csharp-owner-call: {type: {regex: '^IO$'}, member: {regex: '^lift$'}}}
             - has:
                 field: arguments
@@ -105,10 +106,10 @@ rule:
             - not: {has: {kind: switch_expression_arm, nthChild: 4}}
             - any:
                 - all:
-                    - has: {matches: bool-arm, nthChild: 2, has: {kind: constant_pattern, regex: '^true$'}}
+                    - has: {matches: bool-arm, nthChild: 2, has: {kind: constant_pattern, has: {kind: boolean_literal, regex: '^true$'}}}
                     - has: {matches: bool-arm, nthChild: 3, has: {kind: 'constant_pattern, discard', regex: '^(false|_)$'}}
                 - all:
-                    - has: {matches: bool-arm, nthChild: 2, has: {kind: constant_pattern, regex: '^false$'}}
+                    - has: {matches: bool-arm, nthChild: 2, has: {kind: constant_pattern, has: {kind: boolean_literal, regex: '^false$'}}}
                     - has: {matches: bool-arm, nthChild: 3, has: {kind: 'constant_pattern, discard', regex: '^(true|_)$'}}
             - any:
                 - all:

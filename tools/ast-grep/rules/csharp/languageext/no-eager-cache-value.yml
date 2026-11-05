@@ -7,14 +7,14 @@ utils:
         kind: 'invocation_expression, object_creation_expression, implicit_object_creation_expression, array_creation_expression, collection_expression, with_expression, await_expression, query_expression, interpolated_string_expression'
     relayed:
         kind: identifier
-        pattern: $LOCAL
+        pattern: {context: 'class $LOCAL;', selector: identifier}
         all:
             - matches: {csharp-block-local: {declarator: {has: {nthChild: 2, matches: computation}}}}
             - inside:
                 stopBy: end
                 kind: block
-                has: {kind: local_declaration_statement, has: {kind: variable_declaration, has: {kind: variable_declarator, has: {field: name, pattern: $LOCAL}}}}
-                not: {has: {stopBy: end, kind: identifier, pattern: $LOCAL, not: {any: [{inside: {kind: variable_declarator, field: name}}, {inside: {kind: argument, inside: {kind: argument_list, inside: {kind: invocation_expression, pattern: $CALL}}}}]}}}
+                has: {kind: local_declaration_statement, has: {kind: variable_declaration, has: {kind: variable_declarator, has: {field: name, pattern: {context: 'class $LOCAL;', selector: identifier}}}}}
+                not: {has: {stopBy: end, kind: identifier, pattern: {context: 'class $LOCAL;', selector: identifier}, not: {any: [{inside: {kind: variable_declarator, field: name}}, {inside: {kind: argument, inside: {kind: argument_list, inside: {kind: invocation_expression, pattern: $CALL}}}}]}}}
     computed:
         kind: argument
         has: {pattern: $VALUE, any: [{matches: computation}, {matches: relayed}]}
@@ -22,7 +22,7 @@ rule:
     kind: invocation_expression
     pattern: $CALL
     all:
-        - has: {field: function, kind: member_access_expression, all: [{has: {field: name, pattern: $METHOD}}, {has: {field: expression, pattern: $MAP}}]}
+        - has: {field: function, kind: member_access_expression, all: [{has: {field: name, pattern: {context: 'class $METHOD;', selector: identifier}}}, {has: {field: expression, pattern: $MAP}}]}
         - any:
             - all:
                 - has: {field: function, has: {field: name, regex: '^FindOr(Maybe)?Add$'}}

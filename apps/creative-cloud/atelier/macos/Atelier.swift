@@ -1,38 +1,12 @@
 import Applications
+import CoreGraphics
 import CurrentProcess
 import Encoding
 import Foundation
 import JSONRPC
-import ServiceManagement
 import Sparkle
 import System
 import os
-
-// --- [MODELS] --------------------------------------------------------------------------
-
-struct ServerAgent: Decodable {
-    let environment: [String: String]
-
-    private enum CodingKeys: String, CodingKey {
-        case environment = "EnvironmentVariables"
-    }
-}
-
-// --- [ERRORS] --------------------------------------------------------------------------
-
-struct ServerError: LocalizedError {
-    enum Reason: Sendable {
-        case unidentified
-        case relocated(named: [String])
-        case unreadable(any Error)
-        case refused(any Error)
-    }
-
-    let subject: String
-    let reason: Reason
-
-    var errorDescription: String? { "\(reason): \(subject)" }
-}
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -52,7 +26,7 @@ enum Atelier {
         let input: Result<Stat, Errno> = Result { () throws(Errno) in try FileDescriptor.standardInput.stat() }
         guard case .success(let stat) = input, [FileType.fifo, .socket].contains(stat.type) else {
             do {
-                try register(bundle: .main)
+                try await registerAgents()
             } catch {
                 logger.fault("Atelier left its server unregistered, \(error, privacy: .public)")
                 exit(EXIT_FAILURE)
@@ -69,7 +43,7 @@ enum Atelier {
             } catch {
                 logger.notice("Started without Accessibility trust, \(error, privacy: .public)")
             }
-            if !requestCaptureAccess() { logger.notice("Started without Screen Recording grant") }
+            if !CGRequestScreenCaptureAccess() { logger.notice("Started without Screen Recording grant") }
             let updaterDelegate: UpdaterDelegate = UpdaterDelegate()
             let updater: SPUStandardUpdaterController = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: updaterDelegate, userDriverDelegate: nil)
             defer { extendLifetime((updater, updaterDelegate)) }
@@ -82,28 +56,6 @@ enum Atelier {
         } catch {
             logger.fault("Atelier stopped with \(error, privacy: .public)")
             exit(EXIT_FAILURE)
-        }
-    }
-
-    static func register(bundle: Bundle) throws(ServerError) {
-        guard let identifier: String = bundle.bundleIdentifier else {
-            throw ServerError(subject: bundle.bundleURL.path(percentEncoded: false), reason: .unidentified)
-        }
-        let plist: String = "\(identifier).server.plist"
-        let file: URL = bundle.bundleURL.appending(components: "Contents", "Library", "LaunchAgents", plist)
-        let agent: ServerAgent
-        do {
-            agent = try PropertyListDecoder().decode(ServerAgent.self, from: Data(contentsOf: file))
-        } catch {
-            throw ServerError(subject: file.path(percentEncoded: false), reason: .unreadable(error))
-        }
-        guard let executable: String = bundle.executablePath, agent.environment.values.contains(executable) else {
-            throw ServerError(subject: bundle.bundleURL.path(percentEncoded: false), reason: .relocated(named: agent.environment.values.sorted()))
-        }
-        do {
-            try SMAppService.agent(plistName: plist).register()
-        } catch {
-            throw ServerError(subject: plist, reason: .refused(error))
         }
     }
 }

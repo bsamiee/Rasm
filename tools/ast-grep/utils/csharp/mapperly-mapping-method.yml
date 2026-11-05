@@ -9,7 +9,7 @@ utils:
     generated-mapping:
         all:
             - has: {kind: modifier, regex: '^partial$'}
-            - not: {has: {field: body, pattern: $_}}
+            - not: {has: {field: body, kind: 'arrow_expression_clause, block'}}
             - inside: {kind: declaration_list, inside: {matches: mapperly-mapper-class}}
     use-argument:
         kind: attribute_argument
@@ -21,7 +21,7 @@ utils:
                 has: {field: name, matches: use-attribute}
     use-helper:
         all:
-            - has: {field: name, pattern: $HELPER}
+            - has: {field: name, pattern: {context: 'class $HELPER;', selector: identifier}}
             - inside:
                 kind: declaration_list
                 inside:
@@ -41,10 +41,10 @@ utils:
                                             kind: argument
                                             has:
                                                 any:
-                                                    - {kind: identifier, pattern: $HELPER}
-                                                    - {kind: member_access_expression, not: {regex: '^@'}, has: {field: name, pattern: $HELPER}}
+                                                    - {kind: identifier, pattern: {context: 'class $HELPER;', selector: identifier}}
+                                                    - {kind: member_access_expression, not: {regex: '^@'}, has: {field: name, pattern: {context: 'class $HELPER;', selector: identifier}}}
                                     - kind: string_literal
-                                      has: {kind: string_literal_content, pattern: $HELPER}
+                                      has: {kind: string_literal_content, pattern: {context: 'var s = "$HELPER";', selector: string_literal_content}}
                                       not: {has: {kind: escape_sequence}}
 rule:
     kind: method_declaration

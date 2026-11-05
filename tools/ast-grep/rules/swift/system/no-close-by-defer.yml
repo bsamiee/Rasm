@@ -6,7 +6,7 @@ utils:
         any:
             - kind: property_declaration
               all:
-                - has: {kind: pattern, has: {field: bound_identifier, pattern: $DESCRIPTOR}, precedes: {stopBy: {kind: pattern}, kind: type_annotation, regex: '^:[\t-\r ]*((System|SystemPackage)(\.|::))?FileDescriptor$'}}
+                - has: {kind: pattern, has: {field: bound_identifier, pattern: $DESCRIPTOR}, precedes: {stopBy: {kind: pattern}, kind: type_annotation, has: {field: name, regex: '^((System|SystemPackage)(\.|::))?FileDescriptor$'}}}
             - kind: parameter
               all:
                 - has: {field: name, pattern: $DESCRIPTOR}

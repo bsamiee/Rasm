@@ -59,4 +59,4 @@ rule:
                             - has: {field: property, regex: '^setPayload$'}
                             - has: {field: object, matches: rpc-value}
 message: '`$STRUCT` wraps payload fields `Rpc` wraps in `Schema.Struct` itself'
-note: 'Pass the fields object as the payload without `Schema.Struct`'
+note: 'Pass the fields object as payload without `Schema.Struct`'

@@ -18,7 +18,7 @@ rule:
           all:
             - has: {field: type, matches: option-type}
             - matches: csharp-argumentless-call
-            - not: {has: {field: initializer, pattern: $_}}
+            - not: {has: {field: initializer, kind: initializer_expression}}
         - kind: cast_expression
           all:
             - has: {field: type, matches: option-type}

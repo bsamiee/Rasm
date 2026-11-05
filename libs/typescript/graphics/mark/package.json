@@ -1,0 +1,16 @@
+{
+    "name": "@rasm/mark",
+    "private": true,
+    "description": "One SVG master painted and rastered per surface through usvg and resvg",
+    "sideEffects": false,
+    "type": "module",
+    "exports": {
+        ".": "./mark.ts"
+    },
+    "dependencies": {
+        "effect": "catalog:"
+    },
+    "devDependencies": {
+        "@types/node": "catalog:"
+    }
+}

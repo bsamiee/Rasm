@@ -14,7 +14,7 @@ export const meta = {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const REPO = '/Users/bardiasamiee/Developer/Rasm'
-const DIR = `${REPO}/.artifacts/workflows/guidance`
+const DIR = '/Users/bardiasamiee/.claude/rasm/workflows/guidance'
 const STANDARD = `${REPO}/.claude/skills/agent-builder/references/folder-guidance.md`
 const EXISTING = `${DIR}/EXISTING.md`
 const SELECTION = `${DIR}/SELECTION.md`

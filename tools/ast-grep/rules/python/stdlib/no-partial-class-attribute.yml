@@ -11,7 +11,9 @@ utils:
     partial-class:
         any:
             - matches: functools-partial-callee
-            - matches: {python-base-class: {superclasses: {has: {matches: partial-class}}}}
+            - all:
+                - inside: {kind: module, stopBy: end, regex: '(?-u:\b)partial(?-u:\b)'}
+                - matches: {python-base-class: {superclasses: {has: {matches: partial-class}}}}
     class-var:
         matches: {python-member-use: {module: {regex: '^typing(_extensions)?$'}, name: {regex: '^ClassVar$'}}}
     record-decorator:
@@ -79,16 +81,14 @@ rule:
         - kind: call
           pattern: $VALUE
           all:
-            - inside: {kind: module, stopBy: end, regex: '(?-u:\b)partial(?-u:\b)'}
-            - has: {field: function, matches: partial-class}
             - matches: bound
+            - has: {field: function, matches: partial-class}
             - not: {inside: {matches: record-field, stopBy: {not: {kind: 'parenthesized_expression, conditional_expression, boolean_operator'}}}}
         - kind: decorator
           pattern: $VALUE
           all:
-            - inside: {kind: module, stopBy: end, regex: '(?-u:\b)partial(?-u:\b)'}
-            - has: {matches: partial-class}
             - not: {follows: {kind: decorator, stopBy: end}}
             - inside: {kind: decorated_definition, matches: class-body}
+            - has: {matches: partial-class}
 message: '`$VALUE` as a class attribute binds as a method from Python 3.14 and stays unbound below it'
 note: 'Wrap the partial in `staticmethod` for an unbound call or `enum.member` for an enum member, else write `functools.partialmethod`'

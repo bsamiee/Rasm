@@ -14,7 +14,7 @@ import { assembled, engineOf } from '#/source';
 
 const WRITABLE = /^[A-Z0-9]+$/u;
 const SPACED = /\s+/u;
-const ENGINE = new URL('extendscript.jsxinc', import.meta.url);
+const ENGINE = Effect.runSync(Effect.cached(assembled(new URL('engine.ts', import.meta.url))));
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -33,7 +33,7 @@ const released = Effect.fn('released')(function* (row: Installation, rows: reado
     return { ...held, version: `${held.version}+${own['Adobe Product Build']}.${own.RELEASECHANNEL}` } satisfies Installed;
 });
 const installed = Effect.gen(function* () {
-    const rows = yield* (yield* Automation).installed(ADOBE);
+    const rows = yield* Automation.use((automation) => automation.installed(ADOBE));
     return yield* Effect.forEach(
         rows.filter((row) => row.scriptable && row.identifier === 'com.adobe.Photoshop'),
         (row) => released(row, rows),
@@ -54,7 +54,7 @@ const canonical = Effect.fn('canonical')(function* (file: string, bytes: Uint8Ar
 const executed = Effect.fn('executed')(function* (live: Live, argument: string) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const file = path.join(live.scratch, 'harness.jsx');
-    yield* fs.writeFileString(file, (yield* assembled(ENGINE)).code);
+    yield* fs.writeFileString(file, (yield* ENGINE).code);
     const { reply } = yield* scripted(live, { direct: '$.evalFile(new File(arguments[1]))', values: [argument, file] });
     return reply;
 });

@@ -3,7 +3,7 @@ language: swiftlang
 severity: error
 rule:
     kind: attribute
-    regex: '^@Observation(\.|::)ObservationIgnored$'
+    regex: '^@(Observation(\.|::))?ObservationIgnored$'
     inside:
         kind: modifiers
         inside: {kind: property_declaration, has: {kind: value_binding_pattern, has: {field: mutability, regex: '^let$'}}}

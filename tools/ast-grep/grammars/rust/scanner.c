@@ -1,17 +1,10 @@
-#define tree_sitter_rust_external_scanner_create(...) rust_upstream_create(__VA_ARGS__)
-#define tree_sitter_rust_external_scanner_destroy(...) rust_upstream_destroy(__VA_ARGS__)
-#define tree_sitter_rust_external_scanner_serialize(...) rust_upstream_serialize(__VA_ARGS__)
-#define tree_sitter_rust_external_scanner_deserialize(...) rust_upstream_deserialize(__VA_ARGS__)
 #define tree_sitter_rust_external_scanner_scan(...) rust_upstream_scan(__VA_ARGS__)
-#ifndef SCANNER
-#define SCANNER(fn) tree_sitter_rust_external_scanner_##fn
-#endif
 
 #include "tree-sitter-rust/src/scanner.c"
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-enum { FIELD_LETTER = 'a', FRONTMATTER = ERROR_SENTINEL + 1, SHEBANG, FENCE_MINIMUM = 3 };
+enum { FIELD_LETTER = 'a', FRONTMATTER = ERROR_SENTINEL + 1, SHEBANG, LONE_DOLLAR, FENCE_MINIMUM = 3 };
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -116,6 +109,16 @@ static bool scan_frontmatter(TSLexer *lexer) {
     }
 }
 
+static bool scan_lone_dollar(TSLexer *lexer) {
+    advance(lexer);
+    lexer->mark_end(lexer);
+    while (iswspace(lexer->lookahead)) {
+        advance(lexer);
+    }
+    lexer->result_symbol = LONE_DOLLAR;
+    return lexer->lookahead != '(' && lexer->lookahead != '_' && !iswalpha(lexer->lookahead) && lexer->lookahead < 0x80;
+}
+
 static void field_advance(TSLexer *lexer, bool skipped) {
     FieldLexer *self = (FieldLexer *)lexer;
     bool dot = self->lexer.lookahead == '.';
@@ -145,15 +148,7 @@ static bool field_eof(const TSLexer *lexer) {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-void *(SCANNER(create))(void) { return rust_upstream_create(); }
-
-void(SCANNER(destroy))(void *payload) { rust_upstream_destroy(payload); }
-
-unsigned(SCANNER(serialize))(void *payload, char *buffer) { return rust_upstream_serialize(payload, buffer); }
-
-void(SCANNER(deserialize))(void *payload, const char *buffer, unsigned length) { rust_upstream_deserialize(payload, buffer, length); }
-
-bool(SCANNER(scan))(void *payload, TSLexer *lexer, const bool *valid_symbols) {
+bool(tree_sitter_rust_external_scanner_scan)(void *payload, TSLexer *lexer, const bool *valid_symbols) {
     if (valid_symbols[SHEBANG] && !valid_symbols[ERROR_SENTINEL] && lexer->lookahead == '#') {
         return scan_shebang(lexer);
     }
@@ -163,6 +158,14 @@ bool(SCANNER(scan))(void *payload, TSLexer *lexer, const bool *valid_symbols) {
         }
         if (lexer->lookahead == '-') {
             return scan_frontmatter(lexer);
+        }
+    }
+    if (valid_symbols[LONE_DOLLAR] && !valid_symbols[ERROR_SENTINEL]) {
+        while (iswspace(lexer->lookahead)) {
+            skip(lexer);
+        }
+        if (lexer->lookahead == '$') {
+            return scan_lone_dollar(lexer);
         }
     }
     if (!valid_symbols[FLOAT_LITERAL]) {

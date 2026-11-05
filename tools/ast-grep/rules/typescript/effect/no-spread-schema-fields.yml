@@ -1,19 +1,27 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: tsxlang
 severity: error
+utils:
+    fields-call:
+        kind: call_expression
+        any:
+            - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Schema$'}, member: {regex: '^Struct$'}}}}
+            - has: {field: function, kind: call_expression, has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Schema$'}, member: {regex: '^(Class|Error)$'}}}}}
+    tagged-fields-call:
+        kind: call_expression
+        any:
+            - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Schema$'}, member: {regex: '^TaggedStruct$'}}}}
+            - has: {field: function, kind: call_expression, has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Schema$'}, member: {regex: '^(TaggedClass|TaggedError)$'}}}}}
 rule:
     kind: spread_element
     all:
         - has: {nthChild: 1, kind: member_expression, pattern: $FIELDS, has: {field: property, regex: '^fields$'}}
         - inside:
             kind: object
-            nthChild: 1
-            inside:
-                kind: arguments
-                inside:
-                    kind: call_expression
-                    any:
-                        - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Schema$'}, member: {regex: '^(Struct|TaggedStruct)$'}}}}
-                        - has: {field: function, kind: call_expression, has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Schema$'}, member: {regex: '^(Class|TaggedClass|ErrorClass|TaggedError)$'}}}}}
+            any:
+                - nthChild: 1
+                  inside: {kind: arguments, inside: {matches: fields-call}}
+                - nthChild: 2
+                  inside: {kind: arguments, inside: {matches: tagged-fields-call}}
 message: '`...$FIELDS` copies a schema''s fields into a new field record'
 note: 'Extend the schema with `<schema>.mapFields(Struct.assign({ <fields> }))`'

@@ -1,9 +1,8 @@
-import { atelierLink, atelierMark } from '@rasm/atelier';
+import { atelierBuild, atelierMark } from '@rasm/atelier/plugin.config';
 import { InDesign } from '@rasm/indesign';
 import { uxp } from '@rasm/uxp/vite';
-import { Record } from 'effect';
 import { panels } from '#/panels';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-export default uxp(import.meta.dirname, { ...InDesign.manifest, entrypoints: Record.collect(panels, (id, label) => ({ type: 'panel', id, label: { default: label } })) }, atelierLink, atelierMark);
+export default uxp(import.meta.dirname, { ...InDesign.manifest, panels, mark: atelierMark, ...atelierBuild(import.meta.dirname) });

@@ -25,7 +25,7 @@ utils:
             - has:
                 kind: token_tree
                 all:
-                    - has: {nthChild: 1, kind: string_literal, not: {any: [{regex: '\{[A-Za-z_]'}, {regex: '\{[^}]*[0-9][^}]*\}'}, {regex: '^"\{(:\?)?\}"$'}]}}
+                    - has: {nthChild: 1, kind: string_literal, not: {any: [{regex: '\{[_\p{XID_Start}]'}, {regex: '\{[^}]*[0-9][^}]*\}'}, {regex: '^"\{(:\?)?\}"$'}]}}
                     - has: {regex: '^,$'}
                     - not: {has: {pattern: $_, not: {matches: fixed-token}}}
                     - not: {has: {regex: '^(default|union|gen|raw|self|crate|super)$'}}

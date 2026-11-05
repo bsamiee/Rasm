@@ -9,11 +9,11 @@ utils:
             - matches: sqlx-path
             - matches: {rust-imported-name: {source: {has: {field: argument, regex: '^sqlx::'}}, name: {matches: sqlx-name}}}
     sql-text: {kind: 'string_literal, raw_string_literal'}
-    sqlite-type: {kind: type_identifier, regex: '^Sqlite(?:Pool|Connection|Executor|Transaction)?$'}
-    pg-type: {kind: type_identifier, regex: '^(?:Pg(?:Pool|Connection|Executor|Transaction)|Postgres)$'}
-    mysql-type: {kind: type_identifier, regex: '^MySql(?:Pool|Connection|Executor|Transaction)?$'}
+    sqlite-type: {kind: &name 'type_identifier, identifier', regex: '^Sqlite(?:Pool|Connection|Connect|Executor|Transaction)?(?:Options)?$'}
+    pg-type: {kind: *name, regex: '^(?:Pg|Postgres)(?:Pool|Connection|Connect|Executor|Transaction)?(?:Options)?$'}
+    mysql-type: {kind: *name, regex: '^MySql(?:Pool|Connection|Connect|Executor|Transaction)?(?:Options)?$'}
     dialect-type: {any: [{matches: sqlite-type}, {matches: pg-type}, {matches: mysql-type}]}
-    executor-type: {any: [{matches: dialect-type}, {kind: type_identifier, regex: '^Any(?:Pool|Connection|Executor|Transaction)?$'}]}
+    executor-type: {any: [{matches: dialect-type}, {kind: *name, regex: '^Any(?:Pool|Connection|Connect|Executor|Transaction)?(?:Options)?$'}]}
     turbofish: {kind: generic_function, has: {field: type_arguments, has: {nthChild: 1, any: [{matches: dialect-type}, {has: {field: name, matches: dialect-type}}]}}}
     stated-function:
         any:
@@ -31,5 +31,5 @@ rule:
             - has: {field: macro, pattern: $CALLEE, matches: sqlx-callee}
             - has: {kind: token_tree, has: {matches: sql-text}}
     not: {inside: {stopBy: {kind: function_item}, matches: stated-function}}
-message: '`$CALLEE` runs SQL text whose dialect neither a turbofish nor an executor parameter states'
-note: 'Name the database as `sqlx::query::<Sqlite>(…)` or `sqlx::query::<Postgres>(…)`, or take a `SqlitePool` or `PgPool` parameter, so the `sql` or `pgsql` injection parses the text'
+message: '`$CALLEE` runs SQL text with a dialect neither a turbofish nor an executor parameter states'
+note: 'Name the database as `sqlx::query::<Sqlite>(…)` or `sqlx::query::<Postgres>(…)`, or take a `SqlitePool` or `PgPool` parameter, for `sql` or `pgsql` injection to parse its text'

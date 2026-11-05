@@ -34,13 +34,13 @@ const FOUND = { type: 'object', properties: { findings: LINES }, required: ['fin
 const missing = ARGS.filter((name) => !args?.[name])
 if (missing.length > 0) throw new Error(`args take ${ARGS.join(', ')}, missing ${missing.join(', ')}`)
 const HARNESS = `${KIT}/${args.key}`
-const BATTERY = `${REPO}/.artifacts/workflows/harness-depth/${args.key}/battery`
+const BATTERY = `/Users/bardiasamiee/.claude/rasm/workflows/harness-depth/${args.key}/battery`
 const RUN = `harness ${args.key}`
 const FINISHED = typeof args.finished === 'string' ? await workflow({ scriptPath: args.finished }) : {}
 const SKILLS = [...new Set(['watch-apps', args.skills].flat())].map((skill) => `Skill(${skill})`).join(', ')
 const BASIS = [
   `Harness: ${HARNESS} in ${KIT}, run through \`${RUN} <folder of *.cases.json>\`, its answers read through \`${RUN} log\`, base commit ${args.base}.`,
-  'The harness isolates every case in one host call per batch on a fresh hidden host from `watch-apps launch`, builds real documents from case preconditions and reads whole answers in one call.',
+  'The harness isolates every case in one host call per batch on a fresh background host from `watch-apps launch`, builds real documents from case preconditions and reads whole answers in one call.',
   'It presses only the dialog button a case names and records any other dialog, hang or crash with its pid, leaving the instance running for the agent.',
   `It serves every installed release of ${args.name}: ${[args.apps].flat().join(', ')}.`,
   'Recorded findings include the harness facts index. Each agent acts on the documents and host processes it starts.',

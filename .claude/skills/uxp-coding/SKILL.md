@@ -250,20 +250,20 @@ const serve = <E, F>({
     commands = {},
     panels = {},
 }: {
-    readonly link?: (extension: string) => Layer.Layer<never, E, Uxp | Plugin | Path.Path>;
-    readonly commands?: Record.ReadonlyRecord<string, Effect.Effect<void, F, Uxp | Plugin>>;
-    readonly panels?: Record.ReadonlyRecord<string, (root: HTMLElement, fork: <A, X>(work: Effect.Effect<A, X, Uxp | Plugin>) => void) => Effect.Effect<void, F, Scope.Scope | Uxp | Plugin>>;
+    readonly link?: (extension: string) => Layer.Layer<never, E, Uxp | UxpPlugin | Path.Path>;
+    readonly commands?: Record.ReadonlyRecord<string, Effect.Effect<void, F, Uxp | UxpPlugin>>;
+    readonly panels?: Record.ReadonlyRecord<string, (root: HTMLElement, fork: <A, X>(work: Effect.Effect<A, X, Uxp | UxpPlugin>) => void) => Effect.Effect<void, F, Scope.Scope | Uxp | UxpPlugin>>;
 }): void => {
     const hosted = Uxp.layer({ uxp, fs });
     const reported = <A, X, R>(effect: Effect.Effect<A, X, R>) => effect.pipe(Effect.tapCauseIf(Predicate.not(Cause.hasInterruptsOnly<X>), Effect.logError));
     Effect.gen(function* () {
         const [decoded, { setup }] = yield* Effect.all([
-            Effect.try({ try: () => fs.readFileSync(manifest, 'utf-8'), catch: (cause) => PlatformError.systemError({ _tag: 'Unknown', module: 'FileSystem', method: 'readFileString', pathOrDescriptor: manifest, cause }) }).pipe(Effect.flatMap(Schema.decodeEffect(Manifest.json))),
+            Effect.try({ try: () => fs.readFileSync(manifest, 'utf-8'), catch: (cause) => PlatformError.systemError({ _tag: 'Unknown', module: 'FileSystem', method: 'readFileString', pathOrDescriptor: manifest, cause }) }).pipe(Effect.flatMap(Schema.decodeEffect(UxpManifest.json))),
             Schema.decodeEffect(Schema.Struct({ setup: Schema.declare(Predicate.isFunction) }))(entrypoints),
         ]);
         const linked = link === undefined ? Layer.empty : Layer.launch(link(decoded.id)).pipe(reported, Effect.forkScoped, Layer.effectDiscard);
-        const runtime = ManagedRuntime.make(linked.pipe(Layer.provideMerge(Layer.succeed(Plugin)(decoded)), Layer.provideMerge(hosted)));
-        const run = <X>(effect: Effect.Effect<unknown, X, Uxp | Plugin>): Promise<void> => runtime.runPromise(Effect.asVoid(reported(effect)));
+        const runtime = ManagedRuntime.make(linked.pipe(Layer.provideMerge(Layer.succeed(UxpPlugin)(decoded)), Layer.provideMerge(hosted)));
+        const run = <X>(effect: Effect.Effect<unknown, X, Uxp | UxpPlugin>): Promise<void> => runtime.runPromise(Effect.asVoid(reported(effect)));
         const [handled, shown] = yield* Effect.all([
             Effect.all(
                 Record.map(
@@ -301,11 +301,12 @@ const serve = <E, F>({
 - `show` renders from state `main` built, and panel visibility reaches `document` as a `uxpcommand` event
 - Panels act through the served contract's handlers with payloads its request classes build, and each write names its undo step from the payload
 - Panels hold host controls alone, and actions redraw from returned state and disable controls when host state offers nothing to act on
+- `document.theme` holds `getCurrent` and `onUpdated` in every host, `UxpPlugin.theme` streams it, and each panel root takes the host ink as text color, InDesign holding no `--uxp-host-*` value and no `matchMedia` and painting text black
 - Controls hold typed values as `[label, value]` tuples, reading `Array.get(options, element.selectedIndex)` and showing one by `selectedIndex`
 
 ## [09]-[MANIFESTS]
 
-One manifest serves one host, and `host` arrays with any `app` decode for development and Adobe's bundled plugins. Host package contracts state `host` (`app` of `ID`, `PS`, `premierepro`, `ame`, or `aftereffects`, with `minVersion`) and `requiredPermissions` once, and builds derive every other key: `id`, `name`, and `version` from product identity, `manifestVersion` 6 where `addon` appears else 5, `main` from the entry, `host.data.loadEvent` `startup` to dial at launch, `network.domains` from the dial origin, and `icons` from emitted files. Build config parameters omit derived keys. Hosts enforce each `requiredPermissions` key:
+One manifest serves one host. Host package contracts state `host` (`app` of `ID`, `PS`, `premierepro`, `ame`, or `aftereffects`, with `minVersion`) and `requiredPermissions` once, build configs pass `panels` and `commands` tables, `link`, `mark`, `addon`, `strings`, and `featureFlags`, and builds derive every other key: `id`, `name`, and `version` from product identity, `manifestVersion` 6 and `enableAddon` where `addon` appears else `manifestVersion` 5, `main` from the entry, `host.data.loadEvent` `startup` to dial at launch, `network.domains` from the dial origin beside stated domains, and `icons` from `mark` and each panel's `<id>.svg`. Hosts enforce each `requiredPermissions` and `featureFlags` key:
 
 | [INDEX] | [KEY]                                   | [GRANTS]                                                 | [WITHOUT]                        |
 | :-----: | :-------------------------------------- | :------------------------------------------------------- | :------------------------------- |
@@ -321,10 +322,10 @@ One manifest serves one host, and `host` arrays with any `app` decode for develo
 |  [10]   | `enableAddon`                           | Native `.uxpaddon` loads                                 | No addon load                    |
 |  [11]   | `featureFlags.enableAlerts`             | `alert`, `prompt`, and `confirm` dialogs                 | No dialogs                       |
 
-- `entrypoints` rows name a `panel` or `command` `id` with `label.default`, `description`, `icon`, and `hostUIContext`, and hosts refuse a manifest naming neither `main` nor an entrypoint
+- `entrypoints` rows name a `panel` or `command` `id` with `label.default`, `description`, and `hostUIContext`, and hosts refuse a manifest naming neither `main` nor an entrypoint
 - Entrypoint ids and labels sit in one `as const` table the build maps into `entrypoints`, and `main` checks handler records with `satisfies Record<keyof typeof <table>, unknown>`
 - Icon rows state a base `path` with `scale`, and hosts resolve `<base>@<scale>x.<extension>` for each factor
-- Panel icons are `toolbar` PNGs at 1x and 2x, plugin icons `pluginList` SVGs, each per theme group
+- Panel icons are 23-pixel `toolbar` PNGs at 1x and 2x, plugin icons 24-pixel `pluginList` SVGs the plugins panel reads at that size, one row per ink with `medium` in the dark group as Adobe's manifests place it
 - InDesign paints an inherited `<svg>` fill black, and plugin icons hold `fill` on each element
 - `plugin-temp:` reads and writes the folder `getTemporaryFolder()` returns under every permission level, and `plugin:` is read-only
 - Storage providers hold no `unlinkSync`, and a temporary file's native storage entry deletes it through `delete()`

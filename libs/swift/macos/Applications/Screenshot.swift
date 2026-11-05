@@ -5,8 +5,6 @@ import UniformTypeIdentifiers
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-public func requestCaptureAccess() -> Bool { CGRequestScreenCaptureAccess() }
-
 extension SCScreenshotConfiguration {
     public static var background: SCScreenshotConfiguration {
         let configuration: SCScreenshotConfiguration = SCScreenshotConfiguration()

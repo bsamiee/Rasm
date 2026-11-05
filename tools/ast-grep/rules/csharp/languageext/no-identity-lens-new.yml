@@ -27,7 +27,7 @@ utils:
     relay:
         kind: identifier
         all:
-            - pattern: $RELAY
+            - pattern: {context: 'class $RELAY;', selector: identifier}
             - inside:
                 kind: compilation_unit
                 stopBy: end
@@ -35,7 +35,7 @@ utils:
                     stopBy: end
                     kind: method_declaration, local_function_statement
                     all:
-                        - has: {field: name, pattern: $RELAY}
+                        - has: {field: name, pattern: {context: 'class $RELAY;', selector: identifier}}
                         - any:
                             - has: {field: returns, pattern: $RELAY_TYPE}
                             - has: {field: type, pattern: $RELAY_TYPE}
@@ -44,7 +44,7 @@ utils:
                             has:
                                 kind: parameter
                                 all:
-                                    - has: {field: name, pattern: $VALUE}
+                                    - has: {field: name, pattern: {context: 'class $VALUE;', selector: identifier}}
                                     - has: {field: type, pattern: $RELAY_TYPE}
                                 not: {has: {kind: 'modifier, attribute_list'}}
                             not: {has: {kind: parameter, nthChild: 2}}
@@ -105,9 +105,9 @@ utils:
                     field: parameters
                     any:
                         - kind: implicit_parameter
-                          not: {pattern: $SET}
+                          not: {pattern: {context: 'var f = $SET => 0;', selector: implicit_parameter}}
                         - kind: parameter_list
-                          has: {kind: parameter, not: {has: {field: name, pattern: $SET}}}
+                          has: {kind: parameter, not: {has: {field: name, pattern: {context: 'class $SET;', selector: identifier}}}}
                           not: {has: {kind: parameter, nthChild: 2}}
                 - has: {field: body, matches: set-value}
             - kind: invocation_expression

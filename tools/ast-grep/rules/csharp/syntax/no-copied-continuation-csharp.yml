@@ -3,29 +3,27 @@ language: csharplang
 severity: error
 utils:
     parameter:
-        inside: {stopBy: end, kind: &owner 'method_declaration, local_function_statement', has: {field: parameters, has: {kind: parameter, has: {field: name, pattern: $REST}}}}
+        inside: {stopBy: end, kind: &owner 'method_declaration, local_function_statement', has: {field: parameters, has: {kind: parameter, has: {field: name, pattern: {context: 'class $REST;', selector: identifier}}}}}
     base:
-        kind: identifier
-        pattern: $BASE
-        inside: {stopBy: end, kind: *owner, has: {field: parameters, has: {kind: parameter, has: {field: name, pattern: $BASE}}}}
+        pattern: {context: 'class $BASE;', selector: identifier}
+        inside: {stopBy: end, kind: *owner, has: {field: parameters, has: {kind: parameter, has: {field: name, pattern: {context: 'class $BASE;', selector: identifier}}}}}
     tail:
         any:
-            - {kind: member_access_expression, all: [{has: {field: name, regex: '^Tail$'}}, {has: {field: expression, kind: identifier, pattern: $REST}}]}
-            - {kind: invocation_expression, has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(Skip|Slice|Drop|GetRange)$'}}, {has: {field: expression, kind: identifier, pattern: $REST}}]}}
-            - {kind: element_access_expression, all: [{has: {field: expression, kind: identifier, pattern: $REST}}, {has: {field: subscript, has: {kind: argument, has: {kind: range_expression}}}}]}
+            - {kind: member_access_expression, all: [{has: {field: name, regex: '^Tail$'}}, {has: {field: expression, pattern: {context: 'class $REST;', selector: identifier}}}]}
+            - {kind: invocation_expression, has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(Skip|Slice|Drop|GetRange)$'}}, {has: {field: expression, pattern: {context: 'class $REST;', selector: identifier}}}]}}
+            - {kind: element_access_expression, all: [{has: {field: expression, pattern: {context: 'class $REST;', selector: identifier}}}, {has: {field: subscript, has: {kind: argument, has: {kind: range_expression}}}}]}
     worked:
         any:
             - matches: tail
-            - {kind: member_access_expression, all: [{has: {field: name, regex: '^Head$'}}, {has: {field: expression, kind: identifier, pattern: $REST}}]}
-            - {kind: invocation_expression, has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(First|FirstOrDefault)$'}}, {has: {field: expression, kind: identifier, pattern: $REST}}]}}
-            - {kind: element_access_expression, has: {field: expression, kind: identifier, pattern: $REST}}
+            - {kind: member_access_expression, all: [{has: {field: name, regex: '^Head$'}}, {has: {field: expression, pattern: {context: 'class $REST;', selector: identifier}}}]}
+            - {kind: invocation_expression, has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(First|FirstOrDefault)$'}}, {has: {field: expression, pattern: {context: 'class $REST;', selector: identifier}}}]}}
+            - {kind: element_access_expression, has: {field: expression, pattern: {context: 'class $REST;', selector: identifier}}}
     rest:
         any:
             - all:
                 - matches: tail
                 - matches: parameter
-            - kind: identifier
-              pattern: $REST
+            - pattern: {context: 'class $REST;', selector: identifier}
               any:
                 - all:
                     - matches: parameter
@@ -39,7 +37,7 @@ utils:
                             stopBy: end
                             kind: variable_declarator
                             all:
-                                - has: {field: name, pattern: $REST}
+                                - has: {field: name, pattern: {context: 'class $REST;', selector: identifier}}
                                 - has:
                                     all:
                                         - any:
@@ -54,7 +52,7 @@ utils:
             - kind: collection_expression
               all:
                 - has: {kind: collection_element, has: {kind: spread_element, has: {matches: rest}}}
-                - has: {kind: collection_element, not: {has: {kind: spread_element, has: {any: [{matches: tail}, {kind: identifier, pattern: $REST}]}}}}
+                - has: {kind: collection_element, not: {has: {kind: spread_element, has: {any: [{matches: tail}, {pattern: {context: 'class $REST;', selector: identifier}}]}}}}
             - kind: invocation_expression
               all:
                 - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Concat|Prepend|Append|Cons)$'}}
@@ -67,10 +65,10 @@ utils:
                 - any: [{has: {field: left, matches: rest}}, {has: {field: right, matches: rest}}]
     recurses:
         kind: invocation_expression
-        has: {field: function, any: [{kind: identifier, pattern: $NAME}, {kind: member_access_expression, has: {field: name, pattern: $NAME}}]}
+        has: {field: function, any: [{pattern: {context: 'class $NAME;', selector: identifier}}, {kind: member_access_expression, has: {field: name, pattern: $NAME}}]}
     rest-call:
         matches: recurses
-        has: {field: arguments, has: {stopBy: end, kind: identifier, pattern: $REST}}
+        has: {field: arguments, has: {stopBy: end, pattern: {context: 'class $REST;', selector: identifier}}}
     holds-rest-call:
         any:
             - matches: rest-call
@@ -96,7 +94,7 @@ rule:
     kind: invocation_expression
     all:
         - matches: recurses
-        - inside: {stopBy: end, kind: *owner, has: {field: name, pattern: $NAME}}
+        - inside: {stopBy: end, kind: *owner, has: {field: name, pattern: {context: 'class $NAME;', selector: identifier}}}
         - has: {field: arguments, has: {kind: argument, has: {stopBy: end, matches: joined}}}
         - any:
             - inside: {stopBy: {kind: *owner}, kind: 'lambda_expression, anonymous_method_expression'}

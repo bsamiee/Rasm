@@ -159,6 +159,11 @@ internal sealed class GeometricAssistant<TValue, TKey, TError>(ITypeAssistant<TK
             .Fold(Option<double>.None, static (sum, part) => Some(sum.IfNone(0d) + part));
 }
 
+internal sealed class MasterIcon(IIcon lit, IIcon dim) : AbstractIcon(IconType.Vector) {
+    protected override void DrawInternal(IconContext context) =>
+        (context.ResolveSpecialColour(SpecialColour.ForegroundStark).R > 0.5f ? dim : lit).Draw(context);
+}
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class Conversions<TValue, TKey, TError>
     where TValue : IObjectFactory<TValue, TKey, TError>, IConvertible<TKey>
@@ -263,7 +268,7 @@ public static class DataTypes {
                 slider.Values.Assign(current.IsEmpty ? Seq(limits.Value) : current);
                 slider.SliderValueChanged += (_, _) => Hooks.Run(
                     IO.lift(() => toSeq(slider.Values.AllValues).Traverse(static number => Conversions<TValue, TKey, TError>.Validated(TKey.CreateChecked(number))
-                            .MapLeft<Error>(static error => error is Error fault ? fault : Error.New(Conversions<TValue, TKey, TError>.Rejected(error))).ToFin()).As())
+                            .MapLeft(static error => error is Error fault ? fault : Error.New(Conversions<TValue, TKey, TError>.Rejected(error))).ToFin()).As())
                         .Bind(picked => unless(picked.IsEmpty, IO.lift(() => {
                             parameter.AddUndoRecord(new VerbNoun("Set", parameter.TypeAssistant.Name), new PersistentDataAction(parameter, runtime));
                             parameter.PersistentData = Garden.TreeFromPears(
@@ -293,10 +298,12 @@ public static class DataTypes {
 
     // --- [IDENTITY]
     private static readonly Func<(Assembly Assembly, string Name), Option<IIcon>> Icons = memoUnsafe(static ((Assembly Assembly, string Name) source) =>
-        Optional(AbstractIcon.FromResource(source.Name, source.Assembly))
-        || Optional(Folders.TryFindResourceUri(source.Assembly, source.Name + ".svg"))
-            .Bind(resource => Optional(Folders.GetResourceAsString(source.Assembly, resource)))
-            .Map(static IIcon (svg) => SvgIcon.FromXml(svg)));
+        Art(source.Assembly, source.Name).Map(lit => (IIcon)new MasterIcon(lit, Art(source.Assembly, $"{source.Name}_darkmode").IfNone(lit))));
+
+    private static Option<IIcon> Art(Assembly assembly, string name) =>
+        Optional(Folders.TryFindResourceUri(assembly, name + ".svg"))
+            .Bind(resource => Optional(Folders.GetResourceAsString(assembly, resource)))
+            .Map(static IIcon (svg) => SvgIcon.FromXml(svg));
 
     internal static Guid IoId(Type type) =>
         Uuid.NewNameBased(

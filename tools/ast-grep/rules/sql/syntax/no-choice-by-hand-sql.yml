@@ -8,7 +8,7 @@ utils:
               all:
                 - has: {field: left, pattern: $VALUE}
                 - has: {field: right, kind: null_literal}
-                - any: [{not: {has: {regex: '(?i-u)^distinct$'}}}, {has: {regex: '(?i-u)^not$'}}]
+                - any: [{all: [{not: {has: &negated {regex: '(?i-u)^not$'}}}, {not: {has: &distinct {regex: '(?i-u)^distinct$'}}}]}, {all: [{has: *negated}, {has: *distinct}]}]
             - kind: is_null_expression
               all:
                 - has: {field: operand, pattern: $VALUE}
@@ -18,9 +18,8 @@ utils:
             - kind: is_expression
               all:
                 - has: {field: left, pattern: $VALUE}
-                - any:
-                    - has: {field: right, kind: unary_expression, all: [{has: {field: operator, regex: '(?i-u)^not$'}}, {has: {field: operand, kind: null_literal}}]}
-                    - all: [{has: {field: right, kind: null_literal}}, {has: {regex: '(?i-u)^distinct$'}}, {not: {has: {regex: '(?i-u)^not$'}}}]
+                - has: {field: right, kind: null_literal}
+                - any: [{all: [{has: *negated}, {not: {has: *distinct}}]}, {all: [{has: *distinct}, {not: {has: *negated}}]}]
             - kind: is_null_expression
               all:
                 - has: {field: operand, pattern: $VALUE}

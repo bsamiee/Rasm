@@ -28,9 +28,9 @@ utils:
             - kind: parenthesized_expression
               has: {matches: affirmed}
             - kind: is_pattern_expression
-              all: [{has: {field: expression, matches: check}}, {has: {field: pattern, regex: '^true$'}}]
+              all: [{has: {field: pattern, kind: constant_pattern, has: {kind: boolean_literal, regex: '^true$'}}}, {has: {field: expression, matches: check}}]
             - kind: binary_expression
-              all: [{has: {field: operator, regex: '^==$'}}, {has: {field: left, matches: check}}, {has: {field: right, regex: '^true$'}}]
+              all: [{has: {field: operator, regex: '^==$'}}, {has: {field: right, kind: boolean_literal, regex: '^true$'}}, {has: {field: left, matches: check}}]
     held-declaration:
         any:
             - kind: variable_declarator
@@ -54,9 +54,9 @@ utils:
               regex: '^!'
               has: {nthChild: 1, matches: truthy}
             - kind: is_pattern_expression
-              all: [{has: {field: expression, matches: truthy}}, {has: {field: pattern, regex: '^false$'}}]
+              all: [{has: {field: pattern, kind: constant_pattern, has: {kind: boolean_literal, regex: '^false$'}}}, {has: {field: expression, matches: truthy}}]
             - kind: binary_expression
-              all: [{has: {field: operator, regex: '^==$'}}, {has: {field: left, matches: truthy}}, {has: {field: right, regex: '^false$'}}]
+              all: [{has: {field: operator, regex: '^==$'}}, {has: {field: right, kind: boolean_literal, regex: '^false$'}}, {has: {field: left, matches: truthy}}]
             - kind: parenthesized_expression
               has: {matches: falsy}
     failure:

@@ -30,8 +30,8 @@ utils:
                 - not: {has: {nthChild: 3}}
                 - not: {has: {kind: match_arm, not: {matches: bool-arm}}}
                 - has: {matches: bool-arm, has: {field: pattern, matches: variant-pattern}}
-                - has: {kind: match_arm, has: {field: value, regex: '^true$'}}
-                - has: {kind: match_arm, has: {field: value, regex: '^false$'}}
+                - has: {kind: match_arm, has: {field: value, kind: boolean_literal, regex: '^true$'}}
+                - has: {kind: match_arm, has: {field: value, kind: boolean_literal, regex: '^false$'}}
     test-body:
         matches: {rust-single-statement: {first: {any: [{matches: variant-test}, {matches: bool-selection}, {kind: expression_statement, has: {any: [{matches: variant-test}, {matches: bool-selection}]}}]}}}
 rule:

@@ -2,10 +2,10 @@
 language: pythonlang
 severity: error
 rule:
-    pattern: $G
     matches:
         python-evaluated-subscript:
             value:
+                pattern: $G
                 any:
                     - matches: {python-builtin-name: {name: {regex: '^(filter|map|reversed|zip)$'}}}
                     - matches:

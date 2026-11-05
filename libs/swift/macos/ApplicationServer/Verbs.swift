@@ -63,7 +63,7 @@ extension NSWorkspace {
     ) -> some AsyncSequence<Launching, Never> & Sendable {
         AsyncStream { output in
             let prompting: Task<Void, Never> = Task {
-                for await held: OrderedDictionary<NSRunningApplication, InstanceState> in NSWorkspace.shared.systemPrompts(naming: [installation.name], clock: clock) {
+                for await held: OrderedDictionary<NSRunningApplication, InstanceState> in Self.shared.systemPrompts(naming: [installation.name], clock: clock) {
                     output.yield(.prompts(held.compactMap { instance, state in RunningInstance(instance, state: state) }))
                 }
             }
@@ -73,7 +73,7 @@ extension NSWorkspace {
                     output.finish()
                 }
                 do throws(ApplicationFailure) {
-                    let (instance, created): (NSRunningApplication, Bool) = try await NSWorkspace.shared.launch(
+                    let (instance, created): (NSRunningApplication, Bool) = try await Self.shared.launch(
                         installation,
                         opening: documents,
                         arguments: arguments,
@@ -86,7 +86,7 @@ extension NSWorkspace {
                         if let running: RunningInstance = RunningInstance(instance, state: state) { output.yield(.state(running)) }
                         switch state {
                             case .running(let running):
-                                if running.status.settled || !running.asking.isEmpty { return }
+                                if !created || running.status.settled || !running.asking.isEmpty { return }
                             case .failed: return
                             case .exited: continue
                         }
@@ -120,24 +120,26 @@ extension NSRunningApplication {
     public func quitting(force: Bool = false, clock: some Clock<Duration> & Sendable = ContinuousClock()) -> any AsyncSequence<Result<InstanceState, ApplicationFailure>, Never> & Sendable {
         guard force else { return quit(clock: clock) }
         let states: some AsyncSequence<InstanceState, Never> & Sendable = states(clock: clock)
-        guard forceTerminate() else {
-            return [Result<InstanceState, ApplicationFailure>.failure(ApplicationFailure(subject: String(processIdentifier), reason: isTerminated ? .noProcess : .refused(nil)))].async
+        return if forceTerminate() {
+            states.map(Result<InstanceState, ApplicationFailure>.success)
+        } else {
+            [Result<InstanceState, ApplicationFailure>.failure(ApplicationFailure(subject: String(processIdentifier), reason: isTerminated ? .noProcess : .refused(nil)))].async
         }
-        return states.map(Result<InstanceState, ApplicationFailure>.success)
     }
 
     public func capturing(window: CGWindowID? = nil, longestSide: Int? = nil) async throws(ApplicationFailure) -> [CGWindowID: Result<SCScreenshotOutput, ApplicationFailure>] {
         if let window { return try await screenshots(of: [window], longestSide: longestSide) }
-        switch await state() {
-            case .running(let running):
-                return try await screenshots(of: running.windows.filter(\.presented).map(\.number), longestSide: longestSide).filter { _, shot in
-                    switch shot {
-                        case .success(let output): output.sdrImage.map(transparent) != true
-                        case .failure: true
-                    }
-                }
-            case .failed(let failure): throw failure
-            case .exited: throw ApplicationFailure(subject: String(processIdentifier), reason: .noProcess)
+        let presented: [CGWindowID] =
+            switch await state() {
+                case .running(let running): running.windows.filter(\.presented).map(\.number)
+                case .failed(let failure): throw failure
+                case .exited: throw ApplicationFailure(subject: String(processIdentifier), reason: .noProcess)
+            }
+        return try await screenshots(of: presented, longestSide: longestSide).filter { _, shot in
+            switch shot {
+                case .success(let output): output.sdrImage.map(transparent) != true
+                case .failure: true
+            }
         }
     }
 }

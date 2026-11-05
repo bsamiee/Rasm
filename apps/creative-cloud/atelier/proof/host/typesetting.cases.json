@@ -1,0 +1,33 @@
+{
+    "limit": "3 minutes",
+    "plugin": "plugins/indesign/uxp.config.ts",
+    "precondition": {
+        "document": { "intent": "PRINT_INTENT", "width": 595, "height": 842, "profiles": { "cmyk": "GRACoL2013_CRPC6.icc", "rgb": "Adobe RGB (1998)" }, "language": "Arabic" },
+        "units": "POINTS",
+        "steps": ["made.frame = doc.pages.item(0).textFrames.add({ geometricBounds: [72, 72, 360, 520], contents: 'بسم الله الرحمن الرحيم' })"],
+        "select": ["made.frame.texts.item(0)"]
+    },
+    "read": {
+        "groups": "Array.from(document.querySelectorAll('sp-detail'), (detail) => detail.textContent)",
+        "pickers": "Array.from(document.querySelectorAll('sp-picker'), (picker) => ({ label: picker.querySelector('sp-label')?.textContent, selected: picker.selectedIndex, disabled: picker.hasAttribute('disabled') }))",
+        "sets": "Array.from(document.querySelectorAll('sp-checkbox'), (box) => ({ tag: box.textContent, checked: box.checked }))",
+        "selection": "app.selection.map((item) => item.toSpecifier())",
+        "kashidas": "String(app.selection[0].kashidas)"
+    },
+    "cases": [
+        {
+            "name": "Typesetting panel draws its groups and controls for the selected Arabic text",
+            "panel": "typesetting",
+            "evaluate": "document.querySelectorAll('sp-picker').length",
+            "until": "document.querySelectorAll('sp-picker').length > 0",
+            "capture": true
+        },
+        {
+            "name": "Typesetting elongation picker writes kashida settings to the selection and enables width",
+            "panel": "typesetting",
+            "evaluate": "(() => { const picker = document.querySelectorAll('sp-picker')[1]; picker.selectedIndex = 1; picker.dispatchEvent(new window.Event('change')); return picker.selectedIndex; })()",
+            "until": "!document.querySelectorAll('sp-picker')[2].hasAttribute('disabled')",
+            "capture": true
+        }
+    ]
+}

@@ -18,4 +18,4 @@ rule:
                 - has: {stopBy: end, kind: identifier, pattern: $NAME, matches: length-read}
                 - not: {has: {stopBy: end, kind: 'identifier, shorthand_property_identifier', pattern: $NAME, not: {any: [{inside: {kind: variable_declarator, field: name}}, {matches: length-read}]}}}
 message: '`$NAME` is read only as `$NAME.length`'
-note: 'Declare the count as a number named for the fact it states'
+note: 'Declare the count as a number named for its fact'

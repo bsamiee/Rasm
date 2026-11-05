@@ -25,7 +25,7 @@ utils:
             - inside: {kind: class_definition, stopBy: {kind: 'function_definition, lambda'}, has: {stopBy: *statement-walk, matches: plain-import}}
     bound-by-alias:
         all:
-            - inside: {kind: module, stopBy: end, regex: '(?-u:\b)from(?-u:\b)(?s:.*)(?-u:\b)import(?-u:\b)(?s:.*)(?-u:\b)as(?-u:\b)'}
+            - inside: {kind: module, stopBy: end, regex: '(?-u:\b)from(?-u:\b)(?:\\(?:\r\n?|\n)|[^\r\n])*?(?-u:\b)import(?:(?:\\(?:\r\n?|\n)|[\t\f ])*\((?:#[^\r\n]*|[^)#])*?|(?-u:\b)(?:\\(?:\r\n?|\n)|[^\r\n])*?)(?-u:\b)as(?-u:\b)'}
             - any:
                 - inside: {kind: 'module, function_definition', stopBy: end, has: {stopBy: *statement-walk, matches: aliased-import}}
                 - inside: {kind: class_definition, stopBy: {kind: 'function_definition, lambda'}, has: {stopBy: *statement-walk, matches: aliased-import}}
@@ -33,13 +33,13 @@ rule:
     kind: identifier
     pattern: $BOUND
     all:
+        - any:
+            - all: [{matches: name}, {matches: bound-by-plain}]
+            - matches: bound-by-alias
         - not:
             any:
                 - inside: {kind: attribute, field: attribute}
                 - inside: {kind: keyword_argument, field: name}
-                - inside: {kind: 'import_statement, import_from_statement', stopBy: end}
-        - any:
-            - all: [{matches: name}, {matches: bound-by-plain}]
-            - matches: bound-by-alias
+                - inside: {kind: 'import_statement, import_from_statement', stopBy: {not: {kind: 'dotted_name, aliased_import, relative_import'}}}
         - not: {matches: {python-conflicting-import: {module: {matches: module}, name: {matches: name}}}}
         - not: {matches: python-shadowed-name}

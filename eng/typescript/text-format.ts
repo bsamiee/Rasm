@@ -1,5 +1,6 @@
 import { Effect, flow, Result, Schema, SchemaGetter, SchemaIssue } from 'effect';
 import { Toml, Yaml } from 'effect/encoding';
+import JSON5 from 'json5';
 import { parse } from 'plist';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -11,7 +12,7 @@ const fromParser = (expected: string, parser: (text: string) => unknown) =>
             encode: SchemaGetter.forbiddenEncoding,
         }),
     );
-const TextFormat = Object.assign(fromParser, { Plist: fromParser('property list', parse), Toml: fromParser('TOML', flow(Toml.parse, Result.getOrThrow)), Yaml: fromParser('YAML', Yaml.parse) });
+const TextFormat = Object.assign(fromParser, { Json5: fromParser('JSON5', JSON5.parse), Plist: fromParser('property list', parse), Toml: fromParser('TOML', flow(Toml.parse, Result.getOrThrow)), Yaml: fromParser('YAML', Yaml.parse) });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

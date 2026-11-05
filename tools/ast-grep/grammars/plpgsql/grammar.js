@@ -9,13 +9,12 @@ const RULES = plpgsql.grammar.rules;
 const LEXICON = postgres.grammar.rules;
 const STATEMENT = 'proc_stmt';
 const TERMINATOR = ';';
-const DELIMITER = '`';
 const SEPARATOR = ',';
 const KEYWORD = 'kw_';
 const HOLE = 'substitution';
 const WHITESPACE = /[\t\n\v\f\r ]+/u;
 const UNICODE_PREFIX = /[uU]&/u;
-const UNICODE_ESCAPE = /\s+[uU][eE][sS][cC][aA][pP][eE]\s+/u;
+const UNICODE_ESCAPE = /[\t\n\v\f\r ]*[uU][eE][sS][cC][aA][pP][eE][\t\n\v\f\r ]*/u;
 const [IDENTIFIER, ...QUOTED] = LEXICON._ident.members.map(({ name }) => name);
 const [LITERAL, ...STRINGS] = LEXICON.Sconst.members.map(({ name }) => name);
 
@@ -137,8 +136,9 @@ export default extend(plpgsql, {
         ...Object.fromEntries(Object.keys(RULES).map((name) => [name, ($) => shaped($, name)])),
         raise_level: ($) => prec.dynamic(1, choice(shaped($, 'raise_level'), $[HOLE])),
         source_file: ($) => {
+            const delimiter = '`';
             const statements = seq(repeat($[STATEMENT]), alias($._block_statement, $[STATEMENT]));
-            return choice(RULES.source_file, seq(alias($._template_open, DELIMITER), statements, DELIMITER), statements);
+            return choice(RULES.source_file, seq(alias($._template_open, delimiter), statements, delimiter), statements);
         },
         _block_statement: ($) => open($, shaped($, STATEMENT)),
         ...Object.fromEntries([...opened].map((name) => [unterminated(name), ($) => open($, shaped($, name))])),

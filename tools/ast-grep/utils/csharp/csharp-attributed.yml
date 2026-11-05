@@ -7,7 +7,7 @@ utils:
         matches: {csharp-type-name: {name: {matches: name}}}
     alias-binding:
         kind: &using using_directive
-        has: {field: name, pattern: $ATTRIBUTE_ALIAS}
+        has: {field: name, pattern: {context: 'class $ATTRIBUTE_ALIAS;', selector: identifier}}
     alias-scope:
         kind: &scope 'compilation_unit, namespace_declaration'
         any:
@@ -32,12 +32,12 @@ rule:
                         - matches: attribute-name
                         - not:
                             kind: identifier
-                            pattern: $ATTRIBUTE_ALIAS
+                            pattern: {context: 'class $ATTRIBUTE_ALIAS;', selector: identifier}
                             inside:
                                 stopBy: end
                                 kind: *scope
                                 has: {stopBy: {kind: *declaration}, kind: *using, matches: alias-binding}
                     - kind: identifier
                       all:
-                        - pattern: $ATTRIBUTE_ALIAS
+                        - pattern: {context: 'class $ATTRIBUTE_ALIAS;', selector: identifier}
                         - inside: {stopBy: {kind: *scope}, matches: alias-scope}

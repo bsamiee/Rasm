@@ -33,7 +33,7 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 
 ## [03]-[WORKER]
 
-[HANDLERS]: Worker is one Effect `Layer` graph, `@rasm/hosting/cloudflare` `serveWorker` builds its handler once per isolate on its first request:
+[HANDLERS]: Worker is one Effect `Layer` graph, `@rasm/hosting/worker` `serveWorker` builds its handler once per isolate on its first request:
 - Operations are `Effect.fn` spans, `Effect.catchTag` turns SQL, schema, and platform failures into a logged `ServiceUnavailable`
 - `SqlClient` stores complete encoded documents and assets as JSON, object storage holds media bytes
 - Store reads decode joined JSON documents and asset collections through `PortfolioData` at store boundaries
@@ -112,15 +112,17 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 ## [07]-[HOSTING]
 
 [SITES]: OpenAI Sites runs the built Worker with D1 and R2 bindings `.openai/hosting.json` names, sync generator `hosting-bindings` writes both names and the host assigns `project_id`:
-- `cloudflare.config.ts` declares the Worker, its asset routing, and its bindings through `cf/config` builders
+- `cloudflare.config.ts` declares the Worker name, entrypoint, and data bindings through `@rasm/hosting/cloudflare` `hostedWorker`
 - Worker binding types are the global `Env` that `cf workers types` generates from `cloudflare.config.ts`
-- `server/worker.ts` passes `cloudflare:workers` `env`, `cloudflare.config.ts`, and its `Layer` to `serveWorker`, `server/main.ts` passes `cloudflare.config.ts` and an `env` callback to `serveNode`, each host providing `Template` from the assets binding
+- `server/worker.ts` passes `cloudflare:workers` `env` and its `Layer` to `serveWorker`, `server/main.ts` passes `cloudflare.config.ts` and an `env` callback to `serveNode`, each host providing `Template` from the assets binding
 - `server/app.ts` composes routes over passed services, D1 and `ObjectStorage.r2` from the Worker, SQLite and path-style `ObjectStorage.s3` from Node
-- `nx run @rasm/portfolio:hosting -- <cloudflare|docker> <operation>` deploys the same build to a Cloudflare account or a Docker host
-- Sites, `@rasm/hosting` `CloudflareAccess.middleware`, or Docker proxy send user id and email as `model/sites.ts` `sites` headers
+- `nx run @rasm/portfolio:hosting -- <cloudflare|docker> <operation>` builds and deploys to a Cloudflare account or a Docker host, Cloudflare's mode `disposable` naming its own Worker and resources, Docker keeping mode `production` under a `-disposable` name
+- Sites, `@rasm/hosting/cloudflare-access` `CloudflareAccess.middleware`, or Docker proxy send user id and email as `User.sites` headers
+- `@rasm/hosting/vite` `cloudflareWorker` takes `favicon.svg` and `site/theme.css` tokens, `siteHead` emitting the ICO, Apple touch icon, painted SVG, `theme-color`, and the `color-scheme` the tokens hold
 - Requests without a user id are signed-out visitors
 - First sign-in with an email equal to `OWNER_EMAIL` ignoring case enrolls its user id, later owner checks read and compare user ids alone
-- Modes `production` and `cloudflare` declare `OWNER_EMAIL` a secret, `cloudflare` also declares the `CloudflareAccess.binding` JSON secret, every other mode binds `OWNER_EMAIL` to `simulatedEmail`, the `sites()` local sign-in address
+- `hostedWorker` modes `production`, `cloudflare`, and `disposable` declare `OWNER_EMAIL` a secret, `cloudflare` and `disposable` also declare the `CloudflareAccess.binding` JSON secret, every other mode binds `OWNER_EMAIL` to the `sites()` local sign-in address
+- `site/shell.tsx` states the page's content security sources beside the policy `Template.render` holds
 
 [STORAGE]: `server/catalog.ts` declares document, asset, and owner tables as `Relation` values, with statements over them beside their handlers in `server/<aggregate>.ts`:
 - `@rasm/database` `Catalog.layer` builds each entry's client with snake-case identifiers and reconciles tables once per isolate or process start

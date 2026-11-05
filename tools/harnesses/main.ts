@@ -12,8 +12,8 @@ import { printed } from '#/instance';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-Effect.map(printed('git', ['rev-parse', 'HEAD']), String.trim).pipe(
-    Effect.flatMap((version) => Command.run(cli(Config.String('HARNESS_LOGS'), Automation.layer(ChildProcess.make('watch-apps', ['serve'], { stderr: 'inherit' }))), { version })),
+Effect.all([Effect.map(printed('git', ['rev-parse', 'HEAD']), String.trim), Config.String('HARNESS_LOGS')]).pipe(
+    Effect.flatMap(([version, logs]) => Command.run(cli(version, logs, Automation.layer(ChildProcess.make('watch-apps', ['serve'], { stderr: 'inherit' }))), { version })),
     Effect.provide(Layer.mergeAll(layer, SecureRandom.layerWebCrypto)),
     runMain,
 );

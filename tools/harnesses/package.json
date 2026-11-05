@@ -11,16 +11,22 @@
     },
     "bin": { "harness": "./main.ts" },
     "dependencies": {
+        "@ast-grep/napi": "catalog:",
         "@effect/platform-node": "catalog:",
         "@rasm/applications": "workspace:*",
-        "@swc/core": "catalog:",
+        "@rasm/automation": "workspace:*",
+        "@rasm/cep": "workspace:*",
+        "@rasm/extendscript": "workspace:*",
+        "@rasm/uxp": "workspace:*",
         "acorn": "catalog:",
         "acorn-walk": "catalog:",
         "effect": "catalog:",
-        "jsesc": "catalog:"
+        "jsesc": "catalog:",
+        "vite": "catalog:"
     },
     "devDependencies": {
         "@types/jsesc": "catalog:",
-        "@types/node": "catalog:"
+        "@types/node": "catalog:",
+        "types-for-adobe": "catalog:"
     }
 }

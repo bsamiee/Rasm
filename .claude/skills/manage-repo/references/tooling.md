@@ -19,6 +19,7 @@
 - Install side effects sit in their tool row's `postinstall`, a failing command fails the install
 - Row `postinstall` reads `[env]` without `tools = true` rows, `[hooks] postinstall` renders `[env]` from the tools one install names
 - Tools a target calls keep their row and read settings from repository files alone, machine setup installs tools and configures none
+- `mise.ci.toml` `disable_tools` drops rows no CI job calls, a `tools = true` reader of one guards with `?.path or ""`
 - Registry rows resolving to `conda:` (`imagemagick`) install a closure in their own `@rpath` prefix, linking no Homebrew, Nix, or Pixi library
 - `mise install` keeps a `conda:` closure while its package version holds, `mise install --force <tool>` takes a conda-forge dependency rebuild
 
@@ -35,8 +36,9 @@ One pitchfork supervisor runs `[daemons]` rows, each local MCP server once as a 
 - `experimental = true` under `[settings]` enables `[daemons]`, `[daemons_settings]` `namespace` names daemon IDs `rasm/<name>`
 - Rows declare `run` as a shell command opening with `exec`, mise runs it from `{{config_root}}` with project tools and `[env]`
 - `run` renders `{{ env.<NAME> }}` and `{{ vars.<name> }}` alone, a daemon reads its own port as `$PORT`
-- Row `env` tables reach pitchfork unrendered by mise, pitchfork renders `{{ dir }}` there as project root
+- Row `env` tables reach pitchfork unrendered by mise and apply to the row's `mise x`, a value only the server reads (`XDG_CACHE_HOME`) sits in `run` as `exec env <NAME>=<value> <server>`, as an `env` row it moves mise's own cache
 - Fixed `port` rows export `<NAME>_PORT` to every mise process, `[env]` URL rows read it as `{{ env.<NAME>_PORT }}`
+- Rows with a `port` take `proxy = false`, mise otherwise exports a `<NAME>_URL` naming a proxy hostname nothing serves
 - Daemon names fold into exported variable names, a name another program reads as its own variable (`BLENDER_PORT`) takes a longer name
 - `retry = true` restarts a failed process on the supervisor interval, a process exiting 0 stays stopped
 - `boot_start = true` rows start when supervisor starts in boot mode, and restart selection reads the flag
@@ -47,7 +49,10 @@ One pitchfork supervisor runs `[daemons]` rows, each local MCP server once as a 
 - `TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE` names socket inside the engine's host, Ryuk mounts it and fails on Colima's client socket path
 - Container images name `latest` with an always-pull policy, each run starts the newest image
 - Harness rows hold service URLs and read no `[env]` value into MCP config
-- Servers speaking stdio alone run as `rasm-mcp-bridge --listen 127.0.0.1:$PORT -- <command>`
+- Servers speaking stdio alone run as `rasm-mcp-bridge --listen 127.0.0.1:$PORT --grace 4s -- <command>`, `--grace` above the bridge's 3s stdin close and below the 5s stop timeout ends the upstream on every stop
+- Bridge rows take `ready_http` at status `406`, the bridge binds before its upstream handshake and answers a plain `GET` with 406 once the upstream is up, so `ready_port` passes first
+- `doppler run` rows take `--forward-signals=false`, the group's SIGTERM reaches the bridge once and a forwarded second signal abandons its drain
+- `roslyn-codelens` starts from `/` with no solution, a solution it finds or is passed holds gigabytes from login, `load_solution` holds them from the first session needing them
 - Servers starting one process per connection, or approving the connecting process by its code signature, keep a stdio row
 
 Pitchfork has no login start, one `[bootstrap.macos.launchd.agents]` row runs its supervisor at login:
@@ -70,6 +75,7 @@ Daemon operations:
 - Generic cleanup keeps Pixi prefixes and `PULUMI_HOME` and installs no browser or tool
 - Cleanup removes each target in place, an interrupted removal leaves the target at its listed path for next run
 - `maintain.sh` quits VS Code before reopening it, the `code` CLI otherwise reuses a running instance and its old environment
+- `upgrade:mise` moves the `.config/hk.pkl` package URLs to the `hk` version `mise upgrade` installs, `hk validate` accepts an older URL and reports nothing
 
 ## [05]-[TOML]
 

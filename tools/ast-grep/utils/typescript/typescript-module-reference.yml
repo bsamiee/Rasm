@@ -6,7 +6,7 @@ utils:
     module-import:
         kind: import_statement
         all:
-            - has: {field: source, not: {has: {kind: escape_sequence}}, has: {kind: string_fragment, matches: source}}
+            - has: {field: source, all: [{has: {kind: string_fragment, matches: source}}, {not: {has: {kind: escape_sequence}}}]}
             - has:
                 kind: import_clause
                 any:
@@ -22,5 +22,5 @@ rule:
             - matches: type-position
               inside: {kind: program, stopBy: end, has: {matches: module-import}}
             - not: {matches: type-position}
-              inside: {kind: program, stopBy: end, has: {matches: module-import, not: {has: {regex: '^type$', not: {pattern: $_}}}}}
+              inside: {kind: program, stopBy: end, has: {all: [{matches: module-import}, {not: {has: {regex: '^type$', not: {pattern: $_}}}}]}}
         - not: {matches: {typescript-local-binding: {owner: {pattern: $_}}}}

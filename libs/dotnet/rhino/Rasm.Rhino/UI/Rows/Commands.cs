@@ -10,9 +10,17 @@ namespace Rasm.Rhino.UI.Rows;
 public sealed record CommandFace(string Name, string Caption) {
     public Option<string> Help { get; init; }
     public Option<IconResource> Icon { get; init; }
+    public Option<ButtonFace> Display { get; init; }
+    public RuiPlatforms Platforms { get; init; } = RuiPlatforms.Both;
+
+    public Option<ButtonFace> Presented => Icon.IsSome ? Display : ButtonFace.Text;
+
+    internal Option<IconResource> Drawn => Presented.Exists(static display => display == ButtonFace.Text) ? None : Icon;
+
+    internal bool Labeled => Presented.Exists(static display => display != ButtonFace.Icon);
 
     internal void Applied(Command command, Keys shortcut) =>
-        (command.ID, command.MenuText, command.ToolBarText, command.ToolTip, command.Shortcut) = (Name, Caption, Icon.Map(static _ => "").IfNone(Caption), Help.IfNone(Caption), shortcut);
+        (command.ID, command.MenuText, command.ToolBarText, command.ToolTip, command.Shortcut) = (Name, Caption, Labeled ? Caption : "", Help.IfNone(Caption), shortcut);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, SwitchMethods = SwitchMapMethodsGeneration.DefaultWithPartialOverloads)]
@@ -154,7 +162,7 @@ public static class CommandRows {
 
     private static IO<Unit> Applied(CommandFace face, Command command, Keys shortcut) =>
         from faced in IO.lift(() => face.Applied(command, shortcut))
-        from themed in face.Icon.Traverse(icon => Icons.Themed(icon, IconSlot.Small, None, image => command.Image = image)).As()
+        from themed in face.Drawn.Traverse(icon => Icons.Themed(icon, IconSlot.Small, None, image => command.Image = image)).As()
         select unit;
 
     private static IO<Seq<(RadioCommand Command, IO<Unit> Refresh)>> Radios(Command<Invoke>.Choice choice, RowScope scope) =>
@@ -294,7 +302,7 @@ public static class CommandRows {
 
     private static IO<(Control Control, Seq<IO<Unit>> Refreshes)> Pushed(Command<Invoke>.Run run, IconSlot slot, RowScope scope) =>
         from made in Commanded(run, run.Enabled, scope)
-        from control in run.Face.Icon.Match(
+        from control in run.Face.Drawn.Filter(_ => !run.Face.Labeled).Match(
             Some: icon =>
                 from button in use(() => new ImageButton { MaskImageWithBackgroundColorWhenDisabled = true, ToolTip = made.Command.ToolTip })
                 from bound in Products.Changed(() => button.Command, value => button.Command = value, made.Command)
@@ -303,6 +311,7 @@ public static class CommandRows {
             None: () =>
                 from button in use(() => new Button { Text = made.Command.ToolBarText, ToolTip = made.Command.ToolTip })
                 from bound in Products.Changed(() => button.Command, value => button.Command = value, made.Command)
+                from themed in run.Face.Drawn.Traverse(icon => Icons.Themed(icon, slot, button, frames => button.Image = frames)).As()
                 select (Control)button)
         select (control, Seq(made.Refresh));
 
@@ -334,8 +343,8 @@ public static class CommandRows {
         from dropdown in Segment(menu.Face with { Icon = None }, faced.Command, strip, slot, command => new MenuSegmentedItem(command) { CanSelect = false, Menu = opened.Menu })
         let chosen = menu.Groups.Flatten().Bind(static held => held.Switch(run: static _ => Seq<Command<Invoke>.Run>(), choice: static choice => choice.Members, menu: static _ => Seq<Command<Invoke>.Run>()))
         let shown =
-            from marks in chosen.TraverseM(member => member.Marked.Traverse(mark => mark.Holds(scope)).As().Map(holds => (member.Face.Icon, On: holds.IfNone(noneValue: false)))).As()
-            from frames in (marks.Find(static held => held.On).Bind(static held => held.Icon) | primary.Face.Icon).Traverse(art => Icons.Frames(art, slot)).As()
+            from marks in chosen.TraverseM(member => member.Marked.Traverse(mark => mark.Holds(scope)).As().Map(holds => (member.Face.Drawn, On: holds.IfNone(noneValue: false)))).As()
+            from frames in (marks.Find(static held => held.On).Bind(static held => held.Drawn) | primary.Face.Drawn).Traverse(art => Icons.Frames(art, slot)).As()
             from painted in IO.lift(() => { pressed.Image = frames.ValueUnsafe(); })
             select unit
         from themed in HostTheme.Applied(strip, shown)
@@ -344,7 +353,7 @@ public static class CommandRows {
     private static IO<TItem> Segment<TItem>(CommandFace face, Command command, SegmentedButton strip, IconSlot slot, Func<Command, TItem> create) where TItem : SegmentedItem =>
         from segment in use(IO.lift(() => create(command)), static held => Products.Each(Seq(IO.lift(held.Unbind), IO.lift(held.Dispose))).Map(unit))
         from placed in IO.lift(() => strip.Items.Add(segment))
-        from themed in face.Icon.Traverse(icon => Icons.Themed(icon, slot, strip, frames => segment.Image = frames)).As()
+        from themed in face.Drawn.Traverse(icon => Icons.Themed(icon, slot, strip, frames => segment.Image = frames)).As()
         select segment;
 
     // --- [REFRESH]

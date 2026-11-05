@@ -69,7 +69,7 @@ private func swatch(of instance: NSRunningApplication) async throws -> InstanceS
         until: { seen in seen.last?.elements.contains { element in element.title == "Swatch" } == true },
         acting: { try await run(.swatch, in: instance) },
     )
-    return try #require(try await read(instance).windows.first { row in row.element?.title == "Swatch" })
+    return try #require(try await read(instance).windows.first { row in row.description[case: \.element]?.title == "Swatch" })
 }
 
 private func image(of window: CGWindowID, in instance: NSRunningApplication, longestSide: Int? = nil) async throws -> CGImage {
@@ -79,7 +79,7 @@ private func image(of window: CGWindowID, in instance: NSRunningApplication, lon
 }
 
 private func dismiss(_ swatch: InstanceState.Window) async throws {
-    let button: Control = try #require(swatch.element?.detail?.controls.first { control in control.attribute == kAXCloseButtonAttribute })
+    let button: Control = try #require(swatch.description[case: \.element]?.detail?.controls.first { control in control.attribute == kAXCloseButtonAttribute })
     _ = try await ElementAction.perform(element: button.id, action: kAXPressAction).perform()
 }
 

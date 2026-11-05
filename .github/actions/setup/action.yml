@@ -1,37 +1,54 @@
 name: Setup
-description: Installs toolchain and dependencies
+description: Installs toolchain and dependencies, restores the task cache
+
+outputs:
+    task-paths:
+        description: Paths the job saves into the task cache after its checks
+        value: ${{ steps.tasks.outputs.paths }}
+    task-key:
+        description: Key the job saves the task cache under
+        value: ${{ steps.tasks.outputs.key }}
 
 runs:
     using: composite
     steps:
+        - uses: nrwl/nx-set-shas@v5
         - uses: maxim-lobanov/setup-xcode@v1.7.0
           if: runner.os == 'macOS'
-        - uses: actions/cache@v6
-          with:
-            path: ~/.rustup/toolchains
-            key: rustup-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('rust-toolchain.toml') }}
         - uses: jdx/mise-action@v5.2.5
           with:
             auto_update: true
             minimum_release_age: 0s
-        - uses: actions/cache@v6
-          with:
-            path: ~/.nuget/packages
-            key: nuget-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('global.json', 'Directory.Packages.props', 'Directory.Build.props', 'Directory.Build.targets', 'NuGet.config', '**/*.csproj') }}
-        - id: uv
-          run: printf 'cache=%s\n' "$(uv cache dir)" >> "$GITHUB_OUTPUT"
+            cache_save: ${{ github.event_name == 'push' }}
+        - id: stores
+          run: printf 'uv=%s\npixi=%s\npnpm=%s\n' "$(uv cache dir)" "$(pixi info --json | jq -r .cache_dir)" "$(pnpm store path)" >> "$GITHUB_OUTPUT"
           shell: bash
-        - uses: actions/cache@v6
+        - id: packages
+          uses: actions/cache/restore@v6
           with:
-            path: ${{ steps.uv.outputs.cache }}
-            key: uv-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('uv.lock') }}
-        - id: pnpm
-          run: printf 'store=%s\n' "$(pnpm store path)" >> "$GITHUB_OUTPUT"
+            path: |
+                ~/.rustup/toolchains
+                ${{ steps.stores.outputs.uv }}
+                ${{ steps.stores.outputs.pixi }}
+                ${{ steps.stores.outputs.pnpm }}
+            key: packages-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('rust-toolchain.toml', 'uv.lock', 'pixi.lock', 'pnpm-lock.yaml') }}
+            restore-keys: packages-${{ runner.os }}-${{ runner.arch }}-
+        - run: pnpm install
           shell: bash
-        - uses: actions/cache@v6
+        - run: playwright install --with-deps --only-shell chromium
+          if: runner.os == 'Linux'
+          shell: bash
+        - run: pixi run --locked -e hdf5 pixi run --locked -e default uv sync --locked --no-default-groups --group dev
+          shell: bash
+        - uses: actions/cache/save@v6
+          if: github.event_name == 'push' && steps.packages.outputs.cache-hit != 'true'
           with:
-            path: ${{ steps.pnpm.outputs.store }}
-            key: pnpm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
+            path: |
+                ~/.rustup/toolchains
+                ${{ steps.stores.outputs.uv }}
+                ${{ steps.stores.outputs.pixi }}
+                ${{ steps.stores.outputs.pnpm }}
+            key: ${{ steps.packages.outputs.cache-primary-key }}
         - id: cargo
           if: runner.os == 'Linux'
           run: printf 'build=%s\n' "$(realpath --relative-to=. "$(cargo metadata --format-version 1 --no-deps | jq -r .build_directory)")" >> "$GITHUB_OUTPUT"
@@ -40,46 +57,19 @@ runs:
           if: runner.os == 'Linux'
           with:
             workspaces: . -> ${{ steps.cargo.outputs.build }}
-        - id: dylint
-          if: runner.os == 'Linux'
-          run: printf 'version=%s\n' "$(cargo dylint --version)" >> "$GITHUB_OUTPUT"
+            cache-on-failure: true
+            save-if: ${{ github.event_name == 'push' }}
+        - id: tasks
+          run: nx show projects > /dev/null && printf 'database=%s\nkey=tasks-%s-%s-%s-%s\npaths<<PATHS\n.cache/nx/cache\n.cache/ast-grep\n%s/*.db\n~/.nuget/packages\n~/.dylint_drivers\nPATHS\n' "$(basename "$NX_WORKSPACE_DATA_DIRECTORY"/*.db)" "$RUNNER_OS" "$RUNNER_ARCH" "$GITHUB_SHA" "$GITHUB_RUN_ATTEMPT" "$NX_WORKSPACE_DATA_DIRECTORY" >> "$GITHUB_OUTPUT"
           shell: bash
-        - uses: actions/cache@v6
-          if: runner.os == 'Linux'
-          with:
-            path: ~/.dylint_drivers
-            key: dylint-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('rust-toolchain.toml') }}-${{ steps.dylint.outputs.version }}
-        - run: pnpm install
-          shell: bash
-        - run: playwright install --with-deps --only-shell chromium
-          if: runner.os == 'Linux'
-          shell: bash
-        - run: pixi run --locked -e hdf5 pixi run --locked -e default uv sync --locked --no-default-groups --group dev
-          shell: bash
-        - id: nx
-          if: runner.os == 'macOS'
-          run: project="$(nx show project rasm --json)" && printf 'task=%s\n' "$({ printf '%s\n' "$project"; jq -r '[.targets | to_entries[] | select(.key | startswith("grammar:")) | .value.inputs[]? | .runtime? // empty] | unique[]' <<<"$project" | bash; } | shasum -a 256 | cut -d ' ' -f 1)" >> "$GITHUB_OUTPUT" && printf 'database=%s\n' "$(basename "$NX_WORKSPACE_DATA_DIRECTORY"/*.db)" >> "$GITHUB_OUTPUT"
-          shell: bash
-        - id: grammars
-          if: runner.os == 'macOS'
+        - id: restored
           uses: actions/cache/restore@v6
           with:
-            path: |
-                .cache/nx/cache
-                ${{ env.NX_WORKSPACE_DATA_DIRECTORY }}/*.db
-            key: nx-grammar-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('tools/ast-grep/grammars/**', 'sgconfig.yml', 'pnpm-lock.yaml', 'tsconfig.base.json', 'nx.json', '.gitignore', '.nxignore') }}-${{ steps.nx.outputs.task }}
-        - if: steps.grammars.outputs.cache-hit == 'true'
+            path: ${{ steps.tasks.outputs.paths }}
+            key: ${{ steps.tasks.outputs.key }}
+            restore-keys: tasks-${{ runner.os }}-${{ runner.arch }}-
+        - if: steps.restored.outputs.cache-matched-key != ''
           run: find "$NX_WORKSPACE_DATA_DIRECTORY" -maxdepth 1 -name '*.db' ! -name "$DATABASE" -exec mv {} "$NX_WORKSPACE_DATA_DIRECTORY/$DATABASE" \;
           env:
-            DATABASE: ${{ steps.nx.outputs.database }}
+            DATABASE: ${{ steps.tasks.outputs.database }}
           shell: bash
-        - if: runner.os == 'macOS'
-          run: /usr/bin/time -l nx run rasm:grammar
-          shell: bash
-        - if: runner.os == 'macOS' && steps.grammars.outputs.cache-hit != 'true'
-          uses: actions/cache/save@v6
-          with:
-            path: |
-                .cache/nx/cache
-                ${{ env.NX_WORKSPACE_DATA_DIRECTORY }}/*.db
-            key: ${{ steps.grammars.outputs.cache-primary-key }}

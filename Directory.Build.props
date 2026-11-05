@@ -1,6 +1,7 @@
 <Project>
     <PropertyGroup Label="Artifacts Output">
         <ArtifactsPath>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '.artifacts', 'dotnet'))</ArtifactsPath>
+        <ArtifactsPath Condition="'$(RuntimeIdentifier)' != '' and '$(RuntimeIdentifier)' != '$(NETCoreSdkPortableRuntimeIdentifier)'">$(ArtifactsPath)/$(RuntimeIdentifier)</ArtifactsPath>
     </PropertyGroup>
 
     <PropertyGroup Label="Package Metadata">
@@ -28,6 +29,7 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <CheckForOverflowUnderflow>true</CheckForOverflowUnderflow>
         <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+        <CreateHardLinksForCopyLocalIfPossible>true</CreateHardLinksForCopyLocalIfPossible>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
         <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
         <AnalysisLevel>latest-all</AnalysisLevel>
@@ -41,6 +43,7 @@
         <TargetFramework Condition="$([MSBuild]::ValueOrDefault('$(RuntimeIdentifier)', '$(NETCoreSdkPortableRuntimeIdentifier)').StartsWith('win'))">$(RepoTargetFramework)-windows</TargetFramework>
         <EnableWindowsTargeting>true</EnableWindowsTargeting>
         <UseCurrentRuntimeIdentifier>true</UseCurrentRuntimeIdentifier>
+        <CopyLocalLockFileAssemblies Condition="'$(ProjectRole)' == 'library'">false</CopyLocalLockFileAssemblies>
         <PlatformTarget>AnyCPU</PlatformTarget>
         <RhinoEnableWindowsFormsTargeting>false</RhinoEnableWindowsFormsTargeting>
         <PublishDocumentationFiles>false</PublishDocumentationFiles>
@@ -54,6 +57,10 @@
         <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
         <ProduceReferenceAssembly>true</ProduceReferenceAssembly>
     </PropertyGroup>
+
+    <ItemDefinitionGroup Label="Roslyn Components" Condition="'$(ProjectRole)' == 'analyzers'">
+        <PackageReference ExcludeAssets="runtime" PrivateAssets="all" />
+    </ItemDefinitionGroup>
 
     <PropertyGroup Label="Package Settings">
         <Verify_SponsorshipExemption>OpenSource</Verify_SponsorshipExemption>

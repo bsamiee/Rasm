@@ -23,6 +23,11 @@ utils:
         all:
             - has: {field: function, matches: result-decoder}
             - has: {field: arguments, pattern: $_}
+    decoded-step:
+        any:
+            - matches: result-decoder
+            - matches: applied-decoder
+              nthChild: 1
     chain-call:
         kind: call_expression
         has:
@@ -37,30 +42,42 @@ utils:
                 - any:
                     - all:
                         - pattern: '$_F($_D, $G)'
-                        - has: {field: function, matches: {typescript-import-reference: {source: {regex: '^effect(/Function)?$'}, exported: {regex: '^flow$'}}}}
                         - has: {field: arguments, has: {nthChild: 1, matches: result-decoder}}
+                        - has: {field: function, matches: {typescript-import-reference: {source: {regex: '^effect(/Function)?$'}, exported: {regex: '^flow$'}}}}
                     - all:
                         - pattern: '$_F($_INNER, $G)'
-                        - has: {field: function, matches: effect-pipe-function}
                         - has: {field: arguments, has: {nthChild: 1, matches: applied-decoder}}
+                        - has: {field: function, matches: effect-pipe-function}
                     - all:
                         - pattern: $_INNER.pipe($G)
                         - has: {field: function, has: {field: object, matches: applied-decoder}}
                 - has: {field: arguments, has: {nthChild: {position: 1, reverse: true}, matches: success-getter}}
             - all:
                 - pattern: $G($_INNER)
-                - has: {field: function, matches: success-getter}
                 - has: {field: arguments, has: {nthChild: 1, matches: applied-decoder}}
+                - has: {field: function, matches: success-getter}
+    chain-step:
+        all:
+            - any:
+                - follows: {stopBy: {pattern: $_}, matches: decoded-step}
+                - nthChild: 1
+                  inside:
+                    kind: arguments
+                    inside:
+                        kind: call_expression
+                        has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^pipe$'}}, {has: {field: object, matches: applied-decoder}}]}
+            - inside: {kind: arguments, inside: {matches: chain-call}}
+            - matches: success-getter
+            - not: {inside: {kind: arguments, inside: {matches: conversion-call}}}
 rule:
     any:
         - matches: conversion-call
-        - kind: identifier, member_expression
+        - kind: member_expression
           pattern: $G
-          all:
-            - matches: success-getter
-            - follows: {matches: result-decoder, stopBy: {pattern: $_}}
-            - inside: {kind: arguments, inside: {matches: chain-call}}
-            - not: {inside: {kind: arguments, inside: {matches: conversion-call}}}
+          all: [{has: {field: property, regex: '^getSuccess$'}}, {matches: chain-step}]
+        - kind: identifier
+          pattern: $G
+          matches: chain-step
     not: {has: {kind: comment, stopBy: end}}
 transform:
     OPT: replace($FN, replace='(Result|Exit)$', by='Option')

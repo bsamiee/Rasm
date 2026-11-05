@@ -18,4 +18,4 @@ rule:
                 - has: {field: arguments, has: {nthChild: 1, pattern: $OPTION}}
                 - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Option$'}, member: {regex: '^(getOrElse|getOrThrow|getOrThrowWith|getOrNull|getOrUndefined)$'}}}}
 message: '`$TEST` tests `$OPTION` and a branch reads it again'
-note: 'Fold `<option>` once with `Option.match({ onNone, onSome })`, with the test inside the value `onSome` returns'
+note: 'Fold `<option>` once with `Option.match({ onNone, onSome })`, with the test inside `onSome` return value'

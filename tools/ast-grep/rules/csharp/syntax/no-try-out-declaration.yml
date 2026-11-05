@@ -34,7 +34,7 @@ utils:
         has: {field: parameters, has: {kind: parameter, has: {field: type, any: [{pattern: $NAME}, {has: {pattern: $NAME, stopBy: end}}]}}}
 rule:
     all:
-        - has: {field: name, pattern: $NAME}
+        - has: {field: name, pattern: {context: 'class $NAME;', selector: identifier}}
         - any:
             - kind: 'delegate_declaration, local_function_statement'
               any:

@@ -5,21 +5,24 @@ utils:
     assignment:
         kind: set_clause
         inside: {kind: set_clause_list, stopBy: {not: {kind: set_clause_list}}}
+    current-a: {kind: a_expr, matches: pgsql-wrapper, has: {stopBy: &wrapper {not: {matches: pgsql-wrapper}}, kind: columnref, any: [{all: [{not: {has: {kind: indirection}}}, {has: {kind: ColId, has: {pattern: $A}}}]}, {all: [{has: {kind: ColId, has: {pattern: $TABLE}}}, {has: {kind: indirection, not: {has: {kind: indirection}}, has: {kind: indirection_el, has: {kind: ColLabel, has: {pattern: $A}}}}}]}]}}
+    current-b: {kind: a_expr, matches: pgsql-wrapper, has: {stopBy: *wrapper, kind: columnref, any: [{all: [{not: {has: {kind: indirection}}}, {has: {kind: ColId, has: {pattern: $B}}}]}, {all: [{has: {kind: ColId, has: {pattern: $TABLE}}}, {has: {kind: indirection, not: {has: {kind: indirection}}, has: {kind: indirection_el, has: {kind: ColLabel, has: {pattern: $B}}}}}]}]}}
+    current-c: {kind: a_expr, matches: pgsql-wrapper, has: {stopBy: *wrapper, kind: columnref, any: [{all: [{not: {has: {kind: indirection}}}, {has: {kind: ColId, has: {pattern: $C}}}]}, {all: [{has: {kind: ColId, has: {pattern: $TABLE}}}, {has: {kind: indirection, not: {has: {kind: indirection}}, has: {kind: indirection_el, has: {kind: ColLabel, has: {pattern: $C}}}}}]}]}}
+    target-a: {kind: set_target, not: {has: {kind: opt_indirection}}, has: {kind: ColId, has: {pattern: $A}}}
+    target-b: {kind: set_target, not: {has: {kind: opt_indirection}}, has: {kind: ColId, has: {pattern: $B}}}
+    target-c: {kind: set_target, not: {has: {kind: opt_indirection}}, has: {kind: ColId, has: {pattern: $C}}}
+    first-target: {kind: set_target_list, not: {has: {kind: set_target_list}}, has: {matches: target-a}}
+    first-value: {kind: expr_list, not: {has: {kind: expr_list}}, has: {matches: current-a}}
     self-assignment:
         kind: set_clause
-        all:
-            - has: {kind: set_target, not: {has: {kind: opt_indirection}}, has: {kind: ColId, has: {pattern: $COLUMN}}}
-            - has:
-                kind: a_expr
-                matches: pgsql-wrapper
-                has:
-                    stopBy: {not: {matches: pgsql-wrapper}}
-                    kind: columnref
-                    any:
-                        - all: [{not: {has: {kind: indirection}}}, {has: {kind: ColId, has: {pattern: $COLUMN}}}]
-                        - all:
-                            - has: {kind: ColId, has: {pattern: $TABLE}}
-                            - has: {kind: indirection, not: {has: {kind: indirection}}, has: {kind: indirection_el, has: {kind: ColLabel, has: {pattern: $COLUMN}}}}
+        any:
+            - all: [{has: {matches: target-a}}, {has: {matches: current-a}}]
+            - all:
+                - has: {kind: set_target_list, all: [{has: {matches: target-b}}, {has: {matches: first-target}}]}
+                - has: {kind: a_expr, matches: pgsql-wrapper, has: {stopBy: *wrapper, kind: implicit_row, all: [{has: {matches: current-b}}, {has: {matches: first-value}}]}}
+            - all:
+                - has: {kind: set_target_list, all: [{has: {matches: target-c}}, {has: {kind: set_target_list, all: [{has: {matches: target-b}}, {has: {matches: first-target}}]}}]}
+                - has: {kind: a_expr, matches: pgsql-wrapper, has: {stopBy: *wrapper, kind: implicit_row, all: [{has: {matches: current-c}}, {has: {kind: expr_list, all: [{has: {matches: current-b}}, {has: {matches: first-value}}]}}]}}
 rule:
     kind: opt_on_conflict
     all:

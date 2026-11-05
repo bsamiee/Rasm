@@ -26,6 +26,7 @@ rule:
           all:
             - has: {kind: switch_entry, follows: {kind: switch_entry, stopBy: end}}
             - not: {has: {kind: switch_entry, not: {matches: own-name}}}
+            - not: {inside: {kind: enum_class_body, stopBy: end, has: {kind: enum_entry, has: {field: data_contents, pattern: $_}}}}
         - kind: dictionary_literal
           all:
             - has: {matches: key, follows: {stopBy: end, matches: key}}

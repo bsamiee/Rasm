@@ -74,7 +74,7 @@ utils:
             - kind: is_pattern_expression
               all:
                 - has: {field: expression, pattern: $CHECKED}
-                - has: {field: pattern, regex: '^null$'}
+                - has: {field: pattern, kind: constant_pattern, has: {kind: null_literal}}
             - kind: binary_expression
               all:
                 - has: {field: operator, regex: '^==$'}

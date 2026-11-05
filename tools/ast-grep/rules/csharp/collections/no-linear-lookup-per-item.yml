@@ -100,6 +100,7 @@ utils:
 rule:
     kind: invocation_expression
     all:
+        - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(First|FirstOrDefault|Single|SingleOrDefault|Last|LastOrDefault|Any|All|Where|Find|FindAll|FindIndex|FindLast|FindLastIndex|Exists|TrueForAll|Filter|Count|Choose|Contains|IndexOf|LastIndexOf)$'}}
         - pattern: $SCAN
         - matches: item
         - matches: scan

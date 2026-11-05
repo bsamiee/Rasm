@@ -66,7 +66,7 @@ utils:
     present-pattern:
         any:
             - kind: constant_pattern
-              regex: '^null$'
+              has: {kind: null_literal}
             - kind: recursive_pattern
               not: {has: {kind: property_pattern_clause, has: {kind: subpattern}}}
             - kind: declaration_pattern
@@ -86,8 +86,8 @@ utils:
               all:
                 - has: {field: operator, regex: '^[=!]=$'}
                 - any:
-                    - all: [{has: {field: left, matches: out-value}}, {has: {field: right, regex: '^null$'}}]
-                    - all: [{has: {field: left, regex: '^null$'}}, {has: {field: right, matches: out-value}}]
+                    - all: [{has: {field: right, kind: null_literal}}, {has: {field: left, matches: out-value}}]
+                    - all: [{has: {field: left, kind: null_literal}}, {has: {field: right, matches: out-value}}]
             - kind: parenthesized_expression
               has: {matches: null-test}
             - kind: prefix_unary_expression
@@ -144,7 +144,7 @@ rule:
               all:
                 - has: {nthChild: 1, matches: out-value}
                 - any:
-                    - has: {kind: switch_expression_arm, all: [{has: {nthChild: 1, kind: constant_pattern, regex: '^null$'}}, {has: {nthChild: 2, matches: empty-collection}}]}
+                    - has: {kind: switch_expression_arm, all: [{has: {nthChild: 1, kind: constant_pattern, has: {kind: null_literal}}}, {has: {nthChild: 2, matches: empty-collection}}]}
                     - all:
                         - has: {kind: switch_expression_arm, has: {nthChild: 1, not: {kind: constant_pattern}, matches: present-pattern}}
                         - has: {kind: switch_expression_arm, all: [{has: {nthChild: 1, kind: discard}}, {has: {nthChild: 2, matches: empty-collection}}]}

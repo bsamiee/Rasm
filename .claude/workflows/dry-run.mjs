@@ -46,7 +46,7 @@ const CASES = {
     { name: 'files', args: { language: 'typescript', path: 'libs/typescript/x', base: BASE }, fixtures: FILES },
     {
       name: 'plan',
-      args: { language: 'typescript', mode: 'reduce', path: 'libs/typescript/x', base: BASE, plan: '.artifacts/p/PLAN.md', inputs: ['docs/x'], oracle: 'node proof.ts', exclude: ['libs/typescript/x/z'] },
+      args: { language: 'typescript', mode: 'reduce', path: 'libs/typescript/x', base: BASE, plan: 'plans/PLAN.md', inputs: ['docs/x'], oracle: 'node proof.ts', exclude: ['libs/typescript/x/z'] },
       fixtures: {
         'map:plan': { units: [{ files: [A, B], reads: [], slices: [row(A, 1), row(A, 2), row(B, 3)] }, { files: ['libs/typescript/x/c.ts', A], reads: [], slices: [row('libs/typescript/x/c.ts', 4), row(A, 5)] }], base: 'counts' },
         'edit:*': { files: [A], spanning: [] },

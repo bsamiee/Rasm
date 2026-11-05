@@ -7,7 +7,7 @@ rule:
         - any: &query
             - kind: common_table_expr
             - kind: select_with_parens
-              inside: {kind: 'a_expr, a_expr_prec, c_expr, table_ref'}
+              inside: {kind: 'a_expr, c_expr, table_ref'}
           inside:
             any: *query
             stopBy: &query-boundary {any: *query}

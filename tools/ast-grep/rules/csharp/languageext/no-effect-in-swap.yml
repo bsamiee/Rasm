@@ -11,26 +11,26 @@ utils:
     declared-local:
         kind: 'lambda_expression, anonymous_method_expression, local_function_statement, method_declaration'
         matches: transition-scope
-        has: {stopBy: end, kind: variable_declarator, has: {field: name, pattern: $LOCAL}}
+        has: {stopBy: end, kind: variable_declarator, has: {field: name, pattern: {context: 'class $LOCAL;', selector: identifier}}}
     transition-local:
         kind: 'lambda_expression, anonymous_method_expression, local_function_statement, method_declaration'
         any:
             - matches: declared-local
             - all:
                 - matches: transition-scope
-                - has: {field: parameters, any: [{pattern: $LOCAL}, {has: {kind: parameter, has: {field: name, pattern: $LOCAL}}}]}
+                - has: {field: parameters, any: [{pattern: {context: 'var f = $LOCAL => 0;', selector: implicit_parameter}}, {has: {kind: parameter, has: {field: name, pattern: {context: 'class $LOCAL;', selector: identifier}}}}]}
     local-write:
         all:
             - any:
                 - kind: assignment_expression
-                  has: {field: left, kind: identifier, pattern: $LOCAL}
+                  has: {field: left, kind: identifier, pattern: {context: 'class $LOCAL;', selector: identifier}}
                 - kind: 'postfix_unary_expression, prefix_unary_expression'
-                  has: {kind: identifier, pattern: $LOCAL}
+                  has: {kind: identifier, pattern: {context: 'class $LOCAL;', selector: identifier}}
             - inside: {stopBy: end, matches: transition-local}
     local-call:
         kind: invocation_expression
         all:
-            - has: {field: function, kind: member_access_expression, has: {field: expression, kind: identifier, pattern: $LOCAL}}
+            - has: {field: function, kind: member_access_expression, has: {field: expression, kind: identifier, pattern: {context: 'class $LOCAL;', selector: identifier}}}
             - inside: {stopBy: end, matches: declared-local}
     effect:
         any:
@@ -50,7 +50,7 @@ utils:
                         - has: {kind: variable_declarator, has: {field: name, regex: '^_$'}}
     effect-member:
         kind: identifier
-        pattern: $GROUP
+        pattern: {context: 'class $GROUP;', selector: identifier}
         inside:
             stopBy: end
             kind: compilation_unit
@@ -59,7 +59,7 @@ utils:
                 kind: 'method_declaration, local_function_statement'
                 pattern: $TRANSITION
                 all:
-                    - has: {field: name, pattern: $GROUP}
+                    - has: {field: name, pattern: {context: 'class $GROUP;', selector: identifier}}
                     - has: {stopBy: end, matches: effect}
 rule:
     kind: invocation_expression

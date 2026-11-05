@@ -25,7 +25,7 @@ rule:
         - any:
             - inside: {kind: assignment_expression, field: right, has: {field: left, pattern: $STATE}}
             - all:
-                - inside: {kind: variable_declarator, has: {field: name, pattern: $NEXT}}
+                - inside: {kind: variable_declarator, has: {field: name, pattern: {context: 'class $NEXT;', selector: identifier}}}
                 - inside:
                     stopBy: {kind: &function 'method_declaration, local_function_statement, lambda_expression, anonymous_method_expression, constructor_declaration, accessor_declaration'}
                     kind: 'while_statement, do_statement, for_statement'

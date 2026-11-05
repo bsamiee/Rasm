@@ -11,7 +11,7 @@ utils:
               has: {matches: tried-shape}
     tried-local:
         kind: identifier
-        pattern: $LOCAL
+        pattern: {context: 'class $LOCAL;', selector: identifier}
         inside:
             stopBy: {kind: 'method_declaration, local_function_statement, lambda_expression, anonymous_method_expression, accessor_declaration, constructor_declaration, operator_declaration'}
             kind: method_declaration, local_function_statement, lambda_expression, anonymous_method_expression, accessor_declaration, constructor_declaration, operator_declaration
@@ -19,7 +19,7 @@ utils:
                 stopBy: {kind: 'local_function_statement, lambda_expression, anonymous_method_expression'}
                 kind: variable_declarator
                 all:
-                    - has: {field: name, pattern: $LOCAL}
+                    - has: {field: name, pattern: {context: 'class $LOCAL;', selector: identifier}}
                     - has: {nthChild: 2, matches: tried-shape}
     local-run:
         any:
@@ -52,6 +52,7 @@ utils:
 rule:
     kind: invocation_expression
     all:
+        - has: {field: function, regex: 'Run(Async)?$'}
         - pattern: {context: 'class C { object F() => $IO.$RUN($$$_ENV); }', selector: invocation_expression, strictness: cst}
         - has: {field: function, has: {field: expression, any: [{matches: direct}, {matches: kept}]}}
 constraints:

@@ -18,7 +18,7 @@ namespace Rasm.Rhino.PlugIns;
 internal sealed record Splash(Form Window, Label Status, ProgressBar Bar);
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
-public abstract partial class DefinedSkin<TSelf> : Skin where TSelf : DefinedSkin<TSelf>, IDefined<SkinDefinition> {
+public abstract partial class DefinedSkin<TSelf> : Skin where TSelf : DefinedSkin<TSelf>, IDefined<SkinDefinition>, new() {
     // --- [STATE]
     [Union]
     private abstract partial record SkinLoad {
@@ -52,8 +52,10 @@ public abstract partial class DefinedSkin<TSelf> : Skin where TSelf : DefinedSki
     private readonly Ref<Option<Owned<Splash>>> splash = Ref(Option<Owned<Splash>>.None);
 
     protected DefinedSkin() =>
-        _ = Session.RunSafe(Session.Bind(this, TSelf.Definition.Logging).Bind(static _ => Subscriptions.Inline<EventHandler, EventArgs>(static h => RhinoApp.Closing += h, static h => RhinoApp.Closing -= h, static handler => handler.Invoke)
-            .Attach(static _ => Session.Close).Scoped()), CancellationToken.None).ThrowIfFail();
+        _ = Session.RunSafe(
+            IO.lift(static () => AssemblyLoading.Initialized) >> Session.Bind(this, TSelf.Definition.Logging).Bind(static _ => Subscriptions.Inline<EventHandler, EventArgs>(static h => RhinoApp.Closing += h, static h => RhinoApp.Closing -= h, static handler => handler.Invoke)
+                .Attach(static _ => Session.Close).Scoped()),
+            CancellationToken.None).ThrowIfFail();
 
     // --- [IDENTITY]
     protected sealed override string ApplicationName =>
@@ -62,9 +64,7 @@ public abstract partial class DefinedSkin<TSelf> : Skin where TSelf : DefinedSki
         });
 
     protected sealed override System.Drawing.Bitmap? MainRhinoIcon =>
-        HostUtils.RunningOnWindows
-            ? Session.Run(IconResource.PlugIn(typeof(TSelf).Assembly).Traverse(static art => IconSlot.Application.Square.Bind(pixels => Icons.Raster(art, pixels))).As().Map(static bitmap => bitmap.ValueUnsafe()), failed: null)
-            : null;
+        IconResource.PlugIn(typeof(TSelf).Assembly).Traverse(static art => IconSlot.Application.Square.Bind(pixels => Icons.Raster(art, pixels))).As().Map(static bitmap => bitmap.ValueUnsafe()).Run();
 
     private static IO<Option<Control>> Mark =>
         TSelf.Definition.Splash.Match(
@@ -75,7 +75,7 @@ public abstract partial class DefinedSkin<TSelf> : Skin where TSelf : DefinedSki
 
     // --- [LOAD]
     protected sealed override void OnBeginLoadAtStartPlugIns(int expectedCount) =>
-        _ = Session.Run(Advanced(current => expectedCount > 0 ? new SkinLoad.Loading(expectedCount, None, Ended: 0) : current));
+        _ = Session.Run(Advanced(current => expectedCount > 0 ? new SkinLoad.Loading(expectedCount, None, Ended: 0) : current) >> PlugInRegistry.LoadPlugIns(TSelf.Definition.PlugIns));
 
     protected sealed override void OnBeginLoadPlugIn(string description) => _ = Session.Run(Advanced(current => current.Begin(description)));
 

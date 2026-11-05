@@ -3,9 +3,6 @@
 #define tree_sitter_plpgsql_external_scanner_serialize(...) plpgsql_upstream_serialize(__VA_ARGS__)
 #define tree_sitter_plpgsql_external_scanner_deserialize(...) plpgsql_upstream_deserialize(__VA_ARGS__)
 #define tree_sitter_plpgsql_external_scanner_scan(...) plpgsql_upstream_scan(__VA_ARGS__)
-#ifndef SCANNER
-#define SCANNER(fn) tree_sitter_plpgsql_external_scanner_##fn
-#endif
 
 #include "tree-sitter-postgres/plpgsql/src/scanner.c"
 
@@ -19,9 +16,15 @@ typedef enum { CODE, QUOTED, TAG, BODY, LINE, BLOCK } Region;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-enum { OPAQUE = '_', WIDE = 0x80, WORD_SIZE = 32, TAG_SIZE = 64 };
+enum { OPAQUE = '_', WIDE = 0x80, WORD_SIZE = 32, TAG_SIZE = 64, HEADER_SIZE = 4 };
 
 static const char *const RESERVED[] = {"begin", "case", "declare", "else", "end", "for", "foreach", "if", "loop", "null", "when", "while"};
+
+static const char *const ROUTINE_HEADERS[] = {"cf", "corf"};
+
+static const char *const BLOCK_OPENERS[] = {"begin", "case"};
+
+static const char BLOCK_CLOSER[] = "end";
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -51,6 +54,9 @@ typedef struct {
     uint32_t text_length;
     uint32_t depth;
     uint32_t words;
+    char header[HEADER_SIZE + 1];
+    bool routine;
+    uint32_t blocks;
     bool query;
     bool targeting;
     bool bare;
@@ -63,9 +69,9 @@ typedef struct {
 
 static bool is_space(int32_t c) { return c == ' ' || (c >= '\t' && c <= '\r'); }
 
-static bool is_reserved_statement(const char *word) {
-    for (size_t at = 0; at < sizeof(RESERVED) / sizeof(*RESERVED); at++) {
-        if (strcmp(word, RESERVED[at]) == 0) {
+static bool listed(const char *word, const char *const *list, size_t count) {
+    for (size_t at = 0; at < count; at++) {
+        if (strcmp(word, list[at]) == 0) {
             return true;
         }
     }
@@ -73,6 +79,31 @@ static bool is_reserved_statement(const char *word) {
 }
 
 static int32_t folded(int32_t c) { return c < WIDE ? c : WIDE | (c & (WIDE - 1)); }
+
+static char header_mark(const char *word, uint32_t at) {
+    if (at == 0) {
+        return strcmp(word, "create") == 0 ? 'c' : OPAQUE;
+    }
+    if (strcmp(word, "or") == 0) {
+        return 'o';
+    }
+    if (strcmp(word, "replace") == 0) {
+        return 'r';
+    }
+    return strcmp(word, "function") == 0 || strcmp(word, "procedure") == 0 ? 'f' : OPAQUE;
+}
+
+static void word_ended(Lexer *self) {
+    if (self->words <= HEADER_SIZE) {
+        self->header[self->words - 1] = header_mark(self->text, self->words - 1);
+    }
+    self->routine = self->routine || listed(self->header, ROUTINE_HEADERS, sizeof(ROUTINE_HEADERS) / sizeof(*ROUTINE_HEADERS));
+    if (self->routine && listed(self->text, BLOCK_OPENERS, sizeof(BLOCK_OPENERS) / sizeof(*BLOCK_OPENERS))) {
+        self->blocks++;
+    } else if (self->routine && self->blocks > 0 && strcmp(self->text, BLOCK_CLOSER) == 0) {
+        self->blocks--;
+    }
+}
 
 // --- [REGIONS]
 
@@ -107,6 +138,9 @@ static void code_passed(Lexer *self, int32_t c, int32_t next) {
     self->depth = self->depth + (c == '(' || c == '[') - (self->depth > 0 && (c == ')' || c == ']'));
     self->prefix = lead && (c == 'e' || c == 'E');
     self->word = inside;
+    if (self->kept && inside && !is_tag_char(next) && next != '$') {
+        word_ended(self);
+    }
     self->dotted = c == '.';
     bool bare = self->bare && (is_tag_char(c) || is_space(c));
     self->cut = self->targeting && self->bare && self->words == 1 && next == '=' && (bare || c == ':');
@@ -219,7 +253,7 @@ static int32_t shown(const Lexer *self) {
     }
     switch (self->region) {
         case CODE:
-            return c >= WIDE || (c == '$' && self->word) || (self->dotted && is_tag_start_char(c)) ? OPAQUE : c;
+            return c >= WIDE || (c == '$' && self->word) || (self->dotted && is_tag_start_char(c)) || (c == ';' && self->blocks > 0) ? OPAQUE : c;
         case QUOTED:
             return self->escapes && (self->held || c == '\\') ? OPAQUE : c;
         case TAG:
@@ -325,7 +359,7 @@ static bool assignment_or_statement(Lexer *self, const bool *valid_symbols) {
         lexer->result_symbol = self->cut ? SQL_UNTIL_ASSIGNMENT : lexer->result_symbol;
         return true;
     }
-    if (!self->word || is_reserved_statement(self->text)) {
+    if (!self->word || listed(self->text, RESERVED, sizeof(RESERVED) / sizeof(*RESERVED))) {
         return false;
     }
     self->targeting = false;
@@ -428,18 +462,18 @@ static bool token(Lexer *self, const bool *valid_symbols) {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-void *(SCANNER(create))(void) { return ts_calloc(1, sizeof(bool)); }
+void *(tree_sitter_plpgsql_external_scanner_create)(void) { return ts_calloc(1, sizeof(bool)); }
 
-void(SCANNER(destroy))(void *payload) { ts_free(payload); }
+void(tree_sitter_plpgsql_external_scanner_destroy)(void *payload) { ts_free(payload); }
 
-unsigned(SCANNER(serialize))(void *payload, char *buffer) {
+unsigned(tree_sitter_plpgsql_external_scanner_serialize)(void *payload, char *buffer) {
     buffer[0] = (char)*(bool *)payload;
     return 1;
 }
 
-void(SCANNER(deserialize))(void *payload, const char *buffer, unsigned length) { *(bool *)payload = length > 0 && buffer[0] != 0; }
+void(tree_sitter_plpgsql_external_scanner_deserialize)(void *payload, const char *buffer, unsigned length) { *(bool *)payload = length > 0 && buffer[0] != 0; }
 
-bool(SCANNER(scan))(void *payload, TSLexer *lexer, const bool *valid_symbols) {
+bool(tree_sitter_plpgsql_external_scanner_scan)(void *payload, TSLexer *lexer, const bool *valid_symbols) {
     bool *templated = (bool *)payload;
     if (valid_symbols[TEMPLATE_OPEN] && !recovering(valid_symbols) && lexer->lookahead == '`') {
         lexer->advance(lexer, false);

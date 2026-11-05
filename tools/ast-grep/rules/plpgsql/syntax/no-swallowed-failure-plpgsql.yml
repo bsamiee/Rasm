@@ -15,4 +15,4 @@ rule:
 transform:
     HEAD: {replace: {source: $HANDLER, replace: '(?si)[\t\n\x0B\f\r ]+then.*$', by: ''}}
 message: '`$HEAD` catches every condition and raises none'
-note: 'Name the conditions the handler answers, and end a `WHEN OTHERS` handler in `RAISE` after its cleanup'
+note: 'Name conditions the handler answers, and end a `WHEN OTHERS` handler in `RAISE` after its cleanup'

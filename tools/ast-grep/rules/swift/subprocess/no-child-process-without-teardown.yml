@@ -4,11 +4,11 @@ severity: error
 utils:
     options-type:
         kind: user_type
-        regex: '^Subprocess(\.|::)PlatformOptions$'
+        regex: '^(Subprocess(\.|::))?PlatformOptions$'
     default-options:
         kind: call_expression
         any:
-            - regex: '^Subprocess(\.|::)PlatformOptions(\.init)?\([\t-\r ]*\)$'
+            - regex: '^(Subprocess(\.|::))?PlatformOptions(\.init)?\([\t-\r ]*\)$'
             - all:
                 - pattern: .init()
                 - any:
@@ -16,7 +16,7 @@ utils:
                         kind: value_argument
                         field: value
                         has: {field: name, regex: '^platformOptions$'}
-                        inside: {kind: value_arguments, inside: {kind: call_suffix, inside: {kind: call_expression, has: {nthChild: 1, regex: '^Subprocess(\.|::)(run|Configuration(\.init)?)$'}}}}
+                        inside: {kind: value_arguments, inside: {kind: call_suffix, inside: {kind: call_expression, has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '^(Subprocess(\.|::))?(run|Configuration(\.init)?)$'}}}}
                     - all:
                         - inside: {kind: property_declaration}
                         - follows: {kind: type_annotation, stopBy: {kind: 'type_annotation, pattern'}, has: {field: name, matches: options-type}}
@@ -43,7 +43,7 @@ utils:
                             - has:
                                 kind: call_expression
                                 all:
-                                    - has: {nthChild: 1, regex: '^(Subprocess(\.|::)TeardownStep)?\.(send|gracefulShutDown)$'}
+                                    - has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '^((Subprocess(\.|::))?TeardownStep)?\.(send|gracefulShutDown)$'}
                                     - not:
                                         has:
                                             kind: value_argument
@@ -87,11 +87,11 @@ rule:
         - kind: call_expression
           all:
             - any:
-                - has: {nthChild: 1, regex: '^Subprocess(\.|::)(run|Configuration(\.init)?)$'}
+                - has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '^(Subprocess(\.|::))?(run|Configuration(\.init)?)$'}
                 - all:
                     - has: {nthChild: 1, kind: prefix_expression, regex: '^\.init$'}
                     - inside: {kind: property_declaration}
-                    - follows: {kind: type_annotation, stopBy: {kind: 'type_annotation, pattern'}, has: {field: name, kind: user_type, regex: '^Subprocess(\.|::)Configuration$'}}
+                    - follows: {kind: type_annotation, stopBy: {kind: 'type_annotation, pattern'}, has: {field: name, kind: user_type, regex: '^(Subprocess(\.|::))?Configuration$'}}
             - has:
                 kind: call_suffix
                 has:
@@ -99,19 +99,19 @@ rule:
                     all:
                         - any:
                             - has: {kind: value_argument, has: {field: name, regex: '^(executable|arguments|environment|workingDirectory)$'}}
-                            - has: {kind: value_argument, nthChild: 1, has: {field: value, regex: '^(Subprocess(\.|::)Executable)?\.(name|path)\('}}
+                            - has: {kind: value_argument, nthChild: 1, has: {field: value, regex: '^((Subprocess(\.|::))?Executable)?\.(name|path)\('}}
                             - has:
                                 kind: value_argument
                                 nthChild: 1
                                 not: {has: {field: name, kind: value_argument_label}}
-                                has: {field: value, kind: simple_identifier, matches: {swift-parameter-use: {type: {kind: user_type, regex: '^Subprocess(\.|::)Executable$'}}}}
+                                has: {field: value, kind: simple_identifier, matches: {swift-typed-use: {type: {kind: user_type, regex: '^(Subprocess(\.|::))?Executable$'}}}}
                         - not: {has: {matches: platform-options-argument}}
         - kind: call_expression
           any:
-            - regex: '^Foundation(\.|::)Process(\.init)?\([\t-\r ]*\)$'
-            - has: {nthChild: 1, kind: navigation_expression, regex: '^Foundation(\.|::)Process\.(run|launchedProcess)$'}
+            - regex: '^(Foundation(\.|::))?Process(\.init)?\([\t-\r ]*\)$'
+            - has: {nthChild: 1, kind: navigation_expression, regex: '^(Foundation(\.|::))?Process\.(run|launchedProcess)$'}
             - all:
-                - has: {nthChild: 1, regex: '^(Darwin|Glibc|Musl)(\.|::)posix_spawnp?$'}
+                - has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '^((Darwin|Glibc|Musl)(\.|::))?posix_spawnp?$'}
                 - not:
                     inside:
                         kind: 'function_declaration, init_declaration, lambda_literal, computed_property'
@@ -120,7 +120,7 @@ rule:
             - all:
                 - pattern: .init()
                 - inside: {kind: property_declaration}
-                - follows: {kind: type_annotation, stopBy: {kind: 'type_annotation, pattern'}, has: {field: name, kind: user_type, regex: '^Foundation(\.|::)Process$'}}
+                - follows: {kind: type_annotation, stopBy: {kind: 'type_annotation, pattern'}, has: {field: name, kind: user_type, regex: '^(Foundation(\.|::))?Process$'}}
 transform:
     HEAD: {replace: {source: $SITE, replace: '(?s)\n.*$', by: ''}}
 message: '`$HEAD` uses default subprocess options or manual process teardown'

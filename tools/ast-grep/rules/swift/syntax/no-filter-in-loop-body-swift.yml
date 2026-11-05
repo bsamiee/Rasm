@@ -88,8 +88,8 @@ rule:
                     matches: single-if
                     has:
                         kind: if_statement
-                        regex: '^if[\t-\r ]+case(?-u:\b)'
                         all:
+                            - has: {field: condition, regex: '^case$'}
                             - has: {kind: simple_identifier, pattern: $X, follows: {regex: '^=$'}}
                             - has: {kind: statements, not: {has: {stopBy: end, kind: simple_identifier, pattern: $X}}}
             - all:
@@ -114,7 +114,7 @@ rule:
                     has:
                         nthChild: 1
                         matches: continue-guard
-                        regex: '^guard[\t-\r ]+case(?-u:\b)'
+                        all: [{has: {field: condition, regex: '^case$'}}]
                         has: {kind: simple_identifier, pattern: $X, follows: {regex: '^=$'}, precedes: {regex: '^else$'}}
             - all:
                 - matches: kept-item

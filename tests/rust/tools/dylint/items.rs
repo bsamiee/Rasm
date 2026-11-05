@@ -112,6 +112,24 @@ fn needless_import_rename(found: &str) {
     ");
 }
 
+fn orphan_module(found: &str) {
+    insta::assert_snapshot!(found, @"
+    warning: `tools/dylint/examples/orphan_module/nested/mod.rs` sits in this module's folder with no module declaring it, declare it here or delete it
+     --> tools/dylint/examples/orphan_module.rs:1:1
+      |
+    1 | use core::hint::black_box;
+      | ^
+      |
+      = note: `#[warn(orphan_module)]` on by default
+
+    warning: `tools/dylint/examples/orphan_module/undeclared.rs` sits in this module's folder with no module declaring it, declare it here or delete it
+     --> tools/dylint/examples/orphan_module.rs:1:1
+      |
+    1 | use core::hint::black_box;
+      | ^
+    ");
+}
+
 fn single_reader(found: &str) {
     insta::assert_snapshot!(found, @r#"
     warning: `NONE` has one reader, `named_bound`

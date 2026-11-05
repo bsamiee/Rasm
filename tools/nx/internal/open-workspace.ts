@@ -5,7 +5,7 @@ import { Array, Effect, Equal, FileSystem, Filter, Function, Option, Path, Predi
 import { escape } from 'minimatch';
 import { serverFS } from 'typescript/fs';
 import { API } from 'typescript/sync';
-import { decodeFile, Mise } from '#/eng/typescript/manifest';
+import { decodeFile, Mise, Package } from '#/eng/typescript/manifest';
 import { runCommand } from '#/eng/typescript/run-command';
 import { TextFormat } from '#/eng/typescript/text-format';
 
@@ -128,6 +128,12 @@ const readScopes = Effect.fnUntraced(function* (workspaceRoot: string, folders: 
     );
 });
 
+const readPackages = Effect.fnUntraced(function* (workspaceRoot: string) {
+    const path = yield* Path.Path;
+    const files = yield* glob(workspaceRoot, [`**/${Package.file}`]);
+    return Record.fromEntries(Array.zip(files.map(path.dirname), yield* Effect.forEach(files, (file) => decodeFile(Package.schema, workspaceRoot, file), { concurrency: 'unbounded' })));
+});
+
 // --- [WORKSPACE]
 const openWorkspace = Effect.fnUntraced(function* ({ workspaceRoot, nxJsonConfiguration }: Pick<CreateNodesContext, 'workspaceRoot' | 'nxJsonConfiguration'>) {
     const [fs, path, scope] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Effect.scope]);
@@ -136,11 +142,10 @@ const openWorkspace = Effect.fnUntraced(function* ({ workspaceRoot, nxJsonConfig
         Effect.sync(() => new PluginCache<Record<'hash' | 'output', string>>(path.join(workspaceDataDirectory, 'workspace.cache'))),
         (held) => Effect.sync(held.writeToDisk.bind(held)),
     );
-    const cached = <A, I>(schema: Schema.Codec<A, I>, inputs: string[], [command, ...args]: readonly [string, ...string[]], document: Schema.Codec<unknown, string> = JsonDocument) => {
-        const [key, held] = [[command, ...args].join(' '), Schema.fromJsonString(schema)];
+    const memoized = <A, I, E, R>(key: string, schema: Schema.Codec<A, I>, inputs: string[], produce: Effect.Effect<A, E, R>) => {
+        const held = Schema.fromJsonString(schema);
         const fresh = (hash: string) =>
-            runCommand(command, args, { cwd: workspaceRoot }).pipe(
-                Effect.flatMap(Schema.decodeEffect(document.pipe(Schema.decodeTo(schema)))),
+            produce.pipe(
                 Effect.bindTo('value'),
                 Effect.bind('output', ({ value }) => Schema.encodeEffect(held)(value)),
                 Effect.tap(({ output }) => Effect.sync(cache.set.bind(cache, key, { hash, output }))),
@@ -151,12 +156,16 @@ const openWorkspace = Effect.fnUntraced(function* ({ workspaceRoot, nxJsonConfig
             (hash) => Option.fromUndefinedOr(cache.get(key)).pipe(Option.filter(Predicate.Struct({ hash: Equal.equals(hash) })), Option.match({ onSome: ({ output }) => Schema.decodeEffect(held)(output), onNone: () => fresh(hash) })),
         );
     };
+    const cached = <A, I>(schema: Schema.Codec<A, I>, inputs: string[], [command, ...args]: readonly [string, ...string[]], document: Schema.Codec<unknown, string> = JsonDocument) =>
+        memoized([command, ...args].join(' '), schema, inputs, Effect.flatMap(runCommand(command, args, { cwd: workspaceRoot }), Schema.decodeEffect(document.pipe(Schema.decodeTo(schema)))));
     const lockedPackages = (project: string) => cached(PylockExport, ['uv.lock', `**/${PYPROJECT}`], ['uv', 'export', '--frozen', '--format', 'pylock.toml', '--no-hashes', '--no-emit-project', '--project', project], TextFormat.Toml);
     const crates = yield* Effect.cached(Effect.map(cached(CargoMetadata, [`**/${CARGO_MANIFEST}`, '**/*.rs'], ['cargo', 'metadata', '--format-version', '1', '--no-deps']), Function.flow(Struct.get('packages'), Array.map(Struct.evolve({ manifest: path.relative.bind(null, workspaceRoot) })))));
     const patterns = ['pnpm-lock.yaml', 'tools/*/examples/**'];
     const hosts = yield* Effect.cached(fs.readDirectory(path.join(workspaceRoot, APPS)));
     return {
         workspaceRoot,
+        cached,
+        memoized,
         lockedPackages,
         crates,
         hosts,
@@ -175,6 +184,7 @@ const openWorkspace = Effect.fnUntraced(function* ({ workspaceRoot, nxJsonConfig
         ...(yield* Effect.all({
             pyproject: Effect.cached(Effect.flatMap(lockedPackages('.'), (packages) => readPyproject(workspaceRoot, packages))),
             mise: Effect.cached(Mise.read(workspaceRoot)),
+            packages: Effect.cached(readPackages(workspaceRoot)),
             pythonScopes: Effect.cached(Effect.flatMap(hosts, (folders) => readScopes(workspaceRoot, folders))),
             release: Effect.cached(Schema.decodeUnknownEffect(NxReleaseConfiguration)(nxJsonConfiguration.release)),
             configs: Effect.cached(
@@ -210,7 +220,7 @@ const openWorkspace = Effect.fnUntraced(function* ({ workspaceRoot, nxJsonConfig
             ),
             python: Effect.cached(cached(PythonRuntime, [Mise.file], ['mise', 'tool', 'python', '--json'])),
             swift: Effect.cached(
-                Effect.map(cached(SwiftPackage, [SWIFT_MANIFEST], ['swift', 'package', 'describe', '--type', 'json']), (described) => ({
+                Effect.map(cached(SwiftPackage, [SWIFT_MANIFEST], ['swift', 'package', '--scratch-path', path.join(workspaceRoot, '.cache/swiftpm/build'), 'describe', '--type', 'json']), (described) => ({
                     ...described,
                     tests: Array.partition(described.targets, Filter.fromPredicate<(typeof described.targets)[number]>(Predicate.Struct({ type: Equal.equals('test') }))),
                 })),

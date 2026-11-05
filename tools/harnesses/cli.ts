@@ -1,4 +1,4 @@
-import { Array, type Config, Effect, FileSystem, Layer, Option, Path } from 'effect';
+import { Array, Effect, FileSystem, Layer, Option, Path } from 'effect';
 import { Argument, Command, Flag } from 'effect/cli';
 import { CASES } from '#/cases';
 import { HarnessError } from '#/harness-error';
@@ -21,8 +21,8 @@ const targets = (paths: readonly string[]) => Effect.map(Effect.forEach(paths, c
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const cases = Argument.Path('target', { mustExist: true }).pipe(Argument.atLeast(1), Argument.withDescription(`Product folder whose **/*${CASES} files run, or one case file, results written beside each as <name>.<version>${RESULTS}`));
-const cli = <A, E, R>(root: Config.Config<string>, automation: Layer.Layer<A, E, R>) => {
-    const provided = (name: string) => Layer.mergeAll(automation, Run.layer(name, root));
+const cli = <A, E, R>(commit: string, logs: string, automation: Layer.Layer<A, E, R>) => {
+    const provided = (name: string) => Layer.mergeAll(automation, Run.layer(name, logs, commit));
     const compare = <S extends Surveyed, C extends Cased, X, P>(name: string, hosted: Effect.Effect<Harness<S, C, X, P>, HarnessError>) =>
         Command.make(
             'compare',
@@ -34,14 +34,14 @@ const cli = <A, E, R>(root: Config.Config<string>, automation: Layer.Layer<A, E,
                 yield* judged(verdicts.flat(), name);
             }, ran),
         ).pipe(Command.provide(provided(name)));
-    const log = (name: string) => Command.make('log', {}, () => traced(root, name)).pipe(Command.withDescription(`Prints the current ${name} run's records as JSON Lines with reports linked since it ended, the newest ${name} run of this session or else the newest ${name} run`));
+    const log = (name: string) => Command.make('log', {}, () => traced(logs, name)).pipe(Command.withDescription(`Prints the current ${name} run's records as JSON Lines with reports linked since it ended, the newest ${name} run of this session or else the newest ${name} run`));
     const subcommand = <N extends string, S extends Surveyed, C extends Cased, X, P>(name: N, load: () => Promise<{ readonly [K in N]: Effect.Effect<Harness<S, C, X, P>> }>) => {
         const hosted = Effect.flatMap(Effect.tryPromise({ try: load, catch: HarnessError.refused(name) }), (loaded) => loaded[name]);
         return Command.make(
             name,
             {
                 targets: cases,
-                release: Flag.String('release').pipe(Flag.atLeast(0), Flag.withDescription('Version prefix an installation reports, repeated, every installation when absent')),
+                release: Flag.String('release').pipe(Flag.atLeast(0), Flag.withDescription('Version prefix an installation reports, repeated, the newest installation when absent')),
                 only: Flag.String('only').pipe(Flag.atLeast(0), Flag.withDescription('Case name to run, repeated')),
             },
             Effect.fn('cases')(function* ({ targets: paths, release, only }) {

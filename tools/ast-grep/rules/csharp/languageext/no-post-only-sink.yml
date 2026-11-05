@@ -5,6 +5,7 @@ utils:
     unit-io:
         kind: invocation_expression
         all:
+            - has: {field: function, regex: 'pure'}
             - matches: {csharp-owner-call: {type: {regex: '^IO$'}, member: {regex: '^pure$'}}}
             - has: {field: arguments, has: {matches: csharp-positional-argument, has: {any: [{kind: identifier, regex: '^unit$'}, {kind: default_expression, regex: '^default$'}, {matches: {csharp-owner-member: {type: {regex: '^Unit$'}, member: {regex: '^Default$'}}}}]}}}
     stub:
@@ -15,7 +16,7 @@ utils:
 rule:
     kind: 'record_declaration, class_declaration'
     all:
-        - has: {field: name, pattern: $NAME}
+        - has: {field: name, pattern: {context: 'class $NAME;', selector: identifier}}
         - has: {kind: base_list, has: {matches: {csharp-type-name: {name: {regex: '^Sink$'}}}, pattern: $SINK}}
         - has: {field: body, has: {matches: stub, has: {field: name, regex: '^Complete$'}}}
         - has: {field: body, has: {matches: stub, has: {field: name, regex: '^Fail$'}}}

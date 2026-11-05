@@ -15,6 +15,6 @@ rule:
                 kind: pair
                 all:
                     - has: {field: key, pattern: $KEY}
-                    - has: {field: value, kind: call_expression, all: [{has: {field: function, regex: '^Schema\.Literal$'}}, {has: {field: arguments, has: {nthChild: 1, pattern: $LITERAL}}}]}
+                    - has: {field: value, kind: call_expression, all: [{has: {field: arguments, has: {nthChild: 1, pattern: $LITERAL}}}, {has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Schema$'}, member: {regex: '^Literal$'}}}}}]}
 message: '`$READ` tests a literal discriminant by hand'
 note: 'Join the cases with `Schema.toTaggedUnion(''<key>'')` and test through `isAnyOf` or fold through `match`'

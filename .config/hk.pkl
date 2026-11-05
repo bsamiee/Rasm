@@ -1,6 +1,7 @@
 amends "package://github.com/jdx/hk/releases/download/v2.10.0/hk@2.10.0#/Config.pkl"
 import "package://github.com/jdx/hk/releases/download/v2.10.0/hk@2.10.0#/Builtins.pkl"
 
+// --- [HOOKS] ----------------------------------------------------------------------------
 hooks {
     ["commit-msg"] {
         steps {

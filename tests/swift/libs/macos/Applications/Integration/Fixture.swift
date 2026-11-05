@@ -52,7 +52,7 @@ func read(_ instance: NSRunningApplication) async throws -> InstanceState.Runnin
 }
 
 func numbered(_ title: String, in instance: NSRunningApplication) async throws -> CGWindowID {
-    let window: CGWindowID? = try await read(instance).windows.first { row in row.element?.title == title }?.number
+    let window: CGWindowID? = try await read(instance).windows.first { row in row.description[case: \.element]?.title == title }?.number
     return try #require(window, "window \(title)")
 }
 
@@ -105,12 +105,8 @@ func observe(
     return seen
 }
 
-extension InstanceState.Window {
-    var element: Element? { description[case: \.element] }
-}
-
 extension InstanceState.Running {
-    var elements: [Element] { windows.compactMap(\.element) }
+    var elements: [Element] { windows.compactMap { row in row.description[case: \.element] } }
 }
 
 extension InstanceState {
@@ -120,7 +116,7 @@ extension InstanceState {
 
     var usage: Result<ResourceUsage, Errno>? { self[case: \.running]?.usage }
 
-    var asking: Element? { self[case: \.running]?.asking.lazy.compactMap(\.element).first }
+    var asking: Element? { self[case: \.running]?.asking.lazy.compactMap { row in row.description[case: \.element] }.first }
 
     var phase: Phase {
         switch self {

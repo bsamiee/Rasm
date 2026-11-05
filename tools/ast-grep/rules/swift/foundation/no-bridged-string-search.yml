@@ -22,12 +22,12 @@ utils:
     search-call:
         kind: call_expression
         all:
-            - has: {nthChild: 1, regex: '(^|\.)range$'}
+            - has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '(^|\.)range$'}
             - has: {kind: call_suffix, has: {matches: searched}}
     replace-call:
         kind: call_expression
         all:
-            - has: {nthChild: 1, regex: '(^|\.)replacingOccurrences$'}
+            - has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '(^|\.)replacingOccurrences$'}
             - has: {kind: call_suffix, has: {matches: replaced}}
     string-extension:
         kind: class_declaration

@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: tsxlang
 severity: error
-ignores: ['.claude/workflows/*.js', 'plugins/function-hooks/**']
+ignores: ['.claude/workflows/*.js', 'plugins/function-hooks/hooks/**']
 utils:
     collection:
         matches: {effect-module: {name: {regex: '(?-u:\b)(Array|Chunk|HashSet)$'}}}
@@ -49,4 +49,4 @@ rule:
 constraints:
     SEEN: {not: {any: [{kind: identifier, pattern: $X}, {has: {stopBy: end, kind: identifier, pattern: $X}}]}}
 message: '`filter` tests each element for membership in `$SEEN` by hand'
-note: 'Call `<module>.difference(<list>, <seen>)` for elements absent from `<seen>`, or `<module>.intersection` for those present'
+note: 'Call `<module>.difference(<list>, <seen>)` for elements absent from `<seen>`, or `<module>.intersection` for elements present'

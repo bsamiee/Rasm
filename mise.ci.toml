@@ -1,0 +1,31 @@
+# --- [SETTINGS] -------------------------------------------------------------------------
+[settings]
+disable_tools = [
+    "blender-mcp",
+    "cargo-insta",
+    "carapace",
+    "colima",
+    "difftastic",
+    "doppler",
+    "hyperfine",
+    "lima",
+    "pulumi",
+    "cargo:cargo-edit",
+    "cargo:cargo-llvm-cov",
+    "dotnet:ilspycmd",
+    "dotnet:Microsoft.AITools.BinlogMcp",
+    "dotnet:NuGet.Mcp.Server",
+    "dotnet:RoslynCodeLens.Mcp",
+    "duckdb",
+    "http:jdtls",
+    "http:rustc-source",
+    "http:zxpsigncmd",
+    "npm:actions-up",
+    "pypi:ast-grep/ast-grep-mcp",
+    "pypi:mcp-for-blender",
+    "pypi:tavily-cli",
+]
+
+# --- [ENV] ------------------------------------------------------------------------------
+[env]
+NX_MAX_CACHE_SIZE = "1GB"

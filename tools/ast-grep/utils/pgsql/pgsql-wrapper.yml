@@ -2,7 +2,7 @@
 id: pgsql-wrapper
 language: pgsql
 rule:
-    kind: a_expr, a_expr_prec, c_expr, func_expr, func_arg_expr
+    kind: a_expr, c_expr, func_expr, func_arg_expr
     not:
         any:
             - has: {nthChild: 2}

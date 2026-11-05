@@ -84,7 +84,7 @@ utils:
     super-init:
         kind: call_expression
         all:
-            - has: {nthChild: 1, regex: '^super\.init$'}
+            - has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '^super\.init$'}
             - has: {kind: call_suffix, not: {has: {kind: lambda_literal}}}
             - not: {has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, not: {matches: super-argument}}}}}
     super-init-statement:
@@ -166,4 +166,4 @@ rule:
                 - has: {field: body, has: {matches: &read {swift-forwarded-member: {read: {pattern: $F}}}}}
                 - has: {kind: computed_property, not: {has: {kind: 'computed_setter, computed_modify'}}, any: [{has: {matches: *read}}, {has: {kind: computed_getter, has: {matches: *read}}}]}
 message: 'Declaration passes its parameters and fixed values unchanged to `$F`'
-note: 'Call `<callee>` or read `<value>.<member>` at each use, keep one memberwise init, move a conformance the declaration satisfies to the forwarded type'
+note: 'Call `<callee>` or read `<value>.<member>` at each use, keep one memberwise init, move a conformance its declaration satisfies to the forwarded type'

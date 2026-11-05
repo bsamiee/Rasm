@@ -19,8 +19,7 @@ utils:
                     any:
                         - kind: prefix_expression
                           regex: '^\.failure$'
-                        - kind: navigation_expression
-                          regex: '^Result(<[^{]*>)?\.failure$'
+                        - matches: swift-failure-call
                         - kind: control_transfer_statement
                           regex: '^throw(?-u:\b)'
     first-result:
@@ -37,7 +36,7 @@ utils:
 rule:
     kind: call_expression
     all:
-        - has: {nthChild: 1, kind: 'navigation_expression, identifier', regex: '^_Concurrency(\.|::)with(Throwing)?TaskGroup$', pattern: $RACE}
+        - has: {nthChild: 1, regex: '^(_Concurrency(\.|::))?with(Throwing)?TaskGroup$', pattern: $RACE}
         - has:
             kind: call_suffix
             has:

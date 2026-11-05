@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
@@ -8,6 +9,7 @@ using System.Xml.Linq;
 using CliWrap;
 using CliWrap.Buffered;
 using LanguageExt.ClassInstances;
+using Microsoft.Extensions.DependencyModel;
 using NuGet.Client;
 using NuGet.Common;
 using NuGet.Configuration;
@@ -25,12 +27,24 @@ namespace Rasm.Upgrade;
 internal sealed record Row(string Id, NuGetVersion Version, bool Exact, Group Attribute);
 internal sealed record Move(Row Row, NuGetVersion Version);
 internal sealed record Feed(string Source, PackageMetadataResource Metadata, FindPackageByIdResource Downloads);
+internal sealed record Host(HashMap<EqStringOrdinalIgnoreCase, string, NuGetVersion> Library, HashMap<EqStringOrdinalIgnoreCase, string, string> Assembly) {
+    public static Host Read(string resources) {
+        using FileStream dependencies = File.OpenRead(Directory.GetFiles(resources, "dotnetstart.*.deps.json").Single());
+        using DependencyContextJsonReader reader = new();
+        return new(
+            toHashMap<EqStringOrdinalIgnoreCase, string, NuGetVersion>(reader.Read(dependencies).RuntimeLibraries.Select(static library => (library.Name, NuGetVersion.Parse(library.Version)))),
+            toHashMap<EqStringOrdinalIgnoreCase, string, string>(Directory.EnumerateDirectories(Path.Join(resources, "ManagedPlugIns"), "*.rhp").Prepend(resources).SelectMany(static folder => Directory.EnumerateFiles(folder, "*.dll")).Select(static file => (Path.GetFileNameWithoutExtension(file), file))));
+    }
+
+    public Option<Version> Ceiling(string id) =>
+        Assembly.Find(id).Bind(static file => Optional(AssemblyName.GetAssemblyName(file).Version));
+}
 internal sealed record Project(
     NuGetFramework TargetFramework,
     bool CentralPackageTransitivePinningEnabled,
     HashSet<EqStringOrdinalIgnoreCase, string> PackageReference,
     HashMap<EqStringOrdinalIgnoreCase, string, string> PackageVersion,
-    HashMap<EqStringOrdinalIgnoreCase, string, NuGetVersion> RhinoHostLibrary) {
+    Option<Host> Host) {
     public bool Consumes(Row row) =>
         PackageVersion.Find(row.Id).Exists(version => version.Equals(row.Attribute.Value, StringComparison.Ordinal))
         && (CentralPackageTransitivePinningEnabled || PackageReference.Contains(row.Id));
@@ -41,7 +55,7 @@ internal static partial class Packages {
     // --- [ROWS]
     public static Seq<Row> Rows(string text) {
         int[] lineStarts = [0, .. LineBreak.Matches(text).Select(static line => line.Index + line.Length)];
-        return toSeq(XDocument.Parse(text, LoadOptions.SetLineInfo).Descendants())
+        return toSeq(Located(text).Descendants())
             .Filter(static element => element.Name.LocalName is nameof(Project.PackageVersion) or "GlobalPackageReference")
             .Choose(element =>
                 from include in Optional(element.Attribute("Include") ?? element.Attribute("Update"))
@@ -52,10 +66,13 @@ internal static partial class Packages {
                 select new Row(include.Value, current.Version, current.Exact, attribute));
     }
 
+    private static XDocument Located(string xml) =>
+        XDocument.Parse(xml, LoadOptions.SetLineInfo);
+
     private static Option<(NuGetVersion Version, bool Exact)> Requirement(string text) =>
-        NuGetVersion.TryParse(text, out NuGetVersion? version) ? Some((version, false))
-        : VersionRange.TryParse(text, out VersionRange? range) && range is { HasLowerAndUpperBounds: true, IsMinInclusive: true, IsMaxInclusive: true } && VersionComparer.Default.Equals(range.MinVersion, range.MaxVersion) ? Some((range.MinVersion, true))
-        : None;
+        VersionRange.TryParse(text, out VersionRange? range) && range is { HasLowerBound: true, IsMinInclusive: true, IsFloating: false } && (!range.HasUpperBound || (range.IsMaxInclusive && VersionComparer.Default.Equals(range.MinVersion, range.MaxVersion)))
+            ? Some((range.MinVersion, range.HasUpperBound))
+            : None;
 
     [GeneratedRegex("\\r\\n|[\\r\\n]")]
     private static partial Regex LineBreak { get; }
@@ -66,9 +83,12 @@ internal static partial class Packages {
     // --- [PROJECTS]
     public static IO<Seq<Project>> Projects(string? root) =>
         IO.liftAsync(env => File.ReadAllTextAsync(Path.Join(root, "Workspace.slnx"), env.Token))
-            .Bind(solution => Collect(toSeq(XDocument.Parse(solution).Descendants("Project").Attributes("Path")).Map(path => Evaluate(Path.Join(root, path.Value)))));
+            .Bind(solution => Collect(toSeq(Located(solution).Descendants("Project").Attributes("Path")).Map(path => Evaluate(Path.Join(root, path.Value)))))
+            .Bind(static evaluated => IO.lift(() => toHashMap<EqStringOrdinal, string, Host>(evaluated.Map(static held => held.Resources).Filter(static resources => resources is { Length: > 0 }).Distinct().Map(static resources => (resources, Host.Read(resources)))) switch {
+                var hosts => evaluated.Map(held => held.Project with { Host = hosts.Find(held.Resources) }),
+            }));
 
-    private static IO<Project> Evaluate(string path) =>
+    private static IO<(Project Project, string Resources)> Evaluate(string path) =>
         IO.liftAsync(env => Cli.Wrap("dotnet")
                 .WithArguments([
                     "msbuild",
@@ -76,9 +96,9 @@ internal static partial class Packages {
                     "-t:ResolveRhinoInstallation",
                     $"-getProperty:{nameof(Project.TargetFramework)}",
                     $"-getProperty:{nameof(Project.CentralPackageTransitivePinningEnabled)}",
+                    "-getProperty:RhinoResourcesDir",
                     $"-getItem:{nameof(Project.PackageReference)}",
                     $"-getItem:{nameof(Project.PackageVersion)}",
-                    $"-getItem:{nameof(Project.RhinoHostLibrary)}",
                 ])
                 .ExecuteBufferedAsync(env.Token)
                 .Task)
@@ -89,12 +109,12 @@ internal static partial class Packages {
                 Seq<JsonElement> Listed(string item) => toSeq(items.GetProperty(item).EnumerateArray());
                 static string Identity(JsonElement row) => row.GetProperty("Identity").ToString();
                 static string Version(JsonElement row) => row.GetProperty("Version").ToString();
-                return new Project(
+                return (new Project(
                     NuGetFramework.Parse(properties.GetProperty(nameof(Project.TargetFramework)).ToString()),
                     bool.TryParse(properties.GetProperty(nameof(Project.CentralPackageTransitivePinningEnabled)).ToString(), out bool pinning) && pinning,
                     toHashSet<EqStringOrdinalIgnoreCase, string>(Listed(nameof(Project.PackageReference)).Map(Identity)),
                     toHashMap<EqStringOrdinalIgnoreCase, string, string>(Listed(nameof(Project.PackageVersion)).Map(static row => (Identity(row), Version(row)))),
-                    toHashMap<EqStringOrdinalIgnoreCase, string, NuGetVersion>(Listed(nameof(Project.RhinoHostLibrary)).Map(static row => (Identity(row), NuGetVersion.Parse(Version(row))))));
+                    None), properties.GetProperty("RhinoResourcesDir").ToString());
             });
 
     // --- [RELEASES]
@@ -113,16 +133,21 @@ internal static partial class Packages {
     }
 
     public static IO<Seq<T>> Collect<T>(Seq<IO<T>> effects) =>
-        awaitAll(effects.Map(static effect => effect.Try().Run().As()))
-            .Bind(static results => IO.lift(results.Traverse(static result => result).As()));
+        effects.Traverse(static effect => effect.Try()).As().Run().As().Bind(IO.lift);
 
     public static IO<Option<Move>> Newest(Seq<Project> projects, SourceCacheContext cache, PackageSourceMapping mapping, Seq<Feed> feeds, Row row) {
         Seq<Project> consumers = projects.Filter(project => project.Consumes(row));
         Seq<NuGetFramework> frameworks = consumers.Map(static consumer => consumer.TargetFramework).Distinct();
         HashMap<EqStringOrdinalIgnoreCase, string, NuGetVersion> host = consumers.Head
-            .Filter(_ => row.Exact && consumers.ForAll(static consumer => !consumer.RhinoHostLibrary.IsEmpty))
-            .Map(static consumer => consumer.RhinoHostLibrary)
+            .Filter(_ => row.Exact && consumers.ForAll(static consumer => consumer.Host.IsSome))
+            .Bind(static consumer => consumer.Host)
+            .Map(static held => held.Library)
             .IfNone(HashMap<EqStringOrdinalIgnoreCase, string, NuGetVersion>());
+        Option<Version> ceiling = consumers
+            .Filter(consumer => consumer.PackageReference.Contains(row.Id))
+            .Choose(static consumer => consumer.Host)
+            .Head
+            .Bind(held => held.Ceiling(row.Id));
         return host.Find(row.Id).Match(
                 Some: static version => IO.pure(Some(version)),
                 None: () => Collect(Serving(row.Id).Map(feed =>
@@ -131,6 +156,7 @@ internal static partial class Packages {
                     .Bind(published => IO.liftAsync(async env =>
                         await published.Flatten()
                             .Where(release => !host.IsEmpty || !row.Exact || (release.Metadata.Identity.Version.Major, release.Metadata.Identity.Version.Minor) == (row.Version.Major, row.Version.Minor))
+                            .Where(release => ceiling.ForAll(limit => release.Metadata.Identity.Version.Version <= limit))
                             .OrderByDescending(static release => release.Metadata.Identity.Version.Version)
                             .ThenBy(static release => release.Metadata.Identity.Version.IsPrerelease)
                             .ThenByDescending(static release => release.Metadata.Published?.UtcDateTime.Date)
@@ -174,10 +200,10 @@ internal static partial class Packages {
                 return false;
             using PackageArchiveReader package = new(nupkg, leaveStreamOpen: true);
             Seq<string> files = toSeq(await package.GetFilesAsync(token).ConfigureAwait(false));
-            return frameworks.ForAll(framework => Compatible(framework, listed.Id, files, package.NuspecReader));
+            return frameworks.ForAll(framework => Compatible(framework, files, package.NuspecReader));
         }
 
-        static bool Compatible(NuGetFramework framework, string packageId, Seq<string> files, NuspecReader nuspec) {
+        static bool Compatible(NuGetFramework framework, Seq<string> files, NuspecReader nuspec) {
             string lib = $"{PackagingConstants.Folders.Lib}/";
             string reference = $"{PackagingConstants.Folders.Ref}/";
             ManagedCodeConventions conventions = new(runtimeGraph: null);
@@ -193,7 +219,6 @@ internal static partial class Packages {
                 [patterns.CompileRefAssemblies, patterns.CompileLibAssemblies],
                 [patterns.RuntimeAssemblies],
             ];
-            Seq<PatternSet> builds = Seq(patterns.MSBuildFiles, patterns.MSBuildTransitiveFiles, patterns.MSBuildMultiTargetingFiles);
             List<ContentItemGroup> contentFiles = [];
             content.PopulateItemGroups(patterns.ContentFiles, contentFiles);
 
@@ -201,11 +226,6 @@ internal static partial class Packages {
                 && (!files.Exists(file => file.StartsWith(reference, StringComparison.OrdinalIgnoreCase) || file.StartsWith(lib, StringComparison.OrdinalIgnoreCase))
                 || assemblies.Any(definitions => Optional(content.FindBestItemGroup(criteria, definitions)).Exists(group => group.Items.Any(included)))
                 || content.FindBestItemGroup(criteria, patterns.ResourceAssemblies) is { Items.Count: > 0 }
-                || builds
-                    .Map(pattern => Optional(content.FindBestItemGroup(criteria, pattern)))
-                    .Somes()
-                    .Bind(static group => toSeq(group.Items))
-                    .Exists(item => Path.GetFileNameWithoutExtension(item.Path).Equals(packageId, StringComparison.OrdinalIgnoreCase) || Path.GetFileName(item.Path).Equals(PackagingCoreConstants.EmptyFolder, StringComparison.Ordinal))
                 || contentFiles
                     .GroupBy(static group => (string)group.Properties[ManagedCodeConventions.PropertyNames.CodeLanguage], StringComparer.OrdinalIgnoreCase)
                     .Any(language => Optional(NuGetFrameworkUtility.GetNearest(language, framework, static group => (NuGetFramework)group.Properties[ManagedCodeConventions.PropertyNames.TargetFrameworkMoniker])).Exists(static group => group.Items.Count > 0))

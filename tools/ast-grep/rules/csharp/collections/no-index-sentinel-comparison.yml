@@ -59,12 +59,12 @@ utils:
         any:
             - kind: binary_expression
               any:
-                - all: [{has: {field: left, matches: search, pattern: $SEARCH}}, {has: {field: operator, regex: '^<$'}}, {has: {field: right, matches: zero}}]
-                - all: [{has: {field: left, matches: search, pattern: $SEARCH}}, {has: {field: operator, regex: '^(==|<=)$'}}, {has: {field: right, matches: minus-one}}]
+                - all: [{has: {field: operator, regex: '^<$'}}, {has: {field: left, matches: search, pattern: $SEARCH}}, {has: {field: right, matches: zero}}]
+                - all: [{has: {field: operator, regex: '^(==|<=)$'}}, {has: {field: left, matches: search, pattern: $SEARCH}}, {has: {field: right, matches: minus-one}}]
                 - all: [{has: {field: left, matches: zero}}, {has: {field: operator, regex: '^>$'}}, {has: {field: right, matches: search, pattern: $SEARCH}}]
                 - all: [{has: {field: left, matches: minus-one}}, {has: {field: operator, regex: '^(==|>=)$'}}, {has: {field: right, matches: search, pattern: $SEARCH}}]
-                - all: [{has: {field: left, matches: search, pattern: $SEARCH}}, {has: {field: operator, regex: '^>=$'}}, {has: {field: right, matches: zero}}]
-                - all: [{has: {field: left, matches: search, pattern: $SEARCH}}, {has: {field: operator, regex: '^(!=|>)$'}}, {has: {field: right, matches: minus-one}}]
+                - all: [{has: {field: operator, regex: '^>=$'}}, {has: {field: left, matches: search, pattern: $SEARCH}}, {has: {field: right, matches: zero}}]
+                - all: [{has: {field: operator, regex: '^(!=|>)$'}}, {has: {field: left, matches: search, pattern: $SEARCH}}, {has: {field: right, matches: minus-one}}]
                 - all: [{has: {field: left, matches: zero}}, {has: {field: operator, regex: '^<=$'}}, {has: {field: right, matches: search, pattern: $SEARCH}}]
                 - all: [{has: {field: left, matches: minus-one}}, {has: {field: operator, regex: '^(!=|<)$'}}, {has: {field: right, matches: search, pattern: $SEARCH}}]
             - kind: is_pattern_expression

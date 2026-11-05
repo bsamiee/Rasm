@@ -107,8 +107,6 @@ only_rules:
     - unused_setter_value
     - weak_delegate
     - yoda_condition
-analyzer_rules:
-    - capture_variable
 
 # --- [OPTIONS] --------------------------------------------------------------------------
 strict: true

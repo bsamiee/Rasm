@@ -3,58 +3,73 @@ language: rustlang
 severity: error
 ignores: ['libs/rust/services/telemetry/**']
 utils:
-    subscriber-install:
-        any:
-            - kind: scoped_identifier
-              regex: '^(::)?((tracing::)?(subscriber|dispatcher)|tracing)::(set_global_default|set_default|with_default)$|^(::)?(tracing_log::)?LogTracer::init$'
-            - kind: field_expression
-              all:
-                - has: {field: field, regex: '^init$'}
-                - any:
-                    - has: {field: value, matches: tracer-builder}
-                    - all:
-                        - has: {field: value, kind: identifier, pattern: $BUILDER}
-                        - inside: {kind: block, stopBy: end, has: {kind: let_declaration, all: [{has: {field: pattern, pattern: $BUILDER}}, {has: {field: value, matches: tracer-builder}}]}}
     tracer-builder:
         any:
             - regex: '(?s)(?-u:\b)(LogTracer::builder|log_tracer::Builder::(new|default))\(\)'
             - all:
                 - regex: '(?s)^\p{XID_Continue}*Builder::(new|default)\(\)'
                 - inside: {kind: source_file, stopBy: end, has: {kind: use_declaration, regex: '(?s)(?-u:\b)log_tracer::.*(?-u:\b)Builder(?-u:\b)'}}
-    global-install:
-        kind: scoped_identifier
-        regex: '(^|::)global::set_(tracer_provider|meter_provider|text_map_propagator)$'
-    panic-hook:
-        any:
-            - kind: scoped_identifier
-              regex: '(^|::)panic::(set_hook|take_hook)$'
-            - all:
-                - any:
-                    - {kind: scoped_identifier, regex: '(^|::)panic::update_hook$'}
-                    - matches: {rust-imported-name: {source: {regex: '(?-u:\b)panic(?-u:\b)'}, name: {regex: '^update_hook$'}}}
-                - not:
-                    inside:
-                        kind: call_expression
-                        has:
-                            field: arguments
-                            has:
-                                kind: closure_expression
-                                all:
-                                    - has: {field: parameters, has: {kind: identifier, nthChild: 1, pattern: $PREVIOUS}}
-                                    - has: {field: body, stopBy: end, kind: call_expression, has: {field: function, pattern: $PREVIOUS}}
+    builder-init:
+        all:
+            - has: {field: field, regex: '^init$'}
+            - any:
+                - has: {field: value, matches: tracer-builder}
+                - all:
+                    - has: {field: value, kind: identifier, pattern: $BUILDER}
+                    - inside: {kind: block, stopBy: end, has: {kind: let_declaration, all: [{has: {field: pattern, pattern: $BUILDER}}, {has: {field: value, matches: tracer-builder}}]}}
+    qualified-install:
+        regex: '^(::)?(tracing::)?(subscriber|dispatcher)::(set_global_default|set_default|with_default)$|^(::)?(tracing_log::)?LogTracer::init(_with_filter)?$|(^|::)global::set_(tracer_provider|meter_provider|text_map_propagator)$|(^|::)panic::(set_hook|take_hook)$'
+    module-alias:
+        kind: identifier
+        matches: {rust-imported-name: {source: {regex: '(?-u:\b)(tracing|opentelemetry|std)(?-u:\b)'}, name: {regex: '^(subscriber|dispatcher|global|panic)$'}}}
+    predecessor-dropped:
+        not:
+            inside:
+                kind: call_expression
+                has:
+                    field: arguments
+                    has:
+                        kind: closure_expression
+                        all:
+                            - has:
+                                field: parameters
+                                has:
+                                    nthChild: 1
+                                    any:
+                                        - {kind: identifier, pattern: $PREVIOUS}
+                                        - {kind: parameter, has: {field: pattern, kind: identifier, pattern: $PREVIOUS}}
+                            - has: {field: body, stopBy: end, kind: call_expression, has: {field: function, pattern: $PREVIOUS}}
 rule:
-    kind: 'identifier, scoped_identifier, field_expression'
-    pattern: $SITE
     all:
-        - not:
-            any:
-                - inside: {kind: scoped_identifier}
-                - inside: {kind: use_declaration, stopBy: end}
         - any:
-            - matches: subscriber-install
-            - matches: global-install
-            - matches: panic-hook
-            - matches: {rust-imported-name: {source: {regex: '(?-u:\b)(tracing|global|panic)(?-u:\b)'}, name: {regex: '^(set_global_default|set_default|with_default|set_(tracer_provider|meter_provider|text_map_propagator)|set_hook|take_hook)$'}}}
+            - kind: scoped_identifier
+              all:
+                - any:
+                    - matches: qualified-install
+                    - regex: &installer-name '(^|::)(set_global_default|set_default|with_default|set_(tracer_provider|meter_provider|text_map_propagator)|set_hook|take_hook)$'
+                      has: {field: path, matches: module-alias}
+                    - regex: '(^|::)update_hook$'
+                      any:
+                        - regex: '(^|::)panic::update_hook$'
+                        - has: {field: path, matches: module-alias}
+                      matches: predecessor-dropped
+                - not: {inside: {kind: &use-tree 'scoped_identifier, use_declaration, use_list, scoped_use_list, use_as_clause, use_wildcard'}}
+            - kind: field_expression
+              matches: builder-init
+            - kind: identifier
+              all:
+                - any:
+                    - all:
+                        - regex: *installer-name
+                        - matches: {rust-imported-name: {source: &installer-source {regex: '(?-u:\b)(tracing|global|panic)(?-u:\b)'}, name: {regex: *installer-name}}}
+                    - all:
+                        - regex: '^update_hook$'
+                        - matches: {rust-imported-name: {source: {regex: '(?-u:\b)panic(?-u:\b)'}, name: {regex: '^update_hook$'}}}
+                        - matches: predecessor-dropped
+                - not: {inside: {kind: *use-tree}}
+            - kind: use_as_clause
+              matches: {rust-renamed-import: {source: *installer-source, name: {regex: *installer-name}}}
+        - pattern: $SITE
         - not: {matches: rust-test-scope}
 message: '`$SITE` installs a subscriber, `LogTracer`, provider, or propagator outside `rasm-telemetry`, or a panic hook dropping the one before it'
 note: 'Start through `rasm_command::run`; keep panic hooks for process lifetime and call their predecessor through `panic::update_hook`'

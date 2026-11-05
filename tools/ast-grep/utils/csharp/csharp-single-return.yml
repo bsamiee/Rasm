@@ -3,5 +3,8 @@ id: csharp-single-return
 language: csharplang
 rule:
     kind: block
-    has: {kind: return_statement, nthChild: {position: 1, ofRule: {not: {kind: comment}}}}
-    not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+    has:
+        kind: return_statement
+        all:
+            - nthChild: {position: 1, ofRule: {not: {kind: comment}}}
+            - nthChild: {position: 1, reverse: true, ofRule: {not: {kind: comment}}}

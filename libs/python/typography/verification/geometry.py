@@ -15,7 +15,7 @@ lazy from pathops import PathOp
 lazy from typography.faces.glyphs import Joining, Outline, Side
 lazy from typography.faces.names import GlyphName
 lazy from typography.outlines.measure import column_ink, gap
-lazy from typography.outlines.paths import area, bounds, Box, combined, iou, offset, pieces, transformed, union
+lazy from typography.outlines.paths import area, bounds, Box, combined, iou, meets, offset, pieces, transformed, union
 lazy from typography.shaping.corpus import Corpus
 lazy from typography.shaping.runs import Binary
 
@@ -181,7 +181,7 @@ def identity(binary: Binary, original: Binary, corpus: Corpus, /) -> tuple[Breac
         for glyph, former, own, old in bodies
         for apart, kept in ((mine(glyph)[1], tuple(transformed(piece, (factor, 0, 0, factor, own.middle[0] - factor * old.middle[0], 0)) for piece in theirs(former)[1])),)
         for held, previous in ((union(*apart), union(*kept)),)
-        if (missed := sum(1 for piece in apart if not combined(piece, previous, PathOp.INTERSECTION)) + sum(1 for piece in kept if not combined(piece, held, PathOp.INTERSECTION)))
+        if (missed := sum(1 for piece in apart if not meets(piece, previous)) + sum(1 for piece in kept if not meets(piece, held)))
     )
 
 

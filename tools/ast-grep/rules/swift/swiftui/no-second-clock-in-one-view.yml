@@ -4,7 +4,7 @@ severity: error
 utils:
     timeline:
         kind: call_expression
-        has: {nthChild: 1, kind: simple_identifier, regex: '^TimelineView$'}
+        has: {nthChild: 1, regex: '^(SwiftUI(\.|::))?TimelineView$'}
     clock:
         any:
             - matches: timeline
@@ -12,7 +12,7 @@ utils:
               all:
                 - any:
                     - kind: interpolated_expression
-                    - inside: {kind: value_arguments, inside: {kind: call_suffix, inside: {kind: call_expression, has: {nthChild: 1, regex: '^(SwiftUI(\.|::))?(Text|ProgressView)$'}}}}
+                    - inside: {kind: value_arguments, inside: {kind: call_suffix, inside: {kind: call_expression, has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '^(SwiftUI(\.|::))?(Text|ProgressView)$'}}}}
                 - any:
                     - has: {field: name, regex: '^timerInterval$'}
                     - all:

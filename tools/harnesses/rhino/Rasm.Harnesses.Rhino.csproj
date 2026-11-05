@@ -32,7 +32,7 @@
         <ItemGroup>
             <_PackageRhino Include="@(Reference->WithMetadataValue('NuGetPackageId', 'RhinoCommon'))" />
             <Reference Remove="@(_PackageRhino)" />
-            <Reference Include="@(_PackageRhino->'$(_RhinoResourcesDir)%(Filename)%(Extension)');$(_RhinoResourcesDir)Rhino.Runtime.Code.dll;$(_RhinoResourcesDir)RhinoCodePlatform.Rhino3D.dll" HintPath="" Private="false" />
+            <Reference Include="@(_PackageRhino->'$(RhinoResourcesDir)%(Filename)%(Extension)');$(RhinoResourcesDir)Rhino.Runtime.Code.dll;$(RhinoResourcesDir)RhinoCodePlatform.Rhino3D.dll" HintPath="" Private="false" />
         </ItemGroup>
     </Target>
 </Project>

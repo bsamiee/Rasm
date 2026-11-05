@@ -16,7 +16,6 @@ from typography.faces.faults import Outcome, Reason
 DECLARATION = """
 name = "Test"
 corpus = "corpus.toml"
-fontspector = "fontspector.toml"
 [[families]]
 name = "Satr"
 original = "Naskh/original"
@@ -46,7 +45,6 @@ first = 0xE4CF
 def _declared(folder: Path, text: str, /) -> Outcome[Declared]:
     path = folder / "set.toml"
     path.write_text(text, encoding="utf-8")
-    (folder / "fontspector.toml").write_text('[shaping]\ntest_directory = "shaping"\n', encoding="utf-8")
     return declared(path, folder / "build")
 
 

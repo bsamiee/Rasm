@@ -40,11 +40,11 @@ utils:
                 - has: {field: function, matches: {python-builtin-name: {name: {regex: '^dict$'}}}}
                 - has: {field: arguments, has: {nthChild: 1, any: [{matches: copy-source}, {kind: dictionary_splat, has: {matches: copy-source}}]}}
             - kind: call
-              has: {field: function, kind: attribute, all: [{has: {field: object, matches: copy-source}}, {has: {field: attribute, regex: '^copy$'}}]}
+              has: {field: function, kind: attribute, all: [{has: {field: attribute, regex: '^copy$'}}, {has: {field: object, matches: copy-source}}]}
             - kind: dictionary
               has: {kind: dictionary_splat, has: {matches: copy-source}}
             - kind: dictionary_comprehension
-              has: {kind: for_in_clause, has: {field: right, kind: call, has: {field: function, kind: attribute, all: [{has: {field: object, matches: copy-source}}, {has: {field: attribute, regex: '^items$'}}]}}}
+              has: {kind: for_in_clause, has: {field: right, kind: call, has: {field: function, kind: attribute, all: [{has: {field: attribute, regex: '^items$'}}, {has: {field: object, matches: copy-source}}]}}}
             - kind: binary_operator
               all: [{has: {field: operator, regex: '^\|$'}}, {has: {matches: copy-source}}]
     relayed:

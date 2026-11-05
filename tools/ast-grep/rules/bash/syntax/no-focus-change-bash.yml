@@ -13,7 +13,7 @@ rule:
         - not:
             has:
                 kind: 'word, string, raw_string, concatenation'
-                not: {follows: {stopBy: end, regex: '^--args$'}}
+                not: {follows: {stopBy: end, kind: word, regex: '^--args$'}}
                 any:
                     - regex: '^[''"]?(-[eftFWRnjh]*g[A-Za-z]*|--background)[''"]?$'
                     - has: {stopBy: end, kind: special_variable_name, regex: '^[@*]$'}

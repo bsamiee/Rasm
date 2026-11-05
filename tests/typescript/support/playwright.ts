@@ -4,7 +4,7 @@ import { layer } from '@effect/platform-node/NodeFileSystem';
 import { type Page, test } from '@playwright/test';
 import { Cause, Effect, FileSystem, Function, Schema } from 'effect';
 import { createServer } from 'vite';
-import { located, testMode } from '../../../vite.shared.ts';
+import { e2eMode, located } from '../../../vite.shared.ts';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -20,7 +20,7 @@ const testApp = (name: string) =>
                 Effect.gen(function* () {
                     const root = yield* FileSystem.FileSystem.use((fs) => fs.realPath(join(project.testDir, 'node_modules', name)));
                     const server = yield* Effect.acquireRelease(
-                        Effect.tryPromise(() => createServer({ root, mode: testMode, cacheDir: located(join('.cache', 'vite', String(parallelIndex)), root), server: { host: '127.0.0.1', port: 0, forwardConsole: false }, logLevel: 'warn' })),
+                        Effect.tryPromise(() => createServer({ root, mode: e2eMode, cacheDir: located(join('.cache', 'vite', String(parallelIndex)), root), server: { host: '127.0.0.1', port: 0, forwardConsole: false }, logLevel: 'warn' })),
                         (vite) => Effect.promise(vite.close.bind(vite)),
                     );
                     const { resolvedUrls } = yield* Effect.tryPromise(() => server.listen());

@@ -2,6 +2,7 @@
     <PropertyGroup>
         <Description>Geometry, layout, and image behavior against independent native calculations</Description>
         <OutputType>Exe</OutputType>
+        <UseCurrentRuntimeIdentifier>true</UseCurrentRuntimeIdentifier>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     </PropertyGroup>
 

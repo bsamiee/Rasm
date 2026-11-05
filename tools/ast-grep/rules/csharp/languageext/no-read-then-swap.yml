@@ -5,13 +5,15 @@ ignores: ['tools/roslyn/**']
 utils:
     transaction:
         kind: invocation_expression
-        matches: {csharp-named-call: {name: {regex: '^(atomic|atomicIO|snapshot|serial)$'}}}
+        all:
+            - has: {field: function, regex: 'atomic|snapshot|serial'}
+            - matches: {csharp-named-call: {name: {regex: '^(atomic|atomicIO|snapshot|serial)$'}}}
     callback:
         kind: 'lambda_expression, anonymous_method_expression'
     receiver:
         any:
             - kind: identifier
-              pattern: $ALIAS
+              pattern: {context: 'class $ALIAS;', selector: identifier}
               inside:
                 stopBy: end
                 kind: block
@@ -22,14 +24,14 @@ utils:
                         has:
                             kind: variable_declarator
                             all:
-                                - has: {field: name, pattern: $ALIAS}
-                                - has: {nthChild: 2, any: [{kind: identifier, pattern: $NAME}, {kind: member_access_expression, all: [{has: {field: expression, regex: '^this$'}}, {has: {field: name, pattern: $NAME}}]}]}
+                                - has: {field: name, pattern: {context: 'class $ALIAS;', selector: identifier}}
+                                - has: {nthChild: 2, any: [{kind: identifier, pattern: {context: 'class $NAME;', selector: identifier}}, {kind: member_access_expression, all: [{has: {field: expression, regex: '^this$'}}, {has: {field: name, pattern: {context: 'class $NAME;', selector: identifier}}}]}]}
             - kind: identifier
-              pattern: $NAME
+              pattern: {context: 'class $NAME;', selector: identifier}
             - kind: member_access_expression
               all:
                 - has: {field: expression, regex: '^this$'}
-                - has: {field: name, pattern: $NAME}
+                - has: {field: name, pattern: {context: 'class $NAME;', selector: identifier}}
             - kind: member_access_expression
               pattern: $NAME
               not: {has: {field: expression, regex: '^this$'}}
@@ -47,33 +49,33 @@ utils:
         kind: 'local_declaration_statement, from_clause, let_clause'
         not: {inside: {kind: if_statement, field: consequence}}
         any:
-            - has: {field: name, pattern: $BOUND}
-            - has: {kind: identifier, nthChild: 1, pattern: $BOUND}
-            - has: {stopBy: end, kind: variable_declarator, has: {field: name, pattern: $BOUND}}
+            - has: {field: name, pattern: {context: 'class $BOUND;', selector: identifier}}
+            - has: {kind: identifier, nthChild: 1, pattern: {context: 'class $BOUND;', selector: identifier}}
+            - has: {stopBy: end, kind: variable_declarator, has: {field: name, pattern: {context: 'class $BOUND;', selector: identifier}}}
     derived:
         kind: 'local_declaration_statement, from_clause, let_clause'
         all:
-            - has: {stopBy: end, kind: identifier, pattern: $BOUND}
+            - has: {stopBy: end, kind: identifier, pattern: {context: 'class $BOUND;', selector: identifier}}
             - any:
-                - has: {field: name, pattern: $DERIVED}
-                - has: {kind: identifier, nthChild: 1, pattern: $DERIVED}
-                - has: {stopBy: end, kind: variable_declarator, has: {field: name, pattern: $DERIVED}}
+                - has: {field: name, pattern: {context: 'class $DERIVED;', selector: identifier}}
+                - has: {kind: identifier, nthChild: 1, pattern: {context: 'class $DERIVED;', selector: identifier}}
+                - has: {stopBy: end, kind: variable_declarator, has: {field: name, pattern: {context: 'class $DERIVED;', selector: identifier}}}
     bound-input:
         kind: invocation_expression
         all:
             - matches: swap
-            - has: {stopBy: end, kind: identifier, pattern: $BOUND}
+            - has: {stopBy: end, kind: identifier, pattern: {context: 'class $BOUND;', selector: identifier}}
     derived-input:
         kind: invocation_expression
         all:
             - matches: swap
-            - has: {stopBy: end, kind: identifier, pattern: $DERIVED}
+            - has: {stopBy: end, kind: identifier, pattern: {context: 'class $DERIVED;', selector: identifier}}
 rule:
     kind: member_access_expression
     all:
-        - has: {field: name, pattern: $READER, regex: '^(Value|ValueIO|Find|ContainsKey|Contains|Count|IsEmpty)$'}
+        - has: {field: name, pattern: {context: 'class $READER;', selector: identifier}, regex: '^(Value|ValueIO|Find|ContainsKey|Contains|Count|IsEmpty)$'}
         - has: {field: expression, pattern: $CELL, matches: receiver}
-        - not: {inside: {stopBy: end, kind: 'lambda_expression, anonymous_method_expression', has: {field: parameters, any: [{kind: implicit_parameter, pattern: $CELL}, {has: {kind: parameter, has: {field: name, pattern: $CELL}}}]}}}
+        - not: {inside: {stopBy: end, kind: 'lambda_expression, anonymous_method_expression', has: {field: parameters, any: [{kind: implicit_parameter, pattern: {context: 'var f = $CELL => 0;', selector: implicit_parameter}}, {has: {kind: parameter, has: {field: name, pattern: {context: 'class $CELL;', selector: identifier}}}}]}}}
         - not: {inside: {stopBy: end, matches: transaction}}
         - any:
             - inside:

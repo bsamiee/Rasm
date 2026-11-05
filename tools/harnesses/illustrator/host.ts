@@ -37,7 +37,7 @@ const VOLATILE = {
         /%%CreationDate:[^\r\n]*/gu,
     ],
 } as const;
-const ENGINE = new URL('extendscript.jsxinc', import.meta.url);
+const ENGINE = Effect.runSync(Effect.cached(assembled(new URL('engine.ts', import.meta.url))));
 const BOARD = new URL('pasteboard.jxa', import.meta.url);
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -55,7 +55,7 @@ const shadowed = Schema.is(Schema.Literals(['Window', 'alert', 'confirm', 'promp
 
 // --- [INSTALLATIONS]
 const installed = Effect.gen(function* () {
-    const rows = yield* (yield* Automation).installed(ADOBE);
+    const rows = yield* Automation.use((automation) => automation.installed(ADOBE));
     return yield* Effect.forEach(
         rows.filter((row) => row.scriptable && row.identifier.startsWith('com.adobe.illustrator')),
         (row) => installation(row, rows, [REPORTER]),
@@ -147,7 +147,7 @@ const pasteboard = (mode: 'save' | 'restore', file: string) =>
     );
 const called = Effect.fn('called')(function* (live: Live, sent: typeof Sent.Type) {
     const encoded = jsesc(yield* Schema.encodeEffect(Sent)(sent), { json: true });
-    const { reply } = yield* scripted(live, { direct: (yield* assembled(ENGINE)).code, values: [encoded] });
+    const { reply } = yield* scripted(live, { direct: (yield* ENGINE).code, values: [encoded] });
     return yield* Reply.replied(`${sent._tag} batch`)(reply);
 });
 const send = Effect.fn('send')(function* (live: Live, batch: Batch<typeof Survey.Type, typeof HostCase.Type>) {

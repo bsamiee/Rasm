@@ -8,5 +8,5 @@ rule:
         - has:
             kind: token_tree
             any:
-                - has: {nthChild: 1, kind: string_literal, regex: '\{[A-Za-z_]'}
+                - has: {nthChild: 1, kind: string_literal, regex: '\{[_\p{XID_Start}]'}
                 - has: {kind: identifier, follows: {stopBy: end, regex: '^,$'}, not: {any: [{regex: '^(std|core|alloc)$'}, {precedes: {regex: '^(!|::)$'}}]}}

@@ -49,10 +49,10 @@ rule:
             - not: {has: {nthChild: 3}}
             - not: {matches: refurb-length-test}
             - any:
-                - all: [{has: {nthChild: 1, matches: count}}, {has: {nthChild: 2, matches: zero}}, {has: {field: operators, regex: '^(>|!=|==|<=)$'}}]
-                - all: [{has: {nthChild: 1, matches: count}}, {has: {nthChild: 2, matches: one}}, {has: {field: operators, regex: '^(>=|<)$'}}]
-                - all: [{has: {nthChild: 2, matches: count}}, {has: {nthChild: 1, matches: zero}}, {has: {field: operators, regex: '^(<|!=|==|>=)$'}}]
-                - all: [{has: {nthChild: 2, matches: count}}, {has: {nthChild: 1, matches: one}}, {has: {field: operators, regex: '^(<=|>)$'}}]
+                - all: [{has: {field: operators, regex: '^(>|!=|==|<=)$'}}, {has: {nthChild: 2, matches: zero}}, {has: {nthChild: 1, matches: count}}]
+                - all: [{has: {field: operators, regex: '^(>=|<)$'}}, {has: {nthChild: 2, matches: one}}, {has: {nthChild: 1, matches: count}}]
+                - all: [{has: {field: operators, regex: '^(<|!=|==|>=)$'}}, {has: {nthChild: 1, matches: zero}}, {has: {nthChild: 2, matches: count}}]
+                - all: [{has: {field: operators, regex: '^(<=|>)$'}}, {has: {nthChild: 1, matches: one}}, {has: {nthChild: 2, matches: count}}]
         - matches: built-collection
           any:
             - inside: {kind: 'if_statement, elif_clause, while_statement', field: condition}

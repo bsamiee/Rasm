@@ -14,8 +14,8 @@ private let lines: [String] = [
     #"{"launch":{"url":"file:///A.app","documents":[],"arguments":[],"environment":{},"new":false}}"#,
     #"{"perform":{"pid":1,"actions":[{"perform":{"element":"AAEC","action":"AXPress"}},{"key":{"process":1,"code":36}}]}}"#, #"{"quit":{"pid":1,"force":false}}"#,
     #"{"terms":{"url":"file:///A.app"}}"#, #"{"definition":{"url":"file:///A.app","kind":"class","name":"document"}}"#,
-    #"{"execute":{"pid":1,"command":"do script","arguments":{},"artifacts":[]}}"#, #"{"screenshot":{"pid":1,"directory":"file:///tmp/"}}"#,
-    #"{"screenshot":{"pid":1,"window":2,"longestSide":100,"directory":"file:///tmp/"}}"#,
+    #"{"execute":{"pid":1,"command":"do script","arguments":{},"artifacts":[]}}"#, #"{"screenshot":{"pid":1,"directory":"file:///captures/"}}"#,
+    #"{"screenshot":{"pid":1,"window":2,"longestSide":100,"directory":"file:///captures/"}}"#,
 ]
 private let malformed: [String] = [#"{"status":{"pid":1}}"#, #"{"read":{}}"#, #"{"launch":{"url":"file:///A.app"}}"#, #"{"faces":{}}"#, #"{"show":{"pid":1}}"#]
 

@@ -4,31 +4,28 @@ severity: error
 ignores: ['tools/roslyn/**']
 utils:
     type-parameter:
-        kind: identifier
-        pattern: $TP
+        pattern: {context: 'class $TP;', selector: identifier}
         inside:
             stopBy: end
-            has: {kind: type_parameter_list, has: {kind: type_parameter, has: {kind: identifier, pattern: $TP}}}
-            not: {has: {kind: type_parameter_constraints_clause, all: [{has: {kind: identifier, pattern: $TP}}, {has: {kind: type_parameter_constraint, has: {field: type, matches: {csharp-type-name: {name: {regex: '^I(?:Number|NumberBase|BinaryInteger|BinaryNumber|FloatingPoint.*|SignedNumber|UnsignedNumber|AdditiveIdentity)$'}}}}}}]}}
+            has: {kind: type_parameter_list, has: {kind: type_parameter, has: {pattern: {context: 'class $TP;', selector: identifier}}}}
+            not: {has: {kind: type_parameter_constraints_clause, all: [{has: {pattern: {context: 'class $TP;', selector: identifier}}}, {has: {kind: type_parameter_constraint, has: {field: type, matches: {csharp-type-name: {name: {regex: '^I(?:Number|NumberBase|BinaryInteger|BinaryNumber|FloatingPoint.*|SignedNumber|UnsignedNumber|AdditiveIdentity)$'}}}}}}]}}
     struct-parameter:
         matches: type-parameter
         inside:
             stopBy: end
-            has: {kind: type_parameter_constraints_clause, all: [{has: {kind: identifier, pattern: $TP}}, {has: {kind: type_parameter_constraint, regex: '^struct$'}}]}
+            has: {kind: type_parameter_constraints_clause, all: [{has: {pattern: {context: 'class $TP;', selector: identifier}}}, {has: {kind: type_parameter_constraint, regex: '^struct$'}}]}
     generic-operand:
         any:
             - kind: postfix_unary_expression
               has: {matches: generic-operand}
             - matches: generic-local
-            - kind: identifier
-              pattern: $OPERAND
+            - pattern: {context: 'class $OPERAND;', selector: identifier}
               inside:
                 kind: 'class_declaration, record_declaration, struct_declaration'
                 stopBy: end
-                has: {kind: declaration_list, has: {kind: 'field_declaration, property_declaration', any: [{all: [{has: {field: type, matches: type-parameter}}, {has: {field: name, pattern: $OPERAND}}]}, {has: {kind: variable_declaration, all: [{has: {field: type, matches: type-parameter}}, {has: {kind: variable_declarator, has: {field: name, pattern: $OPERAND}}}]}}]}}
+                has: {kind: declaration_list, has: {kind: 'field_declaration, property_declaration', any: [{all: [{has: {field: type, matches: type-parameter}}, {has: {field: name, pattern: {context: 'class $OPERAND;', selector: identifier}}}]}, {has: {kind: variable_declaration, all: [{has: {field: type, matches: type-parameter}}, {has: {kind: variable_declarator, has: {field: name, pattern: {context: 'class $OPERAND;', selector: identifier}}}}]}}]}}
     generic-local:
-        kind: identifier
-        pattern: $OPERAND
+        pattern: {context: 'class $OPERAND;', selector: identifier}
         matches: {csharp-declared-type: {type: {matches: type-parameter}}}
     default-value:
         any:
@@ -54,7 +51,6 @@ rule:
     any:
         - kind: invocation_expression
           all:
-            - has: {field: arguments, has: {matches: default-argument}}
             - any:
                 - has:
                     field: function
@@ -80,11 +76,12 @@ rule:
                     all:
                         - has: {field: name, regex: '^Equals$'}
                         - has: {field: expression, matches: generic-operand}
+            - has: {field: arguments, has: {matches: default-argument}}
         - kind: binary_expression
           all:
             - has: {field: operator, regex: '^[=!]=$'}
             - any:
-                - all: [{has: {field: left, matches: generic-operand}}, {has: {field: right, matches: default-value}}]
+                - all: [{has: {field: right, matches: default-value}}, {has: {field: left, matches: generic-operand}}]
                 - all: [{has: {field: left, matches: default-value}}, {has: {field: right, matches: generic-operand}}]
 message: '`$COMPARISON` reads the `default` of a type parameter as absence'
 note: 'Return absence from the producer as `Option<A>` and match `None` in place of a `default` test'

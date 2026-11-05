@@ -1,0 +1,331 @@
+id: toml-error
+language: toml
+role: item
+symbolType: 'null'
+rule:
+    any:
+        - {kind: ERROR, not: {has: {kind: 'pair, table, table_array_element', stopBy: end}}}
+        - {kind: 'bare_key, quoted_key, comment', all: [{inside: {kind: ERROR}}, {nthChild: {position: 1, ofRule: {kind: 'bare_key, quoted_key, comment'}}}]}
+        - {kind: 'array, inline_table, bare_key, boolean, float, integer, local_date, local_date_time, local_time, offset_date_time', any: [{regex: '^$'}, {has: {regex: '^$'}}]}
+name: ERROR
+signature: ''
+isImport: false
+isExported: false
+---
+id: toml-table
+language: toml
+role: item
+symbolType: object
+rule:
+    kind: table
+    has: {kind: 'bare_key, quoted_key, dotted_key', any: [{regex: '^[0-9A-Za-z_.-]+$', pattern: $BARE}, {pattern: $KEY}]}
+rewriters:
+    - {id: bare, rule: {kind: quoted_key, regex: '^["''][A-Za-z0-9_-]+["'']$', has: {kind: string_content, pattern: $PART}}, fix: $PART}
+    - {id: part, rule: {kind: 'bare_key, quoted_key', pattern: $PART}, fix: $PART}
+transform:
+    NAME: {rewrite: {source: $KEY, rewriters: [bare, part], joinBy: .}}
+name: $BARE$NAME
+signature: '[$BARE$NAME]'
+---
+id: toml-table-element
+language: toml
+role: item
+symbolType: array
+rule:
+    kind: table_array_element
+    has: {kind: 'bare_key, quoted_key, dotted_key', any: [{regex: '^[0-9A-Za-z_.-]+$', pattern: $BARE}, {pattern: $KEY}]}
+    any: [{has: {kind: pair, has: {kind: 'bare_key, quoted_key', regex: '^["'']?name["'']?$'}, all: [{has: {kind: string, not: {has: {kind: escape_sequence}}, has: {kind: string_content, not: {regex: '[\n\r]'}, pattern: $IDENTITY}}}]}}, {kind: table_array_element}]
+rewriters:
+    - {id: bare, rule: {kind: quoted_key, regex: '^["''][A-Za-z0-9_-]+["'']$', has: {kind: string_content, pattern: $PART}}, fix: $PART}
+    - {id: part, rule: {kind: 'bare_key, quoted_key', pattern: $PART}, fix: $PART}
+transform:
+    NAME: {rewrite: {source: $KEY, rewriters: [bare, part], joinBy: .}}
+    IDENTITY_PART: replace($IDENTITY, replace='^', by=' ')
+name: $BARE$NAME$IDENTITY_PART
+signature: '[[$BARE$NAME]]'
+---
+id: toml-string
+language: toml
+role: item
+symbolType: string
+rule:
+    any:
+        - {kind: pair, inside: {kind: 'document, ERROR'}, all: [{has: {kind: string}}, {not: {matches: broken}}, {has: {matches: key}}]}
+        - {matches: key, inside: {kind: pair, inside: {kind: 'document, ERROR'}, has: {kind: string}}, not: {has: {matches: failed}}}
+utils:
+    failed: {any: [{kind: ERROR}, {regex: '^$'}]}
+    broken: {has: {any: [{matches: failed}, {kind: 'dotted_key, string', has: {matches: failed}}]}}
+    key: {kind: 'bare_key, quoted_key, dotted_key', any: [{regex: '^[0-9A-Za-z_.-]+$', pattern: $BARE}, {pattern: $KEY}]}
+rewriters:
+    - {id: bare, rule: {kind: quoted_key, regex: '^["''][A-Za-z0-9_-]+["'']$', has: {kind: string_content, pattern: $PART}}, fix: $PART}
+    - {id: part, rule: {kind: 'bare_key, quoted_key', pattern: $PART}, fix: $PART}
+transform:
+    NAME: {rewrite: {source: $KEY, rewriters: [bare, part], joinBy: .}}
+name: $BARE$NAME
+signature: '$BARE$NAME = "…"'
+---
+id: toml-number
+language: toml
+role: item
+symbolType: number
+rule:
+    any:
+        - {kind: pair, inside: {kind: 'document, ERROR'}, all: [{has: {matches: number}}, {not: {matches: broken}}, {has: {matches: key}}]}
+        - {matches: key, inside: {kind: pair, inside: {kind: 'document, ERROR'}, has: {matches: number}}, not: {has: {matches: failed}}}
+utils:
+    number: {kind: 'integer, float, offset_date_time, local_date_time, local_date, local_time'}
+    failed: {any: [{kind: ERROR}, {regex: '^$'}]}
+    broken: {has: {any: [{matches: failed}, {kind: 'dotted_key, string', has: {matches: failed}}]}}
+    key: {kind: 'bare_key, quoted_key, dotted_key', any: [{regex: '^[0-9A-Za-z_.-]+$', pattern: $BARE}, {pattern: $KEY}]}
+rewriters:
+    - {id: bare, rule: {kind: quoted_key, regex: '^["''][A-Za-z0-9_-]+["'']$', has: {kind: string_content, pattern: $PART}}, fix: $PART}
+    - {id: part, rule: {kind: 'bare_key, quoted_key', pattern: $PART}, fix: $PART}
+transform:
+    NAME: {rewrite: {source: $KEY, rewriters: [bare, part], joinBy: .}}
+name: $BARE$NAME
+signature: $BARE$NAME = …
+---
+id: toml-boolean
+language: toml
+role: item
+symbolType: boolean
+rule:
+    any:
+        - {kind: pair, inside: {kind: 'document, ERROR'}, all: [{has: {kind: boolean}}, {not: {matches: broken}}, {has: {matches: key}}]}
+        - {matches: key, inside: {kind: pair, inside: {kind: 'document, ERROR'}, has: {kind: boolean}}, not: {has: {matches: failed}}}
+utils:
+    failed: {any: [{kind: ERROR}, {regex: '^$'}]}
+    broken: {has: {any: [{matches: failed}, {kind: 'dotted_key, string', has: {matches: failed}}]}}
+    key: {kind: 'bare_key, quoted_key, dotted_key', any: [{regex: '^[0-9A-Za-z_.-]+$', pattern: $BARE}, {pattern: $KEY}]}
+rewriters:
+    - {id: bare, rule: {kind: quoted_key, regex: '^["''][A-Za-z0-9_-]+["'']$', has: {kind: string_content, pattern: $PART}}, fix: $PART}
+    - {id: part, rule: {kind: 'bare_key, quoted_key', pattern: $PART}, fix: $PART}
+transform:
+    NAME: {rewrite: {source: $KEY, rewriters: [bare, part], joinBy: .}}
+name: $BARE$NAME
+signature: $BARE$NAME = …
+---
+id: toml-array
+language: toml
+role: item
+symbolType: array
+rule:
+    kind: pair
+    inside: {kind: 'document, ERROR'}
+    all: [{has: {kind: array, any: [{not: {has: {pattern: $_}}, pattern: $EMPTY}, {kind: array}]}}, {has: {kind: 'bare_key, quoted_key, dotted_key', any: [{regex: '^[0-9A-Za-z_.-]+$', pattern: $BARE}, {pattern: $KEY}]}}]
+rewriters:
+    - {id: bare, rule: {kind: quoted_key, regex: '^["''][A-Za-z0-9_-]+["'']$', has: {kind: string_content, pattern: $PART}}, fix: $PART}
+    - {id: part, rule: {kind: 'bare_key, quoted_key', pattern: $PART}, fix: $PART}
+transform:
+    NAME: {rewrite: {source: $KEY, rewriters: [bare, part], joinBy: .}}
+    CLOSED: {replace: {source: $EMPTY, replace: '(?s).+', by: '[]'}}
+    VALUE: {replace: {source: $CLOSED, replace: '^$', by: '[…]'}}
+name: $BARE$NAME
+signature: $BARE$NAME = $VALUE
+---
+id: toml-inline-table
+language: toml
+role: item
+symbolType: object
+rule:
+    kind: pair
+    inside: {kind: 'document, ERROR'}
+    all: [{has: {kind: inline_table, any: [{not: {has: {pattern: $_}}, pattern: $EMPTY}, {kind: inline_table}]}}, {has: {kind: 'bare_key, quoted_key, dotted_key', any: [{regex: '^[0-9A-Za-z_.-]+$', pattern: $BARE}, {pattern: $KEY}]}}]
+rewriters:
+    - {id: bare, rule: {kind: quoted_key, regex: '^["''][A-Za-z0-9_-]+["'']$', has: {kind: string_content, pattern: $PART}}, fix: $PART}
+    - {id: part, rule: {kind: 'bare_key, quoted_key', pattern: $PART}, fix: $PART}
+transform:
+    NAME: {rewrite: {source: $KEY, rewriters: [bare, part], joinBy: .}}
+    CLOSED: {replace: {source: $EMPTY, replace: '(?s).+', by: '{}'}}
+    VALUE: {replace: {source: $CLOSED, replace: '^$', by: '{…}'}}
+name: $BARE$NAME
+signature: $BARE$NAME = $VALUE
+---
+id: toml-member-error
+language: toml
+role: member
+parentRuleIds: [toml-table, toml-table-element, toml-array, toml-inline-table]
+symbolType: 'null'
+rule:
+    any:
+        - {kind: ERROR, not: {has: {kind: pair, stopBy: end}}}
+        - {kind: 'bare_key, quoted_key, comment', all: [{inside: {kind: ERROR}}, {nthChild: {position: 1, ofRule: {kind: 'bare_key, quoted_key, comment'}}}]}
+        - {kind: 'array, inline_table, bare_key, boolean, float, integer, local_date, local_date_time, local_time, offset_date_time', any: [{regex: '^$'}, {has: {regex: '^$'}}]}
+name: ERROR
+signature: ''
+isPublic: false
+---
+id: toml-member-string
+language: toml
+role: member
+parentRuleIds: [toml-table, toml-table-element, toml-array, toml-inline-table]
+symbolType: string
+rule:
+    any:
+        - {kind: pair, inside: {kind: 'table, table_array_element, inline_table'}, all: [{has: {kind: string}}, {not: {matches: broken}}, {matches: key}]}
+        - {kind: 'bare_key, quoted_key, dotted_key', inside: {kind: pair, inside: {kind: 'table, table_array_element, inline_table'}, has: {kind: string}}, not: {has: {matches: failed}}, matches: token}
+utils:
+    failed: {any: [{kind: ERROR}, {regex: '^$'}]}
+    broken: {has: {any: [{matches: failed}, {kind: 'dotted_key, string', has: {matches: failed}}]}}
+    key: {any: [{inside: {kind: 'table, table_array_element'}, has: {kind: 'bare_key, dotted_key', regex: '^[0-9A-Za-z_.-]+$', pattern: $BARE}}, {has: {kind: 'bare_key, quoted_key, dotted_key', pattern: $KEY}}]}
+    token: {any: [{regex: '^[0-9A-Za-z_.-]+$', inside: {kind: pair, inside: {kind: 'table, table_array_element'}}, pattern: $BARE}, {pattern: $KEY}]}
+rewriters:
+    - {id: bare, rule: {kind: quoted_key, regex: '^["''][A-Za-z0-9_-]+["'']$', has: {kind: string_content, pattern: $PART}}, fix: $PART.}
+    - {id: part, rule: {kind: 'bare_key, quoted_key', pattern: $PART}, fix: $PART.}
+    - id: lineage
+      rule:
+          kind: 'bare_key, quoted_key, dotted_key'
+          pattern: $SEGMENT
+          any: [{inside: {kind: pair, inside: {kind: inline_table, inside: {kind: pair, stopBy: {not: {kind: array}}, inside: {kind: 'table, table_array_element, inline_table'}, has: {kind: 'bare_key, quoted_key, dotted_key', pattern: $UP}}}}}, {kind: 'bare_key, quoted_key, dotted_key'}]
+      transform:
+          ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
+          SEGMENT_PART: {rewrite: {source: $SEGMENT, rewriters: [bare, part], joinBy: ''}}
+      fix: $ABOVE$SEGMENT_PART
+transform:
+    PATH: {rewrite: {source: $KEY, rewriters: [lineage], joinBy: ''}}
+    NAME: {replace: {source: $PATH, replace: '\.$', by: ''}}
+name: $BARE$NAME
+signature: '$BARE$NAME = "…"'
+---
+id: toml-member-number
+language: toml
+role: member
+parentRuleIds: [toml-table, toml-table-element, toml-array, toml-inline-table]
+symbolType: number
+rule:
+    any:
+        - {kind: pair, inside: {kind: 'table, table_array_element, inline_table'}, all: [{has: {matches: number}}, {not: {matches: broken}}, {matches: key}]}
+        - {kind: 'bare_key, quoted_key, dotted_key', inside: {kind: pair, inside: {kind: 'table, table_array_element, inline_table'}, has: {matches: number}}, not: {has: {matches: failed}}, matches: token}
+utils:
+    number: {kind: 'integer, float, offset_date_time, local_date_time, local_date, local_time'}
+    failed: {any: [{kind: ERROR}, {regex: '^$'}]}
+    broken: {has: {any: [{matches: failed}, {kind: 'dotted_key, string', has: {matches: failed}}]}}
+    key: {any: [{inside: {kind: 'table, table_array_element'}, has: {kind: 'bare_key, dotted_key', regex: '^[0-9A-Za-z_.-]+$', pattern: $BARE}}, {has: {kind: 'bare_key, quoted_key, dotted_key', pattern: $KEY}}]}
+    token: {any: [{regex: '^[0-9A-Za-z_.-]+$', inside: {kind: pair, inside: {kind: 'table, table_array_element'}}, pattern: $BARE}, {pattern: $KEY}]}
+rewriters:
+    - {id: bare, rule: {kind: quoted_key, regex: '^["''][A-Za-z0-9_-]+["'']$', has: {kind: string_content, pattern: $PART}}, fix: $PART.}
+    - {id: part, rule: {kind: 'bare_key, quoted_key', pattern: $PART}, fix: $PART.}
+    - id: lineage
+      rule:
+          kind: 'bare_key, quoted_key, dotted_key'
+          pattern: $SEGMENT
+          any: [{inside: {kind: pair, inside: {kind: inline_table, inside: {kind: pair, stopBy: {not: {kind: array}}, inside: {kind: 'table, table_array_element, inline_table'}, has: {kind: 'bare_key, quoted_key, dotted_key', pattern: $UP}}}}}, {kind: 'bare_key, quoted_key, dotted_key'}]
+      transform:
+          ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
+          SEGMENT_PART: {rewrite: {source: $SEGMENT, rewriters: [bare, part], joinBy: ''}}
+      fix: $ABOVE$SEGMENT_PART
+transform:
+    PATH: {rewrite: {source: $KEY, rewriters: [lineage], joinBy: ''}}
+    NAME: {replace: {source: $PATH, replace: '\.$', by: ''}}
+name: $BARE$NAME
+signature: $BARE$NAME = …
+---
+id: toml-member-boolean
+language: toml
+role: member
+parentRuleIds: [toml-table, toml-table-element, toml-array, toml-inline-table]
+symbolType: boolean
+rule:
+    any:
+        - {kind: pair, inside: {kind: 'table, table_array_element, inline_table'}, all: [{has: {kind: boolean}}, {not: {matches: broken}}, {matches: key}]}
+        - {kind: 'bare_key, quoted_key, dotted_key', inside: {kind: pair, inside: {kind: 'table, table_array_element, inline_table'}, has: {kind: boolean}}, not: {has: {matches: failed}}, matches: token}
+utils:
+    failed: {any: [{kind: ERROR}, {regex: '^$'}]}
+    broken: {has: {any: [{matches: failed}, {kind: 'dotted_key, string', has: {matches: failed}}]}}
+    key: {any: [{inside: {kind: 'table, table_array_element'}, has: {kind: 'bare_key, dotted_key', regex: '^[0-9A-Za-z_.-]+$', pattern: $BARE}}, {has: {kind: 'bare_key, quoted_key, dotted_key', pattern: $KEY}}]}
+    token: {any: [{regex: '^[0-9A-Za-z_.-]+$', inside: {kind: pair, inside: {kind: 'table, table_array_element'}}, pattern: $BARE}, {pattern: $KEY}]}
+rewriters:
+    - {id: bare, rule: {kind: quoted_key, regex: '^["''][A-Za-z0-9_-]+["'']$', has: {kind: string_content, pattern: $PART}}, fix: $PART.}
+    - {id: part, rule: {kind: 'bare_key, quoted_key', pattern: $PART}, fix: $PART.}
+    - id: lineage
+      rule:
+          kind: 'bare_key, quoted_key, dotted_key'
+          pattern: $SEGMENT
+          any: [{inside: {kind: pair, inside: {kind: inline_table, inside: {kind: pair, stopBy: {not: {kind: array}}, inside: {kind: 'table, table_array_element, inline_table'}, has: {kind: 'bare_key, quoted_key, dotted_key', pattern: $UP}}}}}, {kind: 'bare_key, quoted_key, dotted_key'}]
+      transform:
+          ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
+          SEGMENT_PART: {rewrite: {source: $SEGMENT, rewriters: [bare, part], joinBy: ''}}
+      fix: $ABOVE$SEGMENT_PART
+transform:
+    PATH: {rewrite: {source: $KEY, rewriters: [lineage], joinBy: ''}}
+    NAME: {replace: {source: $PATH, replace: '\.$', by: ''}}
+name: $BARE$NAME
+signature: $BARE$NAME = …
+---
+id: toml-member-array
+language: toml
+role: member
+parentRuleIds: [toml-table, toml-table-element, toml-array, toml-inline-table]
+symbolType: array
+rule:
+    any:
+        - kind: pair
+          inside: {kind: 'table, table_array_element, inline_table'}
+          all:
+              - has: {kind: array, not: {has: {stopBy: {not: {kind: array}}, any: [{kind: ERROR}, {kind: inline_table, has: {kind: 'pair, ERROR'}}, {regex: '^$'}]}}, any: [{not: {has: {pattern: $_}}, pattern: $EMPTY}, {kind: array}]}
+              - not: {matches: broken}
+              - matches: key
+        - {kind: 'bare_key, quoted_key, dotted_key', inside: {kind: pair, inside: {kind: 'table, table_array_element, inline_table'}, has: {kind: array}}, not: {has: {matches: failed}}, matches: token}
+utils:
+    failed: {any: [{kind: ERROR}, {regex: '^$'}]}
+    broken: {has: {any: [{matches: failed}, {kind: 'dotted_key, string', has: {matches: failed}}]}}
+    key: {any: [{inside: {kind: 'table, table_array_element'}, has: {kind: 'bare_key, dotted_key', regex: '^[0-9A-Za-z_.-]+$', pattern: $BARE}}, {has: {kind: 'bare_key, quoted_key, dotted_key', pattern: $KEY}}]}
+    token: {any: [{regex: '^[0-9A-Za-z_.-]+$', inside: {kind: pair, inside: {kind: 'table, table_array_element'}}, pattern: $BARE}, {pattern: $KEY}]}
+rewriters:
+    - {id: bare, rule: {kind: quoted_key, regex: '^["''][A-Za-z0-9_-]+["'']$', has: {kind: string_content, pattern: $PART}}, fix: $PART.}
+    - {id: part, rule: {kind: 'bare_key, quoted_key', pattern: $PART}, fix: $PART.}
+    - id: lineage
+      rule:
+          kind: 'bare_key, quoted_key, dotted_key'
+          pattern: $SEGMENT
+          any: [{inside: {kind: pair, inside: {kind: inline_table, inside: {kind: pair, stopBy: {not: {kind: array}}, inside: {kind: 'table, table_array_element, inline_table'}, has: {kind: 'bare_key, quoted_key, dotted_key', pattern: $UP}}}}}, {kind: 'bare_key, quoted_key, dotted_key'}]
+      transform:
+          ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
+          SEGMENT_PART: {rewrite: {source: $SEGMENT, rewriters: [bare, part], joinBy: ''}}
+      fix: $ABOVE$SEGMENT_PART
+transform:
+    PATH: {rewrite: {source: $KEY, rewriters: [lineage], joinBy: ''}}
+    NAME: {replace: {source: $PATH, replace: '\.$', by: ''}}
+    CLOSED: {replace: {source: $EMPTY, replace: '(?s).+', by: '[]'}}
+    VALUE: {replace: {source: $CLOSED, replace: '^$', by: '[…]'}}
+name: $BARE$NAME
+signature: $BARE$NAME = $VALUE
+---
+id: toml-member-inline-table
+language: toml
+role: member
+parentRuleIds: [toml-table, toml-table-element, toml-array, toml-inline-table]
+symbolType: object
+rule:
+    any:
+        - kind: pair
+          inside: {kind: 'table, table_array_element, inline_table'}
+          all:
+              - has: {kind: inline_table, not: {has: {any: [{kind: 'pair, ERROR'}, {regex: '^$'}]}}, any: [{not: {has: {pattern: $_}}, pattern: $EMPTY}, {kind: inline_table}]}
+              - not: {matches: broken}
+              - matches: key
+        - {kind: 'bare_key, quoted_key, dotted_key', inside: {kind: pair, inside: {kind: 'table, table_array_element, inline_table'}, has: {kind: inline_table}}, not: {has: {matches: failed}}, matches: token}
+utils:
+    failed: {any: [{kind: ERROR}, {regex: '^$'}]}
+    broken: {has: {any: [{matches: failed}, {kind: 'dotted_key, string', has: {matches: failed}}]}}
+    key: {any: [{inside: {kind: 'table, table_array_element'}, has: {kind: 'bare_key, dotted_key', regex: '^[0-9A-Za-z_.-]+$', pattern: $BARE}}, {has: {kind: 'bare_key, quoted_key, dotted_key', pattern: $KEY}}]}
+    token: {any: [{regex: '^[0-9A-Za-z_.-]+$', inside: {kind: pair, inside: {kind: 'table, table_array_element'}}, pattern: $BARE}, {pattern: $KEY}]}
+rewriters:
+    - {id: bare, rule: {kind: quoted_key, regex: '^["''][A-Za-z0-9_-]+["'']$', has: {kind: string_content, pattern: $PART}}, fix: $PART.}
+    - {id: part, rule: {kind: 'bare_key, quoted_key', pattern: $PART}, fix: $PART.}
+    - id: lineage
+      rule:
+          kind: 'bare_key, quoted_key, dotted_key'
+          pattern: $SEGMENT
+          any: [{inside: {kind: pair, inside: {kind: inline_table, inside: {kind: pair, stopBy: {not: {kind: array}}, inside: {kind: 'table, table_array_element, inline_table'}, has: {kind: 'bare_key, quoted_key, dotted_key', pattern: $UP}}}}}, {kind: 'bare_key, quoted_key, dotted_key'}]
+      transform:
+          ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
+          SEGMENT_PART: {rewrite: {source: $SEGMENT, rewriters: [bare, part], joinBy: ''}}
+      fix: $ABOVE$SEGMENT_PART
+transform:
+    PATH: {rewrite: {source: $KEY, rewriters: [lineage], joinBy: ''}}
+    NAME: {replace: {source: $PATH, replace: '\.$', by: ''}}
+    CLOSED: {replace: {source: $EMPTY, replace: '(?s).+', by: '{}'}}
+    VALUE: {replace: {source: $CLOSED, replace: '^$', by: '{…}'}}
+name: $BARE$NAME
+signature: $BARE$NAME = $VALUE

@@ -87,6 +87,6 @@ constraints:
     ALIAS: {not: {regex: '^default$'}}
     TARGET: {not: {regex: '^default$'}}
 message: '`$ALIAS` names `$TARGET` or its members again'
-note: 'Write `<target>` or `<target>.<member>` at each use, or import the member by name, and delete the alias'
+note: 'Write `<target>` or `<target>.<member>` at each use, or import member by name, and delete the alias'
 labels:
     TARGET: {style: primary, message: Aliased name}

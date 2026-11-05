@@ -55,5 +55,5 @@ rule:
                                             all:
                                                 - matches: member-of-owner
                                                 - has: {field: body, has: {stopBy: end, kind: call_expression, any: [{pattern: '$H.combine($P)'}, {pattern: '$H.combine(self.$P)'}]}}
-message: '`hash(into:)` of `$T` combines every stored property, the hash the compiler synthesizes'
+message: '`hash(into:)` of `$T` combines every stored property, the hash Swift synthesizes'
 note: 'Delete `hash(into:)` and keep the `Hashable` conformance'

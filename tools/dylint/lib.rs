@@ -719,6 +719,7 @@ dylint_linting::__maybe_mangle! {
             interior_mutability::interior_mutable_static,
             interior_mutability::needless_cell,
             items::needless_import_rename,
+            items::orphan_module,
             items::single_reader,
             items::unreachable_public_item,
             macros::formatting(format_args.clone(), reported.clone()),

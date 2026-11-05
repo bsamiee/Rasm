@@ -1,0 +1,5 @@
+{
+    "extends": "../../../tsconfig.base.json",
+    "compilerOptions": { "plugins": [], "types": [ "types-for-adobe/Illustrator/2022" ] },
+    "include": [ "engine.ts" ]
+}

@@ -71,7 +71,7 @@ utils:
             stopBy: end
             kind: compilation_unit
             has:
-                stopBy: end
+                stopBy: {kind: 'field_declaration, block, arrow_expression_clause, variable_declarator, accessor_list, parameter_list, attribute_list, base_list, argument_list'}
                 kind: field_declaration
                 all:
                     - has: {kind: modifier, regex: '^const$'}

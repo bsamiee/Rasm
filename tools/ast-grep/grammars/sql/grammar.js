@@ -1,9 +1,6 @@
-import refa from 'refa';
 import sqlite from 'tree-sitter-sqlite3/grammar.js';
-import { compose, keywords } from '../compose.js';
-import { hosted } from '../csharp/grammar.js';
-import { any, automaton, chain, children, choiceOf, extend, mandatory, named, optionalOf, pattern, reaches, replace, rewrite, string, symbol, unicode, widen } from '../derive.js';
-import tsx from '../typescript/grammar.js';
+import { compose, LINE_COMMENT } from '../compose.js';
+import { any, automaton, chain, children, choiceOf, collected, drop, extend, mandatory, named, optionalOf, pattern, reaches, replace, rewrite, string, symbol, unicode, widen, without } from '../derive.js';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -16,24 +13,17 @@ const VARIABLE_CHARACTER = '[0-9A-Za-z_$\\u{80}-\\u{10FFFF}]';
 const VARIABLE_TAIL = `(?:${VARIABLE_CHARACTER}|::)*(?:\\([^\\t-\\r )]*\\))?`;
 const VARIABLE = new RegExp(`(?:::)*${VARIABLE_CHARACTER}${VARIABLE_TAIL}`, 'u');
 const REGISTERLESS = new RegExp(`(?:(?:::)+${VARIABLE_CHARACTER}|[A-Za-z_$\\u{80}-\\u{10FFFF}])${VARIABLE_TAIL}`, 'u');
+const NON_FALLBACK = ['deferrable', 'join', 'nothing', 'to', 'transaction'];
+const INDEXED = 'indexed';
+const FILTER = 'filter';
+const RAISE_TYPES = ['rollback', 'abort', 'fail'];
+const QUOTED_ARGUMENT = "|`(?:[^`]|``)*`|\\[[^\\]]*\\]|[^,()'\"`\\[]";
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [IDENTIFIER]
 
-const widened = unicode(RULES[sqlite.grammar.word]);
-const marked = refa.DFA.fromFA(
-    automaton({
-        type: 'SEQ',
-        members: [
-            { type: 'STRING', value: BYTE_ORDER_MARK },
-            { type: 'PATTERN', value: '(?s:.)*' },
-        ],
-    }),
-);
-marked.complement();
-const identifier = refa.DFA.fromIntersection(widened, marked);
-identifier.minimize();
+const identifier = without(unicode(RULES[sqlite.grammar.word]), automaton({ type: 'PATTERN', value: `${BYTE_ORDER_MARK}[^]*` }));
 
 // --- [DIALECT]
 
@@ -56,14 +46,55 @@ const setting = replace(
 );
 const tail = (name, members) => Object.fromEntries(Array.from({ length: members.length + 1 }, (_, at) => [`${name}${at}`, ($) => choice(prec.dynamic(1, seq($.substitution, optional($[`${name}${at}`]))), ...members.slice(at).map((member, offset) => seq(mandatory(member), optional($[`${name}${at + offset + 1}`]))))]));
 const SELECT_TAIL = tail('_select_tail', RULES._select_core.members.slice(CLAUSES));
-const keyword = keywords(sqlite);
+const KEYWORDS = new Map(
+    Object.values(RULES)
+        .flatMap((rule) => collected(rule, ({ type, named: visible, content }) => type === 'ALIAS' && !visible && content.type === 'PATTERN'))
+        .map((rule) => [rule.value, rule]),
+);
+const keyword = (word) => KEYWORDS.get(word.toUpperCase()) ?? alias(token(prec(1, new RegExp([...word].map((letter) => `[${letter.toUpperCase()}${letter.toLowerCase()}]`).join('')))), word.toUpperCase());
+
+// --- [NAMES]
+
+const spelledAs = (word) => (rule) => rule.type === 'PATTERN' && rule.value === keyword(word).content.value;
+const unique = (words) => [...new Map(words.map((word) => [word.value, word])).values()];
+const STRICT = [...sqlite.grammar.reserved.sql, ...NON_FALLBACK.map((word) => keyword(word).content)];
+const JOIN_KINDS = collected(RULES._join_operator, ({ type, named: visible, content }) => type === 'ALIAS' && !visible && content.type === 'PATTERN').map(({ content }) => content);
+const NAME = drop((part) => reaches(part, spelledAs('recursive')))(undefined, RULES._id);
+const restricted = (set) => () => rewrite(NAME, (part) => (symbol('identifier')(part) ? reserved(set, part) : part));
+const unaliased = (part) => part.type === 'SEQ' && part.members.length === 2 && optionalOf(keyworded('AS'))(part.members[0]) && named('alias')(part.members[1]);
+const bare = replace(unaliased, ($, { members: [as, name] }) => choice(seq(mandatory(as), name), rewrite(name, (part) => (symbol('_id')(part) ? $._ids : part))));
 const dialect = extend(sqlite, {
     extras: (_, original) => [...original, ...TRIVIA],
+    reserved: {
+        sql: () => STRICT,
+        ids: () => unique([...STRICT, keyword(INDEXED).content, ...JOIN_KINDS]),
+        window: () => unique([...STRICT, keyword(INDEXED).content, keyword(FILTER).content]),
+    },
+    transforms: [bare],
     rules: {
+        _id: () => NAME,
+        _ids: restricted('ids'),
+        _window_name: restricted('window'),
+        _window_head: ($) => rewrite(RULES.named_window, (part) => (named('name')(part) ? field('name', $._window_name) : part)),
+        window_clause: replace(
+            (part) => part.type === 'SEQ' && symbol('named_window')(part.members[0]),
+            ($, { members: [, ...rest] }) => seq(alias($._window_head, $.named_window), ...rest),
+        ),
+        over_clause: replace(named('window_name'), ($) => field('window_name', $._window_name)),
+        type_name: replace(symbol('_id'), ($) => $._ids),
+        raise_expression: ($) => seq(keyword('raise'), '(', choice(keyword('ignore'), seq(field('type', choice(...RAISE_TYPES.map(keyword))), ',', field('message', $._expression))), ')'),
+        _expression: ($, original) => choice(original, $.raise_expression),
         [sqlite.grammar.word]: () => pattern(identifier),
+        unary_expression: (_, { value, content: { members: [{ content: operators }, operand] } }) => {
+            const negated = keyworded('NOT');
+            const level = RULES.binary_expression.members.find((arm) => reaches(arm, keyworded('AND'))).value + 1;
+            const arm = (at, kept) => prec.right(at, seq(field('operator', kept), operand));
+            return choice(arm(value, choice(...operators.members.filter((part) => !negated(part)))), arm(level, operators.members.find(negated)));
+        },
+        vtab_module_arg: (_, original) => rewrite(original, (part) => (part.type === 'PATTERN' ? { ...part, value: part.value.replace(/\|\[\^,\(\)'"\]/u, QUOTED_ARGUMENT) } : part)),
+        line_comment: () => token(LINE_COMMENT),
         _result_columns: ($) => alias(seq($._result_column, repeat1(seq(',', $._result_column))), $.result_column_list),
-        _column_alias: ($) => prec.dynamic(-2, $._id),
-        expression_result_column: replace(named('alias'), ($) => field('alias', $._column_alias)),
+        expression_result_column: replace(named('alias'), (_, part) => field('alias', prec.dynamic(-2, part.content))),
         _typed_column: ($) => alias(mandatory(RULES.column_definition), $.column_definition),
         _set_clause: () => seq(...RULES.update_statement.members.slice(ASSIGNMENTS - 1, ASSIGNMENTS + 1)),
         _compounded: () => repeat1(RULES._select_compound.members.at(-1).content),
@@ -91,10 +122,6 @@ const dialect = extend(sqlite, {
 
 export default compose(dialect, {
     name: 'sql',
-    hosts: [
-        { grammar: tsx, entry: 'template_string', hole: 'template_substitution' },
-        { grammar: hosted, entry: 'interpolated_string_expression', hole: 'interpolation' },
-    ],
     fragments: [
         '_expression',
         'order_term',
@@ -130,6 +157,9 @@ export default compose(dialect, {
         _statement: [],
         _expression: [],
         _id: [],
+        _ids: [],
+        _window_name: [],
+        _window_head: [],
         _function_name: [],
         upsert_clause: [],
         set_assignment: [],
@@ -150,11 +180,24 @@ export default compose(dialect, {
         cte_definition: ['body'],
     },
     conflicts: ($) => [
-        [$.insert_statement, $._id],
+        [$.expression_result_column, $.binary_expression],
+        [$.binary_expression, $._ids],
+        [$.where_clause, $.binary_expression],
+        [$.limit_clause, $.binary_expression],
+        [$.having_clause, $.binary_expression],
+        [$.binary_expression],
+        [$.order_term, $.binary_expression],
+        [$.group_by_clause, $.binary_expression],
+        [$._join_constraint, $.binary_expression],
+        [$.window_partition_clause, $.binary_expression],
+        [$.normal_function_arguments, $.binary_expression],
+        [$.set_assignment, $.binary_expression],
+        [$.insert_statement, $._ids],
         [$._id, $._function_name],
         [$.null_literal, $.column_constraint],
         [$.column_reference, $.cte_definition, $.named_window],
         [$._select_core, $._id],
+        [$._select_core, $._ids],
         [$.column_reference, $._typed_column],
         [$.column_constraint, $.table_constraint],
         [$.with_clause, $._id],
@@ -165,8 +208,8 @@ export default compose(dialect, {
         [$._select_core, $.window_definition, $._id],
         [$.normal_function_arguments, $._function_name],
         [$.window_definition, $._id],
-        [$._id, $._write_tail1],
-        [$.update_statement, $._id],
+        [$._ids, $._write_tail1],
+        [$.update_statement, $._ids],
     ],
     rules: {
         _compounded: holed,
@@ -175,7 +218,8 @@ export default compose(dialect, {
             const [opening, core, operands] = original.members;
             return choice(seq(opening, core, holed($, operands)), seq(opening, $.substitution, repeat1(holed($, operands.content))), seq(mandatory(opening), $.substitution));
         },
-        _function_name: () => choice(...children(RULES._id).filter((member) => !reaches(member, symbol('string_literal')))),
+        _function_name: () => choice(...children(NAME).filter((member) => !reaches(member, symbol('string_literal')))),
+        binary_expression: ($, original) => choice(original, seq(field('left', $._expression), field('operator', $.substitution), field('right', $._expression))),
         function_call: ($, original) =>
             widen(any(named('filter'), named('over')), hole)(
                 $,
@@ -209,6 +253,7 @@ export default compose(dialect, {
             widen(choiceOf(keyworded('NOTHING')), hole),
         ),
         named_window: enclosed,
+        _window_head: enclosed,
         exists_expression: chain(widen(compound, hole), enclosed),
         create_table_statement: widen(any(symbol('_create_table_columns'), compound), hole),
         _create_table_columns: replace(

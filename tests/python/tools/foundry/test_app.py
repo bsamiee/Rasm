@@ -37,7 +37,7 @@ def test_optional_positionals_and_options_bind_the_same_typed_call(tmp_path: Pat
         app(["unknown-action", str(declaration), "--output", str(output)], result_action="return_value", exit_on_error=False, print_error=False)
 
 
-@pytest.mark.parametrize("text,status", [('name=""\ncorpus="x"\nfontspector="fontspector.toml"\nfamilies=[]\n', sysexits.EX_DATAERR), (None, sysexits.EX_NOINPUT)])
+@pytest.mark.parametrize("text,status", [('name=""\ncorpus="x"\nfamilies=[]\n', sysexits.EX_DATAERR), (None, sysexits.EX_NOINPUT)])
 def test_declared_input_failures_keep_their_cli_status(text: str | None, status: int, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     """Malformed declarations and missing files produce one path-specific error with the required exit code."""
     declaration = tmp_path / "set.toml"
@@ -54,10 +54,8 @@ def test_independent_corpus_and_selection_failures_accumulate(tmp_path: Path, ca
     """A missing corpus does not hide an unknown family selection."""
     declaration = tmp_path / "set.toml"
     declaration.write_text(
-        'name="Set"\ncorpus="missing.toml"\nfontspector="fontspector.toml"\n[[families]]\nname="Test"\noriginal="original"\ngenre={kind="kufi"}\n[[families.faces]]\nstyle="Regular"\noriginal="Test.ttf"\n',
-        encoding="utf-8",
+        'name="Set"\ncorpus="missing.toml"\n[[families]]\nname="Test"\noriginal="original"\ngenre={kind="kufi"}\n[[families.faces]]\nstyle="Regular"\noriginal="Test.ttf"\n', encoding="utf-8"
     )
-    (tmp_path / "fontspector.toml").write_text('[shaping]\ntest_directory = "shaping"\n', encoding="utf-8")
     outcome = app(["build", str(declaration), "Missing", "--output", str(tmp_path / "build")], result_action="return_value", exit_on_error=False)
     match outcome:
         case Result(error=faults):
@@ -70,7 +68,7 @@ def test_independent_corpus_and_selection_failures_accumulate(tmp_path: Path, ca
 
 def test_result_action_writes_one_json_line_per_face(capsys: pytest.CaptureFixture[str]) -> None:
     """Report batching retains one independently decodable record per face."""
-    reports = (Report(face="First", duration=timedelta(microseconds=1)), Report(face="Second", duration=timedelta(milliseconds=2), findings=3))
+    reports = (Report(face="First", duration=timedelta(microseconds=1)), Report(face="Second", duration=timedelta(milliseconds=2)))
     assert exited(Ok(reports)) == 0
     captured = capsys.readouterr()
     assert not captured.err

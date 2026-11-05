@@ -1,11 +1,9 @@
 import { createHash } from 'node:crypto';
 import type { AppleEventValue, Terms } from '@rasm/applications';
 import { Automation } from '@rasm/applications/node';
-import { transformSync } from '@swc/core';
 import { Array, Effect, FileSystem, flow, Option, Path, Record, Result, Schema, SchemaGetter, Stream, String, Struct } from 'effect';
 import jsesc from 'jsesc';
 import { Answered, BOXES, Engine, EngineRequest, HostCase, HostOutcome, Install, Recorded, type Rooted, Survey, Surveyed } from '#/acrobat/contract';
-import { engine } from '#/acrobat/engine';
 import { precondition } from '#/acrobat/precondition';
 import { ADOBE } from '#/adobe';
 import { HarnessError } from '#/harness-error';
@@ -13,6 +11,7 @@ import { entitlements, Launched, printed } from '#/instance';
 import { copied } from '#/precondition';
 import { HOME } from '#/report';
 import { type Batch, type Decoding, filesIn, Harness, inside, installation, LABEL, type Live, scripted } from '#/session';
+import { built, ENGINE } from '#/source';
 import { JsonObject } from '#/values';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -116,7 +115,7 @@ const normalized = Effect.fn('normalized')(function* (file: string) {
 });
 
 // --- [TRANSPORT]
-const lowered = Effect.try({ try: () => transformSync(`var engine = ${engine.toString()};`, { jsc: { target: 'es5', parser: { syntax: 'ecmascript' }, assumptions: { iterableIsArray: true } }, isModule: false }).code, catch: HarnessError.refused('engine lowering') });
+const lowered = Effect.runSync(Effect.cached(built(new URL('engine.ts', import.meta.url), 'es5')));
 const got = Effect.fn('got')(function* <S extends Schema.Top & Schema.Decoder<unknown>>(pid: number, direct: AppleEventValue, schema: S) {
     const automation = yield* Automation;
     const { reply } = yield* automation.execute({ pid, command: 'get', arguments: { direct } });
@@ -133,8 +132,8 @@ const menu = Effect.fn('menu')(function* (pid: number, index: number) {
 });
 const modalIn = (pid: number) => Effect.map(Stream.runCollect(Stream.paginate(1, (index) => Effect.map(menu(pid, index), (names) => [Option.toArray(names).flat(), Option.as(names, index + 1)] as const))), (pages) => pages.flat());
 const answered = Effect.fn('answered')(function* <A>(live: Live, Reply: Decoding<Result.Result<A, { readonly reason: string }>>, request: typeof EngineRequest.Type) {
-    const code = yield* lowered;
-    const program = `(function (request) {\n${code}\nreturn engine.call(this, request);\n}).call(this, ${jsesc(yield* Schema.encodeEffect(EngineRequest)(request), { json: true })});`;
+    const { code } = yield* lowered;
+    const program = `(function (request) {\n${code}\nreturn ${ENGINE}.engine.call(this, request);\n}).call(this, ${jsesc(yield* Schema.encodeEffect(EngineRequest)(request), { json: true })});`;
     const direct = `try { eval(${jsesc(program, { json: true })}); } catch (error) { encodeURIComponent(JSON.stringify({ _tag: 'Failure', failure: { reason: String(error && error.name) + ': ' + String(error && error.message) + ' at line ' + String(error && error.lineNumber) } })); }`;
     const { reply } = yield* scripted(live, { direct });
     return yield* Effect.mapError(Schema.decodeEffect(Reply)(reply), (error) => HarnessError.make({ reason: { _tag: 'Unavailable', because: `reply ${typeof reply} ${globalThis.String(reply)}` }, subject: `process ${live.pid}`, cause: error }));

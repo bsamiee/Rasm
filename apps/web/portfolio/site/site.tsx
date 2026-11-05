@@ -12,7 +12,6 @@ import { ErrorBoundary } from 'react-error-boundary';
 import { MediaFigure } from '#/media/media-figure.tsx';
 import type { Bootstrap } from '#/model/api.ts';
 import type { PortfolioData } from '#/model/portfolio.ts';
-import { sites } from '#/model/sites.ts';
 import { Chapter } from '#/site/chapter.tsx';
 import { UrlFragment, useNavigation } from '#/site/navigation.ts';
 import { StickyBar, WorkIndex } from '#/site/work-index.tsx';
@@ -96,7 +95,7 @@ const Site = ({ published: served, session }: typeof Bootstrap.Type) => {
                         )}
                     </DialogTrigger>
                 ) : (
-                    <a className="quiet-link" href={session === 'signedIn' ? User.href(sites, 'signout', '/') : User.href(sites, 'signin', `/?${UrlParams.toString({ [edit.name]: edit.value })}`)} target="_top">
+                    <a className="quiet-link" href={session === 'signedIn' ? User.href('signout', '/') : User.href('signin', `/?${UrlParams.toString({ [edit.name]: edit.value })}`)} target="_top">
                         {session === 'signedIn' ? 'Sign out' : 'Owner sign-in'}
                     </a>
                 )}

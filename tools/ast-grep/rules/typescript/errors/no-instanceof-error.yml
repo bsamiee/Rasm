@@ -8,7 +8,7 @@ ignores:
     - libs/typescript/web/hosting/**
     - libs/typescript/web/media/**
     - libs/typescript/web/ui/**
-    - plugins/function-hooks/**
+    - plugins/function-hooks/hooks/**
 rule:
     any:
         - pattern: $VALUE instanceof $ERROR
@@ -17,5 +17,5 @@ rule:
 constraints:
     ERROR: {regex: '^((globalThis|window|self)\.)?Error$', matches: typescript-global-reference}
     OBJECT: {regex: '^((globalThis|window|self)\.)?Object$', matches: typescript-global-reference}
-message: 'Error test on `$VALUE` walks the `$ERROR.prototype` chain of the running realm alone'
+message: 'Error test on `$VALUE` walks `$ERROR.prototype` chain of the running realm alone'
 note: 'Call `Error.isError(<value>)`'

@@ -1,16 +1,17 @@
 {
     "name": "@rasm/function-hooks",
     "private": true,
-    "description": "Policies that rewrite or refuse agent tool calls before they run",
-    "sideEffects": false,
+    "description": "Hooks that correct agent commands and track app instances each session owns",
     "type": "module",
-    "exports": {
-        ".": "./index.ts"
+    "imports": {
+        "#/*": "./*.ts"
+    },
+    "dependencies": {
+        "@effect/platform-node": "catalog:",
+        "@nx/devkit": "catalog:",
+        "effect": "catalog:"
     },
     "devDependencies": {
-        "@effect/platform-node": "catalog:",
-        "@effect/vitest": "catalog:",
-        "effect": "catalog:",
-        "vitest": "catalog:"
+        "@types/node": "catalog:"
     }
 }

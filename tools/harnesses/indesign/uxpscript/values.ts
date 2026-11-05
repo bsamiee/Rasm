@@ -9,6 +9,7 @@ interface Members {
     [key: string]: unknown;
 }
 type Item = typeof HostCase.Type;
+type Scripted = Exclude<Item, { readonly _tag: 'Panel' }>;
 type Batch = typeof Encoded.Type;
 type Records = { -readonly [K in keyof typeof fields]: (typeof fields)[K]['Type'][number][] };
 interface Codec {
@@ -16,8 +17,8 @@ interface Codec {
     readonly record: (value: Record.ReadonlyRecord<string, unknown>) => typeof JsonObject.Type;
     readonly revived: (value: Schema.Json) => unknown;
 }
-interface Session {
-    readonly item: Item;
+interface Session<I extends Item = Item> {
+    readonly item: I;
     readonly batch: Batch;
     readonly codec: Codec;
     readonly documents: unknown[];
@@ -91,4 +92,4 @@ const scope = (overrides: Members) => {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { type Batch, Codec, compiled, enumerator, equal, field, type Item, invoked, type Members, message, names, type Session, Strings, scope };
+export { type Batch, Codec, compiled, enumerator, equal, field, type Item, invoked, type Members, message, names, type Scripted, type Session, Strings, scope };

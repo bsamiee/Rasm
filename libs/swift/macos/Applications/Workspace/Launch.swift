@@ -1,4 +1,5 @@
 public import AppKit
+import Processes
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -23,6 +24,8 @@ extension NSWorkspace {
         let running: [NSRunningApplication] = runningApplications.filter(installation.runs)
         let creating: Bool = newInstance || running.isEmpty
         if let reused: NSRunningApplication = running.first, !creating, documents.isEmpty { return (reused, false) }
+        let executable: String? = Bundle(url: url)?.executableURL?.path(percentEncoded: false)
+        let before: Set<pid_t> = executable.map(processes(executing:)) ?? []
         let configuration: OpenConfiguration = OpenConfiguration()
         configuration.activates = false
         configuration.addsToRecentItems = false
@@ -42,10 +45,16 @@ extension NSWorkspace {
             configuration.appleEvent?.setParam(NSAppleEventDescriptor(enumCode: kAENo), forKeyword: keyAERestoreAppState)
         }
         do {
-            let instance: NSRunningApplication =
+            let opened: NSRunningApplication =
                 try await documents.isEmpty
                 ? openApplication(at: url, configuration: configuration) : open(documents, withApplicationAt: url, configuration: configuration)
-            return (instance, !running.contains(instance))
+            guard opened.processIdentifier == -1, let executable else { return (opened, !running.contains(opened)) }
+            let after: Set<pid_t> = processes(executing: executable)
+            let started: pid_t? = after.subtracting(before).first
+            guard let instance: NSRunningApplication = (started ?? after.first).flatMap(NSRunningApplication.init(processIdentifier:)) else {
+                throw ApplicationFailure(subject: url.path(percentEncoded: false), reason: .noProcess)
+            }
+            return (instance, started != nil)
         } catch {
             throw ApplicationFailure(subject: url.path(percentEncoded: false), reason: .host(error as NSError))
         }

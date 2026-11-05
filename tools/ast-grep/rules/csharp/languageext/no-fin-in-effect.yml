@@ -16,7 +16,6 @@ utils:
     effect-type:
         kind: generic_name
         all:
-            - matches: result-argument
             - any:
                 - all:
                     - has: {kind: identifier, nthChild: 1, regex: '^(IO|Eff)$'}
@@ -28,11 +27,12 @@ utils:
                 - all:
                     - has: {kind: identifier, nthChild: 1, regex: '^pure$'}
                     - inside: {kind: member_access_expression, field: name, has: {field: expression, matches: {csharp-type-name: {name: {regex: '^IO$'}}}}}
+            - matches: result-argument
     owner:
         kind: method_declaration, local_function_statement, lambda_expression, anonymous_method_expression, accessor_declaration, constructor_declaration, operator_declaration, property_declaration
     result-local:
         kind: identifier
-        pattern: $VALUE
+        pattern: {context: 'class $VALUE;', selector: identifier}
         inside:
             stopBy: {matches: owner}
             matches: owner
@@ -41,14 +41,14 @@ utils:
                     stopBy: end
                     kind: parameter
                     all:
-                        - has: {field: name, pattern: $VALUE}
+                        - has: {field: name, pattern: {context: 'class $VALUE;', selector: identifier}}
                         - has: {field: type, matches: result-type}
                 - has:
                     stopBy: {kind: 'local_function_statement, lambda_expression, anonymous_method_expression'}
                     kind: variable_declaration
                     all:
                         - has: {field: type, matches: result-type}
-                        - has: {kind: variable_declarator, has: {field: name, pattern: $VALUE}}
+                        - has: {kind: variable_declarator, has: {field: name, pattern: {context: 'class $VALUE;', selector: identifier}}}
     typed-position:
         any:
             - inside: {kind: arrow_expression_clause, inside: {matches: owner, has: {field: returns, stopBy: end, matches: effect-type}}}
@@ -58,6 +58,7 @@ utils:
     pure-result:
         kind: invocation_expression
         all:
+            - has: {field: function, regex: 'pure'}
             - matches: {csharp-owner-call: {type: {regex: '^IO$'}, member: {regex: '^pure$'}}}
             - has: {field: arguments, has: {kind: argument, has: {matches: result-local}}, not: {has: {kind: argument, nthChild: 2}}}
             - not: {matches: typed-position}
@@ -69,6 +70,7 @@ utils:
             - inside: {kind: parenthesized_expression, matches: continued}
     tried-result:
         all:
+            - regex: '[Rr]un'
             - any:
                 - matches: tried-run
                 - kind: invocation_expression

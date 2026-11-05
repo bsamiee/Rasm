@@ -41,6 +41,7 @@ extension TerminationStatus {
 public func termination(of process: pid_t) -> AsyncStream<Result<ProcessExit, Errno>> {
     AsyncStream { continuation in
         let registered: Result<FileHandle, Errno> = Result { () throws(Errno) in
+            guard process > 0 else { throw .noSuchProcess }
             let descriptor: Int32 = kqueue()
             guard descriptor >= 0 else { throw Errno(rawValue: errno) }
             let queue: FileHandle = FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)

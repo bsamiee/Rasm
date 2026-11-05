@@ -6,7 +6,15 @@ rule:
     kind: call
     pattern: $CALL
     all:
-        - has: {field: arguments, kind: argument_list, has: {nthChild: 1, kind: 'dictionary, dictionary_comprehension'}, not: {has: {nthChild: 2}}}
+        - has:
+            field: arguments
+            kind: argument_list
+            has:
+                all: [{nthChild: {position: 1, ofRule: &argument {not: {kind: comment}}}}, {nthChild: {position: 1, reverse: true, ofRule: *argument}}]
+                any:
+                    - kind: dictionary, dictionary_comprehension
+                    - kind: keyword_argument
+                      all: [{has: {field: name, regex: '^mapping$'}}, {has: {field: value, kind: 'dictionary, dictionary_comprehension'}}]
         - has: {field: function, matches: {python-member-use: {module: {regex: '^types$'}, name: {regex: '^MappingProxyType$'}}}}
 message: '`$CALL` wraps a literal mapping in a view on Python 3.15'
 note: 'Write `frozendict(<mapping>)`'

@@ -21,7 +21,7 @@ from typography.shaping.runs import Binary
 
 
 @pytest.fixture
-def declared(tmp_path: Path, configuration: Path) -> Declared:
+def declared(tmp_path: Path) -> Declared:
     """Declaration of one Kufi face over a FontBuilder original in a temporary folder."""
     drawings = {
         ".notdef": (500, 450),
@@ -65,7 +65,7 @@ table GDEF { GlyphClassDef [beh beh.i beh.m beh.f lam lam.i alef alef.f], [lamal
     )
     declaration = tmp_path / "set.toml"
     declaration.write_text(
-        f'name="Set"\ncorpus="corpus.toml"\nfontspector="{configuration.name}"\n[[families]]\nname="Test"\noriginal="original"\ngenre={{kind="kufi"}}\n[[families.faces]]\nstyle="Regular"\noriginal="Test-Regular.ttf"\nwidth=3\n',
+        'name="Set"\ncorpus="corpus.toml"\n[[families]]\nname="Test"\noriginal="original"\ngenre={kind="kufi"}\n[[families.faces]]\nstyle="Regular"\noriginal="Test-Regular.ttf"\nwidth=3\n',
         encoding="utf-8",
     )
     return read_declared(declaration, tmp_path / "build").default_with(lambda faults: pytest.fail(str(faults)))
@@ -96,14 +96,14 @@ def texts() -> Corpus:
 @pytest.fixture
 def builds(declared: Declared, texts: Corpus) -> Builds:
     """Owns the input identities and original snapshots for one invocation."""
-    return Builds(declaration=declared, texts=texts, closure=closure().default_with(lambda faults: pytest.fail(str(faults))))
+    return Builds.opened(declared, texts, closure().default_with(lambda faults: pytest.fail(str(faults))))
 
 
 @pytest.fixture
 def original(builds: Builds) -> Binary:
     """Reads one original snapshot shared by each build operation."""
     declared = builds.declaration
-    return builds.original(declared.original(declared.set.faces[0])).default_with(lambda faults: pytest.fail(str(faults)))
+    return Binary.read(declared.original(declared.set.faces[0])).default_with(lambda faults: pytest.fail(str(faults)))
 
 
 @pytest.fixture
@@ -120,6 +120,6 @@ def product(source: Source, texts: Corpus) -> tuple[Source, ufoLib2.Font, TTFont
 
 
 @pytest.fixture
-def recorded(builds: Builds, original: Binary) -> tuple[Built, Source]:
+def recorded(builds: Builds, original: Binary) -> Built:
     """Builds one face from the same immutable original snapshot its checks consume."""
     return builds.built(builds.declaration.set.faces[0], original).default_with(lambda faults: pytest.fail(str(faults)))

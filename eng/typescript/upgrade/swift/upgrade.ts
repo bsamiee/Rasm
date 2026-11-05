@@ -1,41 +1,47 @@
-import { basename, dirname } from 'node:path';
-import type { Rule } from '@ast-grep/napi';
-import { Array, Cause, Effect, Function, flow, Match, Option, Order, Record, Result, Schema, Struct, Tuple } from 'effect';
+import { basename, dirname, extname } from 'node:path';
+import { parse, registerDynamicLanguage, type SgNode } from '@ast-grep/napi';
+import { Array, Cause, Effect, FileSystem, Function, Option, Order, Record, Result, Schema, Struct } from 'effect';
 import { compare, normalizeFull } from 'verkit';
-import { stringify } from 'yaml';
 import { accumulate } from '#/eng/typescript/accumulate';
-import { decodeFile } from '#/eng/typescript/manifest';
+import { decodeFile, Sgconfig, XCODE_REQUIREMENT, XcodeProject, XcodeRemote } from '#/eng/typescript/manifest';
 import { runCommand } from '#/eng/typescript/run-command';
-import { TextFormat } from '#/eng/typescript/text-format';
-import { newest } from '#/eng/typescript/upgrade/swift/newest';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const MAJOR = 'up-to-next-major-version';
+const MANIFEST = 'Package.swift';
+const REQUIREMENT = { rule: { any: [{ pattern: '.package(url: "$URL", from: "$FROM")' }, { pattern: '.package(url: "$URL", $$$)' }] } };
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Capture = Schema.Struct({ text: Schema.String });
-const Major = Schema.Struct({ ruleId: Schema.Literal('major'), metaVariables: Schema.Struct({ single: Schema.Struct({ URL: Capture, FROM: Capture }) }) });
-const Other = Schema.Struct({ ruleId: Schema.Literal('other'), text: Schema.String, metaVariables: Schema.Struct({ single: Schema.Struct({ URL: Capture }) }) });
-const Matches = Schema.fromJsonString(Schema.Array(Schema.Union([Major, Other])));
-const Remote = Schema.Struct({ kind: Schema.Literal('remote'), repository: Schema.String, version: Schema.StructWithRest(Schema.Struct({ [MAJOR]: Schema.optionalKey(Schema.String) }), [Schema.Record(Schema.String, Schema.Json)]) });
-const Member = Schema.Struct({ package: Schema.String, 'product-name': Schema.String, 'build-phase': Schema.Struct({ 'build-phase': Schema.Literal('frameworks') }) });
-const Project = TextFormat.Yaml.pipe(Schema.decodeTo(Schema.Struct({ packages: Schema.Array(Schema.Union([Remote, Schema.JsonObject])), targets: Schema.Array(Schema.Struct({ name: Schema.String, 'package-product-members': Schema.Array(Member).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) })) })));
+const Ref = Schema.TemplateLiteralParser([Schema.String, '\trefs/tags/', Schema.String]);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const requirement = (url: string) => (from: string) => `.package(url: "${url}", from: "${from}")`;
-const unsupported = (repository: string, stated: readonly string[]) => new Cause.IllegalArgumentError(`${repository} requires ${stated.join(', ')}, upgrade moves ${MAJOR} alone`);
-const scan = (rules: readonly { readonly id: string; readonly rule: Rule; readonly fix?: string }[], args: readonly string[]) => runCommand('ast-grep', ['scan', '--inline-rules', rules.map((rule) => stringify({ language: 'swiftlang', severity: 'info', ...rule })).join('---\n'), '--custom-languages', 'allow', ...args]);
-const project = (file: string, { packages, targets }: typeof Project.Type, releases: Record.ReadonlyRecord<string, string>) => {
+const released = (line: string) => Option.flatMap(Schema.decodeUnknownOption(Ref)(line), ([, , tag]) => Option.fromNullOr(normalizeFull(tag)));
+const newest = Effect.fn('newest')(function* (url: string) {
+    const tags = Array.getSomes(Array.map(yield* runCommand.records('\n', 'git', ['ls-remote', '--tags', '--refs', url]), released));
+    return Array.max(yield* Effect.fromOption(Option.liftPredicate(tags, Array.isArrayNonEmpty), () => new Cause.NoSuchElementError(`${url} lists no release`)), compare);
+});
+const unsupported = (repository: string, stated: readonly string[]) => new Cause.IllegalArgumentError(`${repository} requires ${stated.join(', ')}, upgrade moves ${XCODE_REQUIREMENT} alone`);
+const declared = (node: SgNode) => {
+    const url = node.getMatch('URL')?.text() ?? node.text();
+    return Result.fromOption(
+        Option.map(Option.fromNullOr(node.getMatch('FROM')), (from) => ({ url, from })),
+        () => unsupported(url, [node.text()]),
+    );
+};
+const moved =
+    (releases: Record.ReadonlyRecord<string, string>) =>
+    ({ url, from }: { readonly url: string; readonly from: SgNode }) =>
+        Option.map(Option.filter(Option.all([Option.fromNullOr(normalizeFull(from.text())), Record.get(releases, url)]), Function.tupled(Order.isLessThan(compare))), ([, tag]) => from.replace(tag));
+const project = (file: string, { packages, targets }: typeof XcodeProject.schema.Type, releases: Record.ReadonlyRecord<string, string>) => {
     const xcodeproj = (...args: readonly string[]) => runCommand('xcrun', ['xcodeproj', ...args, '--project', dirname(file)]);
-    const links = targets.flatMap(({ name, 'package-product-members': members }) => members.map((member) => ({ target: name, product: member['product-name'], identity: member.package.toLowerCase() })));
+    const links = targets.flatMap(({ name, members }) => members.map(({ product, package: owner }) => ({ target: name, product, identity: owner.toLowerCase() })));
     return Effect.forEach(
-        packages.filter(Schema.is(Remote)),
-        Effect.fnUntraced(function* ({ repository, version }: typeof Remote.Type) {
+        packages.filter(Schema.is(XcodeRemote)),
+        Effect.fnUntraced(function* ({ repository, version }: typeof XcodeRemote.Type) {
             const identity = basename(repository, '.git').toLowerCase();
-            const [current, tag] = yield* Effect.all([Effect.fromOption(Option.fromUndefinedOr(version[MAJOR]), () => unsupported(repository, Object.keys(version))), Effect.fromOption(Record.get(releases, repository))]);
+            const [current, tag] = yield* Effect.all([Effect.fromOption(Option.fromUndefinedOr(version[XCODE_REQUIREMENT]), () => unsupported(repository, Object.keys(version))), Effect.fromOption(Record.get(releases, repository))]);
             const remove = xcodeproj('pkg', 'remove', identity);
             const linked = Effect.forEach(
                 links.filter((link) => link.identity === identity),
@@ -49,50 +55,40 @@ const project = (file: string, { packages, targets }: typeof Project.Type, relea
     ).pipe(Effect.withSpan('project'));
 };
 const upgrade = Effect.gen(function* () {
-    const listed = Array.groupBy(yield* runCommand.records('\0', 'git', ['ls-files', '--cached', '--others', '--exclude-standard', '--deduplicate', '-z', '--', ':(glob)**/Package.swift', ':(glob)**/project.xcproj']), basename);
-    const [manifests, projects] = [listed['Package.swift'] ?? [], listed['project.xcproj'] ?? []];
-    const major = { pattern: requirement('$URL')('$FROM') };
-    const [matches, documents] = yield* Effect.all(
+    const fs = yield* FileSystem.FileSystem;
+    const listed = Array.groupBy(yield* runCommand.records('\0', 'git', ['ls-files', '--cached', '--others', '--exclude-standard', '--deduplicate', '-z', '--', `:(glob)**/${MANIFEST}`, `:(glob)**/${XcodeProject.file}`]), basename);
+    const [manifests, projects] = [listed[MANIFEST] ?? [], listed[XcodeProject.file] ?? []];
+    const { customLanguages } = yield* Sgconfig.read('.');
+    const [language, registration] = yield* Effect.fromOption(Record.findFirst(customLanguages, ({ extensions }) => extensions.includes(extname(MANIFEST).slice(1))));
+    yield* Effect.sync(() => registerDynamicLanguage({ [language]: { ...registration, extensions: [...registration.extensions] } }));
+    const [parsed, documents] = yield* Effect.all(
         [
-            Array.match(manifests, {
-                onEmpty: () => Effect.succeed([]),
-                onNonEmpty: (files) =>
-                    Effect.flatMap(
-                        scan(
-                            [
-                                { id: 'major', rule: major },
-                                { id: 'other', rule: { pattern: '.package(url: "$URL", $$$)', not: major } },
-                            ],
-                            ['--json=compact', ...files],
-                        ),
-                        Schema.decodeEffect(Matches),
-                    ),
-            }),
-            Effect.validate(projects, (file) => decodeFile(Project, file), { concurrency: 'unbounded' }),
+            Effect.forEach(
+                manifests,
+                Effect.fnUntraced(function* (file: string) {
+                    const root = parse(language, yield* fs.readFileString(file)).root();
+                    return { file, root, rows: Array.partition(root.findAll(REQUIREMENT), declared) };
+                }),
+            ),
+            Effect.validate(projects, (file) => decodeFile(XcodeProject.schema, file), { concurrency: 'unbounded' }),
         ],
         { concurrency: 'unbounded' },
     );
-    const [requirements, refused] = Array.partition(
-        matches,
-        Match.type<(typeof Matches.Type)[number]>().pipe(
-            Match.discriminatorsExhaustive('ruleId')({
-                major: ({ metaVariables }) => Result.succeed({ url: metaVariables.single.URL.text, from: metaVariables.single.FROM.text }),
-                other: ({ metaVariables, text }) => Result.fail(unsupported(metaVariables.single.URL.text, [text])),
-            }),
-        ),
+    yield* accumulate(
+        parsed.flatMap(({ rows: [, refused] }) => refused),
+        Effect.fail,
     );
-    yield* accumulate(refused, Effect.fail);
-    const urls = Array.dedupe([...requirements.map(Struct.get('url')), ...documents.flatMap((document) => document.packages.filter(Schema.is(Remote)).map(Struct.get('repository')))]);
-    const releases = Record.fromEntries(Array.zip(urls, yield* Effect.validate(urls, (url) => newest(url, flow(normalizeFull, Option.fromNullOr)), { concurrency: 'unbounded' })));
-    const stale = Record.fromEntries(Array.getSomes(requirements.map(({ url, from }) => Option.map(Option.filter(Option.all([Option.fromNullOr(normalizeFull(from)), Record.get(releases, url)]), Function.tupled(Order.isLessThan(compare))), Tuple.evolve([Function.constant(requirement(url)(from)), requirement(url)])))));
-    yield* Array.match(Record.toEntries(stale), {
-        onEmpty: () => Effect.void,
-        onNonEmpty: (moved) =>
-            scan(
-                moved.map(([pattern, fix], at) => ({ id: `requirement${at}`, rule: { pattern }, fix })),
-                ['--update-all', ...manifests],
-            ),
-    });
+    const urls = Array.dedupe([...parsed.flatMap(({ rows: [requirements] }) => requirements.map(Struct.get('url'))), ...documents.flatMap((document) => document.packages.filter(Schema.is(XcodeRemote)).map(Struct.get('repository')))]);
+    const releases = Record.fromEntries(Array.zip(urls, yield* Effect.validate(urls, newest, { concurrency: 'unbounded' })));
+    yield* Effect.forEach(
+        parsed,
+        ({ file, root, rows: [requirements] }) =>
+            Array.match(Array.getSomes(requirements.map(moved(releases))), {
+                onEmpty: () => Effect.void,
+                onNonEmpty: (edits) => fs.writeFileString(file, root.commitEdits(edits)),
+            }),
+        { discard: true },
+    );
     yield* accumulate(Array.zip(projects, documents), ([file, document]) => project(file, document, releases), { concurrency: 'unbounded' });
 });
 

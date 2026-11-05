@@ -77,8 +77,8 @@ rule:
             - not: {follows: {stopBy: end, kind: switch_pattern}}
             - not: {precedes: {stopBy: end, kind: statements, matches: name-read}}
         - kind: 'if_statement, guard_statement'
-          regex: '^(if|guard)[\t-\r ]+case(?-u:\b)'
           all:
+            - has: {field: condition, regex: '^case$'}
             - matches: sole-binding
             - has: {kind: equality_expression, matches: compared}
             - not: {has: {pattern: $$_FIRST, regex: '^,$', precedes: {stopBy: end, pattern: $$_SECOND, regex: '^,$'}}}
@@ -90,4 +90,4 @@ rule:
             - has: {kind: where_clause, has: {kind: equality_expression, matches: compared}}
             - not: {has: {kind: statements, matches: name-read}}
 message: 'Case pattern binds `$NAME` only to compare it in a `where` clause or condition'
-note: 'Match the value inside the pattern (`.<case>(<value>)`, `.<case>(.<code> as <Error>)`), an `||` chain as `case .<case>(<a>), .<case>(<b>)`'
+note: 'Match the value inside its pattern (`.<case>(<value>)`, `.<case>(.<code> as <Error>)`), an `||` chain as `case .<case>(<a>), .<case>(<b>)`'

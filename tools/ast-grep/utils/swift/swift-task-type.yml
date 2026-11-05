@@ -3,6 +3,5 @@ id: swift-task-type
 language: swiftlang
 rule:
     kind: user_type
-    any:
-        - pattern: {context: 'func f() -> _Concurrency.Task<$$$TYPES> {}', selector: user_type}
-        - pattern: {context: 'func f() -> _Concurrency::Task<$$$TYPES> {}', selector: user_type}
+    regex: '^(_Concurrency(\.|::))?Task<'
+    has: {kind: type_arguments, nthChild: {position: 1, reverse: true}}

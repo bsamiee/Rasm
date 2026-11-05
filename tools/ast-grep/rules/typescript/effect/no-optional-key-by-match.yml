@@ -21,4 +21,4 @@ rule:
                                 - has: {field: key, regex: '^onSome$'}
                                 - has: {field: value, kind: arrow_function, has: {field: body, kind: parenthesized_expression, has: {kind: object, has: {kind: 'pair, shorthand_property_identifier', nthChild: 1, not: {has: {kind: computed_property_name}}}, not: {has: {nthChild: 2}}}}}
 message: '`$MATCH` spreads `{}` or one key to write an optional key by hand'
-note: 'Spread `Record.getSomes({ <key>: <option> })`, mapping the option first where the key holds a derived value'
+note: 'Spread `Record.getSomes({ <key>: <option> })`, mapping the option first where its key holds a derived value'

@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: bashlang
+severity: error
+utils:
+    divider: {kind: comment, regex: '^# --- \[[0-9A-Z_]+\] -'}
+    under:
+        follows:
+            stopBy: {matches: divider}
+            matches: divider
+            regex: '^# --- \[(?:TYPES|CONSTANTS|TABLES|MODELS|ERRORS|SERVICES|OPERATIONS|COMPOSITION|EXPORTS)\]'
+            pattern: $DIVIDER
+rule:
+    any:
+        - kind: declaration_command
+          pattern: $DECLARATION
+          all:
+            - any: [{has: {regex: '^readonly$'}}, {has: {kind: word, regex: '^-[a-zA-Z]*r'}}]
+            - not: {has: {kind: word, regex: '^[-+][a-zA-Z]*[fFpA]'}}
+            - inside: {kind: program}
+            - matches: under
+            - not: {follows: {stopBy: {matches: divider}, kind: comment, regex: '\[CONSTANTS\]'}}
+        - kind: declaration_command
+          pattern: $DECLARATION
+          all:
+            - has: {kind: word, regex: '^-[a-zA-Z]*A', all: [{regex: '^-[a-zA-Z]*r'}]}
+            - inside: {kind: program}
+            - matches: under
+            - not: {follows: {stopBy: {matches: divider}, kind: comment, regex: '\[TABLES\]'}}
+        - kind: function_definition, command
+          pattern: $DECLARATION
+          all:
+            - has: {field: name, regex: '^main$'}
+            - inside: {kind: program}
+            - matches: under
+            - not: {follows: {stopBy: {matches: divider}, kind: comment, regex: '\[COMPOSITION\]'}}
+transform:
+    HEAD: {replace: {source: $DECLARATION, replace: '(?s)^([^\t\n =]+(?:[\t ]+[-+][^\t\n ]*)*(?:[\t ]+[^\t\n "''$=({]+)?).*', by: '${1}'}}
+    LABEL: {replace: {source: $DIVIDER, replace: '^# --- (\[[0-9A-Z_]+\]).*', by: '${1}'}}
+message: '`$HEAD` sits under `$LABEL`'
+note: 'Bash keeps `readonly` values under `[CONSTANTS]`, `declare -Ar` maps under `[TABLES]`, and `main` under `[COMPOSITION]`'

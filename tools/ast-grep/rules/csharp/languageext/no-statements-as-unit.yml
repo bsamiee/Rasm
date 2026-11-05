@@ -46,7 +46,7 @@ utils:
                     - has: {field: operator, regex: '^\+=$'}
                     - has: {field: right, matches: unit-term}
                 - kind: invocation_expression
-                  has: {field: function, kind: member_access_expression, all: [{has: {field: name, matches: {csharp-simple-name: {name: {regex: '^Return$'}}}}}, {has: {field: expression, matches: unit-term}}]}
+                  has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Return', matches: {csharp-simple-name: {name: {regex: '^Return$'}}}}}, {has: {field: expression, matches: unit-term}}]}
                 - kind: tuple_expression
                   all:
                     - has: {kind: argument, nthChild: 1, has: {matches: unit-term}}
@@ -59,10 +59,12 @@ utils:
 rule:
     pattern: $VALUE
     any:
-        - matches: unit-sequence
-          not: {matches: outer-sum}
-        - matches: invoked-action
-          not: {inside: {stopBy: end, matches: unit-sequence}}
+        - all:
+            - matches: unit-sequence
+            - not: {matches: outer-sum}
+        - all:
+            - matches: invoked-action
+            - not: {inside: {stopBy: end, matches: unit-sequence}}
 transform:
     HEAD: {replace: {source: $VALUE, replace: '(?s)^[([\t-\r \x{A0}\x{3000}\x{FEFF}]]*([@\p{XID_Continue}.]+).*$', by: '$1'}}
 message: '`$HEAD` sequences statements through `Unit` values'

@@ -111,7 +111,7 @@ rule:
                 all:
                     - any:
                         - has:
-                            stopBy: end
+                            stopBy: {matches: typescript-function-boundary}
                             kind: variable_declarator
                             all:
                                 - has: {field: name, kind: identifier, pattern: $RESULT}
@@ -141,7 +141,7 @@ rule:
                 stopBy: end
                 all:
                     - has:
-                        stopBy: end
+                        stopBy: {matches: typescript-function-boundary}
                         kind: variable_declarator
                         all:
                             - has: {field: name, kind: identifier, pattern: $HANDLE}
@@ -151,8 +151,8 @@ rule:
           all:
             - has: {field: property, regex: '^(stdout|stderr|all)$', pattern: $STREAM}
             - any:
-                - has: {field: object, stopBy: {not: {kind: parenthesized_expression}}, matches: run-result}
-                - all: [{has: {field: object, stopBy: {not: {kind: parenthesized_expression}}, matches: spawn-handle}}, {matches: consumed}]
+                - has: {field: object, any: [{matches: run-result}, {kind: parenthesized_expression, has: {stopBy: {not: {kind: parenthesized_expression}}, matches: run-result}}]}
+                - all: [{has: {field: object, any: [{matches: spawn-handle}, {kind: parenthesized_expression, has: {stopBy: {not: {kind: parenthesized_expression}}, matches: spawn-handle}}]}}, {matches: consumed}]
         - kind: member_expression
           pattern: $STREAM
           all:
@@ -163,7 +163,7 @@ rule:
                 stopBy: end
                 any:
                     - has:
-                        stopBy: end
+                        stopBy: {matches: typescript-function-boundary}
                         kind: variable_declarator
                         all:
                             - has: {field: name, kind: identifier, pattern: $SPAWNER}

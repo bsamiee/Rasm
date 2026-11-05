@@ -23,4 +23,4 @@ rule:
         - has: {field: function, any: [{kind: identifier, regex: '^(Map|Switch)Partially$'}, {kind: member_access_expression, has: {field: name, regex: '^(Map|Switch)Partially$'}}]}
         - has: {field: arguments, has: {matches: constant-default}}
 message: '`$MAP` reads a per-case fact through a partial map with a constant default'
-note: 'Declare the fact as an abstract or `static virtual` member on the union base that each case overrides'
+note: 'Declare the fact as an abstract or `static virtual` union base member each case overrides'

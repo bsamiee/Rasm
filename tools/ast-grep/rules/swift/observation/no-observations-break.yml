@@ -11,7 +11,7 @@ rule:
             kind: statements
             inside:
                 kind: for_statement
-                has: {field: collection, kind: call_expression, has: {nthChild: 1, regex: '^(Observation(\.|::))?Observations$'}}
+                has: {field: collection, kind: call_expression, has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '^(Observation(\.|::))?Observations$'}}
 transform:
     HEAD: {replace: {source: $SITE, replace: '(?s)\n.*$', by: ''}}
 message: '`$HEAD` ends iteration of `Observations` on a condition read outside the tracked closure'

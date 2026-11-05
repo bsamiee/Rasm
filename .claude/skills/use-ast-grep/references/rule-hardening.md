@@ -1,6 +1,6 @@
 # [RULE_HARDENING]
 
-Harden rules by correction family, preserving coverage, capture bindings, and governing contracts across supported forms.
+Existing rules reach every form one correction covers and keep their coverage, capture bindings, and governing contracts.
 
 ## [01]-[WEAKNESS]
 
@@ -8,34 +8,96 @@ Before editing, compare the forms a rule reports with the correction its `note` 
 
 | [INDEX] | [WEAKNESS]                                                      | [GENERAL_FORM]                                                         |
 | :-----: | :-------------------------------------------------------------- | :--------------------------------------------------------------------- |
-|  [01]   | One literal member of a contract-equivalent family              | Shared import ownership with a member predicate                        |
-|  [02]   | One overload of a data-first and data-last pair                 | `any:` arm per overload, the shape in a util                           |
-|  [03]   | One container where the correction reads the same over another  | Container arms over shared predicates                                  |
-|  [04]   | One position where the shape is produced before its consumption | Match producer when every use takes that correction                    |
-|  [05]   | Name where the rule means every node of a kind                  | `kind` with `field` and `nthChild`, `regex` on the name                |
-|  [06]   | `note` naming the instance's fix                                | Correction as the shape to produce                                     |
-|  [07]   | One match where a file of the sibling shapes reports many       | Every sibling the package contract accepts                             |
-|  [08]   | Rules with messages that differ by a callee name                | One rule, or each over one shared global util                          |
-|  [09]   | Default `stopBy` where the related node sits levels away        | `stopBy` at the owner kinds, fixed depth through `has` with `field`    |
-|  [10]   | Constraint on list capture or capture bound only in negation    | Guard list members structurally, bind captures before negation         |
-|  [11]   | Fix changes behavior for an accepted variant                    | Omit fix unless every variant implements the stated correction         |
-|  [12]   | Kind chain standing for a role in a depth or count rule         | `inside` with the parent kind, `has` on its field, near misses valid   |
-|  [13]   | Function exposed through more modules than the rule covers      | Ownership predicate per exporting module and import form               |
-|  [14]   | Form that silences the rule and keeps its cause                 | Arm per spelling, relaying declaration, restated type, rename, wrapper |
+|  [01]   | One overload of a data-first and data-last pair                 | `any:` arm per overload, the shape in a util                           |
+|  [02]   | One position where the shape is produced before its consumption | Match producer when every use takes that correction                    |
+|  [03]   | Name where the rule means every node of a kind                  | `kind` with `field` and `nthChild`, `regex` on the name                |
+|  [04]   | `note` naming the instance's fix                                | Correction as the shape to produce                                     |
+|  [05]   | Rules with messages that differ by a callee name                | One rule, or each over one shared global util                          |
+|  [06]   | Default `stopBy` where the related node sits levels away        | `stopBy` at the owner kinds, fixed depth through `has` with `field`    |
+|  [07]   | Constraint on list capture or capture bound only in negation    | Guard list members structurally, bind captures before negation         |
+|  [08]   | Fix changes behavior for an accepted variant                    | Omit fix unless every variant implements the stated correction         |
+|  [09]   | Kind chain standing for a role in a depth or count rule         | `inside` with the parent kind, `has` on its field, near misses valid   |
+|  [10]   | Form that silences the rule and keeps its cause                 | Arm per spelling, relaying declaration, restated type, rename, wrapper |
+|  [11]   | Name regex requiring its module qualifier (`^Swift\.Result`)    | One regex with the qualifier optional, `^(<module>(\.\|::))?<name>`    |
+|  [12]   | Name or kind the pinned package or configured grammar lacks     | Package source at its pinned release, `node-types.json` per rebuild    |
 
 ## [02]-[WIDENING]
 
-Rules widen to siblings that take the same correction for the same reason:
+Rules widen to siblings that take the same correction for the same reason, one arm or `regex` member per package member, overload, container, and exporting module:
 1. State violating shape, required shape, and governing contract
 2. Enumerate package siblings with the same contract from the package's declarations
 3. Apply the correction to each sibling and compare behavior, traversals, and allocations, keeping equivalent replacement spellings together
 4. Report contract-equivalent violations, keeping diagnostic coverage independent of automatic-fix coverage
 
-Resolve package references through supported imports, aliases, and visible bindings. Semantic identity needs language tooling. Escaped module names require decoded values.
+Package references resolve through imports, aliases, and bindings the language's scoping makes visible:
+- Nested modules see no parent import, block-local functions and constants shadow one, module-level declarations cannot clash with a value import
+- Names inside a path (`f` in `a::f::g`) are no imported name
+- Semantic identity takes language tooling, an escaped module name its decoded value
+- Local names bind at the call in an ordered `all:` before the import compares against them, an `inside` evaluated first binds the first import and stops there
+
+BAD, one spelling and no owner:
+
+```yaml
+rule: {pattern: readFileSync($$$ARGS)}
+```
+
+GOOD, every alias of every member, a call owned by the named package alone:
+
+```yaml
+id: no-sync-read
+language: typescript
+severity: error
+message: $NAME reads synchronously
+note: Read through the promise API
+utils:
+    from-fs: {has: {field: source, regex: '^.node:fs.$'}}
+    member: {regex: '^(readFileSync|readSync)$'}
+    named-import:
+        kind: import_statement
+        all:
+            - matches: from-fs
+            - has:
+                  kind: import_specifier
+                  stopBy: end
+                  has: {field: name, matches: member}
+                  any:
+                      - has: {field: alias, pattern: $NAME}
+                      - {not: {has: {field: alias, kind: identifier}}, has: {field: name, pattern: $NAME}}
+    namespace-import:
+        kind: import_statement
+        all:
+            - matches: from-fs
+            - has: {kind: namespace_import, stopBy: end, has: {kind: identifier, pattern: $NAME}}
+rule:
+    kind: call_expression
+    any:
+        - all:
+              - has: {field: function, kind: identifier, pattern: $NAME}
+              - inside: {kind: program, stopBy: end, has: {matches: named-import}}
+        - all:
+              - has:
+                    field: function
+                    kind: member_expression
+                    all:
+                        - has: {field: object, pattern: $NAME}
+                        - has: {field: property, matches: member}
+              - inside: {kind: program, stopBy: end, has: {matches: namespace-import}}
+```
+
+Over `import {readFileSync as read, statSync} from 'node:fs'`, `import {readSync} from 'node:fs'`, `import * as fs from 'node:fs'`, and `import {readFileSync as other} from 'other'`:
+
+```text
+read('a');            read reads synchronously
+readSync(1);          readSync reads synchronously
+fs.readFileSync('b'); fs reads synchronously
+statSync('c');
+other('d');
+fs.statSync('e');
+```
 
 ## [03]-[COLLAPSE]
 
-Combine rules with the same correction and reason. Split rules when scope, severity, or required action differs, sharing the common predicate alone:
+Rules with one correction and reason combine, a difference in scope, severity, or required action splits them over one shared predicate:
 1. Name the survivor's file for the pattern the `message` states, an existing file name stating it stays
 2. Share repeated predicates where capture scopes permit, keeping fixed predicates used once inline
 3. Delete the superseded rule files and their ids in suppression comments and filters
@@ -45,7 +107,7 @@ Combine rules with the same correction and reason. Split rules when scope, sever
 
 ## [04]-[MECHANISMS]
 
-Relations stay where they establish fields, captures, or traversal stops. Duplication stays when parameter forwarding loses captures or document-local rewriters cannot be shared.
+Relations stay where they establish fields, captures, or traversal stops. Duplication stays when parameter forwarding loses captures, a recursive local util would pass itself as an argument (`cyclic dependency`), a parameterized util calls itself (`is not defined`), or document-local rewriters cannot be shared.
 
 | [INDEX] | [SYMPTOM]                                                  | [MECHANISM]                                                            |
 | :-----: | :--------------------------------------------------------- | :--------------------------------------------------------------------- |
@@ -64,24 +126,21 @@ Relations stay where they establish fields, captures, or traversal stops. Duplic
 
 Mechanisms changing no result go:
 
-| [INDEX] | [FAILURE]                                            | [REMEDY]                                                                        |
-| :-----: | :--------------------------------------------------- | :------------------------------------------------------------------------------ |
-|  [01]   | Caller repeats its util's established shape          | Keep caller-specific guards and omit kind guards the util infers                |
-|  [02]   | Fixed util with one call                             | Inline unless private capture scope or distinct arguments change behavior       |
-|  [03]   | Util with no inferable candidate kinds               | Read the load error, supply `kind`, `pattern`, or a util with an inferable kind |
-|  [04]   | Argument bound to nothing                            | Every declared argument appears as `matches: <slot>` in the util body           |
-|  [05]   | Parameterized call under `has` or `inside` in a util | Shared operation owns subject selection, direct calls expose dependencies       |
-|  [06]   | Capture and transform share a name                   | Give transformed text a distinct output name                                    |
+| [INDEX] | [FAILURE]                                            | [REMEDY]                                                                  |
+| :-----: | :--------------------------------------------------- | :------------------------------------------------------------------------ |
+|  [01]   | Caller repeats its util's established shape          | Keep caller-specific guards and omit kind guards the util infers          |
+|  [02]   | Fixed util with one call                             | Inline unless private capture scope or distinct arguments change behavior |
+|  [03]   | Argument bound to nothing                            | Every declared argument appears as `matches: <slot>` in the util body     |
+|  [04]   | Parameterized call under `has` or `inside` in a util | Rule's own `matches` makes the call, the util takes the subject directly  |
 
 ## [05]-[RECURSION]
 
-Every recursive utility cycle moves strictly along one finite tree order:
+Every recursive utility cycle moves strictly along one finite tree order, a clean load proves no cycle terminates:
 - Descendant recursion consumes child syntax, ancestor recursion consumes enclosing syntax
 - Sibling recursion keeps one direction and moves past its previous declaration
 - Mixed `has` and `inside`, or `follows` and `precedes`, can revisit the same node
 - Alias lookup can return its own initializer, structural wrapper recursion alone does not make alias recursion terminate
 - Resolve a declaration once, then match its initializer with a separately terminating structural predicate
-- Load-time cycle checks skip relations, a clean load proves no recursive util terminates
 - Depth caps hide a nonterminating relation or reject accepted syntax, fix traversal direction or ownership
 
 ## [06]-[ARCHITECTURE]

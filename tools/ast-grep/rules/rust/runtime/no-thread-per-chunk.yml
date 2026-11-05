@@ -26,7 +26,6 @@ utils:
                 inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, kind: field_expression, has: {field: value, matches: chunking, pattern: $CHUNKS}}}}
 rule:
     kind: call_expression
-    pattern: $SPAWN
     all:
         - any:
             - all:
@@ -38,6 +37,7 @@ rule:
                 - matches: scope-handle
             - has: {field: function, regex: '^((::)?std::)?(thread::)?spawn$|^((::)?tokio::)?(task::)?spawn_blocking$'}
         - matches: per-chunk
+        - pattern: $SPAWN
 message: '`$SPAWN` starts one thread per chunk of `$CHUNKS`'
 labels:
     SPAWN: {style: primary, message: 'Spawns one thread per chunk'}

@@ -141,10 +141,13 @@ def _flushed(*paths: Path) -> None:
 
 def no_clobber_move(source: Path, target: Path, /) -> None:
     """Moves source onto a free target by a hard link then an unlink, `FileExistsError` refusing a held target, a case change of source's own name renaming it in place."""
-    if target.exists() and source.samefile(target):
+    try:
+        target.hardlink_to(source)
+    except FileExistsError:
+        if not source.samefile(target):
+            raise
         source.replace(target)
     else:
-        target.hardlink_to(source)
         source.unlink()
     _flushed(*{source.parent, target.parent})
 

@@ -3,11 +3,12 @@
 # --- [MEMBERS]
 [workspace]
 resolver = "3"
-members  = ["libs/rust/*/*", "tools/bridge", "tools/dylint"]
+members  = ["libs/rust/*/*", "tools/ast-grep/regex", "tools/bridge", "tools/dylint"]
 
 # --- [IDENTITY]
 [workspace.package]
 edition = "2024"
+publish = false
 
 # --- [DYLINT]
 [workspace.metadata.dylint]
@@ -146,12 +147,14 @@ unicode-bidi  = "0.3.18"                                                  # Bidi
 unicode-width = "0.2.3"                                                   # Display width of wide, combining, and emoji text
 
 # --- [PARSING]
+ast-grep-config    = { version = "0.51.1", default-features = false }                              # Rule, util and transform documents of structural search
 ast-grep-core      = "0.51.1"                                                                      # Structural search and rewrite over syntax trees
 ast-grep-language  = "0.51.1"                                                                      # Built-in grammars of structural search
 cel                = { version = "0.15.0", features = ["json"] }                                   # Common Expression Language policies
 chumsky            = { version = "0.13.0", features = ["pratt"] }                                  # Parser combinators that recover and collect every error
 ec4rs              = "2.0.0-rc.1"                                                                  # EditorConfig properties resolved per path
 oxc                = { version = "0.156.0", features = ["ast_visit", "semantic", "codegen"] }      # JavaScript and TypeScript parsing, analysis, and printing
+regex-syntax       = "0.8.11"                                                                      # Parser and Unicode classes the regex engine and tree-sitter link
 regex              = "1.13.1"                                                                      # Unicode patterns with linear-time matching
 sqlparser          = { version = "0.63.0", features = ["visitor"] }                                # SQL text parsed into dialect ASTs
 syntect            = { version = "5.3.0", default-features = false, features = ["default-fancy"] } # Syntax definitions looked up by name, alias, and extension, default `regex-onig` builds Oniguruma C beside `regex-fancy`
@@ -794,7 +797,6 @@ renamed_function_params    = "warn" # Trait impls renaming trait parameters, tra
 single_char_lifetime_names = "warn" # Single-character lifetime names, each lifetime names its purpose
 
 # --- [ALLOWED]
-default_numeric_fallback            = "allow" # Ignores the operand or parameter that types a literal, forcing `x * 2.0_f64` where `x * 2.0` reads its type from `x`
 empty_enums                         = "allow" # Flags kind markers `impl_typed_uuid_kinds!` declares per entity, ast-grep `no-empty-enum` owns written enums
 future_not_send                     = "allow" # Demands `Sync` on generic parameters an async fn borrows, return-type notation binds `Send` at spawning use site
 literal_string_with_formatting_args = "allow" # Flags inline snapshot literals quoting a fixture's format string, insta reads snapshots from literals
@@ -806,7 +808,6 @@ redundant_field_names               = "allow" # Flags `field: field` literals de
 redundant_pub_crate                 = "allow" # Demands `pub` on items in private modules where dylint `unreachable_public_item` demands `pub(crate)`
 significant_drop_tightening         = "allow" # Demands `drop` of lock guards before scope end, acquisition and release pair in one resource scope
 too_many_lines                      = "allow" # Caps functions at 100 lines, data dependency decides composition in place of line count
-useless_format                      = "warn"  # Literal and string-only formatting, Dylint covers other Display values
 
 # --- [CARGO]
 [workspace.lints.cargo]
@@ -822,12 +823,6 @@ debug = "line-tables-only" # Backtraces show file and line with no variable or p
 
 [profile.dev.package."*"]
 debug = false # Non-member backtrace frames lack file and line
-
-[profile.clippy]
-inherits = "dev" # Clippy runs beside other Cargo commands, Cargo locks a build-dir profile folder for a whole run and its wrapper splits member units anyway
-
-[profile.dylint]
-inherits = "dev" # Dylint runs beside other Cargo commands, Cargo locks a build-dir profile folder for a whole run and its driver splits member units anyway
 
 [profile.dist]
 inherits        = "release" # `cargo dylint` builds lint libraries under unwinding `release`

@@ -9,7 +9,8 @@
         "#/package.json": "./package.json"
     },
     "exports": {
-        ".": "./atelier-link.ts"
+        ".": "./atelier-link.ts",
+        "./plugin.config": "./plugin.config.ts"
     },
     "bin": "./main.ts",
     "dependencies": {
@@ -18,7 +19,6 @@
         "@rasm/applications": "workspace:*",
         "@rasm/automation": "workspace:*",
         "@rasm/cep": "workspace:*",
-        "@rasm/extendscript": "workspace:*",
         "@rasm/illustrator": "workspace:*",
         "@rasm/indesign": "workspace:*",
         "@rasm/mcp": "workspace:*",
@@ -26,13 +26,12 @@
         "@rasm/search": "workspace:*",
         "@rasm/typography": "workspace:*",
         "@rasm/uxp": "workspace:*",
-        "@swc/core": "catalog:",
         "effect": "catalog:",
         "image-size": "catalog:"
     },
     "devDependencies": {
+        "@rasm/extendscript": "workspace:*",
         "@types/node": "catalog:",
-        "plist": "catalog:",
         "vite": "catalog:"
     }
 }

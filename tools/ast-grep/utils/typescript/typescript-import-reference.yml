@@ -9,7 +9,7 @@ utils:
         has: {regex: '^type$', not: {pattern: $_}}
     module-import:
         kind: import_statement
-        has: {field: source, not: {has: {kind: escape_sequence}}, has: {kind: string_fragment, matches: source}}
+        has: {field: source, all: [{has: {kind: string_fragment, matches: source}}, {not: {has: {kind: escape_sequence}}}]}
     namespace-binding:
         kind: namespace_import
         has: {kind: identifier, pattern: $IMPORTED}
@@ -44,9 +44,9 @@ rule:
           pattern: $IMPORTED
           all:
             - any:
-                - inside: {kind: program, stopBy: end, has: {matches: module-import, not: {matches: type-only}, has: {matches: export-binding}}}
+                - inside: {kind: program, stopBy: end, has: {all: [{matches: module-import}, {not: {matches: type-only}}, {has: {matches: export-binding}}]}}
                 - matches: type-position
-                  inside: {kind: program, stopBy: end, has: {matches: module-import, has: {matches: type-binding}}}
+                  inside: {kind: program, stopBy: end, has: {all: [{matches: module-import}, {has: {matches: type-binding}}]}}
             - not: {matches: {typescript-local-binding: {owner: {pattern: $_}}}}
         - kind: member_expression, nested_identifier
           all:

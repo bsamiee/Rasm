@@ -7,13 +7,13 @@ utils:
             - has: {regex: '(?i-u)^in$', not: {pattern: $_}}
             - any:
                 - has: {regex: '(?i-u)^not$', not: {pattern: $_}}
-                - inside: {kind: a_expr, field: operand, has: {field: operator, regex: '(?i-u)^not$'}}
+                - inside: {kind: a_expr, stopBy: {not: {matches: pgsql-wrapper}}, has: {field: operator, regex: '(?i-u)^not$'}}
     unequal-all:
         all:
             - has: {kind: subquery_Op, regex: '^(<>|!=)$'}
             - has: {kind: sub_type, regex: '(?i-u)^all$'}
 rule:
-    kind: a_expr, a_expr_prec
+    kind: a_expr
     has: {kind: select_with_parens}
     any:
         - matches: negated-in

@@ -78,8 +78,10 @@ class Applied(msgspec.Struct, frozen=True, kw_only=True):
 
     @classmethod
     def reported(cls, path: RnaPath, answer: Outcome[Option[Value | Struct]]) -> Self:
-        """Classifies one member write as written, unchanged, or refused."""
-        return answer.map(lambda prior: cls(written=(path,)) if prior.is_some() else cls(unchanged=(path,))).default_with(cls.refused)
+        """Classifies one member write as written, unchanged, or refused, each fault naming the member by its full path."""
+        return answer.map(lambda prior: cls(written=(path,)) if prior.is_some() else cls(unchanged=(path,))).default_with(
+            lambda faults: cls.refused(tuple(msgspec.structs.replace(fault, subject=rna(path)) for fault in faults))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+        )
 
     def then(self, step: Callable[[], Self]) -> Self:
         """Joins the outcome of a step that runs once this one holds."""

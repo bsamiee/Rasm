@@ -10,7 +10,12 @@ utils:
                 - has: {field: alias, pattern: $BOUND}
                 - has: {field: path, any: [{kind: identifier, matches: name}, {kind: scoped_identifier, has: {field: name, matches: name}}]}
             - kind: identifier
-              all: [{pattern: $BOUND}, {matches: name}, {not: {inside: {kind: use_as_clause, stopBy: {kind: use_declaration}}}}]
+              all:
+                - pattern: $BOUND
+                - matches: name
+                - any:
+                    - inside: {kind: &use-tree 'use_declaration, use_list'}
+                    - inside: {kind: scoped_identifier, field: name, inside: {kind: *use-tree}}
     named:
         kind: 'identifier, shorthand_field_identifier'
         pattern: $BOUND
@@ -30,6 +35,7 @@ utils:
                 kind: closure_parameters
             - inside: {stopBy: end, follows: {stopBy: end, kind: let_declaration, has: {field: pattern, matches: binds}}}
             - inside: {stopBy: end, kind: 'function_item, closure_expression', has: {field: parameters, matches: binds}}
+            - inside: {stopBy: end, kind: block, has: {kind: 'function_item, const_item, static_item', has: {field: name, pattern: $BOUND}}}
             - inside: {stopBy: end, kind: 'match_arm, for_expression', has: {field: pattern, matches: binds}}
             - inside:
                 stopBy: end
@@ -45,6 +51,6 @@ rule:
     all:
         - inside:
             kind: 'source_file, declaration_list, block'
-            stopBy: end
+            stopBy: {kind: mod_item}
             has: {kind: use_declaration, matches: source, has: {stopBy: end, matches: imported-leaf}}
         - not: {matches: shadowed}

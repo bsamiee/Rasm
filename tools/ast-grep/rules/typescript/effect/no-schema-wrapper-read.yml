@@ -13,4 +13,4 @@ rule:
                 - has: {field: object, kind: member_expression, has: {field: property, regex: '^fields$'}}
                 - has: {field: property, pattern: $FIELD}
 message: '`$READ` reads a schema through the wrappers its `$FIELD` field adds'
-note: 'Declare the inner schema as a named module value that the field and every reader share'
+note: 'Declare the inner schema as a named module value its field and every reader share'

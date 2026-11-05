@@ -73,4 +73,4 @@ labels:
     NAME: {style: primary, message: 'Declared under one `cfg`'}
     AGAIN: {style: secondary, message: 'Same declaration under another `cfg`'}
 message: 'More than one `cfg` declares `$NAME`'
-note: 'Declare the item once with one `cfg_select!` around the part that differs (`SelectAll<cfg_select! { unix => A, windows => B }>`)'
+note: 'Declare item once with one `cfg_select!` around the part that differs (`SelectAll<cfg_select! { unix => A, windows => B }>`)'

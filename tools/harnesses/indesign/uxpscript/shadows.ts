@@ -229,7 +229,7 @@ const installed = (session: Session) => {
         ),
     );
     const shadowed = shadow(indesign, (key, value) => (key === 'app' ? fake : value));
-    const script = { args: session.item._tag === 'Probe' ? [] : session.item.args.map(String), setResult: (value: unknown) => Object.assign(session, { value: Option.some(value) }), executionContext: field(field(uxp, 'script'), 'executionContext') };
+    const script = { args: 'args' in session.item ? session.item.args.map(String) : [], setResult: (value: unknown) => Object.assign(session, { value: Option.some(value) }), executionContext: field(field(uxp, 'script'), 'executionContext') };
     const storage = field(uxp, 'storage');
     const files = shadow(new Object(field(storage, 'localFileSystem')), (member, value) => (member === 'getFileForOpening' || member === 'getFileForSaving' || member === 'getFolder' ? picked(session, String(member)) : value));
     const stored = shadow(new Object(storage), (member, held) => (member === 'localFileSystem' ? files : held));

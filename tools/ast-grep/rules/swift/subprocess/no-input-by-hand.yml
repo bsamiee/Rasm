@@ -26,7 +26,7 @@ utils:
 rule:
     kind: lambda_literal
     all:
-        - inside: {kind: call_expression, stopBy: {kind: call_expression}, has: {nthChild: 1, regex: '^Subprocess(\.|::)run$'}}
+        - inside: {kind: call_expression, stopBy: {kind: call_expression}, has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '^(Subprocess(\.|::))?run$'}}
         - has:
             kind: statements
             any:

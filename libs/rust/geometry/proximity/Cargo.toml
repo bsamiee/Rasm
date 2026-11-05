@@ -3,7 +3,7 @@
 [package]
 name              = "rasm-proximity"
 edition.workspace = true
-publish           = false
+publish.workspace = true
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

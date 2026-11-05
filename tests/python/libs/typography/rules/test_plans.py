@@ -14,6 +14,7 @@ lazy import ufoLib2
 
 from tests.python.libs.typography.fonts import encoded, rectangles
 from typography.builds.pipeline import compiled, constructed
+from typography.faces.coverage import Coverage as Covered
 from typography.faces.declaration import Face, OrnamentFace, Recipe, Values
 from typography.faces.faults import Ok, Reason
 from typography.faces.glyphs import Component, Metrics as Vertical, Ornament, Side, Source
@@ -287,12 +288,30 @@ def test_ornament_encoding_and_coverage_preserve_original_pua_gaps(ornament: tup
     binary = Binary(data=compiled(done, native).default_with(lambda faults: pytest.fail(str(faults))))
     built_path = tmp_path / "Orn.ttf"
     built_path.write_bytes(binary.data)
-    assert not verified(binary, (Coverage(),), source=done, original=original, corpus=sample, path=built_path, approved=tmp_path / "approval.json", checks=Ok(()))
+    assert not verified(
+        binary,
+        (Coverage(),),
+        coverage=Covered(required=frozenset(done.encoded), excluded=(), blocks=frozenset()),
+        original=original,
+        corpus=sample,
+        path=built_path,
+        approved=tmp_path / "approval.json",
+        checks=Ok(()),
+    )
     font, stream = TTFont(BytesIO(binary.data)), BytesIO()
     for table in font["cmap"].tables:
         if table.isUnicode():
             table.cmap.pop(0xE010, None)
     font.save(stream)
     missing = Binary(data=stream.getvalue())
-    findings = verified(missing, (Coverage(),), source=done, original=original, corpus=sample, path=built_path, approved=tmp_path / "approval.json", checks=Ok(()))
+    findings = verified(
+        missing,
+        (Coverage(),),
+        coverage=Covered(required=frozenset(done.encoded), excluded=(), blocks=frozenset()),
+        original=original,
+        corpus=sample,
+        path=built_path,
+        approved=tmp_path / "approval.json",
+        checks=Ok(()),
+    )
     assert tuple((finding.subject, finding.measured) for finding in findings) == (("U+E010", "unmapped"),)

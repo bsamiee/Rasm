@@ -27,5 +27,5 @@ rule:
                             stopBy: {not: {kind: export_statement}}
                             kind: lexical_declaration
                             has: {kind: variable_declarator, all: [{has: {field: name, pattern: $REQUIRE}}, {has: {field: value, matches: module-require}}]}
-message: '`$CALL` resolves from this module through a CommonJS `require`'
+message: '`$CALL` resolves from its module through a CommonJS `require`'
 note: 'Call `fileURLToPath(import.meta.resolve(<specifier>))`'

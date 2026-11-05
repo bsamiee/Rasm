@@ -57,12 +57,26 @@ extension Installation {
         throw ApplicationFailure(subject: name, reason: .unmatched(Unmatched(subject: "installed application", query: name, candidates: [])))
     }
 
+    private static func metadataForm(of predicate: NSPredicate) -> NSPredicate? {
+        guard predicate != NSPredicate(value: true) else { return nil }
+        guard let compound: NSCompoundPredicate = predicate as? NSCompoundPredicate, compound.compoundPredicateType != .not else { return predicate }
+        let clauses: [NSPredicate] = compound.subpredicates.compactMap { $0 as? NSPredicate }.compactMap(metadataForm(of:))
+        return if compound.compoundPredicateType == .or, clauses.count < compound.subpredicates.count {
+            nil
+        } else if clauses.count > 1 {
+            NSCompoundPredicate(type: compound.compoundPredicateType, subpredicates: clauses)
+        } else {
+            clauses.first
+        }
+    }
+
     @MainActor
     private static func listings(_ predicate: NSPredicate, in directories: [URL]) -> some AsyncSequence<(installations: [Self], failures: [ApplicationFailure]), Never> & Sendable {
         AsyncStream { continuation in
             let following: Task<Void, Never> = Task { @MainActor in
                 let query: NSMetadataQuery = NSMetadataQuery()
-                query.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [NSPredicate(format: "%K == %@", NSMetadataItemContentTypeKey, UTType.applicationBundle.identifier), predicate])
+                let application: NSPredicate = NSPredicate(format: "%K == %@", NSMetadataItemContentTypeKey, UTType.applicationBundle.identifier)
+                query.predicate = metadataForm(of: NSCompoundPredicate(andPredicateWithSubpredicates: [application, predicate])) ?? application
                 query.searchScopes = directories
                 query.sortDescriptors = [NSMetadataItemDisplayNameKey, NSMetadataItemVersionKey].map { key in NSSortDescriptor(key: key, ascending: true) }
                 query.operationQueue = .main

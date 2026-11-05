@@ -7,7 +7,7 @@ Illustrator and After Effects run ExtendScript, linked through a CEP extension a
 Unlinked calls send the body and the reply encoder as one source text:
 
 ```ts
-import { transformSync } from '@swc/core';
+import { transformSync } from '@swc/wasm';
 
 const Reply = Schema.Union([
     Schema.TaggedStruct('Value', { value: Schema.optionalKey(Schema.Json) }),
@@ -57,6 +57,7 @@ ExtendScript is ES3 with `const`, `toSource`, and `uneval`:
 - `let`, arrow functions, getter literals, and ES3 reserved words as unquoted keys (`boolean`) are syntax errors
 - `JSON`, `Symbol`, `Object.keys`, `Object.defineProperty`, `Array.isArray`, `Array.from`, `Function.prototype.bind`, and `String.prototype.trim` read `undefined`
 - `Array.prototype` holds no `map`, `forEach`, `filter`, `reduce`, or `indexOf`
+- ExtendScript reads `a || b && c` as `(a || b) && c`, and swc removes the parentheses protecting it, so `lower` restores them at `es3`
 - `toSource()` writes JavaScript source (unquoted keys, `undefined`, `NaN`), never JSON
 - `File.name` reads the URI-encoded name (`My%20File.aep`), and `displayName` the decoded name a reply holds
 - `$.hiresTimer` readings disagree with wall time (negative values, minutes for a call returning in seconds), and timing reads `Date` differences
@@ -86,6 +87,10 @@ Linked hosts serve requests from a headless CEP extension the build writes from 
 - `__adobe_cep__.evalScript(source, callback)` answers text, `EvalScript error.` for an uncaught throw or a missing global
 - `__adobe_cep__.getSystemPath('hostApplication')` returns the application URL, and `getExtensionId()` the extension id
 - `Custom` UI of 1x1 with `AutoVisible` false, started on `applicationActivate` and `com.adobe.csxs.events.ApplicationActivate`, runs headless
+- Build config `face` writes a `Panel`, `Modeless`, or `ModalDialog` UI whose page runs the project's `main.ts`, and `main.svg` beside it paints `Normal` and `DarkNormal` icons at 23 and 46 pixels
+- Bundled CEP icons hold `#000000A6` for `Normal` and `#FFFFFFA6` for `DarkNormal` with a `@2X` sibling in every host, Photoshop's `_x2` an alternative it also reads
+- `__adobe_cep__.getHostEnvironment()` answers JSON with `appSkinInfo`, `com.adobe.csxs.events.ThemeColorChanged` fires on a host theme change, and `CepPanel.skin` streams it into a face's `--cep-host-*` custom properties
+- Faces paint `appSkinInfo` sRGB colors, and text takes the bundled icon ink with the higher WCAG contrast over the panel
 - Host `Version` of one number names that release and later, and `[min,max]` a range
 - Illustrator loads UXP plugins from `Contents/Required/UXP/extensions` alone
 - UXP logs hold no `upic::` line, and a row in `UXP/PluginsInfo/v1/AI.json` loads nothing

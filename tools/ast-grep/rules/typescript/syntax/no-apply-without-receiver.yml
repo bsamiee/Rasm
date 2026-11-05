@@ -8,7 +8,7 @@ rule:
     not: {has: {field: arguments, has: {kind: comment, stopBy: end}}}
 constraints:
     F: {not: {any: [{kind: 'member_expression, subscript_expression, parenthesized_expression'}, {kind: identifier, regex: '^eval$'}]}}
-    RECEIVER: {regex: '^undefined$', matches: typescript-global-reference}
+    RECEIVER: {kind: undefined, matches: typescript-global-reference}
     LIST: {kind: array}
 message: '`$F` is called through `Reflect.apply` with no receiver'
 note: 'Call `<function>(<arguments>)`, spreading a held argument list as `<function>(...<arguments>)`'

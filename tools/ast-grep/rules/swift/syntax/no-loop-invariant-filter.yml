@@ -13,7 +13,7 @@ utils:
         any:
             - kind: call_expression
             - kind: simple_identifier
-              regex: '^Task$'
+              regex: '^(_Concurrency(\.|::))?Task$'
             - kind: simple_identifier
               pattern: $READ
               inside:

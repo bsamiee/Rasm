@@ -4,7 +4,6 @@ severity: error
 rule:
     kind: class_definition
     all:
-        - inside: {kind: module, stopBy: end, regex: '(?-u:\b)msgspec(?-u:\b)'}
         - has: {field: name, pattern: $NAME}
         - any:
             - matches: msgspec-struct-frozen-default

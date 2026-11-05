@@ -1,56 +1,68 @@
-import { Lang, parse, type SgNode } from '@ast-grep/napi';
 import type { Tree } from '@nx/devkit';
-import { Array, Effect, Function, Option, Path, Record, Schema, Stream, String, Struct } from 'effect';
+import { Array, Effect, Function, Option, Path, Record, String, Struct } from 'effect';
+import { parseSync } from 'vite';
 import { accumulate } from '#/eng/typescript/accumulate';
 import { ClaudeHooks, libraryRoot, Package } from '#/eng/typescript/manifest';
-import { runCommand } from '#/eng/typescript/run-command';
 import { glob } from '#/tools/nx/internal/open-workspace';
-import { runPlugin } from '#/tools/nx/internal/plugin-runtime';
+import { decodeTree, formatted, syncGenerator, treeText } from '#/tools/nx/internal/plugin-runtime';
 import { WorkspaceError } from '#/tools/nx/internal/workspace-error';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const BARREL = 'index.ts';
-const TYPE_DECLARATIONS = ['interface_declaration', 'type_alias_declaration'];
+const DIVIDER_COLUMN = 90;
+const DIVIDER = '// --- [EXPORTS] '.padEnd(DIVIDER_COLUMN, '-');
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [NAMES]
-const typeOnly = (node: SgNode) => node.children().some((child) => child.kind() === 'type');
-const namedExport = (type: boolean) => (name: SgNode) => ({ name: name.text(), type });
-const specifiedNames = (statement: SgNode) => Array.getSomes(statement.findAll({ rule: { kind: 'export_specifier' } }).map((specifier) => Option.map(Option.fromNullOr(specifier.field('alias') ?? specifier.field('name')), namedExport(typeOnly(statement) || typeOnly(specifier)))));
-const declaredNames = (declaration: SgNode) =>
-    Array.getSomes((['lexical_declaration', 'variable_declaration'].some((kind) => declaration.is(kind)) ? declaration.children().filter((child) => child.kind() === 'variable_declarator') : [declaration]).map((node) => Option.fromNullOr(node.field('name')))).map(
-        namedExport(TYPE_DECLARATIONS.some((kind) => declaration.is(kind))),
+const exportedNames = (file: string, text: string) => {
+    const { module, errors } = parseSync(file, text);
+    return Array.match(
+        errors.filter(({ severity }) => severity === 'Error'),
+        {
+            onEmpty: () =>
+                Effect.succeed(
+                    Array.dedupeWith(
+                        Array.getSomes(
+                            module.staticExports.flatMap(Struct.get('entries')).map(({ moduleRequest, exportName: { kind, name }, isType }) =>
+                                Option.map(
+                                    Option.filter(Option.fromNullOr(name), (held) => moduleRequest === null && kind === 'Name' && held !== 'default'),
+                                    (held) => ({ name: held, type: isType }),
+                                ),
+                            ),
+                        ),
+                        (left, right) => left.name === right.name,
+                    ),
+                ),
+            onNonEmpty: ([{ message }]) => Effect.fail(WorkspaceError.unparsed(file, message)),
+        },
     );
-const exportedNames = (file: string, text: string) =>
-    parse(file.endsWith('.tsx') ? Lang.Tsx : Lang.TypeScript, text)
-        .root()
-        .children()
-        .filter((node) => node.kind() === 'export_statement' && node.field('source') === null && !node.children().some((child) => child.kind() === 'default'))
-        .flatMap((statement) => [...specifiedNames(statement), ...Option.match(Option.fromNullOr(statement.field('declaration')), { onNone: Array.empty, onSome: declaredNames })])
-        .filter(({ name }) => name !== 'default');
+};
 
 // --- [LAYOUT]
 const selfImport = (imports: Readonly<Record<string, string>>, module: string) => Array.findFirst(Record.toEntries(imports), ([key, target]) => Option.map(Option.fromUndefinedOr(new RegExp(`^${target.split('*').map(RegExp.escape).join('(.+)')}$`, 'u').exec(`./${module}`)?.[1]), (stem) => key.replace('*', stem)));
-const exportLine = (imports: Readonly<Record<string, string>>, relative: string, file: string, text: string) =>
-    Array.match(exportedNames(file, text), {
+const exportLine = (imports: Readonly<Record<string, string>>, relative: string, file: string, exported: Effect.Success<ReturnType<typeof exportedNames>>) =>
+    Array.match(exported, {
         onEmpty: Array.empty,
         onNonEmpty: (names) => [`export { ${names.map(({ name, type }) => (type ? `type ${name}` : name)).join(', ')} } from '${Option.getOrElse(selfImport(imports, file), Function.constant(relative))}';`],
     });
 const ownerFolder = (folders: readonly string[], separator: string) => (file: string) => Array.findFirst(folders, (folder) => folder === '.' || file.startsWith(`${folder}${separator}`));
-const readText = (tree: Tree, file: string) => Effect.fromNullishOr(tree.read(file, 'utf-8'));
 const readManifest = Effect.fnUntraced(function* (tree: Tree, file: string) {
     const path = yield* Path.Path;
-    return { dir: path.dirname(file), manifest: yield* Effect.flatMap(readText(tree, file), Schema.decodeEffect(Package.schema)) };
+    return { dir: path.dirname(file), manifest: yield* decodeTree(tree, Package.schema, file) };
 });
 const barrel = Effect.fnUntraced(function* (tree: Tree, dir: string, imports: Readonly<Record<string, string>>, folder: string, files: readonly string[]) {
     const path = yield* Path.Path;
     const file = path.join(dir, folder, BARREL);
-    const sources = yield* Effect.forEach(files, (module) => readText(tree, path.join(dir, module)));
-    const lines = Array.zipWith(files, sources, (module, source) => exportLine(imports, `./${path.relative(folder, module)}`, module, source));
-    const text = yield* runCommand('biome', ['check', '--write', `--stdin-file-path=${file}`], { cwd: tree.root, stdin: Stream.encodeText(Stream.make(['// --- [EXPORTS] -------------------------------------------------------------------------', '', ...lines.flat(), ''].join('\n'))) });
-    return { file, text };
+    const lines = yield* Effect.forEach(
+        files,
+        Effect.fnUntraced(function* (module: string) {
+            const source = path.join(dir, module);
+            return exportLine(imports, `./${path.relative(folder, module)}`, module, yield* exportedNames(source, yield* treeText(tree, source)));
+        }),
+    );
+    return { file, next: yield* formatted(tree, file, [DIVIDER, '', ...lines.flat(), ''].join('\n')) };
 });
 const libraryBarrels = Effect.fnUntraced(function* (tree: Tree, dir: string, manifest: typeof Package.schema.Type, nested: readonly string[]) {
     const path = yield* Path.Path;
@@ -62,7 +74,7 @@ const libraryBarrels = Effect.fnUntraced(function* (tree: Tree, dir: string, man
         modules.filter((file) => modules.some(String.startsWith(`${stem(file)}${path.sep}`))),
         (file) => WorkspaceError.shadowed(path.join(dir, file), stem(file)),
     );
-    const declared = yield* Effect.forEach(hooks, (file) => Effect.map(Effect.flatMap(readText(tree, file), Schema.decodeEffect(ClaudeHooks.schema)), Struct.assign({ file })));
+    const declared = yield* Effect.forEach(hooks, (file) => Effect.map(decodeTree(tree, ClaudeHooks.schema, file), Struct.assign({ file })));
     const programs = Array.bind(declared, 'module', Struct.get('modules')).map(({ file, module }) => path.relative(dir, path.join(path.dirname(file), module)));
     const entries = Object.values(manifest.exports).map(path.normalize);
     const folders = entries
@@ -82,9 +94,7 @@ const libraryBarrels = Effect.fnUntraced(function* (tree: Tree, dir: string, man
     };
 });
 
-// --- [COMPOSITION] ---------------------------------------------------------------------
-
-const barrels = Effect.fnUntraced(function* (tree: Tree) {
+const rows = Effect.fnUntraced(function* (tree: Tree) {
     const path = yield* Path.Path;
     const manifests = yield* Effect.forEach(yield* glob(tree.root, [`**/${Package.file}`]), (file) => readManifest(tree, file));
     const dirs = manifests.map(Struct.get('dir'));
@@ -93,12 +103,12 @@ const barrels = Effect.fnUntraced(function* (tree: Tree) {
         ({ dir, manifest }) => libraryBarrels(tree, dir, manifest, dirs.filter(String.startsWith(`${dir}${path.sep}`))),
         { concurrency: 'unbounded' },
     );
-    const drifted = libraries.flatMap(Struct.get('written')).filter(({ file, text }) => tree.read(file, 'utf-8') !== text);
-    const stale = libraries.flatMap(Struct.get('stale'));
-    yield* Effect.forEach(drifted, ({ file, text }) => Effect.sync(tree.write.bind(tree, file, text)), { discard: true });
-    yield* Effect.forEach(stale, (file) => Effect.sync(tree.delete.bind(tree, file)), { discard: true });
-    return Array.match([...drifted.map(Struct.get('file')), ...stale], { onEmpty: () => undefined, onNonEmpty: (changed) => ({ outOfSyncMessage: "Library barrels differ from each library's exports and modules", outOfSyncDetails: changed }) });
-}, runPlugin);
+    return [...libraries.flatMap(Struct.get('written')), ...libraries.flatMap(Struct.get('stale')).map((file) => ({ file }))];
+});
+
+// --- [COMPOSITION] ---------------------------------------------------------------------
+
+const barrels = syncGenerator("Library barrels differ from each library's exports and modules", rows);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

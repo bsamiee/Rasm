@@ -43,4 +43,4 @@ rule:
             kind: *owner
             has: {kind: inheritance_specifier, pattern: $BY, regex: '^(Swift(\.|::))?OptionSet$'}
 message: '`$IMPLIED` restates a conformance `$BY` implies'
-note: 'Delete the implied protocol from the inheritance list'
+note: 'Delete the implied protocol from its inheritance list'

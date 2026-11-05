@@ -6,17 +6,17 @@ lazy from collections.abc import Callable
 lazy from functools import partial
 lazy from pathlib import Path
 lazy import re
-lazy import subprocess
 
 from expression.extra.result import catch
 import msgspec
+lazy from fontTools.ufoLib import UFOReader
+lazy from fontTools.ufoLib.errors import UFOLibError
 lazy import ots
 
 from typography.faces.declaration import Band, Em, Ratio
 lazy from typography.faces.coverage import Coverage as Covered
-lazy from typography.faces.declaration import Contour, Face, Faces, OrnamentFace, Ringed, Segmented, Shadow, Sheared
-lazy from typography.faces.faults import Fault, Outcome, Reason
-lazy from typography.faces.glyphs import Source
+lazy from typography.faces.declaration import Contour, Face, Faces, OrnamentFace, PROFILE, Ringed, Segmented, Shadow, Sheared
+lazy from typography.faces.faults import Fault, Ok, Outcome, ran, Reason, stored
 lazy from typography.shaping.corpus import Corpus
 lazy from typography.shaping.expectations import encoded, expected
 lazy from typography.shaping.runs import Binary
@@ -169,42 +169,43 @@ def requirements(face: Faces, /) -> tuple[Requirements, ...]:
             return (Sanitized(), Profile(excluded=("opentype/monospace",)), Coverage(), Metrics())
 
 
-def _covered(source: Source, binary: Binary, /) -> tuple[Breach, ...]:
-    """Unmapped required and unrecorded mapped code points, ornament mappings derived from the planned source."""
-    codes = binary.encoded
-    match source.face:
+def covering(face: Faces, source: Path, /) -> Outcome[Covered]:
+    """Returns the code points a built face answers for, a genre's for a text face and the mappings its written UFO states for an ornament face.
+
+    Args:
+        face: Declared face.
+        source: UFO the face's build wrote.
+
+    Returns:
+        Ok(coverage), `UNREADABLE` for an ornament UFO the reader refuses.
+    """
+    match face:
         case Face(genre=genre):
-            coverage = genre.coverage
+            return Ok(genre.coverage)
         case OrnamentFace():
-            coverage = Covered(required=frozenset(source.encoded), excluded=(), blocks=frozenset())
-    return (*((f"U+{code:04X}", "unmapped", "required") for code in coverage.uncovered(codes)), *((f"U+{code:04X}", "mapped", "required, excluded, or kept") for code in coverage.unrecorded(codes)))
+            return (
+                catch(lambda: UFOReader(source).getGlyphSet().getUnicodes(), exception=UFOLibError)()
+                .map_error(partial(Fault.of, Reason.UNREADABLE, str(source)))
+                .map(lambda mapped: Covered(required=frozenset(*codes for codes in mapped.values()), excluded=(), blocks=frozenset()))
+            )
 
 
 # --- [PROCESSES]
 
 
-def inspected(paths: tuple[Path, ...], configuration: Path, /) -> Outcome[frozendict[Path, tuple[Check, ...]]]:
-    """Runs fontspector once over built faces under one file serving as its profile and configuration, from that file's folder its relative test directory resolves against.
+def inspected(paths: tuple[Path, ...], root: Path, /) -> Outcome[frozendict[Path, tuple[Check, ...]]]:
+    """Runs fontspector once over built faces under the library's profile, from the declaration folder its relative test directory resolves against.
 
     Args:
         paths: Built font files.
-        configuration: Fontspector TOML holding the profile sections and the `shaping` test directory.
+        root: Folder of the set's declaration.
 
     Returns:
         Ok(checks) per path holding the results on the file and on its folder's collection, `FAILED` for a failed launch, `INVALID` for an undecodable report.
     """
-
-    @catch(exception=OSError)
-    def launched() -> subprocess.CompletedProcess[bytes]:
-        options = ("--profile", str(configuration.absolute()), "--configuration", str(configuration.absolute()), "--quiet", "--skip-network", "--json", "-")
-        return subprocess.run(("fontspector", *options, *(str(path.absolute()) for path in paths)), capture_output=True, check=False, cwd=configuration.parent)
-
     return (
-        launched()
-        .map_error(partial(Fault.of, Reason.FAILED, "fontspector"))
-        .bind(
-            lambda done: catch(lambda: msgspec.json.decode(done.stdout, type=_Report), exception=msgspec.DecodeError)().map_error(lambda error: Fault.of(Reason.INVALID, "fontspector", (done, error)))
-        )
+        ran("fontspector", "--profile", str(PROFILE), "--configuration", str(PROFILE), "--quiet", "--skip-network", "--json", "-", *(str(path.absolute()) for path in paths), cwd=root, check=False)
+        .bind(lambda raw: catch(lambda: msgspec.json.decode(raw, type=_Report), exception=msgspec.DecodeError)().map_error(partial(Fault.of, Reason.INVALID, "fontspector")))
         .map(
             lambda report: frozendict({
                 path: tuple(check for tested in (path.absolute(), path.absolute().parent) for checks in report.results.get(str(tested), frozendict()).values() for check in checks) for path in paths
@@ -231,7 +232,9 @@ def _breached(checks: Outcome[tuple[Check, ...]], selected: Callable[[Check], bo
 # --- [VERIFICATION]
 
 
-def _measured(requirement: Requirements, binary: Binary, /, *, source: Source, original: Binary, corpus: Corpus, path: Path, approved: Path, checks: Outcome[tuple[Check, ...]]) -> tuple[Breach, ...]:
+def _measured(
+    requirement: Requirements, binary: Binary, /, *, coverage: Covered, original: Binary, corpus: Corpus, path: Path, approved: Path, checks: Outcome[tuple[Check, ...]]
+) -> tuple[Breach, ...]:
     shaping = "shaping/"
     match requirement:
         case Sanitized():
@@ -243,7 +246,10 @@ def _measured(requirement: Requirements, binary: Binary, /, *, source: Source, o
         case Reachable(shapers=shapers):
             return reachable(binary, corpus, shapers)
         case Coverage():
-            return _covered(source, binary)
+            return (
+                *((f"U+{code:04X}", "unmapped", "required") for code in coverage.uncovered(binary.encoded)),
+                *((f"U+{code:04X}", "mapped", "required, excluded, or kept") for code in coverage.unrecorded(binary.encoded)),
+            )
         case MarkClearance(gap=floor):
             return clearance(binary, corpus, floor)
         case MarkLine(tolerance=tolerance):
@@ -263,14 +269,14 @@ def _measured(requirement: Requirements, binary: Binary, /, *, source: Source, o
 
 
 def verified(
-    binary: Binary, requirements: tuple[Requirements, ...], /, *, source: Source, original: Binary, corpus: Corpus, path: Path, approved: Path, checks: Outcome[tuple[Check, ...]]
+    binary: Binary, requirements: tuple[Requirements, ...], /, *, coverage: Covered, original: Binary, corpus: Corpus, path: Path, approved: Path, checks: Outcome[tuple[Check, ...]]
 ) -> tuple[Finding, ...]:
     """Measures every requirement of a build independently and accumulates their findings, an empty tuple passing.
 
     Args:
         binary: Built font.
         requirements: Requirements the build meets.
-        source: Source the build compiled from.
+        coverage: Code points the build answers for, from `covering`.
         original: Font the source was imported from.
         corpus: Runs every shaping measure reads.
         path: Built file OTS sanitizes.
@@ -283,7 +289,7 @@ def verified(
     return tuple(
         Finding(requirement=str(type(requirement).__struct_config__.tag), subject=subject, measured=measured, bound=bound)
         for requirement in requirements
-        for subject, measured, bound in _measured(requirement, binary, source=source, original=original, corpus=corpus, path=path, approved=approved, checks=checks)
+        for subject, measured, bound in _measured(requirement, binary, coverage=coverage, original=original, corpus=corpus, path=path, approved=approved, checks=checks)
     )
 
 
@@ -299,14 +305,7 @@ def approved(binary: Binary, corpus: Corpus, path: Path, file: str, /) -> Outcom
     Returns:
         Ok(path), `UNWRITABLE` fault where the file cannot be written.
     """
-
-    @catch(exception=OSError)
-    def written() -> Path:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(encoded(expected(binary, corpus, file)))
-        return path
-
-    return written().map_error(partial(Fault.of, Reason.UNWRITABLE, str(path)))
+    return stored(path, partial(Path.write_bytes, data=encoded(expected(binary, corpus, file))))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
@@ -329,6 +328,7 @@ __all__ = [
     "Sanitized",
     "Seam",
     "approved",
+    "covering",
     "inspected",
     "requirements",
     "verified",

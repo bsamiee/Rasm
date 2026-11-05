@@ -89,4 +89,4 @@ rule:
                     - all: [{matches: rebuild-step}, {follows: {stopBy: {pattern: $_}, matches: previous-step}}]
                     - all: [{matches: mapper-step}, {follows: {stopBy: {pattern: $_}, matches: previous-option-step}}]
 message: '`$LIFT` absence error is rebuilt or mapped outside its `onNone` argument'
-note: 'Pass the mapper as the `onNone` argument of `Effect.fromOption`, and delete a rebuilt `NoSuchElementError`'
+note: 'Pass the mapper as `onNone` argument of `Effect.fromOption`, and delete a rebuilt `NoSuchElementError`'

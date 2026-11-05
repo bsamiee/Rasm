@@ -26,6 +26,7 @@ rule:
                     - matches: type-leaf
                     - kind: qualified_name, alias_qualified_name, member_access_expression
                       has: {field: name, matches: type-leaf}
-        - matches: member-name
-          not: {inside: {field: name, pattern: $_}}
-          inside: {stopBy: end, kind: 'class_declaration, record_declaration, struct_declaration', has: {field: name, matches: type-leaf}}
+        - all:
+            - matches: member-name
+            - not: {inside: {field: name, pattern: $_}}
+            - inside: {stopBy: end, kind: 'class_declaration, record_declaration, struct_declaration', has: {field: name, matches: type-leaf}}

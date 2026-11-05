@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.Document.Tables;
 using Rhino;
 using Rhino.Render;
@@ -55,6 +56,13 @@ public static class Contents {
         Internals.AutoDelete(content, autoDelete: true);
         return content;
     }
+
+    // --- [FILES]
+    public static IO<RenderContent> ReadFile(InputPath path) =>
+        Products.Of(() => RenderContent.LoadFromFile(path));
+
+    public static IO<Unit> WriteFile(OutputPath path, RenderContent content, RenderContent.EmbedFilesChoice embedded) =>
+        Products.Accepted(() => content.SaveToFile(path, embedded));
 
     // --- [TABLES]
     public static IO<Unit> Attach(RhinoDoc doc, RenderContent content) =>

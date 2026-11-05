@@ -134,7 +134,7 @@ public sealed class RhinoAnalyzer : RasmAnalyzer {
         Compilation compilation = context.Compilation;
         AnalyzerConfigOptions options = context.Options.AnalyzerConfigOptionsProvider.GlobalOptions;
         bool consumer = (options.TryGetValue("build_property.ProjectRole", out string? role) && string.Equals(role, "library", StringComparison.OrdinalIgnoreCase))
-            || (options.TryGetValue("build_property.TargetExt", out string? extension) && string.Equals(extension, ".rhp", StringComparison.OrdinalIgnoreCase));
+            || (options.TryGetValue("build_property.TargetExt", out string? extension) && extension is ".rhp" or ".rhs");
         bool Applies(INamedTypeSymbol owner) => consumer || SymbolEqualityComparer.Default.Equals(owner.ContainingAssembly, compilation.Assembly);
         (SystemSymbols system, RhinoCommonSymbols rhino, RasmRhinoSymbols rasm, LanguageExtSymbols languageExt) = (new(compilation), new(compilation), new(compilation), new(compilation));
         EtoSymbols eto = new(compilation);

@@ -1,5 +1,4 @@
 import CasePaths
-import DeveloperToolsSupport
 import Foundation
 import Processes
 import Results
@@ -22,13 +21,6 @@ nonisolated enum Provider: String, CaseIterable, Codable, Sendable {
         switch self {
             case .claude: "Claude Code"
             case .openAI: "Codex"
-        }
-    }
-
-    @MainActor var symbol: ImageResource {
-        switch self {
-            case .claude: .claude
-            case .openAI: .openAI
         }
     }
 }

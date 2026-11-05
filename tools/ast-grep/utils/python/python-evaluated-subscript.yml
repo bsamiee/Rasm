@@ -8,14 +8,16 @@ utils:
             - matches: {python-member-use: {module: {regex: '^typing$'}, name: {regex: '^TYPE_CHECKING$'}}}
             - kind: parenthesized_expression
               has: {matches: type-checking-flag}
+    subscripted:
+        any:
+            - kind: identifier, attribute
+              matches: value
+            - kind: parenthesized_expression
+              has: {matches: subscripted}
 rule:
-    kind: identifier, attribute
+    kind: subscript, generic_type
     all:
-        - any:
-            - nthChild: 1
-              inside: {kind: generic_type}
-            - inside: {kind: subscript, field: value, stopBy: {not: {kind: parenthesized_expression}}}
-        - matches: value
+        - has: {nthChild: 1, matches: subscripted}
         - not:
             any:
                 - inside: {kind: assignment, field: type, stopBy: end, inside: {kind: function_definition, stopBy: {kind: 'function_definition, class_definition'}}}

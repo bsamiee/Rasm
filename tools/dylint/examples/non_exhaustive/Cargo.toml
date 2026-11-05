@@ -3,7 +3,7 @@
 [package]
 name              = "dylint-non-exhaustive"
 edition.workspace = true
-publish           = false
+publish.workspace = true
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

@@ -4,7 +4,7 @@ language: csharplang
 arguments: [declarator]
 rule:
     kind: identifier
-    pattern: $LOCAL
+    pattern: {context: 'class $LOCAL;', selector: identifier}
     inside:
         stopBy: end
         all:
@@ -17,5 +17,5 @@ rule:
                     has:
                         kind: variable_declarator
                         all:
-                            - has: {field: name, pattern: $LOCAL}
+                            - has: {field: name, pattern: {context: 'class $LOCAL;', selector: identifier}}
                             - matches: declarator

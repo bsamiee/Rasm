@@ -1,3 +1,4 @@
+import DeveloperToolsSupport
 import Foundation
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -5,6 +6,15 @@ import Foundation
 private nonisolated let separator: String = " · "
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
+extension Provider {
+    var symbol: ImageResource {
+        switch self {
+            case .claude: .claude
+            case .openAI: .openAI
+        }
+    }
+}
 
 nonisolated extension FormatStyle where Self == Date.FormatStyle {
     static var monthDay: Self { .dateTime.month(.abbreviated).day() }

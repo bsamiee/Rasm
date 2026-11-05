@@ -1,34 +1,49 @@
 import refa from 'refa';
-import { fail, MAXIMUM, NON_ASCII, regex } from './regex.js';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const UNICODE = { unicode: true, unicodeSets: false, ignoreCase: false };
+const MAXIMUM = 0x10_ff_ff;
+const NON_ASCII = refa.CharSet.fromRange(MAXIMUM, { min: 0x80, max: MAXIMUM });
 const LEXICAL = new Set(['STRING', 'PATTERN', 'TOKEN', 'IMMEDIATE_TOKEN']);
+const HEXADECIMAL = 16;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [AUTOMATA]
 
-const fragment = (rule) =>
-    ({
+const written = ({ value, flags }) => refa.JS.Parser.fromLiteral({ source: value, flags: `u${flags?.includes('i') ? 'i' : ''}` }).parse().expression.alternatives;
+const fragment = (rule, parse) => {
+    const within = (part) => fragment(part, parse);
+    const repeated = (min) => [{ type: 'Concatenation', elements: [{ type: 'Quantifier', min, max: Number.POSITIVE_INFINITY, lazy: false, alternatives: within(rule.content) }] }];
+    const forms = {
         STRING: () => [{ type: 'Concatenation', elements: [...rule.value].map((letter) => ({ type: 'CharacterClass', characters: refa.CharSet.fromCharacter(MAXIMUM, letter.codePointAt(0)) })) }],
-        PATTERN: () => regex(rule.value, { caseless: rule.flags?.includes('i'), unicodePerl: false }).alternatives,
-        SEQ: () => [{ type: 'Concatenation', elements: rule.members.map((member) => ({ type: 'Alternation', alternatives: fragment(member) })) }],
-        CHOICE: () => rule.members.flatMap(fragment),
+        PATTERN: () => parse(rule),
+        SEQ: () => [{ type: 'Concatenation', elements: rule.members.map((member) => ({ type: 'Alternation', alternatives: within(member) })) }],
+        CHOICE: () => rule.members.flatMap(within),
         BLANK: () => [{ type: 'Concatenation', elements: [] }],
-        REPEAT: () => [{ type: 'Concatenation', elements: [{ type: 'Quantifier', min: 0, max: Number.POSITIVE_INFINITY, lazy: false, alternatives: fragment(rule.content) }] }],
-        REPEAT1: () => [{ type: 'Concatenation', elements: [{ type: 'Quantifier', min: 1, max: Number.POSITIVE_INFINITY, lazy: false, alternatives: fragment(rule.content) }] }],
-    })[rule.type]?.() ?? (rule.content ? fragment(rule.content) : fail(`${rule.type} ${rule.name ?? ''} is not lexical`));
-const automaton = (rule) => refa.NFA.fromRegex(fragment(rule), { maxCharacter: MAXIMUM });
+        REPEAT: () => repeated(0),
+        REPEAT1: () => repeated(1),
+    };
+    if (forms[rule.type] === undefined && rule.content === undefined) {
+        throw new SyntaxError(`${rule.type} ${rule.name ?? ''} is not lexical`);
+    }
+    return (forms[rule.type] ?? (() => within(rule.content)))();
+};
+const automaton = (rule, parse = written) => refa.NFA.fromRegex(fragment(rule, parse), { maxCharacter: MAXIMUM });
 const minimal = (fa) => {
     const dfa = refa.DFA.fromFA(fa);
     dfa.minimize();
     return dfa;
 };
-const pattern = (fa) => {
-    const { source, flags } = refa.JS.toLiteral(fa.toRegex(), { flags: UNICODE, fastCharacters: true });
-    return { type: 'PATTERN', value: source, flags };
+const point = (code) => `\\u{${code.toString(HEXADECIMAL)}}`;
+const span = ({ min, max }) => (min === max ? point(min) : `${point(min)}-${point(max)}`);
+const element = ({ type, characters, alternatives, min, max }) => (type === 'CharacterClass' ? `[${characters.ranges.map(span).join('')}]` : `(?:${spelled(alternatives)})${type === 'Quantifier' ? `{${min},${max === Number.POSITIVE_INFINITY ? '' : max}}` : ''}`);
+const spelled = (alternatives) => alternatives.map(({ elements }) => elements.map(element).join('')).join('|');
+const pattern = (fa) => ({ type: 'PATTERN', value: spelled(fa.toRegex().alternatives) });
+const without = (kept, removed) => {
+    const excluded = refa.DFA.fromFA(removed);
+    excluded.complement();
+    return minimal(refa.DFA.fromIntersection(kept, excluded));
 };
 const unicode = (rule) =>
     minimal(
@@ -50,7 +65,6 @@ const any =
     (rule) =>
         predicates.some((matches) => matches(rule));
 const lexical = ({ type }) => LEXICAL.has(type);
-const external = (grammar, name) => grammar.externals.some(symbol(name));
 
 // --- [WALKERS]
 
@@ -66,10 +80,12 @@ const rewrite = (rule, apply) =>
 const reaches = (rule, matches) => matches(rule) || children(rule).some((part) => reaches(part, matches));
 const located = (rule, matches) => (matches(rule) ? rule : children(rule).reduce((found, part) => found ?? located(part, matches), undefined));
 const collected = (rule, matches) => [...(matches(rule) ? [rule] : []), ...children(rule).flatMap((part) => collected(part, matches))];
-const closure = (grammar, name, seen = new Set()) => (seen.has(name) || grammar.rules[name] === undefined ? seen : collected(grammar.rules[name], ({ type }) => type === 'SYMBOL').reduce((held, { name: next }) => closure(grammar, next, held), new Set([...seen, name])));
-const expand = (grammar, open) => (rule) => (rule.type === 'SYMBOL' && rule.name.startsWith('_') && !open.has(rule.name) && !external(grammar, rule.name) ? expand(grammar, new Set([...open, rule.name]))(grammar.rules[rule.name]) : rebuild(rule, children(rule).map(expand(grammar, open))));
-const resolve = (grammar, rule) => expand(grammar, new Set())(rule);
-const extraTokens = (grammar) => grammar.extras.map((extra) => (extra.type === 'SYMBOL' ? grammar.rules[extra.name] : extra)).filter((rule) => rule !== undefined && lexical(rule));
+const closure = (grammar, name) => {
+    const held = new Set(name in grammar.rules ? [name] : []);
+    held.forEach((next) => collected(grammar.rules[next], ({ type }) => type === 'SYMBOL').forEach((part) => part.name in grammar.rules && held.add(part.name)));
+    return held;
+};
+const expand = (grammar, open) => (rule) => (rule.type === 'SYMBOL' && rule.name.startsWith('_') && !open.has(rule.name) && !grammar.externals.some(symbol(rule.name)) ? expand(grammar, new Set([...open, rule.name]))(grammar.rules[rule.name]) : rebuild(rule, children(rule).map(expand(grammar, open))));
 const mandatory = (rule) => {
     const optional = (part) => part.type === 'CHOICE' && part.members.some(({ type }) => type === 'BLANK');
     const found = (part) => optional(part) || children(part).some(found);
@@ -84,6 +100,65 @@ const mandatory = (rule) => {
     );
 };
 
+// --- [STATES]
+
+const expanded = (members) => {
+    const [head, ...rest] = members;
+    if (head === undefined) {
+        return [];
+    }
+    if (head.type === 'SYMBOL' || lexical(head)) {
+        return [members];
+    }
+    return (
+        {
+            BLANK: () => expanded(rest),
+            SEQ: () => expanded([...head.members, ...rest]),
+            CHOICE: () => head.members.flatMap((member) => expanded([member, ...rest])),
+            REPEAT: () => [...expanded(rest), ...expanded([head.content, head, ...rest])],
+            REPEAT1: () => expanded([head.content, { ...head, type: 'REPEAT' }, ...rest]),
+        }[head.type] ?? (() => expanded([head.content, ...rest]))
+    )();
+};
+const headOf = ([head]) => head.name ?? JSON.stringify(head);
+const states = (grammar, start, closed) => {
+    const productions = new Map();
+    const closures = new Map();
+    const successors = new Map();
+    const partIds = new Map();
+    const seen = new Set();
+    const partId = (part) => partIds.getOrInsertComputed(part, () => partIds.size);
+    const productionsOf = (name) => productions.getOrInsertComputed(name, () => Map.groupBy(closed(name) ? [] : expanded([grammar.rules[name]]), headOf));
+    const closureOf = (name) =>
+        closures.getOrInsertComputed(name, () => {
+            const held = new Set();
+            const visit = (next) => {
+                if (!held.has(next)) {
+                    held.add(next);
+                    productionsOf(next).forEach((tails, head) => tails[0][0].type === 'SYMBOL' && visit(head));
+                }
+            };
+            visit(name);
+            return held;
+        });
+    const successorsOf = (tail) => successors.getOrInsertComputed(tail, () => expanded(tail.slice(1)));
+    const fresh = (kernel) => {
+        const key = [...new Set(kernel.map((tail) => tail.map(partId).join()))].toSorted((left, right) => (left < right ? -1 : 1)).join(';');
+        return kernel.length > 0 && !seen.has(key) && seen.add(key);
+    };
+    const moved = (kernel) => {
+        const open = new Set(kernel.filter(([head]) => head.type === 'SYMBOL').flatMap(([head]) => [...closureOf(head.name)]));
+        const moves = Map.groupBy(kernel, headOf);
+        open.forEach((name) => productionsOf(name).forEach((tails, head) => moves.set(head, [...(moves.get(head) ?? []), ...tails])));
+        return { open, next: [...moves.values()].map((tails) => tails.flatMap(successorsOf)).filter(fresh) };
+    };
+    const explored = (frontier) => {
+        const steps = frontier.map(moved);
+        return frontier.length === 0 ? [] : [...steps.map(({ open }) => open), ...explored(steps.flatMap(({ next }) => next))];
+    };
+    return explored([expanded([grammar.rules[start]])]);
+};
+
 // --- [CLASSES]
 
 const reached = (dfa, nodes) => refa.CharSet.empty(MAXIMUM).union([...nodes].flatMap((node) => [...node.out].filter(([, target]) => dfa.finals.has(target)).map(([range]) => range)));
@@ -93,37 +168,50 @@ const tokens = (rule) => {
     }
     return rule.type === 'SEQ' ? [] : children(rule).flatMap(tokens);
 };
-const lexicalOf = (grammar, name) => tokens(resolve(grammar, grammar.rules[name]));
-const heldByName = (grammar) => {
-    const held = Object.values(grammar.rules)
-        .flatMap((rule) => collected(rule, named('name')))
-        .flatMap(({ content }) => collected(content, ({ type }) => type === 'SYMBOL'))
-        .filter(({ name }) => name in grammar.rules && lexicalOf(grammar, name).length > 0);
-    return [...Map.groupBy(held, ({ name }) => name)].reduce(([chosen, most], [name, rows]) => (rows.length > most ? [name, rows.length] : [chosen, most]), [undefined, 0])[0];
-};
-const spacing = (rule) => {
-    const dfa = minimal(automaton(rule));
+const lexicalOf = (grammar, name) => tokens(expand(grammar, new Set())(grammar.rules[name]));
+const symbols = (rule) => collected(rule, ({ type }) => type === 'SYMBOL');
+const mostHeld = (grammar, held, admits) => [...Map.groupBy(held.filter(({ name }) => name in grammar.rules && admits(name)), ({ name }) => name)].reduce(([chosen, most], [name, rows]) => (rows.length > most ? [name, rows.length] : [chosen, most]), [undefined, 0])[0];
+const spacing = (parse) => (rule) => {
+    const dfa = minimal(automaton(rule, parse));
     const opening = reached(dfa, [dfa.initial]);
     return [...dfa.nodes()].every((node) => [...node.out].every(([range]) => opening.isSupersetOf(range))) ? opening : refa.CharSet.empty(MAXIMUM);
 };
-const classes = (grammar) => {
-    const name = grammar.word ?? heldByName(grammar);
-    const identifier = name === undefined ? undefined : minimal(automaton({ type: 'CHOICE', members: lexicalOf(grammar, name) }));
-    return { ...(identifier && { identifier: reached(identifier, identifier.finals) }), whitespace: refa.CharSet.empty(MAXIMUM).union(...extraTokens(grammar).map(spacing)) };
+const lexemes = (grammar) => {
+    const rules = Object.values(grammar.rules);
+    const name = grammar.word ?? mostHeld(grammar, rules.flatMap((rule) => collected(rule, named('name'))).flatMap(({ content }) => symbols(content)), (held) => lexicalOf(grammar, held).length > 0);
+    const stated = grammar.extras.map((extra) => (extra.type === 'SYMBOL' ? grammar.rules[extra.name] : extra)).filter((rule) => rule !== undefined && lexical(rule));
+    const spaced = stated.length > 0 ? undefined : mostHeld(grammar, rules.flatMap(symbols), (held) => lexical(grammar.rules[held]));
+    return {
+        identifier: name === undefined ? [] : lexicalOf(grammar, name),
+        whitespace: spaced === undefined ? stated : [grammar.rules[spaced]],
+    };
+};
+const classes = ({ identifier, whitespace }, parse) => {
+    const name = minimal(automaton({ type: 'CHOICE', members: identifier }, parse));
+    return {
+        ...(identifier.length > 0 && { identifier: reached(name, name.finals), 'identifier start': reached(name, [name.initial]) }),
+        whitespace: refa.CharSet.empty(MAXIMUM).union(...whitespace.map(spacing(parse))),
+    };
+};
+const outermost = (rule) => (lexical(rule) ? [rule] : children(rule).flatMap(outermost));
+const folded = (characters) => [...new Set(characters.ranges.flatMap(({ min, max }) => Array.from({ length: max - min + 1 }, (_, at) => String.fromCodePoint(min + at).toLowerCase())))];
+const spellings = (grammar) => {
+    const name = minimal(automaton({ type: 'CHOICE', members: lexemes(grammar).identifier }));
+    const leaves = [...new Map(Object.values(grammar.rules).flatMap(outermost).map((leaf) => [JSON.stringify(leaf), leaf])).values()];
+    const finite = leaves.map((leaf) => minimal(automaton(leaf))).filter(({ isFinite }) => isFinite);
+    const words = finite.flatMap((fa) => [...fa.wordSets()].flatMap((set) => set.reduce((held, characters) => held.flatMap((prefix) => folded(characters).map((letter) => prefix + letter)), [''])));
+    return [...new Set(words)].filter((word) => word.length > 0 && name.test([...word].map((letter) => letter.codePointAt(0)))).toSorted();
 };
 
 // --- [EDITS]
 
 const edit = (matches, apply) => Object.assign(($, original) => apply($)(original), { matches });
 const normalized = ($, extra) => seq(...extra.map((part) => (typeof part === 'function' ? part($) : part))).members;
-const splice = (matches, place) => (rule) =>
-    rule.type === 'SEQ'
-        ? { ...rule, members: rule.members.flatMap((part) => (matches(part) ? place(part) : [part])) }
-        : rebuild(
-              rule,
-              children(rule).map((part) => (matches(part) ? seq(...place(part)) : part)),
-          );
-const placed = (matches, place) => (rule) => (matches(rule) ? seq(...place(rule)) : rewrite(rule, splice(matches, place)));
+const placed = (matches, place) => {
+    const held = (part) => (matches(part) ? seq(...place(part)) : part);
+    const inserted = (part) => (matches(part) ? place(part) : [part]);
+    return (rule) => (matches(rule) ? held(rule) : rewrite(rule, (part) => (part.type === 'SEQ' ? { ...part, members: part.members.flatMap(inserted) } : rebuild(part, children(part).map(held)))));
+};
 const after = (matches, ...extra) => edit(matches, ($) => placed(matches, (part) => [part, ...normalized($, extra)]));
 const before = (matches, ...extra) => edit(matches, ($) => placed(matches, (part) => [...normalized($, extra), part]));
 const widened = (rule, extra) => (rule.type === 'FIELD' || rule.type.startsWith('PREC') ? { ...rule, content: widened(rule.content, extra) } : choice(rule, ...extra));
@@ -161,4 +249,4 @@ const extend = (base, { transforms = [], rules = {}, ...options } = {}) =>
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { after, any, automaton, before, chain, children, choiceOf, classes, closure, collected, drop, extend, external, extraTokens, lexical, located, mandatory, minimal, named, optionalOf, pattern, reaches, rebuild, replace, resolve, rewrite, string, symbol, unicode, widen };
+export { after, any, automaton, before, chain, children, choiceOf, classes, closure, collected, drop, extend, lexemes, lexical, located, MAXIMUM, mandatory, NON_ASCII, named, optionalOf, pattern, reaches, rebuild, replace, rewrite, spellings, states, string, symbol, unicode, widen, without };

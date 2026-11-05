@@ -75,4 +75,4 @@ rule:
                 - has: {stopBy: end, matches: rollback}
                 - inside: {stopBy: {kind: 'if_expression, match_expression, block'}, kind: 'if_expression, match_expression', has: {stopBy: end, matches: rollback}}
 message: '`$SITE` selects `Ok` or `Err` by testing `$ERRORS` from a partition for emptiness'
-note: 'Collect into `validated::Validated` and call `ok()`, keeping partitions whose failure branches consume successes'
+note: 'Collect into `validated::Validated` and call `ok()`, keep partitions with failure branches that consume successes'

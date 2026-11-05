@@ -8,16 +8,16 @@ rule:
             - has: {kind: modifier, regex: '^static$'}
             - not: {has: {kind: modifier, regex: '^(readonly|const)$'}}
             - not: {matches: csharp-visible-member}
-            - has: {kind: variable_declaration, has: {kind: variable_declarator, has: {field: name, pattern: $NAME}}}
+            - has: {kind: variable_declaration, has: {kind: variable_declarator, has: {field: name, pattern: {context: 'class $NAME;', selector: identifier}}}}
         - kind: event_field_declaration
           all:
             - has: {kind: modifier, regex: '^static$'}
-            - has: {kind: variable_declaration, has: {kind: variable_declarator, has: {field: name, pattern: $NAME}}}
+            - has: {kind: variable_declaration, has: {kind: variable_declarator, has: {field: name, pattern: {context: 'class $NAME;', selector: identifier}}}}
         - kind: property_declaration
           all:
             - has: {kind: modifier, regex: '^static$'}
             - not: {has: {kind: modifier, regex: '^abstract$'}}
-            - has: {field: name, pattern: $NAME}
+            - has: {field: name, pattern: {context: 'class $NAME;', selector: identifier}}
             - has: {kind: accessor_list, has: {kind: accessor_declaration, has: {field: name, regex: '^set$'}}}
 message: '`$NAME` is mutable static state every caller in the process shares'
 note: 'Declare `static readonly` immutable values, return next state from each operation, or share an `Atom` its owner creates once'

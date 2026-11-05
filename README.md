@@ -35,8 +35,9 @@ Rasm/
 │   └── watch-apps/           # CLI for agents observing and driving desktop apps in the background
 ├── plugins/                  # Agent harness marketplace
 ├── mise.toml                 # Tool binaries, process environment, and local daemons
+├── mise.ci.toml              # Tool rows no CI job calls
 ├── nx.json                   # Task graph
-├── package.json              # Catalog rows except tool plugins, Nx executor manifest
+├── package.json              # Default catalog rows, Nx executor manifest
 ├── pnpm-workspace.yaml       # TypeScript workspace globs and dependency catalog
 ├── tsconfig.base.json        # Compiler options every TypeScript project extends
 ├── tsconfig.json             # Root TypeScript project over files outside every package
@@ -50,6 +51,7 @@ Rasm/
 ├── Directory.Build.props     # .NET build defaults and project classification by tree position
 ├── Directory.Build.targets   # .NET items, host package references, and build targets
 ├── Directory.Build.rsp       # MSBuild switches every command-line build under the root reads
+├── Directory.Solution.props  # Solution restore settings
 ├── NuGet.config              # NuGet source
 ├── Package.swift             # Swift modules, executables, and remote package catalog
 ├── Xcode.xcconfig            # Build settings every Xcode project inherits
@@ -94,29 +96,30 @@ flowchart LR
 
 Targets run tools with their arguments on the command, a pipeline or command list joins tools for work no single tool does.
 
-Before starting Claude Code or Codex, run `mise install`, `pnpm install`, and `nx run rasm:grammar` to build every grammar library direct `ast-grep` commands load and the shell hook's configuration.
+Before starting Claude Code or Codex, run `mise install`, `pnpm install`, and `nx run grammars:grammar` to build every grammar library direct `ast-grep` commands load.
 
 - `nx run rasm:check` runs every root checker and type checker, `nx run rasm:lint:<tool>` runs one checker
 - `nx run <project>:check` runs project checks and tests `rasm:check` leaves to each project
 - `nx run <project>:<target> -- <arguments>` appends to the command, paths in place of a root tool's default file set, switches to `dotnet build`
 - `nx:run-commands` targets use `--args='<shell fragment>'` for literal shell characters; the value replaces configured argument defaults
-- `nx run rasm:format` runs `dotnet format` over the solution and file-based apps, then every other writer
+- `nx run rasm:format` runs `nx sync`, `dotnet format` over the solution and file-based apps, then every other writer
 - `nx run rasm:format:files -- <paths>` runs non-.NET writers over named Git files
 - `nx run <project>:test:integration` runs cases `test` leaves out: Vitest and Rust `#[ignore]` after `rasm:docker`, Swift `<Module>IntegrationTests`
 - `nx run <project>:install` builds or packs a product and installs it into its host
 - `nx run rasm:release` on a clean tree tags and creates a GitHub release for each product Conventional Commits bump, then runs its `publish`
 - `nx run <project>:publish --tag=<tag>` pushes a released product to its host's channel
-- With `assets/` checked out, `nx run rasm:fonts:<build|check|publish>` runs `foundry` over `assets/fonts/rasm.toml` into `.artifacts/fonts/<set>`
+- With `assets/` checked out, `nx run rasm:fonts:<build|check>` runs `foundry` over `assets/fonts/rasm.toml` into `.artifacts/fonts/<set>`, a check failing on each finding
+- `nx run rasm:fonts:publish --destination=<folder> [<name>]` copies faces passing that check into a folder
 - `nx run rasm:infra:<preview|up|refresh>` runs a Pulumi operation on repository resources
-- `nx run <project>:hosting -- <cloudflare|docker> <preview|up|refresh|destroy> [--disposable]` runs a Pulumi operation on a web app's stack
-- `nx run rasm:upgrade` moves catalogs, locks, action tags, and installed service binaries to newest releases
+- `nx run <project>:hosting -- <cloudflare|docker> <preview|up|refresh|destroy> [--disposable] [--tag <tag>]` builds a web app and runs a Pulumi operation on its stack
+- `nx run rasm:upgrade` moves tool binaries, catalogs, locks, and action tags to newest releases
 - `nx run rasm:clean` removes declared outputs and tool residue, prunes caches and unused Pulumi plugins, and recovers stale macOS processes
-- `nx run rasm:rewrite:tree -- --filter='^<id>$' <path>` applies one rule's fix across a path, `rasm:outline -- <path>` lists its declarations
-- Native Python consumers start under `pixi run --locked -e hdf5 pixi run --locked -e default`
+- `nx run rasm:rewrite:tree -- --filter='^<id>$' <path>` applies one rule's fix across a path, `ast-grep outline <path>` lists its declarations
+- Sdist builds start under `pixi run --locked -e hdf5 pixi run --locked -e default`, native runtime under `pixi run --locked -e default python`
 - Projects with `.storybook/` run each story as a Chromium `test` case that fails on an axe violation
 - `nx run <project>:e2e` gives each Playwright worker its own app instance with empty stores
 - Xcode apps holding a UXP script build in a folder reference build that script first
-- Caches and outputs sit under root `.cache/` and `.artifacts/`, each tool moved by one setting every run reads, or its guidance file states why not
+- Caches sit under root `.cache/` and a project's generated output under `.artifacts/`, each tool moved by one setting every run reads, or its guidance file states why not
 - Libraries name no log location: processes stream to stderr or stdout for pitchfork, a container, or the shell (Rust binaries take `LOG_DIRECTORY`), plug-ins write where their host states, and Swift writes to the unified log
 - Tool logs sit flat in `.artifacts/logs/` as one `<producer>.log`, a tool with one partition per run or session holds a folder there, daemon and supervisor output sit in pitchfork's log store
 - Harness runs write `.artifacts/logs/harnesses/host=<host>/run=<id>/records.jsonl` and hang samples, `harness <host> log` prints the current run with its linked reports inline
@@ -139,7 +142,7 @@ Products reach a person through separate levels:
 |  [05]   | .NET tool package                | `mise.toml` `[tools]` `dotnet:<id>` row at `latest`, its command called by name                      |
 |  [06]   | Task graph                       | `nx.json`, inference in `tools/nx`                                                                   |
 |  [07]   | Checker configuration            | Tool's own file, `pyproject.toml` `[tool.*]` for every Python tool                                   |
-|  [08]   | Secret                           | Doppler `agent-runtime/dev`, named in the consuming target's `doppler run` prefix                    |
+|  [08]   | Secret                           | `mise.toml` `DOPPLER_PROJECT` and `DOPPLER_CONFIG`, named in the consuming target's `doppler run` prefix |
 |  [09]   | Resource or repository setting   | Typed row of an `infra/` program, `rasm:infra:up` for the repository, `<project>:hosting` per app    |
 |  [10]   | Tool with no consumer            | Machine setup                                                                                        |
 |  [11]   | Ghidra install                   | Official distribution through mise                                                                   |

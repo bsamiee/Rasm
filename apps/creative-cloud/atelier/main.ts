@@ -1,3 +1,4 @@
+import { isSea } from 'node:sea';
 import { layerDigest } from '@effect/platform-node/NodeCrypto';
 import { runMain } from '@effect/platform-node/NodeRuntime';
 import { layer } from '@effect/platform-node/NodeServices';
@@ -6,6 +7,7 @@ import { serve } from '@rasm/mcp/node';
 import { Config, Duration, Effect, Layer } from 'effect';
 import { ChildProcess } from 'effect/process';
 import { Adobe } from '#/adobe';
+import { executable } from '#/features/delivery';
 import manifest from '#/package.json' with { type: 'json' };
 import { registerAdobeTools } from '#/register-adobe-tools';
 
@@ -13,7 +15,7 @@ import { registerAdobeTools } from '#/register-adobe-tools';
 
 const automation = Layer.unwrap(
     Effect.gen(function* () {
-        return Automation.layer(ChildProcess.make(yield* Config.String('ATELIER_PATH'), { stderr: 'inherit' }));
+        return Automation.layer(ChildProcess.make(yield* isSea() ? executable : Config.String('ATELIER_PATH'), { stderr: 'inherit' }));
     }),
 );
 

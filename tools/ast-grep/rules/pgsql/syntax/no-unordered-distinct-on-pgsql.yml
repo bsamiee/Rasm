@@ -11,4 +11,4 @@ rule:
 transform:
     HEAD: {replace: {source: $SELECT, replace: '(?s)\n.*$', by: ''}}
 message: '`$HEAD` keeps an arbitrary row from each group'
-note: 'Order by the `distinct on` expressions, then by the columns that decide which row each group keeps'
+note: 'Order by `distinct on` expressions, then by the columns that decide which row each group keeps'

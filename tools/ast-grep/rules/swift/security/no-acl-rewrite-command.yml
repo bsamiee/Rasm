@@ -6,7 +6,7 @@ rule:
         - matches: {swift-security-arguments: {subcommand: {regex: '^"(add-(generic|internet)-password|import)"$', pattern: $COMMAND}}}
           has: {stopBy: end, kind: line_string_literal, regex: '^"-(T|A)"$'}
         - matches: {swift-security-arguments: {subcommand: {regex: '^"dump-keychain"$', pattern: $COMMAND}}}
-          has: {stopBy: end, kind: line_string_literal, regex: '^"-[adr]*i[adr]*"$', follows: {stopBy: end, regex: '^"dump-keychain"$'}}
+          has: {stopBy: end, kind: line_string_literal, regex: '^"-[adr]*i[adr]*"$', follows: {stopBy: end, kind: line_string_literal, regex: '^"dump-keychain"$'}}
         - matches: {swift-security-arguments: {subcommand: {regex: '^"set-(generic-password|internet-password|key)-partition-list"$', pattern: $COMMAND}}}
         - kind: line_string_literal, multi_line_string_literal, raw_string_literal
           pattern: $COMMAND

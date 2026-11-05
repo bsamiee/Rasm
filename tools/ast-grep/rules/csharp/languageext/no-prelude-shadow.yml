@@ -3,11 +3,12 @@ language: csharplang
 severity: error
 ignores: ['tools/roslyn/**']
 rule:
-    pattern: $NAME
     regex: '^(unit|unitIO|unitEff|None|identity)$'
     any:
         - kind: implicit_parameter
+          pattern: {context: 'var f = $NAME => 0;', selector: implicit_parameter}
         - kind: identifier
+          pattern: {context: 'class $NAME;', selector: identifier}
           any:
             - inside: {kind: 'variable_declarator, property_declaration, parameter, from_clause, declaration_pattern, declaration_expression, local_function_statement', field: name}
             - inside: {kind: join_into_clause}

@@ -52,7 +52,7 @@ class Automation extends Context.Service<Automation>()('@rasm/applications/node/
 }) {
     static readonly layer = Effect.fnUntraced(function* (command: ChildProcess.Command) {
         const [requests, child] = [new TransformStream<Uint8Array, Uint8Array>(), yield* command];
-        yield* Effect.forkScoped(Stream.run(Stream.orDie(Stream.fromReadableStream({ evaluate: Function.constant(requests.readable), onError: identity })), child.stdin));
+        yield* Stream.fromReadableStream({ evaluate: Function.constant(requests.readable), onError: identity }).pipe(Stream.orDie, Stream.run(child.stdin), Effect.forkScoped);
         return Layer.effect(Automation, Automation.make(child)).pipe(
             Layer.provideMerge(RpcClient.layerProtocolSocket({ pingInterval: Duration.infinity, retryPolicy: Schedule.recurs(0) })),
             Layer.provide([Layer.effect(Socket.Socket)(Socket.fromTransformStream(Effect.succeed({ readable: Stream.toReadableStream(child.stdout), writable: requests.writable }))), RpcSerialization.layerNdJsonRpc()]),

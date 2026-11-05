@@ -2,127 +2,12 @@
 language: swiftlang
 severity: error
 utils:
-    bound-pattern:
-        kind: 'pattern, switch_pattern'
-        any:
-            - has: {field: bound_identifier, pattern: $RENDER}
-            - has: {kind: pattern, matches: bound-pattern}
-            - all:
-                - not: {has: {kind: 'pattern, user_type'}}
-                - has: {kind: simple_identifier, pattern: $RENDER}
-                - any:
-                    - has: {kind: value_binding_pattern}
-                    - inside:
-                        stopBy: {not: {kind: 'pattern, switch_pattern'}}
-                        kind: 'pattern, switch_pattern'
-                        has: {kind: value_binding_pattern}
-                    - inside:
-                        stopBy: {not: {kind: pattern}}
-                        kind: 'property_declaration, for_statement'
-                    - inside:
-                        stopBy: {not: {kind: 'pattern, switch_pattern'}}
-                        kind: pattern
-                        follows: {kind: value_binding_pattern, stopBy: {regex: '^case$'}}
-                        inside: {kind: 'if_statement, while_statement, guard_statement'}
-                    - inside: {kind: 'if_statement, while_statement, guard_statement'}
-                      follows: {kind: value_binding_pattern, stopBy: {regex: '^case$'}}
-    name-binding:
-        any:
-            - kind: property_declaration
-              has: {kind: pattern, matches: bound-pattern}
-            - kind: 'parameter, lambda_parameter'
-              has: {field: name, kind: simple_identifier, pattern: $RENDER}
-            - kind: capture_list_item
-              all:
-                - has: {field: name, kind: simple_identifier, pattern: $RENDER}
-                - has: {field: value, pattern: $_}
-                - not: {has: {field: value, pattern: $RENDER}}
-            - kind: for_statement
-              has: {field: item, matches: bound-pattern}
-            - kind: 'if_statement, while_statement, guard_statement'
-              any:
-                - has: {kind: simple_identifier, pattern: $RENDER, follows: {stopBy: {not: {kind: 'comment, multiline_comment'}}, kind: value_binding_pattern}}
-                - has: {kind: pattern, matches: bound-pattern}
-            - kind: catch_block
-              has: {kind: pattern, matches: bound-pattern}
-            - kind: switch_entry
-              has: {kind: switch_pattern, matches: bound-pattern}
-    shadowing-body:
-        kind: statements
-        any:
-            - inside:
-                kind: function_body
-                inside: {kind: 'function_declaration, init_declaration, subscript_declaration', has: {kind: parameter, matches: name-binding}}
-            - inside:
-                kind: lambda_literal
-                any:
-                    - has: {field: type, has: {stopBy: end, kind: lambda_parameter, matches: name-binding}}
-                    - has: {field: captures, has: {kind: capture_list_item, matches: name-binding}}
-            - inside: {kind: 'for_statement, while_statement, catch_block, switch_entry', matches: name-binding}
-            - nthChild: {position: 1, ofRule: {kind: statements}}
-              inside: {kind: if_statement, matches: name-binding}
-    shadowing-context:
-        any:
-            - kind: property_declaration
-              has: {field: computed_value, kind: computed_property}
-              matches: name-binding
-            - kind: where_clause
-              inside: {kind: 'for_statement, catch_block', matches: name-binding}
-            - not: {kind: 'switch_pattern, statements'}
-              follows: {stopBy: end, kind: where_keyword}
-              inside: {kind: switch_entry, matches: name-binding}
-            - all:
-                - not: {any: [{kind: 'statements, else'}, {follows: {kind: else, stopBy: {not: {kind: 'comment, multiline_comment'}}}}]}
-                - inside: {kind: 'if_statement, while_statement, guard_statement'}
-                - follows:
-                    stopBy: end
-                    regex: '^,$'
-                    follows:
-                        stopBy: end
-                        any:
-                            - kind: simple_identifier
-                              pattern: $RENDER
-                              follows: {kind: value_binding_pattern, stopBy: {not: {kind: 'comment, multiline_comment'}}}
-                            - kind: pattern
-                              matches: bound-pattern
-    shadowed-alias:
-        kind: simple_identifier
-        any:
-            - inside:
-                stopBy: end
-                follows: {stopBy: end, kind: property_declaration, matches: name-binding}
-                inside: {stopBy: end, pattern: $ALIAS_OWNER}
-            - inside:
-                stopBy: end
-                matches: shadowing-body
-                inside: {stopBy: end, pattern: $ALIAS_OWNER}
-            - inside:
-                stopBy: end
-                follows: {stopBy: end, kind: guard_statement, matches: name-binding}
-                any:
-                    - pattern: $ALIAS_OWNER
-                    - inside: {stopBy: end, pattern: $ALIAS_OWNER}
-            - inside:
-                stopBy: end
-                matches: shadowing-context
-                any:
-                    - pattern: $ALIAS_OWNER
-                    - inside: {stopBy: end, pattern: $ALIAS_OWNER}
-            - all:
-                - regex: '^error$'
-                - inside:
-                    stopBy: end
-                    kind: catch_block
-                    not: {has: {kind: pattern}}
-                    any:
-                        - pattern: $ALIAS_OWNER
-                        - inside: {stopBy: end, pattern: $ALIAS_OWNER}
     rendering:
         any:
             - matches: swift-error-text
             - kind: call_expression
               all:
-                - has: {nthChild: 1, kind: 'navigation_expression, identifier', regex: '^Swift(\.|::)String(\.init)?$'}
+                - has: {nthChild: 1, regex: '^(Swift(\.|::))?String(\.init)?$'}
                 - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: name, regex: '^(describing|reflecting)$'}}}}
 rule:
     matches: os-log-interpolation
@@ -133,21 +18,19 @@ rule:
             - matches: rendering
             - kind: 'line_string_literal, multi_line_string_literal, raw_string_literal'
             - kind: simple_identifier
+              pattern: $NAME
               all:
                 - inside:
-                    stopBy: end
-                    pattern: $ALIAS_OWNER
+                    stopBy: {follows: {stopBy: end, kind: property_declaration, has: {kind: pattern, has: {field: bound_identifier, pattern: $NAME}}}}
                     follows:
                         stopBy: end
                         kind: property_declaration
-                        all:
-                            - has: {kind: value_binding_pattern, regex: '^let$'}
-                            - has:
-                                kind: pattern
-                                has: {field: bound_identifier, pattern: $RENDER}
-                                precedes:
-                                    stopBy: {not: {any: [{kind: 'comment, multiline_comment, type_annotation'}, {regex: '^=$'}]}}
-                                    matches: rendering
-                - not: {matches: shadowed-alias}
-message: '`$RENDER` enters a log message as text rendered from a value'
-note: 'Interpolate the `Error`, `NSObject`, metatype, or `CustomStringConvertible` value itself with `privacy:`, and write a literal into the message'
+                        has:
+                            kind: pattern
+                            has: {field: bound_identifier, pattern: $NAME}
+                            precedes:
+                                stopBy: {not: {any: [{kind: 'comment, multiline_comment, type_annotation'}, {regex: '^=$'}]}}
+                                matches: rendering
+                - matches: swift-let-alias
+message: '`$RENDER` enters a log message as an interpolated literal or as text rendered from a value'
+note: 'Interpolate `Error`, `NSObject`, metatype, or `CustomStringConvertible` value itself with `privacy:`, and write a literal into the message'

@@ -17,6 +17,7 @@ utils:
 rule:
     kind: invocation_expression
     all:
+        - has: {field: arguments, has: {kind: argument, has: {matches: unset}}}
         - has: {field: function, matches: member}
         - any:
             - all:

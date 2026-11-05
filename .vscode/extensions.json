@@ -10,6 +10,7 @@
         "rust-lang.rust-analyzer",
         "swiftlang.swift-vscode",
         "redhat.java",
+        "ms-vscode.cmake-tools",
         "tombi-toml.tombi",
         "redhat.vscode-yaml",
         "mads-hartmann.bash-ide-vscode",

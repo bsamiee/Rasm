@@ -1,3 +1,7 @@
+import { fileURLToPath } from 'node:url';
+import { ExtensionManifest } from '@rasm/cep';
+import { traced } from '@rasm/cep/lower';
+import { script } from '@rasm/cep/vite';
 import { Array, Effect, FileSystem, Match, Option, Path, type PlatformError, Record, Result, String } from 'effect';
 import type { Call } from '#/cases';
 import { HarnessError } from '#/harness-error';
@@ -11,6 +15,7 @@ interface Mapped {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
+const ENGINE = 'harness';
 const JSXBIN = /(?<quote>["'])(?<literal>@JSXBIN@(?:\\.|(?!\k<quote>)[^\\])*)\k<quote>/su;
 const BYTE_ORDER_MARK = /^\u{FEFF}/u;
 const CONTINUATION = /\\\r?\n/gu;
@@ -21,9 +26,9 @@ const DIRECTIVE = /^[ \t]*#(?:target|targetengine|strict|script)\b/u;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const prepared = Effect.fn('prepared')(function* (script: string, lines: Option.Option<NonNullable<typeof Call.Type.lines>>) {
+const prepared = Effect.fn('prepared')(function* (origin: string, lines: Option.Option<NonNullable<typeof Call.Type.lines>>) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-    const text = (yield* fs.readFileString(script)).replace(BYTE_ORDER_MARK, '');
+    const text = (yield* fs.readFileString(origin)).replace(BYTE_ORDER_MARK, '');
     const binary = Option.map(Option.fromNullishOr(JSXBIN.exec(text)?.groups?.literal), (literal) => literal.replace(CONTINUATION, '').replace(ESCAPE, '$<character>'));
     const located = (file: string, searched: readonly string[], name: string, chain: readonly string[]) =>
         Effect.findFirst(
@@ -53,33 +58,34 @@ const prepared = Effect.fn('prepared')(function* (script: string, lines: Option.
             });
         return Effect.map(Effect.forEach(String.linesIterator(body), lined), Array.flatten);
     };
-    const rows = yield* Option.match(binary, { onNone: () => expanded(script, text, [script]), onSome: (literal) => Effect.succeed([[literal, { file: script, line: 1 }] as const]) });
+    const rows = yield* Option.match(binary, { onNone: () => expanded(origin, text, [origin]), onSome: (literal) => Effect.succeed([[literal, { file: origin, line: 1 }] as const]) });
     const kept = Option.match(lines, { onNone: () => rows, onSome: (ranges) => ranges.flatMap(([from, to]) => rows.slice(from - 1, to)) });
-    return { source: { script, code: kept.map(([line]) => line).join('\n') }, map: kept.map(([, at]) => at), binary: Option.isSome(binary) };
+    return { source: { script: origin, code: kept.map(([line]) => line).join('\n') }, map: kept.map(([, at]) => at), binary: Option.isSome(binary) };
 });
 const engineOf =
     <E extends string>(engines: { readonly [K in E]: { readonly extensions: readonly string[] } }, fallback: NoInfer<E>) =>
     (scripts: readonly string[]): Result.Result<E, HarnessError> => {
-        const held = (script: string) =>
+        const held = (file: string) =>
             Option.map(
-                Record.findFirst(engines, ({ extensions }) => extensions.some((extension) => script.endsWith(`.${extension}`))),
+                Record.findFirst(engines, ({ extensions }) => extensions.some((extension) => file.endsWith(`.${extension}`))),
                 ([engine]) => engine,
             );
         const unavailable = HarnessError.unavailable(scripts.join(', '));
-        return Match.value({ unknown: scripts.filter((script) => Option.isNone(held(script))), found: Array.dedupe(Array.getSomes(scripts.map(held))) }).pipe(
+        return Match.value({ unknown: scripts.filter((file) => Option.isNone(held(file))), found: Array.dedupe(Array.getSomes(scripts.map(held))) }).pipe(
             Match.when({ unknown: (listed) => listed.length > 0 }, ({ unknown }) => Result.fail(unavailable(`${unknown.join(', ')} holds no extension of ${Record.collect(engines, (engine, { extensions }) => `${engine} ${extensions.join(' ')}`).join(', ')}`))),
             Match.when({ found: (listed) => listed.length > 1 }, ({ found }) => Result.fail(unavailable(`cases mix engines ${found.join(', ')}`))),
             Match.orElse(({ found }) => Result.succeed(Option.getOrElse(Array.head(found), () => fallback))),
         );
     };
+const built = Effect.fn('built')(function* (engine: URL, target: Parameters<typeof script>[1]['target']) {
+    const { code, map } = yield* Effect.mapError(script(fileURLToPath(engine), { name: ENGINE, target }), HarnessError.refused(engine.href));
+    return { code, located: yield* traced(map) };
+});
 const assembled = Effect.fn('assembled')(function* (engine: URL) {
-    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-    const paths = yield* Effect.forEach([new URL('extendscript.jsxinc', import.meta.url), engine], (url) => path.fromFileUrl(url));
-    const texts = yield* Effect.forEach(paths, (file) => fs.readFileString(file));
-    const numbered = (file: string, text: string) => text.split('\n').map((_, index): Mapped => ({ file, line: index + 1 }));
-    return { code: texts.join('\n'), map: Array.zipWith(paths, texts, numbered).flat() };
+    const { code, located } = yield* built(engine, ExtensionManifest.target);
+    return { code: `${code}\n${ENGINE}.run(arguments[0]);`, located };
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { assembled, engineOf, type Mapped, prepared };
+export { assembled, built, ENGINE, engineOf, type Mapped, prepared };

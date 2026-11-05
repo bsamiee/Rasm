@@ -1,4 +1,4 @@
-import { Adjust, Typeset } from '@rasm/indesign/typesetting';
+import { Adjust, Typeset } from '@rasm/indesign';
 import { InDesignModel, InDesignSettings, inDesignHandlers, type linkInDesign } from '@rasm/indesign/uxp';
 import { Settings } from '@rasm/typography';
 import { Array, Cause, Effect, Function, flow, MutableRef, Number, Option, Record, Schema, Struct } from 'effect';
@@ -93,7 +93,7 @@ const typesetting = (scripted: Effect.Success<typeof linkInDesign>['scripted']) 
         const sets = Array.map(InDesignSettings.stylisticSets, (tag) => [tag, widget('sp-checkbox', { textContent: tag })] as const);
         const buttons = Record.collect({ '←': { axis: 'horizontal', sign: -1 }, '→': { axis: 'horizontal', sign: 1 }, '↑': { axis: 'vertical', sign: 1 }, '↓': { axis: 'vertical', sign: -1 } } as const, (textContent, arrow) => [arrow, widget('sp-action-button', { quiet: true, textContent })] as const);
         const groups: Record.ReadonlyRecord<string, readonly HTMLElement[]> = { Nudge: [mode.element, ...Array.map(buttons, ([, button]) => button)], Kashida: [elongation.element, width.element], 'Stylistic sets': Array.map(sets, ([, box]) => box) };
-        const inputs = Array.flatten(Record.values(groups));
+        const inputs = Array.flatten(Object.values(groups));
         const withheld = (held: readonly HTMLElement[]) => inputs.forEach((input) => (held.includes(input) ? input.setAttribute('disabled', '') : input.removeAttribute('disabled')));
         const checked =
             (features: Settings['features']) =>

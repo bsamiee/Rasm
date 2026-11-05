@@ -19,7 +19,7 @@ def exited(result: Outcome[tuple[object, ...]] | None, /) -> int:
         case None:
             return 0
         case Result(tag="ok", ok=values):
-            sys.stdout.buffer.write(msgspec.json.Encoder(enc_hook=str).encode_lines(values))
+            sys.stdout.buffer.write(msgspec.json.Encoder().encode_lines(values))
             return 0
         case Result(error=faults):
             sys.stderr.writelines(dict.fromkeys(f"{fault.message}\n" for fault in faults))
@@ -36,5 +36,6 @@ def exited(result: Outcome[tuple[object, ...]] | None, /) -> int:
 app = App(help=__doc__, result_action=(exited, "sys_exit"), default_parameter=Parameter(negative=()), error_formatter=str)
 app.default(performed)
 
-if __name__ == "__main__":
-    app()
+# --- [EXPORTS] --------------------------------------------------------------------------
+
+__all__ = ["app"]

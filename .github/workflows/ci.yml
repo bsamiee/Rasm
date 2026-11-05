@@ -14,6 +14,9 @@ concurrency:
     group: ${{ github.workflow }}-${{ github.ref }}
     cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+env:
+    MISE_ENV: ci
+
 defaults:
     run:
         shell: bash
@@ -28,9 +31,18 @@ jobs:
                 fetch-depth: 0
                 filter: tree:0
                 persist-credentials: false
-            - uses: nrwl/nx-set-shas@v5
-            - uses: ./.github/actions/setup
+            - id: setup
+              uses: ./.github/actions/setup
+            - run: printf %s "$KEY" > "$RUNNER_TEMP/sixlabors.lic" && printf 'SixLaborsLicenseFile=%s/sixlabors.lic\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+              env:
+                KEY: ${{ secrets.SIXLABORSLICENSEKEY }}
+            - run: nx run-many -t typecheck:clippy lint:dylint --projects=rasm
             - run: nx affected -t check test:integration e2e --configuration ci --exclude='rasm,tag:host:macos,tag:host:rhino,tag:host:claude,tag:host:blender'
+            - uses: actions/cache/save@v6
+              if: ${{ always() && steps.setup.outcome == 'success' && github.event_name == 'push' }}
+              with:
+                path: ${{ steps.setup.outputs.task-paths }}
+                key: ${{ steps.setup.outputs.task-key }}
             - uses: actions/upload-artifact@v7
               if: ${{ failure() }}
               with:
@@ -51,17 +63,28 @@ jobs:
                 fetch-depth: 0
                 filter: tree:0
                 persist-credentials: false
-            - uses: nrwl/nx-set-shas@v5
-            - uses: ./.github/actions/setup
+            - id: setup
+              uses: ./.github/actions/setup
             - uses: mcneel/setup-rhino3d@v3.0.0
               with:
                 email-address: b.samiee93@gmail.com
+            - run: printf %s "$KEY" > "$RUNNER_TEMP/sixlabors.lic" && printf 'SixLaborsLicenseFile=%s/sixlabors.lic\n' "$RUNNER_TEMP" >> "$GITHUB_ENV"
+              env:
+                KEY: ${{ secrets.SIXLABORSLICENSEKEY }}
             - run: nx run rasm:check
-            - run: nx affected -t check --exclude='!tag:host:macos,!tag:host:rhino' --configuration ci
+            - if: ${{ !cancelled() }}
+              run: nx affected -t check --exclude='!tag:host:macos,!tag:host:rhino' --configuration ci
+            - uses: actions/cache/save@v6
+              if: ${{ always() && steps.setup.outcome == 'success' && github.event_name == 'push' }}
+              with:
+                path: ${{ steps.setup.outputs.task-paths }}
+                key: ${{ steps.setup.outputs.task-key }}
             - uses: actions/upload-artifact@v7
               if: ${{ failure() }}
               with:
                 name: diagnostics-${{ github.job }}
-                path: .artifacts/dotnet/binlog
+                path: |
+                    .artifacts/dotnet/binlog
+                    .artifacts/typescript/vitest
                 include-hidden-files: true
                 retention-days: 14

@@ -1,6 +1,6 @@
 import type { ObjectModel } from '@rasm/automation';
 import type { Envelope } from '@rasm/cep';
-import { runtime } from '#/runtime';
+import { attempt, escaped, finite, illegalArgument, isList, isPlain, isRecord, map, message, readProperty, recordKeys, reply, unmatched } from '#/runtime';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -18,7 +18,15 @@ interface ApplicationHooks<Held> {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const { isRecord, isList, isPlain, finite, message, attempt, map, recordKeys, readProperty, unmatched, illegalArgument, escaped, reply } = runtime();
+const ownKeys = (value: object): string[] => {
+    const found: string[] = [];
+    for (const key in value) {
+        if (Object.prototype.hasOwnProperty.call(value, key)) {
+            found.push(key);
+        }
+    }
+    return found;
+};
 const within = <Held, A>(enter: () => Held, leave: (held: Held) => void, body: () => A): A => {
     const held = enter();
     try {
@@ -233,4 +241,4 @@ const handleEnvelope = <Held>({ indexBase, dialogs, undoGroup, specifier, open, 
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { assignProperties, fileFromUrl, handleEnvelope, illegalArgument, readProperty, recordKeys, reflectionOf, specifierStep };
+export { assignProperties, fileFromUrl, handleEnvelope, ownKeys, reflectionOf, specifierStep };

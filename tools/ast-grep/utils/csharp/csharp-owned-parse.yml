@@ -8,7 +8,7 @@ utils:
         all:
             - has: {kind: modifier, regex: '^static$'}
             - has: {field: name, matches: owner}
-            - has: {field: parameters, has: {kind: parameter, nthChild: 1, has: {field: name, pattern: $PARAMETER}}}
+            - has: {field: parameters, has: {kind: parameter, nthChild: 1, has: {field: name, pattern: {context: 'class $PARAMETER;', selector: identifier}}}}
             - has:
                 field: body
                 kind: arrow_expression_clause
@@ -19,7 +19,7 @@ rule:
     kind: invocation_expression
     all:
         - pattern: {context: 'class C { object F() => $RECEIVER.$METHOD($_ARGUMENT, $$$REST); }', selector: invocation_expression, strictness: ast}
-        - not: {has: {field: arguments, any: [{has: {kind: argument, has: {regex: '^(out|ref)$'}}}, {has: {kind: argument, nthChild: 1, has: {field: name, pattern: $_}}}]}}
+        - not: {has: {field: arguments, any: [{has: {kind: argument, has: {regex: '^(out|ref)$'}}}, {has: {kind: argument, nthChild: 1, has: {field: name, kind: identifier}}}]}}
         - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: argument}}}
         - any:
             - all:

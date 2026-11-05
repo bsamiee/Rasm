@@ -11,28 +11,40 @@
         ".": "./index.ts",
         "./browser": "./browser.ts",
         "./cloudflare": "./cloudflare.ts",
+        "./cloudflare-access": "./cloudflare-access.ts",
+        "./head": "./head.ts",
         "./node": "./node.ts",
+        "./node-bundle": "./node-bundle.ts",
         "./server": "./server/index.ts",
-        "./vite": "./vite.ts"
+        "./vite": "./vite.ts",
+        "./worker": "./worker.ts"
     },
     "dependencies": {
         "@aws-sdk/client-s3": "catalog:",
+        "@cloudflare/vite-plugin": "catalog:",
         "@effect/platform-node": "catalog:",
+        "@rasm/mark": "workspace:*",
+        "@vite-pwa/assets-generator": "catalog:",
+        "cf": "catalog:",
         "cheerio": "catalog:",
+        "culori": "catalog:",
         "effect": "catalog:",
         "partial-content": "catalog:",
+        "postcss": "catalog:",
         "react": "catalog:",
         "react-dom": "catalog:",
+        "rolldown": "catalog:",
         "vite": "catalog:"
     },
     "devDependencies": {
         "@cloudflare/vitest-plugin": "catalog:",
         "@effect/vitest": "catalog:",
         "@rasm/test-support": "workspace:*",
+        "@types/culori": "catalog:",
         "@types/node": "catalog:",
         "@types/react": "catalog:",
         "@types/react-dom": "catalog:",
-        "cf": "catalog:",
+        "@types/web-app-manifest": "catalog:",
         "testcontainers": "catalog:",
         "vitest": "catalog:"
     }

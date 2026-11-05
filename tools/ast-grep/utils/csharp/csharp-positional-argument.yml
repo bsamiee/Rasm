@@ -3,4 +3,4 @@ id: csharp-positional-argument
 language: csharplang
 rule:
     kind: argument
-    not: {has: {field: name, pattern: $_}}
+    not: {has: {field: name, kind: identifier}}

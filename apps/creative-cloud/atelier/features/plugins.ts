@@ -1,14 +1,14 @@
-import { SourceMap } from 'node:module';
+/// <reference types="vite/client" />
+
 import { Launched } from '@rasm/applications';
 import { Automation } from '@rasm/applications/node';
 import { ExecuteScript, HostError, ObjectModel, Reference, Render } from '@rasm/automation';
+import { Peer } from '@rasm/automation/peer';
 import { Completion, ExtensionManifest } from '@rasm/cep';
-import { runtime } from '@rasm/extendscript';
+import { lower, traced } from '@rasm/cep/lower';
 import { Route, registerRpcGroup, Server } from '@rasm/mcp';
 import { Unmatched } from '@rasm/search';
-import { Peer } from '@rasm/uxp/peer';
-import { type JscTarget, transformSync } from '@swc/core';
-import { Array, Context, Duration, Effect, flow, Option, Path, Schema, Stream, Struct } from 'effect';
+import { Array, Context, Duration, Effect, flow, Number, Option, Path, Schema, Stream, Struct } from 'effect';
 import { Tool } from 'effect/ai';
 import { AbsolutePath } from '#/absolute-path';
 import { Adobe } from '#/adobe';
@@ -16,25 +16,21 @@ import { Capture } from '#/features/applications';
 import { Libraries, library, type listening } from '#/libraries';
 import type { routes } from '#/routes';
 
+// --- [TYPES] ---------------------------------------------------------------------------
+
+declare global {
+    interface ImportMetaEnv {
+        readonly EXTENDSCRIPT_RUNTIME: string;
+    }
+}
+
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const LINK_WAIT = Duration.minutes(2);
+const BODY_LINE = Number.decrement;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Mapping = Schema.fromJsonString(
-    Schema.Struct({
-        version: Schema.Int,
-        sources: Schema.mutable(Schema.Array(Schema.String)),
-        sourcesContent: Schema.mutable(Schema.Array(Schema.String)),
-        names: Schema.mutable(Schema.Array(Schema.String)),
-        mappings: Schema.String,
-        file: Schema.String.pipe(Schema.withDecodingDefaultKey(Effect.succeed(''))),
-        sourceRoot: Schema.String.pipe(Schema.withDecodingDefaultKey(Effect.succeed(''))),
-    }),
-);
-const Entry = Schema.Struct({ originalLine: Schema.Int });
-const Diagnostic = Schema.Struct({ message: Schema.TemplateLiteralParser(['  x ', Schema.String, '\n   ,-[', Schema.Int, ':', Schema.Int, ']', Schema.String]) });
 const Scripted = Schema.StringFromUriComponent.pipe(Schema.decodeTo(Schema.fromJsonString(Completion)));
 const ResultJson = Schema.toCodecJson(ExecuteScript.Result);
 const Body = Schema.Struct({ code: ExecuteScript.fields.code.annotate({ description: 'Function body, return gives result. Scope holds host classes, enumerations, and resolve(specifier), object_model lists members' }) });
@@ -44,18 +40,18 @@ const Opened = Reference.mapFields(Struct.assign({ launched: Schema.OptionFromOp
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const lowered = Effect.fnUntraced(function* (code: string, target: JscTarget, awaits: boolean) {
-    const { code: source, map } = yield* Effect.try({
-        try: () => transformSync(ExecuteScript.expression(code, awaits), { jsc: { target, parser: { syntax: 'typescript' }, assumptions: { iterableIsArray: true } }, sourceMaps: true }),
-        catch: (cause) =>
-            Option.match(Schema.decodeUnknownOption(Diagnostic)(cause), {
-                onNone: () => HostError.refused('TypeScript transform of body')(cause),
-                onSome: ({ message: [, text, , line] }) => HostError.thrown(text, Option.some(line - 1))(cause),
-            }),
-    });
-    const mapping = new SourceMap(yield* Effect.orDie(Schema.decodeUnknownEffect(Mapping)(map)));
-    const original = (line: number) => Option.map(Schema.decodeUnknownOption(Entry)(mapping.findEntry(line - 1, Number.MAX_SAFE_INTEGER)), Struct.get('originalLine'));
-    const relined = (error: HostError) => Effect.fail(HostError.fields.reason.isAnyOf(['Thrown'])(error.reason) ? HostError.thrown(error.subject, Option.flatMap(error.reason.line, original))(error.cause) : error);
+const lowered = Effect.fnUntraced(function* (code: string, target: Parameters<typeof lower>[1], awaits: boolean) {
+    const { code: source, map } = yield* lower(ExecuteScript.expression(code, awaits), target, 'typescript').pipe(Effect.mapError((error) => (HostError.fields.reason.isAnyOf(['Thrown'])(error.reason) ? HostError.thrown(error.subject, Option.map(error.reason.line, BODY_LINE))(error.cause) : error)));
+    const original = yield* traced(map);
+    const relined = (error: HostError) =>
+        Effect.fail(
+            HostError.fields.reason.isAnyOf(['Thrown'])(error.reason)
+                ? HostError.thrown(
+                      error.subject,
+                      Option.map(Option.flatMap(error.reason.line, original), ({ line }) => BODY_LINE(line)),
+                  )(error.cause)
+                : error,
+        );
     return { source, relined };
 });
 const opener = Effect.fnUntraced(function* (links: Effect.Success<typeof listening>, serves: ReturnType<Effect.Success<ReturnType<typeof routes>>['serving']>['serves'], file: URL) {
@@ -89,13 +85,12 @@ const plugins = Effect.fnUntraced(function* ({ serving, script }: Effect.Success
     const [automation, path] = yield* Effect.all([Automation, Path.Path]);
     const [opened, rendered] = [serving('open'), serving('render')];
     const rendering = (client: Effect.Success<ReturnType<typeof links.call>>) => (request: typeof Rendering.Type & { readonly file: URL }) => client(rendered.tag, request);
-    const replying = yield* Effect.sync(() => transformSync(`var runtime = ${String(runtime)};`, { jsc: { target: ExtensionManifest.target, parser: { syntax: 'ecmascript' }, assumptions: { iterableIsArray: true } } }).code);
     const scripted = Effect.fnUntraced(function* (code: string, { pid, installation: { url } }: { readonly pid: number; readonly installation: { readonly url: URL } }) {
         const { source, relined } = yield* lowered(code, ExtensionManifest.target, false);
         const { reply } = yield* automation.script({
             pid,
             url,
-            direct: `(function (self) { var body = ${source}\n${replying}\nreturn encodeURIComponent(runtime().reply(function () { return { result: body.call(self) }; }));\n})(this)`,
+            direct: `(function (self) { var body = ${source}\n${import.meta.env.EXTENDSCRIPT_RUNTIME}\nreturn encodeURIComponent(runtime.reply(function () { return { result: body.call(self) }; }));\n})(this)`,
         });
         return yield* Schema.decodeUnknownEffect(Scripted)(reply).pipe(Effect.flatMap(Completion.answered(ResultJson, ExecuteScript.make({ code: source }).label)), Effect.catchTag('HostError', relined));
     });

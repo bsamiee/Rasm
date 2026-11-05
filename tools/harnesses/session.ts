@@ -11,7 +11,7 @@ import { Messages, record, STATES, tagOf } from '#/log';
 import { crashed, linked, type Rule } from '#/report';
 import { Halted, type hostCase, Outcome, Records } from '#/results';
 import { phase, Run, sample } from '#/run';
-import { assembled, type Mapped } from '#/source';
+import type { Mapped } from '#/source';
 import type { JsonObject } from '#/values';
 import npm from './package.json' with { type: 'json' };
 
@@ -29,7 +29,7 @@ type Sighting = (typeof Messages)['window opened']['Encoded'];
 interface Surveyed {
     readonly host: Schema.Json;
 }
-type Cased = ReturnType<typeof hostCase<{ readonly folder: typeof Schema.String }>>['Type'];
+type Cased = ReturnType<typeof hostCase.linked<{ readonly folder: typeof Schema.String }>>['Type'];
 interface Installed {
     readonly identifier: string;
     readonly name: string;
@@ -72,7 +72,7 @@ interface Live {
     readonly chosen: Installed;
     readonly scratch: string;
     readonly passing: readonly Progress[];
-    readonly assembled: readonly Mapped[];
+    readonly assembled: (line: number) => Option.Option<Mapped>;
     readonly verdict: Deferred.Deferred<Verdict>;
     readonly notes: Ref.Ref<readonly Note[]>;
     readonly trace: Ref.Ref<Trace>;
@@ -112,7 +112,7 @@ interface Harness<S extends Surveyed = Surveyed, C extends Cased = Cased, E = un
     readonly Case: Schema.Codec<C, unknown>;
     readonly Outcome: Schema.Codec<typeof Outcome.Type, unknown>;
     readonly progress?: readonly Progress[];
-    readonly assembled?: URL;
+    readonly assembled?: Effect.Effect<{ readonly code: string; readonly located: (line: number) => Option.Option<Mapped> }, HarnessError>;
     readonly bundle?: Effect.Effect<URL, HarnessError>;
     readonly installed: Effect.Effect<readonly Installed[], Error, Services>;
     readonly engine: (scripts: readonly string[]) => Result.Result<E, HarnessError>;
@@ -137,7 +137,6 @@ type Session<S extends Surveyed, C extends Cased> = Pick<Harness<S, C>, 'progres
 const VERSIONS = new Intl.Collator('en', { numeric: true });
 const LABEL = npm.name.replaceAll(/\W+/gu, '-').replace(/^-/u, '');
 const ENGINE_LINE = / at line (?<line>\d+)$/u;
-const MODAL = 'Modal';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -164,7 +163,7 @@ const installation = Effect.fn('installation')(function* (row: Installation, row
 });
 const installations = (rows: readonly Installed[], prefixes: readonly string[], subject: string) => {
     const hosts = Array.sort(rows, newest);
-    const chosen = prefixes.length === 0 ? hosts : hosts.filter(({ version }) => prefixes.some((prefix) => version.startsWith(prefix)));
+    const chosen = prefixes.length === 0 ? hosts.slice(0, 1) : hosts.filter(({ version }) => prefixes.some((prefix) => version.startsWith(prefix)));
     return Effect.fromOption(Option.liftPredicate(chosen, Array.isArrayNonEmpty), () => HarnessError.unavailable(`${subject} ${prefixes.join(', ')}`)(`installed versions ${hosts.map(({ version }) => version).join(', ')}`));
 };
 
@@ -219,12 +218,8 @@ const digest = (host: Pick<Harness, 'canonical'>) =>
         const parts: readonly (string | Uint8Array)[] = host.canonical === undefined ? [bytes] : yield* host.canonical(file, bytes);
         return { file, size: bytes.byteLength, sha256: parts.reduce((hash, part) => hash.update(part), createHash('sha256')).digest('hex') } satisfies (typeof Outcome.fields.written.Type)[number];
     });
-const relocated = (engine: readonly Mapped[]) => (found: string, line: string) =>
-    Option.match(
-        Option.flatMap(Number.parse(line), (at) => Array.get(engine, at - 1)),
-        { onNone: () => found, onSome: (held) => ` at ${held.file}:${held.line}` },
-    );
-const mapped = (map: readonly Mapped[], engine: readonly Mapped[]) => (row: typeof Outcome.Type) => {
+const relocated = (engine: (line: number) => Option.Option<Mapped>) => (found: string, line: string) => Option.match(Option.flatMap(Number.parse(line), engine), { onNone: () => found, onSome: (held) => ` at ${held.file}:${held.line}` });
+const mapped = (map: readonly Mapped[], engine: (line: number) => Option.Option<Mapped>) => (row: typeof Outcome.Type) => {
     const at = (frame: { readonly line: number; readonly file?: string }) => (frame.file === undefined ? Option.getOrElse(Array.get(map, frame.line - 1), () => ({ line: frame.line })) : frame);
     const located = (text: string) => text.replace(ENGINE_LINE, relocated(engine));
     return Outcome.fields.completion.match(row.completion, {
@@ -266,11 +261,11 @@ const notRun = Effect.fnUntraced(function* (unsent: readonly Prepared<Cased>[], 
     yield* Array.match(outcomes, { onEmpty: () => Effect.void, onNonEmpty: (held) => record('Warn', 'cases not run', { cases: held.map(({ name }) => name), error: reason }) });
     return outcomes;
 });
-const scriptOf = Match.typeTags<Cased, Option.Option<string>>()({ Probe: () => Option.none<string>(), Call: ({ source }) => Option.map(Option.fromUndefinedOr(source), ({ script }) => script), Run: ({ source }) => Option.some(source.script) });
+const scriptOf = Match.typeTags<Cased, Option.Option<string>>()({ Probe: () => Option.none<string>(), Panel: () => Option.none<string>(), Call: ({ source }) => Option.map(Option.fromUndefinedOr(source), ({ script }) => script), Run: ({ source }) => Option.some(source.script) });
 const called = ({ hosted, fn }: Prepared<Cased>) => ({
     _tag: hosted._tag,
     ...Record.getSomes({ fn, script: scriptOf(hosted) }),
-    ...Match.valueTags(hosted, { Probe: () => ({}), Call: ({ args }) => ({ args }), Run: ({ args }) => ({ args }) }),
+    ...Match.valueTags(hosted, { Probe: () => ({}), Panel: ({ panel }) => ({ panel }), Call: ({ args }) => ({ args }), Run: ({ args }) => ({ args }) }),
 });
 const observe = Effect.fnUntraced(function* (live: Live, records: string, Recorded: Schema.Codec<Entry, string>) {
     const [batch, { next: from }, text] = yield* Effect.all([Ref.get(live.batch), Ref.get(live.trace), FileSystem.FileSystem.use((fs) => fs.readFileString(records))]);
@@ -319,7 +314,10 @@ const scripted = Effect.fn('scripted')(function* ({ pid, chosen: { app } }: Pick
 });
 
 // --- [WATCHER]
-const usageOf = (state: typeof State.Type) => (Predicate.hasProperty(state, 'running') && state.running.status === 'unresponsive' ? { ...Struct.pick(state.running, ['process']), ...UndefinedOr.match(state.running.usage, { onUndefined: () => ({}), onDefined: Struct.pick(['cpu', 'footprint', 'threads']) }) } : {});
+const usageOf = Match.type<typeof State.Type>().pipe(
+    Match.when({ running: ({ status }: typeof State.Running.Type) => status === 'unresponsive' }, ({ running }) => ({ ...Struct.pick(running, ['process']), ...UndefinedOr.match(running.usage, { onUndefined: () => ({}), onDefined: Struct.pick(['cpu', 'footprint', 'threads']) }) })),
+    Match.orElse(() => ({})),
+);
 const factsOf = (state: typeof State.Type) =>
     State.match<object>(state, {
         running: () => usageOf(state),
@@ -344,7 +342,7 @@ const sightingOf = ({ number, kind, asking, title, element }: typeof State.Windo
     }),
 });
 const windowsOf = (state: typeof State.Type, held: ReadonlyMap<string, Sighting>, ours: boolean): ReadonlyMap<string, Sighting> =>
-    Predicate.hasProperty(state, 'running') ? new Map(state.running.windows.filter(({ presented, asking }) => presented && (ours || asking)).map((window) => [`${window.number}`, sightingOf(window)] as const)) : held;
+    State.match<ReadonlyMap<string, Sighting>>(state, { running: ({ windows }) => new Map(windows.filter(({ presented, asking }) => presented && (ours || asking)).map((window) => [`${window.number}`, sightingOf(window)] as const)), failed: () => held, exited: () => held });
 const seenOf = (prior: Option.Option<Seen>, row: typeof Observation.Type, ours: boolean): Seen => ({
     state: row.state,
     since: Observation.tag(row.state) === 'unresponsive' ? Option.orElseSome(Option.flatMap(prior, Struct.get('since')), () => row.at) : Option.none(),
@@ -376,13 +374,13 @@ const sighted = (row: typeof Observation.Type, before: Option.Option<Seen>, seen
 const within = (live: Live) => Effect.provideService(Run.Instance, Option.some(live));
 const owned = (live: Live, row: typeof Observation.Type) => row.pid === live.pid;
 const noteOf = ({ element, number }: typeof State.Window.Type) => element?.id ?? `${number}`;
-const blocked = Effect.fnUntraced(function* (live: Live, state: typeof State.Type, dialog: typeof Halted.cases.Dialog.Type) {
+const blocked = Effect.fnUntraced(function* (live: Live, window: typeof State.Window.Type, dialog: typeof Halted.cases.Dialog.Type) {
     const file = yield* sample(live.pid);
     const frames = yield* stalled(file);
-    return frames.some(String.includes(MODAL)) ? dialog : ({ _tag: 'Hung', ...usageOf(state), sample: file, frames } satisfies typeof Halted.Type);
+    return frames.some(String.includes('Modal')) ? Option.some(dialog) : yield* Effect.as(record('Info', 'window busy', { number: window.number, sample: file, frames }), Option.none<typeof Halted.cases.Dialog.Type>());
 });
 const answering = (live: Live, ours: boolean) =>
-    Effect.fnUntraced(function* ({ window, dialog }: Asked, pid: number, state: typeof State.Type) {
+    Effect.fnUntraced(function* ({ window, dialog }: Asked, pid: number) {
         const [trace, batch, notes] = yield* Effect.all([Ref.get(live.trace), Ref.get(live.batch), Ref.get(live.notes)]);
         const running = runningOf(trace);
         const used = notes.filter(({ index }) => Equal.equals(index, running)).length;
@@ -390,12 +388,12 @@ const answering = (live: Live, ours: boolean) =>
             Option.filter(() => ours),
             Option.flatMap((index) => Array.get(batch, index)),
             Option.flatMap(({ presses }) => Array.get(presses, used)),
-            Option.flatMap((press) => Progress.pressed(window.element?.answers, press)),
+            Option.flatMap((press) => Progress.pressed(window, press)),
         );
         const halting = (halted: typeof Halted.Type) => ended(live, (held) => Verdict.Halted({ index: runningOf(held), halted }));
         const answered = (press: string) => ({ ...Record.getSomes({ title: Option.fromUndefinedOr(dialog.title) }), text: dialog.text, pressed: press });
         yield* Option.match(control, {
-            onNone: () => Effect.flatMap(window.kind === 'blocking' && ours ? blocked(live, state, dialog) : Effect.succeed<typeof Halted.Type>(dialog), halting),
+            onNone: () => Effect.flatMap(window.kind === 'blocking' && ours ? blocked(live, window, dialog) : Effect.succeedSome(dialog), Option.match({ onNone: () => Effect.void, onSome: halting })),
             onSome: ({ press, id }) => Effect.catch(Effect.andThen(Effect.all([Ref.update(live.notes, Array.append({ index: running, element: noteOf(window), answered: answered(press) })), record('Info', 'dialog answered', answered(press))]), Observation.perform(pid, id)), lost(live)),
         });
     });
@@ -413,9 +411,12 @@ const watcher = (host: Pick<Harness, 'logs' | 'bundle'>, live: Live, seen: Ref.R
             const noted = (yield* Ref.get(live.notes)).map(Struct.get('element'));
             yield* Option.match(
                 Option.filter(asked, ({ window }) => !noted.includes(noteOf(window))),
-                { onNone: () => Effect.void, onSome: (found) => answering(live, ours)(found, row.pid, row.state) },
+                { onNone: () => Effect.void, onSome: (found) => answering(live, ours)(found, row.pid) },
             );
-            yield* Predicate.hasProperty(row.state, 'failed') && ours ? lost(live)(HarnessError.unavailable(`process ${row.pid}`)(row.state.failed.reason)) : Effect.void;
+            yield* Match.value({ ours, state: row.state }).pipe(
+                Match.when({ ours: true, state: { failed: Match.defined } }, ({ state: { failed } }) => lost(live)(HarnessError.unavailable(`process ${row.pid}`)(failed.reason))),
+                Match.orElse(() => Effect.void),
+            );
             yield* ours && Observation.settled(row.state) ? Effect.uninterruptible(Effect.andThen(Effect.flatMap(crashed(live.pid, row.state.exited), exitedWith(live)), reportsOf(host, live))) : Effect.void;
         },
         (effect, row) =>
@@ -448,14 +449,14 @@ const acquired = Effect.fn('acquired')(function* (host: Pick<Harness, 'progress'
     yield* Observation.settled(instance.state) ? refused(`instance ${instance.pid} ${Observation.described(instance.state)}`) : Effect.void;
     const starting = yield* starts(['-p', `${instance.pid}`]);
     const started = yield* Effect.fromOption(Option.fromUndefinedOr(starting.get(instance.pid)), () => HarnessError.unavailable(`process ${instance.pid}`)('ps reports no start time'));
-    const engine = yield* Effect.transposeOption(Option.map(Option.fromUndefinedOr(host.assembled), assembled));
+    const engine = yield* Effect.transposeOption(Option.fromUndefinedOr(host.assembled));
     const live: Live = {
         pid: instance.pid,
         started,
         chosen,
         scratch,
         passing,
-        assembled: Option.match(engine, { onNone: () => [], onSome: ({ map }) => map }),
+        assembled: Option.match(engine, { onNone: () => () => Option.none(), onSome: ({ located }) => located }),
         verdict: yield* Deferred.make<Verdict>(),
         notes: yield* Ref.make<readonly Note[]>([]),
         trace: yield* Ref.make(idle),
@@ -665,4 +666,4 @@ const rerun = <S extends Surveyed, C extends Cased>(host: Session<S, C>, rebuilt
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { type Batch, type Cased, type Decoding, execute, filesIn, Harness, type Installed, type Instance, inside, installation, installations, LABEL, type Live, type Plan, type Prepared, type Rebuilt, rerun, type Session, type Surveyed, scripted };
+export { type Batch, type Cased, type Decoding, execute, filesIn, Harness, type Installed, type Instance, inside, installation, installations, LABEL, type Live, type Plan, type Prepared, type Rebuilt, rerun, type Services, type Session, type Surveyed, scripted };

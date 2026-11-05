@@ -23,6 +23,7 @@ rule:
         inside: {kind: invocation_expression, field: function}
     any:
         - all:
+            - has: {field: function, regex: 'toSeq'}
             - matches: {csharp-named-call: {name: {regex: '^toSeq$'}}}
             - has: {field: arguments, has: {kind: argument, nthChild: 1, matches: csharp-positional-argument, has: {matches: range, pattern: $RANGE}}}
             - not: {has: {field: arguments, has: {kind: argument, nthChild: 2}}}

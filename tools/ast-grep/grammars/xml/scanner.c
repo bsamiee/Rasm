@@ -2,13 +2,8 @@
 #include <stdint.h>
 #include <wctype.h>
 
-#ifndef SCANNER
-#define SCANNER(fn) tree_sitter_xml_external_scanner_##fn
-#endif
-#define tree_sitter_xml_external_scanner_create SCANNER(create)
-#define tree_sitter_xml_external_scanner_destroy SCANNER(destroy)
-#define tree_sitter_xml_external_scanner_serialize SCANNER(serialize)
-#define tree_sitter_xml_external_scanner_deserialize SCANNER(deserialize)
+#include "word.h"
+
 #define tree_sitter_xml_external_scanner_scan(...) xml_upstream_scan(__VA_ARGS__)
 
 static inline bool name_start(uint32_t code);
@@ -19,16 +14,37 @@ static inline bool name_character(uint32_t code);
 
 #include "@tree-sitter-grammars/tree-sitter-xml/xml/src/scanner.c"
 
+// --- [TYPES] ---------------------------------------------------------------------------
+
+typedef struct {
+    uint32_t min;
+    uint32_t max;
+} Span;
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+static const Span NAME_START[] = {WORD_START};
+static const Span NAME_CHARACTER[] = {WORD_CHARACTER};
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [NAMES]
 
+static inline bool spanned(const Span *spans, uint32_t count, uint32_t code) {
+    for (uint32_t index = 0; index < count; index++) {
+        if (code >= spans[index].min && code <= spans[index].max) {
+            return true;
+        }
+    }
+    return false;
+}
+
 static inline bool name_start(uint32_t code) {
-    return (code >= 'A' && code <= 'Z') || (code >= 'a' && code <= 'z') || (code >= 0xC0 && code <= 0xD6) || (code >= 0xD8 && code <= 0xF6) || (code >= 0xF8 && code <= 0x2FF) || (code >= 0x370 && code <= 0x37D) || (code >= 0x37F && code <= 0x1FFF) || (code >= 0x200C && code <= 0x200D) || (code >= 0x2070 && code <= 0x218F) || (code >= 0x2C00 && code <= 0x2FEF) || (code >= 0x3001 && code <= 0xD7FF) || (code >= 0xF900 && code <= 0xFDCF) || (code >= 0xFDF0 && code <= 0xFFFD) || (code >= 0x10000 && code <= 0xEFFFF);
+    return spanned(NAME_START, sizeof(NAME_START) / sizeof(*NAME_START), code);
 }
 
 static inline bool name_character(uint32_t code) {
-    return name_start(code) || (code >= '0' && code <= '9') || (code >= 0x300 && code <= 0x36F) || (code >= 0x203F && code <= 0x2040);
+    return spanned(NAME_CHARACTER, sizeof(NAME_CHARACTER) / sizeof(*NAME_CHARACTER), code);
 }
 
 // --- [INSTRUCTIONS]
@@ -162,7 +178,7 @@ static bool scan_end_name(Vector *tags, TSLexer *lexer) {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-bool(SCANNER(scan))(void *payload, TSLexer *lexer, const bool *valid_symbols) {
+bool(tree_sitter_xml_external_scanner_scan)(void *payload, TSLexer *lexer, const bool *valid_symbols) {
     Vector *tags = (Vector *)payload;
     if (in_error_recovery(valid_symbols)) {
         return false;

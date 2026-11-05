@@ -1,4 +1,4 @@
-import { Array, type Config, Console, DateTime, Effect, FileSystem, Formatter, Option, Order, Path, Predicate, Record, Schema, Struct } from 'effect';
+import { Array, Console, DateTime, Effect, FileSystem, Formatter, Option, Order, Path, Predicate, Record, Schema, Struct } from 'effect';
 import { HarnessError } from '#/harness-error';
 import { printedLines } from '#/instance';
 import { Field, partition, RECORDS, Signed } from '#/log';
@@ -43,8 +43,8 @@ const Dated = Schema.fromJsonString(Schema.Record(Schema.String, Schema.NullOr(S
 const queried = Effect.fn('queried')(function* (runs: string, statement: string, values: Record.ReadonlyRecord<string, string>) {
     return yield* Effect.mapError(printedLines('duckdb', ['-no-agent', '-list', '-noheader', '-c', statement], { HARNESS_RUNS: runs, ...Record.mapKeys(values, (key) => `HARNESS_${key.toUpperCase()}`) }), HarnessError.refused(runs));
 });
-const since = Effect.fn('since')(function* (root: Config.Config<string>, host: string, signatures: Array.NonEmptyReadonlyArray<typeof Signed.Type>) {
-    const [path, logs] = yield* Effect.all([Path.Path, root]);
+const since = Effect.fn('since')(function* (logs: string, host: string, signatures: Array.NonEmptyReadonlyArray<typeof Signed.Type>) {
+    const path = yield* Path.Path;
     const runs = path.join(partition(path, logs, host, '*'), RECORDS);
     const rows = yield* queried(runs, `select to_json(dated) from (${SINCE}) as dated`, { signatures: Formatter.formatJson(signatures), structure: Formatter.formatJson([SIGNED]) });
     return yield* Effect.forEach(rows, (row) => Effect.mapBoth(Schema.decodeEffect(Dated)(row), { onFailure: HarnessError.refused(runs), onSuccess: Record.filter(Predicate.isNotNull) }));
@@ -73,8 +73,8 @@ const unlinked =
 const printedOf =
     (pid: number, stamp: string) =>
     ({ kind, at, file, facts }: Linked) => ({ at, line: Formatter.formatJson({ at: DateTime.formatIso(at), level: KINDS[kind].level, message: 'report linked', phase: 'log', pid, started: stamp, kind, ...Record.getSomes({ file }), ...facts }) });
-const traced = Effect.fn('traced')(function* (root: Config.Config<string>, host: string) {
-    const [fs, path, logs, now] = yield* Effect.all([FileSystem.FileSystem, Path.Path, root, DateTime.now]);
+const traced = Effect.fn('traced')(function* (logs: string, host: string) {
+    const [fs, path, now] = yield* Effect.all([FileSystem.FileSystem, Path.Path, DateTime.now]);
     const folders = yield* Effect.mapError(fs.glob(partition(path, logs, host, '*')), HarnessError.refused(path.join(logs, `host=${host}`)));
     const absent = (folder: string) => Effect.map(fs.exists(path.join(folder, RECORDS)), (held) => !held);
     const missing = yield* Effect.filter(folders, absent);

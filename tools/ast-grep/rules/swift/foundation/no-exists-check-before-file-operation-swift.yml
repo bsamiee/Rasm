@@ -62,7 +62,7 @@ utils:
                             - has: {field: name, regex: '^(at|atPath|contentsOf|contentsOfFile|forReadingFrom|forReadingAtPath)$'}
                             - has: {field: value, matches: subject-path}
     executable-path:
-        regex: '^((Subprocess(\.|::))?Executable)?\.path\('
+        all: [{has: {kind: 'navigation_expression, prefix_expression', regex: '^((Subprocess(\.|::))?Executable)?\.path$'}}]
         has: {stopBy: end, kind: value_argument, has: {field: value, matches: subject-path}}
     spawn:
         kind: call_expression
@@ -73,7 +73,7 @@ utils:
                 any:
                     - has: {kind: value_argument, all: [{has: {field: name, regex: '^executable$'}}, {has: {field: value, matches: executable-path}}]}
                     - all:
-                        - inside: {kind: call_suffix, inside: {kind: call_expression, has: {nthChild: 1, regex: '^((Subprocess(\.|::))?run|(Subprocess(\.|::))?Configuration(\.init)?)$'}}}
+                        - inside: {kind: call_suffix, inside: {kind: call_expression, has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '^((Subprocess(\.|::))?run|(Subprocess(\.|::))?Configuration(\.init)?)$'}}}
                         - has: {kind: value_argument, nthChild: 1, has: {field: value, matches: executable-path}}
     operation:
         any:

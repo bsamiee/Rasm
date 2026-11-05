@@ -2,7 +2,6 @@
     // --- [EXPLORER_VISIBILITY] ---------------------------------------------------------
     "explorer.compactFolders": false,
     "files.exclude": {
-        "**/.build": true,
         ".cargo/rustc-source": true,
         ".swiftpm": true,
         "**/.artifacts": true,
@@ -20,7 +19,6 @@
     "files.watcherExclude": {
         ".cargo/rustc-source/**": true,
         "**/.artifacts/**": true,
-        "**/.build/**": true,
         "**/.cache/**": true,
         "**/.cloudflare/**": true,
         "**/.pixi/**": true,
@@ -34,14 +32,14 @@
     // --- [SOURCE_CONTROL] --------------------------------------------------------------
     "git.autoRepositoryDetection": "subFolders",
 
-    // --- [FILE_NESTING]----------------------------------------------------------------
+    // --- [FILE_NESTING] ----------------------------------------------------------------
     "explorer.fileNesting.enabled": true,
     "explorer.fileNesting.patterns": {
         ".gitignore": ".gitattributes, .gitmodules",
         "Cargo.toml": "Cargo.lock, clippy.toml, rust-toolchain.toml, rustfmt.toml",
         "CLAUDE.md": ".mcp.json, AGENTS.md",
-        "Directory.Build.props": "Directory.Build.rsp, Directory.Build.targets, Directory.Packages.props, global.json, NuGet.config, Workspace.slnx",
-        "nx.json": ".editorconfig, mise.toml, sgconfig.yml",
+        "Directory.Build.props": "Directory.Build.rsp, Directory.Build.targets, Directory.Packages.props, Directory.Solution.props, global.json, NuGet.config, Workspace.slnx",
+        "nx.json": ".editorconfig, mise.toml, mise.ci.toml, sgconfig.yml",
         "package.json": "biome.json, pnpm-lock.yaml, pnpm-workspace.yaml, tsconfig.base.json, tsconfig.json, tsconfig.web.json, vite.shared.ts, vitest.config.ts",
         "Package.swift": ".swift-format, .swiftlint.yml, Package.resolved, Xcode.xcconfig",
         "pyproject.toml": "pixi.lock, uv.lock",
@@ -52,6 +50,7 @@
     "python.defaultInterpreterPath": "${workspaceFolder}/.venv",
     "python.terminal.activateEnvironment": false,
     "mypy-type-checker.importStrategy": "fromEnvironment",
+    "mypy-type-checker.ignorePatterns": [ "apps/blender/darkroom/*", "libs/python/blender/*", "tools/harnesses/blender/*" ],
     "ty.experimental.useUv": "on",
     "ty.diagnosticMode": "workspace",
     "[python]": { "editor.defaultFormatter": "charliermarsh.ruff" },
@@ -71,7 +70,7 @@
     "dotnet.server.useServerGC": false,
 
     // --- [RUST] ------------------------------------------------------------------------
-    "rust-analyzer.cargo.extraEnv": { "CARGO_BUILD_BUILD_DIR": "{cargo-cache-home}/build/{workspace-path-hash}/rust-analyzer", "CARGO_BUILD_TARGET_DIR": "${workspaceFolder}/.artifacts/rust/rust-analyzer" },
+    "rust-analyzer.cargo.extraEnv": { "CARGO_BUILD_BUILD_DIR": "{cargo-cache-home}/build/{workspace-path-hash}/vscode", "CARGO_BUILD_TARGET_DIR": "${workspaceFolder}/.artifacts/rust/vscode" },
     "rust-analyzer.check.command": "clippy",
     "rust-analyzer.check.workspace": false,
     "rust-analyzer.check.allTargets": false,
@@ -103,5 +102,7 @@
 
     // --- [MISE] ------------------------------------------------------------------------
     "mise.enableConfigDiagnostics": false,
+
+    // --- [CMAKE] -----------------------------------------------------------------------
     "cmake.sourceDirectory": "${workspaceFolder}/tools/ast-grep/grammars"
 }

@@ -153,6 +153,14 @@ def combined(a: Outline, b: Outline, operation: pathops.PathOp, /) -> Outline:  
     return traced(pathops.op(one, two, operation, **_FILL).draw)
 
 
+def meets(a: Outline, b: Outline, /) -> bool:
+    """Tests whether two outlines share ink, each simplified first, the form resolving near-coincident edges a raw pair refuses."""
+    one, two = pathops.Path(), pathops.Path()
+    draw(one.getPen(), a)
+    draw(two.getPen(), b)
+    return bool(traced(pathops.op(one, two, pathops.PathOp.INTERSECTION, **_FILL).draw))
+
+
 def pieces(outline: Outline, /) -> tuple[Outline, ...]:
     """Splits the union of an outline into connected fills in drawing order, each outer contour with the holes whose smallest enclosing outer it is."""
     path = pathops.Path()
@@ -225,4 +233,4 @@ def offset(outline: Outline, distance: float, /) -> Outline:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Axis", "Box", "Matrix", "Segment", "area", "bounds", "combined", "draw", "iou", "offset", "pieces", "segments", "strip", "trace", "transformed", "union"]
+__all__ = ["Axis", "Box", "Matrix", "Segment", "area", "bounds", "combined", "draw", "iou", "meets", "offset", "pieces", "segments", "strip", "trace", "transformed", "union"]

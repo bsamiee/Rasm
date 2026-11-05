@@ -66,8 +66,8 @@ rule:
           any:
             - kind: call_expression
               all:
-                - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^map$'}}}}
                 - has: {field: arguments, all: [{has: {nthChild: 1, matches: collected}}, {has: {nthChild: 2, matches: fold}}]}
+                - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^map$'}}}}
             - kind: call_expression
               all:
                 - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^pipe$'}}, {has: {field: object, matches: collected}}]}
@@ -80,4 +80,4 @@ transform:
     COPY_HEAD: {replace: {source: $COPY_SPREAD, replace: '(?s)^([^(]+)\(.*$', by: '$1'}}
     FOLD_HEAD: {replace: {source: $FOLD, replace: '(?s)^([^(]+)\(.*$', by: '$1'}}
 message: '`$COPY_HEAD$FOLD_HEAD` recomputes by hand what a `Stream` destructor returns'
-note: 'Read the `Array` `Stream.runCollect` returns, or fold the stream through `Stream.mkString`, `runCount`, `runHead`, `runLast`, or `runFold`'
+note: 'Read the `Array` from `Stream.runCollect`, or fold stream through `Stream.mkString`, `runCount`, `runHead`, `runLast`, or `runFold`'

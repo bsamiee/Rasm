@@ -1,29 +1,43 @@
-import { join } from 'node:path';
-import { Effect } from 'effect';
-import type { Plugin } from 'vite';
-import { HostingError } from '#/hosting-error';
+import { Config, Effect, flow } from 'effect';
+import type { ConfigEnv, PluginOption, UserConfigFnPromise } from 'vite';
+import type { Head } from '#/head';
+import { nodeBundle } from '#/node-bundle';
 
-// --- [OPERATIONS] ----------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
-const nodeBundle = (entry: string): Plugin => ({
-    name: '@rasm/hosting/vite',
-    config: () => ({
-        environments: {
-            [nodeBundle.layout.environment]: { consumer: 'server', resolve: { noExternal: true }, build: { outDir: join('dist', nodeBundle.layout.environment), assetsDir: 'chunks', emptyOutDir: true, copyPublicDir: false, rolldownOptions: { input: { [nodeBundle.layout.entry]: entry }, platform: 'node' } } },
-        },
-    }),
-    buildApp: {
-        order: 'post',
-        handler: (builder) =>
-            Effect.fromNullishOr(builder.environments[nodeBundle.layout.environment]).pipe(
-                Effect.flatMap((target) => Effect.tryPromise({ try: () => builder.build(target), catch: HostingError.build(nodeBundle.layout.environment, entry) })),
-                Effect.asVoid,
-                Effect.runPromise,
-            ),
-    },
-});
-nodeBundle.layout = { environment: 'node', entry: 'index', assets: 'assets', portVariable: 'PORT' } as const;
+const cloudflareWorker = ({
+    plugins,
+    hosts = [],
+    head,
+    nodeEntry,
+    nodeOutDir,
+    state,
+}: {
+    readonly plugins: PluginOption;
+    readonly hosts?: PluginOption;
+    readonly head: Head;
+    readonly nodeEntry?: string;
+    readonly nodeOutDir: string;
+    readonly state: { readonly path: string; readonly ephemeralMode: string };
+}): UserConfigFnPromise =>
+    flow(
+        Effect.fnUntraced(function* ({ mode }: ConfigEnv) {
+            const [storybook, analyze] = yield* Effect.all([Config.withDefault(Config.Boolean('STORYBOOK'), false), Config.withDefault(Config.Boolean('ANALYZE'), false)]);
+            const hosted =
+                mode === 'test' || storybook
+                    ? []
+                    : yield* Effect.map(Effect.all([Effect.promise(() => import('#/head')), Effect.promise(() => import('@cloudflare/vite-plugin'))], { concurrency: 'unbounded' }), ([{ siteHead }, { cloudflare }]) => [
+                          hosts,
+                          siteHead(head),
+                          nodeEntry === undefined ? [] : nodeBundle(nodeEntry, nodeOutDir),
+                          cloudflare({ types: { generate: false }, ...(mode === state.ephemeralMode ? { persistState: false, inspectorPort: false } : { persistState: { path: state.path } }) }),
+                      ]);
+            const diagnosed = analyze ? [(yield* Effect.promise(() => import('rolldown/experimental'))).bundleAnalyzerPlugin({ format: 'md' })] : [];
+            return { build: { target: 'esnext', rolldownOptions: { experimental: { lazyBarrel: true }, output: { strictExecutionOrder: true } } }, plugins: [plugins, hosted, diagnosed] };
+        }),
+        Effect.runPromise,
+    );
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { nodeBundle };
+export { cloudflareWorker };

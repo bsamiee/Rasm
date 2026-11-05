@@ -12,7 +12,7 @@
 - Run applications and hosts live as work needs them
 - Apps and windows a test, probe, harness, or agent opens take no focus and stay behind the user's work, inside or outside the project
 - Host probes run through `tools/harnesses`, a probe that fails or falls short fixes its harness at the cause as general capability
-- Host questions run as case files through `harness <host> <target>` under a `watch-apps` Monitor, answers read through `harness <host> log`
+- Host questions run as case files through `harness <host> <target>` under a `watch-apps` Monitor, answers read through `harness <host> log`, a product question through that product's own tools
 - Tools agents run outside Nx targets answer in one command with no path or flag beyond the question, and log, observe, and clean up automatically
 - Checks, tests, and host probes run once when work is done, a loop that reruns them after each change is a defect
 - Changes to root files, `eng/`, `infra/`, and `tools/` extend the owning target, setting, or package, a parallel script or one-off flag is a defect
@@ -34,8 +34,8 @@
 - ALWAYS use `dotnet-coding` skill for any C# code
 - ALWAYS use `xcode` MCP for Apple documentation and Xcode, `lldb` MCP for a debug session `xcode` MCP did not start
 - ALWAYS use `claudeCodeDocs`/`openaiDeveloperDocs` MCP for a question about Claude Code or Codex
-- ALWAYS use `use-rhino` skill for running Rhino and Grasshopper application
-- ALWAYS use `use-blender` skill for running Blender application
+- ALWAYS use `use-rhino` skill for driving a Rhino document or Grasshopper 2 canvas
+- ALWAYS use `use-blender` skill for driving Blender
 
 [CLI_TOOLING]:
 
@@ -49,7 +49,7 @@
 |  [06]   | `jq`/`yq`   | `yq '.expr' f`, `yq` has no `r` subcommand, `jq` needs `-r` for shell values and `[]?` on optional arrays   |
 |  [07]   | `sd`        | `sd '<regex>' '<replacement>' <files>` by line, `-A` for a find across lines, `-F` fixed, `--` before a `-` |
 |  [08]   | `difft`     | `difft <before> <after>` for a syntax-tree diff, `GIT_EXTERNAL_DIFF=difft git diff` over a change           |
-|  [09]   | `hyperfine` | `hyperfine -r <runs> '<command>'` times commands under the same controls, `-N` skips the shell              |
+|  [09]   | `hyperfine` | `hyperfine -r <runs> '<command>'` times commands under the same controls, `-S default` adds a shell         |
 |  [10]   | `duckdb`    | `duckdb -c '<sql>'` queries CSV, Parquet, and JSON files in place, `-json` for machine output               |
 |  [11]   | `outline`   | `ast-grep outline <path>` lists a path's declarations before a read, `--items exports` its public API       |
 
@@ -65,9 +65,9 @@ Values derive from the declaration or host API that states them:
 - ALWAYS reach members through typed handles the compiler or a generator derives, a name string or hand-written handle per member is a defect
 - ALWAYS derive a values from the operation and its target, a caller-written description is a defect
 - ALWAYS derive behavior and presentation from count, kind, and nesting of supplied parts, callers state content alone
-- ALWAYS generate a derived file by its host generator, else a format serializer over each fact's owner, a hand-kept or string-built copy is a defect
-- ALWAYS write generated files into build output, a generated file a tool reads from source is written by a check-held generator
-- ALWAYS hold one master per asset, a third-party one as a pinned checksummed fetch, each host variant (size, theme, format) builds from it
+- ALWAYS build a derived file into build output by a host tool where one exists, a per-user host setting goes through that host's API at plug-in load
+- ALWAYS write a derived row or file a tool reads from the checkout through a generator a check reruns, a hand-kept copy is a defect
+- ALWAYS fetch a third-party file no package holds by pinned commit and checksum, each variant of a hand-made master (font, SVG mark) builds from it
 
 ## [03]-[DEPENDENCY_POLICY]
 
@@ -78,7 +78,6 @@ Values derive from the declaration or host API that states them:
 - ALWAYS use the newest release, prereleases included
 - ALWAYS pin versions in lock files and version catalogs alone
 - ALWAYS reference a package directly in every project that names its types, a transitive reference supplies no global using, alias, or analyzer
-- Packages, workflows, tooling, and scripts hold no fallback, guard, retry, or cooldown
 
 ## [04]-[FILE_ORGANIZATION]
 

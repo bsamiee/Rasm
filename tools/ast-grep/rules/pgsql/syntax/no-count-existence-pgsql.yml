@@ -29,7 +29,7 @@ utils:
         matches: pgsql-wrapper
         has: {stopBy: {not: {matches: pgsql-wrapper}}, kind: AexprConst, regex: '^[01]$'}
 rule:
-    kind: a_expr, a_expr_prec
+    kind: a_expr
     pattern: $TEST
     all:
         - has: {field: operator, regex: '^(=|<>|!=|<|<=|>|>=)$'}

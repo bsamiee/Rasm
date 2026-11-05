@@ -1,6 +1,6 @@
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const panels = { typesetting: 'Typesetting' } as const;
+const panels = { typesetting: { label: { default: 'Typesetting' } } } as const;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

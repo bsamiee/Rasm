@@ -20,11 +20,11 @@ utils:
                     kind: generic_name
                     all:
                         - has: {kind: identifier, regex: '^Union$'}
-                        - has: {kind: type_argument_list, has: {kind: identifier, pattern: $NAME}}
+                        - has: {kind: type_argument_list, has: {pattern: {context: 'class $NAME;', selector: identifier}}}
 rule:
     kind: class_declaration, record_declaration, struct_declaration, interface_declaration, enum_declaration, delegate_declaration
     all:
-        - has: {field: name, pattern: $NAME}
+        - has: {field: name, pattern: {context: 'class $NAME;', selector: identifier}}
         - has: {kind: modifier, regex: '^(public|protected)$', pattern: $ACCESS}
         - not: {has: {kind: modifier, regex: '^private$'}}
         - inside:
@@ -32,7 +32,7 @@ rule:
             stopBy: {not: {kind: 'preproc_if, preproc_elif, preproc_else'}}
             inside:
                 kind: class_declaration, record_declaration, struct_declaration, interface_declaration
-                has: {field: name, pattern: $OWNER}
+                has: {field: name, pattern: {context: 'class $OWNER;', selector: identifier}}
                 not: {any: [{matches: {thinktecture-union: {name: {pattern: $_}}}}, {matches: member-union}]}
         - not:
             all:
@@ -43,14 +43,14 @@ rule:
                 - any:
                     - has: {kind: base_list, has: {stopBy: end, pattern: $OWNER}}
                     - all:
-                        - has: {kind: base_list, has: {stopBy: end, kind: identifier, pattern: $BASE}}
+                        - has: {kind: base_list, has: {stopBy: end, pattern: {context: 'class $BASE;', selector: identifier}}}
                         - inside:
                             kind: declaration_list
                             stopBy: {not: {kind: 'preproc_if, preproc_elif, preproc_else'}}
                             has:
                                 matches: closed
                                 all:
-                                    - has: {field: name, pattern: $BASE}
+                                    - has: {field: name, pattern: {context: 'class $BASE;', selector: identifier}}
                                     - has: {kind: base_list, has: {stopBy: end, pattern: $OWNER}}
 message: '`$ACCESS` type `$NAME` nests inside `$OWNER`'
 note: 'Declare the type at file level, union cases stay nested in their base'

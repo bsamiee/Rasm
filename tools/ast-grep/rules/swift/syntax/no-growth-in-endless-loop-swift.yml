@@ -3,7 +3,7 @@ language: swiftlang
 severity: error
 utils:
     endless-condition:
-        has: {field: condition, regex: '^(true|!Task\.isCancelled)$'}
+        has: {field: condition, regex: '^(true|!(_Concurrency(\.|::))?Task\.isCancelled)$'}
         not: {has: {regex: '^,$'}}
     endless:
         kind: 'while_statement, repeat_while_statement'
@@ -78,4 +78,4 @@ rule:
                             - kind: prefix_expression
                               all: [{has: {field: operation, regex: '^&$'}}, {has: {field: target, pattern: $GROWN}}]
 message: '`$GROWN` grows each pass of a loop with no exit and no removal'
-note: 'Bound the collection, remove its elements per pass, or declare it inside the loop body'
+note: 'Bound the collection, remove its elements per pass, or declare it inside its loop body'

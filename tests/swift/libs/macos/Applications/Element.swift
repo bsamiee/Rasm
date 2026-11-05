@@ -51,7 +51,7 @@ private func element(
     modal: Bool? = nil,
     identifier: String? = nil,
     description: String? = nil,
-    detail: Element.Detail? = nil,
+    controls: [Control]? = nil,
     helper: Bool = false,
 ) -> Element {
     Element(
@@ -66,17 +66,13 @@ private func element(
         edited: nil,
         minimized: nil,
         actions: [],
-        detail: detail,
+        detail: controls.map { controls in Element.Detail(main: nil, focused: nil, text: [], controls: controls, unreadable: []) },
         helper: helper,
     )
 }
 
 private func button(identifier: String?, attribute: String?, label: String?) -> Control {
     Control(id: token, role: kAXButtonRole, subrole: nil, label: label, identifier: identifier, attribute: attribute, value: nil, enabled: true, actions: [kAXPressAction], items: nil)
-}
-
-private func detail(_ controls: [Control]) -> Element.Detail {
-    Element.Detail(main: nil, focused: nil, text: [], controls: controls, unreadable: [])
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -136,7 +132,7 @@ struct Elements {
     @Test
     func answersReadAppKitAttributesAndIdentifiers() throws {
         let controls: [Control] = labelled.map { row in button(identifier: row.identifier, attribute: row.attribute, label: row.label) }
-        let answers: Element.Answers = try #require(element(role: kAXSheetRole, detail: detail(controls)).answers)
+        let answers: Element.Answers = try #require(element(role: kAXSheetRole, controls: controls).answers)
         expectNoDifference(answers.accept?.label, "Save")
         expectNoDifference(answers.discard?.label, "Don't Save")
         expectNoDifference(answers.cancel?.label, "Cancel")
@@ -149,7 +145,7 @@ struct Elements {
             element(
                 role: kAXSheetRole,
                 identifier: "save-panel",
-                detail: detail([button(identifier: "OKButton", attribute: nil, label: "Save"), button(identifier: "CancelButton", attribute: nil, label: "Cancel")]),
+                controls: [button(identifier: "OKButton", attribute: nil, label: "Save"), button(identifier: "CancelButton", attribute: nil, label: "Cancel")],
             )
             .answers
         )
@@ -159,7 +155,7 @@ struct Elements {
 
     @Test
     func modalWithNothingToPressHoldsNoAnswers() {
-        expectNoDifference(element(role: kAXWindowRole, modal: true, detail: detail([])).answers, nil)
+        expectNoDifference(element(role: kAXWindowRole, modal: true, controls: []).answers, nil)
         expectNoDifference(element(role: kAXWindowRole, modal: true).answers, nil)
     }
 }

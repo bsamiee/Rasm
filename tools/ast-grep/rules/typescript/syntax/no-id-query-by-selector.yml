@@ -31,4 +31,4 @@ constraints:
         has: {kind: string_fragment, regex: '^[^\x00]+$'}
         not: {has: {kind: 'escape_sequence, template_substitution'}}
 message: '`$CALL` finds one element through a selector built from an id'
-note: 'Call `getElementById(<id>)` on the same document with the id unescaped'
+note: 'Call `getElementById(<id>)` on the same document with id unescaped'

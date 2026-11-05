@@ -39,7 +39,7 @@ rule:
                 - has: {matches: loop-exit}
         - kind: for_statement
           all:
-            - not: {regex: '^for[\t-\r ]+(try[\t-\r ]+)?await(?-u:\b)'}
+            - not: {has: {field: item, follows: {regex: '^await$'}}}
             - has: {stopBy: *function, matches: timed-wait}
             - has: {matches: loop-exit}
         - kind: function_declaration

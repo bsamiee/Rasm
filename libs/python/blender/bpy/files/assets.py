@@ -194,10 +194,12 @@ def _text_faulted[**P, T](operation: Callable[P, T], /) -> Callable[P, Result[T,
 @_text_faulted
 def _read(catalogs: Path) -> tuple[tuple[_Catalog, ...], frozenset[tuple[str, ...]]]:
     """Returns the rows the host parser keeps from one catalog file and the UUID and path fields of each line beyond comments, a version or unparsable line whole, an absent file holding neither."""
-    if not catalogs.exists():
+    try:
+        text = catalogs.read_text(encoding="utf-8")
+    except FileNotFoundError:
         return (), frozenset[tuple[str, ...]]()
     rows: tuple[_Catalog, ...] = tuple(_parse_catalog(catalogs).values())  # ty: ignore[unsound-assignment]
-    lines = map(str.strip, catalogs.read_text(encoding="utf-8").splitlines())
+    lines = map(str.strip, text.splitlines())
     return rows, frozenset(tuple(line.split(":", 2)[:2]) for line in lines if line and not line.startswith("#"))
 
 

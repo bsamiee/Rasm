@@ -5,7 +5,7 @@
 name              = "rasm-mcp-bridge"
 edition.workspace = true
 description       = "Stdio MCP servers exposed over Streamable HTTP"
-publish           = false
+publish.workspace = true
 
 # --- [NX]
 [package.metadata.nx.targets."test:integration"]

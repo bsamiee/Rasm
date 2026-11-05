@@ -23,22 +23,26 @@ utils:
                         - any:
                             - has: {field: value, matches: constructed}
                             - has: {field: type, regex: '(^|::)\p{XID_Continue}*Propagator$'}
+              not: {inside: {kind: closure_expression, stopBy: {kind: function_item}, has: {field: parameters, has: {stopBy: end, kind: identifier, pattern: $LOCAL}}}}
     local-propagator:
         kind: call_expression
         any:
-            - all:
-                - has: {field: function, kind: field_expression, has: {field: field, regex: '^(inject|inject_context|extract|extract_with_context|fields)$'}}
-                - has: {field: function, has: {field: value, pattern: $SITE, matches: propagator}}
+            - has:
+                field: function
+                kind: field_expression
+                all:
+                    - has: {field: field, regex: '^(inject|inject_context|extract|extract_with_context|fields)$'}
+                    - has: {field: value, all: [{matches: propagator}, {pattern: $SITE}]}
             - all:
                 - has: {field: function, kind: scoped_identifier, regex: '(^|::)(TextMapPropagator::)?(inject|inject_context|extract|extract_with_context|fields)$'}
-                - has: {field: arguments, has: {nthChild: 1, pattern: $SITE, matches: propagator}}
+                - has: {field: arguments, has: {nthChild: 1, all: [{matches: propagator}, {pattern: $SITE}]}}
     header-name:
         kind: 'string_literal, raw_string_literal'
-        pattern: $SITE
-        not: {matches: rust-macro-argument}
-        any:
-            - regex: '^b?(r#*)?"(?i:traceparent|tracestate)"#*$'
-            - regex: '^(r#*)?"00-\{[^{}]*\}-\{[^{}]*\}-(\{[^{}]*\}|0[01])"#*$'
+        all:
+            - any:
+                - regex: '^b?(r#*)?"(?i:traceparent|tracestate)"#*$'
+                - regex: '^(r#*)?"00-\{[^{}]*\}-\{[^{}]*\}-(\{[^{}]*\}|0[01])"#*$'
+            - pattern: $SITE
 rule:
     kind: 'call_expression, string_literal, raw_string_literal'
     not: {matches: rust-test-scope}

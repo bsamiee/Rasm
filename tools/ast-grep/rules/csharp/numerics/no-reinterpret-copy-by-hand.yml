@@ -40,7 +40,7 @@ utils:
               has:
                 field: function
                 kind: member_access_expression
-                all: [{has: {field: expression, matches: vector-type}}, {has: {field: name, regex: '^Create$'}}]
+                all: [{has: {field: name, regex: '^Create$'}}, {has: {field: expression, matches: vector-type}}]
     vector-value:
         any:
             - matches: vector-creation
@@ -57,7 +57,7 @@ utils:
         has:
             field: function
             kind: member_access_expression
-            all: [{has: {field: expression, matches: vector-value}}, {has: {field: name, regex: '^(Try)?CopyTo$'}}]
+            all: [{has: {field: name, regex: '^(Try)?CopyTo$'}}, {has: {field: expression, matches: vector-value}}]
     chunk-creation:
         matches: vector-creation
         has:
@@ -95,7 +95,7 @@ rule:
             - has:
                 field: function
                 kind: member_access_expression
-                all: [{has: {field: expression, pattern: $SOURCE}}, {has: {field: name, regex: '^(Slice|AsSpan)$'}}]
+                all: [{has: {field: name, regex: '^(Slice|AsSpan)$'}}, {has: {field: expression, pattern: $SOURCE}}]
             - has:
                 field: arguments
                 all:
@@ -112,21 +112,21 @@ rule:
             - has:
                 field: function
                 kind: member_access_expression
-                all: [{has: {field: expression, pattern: $SOURCE}}, {has: {field: name, regex: '^(Slice|AsSpan)$'}}]
+                all: [{has: {field: name, regex: '^(Slice|AsSpan)$'}}, {has: {field: expression, pattern: $SOURCE}}]
             - has: {field: arguments, all: [{has: {kind: argument, nthChild: 1, has: {matches: offset}}}, {not: {has: {kind: argument, nthChild: 2}}}]}
             - inside: {kind: argument, inside: {kind: argument_list, inside: {matches: vector-write}}}
         - kind: 'object_creation_expression, implicit_object_creation_expression, invocation_expression'
           all:
-            - has: {kind: argument_list, all: [{has: {matches: first-element}}, {has: {matches: second-element}}]}
             - matches: vector-creation
+            - has: {kind: argument_list, all: [{has: {matches: first-element}}, {has: {matches: second-element}}]}
         - kind: invocation_expression
           all:
+            - matches: vector-write
             - has:
                 field: arguments
                 all:
                     - has: {kind: argument, nthChild: 1, has: {kind: identifier, pattern: $SOURCE}}
                     - has: {kind: argument, nthChild: 2, has: {matches: offset}}
                     - not: {has: {kind: argument, nthChild: 3}}
-            - matches: vector-write
 message: 'Copies between `$SOURCE` and `Vector$WIDTH` values run one slice at a time'
 note: 'Reinterpret the buffer as vectors in place through `MemoryMarshal.Cast<float, <vector>>(<buffer>)`'

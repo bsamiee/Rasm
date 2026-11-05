@@ -10,7 +10,8 @@ interface Cases<A> {
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const open = <const Fields extends Schema.Struct.Fields>(fields: Fields) => Schema.StructWithRest(Schema.Struct(fields), [Schema.Record(Schema.String, Schema.Json)]);
+const Undeclared = Schema.Record(Schema.String, Schema.Json);
+const open = <const Fields extends Schema.Struct.Fields>(fields: Fields) => Schema.StructWithRest(Schema.Struct(fields), [Undeclared]);
 const defaulted = <S extends Schema.Constraint & Schema.WithoutConstructorDefault>(schema: S, value: S['Encoded'] & S['~type.make.in']) => Schema.withConstructorDefault<Schema.withDecodingDefaultKey<S>>(Effect.succeed(value))(Schema.withDecodingDefaultKey<S>(Effect.succeed(value))(schema));
 const Pid = Schema.Int.check(Schema.isGreaterThan(0)).annotate({ description: 'Running process ID' });
 const WindowID = Schema.Finite.check(Schema.isUint32()).annotate({ description: 'CGWindowID' });

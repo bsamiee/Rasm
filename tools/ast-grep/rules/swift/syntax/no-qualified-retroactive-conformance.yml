@@ -34,4 +34,4 @@ rule:
                 stopBy: end
                 has: {kind: import_declaration, has: {kind: identifier, has: {kind: simple_identifier, nthChild: 1, pattern: $PROTOCOL_MODULE}}}
 message: 'Module-qualified `$TYPE: $PROTOCOL` conforms a `$TYPE_MODULE` type to a `$PROTOCOL_MODULE` protocol with no retroactive warning'
-note: 'Wrap the imported value in a type this module owns and conform the wrapper'
+note: 'Wrap the imported value in a module-owned type and conform it'

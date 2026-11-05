@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: rust-renamed-import
+language: rustlang
+arguments: [source, name]
+rule:
+    kind: use_as_clause
+    all:
+        - has:
+            field: path
+            any:
+                - {kind: identifier, matches: name, pattern: $LEAF}
+                - {kind: scoped_identifier, has: {field: name, matches: name, pattern: $LEAF}}
+        - not: {has: {field: alias, pattern: $LEAF}}
+        - inside: {kind: use_declaration, stopBy: end, matches: source}

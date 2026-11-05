@@ -13,7 +13,7 @@ utils:
     timeline-schedule:
         kind: value_argument
         nthChild: 1
-        inside: {kind: value_arguments, inside: {kind: call_suffix, inside: {kind: call_expression, has: {nthChild: 1, regex: '^TimelineView$'}}}}
+        inside: {kind: value_arguments, inside: {kind: call_suffix, inside: {kind: call_expression, has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '^(SwiftUI(\.|::))?TimelineView$'}}}}
 rule:
     pattern: $READ
     any:
@@ -22,7 +22,7 @@ rule:
           not: {has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: name, regex: '^using$'}}}}}
         - kind: call_expression
           regex: '^\.init\((timeIntervalSinceNow:[^)]*)?\)$'
-          inside: {kind: property_declaration, has: {kind: type_annotation, regex: '^:[\t-\r ]*((Foundation(\.|::))?(Date|UUID))$'}}
+          inside: {kind: property_declaration, has: {kind: type_annotation, has: {field: name, regex: '^((Foundation(\.|::))?(Date|UUID))$'}}}
         - kind: navigation_expression
           regex: '^(((Foundation(\.|::))?Date|(ContinuousClock|SuspendingClock)(\(\))?)(\.Instant)?\.now|[^(]+\.timeIntervalSinceNow|(Foundation(\.|::))?Date\.timeIntervalSinceReferenceDate|ProcessInfo\.processInfo\.systemUptime)$'
         - kind: prefix_expression

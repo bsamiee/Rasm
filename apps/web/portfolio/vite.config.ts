@@ -1,9 +1,15 @@
 import { sites } from '@openai/sites-vite-plugin';
-import { nodeBundle } from '@rasm/hosting/vite';
+import { cloudflareWorker } from '@rasm/hosting/vite';
 import { pdfjs } from '@rasm/media/vite';
 import tailwindcss from '@tailwindcss/vite';
-import { cloudflareWorker, react } from '../../../vite.shared.ts';
+import { hostedLayout, react } from '../../../vite.shared.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-export default cloudflareWorker(import.meta.dirname, { plugins: [react(), tailwindcss(), pdfjs()], hosting: [sites(), nodeBundle('./server/main.ts')] });
+export default cloudflareWorker({
+    plugins: [react(), tailwindcss(), pdfjs()],
+    hosts: sites(),
+    head: { master: 'favicon.svg', stylesheet: 'site/theme.css', ink: '--color-accent', surface: '--color-background' },
+    nodeEntry: './server/main.ts',
+    ...hostedLayout(import.meta.dirname),
+});

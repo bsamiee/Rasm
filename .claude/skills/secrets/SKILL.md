@@ -10,7 +10,7 @@ description: "Use when a command, build, or agent reads a secret or credential, 
 ## [01]-[DOPPLER_SCOPES]
 
 Doppler reads each option from a flag, then a `DOPPLER_*` environment variable:
-- Repository directory scope holds a CLI token alone, every command names `--project` and `--config`
+- `mise.toml` `[env]` states `DOPPLER_PROJECT` and `DOPPLER_CONFIG`, repository directory scope holds a CLI token alone, a call outside mise names `--project` and `--config`
 - Nx targets running a secret-reading tool hold its `doppler run` prefix, a call of that tool outside every target takes the same prefix
 - Builds read a secret when package build targets of a compiled project read one, MSBuild reads each injected variable as a property
 - Scope JSON names project and config `enclave.project` and `enclave.config`
@@ -30,9 +30,10 @@ Doppler reads each option from a flag, then a `DOPPLER_*` environment variable:
 
 Repository programs read owner-issued values from shared project `agent-runtime` config `dev` in workplace `Parametric_Arsenal`, each through its target's `doppler run` prefix:
 - `rasm:infra` names `GITHUB_TOKEN` with `--only-secrets`, a missing name fails the run
-- `<project>:hosting` names `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, and `OWNER_EMAIL` with `--no-exit-on-missing-only-secrets`, a missing name stays unset and the program's typed `Config` read names it when a target needs it
+- `<project>:hosting` hands the program its whole config, the program's typed `Config` read names a missing value when a target needs it
 - Variables the prefix leaves unset pass through from the calling environment, a local run sets one on the command
-- Add a hosting secret through `doppler secrets set <NAME> --project agent-runtime --config dev` and its name in the `hosting` target prefix
+- Add a hosting secret through `doppler secrets set <NAME> --project agent-runtime --config dev`, a `bindings.secret()` row in `cloudflare.config.ts` names it to the program
+- CI holds no Doppler token, `rasm:infra` copies `SIXLABORSLICENSEKEY` to the repository's Actions secrets and a job step writes it to the `.lic` file `SixLaborsLicenseFile` names, a `LicenseKey` value lands in the binlogs CI uploads
 - Values a program generates (store keys, owner passwords) stay Pulumi stack secrets, `pulumi stack output <name> --show-secrets` reads them
 - Pulumi reads its backend credential from the `pulumi login` saved under `PULUMI_HOME`
 - Doppler adds `DOPPLER_PROJECT`, `DOPPLER_CONFIG`, and `DOPPLER_ENVIRONMENT` to every config

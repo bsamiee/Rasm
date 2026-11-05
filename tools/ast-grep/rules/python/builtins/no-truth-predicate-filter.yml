@@ -30,8 +30,8 @@ utils:
                 - has:
                     field: parameters
                     kind: lambda_parameters
-                    has: {kind: identifier, pattern: $PARAMETER}
-                    not: {has: {pattern: $_, not: {any: [{kind: identifier, pattern: $PARAMETER}, {kind: 'positional_separator, comment'}]}}}
+                    has: {nthChild: 1, kind: identifier, pattern: $PARAMETER}
+                    not: {has: {nthChild: 2}}
                 - has: {field: body, matches: truth-value}
     filter-function:
         matches:
@@ -40,22 +40,14 @@ utils:
                     any:
                         - matches: {python-builtin-name: {name: {regex: '^filter$'}}}
                         - matches: {python-member-use: {module: {regex: '^itertools$'}, name: {regex: '^filterfalse$'}}}
-    predicate-position:
-        any:
-            - nthChild: {position: 1, ofRule: {not: {kind: comment}}}
-              inside:
-                kind: argument_list
-                all:
-                    - has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}, not: {kind: 'keyword_argument, list_splat, dictionary_splat'}}
-                    - not: {has: {nthChild: {position: 3, ofRule: {not: {kind: comment}}}}}
-                inside: {kind: call, has: {field: function, matches: filter-function, pattern: $FILTER}}
-            - inside: {kind: parenthesized_expression, matches: predicate-position}
 rule:
-    kind: identifier, attribute, lambda
+    pattern: {context: 'f($PREDICATE, $ITERABLE)', selector: argument_list}
     all:
-        - matches: predicate-position
-        - matches: truth-predicate
+        - not: {has: {kind: 'keyword_argument, list_splat, dictionary_splat'}}
+        - inside: {kind: call, field: arguments, has: {field: function, matches: filter-function, pattern: $FILTER}}
     not: {has: {kind: comment, stopBy: end}}
-fix: None
+constraints:
+    PREDICATE: {matches: {python-unparenthesized: {value: {matches: truth-predicate}}}}
+fix: '(None, $ITERABLE)'
 message: 'Truth predicate passed to `$FILTER` repeats the test a `None` predicate applies'
 note: 'Pass `None` as the predicate'

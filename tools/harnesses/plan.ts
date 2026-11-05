@@ -1,5 +1,5 @@
 import { Array, Effect, FileSystem, Match, Option, Path, Predicate, Record, Result, Schema, Struct, UndefinedOr } from 'effect';
-import { answers, type Batch, Call, type Case, Probe, scriptOf } from '#/cases';
+import { answers, type Batch, Call, type Case, Panel, Probe, scriptOf } from '#/cases';
 import { type Asking, Fact } from '#/facts';
 import { HarnessError } from '#/harness-error';
 import { record, tagOf } from '#/log';
@@ -39,6 +39,7 @@ const prepare = <C extends Cased, E, P>(host: Pick<Harness<Surveyed, C, E, P>, '
         const placedIn = (file: string | null) => Option.getOrNull(Option.map(Option.fromNullOr(file), (held) => path.join(product, held)));
         const args = argsOf(row).map((arg) => bury(arg));
         const kind = Match.value(row).pipe(
+            Match.when(Schema.is(Panel), ({ panel, evaluate, capture }) => ({ _tag: 'Panel' as const, panel, evaluate, ...Record.getSomes({ capture: Option.fromUndefinedOr(capture) }) })),
             Match.when(Schema.is(Probe), ({ evaluate }) => ({ _tag: 'Probe' as const, evaluate })),
             Match.when(Schema.is(Call), ({ call, keywords }) => ({ _tag: 'Call' as const, call, args, ...Record.getSomes({ keywords: Option.fromUndefinedOr(keywords) }) })),
             Match.orElse(({ keywords }) => ({ _tag: 'Run' as const, args, ...Record.getSomes({ keywords: Option.fromUndefinedOr(keywords) }) })),
@@ -71,7 +72,7 @@ const prepare = <C extends Cased, E, P>(host: Pick<Harness<Surveyed, C, E, P>, '
 const planning = <S extends Surveyed, C extends Cased, E, P>(host: Pick<Harness<S, C, E, P>, 'precondition' | 'placed' | 'Case' | 'refusal' | 'windowed'>, indexed: readonly Fact[], asking: Asking<E>, product: string, captures: string, batch: typeof Batch.Type, rows: readonly Case[]) => {
     const failed = (row: Case) => (error: HarnessError | Schema.SchemaError) =>
         Effect.andThen(record('Error', 'case ended', { case: row.name, completion: 'Failed', tag: tagOf(error), error: error.message }), Effect.map(Effect.orDie(Schema.decodeEffect(Outcome)({ name: row.name, completion: { _tag: 'Failed', reason: error.message } })), Result.fail));
-    const keyOf = (survey: S) => (row: Case) => (row.until === undefined ? Option.map(expressionOf(batch, row), (expression) => ({ ...asking, question: row.name, expression, args: argsOf(row), precondition: authored(batch, row), host: survey.host })) : Option.none());
+    const keyOf = (survey: S) => (row: Case) => (row.until === undefined && !Schema.is(Panel)(row) ? Option.map(expressionOf(batch, row), (expression) => ({ ...asking, question: row.name, expression, args: argsOf(row), precondition: authored(batch, row), host: survey.host })) : Option.none());
     const placing = (survey: S) => (numbered: readonly (readonly [Case, number])[]) => {
         const placed = prepare(host, product, captures, batch, host.precondition(survey), asking.engine);
         return Effect.forEach(numbered, ([row, index]) => placed(row, index).pipe(Effect.map(Result.succeed), Effect.catchTags({ HarnessError: failed(row), SchemaError: failed(row) })));

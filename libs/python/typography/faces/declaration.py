@@ -40,6 +40,10 @@ class Recipe(StrEnum):
     DOTS = auto()
 
 
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+PROFILE = Path(__file__).parents[1] / "verification" / "fontspector.toml"
+
 # --- [MODELS] ---------------------------------------------------------------------------
 # --- [SCRIPTS]
 
@@ -339,11 +343,10 @@ class OrnamentSet(_Set, frozen=True, kw_only=True):
 
 
 class FontSet(msgspec.Struct, frozen=True, kw_only=True, forbid_unknown_fields=True):
-    """Declared font set: families, ornament sets, the shaping corpus, and the fontspector configuration, paths relative to the declaration."""
+    """Declared font set: families, ornament sets, and the shaping corpus, its path relative to the declaration."""
 
     name: _Name
     corpus: str
-    fontspector: str
     families: tuple[Family, ...]
     ornaments: tuple[OrnamentSet, ...] = ()
 
@@ -372,7 +375,7 @@ class _Shaping(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class _Fontspector(msgspec.Struct, frozen=True, kw_only=True):
-    """Fontspector configuration table a set reads: the shaping test directory, relative to the configuration's folder."""
+    """Fontspector table a set reads from the library's profile: the shaping test directory, relative to the set's declaration."""
 
     shaping: _Shaping
 
@@ -389,11 +392,6 @@ class Declared(msgspec.Struct, frozen=True, kw_only=True):
     def corpus(self) -> Path:
         """Shaping corpus file."""
         return self.root / self.set.corpus
-
-    @property
-    def configuration(self) -> Path:
-        """Fontspector profile and configuration every check run reads."""
-        return self.root / self.set.fontspector
 
     def original(self, face: Faces, /) -> Path:
         """Returns the original binary a face reads."""
@@ -417,25 +415,24 @@ class Declared(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def declared(path: Path, output: Path, /) -> Outcome[Declared]:
-    """Reads a set declaration and the fontspector configuration it names, its builds writing under an output folder.
+    """Reads a set declaration, its approvals in the profile's test directory under the declaration's folder and its builds under an output folder.
 
     Args:
         path: Set declaration TOML.
         output: Folder the set's sources, binaries, and check reports write to.
 
     Returns:
-        Ok(declared), `UNREADABLE` for a failed read and `INVALID` for a refused decode of either file.
+        Ok(declared), `UNREADABLE` for a failed read and `INVALID` for a refused decode.
     """
     return loaded(FontSet, path).bind(
-        lambda font_set: loaded(_Fontspector, configuration := path.parent / font_set.fontspector).map(
-            lambda found: Declared(set=font_set, root=path.parent, output=output, approvals=configuration.parent / found.shaping.test_directory)
-        )
+        lambda font_set: loaded(_Fontspector, PROFILE).map(lambda found: Declared(set=font_set, root=path.parent, output=output, approvals=path.parent / found.shaping.test_directory))
     )
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = [
+    "PROFILE",
     "Band",
     "BlackNaskh",
     "Contour",

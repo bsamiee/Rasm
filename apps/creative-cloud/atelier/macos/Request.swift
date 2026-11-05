@@ -43,7 +43,7 @@ enum HelperRequest: Decodable, Sendable {
         switch self {
             case .server(let request):
                 try await request.perform(
-                    admitting: NSPredicate(format: "%K BEGINSWITH %@", kMDItemCFBundleIdentifier as String, adobePrefix),
+                    admitting: { NSPredicate(format: "%K BEGINSWITH %@", kMDItemCFBundleIdentifier as String, adobePrefix) },
                     refusing: { installation in Set(activatingCommands.first { stem, _ in installation.identifier.hasPrefix(stem) }?.value.compactMap(UInt64.init(sdef:)) ?? []) },
                     definitions: definitions,
                 )

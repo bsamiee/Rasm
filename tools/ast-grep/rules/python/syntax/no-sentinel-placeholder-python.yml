@@ -27,15 +27,17 @@ utils:
             - kind: call
               has:
                 field: function
+                regex: '^(object|[Ss]entinel)$|\.[Ss]entinel$'
                 any:
                     - matches: {python-builtin-identifier: {name: {regex: '^object$'}}}
                     - {kind: identifier, regex: '^[Ss]entinel$', not: {matches: python-shadowed-name}}
                     - {kind: attribute, has: {field: attribute, regex: '^[Ss]entinel$'}}
             - kind: call
               pattern: $CLASS()
-              has: {field: function, kind: identifier}
-              inside: {kind: module, stopBy: end, has: {any: [{matches: marker-class}, {kind: decorated_definition, has: {field: definition, matches: marker-class}}]}}
-              not: {inside: {kind: module, stopBy: end, has: {stopBy: end, kind: type, all: [{has: {stopBy: end, kind: identifier, pattern: $CLASS}}, {has: {stopBy: end, kind: none}}]}}}
+              all:
+                - has: {field: function, kind: identifier}
+                - inside: {kind: module, stopBy: end, has: {any: [{matches: marker-class}, {kind: decorated_definition, has: {field: definition, matches: marker-class}}]}}
+                - not: {inside: {kind: module, stopBy: end, has: {stopBy: end, kind: type, all: [{has: {stopBy: end, kind: identifier, pattern: $CLASS}}, {has: {stopBy: end, kind: none}}]}}}
     bound-value:
         any:
             - matches: sentinel-value
@@ -45,6 +47,9 @@ rule:
     kind: assignment
     any:
         - all:
+            - inside:
+                kind: expression_statement
+                inside: {kind: 'module, class_definition', stopBy: {kind: 'function_definition, lambda'}}
             - any:
                 - all:
                     - has: {field: left, kind: identifier, pattern: $NAME}
@@ -52,9 +57,6 @@ rule:
                 - all:
                     - has: {field: left, kind: 'pattern_list, tuple_pattern, list_pattern', pattern: $NAME}
                     - has: {field: right, kind: 'expression_list, tuple, list', has: {matches: bound-value}}
-            - inside:
-                kind: expression_statement
-                inside: {kind: 'module, class_definition', stopBy: {kind: 'function_definition, lambda'}}
         - all:
             - has: {field: left, kind: identifier, pattern: $NAME}
             - inside:
@@ -63,8 +65,9 @@ rule:
                 inside:
                     kind: block
                     all:
+                        - inside: {kind: class_definition, has: {field: superclasses, kind: argument_list}}
                         - not: {has: {nthChild: {position: 2, ofRule: {matches: enum-member}}}}
                         - not: {has: {pattern: $_, not: {any: [{matches: enum-member}, {matches: marker-statement}]}}}
-                    inside: {kind: class_definition, has: {field: superclasses, has: {matches: enum-base}}}
+                        - inside: {kind: class_definition, has: {field: superclasses, has: {matches: enum-base}}}
 message: '`$NAME` is a sentinel that marks absence by identity'
 note: 'Use `Option[<T>]` with `Nothing`, on fields msgspec decodes `<T> | None` or `UnsetType = UNSET`'

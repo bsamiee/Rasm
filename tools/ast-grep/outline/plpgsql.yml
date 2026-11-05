@@ -16,24 +16,77 @@ isExported: false
 rule:
     any:
         - kind: pl_block
-          has: {kind: block_label, pattern: $LABEL, has: {kind: 'identifier, quoted_identifier, unicode_quoted_identifier, substitution', pattern: $NAME}}
+          has: {kind: block_label, pattern: $LABEL, has: {pattern: $NAME}}
         - kind: pl_block
           has: {kind: decl_sect, has: {kind: kw_declare, pattern: $KEYWORD}}
         - kind: pl_block
           has: {kind: kw_begin, pattern: $KEYWORD}
-        - kind: loop_label
-          has: {kind: 'identifier, quoted_identifier, unicode_quoted_identifier, substitution', pattern: $NAME}
-          inside: {kind: 'stmt_loop, stmt_while, stmt_for, stmt_foreach_a', pattern: $LOOP}
-rewriters:
-    - id: body
-      rule: {kind: 'loop_body, comment'}
-      fix: ''
+        - kind: 'stmt_loop, stmt_while, stmt_for, stmt_foreach_a'
+          has: {kind: loop_label, pattern: $LABEL, has: {pattern: $NAME}}
+          matches: header
+utils:
+    header:
+        has: {kind: 'kw_for, kw_foreach, kw_while, kw_loop', pattern: $OPENER}
+        any: [{has: {kind: for_variable, pattern: $VARIABLE}}, {kind: 'stmt_loop, stmt_while'}]
 transform:
-    HEADER: {rewrite: {source: $LOOP, rewriters: [body]}}
-    FOLDED: {replace: {source: $HEADER, replace: '[\t\n\x0B\f\r ]+', by: ' '}}
-    SIGNATURE: {replace: {source: $FOLDED, replace: ' $', by: ''}}
+    FORM: replace($OPENER, replace='^', by=' ')
+    TARGET: replace($VARIABLE, replace='^|[\t\n\x0B\f\r ]+', by=' ')
 name: $NAME$KEYWORD
-signature: $LABEL$KEYWORD$SIGNATURE
+signature: $LABEL$KEYWORD$FORM$TARGET
+---
+id: plpgsql-loop-variable
+language: plpgsql
+role: item
+symbolType: variable
+isExported: false
+rule:
+    kind: for_variable
+    pattern: $NAME
+    inside: {kind: stmt_for, field: for, has: {field: in, kind: 'for_integer_range, for_cursor'}}
+name: $NAME
+signature: $NAME
+---
+id: plpgsql-raise
+language: plpgsql
+role: item
+symbolType: event
+isExported: false
+rule:
+    kind: stmt_raise
+    any:
+        - has: {kind: any_identifier, pattern: $CONDITION}
+        - all: [{has: {kind: kw_sqlstate, pattern: $KEYWORD}}, {has: {field: sqlstate, pattern: $STATE}}]
+        - has: {kind: raise_option, pattern: $OPTION, all: [{has: {field: left, kind: kw_errcode}}, {has: {field: right, pattern: $ERRCODE}}]}
+    not: {has: {field: raise, kind: raise_level, not: {has: {kind: kw_exception}}}}
+transform:
+    CODE: replace($STATE, replace="^'|'$", by='')
+    ERRNAME: replace($ERRCODE, replace="^'|'$", by='')
+    STATED: replace($KEYWORD, replace='(?-u:\b)$', by=' ')
+    USING: replace($OPTION, replace='^(?-u:\b)', by='USING ')
+    LINE: replace($USING, replace='[\t\n\x0B\f\r ]+', by=' ')
+name: $CONDITION$CODE$ERRNAME
+signature: RAISE $CONDITION$STATED$STATE$LINE
+---
+id: plpgsql-error
+language: plpgsql
+role: item
+symbolType: 'null'
+rule:
+    kind: ERROR
+    not:
+        has:
+            stopBy: end
+            any:
+                - kind: 'pl_block, comp_option'
+                - {kind: 'stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: loop_label}}
+                - {kind: for_variable, inside: {kind: stmt_for, field: for, has: {field: in, kind: 'for_integer_range, for_cursor'}}}
+                - kind: stmt_raise
+                  any: [{has: {kind: any_identifier}}, {has: {kind: kw_sqlstate}}, {has: {kind: raise_option, has: {field: left, kind: kw_errcode}}}]
+                  not: {has: {field: raise, kind: raise_level, not: {has: {kind: kw_exception}}}}
+name: ERROR
+signature: ''
+isImport: false
+isExported: false
 ---
 id: plpgsql-scope-label
 language: plpgsql
@@ -41,64 +94,43 @@ role: member
 symbolType: namespace
 parentRuleIds: [plpgsql-scope]
 rule:
-    has: {kind: 'identifier, quoted_identifier, unicode_quoted_identifier, substitution', pattern: $NAME}
+    has: {pattern: $NAME}
+    not: {has: {kind: ERROR}}
+    pattern: $LABEL
     any:
         - kind: block_label
-          pattern: $LABEL
-          inside: {kind: pl_block, inside: {stopBy: end, kind: pl_block}}
+          inside: {kind: pl_block, matches: scope}
         - kind: loop_label
-          inside: {kind: 'stmt_loop, stmt_while, stmt_for, stmt_foreach_a', pattern: $LOOP}
+          inside: {kind: 'stmt_loop, stmt_while, stmt_for, stmt_foreach_a', all: [{matches: scope}, {matches: header}]}
+utils:
+    nested: {inside: {stopBy: end, any: [{kind: pl_block}, {kind: 'stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: loop_label}}]}}
+    scope:
+        matches: nested
+        any:
+            - inside: {stopBy: end, kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: 'block_label, loop_label', pattern: $OWNER}, matches: nested}
+            - kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a'
+    header:
+        has: {kind: 'kw_for, kw_foreach, kw_while, kw_loop', pattern: $OPENER}
+        any: [{has: {kind: for_variable, pattern: $VARIABLE}}, {kind: 'stmt_loop, stmt_while'}]
 rewriters:
-    - id: body
-      rule: {kind: 'loop_body, comment'}
-      fix: ''
+    - id: lineage
+      rule:
+          kind: 'block_label, loop_label'
+          has: {pattern: $SEGMENT}
+          inside:
+              kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a'
+              any:
+                  - inside: {stopBy: end, kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: 'block_label, loop_label', pattern: $UP}, matches: nested}
+                  - kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a'
+      transform:
+          ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
+      fix: $ABOVE$SEGMENT.
 transform:
-    HEADER: {rewrite: {source: $LOOP, rewriters: [body]}}
-    FOLDED: {replace: {source: $HEADER, replace: '[\t\n\x0B\f\r ]+', by: ' '}}
-    SIGNATURE: {replace: {source: $FOLDED, replace: ' $', by: ''}}
-name: $NAME
-signature: $LABEL$SIGNATURE
----
-id: plpgsql-scope-variable
-language: plpgsql
-role: member
-symbolType: variable
-parentRuleIds: [plpgsql-scope]
-rule:
-    kind: decl_statement
-    pattern: $DECLARATION
-    has: {kind: decl_varname, pattern: $NAME}
-    not: {has: {kind: 'kw_constant, kw_cursor'}}
-    any:
-        - inside: {kind: decl_stmt, inside: {kind: decl_sect, inside: {kind: pl_block, has: {kind: block_label, has: {kind: 'identifier, quoted_identifier, unicode_quoted_identifier, substitution', pattern: $OWNER}}, inside: {stopBy: end, kind: pl_block}}}}
-        - pattern: $DECLARATION
-transform:
-    QUALIFIER: {replace: {source: $OWNER, replace: '^(.+)$', by: '$1.'}}
-    FOLDED: {replace: {source: $DECLARATION, replace: '[\t\n\x0B\f\r ]+', by: ' '}}
-    SIGNATURE: {replace: {source: $FOLDED, replace: ' ?;$', by: ''}}
+    QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage], joinBy: ''}}
+    FORM: replace($OPENER, replace='^', by=' ')
+    TARGET: replace($VARIABLE, replace='^|[\t\n\x0B\f\r ]+', by=' ')
 name: $QUALIFIER$NAME
-signature: $SIGNATURE
----
-id: plpgsql-scope-constant
-language: plpgsql
-role: member
-symbolType: constant
-parentRuleIds: [plpgsql-scope]
-rule:
-    kind: decl_statement
-    pattern: $DECLARATION
-    all:
-        - has: {kind: kw_constant}
-        - has: {kind: decl_varname, pattern: $NAME}
-    any:
-        - inside: {kind: decl_stmt, inside: {kind: decl_sect, inside: {kind: pl_block, has: {kind: block_label, has: {kind: 'identifier, quoted_identifier, unicode_quoted_identifier, substitution', pattern: $OWNER}}, inside: {stopBy: end, kind: pl_block}}}}
-        - pattern: $DECLARATION
-transform:
-    QUALIFIER: {replace: {source: $OWNER, replace: '^(.+)$', by: '$1.'}}
-    FOLDED: {replace: {source: $DECLARATION, replace: '[\t\n\x0B\f\r ]+', by: ' '}}
-    SIGNATURE: {replace: {source: $FOLDED, replace: ' ?;$', by: ''}}
-name: $QUALIFIER$NAME
-signature: $SIGNATURE
+signature: $LABEL$FORM$TARGET
 ---
 id: plpgsql-scope-cursor
 language: plpgsql
@@ -108,46 +140,262 @@ parentRuleIds: [plpgsql-scope]
 rule:
     kind: decl_varname
     pattern: $NAME
-    inside:
-        kind: decl_statement
-        pattern: $DECLARATION
-        has: {kind: kw_cursor}
-        any:
-            - inside: {kind: decl_stmt, inside: {kind: decl_sect, inside: {kind: pl_block, has: {kind: block_label, has: {kind: 'identifier, quoted_identifier, unicode_quoted_identifier, substitution', pattern: $OWNER}}, inside: {stopBy: end, kind: pl_block}}}}
-            - pattern: $DECLARATION
+    inside: {kind: decl_statement, pattern: $DECLARATION, has: {kind: kw_cursor}, matches: owner}
+utils:
+    nested: {inside: {stopBy: end, any: [{kind: pl_block}, {kind: 'stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: loop_label}}]}}
+    owner: {any: [{inside: {stopBy: end, kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: 'block_label, loop_label', pattern: $OWNER}, matches: nested}}, {kind: decl_statement}]}
 rewriters:
-    - id: query
-      rule: {kind: 'sql_expression, kw_for, kw_is, comment'}
-      fix: ''
+    - id: lineage
+      rule:
+          kind: 'block_label, loop_label'
+          has: {pattern: $SEGMENT}
+          inside:
+              kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a'
+              any:
+                  - inside: {stopBy: end, kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: 'block_label, loop_label', pattern: $UP}, matches: nested}
+                  - kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a'
+      transform:
+          ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
+      fix: $ABOVE$SEGMENT.
 transform:
-    QUALIFIER: {replace: {source: $OWNER, replace: '^(.+)$', by: '$1.'}}
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [query]}}
-    FOLDED: {replace: {source: $HEADER, replace: '[\t\n\x0B\f\r ]+', by: ' '}}
-    SIGNATURE: {replace: {source: $FOLDED, replace: ' ?;$', by: ''}}
+    QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage], joinBy: ''}}
+    HEADER: replace($DECLARATION, replace='(?:[\t\n\x0B\f\r ]*;|[\t\n\x0B\f\r ]+(?i:for|is)(?-u:\b)(?s:.)*)$|[\t\n\x0B\f\r ]*(?:/\*(?s:.)*?\*/|--[^\n]*)', by='')
+    SIGNATURE: replace($HEADER, replace='[\t\n\x0B\f\r ]+', by=' ')
 name: $QUALIFIER$NAME
 signature: $SIGNATURE
 ---
-id: plpgsql-scope-cursor-argument
+id: plpgsql-scope-variable
 language: plpgsql
 role: member
-symbolType: field
+symbolType: variable
 parentRuleIds: [plpgsql-scope]
 rule:
-    kind: decl_cursor_arg
-    has: {kind: decl_varname, pattern: $NAME}
-    inside: {kind: decl_cursor_args, inside: {kind: decl_statement, has: {kind: decl_varname, pattern: $OWNER}}}
-name: $OWNER.$NAME
+    any:
+        - kind: decl_statement
+          pattern: $DECLARATION
+          has: {kind: decl_varname, pattern: $NAME}
+          all: [{not: {has: {kind: 'kw_constant, kw_cursor'}}}, {not: {has: {stopBy: end, kind: ERROR}}}, {matches: owner}]
+        - kind: decl_varname
+          pattern: $NAME
+          inside: {kind: decl_statement, pattern: $DECLARATION, all: [{not: {has: {kind: 'kw_constant, kw_cursor'}}}, {has: {stopBy: end, kind: ERROR}}, {matches: owner}]}
+utils:
+    nested: {inside: {stopBy: end, any: [{kind: pl_block}, {kind: 'stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: loop_label}}]}}
+    owner: {any: [{inside: {stopBy: end, kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: 'block_label, loop_label', pattern: $OWNER}, matches: nested}}, {kind: decl_statement}]}
+rewriters:
+    - id: lineage
+      rule:
+          kind: 'block_label, loop_label'
+          has: {pattern: $SEGMENT}
+          inside:
+              kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a'
+              any:
+                  - inside: {stopBy: end, kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: 'block_label, loop_label', pattern: $UP}, matches: nested}
+                  - kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a'
+      transform:
+          ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
+      fix: $ABOVE$SEGMENT.
+transform:
+    QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage], joinBy: ''}}
+    HEADER: replace($DECLARATION, replace='(?:[\t\n\x0B\f\r ]*:?=|[\t\n\x0B\f\r ]+(?i:default)(?-u:\b))(?s:.)*|[\t\n\x0B\f\r ]*(?:;$|/\*(?s:.)*?\*/|--[^\n]*)', by='')
+    SIGNATURE: replace($HEADER, replace='[\t\n\x0B\f\r ]+', by=' ')
+name: $QUALIFIER$NAME
+signature: $SIGNATURE
+---
+id: plpgsql-scope-private-variable
+language: plpgsql
+role: member
+symbolType: variable
+isPublic: false
+parentRuleIds: [plpgsql-scope]
+rule:
+    any:
+        - kind: decl_cursor_arg
+          pattern: $DECLARATION
+          has: {kind: decl_varname, pattern: $NAME}
+          inside: {kind: decl_cursor_args, inside: {kind: decl_statement, has: {kind: decl_varname, pattern: $CURSOR}, matches: owner}}
+        - kind: for_variable
+          pattern: $DECLARATION
+          has: {kind: dotted_name, pattern: $NAME}
+          inside:
+              kind: stmt_for
+              field: for
+              has: {field: in, kind: 'for_integer_range, for_cursor'}
+              any:
+                  - {has: {kind: loop_label, pattern: $OWNER}, matches: nested}
+                  - inside: {stopBy: end, kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: 'block_label, loop_label', pattern: $OWNER}, matches: nested}
+                  - kind: stmt_for
+utils:
+    nested: {inside: {stopBy: end, any: [{kind: pl_block}, {kind: 'stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: loop_label}}]}}
+    owner: {any: [{inside: {stopBy: end, kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: 'block_label, loop_label', pattern: $OWNER}, matches: nested}}, {kind: decl_statement}]}
+rewriters:
+    - id: lineage
+      rule:
+          kind: 'block_label, loop_label'
+          has: {pattern: $SEGMENT}
+          inside:
+              kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a'
+              any:
+                  - inside: {stopBy: end, kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: 'block_label, loop_label', pattern: $UP}, matches: nested}
+                  - kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a'
+      transform:
+          ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
+      fix: $ABOVE$SEGMENT.
+transform:
+    QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage], joinBy: ''}}
+    PARENT: replace($CURSOR, replace='$', by='.')
+    SIGNATURE: replace($DECLARATION, replace='[\t\n\x0B\f\r ]+', by=' ')
+name: $QUALIFIER$PARENT$NAME
+signature: $SIGNATURE
+---
+id: plpgsql-scope-constant
+language: plpgsql
+role: member
+symbolType: constant
+parentRuleIds: [plpgsql-scope]
+rule:
+    any:
+        - kind: decl_statement
+          pattern: $DECLARATION
+          has: {kind: decl_varname, pattern: $NAME}
+          all: [{has: {kind: kw_constant}}, {not: {has: {stopBy: end, kind: ERROR}}}, {matches: owner}]
+        - kind: decl_varname
+          pattern: $NAME
+          inside: {kind: decl_statement, pattern: $DECLARATION, all: [{has: {kind: kw_constant}}, {has: {stopBy: end, kind: ERROR}}, {matches: owner}]}
+utils:
+    nested: {inside: {stopBy: end, any: [{kind: pl_block}, {kind: 'stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: loop_label}}]}}
+    owner: {any: [{inside: {stopBy: end, kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: 'block_label, loop_label', pattern: $OWNER}, matches: nested}}, {kind: decl_statement}]}
+rewriters:
+    - id: lineage
+      rule:
+          kind: 'block_label, loop_label'
+          has: {pattern: $SEGMENT}
+          inside:
+              kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a'
+              any:
+                  - inside: {stopBy: end, kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: 'block_label, loop_label', pattern: $UP}, matches: nested}
+                  - kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a'
+      transform:
+          ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
+      fix: $ABOVE$SEGMENT.
+transform:
+    QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage], joinBy: ''}}
+    HEADER: replace($DECLARATION, replace='(?:[\t\n\x0B\f\r ]*:?=|[\t\n\x0B\f\r ]+(?i:default)(?-u:\b))(?s:.)*|[\t\n\x0B\f\r ]*(?:;$|/\*(?s:.)*?\*/|--[^\n]*)', by='')
+    SIGNATURE: replace($HEADER, replace='[\t\n\x0B\f\r ]+', by=' ')
+name: $QUALIFIER$NAME
+signature: $SIGNATURE
 ---
 id: plpgsql-scope-handler
 language: plpgsql
 role: member
 symbolType: event
+isPublic: false
 parentRuleIds: [plpgsql-scope]
 rule:
-    kind: proc_conditions
-    pattern: $CONDITIONS
-    inside: {kind: proc_exception}
+    kind: proc_condition
+    any: [{has: {kind: any_identifier, pattern: $CONDITION}}, {has: {field: sqlstate, pattern: $STATE}}]
+    inside: {kind: proc_conditions, pattern: $CONDITIONS, inside: {kind: proc_exception}}
+    matches: owner
+utils:
+    nested: {inside: {stopBy: end, any: [{kind: pl_block}, {kind: 'stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: loop_label}}]}}
+    owner: {any: [{inside: {stopBy: end, kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: 'block_label, loop_label', pattern: $OWNER}, matches: nested}}, {kind: proc_condition}]}
+rewriters:
+    - id: lineage
+      rule:
+          kind: 'block_label, loop_label'
+          has: {pattern: $SEGMENT}
+          inside:
+              kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a'
+              any:
+                  - inside: {stopBy: end, kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: 'block_label, loop_label', pattern: $UP}, matches: nested}
+                  - kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a'
+      transform:
+          ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
+      fix: $ABOVE$SEGMENT.
 transform:
-    NAME: {replace: {source: $CONDITIONS, replace: '[\t\n\x0B\f\r ]+', by: ' '}}
-name: $NAME
-signature: WHEN $NAME
+    QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage], joinBy: ''}}
+    CODE: replace($STATE, replace="^'|'$", by='')
+    CLAUSE: replace($CONDITIONS, replace='[\t\n\x0B\f\r ]*(?:/\*(?s:.)*?\*/|--[^\n]*)', by='')
+    HEADER: replace($CLAUSE, replace='[\t\n\x0B\f\r ]+', by=' ')
+name: $QUALIFIER$CONDITION$CODE
+signature: WHEN $HEADER
+---
+id: plpgsql-scope-raise
+language: plpgsql
+role: member
+symbolType: event
+parentRuleIds: [plpgsql-scope]
+rule:
+    kind: stmt_raise
+    any:
+        - has: {kind: any_identifier, pattern: $CONDITION}
+        - all: [{has: {kind: kw_sqlstate, pattern: $KEYWORD}}, {has: {field: sqlstate, pattern: $STATE}}]
+        - has: {kind: raise_option, pattern: $OPTION, all: [{has: {field: left, kind: kw_errcode}}, {has: {field: right, pattern: $ERRCODE}}]}
+    not: {has: {field: raise, kind: raise_level, not: {has: {kind: kw_exception}}}}
+    matches: owner
+utils:
+    nested: {inside: {stopBy: end, any: [{kind: pl_block}, {kind: 'stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: loop_label}}]}}
+    owner: {any: [{inside: {stopBy: end, kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: 'block_label, loop_label', pattern: $OWNER}, matches: nested}}, {kind: stmt_raise}]}
+rewriters:
+    - id: lineage
+      rule:
+          kind: 'block_label, loop_label'
+          has: {pattern: $SEGMENT}
+          inside:
+              kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a'
+              any:
+                  - inside: {stopBy: end, kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: 'block_label, loop_label', pattern: $UP}, matches: nested}
+                  - kind: 'pl_block, stmt_loop, stmt_while, stmt_for, stmt_foreach_a'
+      transform:
+          ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
+      fix: $ABOVE$SEGMENT.
+transform:
+    QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage], joinBy: ''}}
+    CODE: replace($STATE, replace="^'|'$", by='')
+    ERRNAME: replace($ERRCODE, replace="^'|'$", by='')
+    STATED: replace($KEYWORD, replace='(?-u:\b)$', by=' ')
+    USING: replace($OPTION, replace='^(?-u:\b)', by='USING ')
+    LINE: replace($USING, replace='[\t\n\x0B\f\r ]+', by=' ')
+name: $QUALIFIER$CONDITION$CODE$ERRNAME
+signature: RAISE $CONDITION$STATED$STATE$LINE
+---
+id: plpgsql-member-error
+language: plpgsql
+role: member
+parentRuleIds: [plpgsql-option, plpgsql-scope, plpgsql-loop-variable, plpgsql-raise]
+symbolType: 'null'
+rule:
+    any:
+        - kind: ERROR
+          not:
+              has:
+                  stopBy: end
+                  any:
+                      - {kind: decl_statement, inside: {stopBy: end, kind: pl_block}}
+                      - {kind: decl_cursor_arg, inside: {kind: decl_cursor_args, inside: {kind: decl_statement}}}
+                      - {kind: block_label, inside: {kind: pl_block}}
+                      - {kind: loop_label, inside: {kind: 'stmt_loop, stmt_while, stmt_for, stmt_foreach_a'}}
+                      - {kind: for_variable, inside: {kind: stmt_for, field: for, has: {field: in, kind: 'for_integer_range, for_cursor'}}}
+                      - {kind: proc_condition, inside: {kind: proc_conditions, inside: {kind: proc_exception}}}
+                      - kind: stmt_raise
+                        any: [{has: {kind: any_identifier}}, {has: {kind: kw_sqlstate}}, {has: {kind: raise_option, has: {field: left, kind: kw_errcode}}}]
+                        not: {has: {field: raise, kind: raise_level, not: {has: {kind: kw_exception}}}}
+        - kind: kw_begin
+          inside:
+              any:
+                  - kind: ERROR
+                  - {kind: pl_block, inside: {stopBy: {any: [{kind: 'ERROR, pl_block'}, {kind: 'stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: loop_label}}]}, kind: ERROR}}
+        - kind: 'kw_declare, kw_exception, kw_cursor'
+          inside: {kind: ERROR}
+        - kind: 'kw_option, kw_print_strict_params, kw_variable_conflict, loop_label, dotted_name'
+          inside:
+              kind: 'comp_option, stmt_loop, stmt_while, stmt_for, stmt_foreach_a, for_variable'
+              inside: {stopBy: {any: [{kind: 'ERROR, pl_block'}, {kind: 'stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: loop_label}}]}, kind: ERROR}
+        - kind: kw_raise
+          inside:
+              kind: stmt_raise
+              any: [{has: {kind: any_identifier}}, {has: {kind: kw_sqlstate}}, {has: {kind: raise_option, has: {field: left, kind: kw_errcode}}}]
+              not: {has: {field: raise, kind: raise_level, not: {has: {kind: kw_exception}}}}
+              inside: {stopBy: {any: [{kind: 'ERROR, pl_block'}, {kind: 'stmt_loop, stmt_while, stmt_for, stmt_foreach_a', has: {kind: loop_label}}]}, kind: ERROR}
+name: ERROR
+signature: ''
+isPublic: false

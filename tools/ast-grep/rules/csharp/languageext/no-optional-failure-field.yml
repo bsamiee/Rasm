@@ -8,9 +8,18 @@ utils:
     error-type-name:
         any:
             - matches: {csharp-type-name: {name: {regex: '^(Error|Expected|Exceptional|ManyErrors|Exception)$'}}}
-            - kind: identifier
-              pattern: $ERROR
-              inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, kind: record_declaration, all: [{has: {field: name, pattern: $ERROR}}, {matches: languageext-error-record}]}}
+            - any:
+                - kind: identifier
+                  pattern: {context: 'class $ERROR;', selector: identifier}
+                - kind: qualified_name
+                  has: {field: name, pattern: {context: 'class $ERROR;', selector: identifier}}
+              inside:
+                stopBy: end
+                kind: compilation_unit
+                has:
+                    stopBy: {not: {kind: 'compilation_unit, global_statement, namespace_declaration, declaration_list, class_declaration, struct_declaration, record_declaration, interface_declaration, union_declaration, extension_declaration, extension_body, parameter_list, preproc_if, preproc_elif, preproc_else'}}
+                    kind: record_declaration
+                    all: [{has: {field: name, pattern: {context: 'class $ERROR;', selector: identifier}}}, {matches: languageext-error-record}]
     failure-name:
         regex: '^(error|failure|fault|reason|problem|cause)|(^|[a-z0-9])(Error|Failure|Fault|Reason|Problem|Cause)([A-Z0-9]|$)'
     failure-type:
@@ -69,7 +78,7 @@ rule:
         - kind: parameter
           all:
             - matches: optional-failure
-            - has: {field: name, pattern: $FIELD}
+            - has: {field: name, pattern: {context: 'class $FIELD;', selector: identifier}}
             - inside: {kind: parameter_list, inside: {matches: owner}}
             - any:
                 - follows: {stopBy: end, kind: parameter}
@@ -77,20 +86,20 @@ rule:
         - kind: tuple_element
           all:
             - matches: optional-failure
-            - has: {field: name, pattern: $FIELD}
+            - has: {field: name, pattern: {context: 'class $FIELD;', selector: identifier}}
             - any:
                 - follows: {stopBy: end, kind: tuple_element}
                 - precedes: {stopBy: end, kind: tuple_element}
         - kind: property_declaration
           all:
             - matches: optional-failure
-            - has: {field: name, pattern: $FIELD}
+            - has: {field: name, pattern: {context: 'class $FIELD;', selector: identifier}}
             - has: {field: accessors, kind: accessor_list}
             - inside: {matches: member-with-data}
         - kind: field_declaration
           all:
             - matches: optional-failure-field
-            - has: {kind: variable_declaration, has: {kind: variable_declarator, has: {field: name, pattern: $FIELD}}}
+            - has: {kind: variable_declaration, has: {kind: variable_declarator, has: {field: name, pattern: {context: 'class $FIELD;', selector: identifier}}}}
             - inside: {matches: member-with-data}
 message: '`$FIELD` holds an optional failure beside a success flag'
 note: 'Return `Fin<T>`, or a union with one case per result state'

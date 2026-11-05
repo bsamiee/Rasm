@@ -38,7 +38,7 @@ public enum InstanceState: Equatable, Sendable {
         public let status: Status
         public let active: Bool
         public let windows: [Window]
-        public internal(set) var prompts: [Window] = []
+        public let prompts: [Window]
         public let menus: [Element]
         public let usage: Result<ResourceUsage, Errno>?
 
@@ -103,7 +103,7 @@ extension InstanceState.Window {
     }
 
     static func listed(number: CGWindowID) -> Self? {
-        (CGWindowListCopyWindowInfo(.optionIncludingWindow, number) as? [[String: Any]] ?? []).compactMap(Self.init).first
+        (CGWindowListCopyWindowInfo(.optionIncludingWindow, number) as? [[String: Any]] ?? []).lazy.compactMap(Self.init).first
     }
 
     func described(_ description: Description, arrived: Bool) -> Self {
@@ -112,35 +112,24 @@ extension InstanceState.Window {
 }
 
 extension InstanceState.Running {
-    fileprivate struct Printed: Equatable {
-        struct Row: Equatable {
-            let number: CGWindowID
-            let title: String?
-            let elementTitle: String?
-        }
-
-        let status: Status
-        let active: Bool
-        let asking: [CGWindowID]
-        let rows: [Row]
-        let menus: [Element.ID]
+    fileprivate var printed: (status: Status, active: Bool, asking: [CGWindowID], menus: [Element.ID]) {
+        (status == .unresponsive(.running) ? .unresponsive(.sleeping) : status, active, asking.map(\.number), menus.filter { menu in menu.role == kAXMenuRole }.map(\.id))
     }
 
-    fileprivate var printed: Printed {
-        Printed(
-            status: status == .unresponsive(.running) ? .unresponsive(.sleeping) : status,
-            active: active,
-            asking: asking.map(\.number),
-            rows: windows.filter(\.presented).map { window in Printed.Row(number: window.number, title: window.title, elementTitle: window.description[case: \.element]?.title) },
-            menus: menus.filter { menu in menu.role == kAXMenuRole }.map(\.id),
-        )
+    fileprivate func printsSame(as other: Self) -> Bool {
+        let rows: [InstanceState.Window] = other.windows.filter(\.presented)
+        let sameRows: Bool = windows.filter(\.presented).elementsEqual(rows) { (left: InstanceState.Window, right: InstanceState.Window) -> Bool in
+            let sameTitle: Bool = left.description[case: \.element]?.title == right.description[case: \.element]?.title
+            return left.number == right.number && left.title == right.title && sameTitle
+        }
+        return sameRows && printed == other.printed
     }
 }
 
 extension InstanceState {
     func printsSame(as other: Self) -> Bool {
         switch (self, other) {
-            case (.running(let previous), .running(let next)): previous.printed == next.printed
+            case (.running(let previous), .running(let next)): previous.printsSame(as: next)
             case (_, _): self == other
         }
     }
@@ -225,9 +214,8 @@ extension InstanceState.Window: Encodable {
 
 extension InstanceState {
     fileprivate func prompted(_ rows: [Window]) -> Self {
-        guard case .running(var running) = self else { return self }
-        running.prompts = rows
-        return .running(running)
+        self[case: \.running].map { running in .running(Running(status: running.status, active: running.active, windows: running.windows, prompts: rows, menus: running.menus, usage: running.usage)) }
+            ?? self
     }
 }
 
@@ -249,7 +237,10 @@ extension NSRunningApplication {
     ) -> some AsyncSequence<InstanceState, Never> & Sendable {
         let names: [String] = promptNames
         return lifetime(
-            combineLatest(beats(walking: walked, clock: clock), chain([OrderedDictionary<NSRunningApplication, InstanceState>()].async, NSWorkspace.shared.dialogHelperStates(clock: clock))).map {
+            combineLatest(
+                beats(walking: walked, clock: clock),
+                chain([OrderedDictionary<NSRunningApplication, InstanceState>()].async, NSWorkspace.shared.tracked(of: \.isDialogHelper, walking: \.asking, clock: clock)),
+            ).map {
                 state,
                 helpers in state.prompted(helpers.values.flatMap { helper in helper.prompting(names) })
             },
@@ -286,38 +277,15 @@ extension NSRunningApplication {
                 var sending: Task<Void, Never>?
                 defer { sending?.cancel() }
                 for await event: Result<InstanceState, ApplicationFailure> in merge(states.map(Result.success), replies) {
+                    output.yield(event)
                     switch event {
-                        case .failure(let failure) where failure.reason.is(\.refused):
-                            let read: InstanceState = await state()
-                            guard case .running(let running) = read, !running.asking.isEmpty || running.status.is(\.unresponsive) else {
-                                if read.is(\.failed) { continue }
-                                output.yield(.failure(failure))
-                                return output.finish()
-                            }
-                            output.yield(.success(read))
-                            return output.finish()
-                        case .failure:
-                            output.yield(event)
-                            return output.finish()
                         case .success(.exited):
-                            output.yield(event)
                             if sending == nil { reply.finish() }
-                        case .success(.running(let running)) where !running.asking.isEmpty || running.status.is(\.unresponsive):
-                            output.yield(event)
-                            return output.finish()
-                        case .success(.failed):
-                            output.yield(event)
-                            return output.finish()
-                        case .success(.running):
-                            output.yield(event)
+                        case .success(.running(let running)) where running.asking.isEmpty && !running.status.is(\.unresponsive):
                             guard sending == nil else { continue }
-                            sending = Task {
-                                if let refusal: ApplicationFailure = await requestQuit() {
-                                    if refusal.reason.is(\.refused) { _ = await Result { () async throws(any Error) in try await clock.sleep(for: messagingTimeout) } }
-                                    reply.yield(.failure(refusal))
-                                }
-                                reply.finish()
-                            }
+                            sending = Task { await requestQuit(answering: reply, clock: clock) }
+                        case .failure, .success(.running), .success(.failed):
+                            return output.finish()
                     }
                 }
                 output.finish()
@@ -326,7 +294,8 @@ extension NSRunningApplication {
         }
     }
 
-    private func requestQuit() async -> ApplicationFailure? {
+    private func requestQuit(answering reply: AsyncStream<Result<InstanceState, ApplicationFailure>>.Continuation, clock: some Clock<Duration> & Sendable) async {
+        defer { reply.finish() }
         let request: NSAppleEventDescriptor = NSAppleEventDescriptor(
             eventClass: AEEventClass(kCoreEventClass),
             eventID: AEEventID(kAEQuitApplication),
@@ -337,11 +306,18 @@ extension NSRunningApplication {
         let subject: String = String(processIdentifier)
         do {
             _ = try await request.sent()
-            return nil
         } catch  where error.status == OSStatus(userCanceledErr) {
-            return ApplicationFailure(subject: subject, reason: .refused(nil))
+            _ = await Result { () async throws(any Error) in try await clock.sleep(for: messagingTimeout) }
+            let read: InstanceState = await state()
+            switch read {
+                case .running(let running) where !running.asking.isEmpty || running.status.is(\.unresponsive): reply.yield(.success(read))
+                case .failed: break
+                case .running, .exited: reply.yield(.failure(ApplicationFailure(subject: subject, reason: .refused(nil))))
+            }
+        } catch  where error.status == OSStatus(procNotFound) {
+            if kill(processIdentifier, SIGTERM) != 0 { reply.yield(.failure(ApplicationFailure(subject: subject, reason: .event(error)))) }
         } catch {
-            return ApplicationFailure(subject: subject, reason: .event(error))
+            reply.yield(.failure(ApplicationFailure(subject: subject, reason: .event(error))))
         }
     }
 }
@@ -371,15 +347,16 @@ extension NSWorkspace {
         walking walked: @escaping @Sendable (Element) -> Bool = \.asking,
         clock: some Clock<Duration> & Sendable = ContinuousClock(),
     ) -> some AsyncSequence<OrderedDictionary<NSRunningApplication, InstanceState>, Never> & Sendable {
-        combineLatest(tracked(of: matching, walking: walked, clock: clock), chain([OrderedDictionary<NSRunningApplication, InstanceState>()].async, dialogHelperStates(clock: clock)))
-            .map { states, helpers in
-                var joined: OrderedDictionary<NSRunningApplication, InstanceState> = states
-                for (instance, state): (NSRunningApplication, InstanceState) in states {
-                    joined[instance] = state.prompted(helpers.values.flatMap { helper in helper.prompting(instance.promptNames) })
-                }
-                return joined
-            }
-            .removeDuplicates()
+        combineLatest(
+            tracked(of: matching, walking: walked, clock: clock),
+            chain([OrderedDictionary<NSRunningApplication, InstanceState>()].async, tracked(of: \.isDialogHelper, walking: \.asking, clock: clock)),
+        )
+        .map { states, helpers in
+            OrderedDictionary<NSRunningApplication, InstanceState>(
+                uniqueKeysWithValues: states.map { instance, state in (instance, state.prompted(helpers.values.flatMap { helper in helper.prompting(instance.promptNames) })) }
+            )
+        }
+        .removeDuplicates()
     }
 
     func tracked(

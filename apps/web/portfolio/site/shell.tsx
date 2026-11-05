@@ -16,6 +16,7 @@ const shell = new Shell({
         </RegistryProvider>
     ),
     head: ({ published: { portfolio } }) => ({ title: Option.map(Option.liftPredicate(portfolio.name, String.isNonEmpty), (name) => joinDetails([name, 'Architecture'])), meta: { name: { description: Option.liftPredicate(portfolio.introduction, String.isNonEmpty) }, property: {} } }),
+    policy: { 'script-src': ["'self'", "'wasm-unsafe-eval'"], 'style-src': ["'self'", "'unsafe-inline'"], 'img-src': ["'self'", 'data:', 'blob:'], 'media-src': ["'self'", 'blob:'], 'worker-src': ["'self'", 'blob:'] },
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------

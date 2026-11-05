@@ -4,7 +4,7 @@ severity: error
 utils:
     screen-type:
         kind: type_annotation
-        regex: '^:[\t-\r ]*(AppKit(\.|::))?NSScreen[?!]?$'
+        has: {field: name, regex: '^(AppKit(\.|::))?NSScreen[?!]?$'}
 rule:
     pattern: $SCREEN
     any:

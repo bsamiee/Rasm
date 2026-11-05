@@ -10,7 +10,7 @@ import { catalog } from '#/server/catalog.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-serveNode(config.worker({ mode: 'production', isPreview: false }), (env) =>
+serveNode(config, (env) =>
     app(
         env.OWNER_EMAIL,
         Layer.mergeAll(

@@ -15,9 +15,9 @@ utils:
 rule:
     kind: class_declaration
     all:
-        - has: {field: declaration_kind, regex: ^struct$}
+        - has: {field: declaration_kind, regex: '^struct$'}
         - not: {has: {kind: type_parameters}}
-        - has: {kind: inheritance_specifier, regex: (Error|Failure)$}
+        - has: {kind: inheritance_specifier, regex: '(Error|Failure)$'}
         - has: {field: body, has: {matches: stored, has: {kind: type_annotation, has: {field: name, matches: element-array}}}}
         - not:
             has:

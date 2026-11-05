@@ -19,7 +19,9 @@ rule:
             - has: {matches: exited-zero}
             - has: {matches: plain-operand, not: {matches: exited-zero}}
         - kind: 'if_statement, guard_statement'
-          regex: '^(if|guard)[\t-\r ]+case[\t-\r ]+(Subprocess(\.|::))?TerminationStatus\.exited\([\t-\r ]*0[\t-\r ]*\)[\t-\r ]*='
+          all:
+            - has: {field: condition, regex: '^case$'}
+            - regex: '^(if|guard)[\t-\r ]+case[\t-\r ]+(Subprocess(\.|::))?TerminationStatus\.exited\([\t-\r ]*0[\t-\r ]*\)[\t-\r ]*='
 transform:
     HEAD: {replace: {source: $SITE, replace: '(?s)\n.*$', by: ''}}
 message: '`$HEAD` tests a `TerminationStatus` for exit code 0 by pattern'

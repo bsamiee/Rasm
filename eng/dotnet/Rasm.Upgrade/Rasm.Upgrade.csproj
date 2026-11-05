@@ -8,6 +8,10 @@
         <PackageReference Include="CliWrap" />
     </ItemGroup>
 
+    <ItemGroup Label="Runtime Diagnostics">
+        <PackageReference Include="Microsoft.Extensions.DependencyModel" />
+    </ItemGroup>
+
     <ItemGroup Label="Package Management">
         <PackageReference Include="NuGet.Common" />
         <PackageReference Include="NuGet.Configuration" />

@@ -3,22 +3,23 @@ language: tsxlang
 severity: error
 rule:
     kind: type_parameters, formal_parameters
-    nthChild: {position: 1, ofRule: {kind: 'type_parameters, formal_parameters'}}
-    inside:
-        kind: arrow_function
-        all:
-            - not: {has: {regex: '^async$', not: {kind: identifier}}}
-            - has: {field: parameters, not: {has: {nthChild: 1}}}
-            - has:
-                field: body
-                pattern: $STEP
-                any:
-                    - matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^(void|never)$'}}}
-                    - kind: identifier
-                      matches: {typescript-import-reference: {source: {regex: '^effect/Effect$'}, exported: {regex: '^(void|never)$'}}}
-            - inside:
-                kind: arguments
-                inside: {kind: call_expression, has: {field: function, pattern: $COMBINATOR, matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^(tap|andThen)$'}}}}}
+    all:
+        - inside:
+            kind: arrow_function
+            all:
+                - has: {field: parameters, not: {has: {nthChild: 1}}}
+                - not: {has: {regex: '^async$', not: {kind: identifier}}}
+                - has:
+                    field: body
+                    pattern: $STEP
+                    any:
+                        - matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^(void|never)$'}}}
+                        - kind: identifier
+                          matches: {typescript-import-reference: {source: {regex: '^effect/Effect$'}, exported: {regex: '^(void|never)$'}}}
+                - inside:
+                    kind: arguments
+                    inside: {kind: call_expression, has: {field: function, pattern: $COMBINATOR, matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^(tap|andThen)$'}}}}}
+        - nthChild: {position: 1, ofRule: {kind: 'type_parameters, formal_parameters'}}
 fix:
     template: ''
     expandEnd: {regex: '^=>$', stopBy: end}

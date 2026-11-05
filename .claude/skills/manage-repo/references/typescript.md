@@ -1,6 +1,6 @@
 # [TYPESCRIPT]
 
-pnpm resolves versions through workspace catalog, `effect-tsgo tsc@next` checks projects, Biome lints and formats files.
+pnpm resolves versions through workspace catalog, `effect-tsgo tsc` checks projects, Biome lints and formats files.
 
 ## [01]-[CATALOG]
 
@@ -20,7 +20,7 @@ pnpm resolves versions through workspace catalog, `effect-tsgo tsc@next` checks 
 
 ## [02]-[COMPILER]
 
-- Native compiler runs as `effect-tsgo tsc@next`, editor SDK links to executable directory from `@effect/tsgo/lib/getExePath`
+- Native compiler runs as `effect-tsgo tsc`, editor SDK links to executable directory from `@effect/tsgo/lib/getExePath`
 - `nx run <project>:typecheck:tsc` checks one project incrementally into `.cache/tsc/<project>` and hashes its `extends` chain and ignored `typeRoots` declarations
 - Project `tsconfig.json` extends `tsconfig.base.json`, `tsconfig.web.json` for a web host, or host platform library `tsconfig.json` stating host `lib` and `types`
 - Programs with their own package closure (`infra`, `tools/nx`) hold their own `tsconfig.json` outside the root program
@@ -29,14 +29,14 @@ pnpm resolves versions through workspace catalog, `effect-tsgo tsc@next` checks 
 - `lint:dependency-cruiser` rejects a host module, runtime package, stylesheet, or other library entry in a library root entry's static load closure
 - Packages whose installed load chain ships wasm or a Node addon fail that closure, and any npm package fails an `./extendscript` entry's closure
 - Each importer's `typecheck:tsc` checks a root entry's types under its own `lib` and `types`, a hooks plugin's `typecheck:claude` under the engine's types alone and `lint:claude` its load closure through `claude plugin validate`
-- ExtendScript code sits in packages whose programs list `types-for-adobe` alone, a CEP panel program holds `dom` and no ExtendScript globals
+- ExtendScript code sits in programs listing `types-for-adobe` alone, a CEP panel program holds `dom` and no ExtendScript globals
 - Package self-imports are extensionless where `imports` maps each folder's extension (`"#/server/*": "./server/*.ts"` beside `"#/*": "./*.tsx"`)
 - Apps whose folders mix `.ts` and `.tsx` map `"#/*": "./*"` and import with extensions
 - `tsc` compiles sibling source under importer options, importers list each typings package and `paths` row it needs
 - `types` defaults to `[]`, a project lists each typings package declaring a global or module its files read (`node` for a `node:` module)
 - Project `types` replaces an extended list, a project adding an entry restates the list it extends
 - `paths` maps a module specifier no `types` entry declares to a declaration file an installed package holds
-- `lib` names declarations the host runtime has (Node's in `tsconfig.base.json`, a UXP host's level, Node's with `dom` in `tsconfig.web.json` for code also running under Node)
+- `lib` names declarations the host runtime has (Node's in `tsconfig.base.json`, a UXP host's level, `esnext` with `dom` in `tsconfig.web.json` for current browsers and Workers)
 - Project `include` lists `.storybook/*.stories.ts` or `.stories.tsx` beside `**/*` (skips dot directories), story imports reach `.storybook/preview`
 - `tsconfig.base.json` `$schema` names installed `typescript` schema, Schema Store's copy lists an older `lib` set
 - `tsconfig.base.json` plugin entry holds every rule severity, its `overrides` scoping a severity to a file glob
@@ -50,14 +50,14 @@ pnpm resolves versions through workspace catalog, `effect-tsgo tsc@next` checks 
 - `@rasm/test-support/vitest` declares the `ProvidedContext` root `vitest.config.ts` provides, every test program and the root program list it in `types`
 - Suites importing `testcontainers` run in `test:integration`, `test` excludes them
 - Packages depending on `@effect/sql-pg` take `lint:squawk` over the SQL their suites write
-- Bundle configs take `main.ts` beside them as entry, a project's `<folder>/main.ts` outside a nested project runs as target `<folder>`
+- Bundle configs take `main.ts` beside them as entry
 - Claude Code plugins with a `hooks/hooks.json` listing `modules` take tag `host:claude`
 
 ## [04]-[WEB]
 
 [VITE]:
-- Browser projects run in current browsers alone, `cloudflareWorker` builds at `esnext` over Vite's `baseline-widely-available` default
-- Root `vite.shared.ts` `react` holds React Compiler options for apps, Vitest projects, and Storybook
+- Browser projects run in current browsers alone, `cloudflareWorker` builds at `esnext` over Vite's `baseline-widely-available` default with `strictExecutionOrder`, chunks of a `lazyBarrel` client build otherwise run out of source order
+- Root `vite.shared.ts` `react` holds React Compiler options for apps, Vitest projects, and Storybook, `hostedLayout` the Node output, Worker state, and ephemeral mode each `cloudflareWorker` app spreads from its directory
 - App `vite.config.ts` is its one Vite config, Storybook finds it by default lookup and `vitestProject` from root `vitest.config.ts` merges it through `loadConfigFromFile`
 - Web builds keep project-local `dist`, where `sites()` copies `.openai/hosting.json` with no relocation setting
 - Sync generator `hosting-bindings` in `tools/nx` writes `.openai/hosting.json` `d1` and `r2` members from `cloudflare.config.ts`
@@ -66,10 +66,10 @@ pnpm resolves versions through workspace catalog, `effect-tsgo tsc@next` checks 
 
 [WORKERS]:
 - `cloudflare.config.ts` declares an app's Worker with `entrypoint` at its product module, or a library suite's test Worker with bindings alone
-- Worker declarations take `compatibilityDate` from `@rasm/hosting/cloudflare`
+- Worker declarations take `compatibilityDate` from `@rasm/hosting/cloudflare`, whose `hostedWorker` passes every `WorkerConfig` member through over the assets, owner, and access bindings and the `hostingMode` values, a `disposable` Worker holding no domain or fetch route
 - Cloudflare plugin hooks (`config`, `configResolved`, `configureServer`) take app type, output, and requests in every Vite server
-- `cloudflareWorker(<directory>, { plugins, hosting })` drops `hosting` and Cloudflare plugin when Storybook or Vitest CLIs set `STORYBOOK` or `VITEST`
-- Cloudflare plugin keeps state in `.cache/cloudflare/<project path>`, mode `test` keeps bindings in memory
+- `@rasm/hosting/vite` `cloudflareWorker({ plugins, hosts, head, nodeEntry, nodeOutDir, state })` drops every hosting plugin under Vitest's mode `test` and the `STORYBOOK` variable Storybook sets, its fixed mode stating no host
+- Cloudflare plugin keeps state at `hostedLayout` `state.path`, `.cache/cloudflare/<project path>`, its `state.ephemeralMode`, Playwright's `e2e`, keeping bindings in memory
 - Build Output stays in `.cloudflare/output` the specification fixes, `.cloudflare/types` stays where `cf workers types` takes no path setting
 - Target `types` writes `Cloudflare.Env` and runtime types for the compatibility date to ignored `.cloudflare/types`, `typecheck:tsc` depends on it
 - Project `tsconfig.json` `types` names `./.cloudflare/types` in place of `@cloudflare/workers-types`
@@ -92,7 +92,7 @@ pnpm resolves versions through workspace catalog, `effect-tsgo tsc@next` checks 
 - `organizeImports` runs by default, every other source action is a row
 - `files.ignoreUnknown` silences unknown file types in a directory walk, `files.includes` negations name tracked files of a type Biome processes
 - `.claude/workflows` stays out of `files.includes`, Workflow scripts await and return at top level
-- `!!` force-ignores folders the scanner still indexes: `.pixi`, whose own ignore file says `*`, and large typings packages
+- `useIgnoreFile` keeps the scanner out of every path a root or nested ignore file names, `!!` force-ignores the rest it would index: the `assets` submodule and large typings packages
 - Dependency patterns end in `/**/*.ts`, `useBiomeIgnoreFolder` rewrites a trailing `/**` into a form that misses dependency files
 - VS Code `json.schemas` names installed Biome and Nx schemas, a relative `$schema` resolves against a diff's `git:` URI and fails
 
@@ -100,7 +100,11 @@ pnpm resolves versions through workspace catalog, `effect-tsgo tsc@next` checks 
 
 UXP plugins package as one `.ccx` zip per host with `manifest.json` at its root:
 - `UnifiedPluginInstallerAgent --install <file>.ccx` installs into the release host matching `host.app` and `minVersion`, answering `-411` when none does
-- Beta hosts load the plugins installed for the release host of their `host.app`, a running host loading each install at once
+- Beta hosts load the plugins installed for the release host of their `host.app`
+- `--remove` hangs a running host and `--install` beside one reports success and writes nothing, `install` fails and apps wait while one runs
+- Apps bundle each `.ccx`, their server installs one into an installed host when `PluginsInfo/v1/<host.app>.json` holds no row at its `version`
+- Manifest `version` adds MinVer's height to its core patch, so each commit changes it and a release tag states its version exactly
+- `install` targets replace a plugin by id at any version, a rebuild at one commit reaches the host through them alone
 - Hosts load native addon binaries with a Developer ID signature and notarization alone
 - Marketplace listings disclose the companion application a plugin talks to, and the plugin keeps that communication reliable
 - Marketplace and independent copies of a plugin take separate plugin IDs

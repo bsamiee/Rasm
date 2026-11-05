@@ -1,10 +1,11 @@
-"""Faults, their reasons, result accumulation, and the file reads answering in them for every typography package."""
+"""Faults, their reasons, result accumulation, and the file and process effects answering in them for every typography package."""
 
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from enum import StrEnum
 from functools import partial
 from itertools import chain
 from pathlib import Path
+import subprocess
 from typing import Never
 
 from expression import Result
@@ -86,6 +87,28 @@ def loaded[T](form: type[T], path: Path, /) -> Outcome[T]:
     return read(path).bind(lambda raw: catch(lambda: msgspec.toml.decode(raw, type=form), exception=msgspec.DecodeError)().map_error(partial(Fault.of, Reason.INVALID, str(path))))
 
 
+def stored(path: Path, writing: Callable[[Path], object], /) -> Outcome[Path]:
+    """Writes a file or folder through a writer after creating its parent folders, `UNWRITABLE` for a failed file operation."""
+
+    @catch(exception=OSError)
+    def made() -> Path:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        writing(path)
+        return path
+
+    return made().map_error(partial(Fault.of, Reason.UNWRITABLE, str(path)))
+
+
+def ran(*command: str, cwd: Path | None = None, check: bool = True) -> Outcome[bytes]:
+    """Runs a program to its exit and returns its stdout, `FAILED` for a failed launch or, under `check`, a nonzero exit with its stderr as cause."""
+    try:
+        return Ok(subprocess.run(command, capture_output=True, check=check, cwd=cwd).stdout)
+    except OSError as error:
+        return Error(Fault.of(Reason.FAILED, " ".join(command), error))
+    except subprocess.CalledProcessError as error:
+        return Error(Fault.of(Reason.FAILED, " ".join(command), error.stderr.decode().strip()))
+
+
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Error", "Fault", "Faults", "Ok", "Outcome", "Reason", "accumulated", "loaded", "paired", "read"]
+__all__ = ["Error", "Fault", "Faults", "Ok", "Outcome", "Reason", "accumulated", "loaded", "paired", "ran", "read", "stored"]

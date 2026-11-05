@@ -4,7 +4,7 @@
 [package]
 name              = "lints"
 edition.workspace = true
-publish           = false
+publish.workspace = true
 
 # --- [RUST_ANALYZER]
 [package.metadata.rust-analyzer]

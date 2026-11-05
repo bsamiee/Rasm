@@ -1,5 +1,5 @@
 import { Effect, Schema } from 'effect';
-import { Expression, Name, Reads } from '#/cases';
+import { Expression, Name, Panel, Reads } from '#/cases';
 import { HarnessError } from '#/harness-error';
 import type { Harness } from '#/session';
 import { JsonObject } from '#/values';
@@ -92,12 +92,27 @@ const deciding = <E extends Schema.Top>(engine: E) => ({
     environment: Schema.optionalKey(Environment),
     host: Schema.optionalKey(Schema.Json.annotate({ description: 'Install state deciding answers beside the version' })),
 });
-const hostCase = <S extends Schema.Struct.Fields>(shared: S) =>
-    Schema.TaggedUnion({
-        Run: { name: Name, read: Reads, ...shared, source: Source, args: Schema.Array(Schema.Json) },
-        Call: { name: Name, read: Reads, ...shared, source: Schema.optionalKey(Source), call: Expression, args: Schema.Array(Schema.Json) },
-        Probe: { name: Name, read: Reads, ...shared, evaluate: Expression },
-    });
+const forms = <S extends Schema.Struct.Fields>(shared: S) => ({
+    Run: { name: Name, read: Reads, ...shared, source: Source, args: Schema.Array(Schema.Json) },
+    Call: { name: Name, read: Reads, ...shared, source: Schema.optionalKey(Source), call: Expression, args: Schema.Array(Schema.Json) },
+    Probe: { name: Name, read: Reads, ...shared, evaluate: Expression },
+});
+const hostCase = Object.assign(<S extends Schema.Struct.Fields>(shared: S) => Schema.TaggedUnion(forms(shared)), {
+    linked: <S extends Schema.Struct.Fields>(shared: S) =>
+        Schema.TaggedUnion({
+            ...forms(shared),
+            Panel: {
+                name: Name,
+                read: Reads,
+                ...shared,
+                panel: Panel.fields.panel,
+                evaluate: Expression,
+                plugin: Schema.String.annotate({ description: 'Plugin project folder the batch names, built to dial the harness and loaded into the instance' }),
+                until: Schema.optionalKey(Expression),
+                capture: Panel.fields.capture,
+            },
+        }),
+});
 const reply = <F extends Schema.Struct.Fields>(fields: F) => {
     const header = Schema.Struct({ application: Schema.String, version: Schema.String, ...fields });
     const codec = Schema.fromJsonString(Schema.Union([header, Failed])).annotate({ description: 'Engine answer to one batch, case outcomes sitting in the records file' });

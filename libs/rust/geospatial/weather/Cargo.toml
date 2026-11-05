@@ -3,7 +3,7 @@
 [package]
 name              = "rasm-weather"
 edition.workspace = true
-publish           = false
+publish.workspace = true
 
 # --- [TARGETS] --------------------------------------------------------------------------
 

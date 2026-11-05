@@ -14,9 +14,10 @@ utils:
             - matches: csharp-parameterless
             - inside: {kind: argument, inside: {kind: argument_list, inside: {kind: invocation_expression, matches: {csharp-owner-call: {type: {regex: '^IO$'}, member: {regex: '^lift$'}}}}}}
 rule:
-    matches: thrown
-    any:
-        - inside: {field: body, matches: thunk}
-        - inside: {kind: return_statement, inside: {kind: block, inside: {matches: thunk}}}
+    all:
+        - matches: thrown
+        - any:
+            - inside: {field: body, matches: thunk}
+            - inside: {kind: return_statement, inside: {kind: block, inside: {matches: thunk}}}
 message: '`$VALUE.ThrowIfFail()` throws a failure the `IO.lift` thunk can return as `Fin`'
 note: 'Return `Fin` from the thunk'

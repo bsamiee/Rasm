@@ -4,11 +4,11 @@ severity: error
 utils:
     key-argument:
         kind: generic_name
-        has: {kind: type_argument_list, has: {kind: identifier, pattern: $NAME}, not: {has: {nthChild: 2}}}
+        has: {kind: type_argument_list, has: {pattern: {context: 'class $NAME;', selector: identifier}}, not: {has: {nthChild: 2}}}
 rule:
     kind: delegate_declaration
     all:
-        - has: {field: name, pattern: $NAME}
+        - has: {field: name, pattern: {context: 'class $NAME;', selector: identifier}}
         - not:
             any:
                 - has: {kind: attribute_list}

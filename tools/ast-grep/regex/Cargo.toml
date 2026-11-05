@@ -1,0 +1,33 @@
+# --- [PACKAGE] --------------------------------------------------------------------------
+
+# --- [IDENTITY]
+[package]
+name              = "rasm-regex-classes"
+edition.workspace = true
+description       = "Character classes and token structure of Rust regexes, as the regex engine parses them"
+publish.workspace = true
+
+# --- [TARGETS] --------------------------------------------------------------------------
+
+# --- [BIN]
+[[bin]]
+name  = "rasm-regex-classes"
+path  = "main.rs"
+test  = false
+bench = false
+
+# --- [DEPENDENCIES] ---------------------------------------------------------------------
+
+# --- [RUNTIME]
+[dependencies]
+ast-grep-config     = { workspace = true }
+regex-syntax        = { workspace = true }
+serde               = { workspace = true }
+serde_json          = { workspace = true }
+serde_path_to_error = { workspace = true }
+thiserror           = { workspace = true }
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true

@@ -8,6 +8,7 @@ requires-python = ">=3.15"
 
 dependencies = [
     # --- [CORE]
+    "anyio",              # Worker processes running each face of a set in parallel
     "expression",         # Results, options, and collections of every library package
     "msgspec",            # Records, tagged unions, field bounds, and TOML and JSON codecs
 

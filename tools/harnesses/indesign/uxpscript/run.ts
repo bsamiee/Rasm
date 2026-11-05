@@ -1,12 +1,12 @@
 import fs from 'adobe:fs';
 import indesign, { app } from 'adobe:indesign';
 import { thrown } from '@rasm/harnesses/harness-error';
-import { Encoded, fields, HostOutcome, Recorded, Reply } from '@rasm/harnesses/indesign/contract';
+import { Encoded, fields, type Held, HostCase, HostOutcome, Recorded, Reply } from '@rasm/harnesses/indesign/contract';
 import { Array, identity, Match, Option, Predicate, Record, Result, Schema } from 'effect';
 import { exported, given, opened, prepare, reads, state } from '#/precondition';
 import { installed } from '#/shadows';
 import { activeOf, differences, globals, pinned, restore, scanned, snapshot, survey } from '#/state';
-import { type Batch, Codec, compiled, field, type Item, invoked, type Members, message, type Session, Strings } from '#/values';
+import { type Batch, Codec, compiled, field, type Item, invoked, type Members, message, type Scripted, type Session, Strings } from '#/values';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -14,6 +14,7 @@ const STACK_LINE = /<anonymous>:(?<line>\d+):\d+/gu;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+const scripted = (item: Item): item is Scripted => !HostCase.guards.Panel(item);
 const strings = (value: unknown): readonly string[] => Option.getOrElse(Schema.decodeUnknownOption(Strings)(value), () => []);
 const lines = (error: unknown) => Array.map(Array.fromIterable(String(field(error, 'stack') ?? '').matchAll(STACK_LINE)), (found) => Number(found.groups?.line));
 const HEAD = (() => {
@@ -24,7 +25,7 @@ const HEAD = (() => {
         return (lines(error)[0] ?? 1) - 1;
     }
 })();
-const ran = (session: Session, { fake, evaluate }: ReturnType<typeof installed>, docs: readonly unknown[], made: Members) => {
+const ran = (session: Session<Scripted>, { fake, evaluate }: ReturnType<typeof installed>, docs: readonly unknown[], made: Members) => {
     const { item } = session;
     const threw = (error: unknown) => {
         const stack = lines(error).map((line) => ({ line: line - HEAD }));
@@ -58,20 +59,34 @@ const ran = (session: Session, { fake, evaluate }: ReturnType<typeof installed>,
         return { completion: threw(error) };
     }
 };
-const outcomeOf = (item: Item, batch: Batch, found: ReturnType<typeof scanned>, codec: Codec): typeof HostOutcome.Type => {
-    const session: Session = {
-        item,
-        batch,
-        codec,
-        documents: [],
-        confirms: [...(item.confirms ?? [])],
-        prompts: [...(item.prompts ?? [])],
-        files: [...(item.files ?? [])],
-        actions: [],
-        record: Record.map(fields, () => []),
-        dialogs: [...(item.dialogs ?? [])],
-        value: Option.none(),
-    };
+const sessionOf = <I extends Item>(item: I, batch: Batch, codec: Codec): Session<I> => ({
+    item,
+    batch,
+    codec,
+    documents: [],
+    confirms: [...(item.confirms ?? [])],
+    prompts: [...(item.prompts ?? [])],
+    files: [...(item.files ?? [])],
+    actions: [],
+    record: Record.map(fields, () => []),
+    dialogs: [...(item.dialogs ?? [])],
+    value: Option.none(),
+});
+const heldOf = (item: Item, index: number, batch: Batch, codec: Codec): typeof Held.Type => {
+    const session = sessionOf(item, batch, codec);
+    const unit = app.scriptPreferences.measurementUnit;
+    try {
+        const docs = opened(session);
+        prepare(app, docs[0], session, {});
+        return { index, opened: docs.map((doc) => state(codec, doc)) };
+    } catch (error) {
+        return { index, failed: message(error) };
+    } finally {
+        app.scriptPreferences.measurementUnit = unit;
+    }
+};
+const outcomeOf = (item: Scripted, batch: Batch, found: ReturnType<typeof scanned>, codec: Codec): typeof HostOutcome.Type => {
+    const session = sessionOf(item, batch, codec);
     const unit = app.scriptPreferences.measurementUnit;
     const active = Option.map(activeOf(), ({ id }) => id);
     const held = pinned(() => snapshot(found, codec));
@@ -152,11 +167,18 @@ const answered = (batch: Batch): typeof Reply.Type => {
             ...(batch.survey ? { survey: survey() } : {}),
         };
         const appended = (line: string) => fs.writeFileSync(batch.records, `${String(fs.readFileSync(batch.records, { encoding: 'utf-8' }))}${line}\n`);
-        batch.cases.forEach((item, index) => {
-            appended(Result.getOrThrow(written({ _tag: 'Started', index })));
+        const [run, after] = Array.span(batch.cases.slice(batch.from), scripted);
+        const started = (index: number) => appended(Result.getOrThrow(written({ _tag: 'Started', index })));
+        run.forEach((item, at) => {
+            started(batch.from + at);
             appended(Result.getOrThrow(Result.orElse(written({ _tag: 'Finished', outcome: outcomeOf(item, batch, found, coder) }), ({ message: reason }) => written({ _tag: 'Finished', outcome: HostOutcome.make({ name: item.name, completion: { _tag: 'Failed', reason } }) }))));
         });
-        return header;
+        const index = batch.from + run.length;
+        const held = Option.map(Array.head(after), (item) => {
+            started(index);
+            return heldOf(item, index, batch, coder);
+        });
+        return { ...header, ...Record.getSomes({ held }) };
     } catch (error) {
         return { failed: message(error) };
     } finally {

@@ -723,6 +723,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "ast-grep-config"
+version = "0.51.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "681b2cf02e8e9d22d97168e5f46596c3090542dd3e3ae8979e9ea52fc1d7f6a9"
+dependencies = [
+ "ast-grep-core",
+ "bit-set 0.11.1",
+ "globset",
+ "regex",
+ "schemars 1.2.3",
+ "serde",
+ "serde-saphyr",
+ "serde-value",
+ "serde_regex",
+ "thiserror 2.0.21",
+]
+
+[[package]]
+name = "ast-grep-core"
+version = "0.51.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6cfef0f598a68a0d572d3917e0c20fab452ec33ee9a5eae3ebc12495ad2e2c9c"
+dependencies = [
+ "bit-set 0.11.1",
+ "regex",
+ "thiserror 2.0.21",
+]
+
+[[package]]
 name = "astral-tokio-tar"
 version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1124,6 +1153,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "bit-set"
+version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "56d87354e4229f54a44f7bf2435906a4656dba36026ab6eaca629a2c436a691c"
+dependencies = [
+ "bit-vec 0.10.1",
+]
+
+[[package]]
 name = "bit-vec"
 version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1134,6 +1172,16 @@ name = "bit-vec"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5e764a1d40d510daf35e07be9eb06e75770908c27d411ee6c92109c9840eaaf7"
+
+[[package]]
+name = "bit-vec"
+version = "0.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5727b15fa97d4f4fee0a3b7c3d550ed0269f54329207b86388de918604e31269"
+dependencies = [
+ "borsh",
+ "serde",
+]
 
 [[package]]
 name = "bit_field"
@@ -3445,6 +3493,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "encoding_rs_io"
+version = "0.1.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fba3fe847045ecff794b9c138293a80db914678c453ad63fbf0c6a9eb6e00b22"
+dependencies = [
+ "encoding_rs",
+]
+
+[[package]]
 name = "enum-as-inner"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3937,7 +3994,7 @@ dependencies = [
  "getrandom 0.3.4",
  "getrandom 0.4.3",
  "nalgebra",
- "ordered-float",
+ "ordered-float 5.5.1",
  "rand 0.10.3",
  "rayon",
  "serde",
@@ -3970,7 +4027,7 @@ dependencies = [
  "arrayvec",
  "fidget-core",
  "nalgebra",
- "ordered-float",
+ "ordered-float 5.5.1",
  "rayon",
  "static_assertions",
  "workspace-hack",
@@ -4818,6 +4875,19 @@ name = "glob"
 version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e4eba85ea1d0a966a983acd07deee566e67395d2d96b6fb39e62b5a833f1eb0b"
+
+[[package]]
+name = "globset"
+version = "0.4.21"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f98b0d85522dc0a824cfebbc9594ff4a9b289c568bea0370319dfbdf20ccdd2d"
+dependencies = [
+ "aho-corasick",
+ "bstr",
+ "log",
+ "regex-automata",
+ "regex-syntax",
+]
 
 [[package]]
 name = "good_lp"
@@ -7901,6 +7971,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "nohash-hasher"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2bf50223579dc7cdcfb3bfcacf7069ff68243f8c363f62ffa99cf000a6b9c451"
+
+[[package]]
 name = "nom"
 version = "7.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8524,6 +8600,15 @@ checksum = "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d"
 
 [[package]]
 name = "ordered-float"
+version = "2.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "68f19d67e5a2795c94e73e0bb1cc1a7edeb2e28efd39e2e1c9b7a40c1108b11c"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
+name = "ordered-float"
 version = "5.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f59006ce1e204c30956638535b74d317bca99477b9356dfaec54c37f6f600ab"
@@ -8775,7 +8860,7 @@ dependencies = [
  "log",
  "num-derive 0.5.1",
  "num-traits",
- "ordered-float",
+ "ordered-float 5.5.1",
  "rayon",
  "rstar 0.13.1",
  "simba",
@@ -10065,7 +10150,7 @@ dependencies = [
  "num-dual",
  "num-traits",
  "nutype",
- "ordered-float",
+ "ordered-float 5.5.1",
  "rasm-optimize",
  "rasm-stats",
  "rayon",
@@ -10429,7 +10514,7 @@ dependencies = [
  "nalgebra",
  "nonempty-collections",
  "nutype",
- "ordered-float",
+ "ordered-float 5.5.1",
  "petgraph",
  "rayon",
  "rustworkx-core",
@@ -10453,7 +10538,7 @@ dependencies = [
  "nlopt",
  "nonempty-collections",
  "nutype",
- "ordered-float",
+ "ordered-float 5.5.1",
  "rasm-stats",
  "rayon",
  "thiserror 2.0.21",
@@ -10569,6 +10654,18 @@ dependencies = [
  "rayon",
  "thiserror 2.0.21",
  "validated",
+]
+
+[[package]]
+name = "rasm-regex-classes"
+version = "0.0.0"
+dependencies = [
+ "ast-grep-config",
+ "regex-syntax",
+ "serde",
+ "serde_json",
+ "serde_path_to_error",
+ "thiserror 2.0.21",
 ]
 
 [[package]]
@@ -11577,7 +11674,7 @@ checksum = "d95c33d01e9acee7be3363f99e9ef88b1a587186e81e03843fbe39d77d9a0c1f"
 dependencies = [
  "heapless 0.9.3",
  "num-traits",
- "ordered-float",
+ "ordered-float 5.5.1",
  "smallvec 1.16.4",
 ]
 
@@ -12050,6 +12147,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "serde-saphyr"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a253edfdea34032da21af84e16fcc94f4c7a6ba237f9f3bc2dbf43cea8535c44"
+dependencies = [
+ "annotate-snippets",
+ "base64 0.23.1",
+ "encoding_rs_io",
+ "granit-parser",
+ "nohash-hasher",
+ "num-traits",
+ "serde_core",
+ "smallvec 1.16.4",
+ "zmij",
+]
+
+[[package]]
+name = "serde-value"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f3a1a3341211875ef120e117ea7fd5228530ae7e7036a779fdc9117be6b3282c"
+dependencies = [
+ "ordered-float 2.10.1",
+ "serde",
+]
+
+[[package]]
 name = "serde_arrow"
 version = "0.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -12130,6 +12254,16 @@ dependencies = [
  "itoa",
  "serde",
  "serde_core",
+]
+
+[[package]]
+name = "serde_regex"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bafc8d0c5330cecff10f16b459b479fd9acaa5b4acd7167301414e21b0057012"
+dependencies = [
+ "regex",
+ "serde",
 ]
 
 [[package]]

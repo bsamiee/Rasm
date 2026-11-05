@@ -43,37 +43,37 @@ private func admitted(_ identifier: String?, by admitting: NSPredicate) -> Bool 
     identifier.map { identifier in admitting.evaluate(with: [identifierKey: identifier]) } == true
 }
 
-private func installation(at url: URL, admitting: NSPredicate) throws(ApplicationFailure) -> Installation {
+private func installation(at url: URL, admitting: () -> NSPredicate) throws(ApplicationFailure) -> Installation {
     let installation: Installation = try Installation(at: url)
-    guard admitted(installation.identifier, by: admitting) else {
-        throw ApplicationFailure(subject: url.path(percentEncoded: false), reason: .unmatched(Unmatched(subject: admitting.predicateFormat, query: installation.identifier, candidates: [])))
+    let admission: NSPredicate = admitting()
+    guard admitted(installation.identifier, by: admission) else {
+        throw ApplicationFailure(subject: url.path(percentEncoded: false), reason: .unmatched(Unmatched(subject: admission.predicateFormat, query: installation.identifier, candidates: [])))
     }
     return installation
 }
 
-private func running(_ pid: pid_t, admitting: NSPredicate) throws(ApplicationFailure) -> NSRunningApplication {
-    guard let instance: NSRunningApplication = NSWorkspace.shared.instances(of: { candidate in candidate.processIdentifier == pid }).first else {
+private func running(_ pid: pid_t, admitting: () -> NSPredicate) throws(ApplicationFailure) -> NSRunningApplication {
+    guard let instance: NSRunningApplication = NSRunningApplication(processIdentifier: pid), !instance.isTerminated else {
         throw ApplicationFailure(subject: String(pid), reason: .noProcess)
     }
-    guard admitted(instance.bundleIdentifier, by: admitting) else {
-        throw ApplicationFailure(subject: String(pid), reason: .unmatched(Unmatched(subject: admitting.predicateFormat, query: instance.bundleIdentifier, candidates: [])))
+    let admission: NSPredicate = admitting()
+    guard admitted(instance.bundleIdentifier, by: admission) else {
+        throw ApplicationFailure(subject: String(pid), reason: .unmatched(Unmatched(subject: admission.predicateFormat, query: instance.bundleIdentifier, candidates: [])))
     }
     return instance
 }
 
 extension Request {
-    public func perform(admitting: NSPredicate, refusing: @Sendable (Installation) -> Set<UInt64>, definitions: ScriptingDefinitions) async throws -> Response {
+    public func perform(admitting: @escaping @Sendable () -> NSPredicate, refusing: @Sendable (Installation) -> Set<UInt64>, definitions: ScriptingDefinitions) async throws -> Response {
         switch self {
             case .installations(let identifiers, let prefix):
-                nonisolated(unsafe) let selected: NSPredicate = selecting(identifiers, prefix, within: admitting)
                 return await .stream(
-                    unsafe Installation.search(selected, in: FileManager.default.urls(for: .applicationDirectory, in: .allDomainsMask))
+                    Installation.search(selecting(identifiers, prefix, within: admitting()), in: FileManager.default.urls(for: .applicationDirectory, in: .allDomainsMask))
                         .map { listing -> any Encodable & Sendable in Outcome(listing) }
                 )
             case .instances(let identifiers, let prefix):
-                nonisolated(unsafe) let selected: NSPredicate = selecting(identifiers, prefix, within: admitting)
                 return .stream(
-                    NSWorkspace.shared.instanceStates { instance in unsafe admitted(instance.bundleIdentifier, by: selected) }
+                    NSWorkspace.shared.instanceStates { instance in admitted(instance.bundleIdentifier, by: selecting(identifiers, prefix, within: admitting())) }
                         .map { states -> any Encodable & Sendable in states.compactMap { instance, state in RunningInstance(instance, state: state) } }
                 )
             case .pressure:
@@ -85,14 +85,14 @@ extension Request {
             case .launch(let url, let documents, let arguments, let environment, let new):
                 return try .stream(
                     NSWorkspace.shared.launching(installation(at: url, admitting: admitting), opening: documents, arguments: arguments, environment: environment, newInstance: new)
-                        .map { launching -> any Encodable & Sendable in launching }
+                        .map { launching -> any Encodable & Sendable in launching as any Encodable & Sendable }
                 )
             case .perform(let pid, let actions):
                 let instance: NSRunningApplication = try running(pid, admitting: admitting)
                 var next: InstanceState?
                 for action: ElementAction in actions { next = try await instance.performing(action) }
-                if let next { return .value(next) }
-                return await .value(instance.state())
+                let settled: InstanceState = if let next { next } else { await instance.state() }
+                return .value(settled)
             case .quit(let pid, let force):
                 var last: InstanceState?
                 for await outcome: Result<InstanceState, ApplicationFailure> in try running(pid, admitting: admitting).quitting(force: force) { last = try outcome.get() }

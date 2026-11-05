@@ -4,13 +4,12 @@ import { Automation } from '@rasm/applications/node';
 import { Array, ByteSize, Data, DateTime, Duration, Effect, Equivalence, FileSystem, identity, Match, Option, Path, type PlatformError, Predicate, PubSub, Queue, Record, Result, Schema, type Scope, Sink, Stream, String, Struct } from 'effect';
 import { ChildProcess, type ChildProcessSpawner } from 'effect/process';
 import { HarnessError } from '#/harness-error';
-import { record, tagOf } from '#/log';
+import { messageOf, record, tagOf } from '#/log';
 import type { Halted } from '#/results';
 import type { Installed } from '#/session';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Answers = NonNullable<NonNullable<(typeof State.Window.Type)['element']>['answers']>;
 type Chosen = Pick<Installed, 'identifier' | 'name' | 'app' | 'helpers'>;
 type Releasing = (release: Effect.Effect<void, Error, Automation>) => Effect.Effect<void>;
 type Starting = Automation | ChildProcessSpawner.ChildProcessSpawner | Path.Path | Scope.Scope;
@@ -104,24 +103,21 @@ const appeared = Effect.fn('appeared')(function* (file: string) {
 });
 
 // --- [ROWS]
-const stamped = <E, R>(rows: Stream.Stream<RunningInstance, E, R>) => Stream.mapEffect(rows, ({ identifier, pid, state }) => Effect.map(DateTime.now, (at): typeof Observation.Type => ({ identifier, pid, state, at })));
-const changed = <E, R>(listings: Stream.Stream<readonly RunningInstance[], E, R>) =>
-    Stream.mapAccum(
-        listings,
-        () => new Map<number, typeof State.Type>(),
-        (seen, rows) => {
-            const fresh = rows.filter(({ pid, state }) => {
-                const held = seen.get(pid);
-                return held === undefined || !sameState(held, state);
-            });
-            return [new Map(rows.map(({ pid, state }) => [pid, state] as const)), fresh] as const;
-        },
-    );
-const pressures = (reading: Result.Result<typeof Pressure.Type, Error>) =>
-    Result.match(reading, {
-        onSuccess: (pressure) => record(pressure.memory === 'normal' && (pressure.thermal === 'nominal' || pressure.thermal === 'fair') ? 'Info' : 'Warn', 'system pressure', pressure),
-        onFailure: (error) => record('Warn', 'failed', { tag: tagOf(error), error: error.message }),
-    });
+const stamped = Stream.mapEffect(({ identifier, pid, state }: RunningInstance) => Effect.map(DateTime.now, (at): typeof Observation.Type => ({ identifier, pid, state, at })));
+const changed = Stream.mapAccum(
+    () => new Map<number, typeof State.Type>(),
+    (seen, rows: readonly RunningInstance[]) => {
+        const fresh = rows.filter(({ pid, state }) => {
+            const held = seen.get(pid);
+            return held === undefined || !sameState(held, state);
+        });
+        return [new Map(rows.map(({ pid, state }) => [pid, state] as const)), fresh] as const;
+    },
+);
+const pressures = Result.match({
+    onSuccess: (pressure: typeof Pressure.Type) => record(pressure.memory === 'normal' && (pressure.thermal === 'nominal' || pressure.thermal === 'fair') ? 'Info' : 'Warn', 'system pressure', pressure),
+    onFailure: (error: Error) => record('Warn', 'failed', { tag: tagOf(error), error: messageOf(error) }),
+});
 
 // --- [INSTANCES] -----------------------------------------------------------------------
 
@@ -131,10 +127,15 @@ const Observation = Object.assign(Schema.Struct({ identifier: Schema.String, pid
     settled: (state: typeof State.Type): state is Extract<typeof State.Type, { readonly exited: unknown }> => Predicate.hasProperty(state, 'exited') && state.exited.reporting !== true,
     described: (state: typeof State.Type): string =>
         State.match(state, {
-            running: ({ status, process, usage, windows }) =>
-                status === 'unresponsive'
-                    ? `unresponsive ${process ?? ''}${usage === undefined ? '' : ` cpu ${Duration.format(Duration.seconds(usage.cpu))} footprint ${ByteSize.format(ByteSize.bytes(BigInt(usage.footprint)))}`}${windows.length === 0 ? '' : `, windows ${windows.map(({ number, title }) => (title === undefined ? globalThis.String(number) : `${number} "${title}"`)).join(', ')}`}`
-                    : `${status}${Array.isReadonlyArrayNonEmpty(State.asking(state)) ? ' with a dialog requiring an answer' : ''}`,
+            running: (running) =>
+                Match.value(running).pipe(
+                    Match.when(
+                        ({ status }: typeof State.Running.Type) => status === 'unresponsive',
+                        ({ process, usage, windows }) =>
+                            `unresponsive ${process ?? ''}${usage === undefined ? '' : ` cpu ${Duration.format(Duration.seconds(usage.cpu))} footprint ${ByteSize.format(ByteSize.bytes(BigInt(usage.footprint)))}`}${windows.length === 0 ? '' : `, windows ${windows.map(({ number, title }) => (title === undefined ? globalThis.String(number) : `${number} "${title}"`)).join(', ')}`}`,
+                    ),
+                    Match.orElse(({ status }) => `${status}${Array.isReadonlyArrayNonEmpty(State.asking(state)) ? ' with a dialog requiring an answer' : ''}`),
+                ),
             failed: ({ reason }) => `status failed: ${reason}`,
             exited: ({ signal, status, report, reportFailure }) => `exited with ${signal === undefined ? `status ${status ?? 'unread'}` : `signal ${signal}`}${report === undefined ? '' : `, report ${report.url}`}${reportFailure === undefined ? '' : `, ${reportFailure}`}`,
         }),
@@ -145,16 +146,20 @@ class Progress extends Data.Class<{ readonly title: string; readonly buttons: re
         Array.findFirst(
             State.asking(state).map((window): Asked => {
                 const title = window.element?.title ?? window.title;
-                const buttons = (window.element?.answers?.buttons ?? []).flatMap(({ label }) => (label === undefined ? [] : [label]));
+                const buttons = Array.getSomes((window.element?.answers?.buttons ?? []).map(({ label }) => Option.fromUndefinedOr(label)));
                 return { window, dialog: { _tag: 'Dialog', kind: window.kind, number: window.number, ...Record.getSomes({ title: Option.fromUndefinedOr(title) }), text: window.element?.detail?.text ?? [], buttons } };
             }),
             ({ dialog }) => !passing.some((named) => [...Option.toArray(Option.fromUndefinedOr(dialog.title)), ...dialog.text].includes(named.title) && LABELLED(named.buttons, dialog.buttons)),
         );
-    static readonly pressed = (answers: Answers | undefined, press: string) =>
+    static readonly pressed = ({ element }: typeof State.Window.Type, press: string) =>
         Option.map(
             Option.orElse(
-                Option.flatMap(Schema.decodeUnknownOption(Choice)(press), (role) => Option.fromUndefinedOr(answers?.[role]?.id)),
-                () => Option.fromUndefinedOr((answers?.buttons ?? []).find(({ label }) => label === press)?.id),
+                Option.flatMap(Schema.decodeUnknownOption(Choice)(press), (role) => Option.fromUndefinedOr(element?.answers?.[role]?.id)),
+                () =>
+                    Option.map(
+                        Array.findFirst(element?.answers?.buttons ?? [], ({ label }) => label === press),
+                        Struct.get('id'),
+                    ),
             ),
             (id) => ({ press, id }),
         );
@@ -175,13 +180,19 @@ const launching = Effect.fn('launching')(function* (spec: Launched, chosen: Chos
     const subscribed = yield* PubSub.subscribe(yield* rest.pipe(changed, stamped, Stream.toPubSubTake({ capacity: 'unbounded' })));
     const located = yield* Effect.all({ url: path.toFileUrl(chosen.app), documents: Effect.forEach(spec.documents ?? [], (file) => path.toFileUrl(file)) });
     const stepped = Match.type<typeof Launching.Type>().pipe(
-        Match.when({ launched: Match.defined }, ({ launched: { pid, created } }) => (created ? releasing(Effect.asVoid(automation.quit({ pid }))) : Effect.void)),
+        Match.when({ launched: { created: true } }, ({ launched: { pid } }) => releasing(Effect.asVoid(automation.quit({ pid })))),
         Match.when({ prompts: Match.defined }, ({ prompts }) => refusing(prompts)),
         Match.when({ failed: Match.defined }, ({ failed: { reason, subject } }) => Effect.fail(refused(`launch failed ${reason} ${subject}`))),
         Match.orElse(() => Effect.void),
     );
     const steps = yield* Stream.runCollect(Stream.tap(automation.launch({ ...located, arguments: carried, environment, new: spec.several === true }), stepped));
-    const last = Array.findLast(steps, (step) => (Predicate.hasProperty(step, 'state') ? Option.some(step.state) : Option.none()));
+    const last = Array.findLast(
+        steps,
+        Match.type<typeof Launching.Type>().pipe(
+            Match.when({ state: Match.defined }, ({ state }) => state),
+            Match.option,
+        ),
+    );
     const ended = Option.filter(last, ({ identifier, state }) => identifier === chosen.identifier && (Observation.tag(state) !== 'launching' || Array.isReadonlyArrayNonEmpty(State.asking(state))));
     const settled = yield* Effect.fromOption(ended, () => refused(`launch ended ${Option.match(last, { onNone: () => 'with no state', onSome: ({ identifier, pid, state }) => `at ${identifier} ${pid} ${Observation.described(state)}` })}`));
     const at = yield* DateTime.now;

@@ -24,13 +24,13 @@ utils:
         inside:
             stopBy: end
             kind: 'lambda_expression, anonymous_method_expression, local_function_statement'
-            has: {field: parameters, any: [{kind: implicit_parameter, pattern: $CELL}, {has: {kind: parameter, has: {field: name, pattern: $CELL}}}]}
+            has: {field: parameters, any: [{kind: implicit_parameter, pattern: {context: 'var f = $CELL => 0;', selector: implicit_parameter}}, {has: {kind: parameter, has: {field: name, pattern: {context: 'class $CELL;', selector: identifier}}}}]}
     query-binding:
         any:
             - kind: from_clause
-              has: {field: name, pattern: $CELL}
+              has: {field: name, pattern: {context: 'class $CELL;', selector: identifier}}
             - kind: let_clause
-              has: {kind: identifier, nthChild: 1, pattern: $CELL}
+              has: {kind: identifier, nthChild: 1, pattern: {context: 'class $CELL;', selector: identifier}}
     typed-local:
         matches: {csharp-declared-type: {type: {matches: atom-type}}}
     local-binding:
@@ -40,45 +40,45 @@ utils:
     atom-member:
         any:
             - kind: field_declaration
-              has: {kind: variable_declaration, all: [{has: {field: type, matches: atom-type}}, {has: {kind: variable_declarator, has: {field: name, pattern: $CELL}}}]}
+              has: {kind: variable_declaration, all: [{has: {field: type, matches: atom-type}}, {has: {kind: variable_declarator, has: {field: name, pattern: {context: 'class $CELL;', selector: identifier}}}}]}
             - kind: property_declaration
               all:
                 - has: {field: type, matches: atom-type}
-                - has: {field: name, pattern: $CELL}
+                - has: {field: name, pattern: {context: 'class $CELL;', selector: identifier}}
             - kind: parameter
               all:
                 - has: {field: type, matches: atom-type}
-                - has: {field: name, pattern: $CELL}
+                - has: {field: name, pattern: {context: 'class $CELL;', selector: identifier}}
               inside: {kind: parameter_list, inside: {kind: &owner-type 'class_declaration, struct_declaration, record_declaration, interface_declaration'}}
     plain-member:
         any:
             - kind: field_declaration
-              has: {kind: variable_declaration, all: [{not: {has: {field: type, matches: atom-type}}}, {has: {kind: variable_declarator, has: {field: name, pattern: $CELL}}}]}
+              has: {kind: variable_declaration, all: [{not: {has: {field: type, matches: atom-type}}}, {has: {kind: variable_declarator, has: {field: name, pattern: {context: 'class $CELL;', selector: identifier}}}}]}
             - kind: property_declaration
               all:
                 - not: {has: {field: type, matches: atom-type}}
-                - has: {field: name, pattern: $CELL}
+                - has: {field: name, pattern: {context: 'class $CELL;', selector: identifier}}
             - kind: parameter
               all:
                 - not: {has: {field: type, matches: atom-type}}
-                - has: {field: name, pattern: $CELL}
+                - has: {field: name, pattern: {context: 'class $CELL;', selector: identifier}}
               inside: {kind: parameter_list, inside: {kind: *owner-type}}
     atom-elements:
         any:
             - kind: 'parameter, property_declaration'
               all:
                 - has: {field: type, matches: atom-element-type}
-                - has: {field: name, pattern: $ELEMENTS}
+                - has: {field: name, pattern: {context: 'class $ELEMENTS;', selector: identifier}}
             - kind: variable_declaration
               all:
                 - has: {field: type, matches: atom-element-type}
-                - has: {kind: variable_declarator, has: {field: name, pattern: $ELEMENTS}}
+                - has: {kind: variable_declarator, has: {field: name, pattern: {context: 'class $ELEMENTS;', selector: identifier}}}
     elements-name:
         any:
             - kind: identifier
-              pattern: $ELEMENTS
+              pattern: {context: 'class $ELEMENTS;', selector: identifier}
             - kind: member_access_expression
-              has: {field: name, pattern: $ELEMENTS}
+              has: {field: name, pattern: {context: 'class $ELEMENTS;', selector: identifier}}
     elements:
         all:
             - matches: elements-name
@@ -91,7 +91,7 @@ utils:
                         inside:
                             stopBy: end
                             kind: 'lambda_expression, anonymous_method_expression, local_function_statement'
-                            has: {field: parameters, any: [{kind: implicit_parameter, pattern: $ELEMENTS}, {has: {kind: parameter, has: {field: name, pattern: $ELEMENTS}}}]}
+                            has: {field: parameters, any: [{kind: implicit_parameter, pattern: {context: 'var f = $ELEMENTS => 0;', selector: implicit_parameter}}, {has: {kind: parameter, has: {field: name, pattern: {context: 'class $ELEMENTS;', selector: identifier}}}}]}
                     - inside:
                         stopBy: {kind: *owner-type}
                         kind: *owner-type
@@ -101,11 +101,11 @@ utils:
     own-name:
         any:
             - kind: identifier
-              pattern: $CELL
+              pattern: {context: 'class $CELL;', selector: identifier}
             - kind: member_access_expression
               all:
                 - has: {field: expression, regex: '^this$'}
-                - has: {field: name, pattern: $CELL}
+                - has: {field: name, pattern: {context: 'class $CELL;', selector: identifier}}
     own-cell:
         all:
             - matches: own-name
@@ -122,22 +122,22 @@ utils:
                             - has: {field: type, matches: atom-type}
                             - has: {matches: atom-creation}
                 - all:
-                    - not: {matches: local-binding}
-                    - not: {kind: identifier, matches: callback-parameter}
-                    - not: {kind: identifier, inside: {stopBy: end, inside: {kind: query_expression}, follows: {stopBy: end, matches: query-binding}}}
                     - inside:
                         stopBy: {kind: *owner-type}
                         kind: *owner-type
                         any:
                             - has: {field: body, has: {matches: atom-member}}
                             - has: {kind: parameter_list, has: {matches: atom-member}}
+                    - not: {matches: local-binding}
+                    - not: {kind: identifier, matches: callback-parameter}
+                    - not: {kind: identifier, inside: {stopBy: end, inside: {kind: query_expression}, follows: {stopBy: end, matches: query-binding}}}
     element-parameter:
         kind: identifier
-        pattern: $CELL
+        pattern: {context: 'class $CELL;', selector: identifier}
         inside:
             stopBy: end
             kind: lambda_expression
-            has: {field: parameters, any: [{kind: implicit_parameter, pattern: $CELL}, {kind: parameter_list, has: {kind: parameter, has: {field: name, pattern: $CELL}}}]}
+            has: {field: parameters, any: [{kind: implicit_parameter, pattern: {context: 'var f = $CELL => 0;', selector: implicit_parameter}}, {kind: parameter_list, has: {kind: parameter, has: {field: name, pattern: {context: 'class $CELL;', selector: identifier}}}}]}
             inside:
                 kind: argument
                 inside:
@@ -152,8 +152,13 @@ rule:
         - kind: member_access_expression
           all:
             - not: {has: {field: expression, regex: '^this$'}}
-            - has: {field: name, pattern: $CELL}
-            - inside: {kind: compilation_unit, stopBy: end, all: [{has: {stopBy: end, matches: atom-member}}, {not: {has: {stopBy: end, matches: plain-member}}}]}
+            - has: {field: name, pattern: {context: 'class $CELL;', selector: identifier}}
+            - inside:
+                kind: compilation_unit
+                stopBy: end
+                all:
+                    - has: {stopBy: &container {not: {kind: 'compilation_unit, global_statement, namespace_declaration, declaration_list, class_declaration, struct_declaration, record_declaration, interface_declaration, union_declaration, extension_declaration, extension_body, parameter_list, preproc_if, preproc_elif, preproc_else'}}, matches: atom-member}
+                    - not: {has: {stopBy: *container, matches: plain-member}}
         - kind: element_access_expression
           has: {field: expression, matches: elements}
         - kind: parenthesized_expression

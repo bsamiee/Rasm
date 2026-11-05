@@ -28,8 +28,8 @@ utils:
         nthChild: {position: 1, reverse: true}
         inside: {kind: arguments, inside: {matches: or-else, pattern: $ALT}}
 rule:
-    matches: lift
     all:
+        - matches: lift
         - inside: {stopBy: end, matches: alternative}
         - inside:
             stopBy: end

@@ -8,13 +8,13 @@ rule:
         - any:
             - all:
                 - matches: swift-unstructured-task
-                - has: {nthChild: 1, regex: '\.(detached|immediateDetached)$'}
+                - has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '\.(detached|immediateDetached)$'}
             - has:
                 nthChild: 1
                 kind: navigation_expression
-                regex: '^(Dispatch(\.|::)DispatchQueue\.global\([^)]*\)\.async|Foundation(\.|::)(Thread\.detachNewThread|OperationQueue\(\)\.addOperation))$'
+                regex: '^((Dispatch(\.|::))?DispatchQueue\.global\([^)]*\)\.async|(Foundation(\.|::))?(Thread\.detachNewThread|OperationQueue\(\)\.addOperation))$'
             - all:
-                - has: {nthChild: 1, kind: 'navigation_expression, identifier', regex: '^Foundation(\.|::)Thread$'}
+                - has: {nthChild: 1, regex: '^(Foundation(\.|::))?Thread$'}
                 - has:
                     kind: call_suffix
                     any:
