@@ -1,5 +1,0 @@
-{
-    "extends": "../../../tsconfig.base.json",
-    "compilerOptions": { "plugins": [], "types": [ "types-for-adobe/InDesign/2023" ] },
-    "include": [ "engine.ts" ]
-}

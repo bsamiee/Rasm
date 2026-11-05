@@ -434,7 +434,7 @@ no-build-package         = ["epdx", "numpy"]                     # `epdx` sdist 
 extra-build-dependencies = { pyroscope-io = ["cmake"] }          # `pyroscope-io` build.rs runs cmake its sdist leaves undeclared
 
 [tool.uv.workspace]
-members = ["libs/python/blender", "tools/harnesses/blender", "apps/blender/darkroom"]
+members = ["libs/python/blender", "tools/harnesses/hosts/blender", "apps/blender/darkroom"]
 
 [tool.uv.sources]
 blender    = { workspace = true }
@@ -691,7 +691,7 @@ require-lazy = [
 [tool.ty]
 environment = { python-version = "3.15", python-platform = "all", root = [".", "libs/python"] }
 rules       = { all = "error" }
-src         = { include = [".", ".claude"], exclude = ["apps/blender/darkroom", "libs/python/blender", "tools/harnesses/blender"] }
+src         = { include = [".", ".claude"], exclude = ["apps/blender/darkroom", "libs/python/blender", "tools/harnesses/hosts/blender"] }
 
 # --- [MYPY] -----------------------------------------------------------------------------
 

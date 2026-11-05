@@ -3,11 +3,11 @@
     "private": true,
     "description": "Host proof harnesses running original scripts against recorded cases",
     "type": "module",
-    "imports": { "#/*": "./*.ts" },
+    "imports": { "#/*": "./*.ts", "#/package.json": "./package.json" },
     "exports": {
+        "./cases/values": "./cases/values.ts",
         "./harness-error": "./harness-error.ts",
-        "./indesign/contract": "./indesign/contract.ts",
-        "./values": "./values.ts"
+        "./hosts/adobe/indesign/contract": "./hosts/adobe/indesign/contract.ts"
     },
     "bin": { "harness": "./main.ts" },
     "dependencies": {

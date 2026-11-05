@@ -97,7 +97,7 @@ const CASES = {
       args: { key: 'indesign', name: 'InDesign', apps: ['2026', '2027'], skills: ['watch-apps'], products: ['docs/research/x'], base: BASE },
       fixtures: {
         'mine:model': { needs: ['need one', 'need two'], findings: ['model finding'] },
-        'edit:slice': { slices: [{ files: ['tools/harnesses/indesign/host.ts'], findings: ['f'] }, { files: ['tools/harnesses/indesign/host.ts'], findings: ['g'] }, { files: ['tools/harnesses/run.ts'], findings: ['h'] }, { files: ['libs/typescript/outside.ts'], findings: ['outside the kit'] }], refused: [] },
+        'edit:slice': { slices: [{ files: ['tools/harnesses/hosts/adobe/indesign/host.ts'], findings: ['f'] }, { files: ['tools/harnesses/hosts/adobe/indesign/host.ts'], findings: ['g'] }, { files: ['tools/harnesses/run.ts'], findings: ['h'] }, { files: ['libs/typescript/outside.ts'], findings: ['outside the kit'] }], refused: [] },
       },
     },
   ],

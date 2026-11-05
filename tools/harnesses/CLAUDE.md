@@ -4,7 +4,7 @@ Host questions are case files run in the installed host, every run a trace agent
 
 ## [01]-[CASES]
 
-Cases sit in `<product>/proof/host/<name>.cases.json` as a probe (`evaluate`), a call (`call`, `args`), a script run, or a panel (`panel`, `evaluate`), each with a precondition the host's `precondition.ts` decodes:
+Cases sit in `<product>/proof/host/<name>.cases.json` as a probe (`evaluate`), a call (`call`, `args`), a script run, or a panel (`panel`, `evaluate`), each with a precondition the host's `hosts/**/<host>/precondition.ts` decodes:
 - `harness <host> <target>... [--release <prefix>]... [--only <case>]...` runs the case files under a folder, ExtendScript engines and InDesign's UXPScript bundle building through Vite first
 - `harness <host> compare <target>... [--module <path>]` compares recorded host answers against a rebuilt module
 - Case file `limit` bounds launch, a case writing no record, and the batch-end quit, `2 minutes` when absent
@@ -21,4 +21,4 @@ Cases sit in `<product>/proof/host/<name>.cases.json` as a probe (`evaluate`), a
 Each run writes `.artifacts/logs/harnesses/host=<host>/run=<id>/records.jsonl` and prints one summary line with its cases, failure signatures with the run each first failed in and its first later passing run, and instances:
 - `harness <host> log` prints the current run's records with reports linked since it ended
 - Linked reports show crash exception and frames, hang duration and main-thread frames, spin lines, and harness host log errors inline
-- Facts the trace lacks are harness defects fixed in `session.ts`, `report.ts`, or the host's `host.ts`, never read from the host by hand
+- Facts the trace lacks are harness defects fixed in `session/harness.ts`, `trace/reports.ts`, or the host's `host.ts`, never read from the host by hand

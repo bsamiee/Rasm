@@ -3341,11 +3341,11 @@ importers:
         specifier: 'catalog:'
         version: 7.2.6
 
-  tools/harnesses/indesign/uxpscript:
+  tools/harnesses/hosts/adobe/indesign/uxpscript:
     dependencies:
       '@rasm/harnesses':
         specifier: workspace:*
-        version: link:../..
+        version: link:../../../..
       effect:
         specifier: 'catalog:'
         version: 4.1.2

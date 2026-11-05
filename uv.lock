@@ -1046,7 +1046,7 @@ wheels = [
 [[package]]
 name = "blender-harness"
 version = "0.0.0"
-source = { virtual = "tools/harnesses/blender" }
+source = { virtual = "tools/harnesses/hosts/blender" }
 
 [[package]]
 name = "blinker"

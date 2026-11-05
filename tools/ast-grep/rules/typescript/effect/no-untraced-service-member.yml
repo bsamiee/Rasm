@@ -25,6 +25,16 @@ rule:
                                 kind: class_declaration
                                 all:
                                     - has: {field: name, pattern: $SERVICE}
-                                    - has: {kind: class_heritage, regex: '(?-u:\b)Context\.Service(?-u:\b)'}
+                                    - has:
+                                        kind: class_heritage
+                                        has:
+                                            kind: extends_clause
+                                            has:
+                                                field: value
+                                                kind: call_expression
+                                                has:
+                                                    field: function
+                                                    kind: call_expression
+                                                    has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Context$'}, member: {regex: '^Service$'}}}}
 message: '`$SERVICE.$MEMBER` runs untraced as a service member'
 note: 'Wrap each public member in `Effect.fn(''<Service>.<key>'')`, `Effect.fnUntraced` stays for generators a traced function calls'

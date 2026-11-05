@@ -100,7 +100,7 @@ Numbers run in order; a number with a letter runs beside the number it shares.
   - Agents judge glyph renders (weight, proportion, joining, mark placement, spacing) by universal Perso-Arabic principles, not Urdu or Desi forms
   - Every face complete, none outline-only or partial: metrics, features and behavior stated in full, metadata with the set's own names and notices
 - 1e: Stroke gap, first once 1b's logging pass commits: InDesign reads the stroke family's 4 pt bottom-edge case as 4 against 1
-  - Probe the case through `tools/harnesses/indesign`, then fix the rebuilt module or the library at the cause
+  - Probe the case through `tools/harnesses/hosts/adobe/indesign`, then fix the rebuilt module or the library at the cause
 - 2: Extension after 1, in [02] order: research per note, then a plan per domain, then a build run per `TYPESCRIPT.md` row, tuned over its commits
 - 3: Folder guidance after 2 and 1a
 - 4: Drain: every item closes; [03] alone stays
@@ -129,7 +129,7 @@ Extension is the repository's central deliverable, held to one standard:
 ### [02.3]-[PHASES]
 
 1. Acquire: done, products in `docs/research/applications/<host>/products/<domain>/<key>/`, distilled code in `<host>/distilled/<domain>/<key>/`
-2. Decompile: binary proofs through Ghidra's emulator, host proofs through `tools/harnesses/indesign`
+2. Decompile: binary proofs through Ghidra's emulator, host proofs through `tools/harnesses/hosts/adobe/indesign`
    - Host proofs run in InDesign 2027 Beta, or 2026 where a product loads only there
 3. Distill: one distiller per algorithm family rewrites `rebuilt/` into `distilled/`, held identical by its A/B harness
    - Adversaries follow per family and across the product

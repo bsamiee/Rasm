@@ -1,13 +1,13 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: tsxlang
 severity: error
-ignores: ['tools/harnesses/run.ts']
+ignores: ['tools/harnesses/session/run.ts']
 utils:
     runner:
         any:
             - matches: {effect-module-member: {module: {regex: '(?-u:\b)(NodeRuntime|BunRuntime|BrowserRuntime)$'}, member: {regex: '^runMain$'}}}
             - matches: {typescript-import-reference: {source: {regex: '^@effect/platform-[a-z]+/(Node|Bun|Browser)Runtime$'}, exported: {regex: '^runMain$'}}}
-            - matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^run'}}}
+            - matches: {effect-runner: {name: {regex: '^run'}}}
             - matches: {effect-module-member: {module: {regex: '(?-u:\b)ManagedRuntime$'}, member: {regex: '^make$'}}}
             - matches: {effect-module-member: {module: {regex: '(?-u:\b)Layer$'}, member: {regex: '^launch$'}}}
             - matches: {effect-module-member: {module: {regex: '(?-u:\b)HttpRouter$'}, member: {regex: '^(serve|toWebHandler)$'}}}

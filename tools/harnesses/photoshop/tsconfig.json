@@ -1,5 +1,0 @@
-{
-    "extends": "../../../tsconfig.base.json",
-    "compilerOptions": { "plugins": [], "types": [ "types-for-adobe/Photoshop/2015.5" ] },
-    "include": [ "engine.ts" ]
-}

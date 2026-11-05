@@ -50,7 +50,7 @@
     "python.defaultInterpreterPath": "${workspaceFolder}/.venv",
     "python.terminal.activateEnvironment": false,
     "mypy-type-checker.importStrategy": "fromEnvironment",
-    "mypy-type-checker.ignorePatterns": [ "apps/blender/darkroom/*", "libs/python/blender/*", "tools/harnesses/blender/*" ],
+    "mypy-type-checker.ignorePatterns": [ "apps/blender/darkroom/*", "libs/python/blender/*", "tools/harnesses/hosts/blender/*" ],
     "ty.experimental.useUv": "on",
     "ty.diagnosticMode": "workspace",
     "[python]": { "editor.defaultFormatter": "charliermarsh.ruff" },

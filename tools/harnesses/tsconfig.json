@@ -1,5 +1,5 @@
 {
     "extends": "../../tsconfig.base.json",
     "compilerOptions": { "types": [ "node" ] },
-    "exclude": [ "*/uxpscript/**", "extendscript.ts", "illustrator/engine.ts", "indesign/engine.ts", "photoshop/engine.ts" ]
+    "exclude": [ "hosts/adobe/*/uxpscript/**", "hosts/adobe/extendscript.ts", "hosts/adobe/illustrator/engine.ts", "hosts/adobe/indesign/engine.ts", "hosts/adobe/photoshop/engine.ts" ]
 }

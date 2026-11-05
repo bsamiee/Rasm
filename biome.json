@@ -160,7 +160,7 @@
             }
         },
         {
-            "includes": [ "libs/typescript/creative-cloud/extendscript/**", "libs/typescript/creative-cloud/{aftereffects,illustrator}/extendscript.ts", "tools/harnesses/extendscript.ts", "tools/harnesses/{illustrator,indesign,photoshop}/engine.ts" ],
+            "includes": [ "libs/typescript/creative-cloud/extendscript/**", "libs/typescript/creative-cloud/{aftereffects,illustrator}/extendscript.ts", "tools/harnesses/hosts/adobe/extendscript.ts", "tools/harnesses/hosts/adobe/{illustrator,indesign,photoshop}/engine.ts" ],
             "linter": {
                 "rules": {
                     "nursery": { "useIncludes": "off", "useModernMathApis": "off", "useStringStartsEndsWith": "off" },
@@ -170,7 +170,7 @@
             }
         },
         {
-            "includes": [ "tools/harnesses/extendscript.ts", "tools/harnesses/{illustrator,indesign,photoshop}/engine.ts" ],
+            "includes": [ "tools/harnesses/hosts/adobe/extendscript.ts", "tools/harnesses/hosts/adobe/{illustrator,indesign,photoshop}/engine.ts" ],
             "linter": {
                 "rules": {
                     "complexity": { "noArguments": "off", "noExcessiveCognitiveComplexity": "off", "useArrowFunction": "off" },

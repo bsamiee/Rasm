@@ -2,7 +2,7 @@
 language: tsxlang
 severity: error
 ignores:
-    - tools/harnesses/acrobat/**
+    - tools/harnesses/hosts/adobe/acrobat/**
 utils:
     built-source:
         pattern: $SOURCE

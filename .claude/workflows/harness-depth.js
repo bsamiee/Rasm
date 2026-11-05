@@ -1,7 +1,7 @@
 export const meta = {
   name: 'harness-depth',
   description: 'Harden one host harness: mine failures and the host model, run a case battery from its needs once, fix findings at their cause, deepen, one check',
-  whenToUse: 'args.key a tools/harnesses folder, args.name the host, args.apps its installed releases, args.skills the skills driving it, args.products product folders with proofs that used it, args.base the base commit; args.finished a workflow script path returning {label: result} for agents a fixed script must not run again',
+  whenToUse: 'args.key a tools/harnesses host folder (hosts/adobe/indesign, hosts/rhino), args.name the host, args.apps its installed releases, args.skills the skills driving it, args.products product folders with proofs that used it, args.base the base commit; args.finished a workflow script path returning {label: result} for agents a fixed script must not run again',
   phases: [
     { title: 'Mine', detail: 'readers over past proofs, failures and the host model, the model reader returning the battery needs' },
     { title: 'Battery', detail: 'one case author per need, one runner through the harness' },
@@ -35,7 +35,7 @@ const missing = ARGS.filter((name) => !args?.[name])
 if (missing.length > 0) throw new Error(`args take ${ARGS.join(', ')}, missing ${missing.join(', ')}`)
 const HARNESS = `${KIT}/${args.key}`
 const BATTERY = `/Users/bardiasamiee/.claude/rasm/workflows/harness-depth/${args.key}/battery`
-const RUN = `harness ${args.key}`
+const RUN = `harness ${args.key.split('/').at(-1)}`
 const FINISHED = typeof args.finished === 'string' ? await workflow({ scriptPath: args.finished }) : {}
 const SKILLS = [...new Set(['watch-apps', args.skills].flat())].map((skill) => `Skill(${skill})`).join(', ')
 const BASIS = [

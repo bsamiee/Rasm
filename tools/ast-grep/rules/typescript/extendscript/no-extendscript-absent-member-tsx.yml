@@ -10,10 +10,10 @@ rule:
           pattern: $MEMBER
           all:
             - has: {field: object, kind: identifier, regex: '^(Object|Array|Number|String|Math|Date)$'}
-            - has: {field: property, regex: '^(keys|values|entries|assign|hasOwn|create|defineProperty|defineProperties|getPrototypeOf|setPrototypeOf|getOwnPropertyNames|getOwnPropertyDescriptor|getOwnPropertySymbols|freeze|seal|isFrozen|isSealed|isExtensible|preventExtensions|is|fromEntries|groupBy|isArray|from|fromAsync|of|parseInt|parseFloat|isInteger|isFinite|isNaN|isSafeInteger|MAX_SAFE_INTEGER|MIN_SAFE_INTEGER|EPSILON|fromCodePoint|raw|trunc|sign|cbrt|log2|log10|log1p|expm1|hypot|sinh|cosh|tanh|asinh|acosh|atanh|fround|imul|clz32|now)$'}
+            - has: {field: property, regex: '^(keys|values|entries|assign|hasOwn|create|defineProperty|defineProperties|getPrototypeOf|setPrototypeOf|getOwnPropertyNames|getOwnPropertyDescriptor|getOwnPropertyDescriptors|getOwnPropertySymbols|freeze|seal|isFrozen|isSealed|isExtensible|preventExtensions|is|fromEntries|groupBy|isArray|from|fromAsync|of|parseInt|parseFloat|isInteger|isFinite|isNaN|isSafeInteger|MAX_SAFE_INTEGER|MIN_SAFE_INTEGER|EPSILON|fromCodePoint|raw|trunc|sign|cbrt|log2|log10|log1p|expm1|hypot|sinh|cosh|tanh|asinh|acosh|atanh|fround|imul|clz32|now)$'}
         - kind: call_expression
           pattern: $MEMBER
-          has: {field: function, kind: member_expression, has: {field: property, regex: &method '^(map|filter|forEach|reduce|reduceRight|some|every|find|findIndex|findLast|findLastIndex|flat|flatMap|includes|fill|at|trim|trimStart|trimEnd|startsWith|endsWith|padStart|padEnd|repeat|replaceAll|codePointAt|normalize|bind|toISOString)$'}}
+          has: {field: function, kind: member_expression, has: {field: property, regex: &method '^(map|filter|forEach|reduce|reduceRight|some|every|find|findIndex|findLast|findLastIndex|flat|flatMap|includes|fill|at|trim|trimStart|trimEnd|startsWith|endsWith|padStart|padEnd|repeat|replaceAll|matchAll|toSorted|toReversed|toSpliced|with|codePointAt|normalize|bind|toISOString)$'}}
         - kind: member_expression
           pattern: $MEMBER
           all:
@@ -21,7 +21,7 @@ rule:
             - has: {field: object, kind: member_expression, has: {field: property, regex: '^prototype$'}}
         - kind: identifier
           pattern: $MEMBER
-          regex: '^(Map|Set|WeakMap|WeakSet|Promise|Proxy|Reflect|Symbol)$'
+          regex: '^(Map|Set|WeakMap|WeakSet|WeakRef|Promise|Proxy|Reflect|Symbol|BigInt|Intl|globalThis|structuredClone)$'
           all: [{inside: {kind: program, stopBy: end, matches: extendscript-file}}, {matches: typescript-global-reference}]
         - {kind: spread_element, pattern: $MEMBER}
         - {kind: rest_pattern, pattern: $MEMBER, inside: {kind: object_pattern}}

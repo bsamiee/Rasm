@@ -57,7 +57,7 @@ utils:
         kind: member_expression
         all:
             - has: {field: property, regex: '^fail$'}
-            - has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)(Effect|Stream|Channel|Sink|Exit|Cause|Deferred|Request|Result)$'}}}}
+            - has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)(Effect|Stream|Channel|Sink|Exit|Cause|(Tx)?Deferred|Request|Result|AsyncResult|(Tx)?Queue)$'}}}}
     lazy-constructor:
         kind: member_expression
         any:
