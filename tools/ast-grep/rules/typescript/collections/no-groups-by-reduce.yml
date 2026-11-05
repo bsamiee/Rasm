@@ -19,15 +19,16 @@ utils:
             - kind: object
               regex: '^\{[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\}$'
             - kind: call_expression
-              pattern: Object.create(null)
-              has: {field: function, matches: typescript-global-reference}
+              all:
+                - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^create$'}}, {has: {field: object, regex: '(^|\.)Object$', matches: typescript-global-member}}]}
+                - has: {field: arguments, pattern: {context: f(null), selector: arguments}}
             - kind: call_expression
               all:
                 - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^empty$'}}, {has: {field: object, matches: effect-record}}]}
                 - has: {field: arguments, regex: '^\([\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\)$'}
             - kind: new_expression
               all:
-                - has: {field: constructor, regex: '^Map$', matches: typescript-global-reference}
+                - has: {field: constructor, regex: '(^|\.)Map$', matches: typescript-global-member}
                 - not: {has: {field: arguments, not: {regex: '^\([\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\)$'}}}
             - matches: typescript-expression-wrapper
               has: {matches: empty}
@@ -152,7 +153,7 @@ utils:
               has: {kind: spread_element, has: {matches: accumulator-reference}}
             - kind: new_expression
               all:
-                - has: {field: constructor, regex: '^Map$', matches: typescript-global-reference}
+                - has: {field: constructor, regex: '(^|\.)Map$', matches: typescript-global-member}
                 - has: {field: arguments, has: {nthChild: {position: 1, ofRule: *code}, kind: array, has: {nthChild: {position: 1, ofRule: *code}, kind: spread_element, has: {matches: accumulator-reference}}}}
     bucketing:
         kind: arrow_function, function_expression
@@ -188,7 +189,7 @@ rule:
         - has: {field: function, kind: member_expression, has: {field: property, regex: '^reduce$'}}
         - any:
             - all:
-                - has: {field: function, has: {field: object, not: {matches: {effect-module: {name: {regex: '(?-u:\b)[A-Z][^\x00-#%-/:-@\[-\^`{-~\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*$'}}}}}}
+                - has: {field: function, has: {field: object, not: {matches: effect-namespace}}}
                 - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: *code}, matches: bucketing}}, {has: {nthChild: {position: 2, ofRule: *code}, matches: empty}}, {not: {has: {nthChild: {position: 3, ofRule: *code}}}}]}
             - all:
                 - has: {field: function, has: {field: object, matches: effect-iterable}}

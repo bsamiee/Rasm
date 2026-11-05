@@ -5,7 +5,7 @@ utils:
     byte-string:
         any:
             - kind: member_expression
-              all: [{has: {field: property, regex: '^from(CharCode|CodePoint)$'}}, {has: {field: object, regex: '^String$'}}]
+              all: [{has: {field: property, regex: '^from(CharCode|CodePoint)$'}}, {has: {field: object, regex: '(^|\.)String$', matches: typescript-global-member}}]
             - kind: call_expression
               has: {field: function, pattern: unescape}
     holds-byte-string:
@@ -54,8 +54,7 @@ rule:
     any:
         - kind: call_expression
           all:
-            - has: {field: function, any: [{pattern: btoa}, {kind: member_expression, has: {field: property, regex: '^btoa$'}}]}
-            - has: {field: function, pattern: $OP, regex: '^((globalThis|window|self)\.)?btoa$', matches: typescript-global-reference}
+            - has: {field: function, pattern: $OP, regex: '(^|\.)btoa$', matches: typescript-global-member}
             - has:
                 field: arguments
                 has:
@@ -64,11 +63,12 @@ rule:
                         - matches: holds-byte-string
                         - kind: identifier
                           pattern: $S
+                          matches: {typescript-local-binding: {owner: {pattern: $S_OWNER}}}
                           inside:
                             stopBy: end
-                            kind: 'statement_block, program'
+                            pattern: $S_OWNER
                             has:
-                                stopBy: end
+                                stopBy: {matches: typescript-function-boundary}
                                 any:
                                     - kind: variable_declarator
                                       all: [{has: {field: name, pattern: $S}}, {has: {field: value, matches: holds-byte-string}}]
@@ -76,8 +76,7 @@ rule:
                                       all: [{has: {field: left, pattern: $S}}, {has: {field: right, matches: holds-byte-string}}]
         - kind: call_expression
           all:
-            - has: {field: function, any: [{pattern: atob}, {kind: member_expression, has: {field: property, regex: '^atob$'}}]}
-            - has: {field: function, pattern: $OP, regex: '^((globalThis|window|self)\.)?atob$', matches: typescript-global-reference}
+            - has: {field: function, pattern: $OP, regex: '(^|\.)atob$', matches: typescript-global-member}
             - any:
                 - inside:
                     stopBy: {kind: 'arrow_function, function_expression, function_declaration, generator_function, generator_function_declaration, method_definition, expression_statement, lexical_declaration, variable_declaration, return_statement'}
@@ -112,9 +111,8 @@ rule:
                         - inside: {stopBy: &boundary {kind: 'arrow_function, function_expression, function_declaration, generator_function, generator_function_declaration, method_definition'}, kind: 'for_in_statement, for_statement, while_statement, do_statement'}
         - kind: call_expression
           all:
-            - has: {field: function, any: [{pattern: parseInt}, {kind: member_expression, has: {field: property, regex: '^parseInt$'}}]}
             - has: {field: arguments, all: [{has: {nthChild: {position: 2, ofRule: *code}, matches: radix}}, {not: {has: {nthChild: {position: 3, ofRule: *code}}}}]}
-            - has: {field: function, pattern: $OP, regex: '^((globalThis|window|self)\.)?(Number\.)?parseInt$', matches: typescript-global-reference}
+            - has: {field: function, pattern: $OP, any: [{regex: '(^|\.)parseInt$', matches: typescript-global-member}, {kind: member_expression, all: [{has: {field: property, regex: '^parseInt$'}}, {has: {field: object, regex: '(^|\.)Number$', matches: typescript-global-member}}]}]}
             - any:
                 - has:
                     field: arguments
@@ -131,10 +129,10 @@ rule:
                             has: {stopBy: end, kind: regex_pattern, regex: '^(\.\{1,2\}|\.\{2\}|\.\.|\[[^\]]+\]\{(1,)?2\})$'}
     not: {inside: {kind: program, stopBy: end, matches: extendscript-file}}
 transform:
-    BASE64: {replace: {source: $OP, replace: '^((globalThis|window|self)\.)?btoa$', by: '<bytes>.toBase64()'}}
-    FROM_BASE64: {replace: {source: $BASE64, replace: '^((globalThis|window|self)\.)?atob$', by: 'Uint8Array.fromBase64(<text>)'}}
+    BASE64: {replace: {source: $OP, replace: '^.*btoa$', by: '<bytes>.toBase64()'}}
+    FROM_BASE64: {replace: {source: $BASE64, replace: '^.*atob$', by: 'Uint8Array.fromBase64(<text>)'}}
     HEX: {replace: {source: $FROM_BASE64, replace: '(?s)^.*(?-u:\b)toString\(.*$', by: '<bytes>.toHex()'}}
-    METHOD: {replace: {source: $HEX, replace: '^((globalThis|window|self)\.)?(Number\.)?parseInt$', by: 'Uint8Array.fromHex(<text>)'}}
+    METHOD: {replace: {source: $HEX, replace: '^.*parseInt$', by: 'Uint8Array.fromHex(<text>)'}}
     OP_HEAD: {replace: {source: $OP, replace: '(?s)^([^(]+)\(.*$', by: '$1'}}
 message: '`$OP_HEAD` converts between bytes and text by hand in place of `$METHOD`'
 note: 'Use `Uint8Array` hex/base64 methods over bytes or `TextEncoder` output (`alphabet: ''base64url''` for URLs), `effect/encoding` in UXP'

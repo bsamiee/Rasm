@@ -2,13 +2,94 @@
 language: rustlang
 severity: error
 utils:
+    self-value:
+        any:
+            - kind: self
+            - kind: unary_expression
+              all:
+                - has: {field: operator, regex: '^\*$'}
+                - has: {kind: self}
+    literal-text:
+        any:
+            - kind: string_literal
+            - kind: macro_invocation
+              all:
+                - matches: {rust-std-macro: {name: {regex: '^write$'}}}
+                - has: {kind: token_tree, regex: '^\(\p{Pattern_White_Space}*\p{XID_Continue}+\p{Pattern_White_Space}*,\p{Pattern_White_Space}*"[^"{}\\]*"\p{Pattern_White_Space}*,?\p{Pattern_White_Space}*\)$'}
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: field_expression, has: {field: field, regex: '^write_str$'}}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: string_literal}, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: field_expression, all: [{has: {field: value, kind: string_literal}}, {has: {field: field, regex: '^(to_owned|to_string|into)$'}}]}
+                - has: {field: arguments, not: {has: {pattern: $_}}}
+            - kind: call_expression
+              all:
+                - has: {field: function, regex: '^(String|Cow)::(from|Borrowed)$'}
+                - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: string_literal}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}}]}
+            - kind: block
+              all:
+                - has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, any: [{matches: literal-text}, {kind: expression_statement, has: {matches: literal-text}}]}
+                - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}
+    variant-path:
+        has: {field: path, kind: identifier}
+    unit-pattern:
+        any:
+            - kind: scoped_identifier
+              matches: variant-path
+            - kind: tuple_struct_pattern
+              all:
+                - has: {field: type, kind: scoped_identifier, matches: variant-path}
+                - not: {has: {pattern: $_, not: {any: [{kind: 'remaining_field_pattern, line_comment, block_comment'}, {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}}]}}}
+            - kind: struct_pattern
+              all:
+                - has: {field: type, kind: scoped_type_identifier, matches: variant-path}
+                - not: {has: {pattern: $_, not: {kind: 'scoped_type_identifier, remaining_field_pattern, line_comment, block_comment'}}}
+    unit-arm:
+        kind: match_arm
+        all:
+            - has: {field: pattern, kind: match_pattern, has: {matches: unit-pattern}, not: {has: {field: condition, pattern: $_}}}
+            - has: {field: value, matches: literal-text}
+    error-type:
+        matches: {rust-error-type: {name: {pattern: $T}}}
+    naming-impl:
+        kind: impl_item
+        all:
+            - has: {field: type, kind: type_identifier, pattern: $T}
+            - any:
+                - not: {has: {field: trait, pattern: $_}}
+                - has: {field: trait, regex: '^(((std|core)::)?fmt::)?Display$|^(((std|core)::)?convert::)?AsRef\p{Pattern_White_Space}*<\p{Pattern_White_Space}*str\p{Pattern_White_Space}*>$'}
+            - inside:
+                kind: 'source_file, declaration_list, block'
+                all:
+                    - has: {kind: enum_item, has: {field: name, pattern: $T}}
+                    - not: {has: {matches: error-type}}
+    text-type:
+        any:
+            - kind: type_identifier
+              regex: '^String$'
+            - kind: reference_type
+              all:
+                - has: {field: type, kind: primitive_type, regex: '^str$'}
+                - not: {has: {kind: mutable_specifier}}
+                - not: {has: {kind: lifetime, not: {regex: '^''static$'}}}
+            - kind: generic_type
+              pattern: {context: 'type T = Cow<''static, str>;', selector: generic_type}
+    naming-method:
+        kind: function_item
+        any:
+            - has: {field: name, regex: '^(fmt|as_str|as_ref|name)$'}
+            - all:
+                - has: {field: parameters, all: [{has: {kind: self_parameter, not: {has: {kind: 'mutable_specifier, lifetime'}}}}, {not: {has: {kind: 'parameter, variadic_parameter'}}}]}
+                - has: {field: return_type, matches: text-type}
     constant-arm:
         kind: match_arm
         has: {field: value, kind: 'integer_literal, float_literal, boolean_literal, char_literal, scoped_identifier, call_expression, unary_expression', not: {has: {stopBy: end, kind: string_literal}}}
     self-table:
         kind: match_expression
         all:
-            - has: {field: value, regex: '^\*?\p{Pattern_White_Space}*self$'}
+            - has: {field: value, matches: self-value}
             - has: {field: body, not: {has: {kind: match_arm, not: {matches: constant-arm}}}}
     constant-table:
         kind: function_item
@@ -16,7 +97,19 @@ utils:
 rule:
     kind: match_expression
     all:
-        - matches: {rust-variant-name-match: {type: {pattern: $T}, method: {pattern: $METHOD}}}
+        - has: {field: value, matches: self-value}
+        - has:
+            field: body
+            all:
+                - has: {kind: match_arm, nthChild: {position: 2, ofRule: {kind: match_arm}}}
+                - not: {has: {kind: match_arm, not: {matches: unit-arm}}}
+        - inside:
+            kind: function_item
+            stopBy: {kind: 'function_item, closure_expression'}
+            all:
+                - has: {field: name, pattern: $METHOD}
+                - matches: naming-method
+                - inside: {kind: declaration_list, inside: {matches: naming-impl}}
         - not: {inside: {kind: impl_item, stopBy: end, has: {field: body, has: {matches: constant-table}}}}
 message: '`$METHOD` of `$T` spells one string literal per variant'
 note: 'Derive `strum::IntoStaticStr` with `serialize` and `const_into_str` for const methods, or `derive_more::Display` with `display`'

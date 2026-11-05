@@ -11,9 +11,7 @@ rule:
             kind: member_expression
             all:
                 - has: {field: property, regex: '^querySelector$'}
-                - has:
-                    field: object
-                    all: [{regex: '^((globalThis|window|self)\.)?document$'}, {matches: typescript-global-reference}]
+                - has: {field: object, regex: '(^|\.)document$', matches: typescript-global-member}
         - has:
             field: arguments
             all:
@@ -25,7 +23,7 @@ rule:
                         - pattern: "'#' + $CSS.escape($ID)"
                         - pattern: '"#" + $CSS.escape($ID)'
 constraints:
-    CSS: {regex: '^((globalThis|window|self)\.)?CSS$', matches: typescript-global-reference}
+    CSS: {regex: '(^|\.)CSS$', matches: typescript-global-member}
     ID:
         kind: string, template_string
         has: {kind: string_fragment, regex: '^[^\x00]+$'}

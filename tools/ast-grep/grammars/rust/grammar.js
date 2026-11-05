@@ -165,7 +165,8 @@ export default extend(rust, {
                 replace(named('trait'), (_, { content }) => field('name', content)),
             ),
         ),
-        macro_definition: ($, original) => choice(replace(string('macro_rules!'), () => alias(MACRO_RULES, 'macro_rules!'))($, original), seq(optional($.visibility_modifier), 'macro', located(original, named('name')), choice(alias($._macro_signature, $.macro_rule), replace(string(';'), () => choice(',', ';'))($, located(original, opened('{')))))),
+        macro_definition: ($, original) =>
+            choice(replace(string('macro_rules!'), () => alias(MACRO_RULES, 'macro_rules!'))($, original), seq(optional($.visibility_modifier), 'macro', located(original, named('name')), choice(alias($._macro_signature, $.macro_rule), replace(string(';'), () => choice(',', ';'))($, located(original, opened('{')))))),
         macro_rule: before(named('left'), ($) => optional(seq(optional('unsafe'), choice('attr', 'derive'), field('arguments', $.token_tree_pattern)))),
         _macro_signature: from(
             'macro_rule',
@@ -344,11 +345,7 @@ export default extend(rust, {
             before(named('left'), attributed),
         ),
         _token_pattern: ($, original) => choice(original, alias($._lone_dollar, '$')),
-        generic_function: widen(
-            symbol('identifier'),
-            located(rust.grammar.rules._expression_except_range, aliased),
-            ($) => $._reserved_identifier,
-        ),
+        generic_function: widen(symbol('identifier'), located(rust.grammar.rules._expression_except_range, aliased), ($) => $._reserved_identifier),
         unary_expression: replace(choiceOf(string('-')), (_, part) => field('operator', part)),
         binary_expression: replace(string('<='), () => token(prec(2, '<='))),
         _non_special_token: (_, original) => choice(original, '~'),

@@ -26,6 +26,7 @@
 - ALWAYS use `manage-repo` skill for a change to how the repository is structured, built, or checked
 - ALWAYS use `search-web` skill for a question the open web answers
 - ALWAYS use `search-code` skill for any fact about a dependency
+- ALWAYS use `ast-grep outline <path>` to choose what to read in an unread file or folder, read whole what you edit or judge
 - ALWAYS use `secrets` skill for a command or build that reads a secret
 - ALWAYS use `github` MCP for exploration, research, and interaction for Github
 - ALWAYS use `blender-coding` skill for Python that runs inside Blender
@@ -51,7 +52,7 @@
 |  [08]   | `difft`     | `difft <before> <after>` for a syntax-tree diff, `GIT_EXTERNAL_DIFF=difft git diff` over a change           |
 |  [09]   | `hyperfine` | `hyperfine -r <runs> '<command>'` times commands under the same controls, `-S default` adds a shell         |
 |  [10]   | `duckdb`    | `duckdb -c '<sql>'` queries CSV, Parquet, and JSON files in place, `-json` for machine output               |
-|  [11]   | `outline`   | `ast-grep outline <path>` lists a path's declarations before a read, `--items exports` its public API       |
+|  [11]   | `outline`   | `ast-grep outline <path>` lists a path's declarations, `--items exports` its public API                     |
 
 ## [02]-[IMPLEMENTATION_STANDARDS]
 

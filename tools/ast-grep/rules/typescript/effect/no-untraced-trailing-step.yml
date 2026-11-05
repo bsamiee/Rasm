@@ -8,6 +8,6 @@ rule:
     kind: call_expression
     all:
         - has: {field: function, regex: '(?-u:\b)fn(?-u:\b)', any: [{matches: traced}, {kind: call_expression, has: {field: function, matches: traced}}]}
-        - has: {field: arguments, has: {nthChild: {position: 1, reverse: true, ofRule: {not: {kind: comment}}}, kind: member_expression, pattern: $STEP, has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)(Stream|Layer)$'}}}}}}
+        - has: {field: arguments, has: {nthChild: {position: 1, reverse: true, ofRule: {not: {kind: 'comment, html_comment'}}}, kind: member_expression, pattern: $STEP, has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)(Stream|Layer)$'}}}}}}
 message: '`$STEP` ends an `Effect.fn` pipeline with a value that is no effect, dropping its span'
 note: 'Compose `flow(Effect.fn(<name>)(<body>), <step>)`'

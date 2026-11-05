@@ -5,8 +5,8 @@ rule:
     kind: call_expression
     all:
         - has: {field: function, pattern: $LAYER, matches: {effect-module-member: {module: {regex: '(?-u:\b)Logger$'}, member: {regex: '^layer$'}}}}
-        - has: {field: arguments, has: {nthChild: {position: 1, ofRule: &argument {not: {kind: comment}}}, kind: array, pattern: $LOGGERS, not: {has: {matches: {effect-module-member: {module: {regex: '(?-u:\b)Logger$'}, member: {regex: '^tracerLogger$'}}}}}}}
-        - not: {has: {field: arguments, has: {nthChild: {position: 2, ofRule: *argument}, has: {kind: pair, all: [{has: {field: key, regex: '^mergeWithExisting$'}}, {has: {field: value, kind: 'true'}}]}}}}
+        - has: {field: arguments, has: {nthChild: {position: 1, ofRule: &code {not: {kind: 'comment, html_comment'}}}, kind: array, pattern: $LOGGERS, not: {has: {matches: {effect-module-member: {module: {regex: '(?-u:\b)Logger$'}, member: {regex: '^tracerLogger$'}}}}}}}
+        - not: {has: {field: arguments, has: {nthChild: {position: 2, ofRule: *code}, has: {kind: pair, all: [{has: {field: key, regex: '^mergeWithExisting$'}}, {has: {field: value, kind: 'true'}}]}}}}
         - inside: {kind: program, stopBy: end, has: {stopBy: end, kind: member_expression, regex: '(?-u:\b)layer', matches: {effect-module-member: {module: {regex: '(?-u:\b)(NodeSdk|OtelTracer|Otlp|OtlpTracer|WebSdk)$'}, member: {regex: '^layer'}}}}}
 message: '`$LAYER($LOGGERS)` replaces the default loggers and drops log events from spans'
 note: 'List `Logger.tracerLogger` beside the console logger, or pass `{ mergeWithExisting: true }`'

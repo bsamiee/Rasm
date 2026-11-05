@@ -6,39 +6,38 @@ utils:
         kind: predefined_type
         regex: '^never$'
         any:
-            - nthChild: {position: n+2, ofRule: &type-argument {not: {kind: comment}}}
+            - nthChild: {position: n+2, ofRule: &type-argument {not: {kind: 'comment, html_comment'}}}
               inside:
                 kind: type_arguments
                 inside:
                     kind: generic_type
                     has:
                         field: name
-                        kind: nested_type_identifier
                         any:
-                            - all: [{has: {field: name, regex: '^Effect$'}}, {has: {field: module, matches: {effect-module: {name: {regex: '(?-u:\b)Effect$'}}}}}]
-                            - all: [{has: {field: name, regex: '^Stream$'}}, {has: {field: module, matches: {effect-module: {name: {regex: '(?-u:\b)Stream$'}}}}}]
-                            - all: [{has: {field: name, regex: '^Layer$'}}, {has: {field: module, matches: {effect-module: {name: {regex: '(?-u:\b)Layer$'}}}}}]
-                            - all: [{has: {field: name, regex: '^Request$'}}, {has: {field: module, matches: {effect-module: {name: {regex: '(?-u:\b)Request$'}}}}}]
-                            - all: [{has: {field: name, regex: '^Result$'}}, {has: {field: module, matches: {effect-module: {name: {regex: '(?-u:\b)Result$'}}}}}]
-                            - all: [{has: {field: name, regex: '^Fiber$'}}, {has: {field: module, matches: {effect-module: {name: {regex: '(?-u:\b)Fiber$'}}}}}]
-                            - all: [{has: {field: name, regex: '^Deferred$'}}, {has: {field: module, matches: {effect-module: {name: {regex: '(?-u:\b)Deferred$'}}}}}]
-                            - all: [{has: {field: name, regex: '^Pool$'}}, {has: {field: module, matches: {effect-module: {name: {regex: '(?-u:\b)Pool$'}}}}}]
-                            - all: [{has: {field: name, regex: '^RcRef$'}}, {has: {field: module, matches: {effect-module: {name: {regex: '(?-u:\b)RcRef$'}}}}}]
-                            - all: [{has: {field: name, regex: '^Resource$'}}, {has: {field: module, matches: {effect-module: {name: {regex: '(?-u:\b)Resource$'}}}}}]
-                            - all: [{has: {field: name, regex: '^LayerRef$'}}, {has: {field: module, matches: {effect-module: {name: {regex: '(?-u:\b)LayerRef$'}}}}}]
-                            - all: [{has: {field: name, regex: '^(Exit|Success)$'}}, {has: {field: module, matches: {effect-module: {name: {regex: '(?-u:\b)Exit$'}}}}}]
-                            - all: [{has: {field: name, regex: '^(Queue|Enqueue|Dequeue)$'}}, {has: {field: module, matches: {effect-module: {name: {regex: '(?-u:\b)Queue$'}}}}}]
-                            - all: [{has: {field: name, regex: '^End$'}}, {has: {field: module, matches: {effect-module: {name: {regex: '(?-u:\b)Sink$'}}}}}]
-                            - all: [{has: {field: name, regex: '^(TxQueue|TxEnqueue|TxDequeue)$'}}, {has: {field: module, matches: {effect-module: {name: {regex: '(?-u:\b)TxQueue$'}}}}}]
-                            - all: [{has: {field: name, regex: '^TxDeferred$'}}, {has: {field: module, matches: {effect-module: {name: {regex: '(?-u:\b)TxDeferred$'}}}}}]
-                            - all: [{has: {field: name, regex: '^(Decoder|Encoder|ConstraintDecoder|ConstraintEncoder|withDecodingDefault(Type)?(Key)?)$'}}, {has: {field: module, matches: {effect-module: {name: {regex: '(?-u:\b)Schema$'}}}}}]
-                            - all: [{has: {field: name, regex: '^(AsyncResult|Initial|Success|Failure)$'}}, {has: {field: module, matches: {effect-module: {name: {regex: '(?-u:\b)AsyncResult$'}}}}}]
-                            - all: [{has: {field: name, regex: '^(AtomRuntime|PullResult)$'}}, {has: {field: module, matches: {effect-module: {name: {regex: '(?-u:\b)Atom$'}}}}}]
-                            - all: [{has: {field: name, regex: '^(RpcClient|FromGroup)$'}}, {has: {field: module, matches: {effect-module: {name: {regex: '(?-u:\b)RpcClient$'}}}}}]
-                            - all: [{has: {field: name, regex: '^(Client|ForApi)$'}}, {has: {field: module, matches: {effect-module: {name: {regex: '(?-u:\b)HttpApiClient$'}}}}}]
-                            - all: [{has: {field: name, regex: '^EntityResource$'}}, {has: {field: module, matches: {effect-module: {name: {regex: '(?-u:\b)EntityResource$'}}}}}]
-                            - all: [{has: {field: name, regex: '^PersistedQueue$'}}, {has: {field: module, matches: {effect-module: {name: {regex: '(?-u:\b)PersistedQueue$'}}}}}]
-                            - all: [{has: {field: name, regex: '^PersistedCache$'}}, {has: {field: module, matches: {effect-module: {name: {regex: '(?-u:\b)PersistedCache$'}}}}}]
+                            - matches: {effect-module-type: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^Effect$'}}}
+                            - matches: {effect-module-type: {module: {regex: '(?-u:\b)Stream$'}, member: {regex: '^Stream$'}}}
+                            - matches: {effect-module-type: {module: {regex: '(?-u:\b)Layer$'}, member: {regex: '^Layer$'}}}
+                            - matches: {effect-module-type: {module: {regex: '(?-u:\b)Request$'}, member: {regex: '^Request$'}}}
+                            - matches: {effect-module-type: {module: {regex: '(?-u:\b)Result$'}, member: {regex: '^Result$'}}}
+                            - matches: {effect-module-type: {module: {regex: '(?-u:\b)Fiber$'}, member: {regex: '^Fiber$'}}}
+                            - matches: {effect-module-type: {module: {regex: '(?-u:\b)Deferred$'}, member: {regex: '^Deferred$'}}}
+                            - matches: {effect-module-type: {module: {regex: '(?-u:\b)Pool$'}, member: {regex: '^Pool$'}}}
+                            - matches: {effect-module-type: {module: {regex: '(?-u:\b)RcRef$'}, member: {regex: '^RcRef$'}}}
+                            - matches: {effect-module-type: {module: {regex: '(?-u:\b)Resource$'}, member: {regex: '^Resource$'}}}
+                            - matches: {effect-module-type: {module: {regex: '(?-u:\b)LayerRef$'}, member: {regex: '^LayerRef$'}}}
+                            - matches: {effect-module-type: {module: {regex: '(?-u:\b)Exit$'}, member: {regex: '^(Exit|Success)$'}}}
+                            - matches: {effect-module-type: {module: {regex: '(?-u:\b)Queue$'}, member: {regex: '^(Queue|Enqueue|Dequeue)$'}}}
+                            - matches: {effect-module-type: {module: {regex: '(?-u:\b)Sink$'}, member: {regex: '^End$'}}}
+                            - matches: {effect-module-type: {module: {regex: '(?-u:\b)TxQueue$'}, member: {regex: '^(TxQueue|TxEnqueue|TxDequeue)$'}}}
+                            - matches: {effect-module-type: {module: {regex: '(?-u:\b)TxDeferred$'}, member: {regex: '^TxDeferred$'}}}
+                            - matches: {effect-module-type: {module: {regex: '(?-u:\b)Schema$'}, member: {regex: '^(Decoder|Encoder|ConstraintDecoder|ConstraintEncoder|withDecodingDefault(Type)?(Key)?)$'}}}
+                            - matches: {effect-module-type: {module: {regex: '(?-u:\b)AsyncResult$'}, member: {regex: '^(AsyncResult|Initial|Success|Failure)$'}}}
+                            - matches: {effect-module-type: {module: {regex: '(?-u:\b)Atom$'}, member: {regex: '^(AtomRuntime|PullResult)$'}}}
+                            - matches: {effect-module-type: {module: {regex: '(?-u:\b)RpcClient$'}, member: {regex: '^(RpcClient|FromGroup)$'}}}
+                            - matches: {effect-module-type: {module: {regex: '(?-u:\b)HttpApiClient$'}, member: {regex: '^(Client|ForApi)$'}}}
+                            - matches: {effect-module-type: {module: {regex: '(?-u:\b)EntityResource$'}, member: {regex: '^EntityResource$'}}}
+                            - matches: {effect-module-type: {module: {regex: '(?-u:\b)PersistedQueue$'}, member: {regex: '^PersistedQueue$'}}}
+                            - matches: {effect-module-type: {module: {regex: '(?-u:\b)PersistedCache$'}, member: {regex: '^PersistedCache$'}}}
             - nthChild: {position: n+3, ofRule: *type-argument}
               inside:
                 kind: type_arguments
@@ -46,19 +45,18 @@ utils:
                     kind: generic_type
                     has:
                         field: name
-                        kind: nested_type_identifier
                         any:
-                            - all: [{has: {field: name, regex: '^Cache$'}}, {has: {field: module, matches: {effect-module: {name: {regex: '(?-u:\b)Cache$'}}}}}]
-                            - all: [{has: {field: name, regex: '^ScopedCache$'}}, {has: {field: module, matches: {effect-module: {name: {regex: '(?-u:\b)ScopedCache$'}}}}}]
-                            - all: [{has: {field: name, regex: '^RcMap$'}}, {has: {field: module, matches: {effect-module: {name: {regex: '(?-u:\b)RcMap$'}}}}}]
-                            - all: [{has: {field: name, regex: '^LayerMap$'}}, {has: {field: module, matches: {effect-module: {name: {regex: '(?-u:\b)LayerMap$'}}}}}]
-                            - all: [{has: {field: name, regex: '^Schedule$'}}, {has: {field: module, matches: {effect-module: {name: {regex: '(?-u:\b)Schedule$'}}}}}]
-                            - all: [{has: {field: name, regex: '^Sink$'}}, {has: {field: module, matches: {effect-module: {name: {regex: '(?-u:\b)Sink$'}}}}}]
-                            - all: [{has: {field: name, regex: '^(Codec|ConstraintCodec|decodeTo)$'}}, {has: {field: module, matches: {effect-module: {name: {regex: '(?-u:\b)Schema$'}}}}}]
-                            - all: [{has: {field: name, regex: '^Getter$'}}, {has: {field: module, matches: {effect-module: {name: {regex: '(?-u:\b)SchemaGetter$'}}}}}]
-                            - all: [{has: {field: name, regex: '^Transformation$'}}, {has: {field: module, matches: {effect-module: {name: {regex: '(?-u:\b)SchemaTransformation$'}}}}}]
-                            - all: [{has: {field: name, regex: '^AtomResultFn$'}}, {has: {field: module, matches: {effect-module: {name: {regex: '(?-u:\b)Atom$'}}}}}]
-                            - all: [{has: {field: name, regex: '^Classifier$'}}, {has: {field: module, matches: {effect-module: {name: {regex: '(?-u:\b)CircuitBreaker$'}}}}}]
+                            - matches: {effect-module-type: {module: {regex: '(?-u:\b)Cache$'}, member: {regex: '^Cache$'}}}
+                            - matches: {effect-module-type: {module: {regex: '(?-u:\b)ScopedCache$'}, member: {regex: '^ScopedCache$'}}}
+                            - matches: {effect-module-type: {module: {regex: '(?-u:\b)RcMap$'}, member: {regex: '^RcMap$'}}}
+                            - matches: {effect-module-type: {module: {regex: '(?-u:\b)LayerMap$'}, member: {regex: '^LayerMap$'}}}
+                            - matches: {effect-module-type: {module: {regex: '(?-u:\b)Schedule$'}, member: {regex: '^Schedule$'}}}
+                            - matches: {effect-module-type: {module: {regex: '(?-u:\b)Sink$'}, member: {regex: '^Sink$'}}}
+                            - matches: {effect-module-type: {module: {regex: '(?-u:\b)Schema$'}, member: {regex: '^(Codec|ConstraintCodec|decodeTo)$'}}}
+                            - matches: {effect-module-type: {module: {regex: '(?-u:\b)SchemaGetter$'}, member: {regex: '^Getter$'}}}
+                            - matches: {effect-module-type: {module: {regex: '(?-u:\b)SchemaTransformation$'}, member: {regex: '^Transformation$'}}}
+                            - matches: {effect-module-type: {module: {regex: '(?-u:\b)Atom$'}, member: {regex: '^AtomResultFn$'}}}
+                            - matches: {effect-module-type: {module: {regex: '(?-u:\b)CircuitBreaker$'}, member: {regex: '^Classifier$'}}}
             - nthChild: {position: n+4, ofRule: *type-argument}
               inside:
                 kind: type_arguments
@@ -66,10 +64,9 @@ utils:
                     kind: generic_type
                     has:
                         field: name
-                        kind: nested_type_identifier
                         any:
-                            - all: [{has: {field: name, regex: '^Pull$'}}, {has: {field: module, matches: {effect-module: {name: {regex: '(?-u:\b)Pull$'}}}}}]
-                            - all: [{has: {field: name, regex: '^FilterEffect$'}}, {has: {field: module, matches: {effect-module: {name: {regex: '(?-u:\b)Filter$'}}}}}]
+                            - matches: {effect-module-type: {module: {regex: '(?-u:\b)Pull$'}, member: {regex: '^Pull$'}}}
+                            - matches: {effect-module-type: {module: {regex: '(?-u:\b)Filter$'}, member: {regex: '^FilterEffect$'}}}
             - nthChild: {position: n+7, ofRule: *type-argument}
               inside:
                 kind: type_arguments
@@ -77,9 +74,8 @@ utils:
                     kind: generic_type
                     has:
                         field: name
-                        kind: nested_type_identifier
                         any:
-                            - all: [{has: {field: name, regex: '^Channel$'}}, {has: {field: module, matches: {effect-module: {name: {regex: '(?-u:\b)Channel$'}}}}}]
+                            - matches: {effect-module-type: {module: {regex: '(?-u:\b)Channel$'}, member: {regex: '^Channel$'}}}
             - nthChild: {position: 2, ofRule: *type-argument}
               inside:
                 kind: type_arguments
@@ -87,10 +83,7 @@ utils:
                     kind: generic_type
                     has:
                         field: name
-                        kind: nested_type_identifier
-                        all:
-                            - has: {field: name, regex: '^Take$'}
-                            - has: {field: module, matches: {effect-module: {name: {regex: '(?-u:\b)Take$'}}}}
+                        matches: {effect-module-type: {module: {regex: '(?-u:\b)Take$'}, member: {regex: '^Take$'}}}
 rule:
     kind: predefined_type
     all:

@@ -6,7 +6,7 @@ import jsesc from 'jsesc';
 import { copied } from '#/cases/precondition';
 import { JsonObject } from '#/cases/values';
 import { HarnessError } from '#/harness-error';
-import { Answered, BOXES, Engine, EngineRequest, HostCase, HostOutcome, Install, Recorded, type Rooted, Survey, Surveyed } from '#/hosts/adobe/acrobat/contract';
+import { Answered, BOXES, Contract, EngineRequest, type Rooted, Surveyed } from '#/hosts/adobe/acrobat/contract';
 import { precondition } from '#/hosts/adobe/acrobat/precondition';
 import { ADOBE } from '#/hosts/adobe/reports';
 import { type Batch, type Decoding, filesIn, Harness, inside, installation, LABEL, type Live, scripted } from '#/session/harness';
@@ -18,7 +18,6 @@ import { HOME } from '#/trace/reports';
 
 const CODES = { suite: 'CARO', script: 'miscdosc', quit: 'aevtquit', menu: 'cmnu', item: 'cmen', title: 'ptit' } as const;
 const ELLIPSIS = /(?:…|\.\.\.)$/u;
-const REQUESTED = { home: HOME, boxes: BOXES };
 const SANDBOX = 'com.apple.security.temporary-exception.files.absolute-path.read-write';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -64,7 +63,7 @@ const install = Effect.fn('install')(function* (live: Live) {
                   .digest('hex'),
           }
         : {};
-    return { sandbox, ...lockdown } satisfies typeof Install.Type;
+    return { sandbox, ...lockdown } satisfies (typeof Contract.Survey.Type)['host'];
 });
 
 // --- [CASES]
@@ -77,13 +76,13 @@ const placed = Effect.fn('placed')(function* (decoded: typeof Rooted.Type, folde
     const { precondition: copy, copies } = yield* copied(Struct.omit(decoded, ['exception']), sandbox, product);
     return { precondition: { ...copy, sandbox }, copies };
 });
-const staged = Effect.fn('staged')(function* (hosted: typeof HostCase.Type) {
+const staged = Effect.fn('staged')(function* (hosted: typeof Contract.Case.Type) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const into = (file: string) => path.join(hosted.precondition.sandbox, path.basename(file));
     const files = yield* Effect.forEach(hosted.files ?? [], (file) => (file === null ? Effect.succeed(null) : Effect.as(fs.copyFile(file, into(file)), into(file))));
     return { hosted: hosted.files === undefined ? hosted : { ...hosted, files }, inputs: files.filter((file) => file !== null) };
 });
-const collected = Effect.fn('collected')(function* (hosted: typeof HostCase.Type, skipped: readonly string[]) {
+const collected = Effect.fn('collected')(function* (hosted: typeof Contract.Case.Type, skipped: readonly string[]) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const { sandbox } = hosted.precondition;
     const into = (file: string) => path.join(hosted.folder, path.relative(sandbox, file));
@@ -115,7 +114,7 @@ const normalized = Effect.fn('normalized')(function* (file: string) {
 });
 
 // --- [TRANSPORT]
-const lowered = Effect.runSync(Effect.cached(built(new URL('engine.ts', import.meta.url), 'es5')));
+const lowered = Effect.runSync(Effect.cached(built(new URL('engine/main.ts', import.meta.url), 'es5')));
 const got = Effect.fn('got')(function* <S extends Schema.Top & Schema.Decoder<unknown>>(pid: number, direct: AppleEventValue, schema: S) {
     const automation = yield* Automation;
     const { reply } = yield* automation.execute({ pid, command: 'get', arguments: { direct } });
@@ -140,22 +139,22 @@ const answered = Effect.fn('answered')(function* <A>(live: Live, Reply: Decoding
 });
 const surveyed = Effect.fn('surveyed')(function* (live: Live, opened: Option.Option<Schema.Json>) {
     const modal = yield* modalIn(live.pid);
-    const held = yield* answered(live, Surveyed, EngineRequest.cases.Survey.make({ ...REQUESTED, modal }));
+    const held = yield* answered(live, Surveyed, EngineRequest.cases.Survey.make({ boxes: BOXES, modal }));
     const { viewer, model } = yield* Effect.mapError(Effect.fromResult(held), ({ reason }) => HarnessError.unavailable(`process ${live.pid}`)(reason));
-    const host = yield* Effect.orDie(Schema.decodeUnknownEffect(Install)(Option.getOrUndefined(opened)));
-    return { model: { ...model, modal }, viewer, host } satisfies typeof Survey.Type;
+    const host = yield* Effect.orDie(Schema.decodeUnknownEffect(Contract.Survey.fields.host)(Option.getOrUndefined(opened)));
+    return { model: { ...model, modal }, viewer, host } satisfies typeof Contract.Survey.Type;
 });
-const cased = (live: Live, records: string, survey: typeof Survey.Type) =>
-    Effect.fn('cased')(function* (hosted: typeof HostCase.Type, index: number) {
+const cased = (live: Live, records: string, survey: typeof Contract.Survey.Type) =>
+    Effect.fn('cased')(function* (hosted: typeof Contract.Case.Type, index: number) {
         const fs = yield* FileSystem.FileSystem;
-        const line = (entry: typeof Recorded.Type) => Effect.flatMap(Schema.encodeEffect(Recorded)(entry), (encoded) => fs.writeFileString(records, `${encoded}\n`, { flag: 'a' }));
+        const line = (entry: typeof Contract.Recorded.Type) => Effect.flatMap(Schema.encodeEffect(Contract.Recorded)(entry), (encoded) => fs.writeFileString(records, `${encoded}\n`, { flag: 'a' }));
         yield* line({ _tag: 'Started', index });
         const { hosted: held, inputs } = yield* staged(hosted);
-        const answer = yield* answered(live, Answered, EngineRequest.cases.Case.make({ ...REQUESTED, modal: survey.model.modal, signatures: survey.model.signatures, case: held }));
+        const answer = yield* answered(live, Answered, EngineRequest.cases.Case.make({ home: HOME, boxes: BOXES, modal: survey.model.modal, signatures: survey.model.signatures, case: held }));
         yield* collected(hosted, [...inputs, ...Result.match(answer, { onSuccess: ({ kept }) => kept, onFailure: () => [] })]);
-        yield* line({ _tag: 'Finished', outcome: Result.match(answer, { onSuccess: ({ outcome }) => outcome, onFailure: ({ reason }) => HostOutcome.make({ name: hosted.name, completion: { _tag: 'Failed', reason } }) }) });
+        yield* line({ _tag: 'Finished', outcome: Result.match(answer, { onSuccess: ({ outcome }) => outcome, onFailure: ({ reason }) => Contract.Outcome.make({ name: hosted.name, completion: { _tag: 'Failed', reason } }) }) });
     });
-const send = Effect.fn('send')(function* (live: Live, batch: Batch<typeof Survey.Type, typeof HostCase.Type>) {
+const send = Effect.fn('send')(function* (live: Live, batch: Batch<typeof Contract.Survey.Type, typeof Contract.Case.Type>) {
     const header = { application: live.chosen.name, version: live.chosen.version };
     return yield* Option.match(batch.survey, {
         onNone: () => Effect.map(surveyed(live, batch.opened), (survey) => ({ ...header, survey })),
@@ -166,11 +165,7 @@ const send = Effect.fn('send')(function* (live: Live, batch: Batch<typeof Survey
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const acrobat = Harness({
-    Engine,
-    survey: { question: 'Member names per object kind, signatures of answered members, dialog menu items, viewer, and FeatureLockDown digest the installation declares', Schema: Survey },
-    Case: HostCase,
-    Outcome: HostOutcome,
-    engine: () => Result.succeed(Engine.literal),
+    ...Contract,
     precondition,
     placed,
     refusal: (_, hosted) => (hosted.dialogs === undefined ? Option.none<string>() : Option.some('execDialog answers through windows presses')),

@@ -33,8 +33,9 @@ utils:
     emptiness:
         any:
             - kind: unary_expression
-              regex: '^!'
-              has: {kind: call_expression, all: [{has: {field: function, kind: field_expression, all: [{has: {field: value, pattern: $V}}, {has: {field: field, regex: '^is_empty$'}}]}}, {matches: no-arguments}]}
+              all:
+                - has: {field: operator, regex: '^!$'}
+                - has: {kind: call_expression, all: [{has: {field: function, kind: field_expression, all: [{has: {field: value, pattern: $V}}, {has: {field: field, regex: '^is_empty$'}}]}}, {matches: no-arguments}]}
             - kind: binary_expression
               any:
                 - all: [{has: {field: left, matches: length-call}}, {has: {field: operator, regex: '^(>|!=)$'}}, {has: {field: right, matches: zero}}]
@@ -88,7 +89,7 @@ rule:
         - kind: if_expression
           all:
             - not: {has: {field: alternative, pattern: $_}}
-            - has: {field: condition, kind: unary_expression, regex: '^!', has: {matches: contains-key}}
+            - has: {field: condition, kind: unary_expression, all: [{has: {field: operator, regex: '^!$'}}, {has: {matches: contains-key}}]}
             - has: {field: consequence, matches: {rust-single-statement: {first: {matches: diverging}}}}
             - inside: {kind: expression_statement, precedes: {stopBy: end, any: [{matches: keyed-read}, {has: {stopBy: end, matches: keyed-read}}]}}
 message: '`$CONDITION` repeats a fact the next pattern or lookup states'

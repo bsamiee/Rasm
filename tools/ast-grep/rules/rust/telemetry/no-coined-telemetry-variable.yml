@@ -27,7 +27,7 @@ rule:
           all:
             - follows: {regex: '^[,(]$'}
             - precedes: {regex: '^[,)]$'}
-            - inside: {kind: token_tree, inside: {kind: attribute, field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: identifier, regex: '^(arg|clap)$'}}}
+            - inside: {kind: token_tree, inside: {kind: attribute, field: arguments, has: {field: path, regex: '^(arg|clap)$'}}}
             - inside:
                 kind: attribute_item
                 stopBy: end

@@ -32,8 +32,9 @@ utils:
         any:
             - kind: identifier
             - kind: unary_expression
-              regex: '^\*'
-              has: {kind: identifier}
+              all:
+                - has: {field: operator, regex: '^\*$'}
+                - has: {kind: identifier}
     probe:
         kind: call_expression
         all:
@@ -50,14 +51,14 @@ utils:
             - kind: reference_expression
               has: {field: value, matches: literal-needles}
             - kind: identifier
-              regex: '^[A-Z][A-Z0-9_]*$'
+              regex: '^\p{Lu}[\p{Lu}\p{Nd}_]*$'
               pattern: $NEEDLES
               inside: {kind: source_file, stopBy: end, has: {stopBy: end, kind: 'const_item, static_item', all: [{has: {field: name, pattern: $NEEDLES}}, {has: {field: value, any: [{matches: literal-needles}, {kind: reference_expression, has: {field: value, matches: literal-needles}}]}}]}}
     constant-text:
         any:
             - kind: 'string_literal, raw_string_literal'
             - kind: identifier
-              regex: '^[A-Z][A-Z0-9_]*$'
+              regex: '^\p{Lu}[\p{Lu}\p{Nd}_]*$'
     literal-replace:
         kind: call_expression
         all:
@@ -105,7 +106,7 @@ rule:
                     has:
                         nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}
                         kind: closure_expression
-                        has: {field: body, any: [{matches: probe}, {kind: unary_expression, regex: '^!', has: {matches: probe}}]}
+                        has: {field: body, any: [{matches: probe}, {kind: unary_expression, all: [{has: {field: operator, regex: '^!$'}}, {has: {matches: probe}}]}]}
             - kind: binary_expression
               any:
                 - pattern: $RECEIVER.contains($A) || $RECEIVER.contains($B) || $RECEIVER.contains($C)

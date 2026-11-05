@@ -2,7 +2,7 @@ import { fileURLToPath } from 'node:url';
 import { ExtensionManifest } from '@rasm/cep';
 import { traced } from '@rasm/cep/lower';
 import { script } from '@rasm/cep/vite';
-import { Array, Effect, FileSystem, Match, Option, Path, type PlatformError, Record, Result, String } from 'effect';
+import { Array, Effect, FileSystem, Option, Path, type PlatformError, String } from 'effect';
 import type { Call } from '#/cases/schema';
 import { HarnessError } from '#/harness-error';
 
@@ -62,21 +62,6 @@ const prepared = Effect.fn('prepared')(function* (origin: string, lines: Option.
     const kept = Option.match(lines, { onNone: () => rows, onSome: (ranges) => ranges.flatMap(([from, to]) => rows.slice(from - 1, to)) });
     return { source: { script: origin, code: kept.map(([line]) => line).join('\n') }, map: kept.map(([, at]) => at), binary: Option.isSome(binary) };
 });
-const engineOf =
-    <E extends string>(engines: { readonly [K in E]: { readonly extensions: readonly string[] } }, fallback: NoInfer<E>) =>
-    (scripts: readonly string[]): Result.Result<E, HarnessError> => {
-        const held = (file: string) =>
-            Option.map(
-                Record.findFirst(engines, ({ extensions }) => extensions.some((extension) => file.endsWith(`.${extension}`))),
-                ([engine]) => engine,
-            );
-        const unavailable = HarnessError.unavailable(scripts.join(', '));
-        return Match.value({ unknown: scripts.filter((file) => Option.isNone(held(file))), found: Array.dedupe(Array.getSomes(scripts.map(held))) }).pipe(
-            Match.when({ unknown: (listed) => listed.length > 0 }, ({ unknown }) => Result.fail(unavailable(`${unknown.join(', ')} holds no extension of ${Record.collect(engines, (engine, { extensions }) => `${engine} ${extensions.join(' ')}`).join(', ')}`))),
-            Match.when({ found: (listed) => listed.length > 1 }, ({ found }) => Result.fail(unavailable(`cases mix engines ${found.join(', ')}`))),
-            Match.orElse(({ found }) => Result.succeed(Option.getOrElse(Array.head(found), () => fallback))),
-        );
-    };
 const built = Effect.fn('built')(function* (engine: URL, target: Parameters<typeof script>[1]['target']) {
     const { code, map } = yield* Effect.mapError(script(fileURLToPath(engine), { name: ENGINE, target }), HarnessError.refused(engine.href));
     return { code, located: yield* traced(map) };
@@ -88,4 +73,4 @@ const assembled = Effect.fn('assembled')(function* (engine: URL) {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { assembled, built, ENGINE, engineOf, type Mapped, prepared };
+export { assembled, built, ENGINE, type Mapped, prepared };

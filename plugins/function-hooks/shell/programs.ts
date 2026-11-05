@@ -11,6 +11,7 @@ interface Program {
     readonly camelCase?: true;
     readonly stops?: true | readonly string[];
     readonly dump?: true;
+    readonly clap?: readonly string[];
     readonly leading?: number;
     readonly leadingUnless?: readonly string[];
     readonly informational?: readonly string[];
@@ -24,7 +25,7 @@ interface Program {
     readonly reads?: 'default' | 'always';
     readonly readsUnless?: readonly string[];
     readonly readsNothing?: RegExp;
-    readonly walks?: { readonly when?: readonly string[]; readonly paths?: readonly string[]; readonly base?: readonly string[]; readonly before?: readonly string[]; readonly names?: readonly string[]; readonly stats?: true };
+    readonly walks?: { readonly when?: readonly string[]; readonly under?: readonly string[]; readonly paths?: readonly string[]; readonly base?: readonly string[]; readonly before?: readonly string[]; readonly names?: readonly string[]; readonly stats?: true };
     readonly ends?: readonly string[];
     readonly timer?: When;
     readonly endless?: When;

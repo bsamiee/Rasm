@@ -1,6 +1,6 @@
 import type { ProjectGraph } from '@nx/devkit';
 import { Array, Cache, Effect, Function, Option, Predicate } from 'effect';
-import { absent, become, type Call, cut, dropped, edited, ensure, type Fix, feedsJq, folderOf, has, holds, inserted, type Policy, quote, redirected, refusal, refuse, respell, silent, spoken, stages, subject, unresolved, type Verdicts, when, whole } from '#/policies/fix';
+import { absent, added, become, type Call, cut, dropped, edited, ensure, type Fix, feedsJq, folderOf, has, holds, inserted, type Policy, quote, redirected, refusal, refuse, respell, silent, spoken, stages, subject, unresolved, type Verdicts, when, whole } from '#/policies/fix';
 import { lockDeletes } from '#/policies/ghidra';
 import type { Word } from '#/shell/script';
 import { Shell, type Site } from '#/shell/site';
@@ -14,7 +14,7 @@ const NEGATED_IGNORED = new RegExp(`^!${ONLY_IGNORED.source.slice(1)}`, 'u');
 const BASIC_REGEX_SWAPS = /\\\\|\\(?<escaped>[(){}+?|])|(?<unescaped>^\*|[(){}+?|])/gu;
 const BACK_REFERENCE = /\\[1-9]/u;
 const GITIGNORE_READERS = new Set(['rg', 'fd', 'fdfind', 'tree']);
-const NO_IGNORE = ['--no-ignore', '--no-ignore-vcs', '--unrestricted'];
+const NO_IGNORE_VCS = ['--no-ignore-vcs', '--unrestricted'];
 const DEPTH = ['--max-depth', '-maxdepth', '-L', '--level'];
 const LEADING_OPTION = /^-[A-Za-z]$/u;
 const HIDDEN_EXCEPT_GIT = "--hidden --glob '!.git'";
@@ -60,7 +60,7 @@ const FIND_AS_FD: Readonly<Record<string, string>> = { '-type': '-t', '-maxdepth
 
 const walkRoots = (site: Site): readonly Word[] => {
     const { walks } = site.row;
-    if (walks === undefined || (walks.when !== undefined && !site.has(...walks.when))) {
+    if (walks === undefined || (walks.when !== undefined && !site.has(...walks.when)) || Option.exists(Array.head(site.path), (name) => walks.under?.includes(name) === false)) {
         return [];
     }
     const { before, paths = [] } = walks;
@@ -94,10 +94,15 @@ const tooWide: Fix = (site, call) => {
 
 const rootIgnored = (site: Site, call: Call) => Effect.flatMap(Shell, ({ ignored }) => Cache.get(ignored, rootPlaces(site, call)));
 
+const readsIgnored = (site: Site): boolean => {
+    const kinds = site.values('--no-ignore');
+    return site.has(...NO_IGNORE_VCS) || (site.has('--no-ignore') && (kinds.length === 0 || kinds.includes('vcs')));
+};
+
 const unignored =
-    (named: Predicate.Predicate<Site>): Fix =>
+    (words: string, named: Predicate.Predicate<Site> = Function.constFalse): Fix =>
     (site, call) =>
-        Effect.map(rootIgnored(site, call), (held) => (held || named(site) ? ensure('--no-ignore', ...NO_IGNORE)(site) : []));
+        readsIgnored(site) ? [] : Effect.map(rootIgnored(site, call), (held) => (held || named(site) ? added(site, words) : []));
 
 // --- [DELETES]
 
@@ -227,7 +232,7 @@ const findsAsFd: Predicate.Predicate<Site> = ({ row, last, values, items, operan
 };
 
 const skipsIgnored = (site: Site, call: Call) =>
-    (GITIGNORE_READERS.has(site.program) || grepsAsRg(site) || findsAsFd(site)) && !site.has(...NO_IGNORE) && walkRoots(site).every(({ known, text }) => known && Option.exists(call.host.place(text, site.command.cwd), (place) => call.host.inside(place, call.host.root)))
+    (GITIGNORE_READERS.has(site.program) || grepsAsRg(site) || findsAsFd(site)) && !readsIgnored(site) && walkRoots(site).every(({ known, text }) => known && Option.exists(call.host.place(text, site.command.cwd), (place) => call.host.inside(place, call.host.root)))
         ? Effect.map(rootIgnored(site, call), (held) => !held)
         : Effect.succeed(false);
 
@@ -331,7 +336,7 @@ const FILES: Policy = {
             leading: 1,
             execs: ['--exec', '--exec-batch'],
             walks: { paths: ['--search-path'], base: ['--base-directory'], names: ['--extension'] },
-            fixes: [ensure('--hidden', '--no-hidden', '--unrestricted'), unfiltered({ '--exclude': '' }, ONLY_IGNORED), unignored(holds(IGNORED))],
+            fixes: [ensure('--hidden', '--no-hidden', '--unrestricted'), unfiltered({ '--exclude': '' }, ONLY_IGNORED), unignored('--no-ignore', holds(IGNORED))],
         },
         find: {
             aliases: ['gfind'],
@@ -357,7 +362,7 @@ const FILES: Policy = {
             leadingUnless: ['--regexp', '--file', '--files', '--type-list', '--generate'],
             walks: {},
             closes: ['--quiet', '--max-count', '--files-with-matches'],
-            fixes: [when((site) => walkRoots(site).length > 0, ensure(HIDDEN_EXCEPT_GIT, '--no-hidden', '--unrestricted', '--no-config')), unfiltered({ '--glob': '', '--iglob': '' }, NEGATED_IGNORED), unignored(Function.constFalse)],
+            fixes: [when((site) => walkRoots(site).length > 0, ensure(HIDDEN_EXCEPT_GIT, '--no-hidden', '--unrestricted', '--no-config')), unfiltered({ '--glob': '', '--iglob': '' }, NEGATED_IGNORED), unignored('--no-ignore')],
         },
         cat: { reads: 'default', fixes: [respell({ '-A': '-vet' })] },
         ls: { fixes: [when(treeOnly, become('tree', false), respell({ '-R': '' })), when(Predicate.not(treeOnly), optionsFirst)] },
@@ -388,4 +393,4 @@ const FILES: Policy = {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { FILES, removed };
+export { FILES, removed, unignored };

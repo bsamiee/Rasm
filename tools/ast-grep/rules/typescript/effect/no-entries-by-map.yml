@@ -22,11 +22,11 @@ utils:
     effect-iterable:
         matches: {effect-module: {name: {regex: '(?-u:\b)(Array|Chunk|Iterable)$'}}}
     last-statement:
-        nthChild: {position: 1, reverse: true, ofRule: {not: {kind: comment}}}
+        nthChild: {position: 1, reverse: true, ofRule: {not: {kind: 'comment, html_comment'}}}
     projection:
         kind: arrow_function
         all:
-            - has: {field: parameters, has: {nthChild: 1, kind: required_parameter}, not: {has: {nthChild: 2}}}
+            - has: {field: parameters, has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, kind: required_parameter}, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}}
             - not:
                 has:
                     field: body
@@ -44,9 +44,9 @@ rule:
             field: arguments
             all:
                 - not: {has: {kind: comment}}
-                - not: {has: {nthChild: 2}}
+                - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}
                 - has:
-                    nthChild: 1
+                    nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}
                     kind: call_expression
                     any:
                         - all:
@@ -55,21 +55,21 @@ rule:
                                 field: arguments
                                 all:
                                     - not: {has: {kind: comment}}
-                                    - has: {nthChild: 1, not: {has: {field: function, matches: typescript-record-entries}}}
-                                    - has: {nthChild: 2, matches: projection}
-                                    - not: {has: {nthChild: 3}}
+                                    - has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, not: {has: {field: function, matches: typescript-record-entries}}}
+                                    - has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: projection}
+                                    - not: {has: {nthChild: {position: 3, ofRule: {not: {kind: 'comment, html_comment'}}}}}
                         - all:
                             - has:
                                 field: function
                                 kind: member_expression
                                 all:
                                     - has: {field: property, regex: '^map$'}
-                                    - has: {field: object, not: {any: [{matches: {effect-module: {name: {regex: '(?-u:\b)[A-Z][^\x00-#%-/:-@\[-\^`{-~\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*$'}}}}, {has: {field: function, matches: typescript-record-entries}}]}}
+                                    - has: {field: object, not: {any: [{matches: effect-namespace}, {has: {field: function, matches: typescript-record-entries}}]}}
                             - has:
                                 field: arguments
                                 all:
                                     - not: {has: {kind: comment}}
-                                    - has: {nthChild: 1, matches: projection}
-                                    - not: {has: {nthChild: 2}}
+                                    - has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: projection}
+                                    - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}
 message: '`$FROM.fromEntries` over a mapped list restates `Record.fromIterableWith` or `Record.fromIterableBy`'
 note: 'Call `Record.fromIterableBy(<list>, <key>)`, or `Record.fromIterableWith(<list>, <f>)` with `<f>` returning a pair'

@@ -12,8 +12,15 @@ const SPACE = toml.grammar.extras.find(({ type }) => type === 'PATTERN');
 
 const immediate = ({ type }) => type === 'IMMEDIATE_TOKEN';
 const respelled = (from, to) => (_, original) => rewrite(original, (part) => (part.type === 'PATTERN' && part.value.includes(from) ? { ...part, value: part.value.replace(from, to) } : part));
-const contented = replace((rule) => immediate(rule) && rule.content.type === 'REPEAT1', ($, part) => alias(part, $.string_content));
-const bodied = (name) => replace(({ type }) => type === 'REPEAT', ($) => optional(alias($[`${name}_body`], $.string_content)));
+const contented = replace(
+    (rule) => immediate(rule) && rule.content.type === 'REPEAT1',
+    ($, part) => alias(part, $.string_content),
+);
+const bodied = (name) =>
+    replace(
+        ({ type }) => type === 'REPEAT',
+        ($) => optional(alias($[`${name}_body`], $.string_content)),
+    );
 const body = (name) => () => repeat1(located(drop(immediate)(undefined, toml.grammar.rules[name]), ({ type }) => type === 'REPEAT').content);
 const timed = respelled(SECONDS, `(${SECONDS})?`);
 
@@ -32,6 +39,12 @@ export default extend(toml, {
         local_time: timed,
         local_date_time: timed,
         offset_date_time: timed,
-        inline_table: chain(after(({ type }) => type === 'REPEAT', optional(',')), after(any(string('{'), string(','), ({ type }) => type === 'ALIAS'), repeat(NEWLINE))),
+        inline_table: chain(
+            after(({ type }) => type === 'REPEAT', optional(',')),
+            after(
+                any(string('{'), string(','), ({ type }) => type === 'ALIAS'),
+                repeat(NEWLINE),
+            ),
+        ),
     },
 });

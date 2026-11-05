@@ -51,13 +51,13 @@ utils:
                       not: {has: {nthChild: {position: 2, ofRule: *code}}}
             - not: {has: {field: alternative, pattern: $_}}
     match-value:
-        matches: {effect-module-member: {module: {regex: '^Match$'}, member: {regex: '^value$'}}}
+        matches: {effect-module-member: {module: {regex: '(?-u:\b)Match$'}, member: {regex: '^value$'}}}
     match-arm:
-        matches: {effect-module-member: {module: {regex: '^Match$'}, member: {regex: '^(tag|when|whenOr)$'}}}
+        matches: {effect-module-member: {module: {regex: '(?-u:\b)Match$'}, member: {regex: '^(tag|when|whenOr)$'}}}
     match-default:
-        matches: {effect-module-member: {module: {regex: '^Match$'}, member: {regex: '^orElse$'}}}
+        matches: {effect-module-member: {module: {regex: '(?-u:\b)Match$'}, member: {regex: '^orElse$'}}}
     match-exhaustive:
-        matches: {effect-module-member: {module: {regex: '^Match$'}, member: {regex: '^exhaustive$'}}}
+        matches: {effect-module-member: {module: {regex: '(?-u:\b)Match$'}, member: {regex: '^exhaustive$'}}}
     literal-handler:
         kind: arrow_function
         has: {field: body, matches: literal}
@@ -95,8 +95,9 @@ rule:
             - has:
                 field: arguments
                 all:
-                    - has: {matches: literal-arm, nthChild: {position: 2, ofRule: {matches: literal-arm}}}
+                    - has: {nthChild: {position: 3, ofRule: *code}}
                     - has: {nthChild: {position: 1, reverse: true, ofRule: *code}, matches: literal-close}
                     - not: {has: {pattern: $_, not: {any: [{kind: comment}, {matches: literal-arm}, {matches: literal-close}]}}}
+                    - has: {matches: literal-arm, nthChild: {position: 2, ofRule: {matches: literal-arm}}}
 message: '`$KEY` selects one value per literal case'
 note: 'Index a literal-keyed record by the key or its `_tag`, a raw key decoded at entry through `Schema.Literals(Struct.keys(<record>))`'

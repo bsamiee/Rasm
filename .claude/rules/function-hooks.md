@@ -14,7 +14,8 @@ Hooks correct wrong commands and track app instances each session owns, a Node s
 Hooks fix a wrong call and let it run, the model keeps working:
 - ALWAYS rewrite a call when its repository form follows from the call, and refuse only when no form follows
 - ALWAYS add a command as a `programs` row in each policy with a fix for it, one row holding its grammar, `shell/programs.ts` holding rows with no fix
-- ALWAYS take grammar from `carapace <program> export` or a dump, `flags` matching it to the installed binary or, with neither, listing options a target passes apart
+- ALWAYS take grammar from `carapace <program> export` or a dump, `flags` matching it to the installed binary
+- ALWAYS state a grammar neither supplies in `flags` and per-subcommand `commands`, listing each option taking a value or read by a row
 - ALWAYS route a checker call with options to the target its group forwards to, options on `--args`, a call no target reproduces staying direct
 - ALWAYS name an option by any spelling in a row, `Site.has` resolves it through the grammar
 - ALWAYS read shell structure from `shfmt --to-json` and Nx targets from `readCachedProjectGraph`, a target's commands deciding its route

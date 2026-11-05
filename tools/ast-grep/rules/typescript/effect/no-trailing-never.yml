@@ -15,66 +15,64 @@ utils:
             - has:
                 field: arguments
                 has:
-                    nthChild: 1
+                    nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}
                     any:
                         - regex: '^(Infinity|[''"`]Infinity[''"`])$'
-                        - kind: member_expression
-                          all:
-                            - has: {field: property, regex: '^infinity$'}
-                            - has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Duration$'}}}}
+                        - matches: {effect-module-member: {module: {regex: '(?-u:\b)Duration$'}, member: {regex: '^infinity$'}}}
     finalize: {matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^(ensuring|onExit|onInterrupt)$'}}}}
     finalizer:
         kind: call_expression
         all:
-            - has: {field: arguments, not: {has: {nthChild: 2}}}
+            - has: {field: arguments, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}}
             - has: {field: function, matches: finalize}
     last-statement:
-        nthChild: {position: 1, reverse: true, ofRule: {not: {kind: comment}}}
+        nthChild: {position: 1, reverse: true, ofRule: {not: {kind: 'comment, html_comment'}}}
         inside: {kind: statement_block, inside: {kind: generator_function, field: body}}
 rule:
-    pattern: $NEVER
-    any:
-        - kind: yield_expression
-          all:
-            - regex: '^yield[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\*'
-            - any:
-                - all: [{has: {matches: never}}, {inside: {kind: 'return_statement, expression_statement', matches: last-statement}}]
-                - all: [{has: {matches: endless-sleep}}, {inside: {kind: expression_statement, matches: last-statement}}]
-        - kind: call_expression
-          all:
-            - has:
-                field: arguments
-                has:
-                    nthChild: {position: 1, reverse: true}
-                    any:
-                        - matches: never
-                        - kind: arrow_function
-                          all:
-                            - not: {has: {field: parameters, has: {pattern: $_}}}
-                            - has: {field: body, matches: never}
-            - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^(andThen|flatMap)$'}}}}
-        - kind: call_expression
-          all:
-            - has: {field: function, matches: finalize}
-            - has: {field: arguments, has: {nthChild: 1, matches: never}}
-        - kind: call_expression
-          any:
-            - all:
-                - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^pipe$'}}, {has: {field: object, matches: never}}]}
-                - has: {field: arguments, has: {nthChild: 1, matches: finalizer}}
-            - all:
-                - has: {field: arguments, all: [{has: {nthChild: 1, matches: never}}, {has: {nthChild: 2, matches: finalizer}}]}
-                - has: {field: function, matches: {effect-function: {name: {regex: '^pipe$'}}}}
-            - all:
-                - has: {field: function, matches: finalizer}
-                - has: {field: arguments, all: [{has: {nthChild: 1, matches: never}}, {not: {has: {nthChild: 2}}}]}
-        - kind: call_expression
-          all:
-            - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^forever$'}}}}
-            - has:
-                field: arguments
-                all:
-                    - not: {has: {nthChild: 2}}
-                    - has: {nthChild: 1, matches: sleep}
+    all:
+        - any:
+            - kind: yield_expression
+              all:
+                - regex: '^yield[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\*'
+                - any:
+                    - all: [{has: {matches: never}}, {inside: {kind: 'return_statement, expression_statement', matches: last-statement}}]
+                    - all: [{has: {matches: endless-sleep}}, {inside: {kind: expression_statement, matches: last-statement}}]
+            - kind: call_expression
+              all:
+                - has:
+                    field: arguments
+                    has:
+                        nthChild: {position: 1, reverse: true, ofRule: {not: {kind: 'comment, html_comment'}}}
+                        any:
+                            - matches: never
+                            - kind: arrow_function
+                              all:
+                                - not: {has: {field: parameters, has: {pattern: $_}}}
+                                - has: {field: body, matches: never}
+                - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^(andThen|flatMap)$'}}}}
+            - kind: call_expression
+              all:
+                - has: {field: function, matches: finalize}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: never}}
+            - kind: call_expression
+              any:
+                - all:
+                    - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^pipe$'}}, {has: {field: object, matches: never}}]}
+                    - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: finalizer}}
+                - all:
+                    - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: never}}, {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: finalizer}}]}
+                    - has: {field: function, matches: {effect-function: {name: {regex: '^pipe$'}}}}
+                - all:
+                    - has: {field: function, matches: finalizer}
+                    - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: never}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}}]}
+            - kind: call_expression
+              all:
+                - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^forever$'}}}}
+                - has:
+                    field: arguments
+                    all:
+                        - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}
+                        - has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: sleep}
+        - pattern: $NEVER
 message: '`$NEVER` holds the program open after its last step'
 note: 'Replace the wait with `Layer.launch(Layer.effectDiscard(<program>))` and scoped cleanup through `Effect.acquireRelease`'

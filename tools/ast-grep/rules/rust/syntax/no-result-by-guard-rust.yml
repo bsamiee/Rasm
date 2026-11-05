@@ -8,7 +8,7 @@ utils:
     early-return:
         matches: {rust-single-statement: {first: {any: [{matches: valued-return}, {kind: expression_statement, has: {matches: valued-return}}]}}}
     tail:
-        nthChild: {position: 1, reverse: true}
+        nthChild: {position: 1, reverse: true, ofRule: {not: {kind: 'line_comment, block_comment'}}}
         not: {kind: 'expression_statement, let_declaration, empty_statement, line_comment, block_comment, function_item, use_declaration, const_item, static_item, macro_invocation'}
     guard:
         kind: if_expression

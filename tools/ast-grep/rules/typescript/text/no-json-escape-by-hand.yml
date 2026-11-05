@@ -15,7 +15,7 @@ rule:
                 kind: call_expression
                 all:
                     - has: {field: function, kind: member_expression, has: {field: property, regex: '^stringify$'}}
-                    - has: {field: function, regex: '^((globalThis|window|self)\.)?JSON\.stringify$', matches: typescript-global-reference}
+                    - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^stringify$'}}, {has: {field: object, regex: '(^|\.)JSON$', matches: typescript-global-member}}]}
                     - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: &code {not: {kind: 'comment, html_comment'}}}}}, {not: {has: {nthChild: {position: 2, ofRule: *code}}}}]}
 message: '`$CALL` escapes text for JSON by slicing an encoded string'
 note: 'Substitute into the decoded `Schema.Json` value and encode it once, or decode field through `SchemaGetter.transformEffect`'

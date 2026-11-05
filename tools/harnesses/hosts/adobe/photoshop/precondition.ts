@@ -1,6 +1,6 @@
 import { Schema, Struct } from 'effect';
-import { Application, many, member, Open, placings } from '#/cases/precondition';
-import { Created, Document, Placed, type Survey } from '#/hosts/adobe/photoshop/contract';
+import { member, Open, placings } from '#/cases/precondition';
+import { type Contract, Created, Document, Placed } from '#/hosts/adobe/photoshop/contract';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -8,18 +8,11 @@ const Made = Created.mapFields(Struct.assign({ mode: member('NewDocumentMode'), 
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const precondition = (survey: typeof Survey.Type) => {
-    const rows = { ...Struct.omit(Placed.fields, ['documents', 'units']), units: Schema.Struct({ ruler: member(survey.units.ruler), type: member(survey.units.type) }) };
-    return placings(
-        Placed,
-        { document: Schema.Struct({ document: many(Made), ...rows }), open: Schema.Struct({ open: many(Open), ...rows }), application: Schema.Struct({ application: Application, ...rows }) },
-        {
-            document: ({ document, ...rest }) => ({ ...rest, documents: document.map((held) => Document.cases.Made.make({ arguments: held })) }),
-            open: ({ open, ...rest }) => ({ ...rest, documents: open.map((file) => Document.cases.Opened.make({ open: file })) }),
-            application: ({ application: _, ...rest }) => ({ ...rest, documents: [] }),
-        },
-    );
-};
+const precondition = (survey: typeof Contract.Survey.Type) =>
+    placings({ ...Struct.omit(Placed.fields, ['documents', 'units']), units: Schema.Struct({ ruler: member(survey.units.ruler), type: member(survey.units.type) }) }, { document: Made, open: Open })(Placed, ({ documents, ...rest }) => ({
+        ...rest,
+        documents: documents.map((row) => (typeof row === 'string' ? Document.cases.Opened.make({ open: row }) : Document.cases.Made.make({ arguments: row }))),
+    }));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

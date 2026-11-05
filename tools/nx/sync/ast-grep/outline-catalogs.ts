@@ -1,9 +1,8 @@
 import type { Tree } from '@nx/devkit';
-import { Array, Effect, Match, Option, Path, Record, Stream, String } from 'effect';
+import { Array, Effect, Match, Option, Path, Record, String } from 'effect';
 import { Document, type Node, Pair, parseAllDocuments, Scalar, visit, YAMLMap, YAMLSeq } from 'yaml';
 import { Sgconfig } from '#/eng/typescript/manifest';
-import { runCommand } from '#/eng/typescript/run-command';
-import { decodeTree, syncGenerator, treeText } from '#/tools/nx/sync/tree';
+import { decodeTree, formatted, syncGenerator, treeText, YAML_LAYOUT } from '#/tools/nx/sync/tree';
 import { WorkspaceError } from '#/tools/nx/workspace';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -17,7 +16,6 @@ interface Shared {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const LAYOUT = { indent: 4, lineWidth: 0, flowCollectionPadding: false, singleQuote: true } as const;
 const KINDS = { utils: ['rule'], rewriters: ['transform', 'name'], transform: ['name'] } as const satisfies Record.ReadonlyRecord<string, readonly string[]>;
 const VARIABLE = /\$+(?<name>[A-Z_][A-Z0-9_]*)/gu;
 const LISTED = /rewriters=\[(?<names>[^\]]*)\]/gu;
@@ -149,14 +147,14 @@ const written = Effect.fnUntraced(function* (catalog: Shared, language: string, 
     const kept = closure(definitions, local, pairs, new Set());
     const kinds = Record.collect(KINDS, (kind, before) => ({ kind, before, items: [...definitions[kind].entries()].filter(([name]) => kept[kind].has(name)) }));
     const assembled = kinds.reduce((held, { kind, before, items }) => placed(held, kind, gathered(kind, map.schema, [...items.map(([, pair]) => pair), ...local[kind].values()]), before), placed(pairs, 'language', Option.some(new Scalar(language)), ['role']));
-    return new Document(new YAMLMap(map.schema, assembled)).toString(LAYOUT);
+    return new Document(new YAMLMap(map.schema, assembled)).toString(YAML_LAYOUT);
 });
 const generated = Effect.fnUntraced(function* (tree: Tree, language: string, file: string, source: string) {
     const docs = parseAllDocuments(yield* treeText(tree, source));
     const header = Option.filter(Array.head(docs), ({ value }) => !(value instanceof YAMLMap && value.has('id')));
     const catalog = shared(Option.getOrUndefined(Option.map(header, unanchored)));
     const texts = yield* Effect.forEach(Option.isSome(header) ? docs.slice(1) : docs, (doc, index) => written(catalog, language, source, doc, index));
-    return { file, next: yield* runCommand('yamlfmt', ['-conf', '.config/yamlfmt.yaml', '-in'], { cwd: tree.root, stdin: Stream.encodeText(Stream.make(texts.join('---\n'))) }) };
+    return { file, next: yield* formatted(tree, file, texts.join('---\n')) };
 });
 const rows = Effect.fnUntraced(function* (tree: Tree) {
     const [path, { customLanguages }] = yield* Effect.all([Path.Path, decodeTree(tree, Sgconfig.schema, Sgconfig.file)]);

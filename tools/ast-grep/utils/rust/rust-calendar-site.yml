@@ -21,7 +21,7 @@ utils:
                         any:
                             - kind: parenthesized_expression
                             - kind: unary_expression
-                              regex: '^!'
+                              has: {field: operator, regex: '^!$'}
                             - kind: binary_expression
                               has: {field: operator, regex: '^(&&|\|\|)$'}
                 kind: binary_expression

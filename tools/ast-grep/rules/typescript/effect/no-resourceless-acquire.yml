@@ -7,9 +7,9 @@ rule:
         - has:
             field: arguments
             all:
-                - has: {nthChild: 2, kind: arrow_function, has: {field: parameters, not: {has: {nthChild: 1}}}}
-                - has: {nthChild: 3, kind: arrow_function, has: {field: parameters, not: {has: {nthChild: 1}}}}
-                - not: {has: {nthChild: 4}}
+                - has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}, kind: arrow_function, has: {field: parameters, not: {has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}}}}}
+                - has: {nthChild: {position: 3, ofRule: {not: {kind: 'comment, html_comment'}}}, kind: arrow_function, has: {field: parameters, not: {has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}}}}}
+                - not: {has: {nthChild: {position: 4, ofRule: {not: {kind: 'comment, html_comment'}}}}}
         - has: {field: function, pattern: $ACQUIRE, matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^acquireUseRelease$'}}}}
 message: '`$ACQUIRE` holds no resource, its use and release read nothing the acquire returns'
 note: 'Sequence `Effect.andThen(<acquire>, Effect.ensuring(<use>, <release>))`'

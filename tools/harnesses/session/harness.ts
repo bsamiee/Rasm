@@ -4,7 +4,8 @@ import { type Installation, State, type Terms } from '@rasm/applications';
 import { Automation } from '@rasm/applications/node';
 import { Array, Data, DateTime, Deferred, Duration, Effect, Equal, Fiber, FileSystem, flow, HashMap, Match, Number, Option, Order, Path, type PlatformError, Predicate, Record, Ref, Result, Schema, Stream, String, Struct, SubscriptionRef, UndefinedOr } from 'effect';
 import type { ChildProcessSpawner } from 'effect/process';
-import { Halted, type hostCase, Outcome, Records } from '#/cases/results';
+import type { hostCase } from '#/cases/contract';
+import { Halted, Outcome, Records } from '#/cases/results';
 import type { Case } from '#/cases/schema';
 import type { JsonObject } from '#/cases/values';
 import { HarnessError } from '#/harness-error';
@@ -29,7 +30,7 @@ type Sighting = (typeof Messages)['window opened']['Encoded'];
 interface Surveyed {
     readonly host: Schema.Json;
 }
-type Cased = ReturnType<typeof hostCase.linked<{ readonly folder: typeof Schema.String }>>['Type'];
+type Cased = ReturnType<typeof hostCase.linked<typeof Schema.Unknown, Record<never, never>>>['Type'];
 interface Installed {
     readonly identifier: string;
     readonly name: string;
@@ -108,7 +109,8 @@ interface Finished<S> {
 }
 interface Harness<S extends Surveyed = Surveyed, C extends Cased = Cased, E = unknown, P = unknown> {
     readonly Engine: Schema.Codec<E, unknown>;
-    readonly survey: { readonly question: string; readonly Schema: Schema.Codec<S, unknown> };
+    readonly Survey: Schema.Codec<S, unknown>;
+    readonly question: string;
     readonly Case: Schema.Codec<C, unknown>;
     readonly Outcome: Schema.Codec<typeof Outcome.Type, unknown>;
     readonly progress?: readonly Progress[];

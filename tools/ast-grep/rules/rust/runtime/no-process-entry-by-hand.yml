@@ -1,16 +1,16 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: rustlang
 severity: error
-ignores: ['libs/rust/cli/command/**', 'tools/dylint/examples/**']
+ignores: ['libs/rust/cli/command/**']
 utils:
     qualified-path:
         regex: '^(::)?(tokio::)?runtime::((Local)?Runtime::new|Builder::new_(multi|current)_thread)$|^(::)?((tokio::)?signal::)?(unix::signal|(windows::)?ctrl_c|windows::ctrl_(break|close|logoff|shutdown))$|(^|::)CompleteEnv::with_factory$|^(::)?(clap_complete::)?((aot|generator)::)?generate(_to)?$|^(::)?clap_mangen::(Man::new|generate_to)$'
     imported-constructor:
         any:
             - regex: '::new$'
-              has: {field: path, matches: {rust-imported-name: {source: {regex: '(?-u:\b)(tokio|clap_mangen)(?-u:\b)'}, name: {regex: '^((Local)?Runtime|Man)$'}}}}
+              has: {field: path, matches: {rust-imported-name: {source: {has: {field: argument, regex: '^(::)?(tokio|clap_mangen)::'}}, name: {regex: '^((Local)?Runtime|Man)$'}}}}
             - regex: '::new_(multi|current)_thread$'
-              has: {field: path, matches: {rust-imported-name: {source: &tokio {regex: '(?-u:\b)tokio(?-u:\b)'}, name: {regex: '^Builder$'}}}}
+              has: {field: path, matches: {rust-imported-name: {source: &tokio {has: {field: argument, regex: '^(::)?tokio::'}}, name: {regex: '^Builder$'}}}}
     macro-path:
         inside: {kind: token_tree}
         any:
@@ -21,7 +21,7 @@ utils:
             - {regex: '^ctrl_(break|close|logoff|shutdown)$', follows: {regex: '^::$', follows: {pattern: windows}}}
     entry-attribute:
         regex: '^((::)?tokio::)?main$'
-        inside: {kind: attribute}
+        inside: {kind: attribute, field: path}
 rule:
     all:
         - any:
@@ -41,7 +41,7 @@ rule:
                         - matches: {rust-imported-name: {source: *tokio, name: {regex: '^main$'}}}
                     - all:
                         - regex: &entry-name '^(signal|ctrl_(c|break|close|logoff|shutdown)|generate(_to)?)$'
-                        - matches: {rust-imported-name: {source: &entry-source {regex: '(?-u:\b)(tokio|clap_complete|clap_mangen)(?-u:\b)'}, name: {regex: *entry-name}}}
+                        - matches: {rust-imported-name: {source: &entry-source {has: {field: argument, regex: '^(::)?(tokio|clap_complete|clap_mangen)::'}}, name: {regex: *entry-name}}}
                 - not: {inside: {kind: *use-tree}}
             - kind: use_as_clause
               matches: {rust-renamed-import: {source: *entry-source, name: {regex: '^(signal|ctrl_(c|break|close|logoff|shutdown)|generate(_to)?|main)$'}}}

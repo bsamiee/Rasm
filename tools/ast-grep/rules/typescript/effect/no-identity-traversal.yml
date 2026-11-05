@@ -4,13 +4,23 @@ severity: error
 utils:
     identity:
         any:
-            - {kind: identifier, matches: {typescript-import-reference: {source: {regex: '^effect(/Function)?$'}, exported: {regex: '^identity$'}}}}
-            - {kind: member_expression, matches: {effect-module-member: {module: {regex: '(?-u:\b)Function$'}, member: {regex: '^identity$'}}}}
+            - matches: {effect-function: {name: {regex: '^identity$'}}}
             - matches: {typescript-unary-function: {parameter: {pattern: $P}, result: {kind: identifier, pattern: $P}}}
 rule:
     kind: call_expression
     all:
         - has: {field: function, pattern: $TRAVERSE, matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^forEach$'}}}}
-        - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $LIST}}, {has: {nthChild: 2, matches: identity}}, {not: {has: {nthChild: 4}}}]}
-message: '`$TRAVERSE` maps each effect in `$LIST` through an identity function'
+        - any:
+            - has: {field: arguments, all: [{has: {nthChild: {position: 2, ofRule: &code {not: {kind: 'comment, html_comment'}}}, matches: identity}}, {not: {has: {nthChild: {position: 4, ofRule: *code}}}}, {has: {nthChild: {position: 1, ofRule: *code}, pattern: $LIST}}]}
+            - all:
+                - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: *code}, matches: identity}}, {not: {has: {nthChild: {position: 3, ofRule: *code}}}}]}
+                - any:
+                    - nthChild: {position: 1, ofRule: *code}
+                      inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^pipe$'}}, {has: {field: object, pattern: $LIST}}]}}}
+                    - nthChild: {position: 2, ofRule: *code}
+                      inside: {kind: arguments, has: {nthChild: {position: 1, ofRule: *code}, pattern: $LIST}, inside: {kind: call_expression, has: {field: function, matches: {effect-function: {name: {regex: '^pipe$'}}}}}}
+                    - regex: ''
+transform:
+    IN: {replace: {source: $LIST, replace: '(?s)^(.+)$', by: ' in `$1`'}}
+message: '`$TRAVERSE` maps each effect$IN through an identity function'
 note: 'Call `Effect.all(<effects>, <options>)` on a list of effects'

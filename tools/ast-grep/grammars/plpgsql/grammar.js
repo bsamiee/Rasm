@@ -66,7 +66,11 @@ const unordered = (rule) => {
     const clauses = rule.members.filter(clause);
     return rebuild(rule, [...rule.members.slice(0, at), repeat(choice(...clauses.map(mandatory))), ...rule.members.slice(at + clauses.length)]);
 };
-const sourced = ($, rule) => rebuild(rule, rule.members.filter(Predicate.not(optionalOf(symbol('kw_from')))).flatMap((member) => (optionalOf(symbol('fetch_direction'))(member) ? [member, optional(choice($.kw_from, $.kw_in))] : [member])));
+const sourced = ($, rule) =>
+    rebuild(
+        rule,
+        rule.members.filter(Predicate.not(optionalOf(symbol('kw_from')))).flatMap((member) => (optionalOf(symbol('fetch_direction'))(member) ? [member, optional(choice($.kw_from, $.kw_in))] : [member])),
+    );
 const list = (item) => [item, repeat(seq(SEPARATOR, item))];
 const decorated = (arm, tail) => seq(seq(...(arm.members.some(string('%')) ? arm.members : arm.members.slice(0, -1))), tail);
 const forms = {

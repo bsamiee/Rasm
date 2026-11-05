@@ -19,7 +19,7 @@ utils:
         kind: call_expression
         all:
             - has: {field: function, regex: '^((rmcp::)?(model::)?)?ErrorCode$'}
-            - has: {field: arguments, has: {kind: unary_expression, regex: '^-\p{Pattern_White_Space}*\(?\p{Pattern_White_Space}*32_?(002|02[0-2]|60[0-3]|700)(_?i32)?\p{Pattern_White_Space}*\)?$'}}
+            - has: {field: arguments, has: {kind: unary_expression, all: [{has: {field: operator, regex: '^-$'}}, {has: {any: [{kind: integer_literal, regex: &code '^32_?(002|02[0-2]|60[0-3]|700)(_?i32)?$'}, {kind: parenthesized_expression, has: {kind: integer_literal, regex: *code}}]}}]}}
     constructor-literal:
         matches: code-literal
         has: {field: arguments, regex: '32_?(002|020|60[023]|700)'}

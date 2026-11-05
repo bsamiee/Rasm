@@ -21,7 +21,7 @@ rule:
     any:
         - kind: new_expression
           all:
-            - has: {field: arguments, has: {nthChild: 1, kind: object}}
+            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, kind: object}}
             - matches: search-params
         - kind: call_expression
           has:

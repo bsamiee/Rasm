@@ -2,8 +2,27 @@
 id: effect-function
 language: tsxlang
 arguments: [name]
+utils:
+    aliased:
+        kind: identifier
+        pattern: $ALIAS
+        inside:
+            kind: program
+            stopBy: end
+            has:
+                kind: import_statement
+                all:
+                    - has: {field: source, regex: '^.effect(/Function)?.$'}
+                    - has: {kind: import_clause, has: {kind: named_imports, has: {kind: import_specifier, has: {field: alias, pattern: $ALIAS}}}}
 rule:
     any:
         - kind: identifier
-          matches: {typescript-import-reference: {source: {regex: '^effect(/Function)?$'}, exported: {matches: name}}}
+          all:
+            - matches: name
+            - matches: {typescript-import-reference: {source: {regex: '^effect(/Function)?$'}, exported: {matches: name}}}
+        - kind: identifier
+          all:
+            - not: {matches: name}
+            - matches: aliased
+            - matches: {typescript-import-reference: {source: {regex: '^effect(/Function)?$'}, exported: {matches: name}}}
         - matches: {effect-module-member: {module: {regex: '(?-u:\b)Function$'}, member: {matches: name}}}

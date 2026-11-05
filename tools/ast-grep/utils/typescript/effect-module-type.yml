@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: effect-module-type
+language: tsxlang
+arguments: [module, member]
+utils:
+    module-object:
+        matches: {effect-module: {name: {matches: module}}}
+rule:
+    any:
+        - kind: nested_type_identifier
+          all:
+            - has: {field: name, matches: member}
+            - has: {field: module, matches: module-object}
+        - kind: type_identifier
+          matches: {typescript-import-reference: {source: {matches: {effect-module-source: {name: {matches: module}}}}, exported: {matches: member}}}

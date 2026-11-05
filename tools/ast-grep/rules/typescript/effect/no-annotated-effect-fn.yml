@@ -11,7 +11,7 @@ rule:
                 has:
                     field: return_type
                     kind: generic_type
-                    has: {field: name, matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^Effect$'}}}}
+                    has: {field: name, matches: {effect-module-type: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^Effect$'}}}}
         - has: {field: name, pattern: $NAME}
         - has: {field: value, kind: call_expression, has: {field: arguments, has: {matches: effect-generator-function}}}
 message: '`$NAME` restates the parameters and result of its `Effect.fn` body in a function type'

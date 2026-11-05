@@ -1,7 +1,5 @@
-import { Effect, Function, Schema } from 'effect';
-import { Expression, Name, Panel, Reads } from '#/cases/schema';
+import { Effect, Schema } from 'effect';
 import { JsonObject } from '#/cases/values';
-import { HarnessError } from '#/harness-error';
 import type { Harness } from '#/session/harness';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -72,10 +70,6 @@ const Outcome = Object.assign(
 const Records = Object.assign(Schema.String.annotate({ description: 'Records file the engine appends a Started line to before each case and a Finished line after it' }), {
     line: <O extends Schema.Top>(outcome: O) => Schema.fromJsonString(Schema.TaggedUnion({ Started: { index: Schema.Int }, Finished: { outcome } })).annotate({ description: 'Records line the engine appends before each case and after it' }),
 });
-const Surveying = Schema.Boolean.annotate({ description: 'Reply carries the installation survey' });
-const Failed = Schema.Struct({ failed: Schema.String.annotate({ description: 'Batch failure before or around the cases' }) });
-const Source = Schema.Struct({ script: Schema.String.annotate({ description: 'Original script path the case answers as the running script' }), code: Schema.String.annotate({ description: 'Prepared source the engine evaluates' }) });
-const Args = Schema.Array(Schema.Json);
 const Environment = Schema.Record(Schema.String, Schema.String).annotate({ description: 'Environment supplied by the caller that decides startup behavior' });
 const Compare = Schema.Struct({
     module: Schema.String.annotate({ description: 'Rebuilt module the host answers were compared against' }),
@@ -93,34 +87,6 @@ const deciding = <E extends Schema.Top>(engine: E) => ({
     environment: Schema.optionalKey(Environment),
     host: Schema.optionalKey(Schema.Json.annotate({ description: 'Install state deciding answers beside the version' })),
 });
-const forms = <S extends Schema.Struct.Fields>(shared: S) => ({
-    Run: { name: Name, read: Reads, ...shared, source: Source, args: Args },
-    Call: { name: Name, read: Reads, ...shared, source: Schema.optionalKey(Source), call: Expression, args: Args },
-    Probe: { name: Name, read: Reads, ...shared, evaluate: Expression },
-});
-const hostCase = Object.assign(Function.flow(forms, Schema.TaggedUnion), {
-    linked: <S extends Schema.Struct.Fields>(shared: S) =>
-        Schema.TaggedUnion({
-            ...forms(shared),
-            Panel: {
-                name: Name,
-                read: Reads,
-                ...shared,
-                panel: Panel.fields.panel,
-                evaluate: Expression,
-                plugin: Schema.String.annotate({ description: 'Plugin project folder the batch names, built to dial the harness and loaded into the instance' }),
-                until: Schema.optionalKey(Expression),
-                capture: Panel.fields.capture,
-            },
-        }),
-});
-const reply = <F extends Schema.Struct.Fields>(fields: F) => {
-    const header = Schema.Struct({ application: Schema.String, version: Schema.String, ...fields });
-    const codec = Schema.fromJsonString(Schema.Union([header, Failed])).annotate({ description: 'Engine answer to one batch, case outcomes sitting in the records file' });
-    return Object.assign(codec, {
-        replied: (subject: string) => (answer: unknown) => Effect.filterOrElse(Schema.decodeUnknownEffect(codec)(answer), Schema.is(header), (held) => Effect.flatMap(Schema.decodeUnknownEffect(Failed)(held), ({ failed }) => HarnessError.unavailable(subject)(failed))),
-    });
-};
 const results = (engine: Harness['Engine'], outcome: Schema.Codec<typeof Outcome.Type, unknown>) =>
     Schema.fromJsonString(
         Schema.Struct({
@@ -138,4 +104,4 @@ const results = (engine: Harness['Engine'], outcome: Schema.Codec<typeof Outcome
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Answer, Compare, deciding, Failed, Halted, hostCase, Outcome, RESULTS, Records, recorded, reply, results, Surveying };
+export { Answer, Compare, deciding, Halted, Outcome, RESULTS, Records, recorded, results };

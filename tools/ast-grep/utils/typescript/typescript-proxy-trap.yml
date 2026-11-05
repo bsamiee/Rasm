@@ -7,7 +7,7 @@ utils:
         nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}
         inside:
             kind: arguments
-            inside: {kind: new_expression, has: {field: constructor, regex: '^((globalThis|window|self)\.)?Proxy$', matches: typescript-global-reference}}
+            inside: {kind: new_expression, has: {field: constructor, regex: '(^|\.)Proxy$', matches: typescript-global-member}}
 rule:
     any:
         - inside: {kind: pair, field: value, inside: {kind: object, matches: handler}}

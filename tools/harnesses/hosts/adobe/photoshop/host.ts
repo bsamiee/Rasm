@@ -2,19 +2,18 @@ import type { Installation } from '@rasm/applications';
 import { Automation } from '@rasm/applications/node';
 import { Effect, FileSystem, Option, Path, Schema } from 'effect';
 import { copied } from '#/cases/precondition';
-import { EXTENDSCRIPT } from '#/cases/schema';
-import { Encoded, Engine, HostCase, HostOutcome, type Quit, Reply, SURVEY, Survey } from '#/hosts/adobe/photoshop/contract';
+import { Contract, type Quit } from '#/hosts/adobe/photoshop/contract';
 import { precondition } from '#/hosts/adobe/photoshop/precondition';
 import { ADOBE, crashes, REPORTER, uxp } from '#/hosts/adobe/reports';
 import { type Batch, Harness, type Installed, installation, type Live, scripted } from '#/session/harness';
 import { checked, Launched, plist, printed } from '#/session/instance';
-import { assembled, engineOf } from '#/session/source';
+import { assembled } from '#/session/source';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const WRITABLE = /^[A-Z0-9]+$/u;
 const SPACED = /\s+/u;
-const ENGINE = Effect.runSync(Effect.cached(assembled(new URL('engine.ts', import.meta.url))));
+const ENGINE = Effect.runSync(Effect.cached(assembled(new URL('engine/main.ts', import.meta.url))));
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -40,9 +39,6 @@ const installed = Effect.gen(function* () {
     );
 });
 
-// --- [SOURCE]
-const engine = engineOf({ [Engine.literal]: { extensions: EXTENDSCRIPT } }, Engine.literal);
-
 // --- [DIGESTS]
 const writable = Effect.runSync(Effect.cached(Effect.map(printed('exiftool', ['-listwf']), (text) => new Set(text.split(SPACED).filter((token) => WRITABLE.test(token))))));
 const canonical = Effect.fn('canonical')(function* (file: string, bytes: Uint8Array) {
@@ -58,20 +54,16 @@ const executed = Effect.fn('executed')(function* (live: Live, argument: string) 
     const { reply } = yield* scripted(live, { direct: '$.evalFile(new File(arguments[1]))', values: [argument, file] });
     return reply;
 });
-const send = Effect.fn('send')(function* (live: Live, batch: Batch<typeof Survey.Type, typeof HostCase.Type>) {
-    const reply = yield* executed(live, yield* Schema.encodeEffect(Encoded)({ records: batch.records, label: batch.label, survey: Option.isNone(batch.survey), cases: batch.cases }));
-    return yield* Reply.replied(`${Engine.literal} batch`)(reply);
+const send = Effect.fn('send')(function* (live: Live, batch: Batch<typeof Contract.Survey.Type, typeof Contract.Case.Type>) {
+    const reply = yield* executed(live, yield* Schema.encodeEffect(Contract.Encoded)({ records: batch.records, label: batch.label, survey: Option.isNone(batch.survey), cases: batch.cases }));
+    return yield* Contract.Reply.replied(`instance ${live.pid} batch`)(reply);
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const photoshop = Harness({
-    Engine,
+    ...Contract,
     assembled: ENGINE,
-    survey: { question: SURVEY, Schema: Survey },
-    Case: HostCase,
-    Outcome: HostOutcome,
-    engine,
     precondition,
     placed: copied,
     installed,

@@ -5,7 +5,7 @@ utils:
     overwrite:
         kind: assignment_expression
         all:
-            - has: {field: left, kind: unary_expression, regex: '^\*', has: {kind: identifier, pattern: $VALUE}}
+            - has: {field: left, kind: unary_expression, all: [{has: {field: operator, regex: '^\*$'}}, {has: {kind: identifier, pattern: $VALUE}}]}
             - has:
                 field: right
                 not:

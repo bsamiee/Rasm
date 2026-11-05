@@ -36,6 +36,7 @@ utils:
             - inside: {stopBy: end, follows: {stopBy: end, kind: let_declaration, has: {field: pattern, matches: binds}}}
             - inside: {stopBy: end, kind: 'function_item, closure_expression', has: {field: parameters, matches: binds}}
             - inside: {stopBy: end, kind: block, has: {kind: 'function_item, const_item, static_item', has: {field: name, pattern: $BOUND}}}
+            - inside: {stopBy: end, kind: block, has: {kind: use_declaration, not: {matches: source}, has: {stopBy: end, matches: imported-leaf}}}
             - inside: {stopBy: end, kind: 'match_arm, for_expression', has: {field: pattern, matches: binds}}
             - inside:
                 stopBy: end

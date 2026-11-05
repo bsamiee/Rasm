@@ -15,11 +15,7 @@ utils:
         any:
             - matches: hand-quoted
             - kind: call_expression
-              has: {field: function, kind: identifier, pattern: $QUOTER}
-              inside:
-                kind: program
-                stopBy: end
-                has: {stopBy: end, kind: variable_declarator, all: [{has: {field: name, pattern: $QUOTER}}, {has: {field: value, has: {stopBy: end, matches: hand-quoted}}}]}
+              has: {field: function, matches: {typescript-constant-value: {value: {has: {stopBy: end, matches: hand-quoted}}}}}
     value-string:
         kind: string
         regex: '(?is)^.+(?:''|(?:[=<>]|(?-u:\b)values[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\(|(?-u:\b)in[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\(|(?-u:\b)limit|(?-u:\b)offset)[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*)[''"]$'

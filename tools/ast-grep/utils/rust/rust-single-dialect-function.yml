@@ -1,8 +1,0 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: rust-single-dialect-function
-language: rustlang
-arguments: [dialect, executor]
-rule:
-    kind: function_item
-    has: {kind: &signature 'parameters, type_parameters, where_clause', has: {stopBy: end, matches: dialect}}
-    not: {has: {kind: *signature, has: {stopBy: end, matches: executor, not: {matches: dialect}}}}

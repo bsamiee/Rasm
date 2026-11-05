@@ -8,17 +8,7 @@ utils:
         pattern: $SOURCE
         any:
             - matches: typescript-built-text
-            - kind: identifier
-              inside:
-                kind: statement_block, program
-                stopBy: end
-                has:
-                    kind: lexical_declaration
-                    has:
-                        kind: variable_declarator
-                        all:
-                            - has: {field: name, pattern: $SOURCE}
-                            - has: {field: value, matches: typescript-built-text}
+            - matches: {typescript-constant-value: {value: {matches: typescript-built-text}}}
     encoded-source:
         kind: template_string, binary_expression, call_expression, parenthesized_expression
         all:

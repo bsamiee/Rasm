@@ -16,7 +16,8 @@ const REGISTERLESS = new RegExp(`(?:(?:::)+${VARIABLE_CHARACTER}|[A-Za-z_$\\u{80
 const NON_FALLBACK = ['deferrable', 'join', 'nothing', 'to', 'transaction'];
 const INDEXED = 'indexed';
 const RAISE_TYPES = ['rollback', 'abort', 'fail'];
-const QUOTED_ARGUMENT = "|`(?:[^`]|``)*`|\\[[^\\]]*\\]|[^,()'\"`\\[]";
+const BARE_ARGUMENT_ARM = /\|\[\^,\(\)'"\]/u;
+const QUOTED_ARGUMENT = '|`(?:[^`]|``)*`|\\[[^\\]]*\\]|[^,()\'"`\\[]';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -50,7 +51,7 @@ const KEYWORDS = new Map(
         .flatMap((rule) => collected(rule, ({ type, named: visible, content }) => type === 'ALIAS' && !visible && content.type === 'PATTERN'))
         .map((rule) => [rule.value, rule]),
 );
-const keyword = (word) => KEYWORDS.get(word.toUpperCase()) ?? alias(token(prec(1, new RegExp([...word].map((letter) => `[${letter.toUpperCase()}${letter.toLowerCase()}]`).join('')))), word.toUpperCase());
+const keyword = (word) => KEYWORDS.get(word.toUpperCase()) ?? alias(token(prec(1, new RegExp([...word].map((letter) => `[${letter.toUpperCase()}${letter.toLowerCase()}]`).join(''), 'u'))), word.toUpperCase());
 
 // --- [NAMES]
 
@@ -61,7 +62,12 @@ const JOIN_KINDS = collected(RULES._join_operator, ({ type, named: visible, cont
 const NAME = drop((part) => reaches(part, spelledAs('recursive')))(undefined, RULES._id);
 const restricted = (set) => () => rewrite(NAME, (part) => (symbol('identifier')(part) ? reserved(set, part) : part));
 const unaliased = (part) => part.type === 'SEQ' && part.members.length === 2 && optionalOf(keyworded('AS'))(part.members[0]) && named('alias')(part.members[1]);
-const bare = replace(unaliased, ($, { members: [as, name] }) => choice(seq(mandatory(as), name), rewrite(name, (part) => (symbol('_id')(part) ? $._ids : part))));
+const bare = replace(unaliased, ($, { members: [as, name] }) =>
+    choice(
+        seq(mandatory(as), name),
+        rewrite(name, (part) => (symbol('_id')(part) ? $._ids : part)),
+    ),
+);
 const unbounded = (direction) => (part) => part.type === 'SEQ' && part.members.some(keyworded('UNBOUNDED')) && part.members.some(keyworded(direction));
 const dialect = extend(sqlite, {
     extras: (_, original) => [...original, ...TRIVIA],
@@ -96,13 +102,21 @@ const dialect = extend(sqlite, {
         raise_expression: ($) => seq(keyword('raise'), '(', choice(keyword('ignore'), seq(field('type', choice(...RAISE_TYPES.map(keyword))), ',', field('message', $._expression))), ')'),
         _expression: ($, original) => choice(original, $.raise_expression),
         [sqlite.grammar.word]: () => pattern(identifier),
-        unary_expression: (_, { value, content: { members: [{ content: operators }, operand] } }) => {
+        unary_expression: (
+            _,
+            {
+                value,
+                content: {
+                    members: [{ content: operators }, operand],
+                },
+            },
+        ) => {
             const negated = keyworded('NOT');
-            const level = RULES.binary_expression.members.find((arm) => reaches(arm, keyworded('AND'))).value + 1;
+            const level = RULES.binary_expression.members.find((member) => reaches(member, keyworded('AND'))).value + 1;
             const arm = (at, kept) => prec.right(at, seq(field('operator', kept), operand));
             return choice(arm(value, choice(...operators.members.filter((part) => !negated(part)))), arm(level, operators.members.find(negated)));
         },
-        vtab_module_arg: (_, original) => rewrite(original, (part) => (part.type === 'PATTERN' ? { ...part, value: part.value.replace(/\|\[\^,\(\)'"\]/u, QUOTED_ARGUMENT) } : part)),
+        vtab_module_arg: (_, original) => rewrite(original, (part) => (part.type === 'PATTERN' ? { ...part, value: part.value.replace(BARE_ARGUMENT_ARM, QUOTED_ARGUMENT) } : part)),
         line_comment: () => token(LINE_COMMENT),
         _result_columns: ($) => alias(seq($._result_column, repeat1(seq(',', $._result_column))), $.result_column_list),
         expression_result_column: replace(named('alias'), (_, part) => field('alias', prec.dynamic(-2, part.content))),

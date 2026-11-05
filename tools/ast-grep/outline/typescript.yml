@@ -7,13 +7,14 @@ utils:
     named: {pattern: $NAME}
     listed: {inside: {kind: 'program, ERROR, statement_block', stopBy: {kind: 'program, ERROR, statement_block'}, has: {kind: export_statement, any: [{has: {kind: export_clause, has: {kind: export_specifier, not: {has: {field: alias, pattern: $_}}, has: {field: name, matches: named}}}, not: {has: {field: source, pattern: $_}}}, {has: {kind: identifier, matches: named}}]}}}
 rule:
+    not: {has: {stopBy: end, any: [{kind: ERROR}, {regex: '^$'}]}}
     kind: import_statement, import_alias
     pattern: $DECLARATION
     inside: {matches: scope, stopBy: {not: {kind: export_statement}}, any: [{kind: 'program, ERROR'}, {inside: {has: {field: name, pattern: $OWNER}}}]}
     any:
         - has: {field: source, pattern: $NAME}
         - has: {kind: import_require_clause, has: {field: source, pattern: $NAME}}
-        - has: {kind: identifier, nthChild: 1, pattern: $NAME}
+        - has: {kind: identifier, nthChild: {position: 1, ofRule: {not: {kind: comment}}}, pattern: $NAME}
 rewriters:
     - id: lineage
       rule:
@@ -30,9 +31,9 @@ rewriters:
 transform:
     QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage]}}
     SPECIFIED: {replace: {source: $NAME, replace: '^["''`](.*)["''`]$', by: $1}}
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [comment]}}
     LINE: {replace: {source: $HEADER, replace: '[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: ', *( \})|,? ([)\]])|, (>)|([(\[<]) |[ ;]+$|( ) +', by: $1$2$3$4$5}}
+    SIGNATURE: {replace: {source: $LINE, replace: '[,;] *( \})|,? ([)\]])|, (>)|([(\[<]) |[ ;]+$|( ) +', by: $1$2$3$4$5}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [comment]}}
 name: $QUALIFIER$SPECIFIED
 signature: $SIGNATURE
 isImport: true
@@ -49,9 +50,10 @@ utils:
         any:
             - {kind: 'class_declaration, abstract_class_declaration, function_declaration, generator_function_declaration, function_signature, interface_declaration, type_alias_declaration, enum_declaration, internal_module, module', has: {field: name, pattern: $NAME}}
             - {kind: 'lexical_declaration, variable_declaration, using_declaration', has: {kind: variable_declarator, has: {field: name, any: [{pattern: $NAME}, {has: {stopBy: end, kind: 'identifier, shorthand_property_identifier_pattern', pattern: $NAME}}]}}}
-            - {kind: import_alias, has: {kind: identifier, nthChild: 1, pattern: $NAME}}
+            - {kind: import_alias, has: {kind: identifier, nthChild: {position: 1, ofRule: {not: {kind: comment}}}, pattern: $NAME}}
     declared: {inside: {kind: 'program, ERROR, statement_block', stopBy: {kind: 'program, ERROR, statement_block'}, has: {stopBy: {not: {kind: 'export_statement, ambient_declaration'}}, matches: binds}}}
 rule:
+    not: {has: {stopBy: end, any: [{kind: ERROR}, {regex: '^$'}]}}
     any:
         - kind: export_statement
           pattern: $DECLARATION
@@ -85,19 +87,19 @@ rewriters:
       transform:
         ABOVE: {rewrite: {source: $UP, rewriters: [lineage]}}
       fix: $ABOVE$LEVEL.
+    - {id: comment, rule: {kind: comment}, fix: ''}
     - {id: block, rule: {kind: 'object, object_type, class_body, statement_block', regex: "\n"}, fix: '{…}'}
     - {id: list, rule: {kind: array, regex: "\n"}, fix: '[…]'}
     - {id: call, rule: {kind: arguments, regex: "\n", not: {has: {kind: object, regex: "\n"}}}, fix: (…)}
-    - {id: comment, rule: {kind: comment}, fix: ''}
 transform:
     QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage]}}
     SPECIFIED: {replace: {source: $NAME, replace: '^["''`](.*)["''`]$', by: $1}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [block, list, call, comment]}}
+    LINE: {replace: {source: $HEADER, replace: '[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*', by: ' '}}
+    SIGNATURE: {replace: {source: $LINE, replace: '[,;] *( \})|,? ([)\]])|, (>)|([(\[<]) |[ ;]+$|( ) +', by: $1$2$3$4$5}}
     OPENING: {replace: {source: $SPECIFIER, replace: '(?s).+', by: 'export '}}
     TYPED: {replace: {source: $TYPE, replace: $, by: ' '}}
     CLAUSE: {replace: {source: $SPECIFIER, replace: '(?s)^(.*)$', by: '{ $1 }'}}
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [block, list, call, comment]}}
-    LINE: {replace: {source: $HEADER, replace: '[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: ', *( \})|,? ([)\]])|, (>)|([(\[<]) |[ ;]+$|( ) +', by: $1$2$3$4$5}}
 name: $QUALIFIER$SPECIFIED
 signature: $OPENING$TYPED$CLAUSE$SIGNATURE
 isExported: true
@@ -148,34 +150,39 @@ role: item
 symbolType: class
 utils:
     scope: {any: [{kind: 'program, ERROR'}, {kind: statement_block, inside: {kind: 'internal_module, module, ambient_declaration', inside: {matches: scope, stopBy: {not: {kind: 'export_statement, ambient_declaration, expression_statement'}}}}}]}
-    top: {inside: {matches: scope, stopBy: {not: {kind: 'export_statement, ambient_declaration'}}, any: [{kind: 'program, ERROR'}, {inside: {has: {field: name, pattern: $OWNER}}}]}}
-    declaration: {matches: top, any: [{kind: lexical_declaration, has: {field: kind, pattern: $$KIND}}, {kind: variable_declaration, has: {regex: '^var$', pattern: $$KIND}}]}
-    value: {any: [{kind: class}, {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression, type_assertion', has: {matches: value}}]}
     named: {pattern: $NAME}
     listed: {inside: {kind: 'program, ERROR, statement_block', stopBy: {kind: 'program, ERROR, statement_block'}, has: {kind: export_statement, any: [{has: {kind: export_clause, has: {kind: export_specifier, not: {has: {field: alias, pattern: $_}}, has: {field: name, matches: named}}}, not: {has: {field: source, pattern: $_}}}, {has: {kind: identifier, matches: named}}]}}}
     open: {any: [{has: {field: name, kind: string}}, {inside: {kind: export_statement, stopBy: {not: {kind: 'expression_statement, ambient_declaration'}}}}, {inside: {kind: statement_block, stopBy: end, inside: {kind: ambient_declaration, stopBy: end}}}, {all: [{has: {field: name, pattern: $NS}}, {inside: {kind: 'program, ERROR, statement_block', stopBy: {kind: 'program, ERROR, statement_block'}, has: {kind: export_statement, any: [{has: {kind: export_clause, has: {kind: export_specifier, not: {has: {field: alias, pattern: $_}}, has: {field: name, pattern: $NS}}}, not: {has: {field: source, pattern: $_}}}, {has: {kind: identifier, pattern: $NS}}]}}}]}]}
+    top: {inside: {matches: scope, stopBy: {not: {kind: 'export_statement, ambient_declaration'}}, any: [{kind: 'program, ERROR'}, {inside: {has: {field: name, pattern: $OWNER}}}]}}
+    declaration: {matches: top, any: [{kind: lexical_declaration, has: {field: kind, pattern: $$KIND}}, {kind: variable_declaration, has: {regex: '^var$', pattern: $$KIND}}]}
+    first: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}}
+    typed: {any: [{has: {field: type, pattern: $TYPE}}, {regex: ''}]}
+    form:
+        all:
+            - any: [{has: {field: decorator, matches: first, pattern: $FIRSTDECORATOR}}, {inside: {kind: export_statement, has: {field: decorator, matches: first, pattern: $FIRSTDECORATOR}}}, {regex: ''}]
+            - any: [{has: {regex: '^abstract$', pattern: $$ABSTRACT}}, {regex: ''}]
+            - any: [{has: {field: type_parameters, pattern: $GENERICS}}, {regex: ''}]
+            - any: [{has: {kind: class_heritage, pattern: $HERITAGE}}, {regex: ''}]
     exported: {all: [{any: [{kind: export_statement}, {inside: {kind: export_statement, stopBy: {not: {kind: 'lexical_declaration, variable_declaration, using_declaration, ambient_declaration'}}}}, {inside: {kind: statement_block, stopBy: end, inside: {kind: ambient_declaration, stopBy: end}}}, {matches: listed}]}, {not: {inside: {kind: 'internal_module, module', stopBy: end, not: {matches: open}}}}]}
+    value: {any: [{kind: class}, {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression, type_assertion', has: {matches: value}}]}
 rule:
     any:
         - kind: export_statement
-          pattern: $DECLARATION
           matches: top
           all:
             - has: {field: decorator, kind: decorator}
             - has: {field: declaration, kind: 'class_declaration, abstract_class_declaration', has: {field: name, matches: named}}
-        - {kind: 'class_declaration, abstract_class_declaration', pattern: $DECLARATION, matches: top, has: {field: name, matches: named}}
+        - {kind: 'class_declaration, abstract_class_declaration', matches: top, has: {field: name, matches: named}}
         - kind: lexical_declaration, variable_declaration
           matches: declaration
           not: {has: {kind: variable_declarator, nthChild: {position: 2, ofRule: {kind: variable_declarator}}}}
-          has: {kind: variable_declarator, pattern: $DECLARATION, all: [{has: {field: name, kind: identifier, matches: named}}, {has: {field: value, matches: value}}]}
+          has: {kind: variable_declarator, all: [{has: {field: name, kind: identifier, matches: named}}, {has: {field: value, matches: value}}]}
         - kind: variable_declarator
-          pattern: $DECLARATION
           all:
             - has: {field: name, kind: identifier, matches: named}
             - inside: {matches: declaration}
             - has: {field: value, matches: value}
         - kind: export_statement
-          pattern: $DECLARATION
           all:
             - has: {regex: '^default$', pattern: $$NAME}
             - matches: top
@@ -192,17 +199,59 @@ rewriters:
       transform:
         ABOVE: {rewrite: {source: $UP, rewriters: [lineage]}}
       fix: $ABOVE$LEVEL.
-    - {id: body, rule: {kind: class_body, inside: {kind: 'class_declaration, abstract_class_declaration, class', field: body}}, fix: ''}
+    - {id: comment, rule: {kind: comment}, fix: ''}
+    - {id: call, rule: {kind: arguments, regex: "\n", not: {has: {kind: object}}}, fix: (…)}
     - {id: object, rule: {kind: object, has: {kind: 'pair, spread_element, method_definition, shorthand_property_identifier'}}, fix: '{…}'}
     - {id: shape, rule: {kind: object_type, regex: "\n"}, fix: '{…}'}
-    - {id: call, rule: {kind: arguments, regex: "\n", not: {has: {kind: object}}}, fix: (…)}
-    - {id: comment, rule: {kind: comment}, fix: ''}
+    - id: decorators
+      rule: {kind: decorator, pattern: $DECORATOR, any: [{precedes: {kind: decorator, pattern: $NEXT}}, {regex: ''}]}
+      transform:
+        ONE: {rewrite: {source: $DECORATOR, rewriters: [call, comment]}}
+        REST: {rewrite: {source: $NEXT, rewriters: [decorators]}}
+      fix: $ONE $REST
+    - id: declared
+      rule: {kind: type_identifier, inside: {kind: 'class_declaration, abstract_class_declaration', field: name, matches: form}}
+      transform:
+        DECORATED: {rewrite: {source: $FIRSTDECORATOR, rewriters: [decorators]}}
+        ABSTRACTED: {replace: {source: $ABSTRACT, replace: $, by: ' '}}
+        EXTENDED: {rewrite: {source: $HERITAGE, rewriters: [object, shape, call, comment]}}
+      fix: $DECORATED$ABSTRACTEDclass $NAME$GENERICS $EXTENDED
+    - {id: body, rule: {kind: class_body, inside: {kind: class, field: body}}, fix: '{…}'}
+    - id: assigned
+      rule: {kind: identifier, inside: {kind: variable_declarator, field: name, all: [{matches: typed}, {has: {field: value, kind: class, matches: form}}]}}
+      transform:
+        DECORATED: {rewrite: {source: $FIRSTDECORATOR, rewriters: [decorators]}}
+        ABSTRACTED: {replace: {source: $ABSTRACT, replace: $, by: ' '}}
+        EXTENDED: {rewrite: {source: $HERITAGE, rewriters: [object, shape, call, comment]}}
+      fix: $NAME$TYPE = $DECORATEDclass$GENERICS $EXTENDED
+    - id: wrapped
+      rule: {kind: identifier, inside: {kind: variable_declarator, field: name, all: [{matches: typed}, {has: {field: value, pattern: $VALUE}}]}}
+      transform: {SHOWN: {rewrite: {source: $VALUE, rewriters: [body, object, shape, call, comment]}}}
+      fix: $NAME$TYPE = $SHOWN
+    - id: default-class
+      rule: {regex: '^default$', inside: {kind: export_statement, has: {field: value, kind: class, matches: form}}}
+      transform:
+        DECORATED: {rewrite: {source: $FIRSTDECORATOR, rewriters: [decorators]}}
+        ABSTRACTED: {replace: {source: $ABSTRACT, replace: $, by: ' '}}
+        EXTENDED: {rewrite: {source: $HERITAGE, rewriters: [object, shape, call, comment]}}
+      fix: export default $DECORATEDclass$GENERICS $EXTENDED
+    - id: default-abstract
+      rule: {regex: '^default$', inside: {kind: export_statement, has: {field: declaration, kind: abstract_class_declaration, matches: form}}}
+      transform:
+        DECORATED: {rewrite: {source: $FIRSTDECORATOR, rewriters: [decorators]}}
+        ABSTRACTED: {replace: {source: $ABSTRACT, replace: $, by: ' '}}
+        EXTENDED: {rewrite: {source: $HERITAGE, rewriters: [object, shape, call, comment]}}
+      fix: export default $DECORATED$ABSTRACTEDclass$GENERICS $EXTENDED
+    - id: default-wrapped
+      rule: {regex: '^default$', inside: {kind: export_statement, has: {field: value, pattern: $VALUE}}}
+      transform: {SHOWN: {rewrite: {source: $VALUE, rewriters: [body, object, shape, call, comment]}}}
+      fix: export default $SHOWN
 transform:
     QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage]}}
-    PREFIX: {replace: {source: $KIND, replace: $, by: ' '}}
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, object, shape, call, comment]}}
     LINE: {replace: {source: $HEADER, replace: '[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: ', *( \})|,? ([)\]])|, (>)|([(\[<]) |[ ;]+$|( ) +', by: $1$2$3$4$5}}
+    SIGNATURE: {replace: {source: $LINE, replace: '[,;] *( \})|,? ([)\]])|, (>)|([(\[<]) |[ ;]+$|( ) +', by: $1$2$3$4$5}}
+    PREFIX: {replace: {source: $KIND, replace: $, by: ' '}}
+    HEADER: {rewrite: {source: $NAME, rewriters: [declared, assigned, wrapped, default-class, default-abstract, default-wrapped]}}
 name: $QUALIFIER$NAME
 signature: $PREFIX$SIGNATURE
 isExported: {matches: exported}
@@ -213,38 +262,236 @@ role: item
 symbolType: function
 utils:
     scope: {any: [{kind: 'program, ERROR'}, {kind: statement_block, inside: {kind: 'internal_module, module, ambient_declaration', inside: {matches: scope, stopBy: {not: {kind: 'export_statement, ambient_declaration, expression_statement'}}}}}]}
+    named: {pattern: $NAME}
+    listed: {inside: {kind: 'program, ERROR, statement_block', stopBy: {kind: 'program, ERROR, statement_block'}, has: {kind: export_statement, any: [{has: {kind: export_clause, has: {kind: export_specifier, not: {has: {field: alias, pattern: $_}}, has: {field: name, matches: named}}}, not: {has: {field: source, pattern: $_}}}, {has: {kind: identifier, matches: named}}]}}}
+    open: {any: [{has: {field: name, kind: string}}, {inside: {kind: export_statement, stopBy: {not: {kind: 'expression_statement, ambient_declaration'}}}}, {inside: {kind: statement_block, stopBy: end, inside: {kind: ambient_declaration, stopBy: end}}}, {all: [{has: {field: name, pattern: $NS}}, {inside: {kind: 'program, ERROR, statement_block', stopBy: {kind: 'program, ERROR, statement_block'}, has: {kind: export_statement, any: [{has: {kind: export_clause, has: {kind: export_specifier, not: {has: {field: alias, pattern: $_}}, has: {field: name, pattern: $NS}}}, not: {has: {field: source, pattern: $_}}}, {has: {kind: identifier, pattern: $NS}}]}}}]}]}
     top: {inside: {matches: scope, stopBy: {not: {kind: 'export_statement, ambient_declaration'}}, any: [{kind: 'program, ERROR'}, {inside: {has: {field: name, pattern: $OWNER}}}]}}
     declaration: {matches: top, any: [{kind: lexical_declaration, has: {field: kind, pattern: $$KIND}}, {kind: variable_declaration, has: {regex: '^var$', pattern: $$KIND}}]}
-    fn: {regex: '^fn(?:Untraced(?:Eager)?)?$'}
-    effect-function: {any: [{kind: identifier, matches: fn}, {kind: member_expression, has: {field: property, matches: fn}}]}
     value:
         any:
             - kind: arrow_function, function_expression, generator_function
             - kind: call_expression
               all:
                 - has: {field: function, any: [{matches: effect-function}, {kind: call_expression, has: {field: function, matches: effect-function}}]}
-                - has: {field: arguments, has: {nthChild: 1, kind: 'arrow_function, function_expression, generator_function, identifier, member_expression, call_expression'}}
+                - has: {field: arguments, has: {matches: first, kind: 'arrow_function, function_expression, generator_function, identifier, member_expression, call_expression'}}
             - {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression, type_assertion', has: {matches: value}}
+    first: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}}
+    typed: {any: [{has: {field: type, pattern: $TYPE}}, {regex: ''}]}
+    exported: {all: [{any: [{kind: export_statement}, {inside: {kind: export_statement, stopBy: {not: {kind: 'lexical_declaration, variable_declaration, using_declaration, ambient_declaration'}}}}, {inside: {kind: statement_block, stopBy: end, inside: {kind: ambient_declaration, stopBy: end}}}, {matches: listed}]}, {not: {inside: {kind: 'internal_module, module', stopBy: end, not: {matches: open}}}}]}
+    fn: {regex: '^fn(?:Untraced(?:Eager)?)?$'}
+    effect-function: {any: [{kind: identifier, matches: fn}, {kind: member_expression, has: {field: property, matches: fn}}]}
+    parts:
+        all:
+            - any: [{has: {regex: '^async$', pattern: $$ASYNC}}, {regex: ''}]
+            - any: [{has: {regex: '^\*$', pattern: $$STAR}}, {regex: ''}]
+            - any: [{has: {field: type_parameters, pattern: $GENERICS}}, {regex: ''}]
+            - any: [{has: {field: parameters, pattern: $PARAMETERS}}, {has: {field: parameter, pattern: $PARAMETERS}}]
+            - any: [{has: {field: return_type, pattern: $RETURN}}, {regex: ''}]
+    after: {any: [{has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}, pattern: $SECOND}}, {regex: ''}]}
+    later: {all: [{any: [{has: {nthChild: {position: 3, ofRule: {not: {kind: comment}}}, pattern: $THIRD}}, {regex: ''}]}, {any: [{has: {nthChild: {position: 4, ofRule: {not: {kind: comment}}}, pattern: $FOURTH}}, {regex: ''}]}, {any: [{has: {nthChild: {position: 5, ofRule: {not: {kind: comment}}}, pattern: $FIFTH}}, {regex: ''}]}]}
+    called: {kind: call_expression, all: [{has: {field: function, pattern: $CALLEE}}, {has: {field: arguments, all: [{matches: after}, {matches: later}]}}]}
+    owned-value: {any: [{inside: {kind: 'variable_declarator, export_statement, extends_clause, public_field_definition, pair', field: value, stopBy: {not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression, type_assertion'}}}}, {inside: {kind: assignment_expression, field: right, stopBy: {not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression, type_assertion'}}}}, {inside: {kind: export_statement, has: {regex: '^=$'}, stopBy: {not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression, type_assertion'}}}}]}
+    chained: {kind: call_expression, any: [{matches: owned-value}, {inside: {kind: member_expression, field: object, inside: {kind: call_expression, field: function, matches: chained}}}]}
+    chain-root: {kind: call_expression, not: {has: {field: function, kind: member_expression, any: [{has: {field: object, kind: call_expression}}, {has: {field: property, regex: '^(?:annotate|annotateKey|check|pipe|rebuild)$'}}]}}, matches: chained}
+    owned-object: {kind: object, any: [{matches: owned-value}, {inside: {kind: arguments, inside: {matches: chain-root}}}], not: {inside: {kind: statement_block, stopBy: end, not: {inside: {kind: 'internal_module, module, ambient_declaration'}}}}}
+    group: {any: [{kind: identifier, regex: '^(?:describe|describeWrapped|suite|layer|test|it)$'}, {kind: member_expression, has: {field: object, matches: group}}, {kind: call_expression, has: {field: function, matches: group}}]}
+    runner: {kind: identifier, pattern: $RUNNER, inside: {kind: 'arrow_function, function_expression', stopBy: end, any: [{has: {field: parameter, pattern: $RUNNER}}, {has: {field: parameters, has: {kind: required_parameter, matches: first, has: {field: pattern, pattern: $RUNNER}}}}]}}
+    case: {any: [{matches: group}, {matches: runner}, {kind: member_expression, has: {field: object, matches: case}}, {kind: call_expression, has: {field: function, matches: case}}]}
+    owning:
+        any:
+            - has: {stopBy: end, any: [{kind: 'ERROR, function_declaration, generator_function_declaration, function_signature, class_declaration, abstract_class_declaration, class, interface_declaration, type_alias_declaration'}, {regex: '^$'}, {kind: 'arguments > :is(arrow_function, function_expression) > statement_block > expression_statement > call_expression', has: {field: function, matches: case}}]}
+            - has: {stopBy: {kind: statement_block}, matches: owned-object}
+    leaf: {not: {matches: owning}}
+rule:
+    all:
+        - any:
+            - {kind: 'function_declaration, generator_function_declaration, function_signature', matches: top, has: {field: name, matches: named}}
+            - kind: lexical_declaration, variable_declaration
+              matches: declaration
+              not: {has: {kind: variable_declarator, nthChild: {position: 2, ofRule: {kind: variable_declarator}}}}
+              has: {kind: variable_declarator, all: [{has: {field: name, kind: identifier, matches: named}}, {has: {field: value, matches: value}}]}
+            - kind: variable_declarator
+              all:
+                - inside: {matches: declaration}
+                - has: {field: name, kind: identifier, matches: named}
+                - has: {field: value, matches: value}
+            - kind: export_statement
+              all:
+                - has: {regex: '^default$', pattern: $$NAME}
+                - matches: top
+                - has: {field: value, matches: value}
+        - matches: leaf
+rewriters:
+    - id: lineage
+      rule:
+        kind: identifier, nested_identifier, string
+        pattern: $LEVEL
+        inside:
+            kind: internal_module, module, ambient_declaration
+            field: name
+            any: [{inside: {kind: statement_block, stopBy: {not: {kind: 'export_statement, ambient_declaration, expression_statement'}}, inside: {kind: 'internal_module, module, ambient_declaration', has: {field: name, pattern: $UP}}}}, {kind: 'internal_module, module, ambient_declaration'}]
+      transform:
+        ABOVE: {rewrite: {source: $UP, rewriters: [lineage]}}
+      fix: $ABOVE$LEVEL.
+    - {id: comment, rule: {kind: comment}, fix: ''}
+    - {id: call, rule: {kind: arguments, regex: "\n"}, fix: (…)}
+    - id: declared
+      rule: {kind: identifier, inside: {kind: 'function_declaration, generator_function_declaration, function_signature', field: name, matches: parts}}
+      transform:
+        MODIFIER: {replace: {source: $ASYNC, replace: $, by: ' '}}
+        ARGUMENTS: {rewrite: {source: $PARAMETERS, rewriters: [initializer, nested, comment]}}
+        RESULT: {rewrite: {source: $RETURN, rewriters: [comment]}}
+      fix: $MODIFIERfunction$STAR $NAME$GENERICS$ARGUMENTS$RESULT
+    - id: wrapped
+      rule: {kind: identifier, inside: {kind: variable_declarator, field: name, all: [{matches: typed}, {has: {field: value, pattern: $VALUE}}]}}
+      transform:
+        SHOWN: {rewrite: {source: $VALUE, rewriters: [step, opened, call, comment]}}
+      fix: $NAME$TYPE = $SHOWN
+    - id: default-wrapped
+      rule: {regex: '^default$', inside: {kind: export_statement, has: {field: value, pattern: $VALUE}}}
+      transform:
+        SHOWN: {rewrite: {source: $VALUE, rewriters: [step, opened, call, comment]}}
+      fix: export default $SHOWN
+    - id: initializer
+      rule: {kind: 'required_parameter, optional_parameter', all: [{has: {field: value, regex: ''}}, {has: {field: pattern, pattern: $BOUND}}, {any: [{has: {kind: accessibility_modifier, pattern: $PACCESS}}, {regex: ''}]}, {any: [{has: {kind: override_modifier, pattern: $POVERRIDE}}, {regex: ''}]}, {any: [{has: {regex: '^readonly$', pattern: $$PREADONLY}}, {regex: ''}]}, {any: [{has: {field: type, pattern: $PTYPE}}, {regex: ''}]}]}
+      transform:
+        PACCESSED: {replace: {source: $PACCESS, replace: $, by: ' '}}
+        POVERRIDDEN: {replace: {source: $POVERRIDE, replace: $, by: ' '}}
+        PREAD: {replace: {source: $PREADONLY, replace: $, by: ' '}}
+        SHAPED: {rewrite: {source: $BOUND, rewriters: [nested, comment]}}
+      fix: $PACCESSED$POVERRIDDEN$PREAD$SHAPED$PTYPE = …
+    - {id: nested, rule: {kind: 'assignment_pattern, object_assignment_pattern', has: {field: left, pattern: $LEFT}}, transform: {LEFTED: {rewrite: {source: $LEFT, rewriters: [nested]}}}, fix: '$LEFTED = …'}
+    - id: lambda
+      rule: {kind: identifier, inside: {kind: variable_declarator, field: name, all: [{matches: typed}, {has: {field: value, kind: arrow_function, matches: parts}}]}}
+      transform:
+        MODIFIER: {replace: {source: $ASYNC, replace: $, by: ' '}}
+        ARGUMENTS: {rewrite: {source: $PARAMETERS, rewriters: [initializer, nested, comment]}}
+        RESULT: {rewrite: {source: $RETURN, rewriters: [comment]}}
+      fix: $NAME$TYPE = $MODIFIER$GENERICS$ARGUMENTS$RESULT => …
+    - id: expressed
+      rule: {kind: identifier, inside: {kind: variable_declarator, field: name, all: [{matches: typed}, {has: {field: value, kind: 'function_expression, generator_function', matches: parts}}]}}
+      transform:
+        MODIFIER: {replace: {source: $ASYNC, replace: $, by: ' '}}
+        ARGUMENTS: {rewrite: {source: $PARAMETERS, rewriters: [initializer, nested, comment]}}
+        RESULT: {rewrite: {source: $RETURN, rewriters: [comment]}}
+      fix: $NAME$TYPE = $MODIFIERfunction$STAR $GENERICS$ARGUMENTS$RESULT {…}
+    - id: called-function
+      rule: {kind: identifier, inside: {kind: variable_declarator, field: name, all: [{matches: typed}, {has: {field: value, matches: called, has: {field: arguments, has: {kind: 'function_expression, generator_function', all: [{matches: first}, {matches: parts}]}}}}]}}
+      transform:
+        MODIFIER: {replace: {source: $ASYNC, replace: $, by: ' '}}
+        ARGUMENTS: {rewrite: {source: $PARAMETERS, rewriters: [initializer, nested, comment]}}
+        RESULT: {rewrite: {source: $RETURN, rewriters: [comment]}}
+        CALLED: {rewrite: {source: $CALLEE, rewriters: [call, comment]}}
+        STEP2: {rewrite: {source: $SECOND, rewriters: [step, call, comment]}}
+        STEP3: {rewrite: {source: $THIRD, rewriters: [step, call, comment]}}
+        STEP4: {rewrite: {source: $FOURTH, rewriters: [step, call, comment]}}
+        TRAIL2: {replace: {source: $STEP2, replace: '(?s)^(.+)$', by: ', $1'}}
+        TRAIL3: {replace: {source: $STEP3, replace: '(?s)^(.+)$', by: ', $1'}}
+        TRAIL4: {replace: {source: $STEP4, replace: '(?s)^(.+)$', by: ', $1'}}
+        TRAIL5: {replace: {source: $FIFTH, replace: '(?s).+', by: ', …'}}
+      fix: $NAME$TYPE = $CALLED($MODIFIERfunction$STAR $GENERICS$ARGUMENTS$RESULT {…}$TRAIL2$TRAIL3$TRAIL4$TRAIL5)
+    - id: called-arrow
+      rule: {kind: identifier, inside: {kind: variable_declarator, field: name, all: [{matches: typed}, {has: {field: value, matches: called, has: {field: arguments, has: {kind: arrow_function, all: [{matches: first}, {matches: parts}]}}}}]}}
+      transform:
+        MODIFIER: {replace: {source: $ASYNC, replace: $, by: ' '}}
+        ARGUMENTS: {rewrite: {source: $PARAMETERS, rewriters: [initializer, nested, comment]}}
+        RESULT: {rewrite: {source: $RETURN, rewriters: [comment]}}
+        CALLED: {rewrite: {source: $CALLEE, rewriters: [call, comment]}}
+        STEP2: {rewrite: {source: $SECOND, rewriters: [step, call, comment]}}
+        STEP3: {rewrite: {source: $THIRD, rewriters: [step, call, comment]}}
+        STEP4: {rewrite: {source: $FOURTH, rewriters: [step, call, comment]}}
+        TRAIL2: {replace: {source: $STEP2, replace: '(?s)^(.+)$', by: ', $1'}}
+        TRAIL3: {replace: {source: $STEP3, replace: '(?s)^(.+)$', by: ', $1'}}
+        TRAIL4: {replace: {source: $STEP4, replace: '(?s)^(.+)$', by: ', $1'}}
+        TRAIL5: {replace: {source: $FIFTH, replace: '(?s).+', by: ', …'}}
+      fix: $NAME$TYPE = $CALLED($MODIFIER$GENERICS$ARGUMENTS$RESULT => …$TRAIL2$TRAIL3$TRAIL4$TRAIL5)
+    - id: called-reference
+      rule: {kind: identifier, inside: {kind: variable_declarator, field: name, all: [{matches: typed}, {has: {field: value, matches: called}}]}}
+      transform: {CALLED: {rewrite: {source: $CALLEE, rewriters: [call, comment]}}}
+      fix: $NAME$TYPE = $CALLED(…)
+    - id: step
+      rule: {kind: arrow_function, matches: parts}
+      transform:
+        MODIFIER: {replace: {source: $ASYNC, replace: $, by: ' '}}
+        ARGUMENTS: {rewrite: {source: $PARAMETERS, rewriters: [initializer, nested, comment]}}
+        RESULT: {rewrite: {source: $RETURN, rewriters: [comment]}}
+      fix: $MODIFIER$GENERICS$ARGUMENTS$RESULT => …
+    - {id: opened, rule: {kind: statement_block, inside: {kind: 'function_expression, generator_function', field: body}}, fix: '{…}'}
+    - id: default-function
+      rule: {regex: '^default$', inside: {kind: export_statement, has: {field: value, kind: 'function_expression, generator_function', matches: parts}}}
+      transform:
+        MODIFIER: {replace: {source: $ASYNC, replace: $, by: ' '}}
+        ARGUMENTS: {rewrite: {source: $PARAMETERS, rewriters: [initializer, nested, comment]}}
+        RESULT: {rewrite: {source: $RETURN, rewriters: [comment]}}
+      fix: export default $MODIFIERfunction$STAR $GENERICS$ARGUMENTS$RESULT
+    - id: default-arrow
+      rule: {regex: '^default$', inside: {kind: export_statement, has: {field: value, kind: arrow_function, matches: parts}}}
+      transform:
+        MODIFIER: {replace: {source: $ASYNC, replace: $, by: ' '}}
+        ARGUMENTS: {rewrite: {source: $PARAMETERS, rewriters: [initializer, nested, comment]}}
+        RESULT: {rewrite: {source: $RETURN, rewriters: [comment]}}
+      fix: export default $MODIFIER$GENERICS$ARGUMENTS$RESULT => …
+    - id: default-called
+      rule: {regex: '^default$', inside: {kind: export_statement, has: {field: value, matches: called}}}
+      transform: {CALLED: {rewrite: {source: $CALLEE, rewriters: [call, comment]}}}
+      fix: export default $CALLED(…)
+transform:
+    QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage]}}
+    HEADER: {rewrite: {source: $NAME, rewriters: [declared, lambda, expressed, called-function, called-arrow, called-reference, wrapped, default-function, default-arrow, default-called, default-wrapped]}}
+    LINE: {replace: {source: $HEADER, replace: '[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*', by: ' '}}
+    SIGNATURE: {replace: {source: $LINE, replace: '[,;] *( \})|,? ([)\]])|, (>)|([(\[<]) |[ ;]+$|( ) +', by: $1$2$3$4$5}}
+    PREFIX: {replace: {source: $KIND, replace: $, by: ' '}}
+name: $QUALIFIER$NAME
+signature: $PREFIX$SIGNATURE
+isExported: {matches: exported}
+---
+id: typescript-function-owner
+language: tsxlang
+role: item
+symbolType: function
+utils:
+    scope: {any: [{kind: 'program, ERROR'}, {kind: statement_block, inside: {kind: 'internal_module, module, ambient_declaration', inside: {matches: scope, stopBy: {not: {kind: 'export_statement, ambient_declaration, expression_statement'}}}}}]}
     named: {pattern: $NAME}
-    bound: {any: [{has: {field: value, kind: arrow_function}, pattern: $LAMBDA}, {pattern: $DECLARATION}]}
     listed: {inside: {kind: 'program, ERROR, statement_block', stopBy: {kind: 'program, ERROR, statement_block'}, has: {kind: export_statement, any: [{has: {kind: export_clause, has: {kind: export_specifier, not: {has: {field: alias, pattern: $_}}, has: {field: name, matches: named}}}, not: {has: {field: source, pattern: $_}}}, {has: {kind: identifier, matches: named}}]}}}
     open: {any: [{has: {field: name, kind: string}}, {inside: {kind: export_statement, stopBy: {not: {kind: 'expression_statement, ambient_declaration'}}}}, {inside: {kind: statement_block, stopBy: end, inside: {kind: ambient_declaration, stopBy: end}}}, {all: [{has: {field: name, pattern: $NS}}, {inside: {kind: 'program, ERROR, statement_block', stopBy: {kind: 'program, ERROR, statement_block'}, has: {kind: export_statement, any: [{has: {kind: export_clause, has: {kind: export_specifier, not: {has: {field: alias, pattern: $_}}, has: {field: name, pattern: $NS}}}, not: {has: {field: source, pattern: $_}}}, {has: {kind: identifier, pattern: $NS}}]}}}]}]}
+    top: {inside: {matches: scope, stopBy: {not: {kind: 'export_statement, ambient_declaration'}}, any: [{kind: 'program, ERROR'}, {inside: {has: {field: name, pattern: $OWNER}}}]}}
+    declaration: {matches: top, any: [{kind: lexical_declaration, has: {field: kind, pattern: $$KIND}}, {kind: variable_declaration, has: {regex: '^var$', pattern: $$KIND}}]}
+    value:
+        any:
+            - kind: arrow_function, function_expression, generator_function
+            - kind: call_expression
+              all:
+                - has: {field: function, any: [{matches: effect-function}, {kind: call_expression, has: {field: function, matches: effect-function}}]}
+                - has: {field: arguments, has: {matches: first, kind: 'arrow_function, function_expression, generator_function, identifier, member_expression, call_expression'}}
+            - {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression, type_assertion', has: {matches: value}}
+    first: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}}
+    typed: {any: [{has: {field: type, pattern: $TYPE}}, {regex: ''}]}
     exported: {all: [{any: [{kind: export_statement}, {inside: {kind: export_statement, stopBy: {not: {kind: 'lexical_declaration, variable_declaration, using_declaration, ambient_declaration'}}}}, {inside: {kind: statement_block, stopBy: end, inside: {kind: ambient_declaration, stopBy: end}}}, {matches: listed}]}, {not: {inside: {kind: 'internal_module, module', stopBy: end, not: {matches: open}}}}]}
+    fn: {regex: '^fn(?:Untraced(?:Eager)?)?$'}
+    effect-function: {any: [{kind: identifier, matches: fn}, {kind: member_expression, has: {field: property, matches: fn}}]}
+    parts:
+        all:
+            - any: [{has: {regex: '^async$', pattern: $$ASYNC}}, {regex: ''}]
+            - any: [{has: {regex: '^\*$', pattern: $$STAR}}, {regex: ''}]
+            - any: [{has: {field: type_parameters, pattern: $GENERICS}}, {regex: ''}]
+            - any: [{has: {field: parameters, pattern: $PARAMETERS}}, {has: {field: parameter, pattern: $PARAMETERS}}]
+            - any: [{has: {field: return_type, pattern: $RETURN}}, {regex: ''}]
+    after: {any: [{has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}, pattern: $SECOND}}, {regex: ''}]}
+    later: {all: [{any: [{has: {nthChild: {position: 3, ofRule: {not: {kind: comment}}}, pattern: $THIRD}}, {regex: ''}]}, {any: [{has: {nthChild: {position: 4, ofRule: {not: {kind: comment}}}, pattern: $FOURTH}}, {regex: ''}]}, {any: [{has: {nthChild: {position: 5, ofRule: {not: {kind: comment}}}, pattern: $FIFTH}}, {regex: ''}]}]}
+    called: {kind: call_expression, all: [{has: {field: function, pattern: $CALLEE}}, {has: {field: arguments, all: [{matches: after}, {matches: later}]}}]}
 rule:
     any:
-        - {kind: 'function_declaration, generator_function_declaration, function_signature', pattern: $DECLARATION, matches: top, has: {field: name, matches: named}}
+        - {kind: 'function_declaration, generator_function_declaration, function_signature', matches: top, has: {field: name, matches: named}}
         - kind: lexical_declaration, variable_declaration
           matches: declaration
           not: {has: {kind: variable_declarator, nthChild: {position: 2, ofRule: {kind: variable_declarator}}}}
-          has: {kind: variable_declarator, all: [{has: {field: name, kind: identifier, matches: named}}, {has: {field: value, matches: value}}, {matches: bound}]}
+          has: {kind: variable_declarator, all: [{has: {field: name, kind: identifier, matches: named}}, {has: {field: value, matches: value}}]}
         - kind: variable_declarator
           all:
             - inside: {matches: declaration}
             - has: {field: name, kind: identifier, matches: named}
             - has: {field: value, matches: value}
-            - matches: bound
         - kind: export_statement
-          pattern: $DECLARATION
           all:
             - has: {regex: '^default$', pattern: $$NAME}
             - matches: top
@@ -261,38 +508,116 @@ rewriters:
       transform:
         ABOVE: {rewrite: {source: $UP, rewriters: [lineage]}}
       fix: $ABOVE$LEVEL.
-    - {id: declared, rule: {kind: statement_block, inside: {kind: 'function_declaration, generator_function_declaration', field: body}}, fix: ''}
-    - {id: default, rule: {kind: statement_block, inside: {kind: 'function_expression, generator_function', field: body, inside: {kind: export_statement, field: value}}}, fix: ''}
-    - {id: expression, rule: {kind: statement_block, inside: {kind: 'function_expression, generator_function', field: body}}, fix: '{…}'}
-    - {id: shape, rule: {kind: 'object, object_type', regex: "\n"}, fix: '{…}'}
-    - {id: initializer, rule: {regex: '^=$', inside: {kind: 'required_parameter, optional_parameter, object_assignment_pattern, assignment_pattern'}}, fix: {template: '= …', expandEnd: {regex: ''}}}
-    - id: arrow
-      rule:
-        kind: arrow_function
-        all:
-            - any: [{has: {field: parameters, pattern: $PARAMETERS}}, {has: {field: parameter, pattern: $PARAMETERS}}]
-            - any: [{has: {regex: '^async$', pattern: $$ASYNC}}, {kind: arrow_function}]
-            - any: [{has: {field: type_parameters, pattern: $GENERICS}}, {kind: arrow_function}]
-            - any: [{has: {field: return_type, pattern: $RETURN}}, {kind: arrow_function}]
+    - {id: comment, rule: {kind: comment}, fix: ''}
+    - {id: call, rule: {kind: arguments, regex: "\n"}, fix: (…)}
+    - id: declared
+      rule: {kind: identifier, inside: {kind: 'function_declaration, generator_function_declaration, function_signature', field: name, matches: parts}}
       transform:
         MODIFIER: {replace: {source: $ASYNC, replace: $, by: ' '}}
-        SHAPED: {rewrite: {source: $PARAMETERS, rewriters: [initializer, shape]}}
-        RESULT: {rewrite: {source: $RETURN, rewriters: [shape]}}
-      fix: $MODIFIER$GENERICS$SHAPED$RESULT => …
-    - {id: reference, rule: {kind: arguments, has: {nthChild: 1, kind: 'identifier, member_expression, call_expression'}, inside: {kind: call_expression, field: arguments, inside: {kind: 'variable_declarator, export_statement', field: value, stopBy: {not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression, type_assertion'}}}}}, fix: (…)}
-    - {id: call, rule: {kind: arguments, regex: "\n", not: {has: {kind: 'object, arrow_function, function_expression, generator_function'}}}, fix: (…)}
-    - {id: comment, rule: {kind: comment}, fix: ''}
+        ARGUMENTS: {rewrite: {source: $PARAMETERS, rewriters: [initializer, nested, comment]}}
+        RESULT: {rewrite: {source: $RETURN, rewriters: [comment]}}
+      fix: $MODIFIERfunction$STAR $NAME$GENERICS$ARGUMENTS$RESULT
+    - id: wrapped
+      rule: {kind: identifier, inside: {kind: variable_declarator, field: name, all: [{matches: typed}, {has: {field: value, pattern: $VALUE}}]}}
+      transform:
+        SHOWN: {rewrite: {source: $VALUE, rewriters: [step, opened, call, comment]}}
+      fix: $NAME$TYPE = $SHOWN
+    - id: default-wrapped
+      rule: {regex: '^default$', inside: {kind: export_statement, has: {field: value, pattern: $VALUE}}}
+      transform:
+        SHOWN: {rewrite: {source: $VALUE, rewriters: [step, opened, call, comment]}}
+      fix: export default $SHOWN
+    - id: initializer
+      rule: {kind: 'required_parameter, optional_parameter', all: [{has: {field: value, regex: ''}}, {has: {field: pattern, pattern: $BOUND}}, {any: [{has: {kind: accessibility_modifier, pattern: $PACCESS}}, {regex: ''}]}, {any: [{has: {kind: override_modifier, pattern: $POVERRIDE}}, {regex: ''}]}, {any: [{has: {regex: '^readonly$', pattern: $$PREADONLY}}, {regex: ''}]}, {any: [{has: {field: type, pattern: $PTYPE}}, {regex: ''}]}]}
+      transform:
+        PACCESSED: {replace: {source: $PACCESS, replace: $, by: ' '}}
+        POVERRIDDEN: {replace: {source: $POVERRIDE, replace: $, by: ' '}}
+        PREAD: {replace: {source: $PREADONLY, replace: $, by: ' '}}
+        SHAPED: {rewrite: {source: $BOUND, rewriters: [nested, comment]}}
+      fix: $PACCESSED$POVERRIDDEN$PREAD$SHAPED$PTYPE = …
+    - {id: nested, rule: {kind: 'assignment_pattern, object_assignment_pattern', has: {field: left, pattern: $LEFT}}, transform: {LEFTED: {rewrite: {source: $LEFT, rewriters: [nested]}}}, fix: '$LEFTED = …'}
+    - id: lambda
+      rule: {kind: identifier, inside: {kind: variable_declarator, field: name, all: [{matches: typed}, {has: {field: value, kind: arrow_function, matches: parts}}]}}
+      transform:
+        MODIFIER: {replace: {source: $ASYNC, replace: $, by: ' '}}
+        ARGUMENTS: {rewrite: {source: $PARAMETERS, rewriters: [initializer, nested, comment]}}
+        RESULT: {rewrite: {source: $RETURN, rewriters: [comment]}}
+      fix: $NAME$TYPE = $MODIFIER$GENERICS$ARGUMENTS$RESULT => …
+    - id: expressed
+      rule: {kind: identifier, inside: {kind: variable_declarator, field: name, all: [{matches: typed}, {has: {field: value, kind: 'function_expression, generator_function', matches: parts}}]}}
+      transform:
+        MODIFIER: {replace: {source: $ASYNC, replace: $, by: ' '}}
+        ARGUMENTS: {rewrite: {source: $PARAMETERS, rewriters: [initializer, nested, comment]}}
+        RESULT: {rewrite: {source: $RETURN, rewriters: [comment]}}
+      fix: $NAME$TYPE = $MODIFIERfunction$STAR $GENERICS$ARGUMENTS$RESULT {…}
+    - id: called-function
+      rule: {kind: identifier, inside: {kind: variable_declarator, field: name, all: [{matches: typed}, {has: {field: value, matches: called, has: {field: arguments, has: {kind: 'function_expression, generator_function', all: [{matches: first}, {matches: parts}]}}}}]}}
+      transform:
+        MODIFIER: {replace: {source: $ASYNC, replace: $, by: ' '}}
+        ARGUMENTS: {rewrite: {source: $PARAMETERS, rewriters: [initializer, nested, comment]}}
+        RESULT: {rewrite: {source: $RETURN, rewriters: [comment]}}
+        CALLED: {rewrite: {source: $CALLEE, rewriters: [call, comment]}}
+        STEP2: {rewrite: {source: $SECOND, rewriters: [step, call, comment]}}
+        STEP3: {rewrite: {source: $THIRD, rewriters: [step, call, comment]}}
+        STEP4: {rewrite: {source: $FOURTH, rewriters: [step, call, comment]}}
+        TRAIL2: {replace: {source: $STEP2, replace: '(?s)^(.+)$', by: ', $1'}}
+        TRAIL3: {replace: {source: $STEP3, replace: '(?s)^(.+)$', by: ', $1'}}
+        TRAIL4: {replace: {source: $STEP4, replace: '(?s)^(.+)$', by: ', $1'}}
+        TRAIL5: {replace: {source: $FIFTH, replace: '(?s).+', by: ', …'}}
+      fix: $NAME$TYPE = $CALLED($MODIFIERfunction$STAR $GENERICS$ARGUMENTS$RESULT {…}$TRAIL2$TRAIL3$TRAIL4$TRAIL5)
+    - id: called-arrow
+      rule: {kind: identifier, inside: {kind: variable_declarator, field: name, all: [{matches: typed}, {has: {field: value, matches: called, has: {field: arguments, has: {kind: arrow_function, all: [{matches: first}, {matches: parts}]}}}}]}}
+      transform:
+        MODIFIER: {replace: {source: $ASYNC, replace: $, by: ' '}}
+        ARGUMENTS: {rewrite: {source: $PARAMETERS, rewriters: [initializer, nested, comment]}}
+        RESULT: {rewrite: {source: $RETURN, rewriters: [comment]}}
+        CALLED: {rewrite: {source: $CALLEE, rewriters: [call, comment]}}
+        STEP2: {rewrite: {source: $SECOND, rewriters: [step, call, comment]}}
+        STEP3: {rewrite: {source: $THIRD, rewriters: [step, call, comment]}}
+        STEP4: {rewrite: {source: $FOURTH, rewriters: [step, call, comment]}}
+        TRAIL2: {replace: {source: $STEP2, replace: '(?s)^(.+)$', by: ', $1'}}
+        TRAIL3: {replace: {source: $STEP3, replace: '(?s)^(.+)$', by: ', $1'}}
+        TRAIL4: {replace: {source: $STEP4, replace: '(?s)^(.+)$', by: ', $1'}}
+        TRAIL5: {replace: {source: $FIFTH, replace: '(?s).+', by: ', …'}}
+      fix: $NAME$TYPE = $CALLED($MODIFIER$GENERICS$ARGUMENTS$RESULT => …$TRAIL2$TRAIL3$TRAIL4$TRAIL5)
+    - id: called-reference
+      rule: {kind: identifier, inside: {kind: variable_declarator, field: name, all: [{matches: typed}, {has: {field: value, matches: called}}]}}
+      transform: {CALLED: {rewrite: {source: $CALLEE, rewriters: [call, comment]}}}
+      fix: $NAME$TYPE = $CALLED(…)
+    - id: step
+      rule: {kind: arrow_function, matches: parts}
+      transform:
+        MODIFIER: {replace: {source: $ASYNC, replace: $, by: ' '}}
+        ARGUMENTS: {rewrite: {source: $PARAMETERS, rewriters: [initializer, nested, comment]}}
+        RESULT: {rewrite: {source: $RETURN, rewriters: [comment]}}
+      fix: $MODIFIER$GENERICS$ARGUMENTS$RESULT => …
+    - {id: opened, rule: {kind: statement_block, inside: {kind: 'function_expression, generator_function', field: body}}, fix: '{…}'}
+    - id: default-function
+      rule: {regex: '^default$', inside: {kind: export_statement, has: {field: value, kind: 'function_expression, generator_function', matches: parts}}}
+      transform:
+        MODIFIER: {replace: {source: $ASYNC, replace: $, by: ' '}}
+        ARGUMENTS: {rewrite: {source: $PARAMETERS, rewriters: [initializer, nested, comment]}}
+        RESULT: {rewrite: {source: $RETURN, rewriters: [comment]}}
+      fix: export default $MODIFIERfunction$STAR $GENERICS$ARGUMENTS$RESULT
+    - id: default-arrow
+      rule: {regex: '^default$', inside: {kind: export_statement, has: {field: value, kind: arrow_function, matches: parts}}}
+      transform:
+        MODIFIER: {replace: {source: $ASYNC, replace: $, by: ' '}}
+        ARGUMENTS: {rewrite: {source: $PARAMETERS, rewriters: [initializer, nested, comment]}}
+        RESULT: {rewrite: {source: $RETURN, rewriters: [comment]}}
+      fix: export default $MODIFIER$GENERICS$ARGUMENTS$RESULT => …
+    - id: default-called
+      rule: {regex: '^default$', inside: {kind: export_statement, has: {field: value, matches: called}}}
+      transform: {CALLED: {rewrite: {source: $CALLEE, rewriters: [call, comment]}}}
+      fix: export default $CALLED(…)
 transform:
     QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage]}}
-    PREFIX: {replace: {source: $KIND, replace: $, by: ' '}}
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [declared, default, expression, initializer, arrow, reference, shape, call, comment]}}
+    HEADER: {rewrite: {source: $NAME, rewriters: [declared, lambda, expressed, called-function, called-arrow, called-reference, wrapped, default-function, default-arrow, default-called, default-wrapped]}}
     LINE: {replace: {source: $HEADER, replace: '[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: ', *( \})|,? ([)\]])|, (>)|([(\[<]) |[ ;]+$|( ) +', by: $1$2$3$4$5}}
-    ARROWED: {rewrite: {source: $LAMBDA, rewriters: [arrow, comment]}}
-    ARROWLINE: {replace: {source: $ARROWED, replace: '[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*', by: ' '}}
-    LAMBDASIGNATURE: {replace: {source: $ARROWLINE, replace: ', *( \})|,? ([)\]])|, (>)|([(\[<]) |[ ;]+$|( ) +', by: $1$2$3$4$5}}
+    SIGNATURE: {replace: {source: $LINE, replace: '[,;] *( \})|,? ([)\]])|, (>)|([(\[<]) |[ ;]+$|( ) +', by: $1$2$3$4$5}}
+    PREFIX: {replace: {source: $KIND, replace: $, by: ' '}}
 name: $QUALIFIER$NAME
-signature: $PREFIX$SIGNATURE$LAMBDASIGNATURE
+signature: $PREFIX$SIGNATURE
 isExported: {matches: exported}
 ---
 id: typescript-interface
@@ -301,14 +626,13 @@ role: item
 symbolType: interface
 utils:
     scope: {any: [{kind: 'program, ERROR'}, {kind: statement_block, inside: {kind: 'internal_module, module, ambient_declaration', inside: {matches: scope, stopBy: {not: {kind: 'export_statement, ambient_declaration, expression_statement'}}}}}]}
-    top: {inside: {matches: scope, stopBy: {not: {kind: 'export_statement, ambient_declaration'}}, any: [{kind: 'program, ERROR'}, {inside: {has: {field: name, pattern: $OWNER}}}]}}
     named: {pattern: $NAME}
     listed: {inside: {kind: 'program, ERROR, statement_block', stopBy: {kind: 'program, ERROR, statement_block'}, has: {kind: export_statement, any: [{has: {kind: export_clause, has: {kind: export_specifier, not: {has: {field: alias, pattern: $_}}, has: {field: name, matches: named}}}, not: {has: {field: source, pattern: $_}}}, {has: {kind: identifier, matches: named}}]}}}
     open: {any: [{has: {field: name, kind: string}}, {inside: {kind: export_statement, stopBy: {not: {kind: 'expression_statement, ambient_declaration'}}}}, {inside: {kind: statement_block, stopBy: end, inside: {kind: ambient_declaration, stopBy: end}}}, {all: [{has: {field: name, pattern: $NS}}, {inside: {kind: 'program, ERROR, statement_block', stopBy: {kind: 'program, ERROR, statement_block'}, has: {kind: export_statement, any: [{has: {kind: export_clause, has: {kind: export_specifier, not: {has: {field: alias, pattern: $_}}, has: {field: name, pattern: $NS}}}, not: {has: {field: source, pattern: $_}}}, {has: {kind: identifier, pattern: $NS}}]}}}]}]}
+    top: {inside: {matches: scope, stopBy: {not: {kind: 'export_statement, ambient_declaration'}}, any: [{kind: 'program, ERROR'}, {inside: {has: {field: name, pattern: $OWNER}}}]}}
     exported: {all: [{any: [{inside: {kind: export_statement, stopBy: {not: {kind: ambient_declaration}}}}, {inside: {kind: statement_block, stopBy: end, inside: {kind: ambient_declaration, stopBy: end}}}, {matches: listed}]}, {not: {inside: {kind: 'internal_module, module', stopBy: end, not: {matches: open}}}}]}
 rule:
     kind: interface_declaration
-    pattern: $DECLARATION
     matches: top
     has: {field: name, matches: named}
 rewriters:
@@ -323,14 +647,17 @@ rewriters:
       transform:
         ABOVE: {rewrite: {source: $UP, rewriters: [lineage]}}
       fix: $ABOVE$LEVEL.
-    - {id: body, rule: {kind: interface_body, inside: {kind: interface_declaration, field: body}}, fix: ''}
-    - {id: shape, rule: {kind: object_type, regex: "\n"}, fix: '{…}'}
     - {id: comment, rule: {kind: comment}, fix: ''}
+    - {id: shape, rule: {kind: object_type, regex: "\n"}, fix: '{…}'}
+    - id: declared
+      rule: {kind: type_identifier, inside: {kind: interface_declaration, field: name, all: [{any: [{has: {field: type_parameters, pattern: $GENERICS}}, {regex: ''}]}, {any: [{has: {kind: extends_type_clause, pattern: $EXTENDS}}, {regex: ''}]}]}}
+      transform: {EXTENDED: {rewrite: {source: $EXTENDS, rewriters: [shape, comment]}}}
+      fix: interface $NAME$GENERICS $EXTENDED
 transform:
     QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage]}}
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, shape, comment]}}
+    HEADER: {rewrite: {source: $NAME, rewriters: [declared]}}
     LINE: {replace: {source: $HEADER, replace: '[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: ', *( \})|,? ([)\]])|, (>)|([(\[<]) |[ ;]+$|( ) +', by: $1$2$3$4$5}}
+    SIGNATURE: {replace: {source: $LINE, replace: '[,;] *( \})|,? ([)\]])|, (>)|([(\[<]) |[ ;]+$|( ) +', by: $1$2$3$4$5}}
 name: $QUALIFIER$NAME
 signature: $SIGNATURE
 isExported: {matches: exported}
@@ -341,10 +668,10 @@ role: item
 symbolType: struct
 utils:
     scope: {any: [{kind: 'program, ERROR'}, {kind: statement_block, inside: {kind: 'internal_module, module, ambient_declaration', inside: {matches: scope, stopBy: {not: {kind: 'export_statement, ambient_declaration, expression_statement'}}}}}]}
-    top: {inside: {matches: scope, stopBy: {not: {kind: 'export_statement, ambient_declaration'}}, any: [{kind: 'program, ERROR'}, {inside: {has: {field: name, pattern: $OWNER}}}]}}
     named: {pattern: $NAME}
     listed: {inside: {kind: 'program, ERROR, statement_block', stopBy: {kind: 'program, ERROR, statement_block'}, has: {kind: export_statement, any: [{has: {kind: export_clause, has: {kind: export_specifier, not: {has: {field: alias, pattern: $_}}, has: {field: name, matches: named}}}, not: {has: {field: source, pattern: $_}}}, {has: {kind: identifier, matches: named}}]}}}
     open: {any: [{has: {field: name, kind: string}}, {inside: {kind: export_statement, stopBy: {not: {kind: 'expression_statement, ambient_declaration'}}}}, {inside: {kind: statement_block, stopBy: end, inside: {kind: ambient_declaration, stopBy: end}}}, {all: [{has: {field: name, pattern: $NS}}, {inside: {kind: 'program, ERROR, statement_block', stopBy: {kind: 'program, ERROR, statement_block'}, has: {kind: export_statement, any: [{has: {kind: export_clause, has: {kind: export_specifier, not: {has: {field: alias, pattern: $_}}, has: {field: name, pattern: $NS}}}, not: {has: {field: source, pattern: $_}}}, {has: {kind: identifier, pattern: $NS}}]}}}]}]}
+    top: {inside: {matches: scope, stopBy: {not: {kind: 'export_statement, ambient_declaration'}}, any: [{kind: 'program, ERROR'}, {inside: {has: {field: name, pattern: $OWNER}}}]}}
     exported: {all: [{any: [{inside: {kind: export_statement, stopBy: {not: {kind: ambient_declaration}}}}, {inside: {kind: statement_block, stopBy: end, inside: {kind: ambient_declaration, stopBy: end}}}, {matches: listed}]}, {not: {inside: {kind: 'internal_module, module', stopBy: end, not: {matches: open}}}}]}
 rule:
     kind: type_alias_declaration
@@ -363,14 +690,14 @@ rewriters:
       transform:
         ABOVE: {rewrite: {source: $UP, rewriters: [lineage]}}
       fix: $ABOVE$LEVEL.
-    - {id: body, rule: {kind: object_type, inside: {kind: type_alias_declaration, field: value, stopBy: {not: {kind: 'union_type, intersection_type, parenthesized_type'}}}}, fix: '{…}'}
-    - {id: shape, rule: {kind: object_type, regex: "\n"}, fix: '{…}'}
     - {id: comment, rule: {kind: comment}, fix: ''}
+    - {id: shape, rule: {kind: object_type, regex: "\n"}, fix: '{…}'}
+    - {id: body, rule: {kind: object_type, inside: {kind: type_alias_declaration, field: value, stopBy: {not: {kind: 'union_type, intersection_type, parenthesized_type'}}}}, fix: '{…}'}
 transform:
     QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage]}}
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, shape, comment]}}
     LINE: {replace: {source: $HEADER, replace: '[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: ', *( \})|,? ([)\]])|, (>)|([(\[<]) |[ ;]+$|( ) +', by: $1$2$3$4$5}}
+    SIGNATURE: {replace: {source: $LINE, replace: '[,;] *( \})|,? ([)\]])|, (>)|([(\[<]) |[ ;]+$|( ) +', by: $1$2$3$4$5}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, shape, comment]}}
 name: $QUALIFIER$NAME
 signature: $SIGNATURE
 isExported: {matches: exported}
@@ -381,10 +708,10 @@ role: item
 symbolType: enum
 utils:
     scope: {any: [{kind: 'program, ERROR'}, {kind: statement_block, inside: {kind: 'internal_module, module, ambient_declaration', inside: {matches: scope, stopBy: {not: {kind: 'export_statement, ambient_declaration, expression_statement'}}}}}]}
-    top: {inside: {matches: scope, stopBy: {not: {kind: 'export_statement, ambient_declaration'}}, any: [{kind: 'program, ERROR'}, {inside: {has: {field: name, pattern: $OWNER}}}]}}
     named: {pattern: $NAME}
     listed: {inside: {kind: 'program, ERROR, statement_block', stopBy: {kind: 'program, ERROR, statement_block'}, has: {kind: export_statement, any: [{has: {kind: export_clause, has: {kind: export_specifier, not: {has: {field: alias, pattern: $_}}, has: {field: name, matches: named}}}, not: {has: {field: source, pattern: $_}}}, {has: {kind: identifier, matches: named}}]}}}
     open: {any: [{has: {field: name, kind: string}}, {inside: {kind: export_statement, stopBy: {not: {kind: 'expression_statement, ambient_declaration'}}}}, {inside: {kind: statement_block, stopBy: end, inside: {kind: ambient_declaration, stopBy: end}}}, {all: [{has: {field: name, pattern: $NS}}, {inside: {kind: 'program, ERROR, statement_block', stopBy: {kind: 'program, ERROR, statement_block'}, has: {kind: export_statement, any: [{has: {kind: export_clause, has: {kind: export_specifier, not: {has: {field: alias, pattern: $_}}, has: {field: name, pattern: $NS}}}, not: {has: {field: source, pattern: $_}}}, {has: {kind: identifier, pattern: $NS}}]}}}]}]}
+    top: {inside: {matches: scope, stopBy: {not: {kind: 'export_statement, ambient_declaration'}}, any: [{kind: 'program, ERROR'}, {inside: {has: {field: name, pattern: $OWNER}}}]}}
     exported: {all: [{any: [{inside: {kind: export_statement, stopBy: {not: {kind: ambient_declaration}}}}, {inside: {kind: statement_block, stopBy: end, inside: {kind: ambient_declaration, stopBy: end}}}, {matches: listed}]}, {not: {inside: {kind: 'internal_module, module', stopBy: end, not: {matches: open}}}}]}
 rule:
     kind: enum_declaration
@@ -416,14 +743,14 @@ role: item
 symbolType: constant
 utils:
     scope: {any: [{kind: 'program, ERROR'}, {kind: statement_block, inside: {kind: 'internal_module, module, ambient_declaration', inside: {matches: scope, stopBy: {not: {kind: 'export_statement, ambient_declaration, expression_statement'}}}}}]}
-    top: {inside: {matches: scope, stopBy: {not: {kind: 'export_statement, ambient_declaration'}}, any: [{kind: 'program, ERROR'}, {inside: {has: {field: name, pattern: $OWNER}}}]}}
-    declaration: {matches: top, any: [{kind: lexical_declaration, has: {field: kind, regex: '^const$', pattern: $$KIND}}, {kind: using_declaration, has: {field: kind, pattern: $$KIND}}]}
     named: {pattern: $NAME}
-    typed: {any: [{has: {field: type, pattern: $TYPE}}, {kind: variable_declarator}]}
-    built: {any: [{kind: call_expression, not: {has: {field: function, kind: parenthesized_expression}}}, {kind: 'new_expression, member_expression, object, array'}, {kind: identifier, not: {regex: '^undefined$'}}, {kind: 'as_expression, satisfies_expression, non_null_expression, parenthesized_expression, await_expression, type_assertion', has: {matches: built}}]}
-    valued: {any: [{kind: variable_declarator, has: {field: value, matches: built, pattern: $VALUE}, all: [{has: {regex: '^=$', pattern: $$ASSIGN}}]}, {kind: export_statement, has: {field: value, matches: built, pattern: $VALUE}}, {kind: 'variable_declarator, export_statement'}]}
     listed: {inside: {kind: 'program, ERROR, statement_block', stopBy: {kind: 'program, ERROR, statement_block'}, has: {kind: export_statement, any: [{has: {kind: export_clause, has: {kind: export_specifier, not: {has: {field: alias, pattern: $_}}, has: {field: name, matches: named}}}, not: {has: {field: source, pattern: $_}}}, {has: {kind: identifier, matches: named}}]}}}
     open: {any: [{has: {field: name, kind: string}}, {inside: {kind: export_statement, stopBy: {not: {kind: 'expression_statement, ambient_declaration'}}}}, {inside: {kind: statement_block, stopBy: end, inside: {kind: ambient_declaration, stopBy: end}}}, {all: [{has: {field: name, pattern: $NS}}, {inside: {kind: 'program, ERROR, statement_block', stopBy: {kind: 'program, ERROR, statement_block'}, has: {kind: export_statement, any: [{has: {kind: export_clause, has: {kind: export_specifier, not: {has: {field: alias, pattern: $_}}, has: {field: name, pattern: $NS}}}, not: {has: {field: source, pattern: $_}}}, {has: {kind: identifier, pattern: $NS}}]}}}]}]}
+    top: {inside: {matches: scope, stopBy: {not: {kind: 'export_statement, ambient_declaration'}}, any: [{kind: 'program, ERROR'}, {inside: {has: {field: name, pattern: $OWNER}}}]}}
+    typed: {any: [{has: {field: type, pattern: $TYPE}}, {kind: variable_declarator}]}
+    built: {any: [{kind: call_expression, not: {has: {field: function, kind: parenthesized_expression}}}, {kind: 'new_expression, member_expression, object, array'}, {kind: identifier, not: {regex: '^undefined$'}}, {kind: 'as_expression, satisfies_expression, non_null_expression, parenthesized_expression, await_expression, type_assertion', has: {matches: built}}]}
+    declaration: {matches: top, any: [{kind: lexical_declaration, has: {field: kind, regex: '^const$', pattern: $$KIND}}, {kind: using_declaration, has: {field: kind, pattern: $$KIND}}]}
+    valued: {any: [{kind: variable_declarator, has: {field: value, matches: built, pattern: $VALUE}, all: [{has: {regex: '^=$', pattern: $$ASSIGN}}]}, {kind: export_statement, has: {field: value, matches: built, pattern: $VALUE}}, {kind: variable_declarator, has: {regex: '^=$', pattern: $$ELIDED}}, {kind: export_statement, has: {regex: '^default$', pattern: $$ELIDED}}, {kind: 'variable_declarator, export_statement'}]}
     exported: {all: [{any: [{kind: export_statement}, {inside: {kind: export_statement, stopBy: {not: {kind: 'lexical_declaration, variable_declaration, using_declaration, variable_declarator, object_pattern, array_pattern, pair_pattern, rest_pattern, assignment_pattern, object_assignment_pattern, ambient_declaration'}}}}, {inside: {kind: statement_block, stopBy: end, inside: {kind: ambient_declaration, stopBy: end}}}, {matches: listed}]}, {not: {inside: {kind: 'internal_module, module', stopBy: end, not: {matches: open}}}}]}
 rule:
     any:
@@ -441,10 +768,6 @@ rule:
           has: {regex: '^default$', pattern: $$NAME}
           all: [{matches: top}, {has: {field: value, pattern: $_}}, {has: {regex: '^export$', pattern: $$KIND}}, {matches: valued}]
 rewriters:
-    - {id: arguments, rule: {kind: arguments, has: {pattern: $_}}, fix: (…)}
-    - {id: object, rule: {kind: object, has: {pattern: $_}}, fix: '{…}'}
-    - {id: array, rule: {kind: array, has: {pattern: $_}}, fix: '[…]'}
-    - {id: template, rule: {kind: template_string}, fix: '`…`'}
     - id: lineage
       rule:
         kind: identifier, nested_identifier, string
@@ -457,19 +780,24 @@ rewriters:
         ABOVE: {rewrite: {source: $UP, rewriters: [lineage]}}
       fix: $ABOVE$LEVEL.
     - {id: comment, rule: {kind: comment}, fix: ''}
+    - {id: object, rule: {kind: object, has: {pattern: $_}}, fix: '{…}'}
+    - {id: arguments, rule: {kind: arguments, has: {pattern: $_}}, fix: (…)}
+    - {id: array, rule: {kind: array, has: {pattern: $_}}, fix: '[…]'}
+    - {id: template, rule: {kind: template_string}, fix: '`…`'}
 transform:
     QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage]}}
-    PREFIX: {replace: {source: $KIND, replace: $, by: ' '}}
-    USING: {replace: {source: $PREFIX, replace: '^await $', by: 'await using '}}
-    TYPED: {rewrite: {source: $TYPE, rewriters: [comment]}}
     LINE: {replace: {source: $TYPED, replace: '[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*', by: ' '}}
-    SHAPE: {replace: {source: $LINE, replace: ', *( \})|,? ([)\]])|, (>)|([(\[<]) |[ ;]+$|( ) +', by: $1$2$3$4$5}}
+    TYPED: {rewrite: {source: $TYPE, rewriters: [comment]}}
+    PREFIX: {replace: {source: $KIND, replace: $, by: ' '}}
+    SHAPE: {replace: {source: $LINE, replace: '[,;] *( \})|,? ([)\]])|, (>)|([(\[<]) |[ ;]+$|( ) +', by: $1$2$3$4$5}}
     ASSIGNED: {replace: {source: $ASSIGN, replace: '^', by: ' '}}
     VALUED: {rewrite: {source: $VALUE, rewriters: [arguments, object, array, template]}}
     VALUELINE: {replace: {source: $VALUED, replace: '[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*', by: ''}}
     INIT: {replace: {source: $VALUELINE, replace: '.+', by: ' $0'}}
+    OMITTED: {replace: {source: $ELIDED, replace: '(?s).+', by: ' = …'}}
+    USING: {replace: {source: $PREFIX, replace: '^await $', by: 'await using '}}
 name: $QUALIFIER$NAME
-signature: $USING$NAME$SHAPE$ASSIGNED$INIT
+signature: $USING$NAME$SHAPE$ASSIGNED$INIT$OMITTED
 isExported: {matches: exported}
 ---
 id: typescript-variable
@@ -478,14 +806,14 @@ role: item
 symbolType: variable
 utils:
     scope: {any: [{kind: 'program, ERROR'}, {kind: statement_block, inside: {kind: 'internal_module, module, ambient_declaration', inside: {matches: scope, stopBy: {not: {kind: 'export_statement, ambient_declaration, expression_statement'}}}}}]}
-    top: {inside: {matches: scope, stopBy: {not: {kind: 'export_statement, ambient_declaration'}}, any: [{kind: 'program, ERROR'}, {inside: {has: {field: name, pattern: $OWNER}}}]}}
-    declaration: {matches: top, any: [{kind: lexical_declaration, has: {field: kind, regex: '^let$', pattern: $$KIND}}, {kind: variable_declaration, has: {regex: '^var$', pattern: $$KIND}}]}
     named: {pattern: $NAME}
-    typed: {any: [{has: {field: type, pattern: $TYPE}}, {kind: variable_declarator}]}
-    built: {any: [{kind: call_expression, not: {has: {field: function, kind: parenthesized_expression}}}, {kind: 'new_expression, member_expression, object, array'}, {kind: identifier, not: {regex: '^undefined$'}}, {kind: 'as_expression, satisfies_expression, non_null_expression, parenthesized_expression, await_expression, type_assertion', has: {matches: built}}]}
-    valued: {any: [{has: {field: value, matches: built, pattern: $VALUE}, all: [{has: {regex: '^=$', pattern: $$ASSIGN}}]}, {kind: variable_declarator}]}
     listed: {inside: {kind: 'program, ERROR, statement_block', stopBy: {kind: 'program, ERROR, statement_block'}, has: {kind: export_statement, any: [{has: {kind: export_clause, has: {kind: export_specifier, not: {has: {field: alias, pattern: $_}}, has: {field: name, matches: named}}}, not: {has: {field: source, pattern: $_}}}, {has: {kind: identifier, matches: named}}]}}}
     open: {any: [{has: {field: name, kind: string}}, {inside: {kind: export_statement, stopBy: {not: {kind: 'expression_statement, ambient_declaration'}}}}, {inside: {kind: statement_block, stopBy: end, inside: {kind: ambient_declaration, stopBy: end}}}, {all: [{has: {field: name, pattern: $NS}}, {inside: {kind: 'program, ERROR, statement_block', stopBy: {kind: 'program, ERROR, statement_block'}, has: {kind: export_statement, any: [{has: {kind: export_clause, has: {kind: export_specifier, not: {has: {field: alias, pattern: $_}}, has: {field: name, pattern: $NS}}}, not: {has: {field: source, pattern: $_}}}, {has: {kind: identifier, pattern: $NS}}]}}}]}]}
+    top: {inside: {matches: scope, stopBy: {not: {kind: 'export_statement, ambient_declaration'}}, any: [{kind: 'program, ERROR'}, {inside: {has: {field: name, pattern: $OWNER}}}]}}
+    typed: {any: [{has: {field: type, pattern: $TYPE}}, {kind: variable_declarator}]}
+    built: {any: [{kind: call_expression, not: {has: {field: function, kind: parenthesized_expression}}}, {kind: 'new_expression, member_expression, object, array'}, {kind: identifier, not: {regex: '^undefined$'}}, {kind: 'as_expression, satisfies_expression, non_null_expression, parenthesized_expression, await_expression, type_assertion', has: {matches: built}}]}
+    declaration: {matches: top, any: [{kind: lexical_declaration, has: {field: kind, regex: '^let$', pattern: $$KIND}}, {kind: variable_declaration, has: {regex: '^var$', pattern: $$KIND}}]}
+    valued: {any: [{has: {field: value, matches: built, pattern: $VALUE}, all: [{has: {regex: '^=$', pattern: $$ASSIGN}}]}, {has: {regex: '^=$', pattern: $$ELIDED}}, {kind: variable_declarator}]}
     exported: {all: [{any: [{inside: {kind: export_statement, stopBy: {not: {kind: 'lexical_declaration, variable_declaration, using_declaration, variable_declarator, object_pattern, array_pattern, pair_pattern, rest_pattern, assignment_pattern, object_assignment_pattern, ambient_declaration'}}}}, {inside: {kind: statement_block, stopBy: end, inside: {kind: ambient_declaration, stopBy: end}}}, {matches: listed}]}, {not: {inside: {kind: 'internal_module, module', stopBy: end, not: {matches: open}}}}]}
 rule:
     any:
@@ -500,10 +828,6 @@ rule:
             - inside: {kind: variable_declarator, field: name, stopBy: {not: {kind: 'object_pattern, array_pattern, pair_pattern, rest_pattern, assignment_pattern, object_assignment_pattern'}}, inside: {matches: declaration}}
             - not: {inside: {kind: 'assignment_pattern, object_assignment_pattern', field: right}}
 rewriters:
-    - {id: arguments, rule: {kind: arguments, has: {pattern: $_}}, fix: (…)}
-    - {id: object, rule: {kind: object, has: {pattern: $_}}, fix: '{…}'}
-    - {id: array, rule: {kind: array, has: {pattern: $_}}, fix: '[…]'}
-    - {id: template, rule: {kind: template_string}, fix: '`…`'}
     - id: lineage
       rule:
         kind: identifier, nested_identifier, string
@@ -516,18 +840,23 @@ rewriters:
         ABOVE: {rewrite: {source: $UP, rewriters: [lineage]}}
       fix: $ABOVE$LEVEL.
     - {id: comment, rule: {kind: comment}, fix: ''}
+    - {id: object, rule: {kind: object, has: {pattern: $_}}, fix: '{…}'}
+    - {id: arguments, rule: {kind: arguments, has: {pattern: $_}}, fix: (…)}
+    - {id: array, rule: {kind: array, has: {pattern: $_}}, fix: '[…]'}
+    - {id: template, rule: {kind: template_string}, fix: '`…`'}
 transform:
     QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage]}}
-    PREFIX: {replace: {source: $KIND, replace: $, by: ' '}}
-    TYPED: {rewrite: {source: $TYPE, rewriters: [comment]}}
     LINE: {replace: {source: $TYPED, replace: '[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*', by: ' '}}
-    SHAPE: {replace: {source: $LINE, replace: ', *( \})|,? ([)\]])|, (>)|([(\[<]) |[ ;]+$|( ) +', by: $1$2$3$4$5}}
+    TYPED: {rewrite: {source: $TYPE, rewriters: [comment]}}
+    PREFIX: {replace: {source: $KIND, replace: $, by: ' '}}
+    SHAPE: {replace: {source: $LINE, replace: '[,;] *( \})|,? ([)\]])|, (>)|([(\[<]) |[ ;]+$|( ) +', by: $1$2$3$4$5}}
     ASSIGNED: {replace: {source: $ASSIGN, replace: '^', by: ' '}}
     VALUED: {rewrite: {source: $VALUE, rewriters: [arguments, object, array, template]}}
     VALUELINE: {replace: {source: $VALUED, replace: '[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*', by: ''}}
     INIT: {replace: {source: $VALUELINE, replace: '.+', by: ' $0'}}
+    OMITTED: {replace: {source: $ELIDED, replace: '(?s).+', by: ' = …'}}
 name: $QUALIFIER$NAME
-signature: $PREFIX$NAME$SHAPE$ASSIGNED$INIT
+signature: $PREFIX$NAME$SHAPE$ASSIGNED$INIT$OMITTED
 isExported: {matches: exported}
 ---
 id: typescript-assignment
@@ -552,12 +881,21 @@ rule:
             - has: {regex: '^module$', pattern: $$MODULE}
             - has: {kind: property_identifier, pattern: $PROPERTY}
 rewriters:
-    - {id: arguments, rule: {kind: arguments, has: {pattern: $_}}, fix: (…)}
+    - {id: comment, rule: {kind: comment}, fix: ''}
     - {id: object, rule: {kind: object, has: {pattern: $_}}, fix: '{…}'}
+    - {id: shape, rule: {kind: object_type, regex: "\n"}, fix: '{…}'}
+    - id: initializer
+      rule: {kind: 'required_parameter, optional_parameter', all: [{has: {field: value, regex: ''}}, {has: {field: pattern, pattern: $BOUND}}, {any: [{has: {kind: accessibility_modifier, pattern: $PACCESS}}, {regex: ''}]}, {any: [{has: {kind: override_modifier, pattern: $POVERRIDE}}, {regex: ''}]}, {any: [{has: {regex: '^readonly$', pattern: $$PREADONLY}}, {regex: ''}]}, {any: [{has: {field: type, pattern: $PTYPE}}, {regex: ''}]}]}
+      transform:
+        PACCESSED: {replace: {source: $PACCESS, replace: $, by: ' '}}
+        POVERRIDDEN: {replace: {source: $POVERRIDE, replace: $, by: ' '}}
+        PREAD: {replace: {source: $PREADONLY, replace: $, by: ' '}}
+        SHAPED: {rewrite: {source: $BOUND, rewriters: [nested, comment]}}
+      fix: $PACCESSED$POVERRIDDEN$PREAD$SHAPED$PTYPE = …
+    - {id: nested, rule: {kind: 'assignment_pattern, object_assignment_pattern', has: {field: left, pattern: $LEFT}}, transform: {LEFTED: {rewrite: {source: $LEFT, rewriters: [nested]}}}, fix: '$LEFTED = …'}
+    - {id: arguments, rule: {kind: arguments, has: {pattern: $_}}, fix: (…)}
     - {id: array, rule: {kind: array, has: {pattern: $_}}, fix: '[…]'}
     - {id: template, rule: {kind: template_string}, fix: '`…`'}
-    - {id: shape, rule: {kind: object_type, regex: "\n"}, fix: '{…}'}
-    - {id: initializer, rule: {regex: '^=$', inside: {kind: 'required_parameter, optional_parameter, object_assignment_pattern, assignment_pattern'}}, fix: {template: '= …', expandEnd: {regex: ''}}}
     - id: arrow
       rule:
         kind: arrow_function
@@ -568,21 +906,20 @@ rewriters:
             - any: [{has: {field: return_type, pattern: $RETURN}}, {kind: arrow_function}]
       transform:
         MODIFIER: {replace: {source: $ASYNC, replace: $, by: ' '}}
-        SHAPED: {rewrite: {source: $PARAMETERS, rewriters: [initializer, shape]}}
-        RESULT: {rewrite: {source: $RETURN, rewriters: [shape]}}
+        SHAPED: {rewrite: {source: $PARAMETERS, rewriters: [initializer, nested, comment]}}
+        RESULT: {rewrite: {source: $RETURN, rewriters: [comment]}}
       fix: $MODIFIER$GENERICS$SHAPED$RESULT => …
     - {id: body, rule: {kind: 'statement_block, class_body', inside: {kind: 'function_expression, generator_function, class', field: body}}, fix: '{…}'}
-    - {id: comment, rule: {kind: comment}, fix: ''}
 transform:
+    LINE: {replace: {source: $HEADER, replace: '[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*', by: ' '}}
+    SIGNATURE: {replace: {source: $LINE, replace: '[,;] *( \})|,? ([)\]])|, (>)|([(\[<]) |[ ;]+$|( ) +', by: $1$2$3$4$5}}
+    ASSIGNED: {replace: {source: $ASSIGN, replace: '^', by: ' '}}
+    VALUELINE: {replace: {source: $VALUED, replace: '[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*', by: ''}}
+    INIT: {replace: {source: $VALUELINE, replace: '.+', by: ' $0'}}
     OWNER: {replace: {source: $MODULE, replace: $, by: .}}
     LABEL: {replace: {source: $NAME, replace: '[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*', by: ' '}}
     HEADER: {rewrite: {source: $DECLARATION, rewriters: [shape, comment]}}
-    LINE: {replace: {source: $HEADER, replace: '[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: ', *( \})|,? ([)\]])|, (>)|([(\[<]) |[ ;]+$|( ) +', by: $1$2$3$4$5}}
-    ASSIGNED: {replace: {source: $ASSIGN, replace: '^', by: ' '}}
     VALUED: {rewrite: {source: $VALUE, rewriters: [arrow, body, arguments, object, array, template]}}
-    VALUELINE: {replace: {source: $VALUED, replace: '[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*', by: ''}}
-    INIT: {replace: {source: $VALUELINE, replace: '.+', by: ' $0'}}
 name: $LABEL$OWNER$PROPERTY
 signature: $LABEL$SIGNATURE$ASSIGNED$INIT
 isExported:
@@ -607,6 +944,7 @@ utils:
             - {kind: member_expression, not: {regex: "\n"}, pattern: $CALLEE, has: {field: property, matches: run}}
             - {kind: member_expression, has: {field: property, matches: run, pattern: $CALLEE}}
 rule:
+    not: {has: {stopBy: end, any: [{kind: ERROR}, {regex: '^$'}]}}
     kind: ':is(program, ERROR) > expression_statement'
     has:
         stopBy: {not: {kind: 'await_expression, unary_expression, parenthesized_expression, call_expression, member_expression, arguments'}}
@@ -620,22 +958,38 @@ language: tsxlang
 role: item
 symbolType: function
 utils:
+    first: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}}
     suite: {any: [{kind: identifier, regex: '^(?:describe|describeWrapped|suite|test|it|layer)$'}, {kind: 'member_expression', has: {field: object, matches: suite}}, {kind: call_expression, has: {field: function, matches: suite}}]}
 rule:
     kind: ':is(program, ERROR) > expression_statement > call_expression'
-    pattern: $DECLARATION
     all:
-        - has: {field: function, matches: suite}
-        - has: {field: arguments, has: {nthChild: 1, pattern: $FIRST}}
+        - has: {field: function, matches: suite, pattern: $ANCHOR}
+        - has: {field: arguments, has: {matches: first, pattern: $FIRST}}
 rewriters:
-    - {id: titled, rule: {kind: arguments, has: {nthChild: 1, pattern: $FIRST}, inside: {kind: call_expression, field: arguments, inside: {kind: expression_statement}}}, fix: ($FIRST)}
+    - {id: comment, rule: {kind: comment}, fix: ''}
     - {id: arguments, rule: {kind: arguments, inside: {kind: call_expression, field: arguments}, has: {pattern: $_}}, fix: (…)}
+    - id: suited
+      rule: {kind: 'identifier, member_expression, call_expression', pattern: $SELF, inside: {kind: call_expression, field: function, has: {field: arguments, has: {matches: first, pattern: $TITLED}}}}
+      transform: {CALLED: {rewrite: {source: $SELF, rewriters: [arguments, comment]}}}
+      fix: $CALLED($TITLED)
 transform:
-    TITLE: {replace: {source: $FIRST, replace: '\n(?s:.*)', by: …}}
-    LABEL: {replace: {source: $TITLE, replace: '^[''"`](.*)[''"`]$', by: $1}}
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [titled, arguments]}}
     LINE: {replace: {source: $HEADER, replace: '[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: ', *( \})|,? ([)\]])|, (>)|([(\[<]) |[ ;]+$|( ) +', by: $1$2$3$4$5}}
+    SIGNATURE: {replace: {source: $LINE, replace: '[,;] *( \})|,? ([)\]])|, (>)|([(\[<]) |[ ;]+$|( ) +', by: $1$2$3$4$5}}
+    LABEL: {replace: {source: $TITLE, replace: '^[''"`](.*)[''"`]$', by: $1}}
+    TITLE: {replace: {source: $FIRST, replace: '\n(?s:.*)', by: …}}
+    HEADER: {rewrite: {source: $ANCHOR, rewriters: [suited]}}
+name: $LABEL
+signature: $SIGNATURE
+isExported: false
+---
+id: typescript-section
+language: tsxlang
+role: item
+symbolType: namespace
+rule: {kind: comment, regex: '^// --- \[[0-9A-Z_]+\](?: -+)?$', pattern: $DIVIDER, not: {inside: {kind: ERROR}}}
+transform:
+    LABEL: {replace: {source: $DIVIDER, replace: '^// --- \[([0-9A-Z_]+)\].*', by: '${1}'}}
+    SIGNATURE: {replace: {source: $DIVIDER, replace: ' -+$', by: ' ---'}}
 name: $LABEL
 signature: $SIGNATURE
 isExported: false
@@ -646,8 +1000,9 @@ role: item
 symbolType: 'null'
 rule:
     any:
-        - {kind: ERROR, not: {has: {stopBy: end, kind: 'import_statement, import_alias, export_statement, expression_statement, internal_module, module, ambient_declaration, class_declaration, abstract_class_declaration, lexical_declaration, variable_declaration, using_declaration, variable_declarator, function_declaration, generator_function_declaration, function_signature, interface_declaration, type_alias_declaration, enum_declaration'}}}
+        - {kind: ERROR, any: [{not: {has: {kind: 'identifier, comment'}}}, {not: {has: {stopBy: end, kind: 'import_statement, import_alias, export_statement, expression_statement, internal_module, module, ambient_declaration, class_declaration, abstract_class_declaration, lexical_declaration, variable_declaration, using_declaration, variable_declarator, function_declaration, generator_function_declaration, function_signature, interface_declaration, type_alias_declaration, enum_declaration'}}}]}
         - {kind: 'identifier, comment', all: [{inside: {kind: ERROR}}, {not: {follows: {kind: 'identifier, comment', stopBy: end}}}, {nthChild: {position: 1, ofRule: {kind: 'identifier, comment'}}}]}
+        - {regex: '^$', any: [{kind: 'identifier, property_identifier, type_identifier'}, {pattern: ')'}, {pattern: '}'}, {pattern: ']'}, {pattern: '>'}, {pattern: '!'}, {pattern: '/'}, {pattern: ';'}, {pattern: ':'}, {pattern: '=>'}, {pattern: '('}, {pattern: '{'}, {pattern: '='}], not: {inside: {kind: ERROR, stopBy: end}}}
 name: ERROR
 signature: ''
 isImport: false
@@ -656,17 +1011,25 @@ isExported: false
 id: typescript-member-function
 language: tsxlang
 role: member
-parentRuleIds: [typescript-function, typescript-suite]
+parentRuleIds: [typescript-function-owner, typescript-suite]
 symbolType: function
 utils:
+    first: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}}
+    parts:
+        all:
+            - any: [{has: {regex: '^async$', pattern: $$ASYNC}}, {regex: ''}]
+            - any: [{has: {regex: '^\*$', pattern: $$STAR}}, {regex: ''}]
+            - any: [{has: {field: type_parameters, pattern: $GENERICS}}, {regex: ''}]
+            - any: [{has: {field: parameters, pattern: $PARAMETERS}}, {has: {field: parameter, pattern: $PARAMETERS}}]
+            - any: [{has: {field: return_type, pattern: $RETURN}}, {regex: ''}]
+    suite-owner: {inside: {kind: expression_statement, inside: {kind: statement_block, inside: {kind: 'arrow_function, function_expression', inside: {kind: arguments, inside: {kind: call_expression, all: [{inside: {kind: expression_statement, inside: {kind: statement_block}}}, {has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, not: {regex: "\n"}, pattern: $SUITE}}}]}}}}}}
     suite: {any: [{kind: identifier, regex: '^(?:describe|describeWrapped|suite|layer)$'}, {kind: member_expression, has: {field: object, matches: suite}}, {kind: call_expression, has: {field: function, matches: suite}}]}
-    suite-owner: {inside: {kind: expression_statement, inside: {kind: statement_block, inside: {kind: 'arrow_function, function_expression', inside: {kind: arguments, inside: {kind: call_expression, all: [{inside: {kind: expression_statement, inside: {kind: statement_block}}}, {has: {field: arguments, has: {nthChild: 1, not: {regex: "\n"}, pattern: $SUITE}}}]}}}}}}
-    up: {inside: {kind: expression_statement, inside: {kind: statement_block, inside: {kind: 'arrow_function, function_expression', inside: {kind: arguments, inside: {kind: call_expression, all: [{inside: {kind: expression_statement, inside: {kind: statement_block}}}, {has: {field: arguments, has: {nthChild: 1, not: {regex: "\n"}, pattern: $UP}}}]}}}}}}
+    up: {inside: {kind: expression_statement, inside: {kind: statement_block, inside: {kind: 'arrow_function, function_expression', inside: {kind: arguments, inside: {kind: call_expression, all: [{inside: {kind: expression_statement, inside: {kind: statement_block}}}, {has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, not: {regex: "\n"}, pattern: $UP}}}]}}}}}}
 rule:
+    not: {has: {stopBy: end, any: [{kind: ERROR}, {regex: '^$'}]}}
     any:
         - kind: function_declaration, generator_function_declaration, function_signature
-          pattern: $DECLARATION
-          has: {field: name, pattern: $NAME}
+          has: {field: name, pattern: $NAME, all: [{pattern: $ANCHOR}]}
           inside:
             kind: statement_block
             inside:
@@ -674,117 +1037,168 @@ rule:
                 not: {inside: {kind: statement_block, stopBy: end, not: {inside: {kind: 'internal_module, module, ambient_declaration'}}}}
         - kind: identifier, member_expression, call_expression
           matches: suite
+          pattern: $ANCHOR
           inside:
             kind: 'arguments > :is(arrow_function, function_expression) > statement_block > expression_statement > call_expression'
             field: function
-            pattern: $DECLARATION
-            has: {field: arguments, has: {nthChild: 1, pattern: $FIRST}}
+            has: {field: arguments, has: {matches: first, pattern: $FIRST}}
             any: [{matches: suite-owner}, {kind: call_expression}]
 rewriters:
+    - {id: comment, rule: {kind: comment}, fix: ''}
+    - id: declared
+      rule: {kind: identifier, inside: {kind: 'function_declaration, generator_function_declaration, function_signature', field: name, matches: parts}}
+      transform:
+        MODIFIER: {replace: {source: $ASYNC, replace: $, by: ' '}}
+        ARGUMENTS: {rewrite: {source: $PARAMETERS, rewriters: [initializer, nested, comment]}}
+        RESULT: {rewrite: {source: $RETURN, rewriters: [comment]}}
+      fix: $MODIFIERfunction$STAR $NAME$GENERICS$ARGUMENTS$RESULT
+    - id: initializer
+      rule: {kind: 'required_parameter, optional_parameter', all: [{has: {field: value, regex: ''}}, {has: {field: pattern, pattern: $BOUND}}, {any: [{has: {kind: accessibility_modifier, pattern: $PACCESS}}, {regex: ''}]}, {any: [{has: {kind: override_modifier, pattern: $POVERRIDE}}, {regex: ''}]}, {any: [{has: {regex: '^readonly$', pattern: $$PREADONLY}}, {regex: ''}]}, {any: [{has: {field: type, pattern: $PTYPE}}, {regex: ''}]}]}
+      transform:
+        PACCESSED: {replace: {source: $PACCESS, replace: $, by: ' '}}
+        POVERRIDDEN: {replace: {source: $POVERRIDE, replace: $, by: ' '}}
+        PREAD: {replace: {source: $PREADONLY, replace: $, by: ' '}}
+        SHAPED: {rewrite: {source: $BOUND, rewriters: [nested, comment]}}
+      fix: $PACCESSED$POVERRIDDEN$PREAD$SHAPED$PTYPE = …
+    - {id: nested, rule: {kind: 'assignment_pattern, object_assignment_pattern', has: {field: left, pattern: $LEFT}}, transform: {LEFTED: {rewrite: {source: $LEFT, rewriters: [nested]}}}, fix: '$LEFTED = …'}
+    - {id: arguments, rule: {kind: arguments, inside: {kind: call_expression, field: arguments}, has: {pattern: $_}}, fix: (…)}
+    - id: suited
+      rule: {kind: 'identifier, member_expression, call_expression', pattern: $SELF, inside: {kind: call_expression, field: function, has: {field: arguments, has: {matches: first, pattern: $TITLED}}}}
+      transform: {CALLED: {rewrite: {source: $SELF, rewriters: [arguments, comment]}}}
+      fix: $CALLED($TITLED)
     - id: lineage
       rule:
-        nthChild: 1
+        kind: string, template_string, identifier, member_expression
+        matches: first
         pattern: $LEVEL
         inside: {kind: arguments, any: [{inside: {kind: call_expression, matches: up}}, {kind: arguments}]}
       transform:
         ABOVE: {rewrite: {source: $UP, rewriters: [lineage]}}
         STEP: {replace: {source: $LEVEL, replace: '^[''"`]?(.*?)[''"`]?$', by: $1.}}
       fix: $ABOVE$STEP
-    - {id: body, rule: {kind: statement_block, inside: {kind: 'function_declaration, generator_function_declaration', field: body}}, fix: ''}
-    - {id: shape, rule: {kind: object_type, regex: "\n"}, fix: '{…}'}
-    - {id: initializer, rule: {regex: '^=$', inside: {kind: 'required_parameter, optional_parameter, object_assignment_pattern, assignment_pattern'}}, fix: {template: '= …', expandEnd: {regex: ''}}}
-    - {id: titled, rule: {kind: arguments, has: {nthChild: 1, pattern: $FIRST}, inside: {kind: call_expression, field: arguments, inside: {kind: expression_statement}}}, fix: ($FIRST)}
-    - {id: arguments, rule: {kind: arguments, inside: {kind: call_expression, field: arguments}, has: {pattern: $_}}, fix: (…)}
-    - {id: comment, rule: {kind: comment}, fix: ''}
 transform:
-    CONTEXT: {rewrite: {source: $SUITE, rewriters: [lineage]}}
-    TITLE: {replace: {source: $FIRST, replace: '\n(?s:.*)', by: …}}
-    LABEL: {replace: {source: $TITLE, replace: '^[''"`](.*)[''"`]$', by: $1}}
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, shape, initializer, titled, arguments, comment]}}
     LINE: {replace: {source: $HEADER, replace: '[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: ', *( \})|,? ([)\]])|, (>)|([(\[<]) |[ ;]+$|( ) +', by: $1$2$3$4$5}}
+    SIGNATURE: {replace: {source: $LINE, replace: '[,;] *( \})|,? ([)\]])|, (>)|([(\[<]) |[ ;]+$|( ) +', by: $1$2$3$4$5}}
+    LABEL: {replace: {source: $TITLE, replace: '^[''"`](.*)[''"`]$', by: $1}}
+    TITLE: {replace: {source: $FIRST, replace: '\n(?s:.*)', by: …}}
+    CONTEXT: {rewrite: {source: $SUITE, rewriters: [lineage]}}
+    HEADER: {rewrite: {source: $ANCHOR, rewriters: [declared, suited]}}
 name: $CONTEXT$NAME$LABEL
 signature: $SIGNATURE
 ---
 id: typescript-member-class
 language: tsxlang
 role: member
-parentRuleIds: [typescript-function, typescript-suite]
+parentRuleIds: [typescript-function-owner, typescript-suite]
 symbolType: class
+utils:
+    first: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}}
+    form:
+        all:
+            - any: [{has: {field: decorator, matches: first, pattern: $FIRSTDECORATOR}}, {inside: {kind: export_statement, has: {field: decorator, matches: first, pattern: $FIRSTDECORATOR}}}, {regex: ''}]
+            - any: [{has: {regex: '^abstract$', pattern: $$ABSTRACT}}, {regex: ''}]
+            - any: [{has: {field: type_parameters, pattern: $GENERICS}}, {regex: ''}]
+            - any: [{has: {kind: class_heritage, pattern: $HERITAGE}}, {regex: ''}]
 rule:
     kind: type_identifier
     pattern: $NAME
-    inside: {kind: 'class_declaration, abstract_class_declaration', field: name, pattern: $DECLARATION}
+    inside: {kind: 'class_declaration, abstract_class_declaration', field: name}
 rewriters:
-    - {id: body, rule: {kind: class_body, inside: {kind: 'class_declaration, abstract_class_declaration', field: body}}, fix: ''}
+    - {id: comment, rule: {kind: comment}, fix: ''}
+    - {id: call, rule: {kind: arguments, regex: "\n", not: {has: {kind: object}}}, fix: (…)}
     - {id: object, rule: {kind: object, has: {kind: 'pair, spread_element, method_definition, shorthand_property_identifier'}}, fix: '{…}'}
     - {id: shape, rule: {kind: object_type, regex: "\n"}, fix: '{…}'}
-    - {id: call, rule: {kind: arguments, regex: "\n", not: {has: {kind: object}}}, fix: (…)}
-    - {id: comment, rule: {kind: comment}, fix: ''}
+    - id: decorators
+      rule: {kind: decorator, pattern: $DECORATOR, any: [{precedes: {kind: decorator, pattern: $NEXT}}, {regex: ''}]}
+      transform:
+        ONE: {rewrite: {source: $DECORATOR, rewriters: [call, comment]}}
+        REST: {rewrite: {source: $NEXT, rewriters: [decorators]}}
+      fix: $ONE $REST
+    - id: declared
+      rule: {kind: type_identifier, inside: {kind: 'class_declaration, abstract_class_declaration', field: name, matches: form}}
+      transform:
+        DECORATED: {rewrite: {source: $FIRSTDECORATOR, rewriters: [decorators]}}
+        ABSTRACTED: {replace: {source: $ABSTRACT, replace: $, by: ' '}}
+        EXTENDED: {rewrite: {source: $HERITAGE, rewriters: [object, shape, call, comment]}}
+      fix: $DECORATED$ABSTRACTEDclass $NAME$GENERICS $EXTENDED
 transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, object, shape, call, comment]}}
+    HEADER: {rewrite: {source: $NAME, rewriters: [declared]}}
     LINE: {replace: {source: $HEADER, replace: '[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: ', *( \})|,? ([)\]])|, (>)|([(\[<]) |[ ;]+$|( ) +', by: $1$2$3$4$5}}
+    SIGNATURE: {replace: {source: $LINE, replace: '[,;] *( \})|,? ([)\]])|, (>)|([(\[<]) |[ ;]+$|( ) +', by: $1$2$3$4$5}}
 name: $NAME
 signature: $SIGNATURE
 ---
 id: typescript-member-method
 language: tsxlang
 role: member
-parentRuleIds: [typescript-class, typescript-interface, typescript-type, typescript-constant, typescript-variable, typescript-assignment, typescript-export, typescript-function, typescript-suite]
+parentRuleIds: [typescript-class, typescript-interface, typescript-type, typescript-constant, typescript-variable, typescript-assignment, typescript-export, typescript-function-owner, typescript-suite]
 symbolType: method
 utils:
+    first: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}}
+    typed: {any: [{has: {field: type, pattern: $TYPE}}, {regex: ''}]}
+    fn: {regex: '^fn(?:Untraced(?:Eager)?)?$'}
+    effect-function: {any: [{kind: identifier, matches: fn}, {kind: member_expression, has: {field: property, matches: fn}}]}
+    parts:
+        all:
+            - any: [{has: {regex: '^async$', pattern: $$ASYNC}}, {regex: ''}]
+            - any: [{has: {regex: '^\*$', pattern: $$STAR}}, {regex: ''}]
+            - any: [{has: {field: type_parameters, pattern: $GENERICS}}, {regex: ''}]
+            - any: [{has: {field: parameters, pattern: $PARAMETERS}}, {has: {field: parameter, pattern: $PARAMETERS}}]
+            - any: [{has: {field: return_type, pattern: $RETURN}}, {regex: ''}]
+    after: {any: [{has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}, pattern: $SECOND}}, {regex: ''}]}
+    later: {all: [{any: [{has: {nthChild: {position: 3, ofRule: {not: {kind: comment}}}, pattern: $THIRD}}, {regex: ''}]}, {any: [{has: {nthChild: {position: 4, ofRule: {not: {kind: comment}}}, pattern: $FOURTH}}, {regex: ''}]}, {any: [{has: {nthChild: {position: 5, ofRule: {not: {kind: comment}}}, pattern: $FIFTH}}, {regex: ''}]}]}
+    called: {kind: call_expression, all: [{has: {field: function, pattern: $CALLEE}}, {has: {field: arguments, all: [{matches: after}, {matches: later}]}}]}
     owned-value: {any: [{inside: {kind: 'variable_declarator, export_statement, extends_clause, public_field_definition, pair', field: value, stopBy: {not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression, type_assertion'}}}}, {inside: {kind: assignment_expression, field: right, stopBy: {not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression, type_assertion'}}}}, {inside: {kind: export_statement, has: {regex: '^=$'}, stopBy: {not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression, type_assertion'}}}}]}
     chained: {kind: call_expression, any: [{matches: owned-value}, {inside: {kind: member_expression, field: object, inside: {kind: call_expression, field: function, matches: chained}}}]}
     chain-root: {kind: call_expression, not: {has: {field: function, kind: member_expression, any: [{has: {field: object, kind: call_expression}}, {has: {field: property, regex: '^(?:annotate|annotateKey|check|pipe|rebuild)$'}}]}}, matches: chained}
     owned-object: {kind: object, any: [{matches: owned-value}, {inside: {kind: arguments, inside: {matches: chain-root}}}], not: {inside: {kind: statement_block, stopBy: end, not: {inside: {kind: 'internal_module, module, ambient_declaration'}}}}}
+    suite-owner: {inside: {kind: expression_statement, inside: {kind: statement_block, inside: {kind: 'arrow_function, function_expression', inside: {kind: arguments, inside: {kind: call_expression, all: [{inside: {kind: expression_statement, inside: {kind: statement_block}}}, {has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, not: {regex: "\n"}, pattern: $SUITE}}}]}}}}}}
+    up: {any: [{kind: object_type, inside: {kind: union_type}, has: {kind: property_signature, has: {field: type, has: {kind: literal_type, pattern: $UP}}}}, {kind: object, inside: {kind: arguments, has: {kind: string, matches: first, pattern: $UP}, inside: {kind: call_expression, inside: {kind: arguments}}}}, {inside: {kind: arguments, inside: {kind: call_expression, all: [{matches: chain-root}, {matches: up-chain}]}}}, {inside: {kind: 'pair, public_field_definition', field: value, stopBy: {not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression, type_assertion'}}, any: [{has: {field: key, pattern: $UP}}, {has: {field: name, pattern: $UP}}]}}, {inside: {kind: type_annotation, inside: {kind: property_signature, has: {field: name, pattern: $UP}}}}, {kind: class_body, inside: {any: [{kind: class, matches: up}, {kind: 'class_declaration, abstract_class_declaration', has: {field: name, pattern: $UP}, inside: {kind: statement_block, not: {inside: {kind: 'internal_module, module, ambient_declaration'}}}}]}}]}
     role: {any: [{kind: member_expression, has: {field: object, regex: '^(?:Context|Data)$'}}, {kind: call_expression, has: {field: function, matches: role}}]}
     type-body: {any: [{kind: interface_body}, {kind: object_type, any: [{inside: {kind: type_alias_declaration, field: value, stopBy: {not: {kind: 'union_type, intersection_type, parenthesized_type'}}}}, {inside: {kind: ambient_declaration}}, {inside: {kind: type_annotation, inside: {kind: property_signature, inside: {matches: type-body}}}}, {inside: {kind: type_arguments, any: [{inside: {kind: extends_clause, field: type_arguments, has: {field: value, matches: role}}}, {inside: {kind: call_expression, field: type_arguments, has: {field: function, matches: role}, inside: {kind: extends_clause, stopBy: {not: {kind: call_expression}}}}}]}}]}]}
     nested-chain: {any: [{inside: {kind: 'pair, public_field_definition', field: value, stopBy: {not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression, type_assertion'}}, any: [{has: {field: key, pattern: $OWNER}}, {has: {field: name, pattern: $OWNER}}]}}, {inside: {kind: member_expression, field: object, inside: {kind: call_expression, field: function, matches: nested-chain}}}]}
-    nested: {any: [{inside: {kind: arguments, inside: {kind: call_expression, all: [{matches: chain-root}, {matches: nested-chain}]}}}, {inside: {kind: 'pair, public_field_definition', field: value, stopBy: {not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression, type_assertion'}}, any: [{has: {field: key, pattern: $OWNER}}, {has: {field: name, pattern: $OWNER}}]}}, {inside: {kind: type_annotation, inside: {kind: property_signature, has: {field: name, pattern: $OWNER}}}}, {kind: class_body, inside: {any: [{kind: class, matches: nested}, {kind: 'class_declaration, abstract_class_declaration', has: {field: name, pattern: $OWNER}, inside: {kind: statement_block, not: {inside: {kind: 'internal_module, module, ambient_declaration'}}}}]}}]}
+    nested: {any: [{kind: object_type, inside: {kind: union_type}, has: {kind: property_signature, has: {field: type, has: {kind: literal_type, pattern: $OWNER}}}}, {kind: object, inside: {kind: arguments, has: {kind: string, matches: first, pattern: $OWNER}, inside: {kind: call_expression, inside: {kind: arguments}}}}, {inside: {kind: arguments, inside: {kind: call_expression, all: [{matches: chain-root}, {matches: nested-chain}]}}}, {inside: {kind: 'pair, public_field_definition', field: value, stopBy: {not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression, type_assertion'}}, any: [{has: {field: key, pattern: $OWNER}}, {has: {field: name, pattern: $OWNER}}]}}, {inside: {kind: type_annotation, inside: {kind: property_signature, has: {field: name, pattern: $OWNER}}}}, {kind: class_body, inside: {any: [{kind: class, matches: nested}, {kind: 'class_declaration, abstract_class_declaration', has: {field: name, pattern: $OWNER}, inside: {kind: statement_block, not: {inside: {kind: 'internal_module, module, ambient_declaration'}}}}]}}]}
     up-chain: {any: [{inside: {kind: 'pair, public_field_definition', field: value, stopBy: {not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression, type_assertion'}}, any: [{has: {field: key, pattern: $UP}}, {has: {field: name, pattern: $UP}}]}}, {inside: {kind: member_expression, field: object, inside: {kind: call_expression, field: function, matches: up-chain}}}]}
-    up: {any: [{inside: {kind: arguments, inside: {kind: call_expression, all: [{matches: chain-root}, {matches: up-chain}]}}}, {inside: {kind: 'pair, public_field_definition', field: value, stopBy: {not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression, type_assertion'}}, any: [{has: {field: key, pattern: $UP}}, {has: {field: name, pattern: $UP}}]}}, {inside: {kind: type_annotation, inside: {kind: property_signature, has: {field: name, pattern: $UP}}}}, {kind: class_body, inside: {any: [{kind: class, matches: up}, {kind: 'class_declaration, abstract_class_declaration', has: {field: name, pattern: $UP}, inside: {kind: statement_block, not: {inside: {kind: 'internal_module, module, ambient_declaration'}}}}]}}]}
+    modifiers:
+        all:
+            - any: [{has: {field: decorator, matches: first, pattern: $FIRSTDECORATOR}}, {regex: ''}]
+            - any: [{has: {kind: accessibility_modifier, pattern: $ACCESS}}, {regex: ''}]
+            - any: [{has: {regex: '^static$', pattern: $$STATIC}}, {regex: ''}]
+            - any: [{has: {regex: '^abstract$', pattern: $$ABSTRACT}}, {regex: ''}]
+            - any: [{has: {kind: override_modifier, pattern: $OVERRIDE}}, {regex: ''}]
+            - any: [{has: {regex: '^readonly$', pattern: $$READONLY}}, {regex: ''}]
+            - any: [{has: {regex: '^declare$', pattern: $$DECLARE}}, {regex: ''}]
+            - any: [{has: {regex: '^accessor$', pattern: $$ACCESSOR}}, {regex: ''}]
+            - any: [{has: {regex: '^[?!]$', pattern: $$MARK}}, {regex: ''}]
     scope: {all: [{any: [{kind: class_body}, {matches: type-body}, {matches: owned-object}]}, {any: [{matches: nested}, {kind: 'class_body, interface_body, object_type, object'}]}]}
-    fn: {regex: '^fn(?:Untraced(?:Eager)?)?$'}
-    effect-function: {any: [{kind: identifier, matches: fn}, {kind: member_expression, has: {field: property, matches: fn}}]}
     value:
         any:
             - kind: arrow_function, function_expression, generator_function
             - kind: call_expression
               all:
                 - has: {field: function, any: [{matches: effect-function}, {kind: call_expression, has: {field: function, matches: effect-function}}]}
-                - has: {field: arguments, has: {nthChild: 1, kind: 'arrow_function, function_expression, generator_function, identifier, member_expression, call_expression'}}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, kind: 'arrow_function, function_expression, generator_function, identifier, member_expression, call_expression'}}
             - {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression, type_assertion', has: {matches: value}}
-    bound: {any: [{has: {field: value, kind: arrow_function}, pattern: $LAMBDA}, {pattern: $DECLARATION}]}
-    case: {any: [{kind: identifier, regex: '^(?:test|it)$'}, {kind: identifier, pattern: $RUNNER, inside: {kind: 'arrow_function, function_expression', stopBy: end, any: [{has: {field: parameter, pattern: $RUNNER}}, {has: {field: parameters, has: {kind: required_parameter, nthChild: 1, has: {field: pattern, pattern: $RUNNER}}}}]}}, {kind: member_expression, has: {field: object, matches: case}}, {kind: call_expression, has: {field: function, matches: case}}]}
-    suite-owner: {inside: {kind: expression_statement, inside: {kind: statement_block, inside: {kind: 'arrow_function, function_expression', inside: {kind: arguments, inside: {kind: call_expression, all: [{inside: {kind: expression_statement, inside: {kind: statement_block}}}, {has: {field: arguments, has: {nthChild: 1, not: {regex: "\n"}, pattern: $SUITE}}}]}}}}}}
-    suite-up: {inside: {kind: expression_statement, inside: {kind: statement_block, inside: {kind: 'arrow_function, function_expression', inside: {kind: arguments, inside: {kind: call_expression, all: [{inside: {kind: expression_statement, inside: {kind: statement_block}}}, {has: {field: arguments, has: {nthChild: 1, not: {regex: "\n"}, pattern: $ABOVE_SUITE}}}]}}}}}}
+    case: {any: [{kind: identifier, regex: '^(?:test|it)$'}, {kind: identifier, pattern: $RUNNER, inside: {kind: 'arrow_function, function_expression', stopBy: end, any: [{has: {field: parameter, pattern: $RUNNER}}, {has: {field: parameters, has: {kind: required_parameter, nthChild: {position: 1, ofRule: {not: {kind: comment}}}, has: {field: pattern, pattern: $RUNNER}}}}]}}, {kind: member_expression, has: {field: object, matches: case}}, {kind: call_expression, has: {field: function, matches: case}}]}
+    suite-up: {inside: {kind: expression_statement, inside: {kind: statement_block, inside: {kind: 'arrow_function, function_expression', inside: {kind: arguments, inside: {kind: call_expression, all: [{inside: {kind: expression_statement, inside: {kind: statement_block}}}, {has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, not: {regex: "\n"}, pattern: $ABOVE_SUITE}}}]}}}}}}
+    holder: {all: [{matches: modifiers}, {matches: typed}, {has: {regex: '^[:=]$', pattern: $$SEPARATOR}}]}
+    held: {any: [{inside: {kind: pair, field: key, matches: holder}}, {inside: {kind: public_field_definition, field: name, matches: holder}}]}
 rule:
+    not: {has: {stopBy: end, any: [{kind: ERROR}, {regex: '^$'}]}}
     any:
         - kind: method_definition, method_signature, abstract_method_signature
-          pattern: $DECLARATION
           inside: {matches: scope}
-          has: {field: name, pattern: $NAME, not: {follows: {regex: '^(?:get|set)$'}}}
+          has: {field: name, pattern: $NAME, all: [{pattern: $ANCHOR}], not: {follows: {regex: '^(?:get|set)$'}}}
           not: {all: [{inside: {kind: class_body}}, {has: {field: name, regex: '^constructor$'}}, {not: {has: {regex: '^static$'}}}]}
-        - {kind: call_signature, pattern: $DECLARATION, inside: {matches: scope}, has: {field: parameters, pattern: $CALL}}
-        - {kind: public_field_definition, inside: {matches: scope}, all: [{has: {field: name, pattern: $NAME}}, {has: {field: value, matches: value}}, {matches: bound}]}
-        - {kind: pair, inside: {matches: scope}, all: [{has: {field: key, pattern: $NAME}}, {has: {field: value, matches: value}}, {matches: bound}]}
+        - {kind: call_signature, pattern: $ANCHOR, inside: {matches: scope}, has: {field: parameters, pattern: $CALL}}
+        - {kind: public_field_definition, inside: {matches: scope}, all: [{has: {field: name, pattern: $NAME, all: [{pattern: $ANCHOR}]}}, {has: {field: value, matches: value}}]}
+        - {kind: pair, inside: {matches: scope}, all: [{has: {field: key, pattern: $NAME, all: [{pattern: $ANCHOR}]}}, {has: {field: value, matches: value}}]}
         - kind: 'arguments > :is(arrow_function, function_expression) > statement_block > expression_statement > call_expression'
-          pattern: $DECLARATION
           all:
-            - has: {field: function, matches: case}
-            - has: {field: arguments, has: {nthChild: 1, pattern: $FIRST}}
+            - has: {field: function, matches: case, pattern: $ANCHOR}
+            - has: {field: arguments, has: {matches: first, pattern: $FIRST}}
             - any: [{matches: suite-owner}, {kind: call_expression}]
 rewriters:
-    - id: suite-lineage
-      rule:
-        nthChild: 1
-        pattern: $LEVEL
-        inside: {kind: arguments, any: [{inside: {kind: call_expression, matches: suite-up}}, {kind: arguments}]}
-      transform:
-        ABOVE: {rewrite: {source: $ABOVE_SUITE, rewriters: [suite-lineage]}}
-        STEP: {replace: {source: $LEVEL, replace: '^[''"`]?(.*?)[''"`]?$', by: $1.}}
-      fix: $ABOVE$STEP
     - id: lineage
       rule:
         kind: property_identifier, private_property_identifier, string, number, computed_property_name, type_identifier
@@ -794,42 +1208,181 @@ rewriters:
             - inside: {kind: 'public_field_definition, property_signature, class_declaration, abstract_class_declaration', field: name, inside: {matches: up}}
             - kind: property_identifier, private_property_identifier, string, number, computed_property_name, type_identifier
       transform:
-        ABOVE: {rewrite: {source: $UP, rewriters: [lineage]}}
+        ABOVE: {rewrite: {source: $UP, rewriters: [keyed, lineage]}}
       fix: $ABOVE$LEVEL.
-    - {id: body, rule: {kind: statement_block, inside: {kind: method_definition, field: body}}, fix: ''}
-    - {id: expression, rule: {kind: statement_block, inside: {kind: 'function_expression, generator_function', field: body}}, fix: '{…}'}
-    - {id: shape, rule: {kind: 'object, object_type', regex: "\n"}, fix: '{…}'}
-    - {id: initializer, rule: {regex: '^=$', inside: {kind: 'required_parameter, optional_parameter, object_assignment_pattern, assignment_pattern'}}, fix: {template: '= …', expandEnd: {regex: ''}}}
-    - id: arrow
-      rule:
-        kind: arrow_function
-        all:
-            - any: [{has: {field: parameters, pattern: $PARAMETERS}}, {has: {field: parameter, pattern: $PARAMETERS}}]
-            - any: [{has: {regex: '^async$', pattern: $$ASYNC}}, {kind: arrow_function}]
-            - any: [{has: {field: type_parameters, pattern: $GENERICS}}, {kind: arrow_function}]
-            - any: [{has: {field: return_type, pattern: $RETURN}}, {kind: arrow_function}]
+    - {id: comment, rule: {kind: comment}, fix: ''}
+    - {id: call, rule: {kind: arguments, regex: "\n"}, fix: (…)}
+    - id: decorators
+      rule: {kind: decorator, pattern: $DECORATOR, any: [{precedes: {kind: decorator, pattern: $NEXT}}, {regex: ''}]}
+      transform:
+        ONE: {rewrite: {source: $DECORATOR, rewriters: [call, comment]}}
+        REST: {rewrite: {source: $NEXT, rewriters: [decorators]}}
+      fix: $ONE $REST
+    - id: initializer
+      rule: {kind: 'required_parameter, optional_parameter', all: [{has: {field: value, regex: ''}}, {has: {field: pattern, pattern: $BOUND}}, {any: [{has: {kind: accessibility_modifier, pattern: $PACCESS}}, {regex: ''}]}, {any: [{has: {kind: override_modifier, pattern: $POVERRIDE}}, {regex: ''}]}, {any: [{has: {regex: '^readonly$', pattern: $$PREADONLY}}, {regex: ''}]}, {any: [{has: {field: type, pattern: $PTYPE}}, {regex: ''}]}]}
+      transform:
+        PACCESSED: {replace: {source: $PACCESS, replace: $, by: ' '}}
+        POVERRIDDEN: {replace: {source: $POVERRIDE, replace: $, by: ' '}}
+        PREAD: {replace: {source: $PREADONLY, replace: $, by: ' '}}
+        SHAPED: {rewrite: {source: $BOUND, rewriters: [nested, comment]}}
+      fix: $PACCESSED$POVERRIDDEN$PREAD$SHAPED$PTYPE = …
+    - {id: nested, rule: {kind: 'assignment_pattern, object_assignment_pattern', has: {field: left, pattern: $LEFT}}, transform: {LEFTED: {rewrite: {source: $LEFT, rewriters: [nested]}}}, fix: '$LEFTED = …'}
+    - id: step
+      rule: {kind: arrow_function, matches: parts}
       transform:
         MODIFIER: {replace: {source: $ASYNC, replace: $, by: ' '}}
-        SHAPED: {rewrite: {source: $PARAMETERS, rewriters: [initializer, shape]}}
-        RESULT: {rewrite: {source: $RETURN, rewriters: [shape]}}
-      fix: $MODIFIER$GENERICS$SHAPED$RESULT => …
-    - {id: reference, rule: {kind: arguments, has: {nthChild: 1, kind: 'identifier, member_expression, call_expression'}, inside: {kind: call_expression, field: arguments, inside: {kind: 'public_field_definition, pair', field: value, stopBy: {not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression, type_assertion'}}}}}, fix: (…)}
-    - {id: titled, rule: {kind: arguments, has: {nthChild: 1, pattern: $FIRST}, inside: {kind: call_expression, field: arguments, inside: {kind: expression_statement}}}, fix: ($FIRST)}
+        ARGUMENTS: {rewrite: {source: $PARAMETERS, rewriters: [initializer, nested, comment]}}
+        RESULT: {rewrite: {source: $RETURN, rewriters: [comment]}}
+      fix: $MODIFIER$GENERICS$ARGUMENTS$RESULT => …
+    - {id: opened, rule: {kind: statement_block, inside: {kind: 'function_expression, generator_function', field: body}}, fix: '{…}'}
     - {id: arguments, rule: {kind: arguments, inside: {kind: call_expression, field: arguments}, has: {pattern: $_}}, fix: (…)}
-    - {id: call, rule: {kind: arguments, regex: "\n", not: {has: {kind: 'object, arrow_function, function_expression, generator_function'}}}, fix: (…)}
-    - {id: comment, rule: {kind: comment}, fix: ''}
+    - id: suited
+      rule: {kind: 'identifier, member_expression, call_expression', pattern: $SELF, inside: {kind: call_expression, field: function, has: {field: arguments, has: {matches: first, pattern: $TITLED}}}}
+      transform: {CALLED: {rewrite: {source: $SELF, rewriters: [arguments, comment]}}}
+      fix: $CALLED($TITLED)
+    - id: keyed
+      rule:
+        kind: literal_type, string
+        pattern: $LEVEL
+        any:
+            - {kind: literal_type, inside: {kind: type_annotation, inside: {kind: property_signature, inside: {kind: object_type, inside: {kind: union_type, any: [{inside: {kind: type_annotation, inside: {kind: property_signature, has: {field: name, pattern: $UP}}}}, {regex: ''}]}}}}}
+            - {kind: string, inside: {kind: arguments, inside: {kind: call_expression, any: [{matches: up-chain}, {regex: ''}]}}}
+      transform:
+        ABOVE: {rewrite: {source: $UP, rewriters: [keyed, lineage]}}
+        STEP: {replace: {source: $LEVEL, replace: '^[''"`](.*)[''"`]$', by: $1}}
+      fix: $ABOVE$STEP.
+    - id: suite-lineage
+      rule:
+        kind: string, template_string, identifier, member_expression
+        matches: first
+        pattern: $LEVEL
+        inside: {kind: arguments, any: [{inside: {kind: call_expression, matches: suite-up}}, {kind: arguments}]}
+      transform:
+        ABOVE: {rewrite: {source: $ABOVE_SUITE, rewriters: [suite-lineage]}}
+        STEP: {replace: {source: $LEVEL, replace: '^[''"`]?(.*?)[''"`]?$', by: $1.}}
+      fix: $ABOVE$STEP
+    - id: method
+      rule: {kind: 'property_identifier, private_property_identifier, string, number, computed_property_name', inside: {kind: 'method_definition, method_signature, abstract_method_signature', field: name, all: [{matches: modifiers}, {matches: parts}]}}
+      transform:
+        DECORATED: {rewrite: {source: $FIRSTDECORATOR, rewriters: [decorators]}}
+        ACCESSED: {replace: {source: $ACCESS, replace: $, by: ' '}}
+        STATICED: {replace: {source: $STATIC, replace: $, by: ' '}}
+        ABSTRACTED: {replace: {source: $ABSTRACT, replace: $, by: ' '}}
+        OVERRIDDEN: {replace: {source: $OVERRIDE, replace: $, by: ' '}}
+        MODIFIER: {replace: {source: $ASYNC, replace: $, by: ' '}}
+        ARGUMENTS: {rewrite: {source: $PARAMETERS, rewriters: [initializer, nested, comment]}}
+        RESULT: {rewrite: {source: $RETURN, rewriters: [comment]}}
+      fix: $DECORATED$ACCESSED$STATICED$ABSTRACTED$OVERRIDDEN$MODIFIER$STAR$NAME$MARK$GENERICS$ARGUMENTS$RESULT
+    - id: lambda
+      rule: {kind: 'property_identifier, private_property_identifier, string, number, computed_property_name', all: [{matches: held}, {inside: {kind: 'pair, public_field_definition', has: {field: value, kind: arrow_function, matches: parts}}}]}
+      transform:
+        DECORATED: {rewrite: {source: $FIRSTDECORATOR, rewriters: [decorators]}}
+        ACCESSED: {replace: {source: $ACCESS, replace: $, by: ' '}}
+        STATICED: {replace: {source: $STATIC, replace: $, by: ' '}}
+        ABSTRACTED: {replace: {source: $ABSTRACT, replace: $, by: ' '}}
+        OVERRIDDEN: {replace: {source: $OVERRIDE, replace: $, by: ' '}}
+        READ: {replace: {source: $READONLY, replace: $, by: ' '}}
+        DECLARED: {replace: {source: $DECLARE, replace: $, by: ' '}}
+        ACCESSORED: {replace: {source: $ACCESSOR, replace: $, by: ' '}}
+        GAPPED: {replace: {source: $SEPARATOR, replace: '^=$', by: ' ='}}
+        MODIFIER: {replace: {source: $ASYNC, replace: $, by: ' '}}
+        ARGUMENTS: {rewrite: {source: $PARAMETERS, rewriters: [initializer, nested, comment]}}
+        RESULT: {rewrite: {source: $RETURN, rewriters: [comment]}}
+      fix: $DECORATED$DECLARED$ACCESSED$STATICED$ABSTRACTED$OVERRIDDEN$READ$ACCESSORED$NAME$MARK$TYPE$GAPPED $MODIFIER$GENERICS$ARGUMENTS$RESULT => …
+    - id: expressed
+      rule: {kind: 'property_identifier, private_property_identifier, string, number, computed_property_name', all: [{matches: held}, {inside: {kind: 'pair, public_field_definition', has: {field: value, kind: 'function_expression, generator_function', matches: parts}}}]}
+      transform:
+        DECORATED: {rewrite: {source: $FIRSTDECORATOR, rewriters: [decorators]}}
+        ACCESSED: {replace: {source: $ACCESS, replace: $, by: ' '}}
+        STATICED: {replace: {source: $STATIC, replace: $, by: ' '}}
+        ABSTRACTED: {replace: {source: $ABSTRACT, replace: $, by: ' '}}
+        OVERRIDDEN: {replace: {source: $OVERRIDE, replace: $, by: ' '}}
+        READ: {replace: {source: $READONLY, replace: $, by: ' '}}
+        DECLARED: {replace: {source: $DECLARE, replace: $, by: ' '}}
+        ACCESSORED: {replace: {source: $ACCESSOR, replace: $, by: ' '}}
+        GAPPED: {replace: {source: $SEPARATOR, replace: '^=$', by: ' ='}}
+        MODIFIER: {replace: {source: $ASYNC, replace: $, by: ' '}}
+        ARGUMENTS: {rewrite: {source: $PARAMETERS, rewriters: [initializer, nested, comment]}}
+        RESULT: {rewrite: {source: $RETURN, rewriters: [comment]}}
+      fix: $DECORATED$DECLARED$ACCESSED$STATICED$ABSTRACTED$OVERRIDDEN$READ$ACCESSORED$NAME$MARK$TYPE$GAPPED $MODIFIERfunction$STAR $GENERICS$ARGUMENTS$RESULT {…}
+    - id: called-function
+      rule: {kind: 'property_identifier, private_property_identifier, string, number, computed_property_name', all: [{matches: held}, {inside: {kind: 'pair, public_field_definition', has: {field: value, matches: called, has: {field: arguments, has: {kind: 'function_expression, generator_function', all: [{matches: first}, {matches: parts}]}}}}}]}
+      transform:
+        DECORATED: {rewrite: {source: $FIRSTDECORATOR, rewriters: [decorators]}}
+        ACCESSED: {replace: {source: $ACCESS, replace: $, by: ' '}}
+        STATICED: {replace: {source: $STATIC, replace: $, by: ' '}}
+        ABSTRACTED: {replace: {source: $ABSTRACT, replace: $, by: ' '}}
+        OVERRIDDEN: {replace: {source: $OVERRIDE, replace: $, by: ' '}}
+        READ: {replace: {source: $READONLY, replace: $, by: ' '}}
+        DECLARED: {replace: {source: $DECLARE, replace: $, by: ' '}}
+        ACCESSORED: {replace: {source: $ACCESSOR, replace: $, by: ' '}}
+        GAPPED: {replace: {source: $SEPARATOR, replace: '^=$', by: ' ='}}
+        MODIFIER: {replace: {source: $ASYNC, replace: $, by: ' '}}
+        ARGUMENTS: {rewrite: {source: $PARAMETERS, rewriters: [initializer, nested, comment]}}
+        RESULT: {rewrite: {source: $RETURN, rewriters: [comment]}}
+        CALLED: {rewrite: {source: $CALLEE, rewriters: [call, comment]}}
+        STEP2: {rewrite: {source: $SECOND, rewriters: [step, call, comment]}}
+        STEP3: {rewrite: {source: $THIRD, rewriters: [step, call, comment]}}
+        STEP4: {rewrite: {source: $FOURTH, rewriters: [step, call, comment]}}
+        TRAIL2: {replace: {source: $STEP2, replace: '(?s)^(.+)$', by: ', $1'}}
+        TRAIL3: {replace: {source: $STEP3, replace: '(?s)^(.+)$', by: ', $1'}}
+        TRAIL4: {replace: {source: $STEP4, replace: '(?s)^(.+)$', by: ', $1'}}
+        TRAIL5: {replace: {source: $FIFTH, replace: '(?s).+', by: ', …'}}
+      fix: $DECORATED$DECLARED$ACCESSED$STATICED$ABSTRACTED$OVERRIDDEN$READ$ACCESSORED$NAME$MARK$TYPE$GAPPED $CALLED($MODIFIERfunction$STAR $GENERICS$ARGUMENTS$RESULT {…}$TRAIL2$TRAIL3$TRAIL4$TRAIL5)
+    - id: called-arrow
+      rule: {kind: 'property_identifier, private_property_identifier, string, number, computed_property_name', all: [{matches: held}, {inside: {kind: 'pair, public_field_definition', has: {field: value, matches: called, has: {field: arguments, has: {kind: arrow_function, all: [{matches: first}, {matches: parts}]}}}}}]}
+      transform:
+        DECORATED: {rewrite: {source: $FIRSTDECORATOR, rewriters: [decorators]}}
+        ACCESSED: {replace: {source: $ACCESS, replace: $, by: ' '}}
+        STATICED: {replace: {source: $STATIC, replace: $, by: ' '}}
+        ABSTRACTED: {replace: {source: $ABSTRACT, replace: $, by: ' '}}
+        OVERRIDDEN: {replace: {source: $OVERRIDE, replace: $, by: ' '}}
+        READ: {replace: {source: $READONLY, replace: $, by: ' '}}
+        DECLARED: {replace: {source: $DECLARE, replace: $, by: ' '}}
+        ACCESSORED: {replace: {source: $ACCESSOR, replace: $, by: ' '}}
+        GAPPED: {replace: {source: $SEPARATOR, replace: '^=$', by: ' ='}}
+        MODIFIER: {replace: {source: $ASYNC, replace: $, by: ' '}}
+        ARGUMENTS: {rewrite: {source: $PARAMETERS, rewriters: [initializer, nested, comment]}}
+        RESULT: {rewrite: {source: $RETURN, rewriters: [comment]}}
+        CALLED: {rewrite: {source: $CALLEE, rewriters: [call, comment]}}
+        STEP2: {rewrite: {source: $SECOND, rewriters: [step, call, comment]}}
+        STEP3: {rewrite: {source: $THIRD, rewriters: [step, call, comment]}}
+        STEP4: {rewrite: {source: $FOURTH, rewriters: [step, call, comment]}}
+        TRAIL2: {replace: {source: $STEP2, replace: '(?s)^(.+)$', by: ', $1'}}
+        TRAIL3: {replace: {source: $STEP3, replace: '(?s)^(.+)$', by: ', $1'}}
+        TRAIL4: {replace: {source: $STEP4, replace: '(?s)^(.+)$', by: ', $1'}}
+        TRAIL5: {replace: {source: $FIFTH, replace: '(?s).+', by: ', …'}}
+      fix: $DECORATED$DECLARED$ACCESSED$STATICED$ABSTRACTED$OVERRIDDEN$READ$ACCESSORED$NAME$MARK$TYPE$GAPPED $CALLED($MODIFIER$GENERICS$ARGUMENTS$RESULT => …$TRAIL2$TRAIL3$TRAIL4$TRAIL5)
+    - id: wrapped
+      rule: {kind: 'property_identifier, private_property_identifier, string, number, computed_property_name', all: [{matches: held}, {inside: {kind: 'pair, public_field_definition', has: {field: value, pattern: $VALUE}}}]}
+      transform:
+        DECORATED: {rewrite: {source: $FIRSTDECORATOR, rewriters: [decorators]}}
+        ACCESSED: {replace: {source: $ACCESS, replace: $, by: ' '}}
+        STATICED: {replace: {source: $STATIC, replace: $, by: ' '}}
+        ABSTRACTED: {replace: {source: $ABSTRACT, replace: $, by: ' '}}
+        OVERRIDDEN: {replace: {source: $OVERRIDE, replace: $, by: ' '}}
+        READ: {replace: {source: $READONLY, replace: $, by: ' '}}
+        DECLARED: {replace: {source: $DECLARE, replace: $, by: ' '}}
+        ACCESSORED: {replace: {source: $ACCESSOR, replace: $, by: ' '}}
+        GAPPED: {replace: {source: $SEPARATOR, replace: '^=$', by: ' ='}}
+        SHOWN: {rewrite: {source: $VALUE, rewriters: [step, opened, call, comment]}}
+      fix: $DECORATED$DECLARED$ACCESSED$STATICED$ABSTRACTED$OVERRIDDEN$READ$ACCESSORED$NAME$MARK$TYPE$GAPPED $SHOWN
+    - id: signature
+      rule: {kind: call_signature, matches: parts}
+      transform:
+        MODIFIER: {replace: {source: $ASYNC, replace: $, by: ' '}}
+        ARGUMENTS: {rewrite: {source: $PARAMETERS, rewriters: [initializer, nested, comment]}}
+        RESULT: {rewrite: {source: $RETURN, rewriters: [comment]}}
+      fix: $GENERICS$ARGUMENTS$RESULT
 transform:
-    QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage]}}
+    QUALIFIER: {rewrite: {source: $OWNER, rewriters: [keyed, lineage]}}
+    LINE: {replace: {source: $HEADER, replace: '[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*', by: ' '}}
+    SIGNATURE: {replace: {source: $LINE, replace: '[,;] *( \})|,? ([)\]])|, (>)|([(\[<]) |[ ;]+$|( ) +', by: $1$2$3$4$5}}
+    LABEL: {replace: {source: $TITLE, replace: '^[''"`](.*)[''"`]$', by: $1}}
+    TITLE: {replace: {source: $FIRST, replace: '\n(?s:.*)', by: …}}
     CONTEXT: {rewrite: {source: $SUITE, rewriters: [suite-lineage]}}
     INVOKE: {replace: {source: $CALL, replace: '(?s).+', by: ()}}
-    TITLE: {replace: {source: $FIRST, replace: '\n(?s:.*)', by: …}}
-    LABEL: {replace: {source: $TITLE, replace: '^[''"`](.*)[''"`]$', by: $1}}
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, expression, initializer, arrow, reference, titled, arguments, shape, call, comment]}}
-    LINE: {replace: {source: $HEADER, replace: '[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: ', *( \})|,? ([)\]])|, (>)|([(\[<]) |[ ;]+$|( ) +', by: $1$2$3$4$5}}
-    ARROWED: {rewrite: {source: $LAMBDA, rewriters: [arrow, comment]}}
-    ARROWLINE: {replace: {source: $ARROWED, replace: '[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*', by: ' '}}
-    LAMBDASIGNATURE: {replace: {source: $ARROWLINE, replace: ', *( \})|,? ([)\]])|, (>)|([(\[<]) |[ ;]+$|( ) +', by: $1$2$3$4$5}}
+    HEADER: {rewrite: {source: $ANCHOR, rewriters: [method, lambda, expressed, called-function, called-arrow, wrapped, signature, suited]}}
 name: $QUALIFIER$CONTEXT$NAME$INVOKE$LABEL
 signature: $SIGNATURE$LAMBDASIGNATURE
 isPublic: {not: {any: [{has: {kind: accessibility_modifier, regex: '^(?:private|protected)$'}}, {has: {field: name, kind: private_property_identifier}}]}}
@@ -837,25 +1390,25 @@ isPublic: {not: {any: [{has: {kind: accessibility_modifier, regex: '^(?:private|
 id: typescript-member-constructor
 language: tsxlang
 role: member
-parentRuleIds: [typescript-class, typescript-interface, typescript-type, typescript-constant, typescript-variable, typescript-assignment, typescript-export, typescript-function, typescript-suite]
+parentRuleIds: [typescript-class, typescript-interface, typescript-type, typescript-constant, typescript-variable, typescript-assignment, typescript-export, typescript-function-owner, typescript-suite]
 symbolType: constructor
 utils:
+    up: {any: [{inside: {kind: 'pair, public_field_definition', field: value, stopBy: {not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression, type_assertion'}}, any: [{has: {field: key, pattern: $UP}}, {has: {field: name, pattern: $UP}}]}}, {inside: {kind: type_annotation, inside: {kind: property_signature, has: {field: name, pattern: $UP}}}}, {kind: class_body, inside: {any: [{kind: class, matches: up}, {kind: 'class_declaration, abstract_class_declaration', has: {field: name, pattern: $UP}, inside: {kind: statement_block, not: {inside: {kind: 'internal_module, module, ambient_declaration'}}}}]}}]}
     role: {any: [{kind: member_expression, has: {field: object, regex: '^(?:Context|Data)$'}}, {kind: call_expression, has: {field: function, matches: role}}]}
     type-body: {any: [{kind: interface_body}, {kind: object_type, any: [{inside: {kind: type_alias_declaration, field: value, stopBy: {not: {kind: 'union_type, intersection_type, parenthesized_type'}}}}, {inside: {kind: ambient_declaration}}, {inside: {kind: type_annotation, inside: {kind: property_signature, inside: {matches: type-body}}}}, {inside: {kind: type_arguments, any: [{inside: {kind: extends_clause, field: type_arguments, has: {field: value, matches: role}}}, {inside: {kind: call_expression, field: type_arguments, has: {field: function, matches: role}, inside: {kind: extends_clause, stopBy: {not: {kind: call_expression}}}}}]}}]}]}
     nested: {any: [{inside: {kind: 'pair, public_field_definition', field: value, stopBy: {not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression, type_assertion'}}, any: [{has: {field: key, pattern: $OWNER}}, {has: {field: name, pattern: $OWNER}}]}}, {inside: {kind: type_annotation, inside: {kind: property_signature, has: {field: name, pattern: $OWNER}}}}, {kind: class_body, inside: {any: [{kind: class, matches: nested}, {kind: 'class_declaration, abstract_class_declaration', has: {field: name, pattern: $OWNER}, inside: {kind: statement_block, not: {inside: {kind: 'internal_module, module, ambient_declaration'}}}}]}}]}
-    up: {any: [{inside: {kind: 'pair, public_field_definition', field: value, stopBy: {not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression, type_assertion'}}, any: [{has: {field: key, pattern: $UP}}, {has: {field: name, pattern: $UP}}]}}, {inside: {kind: type_annotation, inside: {kind: property_signature, has: {field: name, pattern: $UP}}}}, {kind: class_body, inside: {any: [{kind: class, matches: up}, {kind: 'class_declaration, abstract_class_declaration', has: {field: name, pattern: $UP}, inside: {kind: statement_block, not: {inside: {kind: 'internal_module, module, ambient_declaration'}}}}]}}]}
     scope: {all: [{any: [{kind: class_body}, {matches: type-body}]}, {any: [{matches: nested}, {kind: 'class_body, interface_body, object_type'}]}]}
     constructor: {kind: 'method_definition, method_signature, abstract_method_signature', not: {has: {regex: '^static$'}}, inside: {kind: class_body, matches: scope}}
 rule:
+    not: {has: {stopBy: end, any: [{kind: ERROR}, {regex: '^$'}]}}
     any:
         - kind: method_definition, method_signature, abstract_method_signature
-          pattern: $DECLARATION
-          has: {field: name, regex: '^constructor$', pattern: $NAME}
+          has: {field: name, regex: '^constructor$', pattern: $NAME, all: [{pattern: $ANCHOR}]}
           matches: constructor
           not: {has: {field: parameters, has: {any: [{has: {kind: accessibility_modifier}}, {has: {regex: '^readonly$'}}]}}}
-        - {kind: property_identifier, regex: '^constructor$', pattern: $NAME, inside: {field: name, pattern: $DECLARATION, matches: constructor}}
-        - {kind: construct_signature, pattern: $DECLARATION, has: {regex: '^new$', pattern: $$NAME}, inside: {matches: scope}}
-        - {kind: class_static_block, pattern: $DECLARATION, has: {regex: '^static$', pattern: $$NAME}, inside: {matches: scope}}
+        - {kind: property_identifier, regex: '^constructor$', pattern: $NAME, all: [{pattern: $ANCHOR}], inside: {field: name, matches: constructor}}
+        - {kind: construct_signature, pattern: $ANCHOR, has: {regex: '^new$', pattern: $$NAME}, inside: {matches: scope}}
+        - {kind: class_static_block, pattern: $ANCHOR, has: {regex: '^static$', pattern: $$NAME}, inside: {matches: scope}}
 rewriters:
     - id: lineage
       rule:
@@ -868,15 +1421,34 @@ rewriters:
       transform:
         ABOVE: {rewrite: {source: $UP, rewriters: [lineage]}}
       fix: $ABOVE$LEVEL.
-    - {id: body, rule: {kind: statement_block, inside: {kind: 'method_definition, class_static_block', field: body}}, fix: ''}
-    - {id: shape, rule: {kind: object_type, regex: "\n"}, fix: '{…}'}
-    - {id: initializer, rule: {regex: '^=$', inside: {kind: 'required_parameter, optional_parameter, object_assignment_pattern, assignment_pattern'}}, fix: {template: '= …', expandEnd: {regex: ''}}}
     - {id: comment, rule: {kind: comment}, fix: ''}
+    - id: initializer
+      rule: {kind: 'required_parameter, optional_parameter', all: [{has: {field: value, regex: ''}}, {has: {field: pattern, pattern: $BOUND}}, {any: [{has: {kind: accessibility_modifier, pattern: $PACCESS}}, {regex: ''}]}, {any: [{has: {kind: override_modifier, pattern: $POVERRIDE}}, {regex: ''}]}, {any: [{has: {regex: '^readonly$', pattern: $$PREADONLY}}, {regex: ''}]}, {any: [{has: {field: type, pattern: $PTYPE}}, {regex: ''}]}]}
+      transform:
+        PACCESSED: {replace: {source: $PACCESS, replace: $, by: ' '}}
+        POVERRIDDEN: {replace: {source: $POVERRIDE, replace: $, by: ' '}}
+        PREAD: {replace: {source: $PREADONLY, replace: $, by: ' '}}
+        SHAPED: {rewrite: {source: $BOUND, rewriters: [nested, comment]}}
+      fix: $PACCESSED$POVERRIDDEN$PREAD$SHAPED$PTYPE = …
+    - {id: nested, rule: {kind: 'assignment_pattern, object_assignment_pattern', has: {field: left, pattern: $LEFT}}, transform: {LEFTED: {rewrite: {source: $LEFT, rewriters: [nested]}}}, fix: '$LEFTED = …'}
+    - id: built
+      rule: {kind: property_identifier, inside: {kind: 'method_definition, method_signature, abstract_method_signature', field: name, all: [{any: [{has: {kind: accessibility_modifier, pattern: $ACCESS}}, {regex: ''}]}, {has: {field: parameters, pattern: $PARAMETERS}}]}}
+      transform:
+        ACCESSED: {replace: {source: $ACCESS, replace: $, by: ' '}}
+        ARGUMENTS: {rewrite: {source: $PARAMETERS, rewriters: [initializer, nested, comment]}}
+      fix: $ACCESSED$NAME$ARGUMENTS
+    - id: construct
+      rule: {kind: construct_signature, all: [{any: [{has: {field: type_parameters, pattern: $GENERICS}}, {regex: ''}]}, {has: {field: parameters, pattern: $PARAMETERS}}, {any: [{has: {field: type, pattern: $CTYPE}}, {regex: ''}]}]}
+      transform:
+        ARGUMENTS: {rewrite: {source: $PARAMETERS, rewriters: [initializer, nested, comment]}}
+        RESULT: {rewrite: {source: $CTYPE, rewriters: [comment]}}
+      fix: new$GENERICS$ARGUMENTS$RESULT
+    - {id: static, rule: {kind: class_static_block}, fix: static}
 transform:
     QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage]}}
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, shape, initializer, comment]}}
     LINE: {replace: {source: $HEADER, replace: '[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: ', *( \})|,? ([)\]])|, (>)|([(\[<]) |[ ;]+$|( ) +', by: $1$2$3$4$5}}
+    SIGNATURE: {replace: {source: $LINE, replace: '[,;] *( \})|,? ([)\]])|, (>)|([(\[<]) |[ ;]+$|( ) +', by: $1$2$3$4$5}}
+    HEADER: {rewrite: {source: $ANCHOR, rewriters: [built, construct, static]}}
 name: $QUALIFIER$NAME
 signature: $SIGNATURE
 isPublic: {not: {any: [{kind: class_static_block}, {has: {kind: accessibility_modifier, regex: '^(?:private|protected)$'}}, {inside: {kind: 'method_definition, method_signature, abstract_method_signature', has: {kind: accessibility_modifier, regex: '^(?:private|protected)$'}}}]}}
@@ -884,34 +1456,43 @@ isPublic: {not: {any: [{kind: class_static_block}, {has: {kind: accessibility_mo
 id: typescript-member-field
 language: tsxlang
 role: member
-parentRuleIds: [typescript-class, typescript-interface, typescript-type, typescript-constant, typescript-variable, typescript-assignment, typescript-export, typescript-function, typescript-suite]
+parentRuleIds: [typescript-class, typescript-interface, typescript-type, typescript-constant, typescript-variable, typescript-assignment, typescript-export, typescript-function-owner, typescript-suite]
 symbolType: field
 utils:
+    first: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}}
+    typed: {any: [{has: {field: type, pattern: $TYPE}}, {regex: ''}]}
+    built: {any: [{kind: call_expression, not: {has: {field: function, kind: parenthesized_expression}}}, {kind: 'new_expression, member_expression, array'}, {kind: identifier, not: {regex: '^undefined$'}}, {kind: 'as_expression, satisfies_expression, non_null_expression, parenthesized_expression, await_expression, type_assertion', has: {matches: built}}]}
+    up: {any: [{inside: {kind: 'pair, public_field_definition', field: value, stopBy: {not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression, type_assertion'}}, any: [{has: {field: key, pattern: $UP}}, {has: {field: name, pattern: $UP}}]}}, {inside: {kind: type_annotation, inside: {kind: property_signature, has: {field: name, pattern: $UP}}}}, {kind: class_body, inside: {any: [{kind: class, matches: up}, {kind: 'class_declaration, abstract_class_declaration', has: {field: name, pattern: $UP}, inside: {kind: statement_block, not: {inside: {kind: 'internal_module, module, ambient_declaration'}}}}]}}]}
+    nested: {any: [{inside: {kind: 'pair, public_field_definition', field: value, stopBy: {not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression, type_assertion'}}, any: [{has: {field: key, pattern: $OWNER}}, {has: {field: name, pattern: $OWNER}}]}}, {inside: {kind: type_annotation, inside: {kind: property_signature, has: {field: name, pattern: $OWNER}}}}, {kind: class_body, inside: {any: [{kind: class, matches: nested}, {kind: 'class_declaration, abstract_class_declaration', has: {field: name, pattern: $OWNER}, inside: {kind: statement_block, not: {inside: {kind: 'internal_module, module, ambient_declaration'}}}}]}}]}
+    modifiers:
+        all:
+            - any: [{has: {field: decorator, matches: first, pattern: $FIRSTDECORATOR}}, {regex: ''}]
+            - any: [{has: {kind: accessibility_modifier, pattern: $ACCESS}}, {regex: ''}]
+            - any: [{has: {regex: '^static$', pattern: $$STATIC}}, {regex: ''}]
+            - any: [{has: {regex: '^abstract$', pattern: $$ABSTRACT}}, {regex: ''}]
+            - any: [{has: {kind: override_modifier, pattern: $OVERRIDE}}, {regex: ''}]
+            - any: [{has: {regex: '^readonly$', pattern: $$READONLY}}, {regex: ''}]
+            - any: [{has: {regex: '^declare$', pattern: $$DECLARE}}, {regex: ''}]
+            - any: [{has: {regex: '^accessor$', pattern: $$ACCESSOR}}, {regex: ''}]
+            - any: [{has: {regex: '^[?!]$', pattern: $$MARK}}, {regex: ''}]
     rooted: {kind: call_expression, any: [{has: {field: function, kind: member_expression, has: {field: object, matches: rooted}}}, {not: {has: {field: function, kind: member_expression, any: [{has: {field: object, kind: call_expression}}, {has: {field: property, regex: '^(?:annotate|annotateKey|check|pipe|rebuild)$'}}]}}, has: {field: arguments, has: {kind: object}}}]}
     body-value: {any: [{kind: 'class, object'}, {matches: rooted}, {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression, type_assertion', has: {matches: body-value}}]}
-    nested: {any: [{inside: {kind: 'pair, public_field_definition', field: value, stopBy: {not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression, type_assertion'}}, any: [{has: {field: key, pattern: $OWNER}}, {has: {field: name, pattern: $OWNER}}]}}, {inside: {kind: type_annotation, inside: {kind: property_signature, has: {field: name, pattern: $OWNER}}}}, {kind: class_body, inside: {any: [{kind: class, matches: nested}, {kind: 'class_declaration, abstract_class_declaration', has: {field: name, pattern: $OWNER}, inside: {kind: statement_block, not: {inside: {kind: 'internal_module, module, ambient_declaration'}}}}]}}]}
-    up: {any: [{inside: {kind: 'pair, public_field_definition', field: value, stopBy: {not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression, type_assertion'}}, any: [{has: {field: key, pattern: $UP}}, {has: {field: name, pattern: $UP}}]}}, {inside: {kind: type_annotation, inside: {kind: property_signature, has: {field: name, pattern: $UP}}}}, {kind: class_body, inside: {any: [{kind: class, matches: up}, {kind: 'class_declaration, abstract_class_declaration', has: {field: name, pattern: $UP}, inside: {kind: statement_block, not: {inside: {kind: 'internal_module, module, ambient_declaration'}}}}]}}]}
     scope: {kind: class_body, any: [{matches: nested}, {kind: class_body}]}
-    built: {any: [{kind: call_expression, not: {has: {field: function, kind: parenthesized_expression}}}, {kind: 'new_expression, member_expression, array'}, {kind: identifier, not: {regex: '^undefined$'}}, {kind: 'as_expression, satisfies_expression, non_null_expression, parenthesized_expression, await_expression, type_assertion', has: {matches: built}}]}
 rule:
+    not: {has: {stopBy: end, any: [{kind: ERROR}, {regex: '^$'}]}}
     any:
         - kind: public_field_definition
-          pattern: $DECLARATION
-          has: {field: name, pattern: $NAME}
+          has: {field: name, pattern: $NAME, all: [{pattern: $ANCHOR}]}
           not: {has: {field: value, matches: body-value}}
           inside: {matches: scope}
-          any: [{has: {field: value, matches: built, pattern: $VALUE}}, {kind: public_field_definition}]
-        - {kind: 'property_identifier, private_property_identifier, string, number, computed_property_name', pattern: $NAME, inside: {kind: public_field_definition, field: name, pattern: $DECLARATION, has: {field: value, matches: body-value}, inside: {matches: scope}, any: [{has: {field: value, kind: call_expression, matches: built, pattern: $VALUE}}, {kind: public_field_definition}]}}
+          any: [{has: {field: value, matches: built, pattern: $VALUE}}, {has: {regex: '^=$', pattern: $$ELIDED}}, {kind: public_field_definition}]
+        - {kind: 'property_identifier, private_property_identifier, string, number, computed_property_name', pattern: $NAME, all: [{pattern: $ANCHOR}], inside: {kind: public_field_definition, field: name, has: {field: value, matches: body-value}, inside: {matches: scope}, any: [{has: {field: value, kind: call_expression, matches: built, pattern: $VALUE}}, {kind: public_field_definition}]}}
         - kind: required_parameter, optional_parameter
-          pattern: $DECLARATION
+          pattern: $ANCHOR
           has: {field: pattern, pattern: $NAME}
           any: [{has: {kind: accessibility_modifier}}, {has: {regex: '^readonly$'}}]
           inside: {kind: formal_parameters, inside: {kind: method_definition, has: {field: name, regex: '^constructor$'}, inside: {matches: scope}}}
 rewriters:
-    - {id: arguments, rule: {kind: arguments, has: {pattern: $_}}, fix: (…)}
-    - {id: object, rule: {kind: object, has: {pattern: $_}}, fix: '{…}'}
-    - {id: array, rule: {kind: array, has: {pattern: $_}}, fix: '[…]'}
-    - {id: template, rule: {kind: template_string}, fix: '`…`'}
     - id: lineage
       rule:
         kind: property_identifier, private_property_identifier, string, number, computed_property_name, type_identifier
@@ -923,55 +1504,98 @@ rewriters:
       transform:
         ABOVE: {rewrite: {source: $UP, rewriters: [lineage]}}
       fix: $ABOVE$LEVEL.
-    - {id: value, rule: {not: {kind: ERROR}, inside: {kind: public_field_definition, field: value}}, fix: {template: '', expandStart: {regex: '^=$'}}}
-    - {id: block, rule: {kind: 'object, object_type, class_body, statement_block', regex: "\n"}, fix: '{…}'}
-    - {id: list, rule: {kind: array, regex: "\n"}, fix: '[…]'}
-    - {id: call, rule: {kind: arguments, regex: "\n", not: {has: {kind: object, regex: "\n"}}}, fix: (…)}
     - {id: comment, rule: {kind: comment}, fix: ''}
+    - {id: call, rule: {kind: arguments, regex: "\n", not: {has: {kind: object, regex: "\n"}}}, fix: (…)}
+    - {id: object, rule: {kind: object, has: {pattern: $_}}, fix: '{…}'}
+    - id: decorators
+      rule: {kind: decorator, pattern: $DECORATOR, any: [{precedes: {kind: decorator, pattern: $NEXT}}, {regex: ''}]}
+      transform:
+        ONE: {rewrite: {source: $DECORATOR, rewriters: [call, comment]}}
+        REST: {rewrite: {source: $NEXT, rewriters: [decorators]}}
+      fix: $ONE $REST
+    - id: initializer
+      rule: {kind: 'required_parameter, optional_parameter', all: [{has: {field: value, regex: ''}}, {has: {field: pattern, pattern: $BOUND}}, {any: [{has: {kind: accessibility_modifier, pattern: $PACCESS}}, {regex: ''}]}, {any: [{has: {kind: override_modifier, pattern: $POVERRIDE}}, {regex: ''}]}, {any: [{has: {regex: '^readonly$', pattern: $$PREADONLY}}, {regex: ''}]}, {any: [{has: {field: type, pattern: $PTYPE}}, {regex: ''}]}]}
+      transform:
+        PACCESSED: {replace: {source: $PACCESS, replace: $, by: ' '}}
+        POVERRIDDEN: {replace: {source: $POVERRIDE, replace: $, by: ' '}}
+        PREAD: {replace: {source: $PREADONLY, replace: $, by: ' '}}
+        SHAPED: {rewrite: {source: $BOUND, rewriters: [nested, comment]}}
+      fix: $PACCESSED$POVERRIDDEN$PREAD$SHAPED$PTYPE = …
+    - {id: nested, rule: {kind: 'assignment_pattern, object_assignment_pattern', has: {field: left, pattern: $LEFT}}, transform: {LEFTED: {rewrite: {source: $LEFT, rewriters: [nested]}}}, fix: '$LEFTED = …'}
+    - {id: arguments, rule: {kind: arguments, has: {pattern: $_}}, fix: (…)}
+    - {id: array, rule: {kind: array, has: {pattern: $_}}, fix: '[…]'}
+    - {id: template, rule: {kind: template_string}, fix: '`…`'}
+    - id: fielded
+      rule: {kind: 'property_identifier, private_property_identifier, string, number, computed_property_name', inside: {kind: public_field_definition, field: name, all: [{matches: modifiers}, {matches: typed}]}}
+      transform:
+        DECORATED: {rewrite: {source: $FIRSTDECORATOR, rewriters: [decorators]}}
+        ACCESSED: {replace: {source: $ACCESS, replace: $, by: ' '}}
+        STATICED: {replace: {source: $STATIC, replace: $, by: ' '}}
+        ABSTRACTED: {replace: {source: $ABSTRACT, replace: $, by: ' '}}
+        OVERRIDDEN: {replace: {source: $OVERRIDE, replace: $, by: ' '}}
+        READ: {replace: {source: $READONLY, replace: $, by: ' '}}
+        DECLARED: {replace: {source: $DECLARE, replace: $, by: ' '}}
+        ACCESSORED: {replace: {source: $ACCESSOR, replace: $, by: ' '}}
+        TYPED: {rewrite: {source: $TYPE, rewriters: [comment]}}
+      fix: $DECORATED$DECLARED$ACCESSED$STATICED$ABSTRACTED$OVERRIDDEN$READ$ACCESSORED$NAME$MARK$TYPED
 transform:
     QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage]}}
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [value, block, list, call, comment]}}
     LINE: {replace: {source: $HEADER, replace: '[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: ', *( \})|,? ([)\]])|, (>)|([(\[<]) |[ ;]+$|( ) +', by: $1$2$3$4$5}}
+    SIGNATURE: {replace: {source: $LINE, replace: '[,;] *( \})|,? ([)\]])|, (>)|([(\[<]) |[ ;]+$|( ) +', by: $1$2$3$4$5}}
     VALUED: {rewrite: {source: $VALUE, rewriters: [arguments, object, array, template]}}
     VALUELINE: {replace: {source: $VALUED, replace: '[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*', by: ''}}
+    HEADER: {rewrite: {source: $ANCHOR, rewriters: [fielded, initializer, nested, comment]}}
     INIT: {replace: {source: $VALUELINE, replace: '.+', by: ' = $0'}}
+    OMITTED: {replace: {source: $ELIDED, replace: '^=$', by: ' = …'}}
 name: $QUALIFIER$NAME
-signature: $SIGNATURE$INIT
+signature: $SIGNATURE$INIT$OMITTED
 isPublic: {not: {any: [{kind: private_property_identifier}, {has: {kind: accessibility_modifier, regex: '^(?:private|protected)$'}}, {has: {field: name, kind: private_property_identifier}}, {inside: {kind: public_field_definition, has: {kind: accessibility_modifier, regex: '^(?:private|protected)$'}}}]}}
 ---
 id: typescript-member-property
 language: tsxlang
 role: member
-parentRuleIds: [typescript-class, typescript-interface, typescript-type, typescript-constant, typescript-variable, typescript-assignment, typescript-export, typescript-function, typescript-suite]
+parentRuleIds: [typescript-class, typescript-interface, typescript-type, typescript-constant, typescript-variable, typescript-assignment, typescript-export, typescript-function-owner, typescript-suite]
 symbolType: property
 utils:
+    first: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}}
     owned-value: {any: [{inside: {kind: 'variable_declarator, export_statement, extends_clause, public_field_definition, pair', field: value, stopBy: {not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression, type_assertion'}}}}, {inside: {kind: assignment_expression, field: right, stopBy: {not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression, type_assertion'}}}}, {inside: {kind: export_statement, has: {regex: '^=$'}, stopBy: {not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression, type_assertion'}}}}]}
     chained: {kind: call_expression, any: [{matches: owned-value}, {inside: {kind: member_expression, field: object, inside: {kind: call_expression, field: function, matches: chained}}}]}
     chain-root: {kind: call_expression, not: {has: {field: function, kind: member_expression, any: [{has: {field: object, kind: call_expression}}, {has: {field: property, regex: '^(?:annotate|annotateKey|check|pipe|rebuild)$'}}]}}, matches: chained}
     owned-object: {kind: object, any: [{matches: owned-value}, {inside: {kind: arguments, inside: {matches: chain-root}}}], not: {inside: {kind: statement_block, stopBy: end, not: {inside: {kind: 'internal_module, module, ambient_declaration'}}}}}
+    built: {any: [{kind: call_expression, not: {has: {field: function, kind: parenthesized_expression}}}, {kind: 'new_expression, member_expression, array'}, {kind: identifier, not: {regex: '^undefined$'}}, {kind: 'as_expression, satisfies_expression, non_null_expression, parenthesized_expression, await_expression, type_assertion', has: {matches: built}}]}
+    up: {any: [{kind: object_type, inside: {kind: union_type}, has: {kind: property_signature, has: {field: type, has: {kind: literal_type, pattern: $UP}}}}, {kind: object, inside: {kind: arguments, has: {kind: string, matches: first, pattern: $UP}, inside: {kind: call_expression, inside: {kind: arguments}}}}, {inside: {kind: arguments, inside: {kind: call_expression, all: [{matches: chain-root}, {matches: up-chain}]}}}, {inside: {kind: 'pair, public_field_definition', field: value, stopBy: {not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression, type_assertion'}}, any: [{has: {field: key, pattern: $UP}}, {has: {field: name, pattern: $UP}}]}}, {inside: {kind: type_annotation, inside: {kind: property_signature, has: {field: name, pattern: $UP}}}}, {kind: class_body, inside: {any: [{kind: class, matches: up}, {kind: 'class_declaration, abstract_class_declaration', has: {field: name, pattern: $UP}, inside: {kind: statement_block, not: {inside: {kind: 'internal_module, module, ambient_declaration'}}}}]}}]}
     role: {any: [{kind: member_expression, has: {field: object, regex: '^(?:Context|Data)$'}}, {kind: call_expression, has: {field: function, matches: role}}]}
     type-body: {any: [{kind: interface_body}, {kind: object_type, any: [{inside: {kind: type_alias_declaration, field: value, stopBy: {not: {kind: 'union_type, intersection_type, parenthesized_type'}}}}, {inside: {kind: ambient_declaration}}, {inside: {kind: type_annotation, inside: {kind: property_signature, inside: {matches: type-body}}}}, {inside: {kind: type_arguments, any: [{inside: {kind: extends_clause, field: type_arguments, has: {field: value, matches: role}}}, {inside: {kind: call_expression, field: type_arguments, has: {field: function, matches: role}, inside: {kind: extends_clause, stopBy: {not: {kind: call_expression}}}}}]}}]}]}
     nested-chain: {any: [{inside: {kind: 'pair, public_field_definition', field: value, stopBy: {not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression, type_assertion'}}, any: [{has: {field: key, pattern: $OWNER}}, {has: {field: name, pattern: $OWNER}}]}}, {inside: {kind: member_expression, field: object, inside: {kind: call_expression, field: function, matches: nested-chain}}}]}
-    nested: {any: [{inside: {kind: arguments, inside: {kind: call_expression, all: [{matches: chain-root}, {matches: nested-chain}]}}}, {inside: {kind: 'pair, public_field_definition', field: value, stopBy: {not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression, type_assertion'}}, any: [{has: {field: key, pattern: $OWNER}}, {has: {field: name, pattern: $OWNER}}]}}, {inside: {kind: type_annotation, inside: {kind: property_signature, has: {field: name, pattern: $OWNER}}}}, {kind: class_body, inside: {any: [{kind: class, matches: nested}, {kind: 'class_declaration, abstract_class_declaration', has: {field: name, pattern: $OWNER}, inside: {kind: statement_block, not: {inside: {kind: 'internal_module, module, ambient_declaration'}}}}]}}]}
+    nested: {any: [{kind: object_type, inside: {kind: union_type}, has: {kind: property_signature, has: {field: type, has: {kind: literal_type, pattern: $OWNER}}}}, {kind: object, inside: {kind: arguments, has: {kind: string, matches: first, pattern: $OWNER}, inside: {kind: call_expression, inside: {kind: arguments}}}}, {inside: {kind: arguments, inside: {kind: call_expression, all: [{matches: chain-root}, {matches: nested-chain}]}}}, {inside: {kind: 'pair, public_field_definition', field: value, stopBy: {not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression, type_assertion'}}, any: [{has: {field: key, pattern: $OWNER}}, {has: {field: name, pattern: $OWNER}}]}}, {inside: {kind: type_annotation, inside: {kind: property_signature, has: {field: name, pattern: $OWNER}}}}, {kind: class_body, inside: {any: [{kind: class, matches: nested}, {kind: 'class_declaration, abstract_class_declaration', has: {field: name, pattern: $OWNER}, inside: {kind: statement_block, not: {inside: {kind: 'internal_module, module, ambient_declaration'}}}}]}}]}
     up-chain: {any: [{inside: {kind: 'pair, public_field_definition', field: value, stopBy: {not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression, type_assertion'}}, any: [{has: {field: key, pattern: $UP}}, {has: {field: name, pattern: $UP}}]}}, {inside: {kind: member_expression, field: object, inside: {kind: call_expression, field: function, matches: up-chain}}}]}
-    up: {any: [{inside: {kind: arguments, inside: {kind: call_expression, all: [{matches: chain-root}, {matches: up-chain}]}}}, {inside: {kind: 'pair, public_field_definition', field: value, stopBy: {not: {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression, type_assertion'}}, any: [{has: {field: key, pattern: $UP}}, {has: {field: name, pattern: $UP}}]}}, {inside: {kind: type_annotation, inside: {kind: property_signature, has: {field: name, pattern: $UP}}}}, {kind: class_body, inside: {any: [{kind: class, matches: up}, {kind: 'class_declaration, abstract_class_declaration', has: {field: name, pattern: $UP}, inside: {kind: statement_block, not: {inside: {kind: 'internal_module, module, ambient_declaration'}}}}]}}]}
+    modifiers:
+        all:
+            - any: [{has: {field: decorator, matches: first, pattern: $FIRSTDECORATOR}}, {regex: ''}]
+            - any: [{has: {kind: accessibility_modifier, pattern: $ACCESS}}, {regex: ''}]
+            - any: [{has: {regex: '^static$', pattern: $$STATIC}}, {regex: ''}]
+            - any: [{has: {regex: '^abstract$', pattern: $$ABSTRACT}}, {regex: ''}]
+            - any: [{has: {kind: override_modifier, pattern: $OVERRIDE}}, {regex: ''}]
+            - any: [{has: {regex: '^readonly$', pattern: $$READONLY}}, {regex: ''}]
+            - any: [{has: {regex: '^declare$', pattern: $$DECLARE}}, {regex: ''}]
+            - any: [{has: {regex: '^accessor$', pattern: $$ACCESSOR}}, {regex: ''}]
+            - any: [{has: {regex: '^[?!]$', pattern: $$MARK}}, {regex: ''}]
+    rooted: {kind: call_expression, any: [{has: {field: function, kind: member_expression, has: {field: object, matches: rooted}}}, {not: {has: {field: function, kind: member_expression, any: [{has: {field: object, kind: call_expression}}, {has: {field: property, regex: '^(?:annotate|annotateKey|check|pipe|rebuild)$'}}]}}, has: {field: arguments, has: {kind: object}}}]}
+    body-value: {any: [{kind: 'class, object'}, {matches: rooted}, {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression, type_assertion', has: {matches: body-value}}]}
     body: {all: [{any: [{kind: class_body}, {matches: type-body}, {matches: owned-object}]}, {any: [{matches: nested}, {kind: 'class_body, interface_body, object_type, object'}]}]}
     typed: {all: [{matches: type-body}, {any: [{matches: nested}, {kind: 'interface_body, object_type'}]}]}
     object: {all: [{matches: owned-object}, {any: [{matches: nested}, {kind: object}]}]}
-    rooted: {kind: call_expression, any: [{has: {field: function, kind: member_expression, has: {field: object, matches: rooted}}}, {not: {has: {field: function, kind: member_expression, any: [{has: {field: object, kind: call_expression}}, {has: {field: property, regex: '^(?:annotate|annotateKey|check|pipe|rebuild)$'}}]}}, has: {field: arguments, has: {kind: object}}}]}
-    body-value: {any: [{kind: 'class, object'}, {matches: rooted}, {kind: 'as_expression, satisfies_expression, parenthesized_expression, non_null_expression, type_assertion', has: {matches: body-value}}]}
-    built: {any: [{kind: call_expression, not: {has: {field: function, kind: parenthesized_expression}}}, {kind: 'new_expression, member_expression, array'}, {kind: identifier, not: {regex: '^undefined$'}}, {kind: 'as_expression, satisfies_expression, non_null_expression, parenthesized_expression, await_expression, type_assertion', has: {matches: built}}]}
 rule:
+    not: {has: {stopBy: end, any: [{kind: ERROR}, {regex: '^$'}]}}
     any:
-        - {kind: 'method_definition, method_signature, abstract_method_signature', pattern: $DECLARATION, has: {field: name, pattern: $NAME, follows: {regex: '^(?:get|set)$'}}, inside: {matches: body}}
+        - {kind: 'method_definition, method_signature, abstract_method_signature', has: {field: name, pattern: $NAME, all: [{pattern: $HELD}], follows: {regex: '^(?:get|set)$'}}, inside: {matches: body}}
         - {kind: property_signature, pattern: $DECLARATION, has: {field: name, pattern: $NAME}, not: {has: {field: type, has: {kind: object_type}}}, inside: {matches: typed}}
         - {kind: index_signature, pattern: $DECLARATION, inside: {matches: body}, any: [{has: {field: name, pattern: $NAME}}, {has: {kind: mapped_type_clause, has: {field: name, pattern: $NAME}}}]}
         - kind: pair
           has: {field: key, pattern: $NAME, all: [{pattern: $DECLARATION}]}
           not: {has: {field: value, matches: body-value}}
           inside: {matches: object}
-          any: [{has: {field: value, matches: built, pattern: $VALUE}}, {kind: pair}]
+          any: [{has: {field: value, matches: built, pattern: $VALUE}}, {has: {regex: '^:$', pattern: $$ELIDED}}]
         - kind: 'property_identifier, private_property_identifier, string, number, computed_property_name'
           pattern: $NAME
           any:
@@ -979,13 +1603,12 @@ rule:
             - {inside: {kind: property_signature, field: name, pattern: $DECLARATION, has: {field: type, has: {kind: object_type}}, inside: {matches: typed}}}
         - {kind: shorthand_property_identifier, pattern: $NAME, all: [{pattern: $DECLARATION}], inside: {matches: object}}
         - kind: spread_element
-          pattern: $DECLARATION
           inside: {matches: object}
           any:
-            - {has: {kind: 'identifier, member_expression'}, pattern: $NAME}
+            - {has: {kind: 'identifier, member_expression'}, pattern: $NAME, all: [{pattern: $DECLARATION}]}
             - all:
                 - has: {regex: '^\.\.\.$', pattern: $$NAME}
-                - any: [{has: {kind: call_expression, has: {field: function, not: {regex: "\n"}, pattern: $SPREAD}}}, {kind: spread_element}]
+                - any: [{has: {kind: call_expression, has: {field: function, not: {regex: "\n"}, pattern: $SPREAD, all: [{pattern: $HELD}]}}}, {pattern: $DECLARATION}]
         - kind: export_statement
           pattern: $DECLARATION
           inside: {matches: typed}
@@ -994,10 +1617,6 @@ rule:
             - has: {field: value, pattern: $NAME}
             - has: {regex: '^export$', pattern: $$NAME}
 rewriters:
-    - {id: arguments, rule: {kind: arguments, has: {pattern: $_}}, fix: (…)}
-    - {id: object, rule: {kind: object, has: {pattern: $_}}, fix: '{…}'}
-    - {id: array, rule: {kind: array, has: {pattern: $_}}, fix: '[…]'}
-    - {id: template, rule: {kind: template_string}, fix: '`…`'}
     - id: lineage
       rule:
         kind: property_identifier, private_property_identifier, string, number, computed_property_name, type_identifier
@@ -1007,24 +1626,59 @@ rewriters:
             - inside: {kind: 'public_field_definition, property_signature, class_declaration, abstract_class_declaration', field: name, inside: {matches: up}}
             - kind: property_identifier, private_property_identifier, string, number, computed_property_name, type_identifier
       transform:
-        ABOVE: {rewrite: {source: $UP, rewriters: [lineage]}}
+        ABOVE: {rewrite: {source: $UP, rewriters: [keyed, lineage]}}
       fix: $ABOVE$LEVEL.
-    - {id: body, rule: {kind: statement_block, inside: {kind: method_definition, field: body, pattern: $DECLARATION}}, fix: ''}
-    - {id: spread, rule: {kind: arguments, inside: {kind: call_expression, field: arguments, inside: {kind: spread_element}}}, fix: (…)}
+    - {id: comment, rule: {kind: comment}, fix: ''}
     - {id: block, rule: {kind: 'object, object_type, class_body, statement_block', regex: "\n"}, fix: '{…}'}
     - {id: list, rule: {kind: array, regex: "\n"}, fix: '[…]'}
     - {id: call, rule: {kind: arguments, regex: "\n", not: {has: {kind: object, regex: "\n"}}}, fix: (…)}
-    - {id: comment, rule: {kind: comment}, fix: ''}
+    - {id: object, rule: {kind: object, has: {pattern: $_}}, fix: '{…}'}
+    - id: decorators
+      rule: {kind: decorator, pattern: $DECORATOR, any: [{precedes: {kind: decorator, pattern: $NEXT}}, {regex: ''}]}
+      transform:
+        ONE: {rewrite: {source: $DECORATOR, rewriters: [call, comment]}}
+        REST: {rewrite: {source: $NEXT, rewriters: [decorators]}}
+      fix: $ONE $REST
+    - {id: arguments, rule: {kind: arguments, has: {pattern: $_}}, fix: (…)}
+    - {id: array, rule: {kind: array, has: {pattern: $_}}, fix: '[…]'}
+    - {id: template, rule: {kind: template_string}, fix: '`…`'}
+    - id: keyed
+      rule:
+        kind: literal_type, string
+        pattern: $LEVEL
+        any:
+            - {kind: literal_type, inside: {kind: type_annotation, inside: {kind: property_signature, inside: {kind: object_type, inside: {kind: union_type, any: [{inside: {kind: type_annotation, inside: {kind: property_signature, has: {field: name, pattern: $UP}}}}, {regex: ''}]}}}}}
+            - {kind: string, inside: {kind: arguments, inside: {kind: call_expression, any: [{matches: up-chain}, {regex: ''}]}}}
+      transform:
+        ABOVE: {rewrite: {source: $UP, rewriters: [keyed, lineage]}}
+        STEP: {replace: {source: $LEVEL, replace: '^[''"`](.*)[''"`]$', by: $1}}
+      fix: $ABOVE$STEP.
+    - id: accessor
+      rule: {kind: 'property_identifier, private_property_identifier, string, number, computed_property_name', all: [{inside: {kind: 'method_definition, method_signature, abstract_method_signature', field: name, all: [{matches: modifiers}, {has: {field: parameters, pattern: $PARAMETERS}}, {any: [{has: {field: return_type, pattern: $RETURN}}, {regex: ''}]}]}}, {follows: {regex: '^(?:get|set)$', pattern: $$KIND}}]}
+      transform:
+        DECORATED: {rewrite: {source: $FIRSTDECORATOR, rewriters: [decorators]}}
+        ACCESSED: {replace: {source: $ACCESS, replace: $, by: ' '}}
+        STATICED: {replace: {source: $STATIC, replace: $, by: ' '}}
+        ABSTRACTED: {replace: {source: $ABSTRACT, replace: $, by: ' '}}
+        OVERRIDDEN: {replace: {source: $OVERRIDE, replace: $, by: ' '}}
+        ARGUMENTS: {rewrite: {source: $PARAMETERS, rewriters: [comment]}}
+        RESULT: {rewrite: {source: $RETURN, rewriters: [comment]}}
+      fix: $DECORATED$ACCESSED$STATICED$ABSTRACTED$OVERRIDDEN$KIND $NAME$ARGUMENTS$RESULT
+    - {id: spreaded, rule: {kind: 'identifier, member_expression, call_expression, subscript_expression, parenthesized_expression', pattern: $SELF, inside: {kind: call_expression, field: function, inside: {kind: spread_element}}}, fix: '...$SELF(…)'}
 transform:
-    QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage]}}
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, spread, block, list, call, comment]}}
+    QUALIFIER: {rewrite: {source: $OWNER, rewriters: [keyed, lineage]}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [block, list, call, comment]}}
     LINE: {replace: {source: $HEADER, replace: '[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: ', *( \})|,? ([)\]])|, (>)|([(\[<]) |[ ;]+$|( ) +', by: $1$2$3$4$5}}
+    SIGNATURE: {replace: {source: $LINE, replace: '[,;] *( \})|,? ([)\]])|, (>)|([(\[<]) |[ ;]+$|( ) +', by: $1$2$3$4$5}}
     VALUED: {rewrite: {source: $VALUE, rewriters: [arguments, object, array, template]}}
     VALUELINE: {replace: {source: $VALUED, replace: '[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*', by: ''}}
+    HELDHEADER: {rewrite: {source: $HELD, rewriters: [accessor, spreaded]}}
+    HELDLINE: {replace: {source: $HELDHEADER, replace: '[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\n[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*', by: ' '}}
+    HELDSIGNATURE: {replace: {source: $HELDLINE, replace: '[,;] *( \})|,? ([)\]])|, (>)|([(\[<]) |[ ;]+$|( ) +', by: $1$2$3$4$5}}
     INIT: {replace: {source: $VALUELINE, replace: '.+', by: ': $0'}}
+    OMITTED: {replace: {source: $ELIDED, replace: '^:$', by: ': …'}}
 name: $QUALIFIER$NAME$SPREAD
-signature: $SIGNATURE$INIT
+signature: $SIGNATURE$HELDSIGNATURE$INIT$OMITTED
 isPublic: {not: {any: [{kind: private_property_identifier}, {has: {kind: accessibility_modifier, regex: '^(?:private|protected)$'}}, {has: {field: name, kind: private_property_identifier}}, {has: {field: key, kind: private_property_identifier}}, {inside: {kind: property_signature, has: {kind: accessibility_modifier, regex: '^(?:private|protected)$'}}}]}}
 ---
 id: typescript-member-enum-member
@@ -1033,6 +1687,7 @@ role: member
 parentRuleIds: [typescript-enum]
 symbolType: enumMember
 rule:
+    not: {has: {stopBy: end, any: [{kind: ERROR}, {regex: '^$'}]}}
     inside: {kind: enum_body}
     any:
         - {kind: enum_assignment, has: {field: name, pattern: $NAME}}
@@ -1043,9 +1698,13 @@ signature: $NAME
 id: typescript-member-error
 language: tsxlang
 role: member
-parentRuleIds: [typescript-function, typescript-suite, typescript-class, typescript-interface, typescript-type, typescript-constant, typescript-variable, typescript-assignment, typescript-export, typescript-enum]
+parentRuleIds: [typescript-function-owner, typescript-suite, typescript-class, typescript-interface, typescript-type, typescript-constant, typescript-variable, typescript-assignment, typescript-export, typescript-enum]
 symbolType: 'null'
-rule: {kind: ERROR, not: {has: {stopBy: end, kind: 'method_definition, method_signature, abstract_method_signature, call_signature, construct_signature, index_signature, property_signature, public_field_definition, required_parameter, optional_parameter, class_static_block, pair, shorthand_property_identifier, spread_element, enum_body, enum_assignment, export_statement, expression_statement, function_declaration, generator_function_declaration, function_signature, class_declaration, abstract_class_declaration'}}}
+rule:
+    any:
+        - {kind: ERROR, any: [{not: {has: {kind: 'identifier, comment'}}}, {not: {has: {stopBy: end, kind: 'method_definition, method_signature, abstract_method_signature, call_signature, construct_signature, index_signature, property_signature, public_field_definition, required_parameter, optional_parameter, class_static_block, pair, shorthand_property_identifier, spread_element, enum_body, enum_assignment, export_statement, expression_statement, function_declaration, generator_function_declaration, function_signature, class_declaration, abstract_class_declaration'}}}]}
+        - {kind: 'identifier, comment', all: [{inside: {kind: ERROR}}, {not: {follows: {kind: 'identifier, comment', stopBy: end}}}, {nthChild: {position: 1, ofRule: {kind: 'identifier, comment'}}}]}
+        - {regex: '^$', any: [{kind: 'identifier, property_identifier, type_identifier'}, {pattern: ')'}, {pattern: '}'}, {pattern: ']'}, {pattern: '>'}, {pattern: '!'}, {pattern: '/'}, {pattern: ';'}, {pattern: ':'}, {pattern: '=>'}, {pattern: '('}, {pattern: '{'}, {pattern: '='}], not: {inside: {kind: ERROR, stopBy: end}}}
 name: ERROR
 signature: ''
 isPublic: false

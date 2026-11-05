@@ -13,7 +13,7 @@ utils:
                 - has: {kind: 'integer_literal, char_literal', regex: '^(0x[0-9A-Fa-f]+(_?u8)?|b''.*'')$'}
     magic-constant:
         kind: identifier
-        regex: '^[A-Z][A-Z0-9_]*$'
+        regex: '^\p{Lu}[\p{Lu}\p{Nd}_]*$'
         pattern: $NAME
         inside: {kind: source_file, stopBy: end, has: {stopBy: end, kind: 'const_item, static_item', all: [{has: {field: name, pattern: $NAME}}, {has: {field: value, any: [{matches: magic-bytes}, {kind: reference_expression, has: {field: value, matches: magic-bytes}}]}}]}}
     magic:

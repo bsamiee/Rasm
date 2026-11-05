@@ -7,7 +7,7 @@ utils:
         regex: '^((::)?tokio::)?(signal::)?((unix|windows)::)?ctrl_(c|break|close|logoff|shutdown)$|^((::)?tokio::)?(signal::)?unix::signal$'
     imported-signal:
         pattern: signal
-        matches: {rust-imported-name: {source: {regex: '(?-u:\b)tokio::signal::unix(?-u:\b)'}, name: {regex: '^signal$'}}}
+        matches: {rust-imported-name: {source: {has: {field: argument, regex: '^(::)?tokio::signal::unix(::|$)'}}, name: {regex: '^signal$'}}}
     registration:
         any:
             - kind: call_expression

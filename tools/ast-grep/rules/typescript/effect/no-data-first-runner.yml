@@ -8,19 +8,19 @@ utils:
             - matches: {effect-module-member: {module: {regex: '(?-u:\b)Command$'}, member: {regex: '^run$'}}}
     piped-program:
         kind: call_expression
-        has: {field: arguments, has: {nthChild: {position: 1, ofRule: &argument {not: {kind: comment}}}}}
+        has: {field: arguments, has: {nthChild: {position: 1, ofRule: &code {not: {kind: 'comment, html_comment'}}}}}
         any:
             - has: {field: function, kind: member_expression, has: {field: property, regex: '^pipe$'}}
             - has: {field: function, matches: {effect-function: {name: {regex: '^pipe$'}}}}
     runner-call:
         kind: call_expression
         all:
-            - has: {field: function, pattern: $RUN, regex: '(?-u:\b)run', any: [{matches: dual-runner}, {matches: {effect-runner: {name: {regex: '^run'}}}}]}
+            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: *code}, matches: piped-program}}
+            - has: {field: function, pattern: $RUN, any: [{matches: dual-runner}, {matches: {effect-runner: {name: {regex: '^run'}}}}]}
             - any:
                 - pattern: $RUN($_PROGRAM)
                 - pattern: '$RUN($_PROGRAM, $_OPTIONS)'
                   has: {field: function, matches: dual-runner}
-            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: *argument}, matches: piped-program}}
 rule:
     kind: call_expression
     all:
@@ -30,6 +30,6 @@ rule:
                 - not: {inside: {kind: member_expression, field: object, has: {field: property, regex: '^pipe$'}}}
             - all:
                 - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^pipe$'}}, {has: {field: object, matches: runner-call}}]}
-                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: *argument}}}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: *code}}}
 message: '`$RUN` wraps the pipe it runs'
 note: 'Write `<program>.pipe(<steps>, <runner>)`, with `<runner>(<options>)` for a runner taking options'

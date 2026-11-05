@@ -5,20 +5,17 @@ utils:
     all-member:
         matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^all$'}}}
     array-map:
-        kind: member_expression
-        all:
-            - has: {field: property, regex: '^map$'}
-            - has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Array$'}}}}
+        matches: {effect-module-member: {module: {regex: '(?-u:\b)Array$'}, member: {regex: '^map$'}}}
     module-mapped:
         kind: call_expression
         all:
             - has: {field: function, matches: array-map}
-            - has: {field: arguments, all: [{has: {nthChild: 1}}, {has: {nthChild: 2}}, {not: {has: {nthChild: 3}}}]}
+            - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}}}, {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}, {not: {has: {nthChild: {position: 3, ofRule: {not: {kind: 'comment, html_comment'}}}}}}]}
     mapping-step:
         kind: call_expression
         all:
             - has: {field: function, matches: array-map}
-            - has: {field: arguments, all: [{has: {nthChild: 1}}, {not: {has: {nthChild: 2}}}]}
+            - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}}]}
     method-pipe:
         kind: call_expression
         has: {field: function, kind: member_expression, has: {field: property, regex: '^pipe$'}}
@@ -27,17 +24,17 @@ utils:
         any:
             - matches: module-mapped
             - all:
-                - has: {field: arguments, has: {nthChild: {position: 1, reverse: true}, matches: mapping-step}}
+                - has: {field: arguments, has: {nthChild: {position: 1, reverse: true, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: mapping-step}}
                 - any: [{matches: method-pipe}, {has: {field: function, matches: {effect-function: {name: {regex: '^pipe$'}}}}}]
 rule:
     kind: call_expression
     any:
         - all:
             - has: {field: function, matches: all-member, pattern: $ALL}
-            - has: {field: arguments, has: {nthChild: 1, matches: mapped-list}}
+            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: mapped-list}}
         - all:
             - matches: method-pipe
-            - has: {field: arguments, has: {nthChild: 1, matches: all-member, pattern: $ALL}}
+            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: all-member, pattern: $ALL}}
             - has: {field: function, has: {field: object, matches: module-mapped}}
         - has:
             field: arguments

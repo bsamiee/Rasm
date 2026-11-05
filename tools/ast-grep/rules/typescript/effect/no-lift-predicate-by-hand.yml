@@ -11,7 +11,7 @@ utils:
         pattern: $M
         matches: {effect-module: {name: {regex: '(?-u:\b)Result$'}}}
     one-argument:
-        has: {field: arguments, all: [{has: {nthChild: 1, pattern: $V}}, {not: {has: {nthChild: 2}}}]}
+        has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, pattern: $V}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}}]}
     option-lifted:
         kind: call_expression
         all:
@@ -21,7 +21,7 @@ utils:
         kind: call_expression
         all:
             - has: {field: function, kind: member_expression, all: [{has: {field: object, pattern: $M}}, {has: {field: property, regex: '^none$'}}]}
-            - has: {field: arguments, not: {has: {nthChild: 1}}}
+            - has: {field: arguments, not: {has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}}}}
     result-lifted:
         kind: call_expression
         all:
@@ -31,13 +31,13 @@ utils:
         kind: call_expression
         all:
             - has: {field: function, kind: member_expression, all: [{has: {field: object, pattern: $M}}, {has: {field: property, regex: '^fail$'}}]}
-            - has: {field: arguments, all: [{has: {nthChild: 1}}, {not: {has: {nthChild: 2}}}]}
+            - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}}]}
     case-lifted:
         kind: call_expression
         all:
             - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^(some|succeed)$'}}, {has: {field: object, any: [{matches: option-module}, {matches: result-module}]}}]}
             - matches: one-argument
-            - has: {field: arguments, has: {nthChild: 1, has: {stopBy: end, pattern: $ROOT}}}
+            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, has: {stopBy: end, pattern: $ROOT}}}
     tested:
         any:
             - pattern: $V
@@ -51,10 +51,7 @@ utils:
                 - has: {field: property, regex: '^(fail|failSync)$'}
                 - has: {field: object, kind: identifier, pattern: $M, matches: {effect-module: {name: {regex: '(?-u:\b)Effect$'}}}}
     terminal-member:
-        kind: member_expression
-        all:
-            - has: {field: property, regex: '^(fail|failSync|failCause|failCauseSync|die|interrupt)$'}
-            - has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Effect$'}}}}
+        matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^(fail|failSync|failCause|failCauseSync|die|interrupt)$'}}}
     terminal-arm:
         any:
             - kind: call_expression
@@ -90,7 +87,7 @@ utils:
             kind: call_expression
             all:
                 - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^succeed$'}}, {has: {field: object, kind: identifier, pattern: $M, matches: {effect-module: {name: {regex: '(?-u:\b)(Effect|Result)$'}}}}}]}
-                - has: {field: arguments, not: {has: {nthChild: 2}}}
+                - has: {field: arguments, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}}
     discriminant-test:
         kind: binary_expression
         any:
@@ -109,11 +106,13 @@ utils:
     generator-constant:
         kind: identifier
         pattern: $V
-        inside:
-            kind: generator_function
-            stopBy: end
-            has:
-                field: body
+        all:
+            - matches: {typescript-local-binding: {owner: {pattern: $OWNER}}}
+            - inside:
+                stopBy: end
+                kind: statement_block
+                pattern: $OWNER
+                inside: {kind: generator_function, field: body}
                 all:
                     - has: {kind: lexical_declaration, has: {matches: yielded-declaration}}
                     - not:
@@ -128,7 +127,7 @@ utils:
         not: {has: {stopBy: end, kind: comment}}
         all:
             - any:
-                - has: {field: arguments, has: {nthChild: 1, matches: lift-call}}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: lift-call}}
                 - has: {field: function, kind: member_expression, has: {field: object, matches: lift-call}}
             - any:
                 - all:
@@ -165,10 +164,7 @@ rule:
                 - all: [{has: {field: consequence, matches: case-lifted}}, {has: {field: alternative, any: [{matches: option-empty}, {matches: result-empty}]}}]
                 - all: [{has: {field: alternative, matches: case-lifted}}, {has: {field: consequence, any: [{matches: option-empty}, {matches: result-empty}]}}]
         - kind: ternary_expression
-          pattern: $TERNARY
           all:
-            - has: {field: condition, has: {matches: generator-constant, stopBy: end}}
-            - not: {has: {field: condition, any: [{matches: discriminant-test}, {has: {matches: discriminant-test, stopBy: end}}]}}
             - any:
                 - all:
                     - has: {field: alternative, matches: failing-arm}
@@ -176,12 +172,15 @@ rule:
                 - all:
                     - has: {field: consequence, matches: failing-arm}
                     - not: {has: {field: alternative, matches: terminal-arm}}
+            - not: {has: {field: condition, any: [{matches: discriminant-test}, {has: {matches: discriminant-test, stopBy: end}}]}}
+            - pattern: $TERNARY
+            - has: {field: condition, has: {matches: generator-constant, stopBy: end}}
         - kind: call_expression
           all:
-            - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^match$'}}, {has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Array$'}}}}}]}
-            - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $V}}, {not: {has: {nthChild: 3}}}]}
-            - has: {field: arguments, has: {nthChild: 2, kind: object, has: {kind: pair, all: [{has: {field: key, regex: '^onNonEmpty$'}}, {has: {field: value, matches: succeeded-arm}}]}}}
-            - has: {field: arguments, has: {nthChild: 2, kind: object, has: {kind: pair, all: [{has: {field: key, regex: '^onEmpty$'}}, {has: {field: value, matches: refused-arm}}]}}}
+            - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Array$'}, member: {regex: '^match$'}}}}
+            - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, pattern: $V}}, {not: {has: {nthChild: {position: 3, ofRule: {not: {kind: 'comment, html_comment'}}}}}}]}
+            - has: {field: arguments, has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}, kind: object, has: {kind: pair, all: [{has: {field: key, regex: '^onNonEmpty$'}}, {has: {field: value, matches: succeeded-arm}}]}}}
+            - has: {field: arguments, has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}, kind: object, has: {kind: pair, all: [{has: {field: key, regex: '^onEmpty$'}}, {has: {field: value, matches: refused-arm}}]}}}
 constraints:
     PIPE: {matches: {effect-function: {name: {regex: '^pipe$'}}}}
 message: '`$V` enters `$M` through a predicate branch written by hand'

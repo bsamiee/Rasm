@@ -9,31 +9,37 @@ utils:
             - kind: string, template_string
               regex: '^.properties.$'
 rule:
-    pattern: $WRITE
-    any:
-        - kind: assignment_expression
-          has:
-            field: left
-            any:
-                - {kind: member_expression, has: {field: property, matches: properties-key}}
-                - {kind: subscript_expression, has: {field: index, matches: properties-key}}
-        - kind: call_expression
-          all:
-            - has: {field: function, regex: '^(Reflect\.(set|defineProperty)|Object\.defineProperty)$'}
-            - has: {field: arguments, has: {nthChild: {position: 2, ofRule: &code {not: {kind: 'comment, html_comment'}}}, matches: properties-key}}
-        - kind: call_expression
-          all:
-            - has: {field: function, regex: '^Object\.assign$'}
-            - has:
-                field: arguments
-                has:
-                    kind: object
-                    not: {nthChild: {position: 1, ofRule: *code}}
+    all:
+        - any:
+            - kind: assignment_expression
+              has:
+                field: left
+                any:
+                    - {kind: member_expression, has: {field: property, matches: properties-key}}
+                    - {kind: subscript_expression, has: {field: index, matches: properties-key}}
+            - kind: call_expression
+              all:
+                - has:
+                    field: function
+                    kind: member_expression
+                    any:
+                        - all: [{has: {field: property, regex: '^(set|defineProperty)$'}}, {has: {field: object, regex: '(^|\.)Reflect$', matches: typescript-global-member}}]
+                        - all: [{has: {field: property, regex: '^defineProperty$'}}, {has: {field: object, regex: '(^|\.)Object$', matches: typescript-global-member}}]
+                - has: {field: arguments, has: {nthChild: {position: 2, ofRule: &code {not: {kind: 'comment, html_comment'}}}, matches: properties-key}}
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^assign$'}}, {has: {field: object, regex: '(^|\.)Object$', matches: typescript-global-member}}]}
+                - has:
+                    field: arguments
                     has:
-                        any:
-                            - {kind: pair, has: {field: key, matches: properties-key}}
-                            - {kind: shorthand_property_identifier, regex: '^properties$'}
-    inside: {kind: program, stopBy: end, matches: {typescript-module-importer: {module: {regex: '^(adobe:)?indesign$'}}}}
+                        kind: object
+                        not: {nthChild: {position: 1, ofRule: *code}}
+                        has:
+                            any:
+                                - {kind: pair, has: {field: key, matches: properties-key}}
+                                - {kind: shorthand_property_identifier, regex: '^properties$'}
+        - inside: {kind: program, stopBy: end, matches: {typescript-module-importer: {module: {regex: '^(adobe:)?indesign$'}}}}
+        - pattern: $WRITE
 transform:
     HEAD: {replace: {source: $WRITE, replace: '(?s)^([^(=]+?)[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*[(=].*$', by: '$1'}}
 message: '`$HEAD` sets keys through `properties` and drops each refused key with no error'

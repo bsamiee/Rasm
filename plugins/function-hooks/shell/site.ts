@@ -50,7 +50,14 @@ class Shell extends Context.Service<Shell>()('@rasm/function-hooks/shell/site/Sh
         Effect.map(
             Effect.all({
                 trees: Cache.makeWith((source: string) => tree(source, 'bash'), { capacity: 1024, ...KEEP_SUCCESSES }),
-                grammars: Cache.makeWith((program: string) => grammarOf(program, programs.get(program) ?? {}, [...programs].find(([, row]) => row === programs.get(program))?.[0] ?? program), { capacity: programs.size, ...KEEP_SUCCESSES }),
+                grammars: Cache.makeWith(
+                    (program: string) => {
+                        const row = programs.get(program) ?? {};
+                        const [[primary] = [program]] = [...programs].filter(([, held]) => held === row);
+                        return grammarOf(program, row, primary);
+                    },
+                    { capacity: programs.size, ...KEEP_SUCCESSES },
+                ),
                 installed: Cache.makeWith((program: string) => Host.use((host) => host.installed(program)), { capacity: programs.size, ...KEEP_SUCCESSES }),
                 ignored: Cache.makeWith(ignoredAny, { capacity: 1024, ...KEEP_SUCCESSES }),
             }),

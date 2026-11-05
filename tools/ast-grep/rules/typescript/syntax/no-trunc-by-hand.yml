@@ -23,14 +23,14 @@ utils:
               has: {matches: above-zero}
     math-ceil:
         kind: member_expression
-        regex: '^((globalThis|window|self)\.)?Math\.ceil$'
-        matches: typescript-global-reference
-        has: {field: object, pattern: $MATH}
+        all:
+            - has: {field: property, regex: '^ceil$'}
+            - has: {field: object, regex: '(^|\.)Math$', matches: typescript-global-member, pattern: $MATH}
     math-floor:
         kind: member_expression
-        regex: '^((globalThis|window|self)\.)?Math\.floor$'
-        matches: typescript-global-reference
-        has: {field: object, pattern: $MATH}
+        all:
+            - has: {field: property, regex: '^floor$'}
+            - has: {field: object, regex: '(^|\.)Math$', matches: typescript-global-member, pattern: $MATH}
     negated:
         kind: unary_expression
         all: [{has: {field: operator, regex: '^-$'}}, {has: {field: argument, pattern: $N}}]
@@ -71,7 +71,7 @@ utils:
     sign:
         kind: call_expression
         all:
-            - has: {field: function, kind: member_expression, regex: '^((globalThis|window|self)\.)?Math\.sign$', matches: typescript-global-reference, has: {field: object, pattern: $MATH}}
+            - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^sign$'}}, {has: {field: object, regex: '(^|\.)Math$', matches: typescript-global-member, pattern: $MATH}}]}
             - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: *code}, pattern: $N}}, {not: {has: {nthChild: {position: 2, ofRule: *code}}}}]}
     floored-magnitude:
         kind: call_expression
@@ -85,7 +85,7 @@ utils:
                         nthChild: {position: 1, ofRule: *code}
                         kind: call_expression
                         all:
-                            - has: {field: function, kind: member_expression, regex: '^((globalThis|window|self)\.)?Math\.abs$', matches: typescript-global-reference, has: {field: object, pattern: $MATH}}
+                            - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^abs$'}}, {has: {field: object, regex: '(^|\.)Math$', matches: typescript-global-member, pattern: $MATH}}]}
                             - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: *code}, pattern: $N}}, {not: {has: {nthChild: {position: 2, ofRule: *code}}}}]}
 rule:
     any:

@@ -427,7 +427,7 @@ export default grammar(base, {
     externals: ($, original) => [...original, $._hole, $._hole_end],
     conflicts: ($, original) => [...original, [$.substitution]],
     rules: {
-        substitution: ($) => repeat1(seq($._hole, $._hole_end)),
+        substitution: ($) => prec.dynamic(1, repeat1(seq($._hole, $._hole_end))),
         _hole_forms: () => seq(...forms.flatMap(({opening, closing}) => [opening, closing])),
         source_file: ($, original) => choice(original, seq('`', choice(base.grammar.rules.source_file, $._statement, $._expression), '`')),
         _name: ($, original) => choice(original, prec(1, $.substitution)),
@@ -435,7 +435,7 @@ export default grammar(base, {
 });
 ```
 
-Holes span an opening and a closing external token, so one `MISSING` token recovery inserts never completes a hidden `substitution`, and the `[$.substitution]` conflict folds adjacent holes (`${a} ${b}`) into one substitution that slots read as one value.
+Holes span an opening and a closing external token, so one `MISSING` token recovery inserts never completes a hidden `substitution`. The `[$.substitution]` conflict folds adjacent holes (`${a} ${b}`) into one substitution that slots read as one value, `prec.dynamic` on `substitution` giving each hole its node only where the arms reading them apart tie on static precedence and fork.
 
 Rules read a hole by kind and the host path through injection, byte offsets stay absolute:
 
@@ -463,11 +463,14 @@ Grammar side:
 - Fragments led by another fragment alias their rule with the leading optional mandatory
 - Tails no upstream rule names (a `RETURNING` list) become rules by splitting arms at their shared prefix and suffix around the new rule
 - Hole slots, found by parsing real templates with each hole replaced by a marker, widen a whole rule (`choice(original, prec(<level>, $.substitution))`) or its named fields and symbols
+- Arms reading a slotted rule after a name (`func_name Sconst`) take the rule's original choice, a slot there reading every `name ${hole}` as that arm
 - Whole-rule levels count the slotted rules a rule reaches, outer rules win a hole their inner rule accepts
 - Named slots rank above every whole-rule level, a list reaching a slot takes the hole in place of the list, labeled by the field the list holds
+- Positions reading a hole as one kind against a whole-rule slot take a hidden `_<kind>_hole: prec(<level>, $.substitution)` aliased to that kind, an inline `alias(prec(…))` adds no production and loses
 - Holes standing for a run of production members (`` `UPDATE t ${set} WHERE a` ``) take an arm copying the production with that run replaced
 - Operator holes take infix and prefix arms one static level below the loosest operator, a whole-rule operator slot shifts every later hole
 - Overlapping arms resolve to one tree whatever the site meant (PostgreSQL `` `a + 1` `` as `sortby_list`, `` `${x}` `` as `columnDef`), a rule reads the printed tree
+- Slots accept a hole only as the construct it stands for, a cast tail taking a trailing-clause hole prints a wrong tree in place of a failure
 - Documents injected as plain text hold whole statements alone, languages nested inside one stay opaque, embedding at grammar level is the one route
 
 Scanner side, one wrapper over the dialect scanner:
@@ -679,5 +682,5 @@ Configured shapes by grammar, extensions included:
 - Rust doc comments read `line_comment(outer: outer_doc_comment_marker, doc: doc_comment)`, `token_tree` drops operator leaves from named children
 - Swift holds no supertypes, enums hold `enum_class_body`, extensions `class_declaration name: user_type`, `function_declaration` `name` is `multiple`, and declarations name `type_name`, `function_name`, `case_name`, `init_keyword`, `deinit_keyword`, `subscript_keyword`, `referenceable_operator`
 - XML `Attribute` holds `Name` and `value: AttText`, `AttValue` sits under `DefaultDecl` alone, `EntityValue` holds `value: EntityText`, `extras` is empty with whitespace in `_S`, and `word` is `Name` over XML 1.0 name ranges
-- Postgres holds keywords anonymous, few `opt_*` wrappers, `a_expr` and `b_expr` operand and operator fields, a lone hidden child named by its rule, `$$…$$` at `AexprConst(dollar_quoted_string)`
+- Postgres holds keywords anonymous, few `opt_*` wrappers, `a_expr`, `b_expr`, and `joined_table` operand and operator fields, a lone hidden child named by its rule, `$$…$$` at `AexprConst(dollar_quoted_string)`
 - TOML single-line strings alias a `string_content` per run between escapes, multi-line ones one holding escapes, escape tests take `stopBy: end`

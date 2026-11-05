@@ -1,10 +1,10 @@
 import { fileURLToPath } from 'node:url';
 import type { Installation } from '@rasm/applications';
 import { Automation } from '@rasm/applications/node';
-import { Array, Deferred, Effect, FileSystem, identity, Option, Path, type PlatformError, Predicate, Record, Result, Schema, Struct, UndefinedOr } from 'effect';
+import { Array, Deferred, Effect, FileSystem, identity, Option, Path, type PlatformError, Predicate, Record, Schema, Struct, UndefinedOr } from 'effect';
 import type { ChildProcessSpawner } from 'effect/process';
 import { HarnessError } from '#/harness-error';
-import { Closed, Engine, HostCase, HostOutcome, LoaderRequest, REFUSED, Rows, Sarif, Session, Source, Survey } from '#/hosts/rhino/contract';
+import { Closed, Contract, LoaderRequest, REFUSED, Rows, Sarif, Session, Source } from '#/hosts/rhino/contract';
 import { precondition } from '#/hosts/rhino/precondition';
 import { type Batch, Harness, type Installed, installation, type Live } from '#/session/harness';
 import { appeared, Launched, output, Progress } from '#/session/instance';
@@ -12,7 +12,7 @@ import { failing, HOME, lined } from '#/trace/reports';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Case = typeof HostCase.Type;
+type Case = typeof Contract.Case.Type;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -99,7 +99,7 @@ const requested = Effect.fn('requested')(function* (scratch: string, stem: strin
 });
 
 // --- [CASES]
-const refusal = (_: typeof Engine.Type, hosted: Case) =>
+const refusal = (_: typeof Contract.Engine.Type, hosted: Case) =>
     Option.map(
         Array.findFirst(REFUSED, (key) => hosted[key] !== undefined),
         (key) => `answers ${key}, which no Rhino case shows`,
@@ -110,7 +110,7 @@ const called = (name: string) => `Engine.Call(${name}, scope.Args)`;
 const bodyOf = (hosted: Case) =>
     Option.orElse(
         Option.map(Option.fromUndefinedOr(hosted.rebuilt), ({ fn }) => called(fn)),
-        () => HostCase.match(hosted, { Probe: ({ evaluate }) => Option.some(`(object?)(${evaluate})`), Call: ({ call }) => Option.some(called(call)), Run: () => Option.none<string>() }),
+        () => Contract.Case.match(hosted, { Probe: ({ evaluate }) => Option.some(`(object?)(${evaluate})`), Call: ({ call }) => Option.some(called(call)), Run: () => Option.none<string>() }),
     );
 const entry = (hosted: Case) => {
     const locals = [
@@ -193,7 +193,7 @@ const ran = Effect.fn('ran')(function* (live: Live, records: string, cases: Arra
         precondition: hosted.precondition,
         reads: Record.keys(hosted.read),
         macros: hosted.rebuilt === undefined ? (hosted.commands ?? []) : [],
-        args: HostCase.match(hosted, { Probe: () => [], Call: ({ args }) => args, Run: ({ args }) => args }),
+        args: Contract.Case.match(hosted, { Probe: () => [], Call: ({ args }) => args, Run: ({ args }) => args }),
         ...(hosted._tag === 'Run' && hosted.rebuilt === undefined ? { script: hosted.source.script } : {}),
     });
     yield* fs.writeFileString(batch, yield* Schema.encodeEffect(Rows)({ cases: cases.map(row), ...Record.getSomes({ plugin }) }));
@@ -205,7 +205,7 @@ const ran = Effect.fn('ran')(function* (live: Live, records: string, cases: Arra
         onDefined: HarnessError.unavailable(`${ENTRY.type} batch`),
     });
 });
-const send = Effect.fn('send')(function* (live: Live, batch: Batch<typeof Survey.Type, Case>) {
+const send = Effect.fn('send')(function* (live: Live, batch: Batch<typeof Contract.Survey.Type, Case>) {
     const session = yield* sessionOf(live);
     const state = yield* Array.match(batch.cases, { onEmpty: () => Effect.succeedNone, onNonEmpty: (cases) => Effect.asSome(ran(live, batch.records, cases)) });
     return { application: session.application, version: session.version, survey: session.survey, ...Record.getSomes({ state }) };
@@ -214,12 +214,8 @@ const send = Effect.fn('send')(function* (live: Live, batch: Batch<typeof Survey
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const rhino = Harness({
-    Engine,
-    survey: { question: 'Language and environment the running instance reports', Schema: Survey },
-    Case: HostCase,
-    Outcome: HostOutcome,
+    ...Contract,
     progress: [new Progress({ title: 'Please Wait...', buttons: ['Cancel'] })],
-    engine: () => Result.succeed(Engine.literal),
     precondition,
     placed: (decoded, _folder, product) =>
         Effect.map(Path.Path, (path) => ({

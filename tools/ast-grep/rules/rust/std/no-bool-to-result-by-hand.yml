@@ -20,7 +20,7 @@ utils:
             - has: {field: alternative, kind: else_clause, has: {kind: block, matches: unit-ok}}
     negation:
         kind: unary_expression
-        regex: '^!'
+        has: {field: operator, regex: '^!$'}
     branch:
         kind: if_expression
         all:

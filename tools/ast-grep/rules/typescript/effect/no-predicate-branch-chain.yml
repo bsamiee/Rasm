@@ -12,10 +12,10 @@ utils:
         any:
             - all:
                 - has: {field: function, matches: lift-member}
-                - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $X}}, {has: {nthChild: 2}}]}
+                - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, pattern: $X}}, {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}]}
             - all:
-                - has: {field: function, kind: call_expression, all: [{has: {field: function, matches: lift-member}}, {has: {field: arguments, not: {has: {nthChild: 2}}}}]}
-                - has: {field: arguments, has: {nthChild: 1, pattern: $X}}
+                - has: {field: function, kind: call_expression, all: [{has: {field: function, matches: lift-member}}, {has: {field: arguments, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}}}]}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, pattern: $X}}
     lifted:
         any:
             - matches: lift
@@ -25,7 +25,7 @@ utils:
         has: {field: function, matches: option-member, has: {field: property, regex: '^orElse$'}}
     alternative:
         kind: arrow_function, function_expression
-        nthChild: {position: 1, reverse: true}
+        nthChild: {position: 1, reverse: true, ofRule: {not: {kind: 'comment, html_comment'}}}
         inside: {kind: arguments, inside: {matches: or-else, pattern: $ALT}}
 rule:
     all:
@@ -37,10 +37,10 @@ rule:
             any:
                 - all:
                     - pattern: $ALT
-                    - has: {field: arguments, all: [{has: {nthChild: 1, matches: lifted}}, {has: {nthChild: 2}}]}
+                    - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: lifted}}, {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}]}
                 - all:
                     - has: {field: function, matches: {effect-function: {name: {regex: '^pipe$'}}}}
-                    - has: {field: arguments, all: [{has: {nthChild: 1, matches: lifted}}, {has: {pattern: $ALT}}]}
+                    - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: lifted}}, {has: {pattern: $ALT}}]}
                 - all:
                     - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^pipe$'}}, {has: {field: object, matches: lifted}}]}
                     - has: {field: arguments, has: {pattern: $ALT}}

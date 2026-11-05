@@ -34,9 +34,8 @@ rule:
     kind: call_expression
     pattern: $STRUCT
     all:
-        - has: {field: function, kind: member_expression, has: {field: property, regex: '^Struct$'}}
-        - has: {field: arguments, all: [{has: {nthChild: 1, kind: object}}, {not: {has: {nthChild: 2}}}]}
-        - has: {field: function, has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Schema$'}}}}}
+        - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Schema$'}, member: {regex: '^Struct$'}}}}
+        - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, kind: object}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}}]}
         - any:
             - inside:
                 kind: pair
@@ -44,12 +43,12 @@ rule:
                 has: {field: key, regex: '^payload$'}
                 inside:
                     kind: object
-                    nthChild: 2
+                    nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}
                     inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, matches: rpc-constructor}}}
-            - nthChild: 1
+            - nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}
               inside:
                 kind: arguments
-                not: {has: {nthChild: 2}}
+                not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}
                 inside:
                     kind: call_expression
                     has:

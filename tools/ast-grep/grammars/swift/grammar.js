@@ -121,7 +121,15 @@ export default extend(swift, {
         ),
         _attribute_argument: ($, original) => {
             const name = choice($.simple_identifier, $.self_expression);
-            return choice(original, alias($._bodyless_function_declaration, $.function_declaration), $.init_declaration, $.subscript_declaration, $.property_declaration, $.type_constraints, prec.dynamic(1, choice(seq(name, ':', optional(choice(...LIFETIME_DEPENDENCE)), name), seq(choice(...LIFETIME_DEPENDENCE), name))));
+            return choice(
+                original,
+                alias($._bodyless_function_declaration, $.function_declaration),
+                $.init_declaration,
+                $.subscript_declaration,
+                $.property_declaration,
+                $.type_constraints,
+                prec.dynamic(1, choice(seq(name, ':', optional(choice(...LIFETIME_DEPENDENCE)), name), seq(choice(...LIFETIME_DEPENDENCE), name))),
+            );
         },
         simple_identifier: (_, original) => dollared(original),
         module_selector: () => token(seq(choice(...dollared(swift.grammar.rules.simple_identifier).members.filter(({ type }) => type === 'PATTERN')), '::')),

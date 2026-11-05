@@ -4,6 +4,8 @@
 
 ## [01]-[READING]
 
+Outlines pay where they replace a broad read by choosing the file or range to read, and add cost before a whole read made anyway.
+
 Flags select what compiles before the walk, a skipped container's inner declarations appear as items:
 
 | [INDEX] | [FLAG]              | [SKIPS_COMPILE]                                          |
@@ -27,14 +29,18 @@ Modes and views print by resolved value:
 - Item filters never reach members, members follow their item
 - Text marks exported items bold outside `--items exports`, imports italic outside `--items imports`, and private members dim
 - `--color never` erases every mark, select those flags through `--items`, `--pub-members`, or JSON
-- Text prints the name in place of an empty signature, its line number is `range.start`, a decorated definition prints the decorator's line
+- Text prints the name for an empty signature and a row's start line as `range.start.line + 1`, JSON `range` holding its end
+- Decorated definitions print the decorator's line
 - `-l <lang>` walks that language's files plus every file of a host that injects it, and parses each walked file as `<lang>`
 - Injected rows come through a host path or `-l <host>`, `-l <injected>` over a tree holding hosts yields host files misparsed as the injected language
-- `--stdin -l <lang>` outlines piped code with its injections, `--stdin` ignores path arguments
+- `--stdin -l <lang>` outlines piped code with its injections and ignores path arguments
+- Piped code reproduces a file's rows under the file's JSON `language`, a built-in alias for a custom language running bundled extractors
 - Directory runs walk the languages holding extractors plus every host injecting one of them, and omit files without items
 - HTML hosts inject each `<script>` and `<style>` by its `lang` attribute with no config, `.html` joins directory runs
+- Markdown heading rows are `module` rows covering the heading alone, its section running to the next heading of equal or shallower level
 - Named files without items print `nothing found` at exit 0 when the command holds no directory argument
-- Named paths bypass hidden, ignore, and `--globs` filters
+- Named paths bypass hidden, ignore, and `--globs` filters, entries below a named directory obey them
+- Folders an ignore file drops (`dist/` under a root `.gitignore`) read under `--no-ignore vcs`, an include glob never reaching into them
 - Hosts without extractors show their injections in directory runs, through a named file, and under `-l <host>`
 - Rows sort by byte offset, injected rows take the host's path, `language`, and positions
 
@@ -59,7 +65,7 @@ Scripts read JSON with these contracts:
 - Paths print as given (`./a.rs` under `.`), `run` normalizes them (`a.rs`), a join across both normalizes first
 - `range` holds the same shape and values as `run --json`, an enclosing item is an interval join on `byteOffset` that tests lines
 - Items start at a declaration keyword past any `export` or `declare`, bindings of a grouped declaration at each declarator
-- Token members end before the first later row no `$OWNER` and separator of theirs or of a row in their span starts, else at their item's `range.end`
+- Member spans end at the first later member their name does not qualify, else at their item's `range.end`, never inside their own range
 - Rows whose signature names a receiver their name lacks (`self.x` named `x`) sit inside the chain of the token row before them
 - `astKind` alone separates an injected row from a native one, same-range rows can be byte-identical, dedupe on range, name, and `astKind`
 - Ties keep native rows first, then entry order
@@ -70,9 +76,32 @@ Config is found from the working directory, never from a target path:
 - Invalid `languageInjections` exit 8, catalog errors exit 1
 
 Rows compare by key, a broken file still yields partial rows and a diff reads them as false removals:
-- Consumers key rows by `(symbolType, owner, name)`, a key holds a bag because overloads repeat
-- `ERROR` and `MISSING` nodes print a `symbolType` `null` row named `ERROR`, marking its file unknown, its other rows neither removed nor unchanged
+- Comparisons read `--items all --view expanded --json=stream -j 1`, keeping members under a container `--items exports` skips
+- Exposure is `isExported` on an item, `isPublic` on a member of an exported item or of a literal-false container (`impl`)
+- Rows key by `(path, symbolType, owner, name)` as a bag, since overloads and owners local to them repeat
+- Bags pair unchanged rows first, then equal signatures as body or exposure changes, the rest as signature changes
+- Signatures compare whitespace folded, bodies as exact bytes of the trimmed span less rows inside it
+- Span hashes fold whitespace and mask the declaration's name token once, masking every occurrence merges `brand('<name>')` rows
+- Keys leaving a file while their `(owner, name)` stays under another `symbolType` read as a signature change
+- Unpaired rows read as moved when their `(owner, name)` is unique on both sides in different files
+- Unpaired rows read as renamed when one removed and one added row share `symbolType` and span hash
+- `ERROR` and `MISSING` nodes print a `symbolType` `null` row named `ERROR`
+- Files holding an `ERROR` row on either side, or rows before and none after, read unknown and never removed
 - Error rows print under `--items all` and `structure`, `digest` and `expanded` list one as a private member of an item whose walked body failed
+
+Equal declarations group across files by derived span:
+- Items group by `(language, symbolType)` and span hash over 60 or more folded characters
+- Items of 4 or more members also group by the bag of member name and member span hash
+- Items inside another item's range are injected rows, since native items never nest
+- Groups skip modules, imports, `impl` blocks, injected rows, and files holding `ERROR`
+
+Rows reach other tools in these forms:
+- `git -c core.attributesFile=<file> -c diff.<driver>.textconv=<filter> diff` reads rows for one command, `<file>` holding `*.<ext> diff=<driver>`
+- Repository `.gitattributes` rows outrank `core.attributesFile`
+- Textconv filters print JSON `signature` values alone, since text line numbers shift with every edit above a row
+- Git runs a textconv filter once per blob, each run paying full catalog load, and `--stat` and `--numstat` count source lines
+- `--json=stream` reads as a table, `duckdb` `read_json` taking items through `unnest(items)` and members through a second `unnest`
+- Hook text past 10,000 characters on Claude Code, or about 2,500 tokens on Codex below a handler's `additionalContextLimit`, moves to a file behind a preview
 
 ## [03]-[LOADING]
 
@@ -274,7 +303,7 @@ One cursor walk from the root serves items and members:
 - Members owning a body match the whole declaration while the body holds no member kind at any depth
 - Members whose body holds one match a header token rare in bodies (parameter list, first modifier) to reach the body, its range the row's
 - Items whose leaf bodies hold member candidate kinds split into a leaf document no member names and an owner document members name
-- Nested owner members name the full owner path, a separator no name segment holds (`.`, Rust `::`), and `$NAME`
+- Nested owner members name the full owner path, a separator no name segment holds (`.`, Rust `::`), and `$NAME`, callable segments without parameter lists
 - Nearest-owner names collide in a file, a nested owner repeating its parent's name runs over the parent's later members
 - Paths come from a `lineage` rewriter over the owner's name token that calls itself once per enclosing owner and writes the separator in its fix
 - Lineage rules end in an always-true arm, a climb missing its owner under a broken tree still printing the separator
@@ -290,7 +319,7 @@ One cursor walk from the root serves items and members:
 
 Signatures take the first tier that fits:
 1. Omitted `signature` fits when the name line is the header, a row matched on a name token prints the token alone
-2. Templates over field captures (`$PREFIX$NAME$TYPES$PARAMS$RETURN`) take an optional prefix from `replace: '$'` with `by: ' '`
+2. Templates over field captures (`$PREFIX$NAME$TYPES$PARAMS$RETURN`) take an optional prefix from `replace: '^(.)'` with `by: ' $1'`, which an empty transform output never matches
 3. Rewriters on the name token compose the header from optional field captures
 
 Template behavior:
@@ -309,6 +338,7 @@ Template behavior:
 - Conditional blocks in a header give their first branch to the signature and to every flag, one row states one configuration
 - Rows under a guard that changes their meaning (Python `if TYPE_CHECKING:`) take the guard as a signature prefix
 - Signatures drop attributes only a development tool reads (debugger, coverage, analyzer suppression, IDE completion), others keep name and arguments
+- Modifiers every declaration of a file holds (`declare` in a `.d.ts`) print only where they separate rows (`declare global` from a namespace)
 - Attribute arguments that compute (a call, lambda, operator, collection) print as `…`, a name, attribute, or literal stays
 - Extras can split a header, fold `<ws>*\n<ws>*` (`<ws>` the grammar's whitespace class) to one space
 - Folds join line breaks inside literals, fold only captures that can span lines and trim the end only where a rewriter leaves whitespace
@@ -355,17 +385,17 @@ Each outlined language holds one catalog file, registered as its `outlineRules`:
 - Kinds and fields come from the grammar's `node-types.json`, never from what current sources hold
 - Every declaration kind a body accepts, supertypes expanded through `subtypes`, holds a document, expression, statement, and text kinds hold none
 - Every catalog covers items, members, nested owners, visibility, signatures, and parse failures, a failed parse never reading as absence
-- Parse failure documents match an `ERROR` holding at no depth a node their rows need, by kind or by the field test making it a row (Bash `command` by `name`)
+- Parse failure documents match an `ERROR` holding at no depth a node their rows need, by kind or by the field or owner test making it a row (Bash `command` by `name`)
 - Tests on node naming (`$_`, `$$_`) swallow a token-only construct's row or print none for a punctuation-only failure
 - Parse failure items also match the named leaf opening any other `ERROR`, the leaf and each ancestor below it first
 - Members take that arm where owner-body failures open on a non-row leaf, failures at the item or closed by zero-width and all-rows arms need none
 - Opening leaves are first named children that are no row kind, `ERROR`, or statement wrapping a row, a later row-free sibling opens nothing
 - Opening leaves test a kind-only climb to the nearest `ERROR`, statement list, or root first, so clean files pay one climb per walked leaf
-- Leaf row documents take `not: {has: {stopBy: end, any: [{kind: ERROR}, {regex: '^$'}]}}` so the walk reaches the failure, a kinded test misses anonymous `MISSING`
+- Leaf row documents end their ordered `all:` with `not: {has: {stopBy: end, any: [{kind: ERROR}, {regex: '^$'}]}}` so the walk reaches the failure, a kinded test misses anonymous `MISSING`
 - Failures whose named children are all rows print one, the `ERROR` itself (Swift `if #foo`) or its first row child (XML second root) giving up its rows
-- `MISSING` tokens match one regex-first arm, `{regex: '^$', any: [<named kinds>, {pattern: <token>}]}` with a pattern per token recovery inserts, a statement separator (`;`) included, less kinds zero-width when valid
-- Anonymous `MISSING` tokens match a pattern peeling to them (SQL `)`), else the node they close (`has: {regex: '^$'}` on the kinds closing with them)
-- Parse failure rows take `name: ERROR`, `signature: ''`, and literal false flags
+- `MISSING` tokens closing a row or row container match one regex-first arm, `{regex: '^$', any: [<named kinds>, {pattern: <token>}]}`, less kinds zero-width when valid
+- Recovery inserts any terminal, keywords included, a token the regex-first arm misses under a deletion fuzz marks through the node it closes, `{kind: <nonterminals less row kinds and row containers>, all: [{has: {regex: '^$'}}, {not: {has: {stopBy: end, matches: <row util>}}}]}`
+- Parse failure documents precede their role's row documents, claiming a zero-width token a row arm matches, and take `name: ERROR`, `signature: ''`, and literal false flags
 - Catalogs classify by local syntax with no import resolution or shadowing analysis, a library call shape enters only as a callee test
 - Injected roots run the same documents as native roots, a catalog serving injected roots alone sets literal `isExported: false` on every item
 - Catalogs serving native files as well cannot mark injected rows, those rows enter host exports

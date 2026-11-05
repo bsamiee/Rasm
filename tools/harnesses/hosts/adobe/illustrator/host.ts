@@ -5,15 +5,14 @@ import { findNodeAt } from 'acorn-walk';
 import { Array, DateTime, Effect, FileSystem, Number, Option, Path, Record, Result, Schema, Struct } from 'effect';
 import jsesc from 'jsesc';
 import { copied } from '#/cases/precondition';
-import { EXTENDSCRIPT } from '#/cases/schema';
 import { JsonObject } from '#/cases/values';
 import { HarnessError, thrown } from '#/harness-error';
-import { Engine, HostCase, HostOutcome, type Install, PASTEBOARD, Reply, Sent, Survey } from '#/hosts/adobe/illustrator/contract';
+import { Contract, PASTEBOARD, Sent } from '#/hosts/adobe/illustrator/contract';
 import { precondition } from '#/hosts/adobe/illustrator/precondition';
 import { ADOBE, crashes, REPORTER, uxp } from '#/hosts/adobe/reports';
 import { type Batch, Harness, type Installed, type Instance, installation, type Live, scripted } from '#/session/harness';
 import { checked, Launched, output, plist } from '#/session/instance';
-import { assembled, engineOf } from '#/session/source';
+import { assembled } from '#/session/source';
 import { failing, HOME, lifetime, lined, local, type Rule } from '#/trace/reports';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -37,7 +36,7 @@ const VOLATILE = {
         /%%CreationDate:[^\r\n]*/gu,
     ],
 } as const;
-const ENGINE = Effect.runSync(Effect.cached(assembled(new URL('engine.ts', import.meta.url))));
+const ENGINE = Effect.runSync(Effect.cached(assembled(new URL('engine/main.ts', import.meta.url))));
 const BOARD = new URL('pasteboard.jxa', import.meta.url);
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -117,11 +116,10 @@ const opened = Effect.fn('opened')(function* (live: Live) {
     const [{ folder, locale, plugins }, { AdobeBuildNumber: build }] = yield* Effect.all([held(live.pid, live.chosen), plist(live.chosen.app, Bundled)]);
     const config = yield* Effect.flatMap(fs.readFileString(path.join(folder, '.runConfig')), Schema.decodeEffect(RunConfig));
     const features = Option.match(Record.get(config, live.chosen.version), { onNone: () => ({}), onSome: (row) => row.features });
-    return { build, locale, features, plugins } satisfies typeof Install.Type;
+    return { build, locale, features, plugins } satisfies (typeof Contract.Survey.Type)['host'];
 });
 
 // --- [SOURCE]
-const engine = engineOf({ [Engine.literal]: { extensions: EXTENDSCRIPT } }, Engine.literal);
 const named = (node: unknown) => Option.map(Schema.decodeUnknownOption(Named)(node), Named.match({ Identifier: ({ name }) => name, Literal: ({ value }) => String(value) }));
 const escaping = (_: string, node: unknown) => Option.exists(Schema.decodeUnknownOption(Reached)(node), ({ property }) => Option.exists(named(property), shadowed));
 const escaped = (code: string) =>
@@ -132,9 +130,9 @@ const escaped = (code: string) =>
             onSuccess: (tree) => Option.map(Option.fromNullishOr(findNodeAt(tree, undefined, undefined, escaping)), ({ node }) => `${code.slice(node.start, node.end)} reaches the host around the case shadows`),
         },
     );
-const refusal = (_: typeof Engine.Type, hosted: typeof HostCase.Type, binary: boolean) => {
+const refusal = (_: typeof Contract.Engine.Type, hosted: typeof Contract.Case.Type, binary: boolean) => {
     const { set = [], add = [], select = [], steps = [] } = hosted.precondition;
-    const expressions = [...Object.values(hosted.read), ...set.map(([target]) => target), ...add.flatMap(({ to, args = [] }) => [to, ...args]), ...select, ...HostCase.match(hosted, { Probe: ({ evaluate }) => [evaluate], Call: ({ call }) => [call], Run: () => [] })];
+    const expressions = [...Object.values(hosted.read), ...set.map(([target]) => target), ...add.flatMap(({ to, args = [] }) => [to, ...args]), ...select, ...Contract.Case.match(hosted, { Probe: ({ evaluate }) => [evaluate], Call: ({ call }) => [call], Run: () => [] })];
     const statements = [...steps, ...Option.toArray(Option.flatMap(Option.fromUndefinedOr(hosted._tag === 'Probe' ? undefined : hosted.source), ({ code }) => Option.liftPredicate(code, () => !binary)))];
     return Option.firstSomeOf([...expressions.map((expression) => `(${expression.replaceAll('[*]', '[0]')});`), ...statements].map(escaped));
 };
@@ -148,9 +146,9 @@ const pasteboard = (mode: 'save' | 'restore', file: string) =>
 const called = Effect.fn('called')(function* (live: Live, sent: typeof Sent.Type) {
     const encoded = jsesc(yield* Schema.encodeEffect(Sent)(sent), { json: true });
     const { reply } = yield* scripted(live, { direct: (yield* ENGINE).code, values: [encoded] });
-    return yield* Reply.replied(`${sent._tag} batch`)(reply);
+    return yield* Contract.Reply.replied(`${sent._tag} batch`)(reply);
 });
-const send = Effect.fn('send')(function* (live: Live, batch: Batch<typeof Survey.Type, typeof HostCase.Type>) {
+const send = Effect.fn('send')(function* (live: Live, batch: Batch<typeof Contract.Survey.Type, typeof Contract.Case.Type>) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const copying = batch.cases.some(({ precondition: rows }) => rows.sends?.some(pasting) === true);
     const surveying = Effect.gen(function* () {
@@ -180,12 +178,8 @@ const quit = Effect.fn('quit')(function* (live: Live) {
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const illustrator = Harness({
-    Engine,
+    ...Contract,
     assembled: ENGINE,
-    survey: { question: 'Enumerations, startup presets, readonly application members, methods, open options, build, locale, feature flags, and outside plug-ins the installation holds', Schema: Survey },
-    Case: HostCase,
-    Outcome: HostOutcome,
-    engine,
     precondition,
     placed: copied,
     refusal,

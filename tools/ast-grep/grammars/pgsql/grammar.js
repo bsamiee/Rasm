@@ -194,7 +194,7 @@ const identified = ($, name, rule) => (identifiers.includes(name) ? choice(...ar
 // --- [ROLES]
 
 const spoken = (part) => part.type === 'STRING' || (part.type === 'ALIAS' && !part.named) || (part.type === 'CHOICE' && part.members.every(spoken));
-const operator = (operand) => (part) => spoken(part) || Option.exists(referenced(part), (held) => !identifiers.includes(held) && !reachable.get(held).has(operand));
+const operator = (operand) => (part) => spoken(part) || Option.exists(referenced(part), (held) => !(identifiers.includes(held) || reachable.get(held).has(operand)));
 const combining = (name) => arms(RULES[name]).some((arm) => sequence(arm).length > 2 && refers(sequence(arm)[0], name) && refers(sequence(arm).at(-1), name));
 const infix = (name, members) => {
     const middle = members.slice(1, -1);
@@ -281,18 +281,22 @@ const holding = (rule, name) => arms(rule).filter((arm) => bare(arm).type === 'S
 const replaced = (rule, name, apply) => choice(rule, ...deduped(holding(rule, name).map((arm) => within(arm, (body) => seq(...apply(body.members, located(body, name)))))));
 const following = ($, rule, name) => replaced(rule, name, (members, at) => [...members.slice(0, at + 1), $.substitution]);
 const closing = ($, rule, name, ...rest) => replaced(rule, name, (members, at) => [...members.slice(0, at), $.substitution, ...rest]);
-const spanning = ($, rule, from, to) =>
+const spanning = ($, rule, from, to, rank = RANK) =>
     choice(
         rule,
         ...holding(rule, from).map((arm) =>
             prec(
-                RANK,
+                rank,
                 within(arm, (body) => seq(...body.members.slice(0, located(body, from)), $.substitution, ...body.members.slice(located(body, to) + 1))),
             ),
         ),
     );
 const typed = (part) => part.type === 'SEQ' && part.members.length === 2 && reaches(part.members[0], symbol('func_name')) && reaches(part.members[1], symbol('Sconst'));
-const loosest = Math.min(...arms(RULES[QUANTIFIED]).filter(({ type }) => type === 'PREC_LEFT' || type === 'PREC_RIGHT').map(({ value }) => value));
+const loosest = Math.min(
+    ...arms(RULES[QUANTIFIED])
+        .filter(({ type }) => type === 'PREC_LEFT' || type === 'PREC_RIGHT')
+        .map(({ value }) => value),
+);
 
 // --- [DIALECT]
 
@@ -406,7 +410,8 @@ export default compose(dialect, {
         [$.ColId, $.ColLabel],
         [$.RefreshMatViewStmt, $._ident],
         [$.MergeStmt, $.merge_when_list],
-        [$.columnDef, $.ConstraintElem, $.opt_on_conflict, $.merge_when_clause, $.join_qual, $.when_clause],
+        [$.columnDef, $.ConstraintElem, $._ident],
+        [$.columnDef, $._ident],
         [$.Numeric, $._ColId_keyword],
         [$.BitWithoutLength, $._ColId_keyword],
         [$._ColId_keyword, $._type_function_name_keyword],
@@ -437,7 +442,8 @@ export default compose(dialect, {
         [$._ident, $._operator_hole],
         [$.Iconst, $._operator_hole],
         [$.c_expr, $.when_clause, $.Iconst, $.Sconst, $._ident, $._operator_hole],
-        [$.columnDef, $.ConstraintElem, $.opt_on_conflict, $.merge_when_clause, $.join_qual, $.c_expr, $.when_clause, $.Iconst, $.Sconst, $._ident, $._operator_hole],
+        [$.columnDef, $.c_expr, $.Iconst, $.Sconst, $._ident],
+        [$.opt_on_conflict, $.merge_when_clause, $.join_qual, $.c_expr, $.when_clause, $.Iconst, $.Sconst, $._ident, $._operator_hole],
         [$.opt_on_conflict, $.merge_when_clause, $.join_qual, $.when_clause, $._ident, $._operator_hole],
         [$.columnDef, $.opt_on_conflict, $.merge_when_clause, $.join_qual, $.c_expr, $.when_clause, $.Iconst, $.Sconst, $._ident, $._operator_hole],
         [$.columnDef, $.c_expr, $.Iconst, $.Sconst, $._ident, $._operator_hole],
@@ -447,14 +453,10 @@ export default compose(dialect, {
     rules: {
         [ENTRY]: ($, original) => choice(original, seq($.stmt, $.substitution)),
         func_name: ($, original) => choice(original, prec(RANK + 1, $.substitution)),
-        AexprConst: ($, original) => rewrite(original, (part) => (typed(part) ? seq(part.members[0], dialect.grammar.rules.Sconst) : part)),
-        a_expr: ($, original) =>
-            choice(
-                original,
-                prec.left(loosest - 1, seq(field('left', $.a_expr), field('operator', alias($._operator_hole, $.qual_Op)), field('right', $.a_expr))),
-                prec.left(loosest - 1, seq(field('operator', alias($._operator_hole, $.qual_Op)), field('operand', $.a_expr))),
-            ),
+        AexprConst: (_, original) => rewrite(original, (part) => (typed(part) ? seq(part.members[0], dialect.grammar.rules.Sconst) : part)),
+        a_expr: ($, original) => choice(original, prec.left(loosest - 1, seq(field('left', $.a_expr), field('operator', alias($._operator_hole, $.qual_Op)), field('right', $.a_expr))), prec.left(loosest - 1, seq(field('operator', alias($._operator_hole, $.qual_Op)), field('operand', $.a_expr)))),
         _operator_hole: ($) => $.substitution,
+        _type_hole: ($) => prec(RANK, $.substitution),
         ConstraintElem: ($, original) => choice(original, seq($.substitution, optional($.ConstraintAttributeSpec))),
         TableConstraint: ($, original) => closing($, original, 'name', optional($.ConstraintAttributeSpec)),
         AlterTableStmt: ($, original) => closing($, original, 'relation_expr'),
@@ -472,11 +474,11 @@ export default compose(dialect, {
         values_clause: ($, original) => choice(original, ...holding(original, 'values_clause').map((arm) => prec(-1, seq(...bare(arm).members.map((member) => (symbol('values_clause')(member) ? $.substitution : member))))), seq(spelled($.kw_values), $.substitution), seq($.values_clause, ',', $.substitution)),
         columnDef: ($, original) =>
             choice(
-                spanning($, original, 'ColId', 'Typename'),
+                spanning($, original, 'ColId', 'Typename', level(dialect.grammar, SLOTS, 'c_expr')),
                 ...holding(original, 'ColId').map((arm) =>
                     prec(
                         level(dialect.grammar, SLOTS, 'c_expr'),
-                        within(arm, (body) => seq($.substitution, ...body.members.slice(1))),
+                        within(arm, (body) => seq($.substitution, ...body.members.slice(1).map((member) => (symbol('Typename')(member) ? choice(member, alias($._type_hole, $.Typename)) : member)))),
                     ),
                 ),
             ),

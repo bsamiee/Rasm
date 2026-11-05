@@ -11,7 +11,7 @@ utils:
             - {kind: identifier, matches: serialized-text}
             - {kind: member_expression, has: {field: property, matches: serialized-text}}
             - {kind: call_expression, has: {field: function, kind: member_expression, has: {field: property, matches: serialized-text}}}
-            - {kind: 'await_expression, parenthesized_expression, non_null_expression', has: {matches: serialized-read}}
+            - {any: [{kind: await_expression}, {matches: typescript-expression-wrapper}], has: {matches: serialized-read}}
     expected-read:
         kind: call_expression
         all:

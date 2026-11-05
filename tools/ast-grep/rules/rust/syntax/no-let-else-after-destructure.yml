@@ -28,13 +28,13 @@ utils:
                         stopBy: end
                         any:
                             - kind: identifier
-                              regex: '^[a-z_]'
+                              regex: '^[_\p{Ll}]'
                               not:
                                 any:
                                     - inside: {kind: 'scoped_identifier, scoped_type_identifier'}
                                     - inside: {kind: macro_invocation, field: macro}
                             - kind: string_literal
-                              regex: '\{[a-z_]'
+                              regex: '\{[_\p{Ll}]'
                             - kind: 'line_comment, block_comment'
 rule:
     kind: let_declaration

@@ -7,7 +7,7 @@ rule:
         - inside:
             kind: arrow_function
             all:
-                - has: {field: parameters, not: {has: {nthChild: 1}}}
+                - has: {field: parameters, not: {has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}}}}
                 - not: {has: {regex: '^async$', not: {kind: identifier}}}
                 - has:
                     field: body

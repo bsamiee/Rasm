@@ -77,40 +77,41 @@ utils:
                                 - matches: {effect-module-member: {module: {regex: '(?-u:\b)Formatter$'}, member: {regex: '^format$'}}}
 rule:
     kind: identifier, member_expression
-    pattern: $TEXT
-    any:
-        - kind: member_expression
-          all:
-            - has: {field: object, kind: this}
-            - has: {field: property, pattern: $FIELD}
-            - inside: {stopBy: {kind: method_definition}, kind: method_definition, matches: message-getter, inside: {kind: class_body, inside: {matches: defect-field}}}
-            - matches: rendered
-        - all:
-            - inside: {stopBy: {kind: method_definition}, kind: method_definition, matches: message-getter}
-            - any:
-                - kind: identifier
-                  pattern: $FIELD
-                  inside: {stopBy: end, kind: pair, matches: arm, has: {field: value, has: {stopBy: end, kind: shorthand_property_identifier_pattern, pattern: $FIELD}}}
-                - kind: member_expression
-                  all:
-                    - has: {field: property, pattern: $FIELD}
-                    - has: {field: object, kind: identifier, pattern: $PARAM}
-                    - inside:
-                        stopBy: end
-                        kind: pair
-                        matches: arm
-                        has:
-                            field: value
-                            any:
-                                - has: {field: parameter, kind: identifier, pattern: $PARAM}
-                                - has: {field: parameters, has: {kind: required_parameter, has: {field: pattern, kind: identifier, pattern: $PARAM}}}
-            - matches: rendered
-            - inside:
-                kind: program
-                stopBy: end
-                has:
-                    any:
-                        - {kind: lexical_declaration, has: {matches: union-declaration}}
-                        - {kind: export_statement, has: {kind: lexical_declaration, has: {matches: union-declaration}}}
+    all:
+        - any:
+            - kind: member_expression
+              all:
+                - has: {field: object, kind: this}
+                - has: {field: property, pattern: $FIELD}
+                - inside: {stopBy: {kind: method_definition}, kind: method_definition, matches: message-getter, inside: {kind: class_body, inside: {matches: defect-field}}}
+                - matches: rendered
+            - all:
+                - inside: {stopBy: {kind: method_definition}, kind: method_definition, matches: message-getter}
+                - any:
+                    - kind: identifier
+                      pattern: $FIELD
+                      inside: {stopBy: end, kind: pair, matches: arm, has: {field: value, has: {stopBy: end, kind: shorthand_property_identifier_pattern, pattern: $FIELD}}}
+                    - kind: member_expression
+                      all:
+                        - has: {field: property, pattern: $FIELD}
+                        - has: {field: object, kind: identifier, pattern: $PARAM}
+                        - inside:
+                            stopBy: end
+                            kind: pair
+                            matches: arm
+                            has:
+                                field: value
+                                any:
+                                    - has: {field: parameter, kind: identifier, pattern: $PARAM}
+                                    - has: {field: parameters, has: {kind: required_parameter, has: {field: pattern, kind: identifier, pattern: $PARAM}}}
+                - matches: rendered
+                - inside:
+                    kind: program
+                    stopBy: end
+                    has:
+                        any:
+                            - {kind: lexical_declaration, has: {matches: union-declaration}}
+                            - {kind: export_statement, has: {kind: lexical_declaration, has: {matches: union-declaration}}}
+        - pattern: $TEXT
 message: '`$TEXT` renders a `Schema.Defect()` cause outside `Formatter.format`'
 note: 'Render the cause as `Formatter.format(<cause>)`'

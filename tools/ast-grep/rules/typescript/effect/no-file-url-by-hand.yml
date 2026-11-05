@@ -10,8 +10,8 @@ rule:
     any:
         - kind: template_string
           all:
-            - has: {kind: string_fragment, nthChild: 1, regex: '^file:/*$'}
-            - has: {kind: template_substitution, nthChild: 2}
+            - has: {kind: string_fragment, nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, regex: '^file:/*$'}
+            - has: {kind: template_substitution, nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}
         - kind: binary_expression
           all:
             - has: {field: operator, regex: '^\+$'}
@@ -22,7 +22,7 @@ rule:
             - has:
                 field: arguments
                 has:
-                    nthChild: {position: 1, ofRule: {not: {kind: comment}}}
+                    nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}
                     any:
                         - matches: pathname
                         - kind: call_expression

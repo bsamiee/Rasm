@@ -8,9 +8,9 @@ rule:
         - has:
             field: arguments
             all:
-                - not: {has: {nthChild: 2}}
+                - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}
                 - has:
-                    nthChild: 1
+                    nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}
                     pattern: $ERROR
                     any:
                         - kind: call_expression

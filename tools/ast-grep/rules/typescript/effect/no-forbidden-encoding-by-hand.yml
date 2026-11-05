@@ -11,7 +11,7 @@ utils:
         any:
             - inside: {kind: pair, field: value, has: {field: key, regex: '^encode$'}}
             - inside: {kind: arguments, inside: {kind: new_expression, has: {field: constructor, matches: transformation}}}
-              nthChild: 2
+              nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}
 rule:
     kind: call_expression
     pattern: $HAND
@@ -20,7 +20,7 @@ rule:
         - any:
             - all:
                 - has: {field: function, has: {field: property, regex: '^forbidden$'}}
-                - has: {field: arguments, has: {nthChild: 1, matches: {typescript-constant-function: {result: {kind: 'string, template_string', not: {has: {kind: template_substitution}}}}}}}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: {typescript-constant-function: {result: {kind: 'string, template_string', not: {has: {kind: template_substitution}}}}}}}
                 - matches: encode-position
             - all:
                 - has: {field: function, has: {field: property, regex: '^succeed$'}}

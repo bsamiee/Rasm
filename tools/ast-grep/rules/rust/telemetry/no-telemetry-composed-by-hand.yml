@@ -21,7 +21,7 @@ utils:
         regex: '^(::)?(tracing::)?(subscriber|dispatcher)::(set_global_default|set_default|with_default)$|^(::)?(tracing_log::)?LogTracer::init(_with_filter)?$|(^|::)global::set_(tracer_provider|meter_provider|text_map_propagator)$|(^|::)panic::(set_hook|take_hook)$'
     module-alias:
         kind: identifier
-        matches: {rust-imported-name: {source: {regex: '(?-u:\b)(tracing|opentelemetry|std)(?-u:\b)'}, name: {regex: '^(subscriber|dispatcher|global|panic)$'}}}
+        matches: {rust-imported-name: {source: {has: {field: argument, regex: '^(::)?(tracing|opentelemetry|std)::'}}, name: {regex: '^(subscriber|dispatcher|global|panic)$'}}}
     predecessor-dropped:
         not:
             inside:
@@ -61,10 +61,10 @@ rule:
                 - any:
                     - all:
                         - regex: *installer-name
-                        - matches: {rust-imported-name: {source: &installer-source {regex: '(?-u:\b)(tracing|global|panic)(?-u:\b)'}, name: {regex: *installer-name}}}
+                        - matches: {rust-imported-name: {source: &installer-source {has: {field: argument, regex: '^(::)?(tracing|opentelemetry::global|std::panic)::'}}, name: {regex: *installer-name}}}
                     - all:
                         - pattern: update_hook
-                        - matches: {rust-imported-name: {source: {regex: '(?-u:\b)panic(?-u:\b)'}, name: {regex: '^update_hook$'}}}
+                        - matches: {rust-imported-name: {source: {has: {field: argument, regex: '^(::)?std::panic::'}}, name: {regex: '^update_hook$'}}}
                         - matches: predecessor-dropped
                 - not: {inside: {kind: *use-tree}}
             - kind: use_as_clause

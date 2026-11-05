@@ -27,14 +27,14 @@ utils:
                 - kind: statement_block
                   all:
                     - has: {kind: return_statement, nthChild: {position: 1, reverse: true, ofRule: *code}, has: {matches: one-or-none}}
-                    - not: {has: {stopBy: {kind: 'arrow_function, function_expression, function_declaration, method_definition, class_body'}, kind: return_statement, not: {has: {matches: one-or-none}}}}
+                    - not: {has: {stopBy: {any: [{matches: typescript-function-boundary}, {kind: class_body}]}, kind: return_statement, not: {has: {matches: one-or-none}}}}
 rule:
     kind: call_expression
     all:
         - has: {field: function, kind: member_expression, pattern: $CALLEE, has: {field: property, regex: '^flatMap$'}}
         - any:
             - has: {field: function, has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)(Array|Iterable)$'}}}}}
-            - has: {field: function, has: {field: object, not: {matches: {effect-module: {name: {regex: '(?-u:\b)[A-Z][^\x00-#%-/:-@\[-\^`{-~\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*$'}}}}}}
+            - has: {field: function, has: {field: object, not: {matches: effect-namespace}}}
         - has: {field: arguments, has: {nthChild: {position: 1, reverse: true, ofRule: *code}, matches: selecting-callback}}
 message: '`$CALLEE` keeps one element or none per input'
 note: 'Call `Array.filterMap` with a `Result` filter, `Array.filter` to retain inputs, or `Array.getSomes` for options'

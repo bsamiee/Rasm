@@ -22,7 +22,7 @@ utils:
     handler-parameter:
         any:
             - has: {field: parameter, kind: identifier, pattern: $ERROR}
-            - has: {field: parameters, has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, kind: required_parameter, has: {field: pattern, kind: identifier, pattern: $ERROR}}}
+            - has: {field: parameters, has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, kind: required_parameter, has: {field: pattern, kind: identifier, pattern: $ERROR}}}
     reads-error:
         has: {field: arguments, has: {stopBy: end, kind: 'identifier, shorthand_property_identifier', pattern: $ERROR}}
     annotated-error:

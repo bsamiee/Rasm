@@ -10,16 +10,17 @@ rule:
             all:
                 - has: {field: property, pattern: $CASE}
                 - has: {field: object, kind: member_expression, all: [{has: {field: property, regex: '^guards$'}}, {has: {field: object, pattern: $UNION}}]}
-        - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $VALUE}}, {not: {has: {nthChild: 2}}}]}
+        - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, pattern: $VALUE}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}}]}
         - any:
             - all:
                 - has: {field: function, has: {field: object, has: {field: object, kind: member_expression, all: [{has: {field: property, pattern: $FIELD}}, {has: {field: object, kind: member_expression, has: {field: property, regex: '^fields$'}}}]}}}
-                - has: {field: arguments, has: {nthChild: 1, kind: member_expression, has: {field: property, pattern: $FIELD}}}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, kind: member_expression, has: {field: property, pattern: $FIELD}}}
             - all:
-                - has: {field: arguments, has: {nthChild: 1, kind: identifier}}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, kind: identifier, matches: {typescript-local-binding: {owner: {pattern: $OWNER}}}}}
                 - inside:
                     stopBy: end
-                    kind: 'arrow_function, function_expression, function_declaration, method_definition'
+                    pattern: $OWNER
+                    matches: typescript-function-boundary
                     has:
                         field: parameters
                         has:

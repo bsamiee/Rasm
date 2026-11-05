@@ -58,7 +58,7 @@ rule:
         - kind: variable_declarator
           all:
             - has: {field: name, kind: identifier, pattern: $NAME}
-            - has: {field: value, matches: literal}
+            - has: {field: value, matches: literal, not: {any: [{kind: number}, {has: {stopBy: end, kind: number}}]}}
             - inside: {kind: lexical_declaration, all: [{has: {field: kind, regex: '^const$'}}, {inside: {kind: program}}]}
         - any:
             - inside:
@@ -67,15 +67,13 @@ rule:
                 all:
                     - has: {stopBy: end, matches: reference, inside: {stopBy: end, matches: reader}}
                     - not: {has: {stopBy: end, all: [{matches: reference}, {any: [{matches: outside-reader}, {inside: {stopBy: &body {kind: statement_block, inside: {matches: typescript-function-boundary}}, matches: level, inside: {stopBy: *body, matches: level}}}]}]}}
-            - all:
-                - not: {has: {field: value, any: [{kind: number}, {has: {stopBy: end, kind: number}}]}}
-                - inside:
-                    kind: program
-                    stopBy: end
-                    all:
-                        - has: {stopBy: end, all: [{matches: reference}, {not: {inside: {stopBy: end, matches: typescript-function-boundary}}}, {inside: {stopBy: end, matches: holder}}]}
-                        - not: {has: {stopBy: end, all: [{matches: reference}, {not: {inside: {stopBy: end, matches: holder}}}]}}
-                        - not: {has: {stopBy: end, matches: holder, has: {stopBy: end, matches: holds-reference, precedes: {stopBy: end, matches: holds-reference}}}}
+            - inside:
+                kind: program
+                stopBy: end
+                all:
+                    - has: {stopBy: end, all: [{matches: reference}, {not: {inside: {stopBy: end, matches: typescript-function-boundary}}}, {inside: {stopBy: end, matches: holder}}]}
+                    - not: {has: {stopBy: end, all: [{matches: reference}, {not: {inside: {stopBy: end, matches: holder}}}]}}
+                    - not: {has: {stopBy: end, matches: holder, has: {stopBy: end, matches: holds-reference, precedes: {stopBy: end, matches: holds-reference}}}}
 message: '`$NAME` has one reader'
 note: 'Move the literal into its consuming function or field initializer'
 labels:

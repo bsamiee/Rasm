@@ -5,4 +5,4 @@ arguments: [name]
 rule:
     any:
         - matches: {typescript-import-reference: {source: {regex: '^(effect|@effect/[[^\x00-#%-/:-@\[-\^`{-~\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]-]+)(/[a-z][[^\x00-#%-/:-@\[-\^`{-~\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]-]*)*$'}, exported: {matches: name}}}
-        - matches: {typescript-import-reference: {source: {regex: '^(effect|@effect/[[^\x00-#%-/:-@\[-\^`{-~\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]-]+)(/[a-z][[^\x00-#%-/:-@\[-\^`{-~\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]-]*)*/[A-Z][^\x00-#%-/:-@\[-\^`{-~\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*$', matches: name}, exported: {regex: '^\*$'}}}
+        - matches: {typescript-import-reference: {source: {matches: {effect-module-source: {name: {matches: name}}}}, exported: {regex: '^\*$'}}}

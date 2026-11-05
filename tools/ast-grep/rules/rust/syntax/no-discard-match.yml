@@ -5,7 +5,7 @@ utils:
     binding:
         any:
             - kind: identifier
-              regex: '^[a-z_]'
+              regex: '^[_\p{Ll}]'
               not: {any: [{inside: {kind: 'tuple_struct_pattern, struct_pattern', field: type}}, {inside: {kind: scoped_identifier}}]}
             - kind: 'shorthand_field_identifier, ref_pattern, mut_pattern, captured_pattern'
     plain-value:

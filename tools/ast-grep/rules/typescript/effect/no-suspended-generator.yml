@@ -14,7 +14,7 @@ utils:
             - kind: parenthesized_expression
               has: {matches: generator-effect, pattern: $GENERATOR}
             - kind: statement_block
-              not: {has: {nthChild: 2}}
+              not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}
               has: {kind: return_statement, has: {matches: generator-effect, pattern: $GENERATOR}}
 rule:
     kind: call_expression

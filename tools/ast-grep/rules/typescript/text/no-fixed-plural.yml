@@ -25,6 +25,8 @@ utils:
             - kind: 'string, template_string'
               regex: '(?:[^s]s|ren)[''"`]$'
             - matches: category
+    plural-rules:
+        pattern: new Intl.PluralRules($$$)
     category-select:
         kind: call_expression
         has:
@@ -35,10 +37,8 @@ utils:
                 - has:
                     field: object
                     any:
-                        - pattern: new Intl.PluralRules($$$)
-                        - kind: identifier
-                          pattern: $RULES
-                          inside: {kind: program, stopBy: end, has: {stopBy: end, kind: variable_declarator, all: [{has: {field: name, pattern: $RULES}}, {has: {field: value, pattern: new Intl.PluralRules($$$)}}]}}
+                        - matches: plural-rules
+                        - matches: {typescript-constant-value: {value: {matches: plural-rules}}}
     category-test:
         kind: binary_expression
         all:
@@ -69,15 +69,7 @@ rule:
                 not: {regex: '^[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]+(?:[a-z][[^\x00-#%-/:-@\[-\^`{-~\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]-]*[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]+)?(?:is|was|has|does|this|its|as|us|yes|plus|less|thus|always|across|equals|exceeds|means|remains|contains|needs)(?-u:\b)'}
             - any:
                 - has: {matches: count}
-                - has:
-                    kind: identifier
-                    inside:
-                        stopBy: end
-                        kind: 'statement_block, program'
-                        has:
-                            stopBy: end
-                            kind: variable_declarator
-                            all: [{has: {field: name, pattern: $COUNT}}, {has: {field: value, matches: count}}]
+                - has: {kind: identifier, matches: {typescript-constant-value: {value: {matches: count}}}}
     not: {inside: {kind: program, stopBy: end, matches: extendscript-file}}
 transform:
     NOUN: {replace: {source: $TEXT, replace: '(?s)^([\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]+(?:[a-z][[^\x00-#%-/:-@\[-\^`{-~\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]-]*[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]+)?[a-z]*s)(?-u:\b).*$', by: '$1'}}

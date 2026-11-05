@@ -49,7 +49,7 @@ Pattern sites cost what parsing their snippet costs, a bare `$X` or literal `L` 
 Regexes compile eagerly per document with no sharing across documents or rules, `replace` included. Compile cost follows the engine a pattern selects and not its length, rising in order: unanchored literal or literal alternation, `$`, ASCII class and literal prefix (`^foo`), `\b` under either mode, Unicode `\d` at twice `[0-9]`, Unicode `\s` at six times an ASCII class, Unicode `\w` at ten times `[0-9A-Za-z_]`, `\p{XID_Start}\p{XID_Continue}*`:
 - Only an ASCII class saves over `\s`, an explicit `\p{White_Space}` class costs the same
 - `.` costs as much as `^\s`
-- Always-true arms (an optional capture's last, a lineage end) name the node's own kinds where known, `regex: ''` compiling one regex per site
+- Always-true arms (an optional capture's last, a lineage end) take a `kind` list where the node's kinds are named, else `regex: ''` below a pattern per token
 - Gates that only skip work take the cheapest literal superset (`concat|All|prepend`), over-matching costs walk and never findings or rows
 - Text a capture's presence decides (a separator, a constant) comes from a rewriter with a literal fix, a `replace` over `(.)\z` compiling an anchored regex per site
 - Unicode `\b` makes lazy and full DFAs quit at a non-ASCII byte, the search reruns on a slower engine
@@ -60,14 +60,15 @@ Candidate kind sets decide how many nodes attempt a matcher:
 - Match the rarest kind that identifies each reported or replaced construct
 - Frequent kinds take direct child or field predicates that decide their own match
 - `regex` reads a leaf field's name, operator, or literal, a fact `kind`, `field`, or `has` states takes none
-- Composite-node `regex` and a `replace` over a composite capture read complete source text with nested bodies, a token capture reads its own
+- `regex` and `replace` UTF-8 check a node's whole span, inside a `has` walk to `end` each byte per enclosing node, a kind prefilter costing more
 - Ordered `all` lists test the candidate's own name or text, then its structure, then relations and scope-resolving utils, and bind captures last
+- Each `any` or `all` success copies the whole capture set, a rewriter's set holding every document capture, so captures cost per optional arm
 - Kind tests leading an ordered `all` repeat the candidate kind filter, a map's `regex` already runs on those kinds alone
 - Climbing to ancestors or scanning a scope before the candidate's own name test is the most frequent cost defect
 - ESQuery selectors compile to existing matchers, shorter syntax changes no underlying traversal cost
 - `transform` runs on every match whether its source is bound or not, fixed text belongs in the `fix` or template
 - `rewrite` walks its whole source per rewriter, below nodes already replaced included, a kindless rewriter tries each node
-- Rewriters take a `kind`, a signature's source holds no body, built from header captures or cut at the body
+- Rewriters take a `kind`, a signature's header captures and a kinded body walk each measured, a body cut still walking the body
 - Every listed rewriter costs a walk where it never matches, one scoped to a construct nests in that construct's rewriter `transform`
 - Kind tables size to a document's highest candidate kind id, a top-level `ERROR` (65,535) costing about 1.1 M instructions per file
 - `ERROR` matched through a parent's `has` adds nothing, a rule reporting a file whose root is `ERROR` pays the table
@@ -85,7 +86,7 @@ No match result caches across candidates, each candidate reruns every relation a
 
 Relations reuse parsed trees, ancestor searches do not parse source again:
 - Direct `field` and neighboring relations avoid whole-axis searches
-- `inside` and `follows` cost per visited ancestor or sibling at each candidate, `has` walks down iteratively near free, a rule anchors on the rarer parent and looks down
+- `inside`, `follows`, and `field` cost per visited ancestor or earlier sibling at each candidate, `has` near free, a rule anchors on the rarer parent
 - `inside` with rule or `end` stopping allocates complete ancestry from the root before its first test
 - Ancestor stops reduce predicate tests and add one stop test per ancestor, a rule stop over a frequent candidate can cost more than `end`
 - Direct parents resolve from the root per evaluation, one kind-set `inside` gates the arms reading a parent, arms sharing its kind and field merge
@@ -165,7 +166,7 @@ Each CLI process chooses workers independently and shares no concurrency budget 
 
 ## [08]-[MEASUREMENT]
 
-Instruction counts hold steady between runs where wall time moves, one thread and one output mode keep the comparison fair:
+Instruction counts hold steady between runs of one load order where wall time moves, lazily resolved utils giving a rule one cost mode per load order, one thread, one output mode, and the minimum and median of five runs per side keep the comparison fair:
 
 ```bash
 hyperfine -N --ignore-failure=1 --metrics instructions,time_wall_clock -r <runs> -L id '<baseline>,<rule>' --export-json <timings> "ast-grep scan --threads 1 --filter '^{id}\$' --json=stream <path>"

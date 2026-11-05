@@ -1,6 +1,7 @@
 import type { ProjectGraph, ProjectGraphProjectNode, TargetConfiguration } from '@nx/devkit';
 import { Array, Effect, Equal, Option, Predicate, Record, Schema, String } from 'effect';
-import { type Call, cut, edited, type Fix, feedsJq, has, inserted, type Policy, perSubcommand, quote, redirected, refusal, silent, spoken, unassign, when, whole } from '#/policies/fix';
+import { unignored } from '#/policies/files';
+import { type Call, cut, edited, ensure, type Fix, feedsJq, has, type Policy, perSubcommand, quote, redirected, refusal, silent, spoken, unassign, when, whole } from '#/policies/fix';
 import type { Word } from '#/shell/script';
 import { analyzed, Shell, type Site } from '#/shell/site';
 
@@ -314,11 +315,6 @@ const launchedThrough: Fix = Effect.fnUntraced(function* (site, { host }) {
     return launcher === undefined ? [] : edited(site, site.head, spoken(launcher.command.words.filter(({ start }) => start <= launcher.head.start)), site.program);
 });
 
-const customLanguages: Fix = (site) => {
-    const [, subcommand = site.head] = site.words;
-    return site.has('--custom-languages') ? [] : inserted(site, (subcommand.text.startsWith('-') ? site.head : subcommand).end, ' --custom-languages allow');
-};
-
 // --- [NX]
 
 const addressOf = ({ operands }: Site) => {
@@ -381,9 +377,10 @@ const TASKS: Policy = {
         ruff: { routes: { rooted: true, modes: ['--fix', '--no-fix', '--fix-only', '--no-fix-only', '--unsafe-fixes', '--no-unsafe-fixes', '--check', '--diff'] } },
         'ast-grep': {
             aliases: ['sg'],
-            flags: ['-U, --update-all', '-i, --interactive', '--custom-languages=', '--filter=', '--globs=', '--color='],
+            clap: ['completions', 'zsh'],
+            walks: { under: ['run', 'scan', 'outline'] },
             routes: { rooted: true, modes: ['--update-all', '--interactive'], direct: ['outline'] },
-            fixes: [customLanguages],
+            fixes: [ensure('--custom-languages allow'), unignored('--no-ignore vcs')],
         },
         mypy: {
             flags: ['--cache-dir=', '--config-file=', '--python-version='],

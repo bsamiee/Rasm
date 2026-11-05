@@ -3,10 +3,15 @@ language: rustlang
 severity: error
 rule:
     kind: attribute_item
-    regex: '^#\[\p{Pattern_White_Space}*error\p{Pattern_White_Space}*\(\p{Pattern_White_Space}*"'
+    regex: error
     all:
+        - has:
+            kind: attribute
+            all:
+                - has: {field: path, pattern: error}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: string_literal}}
+                - not: {has: {field: arguments, regex: '^\(\p{Pattern_White_Space}*("\{([0-9]+|[_\p{XID_Start}]\p{XID_Continue}*)(:[^{}]*)?\}"|"\{\}"\p{Pattern_White_Space}*,\p{Pattern_White_Space}*\.\p{XID_Continue}+)\p{Pattern_White_Space}*,?\p{Pattern_White_Space}*\)$'}}
         - inside: {kind: enum_variant_list}
-        - not: {regex: '^#\[\p{Pattern_White_Space}*error\p{Pattern_White_Space}*\(\p{Pattern_White_Space}*("\{([0-9]+|[_\p{XID_Start}]\p{XID_Continue}*)(:[^{}]*)?\}"|"\{\}"\p{Pattern_White_Space}*,\p{Pattern_White_Space}*\.\p{XID_Continue}+)\p{Pattern_White_Space}*,?\p{Pattern_White_Space}*\)\p{Pattern_White_Space}*\]$'}
         - precedes: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, kind: enum_variant, has: {field: name, pattern: $VARIANT}}
         - pattern: $ATTRIBUTE
         - follows: {stopBy: end, kind: attribute_item, pattern: $ATTRIBUTE}

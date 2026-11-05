@@ -201,44 +201,6 @@ languageInjections:
                     all:
                         - has: {field: attribute, regex: '^(?:cursor|connection)$'}
                         - has: {field: object, any: [{matches: connect}, {kind: identifier, pattern: $C, inside: {stopBy: end, kind: *python-frame, has: {stopBy: *python-scope, matches: connection}}}, {kind: attribute, pattern: $C, inside: {stopBy: end, kind: *python-owner, has: {stopBy: end, matches: connection}}}]}
-    - hostLanguage: rustlang
-      injected: sql
-      rule: &rust-rule
-        any:
-            - kind: call_expression
-              all:
-                - has: {field: arguments, has: {all: [{matches: text}, {nthChild: 1}]}}
-                - any:
-                    - has: {field: function, kind: generic_function, all: [{has: {field: function, matches: sqlx-named}}, {has: {field: type_arguments, has: {nthChild: 1, any: [{matches: dialect-type}, {has: {field: name, matches: dialect-type}}]}}}]}
-                    - all:
-                        - has: {field: function, any: [{matches: sqlx-named}, {kind: generic_function, has: {field: function, matches: sqlx-named}}], not: {has: {field: type_arguments, has: {nthChild: 1, regex: '(?:^|::)(?:Sqlite|Postgres|MySql|Any)$'}}}}
-                        - inside: &rust-stated
-                            stopBy: {kind: function_item}
-                            kind: function_item
-                            has: {kind: &rust-signature 'parameters, type_parameters, where_clause', has: {stopBy: end, matches: dialect-type}}
-                            not: {has: {kind: *rust-signature, has: {stopBy: end, kind: 'type_identifier, identifier', regex: '^(?:Sqlite|Pg|MySql|Any|Postgres)(?:Pool|Connection|Connect|Executor|Transaction)?(?:Options)?$', not: {matches: dialect-type}}}}
-                    - has: {field: function, kind: field_expression, has: {field: field, matches: stated-method}}
-                    - all:
-                        - has: {field: function, kind: field_expression, all: [{has: {field: value, pattern: $R}}, {has: {field: field, regex: '^(?:execute|execute_batch|execute_many|fetch|fetch_all|fetch_many|fetch_one|fetch_optional|query|prepare|prepare_cached|describe)$'}}]}
-                        - inside: {stopBy: end, kind: function_item, any: [{has: {field: parameters, has: {kind: parameter, all: [{has: {field: pattern, pattern: $R}}, {has: {stopBy: end, matches: dialect-type}}]}}}, {has: {field: body, has: {stopBy: end, kind: let_declaration, all: [{has: {field: pattern, pattern: $R}}, {has: {stopBy: end, matches: dialect-type}}]}}}]}
-            - kind: macro_invocation
-              all:
-                - has: {kind: token_tree, has: {all: [{matches: text}, {nthChild: {position: 1, ofRule: {kind: 'string_literal, raw_string_literal'}}}]}}
-                - has: {field: macro, matches: sqlx-named}
-                - inside: *rust-stated
-      utils:
-        dialect-type:
-            any:
-                - {kind: 'type_identifier, identifier', regex: '^Sqlite(?:Pool|Connection|Connect|Executor|Transaction)?(?:Options)?$'}
-                - {kind: scoped_type_identifier, regex: '^turso::(?:Connection|Transaction)$'}
-                - {kind: 'type_identifier, field_identifier', regex: '^(?:Connection|Transaction|connect|transaction|unchecked_transaction)$', inside: {stopBy: end, kind: source_file, has: {kind: use_declaration, has: {field: argument, regex: '^turso(?-u:\b)'}}}}
-        stated-method: {regex: '^execute_batch$'}
-        text: &rust-text {kind: 'string_literal, raw_string_literal', not: {has: {kind: escape_sequence}}, has: {kind: string_content, pattern: $CONTENT}}
-        sqlx-name: &rust-sqlx-name {regex: '(?:^|::)(?:query(?:_as|_scalar)?(?:_with|_unchecked)?|raw_sql)$'}
-        sqlx-named: &rust-sqlx-named
-            any:
-                - {kind: scoped_identifier, regex: '^sqlx::', matches: sqlx-name}
-                - {kind: identifier, pattern: $F, inside: {stopBy: end, kind: source_file, has: {kind: use_declaration, regex: '(?-u:\b)use sqlx::', has: {stopBy: end, any: [{kind: identifier, pattern: $F, matches: sqlx-name}, {kind: use_as_clause, all: [{has: {field: path, matches: sqlx-name}}, {has: {field: alias, pattern: $F}}]}]}}}}
     - hostLanguage: swiftlang
       injected: sql
       rule:
@@ -274,7 +236,7 @@ languageInjections:
                     - has: {field: arguments, kind: template_string, pattern: $CONTENT, not: {has: {kind: escape_sequence}}}
                 - all:
                     - has: {field: function, pattern: sql.unsafe}
-                    - has: {field: arguments, has: {nthChild: 1, any: [{kind: template_string, pattern: $CONTENT, not: {has: {kind: escape_sequence}}}, {kind: string, not: {has: {kind: escape_sequence}}, has: {kind: string_fragment, pattern: $CONTENT}}]}}
+                    - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, any: [{kind: template_string, pattern: $CONTENT, not: {has: {kind: escape_sequence}}}, {kind: string, not: {has: {kind: escape_sequence}}, has: {kind: string_fragment, pattern: $CONTENT}}]}}
     - hostLanguage: csharplang
       injected: pgsql
       rule: *csharp-rule
@@ -319,15 +281,6 @@ languageInjections:
         connect: *python-connect
         connection: *python-connection
         source: *python-source
-    - hostLanguage: rustlang
-      injected: pgsql
-      rule: *rust-rule
-      utils:
-        dialect-type: {kind: 'type_identifier, identifier', regex: '^(?:Pg|Postgres)(?:Pool|Connection|Connect|Executor|Transaction)?(?:Options)?$'}
-        stated-method: {regex: '^copy_(?:in|out)_raw$'}
-        text: *rust-text
-        sqlx-name: *rust-sqlx-name
-        sqlx-named: *rust-sqlx-named
     - hostLanguage: tsxlang
       injected: pgsql
       rule: *tsx-rule

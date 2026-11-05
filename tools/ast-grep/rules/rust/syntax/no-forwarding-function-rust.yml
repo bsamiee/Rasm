@@ -52,7 +52,7 @@ utils:
                 - not: {inside: {kind: parameters, inside: {kind: function_item, has: {field: body, has: {stopBy: end, kind: field_expression, pattern: $F, has: {field: value, kind: identifier, pattern: $X}}}}}}
     plain-attribute:
         kind: attribute_item
-        regex: '^#\[\p{Pattern_White_Space}*(inline|must_use|track_caller|doc|expect|cfg|cfg_attr|deprecated)(?-u:\b)'
+        has: {kind: attribute, has: {field: path, regex: '^(inline|must_use|track_caller|doc|expect|cfg|cfg_attr|deprecated)$'}}
 rule:
     kind: function_item
     all:

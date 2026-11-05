@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: typescript-global-member
+language: tsxlang
+rule:
+    any:
+        - kind: identifier
+        - kind: member_expression
+          has: {field: object, kind: identifier, regex: '^(globalThis|window|self)$'}
+    matches: typescript-global-reference

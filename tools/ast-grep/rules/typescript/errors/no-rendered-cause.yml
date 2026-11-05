@@ -41,9 +41,10 @@ utils:
         kind: call_expression
         all:
             - has: {field: function, kind: identifier, pattern: $RELAY}
-            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: &code {not: {kind: 'comment, html_comment'}}}, kind: identifier, pattern: $ARG}}
+            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: &code {not: {kind: 'comment, html_comment'}}}, kind: identifier, pattern: $ARG, matches: {typescript-local-binding: {owner: {pattern: $ARG_OWNER}}}}}
             - inside:
                 stopBy: end
+                pattern: $ARG_OWNER
                 kind: *callback
                 matches: failure-callback
                 any:
@@ -198,17 +199,20 @@ utils:
                     has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^(fail|die)$'}}, {has: {field: object, matches: cause-module}}]}
 rule:
     any:
-        - pattern: $TEXT
-          all:
+        - all:
             - matches: rendering
-            - inside: {stopBy: end, kind: *callback, matches: cause-parameter}
+            - has: {stopBy: end, kind: identifier, pattern: $CAUSE, matches: {typescript-local-binding: {owner: {pattern: $CAUSE_OWNER}}}}
+            - inside: {stopBy: end, pattern: $CAUSE_OWNER, kind: *callback, matches: cause-parameter}
             - not: {any: [{matches: protocol-field}, {matches: untyped-thunk-text}]}
-        - matches: relayed-failure
-          pattern: $TEXT
-          inside: {stopBy: end, kind: 'statement_block, program', has: {matches: relay-declaration}}
+            - pattern: $TEXT
+        - all:
+            - matches: relayed-failure
+            - inside: {stopBy: end, kind: 'statement_block, program', has: {matches: relay-declaration}}
+            - pattern: $TEXT
         - kind: shorthand_property_identifier_pattern
-          regex: '^(message|stack)$'
-          pattern: $TEXT
+          all:
+            - regex: '^(message|stack)$'
+            - pattern: $TEXT
           inside:
             kind: object_pattern
             inside:
@@ -222,7 +226,6 @@ rule:
                             any:
                                 - {kind: identifier, pattern: $TEXT}
                                 - has: {stopBy: end, kind: 'identifier, shorthand_property_identifier', pattern: $TEXT, not: {matches: protocol-field}}
-        - matches: built-cause
-          pattern: $TEXT
+        - all: [{matches: built-cause}, {pattern: $TEXT}]
 message: '`$TEXT` renders a typed failure to text'
 note: 'Keep the error as failure value up to its boundary, where a protocol field reads `<error>.message` and `Cause.pretty` renders a cause'

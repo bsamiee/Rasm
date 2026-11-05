@@ -15,16 +15,16 @@ utils:
             - kind: call_expression
               all:
                 - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^catch$'}}}}
-                - has: {field: arguments, all: [{has: {nthChild: 1, matches: die-handler}}, {not: {has: {nthChild: 2}}}]}
+                - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: die-handler}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}}]}
     die-call:
         kind: call_expression
         any:
             - all:
                 - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^orDie$'}}}}
-                - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $_PROGRAM}}, {not: {has: {nthChild: 2}}}]}
+                - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, pattern: $_PROGRAM}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}}]}
             - all:
                 - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^catch$'}}}}
-                - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $_PROGRAM}}, {has: {nthChild: 2, matches: die-handler}}, {not: {has: {nthChild: 3}}}]}
+                - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, pattern: $_PROGRAM}}, {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: die-handler}}, {not: {has: {nthChild: {position: 3, ofRule: {not: {kind: 'comment, html_comment'}}}}}}]}
     context-step:
         kind: call_expression
         has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^(provide|provideService|provideServiceEffect|provideContext)$'}}}}
@@ -60,7 +60,7 @@ rule:
             pattern: $RUN
         - all:
             - matches: die-call
-            - nthChild: 1
+            - nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}
             - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, matches: runner-step, pattern: $RUN}}}
         - all:
             - matches: die-step
@@ -70,7 +70,7 @@ rule:
         - kind: call_expression
           all:
             - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^pipe$'}}, {has: {field: object, pattern: $_PROGRAM}}]}
-            - has: {field: arguments, all: [{has: {nthChild: 1, matches: die-step}}, {not: {has: {nthChild: 2}}}]}
+            - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: die-step}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}}]}
             - inside: {matches: run-yield}
         - matches: die-call
           inside: {matches: run-yield}

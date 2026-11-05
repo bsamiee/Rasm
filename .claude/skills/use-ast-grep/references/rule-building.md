@@ -18,6 +18,7 @@ Syntax and its contract establish a diagnostic, ast-grep reads no type, flow, or
 - Policy rules name the restriction without claiming the supported API or syntax is defective
 - Coverage follows the grammar's accepted forms and the API contract, a form absent from current code keeps its arm, counts decide nothing
 - Lists a declaration states stay in that declaration, a rule requires consumers to read the owner
+- Package facts a rule tests (a module's dual or overloaded members) sit in one util generated from the installed package
 - `files:` names the folders a rule's cause covers, a package rule's the folders of projects referencing the package
 
 ## [03]-[CONSTRUCTION]
@@ -49,7 +50,7 @@ ast-grep scan --filter '^<id>$' <path>
 ```
 
 - Rules reading an injected document run over a host file under `scan`
-- Rules exiting 0 with no finding can hold a never-matching kind intersection or a parse-error pattern beside `kind`, `--debug-query=pattern` shows what compiled
+- Arms matching nothing (a never-matching kind intersection, a parse-error pattern beside `kind`) pass tests other arms satisfy, `--debug-query=pattern` shows what compiled
 
 `ast-grep test` holds cases under each `testConfigs` `testDir`, one YAML document per rule:
 

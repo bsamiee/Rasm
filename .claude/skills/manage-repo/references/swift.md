@@ -15,6 +15,8 @@ SwiftPM builds modules and executables through root `Package.swift`, Xcode build
 - Nx attaches each test target to its module's `test` or `test:integration` through `--test-product`, `--filter` builds every test target
 - `OMIT_DYNAMIC_TEST_SUPPORT` links `IssueReportingTestSupport` static for swift-custom-dump tests, the dynamic form prints linker version warnings
 - Remote packages take `.package(url:from:)`, a package only an app imports takes an `up-to-next-major-version` row in that app instead, `upgrade:swift` moves both
+- Nx sync generator `swift-dependencies` writes each target's `dependencies:` from its sources' `import` lines, local modules then products, and refuses a module of a package `Package.swift` omits
+- Products no source imports (`IssueReportingTestSupport` on test targets) join through the manifest's `for target` loop, a new package through `swift package add-dependency`
 - Manifest `settings` own compiler and linker policy in typed forms, `unsafeFlags` where none exists
 - Checkers run from root tool rows, a SwiftLint or swift-format package plugin adds a second tool version
 

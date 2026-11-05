@@ -4,7 +4,7 @@ severity: error
 utils:
     run-invocation:
         kind: call_expression
-        has: {field: function, regex: '(?-u:\b)run', matches: {effect-runner: {name: {regex: '^run'}}}}
+        has: {field: function, matches: {effect-runner: {name: {regex: '^run'}}}}
     effect-combinator:
         kind: call_expression
         any:

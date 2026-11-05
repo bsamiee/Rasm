@@ -28,6 +28,18 @@ rule:
                 - matches: type-position
                   inside: {kind: program, stopBy: end, has: {all: [{matches: module-import}, {has: {stopBy: end, pattern: $IMPORTED, matches: typescript-import-binding, inside: {matches: exported-binding}}}]}}
             - not: {matches: {typescript-local-binding: {owner: {pattern: $_}}}}
+        - kind: type_identifier
+          pattern: $IMPORTED
+          all:
+            - not: {inside: {kind: nested_type_identifier, field: name}}
+            - inside: {kind: program, stopBy: end, has: {all: [{matches: module-import}, {has: {stopBy: end, pattern: $IMPORTED, matches: typescript-import-binding, inside: {matches: exported-binding}}}]}}
+            - not:
+                inside:
+                    stopBy: end
+                    any:
+                        - has: {field: type_parameters, has: {kind: type_parameter, has: {field: name, pattern: $IMPORTED}}}
+                        - kind: statement_block
+                          has: {kind: 'type_alias_declaration, interface_declaration, class_declaration, abstract_class_declaration, enum_declaration', has: {field: name, pattern: $IMPORTED}}
         - kind: member_expression, nested_identifier
           all:
             - has: {field: property, matches: exported}

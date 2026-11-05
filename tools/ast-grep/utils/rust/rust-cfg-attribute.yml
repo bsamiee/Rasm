@@ -3,5 +3,9 @@ id: rust-cfg-attribute
 language: rustlang
 rule:
     kind: attribute_item
-    has: {kind: attribute, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, pattern: cfg}}
-    not: {regex: '^#\[\p{Pattern_White_Space}*cfg\p{Pattern_White_Space}*\(\p{Pattern_White_Space}*(all\p{Pattern_White_Space}*\(\p{Pattern_White_Space}*\)|any\p{Pattern_White_Space}*\(\p{Pattern_White_Space}*\)|true|false|not\p{Pattern_White_Space}*\(\p{Pattern_White_Space}*(all|any)\p{Pattern_White_Space}*\(\p{Pattern_White_Space}*\)\p{Pattern_White_Space}*\))\p{Pattern_White_Space}*\)\p{Pattern_White_Space}*\]$'}
+    regex: cfg
+    has:
+        kind: attribute
+        all:
+            - has: {field: path, pattern: cfg}
+            - has: {field: arguments, has: {stopBy: end, kind: identifier, not: {regex: '^(all|any|not)$'}}}

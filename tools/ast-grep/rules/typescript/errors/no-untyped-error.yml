@@ -5,7 +5,7 @@ utils:
     native-error:
         any:
             - kind: new_expression
-              has: {field: constructor, matches: typescript-global-reference, regex: '^(globalThis\.)?(Error|TypeError|RangeError|SyntaxError|ReferenceError|EvalError|URIError|AggregateError)$'}
+              has: {field: constructor, regex: '(^|\.)(Error|TypeError|RangeError|SyntaxError|ReferenceError|EvalError|URIError|AggregateError)$', matches: typescript-global-member}
             - matches: typescript-expression-wrapper
               has: {matches: native-error}
     effect-channel:

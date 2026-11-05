@@ -43,8 +43,9 @@ utils:
     absent:
         any:
             - kind: unary_expression
-              regex: '^!'
-              has: {matches: present}
+              all:
+                - has: {field: operator, regex: '^!$'}
+                - has: {matches: present}
             - matches: metadata-test
               has: {field: function, has: {field: field, regex: '^is_err$'}}
             - kind: parenthesized_expression

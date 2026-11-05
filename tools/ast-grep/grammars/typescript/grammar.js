@@ -25,7 +25,7 @@ const TYPE_KEYWORDS = Array.dedupe(
         .map(({ value }) => value),
 );
 const PREDEFINED_TYPES = new Set(tsx.grammar.rules.predefined_type.members.filter(({ type }) => type === 'STRING').map(({ value }) => value));
-const TYPE_NAMES = Array.dedupe([...collected(tsx.grammar.rules._reserved_identifier, ({ type }) => type === 'STRING').map(({ value }) => value), ...CONTEXTUAL]).filter((word) => !RESERVED_WORDS.has(word) && !PREDEFINED_TYPES.has(word) && !TYPE_KEYWORDS.includes(word));
+const TYPE_NAMES = Array.dedupe([...collected(tsx.grammar.rules._reserved_identifier, ({ type }) => type === 'STRING').map(({ value }) => value), ...CONTEXTUAL]).filter((word) => !(RESERVED_WORDS.has(word) || PREDEFINED_TYPES.has(word) || TYPE_KEYWORDS.includes(word)));
 const DEFAULT_VALUES = ['function_expression', 'generator_function', 'class'];
 const REFERENCE_LIMITS = { HEXADECIMAL_REFERENCE_DIGITS: 6, DECIMAL_REFERENCE_DIGITS: 7, NAMED_REFERENCE_LETTERS: 30 };
 const CHARACTER_REFERENCE = new RegExp(`&(?:#(?:[xX][0-9a-fA-F]{1,${REFERENCE_LIMITS.HEXADECIMAL_REFERENCE_DIGITS}}|[0-9]{1,${REFERENCE_LIMITS.DECIMAL_REFERENCE_DIGITS}})|[A-Za-z]{1,${REFERENCE_LIMITS.NAMED_REFERENCE_LETTERS}});`, 'u');
@@ -48,7 +48,7 @@ const tupled = widen(
     ($) => alias(choice(...TYPE_NAMES), $.identifier),
 );
 const importType = ({ type }) => type === 'PREC';
-const separatedMark = ($, original) => rewrite(original, (rule) => (rule.type === 'STRING' && rule.value.endsWith('?:') ? choice(rule, seq(...rule.value)) : rule));
+const separatedMark = (_, original) => rewrite(original, (rule) => (rule.type === 'STRING' && rule.value.endsWith('?:') ? choice(rule, seq(...rule.value)) : rule));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
@@ -170,12 +170,21 @@ export default extend(tsx, {
                 $,
                 arms(tsx.grammar.rules.ambient_declaration).find((arm) => reaches(arm, string('global'))),
             ),
-        class_body: ($, original) => rewrite(original, (rule) => (rule.type === 'SEQ' && rule.members.some(symbol('method_definition')) ? seq(choice($.method_definition, alias($._decorated_method_definition, $.method_definition)), ...rule.members.filter((member) => !symbol('method_definition')(member) && !reaches(member, named('decorator')))) : rule)),
+        class_body: ($, original) =>
+            rewrite(original, (rule) =>
+                rule.type === 'SEQ' && rule.members.some(symbol('method_definition')) ? seq(choice($.method_definition, alias($._decorated_method_definition, $.method_definition)), ...rule.members.filter((member) => !(symbol('method_definition')(member) || reaches(member, named('decorator'))))) : rule,
+            ),
         _decorated_method_definition: ($) => seq(repeat1(field('decorator', $.decorator)), tsx.grammar.rules.method_definition),
         public_field_definition: ($, original) =>
             rewrite(original, (rule) =>
                 rule.type === 'CHOICE' && rule.members.some(optionalOf(string('accessor')))
-                    ? choice(...Array.dedupe([...rule.members.filter((alternative) => !optionalOf(string('accessor'))(alternative)), ...rule.members.filter((alternative) => alternative.type === 'SEQ').map((alternative) => seq(...drop(optionalOf(string('readonly')))($, alternative).members, optional('accessor'))), seq(optional('abstract'), optional($.override_modifier), optional('readonly'))]))
+                    ? choice(
+                          ...Array.dedupe([
+                              ...rule.members.filter((alternative) => !optionalOf(string('accessor'))(alternative)),
+                              ...rule.members.filter((alternative) => alternative.type === 'SEQ').map((alternative) => seq(...drop(optionalOf(string('readonly')))($, alternative).members, optional('accessor'))),
+                              seq(optional('abstract'), optional($.override_modifier), optional('readonly')),
+                          ]),
+                      )
                     : rule,
             ),
         type: drop(importType),

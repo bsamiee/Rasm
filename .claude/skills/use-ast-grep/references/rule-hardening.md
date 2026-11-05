@@ -31,7 +31,7 @@ Rules widen to siblings that take the same correction for the same reason, one a
 
 Package references resolve through imports, aliases, and bindings the language's scoping makes visible:
 - Nested modules see no parent import, a block-local `use`, function, or constant shadows one, module-level declarations cannot clash with a value import
-- Names inside a path (`f` in `a::f::g`) are no imported name
+- Names inside a path (`f` in `a::f::g`) are no imported name, import sources test the path root (`'^(::)?<crate>::'`) where a word regex reads inner names
 - Semantic identity takes language tooling, an escaped module name its decoded value
 - Local names bind at the call in an ordered `all:` before the import compares against them, an `inside` evaluated first binds the first import and stops there
 
@@ -126,12 +126,12 @@ Relations stay where they establish fields, captures, or traversal stops. Duplic
 
 Mechanisms changing no result go:
 
-| [INDEX] | [FAILURE]                                      | [REMEDY]                                                                  |
-| :-----: | :--------------------------------------------- | :------------------------------------------------------------------------ |
-|  [01]   | Caller repeats its util's established shape    | Keep caller-specific guards and omit kind guards the util infers          |
-|  [02]   | Fixed util with one call                       | Inline unless private capture scope or distinct arguments change behavior |
-|  [03]   | Argument bound to nothing                      | Every declared argument appears as `matches: <slot>` in the util body     |
-|  [04]   | Parameterized call in a relation or local util | Composite call of that util in the document, else an unparameterized util |
+| [INDEX] | [FAILURE]                                    | [REMEDY]                                                                  |
+| :-----: | :------------------------------------------- | :------------------------------------------------------------------------ |
+|  [01]   | Caller repeats its util's established shape  | Keep caller-specific guards and omit kind guards the util infers          |
+|  [02]   | Fixed util with one call                     | Inline unless private capture scope or distinct arguments change behavior |
+|  [03]   | Argument bound to nothing                    | Every declared argument appears as `matches: <slot>` in the util body     |
+|  [04]   | Parameterized call directly under a relation | Local util holding the call, or a composite call of that util             |
 
 ## [05]-[RECURSION]
 

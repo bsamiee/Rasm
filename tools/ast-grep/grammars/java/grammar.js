@@ -8,7 +8,15 @@ const ESCAPE = /[btnfrs"'\\]|[0-3][0-7]{2}|[0-7]{1,2}|u+[0-9a-fA-F]{4}/u;
 const LINE_TERMINATOR = /\r\n?|\n/u;
 const CONTEXTUAL = new Set(['exports', 'module', 'non-sealed', 'open', 'opens', 'permits', 'provides', 'record', 'requires', 'sealed', 'to', 'transitive', 'uses', 'var', 'when', 'with', 'yield']);
 const UNUSED = ['const', 'goto'];
-const RESERVED = [...new Set(Object.values(java.grammar.rules).flatMap(outermost).filter(({ type, value }) => type === 'STRING' && /^\p{L}+$/u.test(value) && !CONTEXTUAL.has(value)).map(({ value }) => value))];
+const LETTERS_ONLY = /^\p{L}+$/u;
+const RESERVED = [
+    ...new Set(
+        Object.values(java.grammar.rules)
+            .flatMap(outermost)
+            .filter(({ type, value }) => type === 'STRING' && LETTERS_ONLY.test(value) && !CONTEXTUAL.has(value))
+            .map(({ value }) => value),
+    ),
+];
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

@@ -8,6 +8,7 @@ type Host = any;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
+const realApp: Host = app;
 const RealFile: Host = File;
 const RealFolder: Host = Folder;
 const RealWindow: Host = Window;
@@ -635,4 +636,4 @@ const reads = (wanted: Host, evaluate: (text: string) => Host, kept: (value: Hos
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { assign, attempt, batched, bridgeTalk, clicked, codec, dollar, failed, finished, globals, type Host, holds, messageOf, notified, palettes, patched, picked, prepared, read, reads, refusing, released, scope, sessionOf, started, statics, tagged, thrown, windows };
+export { assign, attempt, batched, bridgeTalk, clicked, codec, dollar, failed, finished, globals, type Host, holds, messageOf, notified, palettes, patched, picked, prepared, RealFile, RealFolder, read, reads, realApp, realGlobal, refusing, released, scope, sessionOf, started, statics, tagged, thrown, windows };

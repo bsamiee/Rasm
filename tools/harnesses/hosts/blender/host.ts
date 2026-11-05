@@ -3,12 +3,12 @@ import { Config, Deferred, Effect, FileSystem, Match, Option, Path, Schema, Stri
 import type { Case } from '#/cases/schema';
 import type { JsonObject } from '#/cases/values';
 import { HarnessError } from '#/harness-error';
-import { Encoded, Engine, HostCase, HostOutcome, type Placed, Reply, SURVEY, Survey, Written } from '#/hosts/blender/contract';
+import { Contract, type Placed, Written } from '#/hosts/blender/contract';
 import { precondition } from '#/hosts/blender/precondition';
 import { type Batch, Harness, type Installed, type Live, type Rebuilt } from '#/session/harness';
 import { appeared, Launched, plist, printed, Spawned } from '#/session/instance';
 import { Run } from '#/session/run';
-import { engineOf, prepared } from '#/session/source';
+import { prepared } from '#/session/source';
 import { failing, lined, whole } from '#/trace/reports';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -48,9 +48,6 @@ const installed = Effect.gen(function* () {
     return (yield* Effect.forEach(listed, ({ url }) => Effect.flatMap(path.fromFileUrl(url), identify))).map((chosen) => ({ ...chosen, ...startup }));
 });
 
-// --- [SOURCE]
-const engine = engineOf({ [Engine.literal]: { extensions: ['py'] } }, Engine.literal);
-
 // --- [CASES]
 const windowed = (held: typeof JsonObject.Type, { until, confirms = [], files = [] }: Case) => until !== undefined || 'window' in held || 'area' in held || confirms.length > 0 || files.length > 0;
 const placed = Effect.fn('placed')(function* (decoded: typeof Placed.Type, folder: string, product: string) {
@@ -64,9 +61,9 @@ const placed = Effect.fn('placed')(function* (decoded: typeof Placed.Type, folde
         Match.orElse(() => Effect.succeed({ precondition: decoded, copies: [] })),
     );
 });
-const rebuilt = Effect.fn('rebuilt')(function* ({ hosted, fn, args, module }: Rebuilt<typeof HostCase.Type>, folder: string) {
+const rebuilt = Effect.fn('rebuilt')(function* ({ hosted, fn, args, module }: Rebuilt<typeof Contract.Case.Type>, folder: string) {
     const { source, map } = yield* prepared(module, Option.none());
-    const call: typeof HostCase.Type = { ...Struct.pick(hosted, ['name', 'precondition', 'read', 'keywords', 'until', 'confirms', 'files']), _tag: 'Call', folder, source, call: fn, args };
+    const call: typeof Contract.Case.Type = { ...Struct.pick(hosted, ['name', 'precondition', 'read', 'keywords', 'until', 'confirms', 'files']), _tag: 'Call', folder, source, call: fn, args };
     return { hosted: call, map };
 });
 
@@ -93,23 +90,19 @@ const opened = Effect.fn('opened')(function* (live: Live) {
     );
     return yield* Schema.decodeEffect(Written)(written);
 });
-const send = Effect.fn('send')(function* (live: Live, batch: Batch<typeof Survey.Type, typeof HostCase.Type>) {
+const send = Effect.fn('send')(function* (live: Live, batch: Batch<typeof Contract.Survey.Type, typeof Contract.Case.Type>) {
     const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
     const folder = path.dirname(batch.records);
     const [session, reply] = [path.join(folder, SESSION), path.join(folder, 'reply.json')];
-    yield* fs.writeFileString(`${session}.tmp`, yield* Schema.encodeEffect(Encoded)({ records: batch.records, reply, survey: Option.isNone(batch.survey), cases: batch.cases }));
+    yield* fs.writeFileString(`${session}.tmp`, yield* Schema.encodeEffect(Contract.Encoded)({ records: batch.records, reply, survey: Option.isNone(batch.survey), cases: batch.cases }));
     yield* fs.rename(`${session}.tmp`, session);
-    return yield* Reply.replied(`instance ${live.pid} batch`)(yield* appeared(reply));
+    return yield* Contract.Reply.replied(`instance ${live.pid} batch`)(yield* appeared(reply));
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const blender = Harness({
-    Engine,
-    survey: { question: SURVEY, Schema: Survey },
-    Case: HostCase,
-    Outcome: HostOutcome,
-    engine,
+    ...Contract,
     precondition,
     placed,
     installed,

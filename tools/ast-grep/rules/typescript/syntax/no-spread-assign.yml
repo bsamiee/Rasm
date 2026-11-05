@@ -3,9 +3,9 @@ language: tsxlang
 severity: error
 rule:
     kind: call_expression
-    pattern: $CALL
     all:
-        - has: {field: function, regex: '^((globalThis|window|self)\.)?Object\.assign$', matches: typescript-global-reference}
+        - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^assign$'}}, {has: {field: object, regex: '(^|\.)Object$', matches: typescript-global-member}}]}
         - has: {field: arguments, has: {kind: spread_element}}
+        - pattern: $CALL
 message: '`$CALL` merges a spread list through the `Object.assign` overload returning `any`'
 note: 'Build the object from typed parts (`Record.getSomes`, `Object.fromEntries`, or a spread of each named part)'

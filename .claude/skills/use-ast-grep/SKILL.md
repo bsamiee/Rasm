@@ -148,14 +148,15 @@ Constraints test single captures after the rule matches, in unspecified order, `
 - Parameterized utils take `arguments` at the global level alone, a local `'wrap(NAME)'` exits 8, arguments are mandatory, a string `matches: <id>` of a parameterized util exits 8
 - Rules call a parameterized util as `matches: {<util-id>: {<arg>: <rule>}}`, each argument a rule, calls under one `matches` combine as `all`
 - Load order and cycle checks follow composite calls, constraints, and local util definitions, relational children add no edge
-- Parameterized calls under a relation or in a local util of a global util fail as `Rule <id> is not defined` on runs whose load order reaches the caller first
+- Parameterized calls directly under a relation fail as `Rule <id> is not defined` where load order reaches the caller first, a local util holding one orders it
 - Composite calls of that util in the same document (root `matches`, under `all` or `not`) order the load and keep the relational call
 - Plain relational references resolve lazily and lose the kind pre-check, explicit kinds beside them keep it
 - String `matches: <name>` resolves a parameter, then a local util, then a global util
 - Local utilities read caller captures
 - Every local util compiles whether called or not, an invalid kind in an uncalled one fails the load
 - Uncalled local utils' variables count as defined, a `fix` reading them prints empty
-- Argument rules start without caller captures and export theirs from a util `rule`, an argument read in `constraints` or a nested call exports none
+- Argument rules start without caller captures, `{pattern: $X}` binding the first candidate a util's relation visits, a name test calls the util at that name
+- Argument captures export from a util `rule`, an argument read in `constraints` or a nested call exports none
 - Local references passed as arguments do not advertise their bindings for export
 - Non-terminating relation recursion aborts with a stack overflow at exit 134 and no output
 
@@ -269,7 +270,7 @@ mix(a)                  -> mix([], [a])
 ```
 
 `fix: {template, expandStart, expandEnd}` widens the replaced range to the sibling the sub-rule matches, a miss keeps the matched range:
-- Expansion stops at the first sibling the sub-rule matches, the adjacent sibling alone by default and any sibling under `stopBy: end`
+- Expansion stops at the first sibling the sub-rule matches, the adjacent one by default, under `stopBy: end` the first match past others (`not: {regex: '^=$'}` reaching a value past `=`)
 - Directions apply independently, one comma rule on both removes a comma each side, a sub-rule reads captures, `field` beside them is ignored
 - `fix` as a list of `{title, template}` offers alternatives, `-U` and `--json` take the first and `-i` offers each
 

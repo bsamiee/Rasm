@@ -9,10 +9,7 @@ utils:
             - kind: identifier
               matches: {typescript-import-reference: {source: {regex: '^effect/Function$'}, exported: {regex: '^(constant|const(Undefined|Null|Void))$'}}}
     option-none:
-        kind: member_expression
-        all:
-            - has: {field: property, regex: '^none$'}
-            - has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Option$'}}}}
+        matches: {effect-module-member: {module: {regex: '(?-u:\b)Option$'}, member: {regex: '^none$'}}}
     absent-value:
         any:
             - kind: 'undefined, null'
@@ -30,13 +27,13 @@ utils:
         all:
             - any:
                 - has: {field: parameter, kind: identifier, pattern: $INPUT}
-                - has: {field: parameters, all: [{has: {nthChild: 1, kind: required_parameter, has: {field: pattern, kind: identifier, pattern: $INPUT}}}, {not: {has: {nthChild: 2}}}]}
+                - has: {field: parameters, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, kind: required_parameter, has: {field: pattern, kind: identifier, pattern: $INPUT}}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}}]}
             - has:
                 field: body
                 kind: call_expression
                 all:
                     - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Result$'}, member: {regex: '^fail$'}}}}
-                    - has: {field: arguments, all: [{has: {nthChild: 1, kind: identifier, pattern: $INPUT}}, {not: {has: {nthChild: 2}}}]}
+                    - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, kind: identifier, pattern: $INPUT}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}}]}
 rule:
     kind: call_expression
     all:
@@ -44,9 +41,9 @@ rule:
         - has:
             field: arguments
             all:
-                - not: {has: {nthChild: 2}}
+                - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}
                 - has:
-                    nthChild: 1
+                    nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}
                     pattern: $D
                     any:
                         - matches: {typescript-constant-function: {result: {matches: absent-value}}}

@@ -79,6 +79,8 @@ const edited = (site: Site, { start, end }: Span, text: string, before?: string,
 
 const inserted = (site: Site, at: number, text: string): Verdicts => edited(site, { start: at, end: at }, text);
 
+const added = (site: Site, words: string): Verdicts => inserted(site, (site.words.find(({ text }) => text === site.path.at(-1)) ?? site.head).end, ` ${words}`);
+
 const silent = (verdicts: Verdicts): Verdicts => verdicts.map((verdict) => (Verdict.$is('Edit')(verdict) ? { ...verdict, notice: Option.none() } : verdict));
 
 const whole = (site: Site, text: string, before?: string, { start }: Span = site.head): Verdicts => {
@@ -148,7 +150,7 @@ const unresolved = refuse('folder unresolved', 'cd to a literal path');
 const ensure =
     (words: string, ...waived: readonly string[]) =>
     (site: Site): Verdicts =>
-        site.has(words.split(' ', 1).join(''), ...waived) ? [] : inserted(site, (site.words.find(({ text }) => text === site.path.at(-1)) ?? site.head).end, ` ${words}`);
+        site.has(words.split(' ', 1).join(''), ...waived) ? [] : added(site, words);
 
 const become =
     (text: string, notify = true) =>
@@ -179,4 +181,4 @@ const respell =
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { absent, all, BACKGROUNDED, become, type Call, cut, dropped, edited, ensure, type Fix, feedsJq, folderOf, has, holds, inserted, type Policy, perSubcommand, quote, redirected, refusal, refuse, respell, silent, spoken, stages, subject, unassign, unresolved, unwrap, type Verdicts, when, whole, within };
+export { absent, added, all, BACKGROUNDED, become, type Call, cut, dropped, edited, ensure, type Fix, feedsJq, folderOf, has, holds, inserted, type Policy, perSubcommand, quote, redirected, refusal, refuse, respell, silent, spoken, stages, subject, unassign, unresolved, unwrap, type Verdicts, when, whole, within };

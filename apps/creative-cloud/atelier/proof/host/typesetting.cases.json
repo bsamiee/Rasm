@@ -4,8 +4,8 @@
     "precondition": {
         "document": { "intent": "PRINT_INTENT", "width": 595, "height": 842, "profiles": { "cmyk": "GRACoL2013_CRPC6.icc", "rgb": "Adobe RGB (1998)" }, "language": "Arabic" },
         "units": "POINTS",
-        "steps": ["made.frame = doc.pages.item(0).textFrames.add({ geometricBounds: [72, 72, 360, 520], contents: 'بسم الله الرحمن الرحيم' })"],
-        "select": ["made.frame.texts.item(0)"]
+        "steps": [ "made.frame = doc.pages.item(0).textFrames.add({ geometricBounds: [72, 72, 360, 520], contents: 'بسم الله الرحمن الرحيم' })" ],
+        "select": [ "made.frame.texts.item(0)" ]
     },
     "read": {
         "groups": "Array.from(document.querySelectorAll('sp-detail'), (detail) => detail.textContent)",

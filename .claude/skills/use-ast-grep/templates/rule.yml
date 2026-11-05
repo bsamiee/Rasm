@@ -17,6 +17,8 @@ transform:
     <TRANSFORMED>: <string transform of a binding, key omitted otherwise>
 fix: <replacement, key omitted otherwise>
 labels:
-    <CAPTURE>: {style: secondary, message: <role of the capture, key omitted otherwise>}
+    <CAPTURE>:
+        style: secondary
+        message: <role of the capture, key omitted otherwise>
 message: <violation with captured or transformed values>
 note: <required form and its reason>

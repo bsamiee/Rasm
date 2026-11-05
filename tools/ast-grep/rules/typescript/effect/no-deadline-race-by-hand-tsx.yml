@@ -11,7 +11,7 @@ utils:
             - kind: call_expression
               any:
                 - has: {field: function, kind: member_expression, has: {field: object, matches: sleep-call}}
-                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: sleep-call}}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: sleep-call}}
 rule:
     kind: call_expression
     pattern: $RACE

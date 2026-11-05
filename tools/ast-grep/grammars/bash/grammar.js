@@ -3,9 +3,18 @@ import { after, automaton, chain, choiceOf, drop, extend, leading, located, name
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
+const LEADING_LETTER = /^\p{L}/u;
+const PARENTHESIZED_FLAGS = /\([^)\n]*\)/u;
 const ESCAPED_CONTENT = pattern(without(automaton(bash.grammar.rules.string_content), automaton({ type: 'PATTERN', value: String.raw`[^]*\\"[^]*` })));
 const OPENING = new Set(leading(bash.grammar, bash.grammar.rules._statement).map(({ value }) => value));
-const RESERVED = [...new Set(Object.values(bash.grammar.rules).flatMap(outermost).filter(({ type, value }) => type === 'STRING' && /^\p{L}/u.test(value) && !OPENING.has(value)).map(({ value }) => value))];
+const RESERVED = [
+    ...new Set(
+        Object.values(bash.grammar.rules)
+            .flatMap(outermost)
+            .filter(({ type, value }) => type === 'STRING' && LEADING_LETTER.test(value) && !OPENING.has(value))
+            .map(({ value }) => value),
+    ),
+];
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -49,8 +58,15 @@ export default extend(bash, {
         test_command: ($, original) => rewrite(original, (part) => (symbol('redirected_statement')(part) ? choice(alias($._test_redirected, $.redirected_statement), prec.dynamic(-1, alias($._test_operand, $.command))) : part)),
         _test_redirected: ($) => choice(redirected($, alias($._test_operand, $.command)), field('redirect', repeat1($._redirect))),
         _test_operand: ($) => seq(optional('!'), field('name', $.command_name), repeat(field('argument', $._literal))),
-        _test_command_binary_expression: replace((rule) => rule.type === 'ALIAS' && symbol('_regex_no_space')(rule.content), ($) => $._extglob_blob),
-        parenthesized_expression: ($, original) => choice(original, rewrite(original, (part) => (part.type === 'STRING' ? { ...part, value: `\\${part.value}` } : part))),
+        _test_command_binary_expression: replace(
+            (rule) => rule.type === 'ALIAS' && symbol('_regex_no_space')(rule.content),
+            ($) => $._extglob_blob,
+        ),
+        parenthesized_expression: (_, original) =>
+            choice(
+                original,
+                rewrite(original, (part) => (part.type === 'STRING' ? { ...part, value: `\\${part.value}` } : part)),
+            ),
         command: drop((rule) => named('argument')(rule) && (reaches(rule, string('==')) || reaches(rule, symbol('_bare_dollar')))),
         command_name: widen(symbol('_literal'), ($) => alias($._brace_name, $.concatenation)),
         _brace_name: ($) => seq(alias($._brace_open, $.word), repeat1(seq($._concat, choice($._primary_expression, alias($._special_character, $.word), alias($._comment_word, $.word))))),
@@ -80,7 +96,12 @@ export default extend(bash, {
                 if (string('"')(part)) {
                     return alias($._escaped_quote, '"');
                 }
-                return symbol('string_content')(part) ? alias(rewrite(bash.grammar.rules.string_content, (rule) => (rule.type === 'PATTERN' ? ESCAPED_CONTENT : rule)), $.string_content) : part;
+                return symbol('string_content')(part)
+                    ? alias(
+                          rewrite(bash.grammar.rules.string_content, (rule) => (rule.type === 'PATTERN' ? ESCAPED_CONTENT : rule)),
+                          $.string_content,
+                      )
+                    : part;
             }),
         command_substitution: ($, original) =>
             choice(
@@ -92,7 +113,7 @@ export default extend(bash, {
         _arithmetic_literal: widen(symbol('simple_expansion'), ($) => alias($._set_expansion, $.simple_expansion)),
         _set_expansion: ($) => seq('$', field('operator', choice(token.immediate('+'), '#')), choice($.subscript, $._simple_variable_name)),
         expansion: after(string('${'), ($) => optional(field('flags', $.expansion_flags))),
-        expansion_flags: () => token.immediate(/\([^)\n]*\)/u),
+        expansion_flags: () => token.immediate(PARENTHESIZED_FLAGS),
         _expansion_body: chain(
             widen(
                 symbol('subscript'),

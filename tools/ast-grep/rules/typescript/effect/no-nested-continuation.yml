@@ -15,7 +15,7 @@ utils:
     inner:
         kind: call_expression
         all:
-            - has: {field: arguments, any: [{has: {matches: callback}}, {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}]}
+            - has: {field: arguments, any: [{has: {matches: callback}}, {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}]}
             - matches: step
 rule:
     pattern: $CALL

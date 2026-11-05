@@ -1,12 +1,12 @@
 import { Schema, SchemaGetter, Struct } from 'effect';
-import { Application, additions, enumerators, many, member, merged, Open, placings } from '#/cases/precondition';
+import { additions, enumerators, member, merged, Open, placings } from '#/cases/precondition';
 import { Expression } from '#/cases/schema';
 import { JsonObject } from '#/cases/values';
-import { Added, Placed, type Survey } from '#/hosts/adobe/indesign/contract';
+import { Added, type Contract, Placed } from '#/hosts/adobe/indesign/contract';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const precondition = (survey: typeof Survey.Type) => {
+const precondition = (survey: typeof Contract.Survey.Type) => {
     const checked = enumerators(survey.enumerations);
     const Properties = JsonObject.check(checked());
     const unit = member('MeasurementUnits', survey.enumerations.MeasurementUnits ?? []);
@@ -27,24 +27,22 @@ const precondition = (survey: typeof Survey.Type) => {
         set: Schema.optionalKey(Schema.Array(Schema.Tuple([Expression, Schema.Json.check(checked())]))),
         add: additions(Added.mapFields(Struct.assign({ properties: Schema.optionalKey(Properties) }))),
     };
-    const documented = (row: typeof Document.Type, units: typeof Placed.Type.units) => ({
-        properties: merged(row.properties ?? {}, {
-            documentPreferences: { pageWidth: row.width, pageHeight: row.height, intent: row.intent },
-            viewPreferences: { horizontalMeasurementUnits: units.horizontal, verticalMeasurementUnits: units.vertical },
-            cmykProfile: row.profiles.cmyk,
-            rgbProfile: row.profiles.rgb,
-            textDefaults: { appliedLanguage: row.language },
-        }),
-    });
-    return placings(
-        Placed,
-        { document: Schema.Struct({ document: many(Document), ...rows }), open: Schema.Struct({ open: many(Open), ...rows }), application: Schema.Struct({ application: Application, ...rows }) },
-        {
-            document: ({ document, ...rest }) => ({ ...rest, documents: document.map((row) => documented(row, rest.units)) }),
-            open: ({ open, ...rest }) => ({ ...rest, documents: open.map((file) => ({ open: file })) }),
-            application: ({ application: _, ...rest }) => ({ ...rest, documents: [] }),
-        },
-    );
+    return placings(rows, { document: Document, open: Open })(Placed, ({ documents, ...rest }) => ({
+        ...rest,
+        documents: documents.map((row) =>
+            typeof row === 'string'
+                ? { open: row }
+                : {
+                      properties: merged(row.properties ?? {}, {
+                          documentPreferences: { pageWidth: row.width, pageHeight: row.height, intent: row.intent },
+                          viewPreferences: { horizontalMeasurementUnits: rest.units.horizontal, verticalMeasurementUnits: rest.units.vertical },
+                          cmykProfile: row.profiles.cmyk,
+                          rgbProfile: row.profiles.rgb,
+                          textDefaults: { appliedLanguage: row.language },
+                      }),
+                  },
+        ),
+    }));
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

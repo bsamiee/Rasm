@@ -4,7 +4,7 @@ severity: error
 rule:
     kind: let_declaration
     all:
-        - has: {field: value, kind: scoped_identifier, has: {field: name, regex: '^[A-Z][A-Z0-9_]*$'}, pattern: $PATH}
+        - has: {field: value, kind: scoped_identifier, has: {field: name, regex: '^\p{Lu}[\p{Lu}\p{Nd}_]*$'}, pattern: $PATH}
         - any:
             - has: {field: pattern, kind: tuple_pattern, regex: '^\(\p{Pattern_White_Space}*\)$'}
             - has: {field: pattern, pattern: $$_P, regex: '^_$'}

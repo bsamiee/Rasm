@@ -1,7 +1,7 @@
 import fs from 'adobe:fs';
 import indesign, { app } from 'adobe:indesign';
 import { thrown } from '@rasm/harnesses/harness-error';
-import { Encoded, fields, type Held, HostCase, HostOutcome, Recorded, Reply } from '@rasm/harnesses/hosts/adobe/indesign/contract';
+import { Contract, fields, type Held } from '@rasm/harnesses/hosts/adobe/indesign/contract';
 import { Array, identity, Match, Option, Predicate, Record, Result, Schema } from 'effect';
 import { exported, given, opened, prepare, reads, state } from '#/precondition';
 import { installed } from '#/shadows';
@@ -14,7 +14,7 @@ const STACK_LINE = /<anonymous>:(?<line>\d+):\d+/gu;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const scripted = (item: Item): item is Scripted => !HostCase.isAnyOf(['Panel'])(item);
+const scripted = (item: Item): item is Scripted => !Contract.Case.isAnyOf(['Panel'])(item);
 const strings = (value: unknown): readonly string[] => Option.getOrElse(Schema.decodeUnknownOption(Strings)(value), () => []);
 const lines = (error: unknown) => Array.map(Array.fromIterable(String(field(error, 'stack') ?? '').matchAll(STACK_LINE)), (found) => Number(found.groups?.line));
 const HEAD = (() => {
@@ -85,7 +85,7 @@ const heldOf = (item: Item, index: number, batch: Batch, codec: Codec): typeof H
         app.scriptPreferences.measurementUnit = unit;
     }
 };
-const outcomeOf = (item: Scripted, batch: Batch, found: ReturnType<typeof scanned>, codec: Codec): typeof HostOutcome.Type => {
+const outcomeOf = (item: Scripted, batch: Batch, found: ReturnType<typeof scanned>, codec: Codec): typeof Contract.Outcome.Type => {
     const session = sessionOf(item, batch, codec);
     const unit = app.scriptPreferences.measurementUnit;
     const active = Option.map(activeOf(), ({ id }) => id);
@@ -101,7 +101,7 @@ const outcomeOf = (item: Scripted, batch: Batch, found: ReturnType<typeof scanne
         }
     };
     const shadows = installed(session);
-    const result = ((): Omit<Parameters<typeof HostOutcome.make>[0], 'name' | 'answered' | 'leaked' | keyof typeof fields> => {
+    const result = ((): Omit<Parameters<typeof Contract.Outcome.make>[0], 'name' | 'answered' | 'leaked' | keyof typeof fields> => {
         try {
             const docs = opened(session);
             session.record.opened = docs.map((doc) => state(codec, doc));
@@ -145,10 +145,10 @@ const outcomeOf = (item: Scripted, batch: Batch, found: ReturnType<typeof scanne
             (id) => Object.assign(app, { activeDocument: app.documents.itemByID(id) }),
         ),
     );
-    return HostOutcome.make({ name: item.name, ...result, ...session.record, leaked });
+    return Contract.Outcome.make({ name: item.name, ...result, ...session.record, leaked });
 };
-const written = Schema.encodeResult(Recorded);
-const answered = (batch: Batch): typeof Reply.Type => {
+const written = Schema.encodeResult(Contract.Recorded);
+const answered = (batch: Batch): typeof Contract.Reply.Type => {
     const level = app.scriptPreferences.userInteractionLevel;
     app.scriptPreferences.userInteractionLevel = indesign.UserInteractionLevels.NEVER_INTERACT;
     try {
@@ -171,7 +171,7 @@ const answered = (batch: Batch): typeof Reply.Type => {
         const started = (at: number) => appended(Result.getOrThrow(written({ _tag: 'Started', index: at })));
         run.forEach((item, at) => {
             started(batch.from + at);
-            appended(Result.getOrThrow(Result.orElse(written({ _tag: 'Finished', outcome: outcomeOf(item, batch, found, coder) }), ({ message: reason }) => written({ _tag: 'Finished', outcome: HostOutcome.make({ name: item.name, completion: { _tag: 'Failed', reason } }) }))));
+            appended(Result.getOrThrow(Result.orElse(written({ _tag: 'Finished', outcome: outcomeOf(item, batch, found, coder) }), ({ message: reason }) => written({ _tag: 'Finished', outcome: Contract.Outcome.make({ name: item.name, completion: { _tag: 'Failed', reason } }) }))));
         });
         const index = batch.from + run.length;
         const held = Option.map(Array.head(after), (item) => {
@@ -185,7 +185,7 @@ const answered = (batch: Batch): typeof Reply.Type => {
         app.scriptPreferences.userInteractionLevel = level;
     }
 };
-const answerBatch = (argument: unknown) => Result.getOrThrow(Schema.encodeResult(Reply)(Result.match(Schema.decodeUnknownResult(Encoded)(argument), { onFailure: ({ message: failed }) => ({ failed }), onSuccess: answered })));
+const answerBatch = (argument: unknown) => Result.getOrThrow(Schema.encodeResult(Contract.Reply)(Result.match(Schema.decodeUnknownResult(Contract.Encoded)(argument), { onFailure: ({ message: failed }) => ({ failed }), onSuccess: answered })));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

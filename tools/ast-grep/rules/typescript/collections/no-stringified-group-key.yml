@@ -15,9 +15,11 @@ rule:
                     pattern: $KEY
                     any:
                         - kind: template_string
-                          regex: '^`\$\{[^`]*\}`$'
-                          not: {has: {kind: template_substitution, nthChild: {position: 2, ofRule: {kind: template_substitution}}}}
+                          all:
+                            - has: {kind: template_substitution}
+                            - not: {has: {kind: 'string_fragment, escape_sequence'}}
+                            - not: {has: {kind: template_substitution, nthChild: {position: 2, ofRule: {kind: template_substitution}}}}
                         - kind: call_expression
-                          has: {field: function, regex: '^String$'}
+                          has: {field: function, regex: '(^|\.)String$', matches: typescript-global-member}
 message: '`$KEY` turns a group key into text to fit a string-keyed record'
 note: 'Call `Map.groupBy(<list>, <key>)` to group by a key that is not a string'

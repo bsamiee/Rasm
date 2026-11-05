@@ -10,7 +10,7 @@ utils:
     rendered:
         any:
             - kind: call_expression
-              has: {field: function, regex: '^String$'}
+              has: {field: function, regex: '(^|\.)String$', matches: typescript-global-member}
             - kind: call_expression
               all:
                 - has: {field: function, kind: member_expression, has: {field: property, regex: '^toString$'}}

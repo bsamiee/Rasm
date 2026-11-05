@@ -1,5 +1,6 @@
 import { Schema, Struct } from 'effect';
-import { Failed, hostCase, Outcome } from '#/cases/results';
+import { contract, Failed, hostCase } from '#/cases/contract';
+import { Outcome } from '#/cases/results';
 import { answers, Name } from '#/cases/schema';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -9,7 +10,6 @@ const REFUSED = ['dialogs', 'windows', 'confirms', 'prompts', 'files'] as const;
 // --- [MODELS] --------------------------------------------------------------------------
 
 // --- [CASES]
-const Engine = Schema.Literal('csharp');
 const Expression = Schema.NonEmptyString.annotate({ description: 'C# expression over doc, view, made, canvas, editor, and scope' });
 const Member = Schema.NonEmptyString.annotate({ description: 'Enumeration member name the engine decodes against RhinoCommon' });
 const Point = Schema.Tuple([Schema.Finite, Schema.Finite, Schema.Finite]);
@@ -50,69 +50,15 @@ const Placed = Schema.Struct({
     steps: Schema.optionalKey(Schema.Array(Schema.NonEmptyString).annotate({ description: 'C# statements run after add and select in one undo record' })),
     batch: Schema.optionalKey(Schema.Boolean.annotate({ description: 'BatchMode on for the case, command line input in place of dialogs' })),
 });
-const HostCase = hostCase({
-    precondition: Placed,
-    folder: Schema.String.annotate({ description: 'Case folder the engine writes the document copies and captures into' }),
-    commands: Schema.optionalKey(Schema.Array(Schema.NonEmptyString).annotate({ description: 'Macros run one per RunScript on the case document, each answering its own prompts' })),
-    plugin: Schema.optionalKey(Schema.String.annotate({ description: 'Plug-in binary the build references and publicizes and the engine loads before the cases' })),
-    rebuilt: Schema.optionalKey(
-        Schema.Struct({
-            fn: Schema.NonEmptyString.annotate({ description: 'Rebuilt module function the body calls with the case args in place of the original' }),
-            module: Schema.String.annotate({ description: 'Rebuilt module the build references' }),
-        }),
-    ),
-    ...Struct.pick(answers, REFUSED),
-});
-const Row = Schema.Struct({
-    name: Name,
-    folder: Schema.String,
-    precondition: Placed,
-    reads: Schema.Array(Schema.String).annotate({ description: 'Read keys in the order of their compiled expressions' }),
-    macros: Schema.Array(Schema.NonEmptyString),
-    args: Schema.Array(Schema.Json),
-    script: Schema.optionalKey(Schema.String.annotate({ description: 'Script RhinoCode runs by its extension or #! header on the case document' })),
-});
-const Rows = Schema.fromJsonString(Schema.Struct({ cases: Schema.Array(Row), plugin: Schema.optionalKey(Schema.String) })).annotate({ description: 'Batch file the engine reads, one row per compiled case' });
-const LoaderRequest = Schema.fromJsonString(Schema.Array(Schema.String)).annotate({ description: 'Loader request, assembly, batch, records, and reply paths for a batch, none for the quit' });
-
-// --- [INSTANCE]
-const Language = Schema.Struct({ lcid: Schema.Int, culture: Schema.String }).annotate({ description: 'RhCore localization the instance runs' });
-const Environment = Schema.Struct({ version: Schema.String, runtime: Schema.String, system: Schema.String }).annotate({ description: 'RhinoApp.Version, .NET runtime, and OS' });
-const Survey = Schema.Struct({ host: Schema.Struct({ language: Language, environment: Environment }) }).annotate({ description: 'Instance facts the loader reports at launch, deciding answers beside the version' });
-const Session = Schema.fromJsonString(Schema.Struct({ application: Schema.String, version: Schema.String, survey: Survey })).annotate({ description: 'File the loader writes once the instance runs it' });
-const Loaded = Schema.Struct({ name: Schema.String, version: Schema.String });
-const PlugInLoad = Schema.Struct({ file: Schema.String, id: Schema.String, result: Schema.String });
-const Grasshopper = Schema.Struct({ version: Schema.String, loaded: Schema.Array(Schema.String), failed: Schema.Array(Schema.String), incomplete: Schema.optionalKey(Schema.String) });
-const State = Schema.Struct({
-    plugins: Schema.Array(Loaded).annotate({ description: 'Plug-ins loaded when the batch ended' }),
-    plugIn: Schema.optionalKey(PlugInLoad.annotate({ description: 'Batch plug-in load' })),
-    grasshopper: Schema.optionalKey(Grasshopper),
-});
-const Closed = Schema.fromJsonString(State.mapFields(Struct.assign({ failed: Schema.optionalKey(Failed.fields.failed) }))).annotate({ description: 'Reply file the engine writes when the batch ends' });
-const Info = Schema.Struct({ CFBundleIdentifier: Schema.String, CFBundleVersion: Schema.String, CFBundleName: Schema.String });
-const Sarif = Schema.fromJsonString(
-    Schema.Struct({
-        runs: Schema.Array(
-            Schema.Struct({
-                results: Schema.optionalKey(
-                    Schema.Array(
-                        Schema.Struct({
-                            ruleId: Schema.optionalKey(Schema.String),
-                            level: Schema.optionalKey(Schema.String),
-                            message: Schema.Struct({ text: Schema.String }),
-                            suppressions: Schema.optionalKey(Schema.Array(Schema.Unknown)),
-                            locations: Schema.optionalKey(Schema.Array(Schema.Struct({ physicalLocation: Schema.optionalKey(Schema.Struct({ artifactLocation: Schema.Struct({ uri: Schema.String }), region: Schema.optionalKey(Schema.Struct({ startLine: Schema.Int, startColumn: Schema.optionalKey(Schema.Int) })) })) }))),
-                        }),
-                    ),
-                ),
-            }),
-        ),
+const Contract = contract({
+    engines: { csharp: {} },
+    Case: hostCase(Placed, {
+        commands: Schema.optionalKey(Schema.Array(Schema.NonEmptyString).annotate({ description: 'Macros run one per RunScript on the case document, each answering its own prompts' })),
+        plugin: Schema.optionalKey(Schema.String.annotate({ description: 'Plug-in binary the build references and publicizes and the engine loads before the cases' })),
+        rebuilt: Schema.optionalKey(Schema.Struct({ fn: Schema.NonEmptyString.annotate({ description: 'Rebuilt module function the body calls with the case args in place of the original' }), module: Schema.String.annotate({ description: 'Rebuilt module the build references' }) })),
+        ...Struct.pick(answers, REFUSED),
     }),
-);
-
-// --- [OUTCOMES]
-const HostOutcome = Outcome.mapFields(
-    Struct.assign({
+    outcome: {
         ...Struct.pick(Outcome.common, ['console']),
         document: Schema.optionalKey(
             Schema.Struct({
@@ -134,9 +80,60 @@ const HostOutcome = Outcome.mapFields(
         prompts: Schema.optionalKey(Schema.Array(Schema.Struct({ text: Schema.String, default: Schema.optionalKey(Schema.String), options: Schema.Array(Schema.String) })).annotate({ description: 'Command prompts shown while the case ran' })),
         diagnostics: Schema.optionalKey(Schema.Array(Schema.Struct({ source: Schema.String, kind: Schema.String, message: Schema.String })).annotate({ description: 'Exception reports, RhinoCode logger warnings, and Grasshopper 2 logger entries' })),
         unhandled: Schema.optionalKey(Schema.String.annotate({ description: 'Exception a host thread left unhandled while the case ran, in full, the runtime ending the instance after it' })),
+    },
+    survey: {
+        question: 'Language and environment the running instance reports',
+        host: Schema.Struct({
+            language: Schema.Struct({ lcid: Schema.Int, culture: Schema.String }).annotate({ description: 'RhCore localization the instance runs' }),
+            environment: Schema.Struct({ version: Schema.String, runtime: Schema.String, system: Schema.String }).annotate({ description: 'RhinoApp.Version, .NET runtime, and OS' }),
+        }),
+        fields: {},
+    },
+    reply: {},
+    batch: {},
+});
+const Row = Schema.Struct({
+    name: Name,
+    folder: Schema.String,
+    precondition: Placed,
+    reads: Schema.Array(Schema.String).annotate({ description: 'Read keys in the order of their compiled expressions' }),
+    macros: Schema.Array(Schema.NonEmptyString),
+    args: Schema.Array(Schema.Json),
+    script: Schema.optionalKey(Schema.String.annotate({ description: 'Script RhinoCode runs by its extension or #! header on the case document' })),
+});
+const Rows = Schema.fromJsonString(Schema.Struct({ cases: Schema.Array(Row), plugin: Schema.optionalKey(Schema.String) })).annotate({ description: 'Batch file the engine reads, one row per compiled case' });
+const LoaderRequest = Schema.fromJsonString(Schema.Array(Schema.String)).annotate({ description: 'Loader request, assembly, batch, records, and reply paths for a batch, none for the quit' });
+
+// --- [INSTANCE]
+const Session = Schema.fromJsonString(Schema.Struct({ application: Schema.String, version: Schema.String, survey: Contract.Survey })).annotate({ description: 'File the loader writes once the instance runs it' });
+const Closed = Schema.fromJsonString(
+    Schema.Struct({
+        plugins: Schema.Array(Schema.Struct({ name: Schema.String, version: Schema.String })).annotate({ description: 'Plug-ins loaded when the batch ended' }),
+        plugIn: Schema.optionalKey(Schema.Struct({ file: Schema.String, id: Schema.String, result: Schema.String }).annotate({ description: 'Batch plug-in load' })),
+        grasshopper: Schema.optionalKey(Schema.Struct({ version: Schema.String, loaded: Schema.Array(Schema.String), failed: Schema.Array(Schema.String), incomplete: Schema.optionalKey(Schema.String) })),
+        failed: Schema.optionalKey(Failed.fields.failed),
+    }),
+).annotate({ description: 'Reply file the engine writes when the batch ends' });
+const Sarif = Schema.fromJsonString(
+    Schema.Struct({
+        runs: Schema.Array(
+            Schema.Struct({
+                results: Schema.optionalKey(
+                    Schema.Array(
+                        Schema.Struct({
+                            ruleId: Schema.optionalKey(Schema.String),
+                            level: Schema.optionalKey(Schema.String),
+                            message: Schema.Struct({ text: Schema.String }),
+                            suppressions: Schema.optionalKey(Schema.Array(Schema.Unknown)),
+                            locations: Schema.optionalKey(Schema.Array(Schema.Struct({ physicalLocation: Schema.optionalKey(Schema.Struct({ artifactLocation: Schema.Struct({ uri: Schema.String }), region: Schema.optionalKey(Schema.Struct({ startLine: Schema.Int, startColumn: Schema.optionalKey(Schema.Int) })) })) }))),
+                        }),
+                    ),
+                ),
+            }),
+        ),
     }),
 );
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Closed, culture, Engine, HostCase, HostOutcome, Info, LoaderRequest, Member, Opened, Placed, REFUSED, Rows, Sarif, Session, Source, Survey, Template, Tolerance };
+export { Closed, Contract, culture, LoaderRequest, Opened, Placed, REFUSED, Rows, Sarif, Session, Source, Template };

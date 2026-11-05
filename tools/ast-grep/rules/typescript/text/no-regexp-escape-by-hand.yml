@@ -30,18 +30,7 @@ utils:
     escaped-pattern:
         any:
             - matches: syntax-class
-            - kind: identifier
-              pattern: $PATTERN
-              inside:
-                kind: program
-                stopBy: end
-                has:
-                    kind: variable_declarator
-                    stopBy: end
-                    all:
-                        - has: {field: name, pattern: $PATTERN}
-                        - has: {field: value, matches: syntax-class}
-                        - inside: {kind: lexical_declaration, has: {field: kind, regex: '^const$'}}
+            - matches: {typescript-constant-value: {value: {matches: syntax-class}}}
     prefixed-match:
         any:
             - kind: template_string

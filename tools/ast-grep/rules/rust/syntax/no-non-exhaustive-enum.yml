@@ -3,8 +3,9 @@ language: rustlang
 severity: error
 rule:
     kind: attribute_item
+    regex: non_exhaustive
     all:
-        - regex: '^#\[\p{Pattern_White_Space}*(cfg_attr\p{Pattern_White_Space}*\(.*,\p{Pattern_White_Space}*)?non_exhaustive\p{Pattern_White_Space}*\)?\p{Pattern_White_Space}*\]$'
+        - has: {kind: attribute, any: [{has: {field: path, pattern: non_exhaustive}}, {all: [{has: {field: path, pattern: cfg_attr}}, {has: {field: arguments, has: {pattern: non_exhaustive, follows: {regex: '^,$'}}}}]}]}
         - any:
             - precedes: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, kind: enum_item}
             - inside: {kind: enum_variant_list}

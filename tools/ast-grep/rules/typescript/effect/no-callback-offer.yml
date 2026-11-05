@@ -15,20 +15,20 @@ utils:
                 kind: call_expression
                 all:
                     - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^all$'}}}}
-                    - has: {field: arguments, has: {nthChild: {position: 1, ofRule: &argument {not: {kind: comment}}}, kind: 'array, object', has: {any: [{matches: constructor-call}, {kind: pair, has: {field: value, matches: constructor-call}}]}}}
+                    - has: {field: arguments, has: {nthChild: {position: 1, ofRule: &code {not: {kind: 'comment, html_comment'}}}, kind: 'array, object', has: {any: [{matches: constructor-call}, {kind: pair, has: {field: value, matches: constructor-call}}]}}}
     queue-offer:
         kind: call_expression
         all:
             - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Queue$'}, member: {regex: '^(offer|offerAll)$'}}}}
-            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: *argument}, pattern: $QUEUE}}
+            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: *code}, pattern: $QUEUE}}
     offer-call:
         kind: call_expression
         any:
             - all:
                 - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Queue$'}, member: {regex: '^(offerAllUnsafe|offerUnsafe)$'}}}}
-                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: *argument}, pattern: $QUEUE}}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: *code}, pattern: $QUEUE}}
             - all:
-                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: *argument}, matches: queue-offer}}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: *code}, matches: queue-offer}}
                 - has: {field: function, matches: {effect-runner: {name: {regex: '^run'}}}}
     queue-declarator:
         kind: variable_declarator

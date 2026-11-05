@@ -15,14 +15,14 @@ utils:
         any:
             - all:
                 - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Schema$'}, member: {regex: '^Record$'}}}}
-                - has: {field: arguments, has: {nthChild: 1, matches: {effect-module-member: {module: {regex: '(?-u:\b)Schema$'}, member: {regex: '^String$'}}}}}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: {effect-module-member: {module: {regex: '(?-u:\b)Schema$'}, member: {regex: '^String$'}}}}}
             - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^(annotate|pipe|check)$'}}, {has: {field: object, matches: open-record}}]}
 rule:
     pattern: $MEMBER
     any:
         - all:
             - matches: {effect-module-member: {module: {regex: '(?-u:\b)Schema$'}, member: {regex: '^(Any|Unknown|Void)$'}}}
-            - not: {nthChild: {position: 1, reverse: true, ofRule: {not: {kind: comment}}}}
+            - not: {nthChild: {position: 1, reverse: true, ofRule: {not: {kind: 'comment, html_comment'}}}}
             - inside: {kind: array, inside: {kind: arguments, inside: {matches: union}}}
         - matches: open-record
           inside: {kind: array, has: {matches: tagged}, inside: {kind: arguments, inside: {matches: union}}}

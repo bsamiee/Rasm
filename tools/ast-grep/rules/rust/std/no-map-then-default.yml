@@ -37,7 +37,8 @@ utils:
     result-read:
         kind: identifier
         any:
-            - inside: {kind: 'let_declaration, parameter, closure_parameters', field: pattern}
+            - inside: {kind: 'let_declaration, parameter', field: pattern}
+            - inside: {kind: closure_parameters}
             - inside: {kind: field_expression, field: value, inside: {kind: call_expression, has: {field: function, has: {field: field, regex: '^(is_ok|is_err)$'}}}}
             - inside:
                 kind: field_expression

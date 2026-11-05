@@ -7,7 +7,7 @@ utils:
             - has: {field: name, kind: property_identifier, pattern: $TRAP}
             - inside: {kind: pair, field: value, has: {field: key, kind: property_identifier, pattern: $TRAP}}
     reflect:
-        has: {field: object, regex: '^((globalThis|window|self)\.)?Reflect$', matches: typescript-global-reference}
+        has: {field: object, regex: '(^|\.)Reflect$', matches: typescript-global-member}
     parameter-1: {kind: required_parameter, nthChild: {position: 1, ofRule: &code {not: {kind: 'comment, html_comment'}}}, has: {field: pattern, kind: identifier, pattern: $A}}
     parameter-2: {kind: required_parameter, nthChild: {position: 2, ofRule: *code}, has: {field: pattern, kind: identifier, pattern: $B}}
     parameter-3: {kind: required_parameter, nthChild: {position: 3, ofRule: *code}, has: {field: pattern, kind: identifier, pattern: $C}}

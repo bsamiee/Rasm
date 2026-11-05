@@ -3,10 +3,13 @@ language: tsxlang
 severity: error
 utils:
     library-interface:
-        kind: nested_type_identifier
-        all:
-            - not: {has: {field: name, regex: '^(Equal|Hash|Inspectable|Pipeable|Redactable)$'}}
-            - has: {field: module, matches: {effect-module: {name: {regex: '(?-u:\b)[A-Z][^\x00-#%-/:-@\[-\^`{-~\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*$'}}}}
+        any:
+            - kind: nested_type_identifier
+              all:
+                - not: {has: {field: name, regex: '^(Equal|Hash|Inspectable|Pipeable|Redactable)$'}}
+                - has: {field: module, matches: effect-namespace}
+            - kind: type_identifier
+              matches: {typescript-import-reference: {source: {matches: {effect-module-source: {name: {regex: ''}}}}, exported: {not: {regex: '^(Equal|Hash|Inspectable|Pipeable|Redactable)$'}}}}
 rule:
     kind: class_declaration, abstract_class_declaration, class
     all:

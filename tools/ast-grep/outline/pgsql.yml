@@ -6,18 +6,18 @@ isImport: true
 isExported: false
 rule:
     all:
+        - any:
+            - kind: CreateExtensionStmt, ImportForeignSchemaStmt
+              has: {kind: 'ColId, substitution', pattern: $NAME}
+            - kind: LoadStmt
+              has: {field: file_name, pattern: $NAME}
         - pattern: $DECLARATION
-          any:
-              - kind: CreateExtensionStmt, ImportForeignSchemaStmt
-                has: {kind: 'ColId, substitution', pattern: $NAME}
-              - kind: LoadStmt
-                has: {field: file_name, pattern: $NAME}
-        - not: {has: {stopBy: end, kind: ERROR}}
+        - not: {has: {stopBy: end, any: [{kind: ERROR}, {regex: '^$', any: [{kind: 'identifier, operator'}, {pattern: ')'}, {pattern: ']'}, {pattern: '='}]}]}}
 rewriters:
+    - {id: trivia, rule: {kind: comment}, fix: ' '}
     - id: value
       rule: {kind: 'string_literal, escape_string_literal, dollar_quoted_string, substitution, NonReservedWord', inside: {kind: 'generic_option_elem, create_extension_opt_item'}}
       fix: …
-    - {id: trivia, rule: {kind: comment}, fix: ''}
 transform:
     HEADER: {rewrite: {source: $DECLARATION, rewriters: [value, trivia]}}
     FOLDED: {replace: {source: $HEADER, replace: '[\t\n\v\f\r ]+', by: ' '}}
@@ -33,22 +33,22 @@ isExported: false
 rule:
     all:
         - any:
-              - kind: CreateSchemaStmt
-                pattern: $DECLARATION
-                not: {has: {kind: OptSchemaEltList}}
-                has: {kind: 'ColId, RoleSpec', pattern: $NAME}
-              - kind: ColId, RoleSpec
-                pattern: $NAME
-                inside: {kind: CreateSchemaStmt, pattern: $DECLARATION, has: {kind: OptSchemaEltList}}
-                not: {follows: {kind: ColId, stopBy: end}}
-        - not: {has: {stopBy: end, kind: ERROR}}
+            - kind: CreateSchemaStmt
+              pattern: $DECLARATION
+              not: {has: {kind: OptSchemaEltList}}
+              has: {kind: 'ColId, RoleSpec', pattern: $NAME}
+            - kind: ColId, RoleSpec
+              pattern: $NAME
+              inside: {kind: CreateSchemaStmt, pattern: $DECLARATION, has: {kind: OptSchemaEltList}}
+              not: {follows: {kind: ColId, stopBy: end}}
+        - not: {has: {stopBy: end, any: [{kind: ERROR}, {regex: '^$', any: [{kind: 'identifier, operator'}, {pattern: ')'}, {pattern: ']'}, {pattern: '='}]}]}}
 rewriters:
     - id: body
       rule: {kind: 'OptSchemaEltList, comment'}
-      fix: ''
+      fix: ' '
 transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
     FOLDED: {replace: {source: $HEADER, replace: '[\t\n\v\f\r ]+', by: ' '}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
     SIGNATURE: {replace: {source: $FOLDED, replace: '^ | $', by: ''}}
 name: $NAME
 signature: $SIGNATURE
@@ -65,8 +65,8 @@ rule:
         - has: {regex: '(?i-u)^enum$'}
         - has: {kind: any_name, pattern: $NAME}
 rewriters:
+    - {id: trivia, rule: {kind: comment}, fix: ' '}
     - {id: body, rule: {kind: enum_val_list}, fix: …}
-    - {id: trivia, rule: {kind: comment}, fix: ''}
 transform:
     HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, trivia]}}
     FOLDED: {replace: {source: $HEADER, replace: '[\t\n\v\f\r ]+', by: ' '}}
@@ -85,9 +85,14 @@ rule:
             has:
                 stopBy: end
                 kind: AlterCollationStmt, AlterCompositeTypeStmt, AlterDatabaseSetStmt, AlterDatabaseStmt, AlterDefaultPrivilegesStmt, AlterDomainStmt, AlterEnumStmt, AlterEventTrigStmt, AlterExtensionContentsStmt, AlterExtensionStmt, AlterFdwStmt, AlterForeignServerStmt, AlterFunctionStmt, AlterGroupStmt, AlterObjectDependsStmt, AlterObjectSchemaStmt, AlterOpFamilyStmt, AlterOperatorStmt, AlterOwnerStmt, AlterPolicyStmt, AlterPublicationStmt, AlterRoleSetStmt, AlterRoleStmt, AlterSeqStmt, AlterStatsStmt, AlterSubscriptionStmt, AlterSystemStmt, AlterTSConfigurationStmt, AlterTSDictionaryStmt, AlterTableStmt, AlterTblSpcStmt, AlterTypeStmt, AlterUserMappingStmt, AnalyzeStmt, CallStmt, CheckPointStmt, ClosePortalStmt, CommentStmt, ConstraintsSetStmt, CopyStmt, CreateAmStmt, CreateAsStmt, CreateAssertionStmt, CreateCastStmt, CreateConversionStmt, CreateDomainStmt, CreateEventTrigStmt, CreateExtensionStmt, CreateFdwStmt, CreateForeignServerStmt, CreateForeignTableStmt, CreateFunctionStmt, CreateGroupStmt, CreateMatViewStmt, CreateOpClassStmt, CreateOpFamilyStmt, CreatePLangStmt, CreatePolicyStmt, CreatePublicationStmt, CreateRoleStmt, CreateSchemaStmt, CreateSeqStmt, CreateStatsStmt, CreateStmt, CreateSubscriptionStmt, CreateTableSpaceStmt, CreateTransformStmt, CreateTrigStmt, CreateUserMappingStmt, CreateUserStmt, CreatedbStmt, DeallocateStmt, DeclareCursorStmt, DefineStmt, DeleteStmt, DiscardStmt, DoStmt, DropCastStmt, DropOpClassStmt, DropOpFamilyStmt, DropOwnedStmt, DropRoleStmt, DropStmt, DropSubscriptionStmt, DropTableSpaceStmt, DropTransformStmt, DropUserMappingStmt, DropdbStmt, ExecuteStmt, ExplainStmt, FetchStmt, GrantRoleStmt, GrantStmt, ImportForeignSchemaStmt, IndexStmt, InsertStmt, ListenStmt, LoadStmt, LockStmt, MergeStmt, NotifyStmt, PrepareStmt, ReassignOwnedStmt, RefreshMatViewStmt, ReindexStmt, RemoveAggrStmt, RemoveFuncStmt, RemoveOperStmt, RenameStmt, RepackStmt, RevokeRoleStmt, RevokeStmt, RuleStmt, SecLabelStmt, TransactionStmt, TransactionStmtLegacy, TruncateStmt, UnlistenStmt, UpdateStmt, VacuumStmt, VariableResetStmt, VariableSetStmt, VariableShowStmt, ViewStmt, WaitStmt, select_no_parens, select_with_parens, columnDef, ColConstraint, TableConstraint, common_table_expr, window_definition, alter_table_cmd, alter_ts_configuration_cmd
-        - all: [{matches: stray}, {inside: {kind: ERROR}}, {not: {follows: {stopBy: end, matches: stray}}}]
+        - all:
+            - any: [{kind: 'identifier, comment'}, {pattern: ')'}, {pattern: ']'}]
+            - inside: {kind: ERROR, stopBy: {kind: 'ERROR, source_file'}}
+            - not: {follows: {stopBy: end, pattern: $_, not: {matches: row}}}
+            - not: {inside: {stopBy: {kind: ERROR}, not: {kind: ERROR}, follows: {stopBy: end, pattern: $_, not: {matches: row}}}}
+        - {regex: '^$', any: [{kind: 'identifier, operator'}, {pattern: ')'}, {pattern: ']'}, {pattern: '='}]}
 utils:
-    stray: {any: [{kind: 'identifier, comment'}, {pattern: ')'}, {pattern: ']'}]}
+    row: {kind: 'ERROR, AlterCollationStmt, AlterCompositeTypeStmt, AlterDatabaseSetStmt, AlterDatabaseStmt, AlterDefaultPrivilegesStmt, AlterDomainStmt, AlterEnumStmt, AlterEventTrigStmt, AlterExtensionContentsStmt, AlterExtensionStmt, AlterFdwStmt, AlterForeignServerStmt, AlterFunctionStmt, AlterGroupStmt, AlterObjectDependsStmt, AlterObjectSchemaStmt, AlterOpFamilyStmt, AlterOperatorStmt, AlterOwnerStmt, AlterPolicyStmt, AlterPublicationStmt, AlterRoleSetStmt, AlterRoleStmt, AlterSeqStmt, AlterStatsStmt, AlterSubscriptionStmt, AlterSystemStmt, AlterTSConfigurationStmt, AlterTSDictionaryStmt, AlterTableStmt, AlterTblSpcStmt, AlterTypeStmt, AlterUserMappingStmt, AnalyzeStmt, CallStmt, CheckPointStmt, ClosePortalStmt, CommentStmt, ConstraintsSetStmt, CopyStmt, CreateAmStmt, CreateAsStmt, CreateAssertionStmt, CreateCastStmt, CreateConversionStmt, CreateDomainStmt, CreateEventTrigStmt, CreateExtensionStmt, CreateFdwStmt, CreateForeignServerStmt, CreateForeignTableStmt, CreateFunctionStmt, CreateGroupStmt, CreateMatViewStmt, CreateOpClassStmt, CreateOpFamilyStmt, CreatePLangStmt, CreatePolicyStmt, CreatePublicationStmt, CreateRoleStmt, CreateSchemaStmt, CreateSeqStmt, CreateStatsStmt, CreateStmt, CreateSubscriptionStmt, CreateTableSpaceStmt, CreateTransformStmt, CreateTrigStmt, CreateUserMappingStmt, CreateUserStmt, CreatedbStmt, DeallocateStmt, DeclareCursorStmt, DefineStmt, DeleteStmt, DiscardStmt, DoStmt, DropCastStmt, DropOpClassStmt, DropOpFamilyStmt, DropOwnedStmt, DropRoleStmt, DropStmt, DropSubscriptionStmt, DropTableSpaceStmt, DropTransformStmt, DropUserMappingStmt, DropdbStmt, ExecuteStmt, ExplainStmt, FetchStmt, GrantRoleStmt, GrantStmt, ImportForeignSchemaStmt, IndexStmt, InsertStmt, ListenStmt, LoadStmt, LockStmt, MergeStmt, NotifyStmt, PrepareStmt, ReassignOwnedStmt, RefreshMatViewStmt, ReindexStmt, RemoveAggrStmt, RemoveFuncStmt, RemoveOperStmt, RenameStmt, RepackStmt, RevokeRoleStmt, RevokeStmt, RuleStmt, SecLabelStmt, TransactionStmt, TransactionStmtLegacy, TruncateStmt, UnlistenStmt, UpdateStmt, VacuumStmt, VariableResetStmt, VariableSetStmt, VariableShowStmt, ViewStmt, WaitStmt, select_no_parens, select_with_parens, columnDef, ColConstraint, TableConstraint, common_table_expr, window_definition, alter_table_cmd, alter_ts_configuration_cmd'}
 name: ERROR
 signature: ''
 isImport: false
@@ -118,6 +123,7 @@ rule:
         - kind: DefineStmt
           all: [{has: {regex: '(?i-u)^type$'}}, {has: {kind: any_name, pattern: $NAME}}]
 rewriters:
+    - {id: trivia, rule: {kind: comment}, fix: ' '}
     - id: body
       rule:
         any:
@@ -125,7 +131,6 @@ rewriters:
             - {kind: b_expr, inside: {kind: ColConstraintElem}}
             - {kind: 'string_literal, escape_string_literal, dollar_quoted_string, substitution, NumericOnly, reserved_keyword', inside: {kind: 'generic_option_elem, def_arg'}}
       fix: …
-    - {id: trivia, rule: {kind: comment}, fix: ''}
 transform:
     HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, trivia]}}
     FOLDED: {replace: {source: $HEADER, replace: '[\t\n\v\f\r ]+', by: ' '}}
@@ -145,8 +150,9 @@ rule:
     all:
         - has: {kind: 'ColId, substitution', pattern: $NAME}
         - has: {kind: Typename}
-        - not: {has: {stopBy: end, kind: ERROR}}
+        - not: {has: {stopBy: end, any: [{kind: ERROR}, {regex: '^$', any: [{kind: 'identifier, operator'}, {pattern: ')'}, {pattern: ']'}, {pattern: '='}]}]}}
 rewriters:
+    - {id: trivia, rule: {kind: comment}, fix: ' '}
     - id: value
       rule:
         any:
@@ -154,7 +160,6 @@ rewriters:
             - {kind: a_expr, inside: {kind: ColConstraintElem, has: {kind: generated_when}}}
             - {kind: 'string_literal, escape_string_literal, dollar_quoted_string, substitution, NumericOnly', inside: {kind: 'generic_option_elem, SeqOptElem'}}
       fix: …
-    - {id: trivia, rule: {kind: comment}, fix: ''}
 transform:
     HEADER: {rewrite: {source: $DECLARATION, rewriters: [value, trivia]}}
     FOLDED: {replace: {source: $HEADER, replace: '[\t\n\v\f\r ]+', by: ' '}}
@@ -169,24 +174,25 @@ symbolType: field
 parentRuleIds: [pgsql-table, pgsql-index, pgsql-statement]
 rule:
     all:
+        - any:
+            - {kind: 'columnDef, columnOptions, TableFuncElement', has: {kind: 'ColId, substitution', pattern: $NAME}}
+            - {kind: TableLikeClause, has: {kind: qualified_name, pattern: $NAME}}
+            - kind: ColId
+              inside: {kind: columnList, stopBy: {not: {kind: columnList}}, inside: {kind: 'create_as_target, ViewStmt, create_mv_target'}}
+              pattern: $NAME
+            - kind: target_el
+              inside:
+                kind: target_list
+                stopBy: {not: {kind: target_list}}
+                inside: {kind: simple_select, inside: {kind: select_no_parens, inside: {kind: 'CreateAsStmt, ViewStmt, CreateMatViewStmt', not: {any: [{has: {kind: columnList, stopBy: {kind: select_no_parens}}}, {inside: {kind: ExplainStmt}}]}}}}
+              any: [{has: {kind: 'ColLabel, BareColLabel', pattern: $NAME}}, {pattern: $NAME}]
+            - kind: index_elem
+              inside: {kind: index_params, stopBy: {not: {kind: index_params}}, inside: {kind: IndexStmt}}
+              has: {kind: 'ColId, func_application, func_expr_common_subexpr, json_aggregate_func, a_expr', pattern: $NAME}
         - pattern: $DECLARATION
-          any:
-              - {kind: 'columnDef, columnOptions, TableFuncElement', has: {kind: 'ColId, substitution', pattern: $NAME}}
-              - {kind: TableLikeClause, has: {kind: qualified_name, pattern: $NAME}}
-              - kind: ColId
-                inside: {kind: columnList, stopBy: {not: {kind: columnList}}, inside: {kind: 'create_as_target, ViewStmt, create_mv_target'}}
-                pattern: $NAME
-              - kind: target_el
-                inside:
-                  kind: target_list
-                  stopBy: {not: {kind: target_list}}
-                  inside: {kind: simple_select, inside: {kind: select_no_parens, inside: {kind: 'CreateAsStmt, ViewStmt, CreateMatViewStmt', not: {any: [{has: {kind: columnList, stopBy: {kind: select_no_parens}}}, {inside: {kind: ExplainStmt}}]}}}}
-                any: [{has: {kind: 'ColLabel, BareColLabel', pattern: $NAME}}, {pattern: $NAME}]
-              - kind: index_elem
-                inside: {kind: index_params, stopBy: {not: {kind: index_params}}, inside: {kind: IndexStmt}}
-                has: {kind: 'ColId, func_application, func_expr_common_subexpr, json_aggregate_func, a_expr', pattern: $NAME}
-        - not: {has: {stopBy: end, kind: ERROR}}
+        - not: {has: {stopBy: end, any: [{kind: ERROR}, {regex: '^$', any: [{kind: 'identifier, operator'}, {pattern: ')'}, {pattern: ']'}, {pattern: '='}]}]}}
 rewriters:
+    - {id: trivia, rule: {kind: comment}, fix: ' '}
     - id: value
       rule:
         any:
@@ -195,7 +201,6 @@ rewriters:
             - {kind: 'string_literal, escape_string_literal, dollar_quoted_string, substitution, NumericOnly', inside: {kind: 'generic_option_elem, SeqOptElem'}}
             - {kind: a_expr, all: [{inside: {kind: target_el, has: {kind: 'ColLabel, BareColLabel'}}}, {not: {has: {kind: c_expr, has: {kind: columnref}}}}]}
       fix: …
-    - {id: trivia, rule: {kind: comment}, fix: ''}
 transform:
     HEADER: {rewrite: {source: $DECLARATION, rewriters: [value, trivia]}}
     FOLDED: {replace: {source: $HEADER, replace: '[\t\n\v\f\r ]+', by: ' '}}
@@ -215,16 +220,16 @@ rule:
         - kind: TableConstraint
           pattern: $DECLARATION
           any:
-              - has: {kind: 'ColId, substitution', pattern: $NAME}
-              - pattern: $UNNAMED
-        - not: {has: {stopBy: end, kind: ERROR}}
+            - has: {kind: 'ColId, substitution', pattern: $NAME}
+            - pattern: $UNNAMED
+        - not: {has: {stopBy: end, any: [{kind: ERROR}, {regex: '^$', any: [{kind: 'identifier, operator'}, {pattern: ')'}, {pattern: ']'}, {pattern: '='}]}]}}
 rewriters:
-    - {id: trivia, rule: {kind: comment}, fix: ''}
+    - {id: trivia, rule: {kind: comment}, fix: ' '}
 transform:
-    HEADER: {rewrite: {source: $DECLARATION, rewriters: [trivia]}}
     FOLDED: {replace: {source: $HEADER, replace: '[\t\n\v\f\r ]+', by: ' '}}
     SIGNATURE: {replace: {source: $FOLDED, replace: '^ | $|(\() | (\))', by: '$1$2'}}
     LABEL: {replace: {source: $UNNAMED, replace: '[\t\n\v\f\r ]+', by: ' '}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [trivia]}}
 name: $NAME$LABEL
 signature: $SIGNATURE
 ---
@@ -240,6 +245,7 @@ rule:
         - kind: DefineStmt
           all: [{has: {regex: '(?i-u)^aggregate$'}}, {has: {kind: func_name, pattern: $NAME}}]
 rewriters:
+    - {id: trivia, rule: {kind: comment}, fix: ' '}
     - id: body
       rule:
         any:
@@ -247,7 +253,6 @@ rewriters:
             - {kind: a_expr, inside: {kind: func_arg_with_default}}
             - {kind: NumericOnly, inside: {kind: common_func_opt_item}}
       fix: …
-    - {id: trivia, rule: {kind: comment}, fix: ''}
 transform:
     HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, trivia]}}
     FOLDED: {replace: {source: $HEADER, replace: '[\t\n\v\f\r ]+', by: ' '}}
@@ -262,14 +267,14 @@ symbolType: variable
 parentRuleIds: [pgsql-function]
 rule:
     all:
+        - any:
+            - {kind: func_arg_with_default, has: {kind: func_arg, has: {kind: type_function_name, pattern: $NAME}}}
+            - {kind: 'func_arg, table_func_column', not: {inside: {kind: func_arg_with_default}}, has: {kind: type_function_name, pattern: $NAME}}
         - pattern: $DECLARATION
-          any:
-              - {kind: func_arg_with_default, has: {kind: func_arg, has: {kind: type_function_name, pattern: $NAME}}}
-              - {kind: 'func_arg, table_func_column', not: {inside: {kind: func_arg_with_default}}, has: {kind: type_function_name, pattern: $NAME}}
-        - not: {has: {stopBy: end, kind: ERROR}}
+        - not: {has: {stopBy: end, any: [{kind: ERROR}, {regex: '^$', any: [{kind: 'identifier, operator'}, {pattern: ')'}, {pattern: ']'}, {pattern: '='}]}]}}
 rewriters:
+    - {id: trivia, rule: {kind: comment}, fix: ' '}
     - {id: value, rule: {kind: a_expr, inside: {kind: func_arg_with_default}}, fix: …}
-    - {id: trivia, rule: {kind: comment}, fix: ''}
 transform:
     HEADER: {rewrite: {source: $DECLARATION, rewriters: [value, trivia]}}
     FOLDED: {replace: {source: $HEADER, replace: '[\t\n\v\f\r ]+', by: ' '}}
@@ -284,19 +289,19 @@ symbolType: variable
 isExported: false
 rule:
     all:
+        - any:
+            - {kind: CreateSeqStmt, has: {kind: qualified_name, pattern: $NAME}}
+            - {kind: 'common_table_expr, window_definition', inside: {kind: 'source_file, ERROR'}, has: {kind: ColId, pattern: $NAME}}
         - pattern: $DECLARATION
-          any:
-              - {kind: CreateSeqStmt, has: {kind: qualified_name, pattern: $NAME}}
-              - {kind: 'common_table_expr, window_definition', inside: {kind: 'source_file, ERROR'}, has: {kind: ColId, pattern: $NAME}}
-        - not: {has: {stopBy: end, kind: ERROR}}
+        - not: {has: {stopBy: end, any: [{kind: ERROR}, {regex: '^$', any: [{kind: 'identifier, operator'}, {pattern: ')'}, {pattern: ']'}, {pattern: '='}]}]}}
 rewriters:
+    - {id: trivia, rule: {kind: comment}, fix: ' '}
     - id: body
       rule:
         any:
             - kind: select_no_parens, InsertStmt, UpdateStmt, DeleteStmt, MergeStmt
             - {kind: NumericOnly, inside: {kind: SeqOptElem}}
       fix: …
-    - {id: trivia, rule: {kind: comment}, fix: ''}
 transform:
     HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, trivia]}}
     FOLDED: {replace: {source: $HEADER, replace: '[\t\n\v\f\r ]+', by: ' '}}
@@ -318,8 +323,8 @@ rule:
           inside: {kind: 'source_file, ERROR'}
           any: [{has: {kind: 'ColId, substitution', pattern: $NAME}}, {pattern: $UNNAMED}]
 rewriters:
+    - {id: trivia, rule: {kind: comment}, fix: ' '}
     - {id: value, rule: {kind: 'string_literal, escape_string_literal, dollar_quoted_string, substitution, NumericOnly, reserved_keyword', inside: {kind: def_arg}}, fix: …}
-    - {id: trivia, rule: {kind: comment}, fix: ''}
 transform:
     HEADER: {rewrite: {source: $DECLARATION, rewriters: [value, trivia]}}
     FOLDED: {replace: {source: $HEADER, replace: '[\t\n\v\f\r ]+', by: ' '}}
@@ -338,13 +343,13 @@ rule:
     pattern: $DECLARATION
     has: {kind: ColId, pattern: $NAME}
 rewriters:
+    - {id: trivia, rule: {kind: comment}, fix: ' '}
     - id: body
       rule:
         any:
             - kind: RuleActionList, TriggerFuncArgs
             - {kind: a_expr, inside: {kind: 'RowSecurityOptionalExpr, RowSecurityOptionalWithCheck'}}
       fix: …
-    - {id: trivia, rule: {kind: comment}, fix: ''}
 transform:
     HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, trivia]}}
     FOLDED: {replace: {source: $HEADER, replace: '[\t\n\v\f\r ]+', by: ' '}}
@@ -362,12 +367,12 @@ rule:
         - kind: CreateAmStmt, CreateAssertionStmt, CreateCastStmt, CreateConversionStmt, CreateFdwStmt, CreateForeignServerStmt, CreateGroupStmt, CreateOpClassStmt, CreateOpFamilyStmt, CreatePLangStmt, CreatePublicationStmt, CreateRoleStmt, CreateStatsStmt, CreateSubscriptionStmt, CreateTableSpaceStmt, CreateTransformStmt, CreateUserMappingStmt, CreateUserStmt, CreatedbStmt, DefineStmt
           pattern: $DECLARATION
           has: {kind: 'any_name, ColId, RoleSpec, auth_ident, NonReservedWord, Typename, from_list, substitution', pattern: $NAME}
-        - not: {has: {stopBy: end, kind: ERROR}}
+        - not: {has: {stopBy: end, any: [{kind: ERROR}, {regex: '^$', any: [{kind: 'identifier, operator'}, {pattern: ')'}, {pattern: ']'}, {pattern: '='}]}]}}
 rewriters:
+    - {id: trivia, rule: {kind: comment}, fix: ' '}
     - id: value
       rule: {kind: 'string_literal, escape_string_literal, dollar_quoted_string, substitution, NumericOnly, reserved_keyword, SignedIconst', inside: {kind: 'generic_option_elem, AlterOptRoleElem, CreateSubscriptionStmt, def_arg, createdb_opt_item, CreateTableSpaceStmt, CreateForeignServerStmt, foreign_server_version'}}
       fix: …
-    - {id: trivia, rule: {kind: comment}, fix: ''}
 transform:
     HEADER: {rewrite: {source: $DECLARATION, rewriters: [value, trivia]}}
     FOLDED: {replace: {source: $HEADER, replace: '[\t\n\v\f\r ]+', by: ' '}}
@@ -405,7 +410,7 @@ rewriters:
       rule:
         kind: where_clause, where_or_current_clause, sort_clause, select_limit, for_locking_clause, returning_clause, opt_on_conflict, with_clause, group_clause, having_clause, window_clause, comment
         not: {inside: {kind: 'func_application, window_specification'}}
-      fix: ''
+      fix: ' '
     - id: body
       rule:
         any:
@@ -452,18 +457,18 @@ rule:
         - kind: alter_table_cmd, alter_type_cmd, partition_cmd, index_partition_cmd
           pattern: $COMMAND
           not: {has: {kind: 'columnDef, TableConstraint'}}
-        - not: {has: {stopBy: end, kind: ERROR}}
+        - not: {has: {stopBy: end, any: [{kind: ERROR}, {regex: '^$', any: [{kind: 'identifier, operator'}, {pattern: ')'}, {pattern: ']'}, {pattern: '='}]}]}}
 rewriters:
+    - {id: trivia, rule: {kind: comment}, fix: ' '}
     - id: value
       rule:
         any:
             - {kind: a_expr, inside: {kind: 'alter_column_default, alter_table_cmd, alter_using'}}
             - {kind: 'string_literal, escape_string_literal, dollar_quoted_string, substitution, NumericOnly, reserved_keyword, SignedIconst', inside: {kind: 'generic_option_elem, def_arg, SeqOptElem, alter_identity_column_option, set_statistics_value'}}
       fix: …
-    - {id: trivia, rule: {kind: comment}, fix: ''}
 transform:
-    HEADER: {rewrite: {source: $COMMAND, rewriters: [value, trivia]}}
     FOLDED: {replace: {source: $HEADER, replace: '[\t\n\v\f\r ]+', by: ' '}}
+    HEADER: {rewrite: {source: $COMMAND, rewriters: [value, trivia]}}
     NAME: {replace: {source: $FOLDED, replace: '^ | $|(\() | (\))', by: '$1$2'}}
 name: $NAME
 signature: $NAME
@@ -480,16 +485,16 @@ rule:
           pattern: $DECLARATION
           inside: {kind: 'routine_body_stmt_list, RuleActionMulti, RuleActionList'}
           any:
-              - has: {kind: 'qualified_name, ColId, insert_target, relation_expr_opt_alias', pattern: $SUBJECT}
-              - has: {kind: simple_select, has: {kind: from_clause, has: {kind: table_ref, pattern: $SUBJECT, stopBy: {kind: 'select_no_parens, select_with_parens'}}}}
-              - has: {regex: '(?i-u)^(select|values)$', pattern: $$SUBJECT, stopBy: end}
-        - not: {has: {stopBy: end, kind: ERROR}}
+            - has: {kind: 'qualified_name, ColId, insert_target, relation_expr_opt_alias', pattern: $SUBJECT}
+            - has: {kind: simple_select, has: {kind: from_clause, has: {kind: table_ref, pattern: $SUBJECT, stopBy: {kind: 'select_no_parens, select_with_parens'}}}}
+            - has: {regex: '(?i-u)^(select|values)$', pattern: $$SUBJECT, stopBy: end}
+        - not: {has: {stopBy: end, any: [{kind: ERROR}, {regex: '^$', any: [{kind: 'identifier, operator'}, {pattern: ')'}, {pattern: ']'}, {pattern: '='}]}]}}
 rewriters:
     - id: clause
       rule:
         kind: where_clause, sort_clause, select_limit, for_locking_clause, returning_clause, opt_on_conflict, with_clause, group_clause, having_clause, window_clause, comment
         not: {inside: {kind: 'func_application, window_specification'}}
-      fix: ''
+      fix: ' '
     - id: body
       rule:
         any:
@@ -515,16 +520,16 @@ isPublic: false
 parentRuleIds: [pgsql-table, pgsql-statement]
 rule:
     all:
+        - any:
+            - {kind: common_table_expr, has: {field: name, pattern: $NAME}}
+            - {kind: window_definition, has: {kind: ColId, pattern: $NAME}}
+            - kind: table_ref
+              all: [{has: {kind: select_with_parens}}, {has: {kind: alias_clause, has: {kind: ColId, pattern: $NAME}}}]
         - pattern: $DECLARATION
-          any:
-              - {kind: common_table_expr, has: {field: name, pattern: $NAME}}
-              - {kind: window_definition, has: {kind: ColId, pattern: $NAME}}
-              - kind: table_ref
-                all: [{has: {kind: select_with_parens}}, {has: {kind: alias_clause, has: {kind: ColId, pattern: $NAME}}}]
-        - not: {has: {stopBy: end, kind: ERROR}}
+        - not: {has: {stopBy: end, any: [{kind: ERROR}, {regex: '^$', any: [{kind: 'identifier, operator'}, {pattern: ')'}, {pattern: ']'}, {pattern: '='}]}]}}
 rewriters:
+    - {id: trivia, rule: {kind: comment}, fix: ' '}
     - {id: body, rule: {kind: 'select_no_parens, InsertStmt, UpdateStmt, DeleteStmt, MergeStmt'}, fix: …}
-    - {id: trivia, rule: {kind: comment}, fix: ''}
 transform:
     HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, trivia]}}
     FOLDED: {replace: {source: $HEADER, replace: '[\t\n\v\f\r ]+', by: ' '}}
@@ -541,10 +546,15 @@ rule:
     any:
         - kind: ERROR
           not: {has: {stopBy: end, kind: 'columnDef, columnOptions, TableFuncElement, TableLikeClause, TableConstraint, func_arg_with_default, func_arg, table_func_column, alter_table_cmd, alter_type_cmd, partition_cmd, index_partition_cmd, common_table_expr, window_definition, table_ref'}}
-        - all: [{matches: stray}, {inside: {kind: ERROR}}, {not: {follows: {stopBy: end, matches: stray}}}]
-        - all: [{matches: stray}, {regex: '^$'}]
+        - {kind: ERROR, not: {has: {pattern: $_, not: {kind: 'columnDef, columnOptions, TableFuncElement, TableLikeClause, TableConstraint, func_arg_with_default, func_arg, table_func_column, alter_table_cmd, alter_type_cmd, partition_cmd, index_partition_cmd, common_table_expr, window_definition, table_ref'}}}}
+        - all:
+            - any: [{kind: 'identifier, comment'}, {pattern: ')'}, {pattern: ']'}]
+            - inside: {kind: ERROR, stopBy: {kind: 'ERROR, source_file'}}
+            - not: {follows: {stopBy: end, pattern: $_, not: {matches: row}}}
+            - not: {inside: {stopBy: {kind: ERROR}, not: {kind: ERROR}, follows: {stopBy: end, pattern: $_, not: {matches: row}}}}
+        - {regex: '^$', any: [{kind: 'identifier, operator'}, {pattern: ')'}, {pattern: ']'}, {pattern: '='}]}
 utils:
-    stray: {any: [{kind: 'identifier, comment'}, {pattern: ')'}, {pattern: ']'}]}
+    row: {kind: 'ERROR, columnDef, columnOptions, TableFuncElement, TableLikeClause, TableConstraint, func_arg_with_default, func_arg, table_func_column, alter_table_cmd, alter_type_cmd, partition_cmd, index_partition_cmd, common_table_expr, window_definition, table_ref'}
 name: ERROR
 signature: ''
 isPublic: false

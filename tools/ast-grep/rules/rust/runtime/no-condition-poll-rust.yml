@@ -11,11 +11,11 @@ utils:
                 any:
                     - has: {field: function, regex: '^((::)?(tokio::)?time::)?sleep(_until)?$|^((::)?(tokio::)?task::)?yield_now$'}
                     - has: {field: function, kind: field_expression, has: {field: field, regex: '^tick$'}}
-                    - has: {field: function, matches: {rust-imported-name: {source: {regex: '(?-u:\b)tokio::(time|task)::'}, name: {regex: '^(sleep(_until)?|yield_now)$'}}}}
+                    - has: {field: function, matches: {rust-imported-name: {source: {has: {field: argument, regex: '^(::)?tokio::(time|task)::'}}, name: {regex: '^(sleep(_until)?|yield_now)$'}}}}
             - kind: call_expression
               has: {field: function, regex: '^((::)?std::)?thread::(sleep(_until)?|yield_now|park_timeout)$'}
             - kind: call_expression
-              has: {field: function, matches: {rust-imported-name: {source: {regex: '(?-u:\b)std::thread::'}, name: {regex: '^(sleep(_until)?|yield_now|park_timeout)$'}}}}
+              has: {field: function, matches: {rust-imported-name: {source: {has: {field: argument, regex: '^(::)?std::thread::'}}, name: {regex: '^(sleep(_until)?|yield_now|park_timeout)$'}}}}
     loop-exit:
         matches: rust-diverging
         not: {kind: continue_expression}

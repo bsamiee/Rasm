@@ -29,12 +29,13 @@ utils:
             - kind: 'reference_expression, parenthesized_expression'
               has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: plain-read}
             - kind: unary_expression
-              regex: '^\*'
-              has: {matches: plain-read}
+              all:
+                - has: {field: operator, regex: '^\*$'}
+                - has: {matches: plain-read}
     bound-name:
         kind: 'identifier, shorthand_field_identifier'
         pattern: $BOUND
-        regex: '^[a-z_]'
+        regex: '^[_\p{Ll}]'
         not: {any: [{inside: {kind: 'tuple_struct_pattern, struct_pattern', field: type}}, {inside: {kind: scoped_identifier}}]}
     binding-condition:
         kind: let_condition

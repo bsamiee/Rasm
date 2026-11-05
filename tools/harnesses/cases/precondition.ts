@@ -2,19 +2,6 @@ import { Effect, FileSystem, Match, Option, Path, type PlatformError, Record, Sc
 import { Expression } from '#/cases/schema';
 import { JsonObject, Tagged } from '#/cases/values';
 
-// --- [TYPES] ---------------------------------------------------------------------------
-
-interface Sources<D extends Schema.Top, O extends Schema.Top, A extends Schema.Top> {
-    readonly document: D;
-    readonly open: O;
-    readonly application: A;
-}
-interface Placings<P extends Schema.Top, D extends Schema.Top, O extends Schema.Top, A extends Schema.Top> {
-    readonly document: (held: D['Type']) => P['Type'];
-    readonly open: (held: O['Type']) => P['Type'];
-    readonly application: (held: A['Type']) => P['Type'];
-}
-
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Application = Schema.Literal(true).annotate({ description: 'Application-level case reading defaults, opening no document' });
@@ -69,11 +56,17 @@ const copied = Effect.fn('copied')(function* <P extends { readonly documents: re
     const relocated = yield* Effect.forEach(decoded.documents, (document): Effect.Effect<unknown, PlatformError.PlatformError> => (Schema.is(Opened)(document) ? Effect.as(fs.copyFile(path.join(product, document.open), copy(document.open)), { ...document, open: copy(document.open) }) : Effect.succeed(document)));
     return { precondition: { ...decoded, documents: relocated }, copies: decoded.documents.filter(Schema.is(Opened)).map(({ open }) => path.join(product, open)) };
 });
-const placings = <P extends Schema.Top, D extends Schema.Top & Schema.Decoder<unknown>, O extends Schema.Top & Schema.Decoder<unknown>, A extends Schema.Top & Schema.Decoder<unknown>>(Placed: P, sources: Sources<D, O, A>, made: Placings<P, D, O, A>) => {
-    const placing = <S extends Schema.Top & Schema.Decoder<unknown>>(row: S, decode: (held: S['Type']) => P['Type']) => row.pipe(Schema.decodeTo(Schema.toType(Placed), { decode: SchemaGetter.transform(decode), encode: SchemaGetter.forbiddenEncoding }));
-    return Schema.Union([placing(sources.document, made.document), placing(sources.open, made.open), placing(sources.application, made.application)]);
+const placing = <P extends Schema.Top, S extends Schema.Top>(Placed: P, source: S, placed: (held: S['Type']) => P['Type']) => source.pipe(Schema.decodeTo(Schema.toType(Placed), { decode: SchemaGetter.transform(placed), encode: SchemaGetter.forbiddenEncoding }));
+const placings = <R extends Schema.Struct.Fields, D extends Schema.Top & Schema.Decoder<unknown>, O extends Schema.Top & Schema.Decoder<unknown>>(rows: R, sources: { readonly document: D; readonly open: O }) => {
+    const none = Application.pipe(Schema.decodeTo(Schema.Tuple([]), { decode: SchemaGetter.transform(() => [] as const), encode: SchemaGetter.forbiddenEncoding }));
+    const source = Schema.Union([
+        Schema.Struct({ ...rows, documents: many(sources.document) }).pipe(Schema.encodeKeys({ documents: 'document' })),
+        Schema.Struct({ ...rows, documents: many(sources.open) }).pipe(Schema.encodeKeys({ documents: 'open' })),
+        Schema.Struct({ ...rows, documents: none }).pipe(Schema.encodeKeys({ documents: 'application' })),
+    ]);
+    return <P extends Schema.Top>(Placed: P, placed: (held: typeof source.Type) => P['Type']) => placing(Placed, source, placed);
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Application, Assignments, added, additions, Copy, copied, documents, Enumerated, enumerators, many, member, merged, Open, placings, Steps };
+export { Application, Assignments, added, additions, Copy, copied, documents, Enumerated, enumerators, many, member, merged, Open, placing, placings, Steps };

@@ -2,9 +2,6 @@
 id: rust-test-attribute
 language: rustlang
 utils:
-    attribute-name:
-        kind: 'identifier, scoped_identifier'
-        not: {inside: {kind: attribute, field: value}}
     test-option:
         kind: identifier
         regex: '^(r#)?(test|doctest)$'
@@ -54,12 +51,12 @@ rule:
         kind: attribute
         any:
             - all:
-                - has: {matches: attribute-name, regex: '^(r#)?cfg$'}
+                - has: {field: path, regex: '^(r#)?cfg$'}
                 - has:
                     field: arguments
                     all:
                         - has: {matches: cfg-false}
                         - has: {stopBy: end, matches: test-option}
             - has:
-                matches: attribute-name
+                field: path
                 regex: '^(::)?(((r#)?(tokio|sqlx)::)?(r#)?test|(r#)?bench|((r#)?rstest::)?(r#)?(rstest|fixture)|((r#)?proptest::)?(r#)?property_test)$'

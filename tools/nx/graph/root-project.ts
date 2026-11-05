@@ -176,9 +176,10 @@ const grammarTarget = Effect.fnUntraced(function* (workspaceRoot: string, scanne
         {
             options: {
                 commands: [
-                    `cmake -S ${GRAMMARS} -B ${work} -DCMAKE_BUILD_TYPE=Release -DGRAMMAR_SOURCE:FILEPATH="${path.relative(GRAMMARS, entry)}" -DNODE_MODULES:PATH="${path.relative(GRAMMARS, 'node_modules')}" -DSCANNER="${held.map((scanner) => path.relative(GRAMMARS, scanner)).join(';')}" {args.cmakeArguments}`,
-                    { command: `cmake --build ${work} --config Release`, forwardAllArgs: false },
-                    { command: `cmake -E rm -rf ${work}`, forwardAllArgs: false },
+                    {
+                        command: `trap "cmake -E rm -rf ${work}" EXIT; trap "exit 1" HUP INT TERM; cmake -S ${GRAMMARS} -B ${work} -DCMAKE_BUILD_TYPE=Release -DGRAMMAR_SOURCE:FILEPATH="${path.relative(GRAMMARS, entry)}" -DNODE_MODULES:PATH="${path.relative(GRAMMARS, 'node_modules')}" -DSCANNER="${held.map((scanner) => path.relative(GRAMMARS, scanner)).join(';')}" {args.cmakeArguments} && cmake --build ${work} --config Release`,
+                        forwardAllArgs: false,
+                    },
                 ],
             },
             inputs: [...importInputs(graph), ...[...held.filter((scanner) => scanner === owned), ...(Record.has(graph, path.join(GRAMMARS, 'compose.js')) ? [path.join(GRAMMARS, 'compose.c')] : [])].map((file) => `{workspaceRoot}/${file}`)],
@@ -225,7 +226,7 @@ const astGrep = Effect.fnUntraced(function* ({ workspaceRoot, python, pythonScop
     const read = (held: readonly string[], within?: string) => Object.values(Record.filter(sources, (_, language) => held.includes(language))).map((extensions) => extensionInput(extensions, within));
     const ruleInputs = [...ruleDirs, ...utilDirs].map((dir) => `{workspaceRoot}/${dir}/**/*.{yml,yaml}`);
     const skipped = exclusions.map((pattern) => `!{workspaceRoot}/${pattern}`);
-    const within = (folders: readonly string[]) => (held: readonly string[]) => [...folders.flatMap((folder) => read(held, `{workspaceRoot}/${folder}`)), ...ruleInputs];
+    const inFolders = (folders: readonly string[]) => (held: readonly string[]) => [...folders.flatMap((folder) => read(held, `{workspaceRoot}/${folder}`)), ...ruleInputs];
     const hosted = Record.filterMap(
         {
             root: {
@@ -233,7 +234,7 @@ const astGrep = Effect.fnUntraced(function* ({ workspaceRoot, python, pythonScop
                 command: (filter: string) => walk([filter, ...scopes.map(({ scope }) => quote(['--globs', `!${scope}/**`]))]),
                 inputs: (held: readonly string[]) => [...read(held), ...scopes.map(({ scope }) => `!${folderInput(scope)}`), ...skipped, ...ruleInputs],
             },
-            ...Record.fromIterableWith(versionGroups(scopes), ({ version, folders, scoped }) => [version, { version, command: (filter: string) => scan([filter, scoped]), inputs: within(folders) }]),
+            ...Record.fromIterableWith(versionGroups(scopes), ({ version, folders, scoped }) => [version, { version, command: (filter: string) => scan([filter, scoped]), inputs: inFolders(folders) }]),
         },
         ({ version, command, inputs }) => {
             const running = off.filter(runs(version));
@@ -250,7 +251,7 @@ const astGrep = Effect.fnUntraced(function* ({ workspaceRoot, python, pythonScop
                     ...split('lint:ast-grep', {
                         tree: {
                             command: walk(['--error=no-suppress-all', ...offs]),
-                            syncGenerators: [`./${GENERATORS}:injection-utils`, `./${GENERATORS}:outline-catalogs`],
+                            syncGenerators: [`./${GENERATORS}:effect-operations`, `./${GENERATORS}:injection-utils`, `./${GENERATORS}:outline-catalogs`],
                             inputs: [...read(Object.keys(sources)), ...Object.values(languageGlobs).flatMap(Array.map((pattern) => `{workspaceRoot}/**/${pattern}`)), ...skipped, ...ruleInputs, 'astGrep'],
                         },
                         classes: {

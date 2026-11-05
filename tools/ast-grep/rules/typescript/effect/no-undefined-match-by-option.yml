@@ -8,12 +8,12 @@ utils:
     from-undefined:
         kind: call_expression
         all:
-            - has: {field: arguments, has: {nthChild: 1, pattern: $VALUE}}
+            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, pattern: $VALUE}}
             - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Option$'}, member: {regex: '^fromUndefinedOr$'}}}}
     data-last-match:
         kind: call_expression
         all:
-            - has: {field: arguments, all: [{has: {nthChild: 1, kind: object}}, {not: {has: {nthChild: 2}}}]}
+            - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, kind: object}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}}]}
             - has: {field: function, matches: option-match}
 rule:
     kind: call_expression
@@ -21,15 +21,15 @@ rule:
     any:
         - all:
             - has: {field: function, matches: option-match}
-            - has: {field: arguments, all: [{has: {nthChild: 2, kind: object}}, {has: {nthChild: 1, matches: from-undefined}}]}
+            - has: {field: arguments, all: [{has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}, kind: object}}, {has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: from-undefined}}]}
         - all:
             - has: {field: function, matches: data-last-match}
-            - has: {field: arguments, all: [{has: {nthChild: 1, matches: from-undefined}}, {not: {has: {nthChild: 2}}}]}
+            - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: from-undefined}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}}]}
         - all:
             - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^pipe$'}}, {has: {field: object, matches: from-undefined}}]}
-            - has: {field: arguments, has: {nthChild: 1, matches: data-last-match}}
+            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: data-last-match}}
         - all:
-            - has: {field: arguments, all: [{has: {nthChild: 1, matches: from-undefined}}, {has: {nthChild: 2, matches: data-last-match}}]}
+            - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: from-undefined}}, {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: data-last-match}}]}
             - has: {field: function, matches: {effect-function: {name: {regex: '^pipe$'}}}}
 message: '`$HAND` converts `$VALUE` through `Option.fromUndefinedOr` to match it'
 note: 'Call `UndefinedOr.match(<value>, { onUndefined, onDefined })`'

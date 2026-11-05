@@ -10,14 +10,7 @@ utils:
         has: {kind: generic_type, has: {field: name, matches: global-type}}
     construction:
         kind: new_expression
-        has:
-            field: constructor
-            any:
-                - kind: identifier
-                  matches: collection
-                - kind: member_expression
-                  all: [{has: {field: object, regex: '^(globalThis|window|self)$'}}, {has: {field: property, matches: collection}}]
-            matches: typescript-global-reference
+        has: {field: constructor, any: [{kind: identifier, matches: collection}, {has: {field: property, matches: collection}}], matches: typescript-global-member}
     built:
         any:
             - matches: construction

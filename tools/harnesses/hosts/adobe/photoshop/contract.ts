@@ -1,16 +1,12 @@
 import { Schema, Struct } from 'effect';
+import { contract, hostCase } from '#/cases/contract';
 import { Assignments, added, additions, Copy, documents, Enumerated, Steps } from '#/cases/precondition';
-import { hostCase, Outcome, Records, recorded, reply, Surveying } from '#/cases/results';
-import { answers, Expression } from '#/cases/schema';
+import { Outcome, recorded } from '#/cases/results';
+import { answers, EXTENDSCRIPT, Expression } from '#/cases/schema';
 import { JsonObject } from '#/cases/values';
-
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const SURVEY = 'Unit enumerations, locale, feature access level, and color settings the installation runs under';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Engine = Schema.Literal('extendscript').annotate({ description: 'do javascript, the one dictionary command that runs code' });
 const Created = Schema.Struct({
     width: Schema.Finite.annotate({ description: 'Width in the case ruler units' }),
     height: Schema.Finite.annotate({ description: 'Height in the case ruler units' }),
@@ -41,35 +37,13 @@ const Placed = Schema.Struct({
         }),
     ),
 }).check(Schema.makeFilter((placed) => placed.documents.length > 0 || (placed.add === undefined && placed.select === undefined) || 'add and select need a case document'));
-const HostCase = hostCase({
-    precondition: Placed,
-    folder: Schema.String.annotate({ description: 'Case folder holding document copies and every file the case writes, outside/<path> for a write the original aimed elsewhere' }),
-    ...Struct.pick(answers, ['windows', 'confirms', 'prompts', 'files']),
-});
-const Batch = Schema.Struct({
-    records: Records,
-    label: Schema.String.annotate({ description: 'Name prefix of every created case document' }),
-    survey: Surveying,
-    cases: Schema.Array(HostCase),
-});
-const Survey = Schema.Struct({
-    units: Schema.Struct({ ruler: Schema.String, type: Schema.String }).annotate({ description: 'Enumeration of the app.preferences rulerUnits and typeUnits values' }),
-    host: Schema.Struct({
-        locale: Schema.String.annotate({ description: '$.locale' }),
-        featureAccessLevel: Schema.String.annotate({ description: 'Application descriptor featureAccessLevel deciding which prerelease flags exist' }),
-        colorSettings: Schema.String.annotate({ description: 'app.colorSettings deciding the working space a created or opened document takes' }),
+const Contract = contract({
+    engines: { extendscript: { extensions: EXTENDSCRIPT } },
+    Case: hostCase(Placed, {
+        folder: Schema.String.annotate({ description: 'Case folder holding document copies and every file the case writes, outside/<path> for a write the original aimed elsewhere' }),
+        ...Struct.pick(answers, ['windows', 'confirms', 'prompts', 'files']),
     }),
-}).annotate({ description: SURVEY });
-const State = Schema.Struct({
-    dialogs: Schema.String.annotate({ description: 'app.displayDialogs the batch restores' }),
-    shifting: Schema.Array(Schema.String).annotate({ description: 'Application descriptor keys a label document opened and closed at batch start moves, left out of writes and leaked' }),
-    saving: Schema.Array(Schema.String).annotate({ description: 'Document descriptor keys saving the label document moves, left out of document writes' }),
-    unlisted: Schema.Array(Schema.String).annotate({ description: 'Application member the engine shadows that app.reflect declares no method for' }),
-    defaults: JsonObject.annotate({ description: 'Application descriptor read whole at batch start, Action JSON' }),
-}).annotate({ description: 'Instance state at batch start' });
-const Reply = reply({ state: State, survey: Schema.optionalKey(Survey) });
-const HostOutcome = Outcome.mapFields(
-    Struct.assign({
+    outcome: {
         ...Outcome.common,
         writes: recorded(
             Schema.Struct({
@@ -96,11 +70,29 @@ const HostOutcome = Outcome.mapFields(
                 frames: Schema.Array(Schema.String.annotate({ description: '<module> +0x<offset>' })),
             }).annotate({ description: 'PSErrorLog.txt entry the instance wrote while the case ran' }),
         ),
-    }),
-);
-const Encoded = Schema.fromJsonString(Batch);
+    },
+    survey: {
+        question: 'Unit enumerations, locale, feature access level, and color settings the installation runs under',
+        host: Schema.Struct({
+            locale: Schema.String.annotate({ description: '$.locale' }),
+            featureAccessLevel: Schema.String.annotate({ description: 'Application descriptor featureAccessLevel deciding which prerelease flags exist' }),
+            colorSettings: Schema.String.annotate({ description: 'app.colorSettings deciding the working space a created or opened document takes' }),
+        }),
+        fields: { units: Schema.Struct({ ruler: Schema.String, type: Schema.String }).annotate({ description: 'Enumeration of the app.preferences rulerUnits and typeUnits values' }) },
+    },
+    reply: {
+        state: Schema.Struct({
+            dialogs: Schema.String.annotate({ description: 'app.displayDialogs the batch restores' }),
+            shifting: Schema.Array(Schema.String).annotate({ description: 'Application descriptor keys a label document opened and closed at batch start moves, left out of writes and leaked' }),
+            saving: Schema.Array(Schema.String).annotate({ description: 'Document descriptor keys saving the label document moves, left out of document writes' }),
+            unlisted: Schema.Array(Schema.String).annotate({ description: 'Application member the engine shadows that app.reflect declares no method for' }),
+            defaults: JsonObject.annotate({ description: 'Application descriptor read whole at batch start, Action JSON' }),
+        }),
+    },
+    batch: { label: Schema.String.annotate({ description: 'Name prefix of every created case document' }) },
+});
 const Quit = Schema.fromJsonString(Schema.Struct({ quit: Schema.Literal(true) })).annotate({ description: 'Batch end: the engine closes every document without saving and sends the quit event with DialogModes.NO' });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Created, Document, Encoded, Engine, HostCase, HostOutcome, Placed, Quit, Reply, SURVEY, Survey };
+export { Contract, Created, Document, Placed, Quit };

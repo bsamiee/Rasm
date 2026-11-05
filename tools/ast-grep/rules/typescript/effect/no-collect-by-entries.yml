@@ -14,21 +14,21 @@ utils:
             - matches: {effect-module-member: {module: {regex: '(?-u:\b)Record$'}, member: {regex: '^values$'}}}
     indexed-callback:
         kind: arrow_function, function_expression
-        has: {field: parameters, has: {kind: 'required_parameter, optional_parameter', nthChild: 2}}
+        has: {field: parameters, has: {kind: 'required_parameter, optional_parameter', nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}
 rule:
     kind: call_expression
     any:
         - all:
             - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^map$'}}, {has: {field: object, matches: entries}}]}
-            - has: {field: arguments, has: {nthChild: 1, not: {matches: indexed-callback}}}
+            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, not: {matches: indexed-callback}}}
         - all:
             - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)(Array|Iterable)$'}, member: {regex: '^(map|filterMap)$'}}}}
-            - has: {field: arguments, all: [{has: {nthChild: 1, matches: entries}}, {has: {nthChild: 2, not: {matches: indexed-callback}}}]}
+            - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: entries}}, {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}, not: {matches: indexed-callback}}}]}
         - all:
             - has: {field: function, regex: '^((globalThis|window|self)\.)?Array\.from$', matches: typescript-global-reference}
-            - has: {field: arguments, all: [{has: {nthChild: 1, matches: entries}}, {has: {nthChild: 2, not: {matches: indexed-callback}}}]}
+            - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: entries}}, {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}, not: {matches: indexed-callback}}}]}
         - all:
             - has: {field: function, matches: record-values}
-            - has: {field: arguments, all: [{has: {nthChild: 1, matches: record-map}}, {not: {has: {nthChild: 2}}}]}
+            - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: record-map}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}}]}
 message: '`$ENTRIES` builds an intermediate collection to map record entries to an array'
 note: 'Call `Record.collect`, `Record.keys`, or `Record.values` for an array, `Record.mapEntries` for a record'

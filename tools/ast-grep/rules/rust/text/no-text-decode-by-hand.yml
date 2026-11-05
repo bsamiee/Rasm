@@ -12,8 +12,9 @@ utils:
         any:
             - kind: identifier
             - kind: unary_expression
-              regex: '^\*'
-              has: {kind: identifier}
+              all:
+                - has: {field: operator, regex: '^\*$'}
+                - has: {kind: identifier}
     to-char:
         any:
             - kind: scoped_identifier
@@ -46,8 +47,9 @@ utils:
         any:
             - {kind: identifier, pattern: $BYTE}
             - kind: unary_expression
-              regex: '^\*'
-              has: {kind: identifier, pattern: $BYTE}
+              all:
+                - has: {field: operator, regex: '^\*$'}
+                - has: {kind: identifier, pattern: $BYTE}
     loop-char:
         any:
             - kind: type_cast_expression

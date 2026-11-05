@@ -15,7 +15,7 @@ rule:
         - pattern: $ERROR.prototype.isPrototypeOf($VALUE)
         - pattern: $OBJECT.prototype.isPrototypeOf.call($ERROR.prototype, $VALUE)
 constraints:
-    ERROR: {regex: '^((globalThis|window|self)\.)?Error$', matches: typescript-global-reference}
-    OBJECT: {regex: '^((globalThis|window|self)\.)?Object$', matches: typescript-global-reference}
+    ERROR: {regex: '(^|\.)Error$', matches: typescript-global-member}
+    OBJECT: {regex: '(^|\.)Object$', matches: typescript-global-member}
 message: 'Error test on `$VALUE` walks `$ERROR.prototype` chain of the running realm alone'
 note: 'Call `Error.isError(<value>)`'

@@ -32,10 +32,7 @@ utils:
         any:
             - kind: identifier
               matches: {typescript-import-reference: {source: {regex: '^effect/process/ChildProcessSpawner$'}, exported: {regex: '^ChildProcessSpawner$'}}}
-            - kind: member_expression
-              all:
-                - has: {field: property, regex: '^ChildProcessSpawner$'}
-                - has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)ChildProcessSpawner$'}}}}
+            - matches: {effect-module-member: {module: {regex: '(?-u:\b)ChildProcessSpawner$'}, member: {regex: '^ChildProcessSpawner$'}}}
     spawn-handle:
         kind: yield_expression
         has:
@@ -45,9 +42,7 @@ utils:
                 kind: member_expression
                 any:
                     - has: {field: property, regex: '^spawn$'}
-                    - all:
-                        - has: {field: property, regex: '^make$'}
-                        - has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)ChildProcess$'}}}}
+                    - matches: {effect-module-member: {module: {regex: '(?-u:\b)ChildProcess$'}, member: {regex: '^make$'}}}
     decision-on-code:
         any:
             - kind: binary_expression, unary_expression
@@ -175,7 +170,7 @@ rule:
                         - inside:
                             kind: arguments
                             any:
-                                - has: {nthChild: 1, matches: spawner-service}
+                                - has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: spawner-service}
                                 - inside: {kind: call_expression, has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^use$'}}, {has: {field: object, matches: spawner-service}}]}}
 message: '`$STREAM` reads process output with no decision on `exitCode`'
 note: 'Read `exitCode` beside `stdout` and `stderr` from the handle `spawner.spawn` returns and fail a non-zero exit with `stderr` as its reason'

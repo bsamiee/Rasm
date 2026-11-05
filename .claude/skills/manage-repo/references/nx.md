@@ -15,6 +15,8 @@
 - `useDaemonProcess: false` stays: concurrent agents race daemon starts into a socket error and a disabled marker only `nx reset` clears, and a live daemon recomputes the graph on every file another agent writes
 - Sync generators take one `tools/nx/sync/<written kind>/<name>.ts` and one `tools/nx/sync/generators.json` row, `sync.globalGenerators` lists every one
 - `lint:nx` reports generator drift and `format:nx` writes it, `nx.json` `inputs` name each file a generator reads or writes, the plugin adds imports
+- `effect-operations` writes the `effect-dual-operation` and `effect-overloaded-operation` utils `no-forwarding-function-tsx` and `no-nested-combinator-calls` read, from catalog Effect packages through the TypeScript checker and oxc
+- Generator output `workspace.memoized` holds reruns when its input files change, a generator code change alone reuses the held output
 - Generators on a target rerun `createNodes` per run and off a TTY refuse the task over another writer's drift
 
 ## [02]-[DISCOVERY]

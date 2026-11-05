@@ -46,7 +46,7 @@ utils:
                 - has:
                     field: function
                     any:
-                        - all: [{regex: '^((globalThis|window|self)\.)?Array\.isArray$'}, {matches: typescript-global-reference}]
+                        - all: [{has: {field: property, regex: '^isArray$'}}, {has: {field: object, regex: '(^|\.)Array$', matches: typescript-global-member}}]
                         - matches: {effect-module-member: {module: {regex: '(?-u:\b)Array$'}, member: {regex: '^isArray$'}}}
             - kind: call_expression
               all:

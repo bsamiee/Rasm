@@ -13,7 +13,12 @@ utils:
                 kind: arguments
                 inside:
                     kind: call_expression
-                    has: {field: function, regex: '^(Reflect\.(get|set|has|deleteProperty|defineProperty|getOwnPropertyDescriptor)|Object\.(hasOwn|defineProperty|getOwnPropertyDescriptor))$'}
+                    has:
+                        field: function
+                        kind: member_expression
+                        any:
+                            - all: [{has: {field: property, regex: '^(get|set|has|deleteProperty|defineProperty|getOwnPropertyDescriptor)$'}}, {has: {field: object, regex: '(^|\.)Reflect$', matches: typescript-global-member}}]
+                            - all: [{has: {field: property, regex: '^(hasOwn|defineProperty|getOwnPropertyDescriptor)$'}}, {has: {field: object, regex: '(^|\.)Object$', matches: typescript-global-member}}]
     key-declaration:
         kind: variable_declarator
         all:

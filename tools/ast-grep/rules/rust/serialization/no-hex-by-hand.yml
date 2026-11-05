@@ -41,7 +41,7 @@ utils:
     nibble-lookup:
         kind: index_expression
         all:
-            - has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, any: [{kind: string_literal, regex: '^b?"(0123456789abcdef|0123456789ABCDEF)"$'}, {kind: identifier, regex: '^[A-Z_]*HEX[A-Z_]*$'}]}
+            - has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, any: [{kind: string_literal, regex: '^b?"(0123456789abcdef|0123456789ABCDEF)"$'}, {kind: identifier, regex: '^[\p{Lu}_]*HEX[\p{Lu}_]*$'}]}
             - has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}, has: {stopBy: end, matches: nibble}}
     digit-encode:
         kind: call_expression

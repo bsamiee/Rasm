@@ -34,7 +34,7 @@ utils:
                   has: {matches: lifted-body}
                 - kind: statement_block
                   has: {kind: return_statement, has: {matches: lifted-body}}
-                  not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+                  not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}
     lifted-value:
         matches: lifted-body
         not: {pattern: $_.void}
@@ -54,7 +54,7 @@ utils:
         all:
             - not: {has: {regex: '^async$'}}
             - not: {has: {field: return_type, kind: type_annotation}}
-            - not: {has: {field: parameters, has: {nthChild: 2}}}
+            - not: {has: {field: parameters, has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}}
             - has:
                 field: body
                 any:
@@ -63,14 +63,14 @@ utils:
                       has: {matches: recovered}
                     - kind: statement_block
                       has: {kind: return_statement, has: {matches: recovered}}
-                      not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+                      not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}
     succeeded:
         kind: call_expression
         has: {field: function, kind: member_expression, has: {field: property, regex: '^succeed$'}}
     succeeding-handler:
         kind: arrow_function, function_expression
         all:
-            - any: [{has: {field: parameter, kind: identifier}}, {has: {field: parameters, has: {nthChild: 1, kind: required_parameter}}}]
+            - any: [{has: {field: parameter, kind: identifier}}, {has: {field: parameters, has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, kind: required_parameter}}}]
             - has:
                 field: body
                 any:
@@ -88,7 +88,7 @@ rule:
             - has:
                 field: arguments
                 has:
-                    nthChild: {position: 1, reverse: true}
+                    nthChild: {position: 1, reverse: true, ofRule: {not: {kind: 'comment, html_comment'}}}
                     any:
                         - matches: lifting-callback
                         - matches: point-free-lift
@@ -97,16 +97,16 @@ rule:
                           inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, has: {field: property, regex: '^andThen$'}}}}
             - not:
                 all:
-                    - has: {field: function, all: [{has: {field: property, regex: '^flatMap$'}}, {has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Effect$'}}}}}]}
-                    - has: {field: arguments, has: {nthChild: {position: 1, reverse: true}, matches: lifting-callback, not: {matches: void-callback}}}
+                    - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^flatMap$'}}}}
+                    - has: {field: arguments, has: {nthChild: {position: 1, reverse: true, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: lifting-callback, not: {matches: void-callback}}}
         - all:
             - has: {field: function, kind: member_expression, pattern: $M.$F, has: {field: property, regex: '^catch$'}}
             - not: {has: {field: type_arguments, kind: type_arguments}}
-            - has: {field: arguments, has: {nthChild: {position: 1, reverse: true}, matches: recovering-handler}}
+            - has: {field: arguments, has: {nthChild: {position: 1, reverse: true, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: recovering-handler}}
             - any:
                 - has: {field: function, has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Stream$'}}}}}
                 - all:
-                    - has: {field: arguments, has: {nthChild: {position: 1, reverse: true}, matches: succeeding-handler}}
+                    - has: {field: arguments, has: {nthChild: {position: 1, reverse: true, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: succeeding-handler}}
                     - has: {field: function, has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Effect$'}}}}}
             - not: {has: {kind: comment, stopBy: end}}
 constraints:

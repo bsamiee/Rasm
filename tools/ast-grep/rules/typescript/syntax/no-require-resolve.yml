@@ -18,14 +18,6 @@ rule:
                 field: object
                 any:
                     - matches: module-require
-                    - kind: identifier
-                      pattern: $REQUIRE
-                      inside:
-                        kind: 'statement_block, program'
-                        stopBy: end
-                        has:
-                            stopBy: {not: {kind: export_statement}}
-                            kind: lexical_declaration
-                            has: {kind: variable_declarator, all: [{has: {field: name, pattern: $REQUIRE}}, {has: {field: value, matches: module-require}}]}
+                    - matches: {typescript-constant-value: {value: {matches: module-require}}}
 message: '`$CALL` resolves from its module through a CommonJS `require`'
 note: 'Call `fileURLToPath(import.meta.resolve(<specifier>))`'

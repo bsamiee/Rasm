@@ -4,15 +4,10 @@ severity: error
 utils:
     codec:
         kind: call_expression
-        has:
-            field: function
-            kind: member_expression
-            all:
-                - has: {field: property, pattern: $FN, regex: '^(decode|encode)(Unknown)?(Sync|Exit|Option|Result|Effect|Promise)$'}
-                - has: {field: object, pattern: $M, matches: {effect-module: {name: {regex: '(?-u:\b)Schema$'}}}}
+        has: {field: function, pattern: $FN, matches: {effect-schema-codec: {name: {regex: '(Effect|Option|Sync)$'}}}}
     literal-argument:
         kind: arguments
-        has: {nthChild: 1, matches: typescript-literal-expression}
+        has: {nthChild: {position: 1, ofRule: &code {not: {kind: 'comment, html_comment'}}}, matches: typescript-literal-expression}
 rule:
     any:
         - kind: call_expression
@@ -21,8 +16,7 @@ rule:
             - has: {field: arguments, matches: literal-argument}
         - kind: call_expression
           all:
-            - has: {field: function, kind: identifier}
-            - has: {field: arguments, has: {nthChild: 2, matches: codec}}
+            - has: {field: arguments, has: {nthChild: {position: 2, ofRule: *code}, matches: codec}}
             - has: {field: function, matches: {effect-function: {name: {regex: '^pipe$'}}}}
             - has: {field: arguments, matches: literal-argument}
         - kind: variable_declarator
@@ -33,5 +27,5 @@ rule:
                 kind: 'program, statement_block'
                 stopBy: {kind: 'program, statement_block'}
                 has: {stopBy: end, kind: call_expression, all: [{has: {field: function, kind: identifier, pattern: $CODEC}}, {has: {field: arguments, matches: literal-argument}}]}
-message: '`$M.$FN` runs a codec over a literal'
+message: '`$FN` runs a codec over a literal'
 note: 'Call `<schema>.make`, `makeOption`, or `makeEffect` with a `Type` value; write an encode as its `Encoded` literal'

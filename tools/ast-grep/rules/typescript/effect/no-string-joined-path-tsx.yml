@@ -14,7 +14,7 @@ utils:
         kind: call_expression
         all:
             - has: {field: function, kind: member_expression, has: {field: property, regex: '^join$'}}
-            - has: {field: arguments, all: [{has: {nthChild: 1, kind: string, regex: '^[''"]/[''"]$'}}, {not: {has: {nthChild: 2}}}]}
+            - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, kind: string, regex: '^[''"]/[''"]$'}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}}]}
     directory-use: {kind: 'identifier, member_expression', pattern: $DIR}
     joined:
         any:

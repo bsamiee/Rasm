@@ -2,11 +2,6 @@
 language: tsxlang
 severity: error
 utils:
-    overloaded-constructor:
-        kind: member_expression
-        all:
-            - has: {field: property, regex: '^(make|subscriptionRef|fn|fnSync)$'}
-            - has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Atom$'}}}}
     receiver-static:
         has: {field: object, regex: '^(Promise|(Int8|Uint8|Uint8Clamped|Int16|Uint16|Int32|Uint32|Float16|Float32|Float64|BigInt64|BigUint64)Array)$', matches: typescript-global-reference}
     root-declaration:
@@ -37,7 +32,7 @@ utils:
                             inside: {kind: program}
                             precedes: {stopBy: end, any: [{matches: root-declaration}, {kind: export_statement, has: {matches: root-declaration}}]}
             - kind: member_expression
-              not: {any: [{has: {kind: optional_chain}}, {matches: overloaded-constructor}, {matches: receiver-static}]}
+              not: {any: [{has: {kind: optional_chain}}, {matches: effect-overloaded-operation}, {matches: receiver-static}]}
               has: {field: object, matches: named-callee, regex: '^[A-Z]'}
     inner-callee:
         any:
@@ -59,7 +54,7 @@ utils:
                             inside: {kind: program}
                             precedes: {stopBy: end, any: [{matches: inner-declaration}, {kind: export_statement, has: {matches: inner-declaration}}]}
             - kind: member_expression
-              not: {any: [{has: {kind: optional_chain}}, {matches: overloaded-constructor}, {matches: receiver-static}]}
+              not: {any: [{has: {kind: optional_chain}}, {matches: effect-overloaded-operation}, {matches: receiver-static}]}
               has: {field: object, matches: inner-callee, regex: '^[A-Z]'}
     parameter-1: {kind: required_parameter, nthChild: {position: 1, ofRule: &code {not: {kind: 'comment, html_comment'}}}, has: {field: pattern, kind: identifier, pattern: $A}}
     parameter-2: {kind: required_parameter, nthChild: {position: 2, ofRule: *code}, has: {field: pattern, kind: identifier, pattern: $B}}
@@ -124,7 +119,7 @@ utils:
             - not: {has: {field: body, any: [{matches: forwarded-body}, {kind: statement_block, has: {kind: return_statement, has: {matches: forwarded-body}}}]}}
     reflect-call:
         kind: call_expression
-        has: {field: function, kind: member_expression, has: {field: object, regex: '^((globalThis|window|self)\.)?Reflect$', matches: typescript-global-reference}}
+        has: {field: function, kind: member_expression, has: {field: object, regex: '(^|\.)Reflect$', matches: typescript-global-member}}
     single-return:
         kind: statement_block
         not: {has: {nthChild: {position: 2, ofRule: *code}}}

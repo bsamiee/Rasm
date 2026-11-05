@@ -7,7 +7,7 @@ utils:
             - kind: template_string
               has: {kind: template_substitution, nthChild: {position: 2, ofRule: {kind: template_substitution}}}
             - kind: call_expression
-              has: {field: function, regex: '^((globalThis|window|self)\.)?JSON\.stringify$', matches: typescript-global-reference}
+              has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^stringify$'}}, {has: {field: object, regex: '(^|\.)JSON$', matches: typescript-global-member}}]}
             - kind: call_expression
               all:
                 - has: {field: function, kind: member_expression, all: [{has: {field: object, kind: array}}, {has: {field: property, regex: '^join$'}}]}

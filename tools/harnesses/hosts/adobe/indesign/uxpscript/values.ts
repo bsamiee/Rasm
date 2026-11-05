@@ -1,6 +1,6 @@
 import indesign, { app, type Enumerator } from 'adobe:indesign';
 import { bury, type JsonObject, revive } from '@rasm/harnesses/cases/values';
-import type { Encoded, fields, HostCase } from '@rasm/harnesses/hosts/adobe/indesign/contract';
+import type { Contract, fields } from '@rasm/harnesses/hosts/adobe/indesign/contract';
 import { Match, Option, Predicate, Record, Schema } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -8,9 +8,9 @@ import { Match, Option, Predicate, Record, Schema } from 'effect';
 interface Members {
     [key: string]: unknown;
 }
-type Item = typeof HostCase.Type;
+type Item = typeof Contract.Case.Type;
 type Scripted = Exclude<Item, { readonly _tag: 'Panel' }>;
-type Batch = typeof Encoded.Type;
+type Batch = typeof Contract.Encoded.Type;
 type Records = { -readonly [K in keyof typeof fields]: (typeof fields)[K]['Type'][number][] };
 interface Codec {
     readonly encoded: (value: unknown) => Schema.Json;

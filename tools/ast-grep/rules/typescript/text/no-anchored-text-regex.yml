@@ -7,23 +7,15 @@ utils:
         all:
             - has:
                 field: pattern
-                pattern: $PATTERN
                 regex: '^(?:\^(?:[^\^$\\.*+?()\[\]{}|/]|\\[\^$\\.*+?()\[\]{}|/nrtvf]|\\x[0-9A-Fa-f]{2}|\\u(?:[0-9A-CEFa-cef][0-9A-Fa-f]{3}|[Dd][0-7][0-9A-Fa-f]{2}))+|(?:[^\^$\\.*+?()\[\]{}|/]|\\[\^$\\.*+?()\[\]{}|/nrtvf]|\\x[0-9A-Fa-f]{2}|\\u(?:[0-9A-CEFa-cef][0-9A-Fa-f]{3}|[Dd][0-7][0-9A-Fa-f]{2}))+\$)$'
             - not: {has: {field: flags, regex: '[gimy]'}}
-    relay:
-        kind: lexical_declaration
-        all:
-            - has: {field: kind, regex: '^const$'}
-            - has: {kind: variable_declarator, all: [{has: {field: name, pattern: $RE}}, {has: {field: value, matches: affix}}]}
+    prefix:
+        kind: regex
+        has: {field: pattern, regex: '^\^'}
     source:
         any:
             - matches: affix
-            - kind: identifier
-              pattern: $RE
-              inside:
-                kind: program, statement_block
-                stopBy: end
-                has: {any: [{matches: relay}, {kind: export_statement, has: {matches: relay}}]}
+            - matches: {typescript-constant-value: {value: {matches: affix}}}
     access:
         pattern: $$_ACCESS
         regex: '^\??\.$'
@@ -33,7 +25,7 @@ utils:
             - inside: {kind: unary_expression, has: {field: operator, regex: '^!$'}}
             - inside: {kind: binary_expression, has: {field: operator, regex: '^(&&|\|\|)$'}, matches: condition}
             - inside: {kind: parenthesized_expression, matches: condition}
-            - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '^((globalThis|window|self)\.)?Boolean$', matches: typescript-global-reference}}}
+            - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '(^|\.)Boolean$', matches: typescript-global-member}}}
     regex-call:
         kind: call_expression
         all:
@@ -54,37 +46,38 @@ utils:
             - has: {field: function, all: [{has: {field: object, pattern: $RECEIVER}}, {has: {matches: access}}]}
             - has: {field: arguments, has: {nthChild: {position: 1, ofRule: *code}, matches: source}}
 rule:
-    pattern: $NODE
-    any:
-        - kind: call_expression
-          all:
-            - matches: regex-call
-            - any: [{has: {field: function, has: {field: property, regex: '^test$'}}}, {matches: condition}]
-        - kind: call_expression
-          all:
-            - has: {field: function, has: {field: property, regex: '^match$'}}
-            - matches: text-call
-            - matches: condition
-        - kind: binary_expression
-          all:
-            - has: {field: operator, regex: '^[!=]==?$'}
-            - has: {field: right, kind: 'null'}
-            - has:
-                field: left
-                any:
-                    - all: [{has: {field: function, has: {field: property, regex: '^exec$'}}}, {matches: regex-call}]
-                    - all: [{has: {field: function, has: {field: property, regex: '^match$'}}}, {matches: text-call}]
-        - kind: binary_expression
-          all:
-            - has: {field: left, kind: call_expression, has: {field: function, has: {field: property, regex: '^search$'}}}
-            - has: {field: left, matches: text-call}
-            - any:
-                - all: [{has: {field: operator, regex: '^(!==?|===?|>)$'}}, {has: {field: right, regex: '^-[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*1$'}}]
-                - all: [{has: {field: operator, regex: '^(>=|<)$'}}, {has: {field: right, regex: '^0$'}}]
-                - all:
-                    - has: {field: operator, regex: '^(!==?|===?)$'}
-                    - has: {field: right, regex: '^0$'}
-                    - inside: {kind: program, stopBy: end, has: {stopBy: end, kind: regex_pattern, pattern: $PATTERN, regex: '^\^'}}
-    not: {inside: {kind: program, stopBy: end, matches: extendscript-file}}
+    all:
+        - any:
+            - kind: call_expression
+              all:
+                - matches: regex-call
+                - any: [{has: {field: function, has: {field: property, regex: '^test$'}}}, {matches: condition}]
+            - kind: call_expression
+              all:
+                - has: {field: function, has: {field: property, regex: '^match$'}}
+                - matches: text-call
+                - matches: condition
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^[!=]==?$'}
+                - has: {field: right, kind: 'null'}
+                - has:
+                    field: left
+                    any:
+                        - all: [{has: {field: function, has: {field: property, regex: '^exec$'}}}, {matches: regex-call}]
+                        - all: [{has: {field: function, has: {field: property, regex: '^match$'}}}, {matches: text-call}]
+            - kind: binary_expression
+              all:
+                - has: {field: left, kind: call_expression, has: {field: function, has: {field: property, regex: '^search$'}}}
+                - has: {field: left, matches: text-call}
+                - any:
+                    - all: [{has: {field: operator, regex: '^(!==?|===?|>)$'}}, {has: {field: right, regex: '^-[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*1$'}}]
+                    - all: [{has: {field: operator, regex: '^(>=|<)$'}}, {has: {field: right, regex: '^0$'}}]
+                    - all:
+                        - has: {field: operator, regex: '^(!==?|===?)$'}
+                        - has: {field: right, regex: '^0$'}
+                        - has: {field: left, has: {field: arguments, has: {nthChild: {position: 1, ofRule: *code}, any: [{matches: prefix}, {matches: {typescript-constant-value: {value: {matches: prefix}}}}]}}}
+        - not: {inside: {kind: program, stopBy: end, matches: extendscript-file}}
+        - pattern: $NODE
 message: '`$NODE` tests a fixed prefix or suffix through a regular expression'
 note: 'Call `<text>.startsWith(<string>)` or `<text>.endsWith(<string>)`'

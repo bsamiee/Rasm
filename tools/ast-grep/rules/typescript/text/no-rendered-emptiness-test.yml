@@ -8,15 +8,7 @@ utils:
     rendered:
         any:
             - matches: rendering
-            - kind: identifier
-              pattern: $TEXT
-              inside:
-                stopBy: end
-                kind: 'statement_block, program'
-                has:
-                    stopBy: end
-                    kind: variable_declarator
-                    all: [{has: {field: name, pattern: $TEXT}}, {has: {field: value, matches: rendering}}, {inside: {kind: lexical_declaration, has: {field: kind, regex: '^const$'}}}]
+            - matches: {typescript-constant-value: {value: {matches: rendering}}}
 rule:
     kind: binary_expression
     pattern: $TEST

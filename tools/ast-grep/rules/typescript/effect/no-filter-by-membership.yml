@@ -21,7 +21,7 @@ utils:
     predicate:
         kind: arrow_function
         all:
-            - has: {field: parameters, has: {kind: required_parameter, nthChild: 1, has: {field: pattern, kind: identifier, pattern: $X}}, not: {has: {nthChild: 2}}}
+            - has: {field: parameters, has: {kind: required_parameter, nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, has: {field: pattern, kind: identifier, pattern: $X}}, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}}
             - has: {field: body, any: [{matches: membership}, {pattern: '!$_INNER', has: {matches: membership}}]}
     set-test:
         pattern: $_SET.has($_SEEN, $_ITEM)
@@ -35,7 +35,7 @@ rule:
         - has: {field: function, kind: member_expression, has: {field: property, regex: '^filter$'}}
         - any:
             - all:
-                - has: {field: arguments, has: {matches: predicate, nthChild: {position: 1, reverse: true}}}
+                - has: {field: arguments, has: {matches: predicate, nthChild: {position: 1, reverse: true, ofRule: {not: {kind: 'comment, html_comment'}}}}}
                 - has: {field: function, has: {field: object, matches: collection}}
                 - any:
                     - has: {field: function, has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Array$'}}}}}
@@ -43,7 +43,7 @@ rule:
                     - has: {field: function, has: {field: object, pattern: $OWNER}}
             - all:
                 - has: {field: function, has: {field: object, matches: native-receiver}}
-                - has: {field: arguments, has: {matches: predicate, nthChild: 1}, not: {has: {nthChild: 2}}}
+                - has: {field: arguments, has: {matches: predicate, nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}}, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}}
                 - not: {has: {field: arguments, has: {matches: set-predicate}}}
         - not: {matches: typescript-complementary-filter}
 constraints:

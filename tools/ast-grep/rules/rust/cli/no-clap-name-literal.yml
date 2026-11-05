@@ -18,7 +18,7 @@ utils:
                 inside: {kind: token_tree, inside: {kind: attribute, field: arguments}}
     semantic-group:
         kind: attribute_item
-        regex: '(?s)^#\[\p{Pattern_White_Space}*group\p{Pattern_White_Space}*\(.*(?-u:\b)(required|multiple|requires|requires_all|conflicts_with|conflicts_with_all)(?-u:\b)'
+        has: {kind: attribute, all: [{has: {field: path, pattern: group}}, {has: {field: arguments, has: {kind: identifier, regex: '^(required|multiple|requires|requires_all|conflicts_with|conflicts_with_all)$'}}}]}
 rule:
     kind: 'string_literal, raw_string_literal'
     all:
@@ -29,9 +29,9 @@ rule:
             kind: attribute
             stopBy: {kind: attribute}
             any:
-                - has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, kind: identifier, regex: '^(arg|clap|command|value)$'}
+                - has: {field: path, regex: '^(arg|clap|command|value)$'}
                 - all:
-                    - has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, pattern: group}
+                    - has: {field: path, pattern: group}
                     - not:
                         inside:
                             kind: attribute_item

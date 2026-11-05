@@ -5,12 +5,13 @@ utils:
     unbound-parameter:
         kind: type_identifier
         pattern: $TYPE
-        inside:
-            stopBy: end
-            kind: 'arrow_function, function_expression, function_declaration, generator_function, generator_function_declaration, method_definition, function_signature, method_signature, function_type'
-            all:
-                - has: {field: type_parameters, has: {kind: type_parameter, has: {field: name, pattern: $TYPE}}}
-                - not: {has: {field: parameters, has: {stopBy: end, kind: type_identifier, pattern: $TYPE}}}
+        all:
+            - inside:
+                stopBy: end
+                kind: 'arrow_function, function_expression, function_declaration, generator_function, generator_function_declaration, method_definition, function_signature, method_signature, function_type'
+                pattern: $OWNER
+                has: {field: type_parameters, has: {kind: type_parameter, has: {field: name, pattern: $TYPE}}}
+            - inside: {stopBy: end, pattern: $OWNER, not: {has: {field: parameters, has: {stopBy: end, kind: type_identifier, pattern: $TYPE}}}}
 rule:
     kind: type_predicate
     pattern: $PREDICATE

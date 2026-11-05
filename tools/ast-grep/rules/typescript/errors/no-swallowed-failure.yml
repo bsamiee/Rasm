@@ -23,7 +23,7 @@ utils:
                     - has: {field: property, regex: '^pipe$'}
                     - has: {field: object, matches: failure-constructor}
             - all:
-                - has: {field: function, regex: '^(Function\.)?pipe$'}
+                - has: {field: function, matches: {effect-function: {name: {regex: '^pipe$'}}}}
                 - has: {field: arguments, has: {nthChild: {position: 1, ofRule: &code {not: {kind: 'comment, html_comment'}}}, matches: failure-constructor}}
     predicate:
         kind: member_expression
@@ -40,10 +40,10 @@ utils:
 rule:
     any:
         - kind: member_expression
-          pattern: $CALL
           all:
             - matches: predicate
             - inside: {kind: arguments, inside: {matches: failure-pipe}}
+            - pattern: $CALL
         - kind: call_expression
           all:
             - has: {field: function, matches: predicate, pattern: $CALL}

@@ -17,10 +17,10 @@ utils:
             field: arguments
             all:
                 - has:
-                    nthChild: 1
+                    nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}
                     has: {field: property, regex: '^(URL|Number|Finite|BigInt|Date|BigDecimal|ByteSize|Uint8Array|String|TimeZoneNamed|TimeZone|DateTimeUtc|DateTimeZoned|Duration)$'}
                 - has:
-                    nthChild: 2
+                    nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}
                     all:
                         - has:
                             field: property
@@ -39,7 +39,7 @@ utils:
         pattern: $S.$_WRAP($_X).pipe($S.decodeTo($S.Option($_), $_ST.$_OPTION()))
         all:
             - has: {field: function, has: {field: object, has: {field: function, matches: schema-member, has: {field: property, regex: '^(NullOr|UndefinedOr|NullishOr|optionalKey|optional)$'}}}}
-            - has: {field: arguments, has: {matches: decode-to, has: {field: arguments, has: {nthChild: 2, has: {field: function, all: [{has: {field: property, regex: '^optionFrom(NullOr|UndefinedOr|NullishOr|OptionalKey|Optional)$'}}, {has: {field: object, matches: transformation}}]}}}}}
+            - has: {field: arguments, has: {matches: decode-to, has: {field: arguments, has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}, has: {field: function, all: [{has: {field: property, regex: '^optionFrom(NullOr|UndefinedOr|NullishOr|OptionalKey|Optional)$'}}, {has: {field: object, matches: transformation}}]}}}}}
     container:
         kind: call_expression
         any:
@@ -55,7 +55,7 @@ utils:
                 kind: call_expression
                 all:
                     - has: {field: function, matches: schema-member}
-                    - has: {field: arguments, has: {nthChild: 2, any: [{has: {field: object, matches: transformation}}, {has: {field: function, has: {field: object, matches: transformation}}}]}}
+                    - has: {field: arguments, has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}, any: [{has: {field: object, matches: transformation}}, {has: {field: function, has: {field: object, matches: transformation}}}]}}
 rule:
     kind: call_expression
     any:

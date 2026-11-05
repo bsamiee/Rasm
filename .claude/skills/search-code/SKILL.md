@@ -10,7 +10,7 @@ Dependency declarations come from installed files, usage from Context7, DeepWiki
 - Version: Context7 and DeepWiki index the default branch, an installed version's fact comes from its files, its tag, or a Context7 snapshot
 - Path: package metadata names repository and commit, Context7 IDs are the repository's `/owner/repo` lowercased, a tag list spells each tag
 - Prose: Context7 descriptions and DeepWiki answers are generated, code quotes come from their Source URL, member names from their declaration
-- Ignore: an ignore file inside the searched tree (`.venv/.gitignore`) hides its files, `--no-ignore` reads them, a listed path needs no flag
+- Ignore: ignore files in or above a searched folder (`.venv/.gitignore`, a root `dist/` row) hide its files, `rg --no-ignore` and `ast-grep outline --no-ignore vcs` read them, a named file needs no flag
 - Size: `mcp__github__get_file_contents`, `mcp__nuget__get_package_context`, and `mcp__deepwiki__read_wiki_contents` return whole content, `rg` cites a line
 - Index: `mcp__github__search_code` reads default branches in files under 384 KB, `mcp__github__get_repository_tree` finds a path at a tag
 - Quota: clients on one GitHub account share 10 `mcp__github__search_code` calls per minute, the next answers HTTP 403, reads at a tag spend none
@@ -35,10 +35,33 @@ cargo tree --invert <crate> --depth 1
 swift package show-dependencies --format json
 ```
 
-Swift interface of a Clang SDK module (`ApplicationServices`, `CoreFoundation`) at the selected Xcode's SDK:
+TypeScript, Python, Rust, and Swift declarations of an installed package, `<package dir>` and `<glob>` by ecosystem:
+- TypeScript: `${CLAUDE_PROJECT_DIR}/node_modules/<pkg>`, a transitive package at its `.pnpm` path, `*.d.ts`
+- Python: `${CLAUDE_PROJECT_DIR}/.venv/lib/python*/site-packages/<pkg>` or its `<pkg>-stubs` sibling, `*.pyi` where the package holds stubs, else `*.py`
+- Rust: `$CARGO_HOME/registry/src/index.crates.io-*/<crate>-<version>`, `*.rs`
+- Swift: `<checkout>/Sources`, `*.swift` keeping DocC heading rows out, `<checkout>` the `path` `swift package show-dependencies --format json` prints, `<DerivedData>/SourcePackages/checkouts/<package>` for an Xcode-resolved package
+
+Rows print a declaration's start line, `Read` at it supplies the doc comment and JSON `range` its end, and `--match` tests item names, signatures, and first lines, never members:
+1. Exports of the package
+2. Items naming one symbol, its declaration among them, Rust inherent methods being items named `<Owner>::<member>`
+3. Type with its public members, Swift extensions being items named by the type they extend
 
 ```bash
-xcrun swift-synthesize-interface -module-name <Module> -sdk "$(xcrun --show-sdk-path)" -target "arm64-apple-macos$(xcrun --show-sdk-version)" -include-submodules | rg -n '<Member>'
+ast-grep outline <package dir> --globs '<glob>' --items exports --view signatures
+ast-grep outline <package dir> --globs '<glob>' --items exports --view signatures --match '\b<Symbol>\b'
+ast-grep outline <package dir> --globs '<glob>' --items exports --pub-members --view expanded --match '\b<Type>\b'
+```
+
+Member by name with its owner, from JSON rows:
+
+```bash
+ast-grep outline <package dir> --globs '<glob>' --items exports --view expanded --json=stream | jq -r '.path as $file | .items[] | .name as $owner | .members[]? | select(.name == "<member>") | "\($file):\(.range.start.line + 1) \($owner) \(.signature)"'
+```
+
+Swift interface of an SDK module, Clang (`ApplicationServices`) or Swift (`SwiftUI`), at the selected Xcode's SDK:
+
+```bash
+xcrun swift-synthesize-interface -module-name <Module> -sdk "$(xcrun --show-sdk-path)" -target "arm64-apple-macos$(xcrun --show-sdk-version)" -include-submodules | ast-grep outline --stdin -l swiftlang --items exports --pub-members --view expanded --match '\b<Symbol>\b'
 ```
 
 .NET types declaring a member as `.xml` doc ids, ` ``N ` follows a generic method name, without decompiling:
@@ -70,15 +93,6 @@ ilspycmd --dump-table Assembly --json <dll> | jq -r '.rows[0] | "\(.Name)/\(.Ver
 ilspycmd -p -o <main>/.artifacts/ilspy/<Name>/<Version> <dll>
 ```
 
-TypeScript package under `node_modules/<pkg>`, `package.json` `types` names the entry file:
-1. Exports of one declaration file, `export * as <Module>` names the module file step 2 searches
-2. Declaration with file and line, following overloads and its preceding doc comment read through `Read` at the line
-
-```bash
-rg -n '^export ' ${CLAUDE_PROJECT_DIR}/node_modules/<pkg>/<file>.d.ts
-rg -n --no-ignore -A8 '^export (declare )?(abstract )?(const|function|class|interface|type|enum|namespace) <Symbol>\b' ${CLAUDE_PROJECT_DIR}/node_modules/<pkg> --glob '*.d.ts'
-```
-
 TypeScript type and enum values of one configuration schema definition:
 
 ```bash
@@ -92,19 +106,6 @@ Python package in `uv.lock`, `--with <pkg>` before `python` resolves one outside
 ```bash
 uv run --frozen python -m pydoc <mod>
 uv run --frozen python -m inspect <mod>:<qualname>
-```
-
-Python typed signature per overload from a package's `.pyi` or its `-stubs` package where the runtime declares no types:
-
-```bash
-rg -nU --no-ignore 'def <fn>\([^)]*\)[^:]*:' ${CLAUDE_PROJECT_DIR}/.venv/lib/python*/site-packages/<pkg>* --glob '*.pyi'
-```
-
-Rust public declaration with file and line from crate source under `$CARGO_HOME/registry/src`:
-
-```bash
-rg -n -A8 '^\s*pub (\w+ )*(fn|struct|enum|trait|type|const|static|macro) <Symbol>\b' \
-    $CARGO_HOME/registry/src/index.crates.io-*/<crate>-<version> --glob '*.rs'
 ```
 
 MSBuild target with `Condition`, `Inputs`, and `DependsOnTargets` across the SDK `global.json` resolves, package targets under `build/` or `buildTransitive/`:

@@ -10,6 +10,6 @@ rule:
         - not: {has: {field: function, has: {stopBy: end, kind: field_identifier, regex: '^(into_)?par_|^par_bridge$'}}}
         - not: {inside: {kind: source_file, stopBy: end, has: {stopBy: end, kind: use_declaration, regex: '(?-u:\b)Itertools(?-u:\b)'}}}
 constraints:
-    C: {not: {regex: '^(\p{XID_Continue}+::)*NE[A-Z]\p{XID_Continue}*<'}}
+    C: {not: {regex: '^(\p{XID_Continue}+::)*NE\p{Lu}\p{XID_Continue}*<'}}
 message: '`collect` names the `Result` or `Option` wrapper around `$C` by hand'
 note: 'Call `try_collect::<Container>()` on a mutable iterator or temporary, or `Itertools::process_results` for success adapters'

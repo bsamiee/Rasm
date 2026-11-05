@@ -9,12 +9,12 @@ utils:
             - has:
                 field: arguments
                 all:
-                    - not: {has: {nthChild: 2}}
-                    - has: {nthChild: 1, kind: generator_function, not: {has: {field: parameters, has: {pattern: $_}}}}
+                    - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}
+                    - has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, kind: generator_function, not: {has: {field: parameters, has: {pattern: $_}}}}
     wrapped-gen:
         kind: call_expression
         all:
-            - has: {field: arguments, all: [{not: {has: {nthChild: 2}}}, {has: {nthChild: 1, matches: gen-call}}]}
+            - has: {field: arguments, all: [{not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}}, {has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: gen-call}}]}
             - has: {field: function, kind: member_expression, has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)(Effect|Stream|Layer|Channel|Sink)$'}}}}}
     gen-effect:
         any:
@@ -25,16 +25,16 @@ utils:
                 - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^pipe$'}}, {has: {field: object, any: [{matches: gen-call}, {matches: wrapped-gen}]}}]}
             - kind: call_expression
               all:
-                - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^withSpan$'}}, {has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Effect$'}}}}}]}
-                - has: {field: arguments, has: {nthChild: 1, matches: gen-call}}
+                - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^withSpan$'}}}}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: gen-call}}
     trailing-gen:
         kind: statement_block
-        has: {kind: return_statement, nthChild: {position: 1, reverse: true, ofRule: {not: {kind: comment}}}, has: {matches: gen-effect}}
+        has: {kind: return_statement, nthChild: {position: 1, reverse: true, ofRule: {not: {kind: 'comment, html_comment'}}}, has: {matches: gen-effect}}
     returned-gen:
         any: [{matches: gen-effect}, {matches: trailing-gen}]
     fixture-arrow:
         kind: arrow_function
-        has: {field: parameters, has: {nthChild: 1, kind: required_parameter, has: {field: pattern, kind: object_pattern}}}
+        has: {field: parameters, has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, kind: required_parameter, has: {field: pattern, kind: object_pattern}}}
         inside: {kind: call_expression, stopBy: end, has: {field: function, kind: member_expression, has: {field: property, regex: '^extend$'}}}
 rule:
     any:

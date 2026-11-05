@@ -3,10 +3,7 @@ language: tsxlang
 severity: error
 utils:
     collect-member:
-        kind: member_expression
-        all:
-            - has: {field: property, regex: '^runCollect$'}
-            - has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Stream$'}}}}
+        matches: {effect-module-member: {module: {regex: '(?-u:\b)Stream$'}, member: {regex: '^runCollect$'}}}
     collected:
         any:
             - kind: call_expression
@@ -16,10 +13,7 @@ utils:
             - kind: parenthesized_expression
               has: {matches: collected}
     array-fold:
-        kind: member_expression
-        all:
-            - has: {field: property, regex: '^(head|last|reduce|join)$'}
-            - has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Array$'}}}}
+        matches: {effect-module-member: {module: {regex: '(?-u:\b)Array$'}, member: {regex: '^(head|last|reduce|join)$'}}}
     fold:
         any:
             - matches: array-fold
@@ -40,7 +34,7 @@ utils:
         kind: call_expression
         all:
             - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^map$'}}}}
-            - has: {field: arguments, has: {matches: fold, nthChild: {position: 1, reverse: true}}}
+            - has: {field: arguments, has: {matches: fold, nthChild: {position: 1, reverse: true, ofRule: {not: {kind: 'comment, html_comment'}}}}}
     copy:
         any:
             - kind: call_expression
@@ -49,15 +43,12 @@ utils:
                     field: function
                     any:
                         - {matches: typescript-global-reference, regex: '^(globalThis\.)?Array\.from$'}
-                        - kind: member_expression
-                          all:
-                            - has: {field: property, regex: '^fromIterable$'}
-                            - has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)Array$'}}}}
-                - has: {field: arguments, all: [{has: {nthChild: 1, matches: collected}}, {not: {has: {nthChild: 2}}}]}
+                        - matches: {effect-module-member: {module: {regex: '(?-u:\b)Array$'}, member: {regex: '^fromIterable$'}}}
+                - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: collected}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}}]}
             - kind: array
               all:
-                - has: {nthChild: 1, kind: spread_element, has: {matches: collected}}
-                - not: {has: {nthChild: 2}}
+                - has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, kind: spread_element, has: {matches: collected}}
+                - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}
 rule:
     any:
         - matches: copy
@@ -66,12 +57,12 @@ rule:
           any:
             - kind: call_expression
               all:
-                - has: {field: arguments, all: [{has: {nthChild: 1, matches: collected}}, {has: {nthChild: 2, matches: fold}}]}
+                - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: collected}}, {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: fold}}]}
                 - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Effect$'}, member: {regex: '^map$'}}}}
             - kind: call_expression
               all:
                 - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^pipe$'}}, {has: {field: object, matches: collected}}]}
-                - has: {field: arguments, has: {nthChild: 1, matches: fold-step}}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: fold-step}}
             - matches: collect-member
               inside: {kind: arguments}
               precedes: {matches: fold-step, stopBy: {not: {regex: '^,$'}}}

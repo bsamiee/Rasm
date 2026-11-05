@@ -15,13 +15,13 @@ utils:
 rule:
     kind: spread_element
     all:
-        - has: {nthChild: 1, kind: member_expression, pattern: $FIELDS, has: {field: property, regex: '^fields$'}}
+        - has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, kind: member_expression, pattern: $FIELDS, has: {field: property, regex: '^fields$'}}
         - inside:
             kind: object
             any:
-                - nthChild: 1
+                - nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}
                   inside: {kind: arguments, inside: {matches: fields-call}}
-                - nthChild: 2
+                - nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}
                   inside: {kind: arguments, inside: {matches: tagged-fields-call}}
 message: '`...$FIELDS` copies a schema''s fields into a new field record'
 note: 'Extend the schema with `<schema>.mapFields(Struct.assign({ <fields> }))`'

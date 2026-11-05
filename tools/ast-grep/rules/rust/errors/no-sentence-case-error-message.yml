@@ -11,7 +11,7 @@ rule:
               not: {regex: '^"[A-Z][a-z]*[A-Z0-9]'}
         - inside:
             kind: token_tree
-            inside: {kind: attribute, field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, pattern: error}, inside: {kind: attribute_item}}
+            inside: {kind: attribute, field: arguments, has: {field: path, pattern: error}, inside: {kind: attribute_item}}
         - pattern: $MESSAGE
 message: '`#[error($MESSAGE)]` opens with a capital or closes with punctuation'
 note: 'Open with a lowercase word ahead of any proper noun or backticked code name, and delete trailing punctuation'

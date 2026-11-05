@@ -15,13 +15,13 @@ utils:
         any:
             - all:
                 - has: {field: function, has: {field: property, regex: '^(length|values)$'}}
-                - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $XS}}, {not: {has: {nthChild: 2}}}]}
+                - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, pattern: $XS}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}}]}
             - all:
                 - has: {field: function, has: {field: property, regex: '^(filter|every|forEach|join)$'}}
-                - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $XS}}, {has: {nthChild: 2}}, {not: {has: {nthChild: 3}}}]}
+                - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, pattern: $XS}}, {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}, {not: {has: {nthChild: {position: 3, ofRule: {not: {kind: 'comment, html_comment'}}}}}}]}
             - all:
                 - has: {field: function, has: {field: property, regex: '^(reduce|reduceRight)$'}}
-                - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $XS}}, {has: {nthChild: 3}}, {not: {has: {nthChild: 4}}}]}
+                - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, pattern: $XS}}, {has: {nthChild: {position: 3, ofRule: {not: {kind: 'comment, html_comment'}}}}}, {not: {has: {nthChild: {position: 4, ofRule: {not: {kind: 'comment, html_comment'}}}}}}]}
     array-type:
         kind: type_annotation
         has:
@@ -132,7 +132,7 @@ rule:
                 - all:
                     - has: {field: property, regex: '^(filter|forEach|join|reduce|reduceRight)$'}
                     - has: {field: object, matches: array-module}
-                    - inside: {kind: call_expression, field: function, has: {field: arguments, has: {nthChild: 1, matches: array-receiver}}}
+                    - inside: {kind: call_expression, field: function, has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: array-receiver}}}
                 - all:
                     - has: {field: property, regex: '^values$'}
                     - has: {field: object, matches: record-module}

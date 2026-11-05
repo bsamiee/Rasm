@@ -10,14 +10,14 @@ utils:
         any:
             - matches: effect-generator-function
             - kind: arrow_function, function_expression
-              nthChild: 1
+              nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}
               inside: {kind: arguments, inside: {matches: thunk-call}}
             - kind: arrow_function, function_expression
               inside:
                 kind: pair
                 field: value
                 has: {field: key, regex: '^try$'}
-                inside: {kind: object, nthChild: 1, inside: {kind: arguments, inside: {matches: thunk-call, has: {field: function, has: {field: property, regex: '^try(Promise)?$'}}}}}
+                inside: {kind: object, nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, inside: {kind: arguments, inside: {matches: thunk-call, has: {field: function, has: {field: property, regex: '^try(Promise)?$'}}}}}
 rule:
     kind: call_expression
     any:

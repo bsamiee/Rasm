@@ -1,8 +1,8 @@
 import { Array, Effect, Match, Option, pipe, Record, Schema, SchemaGetter, Struct } from 'effect';
-import { Application, additions, Enumerated, enumerators, many, member, Open, placings } from '#/cases/precondition';
+import { additions, Enumerated, enumerators, member, Open, placings } from '#/cases/precondition';
 import { Expression } from '#/cases/schema';
 import { JsonObject } from '#/cases/values';
-import { Added, Placed, type Survey } from '#/hosts/adobe/illustrator/contract';
+import { Added, type Contract, Placed } from '#/hosts/adobe/illustrator/contract';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -33,7 +33,7 @@ const kind = (value: Schema.Json, listed: (enumeration: string) => Kind, open: K
                 Match.orElse(() => open),
             ),
     });
-const precondition = (survey: typeof Survey.Type) => {
+const precondition = (survey: typeof Contract.Survey.Type) => {
     const quiet = 'DONTDISPLAYALERTS';
     const checked = enumerators(survey.enumerations);
     const Properties = JsonObject.check(checked());
@@ -70,7 +70,6 @@ const precondition = (survey: typeof Survey.Type) => {
         set: Schema.optionalKey(Schema.Array(Schema.Tuple([Expression, Schema.Json.check(checked())]))),
         add: additions(Added.mapFields(Struct.assign({ properties: Schema.optionalKey(Properties) }))),
     };
-    const kept = <R extends { readonly plugins?: unknown; readonly colorSettings?: Schema.Json }>({ plugins: _, colorSettings, ...held }: R) => ({ ...held, ...(colorSettings === undefined ? {} : { colorSettings: String(colorSettings) }) });
     const created = ({ intent, resolution, language, profile, ...given }: typeof Document.Type) => {
         const reads: Record.ReadonlyRecord<string, string> = { width: 'doc.width', height: 'doc.height', units: 'doc.rulerUnits', colorMode: 'doc.documentColorSpace', numArtboards: 'doc.artboards.length' };
         const posted: { readonly [K in keyof typeof WRITES]: Schema.Json | undefined } = { resolution, language };
@@ -78,18 +77,17 @@ const precondition = (survey: typeof Survey.Type) => {
         const expects = [...Array.getSomes(Record.collect(given, (key, value) => Option.map(Record.get(reads, key), (read) => [read, value] as const))), ...writes, ...Option.toArray(Option.map(Option.fromUndefinedOr(profile), (value) => ['doc.colorProfileName', value] as const))];
         return { preset: String(intent), settings: given, writes, expects };
     };
-    return placings(
-        Placed,
-        { document: Schema.Struct({ document: many(Document), ...rows }), open: Schema.Struct({ open: many(Schema.Union([Open, Opening])), ...rows }), application: Schema.Struct({ application: Application, ...rows }) },
-        {
-            document: ({ document, ...rest }) => ({ ...kept(rest), documents: document.map(created) }),
-            open: ({ open, ...rest }) => ({
-                ...kept(rest),
-                documents: open.map((row) => (typeof row === 'string' ? { open: row, options: {} } : { open: row.file, ...(row.colorSpace === undefined ? {} : { colorSpace: row.colorSpace }), options: Record.getSomes(Record.map(row.options ?? {}, Option.fromUndefinedOr)) })),
-            }),
-            application: ({ application: _, ...rest }) => ({ ...kept(rest), documents: [] }),
-        },
-    );
+    return placings(rows, { document: Document, open: Schema.Union([Open, Opening]) })(Placed, ({ documents, plugins: _, colorSettings, ...rest }) => ({
+        ...rest,
+        ...(colorSettings === undefined ? {} : { colorSettings: String(colorSettings) }),
+        documents: documents.map((row) =>
+            Match.value(row).pipe(
+                Match.when(Match.string, (open) => ({ open, options: {} })),
+                Match.when({ file: Match.string }, ({ file, colorSpace, options = {} }) => ({ open: file, ...(colorSpace === undefined ? {} : { colorSpace }), options: Record.getSomes(Record.map(options, Option.fromUndefinedOr)) })),
+                Match.orElse(created),
+            ),
+        ),
+    }));
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

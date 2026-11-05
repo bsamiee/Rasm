@@ -1,15 +1,13 @@
 import type { Tree } from '@nx/devkit';
-import { Array, Effect, Equal, Match, Option, Predicate, Stream, String } from 'effect';
+import { Array, Effect, Equal, Match, Option, Predicate, String } from 'effect';
 import { type Document, isNode, Pair, parseAllDocuments, parseDocument, Scalar, visit, YAMLMap, YAMLSeq } from 'yaml';
 import { Sgconfig } from '#/eng/typescript/manifest';
-import { runCommand } from '#/eng/typescript/run-command';
-import { decodeTree, syncGenerator, treeText } from '#/tools/nx/sync/tree';
+import { decodeTree, formatted, syncGenerator, treeText, YAML_LAYOUT } from '#/tools/nx/sync/tree';
 import { glob, WorkspaceError } from '#/tools/nx/workspace';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const MIRROR = 'injection-utils';
-const LAYOUT = { indent: 4, lineWidth: 0, flowCollectionPadding: false, singleQuote: true } as const;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -72,7 +70,7 @@ const mirror = (doc: Document, root: YAMLMap, entry: YAMLMap) => {
     const at = placed.findIndex((pair) => named(pair) === 'rule');
     const next = doc.clone();
     next.value = new YAMLMap(root.schema, utils.size === 0 ? placed : [...placed.slice(0, at), new Pair(new Scalar('utils'), utils), ...placed.slice(at)]);
-    return next.toString(LAYOUT);
+    return next.toString(YAML_LAYOUT);
 };
 const mirrored = (entries: readonly YAMLMap[], file: string) => (doc: Document) => {
     const language = Option.flatMap(field(doc.value, 'language'), scalar);
@@ -84,7 +82,7 @@ const mirrored = (entries: readonly YAMLMap[], file: string) => (doc: Document) 
         Predicate.isString,
     );
     return Option.match(Option.all({ root: Option.liftPredicate(doc.value, isMap), wanted: injected }), {
-        onNone: () => Effect.succeed(doc.toString(LAYOUT)),
+        onNone: () => Effect.succeed(doc.toString(YAML_LAYOUT)),
         onSome: ({ root, wanted }) =>
             Effect.map(
                 Effect.fromOption(
@@ -111,8 +109,7 @@ const rows = Effect.fnUntraced(function* (tree: Tree) {
             const current = yield* treeText(tree, file);
             const docs: readonly Document[] = String.includes(MIRROR)(current) ? parseAllDocuments(current) : [];
             const texts = yield* Effect.forEach(docs, mirrored(entries, file));
-            const stdin = Stream.encodeText(Stream.make(texts.join('')));
-            return Array.isReadonlyArrayNonEmpty(texts) ? Option.some({ file, next: yield* runCommand('yamlfmt', ['-conf', '.config/yamlfmt.yaml', '-in'], { cwd: tree.root, stdin }) }) : Option.none();
+            return Array.isReadonlyArrayNonEmpty(texts) ? Option.some({ file, next: yield* formatted(tree, file, texts.join('')) }) : Option.none();
         }),
     );
     return Array.getSomes(written);

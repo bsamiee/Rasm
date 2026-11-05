@@ -19,10 +19,10 @@ utils:
                 - any:
                     - all:
                         - has: {field: function, has: {field: property, regex: '^forkIn$'}}
-                        - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: &argument {not: {kind: comment}}}, not: {kind: object}}}, {not: {has: {nthChild: {position: 2, ofRule: *argument}, not: {matches: fork-options}}}}, {not: {has: {nthChild: {position: 3, ofRule: *argument}}}}]}
+                        - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: &code {not: {kind: 'comment, html_comment'}}}, not: {kind: object}}}, {not: {has: {nthChild: {position: 2, ofRule: *code}, not: {matches: fork-options}}}}, {not: {has: {nthChild: {position: 3, ofRule: *code}}}}]}
                     - all:
                         - has: {field: function, not: {has: {field: property, regex: '^forkIn$'}}}
-                        - has: {field: arguments, all: [{not: {has: {nthChild: {position: 1, ofRule: *argument}, not: {matches: fork-options}}}}, {not: {has: {nthChild: {position: 2, ofRule: *argument}}}}]}
+                        - has: {field: arguments, all: [{not: {has: {nthChild: {position: 1, ofRule: *code}, not: {matches: fork-options}}}}, {not: {has: {nthChild: {position: 2, ofRule: *code}}}}]}
     uninterruptible-effect:
         any:
             - kind: call_expression
@@ -30,7 +30,7 @@ utils:
             - kind: call_expression
               all:
                 - has: {field: function, kind: member_expression, has: {field: property, regex: '^pipe$'}}
-                - has: {field: arguments, has: {matches: uninterruptible, nthChild: {position: 1, reverse: true, ofRule: *argument}}}
+                - has: {field: arguments, has: {matches: uninterruptible, nthChild: {position: 1, reverse: true, ofRule: *code}}}
 rule:
     any:
         - matches: uninterruptible
@@ -38,11 +38,11 @@ rule:
           precedes: {matches: fork-step, pattern: $FORK, stopBy: {not: {regex: '^,$'}}}
         - kind: call_expression
           all:
-            - has: {field: function, regex: '(?-u:\b)(fork|run)', pattern: $HEAD, any: [{matches: fork-member}, {matches: {effect-runner: {name: {regex: '^run(Callback|Fork|Promise|PromiseExit)'}}}}]}
-            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: *argument}, matches: uninterruptible-effect}}
+            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: *code}, matches: uninterruptible-effect}}
+            - has: {field: function, pattern: $HEAD, any: [{matches: fork-member}, {matches: {effect-runner: {name: {regex: '^run(Callback|Fork|Promise|PromiseExit)'}}}}]}
         - kind: call_expression
           all:
             - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^pipe$'}}, {has: {field: object, matches: uninterruptible-effect}}]}
-            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: *argument}, matches: fork-step, pattern: $HEAD}}
+            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: *code}, matches: fork-step, pattern: $HEAD}}
 message: '`$FORK$HEAD` starts its fiber interruptible until its `Effect.uninterruptible` step runs'
 note: 'Pass `{ uninterruptible: true }` to the fork or run call in place of `Effect.uninterruptible`'

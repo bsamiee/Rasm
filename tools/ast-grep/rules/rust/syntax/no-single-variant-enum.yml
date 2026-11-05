@@ -6,7 +6,7 @@ rule:
     all:
         - has: {field: name, pattern: $NAME}
         - has: {field: body, all: [{has: {kind: enum_variant}}, {not: {has: {kind: enum_variant, nthChild: {position: 2, ofRule: {kind: enum_variant}}}}}]}
-        - not: {matches: {rust-attributed: {attribute: {regex: '^#\[\p{Pattern_White_Space}*(serde(?-u:\b)|repr(?-u:\b)|derive\p{Pattern_White_Space}*\([^)]*(?-u:\b)(ValueEnum|EnumString)(?-u:\b))'}}}}
-        - not: {has: {field: body, has: {kind: attribute_item, regex: '^#\[\p{Pattern_White_Space}*serde(?-u:\b)'}}}
+        - not: {matches: {rust-attributed: {attribute: {any: [{has: {kind: attribute, has: {field: path, regex: '^(serde|repr)$'}}}, {matches: {rust-derive: {trait: {regex: '^(ValueEnum|EnumString)$'}}}}]}}}}
+        - not: {has: {field: body, has: {kind: attribute_item, has: {kind: attribute, has: {field: path, pattern: serde}}}}}
 message: '`$NAME` declares one variant'
 note: 'Declare a struct named for the variant holding its data and its thiserror `#[error(..)]` attribute'

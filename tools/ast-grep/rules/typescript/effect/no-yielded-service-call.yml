@@ -10,7 +10,7 @@ rule:
             has:
                 field: object
                 kind: parenthesized_expression
-                has: {nthChild: 1, kind: yield_expression, regex: '^yield[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\*', has: {nthChild: 1, pattern: $SERVICE, any: [{kind: identifier, regex: '^[A-Z]'}, {kind: member_expression, has: {field: property, regex: '^[A-Z]'}}]}}
+                has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, kind: yield_expression, regex: '^yield[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\*', has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, pattern: $SERVICE, any: [{kind: identifier, regex: '^[A-Z]'}, {kind: member_expression, has: {field: property, regex: '^[A-Z]'}}]}}
         - inside: {kind: yield_expression, regex: '^yield[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\*'}
 message: '`$SERVICE` is yielded whole to call one member'
 note: 'Call `<Service>.use((service) => service.<member>(...))`'

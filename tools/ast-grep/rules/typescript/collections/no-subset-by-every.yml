@@ -1,9 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: tsxlang
 severity: error
-utils:
-    module:
-        matches: {effect-module: {name: {regex: '(?-u:\b)[A-Z][^\x00-#%-/:-@\[-\^`{-~\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*$'}}}
 rule:
     kind: call_expression
     all:
@@ -13,7 +10,7 @@ rule:
             - pattern: '$XS.every($X => $S.has($X))'
             - pattern: '$XS.every(($X) => !$S.has($X))'
             - pattern: '$XS.every($X => !$S.has($X))'
-        - not: {has: {field: function, has: {field: object, matches: module}}}
-        - not: {has: {field: arguments, has: {has: {field: body, has: {stopBy: end, kind: member_expression, has: {field: object, pattern: $S, matches: module}}}}}}
+        - not: {has: {field: function, has: {field: object, matches: effect-namespace}}}
+        - not: {has: {field: arguments, has: {has: {field: body, has: {stopBy: end, kind: member_expression, has: {field: object, pattern: $S, matches: effect-namespace}}}}}}
 message: '`$XS.every` tests each element against `$S` by hand'
 note: 'Call `new Set(<list>).isSubsetOf(<set>)`, or `isDisjointFrom` for every element absent'

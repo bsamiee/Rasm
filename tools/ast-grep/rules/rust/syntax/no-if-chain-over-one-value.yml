@@ -4,26 +4,24 @@ severity: error
 utils:
     variant-value:
         any:
-            - {kind: scoped_identifier, has: {field: name, regex: '^[A-Z]'}}
+            - {kind: scoped_identifier, has: {field: name, regex: '^\p{Lu}'}}
             - kind: struct_expression
             - kind: call_expression
               any:
-                - has: {field: function, kind: scoped_identifier, has: {field: name, regex: '^[A-Z]'}}
+                - has: {field: function, kind: scoped_identifier, has: {field: name, regex: '^\p{Lu}'}}
                 - all:
                     - has: {field: function, kind: identifier, regex: '^(Some|Ok|Box)$'}
                     - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}, matches: variant-value}}
             - kind: 'return_expression, parenthesized_expression, reference_expression'
               has: {matches: variant-value}
             - kind: block
-              has: {nthChild: {position: 1, reverse: true}, any: [{matches: variant-value}, {kind: expression_statement, has: {matches: variant-value}}]}
+              has: {nthChild: {position: 1, reverse: true, ofRule: {not: {kind: 'line_comment, block_comment'}}}, any: [{matches: variant-value}, {kind: expression_statement, has: {matches: variant-value}}]}
     pattern-operand:
         any:
             - kind: 'integer_literal, char_literal, boolean_literal, float_literal'
-            - {kind: scoped_identifier, has: {field: name, regex: '^[A-Z]'}}
-            - {kind: identifier, regex: '^[A-Z][A-Z0-9_]+$'}
-            - kind: unary_expression
-              regex: '^-'
-              has: {kind: 'integer_literal, float_literal'}
+            - {kind: scoped_identifier, has: {field: name, regex: '^\p{Lu}'}}
+            - {kind: identifier, regex: '^\p{Lu}[\p{Lu}\p{Nd}_]+$'}
+            - matches: rust-negative-number
             - kind: call_expression
               all:
                 - has: {field: function, kind: identifier, regex: '^(Some|Ok|Err)$'}

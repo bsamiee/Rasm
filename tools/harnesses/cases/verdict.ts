@@ -39,8 +39,8 @@ const loaded = Effect.fn('loaded')(function* (name: string, host: Pick<Harness, 
     const indexed = yield* Option.match(index, { onNone: () => Effect.succeed([]), onSome: (held) => Fact.load(host.Engine, held) });
     return { product, index, indexed, ...(yield* expand(product, file)) };
 });
-const surveyOf = <S extends Surveyed>(host: Pick<Harness<S>, 'survey'>, indexed: readonly Fact[], asking: Asking<unknown>) =>
-    Option.flatMap(Fact.known(indexed, { ...asking, question: host.survey.question, expression: host.survey.question }), ({ answer }) => ('value' in answer ? Schema.decodeOption(host.survey.Schema)(answer.value) : Option.none()));
+const surveyOf = <S extends Surveyed>(host: Pick<Harness<S>, 'question' | 'Survey'>, indexed: readonly Fact[], asking: Asking<unknown>) =>
+    Option.flatMap(Fact.known(indexed, { ...asking, question: host.question, expression: host.question }), ({ answer }) => ('value' in answer ? Schema.decodeOption(host.Survey)(answer.value) : Option.none()));
 
 // --- [REPORTING]
 const order = (rows: readonly Case[]) => Order.mapInput(Number.Order, ({ name }: typeof Outcome.Type) => rows.findIndex((row) => row.name === name));
@@ -100,7 +100,7 @@ const proved = Effect.fn('proved')(
         };
         yield* Option.isNone(done.header) && outcomes.length === 0 ? Effect.void : Effect.andThen(fs.writeFileString(`${target}${RESULTS}`, `${yield* Schema.encodeEffect(Results)(written)}\n`), record('Info', 'results written', { file: `${target}${RESULTS}` }));
         const factOf = (row: Case) => Option.zipWith(Option.flatMap(Record.get(named, row.name), answerOf), keyOf(done.survey)(row), (answer, key): Fact => ({ ...key, answer, asked }));
-        const surveyed: readonly Fact[] = Option.isSome(done.header) && Option.isNone(known) ? [{ ...asking, question: host.survey.question, expression: host.survey.question, host: done.survey.host, answer: { value: bury(yield* Schema.encodeEffect(host.survey.Schema)(done.survey)) }, asked }] : [];
+        const surveyed: readonly Fact[] = Option.isSome(done.header) && Option.isNone(known) ? [{ ...asking, question: host.question, expression: host.question, host: done.survey.host, answer: { value: bury(yield* Schema.encodeEffect(host.Survey)(done.survey)) }, asked }] : [];
         const made = [...surveyed, ...Array.getSomes(rows.map(factOf))];
         yield* Option.match(
             Option.filter(index, () => made.length > 0),

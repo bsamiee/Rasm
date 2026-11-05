@@ -22,7 +22,7 @@ utils:
     scrutinee:
         any:
             - {kind: identifier, pattern: $CHAR}
-            - {kind: unary_expression, regex: '^\*', has: {kind: identifier, pattern: $CHAR}}
+            - {kind: unary_expression, all: [{has: {field: operator, regex: '^\*$'}}, {has: {kind: identifier, pattern: $CHAR}}]}
     char-test:
         kind: binary_expression
         all:

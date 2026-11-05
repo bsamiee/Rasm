@@ -36,7 +36,7 @@ utils:
     fallback-arm:
         kind: match_arm
         all:
-            - has: {field: pattern, kind: match_pattern, regex: '^(_|[a-z_]\p{XID_Continue}*)$'}
+            - has: {field: pattern, kind: match_pattern, regex: '^(_|[_\p{Ll}]\p{XID_Continue}*)$'}
             - has: {field: value, regex: '^\{?\p{Pattern_White_Space}*(return\p{Pattern_White_Space}+)?(Err\p{Pattern_White_Space}*\(|None(?-u:\b))'}
     decode-arms:
         all:

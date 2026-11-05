@@ -7,7 +7,7 @@ utils:
             - kind: call_expression
               all:
                 - has: {field: function, matches: {effect-module-member: {module: {regex: '(?-u:\b)Option$'}, member: {regex: '^is(Some|None)$'}}}}
-                - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $OPTION}}, {not: {has: {nthChild: 2}}}]}
+                - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, pattern: $OPTION}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}}]}
             - kind: unary_expression
               all:
                 - has: {field: operator, regex: '^!$'}
@@ -15,13 +15,13 @@ utils:
 rule:
     any:
         - kind: if_statement
-          has: {field: condition, has: {nthChild: 1, matches: option-test, pattern: $TEST}}
+          has: {field: condition, has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: option-test, pattern: $TEST}}
         - kind: ternary_expression
           all:
             - has:
                 field: condition
                 pattern: $TEST
-                any: [{matches: option-test}, {kind: parenthesized_expression, has: {nthChild: 1, matches: option-test}}]
+                any: [{matches: option-test}, {kind: parenthesized_expression, has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: option-test}}]
             - any:
                 - has: {field: consequence, pattern: $OPTION}
                 - has: {field: alternative, pattern: $OPTION}

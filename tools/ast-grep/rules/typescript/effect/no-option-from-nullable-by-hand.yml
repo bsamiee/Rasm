@@ -15,17 +15,11 @@ utils:
             kind: call_expression
             all:
                 - has: {field: function, matches: decoder}
-                - has: {field: arguments, has: {nthChild: 1, matches: nullable-schema}}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: nullable-schema}}
     decoder:
-        any:
-            - matches: {effect-module-member: {module: {regex: '(?-u:\b)Schema$'}, member: {regex: '^decode(Unknown)?(Sync|Exit|Result|Option|Effect|Promise)$'}}}
-            - kind: identifier
-              matches: {typescript-import-reference: {source: {regex: '^effect/Schema$'}, exported: {regex: '^decode(Unknown)?(Sync|Exit|Result|Option|Effect|Promise)$'}}}
+        matches: {effect-schema-codec: {name: {regex: '^decode'}}}
     synchronous-decoder:
-        any:
-            - matches: {effect-module-member: {module: {regex: '(?-u:\b)Schema$'}, member: {regex: '^decode(Unknown)?Sync$'}}}
-            - kind: identifier
-              matches: {typescript-import-reference: {source: {regex: '^effect/Schema$'}, exported: {regex: '^decode(Unknown)?Sync$'}}}
+        matches: {effect-schema-codec: {name: {regex: '^decode(Unknown)?Sync$'}}}
     lift:
         kind: member_expression
         pattern: $OPTION.$FROM
@@ -37,12 +31,12 @@ utils:
               all:
                 - any:
                     - has: {field: parameter, kind: identifier, pattern: $VALUE}
-                    - has: {field: parameters, all: [{has: {nthChild: 1, kind: required_parameter, has: {field: pattern, kind: identifier, pattern: $VALUE}}}, {not: {has: {nthChild: 2}}}]}
+                    - has: {field: parameters, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, kind: required_parameter, has: {field: pattern, kind: identifier, pattern: $VALUE}}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}}]}
                 - has:
                     field: body
                     kind: call_expression
                     all:
-                        - has: {field: arguments, all: [{has: {nthChild: 1, kind: identifier, pattern: $VALUE}}, {not: {has: {nthChild: 2}}}]}
+                        - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, kind: identifier, pattern: $VALUE}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}}]}
                         - has: {field: function, matches: lift}
     map:
         kind: member_expression
@@ -50,27 +44,27 @@ utils:
     mapped-lift:
         kind: call_expression
         all:
-            - has: {field: arguments, all: [{has: {nthChild: 1, matches: lifting}}, {not: {has: {nthChild: 2}}}]}
+            - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: lifting}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}}}}]}
             - has: {field: function, matches: map}
 rule:
     kind: call_expression
     pattern: $HAND
     any:
         - all:
-            - has: {field: arguments, all: [{has: {nthChild: 1, matches: nullable-decode}}, {has: {nthChild: 2, matches: lifting}}]}
+            - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: nullable-decode}}, {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: lifting}}]}
             - has: {field: function, matches: map}
         - all:
             - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^pipe$'}}, {has: {field: object, matches: nullable-decode}}]}
-            - has: {field: arguments, has: {nthChild: 1, matches: mapped-lift}}
+            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: mapped-lift}}
         - all:
-            - has: {field: arguments, all: [{has: {nthChild: 1, matches: nullable-decode}}, {has: {nthChild: 2, matches: mapped-lift}}]}
+            - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: nullable-decode}}, {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, html_comment'}}}, matches: mapped-lift}}]}
             - has: {field: function, matches: {effect-function: {name: {regex: '^pipe$'}}}}
         - all:
             - has: {field: function, matches: lift}
             - has:
                 field: arguments
                 has:
-                    nthChild: 1
+                    nthChild: {position: 1, ofRule: {not: {kind: 'comment, html_comment'}}}
                     any:
                         - matches: nullable-decode
                           has: {field: function, has: {field: function, matches: synchronous-decoder}}
