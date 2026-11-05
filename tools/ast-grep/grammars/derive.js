@@ -8,6 +8,7 @@ const NEWLINE = 0x0a;
 const CASELESS = { unicode: true, unicodeSets: false, ignoreCase: true };
 const UNICODE = { unicode: true, unicodeSets: false, ignoreCase: false };
 const ASCII = refa.CharSet.fromRange(MAXIMUM, { min: 0, max: ASCII_MAXIMUM });
+const NON_ASCII = refa.CharSet.fromRange(MAXIMUM, { min: ASCII_MAXIMUM + 1, max: MAXIMUM });
 const FLAGS = new Set(['i', 'm', 's', 'x', 'u', 'U', 'R']);
 const CONTROLS = { a: 0x07, f: 0x0c, n: NEWLINE, r: 0x0d, t: 0x09, v: 0x0b };
 const WIDTHS = { x: 2, u: 4, U: 8 };
@@ -248,6 +249,13 @@ const pattern = (fa) => {
     const { source, flags } = refa.JS.toLiteral(fa.toRegex(), { flags: UNICODE, fastCharacters: true });
     return { type: 'PATTERN', value: source, flags };
 };
+const unicode = (rule) =>
+    minimal(
+        refa.NFA.fromTransitionIterator(
+            refa.FAIterators.mapOut(automaton(rule).transitionIterator(), (transitions) => new Map(Array.from(transitions, ([state, characters]) => [state, characters.union(NON_ASCII)]))),
+            { maxCharacter: MAXIMUM },
+        ),
+    );
 
 // --- [CLASSES]
 
@@ -261,7 +269,7 @@ const classes = (grammar) => {
 
 // --- [PREDICATES]
 
-const token = (value) => (rule) => rule.type === 'STRING' && rule.value === value;
+const string = (value) => (rule) => rule.type === 'STRING' && rule.value === value;
 const symbol = (name) => (rule) => rule.type === 'SYMBOL' && rule.name === name;
 const named = (field) => (rule) => rule.type === 'FIELD' && rule.name === field;
 const choiceOf = (matches) => (rule) => rule.type === 'CHOICE' && rule.members.some(matches);
@@ -329,4 +337,4 @@ const extend = (base, { transforms = [], rules = {}, ...options } = {}) =>
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { after, any, automaton, before, children, choiceOf, classes, drop, extend, named, optionalOf, pattern, reaches, rebuild, regex, resolve, rewrite, sets, symbol, token, widen };
+export { after, any, automaton, before, children, choiceOf, classes, drop, extend, named, optionalOf, pattern, reaches, rebuild, regex, resolve, rewrite, sets, string, symbol, unicode, widen };

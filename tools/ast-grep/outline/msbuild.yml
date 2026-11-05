@@ -47,22 +47,22 @@ rule:
         - kind: Attribute
           pattern: $TAG
           all:
-              - has: {kind: Name, regex: '^Sdk$'}
-              - has: {kind: AttValue, pattern: $VALUE}
-              - inside:
-                    kind: STag, EmptyElemTag
-                    has: {kind: Name, regex: '^Project$'}
-                    inside: {kind: element, inside: {kind: document, field: root}}
+            - has: {kind: Name, regex: '^Sdk$'}
+            - has: {kind: AttValue, pattern: $VALUE}
+            - inside:
+                kind: STag, EmptyElemTag
+                has: {kind: Name, regex: '^Project$'}
+                inside: {kind: element, inside: {kind: document, field: root}}
         - kind: element
           has:
-              kind: STag, EmptyElemTag
-              pattern: $TAG
-              all:
-                  - has: {kind: Name, regex: '^Sdk$'}
-                  - has: {kind: Attribute, all: [{has: {kind: Name, regex: '^Name$'}}, {has: {kind: AttValue, pattern: $VALUE}}]}
+            kind: STag, EmptyElemTag
+            pattern: $TAG
+            all:
+                - has: {kind: Name, regex: '^Sdk$'}
+                - has: {kind: Attribute, all: [{has: {kind: Name, regex: '^Name$'}}, {has: {kind: AttValue, pattern: $VALUE}}]}
           inside:
-              kind: content
-              inside: {kind: element, has: {kind: STag, has: {kind: Name, regex: '^Project$'}}, inside: {kind: document, field: root}}
+            kind: content
+            inside: {kind: element, has: {kind: STag, has: {kind: Name, regex: '^Project$'}}, inside: {kind: document, field: root}}
 transform:
     NAME: substring($VALUE, startChar=1, endChar=-1)
 name: $NAME
@@ -111,9 +111,9 @@ rewriters:
       rule: {kind: Name, pattern: $GROUP, inside: {kind: 'STag, EmptyElemTag'}}
       fix: $GROUP
     - id: group-label
-      rule: {kind: AttValue, pattern: $LABEL_VALUE, regex: '^["''][\s\S]+["'']$', inside: {kind: Attribute, has: {kind: Name, regex: '^Label$'}}}
+      rule: {kind: AttValue, pattern: $LABEL_VALUE, regex: '^["''](?s:.+)["'']$', inside: {kind: Attribute, has: {kind: Name, regex: '^Label$'}}}
       transform:
-          LABEL: substring($LABEL_VALUE, startChar=1, endChar=-1)
+        LABEL: substring($LABEL_VALUE, startChar=1, endChar=-1)
       fix: $LABEL
 transform:
     NAME: {rewrite: {source: $TAG, rewriters: [group-name, group-label], joinBy: ' '}}
@@ -173,7 +173,7 @@ rewriters:
     - id: item-specification
       rule: {kind: AttValue, pattern: $ITEM_VALUE, inside: {kind: Attribute, has: {kind: Name, regex: '^(Include|Update|Remove)$'}}}
       transform:
-          SPECIFICATION: substring($ITEM_VALUE, startChar=1, endChar=-1)
+        SPECIFICATION: substring($ITEM_VALUE, startChar=1, endChar=-1)
       fix: $SPECIFICATION
 transform:
     NAME: {rewrite: {source: $TAG, rewriters: [item-name, item-specification], joinBy: ' '}}
@@ -196,9 +196,9 @@ rewriters:
       rule: {kind: Name, pattern: $GROUP, inside: {kind: 'STag, EmptyElemTag'}}
       fix: $GROUP
     - id: group-label
-      rule: {kind: AttValue, pattern: $LABEL_VALUE, regex: '^["''][\s\S]+["'']$', inside: {kind: Attribute, has: {kind: Name, regex: '^Label$'}}}
+      rule: {kind: AttValue, pattern: $LABEL_VALUE, regex: '^["''](?s:.+)["'']$', inside: {kind: Attribute, has: {kind: Name, regex: '^Label$'}}}
       transform:
-          LABEL: substring($LABEL_VALUE, startChar=1, endChar=-1)
+        LABEL: substring($LABEL_VALUE, startChar=1, endChar=-1)
       fix: $LABEL
 transform:
     NAME: {rewrite: {source: $TAG, rewriters: [group-name, group-label], joinBy: ' '}}

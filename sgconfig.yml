@@ -14,6 +14,7 @@ customLanguages:
     csharplang: {libraryPath: .cache/ast-grep/csharp.so, languageSymbol: tree_sitter_c_sharp, extensions: [cs], expandoChar: µ, outlineRules: tools/ast-grep/outline/csharp.yml}
     javalang: {libraryPath: .cache/ast-grep/java.so, languageSymbol: tree_sitter_java, extensions: [java], outlineRules: tools/ast-grep/outline/java.yml}
     pgsql: {libraryPath: .cache/ast-grep/pgsql.so, languageSymbol: tree_sitter_pgsql, extensions: [pgsql], expandoChar: µ}
+    plpgsql: {libraryPath: .cache/ast-grep/plpgsql.so, languageSymbol: tree_sitter_plpgsql, extensions: [plpgsql], expandoChar: µ}
     pythonlang: {libraryPath: .cache/ast-grep/python.so, languageSymbol: tree_sitter_python, extensions: [py, py3, pyi, bzl, bazel], expandoChar: µ, outlineRules: tools/ast-grep/outline/python.yml}
     rustlang: {libraryPath: .cache/ast-grep/rust.so, languageSymbol: tree_sitter_rust, extensions: [rs], expandoChar: µ, outlineRules: tools/ast-grep/outline/rust.yml}
     sql: {libraryPath: .cache/ast-grep/sql.so, languageSymbol: tree_sitter_sql, extensions: [sql], expandoChar: µ, outlineRules: tools/ast-grep/outline/sql.yml}

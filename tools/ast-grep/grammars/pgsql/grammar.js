@@ -1,8 +1,7 @@
 import { Option, Predicate } from 'effect';
-import refa from 'refa';
 import postgres from 'tree-sitter-postgres/postgres/grammar.js';
 import { compose, mandatory } from '../compose.js';
-import { automaton, children, extend, pattern, reaches, rebuild, rewrite, symbol, token } from '../derive.js';
+import { children, extend, pattern, reaches, rebuild, rewrite, string, symbol, unicode } from '../derive.js';
 import tsx from '../typescript/grammar.js';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -111,21 +110,6 @@ const labelled = (rule) => {
     return body.type === 'CHOICE' ? rewrite(rule, (part) => (part === body ? rebuild(part, part.members.map(placed)) : part)) : placed(rule);
 };
 
-// --- [IDENTIFIER]
-
-const widened = () => {
-    const word = automaton(RULES[postgres.grammar.word]);
-    const above = refa.CharSet.fromRange(word.maxCharacter, { min: 0x80, max: word.maxCharacter });
-    const dfa = refa.DFA.fromFA(
-        refa.NFA.fromTransitionIterator(
-            refa.FAIterators.mapOut(word.transitionIterator(), (transitions) => new Map(Array.from(transitions, ([state, characters]) => [state, characters.union(above)]))),
-            { maxCharacter: word.maxCharacter },
-        ),
-    );
-    dfa.minimize();
-    return pattern(dfa);
-};
-
 // --- [SPLITS]
 
 const within = (rule, apply) => (rule.type.startsWith('PREC') ? rebuild(rule, [within(rule.content, apply)]) : apply(rule));
@@ -164,7 +148,7 @@ const trailing = ($, rule, text) =>
     choice(
         rule,
         ...arms(rule)
-            .filter((arm) => reaches(arm, token(text)))
+            .filter((arm) => reaches(arm, string(text)))
             .map((arm) => within(arm, (body) => seq(body.members[0], $.substitution))),
     );
 
@@ -178,7 +162,7 @@ const dialect = extend(postgres, {
         ...split('CommentStmt', 'comment_target'),
         ...split('returning_clause', 'returning_list'),
         ...split('AlterTSConfigurationStmt', 'alter_ts_configuration_cmd'),
-        [postgres.grammar.word]: widened,
+        [postgres.grammar.word]: () => pattern(unicode(RULES[postgres.grammar.word])),
     },
 });
 

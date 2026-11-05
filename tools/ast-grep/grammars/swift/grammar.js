@@ -1,5 +1,5 @@
 import swift from 'tree-sitter-swift/grammar.js';
-import { after, before, children, extend, token as literal, named, rewrite, symbol, widen } from '../derive.js';
+import { after, before, children, extend, named, rewrite, string, symbol, widen } from '../derive.js';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -40,8 +40,8 @@ export default extend(swift, {
         _external_function_modifiers: ($) => seq(repeat(swift.grammar.rules.modifiers.content), alias($._external_function_attribute, $.attribute), repeat(swift.grammar.rules.modifiers.content)),
         _external_function_attribute: ($) => seq('@', alias($._external_function_name, $.user_type), '(', optional(seq($._attribute_argument, repeat(seq(',', $._attribute_argument)))), ')'),
         _external_function_name: ($) => alias(choice('_silgen_name', '_extern'), $.type_identifier),
-        getter_specifier: widen(literal('get'), '_read', 'borrow', seq('yielding', 'borrow')),
-        modify_specifier: widen(literal('_modify'), 'mutate', seq('yielding', 'mutate')),
+        getter_specifier: widen(string('get'), '_read', 'borrow', seq('yielding', 'borrow')),
+        modify_specifier: widen(string('_modify'), 'mutate', seq('yielding', 'mutate')),
         protocol_property_requirements: widen(symbol('setter_specifier'), ($) => $.modify_specifier),
         computed_property: widen(symbol('computed_modify'), ($) => $.computed_init),
         computed_init: ($) => seq(repeat($.attribute), 'init', optional(seq('(', field('name', $.simple_identifier), ')')), $._block),

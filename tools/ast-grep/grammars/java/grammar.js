@@ -1,5 +1,5 @@
 import java from 'tree-sitter-java/grammar.js';
-import { after, before, choiceOf, extend, optionalOf, reaches, symbol, token, widen } from '../derive.js';
+import { after, before, choiceOf, extend, optionalOf, reaches, string, symbol, widen } from '../derive.js';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -24,7 +24,7 @@ export default extend(java, {
             optionalOf(invocation),
             ($, statements, prologue) => [statements, after(invocation, () => statements)($, prologue)],
         ),
-        annotation_type_body: widen(choiceOf(token(';')), ($) => $.record_declaration),
+        annotation_type_body: widen(choiceOf(string(';')), ($) => $.record_declaration),
         switch_label: ($, original) => choice(original, seq('case', $.pattern, repeat1(seq(',', $.pattern)), optional($.guard)), prec(1, seq('case', $.null_literal, ',', 'default'))),
         record_pattern: ($, original) => choice(original, seq($.scoped_type_identifier, $.record_pattern_body)),
         type_pattern: binding,
@@ -35,7 +35,7 @@ export default extend(java, {
         receiver_parameter: (_, original) => prec.dynamic(1, original),
         spread_parameter: moved(
             (member) => reaches(member, symbol('_annotation')),
-            token('...'),
+            string('...'),
             (_, annotations, ellipsis) => [annotations, ellipsis],
         ),
     },

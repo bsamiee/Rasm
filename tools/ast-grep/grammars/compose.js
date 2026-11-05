@@ -1,3 +1,4 @@
+import { Array, Filter, Record } from 'effect';
 import refa from 'refa';
 import { any, automaton, children, classes, named, pattern, reaches, rebuild, resolve, rewrite, symbol, widen } from './derive.js';
 
@@ -91,7 +92,7 @@ const renaming = (rename, raised) => {
 // --- [IDENTIFIERS]
 
 const powerset = (count) => (count === 0 ? [[]] : powerset(count - 1).flatMap((members) => [members, [...members, count - 1]]));
-const subsets = (count) => powerset(count).filter((members) => members.length > 0);
+const subsets = (count) => powerset(count).filter(Array.isReadonlyArrayNonEmpty);
 const regions = (languages) => {
     const words = languages.map(({ word }) => minimal(word));
     const outside = words.map(complement);
@@ -182,11 +183,14 @@ const compose = (base, { name, hosts, fragments, slots = {}, rules = {}, conflic
     const parts = hosts.map(({ grammar: { grammar: host }, entry, hole }, index) => {
         const others = vocabularies.filter((_, at) => at !== index + 1);
         const survivors = [...extraNames(host)].filter((extra) => external(host, extra) || !collides(host, host.rules[extra], others));
-        const trivia = survivors.filter((extra) => external(host, extra));
+        const [trivia, kept] = Array.partition(
+            survivors,
+            Filter.fromPredicate((extra) => external(host, extra)),
+        );
         const prefix = prefixer(host.name);
         const rename = (rule) => (trivia.includes(rule) ? HOST_COMMENT : prefix(rule));
         const context = Object.keys(host.reserved ?? {}).length > 0 ? rename(Object.keys(host.reserved)[0]) : host.name;
-        return { host, entry, hole, rename, walk: renaming(rename, raised), context, comments: survivors.filter((extra) => !external(host, extra)) };
+        return { host, entry, hole, rename, walk: renaming(rename, raised), context, comments: kept };
     });
     const languages = [dialect, ...parts.map(({ host }) => host)].map((grammar) => ({ name: grammar.name, word: automaton(grammar.rules[grammar.word]) }));
     const zones = regions(languages);
@@ -195,15 +199,13 @@ const compose = (base, { name, hosts, fragments, slots = {}, rules = {}, conflic
     const whitespace = parts.reduce((held, { host }) => held.union(classes(host).whitespace.characters), refa.CharSet.empty(MAXIMUM)).without(classes(dialect).whitespace.characters);
     const [dialectContext] = Object.keys(dialect.reserved ?? {});
     const comments = parts.flatMap(({ rename, comments: held }) => held.map((comment) => [rename, comment]));
-    const overrides = Object.fromEntries(
-        [...new Set([...Object.keys(rules), ...Object.keys(slots)])].map((rule) => [
-            rule,
-            ($, original) => {
-                const defined = (rules[rule] ?? ((_, held) => held))($, original);
-                return slots[rule] === undefined ? defined : slotted(dialect, slots, rule, slots[rule])($, defined);
-            },
-        ]),
-    );
+    const overrides = Record.fromIterableWith(new Set([...Object.keys(rules), ...Object.keys(slots)]), (rule) => [
+        rule,
+        ($, original) => {
+            const defined = (rules[rule] ?? ((_, held) => held))($, original);
+            return slots[rule] === undefined ? defined : slotted(dialect, slots, rule, slots[rule])($, defined);
+        },
+    ]);
     return grammar(base, {
         name,
         externals: (_, original) => [...original, ...parts.flatMap(({ host, rename }) => host.externals.map((rule) => (rule.type === 'SYMBOL' ? sym(rename(rule.name)) : rule)))],
@@ -212,11 +214,11 @@ const compose = (base, { name, hosts, fragments, slots = {}, rules = {}, conflic
         supertypes: ($, original) => [...original, ...parts.flatMap(({ host, rename }) => host.supertypes.map((rule) => $[rename(rule)]))],
         conflicts: ($, original) => [...original, ...conflicts($), ...parts.flatMap((part) => renamedConflicts($, part))],
         precedences: (_, original) => [...original, ...parts.flatMap(renamedPrecedences)],
-        reserved: Object.fromEntries(parts.flatMap(({ host, rename, walk, context }) => (Object.keys(host.reserved ?? {}).length > 0 ? Object.entries(host.reserved).map(([set, words]) => [rename(set), () => words.map(walk)]) : [[context, () => []]]))),
+        reserved: Object.fromEntries(parts.flatMap(({ host, rename, walk, context }) => (Object.keys(host.reserved ?? {}).length > 0 ? Record.collect(host.reserved, (set, words) => [rename(set), () => words.map(walk)]) : [[context, () => []]]))),
         word: ($) => $[common],
         rules: {
-            ...Object.fromEntries(parts.flatMap(({ host, rename, walk }) => Object.entries(host.rules).map(([rule, body]) => [rename(rule), () => walk(body)]))),
-            ...Object.fromEntries(zones.map(({ name: zone, dfa }) => [zone, () => pattern(dfa)])),
+            ...Object.fromEntries(parts.flatMap(({ host, rename, walk }) => Record.collect(host.rules, (rule, body) => [rename(rule), () => walk(body)]))),
+            ...Record.fromIterableWith(zones, ({ name: zone, dfa }) => [zone, () => pattern(dfa)]),
             [dialect.word]: ($) => identifier($, dialect.word, dialectContext, owned(0), common),
             ...Object.fromEntries(parts.map(({ host, rename, context }, index) => [rename(host.word), ($) => identifier($, rename(host.word), context, owned(index + 1), common)])),
             ...(whitespace.isEmpty ? {} : { [HOST_WHITESPACE]: () => pattern(refa.DFA.fromCharSet(whitespace)) }),

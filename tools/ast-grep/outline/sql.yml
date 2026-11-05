@@ -17,7 +17,7 @@ rewriters:
       fix: ' '
 transform:
     HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
-    FOLDED: {replace: {source: $HEADER, replace: '[\t\n\f\r ]+', by: ' '}}
+    FOLDED: {replace: {source: $HEADER, replace: '[\t\n\f\r \x{FEFF}]+', by: ' '}}
     SIGNATURE: {replace: {source: $FOLDED, replace: '^ | $', by: ''}}
 name: $NAME
 signature: $SIGNATURE
@@ -37,7 +37,7 @@ rewriters:
       fix: ' '
 transform:
     HEADER: {rewrite: {source: $DECLARATION, rewriters: [trivia]}}
-    SIGNATURE: {replace: {source: $HEADER, replace: '[\t\n\f\r ]+', by: ' '}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '[\t\n\f\r \x{FEFF}]+', by: ' '}}
 name: $NAME
 signature: $SIGNATURE
 ---
@@ -64,10 +64,10 @@ rewriters:
       fix: ' '
 transform:
     LABEL: {rewrite: {source: $UNNAMED, rewriters: [target]}}
-    FOLDED: {replace: {source: $LABEL, replace: '[\t\n\f\r ]+', by: ' '}}
+    FOLDED: {replace: {source: $LABEL, replace: '[\t\n\f\r \x{FEFF}]+', by: ' '}}
     KIND: {replace: {source: $FOLDED, replace: ' (\()| $', by: '$1'}}
     HEADER: {rewrite: {source: $DECLARATION, rewriters: [trivia]}}
-    SIGNATURE: {replace: {source: $HEADER, replace: '[\t\n\f\r ]+', by: ' '}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '[\t\n\f\r \x{FEFF}]+', by: ' '}}
 name: $NAME$KIND
 signature: $SIGNATURE
 ---
@@ -80,7 +80,7 @@ rule:
     kind: vtab_module_arg
     pattern: $ARGUMENT
 transform:
-    NAME: {replace: {source: $ARGUMENT, replace: '^[\t\n\f\r ]+|[\t\n\f\r ]+$', by: ''}}
+    NAME: {replace: {source: $ARGUMENT, replace: '^[\t\n\f\r \x{FEFF}]+|[\t\n\f\r \x{FEFF}]+$', by: ''}}
 name: $NAME
 ---
 id: sql-view
@@ -102,7 +102,7 @@ rewriters:
       fix: ' '
 transform:
     HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
-    FOLDED: {replace: {source: $HEADER, replace: '[\t\n\f\r ]+', by: ' '}}
+    FOLDED: {replace: {source: $HEADER, replace: '[\t\n\f\r \x{FEFF}]+', by: ' '}}
     SIGNATURE: {replace: {source: $FOLDED, replace: '^ | $', by: ''}}
 name: $NAME
 signature: $SIGNATURE
@@ -145,7 +145,7 @@ rewriters:
       fix: ' '
 transform:
     HEADER: {rewrite: {source: $DECLARATION, rewriters: [trivia]}}
-    SIGNATURE: {replace: {source: $HEADER, replace: '[\t\n\f\r ]+', by: ' '}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '[\t\n\f\r \x{FEFF}]+', by: ' '}}
 name: $NAME
 signature: $SIGNATURE
 ---
@@ -169,7 +169,7 @@ rewriters:
       fix: ' '
 transform:
     HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
-    FOLDED: {replace: {source: $HEADER, replace: '[\t\n\f\r ]+', by: ' '}}
+    FOLDED: {replace: {source: $HEADER, replace: '[\t\n\f\r \x{FEFF}]+', by: ' '}}
     SIGNATURE: {replace: {source: $FOLDED, replace: '^ | $', by: ''}}
 name: $NAME
 signature: $SIGNATURE
@@ -199,9 +199,9 @@ rewriters:
             - {regex: '(?i)^(set|,)$', inside: {kind: update_statement}}
       fix: ' '
 transform:
-    NAME: {replace: {source: $SUBJECT, replace: '[\t\n\f\r ]+', by: ' '}}
+    NAME: {replace: {source: $SUBJECT, replace: '[\t\n\f\r \x{FEFF}]+', by: ' '}}
     HEADER: {rewrite: {source: $DECLARATION, rewriters: [clause]}}
-    FOLDED: {replace: {source: $HEADER, replace: '[\t\n\f\r ]+', by: ' '}}
+    FOLDED: {replace: {source: $HEADER, replace: '[\t\n\f\r \x{FEFF}]+', by: ' '}}
     SIGNATURE: {replace: {source: $FOLDED, replace: '^ | $', by: ''}}
 name: $NAME
 signature: $SIGNATURE
@@ -232,9 +232,9 @@ rewriters:
             - {regex: '(?i)^(set|,)$', inside: {kind: update_statement}}
       fix: ' '
 transform:
-    NAME: {replace: {source: $SUBJECT, replace: '[\t\n\f\r ]+', by: ' '}}
+    NAME: {replace: {source: $SUBJECT, replace: '[\t\n\f\r \x{FEFF}]+', by: ' '}}
     HEADER: {rewrite: {source: $DECLARATION, rewriters: [clause]}}
-    FOLDED: {replace: {source: $HEADER, replace: '[\t\n\f\r ]+', by: ' '}}
+    FOLDED: {replace: {source: $HEADER, replace: '[\t\n\f\r \x{FEFF}]+', by: ' '}}
     SIGNATURE: {replace: {source: $FOLDED, replace: '^ | $', by: ''}}
 name: $NAME
 signature: $SIGNATURE
@@ -266,7 +266,7 @@ rewriters:
       fix: ' '
 transform:
     HEADER: {rewrite: {source: $DECLARATION, rewriters: [body]}}
-    FOLDED: {replace: {source: $HEADER, replace: '[\t\n\f\r ]+', by: ' '}}
+    FOLDED: {replace: {source: $HEADER, replace: '[\t\n\f\r \x{FEFF}]+', by: ' '}}
     SIGNATURE: {replace: {source: $FOLDED, replace: '^ | $', by: ''}}
 name: $NAME
 signature: $SIGNATURE

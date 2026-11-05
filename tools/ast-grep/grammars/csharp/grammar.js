@@ -1,5 +1,6 @@
+import { Record } from 'effect';
 import csharp from 'tree-sitter-c-sharp/grammar.js';
-import { after, any, children, choiceOf, extend, token as literal, named, optionalOf, rewrite, symbol, widen } from '../derive.js';
+import { after, any, children, choiceOf, extend, named, optionalOf, rewrite, string, symbol, widen } from '../derive.js';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -17,9 +18,9 @@ const LINE_REST = /[^\s](?:[^\r\n]*[^\s])?/u;
 
 const precedence = (rule) => csharp.grammar.rules[rule].value;
 const replaced = (matches, replacement) => ($, original) => rewrite(original, (part) => (matches(part) ? replacement($) : part));
-const modifiers = optionalOf(choiceOf(literal('out')));
+const modifiers = optionalOf(choiceOf(string('out')));
 const operand = choiceOf(symbol('declaration_expression'));
-const declaring = (modifier) => (part) => (symbol('declaration_expression')(part) ? seq(children(modifier).flatMap(children).find(literal('out')), part) : seq(modifier, part));
+const declaring = (modifier) => (part) => (symbol('declaration_expression')(part) ? seq(children(modifier).flatMap(children).find(string('out')), part) : seq(modifier, part));
 const modified = (members) => members.filter((part) => !modifiers(part)).map((part) => (operand(part) ? choice(...children(part).map(declaring(members.find(modifiers)))) : part));
 
 // --- [LITERALS]
@@ -38,7 +39,7 @@ const bodies = {
     '=': ($) => [name($, '='), optional($._directive_space), token.immediate('='), optional(seq(optional($._directive_space), value($, LINE_REST)))],
     '': ($) => [name($, '')],
 };
-const directive = ($, [kind, separator]) => seq('#:', optional($._directive_space), field('kind', alias(token.immediate(kind), $.directive_kind)), $._directive_space, ...bodies[separator]($), ...metadata($, kind), optional($._directive_space));
+const directive = ($, kind, separator) => seq('#:', optional($._directive_space), field('kind', alias(token.immediate(kind), $.directive_kind)), $._directive_space, ...bodies[separator]($), ...metadata($, kind), optional($._directive_space));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
@@ -54,19 +55,19 @@ export default extend(csharp, {
     ],
     rules: {
         _top_level_item: ($, original) => choice(original, $.file_based_directive),
-        file_based_directive: ($) => choice(...Object.entries(DIRECTIVE_SEPARATORS).map((entry) => directive($, entry))),
+        file_based_directive: ($) => choice(...Record.collect(DIRECTIVE_SEPARATORS, (kind, separator) => directive($, kind, separator))),
         directive_metadata: ($) => seq(field('name', alias(token.immediate(METADATA_NAME), $.directive_name)), token.immediate('='), optional(value($, choice(BARE[''], QUOTED)))),
         _directive_space: () => token.immediate(prec(1, DIRECTIVE_SPACE)),
         _reserved_identifier: (_, original) => choice(original, 'allows', 'with', 'union', 'closed', 'safe'),
-        modifier: widen(choiceOf(literal('public')), 'closed', 'safe'),
+        modifier: widen(choiceOf(string('public')), 'closed', 'safe'),
         type_declaration: ($, original) => choice(original, $.union_declaration),
         declaration: ($, original) => choice(original, $.union_declaration),
         union_declaration: ($) => prec.dynamic(1, seq(repeat($._attribute_list), repeat($.modifier), 'union', field('name', $.identifier), optional($.type_parameter_list), $.union_case_list, optional($.base_list), repeat($.type_parameter_constraints_clause), $._declaration_list_body)),
         union_case_list: ($) => seq('(', $.type, repeat(seq(',', $.type)), ')'),
-        _struct_declaration_initializer: after(literal('ref'), optional('partial')),
+        _struct_declaration_initializer: after(string('ref'), optional('partial')),
         _extension_member_declaration: ($, original) => choice(original, $.indexer_declaration),
-        break_statement: after(literal('break'), ($) => optional($.identifier)),
-        continue_statement: after(literal('continue'), ($) => optional($.identifier)),
+        break_statement: after(string('break'), ($) => optional($.identifier)),
+        continue_statement: after(string('continue'), ($) => optional($.identifier)),
         declaration_pattern: ($, original) => choice(original, prec(precedence('with_expression') + 1, seq(field('type', $.type), field('name', alias('with', $.identifier))))),
         type_parameter_constraint: (_, original) => choice(original, seq('allows', 'ref', 'struct')),
         _parameter_type_with_modifiers: ($, original) => choice(original, seq(prec.left(precedence('argument') + 1, alias(choice('in', 'out'), $.modifier)), field('type', $.type))),

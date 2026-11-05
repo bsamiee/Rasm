@@ -28,7 +28,7 @@ interface Delta {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const [{ characters: PRINTABLE }] = sets(regex('[\\t-\\r -~]'));
+const [{ characters: PRINTABLE }, { characters: ASCII }] = sets(regex('[\\t-\\r -~]|[\\x{0}-\\x{7F}]'));
 const TRANSFORM = /^replace\(.*?[(,]\p{White_Space}*replace=(?<quote>['"])(?<pattern>.*?)\k<quote>/su;
 const SHOWN = 4;
 const RELATIONS: Readonly<Record<string, string>> = { 'false:true': 'narrower than', 'true:false': 'wider than', 'false:false': 'different from' };
@@ -57,14 +57,17 @@ const judged = (characters: CharSet, fact: CharSet) =>
         Option.map((side): Delta => ({ missing: fact.without(side), extra: side.without(fact) })),
     );
 const described = ({ missing, extra }: Delta) => [`is ${RELATIONS[`${missing.isEmpty}:${extra.isEmpty}`]} the grammar's`, ...(missing.isEmpty ? [] : [`lacks ${shown(missing)}`]), ...(extra.isEmpty ? [] : [`adds ${shown(extra)}`])].join(', ');
+const spelled = (site: Site, node: ClassNode) => [...site.pattern].slice(node.source.start, node.source.end).join('');
 const finding =
     (site: Site, node: ClassNode) =>
     (fact: string, { characters }: { readonly characters: CharSet }) =>
-        Option.map(judged(node.characters, characters), (delta) => `${site.file}:${site.line}: ${site.language} ${fact} class ${[...site.pattern].slice(node.source.start, node.source.end).join('')} ${described(delta)}`);
-const findings = (site: Site, facts: Facts) => {
-    const nodes: readonly ClassNode[] = sets(regex(site.pattern));
-    return nodes.filter(({ perl }) => !perl).flatMap((node) => Array.getSomes(Record.collect(facts, finding(site, node))));
-};
+        Option.map(judged(node.characters, characters), (delta) => `${site.file}:${site.line}: ${site.language} ${fact} class ${spelled(site, node)} ${described(delta)}`);
+const findings = (site: Site, facts: Facts) =>
+    (sets(regex(site.pattern)) as readonly ClassNode[]).flatMap((node) =>
+        node.perl && !node.characters.isSubsetOf(ASCII)
+            ? [`${site.file}:${site.line}: ${site.language} class ${spelled(site, node)} holds a Unicode Perl class, which no grammar states`]
+            : Array.getSomes(Record.collect(facts, finding(site, node))),
+    );
 
 // --- [DOCUMENTS]
 
@@ -101,6 +104,6 @@ const check = Effect.gen(function* () {
     const files = [...Array.getSomes(Object.values(customLanguages).map(Struct.get('outlineRules'))), ...folders.flat()];
     const read = (file: string) => Effect.map(fs.readFileString(file), (text) => inspected(file, text, facts));
     const found = (yield* Effect.forEach(files, read, { concurrency: 'unbounded' })).flat();
-    return yield* Array.match(found, { onEmpty: () => Effect.void, onNonEmpty: (lines) => Effect.fail(new Cause.UnknownError(lines, lines.join('\n'))) });
+    return yield* Array.match(found, { onEmpty: () => Effect.void, onNonEmpty: (lines) => Effect.fail(new Cause.UnknownError(undefined, lines.join('\n'))) });
 });
 check.pipe(Effect.provide(layer), runMain);

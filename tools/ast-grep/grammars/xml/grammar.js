@@ -5,7 +5,6 @@ import { children, extend } from '../derive.js';
 
 export default extend(xml, {
     rules: {
-        AttValue: ($, original) =>
-            choice(...children(original).map(({ members: [open, { content }, close] }) => seq(open, optional(field('value', alias(repeat1(content.content), $.AttText))), close))),
+        AttValue: ($, original) => choice(...children(original).map(({ members: [open, { content }, close] }) => seq(open, optional(field('value', alias(repeat1(content.content), $.AttText))), close))),
     },
 });

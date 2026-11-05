@@ -2,7 +2,7 @@ import refa from 'refa';
 import sqlite from 'tree-sitter-sqlite3/grammar.js';
 import { compose, keywords, mandatory } from '../compose.js';
 import csharp from '../csharp/grammar.js';
-import { automaton, children, extend, token as literal, named, pattern, reaches, rewrite, symbol } from '../derive.js';
+import { automaton, children, extend, named, pattern, reaches, rewrite, string, symbol, unicode } from '../derive.js';
 import tsx from '../typescript/grammar.js';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -14,12 +14,7 @@ const TRIVIA = ['\f', BYTE_ORDER_MARK];
 
 // --- [IDENTIFIER]
 
-const word = automaton(sqlite.grammar.rules[sqlite.grammar.word]);
-const nonAscii = refa.CharSet.fromRange(word.maxCharacter, { min: 0x80, max: word.maxCharacter });
-const widened = refa.NFA.fromTransitionIterator(
-    refa.FAIterators.mapOut(word.transitionIterator(), (transitions) => new Map(Array.from(transitions, ([state, characters]) => [state, characters.union(nonAscii)]))),
-    { maxCharacter: word.maxCharacter },
-);
+const widened = unicode(sqlite.grammar.rules[sqlite.grammar.word]);
 const marked = refa.DFA.fromFA(
     automaton({
         type: 'SEQ',
@@ -67,7 +62,7 @@ export default compose(dialect, {
     rules: {
         _function_name: () => choice(...children(sqlite.grammar.rules._id).filter((member) => !reaches(member, symbol('string_literal')))),
         function_call: ($, original) => rewrite(original, (rule) => (named('name')(rule) ? field('name', $._function_name) : rule)),
-        in_list_expression: ($, original) => choice(original, prec.left(original.value, seq(...original.content.members.slice(0, original.content.members.findIndex(literal('('))), field('values', $.substitution)))),
+        in_list_expression: ($, original) => choice(original, prec.left(original.value, seq(...original.content.members.slice(0, original.content.members.findIndex(string('('))), field('values', $.substitution)))),
         _select_core: ($, original) => {
             const trailing = original.members.slice(original.members.findIndex((member) => reaches(member, named('order_by'))));
             return choice(original, seq($.substitution, choice(...trailing.map((member, index) => seq(mandatory(member), ...trailing.slice(index + 1))))));
