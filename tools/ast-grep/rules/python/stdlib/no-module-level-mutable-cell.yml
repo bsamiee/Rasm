@@ -21,7 +21,7 @@ rule:
     kind: assignment
     pattern: $CELL
     all:
-        - has: {field: left, kind: identifier, not: {regex: '^__all__$'}}
+        - has: {field: left, kind: identifier, not: {pattern: __all__}}
         - has: {field: right, any: [{matches: empty-literal}, {matches: empty-builtin}, {matches: factory}]}
         - inside: {kind: expression_statement, inside: {kind: module}}
 message: '`$CELL` holds process state in a module cell'

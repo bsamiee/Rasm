@@ -4,9 +4,7 @@ severity: error
 rule:
     pattern: $SITE
     any:
-        - kind: type_identifier
-          regex: '^NSRegularExpression$'
-        - kind: simple_identifier
+        - kind: 'type_identifier, simple_identifier'
           regex: '^NSRegularExpression$'
         - kind: value_argument
           all:

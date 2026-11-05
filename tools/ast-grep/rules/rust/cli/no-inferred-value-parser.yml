@@ -6,11 +6,11 @@ utils:
         kind: identifier
         all:
             - any:
-                - regex: '^value_parser$'
+                - pattern: value_parser
                   precedes: {regex: '^!$'}
                 - regex: '^(string|os_string|path_buf|bool)$'
-                  follows: {regex: '^::$', follows: {kind: identifier, regex: '^ValueParser$'}}
-                - regex: '^new$'
+                  follows: {regex: '^::$', follows: {pattern: ValueParser}}
+                - pattern: new
                   follows: {regex: '^::$', follows: {stopBy: {regex: '^[,=]$'}, kind: identifier, regex: '^(String|OsString|PathBuf|Bool|Enum)ValueParser$'}}
             - not: {precedes: {stopBy: {regex: '^,$'}, regex: '^\.$'}}
 rule:

@@ -13,7 +13,7 @@ rule:
             kind: module, function_definition, class_definition
             stopBy: end
             has:
-                stopBy: {kind: "function_definition, class_definition, lambda"}
+                stopBy: {not: {kind: 'module, block, if_statement, elif_clause, else_clause, for_statement, while_statement, try_statement, except_clause, finally_clause, with_statement, match_statement, case_clause, decorated_definition, import_statement'}}
                 kind: dotted_name, aliased_import, import_from_statement
                 any:
                     - kind: dotted_name

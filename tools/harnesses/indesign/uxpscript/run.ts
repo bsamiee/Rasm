@@ -14,7 +14,7 @@ const STACK_LINE = /<anonymous>:(?<line>\d+):\d+/gu;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const scripted = (item: Item): item is Scripted => !HostCase.guards.Panel(item);
+const scripted = (item: Item): item is Scripted => !HostCase.isAnyOf(['Panel'])(item);
 const strings = (value: unknown): readonly string[] => Option.getOrElse(Schema.decodeUnknownOption(Strings)(value), () => []);
 const lines = (error: unknown) => Array.map(Array.fromIterable(String(field(error, 'stack') ?? '').matchAll(STACK_LINE)), (found) => Number(found.groups?.line));
 const HEAD = (() => {
@@ -168,7 +168,7 @@ const answered = (batch: Batch): typeof Reply.Type => {
         };
         const appended = (line: string) => fs.writeFileSync(batch.records, `${String(fs.readFileSync(batch.records, { encoding: 'utf-8' }))}${line}\n`);
         const [run, after] = Array.span(batch.cases.slice(batch.from), scripted);
-        const started = (index: number) => appended(Result.getOrThrow(written({ _tag: 'Started', index })));
+        const started = (at: number) => appended(Result.getOrThrow(written({ _tag: 'Started', index: at })));
         run.forEach((item, at) => {
             started(batch.from + at);
             appended(Result.getOrThrow(Result.orElse(written({ _tag: 'Finished', outcome: outcomeOf(item, batch, found, coder) }), ({ message: reason }) => written({ _tag: 'Finished', outcome: HostOutcome.make({ name: item.name, completion: { _tag: 'Failed', reason } }) }))));

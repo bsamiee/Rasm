@@ -6,12 +6,12 @@ utils:
         any:
             - {kind: 'control_transfer_statement, assignment', has: {field: result, matches: swift-failure-call}}
             - kind: call_expression
-              has: {kind: call_suffix, not: {has: {kind: lambda_literal}}, has: {kind: value_arguments, not: {has: {nthChild: 2}}, has: {kind: value_argument, has: {field: value, matches: swift-failure-call}}}}
+              has: {kind: call_suffix, not: {has: {kind: lambda_literal}}, has: {kind: value_arguments, not: {has: {nthChild: {position: 2, ofRule: {kind: value_argument}}}}, has: {kind: value_argument, has: {field: value, matches: swift-failure-call}}}}
     recovered-statement:
         any:
             - {kind: control_transfer_statement, has: {field: result, matches: swift-success-call}}
             - kind: call_expression
-              has: {kind: call_suffix, not: {has: {kind: lambda_literal}}, has: {kind: value_arguments, not: {has: {nthChild: 2}}, has: {kind: value_argument, has: {field: value, matches: swift-success-call}}}}
+              has: {kind: call_suffix, not: {has: {kind: lambda_literal}}, has: {kind: value_arguments, not: {has: {nthChild: {position: 2, ofRule: {kind: value_argument}}}}, has: {kind: value_argument, has: {field: value, matches: swift-success-call}}}}
             - kind: assignment
     failure-catch:
         kind: catch_block

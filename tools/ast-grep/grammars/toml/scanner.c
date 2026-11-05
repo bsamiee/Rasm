@@ -1,6 +1,3 @@
-#include <stdbool.h>
-#include <stdint.h>
-
 #define tree_sitter_toml_external_scanner_scan(...) toml_upstream_scan(__VA_ARGS__)
 
 #include "@tree-sitter-grammars/tree-sitter-toml/src/scanner.c"

@@ -13,7 +13,7 @@ utils:
     timeline-schedule:
         kind: value_argument
         nthChild: 1
-        inside: {kind: value_arguments, inside: {kind: call_suffix, inside: {kind: call_expression, has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '^(SwiftUI(\.|::))?TimelineView$'}}}}
+        inside: {kind: value_arguments, inside: {kind: call_suffix, inside: {kind: call_expression, has: {nthChild: 1, regex: '^(SwiftUI(\.|::))?TimelineView$'}}}}
 rule:
     pattern: $READ
     any:

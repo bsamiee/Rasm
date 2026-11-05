@@ -63,6 +63,7 @@ Rasm/
 ├── .editorconfig             # Editor settings and .NET formatting options
 ├── .gitattributes            # Line endings, diff drivers, and LFS filters per extension
 ├── .gitignore                # Generated, secret, and machine-local paths
+├── .shellcheckrc             # ShellCheck checks off where an ast-grep rule owns the form
 ├── .swift-format             # Swift lint and format rules
 ├── .swiftlint.yml            # Swift lint rules swift-format lacks
 ├── .cargo/                   # Cargo build settings and compiler source link
@@ -72,6 +73,7 @@ Rasm/
 ├── .claude/                  # Claude Code knowledge and settings
 ├── .mcp.json                 # Claude Code MCP servers
 ├── .codex/                   # Codex knowledge and settings
+├── .agents/                  # Codex skills, a link to .claude/skills
 ├── .vscode/                  # VS Code settings and recommended extensions
 ├── CLAUDE.md                 # Agent standards, AGENTS.md is its symlink
 └── README.md
@@ -108,6 +110,7 @@ Before starting Claude Code or Codex, run `mise install`, `pnpm install`, and `n
 - `nx run <project>:install` builds or packs a product and installs it into its host
 - `nx run rasm:release` on a clean tree tags and creates a GitHub release for each product Conventional Commits bump, then runs its `publish`
 - `nx run <project>:publish --tag=<tag>` pushes a released product to its host's channel
+- `git submodule update --checkout assets` fills `assets/` once per checkout, a clone without access to `bsamiee/Rasm-Assets` skips it
 - With `assets/` checked out, `nx run rasm:fonts:<build|check>` runs `foundry` over `assets/fonts/rasm.toml` into `.artifacts/fonts/<set>`, a check failing on each finding
 - `nx run rasm:fonts:publish --destination=<folder> [<name>]` copies faces passing that check into a folder
 - `nx run rasm:infra:<preview|up|refresh>` runs a Pulumi operation on repository resources

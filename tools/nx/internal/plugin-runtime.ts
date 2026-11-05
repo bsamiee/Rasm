@@ -15,7 +15,10 @@ const pluginRuntime = ManagedRuntime.make(Layer.merge(layer, layerPosix));
 const runPlugin = <A, E>(effect: Effect.Effect<A, E, Scope.Scope | PluginServices>) => pluginRuntime.runPromise(Effect.scoped(effect));
 const treeText = (tree: Tree, file: string) => Effect.fromNullishOr(tree.read(file, 'utf-8'));
 const decodeTree = <A>(tree: Tree, schema: Schema.Codec<A, string>, file: string) => Effect.flatMap(treeText(tree, file), Schema.decodeEffect(schema));
-const formatted = (tree: Tree, file: string, text: string) => runCommand('biome', ['check', '--write', `--stdin-file-path=${file}`], { cwd: tree.root, stdin: Stream.encodeText(Stream.make(text)) });
+const formatted = (tree: Tree, file: string, text: string) => {
+    const [command, ...args] = file.endsWith('.toml') ? ['tombi', 'format', '-', '--quiet', `--stdin-filename=${file}`] : ['biome', 'check', '--write', `--stdin-file-path=${file}`];
+    return runCommand(command, args, { cwd: tree.root, stdin: Stream.encodeText(Stream.make(text)) });
+};
 const patched = Effect.fnUntraced(function* (tree: Tree, file: string, current: Readonly<Record<string, unknown>>, rows: Readonly<Record<string, unknown>>) {
     const text = yield* treeText(tree, file);
     const moved = Record.toEntries(rows).filter(([key, value]) => !Equal.equals(current[key], value));

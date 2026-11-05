@@ -3,7 +3,7 @@ language: swiftlang
 severity: error
 utils:
     owner-name:
-        has: {field: name, any: [{kind: type_identifier, pattern: $OWNER}, {has: {kind: type_identifier, nthChild: 1, pattern: $OWNER}}]}
+        has: {field: name, any: [{kind: type_name, pattern: $OWNER}, {kind: user_type, has: {kind: type_identifier, nthChild: 1, pattern: $OWNER}}]}
 rule:
     kind: typealias_declaration
     has: {field: name, kind: type_identifier, pattern: $ALIAS}

@@ -7,11 +7,11 @@ utils:
     grouped-set-export:
         kind: identifier
         any:
-            - regex: '^HashSet$'
+            - pattern: HashSet
               inside: {kind: use_list, stopBy: {kind: use_list}, inside: {kind: scoped_use_list, has: {field: path, regex: '^(::)?std::collections$'}}}
-            - regex: '^IndexSet$'
+            - pattern: IndexSet
               inside: {kind: use_list, stopBy: {kind: use_list}, inside: {kind: scoped_use_list, has: {field: path, regex: '^(::)?indexmap$'}}}
-            - regex: '^FxHashSet$'
+            - pattern: FxHashSet
               inside: {kind: use_list, stopBy: {kind: use_list}, inside: {kind: scoped_use_list, has: {field: path, regex: '^(::)?rustc_hash$'}}}
     imported-set:
         any:
@@ -38,7 +38,7 @@ utils:
                     - kind: 'struct_item, enum_item, union_item, type_item'
                       has: {field: name, regex: '^Vec$'}
                     - kind: use_declaration
-                      has: {stopBy: end, any: [{kind: use_wildcard}, {kind: identifier, regex: '^Vec$'}]}
+                      has: {stopBy: end, any: [{kind: use_wildcard}, {pattern: Vec}]}
     sequence-type:
         any:
             - kind: array_type

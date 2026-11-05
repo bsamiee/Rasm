@@ -32,7 +32,7 @@
                         "inputs": [
                             "...",
                             "typescript",
-                            "{workspaceRoot}/{nx.json,Package.swift,Xcode.xcconfig,Directory.Build.props,.swiftlint.yml,mise.toml,pyproject.toml,biome.json,pnpm-workspace.yaml,.vscode/settings.json,plugins/argus/.lsp.json}",
+                            "{workspaceRoot}/{nx.json,Package.swift,Xcode.xcconfig,Directory.Build.props,.swiftlint.yml,mise.toml,pyproject.toml,biome.json,pnpm-workspace.yaml,.vscode/settings.json,plugins/argus/.lsp.json,sgconfig.yml,tools/ast-grep/outline/**/*.yml}",
                             "{workspaceRoot}/**/package.json",
                             "{workspaceRoot}/**/hooks/hooks.json",
                             "{workspaceRoot}/**/.openai/hosting.json",
@@ -52,8 +52,8 @@
                     "lint:tombi:format": { "command": "tombi format --check" },
                     "lint:yamllint": { "command": "fd --hidden --extension yaml --extension yml --strip-cwd-prefix --exec-batch yamllint --strict", "inputs": [ "python", "yamlFiles" ] },
                     "lint:yamlfmt": { "command": "fd --hidden --extension yaml --extension yml --strip-cwd-prefix --exec-batch yamlfmt -conf .config/yamlfmt.yaml -lint", "inputs": [ "yamlFiles", { "externalDependencies": [] }, { "runtime": "yamlfmt -version" } ] },
-                    "lint:actionlint": { "command": "actionlint", "inputs": [ "{workspaceRoot}/.github/actionlint.yaml", "{workspaceRoot}/.github/workflows/*.{yml,yaml}", "{workspaceRoot}/.github/actions/*/action.{yml,yaml}", { "externalDependencies": [] }, { "runtime": "actionlint --version" }, { "runtime": "shellcheck --version" } ] },
-                    "lint:shellcheck": { "command": "fd --hidden --extension sh --exec-batch shellcheck --", "inputs": [ "shellFiles", { "externalDependencies": [] }, { "runtime": "shellcheck --version" } ] },
+                    "lint:actionlint": { "command": "actionlint", "inputs": [ "{workspaceRoot}/.github/actionlint.yaml", "{workspaceRoot}/.github/workflows/*.{yml,yaml}", "{workspaceRoot}/.github/actions/*/action.{yml,yaml}", "{workspaceRoot}/.shellcheckrc", { "externalDependencies": [] }, { "runtime": "actionlint --version" }, { "runtime": "shellcheck --version" } ] },
+                    "lint:shellcheck": { "command": "fd --hidden --extension sh --exec-batch shellcheck --", "inputs": [ "shellFiles", "{workspaceRoot}/.shellcheckrc", { "externalDependencies": [] }, { "runtime": "shellcheck --version" } ] },
                     "lint:shfmt": { "command": "fd --hidden --extension sh --exec-batch shfmt -d --", "inputs": [ "shellFiles", "{workspaceRoot}/**/.editorconfig", { "externalDependencies": [] }, { "runtime": "shfmt --version" } ] },
                     "format": { "executor": "./:format", "dependsOn": [ "format:nx", "format:dotnet-format", { "projects": [ "tag:language:dotnet" ], "target": "format" } ], "parallelism": false },
                     "format:files": { "executor": "./:format" },
@@ -94,7 +94,7 @@
         }
     ],
     "pluginsConfig": { "@nx/js": { "analyzeSourceFiles": false, "projectsAffectedByDependencyUpdates": "auto" } },
-    "sync": { "globalGenerators": [ "./tools/nx/generators.json:barrels", "./tools/nx/generators.json:build-settings", "./tools/nx/generators.json:catalog-mirror", "./tools/nx/generators.json:hosting-bindings", "./tools/nx/generators.json:rust-analyzer" ] },
+    "sync": { "globalGenerators": [ "./tools/nx/generators.json:agents", "./tools/nx/generators.json:barrels", "./tools/nx/generators.json:build-settings", "./tools/nx/generators.json:catalog-mirror", "./tools/nx/generators.json:hosting-bindings", "./tools/nx/generators.json:outline-catalogs", "./tools/nx/generators.json:rust-analyzer" ] },
     "release": {
         "projectsRelationship": "independent",
         "releaseTag": { "pattern": "{releaseGroupName}-{projectName}-v{version}" },

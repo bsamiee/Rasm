@@ -1,15 +1,18 @@
 #include <string.h>
+#include <wctype.h>
 #define tree_sitter_bash_external_scanner_scan(...) bash_upstream_scan(__VA_ARGS__)
 #define tree_sitter_bash_external_scanner_deserialize(...) bash_upstream_deserialize(__VA_ARGS__)
 #define tree_sitter_bash_external_scanner_serialize(...) bash_upstream_serialize(__VA_ARGS__)
 #define tree_sitter_bash_external_scanner_create(...) bash_upstream_create(__VA_ARGS__)
 #define strcmp(left, right) (strcmp(left, right) != 0 || !(lexer->eof(lexer) || lexer->lookahead == '\n'))
+#define iswalnum(character) (iswalnum(character) || (valid_symbols[EXPANSION_WORD] && (character) > 0 && (character) < 0x80 && strchr("!#$*-?@_", (int)(character)) != NULL))
 #include "tree-sitter-bash/src/scanner.c"
 #undef strcmp
+#undef iswalnum
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-enum { TIME_POSIX = ERROR_RECOVERY + 1, TIME_END, CLOSED, EXTGLOB_WORD, BRACE_OPEN, BACKTICK_END, HEREDOC_DUE, QUOTED_BACKTICK, ESCAPED_QUOTE, STRING_SPACE, TOKEN_COUNT };
+enum { TIME_POSIX = ERROR_RECOVERY + 1, TIME_END, CLOSED, EXTGLOB_WORD, BRACE_OPEN, BACKTICK_END, HEREDOC_DUE, QUOTED_BACKTICK, ESCAPED_QUOTE, STRING_SPACE, KEY_OPEN, TOKEN_COUNT };
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -141,6 +144,34 @@ static bool literal(TSLexer *lexer) {
     advance(lexer);
     lexer->mark_end(lexer);
     return ends(lexer) || among("\")|&;<>", lexer->lookahead);
+}
+
+static bool key(TSLexer *lexer) {
+    lexer->result_symbol = KEY_OPEN;
+    advance(lexer);
+    lexer->mark_end(lexer);
+    int32_t quote = 0;
+    for (uint32_t depth = 1; !lexer->eof(lexer); advance(lexer)) {
+        const int32_t character = lexer->lookahead;
+        if (character == '\\' && quote != '\'') {
+            advance(lexer);
+        } else if (quote != 0) {
+            quote = character == quote ? 0 : quote;
+        } else if (character == '\'' || character == '"') {
+            quote = character;
+        } else if (character == '[') {
+            depth++;
+        } else if (character == ']' && --depth == 0) {
+            advance(lexer);
+            if (lexer->lookahead == '+') {
+                advance(lexer);
+            }
+            return lexer->lookahead == '=';
+        } else if (among(METACHARACTERS, character)) {
+            return false;
+        }
+    }
+    return false;
 }
 
 static bool flag(TSLexer *lexer, const bool *valid_symbols) {
@@ -428,10 +459,11 @@ bool(tree_sitter_bash_external_scanner_scan)(void *payload, TSLexer *lexer, cons
     const bool closes = valid_symbols[CLOSED] && !valid_symbols[CONCAT];
     const bool head = valid_symbols[FILE_DESCRIPTOR] && !valid_symbols[EXPANSION_WORD] && !valid_symbols[CLOSING_BRACE];
     const bool timed = valid_symbols[TIME_POSIX] || valid_symbols[TIME_END];
+    const bool keyed = valid_symbols[KEY_OPEN];
     const bool dollar = valid_symbols[BARE_DOLLAR] && plain(valid_symbols);
     bool separated[TOKEN_COUNT];
     memcpy(separated, valid_symbols, sizeof separated);
-    if (spacing(lexer, valid_symbols, queued) && !valid_symbols[EMPTY_VALUE] && (queued || head || closes || timed || ((word || dollar) && !valid_symbols[CLOSING_BRACE]))) {
+    if (spacing(lexer, valid_symbols, queued) && !valid_symbols[EMPTY_VALUE] && (queued || head || closes || timed || keyed || ((word || dollar) && !valid_symbols[CLOSING_BRACE]))) {
         separated[CONCAT] = false;
         while (spacing(lexer, valid_symbols, queued)) {
             skip(lexer);
@@ -465,6 +497,9 @@ bool(tree_sitter_bash_external_scanner_scan)(void *payload, TSLexer *lexer, cons
     }
     if (queued && lexer->lookahead == '\n') {
         return due(scanner, lexer, queue);
+    }
+    if (keyed && lexer->lookahead == '[' && !separated[CONCAT]) {
+        return key(lexer);
     }
     if (queued && valid_symbols[BACKTICK_END] && lexer->lookahead == '`') {
         truncated(scanner, queue);

@@ -10,19 +10,19 @@ utils:
         kind: call
         any:
             - all:
-                - has: {field: arguments, matches: plain-arguments, has: {kind: list_splat, nthChild: 1, has: {pattern: $ITERABLES}}, not: {has: {nthChild: 2}}}
+                - has: {field: arguments, all: [{has: {kind: list_splat, nthChild: {position: 1, ofRule: {not: {kind: comment}}}, has: {pattern: $ITERABLES}}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}}, {matches: plain-arguments}]}
                 - has: {field: function, matches: itertools-chain-callee}
             - all:
                 - has: {field: function, kind: attribute, has: {field: attribute, pattern: from_iterable}}
-                - has: {field: arguments, matches: plain-arguments, has: {nthChild: 1, pattern: $ITERABLES, not: {kind: list_splat}}, not: {has: {nthChild: 2}}}
+                - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, not: {kind: list_splat}, pattern: $ITERABLES}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}}, {matches: plain-arguments}]}
                 - has: {field: function, has: {field: object, matches: itertools-chain-callee}}
             - all:
-                - has: {field: arguments, matches: plain-arguments, pattern: $ARGUMENTS, all: [{has: {kind: list_splat}}, {has: {nthChild: 2}}]}
+                - has: {field: arguments, all: [{has: {kind: list_splat}}, {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}, {matches: plain-arguments}, {pattern: $ARGUMENTS}]}
                 - has: {field: function, matches: itertools-chain-callee}
     wrapper:
         kind: call
         all:
-            - has: {field: arguments, has: {nthChild: 1, matches: chain-call}, not: {has: {nthChild: 2}}}
+            - has: {field: arguments, all: [{has: {kind: call, nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: chain-call}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}}]}
             - has: {field: function, matches: {python-builtin-name: {name: {regex: '^(list|set)$'}}}}
     nested-loop:
         any:
@@ -40,16 +40,17 @@ utils:
                 - pattern: '{$KEY: $VALUE for $OUTER in $ROWS for $KEY, $VALUE in $MAPPING.items()}'
 rule:
     kind: call, list_comprehension, set_comprehension, generator_expression, dictionary_comprehension
-    pattern: $SITE
-    any:
-        - matches: wrapper
-        - all:
-            - matches: chain-call
-            - not:
-                inside:
-                    kind: argument_list
+    all:
+        - any:
+            - matches: wrapper
+            - all:
+                - matches: chain-call
+                - not:
                     inside:
-                        matches: wrapper
-        - matches: nested-loop
+                        kind: argument_list
+                        inside:
+                            matches: wrapper
+            - matches: nested-loop
+        - pattern: $SITE
 message: '`$SITE` flattens iterables in place of comprehension unpacking'
 note: 'Use comprehension unpacking with equivalent iteration timing and bindings'

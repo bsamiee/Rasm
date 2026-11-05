@@ -374,10 +374,13 @@ const sighted = (row: typeof Observation.Type, before: Option.Option<Seen>, seen
 const within = (live: Live) => Effect.provideService(Run.Instance, Option.some(live));
 const owned = (live: Live, row: typeof Observation.Type) => row.pid === live.pid;
 const noteOf = ({ element, number }: typeof State.Window.Type) => element?.id ?? `${number}`;
+const stacked = Effect.fnUntraced(function* (pid: number) {
+    const file = yield* sample(pid);
+    return { sample: file, frames: yield* stalled(file) };
+});
 const blocked = Effect.fnUntraced(function* (live: Live, window: typeof State.Window.Type, dialog: typeof Halted.cases.Dialog.Type) {
-    const file = yield* sample(live.pid);
-    const frames = yield* stalled(file);
-    return frames.some(String.includes('Modal')) ? Option.some(dialog) : yield* Effect.as(record('Info', 'window busy', { number: window.number, sample: file, frames }), Option.none<typeof Halted.cases.Dialog.Type>());
+    const stack = yield* stacked(live.pid);
+    return stack.frames.some(String.includes('Modal')) ? Option.some(dialog) : yield* Effect.as(record('Info', 'window busy', { number: window.number, ...stack }), Option.none<typeof Halted.cases.Dialog.Type>());
 });
 const answering = (live: Live, ours: boolean) =>
     Effect.fnUntraced(function* ({ window, dialog }: Asked, pid: number) {
@@ -397,20 +400,36 @@ const answering = (live: Live, ours: boolean) =>
             onSome: ({ press, id }) => Effect.catch(Effect.andThen(Effect.all([Ref.update(live.notes, Array.append({ index: running, element: noteOf(window), answered: answered(press) })), record('Info', 'dialog answered', answered(press))]), Observation.perform(pid, id)), lost(live)),
         });
     });
-const watcher = (host: Pick<Harness, 'logs' | 'bundle'>, live: Live, seen: Ref.Ref<HashMap.HashMap<number, Seen>>) =>
-    Effect.fn('watcher')(
+const exitOf = (seen: SubscriptionRef.SubscriptionRef<HashMap.HashMap<number, Seen>>, pid: number) =>
+    SubscriptionRef.changes(seen).pipe(
+        Stream.filter((map) => Option.exists(HashMap.get(map, pid), ({ state }) => Predicate.hasProperty(state, 'exited'))),
+        Stream.runHead,
+    );
+const observed =
+    (live: Live, row: typeof Observation.Type) =>
+    <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+        owned(live, row) ? Effect.flatMap(Effect.all([Ref.get(live.trace), Ref.get(live.batch)]), ([trace, batch]) => within(live)(Effect.annotateLogs(effect, named(batch, runningOf(trace))))) : Effect.annotateLogs(effect, { bundle: row.identifier, pid: row.pid });
+const arrived = (live: Live, seen: SubscriptionRef.SubscriptionRef<HashMap.HashMap<number, Seen>>) =>
+    Effect.fn('arrived')(
         function* (row: typeof Observation.Type) {
             const ours = owned(live, row);
-            const [before, held] = yield* Ref.modify(seen, (map) => {
+            const [before, held] = yield* SubscriptionRef.modify(seen, (map) => {
                 const prior = HashMap.get(map, row.pid);
                 const next = seenOf(prior, row, ours);
                 return [[prior, next] as const, HashMap.set(map, row.pid, next)] as const;
             });
-            const asked = Progress.asked(live.passing, row.state);
-            yield* sighted(row, before, held, ours, asked);
+            yield* ours ? SubscriptionRef.set(live.state, row.state) : Effect.void;
+            yield* sighted(row, before, held, ours, Progress.asked(live.passing, row.state));
+        },
+        (effect, row) => observed(live, row)(effect),
+    );
+const handled = (host: Pick<Harness, 'logs' | 'bundle'>, live: Live, seen: SubscriptionRef.SubscriptionRef<HashMap.HashMap<number, Seen>>) =>
+    Effect.fn('handled')(
+        function* (row: typeof Observation.Type) {
+            const ours = owned(live, row);
             const noted = (yield* Ref.get(live.notes)).map(Struct.get('element'));
             yield* Option.match(
-                Option.filter(asked, ({ window }) => !noted.includes(noteOf(window))),
+                Option.filter(Progress.asked(live.passing, row.state), ({ window }) => !noted.includes(noteOf(window))),
                 { onNone: () => Effect.void, onSome: (found) => answering(live, ours)(found, row.pid) },
             );
             yield* Match.value({ ours, state: row.state }).pipe(
@@ -419,10 +438,7 @@ const watcher = (host: Pick<Harness, 'logs' | 'bundle'>, live: Live, seen: Ref.R
             );
             yield* ours && Observation.settled(row.state) ? Effect.uninterruptible(Effect.andThen(Effect.flatMap(crashed(live.pid, row.state.exited), exitedWith(live)), reportsOf(host, live))) : Effect.void;
         },
-        (effect, row) =>
-            owned(live, row)
-                ? Effect.flatMap(Effect.all([Ref.get(live.trace), Ref.get(live.batch)]), ([trace, batch]) => within(live)(Effect.annotateLogs(Effect.ensuring(effect, SubscriptionRef.set(live.state, row.state)), named(batch, runningOf(trace)))))
-                : Effect.annotateLogs(effect, { bundle: row.identifier, pid: row.pid }),
+        (effect, row) => (Predicate.hasProperty(row.state, 'exited') ? effect : Effect.raceFirst(effect, Effect.asVoid(exitOf(seen, row.pid)))).pipe(verdicted(live, `instance ${row.pid} row`), observed(live, row)),
     );
 const progress = Effect.fnUntraced(function* (live: Live, records: string, Recorded: Schema.Codec<Entry, string>, limit: Duration.Duration) {
     yield* watched(records).pipe(
@@ -430,9 +446,8 @@ const progress = Effect.fnUntraced(function* (live: Live, records: string, Recor
         Stream.debounce(limit),
         Stream.runHead,
     );
-    const [file, state] = yield* Effect.all([sample(live.pid), SubscriptionRef.get(live.state)]);
-    const frames = yield* stalled(file);
-    yield* ended(live, (trace) => Verdict.Halted({ index: runningOf(trace), halted: { _tag: 'Hung', ...usageOf(state), sample: file, frames } }));
+    const [stack, state] = yield* Effect.all([stacked(live.pid), SubscriptionRef.get(live.state)]);
+    yield* ended(live, (trace) => Verdict.Halted({ index: runningOf(trace), halted: { _tag: 'Hung', ...usageOf(state), ...stack } }));
 });
 
 // --- [SESSION]
@@ -471,10 +486,19 @@ const acquired = Effect.fn('acquired')(function* (host: Pick<Harness, 'progress'
             ...Array.match(instance.shared, { onEmpty: () => ({}), onNonEmpty: (shared) => ({ shared }) }),
         }),
     );
-    const seen = yield* Ref.make(HashMap.set(HashMap.empty<number, Seen>(), instance.pid, { state: instance.state, since: Option.none(), windows: new Map() }));
-    const watching = watcher(host, live, seen);
-    yield* watching(Struct.pick(instance, ['identifier', 'pid', 'state', 'at']));
-    yield* instance.rows.pipe(Stream.runForEach(watching), Effect.andThen(refused(`instance ${instance.pid} watch ended`)), verdicted(live, `instance ${instance.pid} watch`), Effect.forkScoped({ startImmediately: true }));
+    const seen = yield* SubscriptionRef.make(HashMap.set(HashMap.empty<number, Seen>(), instance.pid, { state: instance.state, since: Option.none(), windows: new Map() }));
+    const [arriving, handling] = [arrived(live, seen), handled(host, live, seen)];
+    const first = Struct.pick(instance, ['identifier', 'pid', 'state', 'at']);
+    yield* Effect.andThen(arriving(first), handling(first));
+    yield* instance.rows.pipe(
+        Stream.tap(arriving),
+        Stream.groupByKey(Struct.get('pid')),
+        Stream.mapEffect(([, rows]) => rows.pipe(Stream.buffer({ capacity: 1, strategy: 'sliding' }), Stream.runForEach(handling)), { concurrency: 'unbounded', unordered: true }),
+        Stream.runDrain,
+        Effect.andThen(refused(`instance ${instance.pid} watch ended`)),
+        verdicted(live, `instance ${instance.pid} watch`),
+        Effect.forkScoped({ startImmediately: true }),
+    );
     yield* Ref.update(
         release,
         Option.map((quit) => within(live)(quitted(host, live, limit, quit))),
@@ -502,15 +526,22 @@ const quitted = Effect.fn('quitted')(
         const watching = yield* Effect.forkChild(waited, { startImmediately: true });
         const stopped = yield* Effect.result(Effect.raceFirst(Fiber.join(watching), Effect.andThen(quit, Fiber.join(watching))));
         const exited = Option.flatten(Result.getSuccess(stopped));
+        const silent = Option.filter(Result.getSuccess(stopped), Option.isNone);
+        const running = yield* Effect.transposeOption(Option.as(silent, stacked(live.pid)));
+        const refused = HarnessError.unavailable(`process ${live.pid}`);
         const failed = Result.match(stopped, {
             onFailure: Option.some,
-            onSuccess: flow(
-                Option.map((value) => (clean(value.exited) ? Option.none() : Option.some(HarnessError.unavailable(`process ${live.pid}`)(Observation.described(value))))),
-                Option.getOrElse(() => Option.some(HarnessError.unavailable(`process ${live.pid}`)(`quit sent, running past ${Duration.format(limit)}, left running`))),
-            ),
+            onSuccess: () =>
+                Option.firstSomeOf([
+                    Option.map(
+                        Option.filter(exited, (value) => !clean(value.exited)),
+                        flow(Observation.described, refused),
+                    ),
+                    Option.map(running, ({ sample: file }) => refused(`quit sent, running past ${Duration.format(limit)}, sample ${file}, left running`)),
+                ]),
         });
         yield* Option.isSome(exited) ? Effect.void : reportsOf(host, live);
-        yield* Option.match(failed, { onNone: () => Effect.void, onSome: (error) => Effect.andThen(record('Warn', 'failed', { tag: tagOf(error), error: error.message }), Effect.fail(error)) });
+        yield* Option.match(failed, { onNone: () => Effect.void, onSome: (error) => Effect.andThen(record('Warn', 'failed', { tag: tagOf(error), error: error.message, ...Option.getOrElse(running, () => ({})) }), Effect.fail(error)) });
     },
     phase('quit'),
     (effect, _, live) => Effect.flatMap(Deferred.isDone(live.verdict), (halted) => (halted ? Effect.void : effect)),

@@ -23,7 +23,7 @@ rule:
     pattern: $WAIT
     all:
         - matches: drain
-        - not: {precedes: {regex: '[[\t-\r ][^\t-\r ]]'}}
+        - nthChild: {position: 1, reverse: true, ofRule: {not: {kind: 'comment, multiline_comment'}}}
         - inside: {matches: group-body}
         - not:
             follows:
@@ -33,6 +33,6 @@ rule:
                       has: {kind: pattern, has: {stopBy: end, kind: simple_identifier, pattern: $G}}
                     - kind: guard_statement
                       has: {kind: simple_identifier, follows: {kind: value_binding_pattern}, pattern: $G}
+fix: ''
 message: '`$WAIT` repeats the wait `withTaskGroup` runs on remaining child tasks after its body returns'
 note: 'Delete the wait'
-fix: ''

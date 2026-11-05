@@ -33,17 +33,17 @@ utils:
         kind: type
         any:
             - has: {kind: binary_operator, has: {kind: none, stopBy: {not: {kind: binary_operator}}}}
-            - has: {kind: generic_type, has: {kind: identifier, regex: '^Optional$'}}
+            - has: {kind: generic_type, has: {pattern: Optional}}
             - has:
                 kind: generic_type
                 all:
-                    - has: {kind: identifier, regex: '^Union$'}
+                    - has: {pattern: Union}
                     - has: {kind: type_parameter, has: {kind: type, has: {kind: none}}}
             - has:
                 kind: generic_type
                 all:
-                    - has: {kind: identifier, regex: '^Annotated$'}
-                    - has: {kind: type_parameter, has: {kind: type, nthChild: 1, matches: nullable-type}}
+                    - has: {pattern: Annotated}
+                    - has: {kind: type_parameter, has: {kind: type, nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: nullable-type}}
             - has: {kind: subscript, has: {field: value, regex: '\.Optional$'}}
             - has:
                 kind: subscript
@@ -80,7 +80,7 @@ utils:
             - kind: if_statement
               all:
                 - has: {field: condition, any: [{pattern: $P is None}, {pattern: not $P}]}
-                - has: {field: consequence, has: {kind: expression_statement, has: {pattern: $P = $D}}, not: {has: {nthChild: 2}}}
+                - has: {field: consequence, has: {kind: expression_statement, has: {pattern: $P = $D}}, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}}
                 - not: {has: {kind: "else_clause, elif_clause"}}
     evaluated:
         any:
@@ -135,7 +135,7 @@ rule:
             - has: {field: value, kind: none}
         - kind: typed_parameter
           all:
-            - has: {kind: identifier, nthChild: 1, pattern: $P}
+            - has: {kind: identifier, nthChild: {position: 1, ofRule: {not: {kind: comment}}}, pattern: $P}
             - has: {field: type, matches: nullable-type}
             - not: {precedes: {stopBy: {kind: 'keyword_separator, list_splat_pattern'}, kind: 'identifier, typed_parameter'}}
         - kind: default_parameter

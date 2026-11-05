@@ -7,13 +7,13 @@ rule:
           inside: {kind: for_statement, field: item}
           all:
             - has: {stopBy: end, kind: simple_identifier, pattern: $NAME}
-            - not: {has: {pattern: $$_CASE, regex: '^case$'}}
+            - not: {has: {regex: '^case$'}}
             - not: {precedes: {kind: type_annotation}}
         - kind: value_binding_pattern
           inside: {kind: 'if_statement, guard_statement, while_statement'}
           precedes:
             kind: simple_identifier
             pattern: $NAME
-            precedes: {pattern: $$_EQUALS, regex: '^=$'}
+            precedes: {regex: '^=$'}
 message: '`$NAME` binds a value with no declared type'
 note: 'Name the type as `let <name>: <Type> = <value>` or `for <name>: <Type> in <sequence>`'

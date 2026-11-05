@@ -63,7 +63,7 @@ rule:
                         - regex: *installer-name
                         - matches: {rust-imported-name: {source: &installer-source {regex: '(?-u:\b)(tracing|global|panic)(?-u:\b)'}, name: {regex: *installer-name}}}
                     - all:
-                        - regex: '^update_hook$'
+                        - pattern: update_hook
                         - matches: {rust-imported-name: {source: {regex: '(?-u:\b)panic(?-u:\b)'}, name: {regex: '^update_hook$'}}}
                         - matches: predecessor-dropped
                 - not: {inside: {kind: *use-tree}}

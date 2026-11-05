@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: sql
+severity: error
+rule:
+    kind: normal_function_arguments
+    all:
+        - has:
+            nthChild: {position: 1, ofRule: &named {not: {kind: 'line_comment, block_comment'}}}
+            any:
+                - kind: numeric_literal, blob_literal, current_time_literal, string_literal
+                - {kind: unary_expression, has: {field: operand, kind: numeric_literal}}
+        - not: {has: {nthChild: {position: 2, ofRule: *named}}}
+        - not: {has: {field: modifier, not: {regex: '(?i-u)^all$'}}}
+        - inside: {kind: function_call, field: arguments, has: {field: name, regex: '(?i-u)^["`\[]?count["`\]]?$'}}
+        - pattern: $ARGUMENT
+rewriters:
+    - id: constant
+      rule: {kind: 'numeric_literal, blob_literal, current_time_literal, string_literal'}
+      fix: '*'
+    - id: operator
+      rule: {regex: '(?i-u)^(?:all|not|[-+~])$', not: {pattern: $_}}
+      fix: ''
+transform:
+    CONSTANT: {rewrite: {source: $ARGUMENT, rewriters: [constant, operator]}}
+    STAR: {replace: {source: $CONSTANT, replace: '^[\t\n\f\r \x{FEFF}]+', by: ''}}
+fix: $STAR
+message: '`$ARGUMENT` is a non-NULL count argument'
+note: 'Use `count(*)`'

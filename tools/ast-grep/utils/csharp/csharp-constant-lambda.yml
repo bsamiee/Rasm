@@ -40,16 +40,11 @@ utils:
         any:
             - matches: constant
             - kind: block
-              has:
-                kind: return_statement
-                nthChild: {position: 1, ofRule: {not: {kind: comment}}}
-                has: {matches: constant}
+              matches: csharp-single-return
+              has: {kind: return_statement, has: {matches: constant}}
     function:
-        any:
-            - kind: lambda_expression
-              has: {field: body, matches: result}
-            - kind: anonymous_method_expression
-              has: {kind: block, matches: result}
+        kind: lambda_expression, anonymous_method_expression
+        has: {field: body, matches: result}
 rule:
     any:
         - matches: function

@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: sql
+severity: error
+rule:
+    kind: identifier, quoted_identifier
+    regex: '(?i-u)^["`\[]?(ifnull|substring|ceiling|power|if|printf|log10|group_concat)["`\]]?$'
+    all:
+        - inside:
+            kind: function_call
+            field: name
+            any:
+                - not: {has: {field: name, regex: '(?i-u)^["`\[]?group_concat["`\]]?$'}}
+                - has:
+                    field: arguments
+                    kind: normal_function_arguments
+                    all:
+                        - not: {has: {field: modifier, regex: '(?i-u)^distinct$'}}
+                        - has: {nthChild: {position: 2, ofRule: &named {not: {kind: 'line_comment, block_comment'}}}, not: {kind: order_by_clause}}
+                        - not: {has: {nthChild: {position: 3, ofRule: *named}, not: {kind: order_by_clause}}}
+        - pattern: $NAME
+transform:
+    COALESCE: {replace: {source: $NAME, replace: '(?i-u)^["`\[]?ifnull["`\]]?$', by: coalesce}}
+    SLICE: {replace: {source: $COALESCE, replace: '(?i-u)^["`\[]?substring["`\]]?$', by: substr}}
+    CEIL: {replace: {source: $SLICE, replace: '(?i-u)^["`\[]?ceiling["`\]]?$', by: ceil}}
+    POW: {replace: {source: $CEIL, replace: '(?i-u)^["`\[]?power["`\]]?$', by: pow}}
+    CHOICE: {replace: {source: $POW, replace: '(?i-u)^["`\[]?if["`\]]?$', by: iif}}
+    FORMAT: {replace: {source: $CHOICE, replace: '(?i-u)^["`\[]?printf["`\]]?$', by: format}}
+    LOG: {replace: {source: $FORMAT, replace: '(?i-u)^["`\[]?log10["`\]]?$', by: log}}
+    AGGREGATE: {replace: {source: $LOG, replace: '(?i-u)^["`\[]?group_concat["`\]]?$', by: string_agg}}
+fix: $AGGREGATE
+message: '`$NAME` aliases `$AGGREGATE`'
+note: 'Use the canonical function name'

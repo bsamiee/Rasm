@@ -5,7 +5,7 @@ rule:
     kind: keyword_argument
     pattern: $TAG
     all:
-        - has: {field: name, regex: '^tag$'}
+        - has: {field: name, pattern: tag}
         - has: {field: value, kind: integer}
         - inside: {kind: argument_list, inside: {kind: class_definition, matches: msgspec-struct-class}}
 message: '`$TAG` numbers a union case by hand'

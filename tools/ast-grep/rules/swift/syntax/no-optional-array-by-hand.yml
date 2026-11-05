@@ -20,11 +20,7 @@ utils:
         kind: lambda_literal
         all:
             - not: {has: {field: type, kind: lambda_function_type}}
-            - has:
-                kind: statements
-                all:
-                    - not: {has: {nthChild: 2}}
-                    - has: {nthChild: 1, kind: array_literal, not: {has: {nthChild: 2}}, has: {nthChild: 1, kind: simple_identifier, regex: '^\$0$'}}
+            - has: {matches: {swift-single-statement: {first: {kind: array_literal, not: {has: {regex: '^,$'}}, has: {pattern: '$0'}}}}}
     mapped:
         kind: call_expression
         all:

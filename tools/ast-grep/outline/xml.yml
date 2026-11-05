@@ -4,7 +4,7 @@ role: item
 symbolType: 'null'
 rule:
     any:
-        - {kind: ERROR, not: {has: {has: {pattern: $_}}}}
+        - {kind: ERROR, not: {has: {stopBy: end, kind: 'element, Attribute, StyleSheetPI, XmlModelPI, ExternalID, PEReference, PI, XMLDecl, doctypedecl, elementdecl, AttlistDecl, GEDecl, PEDecl, NotationDecl'}}}
         - {kind: 'Name, Comment, STag, EmptyElemTag, element', all: [{inside: {kind: ERROR}}, {nthChild: {position: 1, ofRule: {kind: 'Name, Comment, STag, EmptyElemTag, element'}}}]}
         - {kind: Name, any: [{regex: '^$'}, {precedes: {stopBy: end, regex: '^$'}}]}
 name: ERROR
@@ -62,10 +62,10 @@ rule:
 rewriters:
     - {id: elide, rule: {kind: 'AttText, EntityText', not: {inside: {has: {kind: Name, pattern: Condition}}}}, fix: '…'}
 transform:
-    NAME: replace($TARGET, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
-    PREFIX_LINE: replace($GROUP, replace='[\t\n\r ]*\n[\t\n\r ]*|$', by=' ')
     ELIDED: rewrite($TAG, rewriters=[elide])
     SIGNATURE: replace($ELIDED, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
+    NAME: replace($TARGET, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
+    PREFIX_LINE: replace($GROUP, replace='[\t\n\r ]*\n[\t\n\r ]*|$', by=' ')
 name: $NAME
 signature: $PREFIX_LINE$SIGNATURE
 isImport: true
@@ -98,8 +98,8 @@ symbolType: event
 rule:
     any: [{kind: PI, has: {kind: PITarget, pattern: $TARGET}}, {kind: XMLDecl, pattern: $TAG, has: {regex: xml, pattern: $$NAME}}]
 transform:
-    SIGNATURE: replace($TAG, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
     INSTRUCTION: replace($TARGET, replace='^(.+)$', by='<?$1?>')
+    SIGNATURE: replace($TAG, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
 name: $NAME$TARGET
 signature: $SIGNATURE$INSTRUCTION
 isExported: false
@@ -115,9 +115,9 @@ rule:
 rewriters:
     - {id: elide, rule: {kind: 'AttText, EntityText', not: {inside: {has: {kind: Name, pattern: Condition}}}}, fix: '…'}
 transform:
-    NAME: replace($TARGET, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
     ELIDED: rewrite($TAG, rewriters=[elide])
     SIGNATURE: replace($ELIDED, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
+    NAME: replace($TARGET, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
 name: $NAME
 signature: $SIGNATURE
 ---
@@ -132,9 +132,9 @@ rule:
 rewriters:
     - {id: elide, rule: {kind: 'AttText, EntityText', not: {inside: {has: {kind: Name, pattern: Condition}}}}, fix: '…'}
 transform:
-    NAME: replace($TARGET, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
     ELIDED: rewrite($TAG, rewriters=[elide])
     SIGNATURE: replace($ELIDED, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
+    NAME: replace($TARGET, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
 name: $NAME
 signature: $SIGNATURE
 ---
@@ -149,9 +149,9 @@ rule:
 rewriters:
     - {id: elide, rule: {kind: 'AttText, EntityText', not: {inside: {has: {kind: Name, pattern: Condition}}}}, fix: '…'}
 transform:
-    NAME: replace($TARGET, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
     ELIDED: rewrite($TAG, rewriters=[elide])
     SIGNATURE: replace($ELIDED, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
+    NAME: replace($TARGET, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
 name: $NAME
 signature: $SIGNATURE
 ---
@@ -170,9 +170,9 @@ rule:
 rewriters:
     - {id: elide, rule: {kind: 'AttText, EntityText', not: {inside: {has: {kind: Name, pattern: Condition}}}}, fix: '…'}
 transform:
-    NAME: replace($TARGET, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
     ELIDED: rewrite($TAG, rewriters=[elide])
     SIGNATURE: replace($ELIDED, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
+    NAME: replace($TARGET, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
 name: $NAME
 signature: $SIGNATURE
 isExported: {not: {has: {kind: 'STag, EmptyElemTag', has: {kind: Attribute, matches: hidden}}}}
@@ -189,9 +189,9 @@ rule:
 rewriters:
     - {id: elide, rule: {kind: 'AttText, EntityText', not: {inside: {has: {kind: Name, pattern: Condition}}}}, fix: '…'}
 transform:
-    NAME: replace($TARGET, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
     ELIDED: rewrite($TAG, rewriters=[elide])
     SIGNATURE: replace($ELIDED, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
+    NAME: replace($TARGET, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
 name: $NAME
 signature: $SIGNATURE
 ---
@@ -205,9 +205,9 @@ rule:
 rewriters:
     - {id: elide, rule: {kind: 'AttText, EntityText', not: {inside: {has: {kind: Name, pattern: Condition}}}}, fix: '…'}
 transform:
-    NAME: replace($TARGET, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
     ELIDED: rewrite($TAG, rewriters=[elide])
     SIGNATURE: replace($ELIDED, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
+    NAME: replace($TARGET, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
 name: $NAME
 signature: $SIGNATURE
 ---
@@ -222,9 +222,9 @@ rule:
 rewriters:
     - {id: elide, rule: {kind: 'AttText, EntityText', not: {inside: {has: {kind: Name, pattern: Condition}}}}, fix: '…'}
 transform:
-    NAME: replace($TARGET, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
     ELIDED: rewrite($TAG, rewriters=[elide])
     SIGNATURE: replace($ELIDED, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
+    NAME: replace($TARGET, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
 name: $NAME
 signature: $SIGNATURE
 isExported: {not: {has: {kind: 'STag, EmptyElemTag', has: {kind: Attribute, all: [{has: {kind: Name, pattern: visibility}}, {has: {field: value, regex: 'private|hidden'}}]}}}}
@@ -242,9 +242,9 @@ rule:
 rewriters:
     - {id: elide, rule: {kind: 'AttText, EntityText', not: {inside: {has: {kind: Name, pattern: Condition}}}}, fix: '…'}
 transform:
-    NAME: replace($TARGET, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
     ELIDED: rewrite($TAG, rewriters=[elide])
     SIGNATURE: replace($ELIDED, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
+    NAME: replace($TARGET, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
 name: $NAME
 signature: $SIGNATURE
 ---
@@ -289,10 +289,10 @@ constraints:
 rewriters:
     - {id: elide, rule: {kind: 'AttText, EntityText', not: {inside: {has: {kind: Name, pattern: Condition}}}}, fix: '…'}
 transform:
-    SUFFIX_LINE: replace($IDENTITY, replace='^[\t\n\r ]*|[\t\n\r ]*\n[\t\n\r ]*', by=' ')
-    PREFIX_LINE: replace($BRANCH, replace='[\t\n\r ]*\n[\t\n\r ]*|$', by=' ')
     ELIDED: rewrite($TAG, rewriters=[elide])
     SIGNATURE: replace($ELIDED, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
+    SUFFIX_LINE: replace($IDENTITY, replace='^[\t\n\r ]*|[\t\n\r ]*\n[\t\n\r ]*', by=' ')
+    PREFIX_LINE: replace($BRANCH, replace='[\t\n\r ]*\n[\t\n\r ]*|$', by=' ')
 name: $TYPE$SUFFIX_LINE
 signature: $PREFIX_LINE$SIGNATURE
 isExported: {has: {kind: 'STag, EmptyElemTag', has: {kind: Name, any: [{pattern: PropertyGroup}, {pattern: ItemGroup}, {pattern: ItemDefinitionGroup}], matches: project}}}
@@ -314,9 +314,9 @@ rule:
 rewriters:
     - {id: elide, rule: {kind: 'AttText, EntityText', not: {inside: {has: {kind: Name, pattern: Condition}}}}, fix: '…'}
 transform:
-    NAME: replace($TARGET, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
     ELIDED: rewrite($TEXT, rewriters=[elide])
     SIGNATURE: replace($ELIDED, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
+    NAME: replace($TARGET, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
     DEFINITION_ELIDED: rewrite($DEFINITION, rewriters=[elide])
     DEFINITION_LINE: replace($DEFINITION_ELIDED, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
 name: $NAME
@@ -345,10 +345,10 @@ rule:
 rewriters:
     - {id: elide, rule: {kind: 'AttText, EntityText', not: {inside: {has: {kind: Name, pattern: Condition}}}}, fix: '…'}
 transform:
-    NAME: replace($TARGET, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
-    SUFFIX_LINE: replace($SPECIFICATION, replace='^[\t\n\r ]*|[\t\n\r ]*\n[\t\n\r ]*', by=' ')
     ELIDED: rewrite($TEXT, rewriters=[elide])
     SIGNATURE: replace($ELIDED, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
+    NAME: replace($TARGET, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
+    SUFFIX_LINE: replace($SPECIFICATION, replace='^[\t\n\r ]*|[\t\n\r ]*\n[\t\n\r ]*', by=' ')
 name: $NAME$SUFFIX_LINE
 signature: $SIGNATURE
 isPublic: {not: {any: [{matches: hidden}, {has: {kind: 'STag, EmptyElemTag', matches: hidden}}]}}
@@ -430,9 +430,9 @@ rule:
 rewriters:
     - {id: elide, rule: {kind: 'AttText, EntityText', not: {inside: {has: {kind: Name, pattern: Condition}}}}, fix: '…'}
 transform:
-    NAME: replace($TARGET, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
     ELIDED: rewrite($TAG, rewriters=[elide])
     SIGNATURE: replace($ELIDED, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
+    NAME: replace($TARGET, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
 name: $NAME
 signature: $SIGNATURE
 ---
@@ -448,9 +448,9 @@ rule:
 rewriters:
     - {id: elide, rule: {kind: 'AttText, EntityText', not: {inside: {has: {kind: Name, pattern: Condition}}}}, fix: '…'}
 transform:
-    NAME: replace($TARGET, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
     ELIDED: rewrite($TAG, rewriters=[elide])
     SIGNATURE: replace($ELIDED, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
+    NAME: replace($TARGET, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
 name: $NAME
 signature: $SIGNATURE
 ---
@@ -469,9 +469,9 @@ rule:
 rewriters:
     - {id: elide, rule: {kind: 'AttText, EntityText', not: {inside: {has: {kind: Name, pattern: Condition}}}}, fix: '…'}
 transform:
-    NAME: replace($TARGET, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
     ELIDED: rewrite($TAG, rewriters=[elide])
     SIGNATURE: replace($ELIDED, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
+    NAME: replace($TARGET, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
 name: $NAME
 signature: $SIGNATURE
 ---
@@ -500,32 +500,32 @@ rewriters:
     - id: entry
       rule: {kind: content, pattern: $SEGMENT}
       transform:
-          BARE: rewrite($SEGMENT, rewriters=[comment])
+        BARE: rewrite($SEGMENT, rewriters=[comment])
       fix: $BARE/
     - id: lineage
       rule:
-          kind: STag
-          inside: {kind: element, inside: {kind: content, inside: {kind: element, inside: {kind: content}, has: {kind: STag, pattern: $UP}}}}
-          any:
-              - inside: {kind: element, follows: {kind: element, stopBy: {kind: element}, all: [{has: {kind: STag, has: {kind: Name, pattern: key}}}, {has: {kind: content, pattern: $ENTRY}}]}}
-              - has: {kind: Attribute, all: [{has: {kind: Name, pattern: key}}, {has: {field: value, pattern: $KEYED}}]}
-              - all: [{has: {kind: Name, pattern: $KIND}}, {has: {kind: Attribute, all: [{has: {matches: identity}}, {has: {field: value, pattern: $LABEL}}]}}]
-              - kind: STag
+        kind: STag
+        inside: {kind: element, inside: {kind: content, inside: {kind: element, inside: {kind: content}, has: {kind: STag, pattern: $UP}}}}
+        any:
+            - inside: {kind: element, follows: {kind: element, stopBy: {kind: element}, all: [{has: {kind: STag, has: {kind: Name, pattern: key}}}, {has: {kind: content, pattern: $ENTRY}}]}}
+            - has: {kind: Attribute, all: [{has: {kind: Name, pattern: key}}, {has: {field: value, pattern: $KEYED}}]}
+            - all: [{has: {kind: Name, pattern: $KIND}}, {has: {kind: Attribute, all: [{has: {matches: identity}}, {has: {field: value, pattern: $LABEL}}]}}]
+            - kind: STag
       transform:
-          ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
-          ENTRY_PART: {rewrite: {source: $ENTRY, rewriters: [entry], joinBy: ''}}
-          KEYED_PART: replace($KEYED, replace='$', by='/')
-          KIND_PART: replace($KIND, replace='$', by=' ')
-          LABEL_PART: replace($LABEL, replace='$', by='/')
+        ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
+        ENTRY_PART: {rewrite: {source: $ENTRY, rewriters: [entry], joinBy: ''}}
+        KEYED_PART: replace($KEYED, replace='$', by='/')
+        KIND_PART: replace($KIND, replace='$', by=' ')
+        LABEL_PART: replace($LABEL, replace='$', by='/')
       fix: $ABOVE$ENTRY_PART$KEYED_PART$KIND_PART$LABEL_PART
 transform:
+    SIGNATURE: replace($ELIDED, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
     QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage], joinBy: ''}}
     QUALIFIER_LINE: replace($QUALIFIER, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
     KEY_BARE: rewrite($KEY, rewriters=[comment])
     NAME: replace($KEY_BARE, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
     VALUE_LINE: replace($VALUE, replace='^|[\t\n\r ]*\n[\t\n\r ]*', by=' ')
     ELIDED: rewrite($TEXT, rewriters=[elide, comment])
-    SIGNATURE: replace($ELIDED, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
 name: $QUALIFIER_LINE$NAME
 signature: $SIGNATURE$VALUE_LINE
 ---
@@ -571,32 +571,32 @@ rewriters:
     - id: entry
       rule: {kind: content, pattern: $SEGMENT}
       transform:
-          BARE: rewrite($SEGMENT, rewriters=[comment])
+        BARE: rewrite($SEGMENT, rewriters=[comment])
       fix: $BARE/
     - id: lineage
       rule:
-          kind: STag
-          inside: {kind: element, inside: {kind: content, inside: {kind: element, inside: {kind: content}, has: {kind: STag, pattern: $UP}}}}
-          any:
-              - inside: {kind: element, follows: {kind: element, stopBy: {kind: element}, all: [{has: {kind: STag, has: {kind: Name, pattern: key}}}, {has: {kind: content, pattern: $ENTRY}}]}}
-              - has: {kind: Attribute, all: [{has: {kind: Name, pattern: key}}, {has: {field: value, pattern: $KEYED}}]}
-              - all: [{has: {kind: Name, pattern: $KIND}}, {has: {kind: Attribute, all: [{has: {matches: identity}}, {has: {field: value, pattern: $LABEL}}]}}]
-              - kind: STag
+        kind: STag
+        inside: {kind: element, inside: {kind: content, inside: {kind: element, inside: {kind: content}, has: {kind: STag, pattern: $UP}}}}
+        any:
+            - inside: {kind: element, follows: {kind: element, stopBy: {kind: element}, all: [{has: {kind: STag, has: {kind: Name, pattern: key}}}, {has: {kind: content, pattern: $ENTRY}}]}}
+            - has: {kind: Attribute, all: [{has: {kind: Name, pattern: key}}, {has: {field: value, pattern: $KEYED}}]}
+            - all: [{has: {kind: Name, pattern: $KIND}}, {has: {kind: Attribute, all: [{has: {matches: identity}}, {has: {field: value, pattern: $LABEL}}]}}]
+            - kind: STag
       transform:
-          ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
-          ENTRY_PART: {rewrite: {source: $ENTRY, rewriters: [entry], joinBy: ''}}
-          KEYED_PART: replace($KEYED, replace='$', by='/')
-          KIND_PART: replace($KIND, replace='$', by=' ')
-          LABEL_PART: replace($LABEL, replace='$', by='/')
+        ABOVE: {rewrite: {source: $UP, rewriters: [lineage], joinBy: ''}}
+        ENTRY_PART: {rewrite: {source: $ENTRY, rewriters: [entry], joinBy: ''}}
+        KEYED_PART: replace($KEYED, replace='$', by='/')
+        KIND_PART: replace($KIND, replace='$', by=' ')
+        LABEL_PART: replace($LABEL, replace='$', by='/')
       fix: $ABOVE$ENTRY_PART$KEYED_PART$KIND_PART$LABEL_PART
 transform:
-    SPECIFICATION_LINE: replace($SPECIFICATION, replace='^[\t\n\r ]*|[\t\n\r ]*\n[\t\n\r ]*', by=' ')
-    PARENT: replace($METADATA, replace='.+', by='/')
-    QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage], joinBy: ''}}
-    QUALIFIER_LINE: replace($QUALIFIER, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
-    SUFFIX_LINE: replace($IDENTITY, replace='^[\t\n\r ]*|[\t\n\r ]*\n[\t\n\r ]*', by=' ')
     ELIDED: rewrite($TAG, rewriters=[elide])
     SIGNATURE: replace($ELIDED, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
+    SUFFIX_LINE: replace($IDENTITY, replace='^[\t\n\r ]*|[\t\n\r ]*\n[\t\n\r ]*', by=' ')
+    QUALIFIER: {rewrite: {source: $OWNER, rewriters: [lineage], joinBy: ''}}
+    QUALIFIER_LINE: replace($QUALIFIER, replace='[\t\n\r ]*\n[\t\n\r ]*', by=' ')
+    SPECIFICATION_LINE: replace($SPECIFICATION, replace='^[\t\n\r ]*|[\t\n\r ]*\n[\t\n\r ]*', by=' ')
+    PARENT: replace($METADATA, replace='.+', by='/')
 name: $METADATA$SPECIFICATION_LINE$PARENT$QUALIFIER_LINE$NAME$SUFFIX_LINE
 signature: $SIGNATURE
 ---
@@ -607,7 +607,7 @@ parentRuleIds: [xml-element, xml-function, xml-using-task, xml-struct, xml-prope
 symbolType: 'null'
 rule:
     any:
-        - {kind: ERROR, not: {has: {has: {pattern: $_}}}}
+        - {kind: ERROR, not: {has: {stopBy: end, kind: 'element, STag, EmptyElemTag, PI, AttDef, Enumeration, NotationType'}}}
         - {kind: Name, any: [{regex: '^$'}, {precedes: {stopBy: end, regex: '^$'}}]}
 name: ERROR
 signature: ''

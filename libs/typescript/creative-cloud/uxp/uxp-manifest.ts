@@ -26,12 +26,6 @@ const Entrypoint = Schema.Struct({
     description: Schema.optionalKey(Localized),
     hostUIContext: Schema.optionalKey(Schema.Struct(Struct.Record(['hideFromMenu', 'hideFromPluginsPanel', 'shouldReanimateAsFloatingPanel', 'allowViewPersistence'], Flag))),
 });
-const Host = Schema.Struct({
-    app: Schema.Literals(['ID', 'PS', 'premierepro', 'ame', 'aftereffects']),
-    minVersion: Version,
-    maxVersion: Schema.optionalKey(Version),
-    data: Schema.optionalKey(Schema.Struct({ apiVersion: Schema.optionalKey(Schema.Literals([1, 2])), loadEvent: Schema.optionalKey(Schema.Literals(['use', 'startup'])), enableMenuRecording: Flag })),
-});
 
 class UxpManifest extends Schema.Class<UxpManifest, { readonly brand: unique symbol }>('UxpManifest')(
     Schema.Struct({
@@ -40,7 +34,12 @@ class UxpManifest extends Schema.Class<UxpManifest, { readonly brand: unique sym
         name: Schema.String,
         version: Version,
         main: Schema.optionalKey(Schema.String),
-        host: Host,
+        host: Schema.Struct({
+            app: Schema.Literals(['ID', 'PS', 'premierepro', 'ame', 'aftereffects']),
+            minVersion: Version,
+            maxVersion: Schema.optionalKey(Version),
+            data: Schema.optionalKey(Schema.Struct({ apiVersion: Schema.optionalKey(Schema.Literals([1, 2])), loadEvent: Schema.optionalKey(Schema.Literals(['use', 'startup'])), enableMenuRecording: Flag })),
+        }),
         icons: Schema.optionalKey(Schema.Array(Icon)),
         strings: Schema.optionalKey(Schema.Union([Schema.String, Schema.Record(Schema.String, Localized)])),
         addon: Schema.optionalKey(Schema.Struct({ name: Schema.String })),

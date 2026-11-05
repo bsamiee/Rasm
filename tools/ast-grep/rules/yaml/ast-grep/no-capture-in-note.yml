@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: yamllang
+severity: error
+files: ['tools/ast-grep/rules/**']
+rule:
+    kind: block_mapping_pair, flow_pair
+    all:
+        - has: {field: key, pattern: $KEY, regex: '^["'']?(?:note|message)["'']?$'}
+        - has: {field: value, pattern: $VALUE, regex: '\$[A-Z_]'}
+        - any:
+            - all:
+                - has: {field: key, regex: '^["'']?note["'']?$'}
+                - inside: {kind: 'document > :is(block_node, flow_node) > :is(block_mapping, flow_mapping)'}
+            - inside: {stopBy: end, kind: 'block_mapping_pair, flow_pair', has: {field: key, regex: '^["'']?labels["'']?$'}}
+transform:
+    NAME: {replace: {source: $VALUE, replace: '(?s)^.*?(\$+[A-Z_][0-9A-Z_]*).*$', by: '$1'}}
+message: '`$KEY` prints `$NAME` literally, ast-grep substitutes captures in the rule `message` alone'
+note: Name the value the reader writes in prose or a placeholder, or state the capture in the rule `message`

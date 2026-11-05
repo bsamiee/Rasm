@@ -8,7 +8,6 @@ import { runCommand } from '#/eng/typescript/run-command';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const MANIFEST = 'Package.swift';
 const REQUIREMENT = { rule: { any: [{ pattern: '.package(url: "$URL", from: "$FROM")' }, { pattern: '.package(url: "$URL", $$$)' }] } };
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -56,10 +55,11 @@ const project = (file: string, { packages, targets }: typeof XcodeProject.schema
 };
 const upgrade = Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    const listed = Array.groupBy(yield* runCommand.records('\0', 'git', ['ls-files', '--cached', '--others', '--exclude-standard', '--deduplicate', '-z', '--', `:(glob)**/${MANIFEST}`, `:(glob)**/${XcodeProject.file}`]), basename);
-    const [manifests, projects] = [listed[MANIFEST] ?? [], listed[XcodeProject.file] ?? []];
+    const manifest = 'Package.swift';
+    const listed = Array.groupBy(yield* runCommand.records('\0', 'git', ['ls-files', '--cached', '--others', '--exclude-standard', '--deduplicate', '-z', '--', `:(glob)**/${manifest}`, `:(glob)**/${XcodeProject.file}`]), basename);
+    const [manifests, projects] = [listed[manifest] ?? [], listed[XcodeProject.file] ?? []];
     const { customLanguages } = yield* Sgconfig.read('.');
-    const [language, registration] = yield* Effect.fromOption(Record.findFirst(customLanguages, ({ extensions }) => extensions.includes(extname(MANIFEST).slice(1))));
+    const [language, registration] = yield* Effect.fromOption(Record.findFirst(customLanguages, ({ extensions }) => extensions.includes(extname(manifest).slice(1))));
     yield* Effect.sync(() => registerDynamicLanguage({ [language]: { ...registration, extensions: [...registration.extensions] } }));
     const [parsed, documents] = yield* Effect.all(
         [

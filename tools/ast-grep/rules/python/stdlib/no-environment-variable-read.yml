@@ -23,11 +23,11 @@ utils:
             - inside: {kind: named_expression, field: value}
             - inside: {kind: 'argument_list, keyword_argument, dictionary_splat'}
             - inside: {kind: binary_operator, has: {field: operator, regex: '^\|$'}}
-            - inside: {kind: attribute, field: object, has: {field: attribute, regex: '^copy$'}}
+            - inside: {kind: attribute, field: object, has: {field: attribute, pattern: copy}}
             - inside:
                 kind: attribute
                 field: object
-                has: {field: attribute, regex: '^items$'}
+                has: {field: attribute, pattern: items}
                 inside: {kind: call, field: function, inside: {kind: for_in_clause, field: right, inside: {kind: dictionary_comprehension}}}
     copy-source:
         any: [{matches: mapping}, {matches: copied}]
@@ -38,13 +38,13 @@ utils:
             - kind: call
               all:
                 - has: {field: function, matches: {python-builtin-name: {name: {regex: '^dict$'}}}}
-                - has: {field: arguments, has: {nthChild: 1, any: [{matches: copy-source}, {kind: dictionary_splat, has: {matches: copy-source}}]}}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, any: [{matches: copy-source}, {kind: dictionary_splat, has: {matches: copy-source}}]}}
             - kind: call
-              has: {field: function, kind: attribute, all: [{has: {field: attribute, regex: '^copy$'}}, {has: {field: object, matches: copy-source}}]}
+              has: {field: function, kind: attribute, all: [{has: {field: attribute, pattern: copy}}, {has: {field: object, matches: copy-source}}]}
             - kind: dictionary
               has: {kind: dictionary_splat, has: {matches: copy-source}}
             - kind: dictionary_comprehension
-              has: {kind: for_in_clause, has: {field: right, kind: call, has: {field: function, kind: attribute, all: [{has: {field: attribute, regex: '^items$'}}, {has: {field: object, matches: copy-source}}]}}}
+              has: {kind: for_in_clause, has: {field: right, kind: call, has: {field: function, kind: attribute, all: [{has: {field: attribute, pattern: items}}, {has: {field: object, matches: copy-source}}]}}}
             - kind: binary_operator
               all: [{has: {field: operator, regex: '^\|$'}}, {has: {matches: copy-source}}]
     relayed:
@@ -68,11 +68,11 @@ rule:
     not: {matches: boundary}
     any:
         - kind: identifier, attribute
-          pattern: $READ
           all:
             - any:
-                - any: [{pattern: environ}, {pattern: environb}]
-                - {kind: attribute, has: {field: attribute, any: [{pattern: environ}, {pattern: environb}]}}
+                - {kind: identifier, regex: '^environb?$'}
+                - {kind: attribute, has: {field: attribute, regex: '^environb?$'}}
+            - pattern: $READ
             - matches: mapping
             - not: {any: [{matches: written}, {matches: forwarded}]}
         - kind: aliased_import
@@ -108,6 +108,6 @@ rule:
           all:
             - has: {field: operators, regex: '^(not[\t-\r \x{200B}\x{2060}\x{FEFF}]+)?in$'}
             - matches: environment-file
-            - has: {nthChild: 2, matches: relayed}
+            - has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}, matches: relayed}
 message: '`$READ` reads process environment outside the entry module or CLI command'
 note: 'Decode `os.environ` once in entry module or CLI command and pass values as arguments'

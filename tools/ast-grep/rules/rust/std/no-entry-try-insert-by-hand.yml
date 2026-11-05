@@ -4,7 +4,7 @@ severity: error
 utils:
     error-call:
         kind: call_expression
-        has: {field: function, kind: identifier, regex: '^Err$'}
+        has: {field: function, pattern: Err}
     error-value:
         any:
             - matches: error-call

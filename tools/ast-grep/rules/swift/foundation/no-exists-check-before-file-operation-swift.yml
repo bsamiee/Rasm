@@ -14,7 +14,7 @@ utils:
             kind: call_suffix
             has:
                 kind: value_arguments
-                has: {kind: value_argument, nthChild: 1, has: {field: value, matches: subject-path}}
+                has: {kind: value_argument, nthChild: {position: 1, ofRule: {kind: value_argument}}, has: {field: value, matches: subject-path}}
     existence-member:
         kind: navigation_expression
         has: {field: suffix, has: {field: suffix, regex: '^(fileExists|isExecutableFile)$'}}
@@ -73,8 +73,8 @@ utils:
                 any:
                     - has: {kind: value_argument, all: [{has: {field: name, regex: '^executable$'}}, {has: {field: value, matches: executable-path}}]}
                     - all:
-                        - inside: {kind: call_suffix, inside: {kind: call_expression, has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '^((Subprocess(\.|::))?run|(Subprocess(\.|::))?Configuration(\.init)?)$'}}}
-                        - has: {kind: value_argument, nthChild: 1, has: {field: value, matches: executable-path}}
+                        - inside: {kind: call_suffix, inside: {kind: call_expression, has: {nthChild: 1, regex: '^((Subprocess(\.|::))?run|(Subprocess(\.|::))?Configuration(\.init)?)$'}}}
+                        - has: {kind: value_argument, nthChild: {position: 1, ofRule: {kind: value_argument}}, has: {field: value, matches: executable-path}}
     operation:
         any:
             - matches: file-operation

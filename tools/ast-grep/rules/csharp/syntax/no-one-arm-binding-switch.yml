@@ -61,5 +61,5 @@ rule:
         - has: {nthChild: 1, pattern: $VALUE}
         - not: {has: {kind: switch_expression_arm, nthChild: {position: 2, ofRule: {kind: switch_expression_arm}}}}
         - has: {matches: binding-arm}
-message: 'One-arm switch binds `$PATTERN` for at most one read'
-note: 'Write `$VALUE` at its read and drop the switch'
+message: 'One-arm switch over `$VALUE` binds `$PATTERN` for at most one read'
+note: Write the switched value at its read and drop the switch

@@ -8,12 +8,12 @@ rule:
           pattern: $SITE
           any:
             - all:
-                - has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '(^|\.)activate$'}
-                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, nthChild: 1, has: {field: name, regex: '^(options|from|ignoringOtherApps)$'}}}}
-            - has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '^((AppKit(\.|::))?NSApp|(AppKit(\.|::))?NSApplication\.shared)\.(activate|unhide)$'}
-            - has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '(^|\.)activateFileViewerSelecting$'}
+                - has: {nthChild: 1, regex: '(^|\.)activate$'}
+                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, nthChild: {position: 1, ofRule: {kind: value_argument}}, has: {field: name, regex: '^(options|from|ignoringOtherApps)$'}}}}
+            - has: {nthChild: 1, regex: '^((AppKit(\.|::))?NSApp|(AppKit(\.|::))?NSApplication\.shared)\.(activate|unhide)$'}
+            - has: {nthChild: 1, regex: '(^|\.)activateFileViewerSelecting$'}
             - all:
-                - has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '(^|\.)(selectFile|showSearchResults)$'}
+                - has: {nthChild: 1, regex: '(^|\.)(selectFile|showSearchResults)$'}
                 - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: name, regex: '^(inFileViewerRootedAtPath|forQueryString)$'}}}}
             - all:
                 - has:
@@ -23,7 +23,7 @@ rule:
                         - {regex: '^(self\.)?open$', inside: {kind: class_declaration, stopBy: end, has: {field: name, regex: '^(AppKit(\.|::))?NSWorkspace$'}}}
                 - not: {has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: name, regex: '^configuration$'}}}}}
             - all:
-                - has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '(^|\.)(openApplication|open)$'}
+                - has: {nthChild: 1, regex: '(^|\.)(openApplication|open)$'}
                 - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, all: [{has: {field: name, regex: '^configuration$'}}, {has: {field: value, pattern: $CONFIGURATION}}]}}}
                 - not:
                     inside:
@@ -31,16 +31,16 @@ rule:
                         stopBy: {kind: 'function_declaration, init_declaration, source_file'}
                         has: {stopBy: end, kind: assignment, pattern: $CONFIGURATION.activates = false}
             - all:
-                - has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '^AXUIElementPerformAction$'}
-                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, nthChild: 2, regex: '^(kAXRaiseAction(?-u:\b)|"AXRaise")'}}}
+                - has: {nthChild: 1, regex: '^AXUIElementPerformAction$'}
+                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, nthChild: {position: 2, ofRule: {kind: value_argument}}, regex: '^(kAXRaiseAction(?-u:\b)|"AXRaise")'}}}
             - all:
-                - has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '^AXUIElementSetAttributeValue$'}
-                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, nthChild: 2, regex: '^(kAXFrontmostAttribute(?-u:\b)|"AXFrontmost")'}}}
+                - has: {nthChild: 1, regex: '^AXUIElementSetAttributeValue$'}
+                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, nthChild: {position: 2, ofRule: {kind: value_argument}}, regex: '^(kAXFrontmostAttribute(?-u:\b)|"AXFrontmost")'}}}
             - all:
-                - has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '^(NSAppleEventDescriptor(\.init)?|AECreateAppleEvent)$'}
-                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {stopBy: end, kind: simple_identifier, regex: '^kAEActivate$'}}}}
+                - has: {nthChild: 1, regex: '^(NSAppleEventDescriptor(\.init)?|AECreateAppleEvent)$'}
+                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {stopBy: end, pattern: kAEActivate}}}}
             - all:
-                - has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '^NSAppleScript(\.init)?$'}
+                - has: {nthChild: 1, regex: '^NSAppleScript(\.init)?$'}
                 - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, all: [{has: {field: name, regex: '^source$'}}, {has: {field: value, regex: '(?-u:\b)activate(?-u:\b)|(?-u:\b)set[\t-\r ]+frontmost(?-u:\b)|AXRaise'}}]}}}
         - kind: assignment
           pattern: $SITE

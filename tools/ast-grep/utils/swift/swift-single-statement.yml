@@ -3,11 +3,5 @@ id: swift-single-statement
 language: swiftlang
 arguments: [first]
 rule:
-    kind: statements
-    all:
-        - not:
-            has:
-                all:
-                    - &statement {pattern: $_, not: {kind: 'comment, multiline_comment'}}
-                    - follows: {stopBy: end, all: [*statement]}
-        - has: {all: [*statement, {matches: first}]}
+    matches: swift-sole-statement
+    has: {pattern: $_, not: {kind: 'comment, multiline_comment'}, matches: first}

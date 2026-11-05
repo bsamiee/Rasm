@@ -8,7 +8,7 @@ utils:
         any:
             - kind: call
               all:
-                - has: {field: arguments, all: [{has: {nthChild: 1, kind: 'identifier, attribute', pattern: $SOURCE}}, {not: {has: {nthChild: 2}}}]}
+                - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, kind: 'identifier, attribute', pattern: $SOURCE}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}}]}
                 - has: {field: function, matches: constructor}
             - kind: 'list_comprehension, set_comprehension, dictionary_comprehension'
               has: {kind: for_in_clause, not: {follows: {kind: for_in_clause, stopBy: end}}, has: {field: right, pattern: $SOURCE}}
@@ -54,6 +54,6 @@ rule:
     all:
         - has: {field: operators, regex: '^(not[\t-\r \x{200B}\x{2060}\x{FEFF}]+)?in$'}
         - any: [{matches: per-item}, {inside: {stopBy: *scope, matches: per-item}}]
-        - has: {nthChild: 2, matches: construct, pattern: $INDEX}
-        - not: {has: {nthChild: 2, has: {stopBy: end, matches: variant}}}
+        - has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}, matches: construct, pattern: $INDEX}
+        - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}, has: {stopBy: end, matches: variant}}}
         - not: {inside: {stopBy: end, pattern: $LOOP, has: {stopBy: end, matches: mutated}}}

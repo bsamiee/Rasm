@@ -8,12 +8,12 @@ package let appleEvents: DispatchQueue = DispatchQueue(label: "AppleEvents", att
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension NSAppleEventDescriptor {
-    public func send() throws(AppleEventFailure) -> NSAppleEventDescriptor {
+    public func send(timeout: TimeInterval = NSAppleEventTimeOutNone) throws(AppleEventFailure) -> NSAppleEventDescriptor {
         let undelivered: Set<OSStatus> = [OSStatus(procNotFound), OSStatus(errAETargetAddressNotPermitted), OSStatus(errAEEventNotPermitted)]
         let subject: String = (UInt64(eventClass) << 32 | UInt64(eventID)).sdef
         let reply: NSAppleEventDescriptor
         do {
-            reply = try sendEvent(options: [.waitForReply, .neverInteract], timeout: NSAppleEventTimeOutNone)
+            reply = try sendEvent(options: [.waitForReply, .neverInteract], timeout: timeout)
         } catch {
             let status: OSStatus = OSStatus(truncatingIfNeeded: (error as NSError).code)
             throw AppleEventFailure(subject: subject, reason: undelivered.contains(status) ? .undelivered(status) : .unanswered(status))
@@ -27,7 +27,7 @@ extension NSAppleEventDescriptor {
     }
 
     @concurrent
-    public func sent() async throws(AppleEventFailure) -> NSAppleEventDescriptor {
-        try await withTaskExecutorPreference(appleEvents) { () throws(AppleEventFailure) in try send() }
+    public func sent(timeout: TimeInterval = NSAppleEventTimeOutNone) async throws(AppleEventFailure) -> NSAppleEventDescriptor {
+        try await withTaskExecutorPreference(appleEvents) { () throws(AppleEventFailure) in try send(timeout: timeout) }
     }
 }

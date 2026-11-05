@@ -62,18 +62,12 @@ utils:
                 inside: {kind: variable_declaration, has: {field: type, matches: generic-type}}
             - inside:
                 kind: arrow_expression_clause
-                inside:
-                    any:
-                        - {kind: method_declaration, has: {field: returns, matches: generic-type}}
-                        - {kind: local_function_statement, has: {field: type, matches: generic-type}}
+                inside: {kind: 'method_declaration, local_function_statement', has: {field: type, matches: generic-type}}
             - inside:
                 kind: return_statement
                 inside:
                     kind: block
-                    inside:
-                        any:
-                            - {kind: method_declaration, has: {field: returns, matches: generic-type}}
-                            - {kind: local_function_statement, has: {field: type, matches: generic-type}}
+                    inside: {kind: 'method_declaration, local_function_statement', has: {field: type, matches: generic-type}}
 rule:
     kind: lambda_expression, anonymous_method_expression
     all:

@@ -4,57 +4,57 @@ import { Array, Config, Effect, Record } from 'effect';
 import { build, type PlistValue } from 'plist';
 import type { Plugin, Rolldown } from 'vite';
 
-// --- [TYPES] ---------------------------------------------------------------------------
-
-type LaunchAgent = Readonly<
-    Partial<
-        Record<
-            | 'AbandonProcessGroup'
-            | 'Debug'
-            | 'Disabled'
-            | 'EnableGlobbing'
-            | 'EnablePressuredExit'
-            | 'EnableTransactions'
-            | 'EnvironmentVariables'
-            | 'ExitTimeOut'
-            | 'HardResourceLimits'
-            | 'KeepAlive'
-            | 'LaunchEvents'
-            | 'LaunchOnlyOnce'
-            | 'LegacyTimers'
-            | 'LimitLoadFromHardware'
-            | 'LimitLoadToHardware'
-            | 'LimitLoadToSessionType'
-            | 'LowPriorityBackgroundIO'
-            | 'LowPriorityIO'
-            | 'MachServices'
-            | 'Nice'
-            | 'ProcessType'
-            | 'ProgramArguments'
-            | 'QueueDirectories'
-            | 'RunAtLoad'
-            | 'SessionCreate'
-            | 'Sockets'
-            | 'SoftResourceLimits'
-            | 'StandardErrorPath'
-            | 'StandardInPath'
-            | 'StandardOutPath'
-            | 'StartCalendarInterval'
-            | 'StartInterval'
-            | 'StartOnMount'
-            | 'ThrottleInterval'
-            | 'Umask'
-            | 'WaitForDebugger'
-            | 'WatchPaths'
-            | 'WorkingDirectory',
-            PlistValue
-        >
-    >
->;
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const helper = Effect.fnUntraced(function* (entry: string, service: string, agent: LaunchAgent) {
+const helper = Effect.fnUntraced(function* (
+    entry: string,
+    service: string,
+    agent: Readonly<
+        Partial<
+            Record<
+                | 'AbandonProcessGroup'
+                | 'Debug'
+                | 'Disabled'
+                | 'EnableGlobbing'
+                | 'EnablePressuredExit'
+                | 'EnableTransactions'
+                | 'EnvironmentVariables'
+                | 'ExitTimeOut'
+                | 'HardResourceLimits'
+                | 'KeepAlive'
+                | 'LaunchEvents'
+                | 'LaunchOnlyOnce'
+                | 'LegacyTimers'
+                | 'LimitLoadFromHardware'
+                | 'LimitLoadToHardware'
+                | 'LimitLoadToSessionType'
+                | 'LowPriorityBackgroundIO'
+                | 'LowPriorityIO'
+                | 'MachServices'
+                | 'Nice'
+                | 'ProcessType'
+                | 'ProgramArguments'
+                | 'QueueDirectories'
+                | 'RunAtLoad'
+                | 'SessionCreate'
+                | 'Sockets'
+                | 'SoftResourceLimits'
+                | 'StandardErrorPath'
+                | 'StandardInPath'
+                | 'StandardOutPath'
+                | 'StartCalendarInterval'
+                | 'StartInterval'
+                | 'StartOnMount'
+                | 'ThrottleInterval'
+                | 'Umask'
+                | 'WaitForDebugger'
+                | 'WatchPaths'
+                | 'WorkingDirectory',
+                PlistValue
+            >
+        >
+    >,
+) {
     const identifier = yield* Config.String('PRODUCT_BUNDLE_IDENTIFIER');
     const name = basename(dirname(entry));
     const label = `${identifier}.${service}`;

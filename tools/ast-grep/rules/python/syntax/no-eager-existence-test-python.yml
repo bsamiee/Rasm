@@ -11,57 +11,59 @@ utils:
             - kind: 'list_comprehension, set_comprehension, dictionary_comprehension'
             - kind: call
               all:
+                - has: {field: arguments, any: [{kind: generator_expression}, {all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, kind: 'generator_expression, call'}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}}]}]}
                 - has: {field: function, matches: {python-builtin-name: {name: {regex: '^(list|tuple|set|frozenset|dict|sorted)$'}}}}
-                - has: {field: arguments, all: [{has: {nthChild: 1, any: [{kind: generator_expression}, {kind: call, has: {field: function, matches: lazy-filter}}]}}, {not: {has: {nthChild: 2}}}]}
+                - has: {field: arguments, any: [{kind: generator_expression}, {has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, any: [{kind: generator_expression}, {kind: call, has: {field: function, matches: lazy-filter}}]}}]}
     count:
         kind: call
         any:
             - all:
+                - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, kind: 'list_comprehension, set_comprehension, dictionary_comprehension, call'}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}}]}
                 - has: {field: function, matches: {python-builtin-name: {name: {regex: '^len$'}}}}
-                - has: {field: arguments, all: [{has: {nthChild: 1, matches: built-collection}}, {not: {has: {nthChild: 2}}}]}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: built-collection}}
             - all:
-                - has: {field: function, matches: {python-builtin-name: {name: {regex: '^sum$'}}}}
                 - has: {field: arguments, kind: generator_expression, has: {field: body, regex: '^(1|True)$'}}
+                - has: {field: function, matches: {python-builtin-name: {name: {regex: '^sum$'}}}}
     condition:
         any:
             - inside: {kind: 'if_statement, elif_clause, while_statement', field: condition}
             - inside: {kind: 'if_clause, assert_statement'}
-            - nthChild: 2
+            - nthChild: {position: 2, ofRule: {not: {kind: comment}}}
               inside: {kind: conditional_expression}
             - inside: {kind: 'boolean_operator, parenthesized_expression', matches: condition}
     refurb-length-test:
         kind: comparison_operator
         all:
-            - has: {nthChild: 1, kind: call, has: {field: function, matches: {python-builtin-name: {name: {regex: '^len$'}}}}}
+            - has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, kind: call, has: {field: function, matches: {python-builtin-name: {name: {regex: '^len$'}}}}}
             - not: {has: {field: operators, regex: '^<$'}}
             - matches: condition
     zero:
-        kind: integer
-        regex: '^0$'
+        pattern: '0'
     one:
-        kind: integer
-        regex: '^1$'
+        pattern: '1'
 rule:
-    pattern: $TEST
-    any:
-        - kind: comparison_operator
-          all:
-            - not: {has: {nthChild: 3}}
-            - not: {matches: refurb-length-test}
-            - any:
-                - all: [{has: {field: operators, regex: '^(>|!=|==|<=)$'}}, {has: {nthChild: 2, matches: zero}}, {has: {nthChild: 1, matches: count}}]
-                - all: [{has: {field: operators, regex: '^(>=|<)$'}}, {has: {nthChild: 2, matches: one}}, {has: {nthChild: 1, matches: count}}]
-                - all: [{has: {field: operators, regex: '^(<|!=|==|>=)$'}}, {has: {nthChild: 1, matches: zero}}, {has: {nthChild: 2, matches: count}}]
-                - all: [{has: {field: operators, regex: '^(<=|>)$'}}, {has: {nthChild: 1, matches: one}}, {has: {nthChild: 2, matches: count}}]
-        - matches: built-collection
-          any:
-            - inside: {kind: 'if_statement, elif_clause, while_statement', field: condition}
-            - inside: {kind: not_operator, field: argument}
-            - inside: {kind: argument_list, inside: {kind: call, has: {field: function, matches: {python-builtin-name: {name: {regex: '^bool$'}}}}}}
-        - kind: comparison_operator
-          all:
-            - has: {field: operators, regex: '^(not[\t-\r \x{200B}\x{2060}\x{FEFF}]+)?in$'}
-            - has: {nthChild: 2, matches: built-collection}
-            - not: {matches: python-invariant-index-test}
+    all:
+        - any:
+            - kind: comparison_operator
+              all:
+                - not: {has: {nthChild: {position: 3, ofRule: {not: {kind: comment}}}}}
+                - any:
+                    - all: [{has: {field: operators, regex: '^(>|!=|==|<=)$'}}, {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}, matches: zero}}, {has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: count}}]
+                    - all: [{has: {field: operators, regex: '^(>=|<)$'}}, {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}, matches: one}}, {has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: count}}]
+                    - all: [{has: {field: operators, regex: '^(<|!=|==|>=)$'}}, {has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: zero}}, {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}, matches: count}}]
+                    - all: [{has: {field: operators, regex: '^(<=|>)$'}}, {has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: one}}, {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}, matches: count}}]
+                - not: {matches: refurb-length-test}
+            - all:
+                - any:
+                    - inside: {kind: 'if_statement, elif_clause, while_statement', field: condition}
+                    - inside: {kind: not_operator, field: argument}
+                    - inside: {kind: argument_list, inside: {kind: call, has: {field: function, matches: {python-builtin-name: {name: {regex: '^bool$'}}}}}}
+                - matches: built-collection
+            - kind: comparison_operator
+              all:
+                - has: {field: operators, regex: '^(not[\t-\r \x{200B}\x{2060}\x{FEFF}]+)?in$'}
+                - has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}, matches: built-collection}
+                - not: {matches: python-invariant-index-test}
+        - pattern: $TEST
 message: '`$TEST` builds every match to test whether one exists'
 note: 'Call `any(<test> for <item> in <source>)`, negated for an emptiness test, with `<needle> == <item>` as `<test>` for membership'

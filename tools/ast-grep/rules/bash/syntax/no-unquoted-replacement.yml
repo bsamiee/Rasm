@@ -14,5 +14,5 @@ rule:
             follows: {regex: '^/$'}
 labels:
     DATA: {style: primary, message: Unquoted replacement data}
-message: Unquoted replacement data treats `&` as matched text under `patsub_replacement`
+message: 'Unquoted replacement data `$DATA` treats `&` as matched text under `patsub_replacement`'
 note: Quote replacement data while preserving existing literal quoting

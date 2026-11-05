@@ -11,11 +11,11 @@ rule:
           has:
             kind: call_suffix
             any:
-                - has: {kind: lambda_literal, matches: handler-body, follows: {kind: simple_identifier, regex: '^onCancel$', stopBy: end}}
+                - has: {kind: lambda_literal, matches: handler-body, follows: {pattern: onCancel, stopBy: end}}
                 - has: {kind: value_arguments, has: {kind: value_argument, all: [{has: {field: name, regex: '^onCancel$'}}, {has: {field: value, matches: handler-body}}]}}
         - kind: call_expression
           all:
-            - has: {nthChild: 1, kind: simple_identifier, regex: '^withTaskCancellationHandler$'}
+            - has: {nthChild: 1, pattern: withTaskCancellationHandler}
             - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, all: [{has: {field: name, regex: '^handler$'}}, {has: {field: value, matches: handler-body}}]}}}
         - kind: assignment
           all:

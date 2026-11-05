@@ -107,7 +107,7 @@ Rules with one correction and reason combine, a difference in scope, severity, o
 
 ## [04]-[MECHANISMS]
 
-Relations stay where they establish fields, captures, or traversal stops. Duplication stays when parameter forwarding loses captures, a recursive local util would pass itself as an argument (`cyclic dependency`), a parameterized util calls itself (`is not defined`), or document-local rewriters cannot be shared.
+Relations stay where they establish fields, captures, or traversal stops. Duplication stays when parameter forwarding loses captures, a recursive local util would pass itself as an argument (`cyclic dependency`), a parameterized util calls itself (`is not defined`), an argument names a local util whose captures the caller reads later, or document-local rewriters cannot be shared.
 
 | [INDEX] | [SYMPTOM]                                                  | [MECHANISM]                                                            |
 | :-----: | :--------------------------------------------------------- | :--------------------------------------------------------------------- |
@@ -126,12 +126,12 @@ Relations stay where they establish fields, captures, or traversal stops. Duplic
 
 Mechanisms changing no result go:
 
-| [INDEX] | [FAILURE]                                            | [REMEDY]                                                                  |
-| :-----: | :--------------------------------------------------- | :------------------------------------------------------------------------ |
-|  [01]   | Caller repeats its util's established shape          | Keep caller-specific guards and omit kind guards the util infers          |
-|  [02]   | Fixed util with one call                             | Inline unless private capture scope or distinct arguments change behavior |
-|  [03]   | Argument bound to nothing                            | Every declared argument appears as `matches: <slot>` in the util body     |
-|  [04]   | Parameterized call under `has` or `inside` in a util | Rule's own `matches` makes the call, the util takes the subject directly  |
+| [INDEX] | [FAILURE]                                      | [REMEDY]                                                                  |
+| :-----: | :--------------------------------------------- | :------------------------------------------------------------------------ |
+|  [01]   | Caller repeats its util's established shape    | Keep caller-specific guards and omit kind guards the util infers          |
+|  [02]   | Fixed util with one call                       | Inline unless private capture scope or distinct arguments change behavior |
+|  [03]   | Argument bound to nothing                      | Every declared argument appears as `matches: <slot>` in the util body     |
+|  [04]   | Parameterized call in a relation or local util | Composite call of that util in the document, else an unparameterized util |
 
 ## [05]-[RECURSION]
 

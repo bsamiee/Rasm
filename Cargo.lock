@@ -749,6 +749,22 @@ dependencies = [
  "bit-set 0.11.1",
  "regex",
  "thiserror 2.0.21",
+ "tree-sitter",
+]
+
+[[package]]
+name = "ast-grep-dynamic"
+version = "0.51.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f6357631dac15977bde34fb02d2a8c906fceb1066efb5c37dcd477231333cb0a"
+dependencies = [
+ "ast-grep-core",
+ "ignore",
+ "libloading 0.9.0",
+ "serde",
+ "target-tuple",
+ "thiserror 2.0.21",
+ "tree-sitter",
 ]
 
 [[package]]
@@ -1857,7 +1873,7 @@ checksum = "157a8ba7b480713b56f4c09fd13fc3e0a22a5dfab8097ba61cbc5feef950788a"
 dependencies = [
  "glob",
  "libc",
- "libloading",
+ "libloading 0.8.9",
 ]
 
 [[package]]
@@ -4150,7 +4166,7 @@ dependencies = [
  "fmi-sys",
  "itertools 0.15.0",
  "libc",
- "libloading",
+ "libloading 0.8.9",
  "log",
  "paste",
  "tempfile",
@@ -4183,7 +4199,7 @@ dependencies = [
  "bindgen",
  "cc",
  "document-features",
- "libloading",
+ "libloading 0.8.9",
  "log",
 ]
 
@@ -6006,6 +6022,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "ignore"
+version = "0.4.34"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "484be5657551d7868d67587df967fb4fcbe9d266a761cc855aaa148fda0b3cc7"
+dependencies = [
+ "crossbeam-deque",
+ "globset",
+ "log",
+ "memchr",
+ "regex-automata",
+ "same-file",
+ "walkdir",
+ "winapi-util",
+]
+
+[[package]]
 name = "image"
 version = "0.25.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6946,6 +6978,16 @@ name = "libloading"
 version = "0.8.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d7c4b02199fee7c5d21a5ae7d8cfa79a6ef5bb2fc834d6e9058e89c825efdc55"
+dependencies = [
+ "cfg-if",
+ "windows-link",
+]
+
+[[package]]
+name = "libloading"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "754ca22de805bb5744484a5b151a9e1a8e837d5dc232c2d7d8c2e3492edc8b60"
 dependencies = [
  "cfg-if",
  "windows-link",
@@ -10661,11 +10703,15 @@ name = "rasm-regex-classes"
 version = "0.0.0"
 dependencies = [
  "ast-grep-config",
+ "ast-grep-core",
+ "ast-grep-dynamic",
+ "regex-automata",
  "regex-syntax",
  "serde",
  "serde_json",
  "serde_path_to_error",
  "thiserror 2.0.21",
+ "tokio",
 ]
 
 [[package]]
@@ -12860,6 +12906,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "streaming-iterator"
+version = "0.1.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2b2231b7c3057d5e4ad0156fb3dc807d900806020c5ffa3ee6ff2c8c76fb8520"
+
+[[package]]
 name = "strength_reduce"
 version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -13228,6 +13280,12 @@ dependencies = [
  "libc",
  "xattr",
 ]
+
+[[package]]
+name = "target-tuple"
+version = "1.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "876fef147edbcbddc8ac5cbbba92c7b86519e314e86638596c09673b2ed01e7f"
 
 [[package]]
 name = "tempfile"
@@ -13993,6 +14051,25 @@ dependencies = [
  "num-integer",
  "strength_reduce",
 ]
+
+[[package]]
+name = "tree-sitter"
+version = "0.27.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a5129de2ccc97808c4583d48f1fb44576d015cf241e432800572bda11ef30c3b"
+dependencies = [
+ "cc",
+ "regex",
+ "serde_json",
+ "streaming-iterator",
+ "tree-sitter-language",
+]
+
+[[package]]
+name = "tree-sitter-language"
+version = "0.1.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d0af592be68c579aa78a16846bd19422978c3c52e438523d45ff5d1bff1f9d4a"
 
 [[package]]
 name = "try-lock"

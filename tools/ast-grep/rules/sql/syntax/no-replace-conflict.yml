@@ -3,6 +3,8 @@ language: sql
 severity: error
 rule:
     kind: insert_statement, update_statement, column_constraint, table_constraint, alter_table_statement
-    has: {regex: '(?i-u)^replace$', not: {pattern: $_}}
-message: '`REPLACE` can delete conflicting rows or substitute defaults for NULL'
+    all:
+        - has: {regex: '(?i-u)^replace$', not: {pattern: $_}}
+        - pattern: $NODE
+message: '`$NODE` can delete conflicting rows or substitute defaults for NULL through `REPLACE`'
 note: 'Handle conflicts explicitly while preserving trigger, default, and foreign key behavior'

@@ -33,9 +33,8 @@ utils:
                     kind: 'arrow_expression_clause, return_statement'
                     inside:
                         stopBy: {kind: 'method_declaration, local_function_statement, lambda_expression, anonymous_method_expression'}
-                        any:
-                            - {kind: method_declaration, has: {field: returns, matches: vector-type}}
-                            - {kind: local_function_statement, has: {field: type, matches: vector-type}}
+                        kind: method_declaration, local_function_statement
+                        has: {field: type, matches: vector-type}
             - kind: invocation_expression
               has:
                 field: function

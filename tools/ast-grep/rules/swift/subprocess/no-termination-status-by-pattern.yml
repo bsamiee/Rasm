@@ -15,7 +15,7 @@ rule:
             - has: {matches: plain-operand, not: {matches: exited-zero}}
         - kind: infix_expression
           all:
-            - has: {field: op, regex: '^!=$'}
+            - has: {field: op, pattern: '!='}
             - has: {matches: exited-zero}
             - has: {matches: plain-operand, not: {matches: exited-zero}}
         - kind: 'if_statement, guard_statement'

@@ -6,10 +6,10 @@ rule:
         - kind: attribute
           pattern: $MARK
           any:
-            - has: {nthChild: 1, kind: identifier, regex: '^deprecated$'}
+            - has: {nthChild: 1, pattern: deprecated}
             - all:
-                - has: {nthChild: 1, kind: identifier, regex: '^cfg_attr$'}
-                - has: {field: arguments, has: {kind: identifier, regex: '^deprecated$', follows: {regex: '^,$'}}}
+                - has: {nthChild: 1, pattern: cfg_attr}
+                - has: {field: arguments, has: {pattern: deprecated, follows: {regex: '^,$'}}}
             - all:
                 - has: {nthChild: 1, kind: identifier, regex: '^cfg(_attr)?$'}
                 - has: {field: arguments, regex: '^\(\p{Pattern_White_Space}*(any\p{Pattern_White_Space}*\(\p{Pattern_White_Space}*\)|false|not\p{Pattern_White_Space}*\(\p{Pattern_White_Space}*all\p{Pattern_White_Space}*\(\p{Pattern_White_Space}*\)\p{Pattern_White_Space}*\))\p{Pattern_White_Space}*[,)]'}

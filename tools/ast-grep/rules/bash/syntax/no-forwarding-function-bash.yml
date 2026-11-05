@@ -7,7 +7,7 @@ utils:
         any:
             - kind: command_name, word, raw_string
             - kind: string
-              not: {has: {kind: 'simple_expansion, expansion, command_substitution, arithmetic_expansion'}}
+              not: {has: {matches: bash-expanding-word}}
             - matches: positional-parameter
 rule:
     kind: function_definition

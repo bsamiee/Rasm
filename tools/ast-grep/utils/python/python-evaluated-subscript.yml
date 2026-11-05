@@ -17,7 +17,7 @@ utils:
 rule:
     kind: subscript, generic_type
     all:
-        - has: {nthChild: 1, matches: subscripted}
+        - has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: subscripted}
         - not:
             any:
                 - inside: {kind: assignment, field: type, stopBy: end, inside: {kind: function_definition, stopBy: {kind: 'function_definition, class_definition'}}}

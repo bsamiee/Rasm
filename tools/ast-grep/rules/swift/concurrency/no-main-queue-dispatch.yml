@@ -11,8 +11,8 @@ rule:
                 kind: navigation_expression
                 regex: '^((Dispatch(\.|::))?DispatchQueue\.main\.(async|sync|asyncAndWait)|(Foundation(\.|::))?(RunLoop\.main\.perform|OperationQueue\.main\.addOperation))$'
             - all:
-                - has: {nthChild: 1, kind: simple_identifier, regex: '^CFRunLoopPerformBlock$'}
-                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, nthChild: 1, regex: '^CFRunLoopGetMain\(\)$'}}}
-            - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, nthChild: 1, has: {field: name, regex: '^onMainThread$'}}}}
+                - has: {nthChild: 1, pattern: CFRunLoopPerformBlock}
+                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, nthChild: {position: 1, ofRule: {kind: value_argument}}, regex: '^CFRunLoopGetMain\(\)$'}}}
+            - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, nthChild: {position: 1, ofRule: {kind: value_argument}}, has: {field: name, regex: '^onMainThread$'}}}}
 message: '`$DISPATCH` hands work to the main thread outside actor isolation checking'
 note: 'Declare the caller or callee `@MainActor`, start work from synchronous code as `Task { @MainActor in <work> }`, or await `MainActor.run` for `sync`'

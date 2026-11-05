@@ -4,11 +4,12 @@ severity: error
 utils:
     query:
         kind: call
-        pattern: $SEARCH
-        has:
-            field: function
-            regex: '(^|\.)(glob|rglob|iterdir|scandir)$'
-            not: {matches: {python-member-use: {module: {regex: '^glob$'}, name: {regex: '^glob$'}}}}
+        all:
+            - has:
+                field: function
+                regex: '(^|\.)(glob|rglob|iterdir|scandir)$'
+                not: {matches: {python-member-use: {module: {regex: '^glob$'}, name: {regex: '^glob$'}}}}
+            - pattern: $SEARCH
     searched:
         any:
             - matches: query
@@ -20,27 +21,28 @@ utils:
             - kind: call
               all:
                 - has: {field: function, regex: '^(list|tuple)$'}
-                - has: {field: arguments, all: [{has: {nthChild: 1, matches: searched}}, {not: {has: {nthChild: 2}}}]}
+                - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: searched}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}}]}
             - kind: list, tuple
               all:
-                - has: {nthChild: 1, kind: list_splat, has: {matches: searched}}
-                - not: {has: {nthChild: 2}}
+                - has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, kind: list_splat, has: {matches: searched}}
+                - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
     exit:
         kind: return_statement, break_statement
 rule:
     any:
-        - matches: {python-first-item: {source: {any: [{matches: query, pattern: $SEARCH}, {kind: 'generator_expression, list_comprehension', has: {kind: for_in_clause, has: {field: right, matches: query, pattern: $SEARCH}}}]}}}
+        - regex: 'glob|iterdir|scandir'
+          matches: {python-first-item: {source: {any: [{matches: query, pattern: $SEARCH}, {kind: 'generator_expression, list_comprehension', has: {kind: for_in_clause, has: {field: right, matches: query, pattern: $SEARCH}}}]}}}
         - kind: subscript
           all:
             - has: {field: subscript, regex: '^-1$'}
             - has: {field: value, matches: listed}
         - kind: call
           all:
-            - has: {field: function, kind: attribute, all: [{has: {field: attribute, regex: '^pop$'}}, {has: {field: object, matches: listed}}]}
-            - has: {field: arguments, not: {has: {nthChild: 2}}}
+            - has: {field: function, kind: attribute, all: [{has: {field: attribute, pattern: pop}}, {has: {field: object, matches: listed}}]}
+            - has: {field: arguments, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}}
         - kind: assignment
           all:
-            - has: {field: left, kind: 'pattern_list, list_pattern, tuple_pattern', has: {nthChild: 1, kind: list_splat_pattern}, not: {has: {nthChild: 3}}}
+            - has: {field: left, kind: 'pattern_list, list_pattern, tuple_pattern', has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, kind: list_splat_pattern}, not: {has: {nthChild: {position: 3, ofRule: {not: {kind: comment}}}}}}
             - has: {field: right, matches: listed}
         - kind: for_statement
           all:

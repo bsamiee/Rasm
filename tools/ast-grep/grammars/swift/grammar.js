@@ -11,7 +11,6 @@ const MULTI_LINE_TEXT = /(?:[^\\"]|"[^\\"]|""[^\\"])+/u;
 const WORD = /^\p{XID_Start}\p{XID_Continue}*$/u;
 const IDENTIFIER_CONTINUE = '[_\\p{XID_Continue}';
 const EFFECTS_ARGUMENT = /[^()]+/u;
-const REGEX_NESTING = 3;
 const REGEX_TEXT = String.raw`[^()/\n\\]`;
 const REGEX_EDGE = String.raw`[^ \t()/\n\\]`;
 const MULTI_LINE_DIAGNOSTIC = /(?:error|warning)\s*\(\s*#*"""(?:[^"]|"[^"]|""[^"])*"""#*\s*\)/u;
@@ -28,7 +27,7 @@ const nonisolated = ({ type, members }) => type === 'SEQ' && string('nonisolated
 const returning = after(symbol('_arrow_operator'), ($) => optional($.parameter_modifiers));
 const initialized = widen(named('value'), ($) => alias($._function_type_expression, $.function_type));
 const ownership = widen(symbol('mutation_modifier'), ($) => alias($._parameter_ownership_modifier, $.mutation_modifier));
-const regexAtom = (text, depth) => [String.raw`\\.`, String.raw`\[[^\]\n]*\]`, text, ...(depth > 0 ? [String.raw`\((?:${regexAtom(REGEX_TEXT, depth - 1)})*\)`] : [])].join('|');
+const regexAtom = (text, depth = 3) => [String.raw`\\.`, String.raw`\[[^\]\n]*\]`, text, ...(depth > 0 ? [String.raw`\((?:${regexAtom(REGEX_TEXT, depth - 1)})*\)`] : [])].join('|');
 const bodiless = replace(any(named('body'), symbol('computed_property')), ($, part) => optional(choice(part, $._function_signature_end)));
 const keyword = (word) => replace(string(word), ($) => alias(word, $[`${word}_keyword`]));
 const operatorName = replace(symbol('_referenceable_operator'), ($, part) => alias(part, $.referenceable_operator));
@@ -68,7 +67,7 @@ export default extend(swift, {
         multi_line_str_text: () => MULTI_LINE_TEXT,
         _oneline_regex_literal: replace(
             ({ type }) => type === 'PATTERN',
-            (_, part) => ({ ...part, value: `(?:${regexAtom(REGEX_EDGE, REGEX_NESTING)})(?:(?:${regexAtom(REGEX_TEXT, REGEX_NESTING)})*(?:${regexAtom(REGEX_EDGE, REGEX_NESTING)}))?` }),
+            (_, part) => ({ ...part, value: `(?:${regexAtom(REGEX_EDGE)})(?:(?:${regexAtom(REGEX_TEXT)})*(?:${regexAtom(REGEX_EDGE)}))?` }),
         ),
         ...Object.fromEntries(PREFIXED.map((name) => [`_condition_${name}`, ($) => seq(operator(swift.grammar.rules[name]), field('expr', $._expression))])),
         _if_condition_sequence_item: conditioned,
@@ -85,6 +84,9 @@ export default extend(swift, {
             conditioned,
             widen(symbol('switch_entry'), ($) => seq($.directive, optional(seq($._semi, optional($.statements))))),
         ),
+        defer_statement: ($) => seq('defer', $._block),
+        _local_statement: widen(symbol('control_transfer_statement'), ($) => $.defer_statement),
+        _top_level_statement: widen(symbol('_throw_statement'), ($) => $.defer_statement),
         catch_block: replace(named('error'), ($) => {
             const item = field('error', alias($._binding_pattern_no_expr, $.pattern));
             return optional(seq(item, repeat(seq(optional($.where_clause), ',', item))));

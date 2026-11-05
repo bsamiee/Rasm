@@ -1,24 +1,6 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: bashlang
 severity: error
-utils:
-    line-tool:
-        kind: command
-        any:
-            - has: {field: name, regex: '^(?:[^\t-\r ]*/)?(grep|fgrep|egrep|sed|cat|awk|cut|sort)$'}
-            - all:
-                - has: {field: name, regex: '^(command|builtin)$'}
-                - has: {kind: word, nthChild: 2, regex: '^(?:[^\t-\r ]*/)?(grep|fgrep|egrep|sed|cat|awk|cut|sort)$'}
-    line-output-substitution:
-        kind: command_substitution
-        all:
-            - not: {has: {nthChild: 2}}
-            - any:
-                - has: {matches: line-tool}
-                - has: {kind: pipeline, not: {has: {pattern: $_, not: {matches: line-tool}}}}
-                - has: {kind: command, has: {field: name, regex: '^(ls|find)$'}}
-            - follows: {regex: '^in$'}
-            - precedes: {any: [{regex: '^;$'}, {kind: do_group}]}
 rule:
     kind: for_statement
     all:
@@ -28,7 +10,6 @@ rule:
             any:
                 - kind: command_substitution
                 - has: {kind: variable_name}
-            not: {matches: line-output-substitution}
         - not:
             inside:
                 kind: program

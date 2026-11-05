@@ -3,6 +3,7 @@ language: bashlang
 severity: error
 utils:
     divider: {kind: comment, regex: '^# --- \[[0-9A-Z_]+\] -'}
+    fixed: {any: [{has: {regex: '^readonly$'}}, {has: {kind: word, regex: '^-[a-zA-Z]*r'}}]}
     under:
         follows:
             stopBy: {matches: divider}
@@ -14,7 +15,7 @@ rule:
         - kind: declaration_command
           pattern: $DECLARATION
           all:
-            - any: [{has: {regex: '^readonly$'}}, {has: {kind: word, regex: '^-[a-zA-Z]*r'}}]
+            - matches: fixed
             - not: {has: {kind: word, regex: '^[-+][a-zA-Z]*[fFpA]'}}
             - inside: {kind: program}
             - matches: under
@@ -22,7 +23,8 @@ rule:
         - kind: declaration_command
           pattern: $DECLARATION
           all:
-            - has: {kind: word, regex: '^-[a-zA-Z]*A', all: [{regex: '^-[a-zA-Z]*r'}]}
+            - has: {kind: word, regex: '^-[a-zA-Z]*A'}
+            - matches: fixed
             - inside: {kind: program}
             - matches: under
             - not: {follows: {stopBy: {matches: divider}, kind: comment, regex: '\[TABLES\]'}}
@@ -34,7 +36,7 @@ rule:
             - matches: under
             - not: {follows: {stopBy: {matches: divider}, kind: comment, regex: '\[COMPOSITION\]'}}
 transform:
-    HEAD: {replace: {source: $DECLARATION, replace: '(?s)^([^\t\n =]+(?:[\t ]+[-+][^\t\n ]*)*(?:[\t ]+[^\t\n "''$=({]+)?).*', by: '${1}'}}
+    HEAD: {replace: {source: $DECLARATION, replace: '(?s)^([^\t-\r =]+(?:[\t-\r ]+[-+][^\t-\r ]*)*(?:[\t-\r ]+[^\t-\r "''$=({]+)?).*', by: '${1}'}}
     LABEL: {replace: {source: $DIVIDER, replace: '^# --- (\[[0-9A-Z_]+\]).*', by: '${1}'}}
 message: '`$HEAD` sits under `$LABEL`'
 note: 'Bash keeps `readonly` values under `[CONSTANTS]`, `declare -Ar` maps under `[TABLES]`, and `main` under `[COMPOSITION]`'

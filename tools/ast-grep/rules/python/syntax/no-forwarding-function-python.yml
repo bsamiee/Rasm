@@ -24,7 +24,7 @@ utils:
                     - inside:
                         matches: method
                         stopBy: {kind: 'function_definition, lambda'}
-                        has: {field: parameters, has: {nthChild: 1, kind: identifier, pattern: $ROOT}}
+                        has: {field: parameters, has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, kind: identifier, pattern: $ROOT}}
             - kind: attribute
               has: {field: object, matches: named-callee}
     forwarding-statement:
@@ -40,7 +40,7 @@ utils:
         kind: identifier
         regex: '^(self|cls)$'
         pattern: $RECEIVER
-        nthChild: 1
+        nthChild: {position: 1, ofRule: {not: {kind: comment}}}
         inside:
             kind: parameters
             inside:
@@ -52,7 +52,7 @@ utils:
     position:
         any: [{matches: slot}, {kind: keyword_separator}]
     plain-slot:
-        any: [{kind: identifier, pattern: $X}, {kind: typed_parameter, has: {nthChild: 1, kind: identifier, pattern: $X}}]
+        any: [{kind: identifier, pattern: $X}, {kind: typed_parameter, has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, kind: identifier, pattern: $X}}]
     forwarded-parameters:
         kind: parameters
         all:

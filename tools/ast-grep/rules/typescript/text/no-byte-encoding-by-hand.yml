@@ -7,7 +7,7 @@ utils:
             - kind: member_expression
               all: [{has: {field: property, regex: '^from(CharCode|CodePoint)$'}}, {has: {field: object, regex: '^String$'}}]
             - kind: call_expression
-              has: {field: function, kind: identifier, regex: '^unescape$'}
+              has: {field: function, pattern: unescape}
     holds-byte-string:
         any:
             - matches: byte-string
@@ -54,7 +54,7 @@ rule:
     any:
         - kind: call_expression
           all:
-            - has: {field: function, any: [{kind: identifier, regex: '^btoa$'}, {kind: member_expression, has: {field: property, regex: '^btoa$'}}]}
+            - has: {field: function, any: [{pattern: btoa}, {kind: member_expression, has: {field: property, regex: '^btoa$'}}]}
             - has: {field: function, pattern: $OP, regex: '^((globalThis|window|self)\.)?btoa$', matches: typescript-global-reference}
             - has:
                 field: arguments
@@ -76,14 +76,14 @@ rule:
                                       all: [{has: {field: left, pattern: $S}}, {has: {field: right, matches: holds-byte-string}}]
         - kind: call_expression
           all:
-            - has: {field: function, any: [{kind: identifier, regex: '^atob$'}, {kind: member_expression, has: {field: property, regex: '^atob$'}}]}
+            - has: {field: function, any: [{pattern: atob}, {kind: member_expression, has: {field: property, regex: '^atob$'}}]}
             - has: {field: function, pattern: $OP, regex: '^((globalThis|window|self)\.)?atob$', matches: typescript-global-reference}
             - any:
                 - inside:
                     stopBy: {kind: 'arrow_function, function_expression, function_declaration, generator_function, generator_function_declaration, method_definition, expression_statement, lexical_declaration, variable_declaration, return_statement'}
                     kind: 'call_expression, new_expression'
                     has: {stopBy: end, kind: property_identifier, regex: '^(charCodeAt|codePointAt)$'}
-                - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, kind: identifier, regex: '^escape$'}}}
+                - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, pattern: escape}}}
                 - inside:
                     kind: variable_declarator
                     has: {field: name, pattern: $S}
@@ -112,7 +112,7 @@ rule:
                         - inside: {stopBy: &boundary {kind: 'arrow_function, function_expression, function_declaration, generator_function, generator_function_declaration, method_definition'}, kind: 'for_in_statement, for_statement, while_statement, do_statement'}
         - kind: call_expression
           all:
-            - has: {field: function, any: [{kind: identifier, regex: '^parseInt$'}, {kind: member_expression, has: {field: property, regex: '^parseInt$'}}]}
+            - has: {field: function, any: [{pattern: parseInt}, {kind: member_expression, has: {field: property, regex: '^parseInt$'}}]}
             - has: {field: arguments, all: [{has: {nthChild: 2, matches: radix}}, {not: {has: {nthChild: 3}}}]}
             - has: {field: function, pattern: $OP, regex: '^((globalThis|window|self)\.)?(Number\.)?parseInt$', matches: typescript-global-reference}
             - any:

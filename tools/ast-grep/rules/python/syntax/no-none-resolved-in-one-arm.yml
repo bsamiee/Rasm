@@ -13,7 +13,7 @@ utils:
             - kind: if_statement
               all:
                 - has: {field: condition, any: [{pattern: $X is None}, {pattern: None is $X}]}
-                - has: {field: consequence, has: {kind: expression_statement, has: {pattern: $X = $D}}, not: {has: {nthChild: 2}}}
+                - has: {field: consequence, has: {kind: expression_statement, has: {pattern: $X = $D}}, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}}
                 - not: {has: {kind: "else_clause, elif_clause"}}
     raw-use:
         kind: identifier, attribute, subscript
@@ -29,10 +29,10 @@ utils:
             - has: {matches: raw-use, stopBy: end}
     conditional-arm:
         any:
-            - nthChild: 1
-              inside: {kind: conditional_expression, has: {nthChild: 3, matches: holds-raw}}
-            - nthChild: 3
-              inside: {kind: conditional_expression, has: {nthChild: 1, matches: holds-raw}}
+            - nthChild: {position: 1, ofRule: {not: {kind: comment}}}
+              inside: {kind: conditional_expression, has: {nthChild: {position: 3, ofRule: {not: {kind: comment}}}, matches: holds-raw}}
+            - nthChild: {position: 3, ofRule: {not: {kind: comment}}}
+              inside: {kind: conditional_expression, has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: holds-raw}}
     branch:
         any:
             - kind: block

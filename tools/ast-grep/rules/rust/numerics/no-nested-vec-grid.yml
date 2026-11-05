@@ -36,7 +36,7 @@ rule:
             - has:
                 kind: token_tree
                 all:
-                    - has: {nthChild: 1, kind: identifier, regex: '^vec$', precedes: {regex: '^!$', precedes: {kind: token_tree, has: {regex: '^;$'}}}}
+                    - has: {nthChild: 1, pattern: vec, precedes: {regex: '^!$', precedes: {kind: token_tree, has: {regex: '^;$'}}}}
                     - has: {regex: '^;$'}
         - kind: call_expression
           all:

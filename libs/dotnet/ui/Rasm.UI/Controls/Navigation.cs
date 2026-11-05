@@ -41,7 +41,7 @@ public sealed record Tabs(Seq<Key> Items, Option<Key> Value, Func<Key, string> L
     private Seq<View> Strips =>
         Seq(Strip(Items, iconic: false, [])) + Glyph.Map(_ => Strip(Items, iconic: true, [])).ToSeq()
         + toSeq(Range(1, int.Max(0, Items.Count - 1))).Map(hidden => Kept(Items.Count - hidden) switch {
-            var shown => Strip(shown, Glyph.IsSome, Items.Filter(key => !shown.Exists(held => held == key))),
+            var shown => Strip(shown, Glyph.IsSome, toSeq(Items.Except(shown))),
         });
 
     private Seq<Key> Kept(int count) {

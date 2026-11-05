@@ -4,14 +4,14 @@ severity: error
 rule:
     kind: call_expression
     all:
-        - has: {nthChild: 1, kind: simple_identifier, regex: '^FSEventStreamCreate$'}
+        - has: {nthChild: 1, pattern: FSEventStreamCreate}
         - has:
             kind: call_suffix
             has:
                 kind: value_arguments
                 has:
                     kind: value_argument
-                    nthChild: 4
+                    nthChild: {position: 4, ofRule: {kind: value_argument}}
                     has:
                         stopBy: end
                         kind: array_literal

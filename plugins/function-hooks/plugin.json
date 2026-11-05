@@ -1,0 +1,9 @@
+{
+    "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+    "name": "function-hooks",
+    "version": "1.0.0",
+    "description": "Hooks that correct agent commands and track app instances each session owns",
+    "author": { "name": "Bardia Samiee" },
+    "repository": "https://github.com/bsamiee/Rasm",
+    "license": "MIT"
+}

@@ -24,9 +24,9 @@ utils:
             - has:
                 field: arguments
                 all:
-                    - has: {nthChild: 1, pattern: $X}
-                    - has: {nthChild: 2, matches: class-operand}
-                    - not: {has: {nthChild: 3}}
+                    - has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, pattern: $X}
+                    - has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}, matches: class-operand}
+                    - not: {has: {nthChild: {position: 3, ofRule: {not: {kind: comment}}}}}
                     - not: {has: {kind: 'keyword_argument, list_splat, dictionary_splat'}}
     terminal:
         has:
@@ -40,7 +40,7 @@ utils:
             - not: {has: {field: alternative, pattern: $_}}
     pass-block:
         matches: python-single-statement-block
-        has: {any: [{kind: pass_statement}, {kind: expression_statement, has: {kind: ellipsis}, not: {has: {nthChild: 2}}}]}
+        has: {any: [{kind: pass_statement}, {kind: expression_statement, has: {kind: ellipsis}, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}}]}
     two-arm-pass:
         kind: if_statement
         all:

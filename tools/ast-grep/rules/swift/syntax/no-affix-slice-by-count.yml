@@ -22,7 +22,7 @@ utils:
               has: {matches: prefix-tested}
             - kind: tuple_expression
               has: {field: value, matches: prefix-tested}
-              not: {has: {nthChild: 2}}
+              not: {has: {regex: '^,$'}}
     suffix-tested:
         any:
             - matches: suffix-test
@@ -30,7 +30,7 @@ utils:
               has: {matches: suffix-tested}
             - kind: tuple_expression
               has: {field: value, matches: suffix-tested}
-              not: {has: {nthChild: 2}}
+              not: {has: {regex: '^,$'}}
     prefix-clause:
         not: {kind: statements}
         precedes: {stopBy: end, kind: statements}

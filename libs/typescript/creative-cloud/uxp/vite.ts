@@ -27,22 +27,22 @@ interface Plugin extends Omit<Fields, keyof Effect.Success<ReturnType<typeof rel
 
 const HOSTED = /^adobe:/u;
 const ENTRY = 'main';
-const ICONS = 'icons';
 const SPECIES = { toolbar: { size: 23, scale: [1, 2], raster: true }, pluginList: { size: 24, scale: [1], raster: false } } as const;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const icons = Effect.fnUntraced(function* (master: string, species: keyof typeof SPECIES, stem: string) {
     const { size, scale, raster } = SPECIES[species];
+    const folder = 'icons';
     const inks = Record.toEntries(UxpManifest.inks);
     const files = yield* Effect.forEach(
         Array.cartesian(inks, scale),
         Effect.fnUntraced(function* ([[name, ink], factor]) {
-            return { fileName: `${ICONS}/${stem}-${name}${raster ? `@${factor}x.png` : '.svg'}`, source: yield* paint(master, ink, raster ? size * factor : undefined) };
+            return { fileName: `${folder}/${stem}-${name}${raster ? `@${factor}x.png` : '.svg'}`, source: yield* paint(master, ink, raster ? size * factor : undefined) };
         }),
         { concurrency: 'unbounded' },
     );
-    return { icons: Array.map(inks, ([name, { theme }]) => ({ width: size, height: size, path: `${ICONS}/${stem}-${name}.${raster ? 'png' : 'svg'}`, scale, theme, species: [species] })), files };
+    return { icons: Array.map(inks, ([name, { theme }]) => ({ width: size, height: size, path: `${folder}/${stem}-${name}.${raster ? 'png' : 'svg'}`, scale, theme, species: [species] })), files };
 });
 const panelEntry = (directory: string) =>
     Effect.fnUntraced(function* ([id, row]: readonly [string, Entries<'panel', 'icons'>[string]]) {

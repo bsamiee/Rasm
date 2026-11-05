@@ -19,7 +19,7 @@ utils:
                             any:
                                 - kind: list_splat, dictionary_splat
                                 - kind: keyword_argument
-                                  has: {field: name, regex: '^level$'}
+                                  has: {field: name, pattern: level}
                                 - nthChild: {position: 5, ofRule: {not: {kind: 'comment, keyword_argument'}}}
 rule:
     any:
@@ -39,5 +39,5 @@ rule:
                 - inside:
                     kind: keyword_argument
                     field: value
-                    has: {field: name, regex: '^name$'}
+                    has: {field: name, pattern: name}
                     inside: {kind: argument_list, inside: {matches: import-call}}

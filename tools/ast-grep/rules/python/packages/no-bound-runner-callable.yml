@@ -10,7 +10,7 @@ utils:
             - kind: attribute
               not: {matches: python-shadowed-name}
               all:
-                - has: {field: attribute, regex: '^run_sync$'}
+                - has: {field: attribute, pattern: run_sync}
                 - has: {field: object, matches: {python-submodule: {parent: {regex: '^anyio$'}, child: {regex: '^to_(thread|process|interpreter)$'}}}}
             - kind: attribute
               not: {matches: python-shadowed-name}
@@ -78,19 +78,18 @@ utils:
               has: {matches: partial}
             - kind: call
               all:
-                - has: {field: function, matches: partial-callee}
                 - has:
                     field: arguments
                     all:
                         - has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, not: {kind: 'list_splat, parenthesized_list_splat'}}
                         - not: {has: {kind: 'keyword_argument, dictionary_splat'}}
-                        - not:
-                            has:
-                                stopBy: end
-                                matches: {python-member-use: {module: {regex: '^functools$'}, name: {regex: '^Placeholder$'}}}
+                - has: {field: function, matches: partial-callee}
+                - not:
+                    all:
+                        - inside: {kind: module, stopBy: end, regex: '(?-u:\b)Placeholder(?-u:\b)'}
+                        - has: {field: arguments, has: {stopBy: end, matches: {python-member-use: {module: {regex: '^functools$'}, name: {regex: '^Placeholder$'}}}}}
 rule:
     kind: call, parenthesized_expression, keyword_argument
-    pattern: $BOUND
     nthChild: {position: 1, ofRule: {not: {kind: comment}}}
     all:
         - inside: {kind: argument_list}
@@ -102,5 +101,6 @@ rule:
                 - has: {field: value, matches: partial}
                 - inside: {kind: argument_list, not: {has: {kind: list_splat}}}
         - inside: {kind: argument_list, inside: {matches: runner}}
+        - pattern: $BOUND
 message: '`$BOUND` binds arguments the AnyIO runner takes directly'
 note: 'Pass `<callable>, <arguments>` to the runner in place of `partial`'

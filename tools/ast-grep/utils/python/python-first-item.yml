@@ -14,24 +14,24 @@ utils:
             - matches: source
             - kind: call
               all:
-                - has: {field: arguments, all: [{has: {nthChild: 1, matches: source}}, {not: {has: {nthChild: 2}}}]}
+                - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: source}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}}]}
                 - has: {field: function, matches: sequence-callee}
             - kind: list, tuple
               all:
-                - has: {nthChild: 1, kind: list_splat, has: {matches: source}}
-                - not: {has: {nthChild: 2}}
+                - has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, kind: list_splat, has: {matches: source}}
+                - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
     iterated:
         any:
             - matches: source
             - kind: call
               all:
-                - has: {field: arguments, all: [{has: {nthChild: 1, matches: copied}}, {not: {has: {nthChild: 2}}}]}
+                - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: copied}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}}]}
                 - has: {field: function, matches: iterator-callee}
 rule:
     any:
         - kind: call
           all:
-            - has: {field: arguments, any: [{kind: generator_expression, matches: source}, {kind: argument_list, has: {nthChild: 1, matches: iterated}}]}
+            - has: {field: arguments, any: [{kind: generator_expression, matches: source}, {kind: argument_list, has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: iterated}}]}
             - has: {field: function, matches: next-callee}
         - kind: subscript
           all:
@@ -43,7 +43,7 @@ rule:
                 field: left
                 kind: pattern_list, list_pattern, tuple_pattern
                 all:
-                    - has: {nthChild: 1, kind: identifier}
-                    - has: {nthChild: 2, kind: list_splat_pattern}
-                    - not: {has: {nthChild: 3}}
+                    - has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, kind: identifier}
+                    - has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}, kind: list_splat_pattern}
+                    - not: {has: {nthChild: {position: 3, ofRule: {not: {kind: comment}}}}}
             - has: {field: right, matches: copied}

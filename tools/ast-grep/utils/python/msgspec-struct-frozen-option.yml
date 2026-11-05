@@ -5,7 +5,7 @@ arguments: [value]
 utils:
     frozen-keyword:
         kind: keyword_argument
-        has: {field: name, regex: '^frozen$'}
+        has: {field: name, pattern: frozen}
     unset-base:
         any:
             - matches: {python-member-use: {module: {regex: '^msgspec$'}, name: {regex: '^Struct$'}}}

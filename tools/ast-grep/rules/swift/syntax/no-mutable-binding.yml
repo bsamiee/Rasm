@@ -25,7 +25,7 @@ utils:
     expressionless-loop:
         kind: for_statement
         any:
-            - has: {pattern: $$_AWAIT, regex: '^await$'}
+            - has: {regex: '^await$'}
             - has: {field: collection, any: [{kind: value_pack_expansion}, {has: {stopBy: end, kind: value_pack_expansion}}]}
     effectful-loop:
         kind: 'for_statement, while_statement, repeat_while_statement'
@@ -73,7 +73,7 @@ rule:
                                     stopBy: end
                                     kind: prefix_expression
                                     all:
-                                        - has: {field: operation, pattern: $$_OPERATOR, regex: '^&$'}
+                                        - has: {field: operation, regex: '^&$'}
                                         - has: {field: target, pattern: $NAME}
                             - all:
                                 - precedes:

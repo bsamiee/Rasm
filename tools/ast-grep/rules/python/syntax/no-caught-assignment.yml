@@ -10,7 +10,7 @@ utils:
             - kind: 'tuple, parenthesized_expression'
               has: {matches: caught-type}
             - kind: as_pattern
-              has: {nthChild: 1, matches: caught-type}
+              has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: caught-type}
     written-value:
         any:
             - kind: 'identifier, integer, float, true, false, none'
@@ -40,7 +40,7 @@ utils:
                 kind: call
                 all:
                     - has: {field: function, matches: {python-builtin-name: {name: {regex: '^setattr$'}}}}
-                    - has: {field: arguments, has: {nthChild: 3, matches: written-value}}
+                    - has: {field: arguments, has: {nthChild: {position: 3, ofRule: {not: {kind: comment}}}, matches: written-value}}
     exit:
         any:
             - kind: 'break_statement, continue_statement, pass_statement, comment'

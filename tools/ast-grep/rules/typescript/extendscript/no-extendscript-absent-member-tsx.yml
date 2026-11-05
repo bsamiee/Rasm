@@ -5,7 +5,7 @@ rule:
     any:
         - kind: member_expression
           pattern: $MEMBER
-          has: {field: object, kind: identifier, regex: '^JSON$'}
+          has: {field: object, pattern: JSON}
         - kind: member_expression
           pattern: $MEMBER
           all:

@@ -4,8 +4,10 @@ severity: error
 utils:
     boundary: {any: [{matches: swift-nesting-level}, {matches: swift-declaration-scope}]}
 rule:
-    pattern: $SCOPE
+    kind: &levels 'guard_statement, for_statement, while_statement, repeat_while_statement, switch_statement, if_statement, ternary_expression, lambda_literal, function_declaration'
     all:
+        - inside: {stopBy: end, kind: *levels, inside: {stopBy: end, kind: *levels, inside: {stopBy: end, kind: *levels}}}
+        - not: {inside: {kind: ERROR, stopBy: end}}
         - matches: swift-nesting-level
         - inside:
             matches: swift-nesting-level
@@ -17,10 +19,10 @@ rule:
                     matches: swift-nesting-level
                     stopBy: {matches: boundary}
                     not: {inside: {matches: swift-nesting-level, stopBy: {matches: swift-declaration-scope}}}
-        - not: {inside: {kind: ERROR, stopBy: end}}
+        - pattern: $SCOPE
 transform:
     HEAD: {replace: {source: $SCOPE, replace: '(?s)\n.*$', by: ''}}
-message: '`$HEAD` opens a fourth nesting level'
-note: 'Rebuild nested decisions, loops, or closures as one `switch` or a collection transform over their inputs'
 labels:
     SCOPE: {style: primary, message: Fourth nesting level}
+message: '`$HEAD` opens a fourth nesting level'
+note: 'Rebuild nested decisions, loops, or closures as one `switch` or a collection transform over their inputs'

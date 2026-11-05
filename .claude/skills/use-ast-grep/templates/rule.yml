@@ -2,6 +2,9 @@
 language: <language>
 severity: error
 files: ["<folder the cause covers, key omitted for syntax rules>/**"]
+utils:
+    <util-id>:
+        kind: <local shape the rule and its relations call, key omitted otherwise>
 rule:
     kind: <rarest kind correction names>
     all:
@@ -10,5 +13,10 @@ rule:
         - inside: {kind: <owner kind>, stopBy: &owner {kind: '<owner kinds correction covers>'}}
         - not: {inside: {kind: <exempting-kind>, stopBy: *owner}}
         - pattern: <$NODE binding the matched node for a transform, item omitted otherwise>
+transform:
+    <TRANSFORMED>: <string transform of a binding, key omitted otherwise>
+fix: <replacement, key omitted otherwise>
+labels:
+    <CAPTURE>: {style: secondary, message: <role of the capture, key omitted otherwise>}
 message: <violation with captured or transformed values>
 note: <required form and its reason>

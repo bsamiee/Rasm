@@ -12,22 +12,22 @@ utils:
         kind: value_arguments
         all:
             - has: {matches: needle}
-            - not: {has: {kind: value_argument, nthChild: 2}}
+            - not: {has: {kind: value_argument, nthChild: {position: 2, ofRule: {kind: value_argument}}}}
     replaced:
         kind: value_arguments
         all:
             - has: {matches: needle}
-            - has: {kind: value_argument, nthChild: 2, has: {field: name, regex: '^with$'}}
-            - not: {has: {kind: value_argument, nthChild: 3}}
+            - has: {kind: value_argument, nthChild: {position: 2, ofRule: {kind: value_argument}}, has: {field: name, regex: '^with$'}}
+            - not: {has: {kind: value_argument, nthChild: {position: 3, ofRule: {kind: value_argument}}}}
     search-call:
         kind: call_expression
         all:
-            - has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '(^|\.)range$'}
+            - has: {nthChild: 1, regex: '(^|\.)range$'}
             - has: {kind: call_suffix, has: {matches: searched}}
     replace-call:
         kind: call_expression
         all:
-            - has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '(^|\.)replacingOccurrences$'}
+            - has: {nthChild: 1, regex: '(^|\.)replacingOccurrences$'}
             - has: {kind: call_suffix, has: {matches: replaced}}
     string-extension:
         kind: class_declaration

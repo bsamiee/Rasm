@@ -21,14 +21,14 @@ utils:
                             - has: {kind: pattern, has: {field: bound_identifier, pattern: $S}, precedes: {stopBy: {kind: pattern}, kind: type_annotation, has: {matches: status-type}}}
             - kind: call_expression
               all:
-                - has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '^U?Int(32|64)?$'}
-                - has: {kind: call_suffix, has: {kind: value_arguments, not: {has: {nthChild: 2}}, has: {kind: value_argument, has: {field: value, matches: status}}}}
+                - has: {nthChild: 1, regex: '^U?Int(32|64)?$'}
+                - has: {kind: call_suffix, has: {kind: value_arguments, not: {has: {nthChild: {position: 2, ofRule: {kind: value_argument}}}}, has: {kind: value_argument, has: {field: value, matches: status}}}}
 rule:
     pattern: $SITE
     any:
         - kind: call_expression
           all:
-            - has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '^U?Int8$'}
+            - has: {nthChild: 1, regex: '^U?Int8$'}
             - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, all: [{has: {field: name, regex: '^truncatingIfNeeded$'}}, {has: {field: value, matches: status}}]}}}
         - kind: bitwise_operation
           all:

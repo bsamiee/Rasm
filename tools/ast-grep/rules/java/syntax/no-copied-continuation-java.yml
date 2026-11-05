@@ -56,6 +56,7 @@ utils:
                 - all: [{has: {field: name, pattern: get}}, {has: {field: arguments, has: {pattern: '0'}}}]
 rule:
     kind: method_declaration
+    regex: 'concat|All|prepend'
     all:
         - has: {field: name, pattern: $NAME}
         - has: {field: body, has: {stopBy: {kind: *method}, matches: invocation}}

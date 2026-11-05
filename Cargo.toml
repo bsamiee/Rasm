@@ -149,12 +149,14 @@ unicode-width = "0.2.3"                                                   # Disp
 # --- [PARSING]
 ast-grep-config    = { version = "0.51.1", default-features = false }                              # Rule, util and transform documents of structural search
 ast-grep-core      = "0.51.1"                                                                      # Structural search and rewrite over syntax trees
+ast-grep-dynamic   = "0.51.1"                                                                      # Custom-language grammar libraries of structural search, loaded at run time
 ast-grep-language  = "0.51.1"                                                                      # Built-in grammars of structural search
 cel                = { version = "0.15.0", features = ["json"] }                                   # Common Expression Language policies
 chumsky            = { version = "0.13.0", features = ["pratt"] }                                  # Parser combinators that recover and collect every error
 ec4rs              = "2.0.0-rc.1"                                                                  # EditorConfig properties resolved per path
 oxc                = { version = "0.156.0", features = ["ast_visit", "semantic", "codegen"] }      # JavaScript and TypeScript parsing, analysis, and printing
 regex-syntax       = "0.8.11"                                                                      # Parser and Unicode classes the regex engine and tree-sitter link
+regex-automata     = "0.4.18"                                                                      # Compiled regex programs the regex engine runs, with their heap size
 regex              = "1.13.1"                                                                      # Unicode patterns with linear-time matching
 sqlparser          = { version = "0.63.0", features = ["visitor"] }                                # SQL text parsed into dialect ASTs
 syntect            = { version = "5.3.0", default-features = false, features = ["default-fancy"] } # Syntax definitions looked up by name, alias, and extension, default `regex-onig` builds Oniguruma C beside `regex-fancy`

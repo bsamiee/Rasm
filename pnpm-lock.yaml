@@ -588,6 +588,9 @@ catalogs:
     '@tree-sitter-grammars/tree-sitter-xml':
       specifier: github:tree-sitter-grammars/tree-sitter-xml#5000ae8f22d11fbe93939b05c1e37cf21117162d
       version: https://codeload.github.com/tree-sitter-grammars/tree-sitter-xml/tar.gz/5000ae8f22d11fbe93939b05c1e37cf21117162d
+    '@tree-sitter-grammars/tree-sitter-yaml':
+      specifier: github:tree-sitter-grammars/tree-sitter-yaml#v0.7.2
+      version: https://codeload.github.com/tree-sitter-grammars/tree-sitter-yaml/tar.gz/7708026449bed86239b1cd5bce6e3c34dbca6415
     '@turf/turf':
       specifier: 7.4.0
       version: 7.4.0
@@ -1201,6 +1204,7 @@ overrides:
   cloudevents>uuid: 14.0.2
   '@tree-sitter-grammars/tree-sitter-toml>tree-sitter': '-'
   '@tree-sitter-grammars/tree-sitter-xml>tree-sitter': '-'
+  '@tree-sitter-grammars/tree-sitter-yaml>tree-sitter': '-'
   tree-sitter-postgres>tree-sitter: '-'
   tree-sitter-swift>tree-sitter: '-'
   tree-sitter-swift>tree-sitter-cli: '-'
@@ -1843,6 +1847,9 @@ importers:
       '@tree-sitter-grammars/tree-sitter-xml':
         specifier: 'catalog:'
         version: https://codeload.github.com/tree-sitter-grammars/tree-sitter-xml/tar.gz/5000ae8f22d11fbe93939b05c1e37cf21117162d
+      '@tree-sitter-grammars/tree-sitter-yaml':
+        specifier: 'catalog:'
+        version: https://codeload.github.com/tree-sitter-grammars/tree-sitter-yaml/tar.gz/7708026449bed86239b1cd5bce6e3c34dbca6415
       '@turf/turf':
         specifier: 'catalog:'
         version: 7.4.0
@@ -9109,6 +9116,10 @@ packages:
     peerDependenciesMeta:
       tree_sitter:
         optional: true
+
+  '@tree-sitter-grammars/tree-sitter-yaml@https://codeload.github.com/tree-sitter-grammars/tree-sitter-yaml/tar.gz/7708026449bed86239b1cd5bce6e3c34dbca6415':
+    resolution: {gitHosted: true, integrity: sha512-vivnNX585+YeoI3yxgOuGq1yKR3GVCNBOetfvUdEZ8wHj/KG+DgJRtdB5lWmDGrzMsFCS3teO6aeHLyIz+ArJA==, tarball: https://codeload.github.com/tree-sitter-grammars/tree-sitter-yaml/tar.gz/7708026449bed86239b1cd5bce6e3c34dbca6415}
+    version: 0.7.2
 
   '@trickfilm400/rollup-plugin-off-main-thread@3.0.0-pre1':
     resolution: {integrity: sha512-/67zpWDBLV+oYAEL682s1ktXL0HgqX76f6gaVGkGnVZlBbm1zd0v4Bz8MFF2GGhoX9rvfq3KSQHubFHwa6w6/Q==}
@@ -22953,6 +22964,11 @@ snapshots:
       node-gyp-build: 4.8.4
 
   '@tree-sitter-grammars/tree-sitter-xml@https://codeload.github.com/tree-sitter-grammars/tree-sitter-xml/tar.gz/5000ae8f22d11fbe93939b05c1e37cf21117162d':
+    dependencies:
+      node-addon-api: 8.9.2
+      node-gyp-build: 4.8.4
+
+  '@tree-sitter-grammars/tree-sitter-yaml@https://codeload.github.com/tree-sitter-grammars/tree-sitter-yaml/tar.gz/7708026449bed86239b1cd5bce6e3c34dbca6415':
     dependencies:
       node-addon-api: 8.9.2
       node-gyp-build: 4.8.4

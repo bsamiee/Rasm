@@ -8,8 +8,7 @@ rule:
             nthChild: 1
             pattern: $HOP
             any:
-                - kind: simple_identifier
-                  regex: '^assumeIsolated$'
+                - pattern: assumeIsolated
                 - kind: navigation_expression
                   has: {field: suffix, regex: '^\.assumeIsolated$'}
         - inside: {kind: deinit_declaration, stopBy: {kind: 'deinit_declaration, lambda_literal, function_declaration'}}

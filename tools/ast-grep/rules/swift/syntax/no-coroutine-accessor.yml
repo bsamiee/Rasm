@@ -8,12 +8,12 @@ utils:
     trailing-code:
         kind: statements
         any:
-            - has: {kind: call_expression, has: {nthChild: 1, kind: simple_identifier, regex: '^defer$'}}
+            - has: {kind: defer_statement}
             - not:
                 has:
                     kind: control_transfer_statement
                     regex: '^yield(?-u:\b)'
-                    nthChild: {position: 1, reverse: true, ofRule: {not: {kind: comment}}}
+                    nthChild: {position: 1, reverse: true, ofRule: {not: {kind: 'comment, multiline_comment'}}}
     called-accessor:
         kind: call_expression
         all:

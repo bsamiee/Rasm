@@ -111,8 +111,7 @@ Desktop app's SSH agent serves key `Forge SSH Key` (ED25519) to SSH hosts and Gi
 
 - Each secret keeps one name as `Tokens` item title, Doppler secret, and environment variable a consumer reads
 - Configuration files hold no secret value
-- `.mcp.json` headers read each value from the harness environment as `${<NAME>}`
-- Secrets a remote server header reads take a name outside the credentials Claude Code reads there as empty (`ANTHROPIC_API_KEY`, `NPM_TOKEN`)
+- Remote MCP server headers come from a header helper, `headersHelper` in Claude Code and `http_headers_helper` in Codex, printing `doppler secrets get <NAME> --plain` as a JSON header object
 - Values reach a consumer as injected environment, a command substitution, a mount, or a mode-600 file outside every repository tree
 - Files holding values go when the consumer exits
 - Agent output holds secret names alone

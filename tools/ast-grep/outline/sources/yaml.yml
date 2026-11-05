@@ -1,0 +1,245 @@
+rewriters:
+    - id: key
+      rule:
+        kind: 'block_node, flow_node'
+        pattern: $SEGMENT
+        inside: {kind: 'block_mapping_pair, flow_pair', field: key, inside: {kind: 'block_mapping, flow_mapping', inside: {kind: 'block_node, flow_node', any: [{inside: {kind: 'block_mapping_pair, flow_pair', has: {field: key, pattern: $UP}}}, {has: {kind: 'block_mapping, flow_mapping', has: {kind: 'block_mapping_pair, flow_pair', has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}}, inside: {kind: block_sequence_item, has: {regex: '^-$', pattern: $$UP}}}, {inside: {kind: flow_sequence}, has: {kind: flow_mapping, all: [{has: {kind: 'block_mapping_pair, flow_pair', has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}}, {has: {regex: '^\{$', pattern: $$UP}}]}}]}}}
+      transform:
+        ABOVE: {rewrite: {source: $UP, rewriters: [key, top, item, item-top], joinBy: ''}}
+      fix: $ABOVE.$SEGMENT
+    - id: top
+      rule:
+        kind: 'block_node, flow_node'
+        pattern: $SEGMENT
+        inside: {kind: 'block_mapping_pair, flow_pair', field: key, inside: {kind: 'block_mapping, flow_mapping', inside: {kind: 'block_node, flow_node', inside: {kind: document, any: [{kind: document, any: [{follows: {kind: document, stopBy: end}}, {precedes: {kind: document, stopBy: end}}], has: {kind: 'block_node, flow_node', has: {kind: 'block_mapping, flow_mapping', has: {kind: 'block_mapping_pair, flow_pair', all: [{has: {field: key, regex: '^["'']?id["'']?$'}}, {has: {field: value, has: {kind: plain_scalar, pattern: $DOC}}}]}}}}, {kind: document}]}}}}
+      transform:
+        QUALIFIER: {replace: {source: $DOC, replace: '^(.+)$', by: '$1/'}}
+      fix: $QUALIFIER$SEGMENT
+    - id: item
+      rule:
+        regex: '^[-{]$'
+        pattern: $$SEGMENT
+        any:
+            - inside: {kind: block_sequence_item, has: {kind: 'block_node, flow_node', has: {kind: 'block_mapping, flow_mapping', has: {kind: 'block_mapping_pair, flow_pair', all: [{has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}, {has: {field: value, has: {kind: 'plain_scalar, double_quote_scalar, single_quote_scalar', pattern: $LABEL}}}]}}}, inside: {kind: block_sequence, inside: {kind: 'block_node, flow_node', any: [{inside: {kind: 'block_mapping_pair, flow_pair', has: {field: key, pattern: $UP}}}, {has: {kind: 'block_mapping, flow_mapping', has: {kind: 'block_mapping_pair, flow_pair', has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}}, inside: {kind: block_sequence_item, has: {regex: '^-$', pattern: $$UP}}}, {inside: {kind: flow_sequence}, has: {kind: flow_mapping, all: [{has: {kind: 'block_mapping_pair, flow_pair', has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}}, {has: {regex: '^\{$', pattern: $$UP}}]}}]}}}
+            - inside: {kind: flow_mapping, has: {kind: 'block_mapping_pair, flow_pair', all: [{has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}, {has: {field: value, has: {kind: 'plain_scalar, double_quote_scalar, single_quote_scalar', pattern: $LABEL}}}]}, inside: {kind: flow_node, inside: {kind: flow_sequence, inside: {kind: 'block_node, flow_node', any: [{inside: {kind: 'block_mapping_pair, flow_pair', has: {field: key, pattern: $UP}}}, {has: {kind: 'block_mapping, flow_mapping', has: {kind: 'block_mapping_pair, flow_pair', has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}}, inside: {kind: block_sequence_item, has: {regex: '^-$', pattern: $$UP}}}, {inside: {kind: flow_sequence}, has: {kind: flow_mapping, all: [{has: {kind: 'block_mapping_pair, flow_pair', has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}}, {has: {regex: '^\{$', pattern: $$UP}}]}}]}}}}
+      transform:
+        ABOVE: {rewrite: {source: $UP, rewriters: [key, top, item, item-top], joinBy: ''}}
+      fix: '$ABOVE[$LABEL]'
+    - id: item-top
+      rule:
+        regex: '^[-{]$'
+        pattern: $$SEGMENT
+        any:
+            - inside: {kind: block_sequence_item, has: {kind: 'block_node, flow_node', has: {kind: 'block_mapping, flow_mapping', has: {kind: 'block_mapping_pair, flow_pair', all: [{has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}, {has: {field: value, has: {kind: 'plain_scalar, double_quote_scalar, single_quote_scalar', pattern: $LABEL}}}]}}}, inside: {kind: block_sequence, inside: {kind: 'block_node, flow_node', inside: {kind: document}}}}
+            - inside: {kind: flow_mapping, has: {kind: 'block_mapping_pair, flow_pair', all: [{has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}, {has: {field: value, has: {kind: 'plain_scalar, double_quote_scalar, single_quote_scalar', pattern: $LABEL}}}]}, inside: {kind: flow_node, inside: {kind: flow_sequence, inside: {kind: 'block_node, flow_node', inside: {kind: document}}}}}
+      fix: '[$LABEL]'
+transform:
+    QUALIFIER: {replace: {source: $DOC, replace: '^(.+)$', by: '$1/'}}
+    PATH: {rewrite: {source: $OWNER, rewriters: [key, top, item, item-top], joinBy: ''}}
+---
+id: yaml-error
+role: item
+symbolType: 'null'
+rule:
+    any:
+        - {kind: ERROR, not: {has: {stopBy: end, kind: 'block_mapping_pair, flow_pair'}}}
+        - {kind: 'string_scalar, comment', all: [{inside: {kind: ERROR}}, {nthChild: {position: 1, ofRule: {kind: 'string_scalar, comment'}}}]}
+name: ERROR
+signature: ''
+isImport: false
+isExported: false
+---
+id: yaml-object
+role: item
+symbolType: 'object'
+rule:
+    kind: 'block_mapping_pair, flow_pair'
+    inside: {kind: 'block_mapping, flow_mapping', inside: {kind: 'block_node, flow_node', inside: {kind: document, any: [{kind: document, any: [{follows: {kind: document, stopBy: end}}, {precedes: {kind: document, stopBy: end}}], has: {kind: 'block_node, flow_node', has: {kind: 'block_mapping, flow_mapping', has: {kind: 'block_mapping_pair, flow_pair', all: [{has: {field: key, regex: '^["'']?id["'']?$'}}, {has: {field: value, has: {kind: plain_scalar, pattern: $DOC}}}]}}}}, {kind: document}]}}}
+    all: [{has: {field: value, has: {kind: 'block_mapping, flow_mapping'}}}, {has: {field: key, pattern: $KEY}}]
+name: $QUALIFIER$KEY
+signature: '$QUALIFIER$KEY: {…}'
+isImport: false
+isExported: false
+---
+id: yaml-array
+role: item
+symbolType: 'array'
+rule:
+    kind: 'block_mapping_pair, flow_pair'
+    inside: {kind: 'block_mapping, flow_mapping', inside: {kind: 'block_node, flow_node', inside: {kind: document, any: [{kind: document, any: [{follows: {kind: document, stopBy: end}}, {precedes: {kind: document, stopBy: end}}], has: {kind: 'block_node, flow_node', has: {kind: 'block_mapping, flow_mapping', has: {kind: 'block_mapping_pair, flow_pair', all: [{has: {field: key, regex: '^["'']?id["'']?$'}}, {has: {field: value, has: {kind: plain_scalar, pattern: $DOC}}}]}}}}, {kind: document}]}}}
+    all: [{has: {field: value, has: {kind: 'block_sequence, flow_sequence'}}}, {has: {field: key, pattern: $KEY}}]
+name: $QUALIFIER$KEY
+signature: '$QUALIFIER$KEY: […]'
+isImport: false
+isExported: false
+---
+id: yaml-string
+role: item
+symbolType: 'string'
+rule:
+    kind: 'block_mapping_pair, flow_pair'
+    inside: {kind: 'block_mapping, flow_mapping', inside: {kind: 'block_node, flow_node', inside: {kind: document, any: [{kind: document, any: [{follows: {kind: document, stopBy: end}}, {precedes: {kind: document, stopBy: end}}], has: {kind: 'block_node, flow_node', has: {kind: 'block_mapping, flow_mapping', has: {kind: 'block_mapping_pair, flow_pair', all: [{has: {field: key, regex: '^["'']?id["'']?$'}}, {has: {field: value, has: {kind: plain_scalar, pattern: $DOC}}}]}}}}, {kind: document}]}}}
+    all: [{has: {field: value, has: {any: [{kind: 'double_quote_scalar, single_quote_scalar, block_scalar'}, {kind: plain_scalar, has: {kind: string_scalar}}]}}}, {has: {field: key, pattern: $KEY}}]
+name: $QUALIFIER$KEY
+signature: '$QUALIFIER$KEY: "…"'
+isImport: false
+isExported: false
+---
+id: yaml-number
+role: item
+symbolType: 'number'
+rule:
+    kind: 'block_mapping_pair, flow_pair'
+    inside: {kind: 'block_mapping, flow_mapping', inside: {kind: 'block_node, flow_node', inside: {kind: document, any: [{kind: document, any: [{follows: {kind: document, stopBy: end}}, {precedes: {kind: document, stopBy: end}}], has: {kind: 'block_node, flow_node', has: {kind: 'block_mapping, flow_mapping', has: {kind: 'block_mapping_pair, flow_pair', all: [{has: {field: key, regex: '^["'']?id["'']?$'}}, {has: {field: value, has: {kind: plain_scalar, pattern: $DOC}}}]}}}}, {kind: document}]}}}
+    all: [{has: {field: value, has: {kind: plain_scalar, has: {kind: 'integer_scalar, float_scalar'}}}}, {has: {field: key, pattern: $KEY}}]
+name: $QUALIFIER$KEY
+signature: '$QUALIFIER$KEY: …'
+isImport: false
+isExported: false
+---
+id: yaml-boolean
+role: item
+symbolType: 'boolean'
+rule:
+    kind: 'block_mapping_pair, flow_pair'
+    inside: {kind: 'block_mapping, flow_mapping', inside: {kind: 'block_node, flow_node', inside: {kind: document, any: [{kind: document, any: [{follows: {kind: document, stopBy: end}}, {precedes: {kind: document, stopBy: end}}], has: {kind: 'block_node, flow_node', has: {kind: 'block_mapping, flow_mapping', has: {kind: 'block_mapping_pair, flow_pair', all: [{has: {field: key, regex: '^["'']?id["'']?$'}}, {has: {field: value, has: {kind: plain_scalar, pattern: $DOC}}}]}}}}, {kind: document}]}}}
+    all: [{has: {field: value, has: {kind: plain_scalar, has: {kind: boolean_scalar}}}}, {has: {field: key, pattern: $KEY}}]
+name: $QUALIFIER$KEY
+signature: '$QUALIFIER$KEY: …'
+isImport: false
+isExported: false
+---
+id: yaml-null
+role: item
+symbolType: 'null'
+rule:
+    kind: 'block_mapping_pair, flow_pair'
+    inside: {kind: 'block_mapping, flow_mapping', inside: {kind: 'block_node, flow_node', inside: {kind: document, any: [{kind: document, any: [{follows: {kind: document, stopBy: end}}, {precedes: {kind: document, stopBy: end}}], has: {kind: 'block_node, flow_node', has: {kind: 'block_mapping, flow_mapping', has: {kind: 'block_mapping_pair, flow_pair', all: [{has: {field: key, regex: '^["'']?id["'']?$'}}, {has: {field: value, has: {kind: plain_scalar, pattern: $DOC}}}]}}}}, {kind: document}]}}}
+    all: [{any: [{has: {field: value, has: {kind: plain_scalar, has: {kind: null_scalar}}}}, {not: {has: {field: value, kind: 'block_node, flow_node'}}}]}, {has: {field: key, pattern: $KEY}}]
+name: $QUALIFIER$KEY
+signature: '$QUALIFIER$KEY: ~'
+isImport: false
+isExported: false
+---
+id: yaml-variable
+role: item
+symbolType: 'variable'
+rule:
+    kind: 'block_mapping_pair, flow_pair'
+    inside: {kind: 'block_mapping, flow_mapping', inside: {kind: 'block_node, flow_node', inside: {kind: document, any: [{kind: document, any: [{follows: {kind: document, stopBy: end}}, {precedes: {kind: document, stopBy: end}}], has: {kind: 'block_node, flow_node', has: {kind: 'block_mapping, flow_mapping', has: {kind: 'block_mapping_pair, flow_pair', all: [{has: {field: key, regex: '^["'']?id["'']?$'}}, {has: {field: value, has: {kind: plain_scalar, pattern: $DOC}}}]}}}}, {kind: document}]}}}
+    all: [{has: {field: value, has: {kind: alias, pattern: $ALIAS}}}, {has: {field: key, pattern: $KEY}}]
+name: $QUALIFIER$KEY
+signature: '$QUALIFIER$KEY: $ALIAS'
+isImport: false
+isExported: false
+---
+id: yaml-entry
+role: item
+symbolType: 'object'
+rule:
+    any:
+        - {kind: block_sequence_item, inside: {kind: block_sequence, inside: {kind: 'block_node, flow_node', inside: {kind: document}}}, all: [{has: {kind: 'block_node, flow_node', has: {kind: 'block_mapping, flow_mapping', has: {kind: 'block_mapping_pair, flow_pair', has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}}}}, {has: {regex: '^-$', pattern: $$ENTRY}}]}
+        - {kind: flow_node, inside: {kind: flow_sequence, inside: {kind: 'block_node, flow_node', inside: {kind: document}}}, has: {kind: flow_mapping, all: [{has: {kind: 'block_mapping_pair, flow_pair', has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}}, {has: {regex: '^\{$', pattern: $$ENTRY}}]}}
+transform:
+    NAME: {rewrite: {source: $ENTRY, rewriters: [item-top], joinBy: ''}}
+name: $NAME
+signature: '$NAME: {…}'
+isImport: false
+isExported: false
+---
+id: yaml-member-error
+role: member
+parentRuleIds: [yaml-object, yaml-array, yaml-string, yaml-number, yaml-boolean, yaml-null, yaml-variable, yaml-entry]
+symbolType: 'null'
+rule:
+    any:
+        - {kind: ERROR, not: {has: {stopBy: end, kind: 'block_mapping_pair, flow_pair'}}}
+        - {kind: 'string_scalar, comment', all: [{inside: {kind: ERROR}}, {nthChild: {position: 1, ofRule: {kind: 'string_scalar, comment'}}}]}
+name: ERROR
+signature: ''
+isPublic: true
+---
+id: yaml-member-object
+role: member
+parentRuleIds: [yaml-object, yaml-array, yaml-string, yaml-number, yaml-boolean, yaml-null, yaml-variable, yaml-entry]
+symbolType: 'object'
+rule:
+    any:
+        - kind: 'block_mapping_pair, flow_pair'
+          all: [{has: {field: value, has: {kind: 'block_mapping, flow_mapping'}}}, {not: {has: {field: value, has: {any: [{kind: 'block_mapping, flow_mapping', has: {kind: 'block_mapping_pair, flow_pair'}}, {kind: block_sequence, has: {kind: block_sequence_item, has: {kind: 'block_node, flow_node', has: {kind: 'block_mapping, flow_mapping', has: {kind: 'block_mapping_pair, flow_pair', has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}}}}}, {kind: flow_sequence, has: {kind: flow_node, has: {kind: flow_mapping, has: {kind: 'block_mapping_pair, flow_pair', has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}}}}]}}}}, {not: {has: {stopBy: end, kind: ERROR}}}, {has: {field: key, pattern: $KEY}}, {inside: {kind: 'block_mapping, flow_mapping', inside: {kind: 'block_node, flow_node', any: [{inside: {kind: 'block_mapping_pair, flow_pair', has: {field: key, pattern: $OWNER}}}, {has: {kind: 'block_mapping, flow_mapping', has: {kind: 'block_mapping_pair, flow_pair', has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}}, inside: {kind: block_sequence_item, has: {regex: '^-$', pattern: $$OWNER}}}, {inside: {kind: flow_sequence}, has: {kind: flow_mapping, all: [{has: {kind: 'block_mapping_pair, flow_pair', has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}}, {has: {regex: '^\{$', pattern: $$OWNER}}]}}]}}}, {not: {inside: {stopBy: end, any: [{kind: block_sequence_item, not: {has: {kind: 'block_node, flow_node', has: {kind: 'block_mapping, flow_mapping', has: {kind: 'block_mapping_pair, flow_pair', has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}}}}}, {kind: flow_node, inside: {kind: flow_sequence}, not: {has: {kind: flow_mapping, has: {kind: 'block_mapping_pair, flow_pair', has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}}}}]}}}]
+        - kind: 'block_node, flow_node'
+          pattern: $KEY
+          inside: {kind: 'block_mapping_pair, flow_pair', field: key, all: [{has: {field: value, has: {kind: 'block_mapping, flow_mapping'}}}, {has: {field: value, has: {any: [{kind: 'block_mapping, flow_mapping', has: {kind: 'block_mapping_pair, flow_pair'}}, {kind: block_sequence, has: {kind: block_sequence_item, has: {kind: 'block_node, flow_node', has: {kind: 'block_mapping, flow_mapping', has: {kind: 'block_mapping_pair, flow_pair', has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}}}}}, {kind: flow_sequence, has: {kind: flow_node, has: {kind: flow_mapping, has: {kind: 'block_mapping_pair, flow_pair', has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}}}}]}}}, {inside: {kind: 'block_mapping, flow_mapping', inside: {kind: 'block_node, flow_node', any: [{inside: {kind: 'block_mapping_pair, flow_pair', has: {field: key, pattern: $OWNER}}}, {has: {kind: 'block_mapping, flow_mapping', has: {kind: 'block_mapping_pair, flow_pair', has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}}, inside: {kind: block_sequence_item, has: {regex: '^-$', pattern: $$OWNER}}}, {inside: {kind: flow_sequence}, has: {kind: flow_mapping, all: [{has: {kind: 'block_mapping_pair, flow_pair', has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}}, {has: {regex: '^\{$', pattern: $$OWNER}}]}}]}}}, {not: {inside: {stopBy: end, any: [{kind: block_sequence_item, not: {has: {kind: 'block_node, flow_node', has: {kind: 'block_mapping, flow_mapping', has: {kind: 'block_mapping_pair, flow_pair', has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}}}}}, {kind: flow_node, inside: {kind: flow_sequence}, not: {has: {kind: flow_mapping, has: {kind: 'block_mapping_pair, flow_pair', has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}}}}]}}}]}
+name: $PATH.$KEY
+signature: '$PATH.$KEY: {…}'
+isPublic: true
+---
+id: yaml-member-array
+role: member
+parentRuleIds: [yaml-object, yaml-array, yaml-string, yaml-number, yaml-boolean, yaml-null, yaml-variable, yaml-entry]
+symbolType: 'array'
+rule:
+    any:
+        - kind: 'block_mapping_pair, flow_pair'
+          all: [{has: {field: value, has: {kind: 'block_sequence, flow_sequence'}}}, {not: {has: {field: value, has: {any: [{kind: 'block_mapping, flow_mapping', has: {kind: 'block_mapping_pair, flow_pair'}}, {kind: block_sequence, has: {kind: block_sequence_item, has: {kind: 'block_node, flow_node', has: {kind: 'block_mapping, flow_mapping', has: {kind: 'block_mapping_pair, flow_pair', has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}}}}}, {kind: flow_sequence, has: {kind: flow_node, has: {kind: flow_mapping, has: {kind: 'block_mapping_pair, flow_pair', has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}}}}]}}}}, {not: {has: {stopBy: end, kind: ERROR}}}, {has: {field: key, pattern: $KEY}}, {inside: {kind: 'block_mapping, flow_mapping', inside: {kind: 'block_node, flow_node', any: [{inside: {kind: 'block_mapping_pair, flow_pair', has: {field: key, pattern: $OWNER}}}, {has: {kind: 'block_mapping, flow_mapping', has: {kind: 'block_mapping_pair, flow_pair', has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}}, inside: {kind: block_sequence_item, has: {regex: '^-$', pattern: $$OWNER}}}, {inside: {kind: flow_sequence}, has: {kind: flow_mapping, all: [{has: {kind: 'block_mapping_pair, flow_pair', has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}}, {has: {regex: '^\{$', pattern: $$OWNER}}]}}]}}}, {not: {inside: {stopBy: end, any: [{kind: block_sequence_item, not: {has: {kind: 'block_node, flow_node', has: {kind: 'block_mapping, flow_mapping', has: {kind: 'block_mapping_pair, flow_pair', has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}}}}}, {kind: flow_node, inside: {kind: flow_sequence}, not: {has: {kind: flow_mapping, has: {kind: 'block_mapping_pair, flow_pair', has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}}}}]}}}]
+        - kind: 'block_node, flow_node'
+          pattern: $KEY
+          inside: {kind: 'block_mapping_pair, flow_pair', field: key, all: [{has: {field: value, has: {kind: 'block_sequence, flow_sequence'}}}, {has: {field: value, has: {any: [{kind: 'block_mapping, flow_mapping', has: {kind: 'block_mapping_pair, flow_pair'}}, {kind: block_sequence, has: {kind: block_sequence_item, has: {kind: 'block_node, flow_node', has: {kind: 'block_mapping, flow_mapping', has: {kind: 'block_mapping_pair, flow_pair', has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}}}}}, {kind: flow_sequence, has: {kind: flow_node, has: {kind: flow_mapping, has: {kind: 'block_mapping_pair, flow_pair', has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}}}}]}}}, {inside: {kind: 'block_mapping, flow_mapping', inside: {kind: 'block_node, flow_node', any: [{inside: {kind: 'block_mapping_pair, flow_pair', has: {field: key, pattern: $OWNER}}}, {has: {kind: 'block_mapping, flow_mapping', has: {kind: 'block_mapping_pair, flow_pair', has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}}, inside: {kind: block_sequence_item, has: {regex: '^-$', pattern: $$OWNER}}}, {inside: {kind: flow_sequence}, has: {kind: flow_mapping, all: [{has: {kind: 'block_mapping_pair, flow_pair', has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}}, {has: {regex: '^\{$', pattern: $$OWNER}}]}}]}}}, {not: {inside: {stopBy: end, any: [{kind: block_sequence_item, not: {has: {kind: 'block_node, flow_node', has: {kind: 'block_mapping, flow_mapping', has: {kind: 'block_mapping_pair, flow_pair', has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}}}}}, {kind: flow_node, inside: {kind: flow_sequence}, not: {has: {kind: flow_mapping, has: {kind: 'block_mapping_pair, flow_pair', has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}}}}]}}}]}
+name: $PATH.$KEY
+signature: '$PATH.$KEY: […]'
+isPublic: true
+---
+id: yaml-member-string
+role: member
+parentRuleIds: [yaml-object, yaml-array, yaml-string, yaml-number, yaml-boolean, yaml-null, yaml-variable, yaml-entry]
+symbolType: 'string'
+rule:
+    kind: 'block_mapping_pair, flow_pair'
+    all: [{has: {field: value, has: {any: [{kind: 'double_quote_scalar, single_quote_scalar, block_scalar'}, {kind: plain_scalar, has: {kind: string_scalar}}]}}}, {not: {has: {stopBy: end, kind: ERROR}}}, {has: {field: key, pattern: $KEY}}, {inside: {kind: 'block_mapping, flow_mapping', inside: {kind: 'block_node, flow_node', any: [{inside: {kind: 'block_mapping_pair, flow_pair', has: {field: key, pattern: $OWNER}}}, {has: {kind: 'block_mapping, flow_mapping', has: {kind: 'block_mapping_pair, flow_pair', has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}}, inside: {kind: block_sequence_item, has: {regex: '^-$', pattern: $$OWNER}}}, {inside: {kind: flow_sequence}, has: {kind: flow_mapping, all: [{has: {kind: 'block_mapping_pair, flow_pair', has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}}, {has: {regex: '^\{$', pattern: $$OWNER}}]}}]}}}, {not: {inside: {stopBy: end, any: [{kind: block_sequence_item, not: {has: {kind: 'block_node, flow_node', has: {kind: 'block_mapping, flow_mapping', has: {kind: 'block_mapping_pair, flow_pair', has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}}}}}, {kind: flow_node, inside: {kind: flow_sequence}, not: {has: {kind: flow_mapping, has: {kind: 'block_mapping_pair, flow_pair', has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}}}}]}}}]
+name: $PATH.$KEY
+signature: '$PATH.$KEY: "…"'
+isPublic: true
+---
+id: yaml-member-number
+role: member
+parentRuleIds: [yaml-object, yaml-array, yaml-string, yaml-number, yaml-boolean, yaml-null, yaml-variable, yaml-entry]
+symbolType: 'number'
+rule:
+    kind: 'block_mapping_pair, flow_pair'
+    all: [{has: {field: value, has: {kind: plain_scalar, has: {kind: 'integer_scalar, float_scalar'}}}}, {not: {has: {stopBy: end, kind: ERROR}}}, {has: {field: key, pattern: $KEY}}, {inside: {kind: 'block_mapping, flow_mapping', inside: {kind: 'block_node, flow_node', any: [{inside: {kind: 'block_mapping_pair, flow_pair', has: {field: key, pattern: $OWNER}}}, {has: {kind: 'block_mapping, flow_mapping', has: {kind: 'block_mapping_pair, flow_pair', has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}}, inside: {kind: block_sequence_item, has: {regex: '^-$', pattern: $$OWNER}}}, {inside: {kind: flow_sequence}, has: {kind: flow_mapping, all: [{has: {kind: 'block_mapping_pair, flow_pair', has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}}, {has: {regex: '^\{$', pattern: $$OWNER}}]}}]}}}, {not: {inside: {stopBy: end, any: [{kind: block_sequence_item, not: {has: {kind: 'block_node, flow_node', has: {kind: 'block_mapping, flow_mapping', has: {kind: 'block_mapping_pair, flow_pair', has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}}}}}, {kind: flow_node, inside: {kind: flow_sequence}, not: {has: {kind: flow_mapping, has: {kind: 'block_mapping_pair, flow_pair', has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}}}}]}}}]
+name: $PATH.$KEY
+signature: '$PATH.$KEY: …'
+isPublic: true
+---
+id: yaml-member-boolean
+role: member
+parentRuleIds: [yaml-object, yaml-array, yaml-string, yaml-number, yaml-boolean, yaml-null, yaml-variable, yaml-entry]
+symbolType: 'boolean'
+rule:
+    kind: 'block_mapping_pair, flow_pair'
+    all: [{has: {field: value, has: {kind: plain_scalar, has: {kind: boolean_scalar}}}}, {not: {has: {stopBy: end, kind: ERROR}}}, {has: {field: key, pattern: $KEY}}, {inside: {kind: 'block_mapping, flow_mapping', inside: {kind: 'block_node, flow_node', any: [{inside: {kind: 'block_mapping_pair, flow_pair', has: {field: key, pattern: $OWNER}}}, {has: {kind: 'block_mapping, flow_mapping', has: {kind: 'block_mapping_pair, flow_pair', has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}}, inside: {kind: block_sequence_item, has: {regex: '^-$', pattern: $$OWNER}}}, {inside: {kind: flow_sequence}, has: {kind: flow_mapping, all: [{has: {kind: 'block_mapping_pair, flow_pair', has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}}, {has: {regex: '^\{$', pattern: $$OWNER}}]}}]}}}, {not: {inside: {stopBy: end, any: [{kind: block_sequence_item, not: {has: {kind: 'block_node, flow_node', has: {kind: 'block_mapping, flow_mapping', has: {kind: 'block_mapping_pair, flow_pair', has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}}}}}, {kind: flow_node, inside: {kind: flow_sequence}, not: {has: {kind: flow_mapping, has: {kind: 'block_mapping_pair, flow_pair', has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}}}}]}}}]
+name: $PATH.$KEY
+signature: '$PATH.$KEY: …'
+isPublic: true
+---
+id: yaml-member-null
+role: member
+parentRuleIds: [yaml-object, yaml-array, yaml-string, yaml-number, yaml-boolean, yaml-null, yaml-variable, yaml-entry]
+symbolType: 'null'
+rule:
+    kind: 'block_mapping_pair, flow_pair'
+    all: [{any: [{has: {field: value, has: {kind: plain_scalar, has: {kind: null_scalar}}}}, {not: {has: {field: value, kind: 'block_node, flow_node'}}}]}, {not: {has: {stopBy: end, kind: ERROR}}}, {has: {field: key, pattern: $KEY}}, {inside: {kind: 'block_mapping, flow_mapping', inside: {kind: 'block_node, flow_node', any: [{inside: {kind: 'block_mapping_pair, flow_pair', has: {field: key, pattern: $OWNER}}}, {has: {kind: 'block_mapping, flow_mapping', has: {kind: 'block_mapping_pair, flow_pair', has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}}, inside: {kind: block_sequence_item, has: {regex: '^-$', pattern: $$OWNER}}}, {inside: {kind: flow_sequence}, has: {kind: flow_mapping, all: [{has: {kind: 'block_mapping_pair, flow_pair', has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}}, {has: {regex: '^\{$', pattern: $$OWNER}}]}}]}}}, {not: {inside: {stopBy: end, any: [{kind: block_sequence_item, not: {has: {kind: 'block_node, flow_node', has: {kind: 'block_mapping, flow_mapping', has: {kind: 'block_mapping_pair, flow_pair', has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}}}}}, {kind: flow_node, inside: {kind: flow_sequence}, not: {has: {kind: flow_mapping, has: {kind: 'block_mapping_pair, flow_pair', has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}}}}]}}}]
+name: $PATH.$KEY
+signature: '$PATH.$KEY: ~'
+isPublic: true
+---
+id: yaml-member-variable
+role: member
+parentRuleIds: [yaml-object, yaml-array, yaml-string, yaml-number, yaml-boolean, yaml-null, yaml-variable, yaml-entry]
+symbolType: 'variable'
+rule:
+    kind: 'block_mapping_pair, flow_pair'
+    all: [{has: {field: value, has: {kind: alias, pattern: $ALIAS}}}, {not: {has: {stopBy: end, kind: ERROR}}}, {has: {field: key, pattern: $KEY}}, {inside: {kind: 'block_mapping, flow_mapping', inside: {kind: 'block_node, flow_node', any: [{inside: {kind: 'block_mapping_pair, flow_pair', has: {field: key, pattern: $OWNER}}}, {has: {kind: 'block_mapping, flow_mapping', has: {kind: 'block_mapping_pair, flow_pair', has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}}, inside: {kind: block_sequence_item, has: {regex: '^-$', pattern: $$OWNER}}}, {inside: {kind: flow_sequence}, has: {kind: flow_mapping, all: [{has: {kind: 'block_mapping_pair, flow_pair', has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}}, {has: {regex: '^\{$', pattern: $$OWNER}}]}}]}}}, {not: {inside: {stopBy: end, any: [{kind: block_sequence_item, not: {has: {kind: 'block_node, flow_node', has: {kind: 'block_mapping, flow_mapping', has: {kind: 'block_mapping_pair, flow_pair', has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}}}}}, {kind: flow_node, inside: {kind: flow_sequence}, not: {has: {kind: flow_mapping, has: {kind: 'block_mapping_pair, flow_pair', has: {field: key, regex: '^["'']?(?:name|id)["'']?$'}}}}}]}}}]
+name: $PATH.$KEY
+signature: '$PATH.$KEY: $ALIAS'
+isPublic: true

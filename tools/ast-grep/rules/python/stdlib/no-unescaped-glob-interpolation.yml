@@ -30,7 +30,7 @@ utils:
                 - has: {field: right, any: [{matches: value}, {kind: tuple, has: {matches: value}}]}
             - kind: call
               all:
-                - has: {field: function, kind: attribute, all: [{has: {field: object, kind: 'string, concatenated_string'}}, {has: {field: attribute, regex: '^format$'}}]}
+                - has: {field: function, kind: attribute, all: [{has: {field: object, kind: 'string, concatenated_string'}}, {has: {field: attribute, pattern: format}}]}
                 - has: {field: arguments, has: {any: [{matches: value}, {kind: keyword_argument, has: {field: value, matches: value}}]}}
     glob-callee:
         any:
@@ -42,16 +42,17 @@ utils:
         matches: {python-member-use: {module: {regex: '^fnmatch$'}, name: {regex: '^(fnmatch|fnmatchcase|filter)$'}}}
     pattern-position:
         any:
-            - nthChild: 1
+            - nthChild: {position: 1, ofRule: {not: {kind: comment}}}
               inside: {kind: argument_list, inside: {kind: call, has: {field: function, matches: glob-callee}}}
-            - nthChild: 2
+            - nthChild: {position: 2, ofRule: {not: {kind: comment}}}
               inside: {kind: argument_list, inside: {kind: call, has: {field: function, matches: fnmatch-callee}}}
             - inside: {kind: keyword_argument, field: value, has: {field: name, regex: '^(pattern|pat)$'}}
 rule:
     kind: call
     all:
-        - has: {field: function, regex: '(^|\.)(glob|rglob|full_match|translate|fnmatch|fnmatchcase|filter)$|^\p{XID_Continue}+$'}
+        - has: {field: function, any: [{kind: identifier}, {regex: '(^|\.)(glob|rglob|full_match|translate|fnmatch|fnmatchcase|filter)$'}]}
+        - has: {field: arguments, has: {stopBy: {not: {kind: keyword_argument}}, matches: interpolated}}
         - has: {field: function, any: [{matches: glob-callee}, {matches: fnmatch-callee}]}
-        - has: {field: arguments, has: {stopBy: {not: {kind: keyword_argument}}, matches: interpolated, all: [{matches: pattern-position}]}}
+        - has: {field: arguments, has: {stopBy: {not: {kind: keyword_argument}}, all: [{matches: interpolated}, {matches: pattern-position}]}}
 message: 'Glob pattern reads `*`, `?`, and `[` in interpolated `$VALUE` as wildcards'
 note: 'Escape formatted text with `glob.escape(<text>)` before interpolation'

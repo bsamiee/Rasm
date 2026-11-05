@@ -16,7 +16,7 @@ rule:
     matches: string-statement
     not:
         any:
-            - has: {pattern: $_, nthChild: 2}
+            - has: {pattern: $_, nthChild: {position: 2, ofRule: {not: {kind: comment}}}}
             - has: {stopBy: end, kind: comment}
             - precedes: {regex: '^;$'}
               not: {follows: {regex: '^;$'}}

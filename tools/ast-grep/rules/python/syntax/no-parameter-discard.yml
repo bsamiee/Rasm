@@ -35,7 +35,7 @@ utils:
     unread-parameter:
         kind: identifier
         all:
-            - not: {regex: '^_$'}
+            - not: {pattern: _}
             - pattern: $Q
             - inside:
                 kind: function_definition

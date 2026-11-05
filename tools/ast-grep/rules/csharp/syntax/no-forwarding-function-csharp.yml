@@ -15,7 +15,7 @@ utils:
                         - not: {has: {kind: type_parameter_list}}
                         - has: {kind: base_list, has: {kind: generic_name, has: {kind: type_argument_list, has: {pattern: {context: 'class $TRAIT_OWNER;', selector: identifier}}}}}
             - any:
-                - has: {field: returns, has: {stopBy: end, pattern: {context: 'class $TRAIT_OWNER;', selector: identifier}}}
+                - has: {field: type, has: {stopBy: end, pattern: {context: 'class $TRAIT_OWNER;', selector: identifier}}}
                 - has: {field: parameters, has: {stopBy: end, pattern: {context: 'class $TRAIT_OWNER;', selector: identifier}}}
     plain-parameter:
         kind: parameter

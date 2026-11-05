@@ -22,20 +22,22 @@ customLanguages:
     toml: {libraryPath: .cache/ast-grep/toml.so, extensions: [toml], expandoChar: '-', outlineRules: tools/ast-grep/outline/toml.yml}
     tsxlang: {libraryPath: .cache/ast-grep/typescript.so, languageSymbol: tree_sitter_tsx, extensions: [ts, tsx, mts, cts, js, jsx, mjs, cjs, jxa], outlineRules: tools/ast-grep/outline/typescript.yml}
     xml: {libraryPath: .cache/ast-grep/xml.so, extensions: [xml, csproj, proj, props, targets, slnx, svg, plist, entitlements, xcscheme], expandoChar: À, outlineRules: tools/ast-grep/outline/xml.yml}
+    yamllang: {libraryPath: .cache/ast-grep/yaml.so, languageSymbol: tree_sitter_yaml, extensions: [yml, yaml], outlineRules: tools/ast-grep/outline/yaml.yml}
 
 # --- [INJECTIONS] -----------------------------------------------------------------------
 
 languageInjections:
-    - hostLanguage: yaml
+    - hostLanguage: yamllang
       injected: bashlang
       rule:
         matches: run
         has: {field: value, has: {kind: plain_scalar, pattern: $CONTENT, not: {regex: '[\r\n]|\$\{\{'}}}
         inside: {matches: step-map}
       utils:
+        hidden-key: {any: [{kind: alias}, {kind: double_quote_scalar, any: [{has: {kind: escape_sequence}}, {regex: '[\r\n]'}]}]}
         literal-map:
             kind: &map block_mapping, flow_mapping
-            not: {has: {kind: &pair 'block_mapping_pair, flow_pair', has: {field: key, has: {any: [{kind: alias}, {kind: double_quote_scalar, any: [{has: {kind: escape_sequence}}, {regex: '[\r\n]'}]}]}}}}
+            not: {has: {kind: &pair 'block_mapping_pair, flow_pair', has: {field: key, has: {matches: hidden-key}}}}
         root-map: {kind: 'document > :is(block_node, flow_node) > :is(block_mapping, flow_mapping)'}
         top-pair: {kind: *pair, inside: {matches: root-map}}
         run: {kind: *pair, has: {field: key, has: {regex: '^["'']?run["'']?$'}}}
@@ -50,7 +52,11 @@ languageInjections:
             matches: shell
             has: {field: value, has: {kind: 'plain_scalar, single_quote_scalar, double_quote_scalar', regex: '^(?:(?:[^\t\n\v\f\r "''\\/]*/)*bash(?: [^\r\n]*)?|"(?:[^\t\n\v\f\r "''\\/]*/)*bash(?: [^"\\\r\n]*)?"|''(?:[^\t\n\v\f\r "''\\/]*/)*bash(?: [^''\r\n]*)?'')$', not: {regex: '\$\{\{'}}}
         shell-free-defaults: {matches: defaults, has: {field: value, has: {matches: literal-map, not: {has: {matches: run, not: {has: {field: value, has: {matches: literal-map, not: {has: {matches: shell}}}}}}}}}}
+        shell-free-map: {matches: literal-map, not: {has: {matches: defaults, not: {matches: shell-free-defaults}}}}
         bash-defaults: {matches: defaults, has: {field: value, has: {matches: literal-map, has: {matches: run, has: {field: value, has: {matches: literal-map, has: {matches: bash-shell}}}}}}}
+        bash-runner:
+            has: {kind: *pair, has: {field: key, has: {regex: '^["'']?runs-on["'']?$'}}, all: [{has: {field: value, has: {stopBy: end, kind: &scalar 'plain_scalar, single_quote_scalar, double_quote_scalar'}}}, {not: {has: {field: value, has: {stopBy: end, any: [{kind: 'alias, block_mapping, flow_mapping'}, {kind: *scalar, regex: '(?i-u:windows)|\$\{\{'}]}}}}]}
+            not: {has: {kind: *pair, has: {field: key, has: {regex: '^["'']?container["'']?$'}}}}
         step-map:
             kind: *map
             inside: {kind: *node, inside: {kind: 'block_sequence_item, flow_sequence', inside: {stopBy: {kind: *pair}, kind: *pair, has: {field: key, has: {regex: '^["'']?steps["'']?$'}}, any: [{inside: {matches: job-map}}, {inside: {matches: composite-map}}]}}}
@@ -58,7 +64,13 @@ languageInjections:
                 - has: {matches: bash-shell}
                 - matches: literal-map
                   not: {has: {matches: shell}}
-                  inside: {matches: job-map, stopBy: end, any: [{has: {matches: bash-defaults}}, {matches: literal-map, not: {has: {matches: defaults, not: {matches: shell-free-defaults}}}, inside: {matches: root-map, stopBy: end, has: {matches: bash-defaults}}}]}
+                  inside:
+                    matches: job-map
+                    stopBy: end
+                    any:
+                        - has: {matches: bash-defaults}
+                        - {matches: shell-free-map, inside: {matches: root-map, stopBy: end, has: {matches: bash-defaults}}}
+                        - {matches: shell-free-map, all: [{matches: bash-runner}, {inside: {stopBy: end, all: [{matches: root-map}, {matches: shell-free-map}]}}]}
     - hostLanguage: json
       injected: bashlang
       rule:
@@ -76,26 +88,42 @@ languageInjections:
     - hostLanguage: toml
       injected: bashlang
       rule:
-        kind: pair
-        all:
-            - has: {kind: string, not: {has: {kind: escape_sequence}}, has: {kind: string_content, pattern: $CONTENT, not: {regex: '\{[{%]'}}}
-            - any:
-                - all: [{has: {kind: 'bare_key, dotted_key, quoted_key', regex: '(?:^|[.-])["'']?(?:run|command)["'']?$'}}, {inside: {not: {has: {kind: pair, has: {kind: bare_key, regex: '^args$'}}}}}]
-                - inside: {kind: table, regex: '^\[[\t ]*tasks[\t ]*\]'}
+        any:
+            - kind: pair
+              all:
+                - has: {matches: text}
+                - any:
+                    - all: [{has: {matches: command}}, {inside: {not: {has: {kind: pair, has: {kind: 'bare_key, quoted_key', regex: '^["'']?args["'']?$'}}}}}]
+                    - inside: {kind: table, has: {kind: 'bare_key, quoted_key', regex: '^["'']?tasks["'']?$'}}
+            - matches: text
+              inside: {kind: array, inside: {kind: pair, has: {matches: command}}}
+      utils:
+        text: {kind: string, not: {has: {kind: escape_sequence, stopBy: end}}, has: {kind: string_content, pattern: $CONTENT, not: {regex: '\{[{%]'}}}
+        command: {any: [{matches: segment}, {kind: dotted_key, has: {matches: segment, nthChild: {position: 1, reverse: true}}}]}
+        segment: {kind: 'bare_key, quoted_key', regex: '(?:^["'']?|-)(?:run|command)["'']?$'}
     - hostLanguage: bashlang
       injected: pythonlang
       rule:
         kind: heredoc_body
         pattern: $CONTENT
         not: {has: {kind: 'simple_expansion, expansion, command_substitution, arithmetic_expansion'}}
-        follows: {any: [{matches: site}, {has: {stopBy: end, matches: site}}]}
+        any:
+            - precedes: {kind: heredoc_end, regex: '^PY(?:THON)?(?:EOF)?$'}
+            - all:
+                - precedes: {kind: heredoc_end, pattern: $END}
+                - follows: {stopBy: {matches: run-end}, any: [{matches: delimited}, {has: {stopBy: {not: {kind: 'list, pipeline'}}, matches: delimited}}]}
+            - all:
+                - not: {follows: {kind: heredoc_end}}
+                - precedes: {matches: run-end}
+                - follows: {stopBy: {matches: run-end}, any: [{matches: site}, {has: {stopBy: {not: {kind: 'list, pipeline'}}, matches: site}}]}
       utils:
+        run-end: {kind: heredoc_end, not: {precedes: {kind: heredoc_body}}}
         site:
             kind: redirected_statement
-            has: {kind: heredoc_redirect}
-            any:
-                - has: {field: body, kind: command, has: {field: name, regex: '^(?:[^\t\n "''$`\\/]*/)*python(?:3(?:\.[0-9]+)?)?$'}}
-                - has: {kind: heredoc_redirect, has: {kind: heredoc_start, regex: '^["'']?PY(?:THON)?(?:EOF)?["'']?$'}}
+            all:
+                - has: {kind: heredoc_redirect}
+                - has: {field: body, kind: command, has: {field: name, regex: '(?:^|/)python(?:3(?:\.[0-9]+)?)?$'}}
+        delimited: {matches: site, has: {kind: heredoc_redirect, has: {kind: heredoc_start, pattern: $END}}}
     - hostLanguage: csharplang
       injected: sql
       rule: &csharp-rule
@@ -133,19 +161,36 @@ languageInjections:
             - has:
                 field: arguments
                 any:
-                    - has: {all: [{matches: text}, {nthChild: 1}]}
+                    - has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: text}
                     - has: {kind: keyword_argument, all: [{has: {field: name, regex: '^(?:operation|query|statement)$'}}, {has: {field: value, matches: text}}]}
-            - has: {field: function, has: {field: object, any: [{matches: source}, {kind: 'identifier, attribute', pattern: $R, inside: {stopBy: end, kind: &python-scope 'function_definition, module', has: {stopBy: end, any: [{all: [{has: {pattern: $R}}, {matches: typed}]}, {kind: &python-bind 'assignment, as_pattern', any: [{has: {field: left, pattern: $R}}, {has: {field: alias, has: {pattern: $R}}}], has: {stopBy: end, matches: source}}]}}}]}}
+            - inside: {stopBy: end, kind: module, matches: dialect}
+            - has: {field: function, has: {field: object, any: [{matches: source}, {kind: identifier, pattern: $R, inside: {stopBy: end, kind: &python-frame 'function_definition, module', has: {stopBy: &python-scope {kind: 'function_definition, class_definition, lambda'}, matches: receiver}}}, {kind: attribute, pattern: $R, inside: {stopBy: end, kind: &python-owner 'class_definition, module', has: {stopBy: end, matches: receiver}}}]}}
       utils:
+        dialect: {regex: 'sqlite3|adbc_driver_sqlite'}
         module: {regex: '^(?:sqlite3(?:\.dbapi2)?|adbc_driver_sqlite(?:\.dbapi)?)$'}
         annotation: {regex: '(?-u:\b)(?:sqlite3|adbc_driver_sqlite\.dbapi)\.(?:Connection|Cursor)(?-u:\b)'}
         text: &python-text {kind: string, not: {has: {kind: 'interpolation, escape_sequence, escape_interpolation', stopBy: end}}, has: {kind: string_content, pattern: $CONTENT}}
         imported: &python-imported
             inside: {stopBy: end, kind: module, has: {stopBy: end, any: [{kind: import_statement, has: {kind: aliased_import, all: [{has: {field: name, matches: module}}, {has: {field: alias, pattern: $F}}]}}, {kind: import_from_statement, all: [{has: {field: module_name, matches: module}}, {has: {any: [{kind: dotted_name, has: {kind: identifier, pattern: $F}}, {kind: aliased_import, has: {field: alias, pattern: $F}}]}}]}]}}
-        typed: &python-typed {kind: 'typed_parameter, typed_default_parameter, assignment', has: {field: type, any: [{matches: annotation}, {has: {stopBy: end, kind: identifier, pattern: $F, matches: imported}}]}}
+        annotated: &python-annotated {any: [{matches: annotation}, {has: {stopBy: end, kind: identifier, pattern: $F, matches: imported}}]}
+        returned: &python-returned
+            kind: call
+            all:
+                - has: {field: function, any: [{kind: identifier, pattern: $G}, {kind: attribute, has: {field: attribute, pattern: $G}}]}
+                - inside: {stopBy: end, kind: module, has: {stopBy: end, kind: function_definition, all: [{has: {field: name, pattern: $G}}, {has: {field: return_type, matches: annotated}}]}}
+        receiver: &python-receiver
+            any:
+                - {kind: &python-typed 'typed_parameter, typed_default_parameter, assignment', all: [{has: {pattern: $R}}, {has: {field: type, matches: annotated}}]}
+                - {kind: &python-bind 'assignment, as_pattern', all: [{any: [{has: {field: left, pattern: $R}}, {has: {field: alias, has: {pattern: $R}}}]}, {has: {stopBy: end, matches: source}}]}
+                - {kind: assignment, all: [{has: {field: left, pattern: $R}}, {has: {field: right, matches: returned}}]}
         connect: &python-connect
             kind: call
             has: {field: function, any: [{kind: identifier, pattern: $F, matches: imported}, {kind: attribute, all: [{has: {field: attribute, regex: '^(?:connect|(?:Async)?Connection(?:Pool)?)$'}}, {has: {field: object, any: [{matches: module}, {kind: identifier, pattern: $F, matches: imported}]}}]}]}
+        connection: &python-connection
+            any:
+                - {kind: *python-typed, all: [{has: {pattern: $C}}, {has: {field: type, matches: annotated}}]}
+                - {kind: *python-bind, all: [{any: [{has: {field: left, pattern: $C}}, {has: {field: alias, has: {pattern: $C}}}]}, {has: {stopBy: end, matches: connect}}]}
+                - {kind: assignment, all: [{has: {field: left, pattern: $C}}, {has: {field: right, matches: returned}}]}
         source: &python-source
             any:
                 - matches: connect
@@ -155,7 +200,7 @@ languageInjections:
                     kind: attribute
                     all:
                         - has: {field: attribute, regex: '^(?:cursor|connection)$'}
-                        - has: {field: object, any: [{matches: connect}, {kind: 'identifier, attribute', pattern: $C, inside: {stopBy: end, kind: *python-scope, has: {stopBy: end, any: [{all: [{has: {pattern: $C}}, {matches: typed}]}, {kind: *python-bind, any: [{has: {field: left, pattern: $C}}, {has: {field: alias, has: {pattern: $C}}}], has: {stopBy: end, matches: connect}}]}}}]}
+                        - has: {field: object, any: [{matches: connect}, {kind: identifier, pattern: $C, inside: {stopBy: end, kind: *python-frame, has: {stopBy: *python-scope, matches: connection}}}, {kind: attribute, pattern: $C, inside: {stopBy: end, kind: *python-owner, has: {stopBy: end, matches: connection}}}]}
     - hostLanguage: rustlang
       injected: sql
       rule: &rust-rule
@@ -199,8 +244,8 @@ languageInjections:
       rule:
         kind: call_expression
         all:
-            - has: {nthChild: 1, regex: '(?:^|\.)sqlite3_(?:prepare(?:16)?(?:_v[23])?|exec)$'}
-            - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, nthChild: 2, has: {field: value, not: {has: {nthChild: 2}}, has: {kind: 'line_str_text, multi_line_str_text, raw_str_end_part', pattern: $CONTENT}}}}}
+            - has: {nthChild: 1, regex: '(?:^|\.|::)sqlite3_(?:prepare(?:16)?(?:_v[23])?|exec)$'}
+            - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, nthChild: {position: 2, ofRule: {kind: value_argument}}, has: {field: value, not: {has: {nthChild: 2}}, has: {kind: 'line_str_text, multi_line_str_text, raw_str_end_part', pattern: $CONTENT}}}}}
     - hostLanguage: tsxlang
       injected: sql
       rule: &tsx-rule
@@ -263,12 +308,16 @@ languageInjections:
       injected: pgsql
       rule: *python-rule
       utils:
+        dialect: {regex: 'psycopg|adbc_driver_postgresql'}
         module: {regex: '^(?:psycopg(?:_pool|\.(?:Async)?Connection|\.(?:connection|cursor)(?:_async)?)?|adbc_driver_postgresql(?:\.dbapi)?)$'}
         annotation: {regex: '(?-u:\b)(?:psycopg(?:_pool)?|adbc_driver_postgresql\.dbapi)\.(?:Async|Server|Raw)*(?:Connection(?:Pool)?|Cursor)(?-u:\b)'}
         text: *python-text
         imported: *python-imported
-        typed: *python-typed
+        annotated: *python-annotated
+        returned: *python-returned
+        receiver: *python-receiver
         connect: *python-connect
+        connection: *python-connection
         source: *python-source
     - hostLanguage: rustlang
       injected: pgsql
@@ -283,7 +332,7 @@ languageInjections:
       injected: pgsql
       rule: *tsx-rule
       constraints:
-        CONTENT: {not: &plpgsql-site {inside: *block-scope, regex: '^`?(?:\t|\n|\v|\f|\r| |--[^\n]*\n|/\*[^*]*\*+(?:[^/*][^*]*\*+)*/)*(?:<<|(?i-u:ASSERT|BEGIN|CASE|CONTINUE|DECLARE|EXIT|FOR|FOREACH|GET|IF|LOOP|NULL|OPEN|PERFORM|RAISE|RETURN|WHILE)(?-u:\b)|(?:[$0-9A-Z_a-z\x80-\x{10FFFF}]|\.|"|\[[^\]]*\])+(?:\t|\n|\v|\f|\r| )*:?=)'}}
+        CONTENT: {not: &plpgsql-site {inside: *block-scope, regex: '^`?(?:\t|\n|\v|\f|\r| |--[^\n]*\n|/\*[^*]*\*+(?:[^/*][^*]*\*+)*/)*(?:<<|(?i-u:ASSERT|BEGIN|CASE|CONTINUE|DECLARE|EXECUTE|EXIT|FETCH|FOR|FOREACH|GET|IF|LOOP|NULL|OPEN|PERFORM|RAISE|RETURN|WHILE)(?-u:\b)|(?:[$0-9A-Z_a-z\x80-\x{10FFFF}]|\.|"|\[[^\]]*\])+(?:\t|\n|\v|\f|\r| )*:?=)'}}
       utils:
         own: {regex: '^[\["''`]*(?i-u:pg)(?-u:\b)'}
         own-import: *pg-import

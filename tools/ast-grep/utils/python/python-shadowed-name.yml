@@ -10,7 +10,16 @@ utils:
               has: {field: object, matches: root}
     binding:
         kind: &binding 'identifier, typed_parameter, list_splat_pattern, dictionary_splat_pattern, default_parameter, typed_default_parameter, assignment, augmented_assignment, for_statement, for_in_clause, named_expression, as_pattern, function_definition, class_definition, type_alias_statement, delete_statement'
-        matches: {python-binding: {name: {pattern: $ROOT}}}
+        all:
+            - any:
+                - kind: identifier
+                  pattern: $ROOT
+                - has: {field: name, pattern: $ROOT}
+                - has: {field: left, any: [{pattern: $ROOT}, {has: {stopBy: end, kind: identifier, pattern: $ROOT}}]}
+                - has: {field: alias, has: {stopBy: end, kind: identifier, pattern: $ROOT}}
+                - kind: typed_parameter, list_splat_pattern, dictionary_splat_pattern, delete_statement
+                  has: {stopBy: end, kind: identifier, pattern: $ROOT}
+            - matches: {python-binding: {name: {pattern: $ROOT}}}
     bound:
         any:
             - has:

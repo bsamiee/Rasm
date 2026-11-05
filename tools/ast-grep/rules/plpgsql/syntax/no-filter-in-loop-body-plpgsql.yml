@@ -36,7 +36,10 @@ rule:
                 kind: proc_sect
                 not: {has: {nthChild: {position: 2, ofRule: {kind: proc_stmt}}}}
                 has: {matches: first, has: {matches: bare-if}}
+rewriters:
+    - {id: cut, rule: {kind: 'kw_loop, loop_body'}, fix: ''}
 transform:
-    HEAD: {replace: {source: $LOOP, replace: '(?si)[\t\n\x0B\f\r ]+loop(?-u:\b).*$', by: ''}}
+    CUT: {rewrite: {source: $LOOP, rewriters: [cut]}}
+    HEAD: {replace: {source: $CUT, replace: '[\t\n\x0B\f\r ]+$', by: ''}}
 message: '`$HEAD` selects rows by a test at the top of its body'
 note: 'Move the test into query `WHERE` and loop over its rows alone'

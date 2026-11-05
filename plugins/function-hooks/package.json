@@ -1,5 +1,6 @@
 {
     "name": "@rasm/function-hooks",
+    "version": "1.0.0",
     "private": true,
     "description": "Hooks that correct agent commands and track app instances each session owns",
     "type": "module",

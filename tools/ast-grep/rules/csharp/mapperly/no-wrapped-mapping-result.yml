@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: csharplang
 severity: error
-files: ['libs/dotnet/rhino/Rasm.Rhino/**']
+files: []
 utils:
     option:
         has: {kind: identifier, nthChild: 1, regex: '^Option$'}
@@ -14,7 +14,7 @@ utils:
             regex: '^((Option|Fin|Either|Validation|Try|Reader|State|Writer|Identity)T?|IO|Eff|These|ChronicleT|RWST|Free|K)$'
         any:
             - inside:
-                field: returns
+                field: type
                 stopBy: end
                 kind: method_declaration
                 matches: mapperly-mapping-method
@@ -22,7 +22,7 @@ utils:
                 all:
                     - matches: option
                     - inside:
-                        field: returns
+                        field: type
                         stopBy: end
                         kind: method_declaration
                         not: {has: {kind: modifier, regex: '^partial$'}}

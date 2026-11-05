@@ -1,5 +1,5 @@
 import xml from '@tree-sitter-grammars/tree-sitter-xml/xml/grammar.js';
-import { automaton, chain, choiceOf, classes, drop, extend, located, named, optionalOf, pattern, reaches, replace, rewrite, string, symbol, without } from '../derive.js';
+import { automaton, chain, choiceOf, classes, drop, extend, located, named, optionalOf, pattern, reaches, replace, rewrite, spans, string, symbol, without } from '../derive.js';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -13,7 +13,6 @@ const NOTATION_NAME = located(RULES.NotationType, NAMING);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const spans = ({ ranges }) => seq(...ranges.flatMap(({ min, max }) => [String(min), String(max)]));
 const quoted = (text) => replace(named('content'), ($, { content: { content } }) => optional(field('value', alias(repeat1(content), $[text]))));
 const separated = ({ type, content }) => type === 'REPEAT' && reaches(content, string('|'));
 
@@ -29,15 +28,30 @@ export default extend(xml, {
         Attribute: replace(symbol('AttValue'), ($) => quoted('AttText')($, RULES.AttValue)),
         PseudoAtt: replace(symbol('PseudoAttValue'), ($) => quoted('AttText')($, RULES.PseudoAttValue)),
         EntityValue: chain(
-            replace(({ type }) => type === 'PATTERN', (_, part) => pattern(automaton(choice(part, '<')))),
+            replace(
+                ({ type }) => type === 'PATTERN',
+                (_, part) => pattern(automaton(choice(part, '<'))),
+            ),
             quoted('EntityText'),
         ),
-        SystemLiteral: replace(({ type }) => type === 'ALIAS', (_, alias) => optional({ ...alias, content: pattern(without(automaton(alias.content), automaton({ type: 'BLANK' }))) })),
-        NotationType: chain(drop(NAMING), replace(separated, (_, { content }) => seq(NOTATION_NAME, repeat(seq(...content.members, NOTATION_NAME))))),
+        SystemLiteral: replace(
+            ({ type }) => type === 'ALIAS',
+            (_, alias) => optional({ ...alias, content: pattern(without(automaton(alias.content), automaton({ type: 'BLANK' }))) }),
+        ),
+        NotationType: chain(
+            drop(NAMING),
+            replace(separated, (_, { content }) => seq(NOTATION_NAME, repeat(seq(...content.members, NOTATION_NAME)))),
+        ),
         AttlistDecl: ($, original) => rewrite(original, (part) => (symbol('AttDef')(part) ? seq($._S, part) : part)),
         AttDef: (_, original) => rewrite(original, (part) => (part.type === 'SEQ' && part.members.some(NAMING) ? { ...part, members: part.members.slice(part.members.findIndex(NAMING)) } : part)),
         doctypedecl: ($, original) => rewrite(original, (part) => (choiceOf(symbol('_intSubset'))(part) && choiceOf(symbol('_S'))(part) ? $._intSubset : part)),
-        _intSubset: chain(drop(optionalOf(symbol('_S'))), replace(({ type }) => type === 'SEQ', (_, { members }) => choice(...members))),
+        _intSubset: chain(
+            drop(optionalOf(symbol('_S'))),
+            replace(
+                ({ type }) => type === 'SEQ',
+                (_, { members }) => choice(...members),
+            ),
+        ),
         CDSect: replace(optionalOf(symbol('CData')), ($) => repeat($.CData)),
         PI: replace(symbol('_pi_content'), (_, part) => optional(part)),
     },

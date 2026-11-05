@@ -7,8 +7,8 @@ utils:
         has:
             kind: value_arguments
             all:
-                - has: {nthChild: 1, kind: value_argument, has: {field: value, regex: '^\.(applicationSupport|caches|desktop|document|downloads|library|movies|music|pictures|sharedPublic|trash)Directory$'}}
-                - has: {nthChild: 2, kind: value_argument, has: {field: value, regex: '^\.userDomainMask$'}}
+                - has: {nthChild: {position: 1, ofRule: {kind: value_argument}}, kind: value_argument, has: {field: value, regex: '^\.(applicationSupport|caches|desktop|document|downloads|library|movies|music|pictures|sharedPublic|trash)Directory$'}}
+                - has: {nthChild: {position: 2, ofRule: {kind: value_argument}}, kind: value_argument, has: {field: value, regex: '^\.userDomainMask$'}}
     user-directory:
         kind: call_expression
         all:
@@ -29,10 +29,10 @@ rule:
           has: {field: suffix, has: {field: suffix, regex: '^(homeDirectoryForCurrentUser|temporaryDirectory)$'}}
           not: {has: {field: target, regex: '^((Foundation(\.|::))?URL)$'}}
         - kind: call_expression
-          has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '^(Foundation(\.|::))?(NSHomeDirectory(ForUser)?|NSTemporaryDirectory)$'}
+          has: {nthChild: 1, regex: '^(Foundation(\.|::))?(NSHomeDirectory(ForUser)?|NSTemporaryDirectory)$'}
         - kind: call_expression
           all:
-            - has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '^(Foundation(\.|::))?NSSearchPathForDirectoriesInDomains$'}
+            - has: {nthChild: 1, regex: '^(Foundation(\.|::))?NSSearchPathForDirectoriesInDomains$'}
             - has: {matches: user-domain}
 message: '`$SITE` looks up a user directory in place of its `URL` member'
 note: 'Read the `URL` directory member (`applicationSupportDirectory`, `homeDirectory`, `temporaryDirectory`, `homeDirectory(forUser:)`)'

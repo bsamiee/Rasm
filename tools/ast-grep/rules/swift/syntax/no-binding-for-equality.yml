@@ -81,7 +81,7 @@ rule:
             - has: {field: condition, regex: '^case$'}
             - matches: sole-binding
             - has: {kind: equality_expression, matches: compared}
-            - not: {has: {pattern: $$_FIRST, regex: '^,$', precedes: {stopBy: end, pattern: $$_SECOND, regex: '^,$'}}}
+            - not: {has: {regex: '^,$', precedes: {stopBy: end, regex: '^,$'}}}
             - not: {has: {stopBy: end, kind: statements, matches: name-read}}
             - not: {all: [{kind: guard_statement}, {precedes: {stopBy: end, any: [{kind: simple_identifier, pattern: $NAME}, {matches: name-read}]}}]}
         - kind: for_statement

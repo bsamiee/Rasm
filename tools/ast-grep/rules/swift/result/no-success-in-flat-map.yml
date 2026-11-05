@@ -29,14 +29,8 @@ utils:
                 - not: {has: {kind: statements, not: {matches: result-branch}}}
                 - not: {has: {kind: if_statement, not: {matches: result-construction}}}
     lifted-body:
-        kind: statements
-        all:
-            - has:
-                nthChild: 1
-                any:
-                    - matches: result-construction
-                    - {kind: control_transfer_statement, has: {field: result, matches: result-construction}}
-            - not: {has: {nthChild: 2}}
+        matches: swift-sole-statement
+        has: {any: [{matches: result-construction}, {kind: control_transfer_statement, has: {field: result, matches: result-construction}}]}
     callback:
         kind: lambda_literal
         has: {matches: lifted-body}
@@ -48,7 +42,7 @@ utils:
                 kind: call_suffix
                 any:
                     - all: [{has: {matches: callback}}, {not: {has: {kind: value_arguments}}}]
-                    - has: {kind: value_arguments, not: {has: {nthChild: 2}}, has: {kind: value_argument, not: {has: {kind: value_argument_label}}, has: {field: value, matches: callback}}}
+                    - has: {kind: value_arguments, not: {has: {nthChild: {position: 2, ofRule: {kind: value_argument}}}}, has: {kind: value_argument, not: {has: {kind: value_argument_label}}, has: {field: value, matches: callback}}}
 rule:
     matches: lifting-call
     any:

@@ -6,8 +6,8 @@ rule:
     pattern: $SITE
     any:
         - all:
-            - has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '^((Darwin|Glibc|Musl)(\.|::))?kill$'}
-            - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, nthChild: 1, regex: '\.processIdentifier\.value\)?$'}}}
+            - has: {nthChild: 1, regex: '^((Darwin|Glibc|Musl)(\.|::))?kill$'}
+            - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, nthChild: {position: 1, ofRule: {kind: value_argument}}, regex: '\.processIdentifier\.value\)?$'}}}
         - all:
             - pattern: '$EXECUTION.send(signal: .kill)'
             - inside:

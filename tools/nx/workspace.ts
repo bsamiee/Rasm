@@ -28,7 +28,7 @@ const CONTAINERS = /^(?:testcontainers|@testcontainers\/.+)$/u;
 const VERSIONS = new Intl.Collator('en', { numeric: true });
 const GRAMMARS = 'tools/ast-grep/grammars';
 const GRAMMAR = 'grammar.js';
-const AST_GREP_BUILT_INS: Readonly<Record<string, readonly string[]>> = { json: ['json'], yaml: ['yml', 'yaml'] };
+const AST_GREP_BUILT_INS: Readonly<Record<string, readonly string[]>> = { json: ['json'] };
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -514,7 +514,11 @@ const astGrep = Effect.fnUntraced(function* ({ workspaceRoot, python, pythonScop
                 root: '.',
                 targets: {
                     ...split('lint:ast-grep', {
-                        tree: { command: walk(['--error=no-suppress-all', ...offs]), inputs: [...read(Object.keys(sources)), ...Object.values(languageGlobs).flatMap(Array.map((pattern) => `{workspaceRoot}/**/${pattern}`)), ...skipped, ...ruleInputs, 'astGrep'] },
+                        tree: {
+                            command: walk(['--error=no-suppress-all', ...offs]),
+                            syncGenerators: ['./tools/nx/generators.json:injection-utils', './tools/nx/generators.json:outline-catalogs'],
+                            inputs: [...read(Object.keys(sources)), ...Object.values(languageGlobs).flatMap(Array.map((pattern) => `{workspaceRoot}/**/${pattern}`)), ...skipped, ...ruleInputs, 'astGrep'],
+                        },
                         classes: {
                             command: `node ${classes}`,
                             inputs: [
@@ -525,7 +529,8 @@ const astGrep = Effect.fnUntraced(function* ({ workspaceRoot, python, pythonScop
                                 ...importInputs(classGraph),
                                 '{workspaceRoot}/tools/ast-grep/regex/**/*',
                                 '{workspaceRoot}/Cargo.lock',
-                                { dependentTasksOutputFiles: '**/src/grammar.json', transitive: true },
+                                { dependentTasksOutputFiles: '**/src/{grammar,node-types}.json', transitive: true },
+                                { dependentTasksOutputFiles: '**/*.so', transitive: true },
                             ],
                         },
                         ...hosted,

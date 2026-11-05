@@ -4,9 +4,9 @@ severity: error
 metadata: {python-below: '3.15'}
 rule:
     kind: call
-    pattern: $CALL
     all:
-        - has: {field: function, pattern: $F, any: [{matches: itertools-chain-callee}, {kind: list_splat, has: {matches: itertools-chain-callee}}]}
-        - has: {field: arguments, kind: argument_list, has: {kind: list_splat}, not: {has: {kind: 'dictionary_splat, keyword_argument'}}}
+        - has: {field: arguments, kind: argument_list, all: [{has: {kind: list_splat}}, {not: {has: {kind: 'dictionary_splat, keyword_argument'}}}]}
+        - has: {field: function, any: [{matches: itertools-chain-callee}, {kind: list_splat, has: {matches: itertools-chain-callee}}]}
+        - pattern: $CALL
 message: '`$CALL` unpacks iterables into `itertools.chain` arguments'
 note: 'Call `chain.from_iterable` with equivalent outer iteration timing'

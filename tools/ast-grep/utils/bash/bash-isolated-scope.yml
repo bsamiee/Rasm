@@ -2,4 +2,4 @@
 id: bash-isolated-scope
 language: bashlang
 rule:
-    kind: function_definition, subshell, command_substitution, process_substitution, coproc_command
+    kind: function_definition, subshell, command_substitution, process_substitution, coproc_command, pipeline

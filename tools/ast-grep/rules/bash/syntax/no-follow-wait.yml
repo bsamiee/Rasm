@@ -6,7 +6,7 @@ utils:
         any:
             - kind: command
               all:
-                - has: {field: name, regex: '^tail$'}
+                - has: {field: name, regex: '(?:^|/)tail$'}
                 - has:
                     kind: word
                     regex: '^(-[A-Za-z0-9]*[fF][A-Za-z0-9]*|--follow(=.*)?)$'
@@ -17,9 +17,9 @@ utils:
         any:
             - kind: command
               any:
-                - has: {field: name, regex: '^(head|read)$'}
+                - has: {field: name, regex: '(?:^|/)(?:head|read)$'}
                 - all:
-                    - has: {field: name, regex: '^grep$'}
+                    - has: {field: name, regex: '(?:^|/)grep$'}
                     - has:
                         kind: word
                         regex: '^(-[A-Za-z]*[mq][A-Za-z0-9]*|--(max-count|quiet|silent)(=.*)?)$'
@@ -33,5 +33,5 @@ rule:
         - has: {matches: reader, follows: {stopBy: end, pattern: $FOLLOWER}}
 labels:
     FOLLOWER: {style: primary, message: Follower keeps waiting after its reader exits}
-message: Following file changes can outlive a pipeline reader
+message: '`$FOLLOWER` keeps following file changes after its pipeline reader exits'
 note: Poll finite file reads in a loop with an attempt or time limit

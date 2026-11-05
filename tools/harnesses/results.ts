@@ -1,4 +1,4 @@
-import { Effect, Schema } from 'effect';
+import { Effect, Function, Schema } from 'effect';
 import { Expression, Name, Panel, Reads } from '#/cases';
 import { HarnessError } from '#/harness-error';
 import type { Harness } from '#/session';
@@ -75,6 +75,7 @@ const Records = Object.assign(Schema.String.annotate({ description: 'Records fil
 const Surveying = Schema.Boolean.annotate({ description: 'Reply carries the installation survey' });
 const Failed = Schema.Struct({ failed: Schema.String.annotate({ description: 'Batch failure before or around the cases' }) });
 const Source = Schema.Struct({ script: Schema.String.annotate({ description: 'Original script path the case answers as the running script' }), code: Schema.String.annotate({ description: 'Prepared source the engine evaluates' }) });
+const Args = Schema.Array(Schema.Json);
 const Environment = Schema.Record(Schema.String, Schema.String).annotate({ description: 'Environment supplied by the caller that decides startup behavior' });
 const Compare = Schema.Struct({
     module: Schema.String.annotate({ description: 'Rebuilt module the host answers were compared against' }),
@@ -93,11 +94,11 @@ const deciding = <E extends Schema.Top>(engine: E) => ({
     host: Schema.optionalKey(Schema.Json.annotate({ description: 'Install state deciding answers beside the version' })),
 });
 const forms = <S extends Schema.Struct.Fields>(shared: S) => ({
-    Run: { name: Name, read: Reads, ...shared, source: Source, args: Schema.Array(Schema.Json) },
-    Call: { name: Name, read: Reads, ...shared, source: Schema.optionalKey(Source), call: Expression, args: Schema.Array(Schema.Json) },
+    Run: { name: Name, read: Reads, ...shared, source: Source, args: Args },
+    Call: { name: Name, read: Reads, ...shared, source: Schema.optionalKey(Source), call: Expression, args: Args },
     Probe: { name: Name, read: Reads, ...shared, evaluate: Expression },
 });
-const hostCase = Object.assign(<S extends Schema.Struct.Fields>(shared: S) => Schema.TaggedUnion(forms(shared)), {
+const hostCase = Object.assign(Function.flow(forms, Schema.TaggedUnion), {
     linked: <S extends Schema.Struct.Fields>(shared: S) =>
         Schema.TaggedUnion({
             ...forms(shared),

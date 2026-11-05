@@ -9,7 +9,7 @@ rule:
         has:
             kind: assignment
             all:
-                - has: {field: left, kind: identifier, regex: '^__all__$'}
+                - has: {field: left, pattern: __all__}
                 - has:
                     field: right
                     kind: 'list, tuple'

@@ -4,18 +4,21 @@ severity: error
 files:
     - libs/python/**
     - apps/blender/**
-rule:
-    kind: call
-    pattern: $CALL
-    has:
-        field: function
+utils:
+    configuration-function:
         any:
             - matches: {python-member-use: {module: {regex: '^structlog$'}, name: {regex: '^(configure|configure_once|reset_defaults)$'}}}
             - matches: {python-member-use: {module: {regex: '^structlog\.stdlib$'}, name: {regex: '^recreate_defaults$'}}}
             - kind: attribute
               not: {matches: python-shadowed-name}
               all:
-                - has: {field: attribute, regex: '^recreate_defaults$'}
+                - has: {field: attribute, pattern: recreate_defaults}
                 - has: {field: object, matches: {python-submodule: {parent: {regex: '^structlog$'}, child: {regex: '^stdlib$'}}}}
+rule:
+    kind: call
+    all:
+        - has: {field: function, any: [{regex: '(^|\.)(configure|configure_once|reset_defaults|recreate_defaults)$'}, {kind: identifier, inside: {kind: module, stopBy: end, regex: '(?-u:\b)structlog(?-u:\b)'}}]}
+        - has: {field: function, matches: configuration-function}
+        - pattern: $CALL
 message: '`$CALL` sets process-wide structlog configuration from library or extension code'
 note: 'Configure structlog in each process entry module, and call `structlog.get_logger` elsewhere'

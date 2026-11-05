@@ -22,7 +22,7 @@ utils:
     value-shape:
         kind: 'const_item, static_item'
         all:
-            - has: {field: name, pattern: $NAME, not: {regex: '^_$'}}
+            - has: {field: name, pattern: $NAME, not: {pattern: _}}
             - has: {field: type, pattern: $TYPE}
     impl-shape:
         kind: impl_item

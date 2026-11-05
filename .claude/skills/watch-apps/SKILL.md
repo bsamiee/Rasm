@@ -36,7 +36,7 @@ Monitor {"command": "watch-apps watch <app> [<helper>]...",
 - `launch` prints `{"<bundle>":{"<pid>":{"launched":{"created":<bool>}}}}` first, false for a reused instance
 - `launch` prints lines until `status` settles or a row asks, or until exit with `--wait`, then exits leaving the app running
 - `launch --wait` returns the app's exit status, or 128 plus its signal
-- `quit` prints lines until the instance exits, a row asks (a save sheet), it stops answering, or a read fails, and exits 1 unless each instance exited
+- `quit` prints lines until the instance exits, a row asks (a save sheet), it stops answering, a read fails, or it answers reads while its quit event goes unanswered past the Apple Event default timeout, and exits 1 unless each instance exited
 - `quit --force` kills the instance, for one no answer or quit frees, and the killed app asks about its previous session at the next launch
 - `watch-apps` quits, kills, closes a document, presses a button, or writes a preference only on an agent's command
 - `--document` opens each file in the one named app, or with no app named in the file's default app, an unreachable file printing a `fail` line

@@ -6,7 +6,7 @@ utils:
     parameter:
         kind: typed_parameter, typed_default_parameter
         all:
-            - any: [{has: {kind: identifier, nthChild: 1, pattern: $PARAMETER}}, {has: {field: name, pattern: $PARAMETER}}]
+            - any: [{has: {kind: identifier, nthChild: {position: 1, ofRule: {not: {kind: comment}}}, pattern: $PARAMETER}}, {has: {field: name, pattern: $PARAMETER}}]
             - has: {field: type, matches: type}
     binding:
         kind: 'identifier, typed_parameter, list_splat_pattern, dictionary_splat_pattern, default_parameter, typed_default_parameter, assignment, augmented_assignment, for_statement, for_in_clause, named_expression, as_pattern, function_definition, class_definition, type_alias_statement, delete_statement, global_statement, aliased_import, dotted_name'
@@ -74,7 +74,7 @@ rule:
         - not:
             any:
                 - matches: {python-binding: {name: {pattern: $PARAMETER}}}
-                - nthChild: 1
+                - nthChild: {position: 1, ofRule: {not: {kind: comment}}}
                   inside: {kind: 'typed_parameter, list_splat_pattern, dictionary_splat_pattern'}
                 - inside: {kind: 'default_parameter, typed_default_parameter', field: name}
                 - inside: {kind: 'assignment, augmented_assignment, for_statement, for_in_clause', field: left}

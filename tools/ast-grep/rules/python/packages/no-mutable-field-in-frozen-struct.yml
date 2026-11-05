@@ -12,7 +12,7 @@ utils:
         any:
             - matches: mutable-owner
             - kind: generic_type
-              has: {nthChild: 1, matches: mutable-owner}
+              has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: mutable-owner}
             - kind: subscript
               has: {field: value, matches: mutable-owner}
             - kind: parenthesized_expression

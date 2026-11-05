@@ -84,7 +84,7 @@ utils:
         kind: call_expression
         all:
             - has: {field: function, kind: field_expression, has: {field: field, regex: '^(split|split_terminator|rsplit)$'}}
-            - has: {field: arguments, has: {nthChild: 1, any: [{kind: 'char_literal, string_literal', regex: '^[''"]&[''"]$'}, {kind: array_expression, has: {kind: char_literal, regex: '^''&''$'}}]}}
+            - has: {field: arguments, has: {nthChild: 1, any: [{kind: 'char_literal, string_literal', regex: '^[''"]&[''"]$'}, {kind: array_expression, has: {pattern: '''&'''}}]}}
     query-split:
         matches: pair-split
         any:

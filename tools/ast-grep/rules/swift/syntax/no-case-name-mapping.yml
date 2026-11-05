@@ -19,7 +19,7 @@ utils:
             - {matches: name-literal, precedes: {stopBy: {not: {regex: '^:$'}}, matches: case-literal}}
     key:
         pattern: $_
-        precedes: {pattern: $$_COLON, regex: '^:$'}
+        precedes: {regex: '^:$'}
 rule:
     any:
         - kind: switch_statement

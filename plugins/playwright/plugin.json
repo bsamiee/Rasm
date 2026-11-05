@@ -1,0 +1,1 @@
+{ "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json", "name": "playwright", "description": "Browser automation and test authoring for agents", "author": { "name": "Bardia Samiee" }, "repository": "https://github.com/bsamiee/Rasm", "license": "MIT" }

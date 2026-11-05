@@ -1,25 +1,22 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: yaml-steps-pair
-language: yaml
+language: yamllang
 utils:
-    node: {kind: 'block_node, flow_node'}
-    map: {kind: 'block_mapping, flow_mapping'}
-    root-map: {kind: 'document > :is(block_node, flow_node) > :is(block_mapping, flow_mapping)'}
     job-map:
-        matches: map
+        kind: &map block_mapping, flow_mapping
         inside:
-            matches: node
+            kind: &node block_node, flow_node
             inside:
                 kind: block_mapping_pair, flow_pair
                 inside:
-                    matches: map
+                    kind: *map
                     inside:
-                        matches: node
-                        inside: {matches: {yaml-resolved-pair: {key: {regex: '^["'']?jobs["'']?$'}, value: {matches: node}}}, inside: {matches: root-map}}
+                        kind: *node
+                        inside: {matches: {yaml-resolved-pair: {key: {regex: '^["'']?jobs["'']?$'}, value: {kind: *node}}}, inside: &root-map {kind: 'document > :is(block_node, flow_node) > :is(block_mapping, flow_mapping)'}}
     composite-map:
-        matches: map
-        inside: {matches: node, inside: {matches: {yaml-resolved-pair: {key: {regex: '^["'']?runs["'']?$'}, value: {matches: node}}}, inside: {matches: root-map}}}
+        kind: *map
+        inside: {kind: *node, inside: {matches: {yaml-resolved-pair: {key: {regex: '^["'']?runs["'']?$'}, value: {kind: *node}}}, inside: *root-map}}
         has: {matches: {yaml-resolved-pair: {key: {regex: '^["'']?using["'']?$'}, value: {has: {regex: '^["'']?(?i-u:composite)["'']?$'}}}}}
 rule:
-    matches: {yaml-resolved-pair: {key: {regex: '^["'']?steps["'']?$'}, value: {matches: node}}}
+    matches: {yaml-resolved-pair: {key: {regex: '^["'']?steps["'']?$'}, value: {kind: *node}}}
     inside: {any: [{matches: job-map}, {matches: composite-map}]}

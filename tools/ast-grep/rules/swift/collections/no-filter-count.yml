@@ -18,12 +18,12 @@ utils:
                             kind: value_arguments
                             all:
                                 - has: {kind: value_argument, not: {has: {kind: value_argument_label}}, has: {field: value, pattern: $_}}
-                                - not: {has: {kind: value_argument, nthChild: 2}}
+                                - not: {has: {kind: value_argument, nthChild: {position: 2, ofRule: {kind: value_argument}}}}
     zero-test:
         any:
             - kind: 'equality_expression, comparison_expression'
             - {kind: infix_expression, has: {field: op, regex: '^(==|!=|<=?|>=?)$'}}
-        has: {kind: integer_literal, regex: '^0$'}
+        has: {pattern: '0'}
 rule:
     kind: navigation_expression
     all:

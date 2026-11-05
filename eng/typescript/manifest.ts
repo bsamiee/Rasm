@@ -32,6 +32,7 @@ const Package = manifest(
     Schema.fromJsonString(
         Schema.Struct({
             name: Schema.String,
+            version: Schema.OptionFromOptionalKey(Schema.String),
             description: Schema.String,
             dependencies: Strings,
             devDependencies: Strings,
@@ -42,9 +43,10 @@ const Package = manifest(
         }),
     ),
 );
+const Identity = manifest(Package.file, Schema.fromJsonString(Schema.Struct({ name: Schema.String, author: Schema.String, repository: Schema.String, license: Schema.String })));
 const Installed = manifest(Package.file, Schema.fromJsonString(Schema.Struct({ dependencies: Strings, peerDependencies: Strings, napi: Schema.OptionFromOptionalKey(Schema.Unknown) })));
 const ClaudeHooks = manifest('hooks/hooks.json', Schema.fromJsonString(Schema.Struct({ modules: Schema.NonEmptyArray(Schema.String) })));
-const Mise = manifest('mise.toml', TextFormat.Toml.pipe(Schema.decodeTo(Schema.Struct({ daemons: Schema.Record(Schema.String, Schema.Union([Schema.String, Daemon])) }))));
+const Mise = manifest('mise.toml', TextFormat.Toml.pipe(Schema.decodeTo(Schema.Struct({ env: Schema.Struct({ DOPPLER_PROJECT: Schema.String, DOPPLER_CONFIG: Schema.String }), daemons: Schema.Record(Schema.String, Schema.Union([Schema.String, Daemon])) }))));
 const Workspace = manifest('pnpm-workspace.yaml', TextFormat.Yaml.pipe(Schema.decodeTo(Schema.Struct({ packages: Schema.Array(Schema.String), catalog: Schema.Record(Schema.String, Schema.String) }))));
 const XcodeProject = manifest(
     'project.xcproj',
@@ -81,4 +83,4 @@ const Sgconfig = manifest(
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ClaudeHooks, decodeFile, extendScriptEntry, Installed, libraryRoot, Mise, members, Package, Sgconfig, Workspace, XCODE_REQUIREMENT, XcodeProject, XcodeRemote };
+export { ClaudeHooks, decodeFile, extendScriptEntry, Identity, Installed, libraryRoot, Mise, members, Package, Sgconfig, Workspace, XCODE_REQUIREMENT, XcodeProject, XcodeRemote };

@@ -7,12 +7,12 @@ utils:
         regex: '^((Foundation(\.|::))?ProcessInfo\.processInfo)\.environment$'
     reshaped:
         kind: call_expression
-        has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '\.(hasPrefix|hasSuffix|starts|lowercased|uppercased|replacing|trimmingCharacters|mapValues|compactMapValues)$'}
+        has: {nthChild: 1, regex: '\.(hasPrefix|hasSuffix|starts|lowercased|uppercased|replacing|trimmingCharacters|mapValues|compactMapValues)$'}
 rule:
     kind: call_expression
     pattern: $SITE
     all:
-        - has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '^((Subprocess(\.|::))?Environment)?\.custom$'}
+        - has: {nthChild: 1, regex: '^((Subprocess(\.|::))?Environment)?\.custom$'}
         - any:
             - has: {stopBy: end, matches: process-environment}
             - has:

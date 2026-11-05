@@ -6,7 +6,6 @@ const accessBinding = 'ACCESS';
 const compatibilityDate = '2026-10-01';
 const hostingMode = { edge: 'cloudflare', disposable: 'disposable', server: 'production' } as const;
 const ownerBinding = 'OWNER_EMAIL';
-const simulatedEmail = 'seedy@sites.test';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -26,7 +25,7 @@ const hostedWorker =
             env: {
                 ASSETS: bindings.assets(),
                 ...env,
-                [ownerBinding]: edge || mode === hostingMode.server ? bindings.secret() : bindings.text(simulatedEmail),
+                [ownerBinding]: edge || mode === hostingMode.server ? bindings.secret() : bindings.text('seedy@sites.test'),
                 ...(edge && { [accessBinding]: bindings.secret() }),
             },
         };

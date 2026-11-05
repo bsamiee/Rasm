@@ -89,7 +89,7 @@ Linked hosts serve requests from a headless CEP extension the build writes from 
 - `Custom` UI of 1x1 with `AutoVisible` false, started on `applicationActivate` and `com.adobe.csxs.events.ApplicationActivate`, runs headless
 - Build config `face` writes a `Panel`, `Modeless`, or `ModalDialog` UI whose page runs the project's `main.ts`, and `main.svg` beside it paints `Normal` and `DarkNormal` icons at 23 and 46 pixels
 - Bundled CEP icons hold `#000000A6` for `Normal` and `#FFFFFFA6` for `DarkNormal` with a `@2X` sibling in every host, Photoshop's `_x2` an alternative it also reads
-- `__adobe_cep__.getHostEnvironment()` answers JSON with `appSkinInfo`, `com.adobe.csxs.events.ThemeColorChanged` fires on a host theme change, and `CepPanel.skin` streams it into a face's `--cep-host-*` custom properties
+- `__adobe_cep__.getHostEnvironment()` answers JSON with `appSkinInfo`, `com.adobe.csxs.events.ThemeColorChanged` fires on a host theme change, and `skin` from `@rasm/cep/panel` streams it into a face's `--cep-host-*` custom properties
 - Faces paint `appSkinInfo` sRGB colors, and text takes the bundled icon ink with the higher WCAG contrast over the panel
 - Host `Version` of one number names that release and later, and `[min,max]` a range
 - Illustrator loads UXP plugins from `Contents/Required/UXP/extensions` alone

@@ -13,7 +13,7 @@ rule:
             - inside:
                 kind: statements
                 any:
-                    - has: {nthChild: 2}
+                    - not: {matches: swift-sole-statement}
                     - inside: {kind: function_body, inside: {kind: function_declaration, not: {has: {regex: '^->$'}}}}
 message: '`$CALL` discards the token that removes its handler'
 note: 'Store the returned token in its owner and pass it to `NSEvent.removeMonitor(_:)` or `removeTimeObserver(_:)` at teardown'

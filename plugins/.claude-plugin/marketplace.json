@@ -1,21 +1,10 @@
 {
     "name": "rasm",
     "description": "Claude Code and Codex plugins of Rasm monorepo",
-    "owner": {
-        "name": "Bardia Samiee"
-    },
+    "owner": { "name": "Bardia Samiee" },
     "plugins": [
-        {
-            "name": "argus",
-            "source": "./argus"
-        },
-        {
-            "name": "function-hooks",
-            "source": "./function-hooks"
-        },
-        {
-            "name": "playwright",
-            "source": "./playwright"
-        }
+        { "name": "argus", "source": "./argus", "description": "Language servers as agent code navigation and diagnostics", "version": "1.0.0", "author": { "name": "Bardia Samiee" } },
+        { "name": "function-hooks", "source": "./function-hooks", "description": "Hooks that correct agent commands and track app instances each session owns", "version": "1.0.0", "author": { "name": "Bardia Samiee" } },
+        { "name": "playwright", "source": "./playwright", "description": "Browser automation and test authoring for agents", "author": { "name": "Bardia Samiee" }, "mcpServers": "./mcp.json" }
     ]
 }

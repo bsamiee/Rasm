@@ -5,7 +5,7 @@ rule:
     any:
         - kind: instantiation_expression
           all:
-            - has: {kind: identifier, regex: '^sql$'}
+            - has: {pattern: sql}
             - has: {field: type_arguments, kind: type_arguments, pattern: $TYPE}
             - inside: {kind: call_expression, stopBy: {kind: call_expression}, has: {field: arguments, kind: template_string}}
         - kind: call_expression

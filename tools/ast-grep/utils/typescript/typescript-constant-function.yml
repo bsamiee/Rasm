@@ -32,7 +32,7 @@ rule:
             kind: function_expression
             has:
                 field: body
-                has: {stopBy: end, kind: identifier, regex: '^arguments$'}
+                has: {stopBy: end, pattern: arguments}
         - not:
             kind: function_expression
             all:

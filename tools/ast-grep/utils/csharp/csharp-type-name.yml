@@ -5,10 +5,9 @@ arguments: [name]
 utils:
     leaf:
         any:
-            - kind: identifier, predefined_type
+            - kind: predefined_type
               matches: name
-            - kind: generic_name
-              has: {kind: identifier, matches: name}
+            - matches: {csharp-simple-name: {name: {matches: name}}}
     named:
         any:
             - matches: leaf

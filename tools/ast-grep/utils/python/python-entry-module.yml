@@ -7,7 +7,7 @@ utils:
             - kind: comparison_operator
               all:
                 - has: {field: operators, regex: '^==$'}
-                - has: {stopBy: &parentheses {not: {kind: parenthesized_expression}}, kind: identifier, regex: '^__name__$'}
+                - has: {stopBy: &parentheses {not: {kind: parenthesized_expression}}, pattern: __name__}
                 - has: {stopBy: *parentheses, kind: string, has: {kind: string_content, regex: '^__main__$'}, not: {has: {kind: string_start, not: {regex: "^(?i:r|u)?[\"']"}}}}
                 - not: {has: {nthChild: {position: 3, ofRule: {not: {kind: comment}}}}}
             - kind: parenthesized_expression

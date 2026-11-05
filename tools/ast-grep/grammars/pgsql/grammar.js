@@ -5,7 +5,6 @@ import { children, closure, collected, extend, lexical, mandatory, optionalOf, p
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const LAYER = '_prec';
 const QUANTIFIER = 'subquery_Op';
 const QUANTIFIED = 'a_expr';
 const OPERATOR = 'operator';
@@ -18,8 +17,6 @@ const CASED = /\[(?<upper>.)(?<lower>.)\]/gu;
 const UNICODE_ESCAPE = `(?:[\\t\\n\\v\\f\\r ]*[uU][eE][sS][cC][aA][pP][eE][\\t\\n\\v\\f\\r ]*'[^']')?`;
 const ENTRY = 'toplevel_stmt';
 const TAILED = ['a_expr', 'func_table'];
-const COMMENT_TEXT = /[^*/-]+/u;
-const COMMENT_MARK = /[-*/]/u;
 const WHITESPACE = /[\t\n\v\f\r ]+/u;
 const PLACEHOLDERS = [/%s/u, /%\([^)\n]+\)s/u];
 const CLAUSES = [
@@ -52,7 +49,6 @@ const CLAUSES = [
 const SLOTS = {
     [IDENT]: [],
     c_expr: [],
-    qual_Op: [],
     table_ref: [],
     simple_select: [],
     comment_target: [],
@@ -100,17 +96,16 @@ const refers = (rule, name) => Option.exists(referenced(rule), (held) => held ==
 // --- [NORMAL_FORM]
 
 const unlayered = (rules) => {
-    const layer = (name) => `${name}${LAYER}`;
+    const layer = (name) => `${name}_prec`;
     const base = (name) => Object.keys(rules).find((held) => layer(held) === name) ?? name;
     const merged = (name, rule) => (layer(name) in rules ? alternatives([...arms(rules[layer(name)]), ...arms(rule).filter((arm) => !reaches(arm, symbol(layer(name))))]) : rule);
     const renamed = (rule) => rewrite(rule, (part) => (part.type === 'SYMBOL' ? { ...part, name: base(part.name) } : part));
-    return Object.fromEntries(
-        Object.entries(rules)
-            .filter(([name]) => base(name) === name)
-            .map(([name, rule]) => [name, renamed(merged(name, rule))]),
+    return Record.fromIterableWith(
+        Object.keys(rules).filter((name) => base(name) === name),
+        (name) => [name, renamed(merged(name, rules[name]))],
     );
 };
-const respelled = (rules) => Record.map(rules, (rule) => rewrite(rule, (part) => (string(NOT_EQUALS[0])(part) ? alternatives(NOT_EQUALS.map((value) => ({ type: 'STRING', value }))) : part)));
+const respelled = Record.map((rule) => rewrite(rule, (part) => (string(NOT_EQUALS[0])(part) ? alternatives(NOT_EQUALS.map((value) => ({ type: 'STRING', value }))) : part)));
 const leaves = (rules, rule) =>
     arms(rule).flatMap((arm) =>
         Option.match(
@@ -125,7 +120,7 @@ const quantified = (rules) => {
     const placed = (shape, at) => within(groups[at][0], () => rewrite(bare(shape), (part) => (symbol(QUANTIFIER)(part) ? { type: 'ALIAS', content: { type: 'SYMBOL', name: operator(at) }, named: true, value: QUANTIFIER } : part)));
     return {
         ...rules,
-        [QUANTIFIED]: alternatives([...arms(rules[QUANTIFIED]).filter((arm) => !shapes.includes(arm)), ...groups.flatMap((_, at) => shapes.map((shape) => placed(shape, at)))]),
+        [QUANTIFIED]: alternatives([...Array.difference(arms(rules[QUANTIFIED]), shapes), ...groups.flatMap((_, at) => shapes.map((shape) => placed(shape, at)))]),
         ...Object.fromEntries(groups.map((group, at) => [operator(at), alternatives(group.map(bare))])),
     };
 };
@@ -166,8 +161,6 @@ const associated = (rule) => rewrite(rule, (part) => (part.type === 'PREC_LEFT' 
 // --- [LEXEMES]
 
 const spanned = (lead, name) => () => token(new RegExp(`${lead}${RULES[name].content.value}${UNICODE_ESCAPE}`, 'u'));
-const commented = (part) => token.immediate(prec(1, part));
-const block = ($, opening) => seq(opening, repeat(choice(commented(COMMENT_TEXT), commented(COMMENT_MARK), $._nested_comment)), commented('*/'));
 const extended =
     (name, ...more) =>
     () =>
@@ -297,18 +290,23 @@ const spanning = ($, rule, from, to) =>
             ),
         ),
     );
+const typed = (part) => part.type === 'SEQ' && part.members.length === 2 && reaches(part.members[0], symbol('func_name')) && reaches(part.members[1], symbol('Sconst'));
+const loosest = Math.min(...arms(RULES[QUANTIFIED]).filter(({ type }) => type === 'PREC_LEFT' || type === 'PREC_RIGHT').map(({ value }) => value));
 
 // --- [DIALECT]
 
 const dialect = extend(postgres, {
     extras: ($) => [WHITESPACE, $.comment],
-    externals: ($, original) => [...original, $[SCANNED]],
+    externals: ($, original) => [...original, $[SCANNED], $.comment],
     conflicts: (_, original) => original.filter((rows) => !rows.some(({ name }) => category(name) || name === 'target_el')),
     supertypes: ($, original) => [...original, ...chains.map((name) => $[name])],
     inline: ($, original) => [...original, $[ENTRY], ...inlined.map((name) => $[name])],
     rules: {
-        ...Object.fromEntries(identifiers.filter((name) => contested.get(name).size > 0).map((name) => [contestedRule(name), ($) => choice(...[...contested.get(name)].map((held) => alias($[held], spelling(held))))])),
-        ...Object.fromEntries(Object.keys(RULES).map((name) => [name, ($) => shaped($, name)])),
+        ...Record.fromIterableWith(
+            identifiers.filter((name) => contested.get(name).size > 0),
+            (name) => [contestedRule(name), ($) => choice(...[...contested.get(name)].map((held) => alias($[held], spelling(held))))],
+        ),
+        ...Record.fromIterableWith(Object.keys(RULES), (name) => [name, ($) => shaped($, name)]),
         ...split('CommentStmt', 'comment_target'),
         ...split('returning_clause', 'returning_list'),
         ...split('AlterTSConfigurationStmt', 'alter_ts_configuration_cmd'),
@@ -320,8 +318,7 @@ const dialect = extend(postgres, {
         float_literal: extended('float_literal', /[0-9](?:_?[0-9])*\.(?:[eE][+-]?[0-9](?:_?[0-9])*)?/u),
         string_literal: spanned('(?:[nN]|[uU]&)?', 'string_literal'),
         quoted_identifier: spanned('(?:[uU]&)?', 'quoted_identifier'),
-        comment: ($) => choice(LINE_COMMENT, block($, '/*')),
-        _nested_comment: ($) => block($, commented('/*')),
+        comment: () => LINE_COMMENT,
         param: (_, original) => token(choice(original, ...PLACEHOLDERS)),
         [postgres.grammar.word]: () => pattern(unicode(RULES[postgres.grammar.word])),
     },
@@ -335,9 +332,7 @@ export default compose(dialect, {
     slots: SLOTS,
     conflicts: ($) => [
         [$.ColConstraintElem, $.ConstraintElem],
-        [$.columnref, $.func_name],
         [$.Sconst, $._ident],
-        [$.columnref, $.qualified_name, $.func_name],
         [$.ConstraintElem, $._ident],
         [$.ColId, $.type_function_name],
         [$.columnref, $.qualified_name],
@@ -381,7 +376,6 @@ export default compose(dialect, {
         [$.OptRoleList, $.CreateUserStmt],
         [$.InsertStmt],
         [$.ColQualList, $.CreateDomainStmt],
-        [$.a_expr],
         [$.columnDef],
         [$.columnDef, $.ColQualList],
         [$.alter_identity_column_option],
@@ -411,16 +405,11 @@ export default compose(dialect, {
         [$.ColId, $.ColLabel],
         [$.RefreshMatViewStmt, $._ident],
         [$.MergeStmt, $.merge_when_list],
-        [$.columnDef, $.ConstraintElem, $.opt_on_conflict, $.merge_when_clause, $.join_qual, $.c_expr, $.qual_Op, $.when_clause, $.Iconst, $.Sconst, $._ident],
-        [$.columnDef, $.c_expr, $.qual_Op, $.Iconst, $.Sconst, $._ident],
-        [$.columnDef, $.opt_on_conflict, $.merge_when_clause, $.join_qual, $.qual_Op, $.when_clause, $._ident],
         [$.columnDef, $.ConstraintElem, $.opt_on_conflict, $.merge_when_clause, $.join_qual, $.when_clause],
-        [$.opt_on_conflict, $.merge_when_clause, $.join_qual, $.qual_Op, $.when_clause, $._ident],
         [$.Numeric, $._ColId_keyword],
         [$.BitWithoutLength, $._ColId_keyword],
         [$._ColId_keyword, $._type_function_name_keyword],
         [$.character, $._ColId_keyword],
-        [$.object_type_any_name, $._type_function_name_keyword],
         [$.func_expr_common_subexpr, $._type_function_name_keyword],
         [$.object_type_name, $._ColId_keyword],
         [$.c_expr, $._ColId_keyword],
@@ -441,21 +430,30 @@ export default compose(dialect, {
         [$.alter_generic_option_elem, $._ColLabel_keyword],
         [$.OptConsTableSpace, $._ColId_keyword],
         [$.copy_generic_opt_elem, $._ColLabel_keyword],
-        [$.columnDef, $.opt_on_conflict, $.merge_when_clause, $.table_ref, $.join_qual, $.qual_Op, $.when_clause, $._ident],
-        [$.columnDef, $.opt_on_conflict, $.merge_when_clause, $.join_qual, $.c_expr, $.qual_Op, $.when_clause, $.Iconst, $.Sconst, $._ident],
-        [$.object_type_name, $._ColId_keyword, $._type_function_name_keyword],
         [$.ConstInterval, $._ColId_keyword],
-        [$.drop_type_name, $._ColId_keyword, $._type_function_name_keyword],
-        [$.PrepareStmt, $._ColId_keyword, $._type_function_name_keyword],
-        [$.TransactionStmt, $._ColId_keyword, $._type_function_name_keyword],
-        [$.object_type_any_name, $._ColId_keyword, $._type_function_name_keyword],
         [$.columnDef, $.columnref],
         [$.values_clause, $._NonReservedWord_keyword],
-        [$.set_clause, $.a_expr],
+        [$._ident, $._operator_hole],
+        [$.Iconst, $._operator_hole],
+        [$.c_expr, $.when_clause, $.Iconst, $.Sconst, $._ident, $._operator_hole],
+        [$.columnDef, $.ConstraintElem, $.opt_on_conflict, $.merge_when_clause, $.join_qual, $.c_expr, $.when_clause, $.Iconst, $.Sconst, $._ident, $._operator_hole],
+        [$.opt_on_conflict, $.merge_when_clause, $.join_qual, $.when_clause, $._ident, $._operator_hole],
+        [$.columnDef, $.opt_on_conflict, $.merge_when_clause, $.join_qual, $.c_expr, $.when_clause, $.Iconst, $.Sconst, $._ident, $._operator_hole],
+        [$.columnDef, $.c_expr, $.Iconst, $.Sconst, $._ident, $._operator_hole],
+        [$.columnDef, $.opt_on_conflict, $.merge_when_clause, $.join_qual, $.when_clause, $._ident, $._operator_hole],
+        [$.columnDef, $.opt_on_conflict, $.merge_when_clause, $.table_ref, $.join_qual, $.when_clause, $._ident, $._operator_hole],
     ],
     rules: {
         [ENTRY]: ($, original) => choice(original, seq($.stmt, $.substitution)),
         func_name: ($, original) => choice(original, prec(RANK + 1, $.substitution)),
+        AexprConst: ($, original) => rewrite(original, (part) => (typed(part) ? seq(part.members[0], dialect.grammar.rules.Sconst) : part)),
+        a_expr: ($, original) =>
+            choice(
+                original,
+                prec.left(loosest - 1, seq(field('left', $.a_expr), field('operator', alias($._operator_hole, $.qual_Op)), field('right', $.a_expr))),
+                prec.left(loosest - 1, seq(field('operator', alias($._operator_hole, $.qual_Op)), field('operand', $.a_expr))),
+            ),
+        _operator_hole: ($) => $.substitution,
         ConstraintElem: ($, original) => choice(original, seq($.substitution, optional($.ConstraintAttributeSpec))),
         TableConstraint: ($, original) => closing($, original, 'name', optional($.ConstraintAttributeSpec)),
         AlterTableStmt: ($, original) => closing($, original, 'relation_expr'),
@@ -492,12 +490,12 @@ export default compose(dialect, {
                     ),
                 ),
             ),
-        a_expr: ($, original) =>
+        c_expr: ($, original) =>
             choice(
                 original,
-                ...arms(original)
-                    .filter((arm) => reaches(arm, string('::')))
-                    .map((arm) => within(arm, (body) => seq(body.members[0], prec(-1, $.substitution)))),
+                ...holding(original, 'opt_indirection')
+                    .filter((arm) => string('(')(bare(arm).members[0]))
+                    .map((arm) => within(arm, (body) => seq(...body.members.slice(0, located(body, 'opt_indirection')), $.substitution))),
             ),
     },
 });

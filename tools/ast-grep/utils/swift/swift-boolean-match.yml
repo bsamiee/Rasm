@@ -4,33 +4,25 @@ language: swiftlang
 arguments: [matched, other]
 utils:
     literal-body:
-        kind: statements
-        all:
-            - not:
-                has:
-                    all:
-                        - &statement {pattern: $_, not: {kind: 'comment, multiline_comment'}}
-                        - follows: {stopBy: end, all: [*statement]}
-            - has:
-                all:
-                    - *statement
-                    - any:
-                        - kind: boolean_literal
-                        - kind: control_transfer_statement
-                          regex: '^return(?-u:\b)'
-                          has: {field: result, kind: boolean_literal}
+        matches: swift-sole-statement
+        has:
+            any:
+                - kind: boolean_literal
+                - kind: control_transfer_statement
+                  regex: '^return(?-u:\b)'
+                  has: {field: result, kind: boolean_literal}
     matched-body:
         matches: literal-body
-        has: {stopBy: end, kind: boolean_literal, pattern: µMATCHED, matches: matched}
+        has: {stopBy: end, kind: boolean_literal, pattern: $MATCHED, matches: matched}
     other-body:
         matches: literal-body
-        has: {stopBy: end, kind: boolean_literal, pattern: µOTHER, matches: other}
+        has: {stopBy: end, kind: boolean_literal, pattern: $OTHER, matches: other}
     matched-return:
         kind: control_transfer_statement
-        has: {field: result, kind: boolean_literal, matches: matched, not: {pattern: µOTHER}}
+        has: {field: result, kind: boolean_literal, matches: matched, not: {pattern: $OTHER}}
     other-return:
         kind: control_transfer_statement
-        has: {field: result, kind: boolean_literal, matches: other, not: {pattern: µMATCHED}}
+        has: {field: result, kind: boolean_literal, matches: other, not: {pattern: $MATCHED}}
 rule:
     any:
         - kind: if_statement

@@ -2,9 +2,9 @@ import { parse, patch } from '@decimalturn/toml-patch';
 import type { Tree } from '@nx/devkit';
 import { readNxJsonFromDisk } from '@nx/devkit/internal';
 import { Array, Effect, Optic, Result, Schema, Struct } from 'effect';
-import { decodeFile } from '#/eng/typescript/manifest';
+import { Identity } from '#/eng/typescript/manifest';
 import { openWorkspace, SWIFT_MANIFEST } from '#/tools/nx/internal/open-workspace';
-import { syncGenerator } from '#/tools/nx/internal/plugin-runtime';
+import { decodeTree, syncGenerator } from '#/tools/nx/internal/plugin-runtime';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -22,7 +22,6 @@ const PIXI_PLATFORM = 'osx-arm64';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Identity = Schema.fromJsonString(Schema.Struct({ author: Schema.String, repository: Schema.String }));
 const Argument = <A extends Schema.Top>(value: A) => Schema.Struct({ value }).pipe(Schema.encodeKeys({ value: '_0' }));
 const SwiftSetting = Schema.Struct({
     tool: Schema.String,
@@ -53,7 +52,7 @@ const tomlRows =
         patch(text, update(parse(text)));
 const rows = Effect.fnUntraced(function* (tree: Tree) {
     const workspace = yield* openWorkspace({ workspaceRoot: tree.root, nxJsonConfiguration: readNxJsonFromDisk(tree.root) });
-    const [{ author, repository }, { tools, platforms, targets }] = yield* Effect.all([decodeFile(Identity, tree.root, 'package.json'), workspace.cached(SwiftManifest, [SWIFT_MANIFEST], ['swift', 'package', 'dump-package'])]);
+    const [{ author, repository }, { tools, platforms, targets }] = yield* Effect.all([decodeTree(tree, Identity.schema, Identity.file), workspace.cached(SwiftManifest, [SWIFT_MANIFEST], ['swift', 'package', 'dump-package'])]);
     const { version } = yield* Effect.fromOption(Array.findFirst(platforms, ({ name }) => name === 'macos'));
     const [{ settings }] = targets;
     const kinds = settings.map(Struct.get('kind'));

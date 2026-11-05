@@ -59,7 +59,7 @@ File-to-language resolution:
 - Overlaps change winner per process, `customLanguages` and `languageGlobs` load from `HashMap`s, one extension or glob owns one language
 - `-l` never forces a parser in path mode, it selects files already resolved to that language, `languageGlobs` or `--stdin` changes the parser
 - `-l` and MCP `language` take configured names, a built-in name misses files mapped to a custom replacement
-- Rules of `language: json` under a custom `json` mapping report `appliedRuleCount=0` with no error
+- Custom languages replacing a built-in take their own name, under the built-in's name rules resolve to the built-in and report `appliedRuleCount=0`
 - Rule languages widen the walk to every host injecting them, through `languageGlobs` hosts as well
 
 `customLanguages` rows:
@@ -128,7 +128,7 @@ Entries capture embedded source as `$CONTENT` and name its parser in `injected`,
 - `transform` cannot supply `LANG` or `CONTENT`, only single-node captures read, `$$$CONTENT` injects nothing
 - Captures reach through relations and local utils, one entry binds them per `any` arm
 - Missing `$CONTENT`, `$$$CONTENT`, and an unknown `injected` load at exit 0 and inject nothing, `id`, `fix`, and unknown keys are ignored
-- `constraints` filter entries, `utils` qualify them, injection compilation loads no `utilDirs`
+- `constraints` filter entries, `utils` qualify them, entries load no `utilDirs` and rules read no entry `utils`, a generator copies those a rule shares
 
 Host resolution:
 - `hostLanguage` compares a file's resolved language, `ts` skips `.tsx`, `json` never fires once `.json` maps to a custom language
@@ -140,6 +140,7 @@ Host resolution:
 Documents:
 - Each `$CONTENT` match is one document over the full host source with one included range, nothing merges across matches
 - Hole-bearing regions reach the parser as source, grammar-level hole tokens parse them
+- Holes glued to a word (`CREATE ${x}INDEX`) splice a fragment no grammar parses, entries skip them through the template's direct children
 - Injected coordinates are host coordinates, nothing maps back
 - Root-kind rules report the first token, a region's bounds come from the `$CONTENT` kind
 - Injections parse raw captured source without decoding strings, removing block-scalar headers, or deindenting

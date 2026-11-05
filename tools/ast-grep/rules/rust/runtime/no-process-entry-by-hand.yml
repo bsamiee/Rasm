@@ -15,10 +15,10 @@ utils:
         inside: {kind: token_tree}
         any:
             - {regex: '^new$', follows: {regex: '^::$', follows: {kind: identifier, regex: '^(Local)?Runtime$'}}}
-            - {regex: '^new_(multi|current)_thread$', follows: {regex: '^::$', follows: {kind: identifier, regex: '^Builder$'}}}
-            - {regex: '^signal$', follows: {regex: '^::$', follows: {kind: identifier, regex: '^unix$'}}}
+            - {regex: '^new_(multi|current)_thread$', follows: {regex: '^::$', follows: {pattern: Builder}}}
+            - {regex: '^signal$', follows: {regex: '^::$', follows: {pattern: unix}}}
             - {regex: '^ctrl_c$', follows: {regex: '^::$', follows: {kind: identifier, regex: '^(signal|windows)$'}}}
-            - {regex: '^ctrl_(break|close|logoff|shutdown)$', follows: {regex: '^::$', follows: {kind: identifier, regex: '^windows$'}}}
+            - {regex: '^ctrl_(break|close|logoff|shutdown)$', follows: {regex: '^::$', follows: {pattern: windows}}}
     entry-attribute:
         regex: '^((::)?tokio::)?main$'
         inside: {kind: attribute}

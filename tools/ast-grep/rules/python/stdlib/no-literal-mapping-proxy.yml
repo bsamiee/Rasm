@@ -4,7 +4,6 @@ severity: error
 metadata: {python-from: '3.15'}
 rule:
     kind: call
-    pattern: $CALL
     all:
         - has:
             field: arguments
@@ -14,7 +13,8 @@ rule:
                 any:
                     - kind: dictionary, dictionary_comprehension
                     - kind: keyword_argument
-                      all: [{has: {field: name, regex: '^mapping$'}}, {has: {field: value, kind: 'dictionary, dictionary_comprehension'}}]
+                      all: [{has: {field: name, pattern: mapping}}, {has: {field: value, kind: 'dictionary, dictionary_comprehension'}}]
         - has: {field: function, matches: {python-member-use: {module: {regex: '^types$'}, name: {regex: '^MappingProxyType$'}}}}
+        - pattern: $CALL
 message: '`$CALL` wraps a literal mapping in a view on Python 3.15'
 note: 'Write `frozendict(<mapping>)`'

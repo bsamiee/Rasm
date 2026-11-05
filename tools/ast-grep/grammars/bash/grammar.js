@@ -1,9 +1,11 @@
 import bash from 'tree-sitter-bash/grammar.js';
-import { after, automaton, chain, choiceOf, drop, extend, located, named, optionalOf, pattern, reaches, replace, rewrite, string, symbol, widen, without } from '../derive.js';
+import { after, automaton, chain, choiceOf, drop, extend, leading, located, named, optionalOf, outermost, pattern, reaches, replace, rewrite, string, symbol, widen, without } from '../derive.js';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const ESCAPED_CONTENT = pattern(without(automaton(bash.grammar.rules.string_content), automaton({ type: 'PATTERN', value: String.raw`[^]*\\"[^]*` })));
+const OPENING = new Set(leading(bash.grammar, bash.grammar.rules._statement).map(({ value }) => value));
+const RESERVED = [...new Set(Object.values(bash.grammar.rules).flatMap(outermost).filter(({ type, value }) => type === 'STRING' && /^\p{L}/u.test(value) && !OPENING.has(value)).map(({ value }) => value))];
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -14,10 +16,15 @@ const coprocStatement = widen(symbol('command'), ($) => $.coproc_command);
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 export default extend(bash, {
-    externals: ($, original) => [...original, $._time_posix, $._time_end, $._closed, $._extglob_word, $._brace_open, $._backtick_end, $._heredoc_due, $._quoted_backtick, $._escaped_quote, $._string_space],
+    externals: ($, original) => [...original, $._time_posix, $._time_end, $._closed, $._extglob_word, $._brace_open, $._backtick_end, $._heredoc_due, $._quoted_backtick, $._escaped_quote, $._string_space, $._key_open],
     extras: ($, original) => [...original, $._heredoc_body],
     conflicts: ($, original) => [...original.filter((set) => !set.some(symbol('pipeline'))), [$.command_name, $.coproc_command], [$.herestring_redirect]],
+    reserved: { global: () => [], command: () => RESERVED },
     rules: {
+        function_definition: replace(
+            (part) => part.type === 'SEQ' && named('name')(part.members[0]) && string('(')(part.members[1]),
+            (_, part) => rewrite(part, (member) => (symbol('word')(member) ? reserved('command', member) : member)),
+        ),
         _statement_not_subshell: ($, original) => widen(symbol('pipeline'), $.time_command)($, coprocStatement($, original)),
         _statement_not_pipeline: ($, original) => coprocStatement($, drop(symbol('list'), symbol('negated_command'))($, original)),
         _pipeline_statement: ($) => choice($.pipeline, $._statement_not_pipeline, $.negated_command, $.time_command),
@@ -97,6 +104,8 @@ export default extend(bash, {
                 token.immediate('+'),
             ),
         ),
+        array: widen(symbol('_literal'), ($) => $.array_entry),
+        array_entry: ($) => prec.right(seq(alias($._key_open, '['), field('key', $._literal), optional($._concat), ']', choice(token.immediate('='), token.immediate('+=')), optional(field('value', choice($._literal, $._empty_value))))),
         _expansion_expression: drop(symbol('array')),
         _expansion_regex: widen(choiceOf(string('%%')), ':#'),
         _expansion_regex_replacement: drop(symbol('array')),

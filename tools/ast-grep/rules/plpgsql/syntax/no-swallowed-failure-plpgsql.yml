@@ -1,18 +1,23 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 language: plpgsql
 severity: error
+utils:
+    raising:
+        kind: proc_stmt
+        nthChild: {position: 1, reverse: true, ofRule: {kind: proc_stmt}}
+        has:
+            any:
+                - matches: plpgsql-error-raise
+                - {kind: pl_block, has: {field: begin, has: {matches: raising}}}
 rule:
     kind: proc_exception
     pattern: $HANDLER
     has: {field: when, has: {kind: proc_condition, regex: '^(?:(?i:others)|"others")$'}}
-    not:
-        has:
-            field: then
-            has:
-                kind: proc_stmt
-                nthChild: {position: 1, reverse: true, ofRule: {kind: proc_stmt}}
-                has: {matches: plpgsql-error-raise}
+    not: {has: {field: then, has: {matches: raising}}}
+rewriters:
+    - {id: cut, rule: {kind: 'kw_then, proc_sect'}, fix: ''}
 transform:
-    HEAD: {replace: {source: $HANDLER, replace: '(?si)[\t\n\x0B\f\r ]+then.*$', by: ''}}
-message: '`$HEAD` catches every condition and raises none'
+    CUT: {rewrite: {source: $HANDLER, rewriters: [cut]}}
+    HEAD: {replace: {source: $CUT, replace: '[\t\n\x0B\f\r ]+$', by: ''}}
+message: '`$HEAD` catches every condition and does not end in `RAISE`'
 note: 'Name conditions the handler answers, and end a `WHEN OTHERS` handler in `RAISE` after its cleanup'

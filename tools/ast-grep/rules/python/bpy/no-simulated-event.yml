@@ -7,6 +7,6 @@ files:
 rule:
     kind: call
     pattern: $SIMULATED
-    has: {field: function, kind: attribute, has: {field: attribute, regex: '^event_simulate$'}}
+    has: {field: function, kind: attribute, has: {field: attribute, pattern: event_simulate}}
 message: '`$SIMULATED` changes state through simulated input'
 note: 'Call the operator or data API behind simulated input'

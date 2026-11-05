@@ -1,5 +1,5 @@
 import type { Tree } from '@nx/devkit';
-import { Array, Effect, Function, Option, Path, Record, String, Struct } from 'effect';
+import { Array, Effect, Equivalence, Function, Option, Path, Record, String, Struct } from 'effect';
 import { parseSync } from 'vite';
 import { accumulate } from '#/eng/typescript/accumulate';
 import { ClaudeHooks, libraryRoot, Package } from '#/eng/typescript/manifest';
@@ -32,7 +32,7 @@ const exportedNames = (file: string, text: string) => {
                                 ),
                             ),
                         ),
-                        (left, right) => left.name === right.name,
+                        Equivalence.mapInput(Equivalence.String, Struct.get('name')),
                     ),
                 ),
             onNonEmpty: ([{ message }]) => Effect.fail(WorkspaceError.unparsed(file, message)),

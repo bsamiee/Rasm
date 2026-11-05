@@ -2,19 +2,5 @@
 id: csharp-generic-type
 language: csharplang
 arguments: [name, list]
-utils:
-    generic:
-        kind: generic_name
-        all:
-            - has: {kind: identifier, matches: name}
-            - has: {kind: type_argument_list, matches: list}
-    named:
-        any:
-            - matches: generic
-            - kind: qualified_name, alias_qualified_name, member_access_expression
-              has: {field: name, matches: generic}
 rule:
-    any:
-        - matches: named
-        - kind: nullable_type
-          has: {field: type, matches: named}
+    matches: {csharp-type-name: {name: {matches: name, inside: {kind: generic_name, has: {kind: type_argument_list, matches: list}}}}}

@@ -1,0 +1,1 @@
+{ "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json", "name": "argus", "version": "1.0.0", "description": "Language servers as agent code navigation and diagnostics", "author": { "name": "Bardia Samiee" }, "repository": "https://github.com/bsamiee/Rasm", "license": "MIT" }

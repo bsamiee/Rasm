@@ -14,20 +14,17 @@ import { lower } from '#/lower';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Face = Omit<NonNullable<ExtensionManifest['face']>, 'icons'>;
-
 interface Extension {
     readonly host: ExtensionManifest['host'];
     readonly script?: string;
     readonly parameters?: ExtensionManifest['parameters'];
     readonly config?: UserConfig;
+    readonly link?: Link;
+    readonly face?: Omit<NonNullable<ExtensionManifest['face']>, 'icons'>;
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const ENTRY = 'main';
-const ICONS = 'icons';
-const SIZE = 23;
 const SCALES = [
     { factor: 1, suffix: '' },
     { factor: 2, suffix: '@2X' },
@@ -56,23 +53,26 @@ const script = Effect.fn('script')(function* (entry: string, { name, target }: {
     return 'output' in built ? { code: built.output[0].code, map: built.output[0].map?.toString() } : yield* refused('build returned no single output');
 });
 const faceIcons = Effect.fnUntraced(function* (glyph: string) {
+    const folder = 'icons';
+    const size = 23;
     const files = yield* Effect.forEach(
         Array.cartesian(Record.toEntries(ExtensionManifest.inks), SCALES),
         Effect.fnUntraced(function* ([[name, ink], { factor, suffix }]) {
-            return { fileName: `${ICONS}/${name}${suffix}.png`, source: yield* paint(glyph, ink, SIZE * factor) };
+            return { fileName: `${folder}/${name}${suffix}.png`, source: yield* paint(glyph, ink, size * factor) };
         }),
         { concurrency: 'unbounded' },
     );
-    return { icons: Record.map(ExtensionManifest.states, (name) => `${ICONS}/${name}.png`), files };
+    return { icons: Record.map(ExtensionManifest.states, (name) => `${folder}/${name}.png`), files };
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const cep = (directory: string, { host, script: hostScript, parameters, config = {}, link, face }: Extension & ({ readonly link: Link; readonly face?: Face } | { readonly link?: Link; readonly face: Face })): UserConfigFnPromise =>
+const cep = (directory: string, { host, script: hostScript, parameters, config = {}, link, face }: Extension & ({ readonly link: Link } | { readonly face: NonNullable<Extension['face']> })): UserConfigFnPromise =>
     flow(
         Effect.fnUntraced(function* ({ mode }: ConfigEnv) {
             const fs = yield* FileSystem.FileSystem;
-            const glyph = join(directory, `${ENTRY}.svg`);
+            const entry = 'main';
+            const glyph = join(directory, `${entry}.svg`);
             const rendered = face !== undefined && (yield* fs.exists(glyph)) ? yield* faceIcons(glyph) : undefined;
             const manifest = ExtensionManifest.make({
                 host,
@@ -106,7 +106,7 @@ const cep = (directory: string, { host, script: hostScript, parameters, config =
                     define: link === undefined ? {} : (yield* dialed(link)).define,
                     build: { rolldownOptions: { preserveEntrySignatures: 'exports-only', output: { format: 'iife' } } },
                     environments: {
-                        client: { build: { target: ExtensionManifest.chromium, emptyOutDir: true, rolldownOptions: { input: face === undefined ? fileURLToPath(new URL('invisible.ts', import.meta.url)) : join(directory, `${ENTRY}.ts`), output: { entryFileNames: '[name].js', plugins: panel } } } },
+                        client: { build: { target: ExtensionManifest.chromium, emptyOutDir: true, rolldownOptions: { input: face === undefined ? fileURLToPath(new URL('invisible.ts', import.meta.url)) : join(directory, `${entry}.ts`), output: { entryFileNames: '[name].js', plugins: panel } } } },
                         ...(hostScript === undefined
                             ? {}
                             : {

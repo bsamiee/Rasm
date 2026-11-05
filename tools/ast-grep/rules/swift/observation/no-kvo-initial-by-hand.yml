@@ -13,7 +13,7 @@ utils:
                     not: {has: {kind: value_argument, all: [{has: {field: name, regex: '^options$'}}, {has: {field: value, regex: '\.initial(?-u:\b)'}}]}}
     handler:
         kind: call_suffix
-        has: {kind: lambda_literal, has: {kind: statements, has: {nthChild: 1, pattern: $CHECK}, not: {has: {nthChild: 2}}}}
+        has: {kind: lambda_literal, has: {matches: swift-sole-statement, has: {pattern: $CHECK, not: {kind: 'comment, multiline_comment'}}}}
     registration:
         kind: call_expression
         has: {matches: handler}

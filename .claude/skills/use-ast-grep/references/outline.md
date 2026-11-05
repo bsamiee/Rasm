@@ -71,9 +71,8 @@ Config is found from the working directory, never from a target path:
 
 Rows compare by key, a broken file still yields partial rows and a diff reads them as false removals:
 - Consumers key rows by `(symbolType, owner, name)`, a key holds a bag because overloads repeat
-- Rows with `symbolType` `null` and name `ERROR` mark their file unknown, its other rows count as neither removed nor unchanged
+- `ERROR` and `MISSING` nodes print a `symbolType` `null` row named `ERROR`, marking its file unknown, its other rows neither removed nor unchanged
 - Error rows print under `--items all` and `structure`, `digest` and `expanded` list one as a private member of an item whose walked body failed
-- `MISSING` tokens print an error row where a catalog matches their zero-width leaf, anonymous ones hold no kind and print none
 
 ## [03]-[LOADING]
 
@@ -111,7 +110,7 @@ Documents hold extractor keys and rule-core keys alone:
 - Flag predicates run on a borrowed environment, a template reading a capture one binds renders empty, a transform reading it fails the load
 - `parentRuleIds` name item ids of the same language, an absent or member id fails the load
 - Ids need no uniqueness, a member naming a repeated id attaches under every item holding it
-- Documents hold every util, rewriter, and transform they use, YAML anchors stop at `---` and `utilDirs` never load
+- Documents hold every util, rewriter, and transform they use, YAML anchors stop at `---` and `utilDirs` never load, a generator writes shared fragments
 
 `symbolType` takes any LSP symbol kind, one kind per construct family across every catalog keeps rows comparable, `file`, `namespace`, `package`, `operator`, `typeParameter`, and data-file `string`, `number`, `boolean`, `array`, `key` name their construct, quoted `'null'` names a parse failure:
 
@@ -140,10 +139,11 @@ Documents follow these forms:
 - Names take the source's own token, keyword constructs (`default`, `init`, `static`) bind `$$NAME` beside a `regex`, lists take their clause's name
 - `name` has no fold, a multi-line capture breaks the one-line `names` view, a `pub use a::{…}` prints across lines unless its name is rewritten
 - Empty names keep their row (`function:  ×2`)
-- Rows stay unique in a file and stable across edits, imports named unquoted from their module root, a repeated nameless header (TOML `[[bin]]`) adding its `name` value
+- Rows stay unique in a file and stable across edits, imports unquoted from their module root
+- Repeated elements (array tables, sequence items) name their rows by a stable key (`name`, `id`), keyless ones fold into their parent's row
 - Export flags test bare `pub` or `export`, a restricted visibility (`pub(crate)`) exports nothing
 - Clauses restating declarations (`export { … }` with no source) emit no row
-- Flags constant across a document take a literal (imports, injection-only catalogs, containers whose inner declarations appear under exports), others a predicate
+- Flags constant across a document (imports, injection-only catalogs, containers whose inner declarations appear under exports) take a literal
 
 Flags reach across a run of sibling attributes with a rule stop, default `follows` sees the adjacent sibling alone:
 
@@ -276,7 +276,10 @@ One cursor walk from the root serves items and members:
 - Items whose leaf bodies hold member candidate kinds split into a leaf document no member names and an owner document members name
 - Nested owner members name the full owner path, a separator no name segment holds (`.`, Rust `::`), and `$NAME`
 - Nearest-owner names collide in a file, a nested owner repeating its parent's name runs over the parent's later members
-- Paths come from a `lineage` rewriter over the owner's name token that calls itself once per enclosing owner
+- Paths come from a `lineage` rewriter over the owner's name token that calls itself once per enclosing owner and writes the separator in its fix
+- Lineage rules end in an always-true arm (`regex: ''`), a climb missing its owner under a broken tree still printing the separator
+- Type arguments stating an instance shape (`Data.Class<{…}>`) are a member scope, a brand argument is none
+- Owner tests climb (`inside: {stopBy: end, kind: <owners>}`) past unnamed scopes, a parent-step chain misreads owners recovered under `ERROR`
 - Each lineage level keeps captures it leaves unbound from the level below, so arms binding different captures take separate rewriters
 - Parents share a member document only when no parent's scope exposes another parent's owner once `--pub-members` skips a literal-false member
 - Never-true predicates (`isExported: {not: {kind: <own kind>}}`) keep a container compiled and its inner declarations hidden
@@ -300,10 +303,13 @@ Template behavior:
 - `transform` and `rewriters` run on every match in every view, `signature` renders only in a view that prints it
 - Regex body cuts break on `{` in a header or attribute string
 - `field: body` cuts leave an `ERROR` between a closing header token (Python `:`) and the body, a cut on both kinds that `follows` the token takes it
-- Signatures hold types, shapes, parameter lists, payloads, and declared roles on one line stable under whitespace folding, a placeholder for a type or shape loses information
+- Signatures hold types, shapes, parameters, payloads, and declared roles on one line stable under whitespace folding, a placeholder hides them
 - Values (what an initializer, default, or argument computes) print as `…`, a default as `= …` so its parameter reads optional
+- Values selecting the configuration a row states (MSBuild `Condition`) stay, eliding them merges distinct rows
 - Conditional blocks in a header give their first branch to the signature and to every flag, one row states one configuration
-- Signatures drop attributes only a development tool reads (debugger, coverage, analyzer suppression, IDE completion), others keep their name
+- Rows under a guard that changes their meaning (Python `if TYPE_CHECKING:`) take the guard as a signature prefix
+- Signatures drop attributes only a development tool reads (debugger, coverage, analyzer suppression, IDE completion), others keep name and arguments
+- Attribute arguments that compute (a call, lambda, operator, collection) print as `…`, a name, attribute, or literal stays
 - Extras can split a header, fold `<ws>*\n<ws>*` (`<ws>` the grammar's whitespace class) to one space
 - Folds join line breaks inside literals, fold only captures that can span lines and trim the end only where a rewriter leaves whitespace
 - Multi-line `object_type` or `arguments` collapse by layout, a rewriter on `{kind: <kind>, regex: "\n"}` with fix `{…}` or `(…)`
@@ -313,7 +319,7 @@ Template behavior:
 - Quoted names keep delimiters when unquoting changes their spelling
 - Slicing at captured positions comes from `joinBy` extraction or field captures
 
-Values elide through one kinded rewriter per node holding them, the rewrite keeping unmatched names, types, stars, and commas:
+Values elide through kinded rewriters, on the value's own kind where the grammar gives one (XML `AttText`), else on the node holding it, keeping unmatched text:
 
 ```yaml
 id: py-fn
@@ -345,16 +351,18 @@ Over `def fn(alpha, beta=1, *rest, gamma: int = 2):` and `def none(): pass`, `--
 
 Each outlined language holds one catalog file, registered as its `outlineRules`:
 - Kinds and fields come from the grammar's `node-types.json`, never from what current sources hold
-- Every declaration kind a body accepts, supertypes expanded through `subtypes`, holds a document, its expression, statement, text, and reference kinds hold none
+- Every declaration kind a body accepts, supertypes expanded through `subtypes`, holds a document, expression, statement, and text kinds hold none
 - Every catalog covers items, members, nested owners, visibility, signatures, and parse failures, a failed parse never reading as absence
-- Parse failure documents match an `ERROR` holding at no depth a kind their role's rows need, so no row inside is swallowed
+- Parse failure documents match an `ERROR` holding at no depth a node their rows need, by kind or by the field test making it a row (Bash `command` by `name`)
 - Tests on node naming (`$_`, `$$_`) swallow a token-only construct's row or print none for a punctuation-only failure
-- Parse failure items and members also match the named leaf opening any other `ERROR`, the leaf and each ancestor below it first
+- Parse failure items also match the named leaf opening any other `ERROR`, the leaf and each ancestor below it first
+- Members take that arm where owner-body failures open on a non-row leaf, failures at the item or closed by zero-width and all-rows arms need none
 - Opening leaves are first named children that are no row kind, `ERROR`, or statement wrapping a row, a later row-free sibling opens nothing
 - Opening leaves test a kind-only climb to the nearest `ERROR`, statement list, or root first, so clean files pay one climb per walked leaf
-- Leaf row documents refuse a node holding an `ERROR`, decorators and header tokens included, so the walk reaches the failure in place of pruning it
-- Failures holding no word or comment child (keyword-led Swift `if #foo`) match as parse failure items and give up the rows inside them
-- `MISSING` tokens match as a zero-width leaf (`regex: '^$'` beside leaf kinds, less kinds zero-width when valid), members repeating the arm for pruned bodies
+- Leaf row documents take `not: {has: {stopBy: end, any: [{kind: ERROR}, {regex: '^$'}]}}` so the walk reaches the failure, a kinded test misses anonymous `MISSING`
+- Failures whose named children are all rows print one, the `ERROR` itself (Swift `if #foo`) or its first row child (XML second root) giving up its rows
+- `MISSING` tokens match one regex-first arm, `{regex: '^$', any: [<named kinds>, {pattern: <token>}]}`, less kinds zero-width when valid
+- Anonymous `MISSING` tokens match a pattern peeling to them (SQL `)`), else the node they close (`has: {regex: '^$'}` on the kinds closing with them)
 - Parse failure rows take `name: ERROR`, `signature: ''`, and literal false flags
 - Catalogs classify by local syntax with no import resolution or shadowing analysis, a library call shape enters only as a callee test
 - Injected roots run the same documents as native roots, a catalog serving injected roots alone sets literal `isExported: false` on every item
@@ -362,7 +370,7 @@ Each outlined language holds one catalog file, registered as its `outlineRules`:
 - Literal `isExported: false` saves document compile and no injected parse, a language holding any group parses every site with all documents skipped
 - Sites injected under more than one entry emit one row per entry over one range, repeated entries for one language repeat the row
 - Sites holding a host hole (`def ${name}(): pass`) yield no row under a holeless grammar
-- Scan rules over catalog root keys (`has: {field: key, regex: '^<key>$'}` under a YAML `block_mapping`) report keys the loader accepts silently
+- Scan rules over catalog root keys (`{field: key, regex: '^["'']?<key>["'']?$'}` under a root `block_mapping` or `flow_mapping`) report keys the loader skips
 
 Kinds a body list accepts, less the kinds a catalog names, print each accepted kind with no document, every one of them holding no declaration, the catalog listing reads each word of a `kind` selector or `selector` value:
 

@@ -8,14 +8,14 @@ utils:
             - kind: tuple, parenthesized_expression
               has: {matches: memory-error}
             - kind: as_pattern
-              has: {nthChild: 1, matches: memory-error}
+              has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: memory-error}
 rule:
     any:
         - kind: except_clause
           has: {field: value, pattern: $CAUGHT, matches: memory-error}
         - kind: keyword_argument
           all:
-            - has: {field: name, regex: '^exception$'}
+            - has: {field: name, pattern: exception}
             - has: {field: value, pattern: $CAUGHT, matches: memory-error}
             - inside:
                 kind: argument_list

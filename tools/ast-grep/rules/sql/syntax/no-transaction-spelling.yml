@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-transaction-spelling
+language: sql
+severity: error
+rule:
+    matches: sql-transaction-alias
+    all:
+        - not: {has: {stopBy: end, kind: 'line_comment, block_comment, substitution'}}
+        - has: {regex: '(?i-u)^(begin|commit|end|rollback)$', pattern: $$KEYWORD}
+        - any:
+            - has: {field: mode, pattern: $$MODE}
+            - not: {has: {field: mode, pattern: $$_}}
+        - any:
+            - has: {field: savepoint, pattern: $SAVEPOINT, regex: '.'}
+            - not: {has: {field: savepoint, pattern: $$_}}
+        - pattern: $STATEMENT
+transform:
+    VERB: {replace: {source: $$KEYWORD, replace: '(?i-u)^end$', by: commit}}
+    MODE_CLAUSE: {replace: {source: $$MODE, replace: '^(.+)$', by: ' $1'}}
+    TARGET_CLAUSE: {replace: {source: $SAVEPOINT, replace: '^(.+)$', by: ' to $1'}}
+fix: $VERB$MODE_CLAUSE$TARGET_CLAUSE
+message: '`$STATEMENT` uses an alternate transaction spelling'
+note: 'Use the transaction keyword, mode, and savepoint target directly'
+---
+language: sql
+severity: error
+rule:
+    matches: sql-transaction-alias
+    all:
+        - has: {stopBy: end, kind: 'line_comment, block_comment, substitution'}
+        - pattern: $STATEMENT
+message: '`$STATEMENT` uses an alternate transaction spelling'
+note: 'Use the transaction keyword, mode, and savepoint target directly'

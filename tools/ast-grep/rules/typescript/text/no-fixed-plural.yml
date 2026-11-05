@@ -3,8 +3,7 @@ language: tsxlang
 severity: error
 utils:
     one:
-        kind: number
-        regex: '^1$'
+        pattern: '1'
     count:
         kind: member_expression
         has: {field: property, regex: '^(length|size)$'}

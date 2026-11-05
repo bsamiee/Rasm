@@ -10,6 +10,10 @@ import type { UserConfigFnPromise } from 'vite';
 import { atelierLink } from '#/atelier-link';
 import { atelierBuild } from '#/plugin.config';
 
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+const encodeJsonString = Schema.encodeEffect(Schema.fromJsonString(Schema.String));
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 export default Effect.fnUntraced(function* () {
@@ -20,7 +24,7 @@ export default Effect.fnUntraced(function* () {
     ]);
     return bundle({
         ...atelierBuild(directory).config,
-        define: { 'import.meta.env.EXTENDSCRIPT_RUNTIME': yield* Schema.encodeEffect(Schema.fromJsonString(Schema.String))(code) },
+        define: { 'import.meta.env.EXTENDSCRIPT_RUNTIME': yield* encodeJsonString(code) },
         plugins: [server],
     });
 }, Effect.runPromise) satisfies UserConfigFnPromise;

@@ -18,11 +18,11 @@ rule:
                     - kind: simple_identifier
                       regex: '^CFRunLoopTimerCreate(WithHandler)?$'
             - all:
-                - has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '^(Foundation(\.|::))?Timer$'}
-                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, nthChild: 1, has: {field: name, regex: '^(timeInterval|fire|fireAt)$'}}}}
+                - has: {nthChild: 1, regex: '^(Foundation(\.|::))?Timer$'}
+                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, nthChild: {position: 1, ofRule: {kind: value_argument}}, has: {field: name, regex: '^(timeInterval|fire|fireAt)$'}}}}
             - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: name, regex: '^afterDelay$'}}}}
             - all:
                 - has: {nthChild: 1, kind: navigation_expression, has: {field: suffix, regex: '^\.schedule$'}}
-                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, nthChild: 1, has: {field: name, regex: '^after$'}}}}
+                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, nthChild: {position: 1, ofRule: {kind: value_argument}}, has: {field: name, regex: '^after$'}}}}
 message: '`$NAME` waits on a dispatch, run loop, or thread timer outside Swift concurrency'
 note: 'Await `Task.sleep(for:)` or `<clock>.sleep(until:)` on an advancing deadline in a task its owner cancels, and render views through `TimelineView`'

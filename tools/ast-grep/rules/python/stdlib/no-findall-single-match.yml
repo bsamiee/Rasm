@@ -29,33 +29,33 @@ utils:
               has: {field: function, regex: 'findall$'}
             - kind: call
               all:
-                - has: {field: arguments, all: [{has: {nthChild: 1, matches: iterated}}, {not: {has: {nthChild: 2}}}]}
+                - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: iterated}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}}]}
                 - has: {field: function, matches: {python-builtin-name: {name: {regex: '^(list|tuple)$'}}}}
     truth:
         any:
             - inside: {kind: 'if_statement, elif_clause, while_statement', field: condition}
             - inside: {kind: 'not_operator, if_clause'}
-            - all: [{nthChild: 2}, {inside: {kind: conditional_expression}}]
+            - all: [{nthChild: {position: 2, ofRule: {not: {kind: comment}}}}, {inside: {kind: conditional_expression}}]
             - inside: {kind: 'boolean_operator, parenthesized_expression', matches: truth}
             - inside: {kind: argument_list, inside: {kind: call, has: {field: function, regex: '^bool$'}}}
     present:
         kind: call
         all:
-            - has: {field: arguments, all: [{has: {nthChild: 1, matches: iterated}}, {not: {has: {nthChild: 2}}}]}
+            - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: iterated}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}}]}
             - has: {field: function, matches: {python-builtin-name: {name: {regex: '^any$'}}}}
     counted:
         kind: call
         all:
-            - has: {field: arguments, all: [{has: {nthChild: 1, matches: match-list}}, {not: {has: {nthChild: 2}}}]}
+            - has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: match-list}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}}]}
             - has: {field: function, matches: {python-builtin-name: {name: {regex: '^len$'}}}}
     presence:
         kind: comparison_operator
         all:
-            - has: {nthChild: 1, matches: counted}
-            - not: {has: {nthChild: 3}}
+            - has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: counted}
+            - not: {has: {nthChild: {position: 3, ofRule: {not: {kind: comment}}}}}
             - any:
-                - all: [{has: {field: operators, regex: '^(>|!=|==)$'}}, {has: {nthChild: 2, regex: '^0$'}}]
-                - all: [{has: {field: operators, regex: '^(>=|<)$'}}, {has: {nthChild: 2, regex: '^1$'}}]
+                - all: [{has: {field: operators, regex: '^(>|!=|==)$'}}, {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}, regex: '^0$'}}]
+                - all: [{has: {field: operators, regex: '^(>=|<)$'}}, {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}, regex: '^1$'}}]
     first-read:
         kind: identifier
         any:

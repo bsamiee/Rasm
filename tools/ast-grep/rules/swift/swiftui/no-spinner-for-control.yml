@@ -2,7 +2,7 @@
 language: swiftlang
 severity: error
 utils:
-    spinner: {matches: {swift-chain-root: {root: {kind: simple_identifier, regex: '^ProgressView$'}}}}
+    spinner: {matches: {swift-chain-root: {root: {pattern: ProgressView}}}}
     control-root: {kind: simple_identifier, regex: '(Button|Link|Picker|Field)$|^(Toggle|Menu|TextEditor|Slider|Stepper|ControlGroup)$'}
     control: {matches: {swift-chain-root: {root: {matches: control-root}}}}
     spinner-arm:
@@ -11,7 +11,7 @@ utils:
         kind: statements
         all:
             - has: {nthChild: 1, matches: {swift-chain-root: {root: {matches: control-root, pattern: $CONTROL}}}}
-            - not: {has: {pattern: $_, not: {any: [{matches: control}, {kind: comment}]}}}
+            - not: {has: {pattern: $_, not: {any: [{matches: control}, {kind: 'comment, multiline_comment'}]}}}
     bound-read:
         all:
             - any:

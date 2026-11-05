@@ -13,7 +13,7 @@ rule:
                 - has:
                     field: object
                     any:
-                        - {kind: identifier, regex: '^panels$'}
+                        - {pattern: panels}
                         - {kind: member_expression, has: {field: property, regex: '^panels$'}}
         - inside: {kind: program, stopBy: end, matches: {typescript-module-importer: {module: {regex: '^(adobe:)?indesign$'}}}}
 message: '`$CALL` reads `undefined` when one `panels` member resolves to nothing'

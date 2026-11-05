@@ -36,9 +36,7 @@ utils:
                     kind: method_declaration, local_function_statement
                     all:
                         - has: {field: name, pattern: {context: 'class $RELAY;', selector: identifier}}
-                        - any:
-                            - has: {field: returns, pattern: $RELAY_TYPE}
-                            - has: {field: type, pattern: $RELAY_TYPE}
+                        - has: {field: type, pattern: $RELAY_TYPE}
                         - has:
                             field: parameters
                             has:

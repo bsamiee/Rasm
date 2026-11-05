@@ -11,9 +11,9 @@ rule:
     all:
         - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: name, regex: '^rawValue$'}}}}
         - any:
-            - has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '^(Foundation(\.|::))?POSIXErrorCode(\.init)?$'}
+            - has: {nthChild: 1, regex: '^(Foundation(\.|::))?POSIXErrorCode(\.init)?$'}
             - all:
-                - has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '^\.init$'}
+                - has: {nthChild: 1, regex: '^\.init$'}
                 - any:
                     - {follows: {regex: '^=$'}, inside: {kind: property_declaration, has: {matches: posix-code-annotation}}}
                     - inside: {kind: 'if_statement, guard_statement', has: {matches: posix-code-annotation}}

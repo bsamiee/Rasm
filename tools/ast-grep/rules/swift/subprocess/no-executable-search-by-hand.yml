@@ -9,7 +9,7 @@ utils:
               regex: '^(isExecutableFile|isExecutableKey)$'
             - kind: call_expression
               all:
-                - has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '^((Darwin|Glibc|Musl)(\.|::))?(access|faccessat)$'}
+                - has: {nthChild: 1, regex: '^((Darwin|Glibc|Musl)(\.|::))?(access|faccessat)$'}
                 - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: value, regex: '^X_OK$'}}}}
 rule:
     any:

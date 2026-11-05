@@ -8,10 +8,10 @@ utils:
             - pattern: $_L.$_V($MSG)
             - pattern: '$_L.log(level: $_E, $MSG)'
     nameless-literal:
-        any: [{kind: line_string_literal}, {kind: multi_line_string_literal}, {kind: raw_string_literal}]
+        kind: 'line_string_literal, multi_line_string_literal, raw_string_literal'
         not:
             has:
-                any: [{kind: line_str_text}, {kind: multi_line_str_text}, {kind: raw_str_part}, {kind: raw_str_end_part}]
+                kind: 'line_str_text, multi_line_str_text, raw_str_part, raw_str_end_part'
                 not: {regex: '(?i)^[^a-z]*((trace|debug|info|notice|warning|error|critical|fault|failed|failure|exception)s?(?-u:\b)[^a-z]*)*$'}
     earlier-site:
         any:

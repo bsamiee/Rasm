@@ -8,7 +8,7 @@ utils:
               has: {matches: bash-string-expansion}
               not: {has: {kind: string_content}}
             - matches: bash-string-expansion
-    echo-word: {kind: word, regex: '^echo$', nthChild: 2}
+    echo-word: {pattern: echo, nthChild: 2}
     option:
         kind: word
         regex: '^-[neE]+$'

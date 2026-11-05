@@ -21,7 +21,8 @@ const MANIFEST = `plugin:/${UxpManifest.file}`;
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Entrypoints = Schema.Struct({ setup: Schema.declare(Predicate.isFunction) });
-const Themed = Schema.Struct({ theme: Schema.declare((held): held is ThemeEvents => Schema.is(Schema.Struct({ getCurrent: Schema.declare(Predicate.isFunction), onUpdated: Schema.Struct({ addListener: Schema.declare(Predicate.isFunction), removeListener: Schema.declare(Predicate.isFunction) }) }))(held)) });
+const ThemeEvents = Schema.Struct({ getCurrent: Schema.declare(Predicate.isFunction), onUpdated: Schema.Struct({ addListener: Schema.declare(Predicate.isFunction), removeListener: Schema.declare(Predicate.isFunction) }) });
+const Themed = Schema.Struct({ theme: Schema.declare((held): held is ThemeEvents => Schema.is(ThemeEvents)(held)) });
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -90,13 +91,14 @@ const inked = (root: HTMLElement) =>
 const panel = Effect.fnUntraced(function* <E, F>(runtime: ManagedRuntime.ManagedRuntime<Uxp | UxpPlugin, E>, body: Panel<F>) {
     const held = yield* ScopedRef.fromAcquire(Effect.void);
     const run = <X>(effect: Effect.Effect<unknown, X, Uxp | UxpPlugin>): Promise<void> => runtime.runPromise(Effect.asVoid(reported(effect)));
-    const fork = (element: HTMLElement) =>
-        FiberSet.makeRuntime<Uxp | UxpPlugin, void, never>().pipe(
-            Effect.flatMap((forked) => Effect.andThen(Effect.forkScoped(reported(inked(element))), body(element, flow(reported, Effect.ignore(), forked)))),
-            reported,
-            Effect.forkScoped,
-            Effect.asVoid,
-        );
+    const fork = Effect.fnUntraced(
+        function* (element: HTMLElement) {
+            const forked = yield* FiberSet.makeRuntime<Uxp | UxpPlugin, void, never>();
+            yield* Effect.forkScoped(reported(inked(element)));
+            return yield* body(element, flow(reported, Effect.ignore(), forked));
+        },
+        (effect) => Effect.asVoid(Effect.forkScoped(reported(effect))),
+    );
     return {
         show: (root?: unknown): Promise<void> => run(Effect.flatMap(Schema.decodeUnknownEffect(Schema.instanceOf(HTMLElement))(root), (element) => ScopedRef.set(held, fork(element)))),
         hide: (): Promise<void> => run(ScopedRef.set(held, Effect.void)),

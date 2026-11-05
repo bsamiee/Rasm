@@ -20,10 +20,6 @@ interface Cep {
     readonly removeEventListener: (type: string, listener: () => void) => void;
 }
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const THEME_CHANGED = 'com.adobe.csxs.events.ThemeColorChanged';
-
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Cep = Schema.Struct(Struct.Record(['evalScript', 'getSystemPath', 'getExtensionId', 'getHostEnvironment', 'addEventListener', 'removeEventListener'], Schema.declare(Predicate.isFunction)));
@@ -76,38 +72,35 @@ const skinned = (root: HTMLElement) => (environment: typeof Environment.Type) =>
     });
 };
 const followed = <E>(cep: Cep, queue: Queue.Queue<string, E>) => {
+    const themeChanged = 'com.adobe.csxs.events.ThemeColorChanged';
     const listener = (): void => {
         Queue.offerUnsafe(queue, cep.getHostEnvironment());
     };
     return Effect.acquireRelease(
         Effect.sync(() => {
-            cep.addEventListener(THEME_CHANGED, listener);
+            cep.addEventListener(themeChanged, listener);
             listener();
         }),
-        Function.constant(Effect.sync(() => cep.removeEventListener(THEME_CHANGED, listener))),
+        Function.constant(Effect.sync(() => cep.removeEventListener(themeChanged, listener))),
     );
 };
 const linked = (cep: Cep) => Peer.dial(Requests, Requests.toLayer(Struct.Record(Array.from(Requests.requests.values(), Struct.get('_tag')), served(cep))), Schema.decodeEffect(Schema.URLFromString)(cep.getSystemPath('hostApplication')))(cep.getExtensionId());
-
-// --- [SERVICES] ------------------------------------------------------------------------
-
 const skin = Stream.unwrap(Effect.map(cepHost, (cep) => Stream.callback<string>((queue) => followed(cep, queue)))).pipe(Stream.mapEffect((environment) => Schema.decodeEffect(Environment)(environment)));
-const CepPanel = {
-    skin,
-    serve: <F = never>({ link = false, face }: { readonly link?: boolean; readonly face?: Face<F> }): void => {
-        Effect.gen(function* () {
-            const cep = yield* cepHost;
-            yield* link ? Effect.forkScoped(Layer.launch(linked(cep))) : Effect.void;
-            if (face !== undefined) {
-                yield* Effect.forkScoped(Stream.runForEach(skin, skinned(document.documentElement)));
-                const forked = yield* FiberSet.makeRuntime<never, void, never>();
-                yield* face(document.body, (work) => forked(Effect.ignore(Effect.tapCause(Effect.asVoid(work), Effect.logError))));
-            }
-            return yield* Effect.never;
-        }).pipe(Effect.scoped, Effect.tapCause(Effect.logError), Effect.provideService(Logger.LogToStderr, true), Effect.runFork);
-    },
+
+// --- [COMPOSITION] ---------------------------------------------------------------------
+
+const servePanel = <F = never>({ link = false, face }: { readonly link?: boolean; readonly face?: Face<F> }): void => {
+    Effect.gen(function* () {
+        const cep = yield* cepHost;
+        yield* link ? Effect.forkScoped(Layer.launch(linked(cep))) : Effect.void;
+        if (face !== undefined) {
+            yield* Effect.forkScoped(Stream.runForEach(skin, skinned(document.documentElement)));
+            const forked = yield* FiberSet.makeRuntime<never, void, never>();
+            yield* face(document.body, (work) => forked(Effect.ignore(Effect.tapCause(Effect.asVoid(work), Effect.logError))));
+        }
+    }).pipe(Layer.effectDiscard, Layer.launch, Effect.tapCause(Effect.logError), Effect.provideService(Logger.LogToStderr, true), Effect.runFork);
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { CepPanel };
+export { servePanel, skin };

@@ -19,7 +19,7 @@ utils:
 rule:
     kind: call
     all:
-        - has: {field: arguments, not: {has: {nthChild: 2}}, has: {nthChild: 1, matches: refusing}}
+        - has: {field: arguments, not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}, has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: refusing}}
         - has: {field: function, matches: {python-unparenthesized: {value: {matches: {expression-member: {name: {regex: '^Ok$'}}}}}}}
 message: '`Ok($CALL)` lets a host refusal raise'
 note: 'Call `expression.extra.result.catch(<callee>, exception=<error>)(<arguments>)`'

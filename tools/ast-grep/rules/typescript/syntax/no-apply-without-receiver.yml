@@ -7,7 +7,7 @@ rule:
     has: {field: function, regex: '^((globalThis|window|self)\.)?Reflect\.apply$', matches: typescript-global-reference}
     not: {has: {field: arguments, has: {kind: comment, stopBy: end}}}
 constraints:
-    F: {not: {any: [{kind: 'member_expression, subscript_expression, parenthesized_expression'}, {kind: identifier, regex: '^eval$'}]}}
+    F: {not: {any: [{kind: 'member_expression, subscript_expression, parenthesized_expression'}, {pattern: eval}]}}
     RECEIVER: {kind: undefined, matches: typescript-global-reference}
     LIST: {kind: array}
 message: '`$F` is called through `Reflect.apply` with no receiver'

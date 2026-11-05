@@ -4,7 +4,7 @@ severity: error
 rule:
     kind: call_expression
     all:
-        - has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '^((Subprocess(\.|::))?run|(Subprocess(\.|::))?Configuration(\.init)?)$'}
+        - has: {nthChild: 1, regex: '^((Subprocess(\.|::))?run|(Subprocess(\.|::))?Configuration(\.init)?)$'}
         - has: {stopBy: end, kind: value_argument, all: [{has: {field: name, regex: '^environment$'}}, {has: {field: value, pattern: $ENVIRONMENT}}]}
         - has:
             stopBy: end

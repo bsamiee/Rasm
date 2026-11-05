@@ -23,12 +23,4 @@ rule:
             kind: switch_entry
             all:
                 - has: {kind: switch_pattern, regex: '^(let[\t-\r ]+)?\.failure(?-u:\b)'}
-                - has:
-                    kind: statements
-                    all:
-                        - not:
-                            has:
-                                all:
-                                    - *statement
-                                    - follows: {stopBy: end, all: [*statement]}
-                        - has: {all: [*statement, {matches: swift-failure-value}]}
+                - has: {matches: swift-sole-statement, has: {matches: swift-failure-value}}

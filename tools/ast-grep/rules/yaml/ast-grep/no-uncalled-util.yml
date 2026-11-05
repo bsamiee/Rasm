@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: yamllang
+severity: error
+files: ['sgconfig.yml', 'tools/ast-grep/outline/**', 'tools/ast-grep/rules/**', 'tools/ast-grep/utils/**']
+rule:
+    kind: &pair block_mapping_pair, flow_pair
+    all:
+        - inside: {kind: &map 'block_mapping, flow_mapping', inside: {kind: &node 'block_node, flow_node', inside: {kind: *pair, has: {field: key, regex: '^["'']?utils["'']?$'}}}}
+        - has: {field: key, pattern: $UTIL}
+        - not:
+            inside:
+                kind: *map
+                inside:
+                    kind: *node
+                    inside:
+                        kind: *pair
+                        inside:
+                            kind: *map
+                            any:
+                                - has: &call
+                                    stopBy: end
+                                    kind: *pair
+                                    all:
+                                        - has: {field: key, regex: '^["'']?matches["'']?$'}
+                                        - has: {field: value, pattern: $UTIL}
+                                - all:
+                                    - has: {stopBy: end, kind: alias}
+                                    - inside: {stopBy: end, kind: document, has: *call}
+message: Local util `$UTIL` has no `matches` call in its document
+note: Delete the util, or write its rule at its one use and an anchor at the first of several

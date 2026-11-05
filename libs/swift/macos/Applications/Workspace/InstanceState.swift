@@ -305,7 +305,7 @@ extension NSRunningApplication {
         )
         let subject: String = String(processIdentifier)
         do {
-            _ = try await request.sent()
+            _ = try await request.sent(timeout: NSAppleEventTimeOutDefault)
         } catch  where error.status == OSStatus(userCanceledErr) {
             _ = await Result { () async throws(any Error) in try await clock.sleep(for: messagingTimeout) }
             let read: InstanceState = await state()

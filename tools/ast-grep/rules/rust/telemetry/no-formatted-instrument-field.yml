@@ -7,11 +7,11 @@ utils:
         any:
             - all: [{regex: '^(format|format_args)$'}, {precedes: {regex: '^!$'}}]
             - all:
-                - regex: '^to_string$'
+                - pattern: to_string
                 - follows: {regex: '^\.$'}
                 - precedes: {kind: token_tree, regex: '^\(\p{Pattern_White_Space}*\)$', precedes: {stopBy: {not: {kind: 'line_comment, block_comment'}}, regex: '^(,|\)|\})$'}}
             - all:
-                - regex: '^to_string$'
+                - pattern: to_string
                 - follows: {regex: '^::$'}
                 - precedes: {kind: token_tree, not: {regex: '^\(\p{Pattern_White_Space}*\)$'}}
 rule:

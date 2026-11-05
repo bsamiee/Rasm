@@ -6,7 +6,7 @@ import { generateManifestIconsEntry } from '@vite-pwa/assets-generator/api/gener
 import { instructions } from '@vite-pwa/assets-generator/api/instructions';
 import { minimal2023Preset } from '@vite-pwa/assets-generator/presets/minimal-2023';
 import { formatRgb } from 'culori';
-import { Cause, Effect, FileSystem, Function, Match, Option, Record, Struct } from 'effect';
+import { Array, Cause, Effect, FileSystem, Function, Match, Option, Record, Result, Schema, Struct, UndefinedOr } from 'effect';
 import { type ChildNode, list, parse } from 'postcss';
 import type { HtmlTagDescriptor, Plugin, ResolvedConfig, Rolldown } from 'vite';
 import type { WebAppManifest } from 'web-app-manifest';
@@ -28,7 +28,10 @@ interface Head {
 
 const CSS_CALL = /^(?<call>var|light-dark)\((?<parameters>.*)\)$/su;
 const DOCUMENT_ROOT = /^(?::root|:host|html)$/u;
-const WEB_MANIFEST = 'manifest.webmanifest';
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+const WebManifest = Schema.fromJsonString(Schema.Unknown);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -44,18 +47,18 @@ const cascade = (nodes: readonly ChildNode[], scheme: Scheme): readonly (readonl
             }),
         ),
     );
-const computed = (declared: ReadonlyMap<string, string>, scheme: Scheme, value: string): string => {
-    const { call, parameters = '' } = CSS_CALL.exec(value.trim())?.groups ?? {};
-    const [first = '', second = ''] = list.comma(parameters);
+const computed = (declared: ReadonlyMap<string, string>, scheme: Scheme, value: string): Option.Option<string> => {
+    const { call, parameters } = CSS_CALL.exec(value.trim())?.groups ?? {};
+    const [first, second] = parameters === undefined ? [] : list.comma(parameters);
     const schemed = scheme === 'dark' ? second : first;
-    const referenced = call === 'var' ? (declared.get(first) ?? second) : schemed;
-    return call === undefined ? value : computed(declared, scheme, referenced);
+    const referenced = call === 'var' ? (UndefinedOr.map(first, (name) => declared.get(name)) ?? second) : schemed;
+    return call === undefined ? Option.some(value) : Option.flatMap(Option.fromUndefinedOr(referenced), (next) => computed(declared, scheme, next));
 };
 const renderHead = Effect.fnUntraced(
     function* ({ root, base }: ResolvedConfig, { master, stylesheet, ink, surface, manifest }: Head) {
         const fs = yield* FileSystem.FileSystem;
         const { nodes } = parse(yield* fs.readFileString(join(root, stylesheet)), { from: stylesheet });
-        const color = (scheme: Scheme, token: string) => Effect.fromNullishOr(formatRgb(computed(new Map(cascade(nodes, scheme)), scheme, `var(${token})`))).pipe(Effect.mapError(() => new Cause.NoSuchElementError(`${stylesheet} holds no ${scheme} color at ${token}`)));
+        const color = (scheme: Scheme, token: string) => Effect.fromOption(Option.flatMapNullishOr(computed(new Map(cascade(nodes, scheme)), scheme, `var(${token})`), formatRgb), () => new Cause.NoSuchElementError(`${stylesheet} holds no ${scheme} color at ${token}`));
         const [inked, chrome, darkChrome] = yield* Effect.all([color('light', ink), color('light', surface), color('dark', surface)]);
         const painted = yield* paint(join(root, master), { color: inked });
         const installed = <A extends { readonly sizes: unknown }>(asset: A) => (manifest === undefined ? { ...asset, sizes: [] } : asset);
@@ -71,30 +74,39 @@ const renderHead = Effect.fnUntraced(
                 resolveSvgName: Function.identity,
             }),
         );
-        const href = `${base}${WEB_MANIFEST}`;
-        const linked = {
-            ...generated.favicon,
-            ...generated.apple,
-            ...(manifest && {
-                [href]: {
-                    name: WEB_MANIFEST,
-                    mimeType: 'application/manifest+json',
-                    buffer: () => Promise.resolve(Buffer.from(JSON.stringify({ short_name: manifest.name, display: 'standalone', start_url: base, theme_color: chrome, background_color: chrome, ...manifest, ...generateManifestIconsEntry('object', generated) }))),
-                    linkObject: { id: WEB_MANIFEST, rel: 'manifest', href },
-                },
-            }),
-        };
-        const links = Object.values(linked).flatMap(({ linkObject }) => (linkObject === undefined ? [] : [headTag('link', Struct.omit(linkObject, ['id']))]));
+        const webManifest = 'manifest.webmanifest';
+        const href = `${base}${webManifest}`;
+        const icons = yield* Effect.all(
+            Record.map(
+                { ...generated.favicon, ...generated.apple, ...generated.transparent, ...generated.maskable },
+                Effect.fnUntraced(function* ({ name, mimeType, buffer }) {
+                    return { name, mimeType, source: yield* Effect.tryPromise(buffer) };
+                }),
+            ),
+            { concurrency: 'unbounded' },
+        );
+        const links = Array.filterMap(Object.values({ ...generated.favicon, ...generated.apple }), ({ linkObject }) => (linkObject === undefined ? Result.failVoid : Result.succeed(headTag('link', Struct.omit(linkObject, ['id'])))));
         const themed =
             chrome === darkChrome
                 ? [headTag('meta', { name: 'theme-color', content: chrome }), headTag('meta', { name: 'color-scheme', content: 'only light' })]
                 : [headTag('meta', { name: 'theme-color', content: chrome, media: '(prefers-color-scheme: light)' }), headTag('meta', { name: 'theme-color', content: darkChrome, media: '(prefers-color-scheme: dark)' }), headTag('meta', { name: 'color-scheme', content: 'light dark' })];
-        return { assets: { ...linked, ...generated.transparent, ...generated.maskable }, tags: [...links, ...themed] };
+        const listed =
+            manifest === undefined
+                ? { assets: {}, tags: [] }
+                : {
+                      assets: {
+                          [href]: {
+                              name: webManifest,
+                              mimeType: 'application/manifest+json',
+                              source: Buffer.from(yield* Effect.orDie(Schema.encodeEffect(WebManifest)({ short_name: manifest.name, display: 'standalone', start_url: base, theme_color: chrome, background_color: chrome, ...manifest, ...generateManifestIconsEntry('object', generated) }))),
+                          },
+                      },
+                      tags: [headTag('link', { rel: 'manifest', href })],
+                  };
+        return { assets: { ...icons, ...listed.assets }, tags: [...links, ...listed.tags, ...themed] };
     },
     (effect, _, { master }) => effect.pipe(Effect.mapError(HostingError.build('client', master)), Effect.provide(layer)),
 );
-const emittedFile = ({ name, buffer }: { readonly name: string; readonly buffer: () => Promise<Buffer> }) => Effect.map(Effect.promise(buffer), (source) => ({ type: 'asset' as const, fileName: name, source }));
-const emittedFiles = <E>(rendered: Effect.Effect<Effect.Success<ReturnType<typeof renderHead>>, E>) => Effect.flatMap(rendered, ({ assets }) => Effect.forEach(Object.values(assets), emittedFile, { concurrency: 'unbounded' }));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -109,17 +121,14 @@ const siteHead = (head: Head): Plugin => {
         },
         configureServer: ({ middlewares }) => {
             middlewares.use((request, response, next) => {
-                Effect.gen(function* () {
-                    const asset = Option.getOrUndefined(Record.get((yield* rendered).assets, request.url ?? ''));
-                    return asset === undefined ? next() : response.setHeader('Content-Type', asset.mimeType).end(yield* Effect.promise(asset.buffer));
-                })
-                    .pipe(Effect.runPromise)
+                Effect.runPromise(rendered)
+                    .then(({ assets }) => Option.match(Record.get(assets, request.url ?? ''), { onNone: () => next(), onSome: ({ mimeType, source }) => response.setHeader('Content-Type', mimeType).end(source) }))
                     .catch(next);
             });
         },
         generateBundle(this: Rolldown.PluginContext) {
-            return Effect.runPromise(emittedFiles(rendered)).then((emitted) => {
-                emitted.forEach((file) => this.emitFile(file));
+            return Effect.runPromise(rendered).then(({ assets }) => {
+                Object.values(assets).forEach(({ name, source }) => this.emitFile({ type: 'asset', fileName: name, source }));
             });
         },
         transformIndexHtml: () => Effect.runPromise(rendered).then(Struct.get('tags')),

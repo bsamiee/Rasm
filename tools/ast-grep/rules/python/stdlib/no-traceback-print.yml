@@ -12,7 +12,7 @@ utils:
             any:
                 - matches: exception-class
                 - kind: attribute
-                  all: [{has: {field: attribute, regex: '^from_exception$'}}, {has: {field: object, matches: exception-class}}]
+                  all: [{has: {field: attribute, pattern: from_exception}}, {has: {field: object, matches: exception-class}}]
     exception:
         matches:
             python-unparenthesized:
@@ -23,7 +23,7 @@ utils:
                         - kind: attribute
                           all: [{has: {field: attribute, regex: '^__(cause|context)__$'}}, {has: {field: object, matches: exception}}]
                         - kind: subscript
-                          has: {field: value, kind: attribute, all: [{has: {field: attribute, regex: '^exceptions$'}}, {has: {field: object, matches: exception}}]}
+                          has: {field: value, kind: attribute, all: [{has: {field: attribute, pattern: exceptions}}, {has: {field: object, matches: exception}}]}
     stack-source:
         any:
             - kind: call
@@ -34,7 +34,7 @@ utils:
                     - kind: attribute
                       all: [{has: {field: attribute, regex: '^(extract|from_list)$'}}, {has: {field: object, matches: stack-class}}]
             - kind: attribute
-              all: [{has: {field: attribute, regex: '^stack$'}}, {has: {field: object, matches: exception}}]
+              all: [{has: {field: attribute, pattern: stack}}, {has: {field: object, matches: exception}}]
     stack:
         matches: {python-unparenthesized: {value: {any: [{matches: stack-source}, {matches: {python-assigned-name: {value: {matches: stack-source}}}}]}}}
     rendered:
@@ -52,7 +52,7 @@ utils:
         any:
             - matches: {python-builtin-name: {name: {regex: '^(str|repr|ascii|list|tuple)$'}}}
             - kind: attribute
-              all: [{has: {field: attribute, regex: '^join$'}}, {has: {field: object, kind: string}}]
+              all: [{has: {field: attribute, pattern: join}}, {has: {field: object, kind: string}}]
     content:
         any:
             - kind: parenthesized_expression, keyword_argument, list_splat, dictionary_splat, list, tuple, set, dictionary, pair, string, concatenated_string, interpolation, attribute, subscript, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression, for_in_clause
@@ -86,17 +86,23 @@ utils:
         kind: call
         has:
             field: function
-            kind: attribute
-            has: {field: attribute, any: [{regex: '^(print|write|writelines)$'}, {matches: log-method}]}
-            not: {matches: {python-member-use: {module: {regex: '^logging$'}, name: {matches: log-method}}}}
+            any:
+                - kind: attribute
+                  all:
+                    - has: {field: attribute, any: [{regex: '^(print|write|writelines)$'}, {matches: log-method}]}
+                    - not: {matches: {python-member-use: {module: {regex: '^logging$'}, name: {matches: log-method}}}}
+                - matches: {python-builtin-name: {name: {regex: '^print$'}}}
 rule:
-    pattern: $USE
-    any:
-        - kind: attribute
-          all: [{has: {field: attribute, regex: '^print$'}}, {has: {field: object, matches: exception}}]
-        - matches: sink
-          all:
-            - inside: {kind: module, stopBy: end, regex: '(?-u:\b)(traceback|format(Exception|Stack))(?-u:\b)'}
-            - has: {field: arguments, has: {stopBy: {not: {matches: content}}, kind: 'identifier, call', matches: text}}
+    all:
+        - any:
+            - kind: attribute
+              all: [{has: {field: attribute, pattern: print}}, {has: {field: object, matches: exception}}]
+            - kind: call
+              all:
+                - has: {field: function, any: [{kind: identifier}, {kind: attribute, has: {field: attribute, any: [{regex: '^(print|write|writelines)$'}, {matches: log-method}]}}]}
+                - inside: {kind: module, stopBy: end, regex: '(?-u:\b)(traceback|format(Exception|Stack))(?-u:\b)'}
+                - matches: sink
+                - has: {field: arguments, has: {stopBy: {not: {matches: content}}, kind: 'identifier, call', matches: text}}
+        - pattern: $USE
 message: '`$USE` writes rendered exception or stack text by hand'
 note: 'Log exceptions, `TracebackException`, or `StackSummary` as `exc_info=<exception>`, current stack as `stack_info=True`'

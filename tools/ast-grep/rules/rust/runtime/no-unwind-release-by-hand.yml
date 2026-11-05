@@ -6,8 +6,8 @@ rule:
         - kind: let_declaration
           all:
             - regex: '(?-u:\b)catch_unwind(?-u:\b)'
-            - has: {field: value, has: {stopBy: end, kind: identifier, regex: '^catch_unwind$'}}
-            - precedes: {stopBy: end, has: {stopBy: end, kind: identifier, regex: '^resume_unwind$'}}
+            - has: {field: value, has: {stopBy: end, pattern: catch_unwind}}
+            - precedes: {stopBy: end, has: {stopBy: end, pattern: resume_unwind}}
         - kind: call_expression
           has: {field: function, kind: field_expression, has: {field: field, regex: '^shutdown_background$'}}
 message: 'Release runs by hand beside a call that can unwind'

@@ -25,24 +25,25 @@ utils:
         all:
             - has: {field: function, kind: attribute, all: [{has: {field: attribute, regex: '^(append|prepend)$'}}, {has: {field: object, matches: registry}}]}
 rule:
-    pattern: $CALL
-    any:
-        - all:
-            - matches: attach
-            - any:
-                - has: {field: arguments, has: {nthChild: 1, matches: made}}
-                - inside: {kind: module, stopBy: end, not: {has: {stopBy: end, kind: attribute, pattern: $REGISTRY.remove}}}
-        - kind: call
-          all:
-            - has: {field: function, kind: attribute, has: {field: attribute, regex: '^(remove|discard|unregister|disconnect|unsubscribe|removeHandler|remove_listener|remove_handler|remove_callback|remove_done_callback|draw_handler_remove)$'}}
-            - has: {field: arguments, has: {nthChild: 1, matches: fresh}}
-        - kind: call
-          all:
-            - has: {field: function, kind: attribute, has: {field: attribute, regex: '^draw_handler_add$'}}
-            - inside: {kind: expression_statement}
-        - kind: call
-          all:
-            - has: {field: function, pattern: bpy.msgbus.subscribe_rna}
-            - has: {field: arguments, has: {kind: keyword_argument, all: [{has: {field: name, regex: '^owner$'}}, {has: {field: value, not: {kind: 'identifier, attribute, subscript'}}}]}}
+    all:
+        - any:
+            - all:
+                - matches: attach
+                - any:
+                    - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: made}}
+                    - inside: {kind: module, stopBy: end, not: {has: {stopBy: end, kind: attribute, pattern: $REGISTRY.remove}}}
+            - kind: call
+              all:
+                - has: {field: function, kind: attribute, has: {field: attribute, regex: '^(remove|discard|unregister|disconnect|unsubscribe|removeHandler|remove_listener|remove_handler|remove_callback|remove_done_callback|draw_handler_remove)$'}}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: fresh}}
+            - kind: call
+              all:
+                - has: {field: function, kind: attribute, has: {field: attribute, pattern: draw_handler_add}}
+                - inside: {kind: expression_statement}
+            - kind: call
+              all:
+                - has: {field: function, kind: attribute, all: [{has: {field: attribute, pattern: subscribe_rna}}, {has: {field: object, kind: attribute, all: [{has: {field: attribute, pattern: msgbus}}, {has: {field: object, pattern: bpy}}]}}]}
+                - has: {field: arguments, has: {kind: keyword_argument, all: [{has: {field: name, pattern: owner}}, {has: {field: value, not: {kind: 'identifier, attribute, subscript'}}}]}}
+        - pattern: $CALL
 message: '`$CALL` passes a handler or owner no held name pairs with its release'
 note: 'Bind the callable, draw handle, or msgbus owner to a name released through `remove`, `draw_handler_remove`, or `clear_by_owner`'

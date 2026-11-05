@@ -1,5 +1,10 @@
 {
     "generators": {
+        "agents": {
+            "factory": "./agents.ts#agents",
+            "schema": "./schema.json",
+            "description": "Writes Claude and Codex MCP rows, plugin catalogs and manifests, and Codex agents from mise.toml daemons and each plugin"
+        },
         "build-settings": {
             "factory": "./build-settings.ts#buildSettings",
             "schema": "./schema.json",
@@ -14,6 +19,16 @@
             "factory": "./catalog-mirror.ts#catalogMirror",
             "schema": "./schema.json",
             "description": "Writes every default pnpm catalog key into root devDependencies"
+        },
+        "injection-utils": {
+            "factory": "./injection-utils.ts#injectionUtils",
+            "schema": "./schema.json",
+            "description": "Writes each ast-grep rule's injection-utils metadata entry rule and utils it calls from sgconfig.yml languageInjections"
+        },
+        "outline-catalogs": {
+            "factory": "./outline-catalogs.ts#outlineCatalogs",
+            "schema": "./schema.json",
+            "description": "Writes each sgconfig.yml outlineRules catalog from its sources document, its language, and the shared utils, rewriters, and transforms each document calls"
         },
         "rust-analyzer": {
             "factory": "./rust-analyzer.ts#rustAnalyzer",

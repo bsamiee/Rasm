@@ -47,7 +47,7 @@ const tupled = widen(
     ($) => alias(choice(...TYPE_NAMES), $.identifier),
 );
 const importType = ({ type }) => type === 'PREC';
-const separatedMark = ($, original) => rewrite(original, (rule) => (rule.type === 'STRING' && rule.value.endsWith('?:') ? choice(rule, seq(...[...rule.value].map((character) => character))) : rule));
+const separatedMark = ($, original) => rewrite(original, (rule) => (rule.type === 'STRING' && rule.value.endsWith('?:') ? choice(rule, seq(...rule.value)) : rule));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

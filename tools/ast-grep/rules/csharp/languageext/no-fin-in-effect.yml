@@ -51,9 +51,8 @@ utils:
                         - has: {kind: variable_declarator, has: {field: name, pattern: {context: 'class $VALUE;', selector: identifier}}}
     typed-position:
         any:
-            - inside: {kind: arrow_expression_clause, inside: {matches: owner, has: {field: returns, stopBy: end, matches: effect-type}}}
             - inside: {kind: arrow_expression_clause, inside: {matches: owner, has: {field: type, stopBy: end, matches: effect-type}}}
-            - inside: {kind: return_statement, inside: {stopBy: {matches: owner}, matches: owner, has: {field: returns, stopBy: end, matches: effect-type}}}
+            - inside: {kind: return_statement, inside: {stopBy: {matches: owner}, matches: owner, has: {field: type, stopBy: end, matches: effect-type}}}
             - inside: {kind: variable_declarator, inside: {kind: variable_declaration, has: {field: type, stopBy: end, matches: effect-type}}}
     pure-result:
         kind: invocation_expression

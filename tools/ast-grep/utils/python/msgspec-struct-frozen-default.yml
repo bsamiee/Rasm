@@ -13,7 +13,7 @@ utils:
     options:
         kind: argument_list
         all:
-            - not: {has: {kind: keyword_argument, has: {field: name, regex: '^frozen$'}}}
+            - not: {has: {kind: keyword_argument, has: {field: name, pattern: frozen}}}
             - not: {has: {pattern: $_, not: {any: [{kind: 'keyword_argument, comment'}, {matches: base}]}}}
 rule:
     all:

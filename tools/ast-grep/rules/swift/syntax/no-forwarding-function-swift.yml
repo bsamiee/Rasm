@@ -34,10 +34,8 @@ utils:
                 - has: {field: target, has: {kind: self_expression}}
                 - has: {field: result, matches: declared-statement}
     sole-declared:
-        kind: statements
-        all:
-            - has: {nthChild: 1, matches: declared-statement}
-            - not: {has: {nthChild: 2}}
+        matches: swift-sole-statement
+        has: {matches: declared-statement}
     declared-body:
         any:
             - has: {field: body, has: {matches: sole-declared}}
@@ -80,11 +78,11 @@ utils:
             - all:
                 - not: {has: {field: name, kind: value_argument_label}}
                 - has: {field: value, kind: simple_identifier, pattern: $SUPER_VALUE}
-                - inside: {kind: init_declaration, stopBy: end, has: {kind: parameter, all: [{has: {field: external_name, regex: '^_$'}}, {has: {field: name, kind: simple_identifier, pattern: $SUPER_VALUE}}]}}
+                - inside: {kind: init_declaration, stopBy: end, has: {kind: parameter, all: [{has: {field: external_name, pattern: _}}, {has: {field: name, kind: simple_identifier, pattern: $SUPER_VALUE}}]}}
     super-init:
         kind: call_expression
         all:
-            - has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '^super\.init$'}
+            - has: {nthChild: 1, regex: '^super\.init$'}
             - has: {kind: call_suffix, not: {has: {kind: lambda_literal}}}
             - not: {has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, not: {matches: super-argument}}}}}
     super-init-statement:
@@ -97,10 +95,8 @@ utils:
                 - has: {kind: try_operator, regex: '^try$'}
                 - has: {any: [{matches: super-init}, {kind: await_expression, has: {matches: super-init}}]}
     super-init-body:
-        kind: statements
-        all:
-            - has: {nthChild: 1, matches: super-init-statement}
-            - not: {has: {nthChild: 2}}
+        matches: swift-sole-statement
+        has: {matches: super-init-statement}
     unneeded-override:
         kind: init_declaration
         all:
@@ -129,7 +125,7 @@ utils:
     field-statements:
         kind: statements
         all:
-            - not: {has: {not: {kind: assignment}}}
+            - not: {has: {pattern: $_, not: {kind: 'assignment, comment, multiline_comment'}}}
             - not: {has: {kind: assignment, not: {has: {field: result, any: [{matches: parameter-read}, {matches: constant-result}]}}}}
             - has:
                 kind: assignment
@@ -165,5 +161,5 @@ rule:
             - any:
                 - has: {field: body, has: {matches: &read {swift-forwarded-member: {read: {pattern: $F}}}}}
                 - has: {kind: computed_property, not: {has: {kind: 'computed_setter, computed_modify'}}, any: [{has: {matches: *read}}, {has: {kind: computed_getter, has: {matches: *read}}}]}
-message: 'Declaration passes its parameters and fixed values unchanged to `$F`'
+message: 'Declaration passes or assigns its parameters and fixed values unchanged where `$F` already takes them'
 note: 'Call `<callee>` or read `<value>.<member>` at each use, keep one memberwise init, move a conformance its declaration satisfies to the forwarded type'

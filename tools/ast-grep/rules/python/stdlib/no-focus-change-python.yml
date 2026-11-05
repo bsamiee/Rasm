@@ -8,10 +8,10 @@ rule:
     all:
         - any:
             - inside: {kind: argument_list, inside: {kind: call, has: {field: function, regex: '(^|\.)(run|Popen|call|check_call|check_output|create_subprocess_exec|execv|execvp|execvpe|execve|spawnv|spawnvp|posix_spawn|posix_spawnp)$'}}}
-            - has: {nthChild: 1, kind: string, regex: '^["'']/usr/bin/(open|osascript)["'']$'}
+            - has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, kind: string, regex: '^["'']/usr/bin/(open|osascript)["'']$'}
         - any:
             - all:
-                - has: {nthChild: 1, kind: string, regex: '^["''](/usr/bin/)?open["'']$'}
+                - has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, kind: string, regex: '^["''](/usr/bin/)?open["'']$'}
                 - not:
                     has:
                         any:
@@ -19,7 +19,7 @@ rule:
                             - {kind: string, regex: '^["''](-[eftFWRnjh]*g[A-Za-z]*|--background)["'']$'}
                         not: {follows: {stopBy: end, kind: string, regex: '^["'']--args["'']$'}}
             - all:
-                - has: {nthChild: 1, kind: string, regex: '^["''](/usr/bin/)?osascript["'']$'}
+                - has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, kind: string, regex: '^["''](/usr/bin/)?osascript["'']$'}
                 - has: {kind: string, regex: '(?-u:\b)activate(?-u:\b)|(?-u:\b)set[\t-\r \x{200B}\x{2060}\x{FEFF}]+frontmost(?-u:\b)|AXRaise'}
 message: '`$SITE` takes focus from the frontmost application'
 note: 'Pass `-g` to `open` for a LaunchServices launch with no activation, delete `activate`, `AXRaise`, and `frontmost` writes'

@@ -9,13 +9,12 @@ interface Ink {
     readonly opacity?: number;
 }
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const OPAQUE = 0xff;
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const inkColor = ({ color, opacity = 1 }: Ink & { readonly color: `#${string}` }) => `${color}${Hex.encode(Uint8Array.of(Math.round(opacity * OPAQUE)))}`;
+const inkColor = ({ color, opacity = 1 }: Ink & { readonly color: `#${string}` }) => {
+    const opaque = 0xff;
+    return `${color}${Hex.encode(Uint8Array.of(Math.round(opacity * opaque)))}`;
+};
 const paint = Effect.fn('paint')(function* (master: string, { color, opacity = 1 }: Ink, width?: number) {
     const fs = yield* FileSystem.FileSystem;
     const stylesheet = yield* fs.makeTempFileScoped({ suffix: '.css' });

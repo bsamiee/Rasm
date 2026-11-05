@@ -1,13 +1,9 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: yaml-step-pair
-language: yaml
-utils:
-    step-slot:
-        kind: block_sequence_item, flow_sequence
-        inside: {matches: yaml-steps-pair, stopBy: {kind: 'block_mapping_pair, flow_pair'}}
+language: yamllang
 rule:
     kind: block_mapping_pair, flow_pair
     inside:
         any:
-            - {kind: flow_sequence, matches: step-slot}
-            - {kind: 'block_mapping, flow_mapping', inside: {kind: 'block_node, flow_node', inside: {matches: step-slot}}}
+            - {kind: flow_sequence, matches: yaml-step-slot}
+            - {kind: 'block_mapping, flow_mapping', inside: {kind: 'block_node, flow_node', inside: {matches: yaml-step-slot}}}

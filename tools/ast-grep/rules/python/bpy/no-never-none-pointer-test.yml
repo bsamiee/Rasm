@@ -14,7 +14,7 @@ utils:
     member:
         kind: attribute
         all:
-            - has: {field: attribute, regex: '^preferences$'}
+            - has: {field: attribute, pattern: preferences}
             - has: {field: object, matches: context}
     member-value:
         any:
@@ -23,7 +23,7 @@ utils:
               has: {matches: member-value}
             - kind: conditional_expression
               all:
-                - has: {nthChild: 1, matches: member-value}
+                - has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: member-value}
                 - has: {nthChild: {position: 1, reverse: true}, matches: member-value}
     tested:
         any:
@@ -52,8 +52,8 @@ utils:
         any:
             - inside: {kind: parenthesized_expression, matches: truth-position}
             - inside: {kind: 'if_statement, elif_clause, while_statement', field: condition}
-            - all: [{inside: {kind: assert_statement}}, {nthChild: 1}]
-            - all: [{inside: {kind: conditional_expression}}, {nthChild: 2}]
+            - all: [{inside: {kind: assert_statement}}, {nthChild: {position: 1, ofRule: {not: {kind: comment}}}}]
+            - all: [{inside: {kind: conditional_expression}}, {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}]
             - inside: {kind: if_clause}
             - inside: {kind: not_operator, field: argument}
             - inside: {kind: boolean_operator, field: left}
@@ -100,7 +100,7 @@ rule:
                 - inside:
                     kind: keyword_argument
                     field: value
-                    has: {field: name, regex: '^value$'}
+                    has: {field: name, pattern: value}
                     inside: {kind: argument_list, inside: {kind: call, has: {field: function, matches: test-call}}}
             - matches: tested
             - pattern: $TESTED

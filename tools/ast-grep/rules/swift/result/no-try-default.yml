@@ -24,14 +24,8 @@ utils:
             - inside: {kind: 'nil_coalescing_expression, guard_statement, if_statement, while_statement, equality_expression, infix_expression'}
             - inside: {kind: tuple_expression, inside: {kind: 'nil_coalescing_expression, equality_expression, infix_expression'}}
     projected-body:
-        kind: statements
-        all:
-            - has:
-                nthChild: 1
-                any:
-                    - pattern: $VALUE
-                    - pattern: {context: 'func f() { return $VALUE }', selector: control_transfer_statement}
-            - not: {has: {nthChild: 2}}
+        matches: swift-sole-statement
+        has: {any: [{pattern: $VALUE, not: {kind: 'comment, multiline_comment'}}, {pattern: {context: 'func f() { return $VALUE }', selector: control_transfer_statement}}]}
     value-return:
         kind: control_transfer_statement
         has: {field: result, not: {any: [{matches: swift-success-call}, {matches: swift-failure-call}]}}
@@ -73,7 +67,7 @@ utils:
         kind: catch_block
         all:
             - not: {has: {kind: 'pattern, where_clause'}}
-            - not: {has: {stopBy: end, kind: simple_identifier, regex: '^error$'}}
+            - not: {has: {stopBy: end, pattern: error}}
             - has:
                 kind: statements
                 matches:

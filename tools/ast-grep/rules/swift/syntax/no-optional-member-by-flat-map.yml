@@ -27,13 +27,13 @@ utils:
         kind: lambda_literal
         all:
             - has: {field: type, kind: lambda_function_type, has: {matches: parameter}}
-            - has: {kind: statements, has: {nthChild: 1, matches: called-member}, not: {has: {nthChild: 2}}}
+            - has: {matches: swift-sole-statement, has: {matches: called-member}}
     reader:
         any:
             - matches: calling-closure
             - kind: value_arguments
               has: {kind: value_argument, not: {has: {kind: value_argument_label}}, has: {field: value, any: [{matches: calling-closure}, {matches: key-path-member}]}}
-              not: {has: {kind: value_argument, nthChild: 2}}
+              not: {has: {kind: value_argument, nthChild: {position: 2, ofRule: {kind: value_argument}}}}
     optional-context:
         any:
             - inside: {kind: nil_coalescing_expression, field: value}

@@ -18,14 +18,14 @@ utils:
             - not: {has: {pattern: $_, not: {kind: attribute}}}
             - not: {has: {pattern: $_, not: {kind: 'true, false'}}}
             - all:
-                - has: {nthChild: 1, kind: call, has: {field: function, pattern: $CALLEE}}
+                - has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, kind: call, has: {field: function, pattern: $CALLEE}}
                 - not: {has: {pattern: $_, not: {kind: call, has: {field: function, pattern: $CALLEE}}}}
 rule:
     kind: assignment
     pattern: $MEMBER
     all:
         - has: {field: left, kind: identifier, not: {regex: '^_'}}
-        - has: {field: right, kind: 'tuple, list, expression_list', has: {nthChild: 2}, not: {matches: homogeneous}}
+        - has: {field: right, kind: 'tuple, list, expression_list', has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}, not: {matches: homogeneous}}
         - inside:
             kind: expression_statement
             inside:
@@ -34,6 +34,6 @@ rule:
                     kind: class_definition
                     all:
                         - has: {field: superclasses, has: {matches: enum-base}}
-                        - not: {has: {field: body, has: {kind: function_definition, has: {field: name, regex: '^__init__$'}}}}
+                        - not: {has: {field: body, has: {kind: function_definition, has: {field: name, pattern: __init__}}}}
 message: '`$MEMBER` packs mixed-kind values into one enum tuple read by position'
 note: 'Name each value as a typed member attribute through the enum `__init__`'

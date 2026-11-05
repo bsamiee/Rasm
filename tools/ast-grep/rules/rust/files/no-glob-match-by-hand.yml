@@ -15,7 +15,7 @@ utils:
                             nthChild: 1
                             any:
                                 - {kind: string_literal, regex: '\*', not: {regex: '\.\*'}}
-                                - {kind: char_literal, regex: '^''\*''$'}
+                                - {pattern: '''*'''}
                 - has: {field: arguments, has: {nthChild: 1, kind: string_literal, regex: '^"(\*\.[^"]*|\*\*/[^"]*)"$'}}
 rule:
     kind: call_expression

@@ -1,39 +1,42 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-language: yaml
+language: yamllang
 severity: error
 files: ['.github/workflows/**', '**/action.{yml,yaml}']
 utils:
-    node: {kind: 'block_node, flow_node'}
     expression-source:
-        matches: node
+        kind: &node block_node, flow_node
         has: {kind: 'plain_scalar, single_quote_scalar, double_quote_scalar, block_scalar', regex: '\$\{\{'}
     expression-pair:
         any:
             - matches: {yaml-resolved-pair: {key: {regex: '^["'']?(?:run|shell)["'']?$'}, value: {matches: expression-source}}}
+              has: {field: key, pattern: $KEY}
             - matches:
                 yaml-resolved-pair:
                     key: {regex: '^["'']?with["'']?$'}
-                    value: {has: {kind: 'block_mapping, flow_mapping', has: {matches: {yaml-resolved-pair: {key: {regex: '^["'']?(?i-u:script)["'']?$'}, value: {matches: expression-source}}}}}}
+                    value: {has: {kind: &map 'block_mapping, flow_mapping', has: &script {matches: {yaml-resolved-pair: {key: {regex: '^["'']?(?i-u:script)["'']?$'}, value: {matches: expression-source}}}}}}
+              has: {field: value, any: [{has: {kind: *map, has: {all: [*script, {has: {field: key, pattern: $KEY}}]}}}, {has: {kind: alias, pattern: $KEY}}]}
               inside: {has: {matches: {yaml-resolved-pair: {key: {regex: '^["'']?uses["'']?$'}, value: {has: {regex: '^["'']?(?i-u:actions/github-script)@'}}}}}}
     expression-step-value:
-        matches: {yaml-resolved-value: {value: {has: {kind: 'block_mapping, flow_mapping', has: {matches: expression-pair}}}}}
+        matches: {yaml-resolved-value: {value: {has: {kind: *map, has: {matches: expression-pair}}}}}
 rule:
     any:
         - all: [{matches: expression-pair}, {matches: yaml-step-pair}]
         - matches: {yaml-resolved-pair: {key: {regex: '^["'']?shell["'']?$'}, value: {matches: expression-source}}}
+          has: {field: key, pattern: $KEY}
           inside:
-            kind: block_mapping, flow_mapping
+            kind: *map
             inside:
-                matches: node
+                kind: *node
                 inside:
-                    matches: {yaml-resolved-pair: {key: {regex: '^["'']?run["'']?$'}, value: {matches: node}}}
-                    inside: {kind: 'block_mapping, flow_mapping', inside: {matches: node, inside: {matches: {yaml-resolved-pair: {key: {regex: '^["'']?defaults["'']?$'}, value: {matches: node}}}}}}
+                    matches: {yaml-resolved-pair: {key: {regex: '^["'']?run["'']?$'}, value: {kind: *node}}}
+                    inside: {kind: *map, inside: {kind: *node, inside: {matches: {yaml-resolved-pair: {key: {regex: '^["'']?defaults["'']?$'}, value: {kind: *node}}}}}}
         - kind: alias
+          pattern: $KEY
           inside:
             kind: flow_node
             any:
                 - matches: expression-step-value
-                  inside: {kind: 'block_sequence_item, flow_sequence', inside: {matches: yaml-steps-pair, stopBy: {kind: 'block_mapping_pair, flow_pair'}}}
+                  inside: {matches: yaml-step-slot}
                 - inside: {matches: yaml-steps-pair, field: value}
                   matches:
                     yaml-resolved-value:
@@ -45,5 +48,5 @@ rule:
                                         - {kind: block_sequence_item, has: {matches: expression-step-value}}
                                         - {kind: flow_node, matches: expression-step-value}
                                         - {kind: flow_pair, matches: expression-pair}
-message: GitHub interpolates expressions into executable code
-note: 'Read expressions from step `env` as `"$NAME"` in bash, `$env:NAME` in pwsh, or `process.env.NAME` in github-script, and write `shell` as a literal'
+message: '`$KEY` interpolates a GitHub expression into executable code'
+note: 'Read expressions from step `env` as `"${NAME}"` in bash, `${env:NAME}` in pwsh, or `process.env.NAME` in github-script, and write `shell` as a literal'

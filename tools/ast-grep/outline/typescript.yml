@@ -535,7 +535,7 @@ language: tsxlang
 role: item
 symbolType: property
 utils:
-    module: {kind: identifier, regex: '^module$'}
+    module: {pattern: module}
     exports: {regex: '^exports$'}
     built: {any: [{kind: call_expression, not: {has: {field: function, kind: parenthesized_expression}}}, {kind: 'new_expression, member_expression, object, array, arrow_function, function_expression, generator_function, class'}, {kind: identifier, not: {regex: '^undefined$'}}, {kind: 'as_expression, satisfies_expression, non_null_expression, parenthesized_expression, await_expression, type_assertion', has: {matches: built}}]}
 rule:
@@ -647,7 +647,7 @@ symbolType: 'null'
 rule:
     any:
         - {kind: ERROR, not: {has: {stopBy: end, kind: 'import_statement, import_alias, export_statement, expression_statement, internal_module, module, ambient_declaration, class_declaration, abstract_class_declaration, lexical_declaration, variable_declaration, using_declaration, variable_declarator, function_declaration, generator_function_declaration, function_signature, interface_declaration, type_alias_declaration, enum_declaration'}}}
-        - {kind: 'identifier, comment', all: [{inside: {kind: ERROR}}, {nthChild: {position: 1, ofRule: {kind: 'identifier, comment'}}}]}
+        - {kind: 'identifier, comment', all: [{inside: {kind: ERROR}}, {not: {follows: {kind: 'identifier, comment', stopBy: end}}}, {nthChild: {position: 1, ofRule: {kind: 'identifier, comment'}}}]}
 name: ERROR
 signature: ''
 isImport: false

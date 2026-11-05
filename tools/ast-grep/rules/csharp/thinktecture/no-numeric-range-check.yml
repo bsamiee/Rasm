@@ -277,11 +277,8 @@ utils:
             stopBy: {not: {matches: condition-chain}}
             has: {stopBy: end, kind: invocation_expression, has: {field: function, kind: member_access_expression, has: {field: name, regex: '^TryParse$'}}}
     typed-result-owner:
-        any:
-            - kind: method_declaration
-              has: {field: returns, matches: &result-type {csharp-type-name: {name: {regex: '^(Fin|Validation)$'}}}}
-            - kind: 'local_function_statement, property_declaration, lambda_expression'
-              has: {field: type, matches: *result-type}
+        kind: 'method_declaration, local_function_statement, property_declaration, lambda_expression'
+        has: {field: type, matches: &result-type {csharp-type-name: {name: {regex: '^(Fin|Validation)$'}}}}
     result-target:
         not:
             not:

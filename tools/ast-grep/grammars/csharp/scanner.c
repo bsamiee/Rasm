@@ -1,4 +1,14 @@
+#include <stdbool.h>
+#include <stdint.h>
+#include <wctype.h>
+
+#include "space.h"
+
 #define tree_sitter_c_sharp_external_scanner_scan(...) c_sharp_upstream_scan(__VA_ARGS__)
+
+static inline bool is_separator(int32_t character);
+
+#define iswspace is_separator
 
 #include "tree-sitter-c-sharp/src/scanner.c"
 
@@ -6,11 +16,27 @@
 
 enum { CONDITIONAL_ACCESS_QUESTION = LAMBDA_PAREN_OPEN + 1 };
 
+typedef struct {
+    int32_t min;
+    int32_t max;
+} Span;
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+static const Span SEPARATORS[] = {SPACE};
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [CHARACTERS]
 
-static bool is_separator(int32_t character) { return iswspace(character) || character == 0xa0 || character == 0x3000 || character == 0xfeff; }
+static inline bool is_separator(int32_t character) {
+    for (size_t index = 0; index < sizeof(SEPARATORS) / sizeof(*SEPARATORS); index++) {
+        if (character >= SEPARATORS[index].min && character <= SEPARATORS[index].max) {
+            return true;
+        }
+    }
+    return false;
+}
 
 static bool is_decimal_digit(int32_t character) { return character >= '0' && character <= '9'; }
 

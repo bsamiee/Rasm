@@ -32,7 +32,7 @@ rule:
             any:
                 - has: {nthChild: 1, kind: identifier, regex: '^(arg|clap|command|value)$'}
                 - all:
-                    - has: {nthChild: 1, kind: identifier, regex: '^group$'}
+                    - has: {nthChild: 1, pattern: group}
                     - not:
                         inside:
                             kind: attribute_item

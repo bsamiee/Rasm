@@ -20,9 +20,9 @@ utils:
             - inside: {kind: 'for_statement, for_in_clause', field: right, stopBy: *scope}
             - inside: {kind: match_statement, field: subject, stopBy: *scope}
             - inside: {kind: if_clause, stopBy: *scope}
-            - nthChild: 2
+            - nthChild: {position: 2, ofRule: {not: {kind: comment}}}
               inside: {kind: conditional_expression}
-            - inside: {nthChild: 2, inside: {kind: conditional_expression}, stopBy: *scope}
+            - inside: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}, inside: {kind: conditional_expression}, stopBy: *scope}
     nested-body:
         any:
             - has: {kind: block, not: {matches: python-single-statement-block}}
@@ -38,18 +38,19 @@ utils:
                 - matches: nested-body
     boundary: {any: [{matches: level}, {kind: function_definition}]}
 rule:
-    matches: level
-    pattern: $SCOPE
-    inside:
-        matches: level
-        stopBy: {matches: boundary}
-        inside:
+    all:
+        - matches: level
+        - inside:
             matches: level
             stopBy: {matches: boundary}
             inside:
                 matches: level
                 stopBy: {matches: boundary}
-                not: {inside: {matches: level, stopBy: {kind: function_definition}}}
+                inside:
+                    matches: level
+                    stopBy: {matches: boundary}
+                    not: {inside: {matches: level, stopBy: {kind: function_definition}}}
+        - pattern: $SCOPE
 message: 'Control flow or closure opens a fourth nesting level'
 note: 'Rebuild nested control flow with `match`, a comprehension or a pipeline over its inputs'
 labels:

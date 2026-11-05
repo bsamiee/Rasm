@@ -11,13 +11,13 @@ utils:
                 has:
                     kind: value_arguments
                     all:
-                        - not: {has: {kind: value_argument, nthChild: 2}}
+                        - not: {has: {kind: value_argument, nthChild: {position: 2, ofRule: {kind: value_argument}}}}
                         - has: {kind: value_argument, has: {field: value, any: [{kind: simple_identifier}, {kind: navigation_expression, has: {field: target, kind: self_expression}}]}}
     hashing:
         kind: function_declaration
         all:
             - has: {field: name, regex: '^hash$'}
-            - has: {kind: parameter, all: [{has: {field: external_name, regex: '^into$'}}, {has: {field: name, kind: simple_identifier, pattern: $H}}]}
+            - has: {kind: parameter, all: [{has: {field: external_name, pattern: into}}, {has: {field: name, kind: simple_identifier, pattern: $H}}]}
     stored:
         kind: property_declaration
         all:
@@ -30,7 +30,7 @@ rule:
     all:
         - matches: hashing
         - matches: member-of-owner
-        - has: {field: body, has: {kind: statements, has: {nthChild: 1, matches: combined}, not: {has: {not: {matches: combined}}}}}
+        - has: {field: body, has: {kind: statements, has: {matches: combined}, not: {has: {pattern: $_, not: {any: [{matches: combined}, {kind: 'comment, multiline_comment'}]}}}}}
         - inside: {kind: source_file, stopBy: end, has: {stopBy: end, matches: stored}}
         - not:
             inside:

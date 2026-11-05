@@ -390,6 +390,7 @@ catalog:
     tree-sitter-rust: github:tree-sitter/tree-sitter-rust#v0.24.2
     tree-sitter-sqlite3: 0.1.0
     '@tree-sitter-grammars/tree-sitter-toml': 0.7.0
+    '@tree-sitter-grammars/tree-sitter-yaml': github:tree-sitter-grammars/tree-sitter-yaml#v0.7.2 # Release ast-grep 0.51.1 bundles, npm stops at 0.7.1
     tree-sitter-swift: github:alex-pinkus/tree-sitter-swift#9e3b87f66f1fd2f3b931376fd3723ab788e337c3
     tree-sitter-typescript: 0.23.2
     refa: 0.12.1
@@ -434,6 +435,7 @@ overrides:
     cloudevents>uuid: 14.0.2
     '@tree-sitter-grammars/tree-sitter-toml>tree-sitter': '-'
     '@tree-sitter-grammars/tree-sitter-xml>tree-sitter': '-'
+    '@tree-sitter-grammars/tree-sitter-yaml>tree-sitter': '-'
     tree-sitter-postgres>tree-sitter: '-'
     tree-sitter-swift>tree-sitter: '-'
     tree-sitter-swift>tree-sitter-cli: '-'
@@ -479,6 +481,7 @@ allowBuilds:
     '@pulumi/kubernetes': false
     '@tree-sitter-grammars/tree-sitter-toml': false
     '@tree-sitter-grammars/tree-sitter-xml': false
+    '@tree-sitter-grammars/tree-sitter-yaml': false
     core-js: true
     cpu-features: false
     esbuild: true

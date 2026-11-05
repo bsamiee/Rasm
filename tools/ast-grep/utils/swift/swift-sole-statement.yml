@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: swift-sole-statement
+language: swiftlang
+rule:
+    kind: statements
+    not:
+        has:
+            all:
+                - &statement {pattern: $_, not: {kind: 'comment, multiline_comment'}}
+                - follows: {stopBy: end, all: [*statement]}

@@ -6,7 +6,7 @@ rule:
     has:
         nthChild: 1
         any:
-            - {kind: simple_identifier, regex: '^withUnsafeTemporaryAllocation$'}
+            - {pattern: withUnsafeTemporaryAllocation}
             - {kind: navigation_expression, has: {field: suffix, has: {field: suffix, regex: '^withUnsafeTemporaryAllocation$'}}}
 message: '`withUnsafeTemporaryAllocation` hands its closure an unsafe pointer to temporary storage'
 note: 'Call `withTemporaryAllocation(of:capacity:)` for an `OutputSpan<T>` or `withTemporaryAllocation(byteCount:alignment:)` for an `OutputRawSpan`'

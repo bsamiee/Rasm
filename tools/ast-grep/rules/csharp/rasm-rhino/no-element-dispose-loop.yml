@@ -93,7 +93,7 @@ utils:
     option-method:
         kind: method_declaration, local_function_statement
         all:
-            - has: {field: returns, matches: {csharp-type-name: {name: {regex: '^Option$'}}}}
+            - has: {field: type, matches: {csharp-type-name: {name: {regex: '^Option$'}}}}
             - has: {field: name, pattern: $OPTION_METHOD}
     option-value:
         any:

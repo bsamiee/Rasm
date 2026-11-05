@@ -42,39 +42,41 @@ utils:
             - kind: parenthesized_expression
               has: {matches: inner-choice}
 rule:
-    any:
-        - all:
-            - pattern: {context: 'select case when $_ then $_ else $_ end', selector: case_expression}
-            - any:
-                - all: [{has: {field: when, matches: null-test}}, {has: {field: else, pattern: $VALUE}}]
-                - all: [{has: {field: when, matches: not-null-test}}, {has: {field: then, pattern: $VALUE}}]
-        - all:
+    all:
+        - any:
+            - all:
+                - pattern: {context: 'select case when $_ then $_ else $_ end', selector: case_expression}
+                - any:
+                    - all: [{has: {field: when, matches: null-test}}, {has: {field: else, pattern: $VALUE}}]
+                    - all: [{has: {field: when, matches: not-null-test}}, {has: {field: then, pattern: $VALUE}}]
+            - all:
+                - matches: sql-iif-call
+                - has:
+                    field: arguments
+                    all:
+                        - not: {has: {nthChild: &fourth {position: 4, ofRule: *named}}}
+                        - any:
+                            - all: [{has: {nthChild: &first {position: 1, ofRule: *named}, matches: null-test}}, {has: {nthChild: &third {position: 3, ofRule: *named}, pattern: $VALUE}}]
+                            - all: [{has: {nthChild: *first, matches: not-null-test}}, {has: {nthChild: *second, pattern: $VALUE}}, {has: {nthChild: *third}}]
+            - all:
+                - pattern: {context: 'select case when $_ then $_ else $VALUE end', selector: case_expression}
+                - has: {field: then, kind: null_literal}
+                - has: {field: when, matches: equality-test}
+            - all:
+                - pattern: {context: 'select case $VALUE when $_ then $_ else $VALUE end', selector: case_expression}
+                - has: {field: then, kind: null_literal}
+            - all:
+                - matches: sql-iif-call
+                - has: {field: arguments, all: [{not: {has: {nthChild: *fourth}}}, {has: {nthChild: *third, pattern: $VALUE}}, {has: {nthChild: *second, kind: null_literal}}, {has: {nthChild: *first, matches: equality-test}}]}
+            - {matches: searched-case, has: {field: else, matches: inner-choice}}
             - matches: sql-iif-call
-            - has:
+              has:
                 field: arguments
-                all:
-                    - not: {has: {nthChild: &fourth {position: 4, ofRule: *named}}}
-                    - any:
-                        - all: [{has: {nthChild: &first {position: 1, ofRule: *named}, matches: null-test}}, {has: {nthChild: &third {position: 3, ofRule: *named}, pattern: $VALUE}}]
-                        - all: [{has: {nthChild: *first, matches: not-null-test}}, {has: {nthChild: *second, pattern: $VALUE}}, {has: {nthChild: *third}}]
-        - all:
-            - pattern: {context: 'select case when $_ then $_ else $VALUE end', selector: case_expression}
-            - has: {field: then, kind: null_literal}
-            - has: {field: when, matches: equality-test}
-        - all:
-            - pattern: {context: 'select case $VALUE when $_ then $_ else $VALUE end', selector: case_expression}
-            - has: {field: then, kind: null_literal}
-        - all:
-            - matches: sql-iif-call
-            - has: {field: arguments, all: [{not: {has: {nthChild: *fourth}}}, {has: {nthChild: *third, pattern: $VALUE}}, {has: {nthChild: *second, kind: null_literal}}, {has: {nthChild: *first, matches: equality-test}}]}
-        - {matches: searched-case, has: {field: else, matches: inner-choice}}
-        - matches: sql-iif-call
-          has:
-            field: arguments
-            has:
-                matches: inner-choice
-                all:
-                    - not: {precedes: {stopBy: end, not: {kind: 'line_comment, block_comment'}}}
-                    - nthChild: {position: '2n+3', ofRule: *named}
-message: 'Conditional branches repeat expression text or nest another choice'
+                has:
+                    matches: inner-choice
+                    all:
+                        - not: {precedes: {stopBy: end, not: {kind: 'line_comment, block_comment'}}}
+                        - nthChild: {position: '2n+3', ofRule: *named}
+        - pattern: $NODE
+message: '`$NODE` repeats expression text or nests another choice'
 note: 'Use `coalesce`, `nullif`, searched `case`, or variadic `iif` while preserving evaluation and collation'

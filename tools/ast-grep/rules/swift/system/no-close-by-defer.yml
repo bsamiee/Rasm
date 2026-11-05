@@ -12,9 +12,8 @@ utils:
                 - has: {field: name, pattern: $DESCRIPTOR}
                 - has: {kind: user_type, regex: '^((System|SystemPackage)(\.|::))?FileDescriptor$'}
 rule:
-    kind: call_expression
+    kind: defer_statement
     all:
-        - has: {nthChild: 1, kind: simple_identifier, regex: '^defer$'}
         - has: {stopBy: end, kind: navigation_expression, all: [{has: {field: target, kind: simple_identifier, pattern: $DESCRIPTOR}}, {has: {field: suffix, has: {field: suffix, regex: '^close$'}}}]}
         - inside:
             kind: 'function_declaration, lambda_literal'

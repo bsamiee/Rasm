@@ -19,9 +19,9 @@ utils:
               has:
                 field: function
                 any:
-                    - {kind: identifier, regex: '^eval$'}
+                    - {pattern: eval}
                     - matches: typescript-expression-wrapper
-                      has: {stopBy: {not: {matches: typescript-expression-wrapper}}, kind: identifier, regex: '^eval$'}
+                      has: {stopBy: {not: {matches: typescript-expression-wrapper}}, pattern: eval}
 rule:
     any:
         - kind: expression_statement

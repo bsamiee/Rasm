@@ -11,7 +11,7 @@ utils:
         matches: tracing-field-start
         pattern: $NAME
         not: {regex: '^\{\p{Pattern_White_Space}*(\p{XID_Continue}+::)*EXCEPTION_MESSAGE\p{Pattern_White_Space}*\}$'}
-        precedes: {regex: '^=$', precedes: {stopBy: {regex: '^,$'}, kind: identifier, regex: '^Report$', precedes: {regex: '^::$', precedes: {kind: identifier, regex: '^new$'}}}}
+        precedes: {regex: '^=$', precedes: {stopBy: {regex: '^,$'}, pattern: Report, precedes: {regex: '^::$', precedes: {pattern: new}}}}
     error-field:
         any:
             - matches: error-name
@@ -21,9 +21,9 @@ utils:
         pattern: $NAME
         inside: {kind: token_tree, follows: {regex: '^(::)?(tracing::)?instrument$'}, inside: {kind: attribute, stopBy: end}}
         any:
-            - regex: '^err$'
-            - regex: '^ret$'
-              not: {inside: {kind: token_tree, has: {kind: identifier, regex: '^err$'}}}
+            - pattern: err
+            - pattern: ret
+              not: {inside: {kind: token_tree, has: {pattern: err}}}
               inside: {kind: attribute_item, stopBy: end, precedes: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, kind: function_item, has: {field: return_type, regex: '(?-u:\b)Result(?-u:\b)'}}}
 rule:
     any:

@@ -23,7 +23,12 @@ utils:
                     has:
                         field: function
                         kind: member_expression
-                        has: {field: property, regex: '^(mapError|catch|catchCause|catchTag|catchTags|catchIf|catchFilter|catchReason|catchReasons|catchDefect|tapError|tapCause|tapErrorTag)$'}
+                        has:
+                            field: property
+                            regex: |-
+                                (?x)^(mapError|mapErrorEager|catch|catchEager|catchCause|catchCauseIf|catchCauseFilter|catchTag|catchTags|catchIf|catchFilter
+                                |catchReason|catchReasons|catchDefect|onError|onErrorIf|onErrorFilter|orElseSucceed|retryOrElse|repeatOrElse|tapError
+                                |tapCause|tapCauseIf|tapCauseFilter|tapDefect|tapErrorTag)$
     named-parameter:
         any:
             - has: {field: parameter, kind: identifier, pattern: $CAUSE}
@@ -47,7 +52,7 @@ utils:
     rendering-function:
         all:
             - matches: named-parameter
-            - has: {field: body, any: [{matches: rendering}, {has: {stopBy: end, matches: rendering}}]}
+            - has: {field: body, any: [{matches: rendering, not: {matches: protocol-field}}, {has: {stopBy: end, matches: rendering, not: {matches: protocol-field}}}]}
     relay-declaration:
         any:
             - {kind: function_declaration, has: {field: name, pattern: $RELAY}, matches: rendering-function}
@@ -65,7 +70,7 @@ utils:
                 - has:
                     field: function
                     any:
-                        - {kind: identifier, regex: '^String$', matches: typescript-global-reference}
+                        - {pattern: String, matches: typescript-global-reference}
                         - kind: member_expression
                           all:
                             - has: {field: property, regex: '^stringify$'}
@@ -94,39 +99,52 @@ utils:
                 - has: {field: operator, regex: '^\+$'}
                 - has: {kind: identifier, pattern: $CAUSE}
                 - has: {kind: 'string, template_string'}
-    protocol-error-fields:
+    schema-type:
+        kind: type_annotation
+        has: {stopBy: end, kind: type_query, has: {kind: member_expression, has: {field: property, regex: '^(Type|Encoded)$'}}}
+    schema-result:
+        any:
+            - inside: {field: body, matches: typescript-function-boundary, has: {field: return_type, matches: schema-type}}
+            - inside: {kind: return_statement, inside: {stopBy: {matches: typescript-function-boundary}, matches: typescript-function-boundary, has: {field: return_type, matches: schema-type}}}
+            - inside: {field: value, kind: variable_declarator, has: {field: type, matches: schema-type}}
+            - inside: {kind: 'parenthesized_expression, ternary_expression', matches: schema-result}
+    protocol-row:
         kind: object
-        inside:
-            kind: arguments
-            inside:
-                any:
-                    - {kind: new_expression, has: {field: 'constructor', matches: typescript-package-reference}}
-                    - kind: call_expression
-                      has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^make$'}}, {has: {field: object, matches: typescript-package-reference}}]}
-    text-content-fields:
-        kind: object
-        inside:
-            kind: arguments
-            inside:
-                kind: call_expression
-                has:
-                    field: function
-                    kind: member_expression
-                    all:
-                        - has: {field: property, regex: '^make$'}
-                        - has:
-                            field: object
-                            any:
-                                - kind: member_expression
-                                  all:
-                                    - has: {field: property, regex: '^TextContent$'}
-                                    - has: {field: object, matches: {effect-module: {name: {regex: '(?-u:\b)McpSchema$'}}}}
-                                - matches: {typescript-import-reference: {source: {regex: '^effect/ai/McpSchema$'}, exported: {regex: '^TextContent$'}}}
+        any:
+            - inside:
+                kind: arguments
+                inside:
+                    any:
+                        - {kind: new_expression, has: {field: 'constructor', matches: typescript-package-reference}}
+                        - kind: call_expression
+                          has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^make$'}}, {has: {field: object, matches: typescript-package-reference}}]}
+            - matches: schema-result
+            - inside: {kind: pair, field: value, inside: {matches: protocol-row}}
+    row-builder:
+        kind: variable_declarator
+        all:
+            - has: {field: name, pattern: $BUILDER}
+            - has:
+                field: value
+                kind: *callback
+                all:
+                    - any:
+                        - has: {field: parameter, kind: identifier, pattern: $SLOT}
+                        - has: {field: parameters, has: {kind: required_parameter, has: {field: pattern, kind: identifier, pattern: $SLOT}}}
+                    - has: {field: body, has: {stopBy: end, kind: 'identifier, shorthand_property_identifier', pattern: $SLOT, matches: row-field}}
+    row-field:
+        any:
+            - inside: {kind: pair, field: value, inside: {matches: protocol-row}}
+            - {kind: shorthand_property_identifier, inside: {matches: protocol-row}}
     protocol-field:
         any:
-            - inside: {kind: pair, field: value, has: {field: key, regex: '^message$'}, inside: {matches: protocol-error-fields}}
-            - {kind: shorthand_property_identifier, regex: '^message$', inside: {matches: protocol-error-fields}}
-            - inside: {kind: pair, field: value, has: {field: key, regex: '^text$'}, inside: {matches: text-content-fields}}
+            - matches: row-field
+            - inside:
+                kind: arguments
+                inside:
+                    kind: call_expression
+                    has: {field: function, kind: identifier, pattern: $BUILDER}
+                    inside: {stopBy: end, kind: 'statement_block, program', has: {stopBy: {not: {kind: 'lexical_declaration, export_statement'}}, matches: row-builder}}
     reported-callback:
         kind: *callback
         any:

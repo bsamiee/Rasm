@@ -26,18 +26,21 @@ utils:
                 - matches: nested-body
     boundary: {any: [{matches: level}, *declaration]}
 rule:
-    matches: level
-    pattern: $SCOPE
-    inside:
-        matches: level
-        stopBy: {matches: boundary}
-        inside:
+    kind: &levels 'for_statement, for_in_statement, while_statement, do_statement, switch_statement, if_statement, ternary_expression, arrow_function, function_expression, generator_function, function_declaration, generator_function_declaration'
+    all:
+        - inside: {stopBy: end, kind: *levels, inside: {stopBy: end, kind: *levels, inside: {stopBy: end, kind: *levels}}}
+        - matches: level
+        - inside:
             matches: level
             stopBy: {matches: boundary}
             inside:
                 matches: level
                 stopBy: {matches: boundary}
-                not: {inside: {matches: level, stopBy: *declaration}}
+                inside:
+                    matches: level
+                    stopBy: {matches: boundary}
+                    not: {inside: {matches: level, stopBy: *declaration}}
+        - pattern: $SCOPE
 transform:
     HEAD: {replace: {source: $SCOPE, replace: '(?s)[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\{?[\t-\r \x{A0}\x{1680}\x{2000}-\x{200B}\x{2028}\x{2029}\x{202F}\x{205F}\x{2060}\x{3000}\x{FEFF}]*\n.*$', by: ''}}
 message: '`$HEAD` opens a fourth nesting level'

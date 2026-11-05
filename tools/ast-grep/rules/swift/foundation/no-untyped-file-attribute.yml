@@ -32,7 +32,7 @@ rule:
         - kind: call_expression
           all:
             - has: {matches: callee, regex: '\.setAttributes$'}
-            - has: {kind: call_suffix, has: {kind: value_arguments, has: {nthChild: 1, kind: value_argument, has: {field: value, kind: dictionary_literal, has: {matches: dictionary-key}, not: {has: {matches: dictionary-key, not: {matches: resource-key}}}}}}}
+            - has: {kind: call_suffix, has: {kind: value_arguments, has: {nthChild: {position: 1, ofRule: {kind: value_argument}}, kind: value_argument, has: {field: value, kind: dictionary_literal, has: {matches: dictionary-key}, not: {has: {matches: dictionary-key, not: {matches: resource-key}}}}}}}
         - kind: call_expression
           all:
             - has: {matches: callee, regex: '\.fileExists$'}
@@ -47,6 +47,6 @@ rule:
             - inside:
                 stopBy: end
                 any: [{matches: swift-declaration-scope}, {kind: source_file}]
-                has: {stopBy: end, kind: simple_identifier, regex: '^attributesOfItem$'}
+                has: {stopBy: end, pattern: attributesOfItem}
 message: '`$SITE` reads or writes a file attribute through an untyped API'
 note: 'Read `<url>.resourceValues(forKeys:)` properties or `FilePath.stat(followTargetSymlink:)` fields, and write through `setResourceValues(_:)`'

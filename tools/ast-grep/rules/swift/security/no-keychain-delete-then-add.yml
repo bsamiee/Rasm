@@ -8,7 +8,7 @@ utils:
             - kind: line_string_literal, multi_line_string_literal, raw_string_literal
               regex: '(?m)(?:^#*"*|\\n)[ \t]*delete-(?:generic|internet)-password[ \t]'
             - kind: call_expression
-              has: {nthChild: 1, kind: simple_identifier, regex: '^SecItemDelete$'}
+              has: {nthChild: 1, pattern: SecItemDelete}
     after-delete:
         inside: {kind: statements}
         follows: {stopBy: end, any: [{matches: delete-command}, {has: {stopBy: end, matches: delete-command}}]}
@@ -23,7 +23,7 @@ rule:
                 - kind: line_string_literal, multi_line_string_literal, raw_string_literal
                   regex: '(?m)(?:^#*"*|\\n)[ \t]*add-(?:generic|internet)-password[ \t]'
                 - kind: call_expression
-                  has: {nthChild: 1, kind: simple_identifier, regex: '^SecItemAdd$'}
+                  has: {nthChild: 1, pattern: SecItemAdd}
             - any:
                 - matches: after-delete
                 - inside: {stopBy: end, matches: after-delete}

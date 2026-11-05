@@ -6,9 +6,7 @@ rule:
         - kind: simple_expansion, expansion
           has:
             any:
-                - kind: variable_name
-                - kind: subscript
-                  not: {has: {field: index, regex: '^[@*]$'}}
+                - kind: variable_name, subscript
                 - kind: special_variable_name
                   regex: '^[@*_]$'
           not:

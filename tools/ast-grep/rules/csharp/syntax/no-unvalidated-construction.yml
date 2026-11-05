@@ -62,7 +62,7 @@ rule:
             - not: {matches: {csharp-attributed: {name: {regex: '^UnsafeAccessorType(Attribute)?$'}}}}
             - not:
                 all:
-                    - has: {field: returns, pattern: $COPIED}
+                    - has: {field: type, pattern: $COPIED}
                     - has:
                         field: parameters
                         all:

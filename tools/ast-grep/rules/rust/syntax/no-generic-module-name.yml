@@ -20,11 +20,11 @@ rule:
                                 kind: attribute
                                 any:
                                     - all:
-                                        - has: {nthChild: 1, kind: identifier, regex: '^path$'}
+                                        - has: {nthChild: 1, pattern: path}
                                         - has: {field: value, matches: generic-file, pattern: $NAME}
                                     - all:
-                                        - has: {nthChild: 1, kind: identifier, regex: '^cfg_attr$'}
-                                        - has: {field: arguments, has: {matches: generic-file, pattern: $NAME, follows: {regex: '^=$', follows: {kind: identifier, regex: '^path$'}}}}
+                                        - has: {nthChild: 1, pattern: cfg_attr}
+                                        - has: {field: arguments, has: {matches: generic-file, pattern: $NAME, follows: {regex: '^=$', follows: {pattern: path}}}}
             - not: {matches: {rust-attributed: {attribute: {matches: rust-test-attribute}}}}
         - kind: use_as_clause
           has: {field: alias, matches: generic-name, pattern: $NAME}

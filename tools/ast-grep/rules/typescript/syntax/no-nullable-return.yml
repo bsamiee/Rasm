@@ -38,8 +38,7 @@ utils:
     null-or-nan-result:
         any:
             - kind: 'null'
-            - kind: identifier
-              regex: '^NaN$'
+            - pattern: NaN
             - kind: member_expression
               regex: '^((globalThis|window|self)\.)?Number\.NaN$'
             - matches: typescript-expression-wrapper

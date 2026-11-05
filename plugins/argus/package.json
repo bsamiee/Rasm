@@ -1,11 +1,12 @@
 {
     "name": "@rasm/argus",
+    "version": "1.0.0",
     "private": true,
     "description": "Language servers as agent code navigation and diagnostics",
     "type": "module",
     "imports": {
         "#/*": "./*.ts",
-        "#/.codex-plugin/plugin.json": "./.codex-plugin/plugin.json",
+        "#/package.json": "./package.json",
         "#/.lsp.json": "./.lsp.json"
     },
     "bin": "./main.ts",

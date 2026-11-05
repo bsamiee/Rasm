@@ -40,7 +40,7 @@ utils:
         any:
             - has: {field: function, has: {field: attribute, regex: '^(r?split|format)$'}}
             - all:
-                - has: {field: function, all: [{has: {field: attribute, regex: '^encode$'}}, {has: {field: object, not: {regex: '[^\x00-\x7F]'}}}]}
+                - has: {field: function, all: [{has: {field: attribute, pattern: encode}}, {has: {field: object, not: {regex: '[^\x00-\x7F]'}}}]}
                 - has:
                     field: arguments
                     not:
@@ -49,13 +49,13 @@ utils:
                             not:
                                 any:
                                     - {kind: string, regex: '(?i)^["'']utf-?8["'']$'}
-                                    - {kind: keyword_argument, all: [{has: {field: name, regex: '^encoding$'}}, {has: {field: value, kind: string, regex: '(?i)^["'']utf-?8["'']$'}}]}
+                                    - {kind: keyword_argument, all: [{has: {field: name, pattern: encoding}}, {has: {field: value, kind: string, regex: '(?i)^["'']utf-?8["'']$'}}]}
             - all:
-                - has: {field: function, has: {field: attribute, regex: '^join$'}}
+                - has: {field: function, has: {field: attribute, pattern: join}}
                 - has:
                     field: arguments
                     all:
-                        - has: {nthChild: 1, kind: 'list, tuple', has: {pattern: $_, not: {kind: comment}}}
+                        - has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, kind: 'list, tuple', has: {pattern: $_, not: {kind: comment}}}
                         - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
     native-literal-call:
         any:
@@ -64,28 +64,29 @@ utils:
             - {pattern: float($A), has: {field: arguments, has: {any: [{kind: float}, {kind: unary_operator, has: {field: argument, kind: float}}]}}}
             - {pattern: bool($A), has: {field: arguments, has: {kind: 'true, false'}}}
 rule:
-    pattern: $S
-    any:
-        - {kind: string, not: {matches: bytes-literal}, has: {kind: string_content, has: {matches: printable-escape}}}
-        - {kind: string, has: {kind: interpolation}, not: {has: {stopBy: end, kind: 'interpolation, format_expression', not: {has: {field: expression, matches: literal}}}}}
-        - {matches: concatenation, not: {inside: {kind: binary_operator, matches: concatenation}}}
-        - kind: call
-          all:
-            - has: {field: function, kind: attribute, has: {field: object, any: [{matches: text}, {regex: '^(str|bytes)$'}]}}
-            - has: {field: arguments, matches: literal-arguments}
-            - not: {matches: ruff-literal-method}
-        - kind: call
-          all:
-            - has: {field: function, kind: identifier, pattern: $CALLEE, regex: &builtin-name '^(ascii|bin|bool|bytes|chr|float|format|hex|int|oct|repr|str)$'}
-            - has: {field: arguments, matches: literal-arguments, has: {pattern: $_}}
-            - not: {matches: native-literal-call}
-            - not: {all: [{has: {field: function, regex: '^bytes$'}}, {not: {has: {field: arguments, has: {nthChild: 1, kind: string, not: {matches: bytes-literal}}}}}]}
-            - not: {all: [{has: {field: function, regex: '^chr$'}}, {not: {has: {field: arguments, all: [{has: {nthChild: 1, kind: integer, regex: '^(3[2-9]|[4-9][0-9]|1[01][0-9]|12[0-6]|0[xX](2[0-9a-fA-F]|[3-6][0-9a-fA-F]|7[0-9a-eA-E]))$'}}, {not: {has: {nthChild: 2}}}]}}}]}
-            - not: {all: [{has: {field: function, regex: '^float$'}}, {has: {field: arguments, has: {nthChild: 1, has: {kind: string_content, regex: '(?i)^[\t-\r \x{200B}\x{2060}\x{FEFF}]*[+-]?(inf(inity)?|nan)[\t-\r \x{200B}\x{2060}\x{FEFF}]*$'}}}}]}
-        - kind: subscript
-          all:
-            - has: {field: value, kind: 'string, concatenated_string, parenthesized_expression, tuple, list, dictionary', matches: literal}
-            - has: {field: subscript, any: [{matches: literal}, {kind: slice, not: {has: {pattern: $_, not: {matches: literal}}}}]}
+    all:
+        - any:
+            - {kind: string, not: {matches: bytes-literal}, has: {kind: string_content, has: {matches: printable-escape}}}
+            - {kind: string, has: {kind: interpolation}, not: {has: {stopBy: end, kind: 'interpolation, format_expression', not: {has: {field: expression, matches: literal}}}}}
+            - {matches: concatenation, not: {inside: {kind: binary_operator, matches: concatenation}}}
+            - kind: call
+              all:
+                - has: {field: function, kind: attribute, has: {field: object, any: [{matches: text}, {regex: '^(str|bytes)$'}]}}
+                - has: {field: arguments, matches: literal-arguments}
+                - not: {matches: ruff-literal-method}
+            - kind: call
+              all:
+                - has: {field: function, kind: identifier, pattern: $CALLEE, regex: &builtin-name '^(ascii|bin|bool|bytes|chr|float|format|hex|int|oct|repr|str)$'}
+                - has: {field: arguments, matches: literal-arguments, has: {pattern: $_}}
+                - not: {matches: native-literal-call}
+                - not: {all: [{has: {field: function, regex: '^bytes$'}}, {not: {has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, kind: string, not: {matches: bytes-literal}}}}}]}
+                - not: {all: [{has: {field: function, regex: '^chr$'}}, {not: {has: {field: arguments, all: [{has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, kind: integer, regex: '^(3[2-9]|[4-9][0-9]|1[01][0-9]|12[0-6]|0[xX](2[0-9a-fA-F]|[3-6][0-9a-fA-F]|7[0-9a-eA-E]))$'}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}}]}}}]}
+                - not: {all: [{has: {field: function, regex: '^float$'}}, {has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, has: {kind: string_content, regex: '(?i)^[\t-\r \x{200B}\x{2060}\x{FEFF}]*[+-]?(inf(inity)?|nan)[\t-\r \x{200B}\x{2060}\x{FEFF}]*$'}}}}]}
+            - kind: subscript
+              all:
+                - has: {field: value, kind: 'string, concatenated_string, parenthesized_expression, tuple, list, dictionary', matches: literal}
+                - has: {field: subscript, any: [{matches: literal}, {kind: slice, not: {has: {pattern: $_, not: {matches: literal}}}}]}
+        - pattern: $S
 constraints:
     CALLEE: {matches: {python-builtin-identifier: {name: {regex: *builtin-name}}}}
 message: '`$S` computes a literal from literals'

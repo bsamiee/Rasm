@@ -30,8 +30,8 @@ utils:
                 - has:
                     field: parameters
                     kind: lambda_parameters
-                    has: {nthChild: 1, kind: identifier, pattern: $PARAMETER}
-                    not: {has: {nthChild: 2}}
+                    has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, kind: identifier, pattern: $PARAMETER}
+                    not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
                 - has: {field: body, matches: truth-value}
     filter-function:
         matches:

@@ -8,7 +8,7 @@ rule:
           matches: name
         - kind: typed_parameter, list_splat_pattern, dictionary_splat_pattern
           has:
-            nthChild: 1
+            nthChild: {position: 1, ofRule: {not: {kind: comment}}}
             any:
                 - kind: identifier
                   matches: name

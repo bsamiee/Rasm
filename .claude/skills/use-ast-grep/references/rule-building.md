@@ -36,7 +36,7 @@ Fix templates own every token the parser would have kept:
 - Templates placing `$A` under a tighter operator parenthesize it or match only leaf kinds
 - Evaluation count, order, timing, short-circuiting, and argument binding stay outside the edit unless the correction names them
 - Types, null behavior, collation, and numeric association stay across expression refactors
-- Rules omit `fix` when types, evaluation, binding, precedence, or comments decide the replacement
+- Rules omit `fix` when types, evaluation, binding, or precedence decide the replacement, kinded rewriters over a capture's tokens keep its comments
 - Messages name the violation with its captures, `note` states the required form and deciding contract
 
 ## [05]-[PROOF]

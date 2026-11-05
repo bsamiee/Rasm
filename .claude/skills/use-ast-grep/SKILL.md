@@ -33,7 +33,7 @@ Compilation peels single-child wrappers, the pattern's root decides the match ra
 - `a` selects the identifier, `a;` the `expression_statement`, `pass` the anonymous token inside `pass_statement`
 - Patterns peeling to one anonymous token match the token `kind` refuses and supply a kind set, `{pattern: pass, inside: {kind: pass_statement}}`
 - Wrong-kind patterns take `pattern: {context: <full-code>, selector: <kind>}`, `run` takes `-p <full-code> --selector <kind>`
-- `selector` takes one kind name, selects its first pre-order node, and defines only metavariables inside it, a selected lone metavariable matches every node of that kind
+- `selector` takes one kind name and selects its first pre-order node, defining metavariables inside it alone, a lone selected metavariable matches its kind
 - Patterns with a parse error beside a `kind` load and never match, `run` alone reports them at zero matches, without `kind` the load fails
 
 Strictness decides which nodes matching skips, the levels hold no total order:
@@ -63,13 +63,13 @@ Patterns debug through `--debug-query`, `pattern` prints the compiled pattern wi
 - Negated ASCII classes (`[^\t\n\v\f\r ]`) match every non-ASCII character
 - `(?x)` in a `|-` block scalar holds one alternative per line with `\ ` for a space inside a phrase, `(?-x:...)` keeps a phrase verbatim
 
-Identifier tokens hold Unicode classes per grammar:
+Identifier tokens hold Unicode classes per grammar, JavaScript and TypeScript accepting `\u` escapes:
 
-| [INDEX] | [LANGUAGE]             | [IDENTIFIER]                                                                                                          |
-| :-----: | :--------------------- | :-------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | Rust                   | `(r#)?[_\p{XID_Start}][_\p{XID_Continue}]*`                                                                           |
-|  [02]   | Python                 | `[_\p{XID_Start}][_\p{XID_Continue}]*`                                                                                |
-|  [03]   | JavaScript, TypeScript | No digit first, `\u` escapes, no control, whitespace, `\p{Zs}`, punctuation but `$` `_`, U+200B, U+2028, U+2029, U+2060, U+FEFF |
+| [INDEX] | [LANGUAGE] | [START]                 | [CONTINUE]                                                                                        |
+| :-----: | :--------- | :---------------------- | :------------------------------------------------------------------------------------------------ |
+|  [01]   | Rust       | `(r#)?[_\p{XID_Start}]` | `[_\p{XID_Continue}]*`                                                                            |
+|  [02]   | Python     | `[_\p{XID_Start}]`      | `[_\p{XID_Continue}]*`                                                                            |
+|  [03]   | JS, TS     | Continue set, no digit  | No control, whitespace, `\p{Zs}`, punctuation but `$` `_`, U+200B, U+2028, U+2029, U+2060, U+FEFF |
 
 ## [02]-[RULES]
 
@@ -82,7 +82,7 @@ Rule documents load through one strict deserializer:
 - Unset `severity` is `hint`, it prints `help[<id>]` and exits 0, `off` removes the rule
 - `metadata` is a mapping printed under `--include-metadata` alone, `url` reaches LSP `code_description` alone
 
-Rule maps conjoin `pattern`, `kind`, `regex`, `nthChild`, `range`, `all`, `any`, `not`, `matches`, then `inside`, `has`, `precedes`, `follows` whatever the YAML key order, a cheap relation beside a costly `any` or `not` runs first only from an ordered `all`:
+Rule maps conjoin `pattern`, `kind`, `regex`, `nthChild`, `range`, `all`, `any`, `not`, `matches`, then `inside`, `has`, `precedes`, `follows` whatever the YAML key order, a cheap relation beside a costly `any`, `not`, or `matches` runs first only from an ordered `all`:
 - Positive `kind`, `pattern`, `matches`, or `nthChild.ofRule` predicates can derive candidate kinds
 - Scan rules of `regex`, `range`, `not`, `inside`, or unfiltered `nthChild` alone, utils under them included, fail with `Rule must specify a set of AST kinds to match`
 - `pattern: $X` alone supplies no kind set, `matches` inherits kinds from its selected util
@@ -112,7 +112,7 @@ Relations test one node along one axis:
 - `stopBy: {not: {kind: W}}` walks through a chain of `W` and stops at the first other node, a climb through parentheses alone
 - `stopBy` rules start fresh captures and discard bindings, relation targets retain caller captures
 - `stopBy: end` walks a candidate's whole axis (`has` the subtree, `inside` every ancestor, `follows` and `precedes` every sibling on that side)
-- Walks stop at the nearest boundary where their fact stops holding (a nested function for `return`, depth, and local bindings, a module for imports), past it they cost walk time and report false findings
+- Walks stop where their fact ends (a nested function for `return`, depth, and locals, a module for imports), wider walks cost time and false findings
 - `field:` binding names the final relation and survives `stopBy: end` (callee vs argument, key vs value)
 - `has` with `field` and a rule `stopBy` reads the field child and its children alone and misses `((b))`, `has: {field: <role>, any: [<target>, {kind: <wrapper>, has: {stopBy: <stop>, <target>}}]}` descends
 - Unnamed token fields (`operator`) take `has: {field: <role>, pattern: $$_X}`
@@ -129,6 +129,7 @@ Captures bind in clause order and export from what matched:
 - Captures re-match their text in a later `not: {has: ...}` or `not: {inside: ...}` stopping at owner kinds, the form for a fact every sibling repeats
 - Metavariables bound in `all`, relational rules, and the matching `any:` arm export to `fix`, `message`, and `transform`
 - Failed `any:` arms bind nothing, the next arm binds the same name again
+- Optional captures take an `any:` whose last arm always matches (`regex: ''`), a template over the unbound capture renders empty
 - `any:` keeps the first structurally matching arm with no `constraints` retry, the wrapped pattern precedes the unwrapped one
 
 Constraints test single captures after the rule matches, in unspecified order, `$$$` captures pass unfiltered:
@@ -139,20 +140,21 @@ Constraints test single captures after the rule matches, in unspecified order, `
 ## [03]-[UTILS]
 
 - Global utils are named `<package>-<shape>` and read `id`, `language`, `arguments`, `rule`, `constraints`, `utils`, and `transform`, other keys load unread
-- Global util transform outputs and captures stay private, `fix: $P` over one fails as undefined and `message` prints empty
+- Global util captures stay private both ways, a util's `$NAME` binds afresh untested against the caller's, `fix: $P` over one fails as undefined
 - No language check runs between a rule and its util, kind ids compile under the util's language and compare against the caller's nodes
 - Project `utilDirs` load for directory scans, `scan -r`, and `--inline-rules`, stdin included, `-r` and `--inline-rules` load no project rule directory
 - Kind sets bind at the calling rule's whole, a kindless util under `all` beside `kind` loads and matches, a parameter slot contributes none
 - Parameterized utils take `arguments` at the global level alone, a local `'wrap(NAME)'` exits 8, arguments are mandatory, a string `matches: <id>` of a parameterized util exits 8
 - Rules call a parameterized util as `matches: {<util-id>: {<arg>: <rule>}}`, each argument a rule, calls under one `matches` combine as `all`
 - Load order and cycle checks follow composite calls, constraints, and local util definitions, relational children add no edge
-- Parameterized calls under a relation in a global util fail as `Rule <id> is not defined` on runs whose per-process load order reaches the caller first
+- Parameterized calls under a relation or in a local util of a global util fail as `Rule <id> is not defined` on runs whose load order reaches the caller first
+- Composite calls of that util in the same document (root `matches`, under `all` or `not`) order the load and keep the relational call
 - Plain relational references resolve lazily and lose the kind pre-check, explicit kinds beside them keep it
 - String `matches: <name>` resolves a parameter, then a local util, then a global util
-- Local utilities read caller captures, globals use private captures through nested calls
+- Local utilities read caller captures
 - Every local util compiles whether called or not, an invalid kind in an uncalled one fails the load
 - Uncalled local utils' variables count as defined, a `fix` reading them prints empty
-- Argument rules start without caller captures and merge advertised bindings only after template success
+- Argument rules start without caller captures and export theirs from a util `rule`, an argument read in `constraints` or a nested call exports none
 - Local references passed as arguments do not advertise their bindings for export
 - Non-terminating relation recursion aborts with a stack overflow at exit 134 and no output
 

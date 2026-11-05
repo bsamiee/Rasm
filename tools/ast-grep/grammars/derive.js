@@ -5,7 +5,6 @@ import refa from 'refa';
 const MAXIMUM = 0x10_ff_ff;
 const NON_ASCII = refa.CharSet.fromRange(MAXIMUM, { min: 0x80, max: MAXIMUM });
 const LEXICAL = new Set(['STRING', 'PATTERN', 'TOKEN', 'IMMEDIATE_TOKEN']);
-const HEXADECIMAL = 16;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -35,9 +34,11 @@ const minimal = (fa) => {
     dfa.minimize();
     return dfa;
 };
-const point = (code) => `\\u{${code.toString(HEXADECIMAL)}}`;
+const point = (code) => `\\u{${code.toString(16)}}`;
 const span = ({ min, max }) => (min === max ? point(min) : `${point(min)}-${point(max)}`);
-const element = ({ type, characters, alternatives, min, max }) => (type === 'CharacterClass' ? `[${characters.ranges.map(span).join('')}]` : `(?:${spelled(alternatives)})${type === 'Quantifier' ? `{${min},${max === Number.POSITIVE_INFINITY ? '' : max}}` : ''}`);
+const bound = (max) => (Number.isFinite(max) ? String(max) : '');
+const quantity = ({ type, min, max }) => (type === 'Quantifier' ? `{${min},${bound(max)}}` : '');
+const element = (part) => (part.type === 'CharacterClass' ? `[${part.characters.ranges.map(span).join('')}]` : `(?:${spelled(part.alternatives)})${quantity(part)}`);
 const spelled = (alternatives) => alternatives.map(({ elements }) => elements.map(element).join('')).join('|');
 const pattern = (fa) => ({ type: 'PATTERN', value: spelled(fa.toRegex().alternatives) });
 const without = (kept, removed) => {
@@ -120,6 +121,11 @@ const expanded = (members) => {
         }[head.type] ?? (() => expanded([head.content, ...rest]))
     )();
 };
+const leading = (grammar, rule) => {
+    const seen = new Set();
+    const heads = (part) => expanded([part]).flatMap(([head]) => (head.type !== 'SYMBOL' ? [head] : seen.has(head.name) || !(head.name in grammar.rules) ? [] : (seen.add(head.name), heads(grammar.rules[head.name]))));
+    return heads(rule);
+};
 const headOf = ([head]) => head.name ?? JSON.stringify(head);
 const states = (grammar, start, closed) => {
     const productions = new Map();
@@ -170,7 +176,13 @@ const tokens = (rule) => {
 };
 const lexicalOf = (grammar, name) => tokens(expand(grammar, new Set())(grammar.rules[name]));
 const symbols = (rule) => collected(rule, ({ type }) => type === 'SYMBOL');
-const mostHeld = (grammar, held, admits) => [...Map.groupBy(held.filter(({ name }) => name in grammar.rules && admits(name)), ({ name }) => name)].reduce(([chosen, most], [name, rows]) => (rows.length > most ? [name, rows.length] : [chosen, most]), [undefined, 0])[0];
+const mostHeld = (grammar, held, admits) =>
+    [
+        ...Map.groupBy(
+            held.filter(({ name }) => name in grammar.rules && admits(name)),
+            ({ name }) => name,
+        ),
+    ].reduce(([chosen, most], [name, rows]) => (rows.length > most ? [name, rows.length] : [chosen, most]), [undefined, 0])[0];
 const spacing = (parse) => (rule) => {
     const dfa = minimal(automaton(rule, parse));
     const opening = reached(dfa, [dfa.initial]);
@@ -178,7 +190,13 @@ const spacing = (parse) => (rule) => {
 };
 const lexemes = (grammar) => {
     const rules = Object.values(grammar.rules);
-    const name = grammar.word ?? mostHeld(grammar, rules.flatMap((rule) => collected(rule, named('name'))).flatMap(({ content }) => symbols(content)), (held) => lexicalOf(grammar, held).length > 0);
+    const name =
+        grammar.word ??
+        mostHeld(
+            grammar,
+            rules.flatMap((rule) => collected(rule, named('name'))).flatMap(({ content }) => symbols(content)),
+            (held) => lexicalOf(grammar, held).length > 0,
+        );
     const stated = grammar.extras.map((extra) => (extra.type === 'SYMBOL' ? grammar.rules[extra.name] : extra)).filter((rule) => rule !== undefined && lexical(rule));
     const spaced = stated.length > 0 ? undefined : mostHeld(grammar, rules.flatMap(symbols), (held) => lexical(grammar.rules[held]));
     return {
@@ -193,11 +211,18 @@ const classes = ({ identifier, whitespace }, parse) => {
         whitespace: refa.CharSet.empty(MAXIMUM).union(...whitespace.map(spacing(parse))),
     };
 };
+const spans = ({ ranges }) => seq(...ranges.flatMap(({ min, max }) => [String(min), String(max)]));
 const outermost = (rule) => (lexical(rule) ? [rule] : children(rule).flatMap(outermost));
 const folded = (characters) => [...new Set(characters.ranges.flatMap(({ min, max }) => Array.from({ length: max - min + 1 }, (_, at) => String.fromCodePoint(min + at).toLowerCase())))];
 const spellings = (grammar) => {
     const name = minimal(automaton({ type: 'CHOICE', members: lexemes(grammar).identifier }));
-    const leaves = [...new Map(Object.values(grammar.rules).flatMap(outermost).map((leaf) => [JSON.stringify(leaf), leaf])).values()];
+    const leaves = [
+        ...new Map(
+            Object.values(grammar.rules)
+                .flatMap(outermost)
+                .map((leaf) => [JSON.stringify(leaf), leaf]),
+        ).values(),
+    ];
     const finite = leaves.map((leaf) => minimal(automaton(leaf))).filter(({ isFinite }) => isFinite);
     const words = finite.flatMap((fa) => [...fa.wordSets()].flatMap((set) => set.reduce((held, characters) => held.flatMap((prefix) => folded(characters).map((letter) => prefix + letter)), [''])));
     return [...new Set(words)].filter((word) => word.length > 0 && name.test([...word].map((letter) => letter.codePointAt(0)))).toSorted();
@@ -249,4 +274,4 @@ const extend = (base, { transforms = [], rules = {}, ...options } = {}) =>
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { after, any, automaton, before, chain, children, choiceOf, classes, closure, collected, drop, extend, lexemes, lexical, located, MAXIMUM, mandatory, NON_ASCII, named, optionalOf, pattern, reaches, rebuild, replace, rewrite, spellings, states, string, symbol, unicode, widen, without };
+export { after, any, automaton, before, chain, children, choiceOf, classes, closure, collected, drop, extend, leading, lexemes, lexical, located, MAXIMUM, mandatory, NON_ASCII, named, optionalOf, outermost, pattern, reaches, rebuild, replace, rewrite, spans, spellings, states, string, symbol, unicode, widen, without };

@@ -6,10 +6,7 @@ utils:
     loader:
         matches: {python-builtin-identifier: {name: {regex: '^__import__$'}}}
     module-import:
-        any:
-            - matches: {python-module-import: {module: {matches: module}, binding: {pattern: $MODULE}}}
-            - kind: import_statement
-              has: {kind: dotted_name, pattern: $MODULE, matches: module}
+        matches: {python-module-import: {module: {matches: module}, binding: {pattern: $MODULE}}}
     source:
         any:
             - kind: identifier, attribute
@@ -34,11 +31,11 @@ utils:
                     kind: argument_list
                     all:
                         - has:
-                            nthChild: 1
+                            nthChild: {position: 1, ofRule: {not: {kind: comment}}}
                             kind: string
                             has: {kind: string_content, matches: module, not: {regex: '\.'}}
                             not: {has: {kind: 'escape_sequence, interpolation', stopBy: end}}
-                        - not: {has: {nthChild: 2}}
+                        - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
     root-import:
         any:
             - matches: {python-module-import: {module: {pattern: $ROOT}, binding: {pattern: $ROOT}}}

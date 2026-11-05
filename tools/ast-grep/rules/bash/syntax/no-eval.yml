@@ -2,42 +2,36 @@
 language: bashlang
 severity: error
 utils:
-    expanded-word:
+    shell: {regex: '(?:^|/)(?:bash|sh|dash|ksh|zsh)$'}
+    reader: {any: [{matches: shell}, {regex: '^(source|\.)$'}]}
+    first-operand: {follows: {kind: command_name}}
+    operand: {kind: 'word, string, raw_string, ansi_c_string, concatenation, simple_expansion, expansion, command_substitution, arithmetic_expansion, process_substitution, number'}
+    script: {matches: operand, not: {regex: '^(-[a-zA-Z]+|/dev/stdin)$'}}
+    feed:
         any:
-            - kind: simple_expansion, expansion, command_substitution, arithmetic_expansion
-            - kind: string, concatenation
-              has: {matches: expanded-word}
-    shell: {regex: '^(?:[^\t-\r ]+/)?(bash|sh|dash|ksh|zsh)$'}
+            - {kind: herestring_redirect, has: {matches: bash-expanding-word, not: {follows: {stopBy: end, matches: operand}}}}
+            - {kind: file_redirect, all: [{has: {regex: '^<$'}}, {has: {field: destination, kind: process_substitution}}]}
 rule:
     kind: command
     any:
         - has: {field: name, pattern: $NAME, regex: '^eval$'}
         - all:
             - has: {field: name, pattern: $NAME, regex: '^(builtin|command)$'}
-            - has: {kind: word, regex: '^eval$', nthChild: 2}
+            - has: {pattern: eval, matches: first-operand}
         - all:
-            - has: {field: name, pattern: $NAME, regex: '^(?:[^\t-\r ]+/)?(bash|sh|dash|ksh|zsh|env|exec|sudo|nohup|nice|timeout|xargs)$'}
-            - has: {matches: expanded-word, follows: {kind: word, regex: '^-[a-zA-Z]*c[a-zA-Z]*$', follows: {stopBy: end, kind: 'command_name, word', matches: shell}}}
+            - has: {field: name, pattern: $NAME, regex: '(?:^|/)(?:bash|sh|dash|ksh|zsh|env|exec|sudo|nohup|nice|timeout|xargs)$'}
+            - has: {matches: bash-expanding-word, follows: {kind: word, regex: '^-[a-zA-Z]*c[a-zA-Z]*$', follows: {stopBy: end, kind: 'command_name, word', matches: shell}}}
         - all:
-            - has: {field: name, pattern: $NAME, any: [{matches: shell}, {regex: '^(source|\.)$'}]}
+            - has: {field: name, pattern: $NAME, matches: reader}
+            - has: {kind: process_substitution, matches: first-operand}
+        - all:
+            - has: {field: name, pattern: $NAME, matches: reader}
+            - not: {has: {matches: script}}
             - any:
-                - has: {kind: process_substitution, nthChild: 2}
-                - all:
-                    - has: {kind: herestring_redirect, has: {matches: expanded-word}}
-                    - not: {has: {kind: 'word, string, raw_string, concatenation, simple_expansion, expansion', not: {regex: '^(-[a-zA-Z]+|/dev/stdin)$'}}}
-        - all:
-            - has: {field: name, pattern: $NAME, matches: shell}
-            - not: {has: {field: argument, not: {regex: '^(-[a-zA-Z]+|/dev/stdin)$'}}}
-            - inside:
-                kind: redirected_statement
-                has:
-                    field: redirect
-                    kind: file_redirect
-                    all:
-                        - has: {regex: '^<$'}
-                        - has: {field: destination, kind: process_substitution}
+                - has: {matches: feed}
+                - inside: {kind: redirected_statement, field: body, has: {matches: feed}, not: {has: {has: {matches: script, follows: {stopBy: end, matches: operand}}}}}
         - all:
             - has: {field: name, pattern: $NAME, regex: '^trap$'}
-            - has: {matches: expanded-word, not: {kind: string}, nthChild: 2}
+            - has: {all: [{matches: first-operand}, {not: {kind: string}}, {matches: bash-expanding-word}]}
 message: '`$NAME` parses text as shell code'
 note: Pass data through arguments or stdin and keep evaluated shell text constant

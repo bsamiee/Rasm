@@ -66,6 +66,6 @@ rule:
             - matches: invoked-action
             - not: {inside: {stopBy: end, matches: unit-sequence}}
 transform:
-    HEAD: {replace: {source: $VALUE, replace: '(?s)^[([\t-\r \x{A0}\x{3000}\x{FEFF}]]*([@\p{XID_Continue}.]+).*$', by: '$1'}}
+    HEAD: {replace: {source: $VALUE, replace: '(?s)^[([\t-\r\x{85}\p{Zs}\x{2028}\x{2029}\x{FEFF}]]*([@\p{XID_Continue}.]+).*$', by: '$1'}}
 message: '`$HEAD` sequences statements through `Unit` values'
 note: 'Write each call as a block statement, `IO.lift(<action>)` where an `IO<Unit>` is required, `<action>()` in place of `fun(<action>)()`'

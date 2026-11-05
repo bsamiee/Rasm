@@ -1,5 +1,5 @@
-import { CepPanel } from '#/panel';
+import { servePanel } from '#/panel';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-CepPanel.serve({ link: true });
+servePanel({ link: true });

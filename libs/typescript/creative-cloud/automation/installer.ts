@@ -37,12 +37,14 @@ const PLATFORMS = {
         home: 'HOME',
         support: 'Library/Application Support/Adobe',
         hosts: { ID: ['com.adobe.InDesign'], PS: ['com.adobe.Photoshop'], premierepro: ['com.adobe.PremierePro', 'com.adobe.PremiereProBeta.27'], ame: ['com.adobe.ame.application', 'com.adobe.amebeta.application.27'], aftereffects: ['com.adobe.AfterEffects', 'com.adobe.AfterEffectsBeta.application'] },
-        running: (identifiers: readonly string[], server: ChildProcess.Command) =>
-            Effect.gen(function* () {
+        running: Effect.fnUntraced(
+            function* (identifiers: readonly string[], _server: ChildProcess.Command) {
                 const { instances } = yield* Automation;
                 const rows = yield* Effect.fromOption(yield* Stream.runHead(instances({ identifiers })));
                 return rows.filter(({ state }) => !Predicate.hasProperty(state, 'exited')).map(({ pid }) => `${pid}`);
-            }).pipe(Effect.provide(Automation.layer(server))),
+            },
+            (effect, _, server) => Effect.provide(effect, Automation.layer(server)),
+        ),
     },
     win32: {
         agent: `C:/Program Files/Common Files/${AGENT}/UnifiedPluginInstallerAgent.exe`,

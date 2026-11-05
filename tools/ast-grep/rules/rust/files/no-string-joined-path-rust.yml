@@ -7,7 +7,7 @@ utils:
     slash:
         any:
             - {kind: string_literal, regex: '^"(/|/[^/"][^"]*|[^"]*[^:/"]/)"$'}
-            - {kind: char_literal, regex: '^''/''$'}
+            - {pattern: '''/'''}
     path-name:
         regex: '(?i)(^|_)(path|dir|directory|file|root|folder)$'
         not: {regex: '(?i)(^|_)(url|uri|route|endpoint|request)_'}

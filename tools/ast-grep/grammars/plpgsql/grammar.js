@@ -1,7 +1,7 @@
 import { Predicate } from 'effect';
 import plpgsql from 'tree-sitter-postgres/plpgsql/grammar.js';
 import postgres from 'tree-sitter-postgres/postgres/grammar.js';
-import { extend, pattern, rebuild, rewrite, string, symbol, unicode, widen } from '../derive.js';
+import { any, extend, mandatory, optionalOf, pattern, rebuild, rewrite, string, symbol, unicode, widen } from '../derive.js';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -60,7 +60,13 @@ const escaped = (name) => [escapedForm(name), () => token(seq(UNICODE_PREFIX, LE
 // --- [FORMS]
 
 const replacing = (rule, matches, apply) => rewrite(rule, (part) => (matches(part) ? apply(part) : part));
-const cursorMove = ($, opener, ...rest) => seq(opener, optional($.fetch_direction), optional(choice($.kw_from, $.kw_in)), $._cursor_variable, ...rest);
+const clause = optionalOf(() => true);
+const unordered = (rule) => {
+    const at = rule.members.findIndex(clause);
+    const clauses = rule.members.filter(clause);
+    return rebuild(rule, [...rule.members.slice(0, at), repeat(choice(...clauses.map(mandatory))), ...rule.members.slice(at + clauses.length)]);
+};
+const sourced = ($, rule) => rebuild(rule, rule.members.filter(Predicate.not(optionalOf(symbol('kw_from')))).flatMap((member) => (optionalOf(symbol('fetch_direction'))(member) ? [member, optional(choice($.kw_from, $.kw_in))] : [member])));
 const list = (item) => [item, repeat(seq(SEPARATOR, item))];
 const decorated = (arm, tail) => seq(seq(...(arm.members.some(string('%')) ? arm.members : arm.members.slice(0, -1))), tail);
 const forms = {
@@ -75,14 +81,10 @@ const forms = {
     stmt_call: () => replacing(RULES.stmt_call, symbol('_sql_semicolon_expr'), (part) => field('call', part)),
     stmt_exit: () => replacing(RULES.stmt_exit, symbol('any_identifier'), (part) => field('label', part)),
     stmt_raise: () => prec(1, RULES.stmt_raise),
-    stmt_dynexecute: ($) => seq($.kw_execute, $._sql_into_using_or_semicolon_expr, repeat(choice(seq($.kw_into, optional($.kw_strict), $.into_target), seq($.kw_using, ...list(alias($._sql_until_comma_into_or_semicolon, $.sql_expression))))), TERMINATOR),
-    stmt_fetch: ($) => cursorMove($, $.kw_fetch, $.kw_into, $.into_target, TERMINATOR),
-    stmt_move: ($) => cursorMove($, $.kw_move, TERMINATOR),
-    fetch_direction: ($) => {
-        const count = alias($._fetch_expression, $.sql_expression);
-        const stepped = optional(choice(count, $.kw_all));
-        return choice($.kw_next, $.kw_prior, $.kw_first, $.kw_last, $.kw_all, seq($.kw_absolute, count), seq($.kw_relative, count), seq($.kw_forward, stepped), seq($.kw_backward, stepped), alias($._fetch_count, $.sql_expression));
-    },
+    stmt_dynexecute: ($) => unordered(replacing(RULES.stmt_dynexecute, symbol('_sql_comma_or_semicolon_expr'), () => alias($._sql_until_comma_into_or_semicolon, $.sql_expression))),
+    stmt_fetch: ($) => sourced($, RULES.stmt_fetch),
+    stmt_move: ($) => sourced($, RULES.stmt_move),
+    fetch_direction: ($) => choice(...replacing(RULES.fetch_direction, any(symbol('_sql_from_or_into_expr'), symbol('integer_literal')), () => alias($._fetch_expression, $.sql_expression)).members, $.kw_all, alias($._fetch_count, $.sql_expression)),
 };
 
 // --- [ROLES]
@@ -140,7 +142,7 @@ export default extend(plpgsql, {
             const statements = seq(repeat($[STATEMENT]), alias($._block_statement, $[STATEMENT]));
             return choice(RULES.source_file, seq(alias($._template_open, delimiter), statements, delimiter), statements);
         },
-        _block_statement: ($) => open($, shaped($, STATEMENT)),
+        _block_statement: ($) => prec.dynamic(-1, open($, shaped($, STATEMENT))),
         ...Object.fromEntries([...opened].map((name) => [unterminated(name), ($) => open($, shaped($, name))])),
         ...Object.fromEntries([LITERAL, ...STRINGS, ...QUOTED].filter((name) => name in LEXICON).map((name) => [name, () => LEXICON[name]])),
         ...Object.fromEntries([...QUOTED, LITERAL].map(escaped)),

@@ -3,14 +3,20 @@ language: plpgsql
 severity: error
 rule:
     matches: plpgsql-error-raise
-    pattern: $RAISE
-    any:
-        - has: {kind: 'string_literal, escape_string_literal, dollar_quoted_string, unicode_string_literal, substitution'}
-        - has: {field: using, kind: raise_option}
+    has: {kind: kw_raise, pattern: $KEYWORD}
+    all:
+        - any:
+            - has: {kind: 'string_literal, escape_string_literal, dollar_quoted_string, unicode_string_literal, substitution', pattern: $FORMAT}
+            - has: {field: using, kind: raise_option, has: {field: left, pattern: $OPTION}}
+        - any: [{has: {field: raise, pattern: $LEVEL}}, {kind: stmt_raise}]
     not:
         any:
             - has: {kind: any_identifier}
             - has: {kind: kw_sqlstate}
             - has: {kind: raise_option, has: {field: left, kind: kw_errcode}}
-message: '`$RAISE` raises the default `P0001` condition'
+transform:
+    LEVELED: {replace: {source: $LEVEL, replace: '^', by: ' '}}
+    FORMATTED: {replace: {source: $FORMAT, replace: '^', by: ' '}}
+    OPTIONED: {replace: {source: $OPTION, replace: '^', by: ' USING '}}
+message: '`$KEYWORD$LEVELED$FORMATTED$OPTIONED` raises the default `P0001` condition'
 note: 'State the condition with `USING ERRCODE = <name or SQLSTATE>` or `RAISE <condition>`, a catching handler selects on SQLSTATE alone'

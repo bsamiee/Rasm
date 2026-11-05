@@ -6,7 +6,7 @@ rule:
     all:
         - pattern: $C.set($_)
         - has: {field: arguments, has: {stopBy: end, pattern: $C.get()}}
-        - not: {has: {field: arguments, has: {stopBy: end, kind: identifier, regex: '^current$'}}}
+        - not: {has: {field: arguments, has: {stopBy: end, pattern: current}}}
         - not: {has: {field: arguments, has: {stopBy: end, any: [{pattern: $C.set($$$)}, {pattern: $C.replace($$$)}, {pattern: $C.take()}]}}}
         - not: {has: {field: arguments, has: {stopBy: end, pattern: $C, not: {inside: {kind: field_expression, field: value, has: {field: field, regex: '^get$'}}}}}}
 constraints:

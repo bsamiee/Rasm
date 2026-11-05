@@ -1,5 +1,5 @@
 import { Record } from 'effect';
-import { any, children, classes, closure, lexemes, lexical, mandatory, named, reaches, rewrite, spellings, symbol, widen } from './derive.js';
+import { any, children, classes, closure, lexemes, lexical, mandatory, named, reaches, rewrite, spans, spellings, symbol, widen } from './derive.js';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -57,11 +57,11 @@ const compose = (base, { name, fragments, slots, rules, conflicts }) => {
     return grammar(base, {
         name,
         externals: ($, original) => [...original, $._hole, $._hole_end],
-        conflicts: ($, original) => [...original, ...conflicts($)],
+        conflicts: ($, original) => [...original, [$.substitution], ...conflicts($)],
         rules: {
-            substitution: ($) => seq($._hole, $._hole_end),
+            substitution: ($) => repeat1(seq($._hole, $._hole_end)),
             _hole_forms: () => seq(...hosts.flatMap(({ hole: { opening, closing } }) => [opening, closing])),
-            _hole_tail: () => seq(...classes(lexemes(dialect)).identifier.ranges.flatMap(({ min, max }) => [String(min), String(max)])),
+            _hole_tail: () => spans(classes(lexemes(dialect)).identifier),
             _hole_words: () => seq(...spellings(dialect)),
             source_file: ($, original) => {
                 const led = (fragment) => fragments.some((other) => other !== fragment && symbol(other)(head(dialect.rules[fragment])));

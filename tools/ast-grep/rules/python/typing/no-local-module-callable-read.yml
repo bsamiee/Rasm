@@ -27,4 +27,4 @@ rule:
                 - has: {field: right, pattern: $MEMBER, matches: module-member}
         - inside: {kind: function_definition, stopBy: end}
 message: 'Local `$NAME` retypes module member `$MEMBER` on every call'
-note: 'Declare `<NAME>: Final[Callable[...]] = $MEMBER` once at module scope, under the suppression its stub needs, and call it'
+note: 'Declare `<NAME>: Final[Callable[...]] = <member>` once at module scope, under the suppression its stub needs, and call it'

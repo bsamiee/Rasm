@@ -9,7 +9,7 @@ rule:
             field: function
             kind: attribute
             all:
-                - has: {field: attribute, regex: '^command$'}
+                - has: {field: attribute, pattern: command}
                 - has:
                     field: object
                     kind: identifier
@@ -17,7 +17,7 @@ rule:
         - has:
             field: arguments
             kind: argument_list
-            has: {nthChild: 1, kind: identifier, pattern: $COMMAND, matches: {python-imported-name: {module: {regex: '.'}, name: {regex: '.'}}}}
-            not: {has: {nthChild: 2}}
+            has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, kind: identifier, pattern: $COMMAND, matches: {python-imported-name: {module: {regex: '.'}, name: {regex: '.'}}}}
+            not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
 message: '`$CALL` imports `$COMMAND` before its command runs'
 note: 'Register `<app>.command("<module>:<function>")` and remove the eager function import'

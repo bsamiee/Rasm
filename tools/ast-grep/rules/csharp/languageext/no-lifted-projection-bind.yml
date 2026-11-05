@@ -16,12 +16,7 @@ utils:
                     - has:
                         stopBy: end
                         any:
-                            - kind: method_declaration
-                              all:
-                                - has: {field: name, pattern: {context: 'class $METHOD;', selector: identifier}}
-                                - not: {has: {field: type_parameters, kind: type_parameter_list}}
-                                - not: {has: {field: returns, matches: overload-return}}
-                            - kind: local_function_statement
+                            - kind: method_declaration, local_function_statement
                               all:
                                 - has: {field: name, pattern: {context: 'class $METHOD;', selector: identifier}}
                                 - not: {has: {field: type_parameters, kind: type_parameter_list}}
@@ -30,11 +25,7 @@ utils:
                         has:
                             stopBy: end
                             any:
-                                - kind: method_declaration
-                                  all:
-                                    - has: {field: name, pattern: {context: 'class $METHOD;', selector: identifier}}
-                                    - any: [{has: {field: type_parameters, kind: type_parameter_list}}, {has: {field: returns, matches: overload-return}}]
-                                - kind: local_function_statement
+                                - kind: method_declaration, local_function_statement
                                   all:
                                     - has: {field: name, pattern: {context: 'class $METHOD;', selector: identifier}}
                                     - any: [{has: {field: type_parameters, kind: type_parameter_list}}, {has: {field: type, matches: overload-return}}]

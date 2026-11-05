@@ -43,9 +43,11 @@ utils:
                 kind: argument_list
                 stopBy: *evaluation-boundary
                 inside: {kind: class_definition, field: superclasses, matches: coroutine}
+            - inside: {kind: class_definition, field: body, stopBy: *evaluation-boundary, matches: coroutine}
 rule:
     kind: call
     all:
+        - inside: {kind: function_definition, stopBy: end, regex: '^async'}
         - matches: coroutine
         - has: {field: function, pattern: $CALLEE, matches: blocking-callee}
         - has: {field: arguments, pattern: $ARGS}

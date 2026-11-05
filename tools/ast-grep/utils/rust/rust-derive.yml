@@ -4,4 +4,4 @@ language: rustlang
 arguments: [trait]
 rule:
     kind: attribute_item
-    has: {stopBy: end, kind: token_tree, follows: {kind: identifier, regex: '^derive$'}, has: {kind: identifier, matches: trait}}
+    has: {stopBy: end, kind: token_tree, follows: {pattern: derive}, has: {kind: identifier, matches: trait}}

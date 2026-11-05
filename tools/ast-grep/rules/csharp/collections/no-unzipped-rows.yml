@@ -110,8 +110,8 @@ rule:
                 - has: {kind: argument_list, has: {matches: paired-projection}}
                 - has: {matches: paired-initializer}
             - any:
-                - inside: {kind: arrow_expression_clause, inside: {kind: method_declaration, has: {field: returns, pattern: $TYPE}}}
-                - inside: {kind: return_statement, inside: {stopBy: end, kind: method_declaration, has: {field: returns, pattern: $TYPE}}}
+                - inside: {kind: arrow_expression_clause, inside: {kind: method_declaration, has: {field: type, pattern: $TYPE}}}
+                - inside: {kind: return_statement, inside: {stopBy: end, kind: method_declaration, has: {field: type, pattern: $TYPE}}}
                 - inside: {kind: variable_declarator, inside: {kind: variable_declaration, has: {field: type, pattern: $TYPE}}}
             - matches: declared-type
         - kind: invocation_expression

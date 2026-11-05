@@ -1,0 +1,671 @@
+utils:
+    public: {kind: visibility_modifier, regex: 'pub', not: {regex: '\('}}
+    argument: {pattern: $ARGUMENT}
+    owner: {pattern: $OWNER}
+    enclosing: {any: [{inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item', inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item'}, any: [{has: {field: name, matches: owner}}, {kind: impl_item, has: {field: type, matches: owner}}]}}, {kind: 'associated_type, const_item, delegation_item, enum_item, extern_crate_declaration, foreign_mod_item, function_item, function_signature_item, impl_item, let_declaration, macro_definition, macro_invocation, mod_item, static_item, struct_item, trait_alias, trait_item, type_item, union_item, use_declaration'}]}
+    up: {pattern: $UP}
+    above: {inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item', any: [{has: {field: name, matches: up}}, {kind: impl_item, has: {field: type, matches: up}}]}}
+    part: {pattern: $PART}
+    head: {any: [{kind: 'generic_type, reference_type, pointer_type', has: {field: type, matches: head}}, {kind: 'dynamic_type, abstract_type', has: {field: trait, matches: head}}, {kind: scoped_type_identifier, has: {field: name, matches: head}}, {matches: part}]}
+    facet: {any: [{kind: generic_type, has: {field: type, matches: facet}}, {kind: scoped_type_identifier, has: {field: name, matches: facet}}, {pattern: $FACET}]}
+    role-attribute: {kind: attribute_item, has: {kind: attribute, has: {any: [{pattern: cfg}, {pattern: test}, {pattern: non_exhaustive}, {pattern: 'tokio::main'}, {pattern: 'tokio::test'}]}}, pattern: $ROLE}
+    role: {any: [{follows: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, matches: role-attribute}}, {inside: {field: name, follows: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, matches: role-attribute}}}, {not: {kind: source_file}}]}
+    conjoined: {all: [{matches: role}, {matches: enclosing}]}
+    nesting: {has: {field: body, has: {stopBy: end, kind: 'ERROR, const_item, delegation_item, enum_item, extern_crate_declaration, foreign_mod_item, function_item, impl_item, macro_definition, mod_item, static_item, struct_item, trait_alias, trait_item, type_item, union_item, use_declaration'}}}
+    assoc: {inside: {kind: declaration_list, inside: {kind: 'impl_item, trait_item'}}}
+    implied: {inside: {kind: declaration_list, inside: {any: [{kind: trait_item}, {kind: impl_item, has: {field: trait, kind: 'type_identifier, scoped_type_identifier, generic_type'}}]}}}
+    derive-attribute: {kind: attribute_item, has: {kind: attribute, has: {any: [{pattern: derive}]}}, pattern: $DERIVE}
+    derive: {any: [{follows: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, matches: derive-attribute}}, {not: {kind: source_file}}]}
+    target-name: {pattern: $TARGET}
+    target: {any: [{kind: 'type_identifier, primitive_type', matches: target-name}, {kind: scoped_type_identifier, has: {field: name, matches: target-name}}, {kind: 'generic_type, reference_type, pointer_type', has: {field: type, matches: target}}, {kind: 'dynamic_type, abstract_type', has: {field: trait, matches: target}}, {matches: target-name}]}
+    implemented-name: {pattern: $IMPLEMENTED}
+    implemented: {any: [{kind: type_identifier, matches: implemented-name}, {kind: scoped_type_identifier, has: {field: name, matches: implemented-name}}, {kind: generic_type, has: {field: type, matches: implemented}}, {matches: implemented-name}]}
+    declared: {inside: {kind: 'declaration_list, block', not: {inside: {kind: 'impl_item, trait_item'}}}}
+    exposed: {not: {inside: {stopBy: end, not: {has: {matches: public}}, any: [{kind: block}, {kind: 'mod_item, trait_item', inside: {kind: 'declaration_list, block'}}]}}}
+    visible: {any: [{has: {matches: public}}, {inside: {field: name, has: {kind: visibility_modifier}}}]}
+    declaration: {pattern: $DECLARATION}
+    name: {pattern: $NAME}
+    bodied: {inside: {kind: 'declaration_list, block'}}
+    holding: {has: {field: body, has: {kind: 'ERROR, associated_type, const_item, delegation_item, enum_item, extern_crate_declaration, foreign_mod_item, function_item, function_signature_item, impl_item, let_declaration, macro_definition, macro_invocation, mod_item, static_item, struct_item, trait_alias, trait_item, type_item, union_item, use_declaration'}}}
+rewriters:
+    - {id: annotation, rule: {kind: 'attribute_item, line_comment, block_comment'}, fix: ''}
+    - {id: body, rule: {any: [{kind: function_contract}, {kind: block, inside: {kind: 'function_item, delegation_item', field: body}}]}, fix: ' '}
+    - {id: semi, rule: {kind: identifier}, fix: ';'}
+    - {id: role-space, rule: {kind: attribute_item}, fix: ' '}
+    - {id: lineage, rule: {any: [{matches: part, inside: {field: name, kind: 'delegation_item, enum_item, function_item, mod_item, struct_item, trait_item, union_item', matches: above}}, {inside: {field: type, kind: impl_item, not: {has: {field: trait, kind: 'type_identifier, scoped_type_identifier, generic_type'}}, matches: above}, matches: head}]}, transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage, trait-lineage], joinBy: ''}}}, fix: '$ABOVE$PART::'}
+    - {id: trait-lineage, rule: {inside: {field: type, kind: impl_item, has: {field: trait, matches: facet}, matches: above}, matches: head}, transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage, trait-lineage], joinBy: ''}}}, fix: '$ABOVE<$PART as $FACET>::'}
+    - {id: value, rule: {pattern: $VALUE, inside: {kind: 'const_item, static_item, let_declaration, field_declaration, enum_variant', field: value}}, fix: {template: ' ', expandStart: {regex: '^=$', stopBy: end}, expandEnd: {regex: '^;$'}}}
+    - {id: spaced, rule: {kind: visibility_modifier, pattern: $V}, fix: '$V '}
+    - {id: lt, rule: {not: {kind: source_file}}, fix: '<'}
+    - {id: as, rule: {not: {kind: source_file}}, fix: ' as '}
+    - {id: gt, rule: {not: {kind: source_file}}, fix: '>'}
+transform:
+    PATH: {rewrite: {source: $ARGUMENT, rewriters: [annotation]}}
+    FOLDED: {replace: {source: $PATH, replace: '\p{Pattern_White_Space}+', by: ' '}}
+    NAME: {replace: {source: $TARGET, replace: '\p{Pattern_White_Space}+', by: ' '}}
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [body, annotation]}}
+    LINE: {replace: {source: $HEADER, replace: '\p{Pattern_White_Space}+', by: ' '}}
+    SIGNATURE: {replace: {source: $LINE, replace: '[ ,;]+$|,? ([)\]>])|([(\[<]) ', by: $1$2}}
+    QUALIFIED: {rewrite: {source: $OWNER, rewriters: [lineage, trait-lineage], joinBy: ''}}
+    QUALIFIER: {replace: {source: $QUALIFIED, replace: '\p{Pattern_White_Space}+', by: ' '}}
+    TERM: {rewrite: {source: $FILED, rewriters: [semi]}}
+    ROLE_LINE: {replace: {source: $ROLE, replace: '\p{Pattern_White_Space}+', by: ' '}}
+    ROLE_SPACE: {rewrite: {source: $ROLE, rewriters: [role-space]}}
+    DERIVE_LINE: {replace: {source: $DERIVE, replace: '\p{Pattern_White_Space}+', by: ' '}}
+    DERIVE_SPACE: {rewrite: {source: $DERIVE, rewriters: [role-space]}}
+    PREFIX: {rewrite: {source: $VISIBILITY, rewriters: [spaced]}}
+    OPEN: {rewrite: {source: $IMPLEMENTED, rewriters: [lt]}}
+    FOR: {rewrite: {source: $IMPLEMENTED, rewriters: [as]}}
+    CLOSE: {rewrite: {source: $IMPLEMENTED, rewriters: [gt]}}
+variants:
+    placed:
+        utils:
+            enclosing: {any: [{inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item', any: [{has: {field: name, matches: owner}}, {kind: impl_item, has: {field: type, matches: owner}}]}}, {kind: 'associated_type, const_item, delegation_item, enum_item, extern_crate_declaration, foreign_mod_item, function_item, function_signature_item, impl_item, let_declaration, macro_definition, macro_invocation, mod_item, static_item, struct_item, trait_alias, trait_item, type_item, union_item, use_declaration'}]}
+        rewriters:
+            - {id: lineage, rule: {any: [{matches: part, inside: {field: name, kind: 'delegation_item, enum_item, function_item, mod_item, struct_item, trait_item, union_item', any: [{matches: above}, {kind: 'delegation_item, enum_item, function_item, mod_item, struct_item, trait_item, union_item'}]}}, {inside: {field: type, kind: impl_item, not: {has: {field: trait, kind: 'type_identifier, scoped_type_identifier, generic_type'}}, any: [{matches: above}, {kind: impl_item}]}, matches: head}]}, transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage, trait-lineage], joinBy: ''}}}, fix: '$ABOVE$PART::'}
+            - {id: trait-lineage, rule: {inside: {field: type, kind: impl_item, has: {field: trait, matches: facet}, any: [{matches: above}, {kind: impl_item}]}, matches: head}, transform: {ABOVE: {rewrite: {source: $UP, rewriters: [lineage, trait-lineage], joinBy: ''}}}, fix: '$ABOVE<$PART as $FACET>::'}
+    item-role:
+        utils:
+            role: {any: [{follows: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, matches: role-attribute}}, {not: {kind: source_file}}]}
+    item-derived:
+        utils:
+            conjoined: {all: [{matches: derive}, {matches: role}, {matches: enclosing}]}
+    member-derived:
+        utils:
+            conjoined: {all: [{matches: derive}, {matches: role}]}
+            derive: {any: [{follows: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, matches: derive-attribute}}, {inside: {field: name, follows: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, matches: derive-attribute}}}, {not: {kind: source_file}}]}
+    valued:
+        rewriters:
+            - {id: annotation, rule: {kind: 'attribute_item, line_comment, block_comment', not: {follows: {regex: '^=$', stopBy: {not: {kind: 'line_comment, block_comment'}}}}}, fix: ''}
+        transform:
+            HEADER: {rewrite: {source: $DECLARATION, rewriters: [value, annotation]}}
+    impl:
+        rewriters:
+            - {id: body, rule: {kind: declaration_list, inside: {kind: impl_item, field: body}}, fix: ' '}
+    mod:
+        rewriters:
+            - {id: body, rule: {kind: declaration_list, inside: {kind: mod_item, field: body}}, fix: ' '}
+    trait:
+        rewriters:
+            - {id: body, rule: {kind: declaration_list, inside: {kind: trait_item, field: body}}, fix: ' '}
+    struct:
+        rewriters:
+            - {id: body, rule: {kind: field_declaration_list, inside: {kind: 'struct_item, union_item', field: body}}, fix: ' '}
+    enum:
+        rewriters:
+            - {id: body, rule: {kind: enum_variant_list, inside: {kind: enum_item, field: body}}, fix: ' '}
+    foreign:
+        rewriters:
+            - {id: body, rule: {kind: declaration_list, inside: {kind: foreign_mod_item, field: body}}, fix: ' '}
+    use:
+        transform:
+            NAME: {replace: {source: $FOLDED, replace: '[ ,;]+$|,? ([)\]}>])|([(\[{]) ', by: $1$2}}
+            SIGNATURE: {replace: {source: $LINE, replace: '[ ,;]+$|,? ([)\]}>])|([(\[{]) ', by: $1$2}}
+    block:
+        transform:
+            SIGNATURE: {substring: {source: $LINE, endChar: -1}}
+---
+id: rust-use
+role: item
+symbolType: module
+variants: [use]
+rule:
+    kind: 'use_declaration, extern_crate_declaration'
+    pattern: $DECLARATION
+    any:
+        - has: {field: argument, kind: use_as_clause, has: {field: path, any: [{has: {field: path, matches: argument}}, {matches: argument}]}}
+        - has: {field: argument, has: {field: path, matches: argument}}
+        - has: {field: argument, kind: use_wildcard, has: {matches: argument}}
+        - has: {field: argument, matches: argument}
+        - has: {field: name, matches: argument}
+transform:
+    HEADER: {rewrite: {source: $DECLARATION, rewriters: [annotation]}}
+name: $NAME
+signature: $SIGNATURE
+isImport: true
+isExported: {has: {matches: public}}
+---
+id: rust-mod
+role: item
+symbolType: module
+variants: [placed, item-role, mod, block]
+rule:
+    kind: mod_item
+    pattern: $DECLARATION
+    has: {field: name, pattern: {context: 'mod $NAME;', selector: identifier}}
+    any: [{not: {has: {field: body, kind: declaration_list}}, has: {field: name, pattern: {context: 'mod $FILED;', selector: identifier}}}, {kind: mod_item}]
+    matches: conjoined
+name: $QUALIFIER$NAME
+signature: $ROLE_LINE$ROLE_SPACE$SIGNATURE$TERM
+isExported: {has: {matches: public}}
+---
+id: rust-function
+role: item
+symbolType: function
+variants: [placed, item-role]
+rule:
+    kind: 'function_item, function_signature_item, delegation_item'
+    pattern: $DECLARATION
+    has: {field: name, pattern: $NAME}
+    all: [{not: {inside: {kind: declaration_list, inside: {kind: 'impl_item, trait_item'}}}}, {not: {matches: nesting}}]
+    matches: conjoined
+name: $QUALIFIER$NAME
+signature: $ROLE_LINE$ROLE_SPACE$SIGNATURE
+isExported: {has: {matches: public}}
+---
+id: rust-function-owner
+role: item
+symbolType: function
+variants: [placed, item-role]
+rule:
+    kind: 'function_item, function_signature_item, delegation_item'
+    pattern: $DECLARATION
+    has: {field: name, pattern: $NAME}
+    all: [{not: {inside: {kind: declaration_list, inside: {kind: 'impl_item, trait_item'}}}}, {matches: nesting}]
+    matches: conjoined
+name: $QUALIFIER$NAME
+signature: $ROLE_LINE$ROLE_SPACE$SIGNATURE
+isExported: {has: {matches: public}}
+---
+id: rust-method
+role: item
+symbolType: method
+variants: [placed, item-role]
+rule:
+    kind: 'function_item, function_signature_item, delegation_item'
+    pattern: $DECLARATION
+    has: {field: name, pattern: $NAME}
+    all: [{matches: assoc}, {not: {matches: nesting}}]
+    matches: conjoined
+name: $QUALIFIER$NAME
+signature: $ROLE_LINE$ROLE_SPACE$SIGNATURE
+isExported: {any: [{has: {matches: public}}, {matches: implied}]}
+---
+id: rust-method-owner
+role: item
+symbolType: method
+variants: [placed, item-role]
+rule:
+    kind: 'function_item, function_signature_item, delegation_item'
+    pattern: $DECLARATION
+    has: {field: name, pattern: $NAME}
+    all: [{matches: assoc}, {matches: nesting}]
+    matches: conjoined
+name: $QUALIFIER$NAME
+signature: $ROLE_LINE$ROLE_SPACE$SIGNATURE
+isExported: {any: [{has: {matches: public}}, {matches: implied}]}
+---
+id: rust-type
+role: item
+symbolType: struct
+variants: [placed, item-role, item-derived, struct]
+rule:
+    kind: 'struct_item, union_item, type_item, associated_type'
+    pattern: $DECLARATION
+    has: {field: name, pattern: {context: 'struct $NAME;', selector: type_identifier}}
+    matches: conjoined
+name: $QUALIFIER$NAME
+signature: $DERIVE_LINE$DERIVE_SPACE$ROLE_LINE$ROLE_SPACE$SIGNATURE
+isExported: {any: [{has: {matches: public}}, {matches: implied}]}
+---
+id: rust-enum
+role: item
+symbolType: enum
+variants: [placed, item-role, item-derived, enum]
+rule:
+    kind: enum_item
+    pattern: $DECLARATION
+    has: {field: name, pattern: {context: 'struct $NAME;', selector: type_identifier}}
+    matches: conjoined
+name: $QUALIFIER$NAME
+signature: $DERIVE_LINE$DERIVE_SPACE$ROLE_LINE$ROLE_SPACE$SIGNATURE
+isExported: {has: {matches: public}}
+---
+id: rust-trait
+role: item
+symbolType: interface
+variants: [placed, trait]
+rule:
+    kind: 'trait_item, trait_alias'
+    pattern: $DECLARATION
+    has: {field: name, pattern: {context: 'struct $NAME;', selector: type_identifier}}
+    matches: enclosing
+name: $QUALIFIER$NAME
+signature: $SIGNATURE
+isExported: {has: {matches: public}}
+---
+id: rust-impl
+role: item
+symbolType: object
+variants: [placed, impl]
+rule:
+    kind: impl_item
+    pattern: $DECLARATION
+    not: {has: {field: trait, kind: 'type_identifier, scoped_type_identifier, generic_type'}}
+    has: {field: type, matches: target}
+    matches: enclosing
+name: $QUALIFIER$NAME
+signature: $SIGNATURE
+isExported: false
+---
+id: rust-trait-impl
+role: item
+symbolType: object
+variants: [placed, impl]
+rule:
+    kind: impl_item
+    pattern: $DECLARATION
+    all:
+        - has: {field: trait, matches: implemented}
+        - has: {field: type, matches: target}
+        - any: [{has: {regex: '^!$', not: {kind: never_type}, pattern: $$NEGATION}}, {kind: impl_item}]
+    matches: enclosing
+name: $QUALIFIER<$NAME as $NEGATION$IMPLEMENTED>
+signature: $SIGNATURE
+isExported: true
+---
+id: rust-const
+role: item
+symbolType: constant
+variants: [placed, valued]
+rule:
+    kind: const_item
+    pattern: $DECLARATION
+    has: {field: name, pattern: {context: 'mod $NAME;', selector: identifier}}
+    matches: enclosing
+name: $QUALIFIER$NAME
+signature: $SIGNATURE
+isExported: {not: {has: {field: name, regex: '^_$'}}, any: [{has: {matches: public}}, {matches: implied}]}
+---
+id: rust-static
+role: item
+symbolType: variable
+variants: [placed, valued]
+rule:
+    pattern: $DECLARATION
+    any:
+        - {kind: static_item, has: {field: name, pattern: {context: 'mod $NAME;', selector: identifier}}}
+        - {kind: let_declaration, has: {field: pattern, pattern: $NAME}, inside: {kind: 'source_file, ERROR, declaration_list'}}
+    matches: enclosing
+name: $QUALIFIER$NAME
+signature: $SIGNATURE
+isExported: {has: {matches: public}}
+---
+id: rust-macro
+role: item
+symbolType: function
+variants: [placed]
+rule:
+    kind: macro_definition
+    has: {field: name, pattern: {context: 'mod $NAME;', selector: identifier}}
+    all:
+        - has: {regex: '^(?:macro_rules!|macro)$', pattern: $$KEYWORD}
+        - any: [{has: {kind: visibility_modifier, pattern: $VISIBILITY}}, {kind: macro_definition}]
+    matches: enclosing
+name: $QUALIFIER$NAME
+signature: $PREFIX$KEYWORD $NAME
+isExported:
+    any:
+        - {has: {matches: public}}
+        - follows: {kind: attribute_item, has: {kind: attribute, has: {kind: identifier, pattern: macro_export}}, stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}}
+---
+id: rust-macro-invocation
+role: item
+symbolType: event
+variants: [placed]
+rule:
+    kind: macro_invocation
+    has: {field: macro, pattern: $NAME}
+    inside: {any: [{kind: 'source_file, ERROR, declaration_list'}, {kind: expression_statement, inside: {kind: 'source_file, ERROR'}}]}
+    matches: enclosing
+name: $QUALIFIER$NAME
+signature: $NAME!
+isExported: false
+---
+id: rust-foreign-block
+role: item
+symbolType: namespace
+variants: [placed, foreign, block]
+rule:
+    kind: foreign_mod_item
+    pattern: $DECLARATION
+    has: {kind: extern_modifier, pattern: $NAME}
+    matches: enclosing
+name: $QUALIFIER$NAME
+signature: $SIGNATURE
+isExported: false
+---
+id: rust-error
+role: item
+symbolType: 'null'
+rule:
+    any:
+        - {kind: ERROR, not: {has: {stopBy: end, kind: 'associated_type, const_item, delegation_item, enum_item, extern_crate_declaration, foreign_mod_item, function_item, function_signature_item, impl_item, let_declaration, macro_definition, macro_invocation, mod_item, static_item, struct_item, trait_alias, trait_item, type_item, union_item, use_declaration'}}}
+        - {kind: 'identifier, line_comment, block_comment', all: [{inside: {kind: ERROR}}, {not: {follows: {kind: 'identifier, line_comment, block_comment', stopBy: end}}}, {nthChild: {position: 1, ofRule: {kind: 'identifier, line_comment, block_comment'}}}]}
+name: ERROR
+signature: ''
+isImport: false
+isExported: false
+---
+id: rust-member-function
+role: member
+parentRuleIds: [rust-mod, rust-method-owner, rust-trait, rust-impl, rust-trait-impl, rust-foreign-block]
+symbolType: function
+rule:
+    any:
+        - {kind: 'function_item, function_signature_item, delegation_item', matches: declaration, all: [{matches: declared}, {not: {matches: nesting}}, {matches: enclosing}], has: {field: name, matches: name}}
+        - {kind: 'identifier, metavariable', matches: name, inside: {kind: 'function_item, delegation_item', field: name, matches: declaration, all: [{matches: declared}, {matches: enclosing}]}}
+    matches: role
+name: $QUALIFIER$NAME
+signature: $ROLE_LINE$ROLE_SPACE$SIGNATURE
+isPublic: {all: [{matches: visible}, {matches: exposed}]}
+---
+id: rust-member-function-nested
+role: member
+parentRuleIds: [rust-function-owner]
+symbolType: function
+rule:
+    any:
+        - {kind: 'function_item, function_signature_item, delegation_item', matches: declaration, all: [{matches: declared}, {not: {matches: nesting}}, {matches: enclosing}], has: {field: name, matches: name}}
+        - {kind: 'identifier, metavariable', matches: name, inside: {kind: 'function_item, delegation_item', field: name, matches: declaration, all: [{matches: declared}, {matches: enclosing}], inside: {stopBy: end, kind: 'function_item, delegation_item', not: {inside: {kind: declaration_list, inside: {kind: 'impl_item, trait_item'}}}}}}
+    matches: role
+name: $QUALIFIER$NAME
+signature: $ROLE_LINE$ROLE_SPACE$SIGNATURE
+isPublic: {all: [{matches: visible}, {matches: exposed}]}
+---
+id: rust-member-method
+role: member
+parentRuleIds: [rust-mod, rust-function-owner, rust-trait, rust-impl, rust-trait-impl]
+symbolType: method
+rule:
+    any:
+        - {kind: 'function_item, function_signature_item, delegation_item', matches: declaration, all: [{matches: assoc}, {not: {matches: nesting}}, {matches: enclosing}], has: {field: name, matches: name}}
+        - {kind: 'identifier, metavariable', matches: name, inside: {kind: 'function_item, delegation_item', field: name, matches: declaration, all: [{matches: assoc}, {matches: enclosing}]}}
+    matches: role
+name: $QUALIFIER$NAME
+signature: $ROLE_LINE$ROLE_SPACE$SIGNATURE
+isPublic: {all: [{any: [{matches: visible}, {matches: implied}, {inside: {field: name, matches: implied}}]}, {matches: exposed}]}
+---
+id: rust-member-method-nested
+role: member
+parentRuleIds: [rust-method-owner]
+symbolType: method
+rule:
+    any:
+        - {kind: 'function_item, function_signature_item, delegation_item', matches: declaration, all: [{matches: assoc}, {not: {matches: nesting}}, {matches: enclosing}], has: {field: name, matches: name}}
+        - {kind: 'identifier, metavariable', matches: name, inside: {kind: 'function_item, delegation_item', field: name, matches: declaration, all: [{matches: assoc}, {matches: enclosing}], inside: {stopBy: end, kind: 'function_item, delegation_item', inside: {kind: declaration_list, inside: {kind: 'impl_item, trait_item'}}}}}
+    matches: role
+name: $QUALIFIER$NAME
+signature: $ROLE_LINE$ROLE_SPACE$SIGNATURE
+isPublic: {all: [{any: [{matches: visible}, {matches: implied}, {inside: {field: name, matches: implied}}]}, {matches: exposed}]}
+---
+id: rust-member-type
+role: member
+parentRuleIds: [rust-mod, rust-function-owner, rust-method-owner, rust-trait, rust-impl, rust-trait-impl, rust-foreign-block]
+symbolType: struct
+variants: [member-derived, struct]
+utils:
+    holding: {has: {field: body, has: {kind: 'field_declaration, ERROR'}}}
+rule:
+    any:
+        - {kind: 'struct_item, union_item', matches: declaration, not: {matches: holding}, all: [{matches: declared}, {matches: enclosing}], has: {field: name, pattern: {context: 'struct $NAME;', selector: type_identifier}}}
+        - {pattern: {context: 'struct $NAME;', selector: type_identifier}, inside: {kind: 'struct_item, union_item', field: name, matches: declaration, all: [{matches: holding}, {matches: declared}, {matches: enclosing}]}}
+        - {kind: 'type_item, associated_type', matches: declaration, has: {field: name, pattern: {context: 'struct $NAME;', selector: type_identifier}}, all: [{matches: bodied}, {matches: enclosing}]}
+    matches: conjoined
+name: $QUALIFIER$NAME
+signature: $DERIVE_LINE$DERIVE_SPACE$ROLE_LINE$ROLE_SPACE$SIGNATURE
+isPublic: {all: [{any: [{matches: visible}, {matches: implied}]}, {matches: exposed}]}
+---
+id: rust-member-field
+role: member
+parentRuleIds: [rust-mod, rust-function-owner, rust-method-owner, rust-trait, rust-impl, rust-trait-impl, rust-type]
+symbolType: field
+variants: [valued]
+rule:
+    kind: field_declaration
+    pattern: $DECLARATION
+    has: {field: name, pattern: {context: 'struct A { $NAME: u8 }', selector: field_identifier}}
+    inside: {kind: field_declaration_list, inside: {kind: 'struct_item, union_item', any: [{has: {field: name, pattern: $OWNER}, inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item'}}, {kind: 'struct_item, union_item'}]}}
+name: $QUALIFIER$NAME
+signature: $SIGNATURE
+isPublic: {all: [{has: {matches: public}}, {matches: exposed}]}
+---
+id: rust-member-const
+role: member
+parentRuleIds: [rust-mod, rust-function-owner, rust-method-owner, rust-trait, rust-impl, rust-trait-impl]
+symbolType: constant
+variants: [valued]
+rule:
+    kind: const_item
+    pattern: $DECLARATION
+    has: {field: name, pattern: {context: 'mod $NAME;', selector: identifier}}
+    all: [{matches: bodied}, {matches: enclosing}]
+name: $QUALIFIER$NAME
+signature: $SIGNATURE
+isPublic: {all: [{not: {has: {field: name, regex: '^_$'}}}, {any: [{has: {matches: public}}, {matches: implied}]}, {matches: exposed}]}
+---
+id: rust-member-static
+role: member
+parentRuleIds: [rust-mod, rust-function-owner, rust-method-owner, rust-trait, rust-impl, rust-trait-impl, rust-foreign-block]
+symbolType: variable
+variants: [valued]
+rule:
+    pattern: $DECLARATION
+    any:
+        - {kind: static_item, has: {field: name, pattern: {context: 'mod $NAME;', selector: identifier}}}
+        - {kind: let_declaration, has: {field: pattern, pattern: $NAME}, inside: {kind: declaration_list}}
+    all: [{matches: declared}, {matches: enclosing}]
+name: $QUALIFIER$NAME
+signature: $SIGNATURE
+isPublic: {all: [{has: {matches: public}}, {matches: exposed}]}
+---
+id: rust-member-enum
+role: member
+parentRuleIds: [rust-mod, rust-function-owner, rust-method-owner, rust-trait, rust-impl, rust-trait-impl]
+symbolType: enum
+variants: [member-derived, enum]
+utils:
+    holding: {has: {field: body, has: {kind: 'enum_variant, ERROR'}}}
+rule:
+    any:
+        - {kind: enum_item, matches: declaration, not: {matches: holding}, all: [{matches: declared}, {matches: enclosing}], has: {field: name, pattern: {context: 'struct $NAME;', selector: type_identifier}}}
+        - {pattern: {context: 'struct $NAME;', selector: type_identifier}, inside: {kind: enum_item, field: name, matches: declaration, all: [{matches: holding}, {matches: declared}, {matches: enclosing}]}}
+    matches: conjoined
+name: $QUALIFIER$NAME
+signature: $DERIVE_LINE$DERIVE_SPACE$ROLE_LINE$ROLE_SPACE$SIGNATURE
+isPublic: {all: [{matches: visible}, {matches: exposed}]}
+---
+id: rust-member-variant
+role: member
+parentRuleIds: [rust-mod, rust-function-owner, rust-method-owner, rust-trait, rust-impl, rust-trait-impl, rust-enum]
+symbolType: enumMember
+variants: [valued]
+rule:
+    kind: enum_variant
+    pattern: $DECLARATION
+    has: {field: name, pattern: {context: 'mod $NAME;', selector: identifier}}
+    inside: {kind: enum_variant_list, inside: {kind: enum_item, any: [{has: {field: name, pattern: $OWNER}, inside: {stopBy: end, kind: 'delegation_item, function_item, impl_item, mod_item, trait_item'}}, {kind: enum_item}]}}
+transform:
+    SIGNATURE: {replace: {source: $LINE, replace: '[ ,;]+$|,? ([)\]>])|,( \})|([(\[<]) ', by: $1$2$3}}
+name: $QUALIFIER$NAME
+signature: $SIGNATURE
+isPublic: {all: [{not: {inside: {kind: enum_variant_list, inside: {inside: {kind: 'declaration_list, block'}, not: {has: {matches: public}}}}}}, {matches: exposed}]}
+---
+id: rust-member-macro
+role: member
+parentRuleIds: [rust-mod, rust-function-owner, rust-method-owner, rust-trait, rust-impl, rust-trait-impl]
+symbolType: function
+rule:
+    kind: macro_definition
+    has: {field: name, pattern: {context: 'mod $NAME;', selector: identifier}}
+    all:
+        - has: {regex: '^(?:macro_rules!|macro)$', pattern: $$KEYWORD}
+        - any: [{has: {kind: visibility_modifier, pattern: $VISIBILITY}}, {kind: macro_definition}]
+        - {matches: declared}
+        - {matches: enclosing}
+name: $QUALIFIER$NAME
+signature: $PREFIX$KEYWORD $NAME
+isPublic:
+    any:
+        - all: [{has: {matches: public}}, {matches: exposed}]
+        - follows: {kind: attribute_item, has: {kind: attribute, has: {kind: identifier, pattern: macro_export}}, stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}}
+---
+id: rust-member-arm
+role: member
+parentRuleIds: [rust-macro]
+symbolType: function
+rule:
+    kind: macro_rule
+    has: {field: left, kind: token_tree_pattern, pattern: $LEFT}
+    inside: {kind: macro_definition, has: {field: name, pattern: {context: 'mod $MACRO;', selector: identifier}}}
+transform:
+    NAME: {replace: {source: $LEFT, replace: '\p{Pattern_White_Space}+', by: ' '}}
+name: $NAME
+signature: $MACRO!$NAME
+isPublic:
+    inside:
+        kind: macro_definition
+        any:
+            - {has: {matches: public}}
+            - follows: {kind: attribute_item, has: {kind: attribute, has: {kind: identifier, pattern: macro_export}}, stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}}
+---
+id: rust-member-foreign-block
+role: member
+parentRuleIds: [rust-mod, rust-function-owner, rust-method-owner, rust-trait, rust-impl, rust-trait-impl]
+symbolType: namespace
+variants: [foreign, block]
+rule:
+    any:
+        - {kind: foreign_mod_item, matches: declaration, not: {matches: holding}, all: [{matches: declared}, {matches: enclosing}], has: {kind: extern_modifier, matches: name}}
+        - {kind: extern_modifier, matches: name, inside: {kind: foreign_mod_item, matches: declaration, all: [{matches: holding}, {matches: declared}, {matches: enclosing}]}}
+name: $QUALIFIER$NAME
+signature: $SIGNATURE
+isPublic: false
+---
+id: rust-member-mod
+role: member
+parentRuleIds: [rust-function-owner, rust-method-owner, rust-trait, rust-impl, rust-trait-impl]
+symbolType: module
+variants: [mod, use]
+rule:
+    any:
+        - {kind: mod_item, matches: declaration, not: {matches: holding}, all: [{matches: declared}, {matches: enclosing}, {any: [{not: {has: {field: body, kind: declaration_list}}, has: {field: name, pattern: {context: 'mod $FILED;', selector: identifier}}}, {kind: mod_item}]}], has: {field: name, pattern: {context: 'mod $ARGUMENT;', selector: identifier}}}
+        - {pattern: {context: 'mod $ARGUMENT;', selector: identifier}, inside: {kind: mod_item, field: name, matches: declaration, all: [{matches: holding}, {matches: declared}, {matches: enclosing}]}}
+        - kind: 'use_declaration, extern_crate_declaration'
+          matches: declaration
+          all: [{matches: declared}, {matches: enclosing}]
+          any:
+            - has: {field: argument, kind: use_as_clause, has: {field: path, any: [{has: {field: path, matches: argument}}, {matches: argument}]}}
+            - has: {field: argument, has: {field: path, matches: argument}}
+            - has: {field: argument, kind: use_wildcard, has: {matches: argument}}
+            - has: {field: argument, matches: argument}
+            - has: {field: name, matches: argument}
+    matches: role
+name: $QUALIFIER$NAME
+signature: $ROLE_LINE$ROLE_SPACE$SIGNATURE$TERM
+isPublic: {all: [{matches: visible}, {matches: exposed}]}
+---
+id: rust-member-mod-nested
+role: member
+parentRuleIds: [rust-mod]
+symbolType: module
+variants: [mod, use]
+rule:
+    any:
+        - {kind: mod_item, matches: declaration, not: {matches: holding}, all: [{matches: declared}, {matches: enclosing}, {any: [{not: {has: {field: body, kind: declaration_list}}, has: {field: name, pattern: {context: 'mod $FILED;', selector: identifier}}}, {kind: mod_item}]}], has: {field: name, pattern: {context: 'mod $ARGUMENT;', selector: identifier}}}
+        - {pattern: {context: 'mod $ARGUMENT;', selector: identifier}, inside: {kind: mod_item, field: name, matches: declaration, all: [{matches: holding}, {matches: declared}, {matches: enclosing}], inside: {stopBy: end, kind: mod_item}}}
+        - kind: 'use_declaration, extern_crate_declaration'
+          matches: declaration
+          all: [{matches: declared}, {matches: enclosing}]
+          any:
+            - has: {field: argument, kind: use_as_clause, has: {field: path, any: [{has: {field: path, matches: argument}}, {matches: argument}]}}
+            - has: {field: argument, has: {field: path, matches: argument}}
+            - has: {field: argument, kind: use_wildcard, has: {matches: argument}}
+            - has: {field: argument, matches: argument}
+            - has: {field: name, matches: argument}
+    matches: role
+name: $QUALIFIER$NAME
+signature: $ROLE_LINE$ROLE_SPACE$SIGNATURE$TERM
+isPublic: {all: [{matches: visible}, {matches: exposed}]}
+---
+id: rust-member-trait
+role: member
+parentRuleIds: [rust-mod, rust-function-owner, rust-method-owner, rust-impl, rust-trait-impl]
+symbolType: interface
+variants: [trait]
+rule:
+    any:
+        - {kind: 'trait_item, trait_alias', matches: declaration, not: {matches: holding}, all: [{matches: declared}, {matches: enclosing}], has: {field: name, pattern: {context: 'struct $NAME;', selector: type_identifier}}}
+        - {pattern: {context: 'struct $NAME;', selector: type_identifier}, inside: {kind: trait_item, field: name, matches: declaration, all: [{matches: holding}, {matches: declared}, {matches: enclosing}]}}
+name: $QUALIFIER$NAME
+signature: $SIGNATURE
+isPublic: {all: [{matches: visible}, {matches: exposed}]}
+---
+id: rust-member-trait-nested
+role: member
+parentRuleIds: [rust-trait]
+symbolType: interface
+variants: [trait]
+rule:
+    any:
+        - {kind: 'trait_item, trait_alias', matches: declaration, not: {matches: holding}, all: [{matches: declared}, {matches: enclosing}], has: {field: name, pattern: {context: 'struct $NAME;', selector: type_identifier}}}
+        - {pattern: {context: 'struct $NAME;', selector: type_identifier}, inside: {kind: trait_item, field: name, matches: declaration, all: [{matches: holding}, {matches: declared}, {matches: enclosing}], inside: {stopBy: end, kind: trait_item}}}
+name: $QUALIFIER$NAME
+signature: $SIGNATURE
+isPublic: {all: [{matches: visible}, {matches: exposed}]}
+---
+id: rust-member-impl
+role: member
+parentRuleIds: [rust-mod, rust-function-owner, rust-method-owner, rust-trait]
+symbolType: object
+variants: [impl]
+rule:
+    any:
+        - kind: impl_item
+          matches: declaration
+          all: [{matches: declared}, {not: {matches: holding}}, {matches: enclosing}, {has: {field: type, matches: target}}, {any: [{has: {field: trait, matches: implemented}}, {kind: impl_item}]}, {any: [{has: {regex: '^!$', not: {kind: never_type}, pattern: $$NEGATION}}, {kind: impl_item}]}]
+        - kind: 'abstract_type, array_type, bounded_type, dynamic_type, function_type, generic_type, macro_invocation, metavariable, never_type, pointer_type, primitive_type, reference_type, removed_trait_bound, scoped_type_identifier, tuple_type, type_identifier, unit_type, unsafe_binder_type'
+          all: [{inside: {kind: impl_item, field: type, matches: declaration, all: [{matches: holding}, {matches: declared}, {matches: enclosing}], any: [{has: {field: trait, matches: implemented}}, {kind: impl_item}]}}, {matches: target}]
+name: $QUALIFIER$OPEN$NAME$FOR$NEGATION$IMPLEMENTED$CLOSE
+signature: $SIGNATURE
+isPublic: {all: [{any: [{has: {field: trait, kind: 'type_identifier, scoped_type_identifier, generic_type'}}, {inside: {kind: impl_item, field: type, has: {field: trait, kind: 'type_identifier, scoped_type_identifier, generic_type'}}}]}, {matches: exposed}]}
+---
+id: rust-member-impl-nested
+role: member
+parentRuleIds: [rust-impl, rust-trait-impl]
+symbolType: object
+variants: [impl]
+rule:
+    any:
+        - kind: impl_item
+          matches: declaration
+          all: [{matches: declared}, {not: {matches: holding}}, {matches: enclosing}, {has: {field: type, matches: target}}, {any: [{has: {field: trait, matches: implemented}}, {kind: impl_item}]}, {any: [{has: {regex: '^!$', not: {kind: never_type}, pattern: $$NEGATION}}, {kind: impl_item}]}]
+        - kind: 'abstract_type, array_type, bounded_type, dynamic_type, function_type, generic_type, macro_invocation, metavariable, never_type, pointer_type, primitive_type, reference_type, removed_trait_bound, scoped_type_identifier, tuple_type, type_identifier, unit_type, unsafe_binder_type'
+          all: [{inside: {kind: impl_item, field: type, matches: declaration, all: [{matches: holding}, {matches: declared}, {matches: enclosing}], any: [{has: {field: trait, matches: implemented}}, {kind: impl_item}], inside: {stopBy: end, kind: impl_item}}}, {matches: target}]
+name: $QUALIFIER$OPEN$NAME$FOR$NEGATION$IMPLEMENTED$CLOSE
+signature: $SIGNATURE
+isPublic: {all: [{any: [{has: {field: trait, kind: 'type_identifier, scoped_type_identifier, generic_type'}}, {inside: {kind: impl_item, field: type, has: {field: trait, kind: 'type_identifier, scoped_type_identifier, generic_type'}}}]}, {matches: exposed}]}
+---
+id: rust-member-macro-invocation
+role: member
+parentRuleIds: [rust-mod, rust-function-owner, rust-method-owner, rust-trait, rust-impl, rust-trait-impl, rust-foreign-block]
+symbolType: event
+rule:
+    kind: macro_invocation
+    has: {field: macro, pattern: $NAME}
+    inside: {kind: declaration_list}
+    matches: enclosing
+name: $QUALIFIER$NAME
+signature: $NAME!
+isPublic: false
+---
+id: rust-member-error
+role: member
+parentRuleIds: [rust-mod, rust-function-owner, rust-method-owner, rust-trait, rust-impl, rust-trait-impl, rust-type, rust-enum, rust-foreign-block]
+symbolType: 'null'
+rule:
+    kind: ERROR
+    not: {has: {stopBy: end, kind: 'associated_type, const_item, delegation_item, enum_item, enum_variant, extern_crate_declaration, field_declaration, foreign_mod_item, function_item, function_signature_item, impl_item, let_declaration, macro_definition, macro_invocation, mod_item, static_item, struct_item, trait_alias, trait_item, type_item, union_item, use_declaration'}}
+name: ERROR
+signature: ''
+isPublic: false

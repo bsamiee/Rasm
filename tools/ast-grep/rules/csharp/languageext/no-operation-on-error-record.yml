@@ -35,7 +35,7 @@ utils:
         all:
             - has: {field: name, regex: '^Of$'}
             - has: {kind: modifier, regex: '^static$'}
-            - has: {field: returns, kind: identifier, pattern: {context: 'class $SELF;', selector: identifier}}
+            - has: {field: type, kind: identifier, pattern: {context: 'class $SELF;', selector: identifier}}
             - has: {field: body, kind: arrow_expression_clause, has: {kind: 'object_creation_expression, implicit_object_creation_expression'}}
             - inside: {stopBy: end, kind: record_declaration, has: {field: name, pattern: {context: 'class $SELF;', selector: identifier}}}
     guarded-value:
@@ -56,7 +56,7 @@ utils:
         kind: method_declaration
         all:
             - has: {field: name, regex: ^Unless}
-            - has: {field: returns, matches: {csharp-type-name: {name: {regex: '^Fin$'}}}}
+            - has: {field: type, matches: {csharp-type-name: {name: {regex: '^Fin$'}}}}
             - has:
                 field: body
                 kind: arrow_expression_clause
@@ -85,7 +85,7 @@ utils:
             - has: {field: name, regex: '^Create$'}
             - has: {kind: modifier, regex: '^static$'}
             - has: {field: parameters, has: {kind: parameter, has: {field: type, regex: '^string$'}}, not: {has: {kind: parameter, nthChild: 2}}}
-            - has: {field: returns, kind: identifier, pattern: {context: 'class $SELF;', selector: identifier}}
+            - has: {field: type, kind: identifier, pattern: {context: 'class $SELF;', selector: identifier}}
             - inside:
                 stopBy: end
                 kind: record_declaration

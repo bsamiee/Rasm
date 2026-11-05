@@ -11,12 +11,12 @@ utils:
                 - pattern: super()
                 - matches: member-chain
     single-parameter:
-        not: {has: {nthChild: 2}}
+        not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
         has:
-            nthChild: 1
+            nthChild: {position: 1, ofRule: {not: {kind: comment}}}
             any:
                 - {kind: identifier, pattern: $SELF}
-                - {kind: typed_parameter, has: {nthChild: 1, kind: identifier, pattern: $SELF}}
+                - {kind: typed_parameter, has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, kind: identifier, pattern: $SELF}}
     forwarded-read:
         matches: member-chain
         pattern: $READ
@@ -49,9 +49,9 @@ utils:
               all:
                 - has:
                     field: arguments
-                    not: {has: {nthChild: 2}}
+                    not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
                     has:
-                        nthChild: 1
+                        nthChild: {position: 1, ofRule: {not: {kind: comment}}}
                         kind: string
                         pattern: $READ
                         has: {kind: string_content, regex: '\.'}
@@ -59,16 +59,16 @@ utils:
                 - has: {field: function, matches: {python-member-use: {module: {regex: '^operator$'}, name: {regex: '^attrgetter$'}}}}
     getter-argument:
         any:
-            - nthChild: 1
+            - nthChild: {position: 1, ofRule: {not: {kind: comment}}}
               matches: getter
             - kind: keyword_argument
               all:
-                - has: {field: name, regex: '^fget$'}
+                - has: {field: name, pattern: fget}
                 - has: {field: value, matches: getter}
     forwarding-accessor:
         kind: function_definition
         all:
-            - has: {field: parameters, has: {nthChild: 2, matches: {python-parameter: {name: {pattern: $VALUE}}}}}
+            - has: {field: parameters, has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}, matches: {python-parameter: {name: {pattern: $VALUE}}}}}
             - has:
                 field: body
                 matches: python-single-statement-block
@@ -107,7 +107,7 @@ rule:
                         - has:
                             field: arguments
                             has: {matches: getter-argument}
-                            not: {has: {pattern: $_, not: {any: [{matches: getter-argument}, {kind: keyword_argument, has: {field: name, regex: '^doc$'}}]}}}
+                            not: {has: {pattern: $_, not: {any: [{matches: getter-argument}, {kind: keyword_argument, has: {field: name, pattern: doc}}]}}}
                         - has: {field: function, matches: property-callee}
         - not:
             inside:

@@ -1,18 +1,23 @@
 import { Predicate, Record } from 'effect';
 import csharp from 'tree-sitter-c-sharp/grammar.js';
-import { after, any, children, choiceOf, extend, named, optionalOf, reaches, replace, rewrite, string, symbol, widen } from '../derive.js';
+import { after, any, children, choiceOf, classes, extend, named, optionalOf, reaches, replace, rewrite, spans, string, symbol, widen } from '../derive.js';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const DIRECTIVE_SEPARATORS = { sdk: '@', package: '@', property: '=', project: '', ref: '', include: '', exclude: '' };
 const METADATA_DIRECTIVES = new Set(['package', 'project', 'ref', 'include']);
-const DIRECTIVE_SPACE = /[\t\v\f\p{Zs}\u{FEFF}]+/u;
+const SPACE = '\\t\\v\\f\\p{Zs}\\u{FEFF}';
+const WHITESPACE = new RegExp(`[\\n\\r\\u{85}\\u{2028}\\u{2029}${SPACE}]+`, 'u');
+const DIRECTIVE_SPACE = new RegExp(`[${SPACE}]+`, 'u');
 const QUOTED = /(?:[^"\\\r\n]|\\[^\r\n])+/u;
 const METADATA_NAME = /[\p{L}\p{Nl}_][\p{L}\p{Nl}\p{Mn}\p{Mc}\p{Nd}\p{Pc}\p{Cf}.-]*/u;
 const BARE = { '@': /[^\s"@]+/u, '=': /[^\s"=]+/u, '': /[^\s"]+/u };
 const LINE_REST = /[^\s](?:[^\r\n]*[^\s])?/u;
 const CONFLICTS = [
     ['preproc_if_in_top_level', 'preproc_if_in_attribute_list', 'preproc_if_in_modifier', 'preproc_if_in_if_header'],
+    ['preproc_if_in_top_level', 'preproc_if_in_expression', 'preproc_if_in_modifier'],
+    ['preproc_if_in_top_level', 'preproc_if_in_expression', 'preproc_if_in_modifier', 'preproc_if_in_initializer_expression'],
+    ['preproc_if', 'preproc_if_in_modifier'],
     ['preproc_if_in_top_level', 'preproc_if_in_expression', 'preproc_if_in_attribute_list', 'preproc_if_in_modifier', 'preproc_if_in_if_header'],
     ['preproc_if_in_top_level', 'preproc_if_in_attribute_list', 'preproc_if_in_modifier'],
     ['preproc_else_in_top_level', 'preproc_else_in_expression', 'preproc_else_in_attribute_list', 'preproc_else_in_modifier', 'preproc_else_in_if_header'],
@@ -120,6 +125,7 @@ const leading = (rule) => ({ STRING: () => [rule.value], SEQ: () => leading(rule
 const prefixes = new Set(['prefix_unary_expression', '_address_of_expression', '_pointer_indirection_expression'].flatMap((rule) => leading(csharp.grammar.rules[rule])));
 const castEdge = csharp.grammar.rules.cast_expression.content.value + 1;
 const overCast = (edge) => (arm) => (reaches(arm, (part) => named('operator')(part) && prefixes.has(part.content.value)) ? prec.dynamic(edge, arm) : arm);
+const typed = (_, original) => rewrite(original, (part) => (named('returns')(part) ? field('type', part.content) : part));
 const valued = (_, original) => rewrite(original, (part) => (part.type === 'SEQ' && part.members.length === 2 && string('=')(part.members[0]) ? seq(part.members[0], field('value', part.members[1])) : part));
 
 // --- [PARAMETERS]
@@ -204,6 +210,7 @@ const ifHead = ({ content }) => content.members.slice(0, content.members.findInd
 
 export default extend(csharp, {
     transforms: [conditionalModifiers],
+    extras: (_, original) => original.map((rule) => (rule.type === 'PATTERN' ? WHITESPACE : rule)),
     externals: ($, original) => [...original, $._conditional_access_question],
     conflicts: ($, original) => [
         ...original.filter((rules) => !rules.every(any(symbol('tuple_element'), symbol('declaration_expression')))),
@@ -219,6 +226,7 @@ export default extend(csharp, {
         file_based_directive: ($) => choice(...Record.collect(DIRECTIVE_SEPARATORS, (kind, separator) => directive($, kind, separator))),
         directive_metadata: ($) => seq(piece('name', $.directive_name, METADATA_NAME), token.immediate('='), optional(quotable('value', $.directive_value, BARE['']))),
         _directive_space: () => token.immediate(prec(1, DIRECTIVE_SPACE)),
+        _space: () => spans(classes({ identifier: [], whitespace: [{ type: 'PATTERN', value: WHITESPACE.source, flags: WHITESPACE.flags }] }).whitespace),
         _reserved_identifier: (_, original) => choice(original, 'allows', 'with', 'union', 'closed', 'safe'),
         modifier: widen(choiceOf(string('public')), 'closed', 'safe'),
         type_declaration: ($, original) => choice(original, $.union_declaration),
@@ -235,6 +243,9 @@ export default extend(csharp, {
         _parameter_type_with_modifiers: ($, original) => choice(original, seq(prec.left(precedence('argument') + 1, alias(choice('in', 'out'), $.modifier)), field('type', $.type))),
         parameter_list: parameters,
         bracketed_parameter_list: parameters,
+        method_declaration: typed,
+        function_pointer_type: typed,
+        anonymous_method_expression: replace(symbol('block'), ($) => field('body', $.block)),
         variable_declarator: valued,
         using_variable_declarator: valued,
         parameter: valued,
@@ -282,7 +293,7 @@ export default extend(csharp, {
         switch_body: widen(symbol('switch_section'), ($) => alias($.preproc_if_in_switch_section, $.preproc_if)),
         _function_body: ($, original) => choice(original, field('body', alias($._conditional_arrow, $.arrow_expression_clause))),
         _conditional_arrow: ($) => replace(symbol('expression'), () => alias($.preproc_if_in_arrow_body, $.preproc_if))($, csharp.grammar.rules.arrow_expression_clause),
-        ...Record.fromEntries(branches('_in_top_level', '_in_modifier', choiceOf(symbol('statement')), ($) => $.modifier)),
+        ...Record.fromEntries(branches('_in_top_level', '_in_modifier', choiceOf(symbol('statement')), ($) => choice($.modifier, alias($.preproc_if_in_modifier, $.preproc_if)))),
         ...Record.fromEntries(branches('_in_top_level', '_in_switch_section', choiceOf(symbol('statement')), ($) => $.switch_section)),
         ...Record.fromEntries(branches('_in_attribute_list', '_in_arrow_body', symbol('attribute_list'), ($) => seq($.expression, ';'))),
         ...Record.fromEntries(branches('_in_attribute_list', '_in_if_header', symbol('attribute_list'), () => rewrite(seq(...ifHead(csharp.grammar.rules.if_statement)), (part) => (named('condition')(part) ? part.content : part)))),

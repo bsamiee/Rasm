@@ -216,6 +216,7 @@
         "@texel/color": "catalog:",
         "@tree-sitter-grammars/tree-sitter-toml": "catalog:",
         "@tree-sitter-grammars/tree-sitter-xml": "catalog:",
+        "@tree-sitter-grammars/tree-sitter-yaml": "catalog:",
         "@turf/turf": "catalog:",
         "@tus/s3-store": "catalog:",
         "@tus/server": "catalog:",

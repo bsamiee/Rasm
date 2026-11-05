@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-parse-error-sql
 language: sql
 severity: error
 utils:
@@ -28,11 +27,3 @@ labels:
     MISSING: {style: primary, message: Token the grammar inserted to recover}
 message: '`$TOKEN` opens a span the grammar failed to parse'
 note: Fix the syntax, or extend tools/ast-grep/grammars/sql for valid syntax it rejects
----
-id: no-host-hole-sql
-language: sql
-severity: error
-files: ['**/*.sql']
-rule: {kind: substitution}
-message: '`.sql` file holds a host hole no host fills'
-note: Write the value in SQL or move its statement into a host template

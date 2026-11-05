@@ -35,7 +35,7 @@ rule:
     pattern: $FN
     all:
         - any:
-            - {kind: identifier, any: [{matches: conversion}, {regex: '^identity$'}]}
+            - {kind: identifier, any: [{matches: conversion}, {pattern: identity}]}
             - {kind: member_expression, has: {field: property, any: [{matches: conversion}, {matches: string-member}, {regex: '^identity$'}]}}
             - kind: arrow_function
         - matches: getter-position

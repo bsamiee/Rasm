@@ -16,7 +16,7 @@ utils:
                         kind: value_argument
                         field: value
                         has: {field: name, regex: '^platformOptions$'}
-                        inside: {kind: value_arguments, inside: {kind: call_suffix, inside: {kind: call_expression, has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '^(Subprocess(\.|::))?(run|Configuration(\.init)?)$'}}}}
+                        inside: {kind: value_arguments, inside: {kind: call_suffix, inside: {kind: call_expression, has: {nthChild: 1, regex: '^(Subprocess(\.|::))?(run|Configuration(\.init)?)$'}}}}
                     - all:
                         - inside: {kind: property_declaration}
                         - follows: {kind: type_annotation, stopBy: {kind: 'type_annotation, pattern'}, has: {field: name, matches: options-type}}
@@ -25,8 +25,7 @@ utils:
                         field: result
                         inside: {kind: statements, inside: {kind: function_body, inside: {kind: function_declaration, has: {field: return_type, matches: options-type}}}}
                     - inside:
-                        kind: statements
-                        not: {has: {nthChild: 2}}
+                        matches: swift-sole-statement
                         inside: {kind: function_body, inside: {kind: function_declaration, has: {field: return_type, matches: options-type}}}
     options-configured:
         all:
@@ -43,7 +42,7 @@ utils:
                             - has:
                                 kind: call_expression
                                 all:
-                                    - has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '^((Subprocess(\.|::))?TeardownStep)?\.(send|gracefulShutDown)$'}
+                                    - has: {nthChild: 1, regex: '^((Subprocess(\.|::))?TeardownStep)?\.(send|gracefulShutDown)$'}
                                     - not:
                                         has:
                                             kind: value_argument
@@ -87,7 +86,7 @@ rule:
         - kind: call_expression
           all:
             - any:
-                - has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '^(Subprocess(\.|::))?(run|Configuration(\.init)?)$'}
+                - has: {nthChild: 1, regex: '^(Subprocess(\.|::))?(run|Configuration(\.init)?)$'}
                 - all:
                     - has: {nthChild: 1, kind: prefix_expression, regex: '^\.init$'}
                     - inside: {kind: property_declaration}
@@ -99,7 +98,7 @@ rule:
                     all:
                         - any:
                             - has: {kind: value_argument, has: {field: name, regex: '^(executable|arguments|environment|workingDirectory)$'}}
-                            - has: {kind: value_argument, nthChild: 1, has: {field: value, regex: '^((Subprocess(\.|::))?Executable)?\.(name|path)\('}}
+                            - has: {kind: value_argument, nthChild: {position: 1, ofRule: {kind: value_argument}}, has: {field: value, regex: '^((Subprocess(\.|::))?Executable)?\.(name|path)\('}}
                             - has:
                                 kind: value_argument
                                 nthChild: 1
@@ -111,12 +110,12 @@ rule:
             - regex: '^(Foundation(\.|::))?Process(\.init)?\([\t-\r ]*\)$'
             - has: {nthChild: 1, kind: navigation_expression, regex: '^(Foundation(\.|::))?Process\.(run|launchedProcess)$'}
             - all:
-                - has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '^((Darwin|Glibc|Musl)(\.|::))?posix_spawnp?$'}
+                - has: {nthChild: 1, regex: '^((Darwin|Glibc|Musl)(\.|::))?posix_spawnp?$'}
                 - not:
                     inside:
                         kind: 'function_declaration, init_declaration, lambda_literal, computed_property'
                         stopBy: {kind: 'function_declaration, init_declaration, lambda_literal, computed_property'}
-                        has: {stopBy: end, kind: simple_identifier, regex: '^POSIX_SPAWN_SETEXEC$'}
+                        has: {stopBy: end, pattern: POSIX_SPAWN_SETEXEC}
             - all:
                 - pattern: .init()
                 - inside: {kind: property_declaration}

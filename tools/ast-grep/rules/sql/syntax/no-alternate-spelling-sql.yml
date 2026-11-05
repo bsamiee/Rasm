@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: sql
+severity: error
+rule:
+    all:
+        - any:
+            - kind: limit_clause
+              all:
+                - has: {regex: '^,$'}
+                - has: {nthChild: {position: 1, ofRule: &named {not: {kind: 'line_comment, block_comment'}}}, kind: numeric_literal}
+            - {kind: join_step, has: {regex: '(?i-u)^(inner|outer)$'}}
+            - {kind: 'select_statement, select_clause', has: {regex: '(?i-u)^all$', follows: {regex: '(?i-u)^select$', stopBy: *named}}}
+            - {kind: 'create_table_statement, create_view_statement, create_trigger_statement', has: {field: temporary, regex: '(?i-u)^temporary$'}}
+            - kind: function_call
+              all:
+                - has: {field: name, regex: '(?i-u)^["`\[]?count["`\]]?$'}
+                - not: {has: {field: arguments, has: {not: {kind: 'line_comment, block_comment'}}}}
+            - kind: is_expression
+              all:
+                - has: {regex: '(?i-u)^distinct$'}
+                - has: {field: right, kind: null_literal}
+            - {kind: binary_expression, has: {field: operator, regex: '^(==|!=)$'}}
+            - kind: is_null_expression
+            - kind: function_call
+              all:
+                - has: {field: name, regex: '(?i-u)^["`\[]?group_concat["`\]]?$'}
+                - has:
+                    field: arguments
+                    kind: normal_function_arguments
+                    all:
+                        - not: {has: {field: modifier, regex: '(?i-u)^distinct$'}}
+                        - not: {has: {nthChild: {position: 2, ofRule: *named}, not: {kind: order_by_clause}}}
+        - pattern: $NODE
+message: '`$NODE` uses an alternate SQL spelling'
+note: 'Use SQL operators and standard function names while preserving literal values, comments, collation, and evaluation'

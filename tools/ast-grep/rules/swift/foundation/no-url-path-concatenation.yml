@@ -36,6 +36,6 @@ rule:
                     - all:
                         - has: {field: name, regex: '^atPath$'}
                         - has: {field: value, any: [{matches: url-path}, {matches: joined-path}]}
-                        - inside: {kind: value_arguments, inside: {kind: call_suffix, inside: {kind: call_expression, has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '(?-u:\b)contentsOfDirectory$'}}}}
+                        - inside: {kind: value_arguments, inside: {kind: call_suffix, inside: {kind: call_expression, has: {nthChild: 1, regex: '(?-u:\b)contentsOfDirectory$'}}}}
 message: '`$SITE` builds a file location from path text'
 note: 'Build `URL(filePath:)`, join with `appending(path:)` or `appendingPathExtension(_:)`, list with `contentsOfDirectory(at:includingPropertiesForKeys:)`'

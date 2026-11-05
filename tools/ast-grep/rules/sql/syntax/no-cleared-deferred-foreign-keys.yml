@@ -3,11 +3,9 @@ language: sql
 severity: error
 rule:
     kind: pragma_statement
-    pattern: $PRAGMA
     all:
         - has: {field: name, regex: '(?i-u)^["''`\[]?defer_foreign_keys["''`\]]?$'}
-        - any:
-            - has: {field: value, regex: '(?i-u)^["''`\[]?(off|no|false|0)["''`\]]?$'}
-            - has: {kind: numeric_literal, regex: '^0$'}
+        - matches: sql-pragma-off
+        - pattern: $PRAGMA
 message: '`$PRAGMA` clears pending foreign key violations and lets orphan rows commit'
 note: 'Delete the pragma, commit switches `defer_foreign_keys` off'

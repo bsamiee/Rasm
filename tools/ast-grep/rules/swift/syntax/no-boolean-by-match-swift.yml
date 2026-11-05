@@ -68,8 +68,7 @@ rule:
                     - has: {kind: switch_entry, has: {kind: statements, has: {kind: control_transfer_statement}}}
                 - inside: {stopBy: {matches: swift-function-scope}, kind: function_declaration, has: {field: return_type, regex: '^(Swift(\.|::))?Bool$'}}
             - inside:
-                kind: statements
-                not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, multiline_comment'}}}}}
+                matches: swift-sole-statement
                 inside: {kind: function_body, inside: {kind: function_declaration, has: {field: return_type, regex: '^(Swift(\.|::))?Bool$'}}}
             - inside: {kind: control_transfer_statement, field: result, inside: {stopBy: {matches: swift-function-scope}, kind: function_declaration, has: {field: return_type, regex: '^(Swift(\.|::))?Bool$'}}}
             - {follows: {regex: '^=$'}, inside: {kind: property_declaration, has: {kind: type_annotation, has: {field: name, regex: '^(Swift(\.|::))?Bool$'}}}}

@@ -39,7 +39,7 @@
         "Cargo.toml": "Cargo.lock, clippy.toml, rust-toolchain.toml, rustfmt.toml",
         "CLAUDE.md": ".mcp.json, AGENTS.md",
         "Directory.Build.props": "Directory.Build.rsp, Directory.Build.targets, Directory.Packages.props, Directory.Solution.props, global.json, NuGet.config, Workspace.slnx",
-        "nx.json": ".editorconfig, mise.toml, mise.ci.toml, sgconfig.yml",
+        "nx.json": ".editorconfig, mise.toml, mise.ci.toml, sgconfig.yml, .shellcheckrc",
         "package.json": "biome.json, pnpm-lock.yaml, pnpm-workspace.yaml, tsconfig.base.json, tsconfig.json, tsconfig.web.json, vite.shared.ts, vitest.config.ts",
         "Package.swift": ".swift-format, .swiftlint.yml, Package.resolved, Xcode.xcconfig",
         "pyproject.toml": "pixi.lock, uv.lock",

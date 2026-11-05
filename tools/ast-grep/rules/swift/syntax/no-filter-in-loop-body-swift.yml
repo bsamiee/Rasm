@@ -32,7 +32,7 @@ utils:
                         kind: value_arguments
                         all:
                             - has: {kind: value_argument, not: {has: {kind: value_argument_label}}, has: {field: value, pattern: $ELEMENT}}
-                            - not: {has: {kind: value_argument, nthChild: 2}}
+                            - not: {has: {kind: value_argument, nthChild: {position: 2, ofRule: {kind: value_argument}}}}
             - all:
                 - has: {kind: simple_identifier, stopBy: end, pattern: $ELEMENT}
                 - not: {has: {stopBy: end, kind: lambda_literal}}
@@ -132,9 +132,9 @@ rule:
                 - has:
                     kind: statements
                     all:
-                        - has: {nthChild: 2}
+                        - not: {matches: swift-sole-statement}
                         - has:
-                            nthChild: 1
+                            nthChild: {position: 1, ofRule: {not: {kind: 'comment, multiline_comment'}}}
                             kind: if_statement
                             all:
                                 - matches: boolean-test
@@ -144,16 +144,13 @@ rule:
             - all:
                 - matches: kept-item
                 - has:
-                    kind: statements
-                    all:
-                        - not: {has: {nthChild: 2}}
-                        - has:
-                            nthChild: 1
-                            kind: if_statement
-                            all:
-                                - matches: boolean-test
-                                - not: {has: {regex: '^else$'}}
-                                - has: {not: {kind: statements}, matches: reads-item}
-                                - has: {kind: statements}
+                    matches: swift-sole-statement
+                    has:
+                        kind: if_statement
+                        all:
+                            - matches: boolean-test
+                            - not: {has: {regex: '^else$'}}
+                            - has: {not: {kind: statements}, matches: reads-item}
+                            - has: {kind: statements}
 message: '`for` over `$COLL` selects elements by a test at the top of its body'
 note: 'Select in `for` by `case`, `where`, or lazy `compactMap`, keeping throwing or asynchronous binding steps in the body'

@@ -39,22 +39,19 @@ utils:
     setter-value:
         kind: simple_identifier
         any:
-            - regex: '^newValue$'
+            - pattern: newValue
             - all:
                 - pattern: $VALUE
                 - inside: {kind: computed_setter, stopBy: end, has: {kind: simple_identifier, pattern: $VALUE}}
     forwarding-setter:
         kind: computed_setter
         has:
-            kind: statements
-            all:
-                - not: {has: {nthChild: 2}}
-                - has:
-                    nthChild: 1
-                    kind: assignment
-                    all:
-                        - has: {field: target, has: {pattern: $READ}}
-                        - has: {field: result, matches: setter-value}
+            matches: swift-sole-statement
+            has:
+                kind: assignment
+                all:
+                    - has: {field: target, has: {pattern: $READ}}
+                    - has: {field: result, matches: setter-value}
     host-member:
         any:
             - has: {kind: modifiers, any: [{has: {kind: attribute, regex: '^@(objc|IBOutlet|IBInspectable|NSManaged)(?-u:\b)'}}, {has: {regex: '^(override|dynamic)$'}}]}

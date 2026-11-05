@@ -10,6 +10,7 @@
 #define FUNCTION_SIGNATURE_END (TOKEN_COUNT + 3)
 #define TRAILING_CONSTRAINT_COMMA (TOKEN_COUNT + 4)
 #define TRIPLE_QUOTED 0x80000000U
+#define NEWLINE_COMMENT 0x40000000U
 static const char CLOSURE_LABEL_EXCLUSION[] = "default";
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -126,6 +127,18 @@ static bool labels_trailing_closure(TSLexer *lexer) {
     return lexer->lookahead == '{';
 }
 
+static bool scan_newline_continuation(TSLexer *lexer, const bool *valid_symbols) {
+    enum TokenType operator_result;
+    lexer->mark_end(lexer);
+    if (eat_operators(lexer, valid_symbols, false, false, 0, &operator_result) && is_cross_semi_token(operator_result)) {
+        lexer->mark_end(lexer);
+        lexer->result_symbol = operator_result;
+        return true;
+    }
+    lexer->result_symbol = IMPLICIT_SEMI;
+    return true;
+}
+
 // --- [CONSTRAINTS]
 
 static bool scan_trailing_constraint_comma(TSLexer *lexer) {
@@ -142,6 +155,16 @@ static bool scan_trailing_constraint_comma(TSLexer *lexer) {
 
 bool(tree_sitter_swift_external_scanner_scan)(void *payload, TSLexer *lexer, const bool *valid_symbols) {
     struct ScannerState *state = payload;
+    bool pending = state->ongoing_raw_str_hash_count & NEWLINE_COMMENT;
+    state->ongoing_raw_str_hash_count &= ~NEWLINE_COMMENT;
+    if (pending && valid_symbols[IMPLICIT_SEMI] && valid_symbols[EXPLICIT_SEMI]) {
+        while (holds(" \t", lexer->lookahead)) {
+            lexer->advance(lexer, true);
+        }
+        if (!lexer->eof(lexer) && !holds("\n\r/;#?:{&|^<>", lexer->lookahead)) {
+            return scan_newline_continuation(lexer, valid_symbols);
+        }
+    }
     if (valid_symbols[RAW_STRING_CLOSE] && !valid_symbols[RAW_STRING_OPEN]) {
         return scan_raw_body(state, lexer);
     }
@@ -151,6 +174,9 @@ bool(tree_sitter_swift_external_scanner_scan)(void *payload, TSLexer *lexer, con
     }
     bool left_bound =valid_symbols[POSTFIX_OPERATOR] && !should_treat_as_wspace(first);
     bool found = swift_upstream_scan(payload, lexer, valid_symbols);
+    if (found && lexer->result_symbol == BLOCK_COMMENT && (pending || holds("\n\r", first))) {
+        state->ongoing_raw_str_hash_count |= NEWLINE_COMMENT;
+    }
     if (!found && valid_symbols[RAW_STRING_OPEN] && !valid_symbols[RAW_STRING_CLOSE] && lexer->lookahead == '#') {
         return scan_raw_open(state, lexer);
     }

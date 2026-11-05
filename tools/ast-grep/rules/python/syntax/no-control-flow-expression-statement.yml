@@ -28,19 +28,19 @@ utils:
                         - matches: iteration
                         - kind: argument_list
                           all:
-                            - has: {nthChild: 1, matches: iteration, not: {has: {field: function, kind: list_splat}}}
-                            - not: {has: {nthChild: 2, not: {kind: keyword_argument}}}
-                            - not: {has: {nthChild: 3}}
+                            - has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: iteration, not: {has: {field: function, kind: list_splat}}}
+                            - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}, not: {kind: keyword_argument}}}
+                            - not: {has: {nthChild: {position: 3, ofRule: {not: {kind: comment}}}}}
             - kind: list, set, tuple
               all:
                 - has:
-                    nthChild: 1
+                    nthChild: {position: 1, ofRule: {not: {kind: comment}}}
                     any:
                         - kind: list_splat
                           has: {matches: iteration}
                         - matches: iteration
                           has: {field: function, kind: list_splat}
-                - not: {has: {nthChild: 2}}
+                - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
     dropped:
         any:
             - kind: conditional_expression, boolean_operator, list_comprehension, set_comprehension, dictionary_comprehension
@@ -52,7 +52,7 @@ utils:
             - has:
                 kind: assignment
                 all:
-                    - has: {field: left, kind: identifier, regex: '^_$'}
+                    - has: {field: left, pattern: _}
                     - has: {field: right, any: [{matches: dropped}, {kind: parenthesized_expression, has: {stopBy: {not: {kind: parenthesized_expression}}, matches: dropped}}]}
 rule:
     matches: dropping-statement

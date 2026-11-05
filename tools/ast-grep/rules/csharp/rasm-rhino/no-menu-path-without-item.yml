@@ -48,26 +48,26 @@ utils:
             - inside: {kind: property_declaration, field: value, has: {field: type, matches: menu-type}}
             - inside:
                 kind: arrow_expression_clause
-                inside: {kind: 'property_declaration, method_declaration, local_function_statement', any: [{has: {field: type, matches: menu-type}}, {has: {field: returns, matches: menu-type}}]}
+                inside: {kind: 'property_declaration, method_declaration, local_function_statement', has: {field: type, matches: menu-type}}
             - inside:
                 kind: return_statement
                 inside:
                     stopBy: &body {kind: 'method_declaration, local_function_statement, lambda_expression, anonymous_method_expression'}
                     kind: method_declaration, local_function_statement
-                    any: [{has: {field: type, matches: menu-type}}, {has: {field: returns, matches: menu-type}}]
+                    has: {field: type, matches: menu-type}
     menus-target:
         any:
             - inside: {kind: variable_declarator, inside: {kind: variable_declaration, has: {field: type, matches: menus-type}}}
             - inside: {kind: property_declaration, field: value, has: {field: type, matches: menus-type}}
             - inside:
                 kind: arrow_expression_clause
-                inside: {kind: 'property_declaration, method_declaration, local_function_statement', any: [{has: {field: type, matches: menus-type}}, {has: {field: returns, matches: menus-type}}]}
+                inside: {kind: 'property_declaration, method_declaration, local_function_statement', has: {field: type, matches: menus-type}}
             - inside:
                 kind: return_statement
                 inside:
                     stopBy: *body
                     kind: method_declaration, local_function_statement
-                    any: [{has: {field: type, matches: menus-type}}, {has: {field: returns, matches: menus-type}}]
+                    has: {field: type, matches: menus-type}
             - inside:
                 kind: argument
                 any:
@@ -84,7 +84,7 @@ utils:
                 - inside: {kind: property_declaration, field: value, has: {field: type, matches: rui-type}}
                 - inside:
                     kind: arrow_expression_clause
-                    inside: {kind: 'property_declaration, method_declaration, local_function_statement', any: [{has: {field: type, matches: rui-type}}, {has: {field: returns, matches: rui-type}}]}
+                    inside: {kind: 'property_declaration, method_declaration, local_function_statement', has: {field: type, matches: rui-type}}
 rule:
     any:
         - kind: object_creation_expression

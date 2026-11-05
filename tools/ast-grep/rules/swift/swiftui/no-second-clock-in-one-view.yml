@@ -12,7 +12,7 @@ utils:
               all:
                 - any:
                     - kind: interpolated_expression
-                    - inside: {kind: value_arguments, inside: {kind: call_suffix, inside: {kind: call_expression, has: {kind: 'simple_identifier, identifier, navigation_expression, prefix_expression', regex: '^(SwiftUI(\.|::))?(Text|ProgressView)$'}}}}
+                    - inside: {kind: value_arguments, inside: {kind: call_suffix, inside: {kind: call_expression, has: {nthChild: 1, regex: '^(SwiftUI(\.|::))?(Text|ProgressView)$'}}}}
                 - any:
                     - has: {field: name, regex: '^timerInterval$'}
                     - all:
@@ -46,7 +46,7 @@ rule:
                     kind: statements
                     not: {has: {stopBy: end, pattern: $FIRST}}
                     inside: {kind: if_statement, stopBy: {not: {kind: if_statement}}, has: {stopBy: end, pattern: $FIRST}}
-message: '`$SECOND` runs a second clock beside `TimelineView` in one view'
-note: 'Pass `context.date` from the view''s one `TimelineView` to every text and subview it renders'
 labels:
     SECOND: {style: primary}
+message: '`$SECOND` runs a second clock beside `TimelineView` in one view'
+note: 'Pass `context.date` from the view''s one `TimelineView` to every text and subview it renders'

@@ -42,13 +42,6 @@ utils:
                             kind: call_suffix
                             not: {has: {kind: lambda_literal}}
                             inside: {matches: flat-map-call}
-    sole:
-        kind: statements
-        not:
-            has:
-                all:
-                    - &statement {pattern: $_, not: {kind: 'comment, multiline_comment'}}
-                    - follows: {stopBy: end, all: [*statement]}
 rule:
     kind: 'call_expression, if_statement, switch_statement, ternary_expression, tuple_expression, try_expression, await_expression, unsafe_expression, consume_expression'
     any:
@@ -66,7 +59,7 @@ rule:
                 stopBy: {any: [{matches: swift-function-scope}, {kind: property_declaration}]}
                 matches: owner
         - inside:
-            matches: sole
+            matches: swift-sole-statement
             any:
                 - inside: {kind: function_body, inside: {matches: owner}}
                 - inside: {kind: lambda_literal, matches: owner}
@@ -84,5 +77,5 @@ rule:
         - inside:
             kind: tuple_expression
             field: value
-            not: {has: {nthChild: 2}}
+            not: {has: {regex: '^,$'}}
             matches: swift-result-context

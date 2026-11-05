@@ -35,11 +35,11 @@ utils:
             - kind: call
               all:
                 - has: {field: function, matches: {python-builtin-name: {name: {regex: '^frozenset$'}}}}
-                - has: {field: arguments, all: [{has: {kind: 'set, tuple, list', not: {has: {pattern: $_, not: {any: [{matches: folded}, {matches: member}, {kind: comment}]}}}}}, {not: {has: {nthChild: 2}}}]}
+                - has: {field: arguments, all: [{has: {kind: 'set, tuple, list', not: {has: {pattern: $_, not: {any: [{matches: folded}, {matches: member}, {kind: comment}]}}}}}, {not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}}]}
     lookup:
         any:
             - inside: {kind: subscript, field: value}
-            - inside: {kind: attribute, field: object, has: {field: attribute, regex: '^get$'}, inside: {kind: call, field: function}}
+            - inside: {kind: attribute, field: object, has: {field: attribute, pattern: get}, inside: {kind: call, field: function}}
             - follows: {pattern: $$OPERATOR, regex: '^(not[\t-\r \x{200B}\x{2060}\x{FEFF}]+)?in$'}
     reference:
         kind: identifier
@@ -66,7 +66,7 @@ utils:
             - inside: {kind: 'default_parameter, typed_default_parameter, named_expression, function_definition', field: name}
             - inside: {kind: aliased_import, field: alias}
             - inside: {kind: typed_parameter}
-              nthChild: 1
+              nthChild: {position: 1, ofRule: {not: {kind: comment}}}
             - inside: {kind: as_pattern}
               nthChild: {position: 1, reverse: true}
             - inside: {kind: augmented_assignment, field: left}
@@ -95,7 +95,12 @@ utils:
         any:
             - has: {field: name, pattern: $ENTRY}
             - has: {field: definition, has: {field: name, pattern: $ENTRY}}
-        inside: {kind: module, has: {stopBy: end, kind: *statement-owner, matches: statement-owner, has: {stopBy: end, kind: identifier, pattern: $ENTRY}}}
+        inside:
+            kind: module
+            has:
+                stopBy: {not: {kind: 'class_definition, decorated_definition, block'}}
+                kind: *statement-owner
+                all: [{has: {stopBy: end, kind: identifier, pattern: $ENTRY}}, {matches: statement-owner}]
     reader:
         pattern: $READER
         all:
@@ -123,8 +128,6 @@ utils:
     level:
         kind: block
         not: {inside: {kind: 'class_definition, match_statement', field: body}}
-    contextual:
-        kind: &contextual 'list_comprehension, set_comprehension, dictionary_comprehension, generator_expression, lambda'
     enclosed-1: {inside: {stopBy: end, kind: block, matches: level}}
     enclosed-2: {inside: {stopBy: end, kind: block, all: [{matches: level}, {matches: enclosed-1}]}}
     enclosed-3: {inside: {stopBy: end, kind: block, all: [{matches: level}, {matches: enclosed-2}]}}
@@ -189,16 +192,16 @@ rule:
                     - any:
                         - matches: class-member
                         - inside: {kind: decorated_definition, matches: class-member, not: {has: {kind: decorator, not: {regex: '^@(staticmethod|classmethod)$'}}}}
-            - has: {field: body, not: {has: {nthChild: 3}}, has: {kind: return_statement, nthChild: {position: 1, reverse: true}}}
+            - has: {field: body, not: {has: {nthChild: {position: 3, ofRule: {not: {kind: comment}}}}}, has: {kind: return_statement, nthChild: {position: 1, reverse: true}}}
             - inside: {kind: module, stopBy: end, has: {stopBy: end, kind: identifier, matches: mention, inside: {stopBy: end, kind: 'function_definition, decorated_definition', matches: caller, not: {matches: enclosed-3}}}}
-            - not: {all: [{has: {field: body, has: {stopBy: end, kind: *contextual}}}, {inside: {kind: module, stopBy: end, has: {stopBy: end, kind: identifier, matches: mention, inside: {stopBy: end, kind: *contextual}}}}]}
+            - not: {all: [{has: {field: body, has: {stopBy: end, kind: &contextual 'list_comprehension, set_comprehension, dictionary_comprehension, generator_expression, lambda'}}}, {inside: {kind: module, stopBy: end, has: {stopBy: end, kind: identifier, matches: mention, inside: {stopBy: end, kind: *contextual}}}}]}
             - inside:
                 kind: module
                 stopBy: end
                 all:
                     - not: {has: {matches: exported}}
                     - not: {has: {stopBy: end, kind: identifier, matches: later-reference}}
-                    - not: {has: {stopBy: end, kind: identifier, pattern: $NAME, nthChild: 1, inside: {kind: argument_list, inside: {kind: call, has: {field: function, matches: functools-partial-callee}}}}}
+                    - not: {has: {stopBy: end, kind: identifier, pattern: $NAME, nthChild: {position: 1, ofRule: {not: {kind: comment}}}, inside: {kind: argument_list, inside: {kind: call, has: {field: function, matches: functools-partial-callee}}}}}
                     - not:
                         has:
                             stopBy: end

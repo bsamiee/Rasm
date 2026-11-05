@@ -15,7 +15,6 @@ const VARIABLE = new RegExp(`(?:::)*${VARIABLE_CHARACTER}${VARIABLE_TAIL}`, 'u')
 const REGISTERLESS = new RegExp(`(?:(?:::)+${VARIABLE_CHARACTER}|[A-Za-z_$\\u{80}-\\u{10FFFF}])${VARIABLE_TAIL}`, 'u');
 const NON_FALLBACK = ['deferrable', 'join', 'nothing', 'to', 'transaction'];
 const INDEXED = 'indexed';
-const FILTER = 'filter';
 const RAISE_TYPES = ['rollback', 'abort', 'fail'];
 const QUOTED_ARGUMENT = "|`(?:[^`]|``)*`|\\[[^\\]]*\\]|[^,()'\"`\\[]";
 
@@ -63,12 +62,13 @@ const NAME = drop((part) => reaches(part, spelledAs('recursive')))(undefined, RU
 const restricted = (set) => () => rewrite(NAME, (part) => (symbol('identifier')(part) ? reserved(set, part) : part));
 const unaliased = (part) => part.type === 'SEQ' && part.members.length === 2 && optionalOf(keyworded('AS'))(part.members[0]) && named('alias')(part.members[1]);
 const bare = replace(unaliased, ($, { members: [as, name] }) => choice(seq(mandatory(as), name), rewrite(name, (part) => (symbol('_id')(part) ? $._ids : part))));
+const unbounded = (direction) => (part) => part.type === 'SEQ' && part.members.some(keyworded('UNBOUNDED')) && part.members.some(keyworded(direction));
 const dialect = extend(sqlite, {
     extras: (_, original) => [...original, ...TRIVIA],
     reserved: {
         sql: () => STRICT,
         ids: () => unique([...STRICT, keyword(INDEXED).content, ...JOIN_KINDS]),
-        window: () => unique([...STRICT, keyword(INDEXED).content, keyword(FILTER).content]),
+        window: () => unique([...STRICT, keyword(INDEXED).content, keyword('filter').content]),
     },
     transforms: [bare],
     rules: {
@@ -81,6 +81,17 @@ const dialect = extend(sqlite, {
             ($, { members: [, ...rest] }) => seq(alias($._window_head, $.named_window), ...rest),
         ),
         over_clause: replace(named('window_name'), ($) => field('window_name', $._window_name)),
+        window_frame_bound: drop(unbounded('FOLLOWING')),
+        _window_frame_end: () => drop(unbounded('PRECEDING'))(undefined, RULES.window_frame_bound),
+        window_frame_clause: replace(named('end'), ($) => field('end', alias($._window_frame_end, $.window_frame_bound))),
+        _create_table_columns: replace(
+            (part) => part.type === 'SEQ' && choiceOf(named('column'))(part.members[0]),
+            (_, { members: [{ members: items }, { content: next }] }) => {
+                const [comma] = next.members;
+                const [column, constraints] = [items.find(named('column')), items.find((item) => reaches(item, named('constraint')))];
+                return seq(column, repeat(seq(comma, column)), repeat(seq(comma, constraints)));
+            },
+        ),
         type_name: replace(symbol('_id'), ($) => $._ids),
         raise_expression: ($) => seq(keyword('raise'), '(', choice(keyword('ignore'), seq(field('type', choice(...RAISE_TYPES.map(keyword))), ',', field('message', $._expression))), ')'),
         _expression: ($, original) => choice(original, $.raise_expression),

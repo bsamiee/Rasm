@@ -4,7 +4,7 @@ severity: error
 utils:
     named-callee:
         any:
-            - {kind: identifier, not: {regex: '^Self$'}}
+            - {kind: identifier, not: {pattern: Self}}
             - kind: scoped_identifier
             - kind: generic_function
               has: {field: function, kind: 'identifier, scoped_identifier'}

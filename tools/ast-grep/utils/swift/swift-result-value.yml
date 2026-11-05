@@ -21,7 +21,7 @@ rule:
             - not: {has: {kind: try_operator, regex: '^try\?$'}}
             - has: {field: expr, matches: swift-result-value}
         - kind: tuple_expression
-          not: {has: {nthChild: 2}}
+          not: {has: {regex: '^,$'}}
           has: {field: value, matches: swift-result-value}
         - all:
             - kind: simple_identifier

@@ -6,8 +6,8 @@ utils:
         any:
             - all:
                 - any:
-                    - follows: {regex: '^=$', follows: {kind: identifier, regex: '^env$'}}
-                    - inside: {kind: token_tree, regex: '^\(', follows: {kind: identifier, regex: '^env$'}}
+                    - follows: {regex: '^=$', follows: {pattern: env}}
+                    - inside: {kind: token_tree, regex: '^\(', follows: {pattern: env}}
                 - inside: {kind: token_tree, stopBy: {kind: attribute}, inside: {kind: attribute}}
             - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '(^|::)env::(var|var_os|set_var|remove_var)$'}}}
             - inside: {kind: token_tree, follows: {regex: '^!$', follows: {kind: identifier, regex: '^(option_)?env$'}}}
@@ -23,8 +23,7 @@ rule:
                 - all:
                     - inside: {kind: 'const_item, static_item', field: value, has: {field: name, pattern: $CONST}}
                     - inside: {kind: source_file, stopBy: end, has: {stopBy: end, kind: identifier, pattern: $CONST, matches: env-value}}
-        - kind: identifier
-          regex: '^env$'
+        - pattern: env
           all:
             - follows: {regex: '^[,(]$'}
             - precedes: {regex: '^[,)]$'}

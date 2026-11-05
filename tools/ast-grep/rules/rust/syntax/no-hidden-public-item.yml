@@ -6,11 +6,11 @@ utils:
         kind: attribute
         any:
             - all:
-                - has: {nthChild: 1, kind: identifier, regex: '^doc$'}
-                - has: {field: arguments, has: {kind: identifier, regex: '^hidden$'}}
+                - has: {nthChild: 1, pattern: doc}
+                - has: {field: arguments, has: {pattern: hidden}}
             - all:
-                - has: {nthChild: 1, kind: identifier, regex: '^cfg_attr$'}
-                - has: {field: arguments, has: {kind: token_tree, follows: {kind: identifier, regex: '^doc$'}, has: {kind: identifier, regex: '^hidden$'}}}
+                - has: {nthChild: 1, pattern: cfg_attr}
+                - has: {field: arguments, has: {kind: token_tree, follows: {pattern: doc}, has: {pattern: hidden}}}
     exported:
         kind: visibility_modifier
         regex: '^pub$'

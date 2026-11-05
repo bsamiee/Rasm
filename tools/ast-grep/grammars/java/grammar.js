@@ -1,11 +1,14 @@
 import java from 'tree-sitter-java/grammar.js';
-import { after, before, choiceOf, drop, extend, located, optionalOf, reaches, rewrite, string, symbol, widen } from '../derive.js';
+import { after, before, choiceOf, drop, extend, located, optionalOf, outermost, reaches, rewrite, string, symbol, widen } from '../derive.js';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const BACKSLASH = /\\u+005[Cc]/u;
 const ESCAPE = /[btnfrs"'\\]|[0-3][0-7]{2}|[0-7]{1,2}|u+[0-9a-fA-F]{4}/u;
 const LINE_TERMINATOR = /\r\n?|\n/u;
+const CONTEXTUAL = new Set(['exports', 'module', 'non-sealed', 'open', 'opens', 'permits', 'provides', 'record', 'requires', 'sealed', 'to', 'transitive', 'uses', 'var', 'when', 'with', 'yield']);
+const UNUSED = ['const', 'goto'];
+const RESERVED = [...new Set(Object.values(java.grammar.rules).flatMap(outermost).filter(({ type, value }) => type === 'STRING' && /^\p{L}+$/u.test(value) && !CONTEXTUAL.has(value)).map(({ value }) => value))];
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -34,7 +37,9 @@ const fractional = ($, original) =>
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 export default extend(java, {
+    reserved: { global: ($) => [...RESERVED, ...UNUSED.map((word) => $[`_${word}`])] },
     rules: {
+        ...Object.fromEntries(UNUSED.map((word) => [`_${word}`, () => token(prec(1, new RegExp(word, 'u')))])),
         _toplevel_statement: widen(choiceOf(symbol('method_declaration')), ($) => $.field_declaration),
         field_declaration: (_, original) => prec(1, original),
         import_declaration: ($, original) => choice(original, seq('import', 'module', field('module', $._name), ';')),

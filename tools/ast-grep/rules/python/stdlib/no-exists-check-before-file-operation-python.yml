@@ -11,7 +11,7 @@ utils:
                     any:
                         - matches: {python-member-use: {module: {regex: '^(os\.path|posixpath|ntpath)$'}, name: {regex: '^lexists$'}}}
                         - matches: {python-member-use: {module: {regex: '^os$'}, name: {regex: '^access$'}}}
-                - has: {field: arguments, has: {nthChild: 1, pattern: $PATH}}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, pattern: $PATH}}
             - kind: call
               has: {field: function, kind: attribute, all: [{has: {field: object, pattern: $PATH}}, {has: {field: attribute, regex: '^(exists|is_file)$'}}]}
             - kind: 'await, parenthesized_expression'
@@ -22,7 +22,7 @@ utils:
             - has: {field: function, kind: attribute, all: [{has: {field: object, pattern: $PATH}}, {has: {field: attribute, regex: '^(read_bytes|read_text|open|readlink|iterdir|stat|lstat|owner|group|unlink|rmdir|rename|replace|chmod|copy|copy_into|move|move_into)$'}}]}
             - all:
                 - has: {field: function, regex: '(^|\.)(open|load|loadtxt|read\p{XID_Continue}*|ZipFile|copy(file|tree|2|mode|stat)?|move|remove|removedirs|unlink|rmtree|rmdir|rename|renames|replace|stat|lstat|listdir|scandir|readlink|getsize|get[amc]time|chmod|chown|utime|truncate)$'}
-                - has: {field: arguments, has: {nthChild: 1, pattern: $PATH}}
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, pattern: $PATH}}
     present:
         any:
             - matches: existence
@@ -54,8 +54,8 @@ rule:
     any:
         - kind: conditional_expression
           any:
-            - all: [{has: {nthChild: 2, matches: present}}, {has: {nthChild: 1, matches: reads}}]
-            - all: [{has: {nthChild: 2, matches: absent}}, {has: {nthChild: 3, matches: reads}}]
+            - all: [{has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}, matches: present}}, {has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: reads}}]
+            - all: [{has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}, matches: absent}}, {has: {nthChild: {position: 3, ofRule: {not: {kind: comment}}}, matches: reads}}]
         - kind: if_statement, elif_clause
           any:
             - all: [{has: {field: condition, matches: present}}, {has: {field: consequence, matches: reads}}]

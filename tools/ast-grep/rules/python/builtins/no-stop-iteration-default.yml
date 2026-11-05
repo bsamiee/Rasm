@@ -4,7 +4,7 @@ severity: error
 utils:
     lone:
         kind: block
-        not: {has: {nthChild: 2}}
+        not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
     next-function:
         matches: {python-unparenthesized: {value: {matches: {python-builtin-name: {name: {regex: '^next$'}}}, not: {has: {stopBy: end, kind: call}}}}}
     anext-function:

@@ -18,7 +18,10 @@ rule:
         any:
             - has: {field: in, kind: for_dynamic}
             - has: {kind: loop_body, has: {stopBy: end, kind: 'stmt_commit, stmt_rollback'}}
+rewriters:
+    - {id: cut, rule: {kind: 'kw_loop, loop_body'}, fix: ''}
 transform:
-    HEAD: {replace: {source: $LOOP, replace: '(?si)[\t\n\x0B\f\r ]+loop(?-u:\b).*$', by: ''}}
+    CUT: {rewrite: {source: $LOOP, rewriters: [cut]}}
+    HEAD: {replace: {source: $CUT, replace: '[\t\n\x0B\f\r ]+$', by: ''}}
 message: '`$HEAD` writes one row per statement'
 note: 'Write the set in one `INSERT … SELECT`, `UPDATE … FROM`, `DELETE … USING` or `MERGE`, over `unnest` or `generate_series` for an array or range'

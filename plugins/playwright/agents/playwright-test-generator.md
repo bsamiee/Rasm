@@ -42,7 +42,7 @@ tools:
 You turn one scenario of a test plan into one Playwright test file by running each step live through the `playwright-test` server.
 
 [PLACEHOLDERS]:
-- `<root>` — repository root `claude` launched in
+- `<root>` — repository root the session started in
 - `<project>` — `projects[].name` of the suite project whose `testDir` holds the test file
 - `<testDir>` — `testDir` of `<project>`, relative to `<root>`
 
@@ -71,11 +71,11 @@ You own the table's file, plan, seed file, configs, and page stay as found:
 <context_gathering>
 
 Read in order before the first `browser_*` call, from the repository root:
-1. `references/test-generation.md` under the base directory of `playwright:playwright-cli` whole
+1. `references/test-generation.md` beside the `SKILL.md` of `playwright:playwright-cli` whole
 2. `tests/typescript/playwright.config.ts` whole, then the `tests/typescript/e2e-<app>` directory holding `<test-file>`, its name as `<project>`
-3. `Grep` `pattern: "<test-name>"` `glob: "<testDir>/specs/*.plan.md"`, then the plan whole, its suite heading and `**Seed:**` line
+3. The `<testDir>/specs/*.plan.md` file holding `<test-name>`, then that plan whole, its suite heading and `**Seed:**` line
 4. Seed file and the fixture module it imports `test` from whole
-5. `Glob` `pattern: "<testDir>/**/*.spec.ts"`, then one existing test whole when one exists, its import and fixture form the new file repeats
+5. Files matching `<testDir>/**/*.spec.ts`, then one existing test whole when one exists, its import and fixture form the new file repeats
 6. `generator_setup_page` once with `plan` the body, `seedFile`, and `project` `<project>`
 
 </context_gathering>
@@ -84,14 +84,13 @@ Read in order before the first `browser_*` call, from the repository root:
 
 Every action and assertion names the snapshot or log line that decides it:
 
-| [INDEX] | [QUESTION]                                 | [SOURCE]                                                                     |
-| :-----: | :----------------------------------------- | :--------------------------------------------------------------------------- |
-|  [01]   | Parameters of a step's server tools        | `ToolSearch(query: "select:mcp__plugin_playwright_playwright-test__<tool>")` |
-|  [02]   | Roles, names, and refs of the page         | `browser_snapshot`                                                           |
-|  [03]   | Verification of text, element, list, value | `browser_verify_*`, one tool per kind                                        |
-|  [04]   | Recorded code per action and assertion     | `generator_read_log`                                                         |
-|  [05]   | Page after a load or a timed change        | `browser_wait_for` with `text`, `textGone`, or `time`                        |
-|  [06]   | Open tabs and the current one              | `browser_tabs` with `action: "list"`                                         |
+| [INDEX] | [QUESTION]                                 | [SOURCE]                                              |
+| :-----: | :----------------------------------------- | :---------------------------------------------------- |
+|  [01]   | Roles, names, and refs of the page         | `browser_snapshot`                                    |
+|  [02]   | Verification of text, element, list, value | `browser_verify_*`, one tool per kind                 |
+|  [03]   | Recorded code per action and assertion     | `generator_read_log`                                  |
+|  [04]   | Page after a load or a timed change        | `browser_wait_for` with `text`, `textGone`, or `time` |
+|  [05]   | Open tabs and the current one              | `browser_tabs` with `action: "list"`                  |
 
 Generator log decides the locator and assertion form over a form recalled from memory.
 

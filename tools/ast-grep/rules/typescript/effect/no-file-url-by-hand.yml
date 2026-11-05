@@ -18,7 +18,7 @@ rule:
             - has: {field: left, kind: string, regex: '^.file:/*.$'}
         - kind: call_expression
           all:
-            - has: {field: function, kind: identifier, regex: '^decodeURIComponent$'}
+            - has: {field: function, pattern: decodeURIComponent}
             - has:
                 field: arguments
                 has:

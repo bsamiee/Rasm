@@ -23,5 +23,5 @@ rule:
                             - has: {field: column, pattern: $COLUMN}
                             - has: {field: value, matches: current, has: {field: name, pattern: $COLUMN}}
                         - pattern: {context: 'update t set ($FIRST, $$$REST) = ($FIRST, $$$REST)', selector: set_assignment}
-message: 'Upsert rewrites each conflicting row with current values'
+message: 'Upsert into `$TABLE` rewrites each conflicting row with its current values'
 note: 'Use `on conflict (<key>) do nothing returning <columns>` and select existing rows in one transaction'

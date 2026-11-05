@@ -1,11 +1,12 @@
 import { createServer } from 'node:http';
+import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 import { layerServer } from '@effect/platform-node/NodeHttpServer';
 import { Automation } from '@rasm/applications/node';
 import { ExecuteScript, HostError, Requests } from '@rasm/automation';
 import { Peer } from '@rasm/automation/peer';
 import { UxpManifest } from '@rasm/uxp';
-import { Array, Context, Deferred, Effect, FileSystem, Layer, Option, Path, Record, Result, Schema, Stream } from 'effect';
+import { Array, Context, Deferred, Effect, Equal, FileSystem, Layer, Option, Path, Record, Result, Schema, Stream, Struct } from 'effect';
 import { HttpRouter, HttpServer } from 'effect/http';
 import { NetAddress } from 'effect/net';
 import vite from 'vite/package.json' with { type: 'json' };
@@ -44,16 +45,15 @@ const built = Effect.fn('built')(function* (config: string, port: number, scratc
     const { id } = yield* Effect.flatMap(fs.readFileString(path.join(folder, UxpManifest.file)), Schema.decodeEffect(UxpManifest.json));
     return { config, folder, id };
 });
-const reading = (reads: Panel['read']) =>
-    [
-        'const read = {}, failed = {};',
-        ...Record.collect(reads, (key, expression) => `try { read[${JSON.stringify(key)}] = (${expression}); } catch (error) { failed[${JSON.stringify(key)}] = String(error?.message ?? error); }`),
-        'return { read, failed };',
-    ].join('\n');
+const reading = (reads: Panel['read']) => ['const read = {}, failed = {};', ...Record.collect(reads, (key, expression) => `try { read[${JSON.stringify(key)}] = (${expression}); } catch (error) { failed[${JSON.stringify(key)}] = String(error?.message ?? error); }`), 'return { read, failed };'].join('\n');
 const completed = (error: Error): (typeof Outcome.Type)['completion'] =>
-    Schema.is(HostError)(error) && HostError.fields.reason.isAnyOf(['Thrown'])(error.reason)
-        ? { _tag: 'Thrown', message: error.subject, ...Record.getSomes({ line: Option.map(error.reason.line, (line) => line - 1) }) }
-        : { _tag: 'Failed', reason: error.message };
+    Schema.is(HostError)(error) && HostError.fields.reason.isAnyOf(['Thrown'])(error.reason) ? { _tag: 'Thrown', message: error.subject, ...Record.getSomes({ line: Option.map(error.reason.line, (line) => line - 1) }) } : { _tag: 'Failed', reason: error.message };
+
+const captured = Effect.fn('captured')(function* (pid: number, folder: string) {
+    const [automation, path] = yield* Effect.all([Automation, Path.Path]);
+    const shots = yield* automation.screenshot({ pid, directory: yield* path.toFileUrl(folder), window: Option.none(), longestSide: Option.none() });
+    return Record.getFailures(Record.mapKeys(shots, (number) => `${number}.png`));
+});
 
 const linked = Effect.fn('linked')(function* (live: Live, configs: Array.NonEmptyReadonlyArray<string>, route: Route) {
     const [path, listened] = yield* Effect.all([Path.Path, Deferred.make<Effect.Success<typeof LISTENING>>()]);
@@ -64,40 +64,44 @@ const linked = Effect.fn('linked')(function* (live: Live, configs: Array.NonEmpt
     const links = yield* Deferred.await(listened);
     const application = yield* Effect.flatMap(path.toFileUrl(live.chosen.app), (url) => Schema.decodeEffect(Peer.fields.application)(url.href));
     const plugins = yield* Effect.forEach(configs, (config) => built(config, port, live.scratch));
+    const ids = new Set(plugins.map(Struct.get('id')));
     yield* Effect.forEach(plugins, ({ folder, id }) => Effect.andThen(route.load(live, folder), record('Info', 'plugin loaded', { plugin: id, folder, port })), { discard: true });
     const client = yield* Effect.cached(
-        Stream.runHead(Stream.filter(links.changes, (peers) => plugins.every(({ id }) => peers.some((peer) => peer.extension === id && Peer.serves(application)(peer))))).pipe(
+        Stream.runHead(Stream.filter(links.changes, (peers) => new Set(peers.filter(Peer.serves(application)).map(Struct.get('extension'))).isSupersetOf(ids))).pipe(
             Effect.andThen(Effect.forEach(plugins, ({ id }) => record('Info', 'plugin linked', { plugin: id }), { discard: true })),
             Effect.andThen(links.call(application)),
         ),
     );
-    const called = (body: string) => Effect.flatMap(client, (linked) => Effect.map(linked('execute_script', ExecuteScript.make({ code: ExecuteScript.expression(body, false) })), ({ result }) => Option.getOrNull(result)));
-    const reads = (item: Panel) => Effect.flatMap(called(reading(item.read)), Schema.decodeUnknownEffect(Read));
-    const captured = Effect.fn('captured')(function* (folder: string) {
-        const shots = yield* Automation.use((automation) => Effect.flatMap(path.toFileUrl(folder), (directory) => automation.screenshot({ pid: live.pid, directory, window: Option.none(), longestSide: Option.none() })));
-        return Record.filterMap(Record.mapKeys(shots, (number) => `${number}.png`), Result.match({ onSuccess: () => Result.failVoid, onFailure: ({ message }) => Result.succeed(message) }));
-    });
-    const panelled = Effect.fn('panelled')(function* (item: Panel, opened: readonly Schema.Json[]) {
-        const plugin = yield* Effect.fromOption(Array.findFirst(plugins, ({ config }) => config === item.plugin), () => HarnessError.unavailable(item.name)(`plugin ${item.plugin} holds no build`));
-        yield* route.show(live, plugin.id, item.panel);
-        const before = yield* reads(item);
-        const evaluated = yield* Effect.result(called(`return (${item.evaluate});`));
-        yield* Effect.transposeOption(Option.map(Option.fromUndefinedOr(item.until), (until) => Effect.repeat(called(`return Boolean(${until});`), { until: (done) => done === true })));
-        const after = yield* reads(item);
-        const failed = item.capture === true ? yield* captured(item.folder) : {};
-        return {
-            name: item.name,
-            opened,
-            before: before.read,
-            beforeFailed: before.failed,
-            read: after.read,
-            readFailed: { ...after.failed, ...failed },
-            ...Result.match(evaluated, { onSuccess: (value) => ({ completion: { _tag: 'Ran' as const }, value }), onFailure: (error) => ({ completion: completed(error) }) }),
-        };
-    });
-    return { panelled };
+    const called = (body: string) =>
+        client.pipe(
+            Effect.flatMap((invoke) => invoke('execute_script', ExecuteScript.make({ code: ExecuteScript.expression(body, false) }))),
+            Effect.map(({ result }) => Option.getOrNull(result)),
+        );
+    return { live, route, plugins, called };
+});
+const panelled = Effect.fn('panelled')(function* ({ live, route, plugins, called }: Effect.Success<ReturnType<typeof linked>>, item: Panel, opened: readonly Schema.Json[]) {
+    const plugin = yield* Effect.fromOption(
+        Array.findFirst(plugins, ({ config }) => config === item.plugin),
+        () => HarnessError.unavailable(item.name)(`plugin ${item.plugin} holds no build`),
+    );
+    const reads = Effect.flatMap(called(reading(item.read)), Schema.decodeUnknownEffect(Read));
+    yield* route.show(live, plugin.id, item.panel);
+    const before = yield* reads;
+    const evaluated = yield* Effect.result(called(`return (${item.evaluate});`));
+    yield* Effect.transposeOption(Option.map(Option.fromUndefinedOr(item.until), (until) => Effect.repeat(called(`return Boolean(${until});`), { until: Equal.equals(true) })));
+    const after = yield* reads;
+    const failed = item.capture === true ? yield* captured(live.pid, item.folder) : {};
+    return {
+        name: item.name,
+        opened,
+        before: before.read,
+        beforeFailed: before.failed,
+        read: after.read,
+        readFailed: { ...after.failed, ...Record.map(failed, Struct.get('message')) },
+        ...Result.match(evaluated, { onSuccess: (value) => ({ completion: { _tag: 'Ran' as const }, value }), onFailure: (error) => ({ completion: completed(error) }) }),
+    };
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { linked, type Panel, type Route };
+export { linked, type Panel, panelled, type Route };

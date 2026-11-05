@@ -15,15 +15,16 @@ utils:
             - matches: {builtins-getattr-call: {object: {matches: ops-module}}}
 rule:
     kind: call
-    pattern: $ACCESS
     all:
-        - has: {field: arguments, has: {nthChild: 2, not: {matches: python-plain-string}}}
+        - has: {field: function, any: [{regex: '(^|\.)getattr$'}, {kind: identifier, inside: {kind: module, stopBy: end, regex: '(?-u:\b)builtins(?-u:\b)'}}]}
+        - has: {field: arguments, has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}, not: {matches: python-plain-string}}}
         - matches: {builtins-getattr-call: {object: {matches: operators}}}
+        - pattern: $ACCESS
         - not: {inside: {kind: argument_list, inside: {kind: call, has: {field: function, regex: '^getattr$'}}}}
         - not: {inside: {kind: argument_list, inside: {kind: call, has: {field: function, matches: {python-builtin-name: {name: {regex: '^dir$'}}}}}}}
         - not:
             all:
-                - has: {field: arguments, has: {nthChild: 2, kind: identifier, pattern: $NAME}}
+                - has: {field: arguments, has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}, kind: identifier, pattern: $NAME}}
                 - inside:
                     kind: function_definition
                     stopBy: end
@@ -35,7 +36,7 @@ rule:
                                 kind: assignment
                                 all:
                                     - has: {field: left, has: {kind: identifier, pattern: $NAME}}
-                                    - has: {field: right, kind: call, has: {field: function, kind: attribute, has: {field: attribute, regex: '^partition$'}}}
+                                    - has: {field: right, kind: call, has: {field: function, kind: attribute, has: {field: attribute, pattern: partition}}}
                 - inside: {kind: expression_statement, stopBy: end, precedes: {kind: expression_statement, has: {kind: call, has: {field: function, regex: 'rna_type$'}}}}
 message: '`$ACCESS` reaches an operator by a computed name'
 note: 'Call operators directly, `dir(getattr(bpy.ops, <module>))` lists, `partition` resolves idnames before an RNA type read on next statement'

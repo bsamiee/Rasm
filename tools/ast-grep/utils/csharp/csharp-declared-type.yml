@@ -8,9 +8,9 @@ rule:
     inside:
         stopBy: end
         any:
-            - kind: method_declaration, local_function_statement, lambda_expression, anonymous_method_expression, constructor_declaration, operator_declaration
+            - kind: method_declaration, local_function_statement, lambda_expression, anonymous_method_expression, constructor_declaration, operator_declaration, conversion_operator_declaration, indexer_declaration, class_declaration, record_declaration, struct_declaration
               has:
-                field: parameters
+                kind: parameter_list, bracketed_parameter_list
                 has:
                     kind: parameter
                     all:
@@ -27,7 +27,7 @@ rule:
             - kind: block, switch_section
               has:
                 stopBy: {kind: 'block, lambda_expression, anonymous_method_expression, local_function_statement'}
-                kind: declaration_expression
+                kind: declaration_expression, declaration_pattern
                 all:
                     - has: {field: type, matches: type}
                     - has: {field: name, pattern: {context: 'class $DECLARED;', selector: identifier}}
@@ -35,3 +35,9 @@ rule:
               all:
                 - has: {field: type, matches: type}
                 - has: {field: left, pattern: {context: 'class $DECLARED;', selector: identifier}}
+            - kind: catch_clause
+              has:
+                kind: catch_declaration
+                all:
+                    - has: {field: type, matches: type}
+                    - has: {field: name, pattern: {context: 'class $DECLARED;', selector: identifier}}

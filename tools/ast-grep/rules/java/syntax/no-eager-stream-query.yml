@@ -5,7 +5,7 @@ utils:
     stage:
         kind: method_invocation
         any:
-            - has: {field: name, regex: '^(stream|parallelStream|filter|map|mapToObj|mapToInt|mapToLong|mapToDouble|flatMap(?:ToInt|ToLong|ToDouble)?|mapMulti(?:ToInt|ToLong|ToDouble)?|asLongStream|asDoubleStream|gather|sequential|parallel|unordered|onClose|distinct|sorted|skip|limit|boxed|peek|takeWhile|dropWhile|lines|chars|codePoints|results|splitAsStream)$'}
+            - has: {field: name, regex: '^(stream|parallelStream|filter|map|mapToObj|mapToInt|mapToLong|mapToDouble|flatMap(?:ToInt|ToLong|ToDouble)?|mapMulti(?:ToInt|ToLong|ToDouble)?|asLongStream|asDoubleStream|gather|sequential|parallel|unordered|onClose|distinct|sorted|skip|limit|boxed|takeWhile|dropWhile|lines|chars|codePoints|results|splitAsStream)$'}
             - all:
                 - has: {field: object, regex: '^(Stream|IntStream|LongStream|DoubleStream|Arrays|StreamSupport)$'}
                 - has: {field: name, regex: '^(of|ofNullable|concat|iterate|generate|range|rangeClosed|stream)$'}
@@ -51,5 +51,7 @@ rule:
                 - all: [{has: {field: name, pattern: get}}, {has: {field: arguments, has: {matches: zero}}}, {has: {field: object, matches: collected, pattern: $TERM}}]
                 - all: [{has: {field: name, regex: '^(findFirst|findAny)$'}}, {has: {field: object, matches: sorted, pattern: $TERM}}]
                 - all: [{has: {field: name, pattern: limit}}, {has: {field: arguments, has: {matches: one}}}, {has: {field: object, matches: sorted, pattern: $TERM}}]
-message: '`$TERM` evaluates or sorts a stream before an element query'
+transform:
+    CHAIN: {replace: {source: $TERM, replace: '[\t-\r ]*\n[\t-\r ]*', by: ''}}
+message: '`$CHAIN` evaluates or sorts a stream before an element query'
 note: 'Use `anyMatch` with `Objects.equals` for membership, existence predicates, or terminal `findFirst`, `min`, or `max` selection'

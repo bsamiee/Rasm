@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+language: yamllang
+severity: error
+files: ['sgconfig.yml', 'tools/ast-grep/outline/**', 'tools/ast-grep/rules/**', 'tools/ast-grep/utils/**']
+rule:
+    kind: &pair block_mapping_pair, flow_pair
+    all:
+        - has: {field: key, regex: '^["'']?stopBy["'']?$'}
+        - not: {matches: {yaml-resolved-pair: {key: {regex: '^["'']?stopBy["'']?$'}, value: {has: {regex: '^["'']?(?:end|neighbor)["'']?$'}}}}}
+        - inside:
+            kind: block_mapping, flow_mapping
+            all:
+                - has: {kind: *pair, has: {field: key, regex: '^["'']?field["'']?$'}}
+                - inside: {kind: 'block_node, flow_node', inside: {kind: *pair, has: {field: key, regex: '^["'']?has["'']?$'}}}
+message: '`has` beside `field` and a rule `stopBy` reads the field child and its direct children alone'
+note: 'Write `has: {field: <role>, any: [<target>, {kind: <wrapper>, has: {stopBy: <stop>, <target>}}]}` to descend from the field child'

@@ -6,8 +6,7 @@ utils:
         kind: 'identifier, scoped_identifier'
         regex: '^((::)?tokio::)?(signal::)?((unix|windows)::)?ctrl_(c|break|close|logoff|shutdown)$|^((::)?tokio::)?(signal::)?unix::signal$'
     imported-signal:
-        kind: identifier
-        regex: '^signal$'
+        pattern: signal
         matches: {rust-imported-name: {source: {regex: '(?-u:\b)tokio::signal::unix(?-u:\b)'}, name: {regex: '^signal$'}}}
     registration:
         any:
@@ -17,7 +16,7 @@ utils:
               regex: '^(signal|ctrl_(c|break|close|logoff|shutdown))$'
               any:
                 - regex: '^ctrl_'
-                - follows: {regex: '^::$', follows: {kind: identifier, regex: '^unix$'}}
+                - follows: {regex: '^::$', follows: {pattern: unix}}
                 - matches: imported-signal
               inside: {kind: token_tree}
               precedes: {kind: token_tree, regex: '^\('}

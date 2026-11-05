@@ -10,7 +10,7 @@ rule:
     regex: '^[rRuU]?["'']{1,3}[\t-\r \x{200B}\x{2060}\x{FEFF}]*(bpy|bmesh)\.types\.\p{XID_Continue}+\['
     any:
         - inside: {kind: type, stopBy: end}
-        - nthChild: 1
+        - nthChild: {position: 1, ofRule: {not: {kind: comment}}}
           inside:
             kind: argument_list
             inside: {kind: call, has: {field: function, regex: '^(typing\.)?cast$'}}

@@ -4,14 +4,14 @@ import { Automation } from '@rasm/applications/node';
 import { uxpScript } from '@rasm/uxp/vite';
 import { Parser } from 'acorn';
 import { findNodeAt } from 'acorn-walk';
-import { Array, Effect, FileSystem, Option, Predicate, Result, Schema, String, Struct } from 'effect';
+import { Array, Effect, FileSystem, Option, Predicate, Result, Schema, String, Struct, UndefinedOr } from 'effect';
 import { build } from 'vite';
 import { ADOBE, crashes, REPORTER, uxp } from '#/adobe';
 import { HarnessError, thrown } from '#/harness-error';
 import { ENGINES, Encoded, Engine, type Held, HostCase, HostOutcome, Recorded, Reply, Survey } from '#/indesign/contract';
 import { precondition } from '#/indesign/precondition';
 import { checked, Launched, plist, printedLines } from '#/instance';
-import { linked, type Route } from '#/link';
+import { linked, panelled, type Route } from '#/link';
 import { copied } from '#/precondition';
 import { HOME, type Rule } from '#/report';
 import { type Batch, Harness, type Instance, installation, type Live, type Services, scripted } from '#/session';
@@ -34,16 +34,12 @@ const REVEALING = {
     },
 };
 const ENGINE = Effect.runSync(Effect.cached(assembled(new URL('engine.ts', import.meta.url))));
-const LOAD = [
-    "const { pluginManager, script } = require('uxp');",
-    'const code = pluginManager.addPlugin(pluginManager.createPlugin(script.args[0], pluginManager.PLUGIN_TYPE_THIRD_PARTY_V2), true);',
-    "script.setResult(code === 2 ? '' : `addPlugin answered ${code}`);",
-].join('\n');
+const LOAD = ["const { pluginManager, script } = require('uxp');", 'const code = pluginManager.addPlugin(pluginManager.createPlugin(script.args[0], pluginManager.PLUGIN_TYPE_THIRD_PARTY_V2), true);', "script.setResult(code === 2 ? '' : 'addPlugin answered ' + code);"].join('\n');
 const SHOW = [
     "const { pluginManager, script } = require('uxp');",
     'const [id, panel] = script.args;',
     'const plugin = Array.from(pluginManager.plugins).find((each) => each.id === id);',
-    "script.setResult(plugin === undefined ? `no plugin ${id} loaded` : '');",
+    "script.setResult(plugin === undefined ? 'no plugin ' + id + ' loaded' : '');",
     'if (plugin !== undefined) Promise.resolve().then(() => plugin.showPanel(panel));',
 ].join('\n');
 
@@ -77,12 +73,18 @@ const continued = (code: string): Option.Option<string> =>
     );
 const refusal = (held: typeof Engine.Type, hosted: typeof HostCase.Type, binary: boolean) => {
     const { set = [], add = [], select = [], steps = [] } = hosted.precondition;
-    const expressions = [...Object.values(hosted.read), ...set.map(([target]) => target), ...add.map(({ to }) => to), ...select, ...HostCase.match(hosted, { Probe: ({ evaluate }) => [evaluate], Panel: ({ evaluate, until }) => [evaluate, ...Option.toArray(Option.fromUndefinedOr(until))], Call: ({ call }) => [call], Run: () => [] })];
+    const expressions = [
+        ...Object.values(hosted.read),
+        ...set.map(([target]) => target),
+        ...add.map(({ to }) => to),
+        ...select,
+        ...HostCase.match(hosted, { Probe: ({ evaluate }) => [evaluate], Panel: ({ evaluate, until }) => [evaluate, ...Option.toArray(Option.fromUndefinedOr(until))], Call: ({ call }) => [call], Run: () => [] }),
+    ];
     const statements = [...steps, ...Option.toArray(Option.flatMap(Option.fromUndefinedOr('source' in hosted ? hosted.source : undefined), ({ code }) => Option.liftPredicate(code, () => !binary)))];
     return held === 'uxpscript'
         ? Option.firstSomeOf([...expressions.map((expression) => continued(`(${expression});`)), ...statements.map(continued)])
         : Option.firstSomeOf([
-              Option.liftPredicate(`panel case ${hosted.name} holds its precondition through the UXPScript engine, and the batch runs ExtendScript`, () => HostCase.guards.Panel(hosted)),
+              Option.liftPredicate(`panel case ${hosted.name} holds its precondition through the UXPScript engine, and the batch runs ExtendScript`, () => HostCase.isAnyOf(['Panel'])(hosted)),
               ...[...expressions, ...statements].map((text) => Option.map(Option.fromNullishOr(parse(Lang.JavaScript, text).root().find(REVEALING)?.getMatch('MEMBER')), (member) => `ExtendScript ${member.text()} activates Finder or Bridge`)),
           ]);
 };
@@ -102,28 +104,29 @@ const logs = Effect.fn('logs')(function* (instance: Instance) {
 });
 
 // --- [TRANSPORT]
-const plugins = (subject: string, direct: string) => (live: Live, ...values: readonly string[]) =>
-    Effect.flatMap(scripted(live, { direct, values, language: ENGINES.uxpscript.language }), ({ reply }) => (Predicate.isString(reply) && String.isNonEmpty(reply) ? HarnessError.unavailable(`${subject} ${values.join(' ')}`)(reply) : Effect.void));
+const plugins =
+    (subject: string, direct: string) =>
+    (live: Live, ...values: readonly string[]) =>
+        Effect.flatMap(scripted(live, { direct, values, language: ENGINES.uxpscript.language }), ({ reply }) => (Predicate.isString(reply) && String.isNonEmpty(reply) ? HarnessError.unavailable(`${subject} ${values.join(' ')}`)(reply) : Effect.void));
 const route: Route = { load: plugins('plugin', LOAD), show: plugins('panel', SHOW) };
+const finished = Effect.fnUntraced(function* (batch: Batch<typeof Survey.Type, typeof HostCase.Type>, link: Option.Option<Parameters<typeof panelled>[0]>, pending: typeof Held.Type) {
+    const [item, connected] = yield* Effect.orDie(Effect.fromOption(Option.all([Option.filter(Array.get(batch.cases, pending.index), HostCase.isAnyOf(['Panel'])), link])));
+    const failed = (reason: string) => HostOutcome.make({ name: item.name, completion: { _tag: 'Failed', reason } });
+    const outcome = 'failed' in pending ? failed(pending.failed) : yield* Effect.orElseSucceed(Effect.map(panelled(connected, item, pending.opened), HostOutcome.make), ({ message }) => failed(message));
+    const [fs, line] = yield* Effect.all([FileSystem.FileSystem, Schema.encodeEffect(Recorded)({ _tag: 'Finished', outcome })]);
+    yield* fs.writeFileString(batch.records, `${line}\n`, { flag: 'a' });
+});
 const send = Effect.fn('send')(function* (live: Live, batch: Batch<typeof Survey.Type, typeof HostCase.Type>) {
     const scripts = Array.getSomes(batch.cases.map((row) => Option.map(Option.fromUndefinedOr('source' in row ? row.source : undefined), Struct.get('script'))));
     const held = Option.isNone(batch.survey) ? 'uxpscript' : yield* Effect.fromResult(engine(scripts));
     const direct = held === 'extendscript' ? (yield* ENGINE).code : { _tag: 'file' as const, url: (yield* bundle).href };
-    const link = yield* Array.match(batch.cases.filter(HostCase.guards.Panel), { onEmpty: () => Effect.succeedNone, onNonEmpty: (rows) => Effect.asSome(linked(live, Array.dedupe(Array.map(rows, Struct.get('plugin'))), route)) });
+    const link = yield* Array.match(batch.cases.filter(HostCase.isAnyOf(['Panel'])), { onEmpty: () => Effect.succeedNone, onNonEmpty: (rows) => Effect.asSome(linked(live, Array.dedupe(Array.map(rows, Struct.get('plugin'))), route)) });
     const call = (from: number) =>
         Schema.encodeEffect(Encoded)({ records: batch.records, label: batch.label, enumerations: Option.match(batch.survey, { onNone: () => ({}), onSome: ({ enumerations }) => enumerations }), survey: Option.isNone(batch.survey), from, cases: batch.cases }).pipe(
             Effect.flatMap((encoded) => scripted(live, { direct, values: [encoded], language: ENGINES[held].language })),
             Effect.flatMap(({ reply }) => Reply.replied(`${held} batch`)(reply)),
         );
-    const finished = Effect.fnUntraced(function* (pending: typeof Held.Type) {
-        const [item, { panelled }] = yield* Effect.orDie(Effect.fromOption(Option.all([Option.filter(Array.get(batch.cases, pending.index), HostCase.guards.Panel), link])));
-        const failed = (reason: string) => ({ name: item.name, completion: { _tag: 'Failed' as const, reason } });
-        const outcome = 'failed' in pending ? failed(pending.failed) : yield* Effect.catch(panelled(item, pending.opened), ({ message }) => Effect.succeed(failed(message)));
-        const line = yield* Schema.encodeEffect(Recorded)({ _tag: 'Finished', outcome: HostOutcome.make(outcome) });
-        yield* FileSystem.FileSystem.use((fs) => fs.writeFileString(batch.records, `${line}\n`, { flag: 'a' }));
-    });
-    const rest = (reply: Effect.Success<ReturnType<typeof call>>): Effect.Effect<void, Error, Services> =>
-        Option.match(Option.fromUndefinedOr(reply.held), { onNone: () => Effect.void, onSome: (pending) => finished(pending).pipe(Effect.andThen(call(pending.index + 1)), Effect.flatMap(rest)) });
+    const rest = (reply: Effect.Success<ReturnType<typeof call>>): Effect.Effect<void, Error, Services> => UndefinedOr.match(reply.held, { onUndefined: () => Effect.void, onDefined: (pending) => finished(batch, link, pending).pipe(Effect.andThen(call(pending.index + 1)), Effect.flatMap(rest)) });
     const header = yield* call(0);
     yield* rest(header);
     return header;

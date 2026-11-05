@@ -9,11 +9,11 @@ utils:
             - follows: {kind: mutable_specifier, follows: {regex: '^&$', follows: {regex: '^=$', follows: {kind: identifier, pattern: $VALUE}}}}
               precedes: {regex: '^=>$', precedes: {matches: handler}}
             - follows: {regex: '^=$', follows: {kind: identifier, pattern: $VALUE}}
-              precedes: {regex: '^\.$', precedes: {kind: identifier, regex: '^as_mut$', precedes: {kind: token_tree, regex: '^\(\p{Pattern_White_Space}*\)$', precedes: {regex: '^=>$', precedes: {matches: handler}}}}}
+              precedes: {regex: '^\.$', precedes: {pattern: as_mut, precedes: {kind: token_tree, regex: '^\(\p{Pattern_White_Space}*\)$', precedes: {regex: '^=>$', precedes: {matches: handler}}}}}
     output-write:
         kind: identifier
         pattern: $OUTPUT
-        precedes: {regex: '^=$', precedes: {kind: identifier, regex: '^Some$', precedes: {kind: token_tree, pattern: {context: 'call!($VALUE)', selector: token_tree}}}}
+        precedes: {regex: '^=$', precedes: {pattern: Some, precedes: {kind: token_tree, pattern: {context: 'call!($VALUE)', selector: token_tree}}}}
     handler:
         any:
             - matches: output-write

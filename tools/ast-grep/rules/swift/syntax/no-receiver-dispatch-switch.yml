@@ -20,21 +20,11 @@ utils:
             - {kind: *wrapper, has: {matches: member-call}}
             - {matches: chained, has: {nthChild: 1, has: {field: target, matches: member-call}}}
             - pattern: $_.$M($$$A)
-    receiver-body:
-        kind: statements
-        all:
-            - has: {nthChild: 1, matches: receiver-call}
-            - not: {has: {nthChild: 2}}
-    member-body:
-        kind: statements
-        all:
-            - has: {nthChild: 1, matches: member-call}
-            - not: {has: {nthChild: 2}}
 rule:
     kind: switch_statement
     all:
-        - has: {matches: first-entry, has: {matches: receiver-body}}
-        - not: {has: {kind: switch_entry, not: {has: {matches: member-body}}}}
+        - has: {matches: first-entry, has: {matches: swift-sole-statement, has: {matches: receiver-call}}}
+        - not: {has: {kind: switch_entry, not: {has: {matches: swift-sole-statement, has: {matches: member-call}}}}}
         - has: {kind: switch_entry, not: {has: {pattern: $R, stopBy: end}}}
 constraints:
     R: {kind: simple_identifier}

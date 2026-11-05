@@ -3,5 +3,5 @@ id: rust-cfg-attribute
 language: rustlang
 rule:
     kind: attribute_item
-    has: {kind: attribute, has: {nthChild: 1, kind: identifier, regex: '^cfg$'}}
+    has: {kind: attribute, has: {nthChild: 1, pattern: cfg}}
     not: {regex: '^#\[\p{Pattern_White_Space}*cfg\p{Pattern_White_Space}*\(\p{Pattern_White_Space}*(all\p{Pattern_White_Space}*\(\p{Pattern_White_Space}*\)|any\p{Pattern_White_Space}*\(\p{Pattern_White_Space}*\)|true|false|not\p{Pattern_White_Space}*\(\p{Pattern_White_Space}*(all|any)\p{Pattern_White_Space}*\(\p{Pattern_White_Space}*\)\p{Pattern_White_Space}*\))\p{Pattern_White_Space}*\)\p{Pattern_White_Space}*\]$'}
